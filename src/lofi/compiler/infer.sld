@@ -217,13 +217,13 @@
                                        (function-type (list type) (cadr field)) '())
                           #f 'data (list 'access schema index field-index))))
 
-    ;; ---- Native foreign declarations ----
+    ;; ---- Scalar foreign declarations ----
 
     (define (extern-binding node)
       (let ((loc (node-loc node)) (definition (ir:extern-declaration-definition node)))
         (guard (failure (else (if (error-object? failure)
                                   (apply strict-error loc (error-object-message failure) (error-object-irritants failure))
-                                  (strict-error loc "invalid native extern declaration"))))
+                                  (strict-error loc "invalid scalar extern declaration"))))
           (let ((declaration (parse-extern `(define-extern ,(ir:value-definition-name definition)
                                               ,(ir:extern-declaration-module node) ,(ir:extern-declaration-symbol node)
                                               ,(ir:extern-declaration-type node)))))
@@ -1002,7 +1002,7 @@
    (snail-tests
     (export test-infer)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (only (lofi compiler frontend) syntax->ir-library syntax-list->ir-library)
      (only (lofi compiler reader) string->reader)
      (only (lofi compiler syntax-parser) reader->syntax-list)

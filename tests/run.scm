@@ -1,4 +1,4 @@
-;; Ordinary Chibi scripts orchestrate tests; Cargo supplies native fixtures only.
+;; Chibi orchestrates compiler and Wasm execution checks.
 (import
  (scheme base)
  (scheme process-context)
@@ -7,8 +7,6 @@
  (snail-tests targets)
  (snail-tests streams)
  (snail-tests commands)
- (snail-tests native)
- (snail-tests native-loading)
  (snail-tests chez-bridge)
  (snail-tests view-traces)
  (snail-tests serialization)
@@ -24,9 +22,6 @@
                                 ((member suite '("lofi" "lofi-integration" "lofi-extern" "lofi-conformance-audit" "lofi-instances" "lofi-recursion" "lofi-literal-widths")) (run-contract-suite suite))
                                 ((member suite '("lofi-integer" "lofi-numbers" "lofi-arithmetic" "lofi-narrowing" "lofi-bytes" "lofi-math" "lofi-scalars")) (run-target-suite suite))
                                 ((member suite '("lofi-reader" "lofi-text" "lofi-write" "lofi-input-packets" "lofi-io")) (run-stream-suite suite))
-                                ((member suite '("native")) (run-native-suite))
-                                ((string=? suite "lofi-native-loading") (run-native-loading))
-                                ((string=? suite "lofi-native-loading-lost-host") (native-loading-lost-host))
                                 ((string=? suite "lofi-chez-bridge") (run-chez-bridge))
                                 ((string=? suite "view-traces") (run-view-traces))
                                 ((string=? suite "package-isolation") (run-package-isolation))

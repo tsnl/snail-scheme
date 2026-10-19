@@ -44,7 +44,7 @@
     ;; ---- Every binary64 text byte agrees with the static Rust reference ----
 
     (define (formatter-source)
-      (let ((current (path-join (library-root) "src/native/runtime/src/lib.rs")))
+      (let ((current (path-join (library-root) "src/runtime/src/lib.rs")))
         ;; Reviewed historical library snapshots retain the original layout.
         (if (file-exists? current) current (path-join (library-root) "src/lib.rs"))))
     (define (check-formatting)
@@ -58,7 +58,7 @@
         (write-bytes data (read-bytes (fixture "lofi-numbers" "format-input.txt")))
         (checked "format-reference-build" (list (tool-name "CARGO" "cargo") "build" "--offline" "--release" "--quiet"
                                                 "--manifest-path" (path "tests/Cargo.toml") "--target-dir" (path "tests/target") "--bin" "format-reference")
-                 `((environment . ,(native-cargo-environment (path "build/native-runtime")))))
+                 '())
         (let* ((reference (lines (command-output "format-reference-run" (list binary data))))
                (actual (lines (field (run-control "format-chez" (control "format.scm") data #f) 'stdout)))
                (bits (lines (read-text data))))
@@ -67,11 +67,9 @@
           (map (lambda (bits text)
                  `((label . ,(string-append "binary64-" bits)) (operation . 1) (a . "") (b . "10")
                    (input . ,(number->string (string->number bits 16))) (bits . "0") (text . ,text) (error . #f))) bits reference))))
-    (define (scalar-tsv cases)
-      (apply string-append (map (lambda (case) (string-append (join (map (lambda (key) (number-text (field case key)))
-                                                                         '(operation a b input bits text)) "\t") "\n")) cases)))
+
     (define (check-scalar-abi cases runtime)
-      (let* ((wasm (build-path "scalar.wasm")) (native (build-path "scalar-native"))
+      (let* ((wasm (build-path "scalar.wasm"))
              (valid (filter (lambda (case) (not (field case 'error))) cases))
              (failures (filter (lambda (case) (field case 'error)) cases)))
         (write-json (build-path "scalar-valid.json") (list->vector valid))
@@ -88,15 +86,7 @@
                                             (write-json data (vector (cons '(error . #f) (filter (lambda (entry) (not (eq? (car entry) 'error))) case))))
                                             (checked (string-append form "-failure-" (number->string index))
                                                      (node (path-join (target-root) "tests/lofi-numbers/oracle.mjs") linked data)
-                                                     `((status . error) (error . ,(field case 'message)))))) failures))) '("raw" "optimized"))
-        (build-native wasm native (path-join (target-root) "tests/lofi-numbers/oracle.rs")
-                      (list (list "oracle" (path-join (target-root) "tests/lofi-integer/oracle-provider.rs"))))
-        (write-text (build-path "scalar-valid.tsv") (scalar-tsv valid))
-        (checked "scalar-native" (list native (build-path "scalar-valid.tsv")))
-        (indexed-for-each (lambda (index case)
-                            (let ((data (write-source (string-append "scalar-failure-" (number->string index) ".tsv") (scalar-tsv (list case)))))
-                              (checked (string-append "scalar-native-failure-" (number->string index)) (list native data)
-                                       `((status . error) (error . ,(field case 'message)))))) failures)))
+                                                     `((status . error) (error . ,(field case 'message)))))) failures))) '("raw" "optimized"))))
 
     ;; ---- Complete adapted reader streams and canonical benchmark controls ----
 

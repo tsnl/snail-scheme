@@ -6,7 +6,7 @@
  (scheme read)
  (scheme write)
  (scheme process-context)
- (native json)
+ (lofi host json)
  (lofi compiler frontend)
  (lofi compiler bootstrap)
  (lofi compiler library-transfer)
@@ -14,7 +14,7 @@
  (lofi compiler syntax-parser)
  (lofi compiler source)
  (lofi compiler primitives)
- (native chromium-trace))
+ (lofi host chromium-trace))
 
 ;; ---- Session-owned parsed values and immutable maps ----
 

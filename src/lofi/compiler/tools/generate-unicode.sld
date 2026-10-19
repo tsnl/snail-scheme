@@ -12,7 +12,7 @@
    (srfi 69)
    (only (srfi 132) list-sort)
    (only (chibi string) string-split string-trim string-prefix? string-contains string-join substring-cursor)
-   (native process)
+   (lofi host process)
    (lofi compiler tools host-tools))
   (begin
 

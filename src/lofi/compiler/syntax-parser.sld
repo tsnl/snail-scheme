@@ -11,7 +11,7 @@
   (export reader->syntax-list s-file s-expr s-atom number-literal? char-literal? symbol-literal?)
 
   (import
-   (native chromium-trace)
+   (lofi host chromium-trace)
    (scheme base)
    (lofi compiler common)
    (lofi compiler reader)
@@ -569,7 +569,7 @@
    (snail-tests
     (export test-syntax-parser)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (lofi compiler source))
     (begin
       ;; Compare location fields explicitly instead of relying on record equality.

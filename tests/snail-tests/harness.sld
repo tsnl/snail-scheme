@@ -1,14 +1,13 @@
-;; Shared assertions keep every compiler, engine and native invocation reviewable.
+;; Shared assertions keep every compiler and engine invocation reviewable.
 (define-library (snail-tests harness)
   (export root runtime-root output artifacts test-environment test-arguments
           path fixture build-path field rows strings assert-that assert-equal
           contains? starts? number-text json-text lines join indexed-for-each
           invoke checked command-output chibi node binaryen-features
-          write-source build-guest build-native link-forms runtime-build
-          native-guest-path native-guest-identical! fresh-output initialize-suite! argument-value argument-present? argument-positionals
+          write-source build-guest link-forms runtime-build
+          fresh-output initialize-suite! argument-value argument-present? argument-positionals
           freeze-sources! record-tools! record-artifacts! verify-reuse! complete! rust-harness
-          finalize-records! native-cargo-environment
-          ordinary-cargo
+          finalize-records!
           read-text write-text read-bytes write-bytes read-json write-json file-sha256
           path-join path-directory absolute-path make-build-directory directory-files-recursive
           create-directory* directory-files file-exists? file-regular? delete-file
@@ -23,15 +22,15 @@
    (scheme time)
    (scheme inexact)
    (only (chibi ast) setenv)
-   (native json)
+   (lofi host json)
    (chibi filesystem)
    (chibi pathname)
    (chibi regexp)
    (srfi 1)
    (only (chibi string) string-contains string-prefix? string-suffix? string-join string-split string-trim-right call-with-output-string)
    (srfi 95)
-   (native process)
-   (only (native native-build) ensure-native-supervisor native-cargo-environment))
+   (lofi host process)
+   (only (lofi compiler tools host-tools) build-host-tool))
   (begin
 
     ;; ---- Concrete paths, options and structured evidence ----
@@ -41,9 +40,9 @@
     (define artifacts (make-parameter #f))
     (define test-arguments (make-parameter '()))
     (define test-environment (make-parameter '(("BINARYEN_CORES" . "1"))))
-    (define ordinary-cargo (make-parameter (or (get-environment-variable "LOFI_TEST_CARGO") (tool-name "CARGO" "cargo"))))
+
     (define (path . parts) (apply path-join (root) parts))
-    (define (runtime-root) (path "src/native"))
+    (define (runtime-root) (path "src/runtime"))
     (define (fixture suite . parts) (apply path "tests" suite parts))
     (define (build-path . parts) (apply path-join (output) parts))
     (define (field value key . default) (option-ref value key (if (null? default) #f (car default))))
@@ -81,15 +80,9 @@
       (root (absolute-path repository)) (test-arguments arguments)
       (output (absolute-path (argument-value "--output" (fresh-output suite))))
       (create-directory* (output))
-      (let ((supervisor (ensure-native-supervisor (runtime-root))))
+      (let ((supervisor (build-host-tool (root) "snail-process-supervisor")))
         (current-process-supervisor supervisor)
-        (test-environment (append `(("SNAIL_NATIVE_SUPERVISOR" . ,supervisor)
-                                    ("CARGO" . ,(path "src/native/tests/cargo-gc-stress"))
-                                    ("LOFI_TEST_CARGO" . ,(ordinary-cargo))) (test-environment))))
-      ;; Fixture artifacts select collection stress at build time. Rust/Wasm
-      ;; helper crates without the native dependency pass through unchanged.
-      (setenv "LOFI_TEST_CARGO" (ordinary-cargo))
-      (setenv "CARGO" (path "src/native/tests/cargo-gc-stress")))
+        (test-environment (cons (cons "SNAIL_PROCESS_SUPERVISOR" supervisor) (test-environment)))))
 
     ;; ---- Bounded commands and complete terminal records ----
 
@@ -142,8 +135,7 @@
       (field (apply checked label command options) 'stdout))
     (define (chibi source . arguments)
       (append (list (tool-name "CHIBI" "chibi-scheme") "-I" (path "bootstrap")
-                    "-I" (path "tests")
-                    "-I" (path "src/native/tests") source) arguments))
+                    "-I" (path "tests") source) arguments))
     (define (node script . arguments)
       (append (list (tool-name "NODE" "node") "--disable-warning=ExperimentalWarning" "--expose-gc" script) arguments))
     (define binaryen-features
@@ -156,16 +148,11 @@
                                  (if (null? options) '() (car options))
                                  (append-map (lambda (name) (list "--export" name)) exports)
                                  (list source wasm))))
-    (define (build-native source executable entry providers . options)
-      (checked "native-build"
-               (append (list (path-join (argument-value "--compiler" (root)) "scripts/build-native") "--wasm")
-                       (if entry (list "--entry-rust" entry) '())
-                       (append-map (lambda (provider) (list "--rust-provider" (car provider) (cadr provider))) providers)
-                       (if (null? options) '() (car options)) (list source executable))))
+
     (define (runtime-build)
       (checked "runtime" (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline"
                                "--release" "--target" "wasm32-wasip1"
-                               "--manifest-path" (path "src/native/runtime/Cargo.toml")
+                               "--manifest-path" (path "src/runtime/Cargo.toml")
                                "--target-dir" (path "build/wasm-runtime"))))
     (define (link-forms wasm)
       (runtime-build)
@@ -177,19 +164,7 @@
                           (if (string=? form "raw") '("--diagnostic-prune-only") '())
                           (list (if (string=? form "raw") (string-append wasm ".raw.wasm") wasm)
                                 (build-path (string-append form ".wasm")))))) '("raw" "optimized")))
-    (define (native-guest-path executable)
-      (let* ((parent (path-directory executable))
-             (digest (file-sha256 executable))
-             (directory (find (lambda (name)
-                                (let ((record (path-join parent name "build.json")))
-                                  (and (file-exists? record)
-                                       (equal? digest (field (field (read-json record) 'sha256)
-                                                             (string->symbol executable)))))) (directory-files parent))))
-        (assert-that directory "native build evidence missing" executable)
-        (path-join parent directory "optimized.wasm")))
-    (define (native-guest-identical! executable wasm)
-      (let ((guest (native-guest-path executable)))
-        (assert-equal (read-bytes guest) (read-bytes wasm) "native and Wasm optimized guests differ" executable wasm)))
+
     (define (rust-harness . arguments)
       (append (list (tool-name "CARGO" "cargo") "run" "--offline" "--quiet" "--manifest-path"
                     (path "tests/Cargo.toml") "--bin" "snail-test-data" "--") arguments))
@@ -203,11 +178,11 @@
         (cons (string->symbol relative) (file-sha256 target))))
     (define (freeze-sources! suite)
       (let* ((directories (list "src" "bootstrap" "tests/snail-tests"
-                                (if (string=? suite "native") "tests" (string-append "tests/" suite))))
+                                (string-append "tests/" suite)))
              (paths (append-map (lambda (directory) (directory-source-files (path directory))) directories))
-             (files (map path '("src/native/Cargo.toml" "src/native/Cargo.lock" "src/native/rust-toolchain.toml" "tests/native-support.rs" "tests/run.scm"
-                                "scripts/build-lofi" "scripts/build-lofi.scm" "scripts/build-native"
-                                "scripts/build-native.scm" "scripts/link-lofi-runtime" "scripts/link-lofi-runtime.scm"))))
+             (files (map path '("src/runtime/Cargo.toml" "src/runtime/Cargo.lock" "rust-toolchain.toml" "tests/run.scm"
+                                "scripts/build-lofi" "scripts/build-lofi.scm"
+                                "scripts/link-lofi-runtime" "scripts/link-lofi-runtime.scm"))))
         (write-json (build-path "source-identities.json")
                     (map snapshot-source (delete-duplicates (append paths files))))))
     (define (tool-identity tool)
@@ -221,8 +196,7 @@
     (define (record-tools!)
       (let ((tools '(("CHIBI" "chibi-scheme") ("NODE" "node") ("CHEZ" "scheme")
                      ("WASM_AS" "wasm-as") ("WASM_OPT" "wasm-opt") ("WASM_DIS" "wasm-dis")
-                     ("WASM_MERGE" "wasm-merge") ("RUSTC" "rustc") ("CARGO" "cargo")
-                     ("LLVM_OPT" "opt") ("LLC" "llc"))))
+                     ("WASM_MERGE" "wasm-merge") ("RUSTC" "rustc") ("CARGO" "cargo"))))
         (write-json (build-path "tools.json")
                     (append (map tool-identity tools)
                             `((git_head . ,(command-output "git-head" '("git" "rev-parse" "HEAD")))
@@ -231,8 +205,7 @@
       (write-json (build-path "artifact-identities.json")
                   (map (lambda (file) (cons (string->symbol (path-relative-to file (artifacts)))
                                             `((bytes . ,(file-size file)) (sha256 . ,(file-sha256 file)))))
-                       (filter (lambda (file) (or (member (path-extension file) '("wasm" "wat" "ll" "o"))
-                                                  (string=? (path-strip-directory file) "native")))
+                       (filter (lambda (file) (member (path-extension file) '("wasm" "wat")))
                                (directory-files-recursive (artifacts))))))
     (define (verify-reuse!)
       (for-each (lambda (entry)

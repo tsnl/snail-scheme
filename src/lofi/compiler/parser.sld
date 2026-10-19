@@ -266,7 +266,7 @@
    (snail-tests
     (export test-parser)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (lofi compiler source))
     (begin
       ;; Compare location fields explicitly instead of relying on record equality.

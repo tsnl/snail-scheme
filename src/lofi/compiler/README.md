@@ -11,8 +11,8 @@ their contracts. Standard libraries remain beside this directory under `lofi/`.
 
 `builder.sld` implements the public library-builder data and transfer API.
 `service.mjs`, `builder.mjs` and `execute.mjs` host those services for Wasm.
-`native.sld` translates the artifact's checked entry metadata at the explicit
-boundary to `(native)`. It does not change the compiler's Wasm output contract.
+Chibi build services live in `../host/`; Rust Wasm scalar services live in
+`../../runtime/`. The Wasm engine supplies managed allocation and collection.
 
 Chibi scripts import `(lofi compiler bootstrap)` through the repository's
 `bootstrap/` loader view. Product programs import `(lofi compiler)`. The compiler

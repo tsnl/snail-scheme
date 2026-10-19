@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {WASI} from 'node:wasi';
 
-// ---- The Python driver supplies identical scalar inputs to both targets ----
+// ---- The Scheme harness supplies identical scalar inputs to both Wasm forms ----
 
 const [artifact, ...arguments_] = process.argv.slice(2);
 const module = new WebAssembly.Module(fs.readFileSync(artifact));

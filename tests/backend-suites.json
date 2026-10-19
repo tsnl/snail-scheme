@@ -3,7 +3,6 @@
   {"name": "lofi-integration", "script": "test-lofi-integration"},
   {"name": "lofi-entry", "script": "test-lofi-entry"},
   {"name": "lofi-execution", "script": "test-lofi-execution"},
-  {"name": "lofi-native-loading", "script": "test-lofi-native-loading"},
   {"name": "lofi-builder", "script": "test-lofi-builder"},
   {"name": "lofi-book", "script": "test-lofi-book"},
   {"name": "lofi-generation", "script": "test-lofi-generation"},

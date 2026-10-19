@@ -11,5 +11,4 @@ Chibi hosts the compiler; Binaryen is required.
   -h, --help                Show this help without checking installed tools.
 
 Arguments after SOURCE in run are passed literally to the program.
-The compiler produces Wasm. Native builds compose the compiler and standalone
-Wasm-to-native libraries in a Chibi build script; see build.scm and src/native/.
+The compiler produces WasmGC. Run it with the Wasm host or package it for a browser.

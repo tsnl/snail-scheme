@@ -1,4 +1,4 @@
-;; Exercise the compiler without native libraries, then compose them explicitly.
+;; Exercise Wasm compilation and supplied-runtime execution outside the checkout.
 (define-library (snail-tests package-isolation)
   (export run-package-isolation)
   (import
@@ -7,36 +7,29 @@
    (scheme write)
    (only (chibi filesystem) chmod symbolic-link-file)
    (snail-tests harness)
-   (only (native json) string->json))
+   (only (lofi host json) string->json))
   (begin
 
     ;; ---- A compiler copy containing only neutral package libraries ----
 
-    (define neutral-libraries
-      '("wasm" "wasm-optimize" "build-host" "chromium-trace" "process" "json" "runtime-wasm"))
     (define (copy-wasm-compiler outside)
-      (let* ((copy (path-join outside "wasm-only")) (modules (path-join copy "bootstrap/native")))
-        (create-directory* modules)
+      (let ((copy (path-join outside "wasm-only")))
+        (create-directory* (path-join copy "bootstrap"))
         (create-directory* (path-join copy "src"))
         (checked "copy-compiler" (list "cp" "-a" "--" (path "src/lofi") (path "src/scheme") (path-join copy "src")))
         (checked "copy-commands" (list "cp" "-a" "--" (path "scripts") (path "lofi") copy))
         (assert-that (symbolic-link-file "../src/lofi" (path-join copy "bootstrap/lofi")))
-        (for-each (lambda (name)
-                    (write-bytes (path-join modules (string-append name ".sld"))
-                                 (read-bytes (path "src/native" (string-append name ".sld"))))) neutral-libraries)
-        (assert-that (not (file-exists? (path-join copy "src/native"))))
-        (assert-that (not (file-exists? (path-join copy "bootstrap/native.sld"))))
+        (assert-that (not (file-exists? (path-join copy "src/runtime"))))
         copy))
     (define (forbidden-tool)
-      (let ((file (build-path "forbidden-native-tool")))
-        (write-text file "#!/bin/sh\nprintf 'unexpected native tool invocation\\n' > \"$0.invoked\"\nprintf 'unexpected native tool invocation\\n' >&2\nexit 99\n")
+      (let ((file (build-path "forbidden-build-tool")))
+        (write-text file "#!/bin/sh\nprintf 'unexpected Rust build tool invocation\\n' > \"$0.invoked\"\nprintf 'unexpected Rust build tool invocation\\n' >&2\nexit 99\n")
         (chmod file #o755) file))
     (define (isolated-options directory forbidden)
       `((directory . ,directory)
-        (environment . (("LLVM_OPT" . ,forbidden) ("LLC" . ,forbidden)
-                        ("CARGO" . ,forbidden) ("RUSTC" . ,forbidden)))))
+        (environment . (("CARGO" . ,forbidden) ("RUSTC" . ,forbidden)))))
     (define (isolated-chibi copy script . arguments)
-      (append (list "env" "-u" "SNAIL_NATIVE_SUPERVISOR" "-u" "CHIBI_MODULE_PATH"
+      (append (list "env" "-u" "SNAIL_PROCESS_SUPERVISOR" "-u" "CHIBI_MODULE_PATH"
                     (tool-name "CHIBI" "chibi-scheme") "-I" (path-join copy "bootstrap")
                     (path-join copy script)) arguments))
 
@@ -74,14 +67,6 @@
                     "import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs';\nimport {loadWasm,instantiate,invokeEntry,closeInstance} from './src/lofi/compiler/execute.mjs';\nconst instance=instantiate(loadWasm(readFileSync(process.argv[2])));\ntry { assert.equal(invokeEntry(instance, []), 42); } finally { closeInstance(instance); }\n")
         (checked "isolated-service-execute" (node runner (path-join session "artifact.wasm")) options)))
 
-    ;; ---- A root recipe explicitly composes the independent libraries ----
-
-    (define (check-composed-recipe working)
-      (let ((program (build-path "composed-answer")))
-        (checked "composed-recipe"
-                 (chibi (path "build.scm") (root) (path "examples/native/answer.sld") "answer"
-                        (path "examples/native/entry.rs") program) `((directory . ,working)))
-        (checked "composed-execute" (list program) `((directory . ,working) (stdout . "42\n")))))
     (define (run-package-isolation)
       (let* ((outside (make-build-directory "/tmp" "lofi-package-isolation-"))
              (copy (copy-wasm-compiler outside)) (working (path-join outside "working")) (forbidden (forbidden-tool))
@@ -89,8 +74,7 @@
         (write-json (build-path "isolation-paths.json") `((compiler_copy . ,copy) (working_directory . ,working)))
         (create-directory* working) (runtime-build)
         (check-wasm-only copy options) (check-compiler-service copy options)
-        (assert-that (not (file-exists? (string-append forbidden ".invoked"))) "Wasm-only compilation invoked a native tool")
-        (check-composed-recipe working)
-        (complete! "Wasm-only compiler isolation and explicit native library composition"
-                   '((passed . #t) (native_libraries_absent . #t) (native_tools_forbidden . #t)
+        (assert-that (not (file-exists? (string-append forbidden ".invoked"))) "supplied-runtime execution invoked a Rust build tool")
+        (complete! "Wasm compiler isolation and supplied-runtime execution"
+                   '((passed . #t) (runtime_sources_absent . #t) (rust_tools_forbidden . #t)
                      (compiler_service . #t) (supplied_runtime . #t) (outside_working_directory . #t)))))))

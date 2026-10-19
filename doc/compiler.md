@@ -13,23 +13,18 @@ Compiler: source → located library values → resolved imports and macro expan
           → resolved Lofi source
           → binding/scope checking → concrete demand → source-based WasmGC → Binaryen
 Build:    optimized Wasm → runtime Wasm linkage → Binaryen → V8/WASI
-          optimized Wasm → native → LLVM opt/llc → native object
-                         → Cargo + Rust runtime/providers → x86-64 Linux executable
 ```
 
 The [language contract](lofi.md) describes intended language behavior. This
 reference describes the current modules in `src/lofi/`.
-The compiler emits Wasm only. Ordinary Chibi scripts independently import the
-compiler and [`native`](../src/native/README.md) when composing a native build.
-The standalone package contains the native lowering, shared Rust runtime and
-neutral host utilities; it has no compiler dependency.
+The compiler emits WasmGC. Chibi host utilities live in `src/lofi/host/`;
+Rust scalar services live in `src/runtime/`. The Wasm engine owns collection.
 
 All product/compiler library paths follow their names under `src/lofi` and
 `src/scheme`. The public `(lofi compiler)` is a product library calling the
 compiler service. `(lofi compiler bootstrap)` is its current Chibi implementation;
 other implementation modules remain Chibi-hosted too. Use `-I bootstrap` for
 Chibi so its host `(scheme base)` is distinct from `src/scheme/base.sld`.
-`native` remains the independent native backend and runtime package.
 
 For a first read, start with `compile` and `entry-program` in
 [`compiler.sld`](../src/lofi/compiler/bootstrap.sld), then the source records in
@@ -174,7 +169,7 @@ Emission checks that demand is already complete. A concrete-type index finds
 layouts while the ordered registry controls IDs and output. Layout reservation
 precedes dependency traversal, preserving recursive types. Local declarations
 accumulate in reverse and are reversed once when a function is emitted. The shared
-[`wasm.sld`](../src/native/wasm.sld) serializes Wasm data.
+[`wasm.sld`](../src/lofi/host/wasm.sld) serializes Wasm data.
 
 [`wasm-strings.sld`](../src/lofi/compiler/wasm-strings.sld) owns the UTF-8 string
 layout and its emitted Wasm operations. Each owner retains a scalar count, used
@@ -182,7 +177,7 @@ byte length, packed backing array and cached scalar/byte boundary. Conversion
 validates once and copies bytes; slicing and equality operate on encoded spans.
 Width-changing mutation preserves owner identity and updates its backing storage.
 Large literals are filled by module start before source execution. The mechanical
-native lowering executes the same operations and publishes their managed roots.
+the Wasm engine traces their managed references.
 
 Concrete signatures take the fused path without subtree typing. Unresolved call
 arguments and branch results may require an explicit type-only constraint probe
@@ -213,7 +208,7 @@ independent library preparation and dependency collection, including compiled
 preparation chain diagnoses cycles and preserves each selected value's identity.
 The older frontend convenience APIs remain adapters for already parsed source.
 The source driver's `lofi.parse`, `lofi.check`, `lofi.specialize` and `lofi.emit-wasm`
-trace spans expose the boundaries. [`chromium-trace.sld`](../src/native/chromium-trace.sld)
+trace spans expose the boundaries. [`chromium-trace.sld`](../src/lofi/host/chromium-trace.sld)
 requires an explicit trace scope. [`scripts/view-traces`](../scripts/view-traces)
 opens retained evidence in Perfetto.
 
@@ -235,8 +230,7 @@ instance; a trapped call retains its instance and preceding effects. A lost
 compiler process invalidates map operations while copied artifacts and existing
 runtime instances remain owned by the service scope. See the
 [service API](lofi-compiler-service.md) for lifecycle rules, Wasm execution
-and first-class parsed `LofiLibrary` values. The separate Scheme native
-loading adapter is described below.
+and first-class parsed `LofiLibrary` values.
 
 [`run-lofi-generator.mjs`](../scripts/run-lofi-generator.mjs) executes compiled
 recipes through the checked builder boundary. An explicit provider factory
@@ -282,16 +276,12 @@ dependencies nor accepts inferred IR as evidence. See the [builder API and
 executable example](lofi-builder.md) for ownership, supported constructors,
 and typed inspection.
 
-## Wasm artifacts, native composition and runtime
+## Wasm artifacts, execution and scalar services
 
-[`lofi`](../lofi) owns command parsing, private build directories,
-publication and Wasm host invocation. [`build-lofi`](../scripts/build-lofi) and
-[`build-native`](../scripts/build-native) preserve intermediates for module-level
-work. The latter is an ordinary composition script that passes emitted Wasm to
-the native package, then links its object with Cargo. [`build.scm`](../build.scm)
-shows these library calls directly for an explicit public export and Rust entry
-point. [`wasm-optimize.sld`](../src/native/wasm-optimize.sld)
-requires Binaryen on both execution routes.
+[`lofi`](../lofi) owns command parsing, private build directories, atomic
+publication and Wasm invocation. [`build-lofi`](../scripts/build-lofi) retains
+module intermediates. [`wasm-optimize.sld`](../src/lofi/host/wasm-optimize.sld)
+assembles and optimizes the emitted module with Binaryen.
 
 [`lofi/artifact.sld`](../src/lofi/compiler/artifact.sld) implements the Chibi
 Entry and Artifact boundary. Compilation returns optimized, unlinked Wasm bytes
@@ -301,33 +291,6 @@ Binaryen optimization; loading verifies its schema and execution verifies the
 actual exported signatures. Tool temporaries live in a private directory;
 compilation reads no source files and returns artifact bytes for the caller to
 write. Provider and runtime linking remain explicit build operations.
-
-[`(native)`](../src/native.sld) exposes
-`wasm-binary->llvm`, `llvm-object` and `link-native-object`. Its explicit provider
-declarations are `(make-native-import module name c-symbol parameters result)`:
-string names, physical `i32`/`i64`/`f32`/`f64` parameter types, and a scalar or
-`void` result. Missing declarations and signature mismatches fail. Lowering
-consumes the Wasm representation, physical imports and runtime ABI; it receives
-no source bindings, inference state or compiler IR.
-
-[`lofi/native.sld`](../src/lofi/compiler/native.sld) is the optional source-aware
-adapter. `(artifact->native-object artifact imports directory output)` supplies
-the saved scalar signature and source entry description to
-[`scalar-entry.sld`](../src/native/scalar-entry.sld). That optional
-protocol layer checks the actual optimized Wasm `main`/`entry` signatures and
-emits a fixed scalar-bits bridge into the native LLVM module. An ELF `.lofi.entry`
-section and signature-encoded bridge alias preserve the scalar tags, origin
-description and required foreign declarations. Bool and Char remain distinct
-protocol tags despite sharing physical `i32`. The native loader checks their
-consistency; arbitrary native code remains trusted. Ordinary native builds with
-a supplied Rust entry point need no scalar-entry metadata.
-
-Artifact accessors expose the original Entry, semantic scalar parameter
-and result types, and bytes. The fixed ABI exports `entry` for the selected
-function and `main` for one-shot library initialization; native symbols are
-`wasm.entry` and `wasm.main`, after `native_module_init`. Calling `entry` before
-successful initialization traps. A public Lofi export named `main` is therefore
-unambiguous. Native object bytes do not themselves represent a running instance.
 
 [`lofi/compiler/execute.mjs`](../src/lofi/compiler/execute.mjs) is the explicit JavaScript
 Wasm execution adapter. `loadWasm(bytes)` snapshots a `Uint8Array`, validates the
@@ -365,137 +328,26 @@ is rejected. An invocation trap retains prior effects and does not poison a
 successfully initialized instance. `closeInstance` is idempotent, rejects future
 calls and drops the adapter's reference to the program instance. Shared providers
 and their external resources remain owned by the caller, including cleanup. The
-adapter discovers no files, constructs no WASI or Rust providers, and does not
-load native64 objects.
+adapter discovers no files, constructs no WASI or Rust providers, and accepts Wasm bytes only.
 
-[`execute.sld`](../src/native/execute.sld) provides `load-native`,
-explicit `link-native`, `instantiate`, `invoke-entry` and `close-instance` for
-x86-64 Linux objects carrying the optional scalar protocol. Its fourth
-`link-native` argument explicitly supplies the runtime root. It checks declared
-Rust provider ABIs,
-uses exact binary scalar transport, and gives each instance fresh native globals,
-GC and provider state. [`native_worker.rs`](../src/native/native_worker.rs) supplies
-a separate supervisor and guest worker; ownership precedes provider constructors.
-Failed initialization publishes no instance. Native traps and interrupted calls
-invalidate their instance; the supervisor reaps its owned descendants, including
-after host death. The [native loading contract](lofi-native-loading.md)
-describes the API, retained logs, unsafe native boundary and target limitations.
+[`runtime-wasm.sld`](../src/lofi/host/runtime-wasm.sld) builds and links
+[`src/runtime/`](../src/runtime/README.md) scalar services. Rust owns external
+resources behind handles; managed values remain in WasmGC. The host closes
+resources after completion or traps. `host.rs` implements buffered Unicode
+streams; `strict_io.rs` owns handles and cleanup; `strict_text.rs` and
+`unicode.rs` implement Unicode scalar operations. Datum and number services
+retain their existing scalar boundaries.
 
-[`link-lofi-runtime`](../scripts/link-lofi-runtime) calls
-[`runtime-wasm.sld`](../src/native/runtime-wasm.sld), which builds
-the Rust runtime's Wasm form, links its scalar externs into a WASI reactor,
-drops unused runtime exports and optimizes the result. This utility imports no
-native lowering or execution code.
-[`run-lofi.mjs`](../scripts/run-lofi.mjs) initializes once, invokes `main`, and drains
-resource cleanup. The [Lofi libraries](../src/lofi/README.md) implement numeric,
-container, datum and I/O behavior in Lofi; Rust externs supply concrete host
-operations. Wasm owns managed collection.
+[`process.sld`](../src/lofi/host/process.sld) captures commands and evidence;
+[`json.sld`](../src/lofi/host/json.sld) handles finite JSON protocols;
+[`chromium-trace.sld`](../src/lofi/host/chromium-trace.sld) records scoped spans.
+The Linux process supervisor under `tools/host/` enforces command deadlines and
+reaps descendants without loading guest code.
 
-[`src/native/Cargo.toml`](../src/native/Cargo.toml) defines the one runtime crate.
-[`lib.rs`](../src/native/runtime/src/lib.rs) contains runtime initialization, diagnostics and shared
-floating-point text. [`strict_io.rs`](../src/native/runtime/src/strict_io.rs) owns file IDs and terminal
-cleanup; [`host.rs`](../src/native/runtime/src/host.rs) implements buffered Unicode streams. The datum
-services retain temporary token text and stable symbol IDs, while Lofi owns the
-reader and managed datum graph. These services accept scalars and never retain
-guest GC roots. There is no boxed Scheme-value ABI or wrapper-finalizer bridge.
-
-[`io.sld`](../src/lofi/io.sld) shares an owned file's pending input and closed
-handle across aliases. Rust returns up to seven already-buffered ASCII characters
-in one scalar packet; character, line and datum reads consume that same cursor.
-Optional packet bytes never refill the native buffer or decode a later invalid
-suffix. Borrowed stdin retains the native scalar read/peek cursor so direct
-foreign reads interoperate. The [input contract](../src/lofi/README.md#text-input-cursor)
-describes the representation, EOF behavior and execution checks.
-
-[`text.sld`](../src/lofi/text.sld) owns string ordering and full case-fold output
-storage. [`strict_text.rs`](../src/native/runtime/src/strict_text.rs) exposes Unicode operations as
-scalar C/Wasm functions. [`unicode.rs`](../src/native/runtime/src/unicode.rs) keeps one generated
-folding implementation with at most three stack-resident output scalars;
-[`generate-unicode`](../scripts/generate-unicode) checks that bound against pinned
-Unicode data and Rust's recorded casing baseline.
-
-[`native.sld`](../src/native/native.sld) optimizes Wasm before lowering.
-[`wasm-read.sld`](../src/native/wasm-read.sld) reads Binaryen's spelling;
-[`wasm-resolve.sld`](../src/native/wasm-resolve.sld) resolves Wasm identities.
-[`llvm.sld`](../src/native/llvm.sld) mechanically lowers those operations,
-including checked array header loads and addressing with known storage widths;
-[`llvmlite.sld`](../src/native/llvmlite.sld) writes LLVM text. Native uses the
-same Rust extern implementations and resolves imports directly against
-literal Rust `extern "C"` provider declarations. [`native_gc.rs`](../src/native/native_gc.rs) owns
-native managed collection. Root and slot lifetime invariants live beside
-the lowering and collector that rely on them.
-
-[`process.sld`](../src/native/process.sld) owns concrete command
-capture, files and evidence. [`json.sld`](../src/native/json.sld) reads one
-complete JSON packet, preserves standard control escapes across the Chibi host
-boundary, and emits escaped control characters in metadata and command evidence.
-Trailing input is rejected. [`native-build.sld`](../src/native/native-build.sld)
-checks scalar provider declarations, runs LLVM, and assembles a Cargo package
-with the native runtime, shared scalar services and ordinary provider crates.
-Rust target `cfg`s select scalar host behavior; the native crate alone contains
-the collector. Retained guest bitcode participates in shared linker-plugin LTO
-with Rust; saved ELF inputs are already machine code.
-
-Repository Scheme entry points add `bootstrap/` to Chibi's search path.
-The same loader view exposes `(native)` and its dependencies; package tests also
-add `src/native/tests/`. The Wasm writer, Binaryen driver,
-process, JSON and trace utilities are neutral modules with no native-lowering
-imports, so Wasm builds can use them without loading the native backend.
-
-## Checks and measurements
-
-`make test` executes compiler host tests. `scripts/test-lofi` checks explicit
-syntax, typing, module identity and actual V8 execution. `scripts/test-build`
-checks the Wasm public command and the native composition script, including
-cleanup and publication.
-`scripts/test-lofi-entry` compiles supplied library maps, links public Entry
-artifacts to foreign providers, and executes both Wasm and native64 aliases.
-`scripts/test-lofi-native-loading` checks independent native instances, exact
-scalar transport, forced collection, provider ABI errors and process cleanup.
-`scripts/test-lofi-execution` exercises the Wasm adapter with typed providers,
-independent state, failed initialization and checked scalar transport.
-`scripts/test-lofi-builder` compiles an Lofi producer, transfers its structured
-result into a separate Chibi host, and compiles and executes the received library.
-Its complete-library fixture rebuilds syntax through typed inspection and compares
-with ordinary source on linked Wasm and native execution with frequent collection;
-malicious packets test lexical ownership, static roles, Unicode and unforgeable
-checking evidence.
-`scripts/test-lofi-compiler-service` executes compilation and the full Wasm
-execution lifecycle from an Lofi build program. It checks recoverable diagnostics,
-source and constructed dependencies, provider signatures, instance ownership and
-continued artifact execution after the owned Chibi process is lost.
-`scripts/test-lofi-integration` executes 322 authored Lofi fixtures retaining the
-previous compiler contracts. `scripts/test-backend` combines these with extern,
-library, scalar-service and Binaryen checks; `scripts/test-native` exercises
-mechanical lowering, collection, C signatures and resource cleanup.
-
-The [benchmark corpus](../benchmarks/README.md) keeps 57 workloads, authored Lofi,
-Chez controls and Rust comparisons. Source availability, execution correctness
-and clean measurement are distinct statuses. Compiler traces and instrumented
-runs explain work; they are not substituted for clean timing runs.
-
-`benchmarks/lofi/runner.scm` freezes the compiler, corpus inputs, selected Rust
-installation and locked crate sources, then validates each target route.
-Dynamic, Scheme and SLaTeX keep their complete workload and resource
-contracts in local verifiers and native entries; the runner owns fixture copies,
-tool invocation and artifact parity. Scheme's interpreter is benchmark code.
-`benchmarks/lofi/timing.scm` prepares clean artifacts for all 57 registered
-workloads, fixes the comparison schedule, supervises fresh execution processes
-and summarizes complete sample
-sets. Failed routes remain visible alongside measured routes.
-
-`benchmarks/wasm-reference/suite.sld` runs the independent Rust/WASI and original
-Chez correctness checks, retaining pinned inputs, complete file results and
-negative checks. `audit.sld` reads serialized output without losing numeric
-spellings and compares lexical alpha equivalence, complete graphs and nucleic
-transformations. `compiler.sld` executes the four independent compiler-stage
-probe groups against the original Chez algorithm. Their `.scm` entry points
-and unit tests run in Chibi.
-
-## Language specification
-
-The [Lofi book](book/lofi/index.md) specifies the language, library
-values and staged builds. [Its entry page](lofi.md) links the chapters and
-preview commands. `scripts/book` builds or serves the book; shared rule snippets
-keep the explanations and formal summary synchronized. The book specifies design
-contracts, while this tour describes the installed implementation.
+Chibi imports implementation modules through `bootstrap/`, preserving its own
+Scheme libraries. Tests add `tests/` for colocated unit-test assertions.
+`scripts/test-backend` covers the current backend inventory, including raw and
+optimized linked Wasm execution, generators, scalar services and compiler-service
+lifecycle contracts. `scripts/test-build` exercises command publication, failure
+cleanup, standard input and literal arguments. See [build tools](backend.md) for
+commands and [benchmarks](../benchmarks/README.md) for the 57-workload corpus.

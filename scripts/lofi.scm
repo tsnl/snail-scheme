@@ -8,8 +8,8 @@
  (chibi filesystem)
  (chibi string)
  (srfi 1)
- (native process)
- (only (native build-host) process-status))
+ (lofi host process)
+ (only (lofi host build-host) process-status))
 
 ;; ---- Command requests ----
 
@@ -31,7 +31,7 @@
   (reverse (map cdr (filter (lambda (item) (eq? (car item) 'library)) options))))
 (define (compiler-inputs root options)
   (append (map (lambda (name) (path-join root name))
-               '("lofi" "src/native/Cargo.toml" "src/native/Cargo.lock" "src/native/rust-toolchain.toml"))
+               '("lofi" "src/runtime/Cargo.toml" "src/runtime/Cargo.lock" "rust-toolchain.toml"))
           (append-map directory-source-files
                       (append (map (lambda (name) (path-join root name))
                                    '("src" "bootstrap" "scripts"))

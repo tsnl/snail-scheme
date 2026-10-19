@@ -165,7 +165,7 @@
    (snail-tests
     (export test-hashmap)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (only (srfi 128) make-comparator make-eq-comparator))
     (begin
       (define (collision-comparator)

@@ -10,7 +10,7 @@
    (scheme process-context)
    (chibi filesystem)
    (chibi pathname)
-   (native json)
+   (lofi host json)
    (chibi net)
    (chibi net server)
    (only (chibi) port-fileno)
@@ -19,7 +19,7 @@
    (only (chibi string) string-prefix? string-contains string-split string-trim string-trim-left
          string-cursor-start substring-cursor)
    (srfi 1)
-   (native process)
+   (lofi host process)
    (lofi compiler tools host-tools))
   (begin
 

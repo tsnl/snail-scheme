@@ -1,5 +1,11 @@
 # Historical runtime benchmarks
 
+> Historical runtime measurements: the LLVM backend and custom collector have
+> been retired. Reproduction commands require the source and tools recorded by
+> each experiment; see [the archive guide](../benchmarks/history.md). Current
+> builds target WasmGC; see [the build contract](backend.md).
+
+
 This page archives the October 10 Scheme experiments, including their language
 scope, collector and build commands. It does not describe current Lofi behavior.
 See [BENCHMARKS.md](../BENCHMARKS.md) for the active Lofi, Chez and Rust corpus.

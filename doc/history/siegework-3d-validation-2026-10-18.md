@@ -2,9 +2,9 @@
 
 Archived evidence; paths and commands below refer to earlier revisions.
 
-he entries below archive the earlier cloud and prototype architecture. Their
+The entries below archive the earlier cloud and prototype architecture. Their
 commands and results describe those revisions; current setup is in the
-[static save guide](../../../doc/static-saves.md).
+[static save guide](../static-saves.md).
 
 # 3D prototype validation
 

@@ -71,8 +71,7 @@ The [builder protocol](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-b
 the implemented structured representation and owned transfer of library data between compiled Lofi
 and Chibi. Additional cross-runtime transports, procedural macro interfaces and general target
 capability contracts need separate specifications. The [compiler
-service](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-compiler-service.md) and [native
-loader](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-native-loading.md) document their
+service](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-compiler-service.md) documents its
 current interfaces and restrictions.
 
 > TODO: Complete the formal rules for nominal declarations, exhaustive matching,

@@ -40,7 +40,7 @@ export function verifyPlan(plan, suites, cases) {
   }
 }
 
-// Nine backend + eight integration + three host/public jobs fit 20 runners.
+// Nine backend + eight integration + two host/public jobs fit 19 runners.
 export function makePlan(suites, cases, backendCount = 9, integrationCount = 8) {
   names(suites, 'backend suites');
   names(cases, 'integration cases');
@@ -96,7 +96,7 @@ function runJob(name) {
 
 function main(arguments_) {
   if (arguments_.length === 1 && arguments_[0] === 'matrix') {
-    const jobs = ['host', 'native', 'applications', ...currentPlan().map(job => job.name)];
+    const jobs = ['host', 'applications', ...currentPlan().map(job => job.name)];
     console.log(JSON.stringify({include: jobs.map(suite => ({suite}))}));
   } else if (arguments_.length === 2 && arguments_[0] === 'run') {
     runJob(arguments_[1]);

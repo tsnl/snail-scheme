@@ -2,7 +2,11 @@
 (import
  (scheme base)
  (scheme write)
- (only (native chromium-trace) with-chromium-trace-to)
+ (only (lofi host json) test-json)
+ (only (lofi host process) test-process)
+ (only (lofi host chromium-trace) test-chromium-trace)
+ (only (lofi host wasm) test-wasm)
+ (only (lofi host chromium-trace) with-chromium-trace-to)
  (only (chibi temp-file) call-with-temp-dir)
  (only (lofi compiler reader) test-reader)
  (only (lofi compiler parser) test-parser)
@@ -24,6 +28,9 @@
  (only (lofi compiler specialize) test-specialize)
  (only (lofi compiler wasm-extern) test-wasm-extern))
 
+(test-json)
+(test-process)
+(test-chromium-trace)
 (test-compiler)
 (test-compiler-profile)
 (test-artifact)
@@ -34,6 +41,7 @@
    (with-chromium-trace-to
     (string-append directory "/tests.json")
     (lambda ()
+      (test-wasm)
       (test-reader)
       (test-parser)
       (test-library)

@@ -37,18 +37,12 @@ an explicit recipe. The [compiler tour](../TOUR.md) explains the shared source a
 bootstrap layout. Current builds use the Chibi-hosted compiler; this organization
 does not require a self-hosted compiler or compilation inside the browser.
 
-A future Wasm-to-native CLI can likewise have its command and build recipe under
-`apps/`, importing its reusable implementation from `src/`. The existing
-[`src/native/`](../src/native/README.md) package is not moved by this app draft.
-
 ## Build contract
 
 Each implemented app recipe should name its source roots, compiler and foreign
 providers, inputs, and output directory. It should assemble those inputs through
 library APIs, report missing dependencies, and leave reproducible artifacts that
-can be run independently of the build process. The repository's existing
-[`build.scm`](../build.scm) is a working native composition example, not a browser
-app build command.
+can be run independently of the build process.
 
 Siegework has a real [build recipe](siegework/build.scm) and
 [run instructions](siegework/README.md#build-and-play). Its browser host and shader

@@ -11,13 +11,13 @@
    (srfi 69)
    (only (chibi string) string-suffix? string-split)
    (snail-tests harness)
-   (native json)
+   (lofi host json)
    (chibi regexp)
    (chibi regexp pcre)
    (only (chibi string) call-with-input-string))
   (begin
 
-    ;; ---- One source, linked Wasm forms and a real native executable ----
+    ;; ---- One source and two linked Wasm forms ----
 
     (define io-exports
       '("format-number" "unicode" "callback-result" "exists" "remove" "close-alias" "callback-close"
@@ -27,12 +27,10 @@
       '("copy-lines" "line-storage" "close-input-alias" "input-callback-close" "input-escaped-alias"
         "input-missing" "input-callback-trap" "read-invalid" "input-raw-output" "input-stale-handle"
         "input-invalid-handle" "input-invalid-peek"))
-    (define (stream-build suite source exports entry providers)
+    (define (stream-build suite source exports)
       (let ((wasm (build-path "guest.wasm")))
         (build-guest (fixture suite source) wasm exports)
-        (link-forms wasm)
-        (build-native (string-append wasm ".raw.wasm") (build-path "native") (fixture suite entry) providers)
-        (native-guest-identical! (build-path "native") wasm)))
+        (link-forms wasm)))
     (define (prepare-stream! suite build)
       (freeze-sources! suite) (record-tools!)
       (if (argument-present? "--reuse-artifacts") (verify-reuse!) (build))
@@ -40,13 +38,9 @@
     (define (case-directory name)
       (let ((directory (build-path "cases" name))) (create-directory* directory) directory))
     (define (stream-command suite form directory action arguments)
-      (if (string=? form "native") (append (list (path-join (artifacts) "native") action) arguments)
-          (apply node (fixture suite "run.mjs") (path-join (artifacts) (string-append form ".wasm")) directory action arguments)))
+      (apply node (fixture suite "run.mjs") (path-join (artifacts) (string-append form ".wasm")) directory action arguments))
     (define (stream-invoke label command directory failure?)
-      (checked label command `((directory . ,directory) (status . ,(if failure? 'error 0))
-                               (environment . (("SNAIL_NATIVE_CLEANUP_LOG" . ,(path-join directory "released")))))))
-    (define (released! directory expected)
-      (assert-equal (string->number (car (lines (read-text (path-join directory "released"))))) expected "resource release count" directory))
+      (checked label command `((directory . ,directory) (status . ,(if failure? 'error 0)))))
 
     ;; ---- Complete reader streams and malformed-prefix observations ----
 
@@ -55,13 +49,11 @@
         (write-bytes (path-join directory "input.scm") (if (bytevector? source) source (string->utf8 source)))
         (write-text (path-join directory "ownership.scm") "(same . #f) same \"text\" \"text\"\n") directory))
     (define (reader-run form directory label failure?)
-      (let ((command (if (string=? form "native") (list (path-join (artifacts) "native"))
-                         (node (fixture "lofi-reader" "run.mjs") (path-join (artifacts) (string-append form ".wasm")) directory))))
+      (let ((command (node (fixture "lofi-reader" "run.mjs") (path-join (artifacts) (string-append form ".wasm")) directory)))
         (stream-invoke label command directory failure?)))
     (define (run-reader)
       (prepare-stream! "lofi-reader"
-                       (lambda () (stream-build "lofi-reader" "reader.sld" '("check" "scan" "storage") "entry.rs"
-                                                (list (list "reader.test" (fixture "lofi-reader" "observer.rs"))))))
+                       (lambda () (stream-build "lofi-reader" "reader.sld" '("check" "scan" "storage"))))
       (let* ((cases (read-json (fixture "lofi-reader" "cases.json")))
              (valid (field cases 'valid)) (invalid (rows (field cases 'invalid))))
         (for-each
@@ -75,7 +67,7 @@
                                             `((directory . ,oracle-dir)))))
              (for-each (lambda (form)
                          (assert-equal (field (reader-run form directory (string-append name "-" form) #f) 'stdout) expected name form))
-                       '("raw" "optimized" "native")))) valid)
+                       '("raw" "optimized")))) valid)
         (indexed-for-each
          (lambda (index source)
            (let* ((name (string-append "error-" (number->string index))) (directory (reader-directory name source)))
@@ -84,18 +76,18 @@
                            (assert-that (and (contains? stdout "i:99\n") (string-suffix? "result:-1\n" stdout)) name form stdout)
                            (when (string=? source "42 1/0") (assert-that (starts? stdout "i:5\ni:0\ni:42\ni:99\n") name stdout))
                            (when (member source '("a[" "a]" "a{" "a}"))
-                             (assert-that (starts? stdout "i:4\ni:1\nc:97\ni:99\n") name stdout)))) '("raw" "optimized" "native")))) invalid)
+                             (assert-that (starts? stdout "i:4\ni:1\nc:97\ni:99\n") name stdout)))) '("raw" "optimized")))) invalid)
         (indexed-for-each
          (lambda (index source)
            (let* ((name (string-append "utf8-error-" (number->string index))) (directory (reader-directory name source)))
              (for-each (lambda (form)
                          (let ((record (reader-run form directory (string-append name "-" form) #t)))
                            (assert-that (any (lambda (text) (contains? (string-downcase (field record 'stderr)) text))
-                                             '("utf-8" "utf8" "failed to fill whole buffer")) record))) '("raw" "optimized" "native"))))
+                                             '("utf-8" "utf8" "failed to fill whole buffer")) record))) '("raw" "optimized"))))
          (list #u8(255) #u8(240 159) #u8(34 97 98 99 237 160 128 34)))
         (complete! "complete datum streams, syntax failures and UTF-8 failures"
                    `((valid . ,(length valid)) (invalid . ,(length invalid)) (utf8_errors . 3)
-                     (systems . #("raw linked Wasm" "optimized linked Wasm" "native64"))))))
+                     (systems . #("raw linked Wasm" "optimized linked Wasm"))))))
 
     ;; ---- Exact datum spellings, graph labels and terminal output cleanup ----
 
@@ -104,7 +96,7 @@
              (values (rows (field corpus 'values))))
         (write-text (path-join directory "input.scm") (string-append (join (map (lambda (row) (vector-ref row 0)) values) "\n") "\n"))
         (let* ((record (stream-invoke (string-append form "-" action)
-                                      (stream-command "lofi-write" form directory action '()) directory (and failure? (string=? form "native"))))
+                                      (stream-command "lofi-write" form directory action '()) directory #f))
                (stderr (field record 'stderr))
                (message (cond ((member action '("closed" "handle" "read-stdout")) "unknown or closed file port")
                               ((string=? action "character") "invalid Unicode scalar") (else #f))))
@@ -112,8 +104,7 @@
           (when message (assert-that (contains? stderr message) record))
           (unless failure? (assert-equal stderr ""))
           (when (string=? action "stdout-failure")
-            (assert-that (if (string=? form "native") (contains? stderr "No space left on device")
-                             (or (contains? stderr "I/O error") (contains? stderr "Input/output error"))) record))
+            (assert-that (or (contains? stderr "I/O error") (contains? stderr "Input/output error")) record))
           (when (string=? action "stream")
             (for-each (lambda (target)
                         (assert-equal (read-bytes (path-join directory (car target)))
@@ -124,18 +115,17 @@
             (assert-equal (read-text (path-join directory "deep.txt"))
                           (string-append (apply string-append (make-list 4096 "(#(")) "end" (make-string 8192 #\)) "\n")))
           (when (and failure? (not (string=? action "closed")))
-            (assert-equal (read-text (path-join directory "pending.txt")) "buffered"))
-          (when (string=? form "native") (released! directory (if (string=? action "stream") 5 1))))))
+            (assert-equal (read-text (path-join directory "pending.txt")) "buffered")))))
     (define (run-writer)
       (let ((corpus (read-json (fixture "lofi-write" "cases.json"))))
         (let ((oracle (command-output "graph-oracle" (list (tool-name "CHEZ" "scheme") "--script" (fixture "lofi-write" "oracle.scm")))))
           (assert-equal (regexp-replace-all (pcre->regexp "#vu8\\(") oracle "#u8(") (field corpus 'graphs)))
-        (prepare-stream! "lofi-write" (lambda () (stream-build "lofi-write" "output.sld" (strings (field corpus 'exports)) "entry.rs" '())))
+        (prepare-stream! "lofi-write" (lambda () (stream-build "lofi-write" "output.sld" (strings (field corpus 'exports)))))
         (for-each (lambda (form)
                     (for-each (lambda (action) (writer-check corpus form action "" #f)) '("stream" "graphs" "deep"))
                     (writer-check corpus form "stdout" "stdout:λ😀 (a \"b\")\nborrowed:!\n()\n" #f)
                     (for-each (lambda (action) (writer-check corpus form action (if (string=? action "trap") "before trap" "") #t))
-                              '("closed" "trap" "character" "handle" "read-stdout" "stdout-failure"))) '("raw" "optimized" "native"))
+                              '("closed" "trap" "character" "handle" "read-stdout" "stdout-failure"))) '("raw" "optimized"))
         (complete! "exact typed datum output" `((datum_cases . ,(vector-length (field corpus 'values))) (graph_cases . 8) (depth . 8192) (terminal_failures . 6)))))
 
     ;; ---- Unicode 16 scalar fields, full folding and mutable strings ----
@@ -161,7 +151,7 @@
                                               (let ((left (rows (vector-ref row 0))) (right (rows (vector-ref row 1))))
                                                 (number-row (append (list (length left) (length right)) left right)))) (rows (field corpus 'fold_strings)))))
       (checked "folding-oracle" (rust-harness "folding" (fixture "lofi-text" "cases.json") (output))
-               `((environment . ,(native-cargo-environment (path "build/native-runtime")))))
+               '())
       (write-json (build-path "input-identities.json")
                   (map (lambda (name) (cons (string->symbol name) (file-sha256 (build-path name))))
                        '("scalars.txt" "strings.txt" "fold-scalars.txt" "fold-strings.txt"))))
@@ -170,18 +160,18 @@
              (directory (case-directory label)) (malformed? (string=? action "malformed")))
         (unless malformed? (write-bytes (path-join directory (string-append action ".txt")) (read-bytes (build-path (string-append action ".txt")))))
         (let* ((record (stream-invoke label (stream-command "lofi-text" form directory action (map number-text arguments))
-                                      directory (and malformed? (string=? form "native"))))
+                                      directory #f))
                (stdout (field record 'stdout)) (stderr (field record 'stderr)))
           (if malformed?
               (begin (assert-equal stdout "")
                      (assert-that (contains? stderr (if (< (car arguments) 6) "invalid Unicode scalar" "full case-fold component index out of range")) record)
                      (assert-equal (read-text (path-join directory "pending.txt")) "buffered"))
               (assert-equal stderr ""))
-          (when (string=? form "native") (released! directory (if malformed? 1 0))) stdout)))
+          stdout)))
     (define (run-text)
       (let* ((corpus (read-json (fixture "lofi-text" "cases.json"))) (streams '()))
         (write-text-corpus corpus)
-        (prepare-stream! "lofi-text" (lambda () (stream-build "lofi-text" "text.sld" (strings (field corpus 'exports)) "entry.rs" '())))
+        (prepare-stream! "lofi-text" (lambda () (stream-build "lofi-text" "text.sld" (strings (field corpus 'exports)))))
         (for-each (lambda (form)
                     (let ((stdout (text-check form "scalars" '())))
                       (set! streams (cons stdout streams))
@@ -197,8 +187,8 @@
                     (assert-equal (text-check form "fold-strings" '()) (string-append (number->string (vector-length (field corpus 'fold_strings))) "\n"))
                     (for-each (lambda (operation) (for-each (lambda (code) (text-check form "malformed" (list operation code))) '(55296 57343 1114112 4294967295))) (iota 6))
                     (for-each (lambda (row) (for-each (lambda (index) (text-check form "malformed" (list (car row) index))) (cdr row)))
-                              '((6 2 3 4294967295) (7 3 4 4294967295)))) '("raw" "optimized" "native"))
-        (assert-equal (car streams) (cadr streams)) (assert-equal (car streams) (caddr streams))
+                              '((6 2 3 4294967295) (7 3 4 4294967295)))) '("raw" "optimized"))
+        (assert-equal (car streams) (cadr streams))
         (complete! "complete Unicode text fields and mutation checks"
                    `((full_fold_scalar_cases . 1112064) (full_fold_string_cases . ,(vector-length (field corpus 'fold_strings)))
                      (malformed_cases_per_system . 30) (unicode . ,(field corpus 'unicode)) (complete_scalar_fields_equal_across_targets . #t)))))
@@ -211,23 +201,21 @@
         (for-each (lambda (form)
                     (let* ((label (string-append name "-" form)) (directory (case-directory label)))
                       (write-bytes (path-join directory "input.txt") contents)
-                      (let* ((command (if (string=? form "native") (list (build-path "native") worker expected)
-                                          (node (fixture "lofi-io" "packet.mjs") (build-path (string-append form ".wasm")) directory worker expected (if failure? 1 0))))
+                      (let* ((command (node (fixture "lofi-io" "packet.mjs") (build-path (string-append form ".wasm")) directory worker expected (if failure? 1 0)))
                              (record (stream-invoke label command directory failure?)) (stderr (field record 'stderr)))
                         (assert-equal (field record 'status) (if failure? 1 0))
-                        (if (string=? form "native") (begin (assert-equal (field record 'stdout) "") (released! directory releases))
-                            (let ((observed (call-with-input-string (field record 'stdout) json-read)))
-                              (assert-equal (field observed 'failed) failure?) (assert-equal (field observed 'opened) releases)
-                              (assert-equal (field observed 'closed) releases) (assert-equal (field observed 'borrowedOpen) #t)))
+                        (let ((observed (call-with-input-string (field record 'stdout) json-read)))
+                          (assert-equal (field observed 'failed) failure?) (assert-equal (field observed 'opened) releases)
+                          (assert-equal (field observed 'closed) releases) (assert-equal (field observed 'borrowedOpen) #t))
                         (if failure? (assert-that (any (lambda (error) (contains? (string-downcase stderr) error)) errors) record)
                             (assert-equal stderr ""))
                         (when (member worker '("copy-characters" "copy-standard"))
-                          (assert-equal (read-bytes (path-join directory "output.txt")) (if failure? prefix contents)))))) '("raw" "optimized" "native"))))
+                          (assert-equal (read-bytes (path-join directory "output.txt")) (if failure? prefix contents)))))) '("raw" "optimized"))))
     (define (run-packets)
       (test-environment (append '( ("CARGO_BUILD_JOBS" . "1")) (test-environment)))
       (prepare-stream! "lofi-io" (lambda ()
                                    (stream-build "lofi-io" "packet.sld" '("copy-characters" "mixed-readers" "cached-close" "copy-standard"
-                                                                          "open-growing" "peek-growing" "read-growing" "close-growing") "packet.rs" '())))
+                                                                          "open-growing" "peek-growing" "read-growing" "close-growing"))))
       (for-each (lambda (length) (packet-check (string-append "ascii-" (number->string length)) (make-bytevector length 97) "copy-characters" #f #f #f))
                 '(0 1 6 7 8 13 14 15 8191 8192 8193))
       (for-each (lambda (row) (packet-check (car row) (string->utf8 (cadr row)) "copy-characters" #f #f #f))
@@ -250,7 +238,7 @@
                                           "copy-characters" 0 '("utf-8" "utf8" "failed to fill whole buffer") prefix)))
                         (list #u8(255) #u8(240 159) #u8(237 160 128) #u8(194 97)))
       (complete! "packet input values, failure order and resource lifetimes"
-                 '((native_forced_gc . #t) (native_wasm_guest_identical . #t) (performance_measurement . #f))))
+                 '((raw_wasm . #t) (optimized_wasm . #t) (performance_measurement . #f))))
 
     ;; ---- Linked file I/O covers every public fixture export ----
 

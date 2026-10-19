@@ -1,5 +1,9 @@
 # Release validation — 2026-10-18
 
+These checkpoints record the release revision before native-backend retirement.
+Their native execution evidence is historical. Current serialization and
+application runners execute Wasm; see [the test guide](../../tests/README.md).
+
 ## Crowd and visibility checkpoint
 
 `build/siegework-crowd-final/solo` passes 137 actual-Wasm application checks.

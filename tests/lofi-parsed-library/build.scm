@@ -8,7 +8,7 @@
  (lofi compiler reader)
  (lofi compiler syntax-parser)
  (lofi compiler primitives)
- (native chromium-trace))
+ (lofi host chromium-trace))
 
 (define root (cadr (command-line)))
 (define output (car (cddr (command-line))))

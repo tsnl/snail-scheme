@@ -1,10 +1,9 @@
 # Fixed-width arithmetic
 
-Run `scripts/test-lofi-arithmetic`. It executes 2,074 calls on raw Wasm,
-Binaryen-optimized Wasm and native, including direct primitives, ordinary
-overloads and function values selected from mutable storage. Both targets must
-consume identical optimized guest bytes. Commands, inputs, terminal results and
-artifact hashes are retained under `build/lofi-arithmetic/`.
+Run `scripts/test-lofi-arithmetic`. It executes 2,074 calls on raw and
+Binaryen-optimized Wasm, including direct primitives, ordinary overloads and
+function values selected from mutable storage. Commands, inputs, terminal results
+and artifact hashes are retained under `build/lofi-arithmetic/`.
 
 I32/I64 addition, subtraction and multiplication wrap modulo their width.
 Integer expectations use arbitrary-precision arithmetic reduced to that signed
@@ -24,9 +23,8 @@ literal construction also remains checked.
 Two foreign effects observe argument order before every operation. A third
 effect observes evaluation of an indirect operator after its arguments. Discarding
 an arithmetic result must preserve these effects and any required division trap.
-Native output is unbuffered, so a trap cannot hide its preceding effects. Unit
-exports use the public void ABI. Native checks use the ordinary process
-floating-point environment; modified rounding modes are outside this scope.
+The JavaScript host records effects before a trap. Unit exports use the public
+void ABI.
 
 `libraries.sld` checks ordinary arithmetic, the compatible named wrapping/IEEE
 aliases, nominal Number overflow, and exact-to-F64 rounding at the finite
@@ -37,5 +35,5 @@ A fresh independent explanation and critique reduced lowering to the existing
 Wasm opcodes shared by direct calls and primitive workers. The review rejected a
 new arithmetic framework or constant folder: remove the overflow guards, retain
 operand evaluation and checked conversions, and let Binaryen optimize the
-result. Explicit checked-arithmetic variants are future work, not a new mode or
-an implemented Scheme frontend.
+result. Explicit checked-arithmetic variants remain future work. The initial
+typed Scheme library shares the default Lofi arithmetic policy.

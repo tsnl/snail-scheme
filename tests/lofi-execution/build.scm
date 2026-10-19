@@ -6,11 +6,10 @@
  (chibi filesystem)
  (lofi compiler reader)
  (lofi compiler syntax-parser)
- (native chromium-trace)
+ (lofi host chromium-trace)
  (lofi compiler primitives)
  (lofi compiler frontend)
  (lofi compiler bootstrap)
- (lofi compiler native)
  (only (lofi compiler artifact) emit-artifact))
 
 (define directory (cadr (command-line)))
@@ -66,9 +65,6 @@
 (build '(execution traps) 'entry "traps")
 (for-each (lambda (name) (build '(execution scalars) name (symbol->string name))) '(i32 i64 f32 f64 bool char unit-result))
 (for-each (lambda (name) (build '(execution foreign) name (symbol->string name))) '(bad-bool bad-char callback))
-(create-directory* (string-append directory "/native"))
-(artifact->native-object (compile libraries (make-entry '(execution scalars) 'i32)) '()
-                         (string-append directory "/native") (string-append directory "/native.o"))
 
 ;; Deliberately inconsistent saved metadata tests the actual export checks.
 (for-each

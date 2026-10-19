@@ -3,7 +3,7 @@
 (define-library (lofi compiler wasm-extern)
   (export parse-extern extern? extern-name extern-module extern-symbol extern-type
           extern-argument-types extern-result-type extern-physical-signature
-          extern-wasm-import extern-wasm-call native-scalar-signature)
+          extern-wasm-import extern-wasm-call wasm-scalar-signature)
   (import
    (scheme base)
    (scheme cxr))
@@ -34,10 +34,10 @@
         (error "extern requires a complete monomorphic function type" type))
       (let* ((parts (reverse (cdr type))) (result (car parts))
              (arguments (reverse (cdr parts))))
-        (native-scalar-signature arguments result)
+        (wasm-scalar-signature arguments result)
         (cons arguments result)))
 
-    ;; Char and Bool retain their semantic contract while using native i32.
+    ;; Char and Bool retain their semantic contract while using Wasm i32.
     ;; Reference declarations need the concrete core's shared Wasm type graph.
     ;; Reject them here: a managed reference is never a numeric resource ID.
     (define (extern-scalar-type type)
@@ -48,13 +48,13 @@
 
     ;; ---- Matching imports and calls ----
 
-    (define (native-scalar-signature arguments result)
+    (define (wasm-scalar-signature arguments result)
       (append (map (lambda (type) `(param ,(extern-scalar-type type)))
                    arguments)
               (if (eq? result 'Unit) '() `((result ,(extern-scalar-type result))))))
 
     (define (extern-physical-signature declaration)
-      (native-scalar-signature (extern-argument-types declaration) (extern-result-type declaration)))
+      (wasm-scalar-signature (extern-argument-types declaration) (extern-result-type declaration)))
 
     (define (extern-wasm-import declaration identifier)
       `(import ,(extern-module declaration) ,(extern-symbol declaration)

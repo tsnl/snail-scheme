@@ -2,7 +2,7 @@
  (scheme base)
  (scheme write)
  (scheme process-context)
- (native chromium-trace))
+ (lofi host chromium-trace))
 
 (define (check expected actual)
   (if (not (equal? expected actual)) (error "chromium-trace behavior mismatch" expected actual)))

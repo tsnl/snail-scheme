@@ -63,8 +63,7 @@
   {
     "name": "sexp-boundaries",
     "type": "I64",
-    "result": "42",
-    "gc_stress": false
+    "result": "42"
   },
   {
     "name": "sexp-malformed",

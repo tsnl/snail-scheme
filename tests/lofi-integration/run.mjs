@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-// ---- Native entry point ----
+// ---- Wasm entry point ----
 
 const [path, expected, checks = '{}'] = process.argv.slice(2);
 const bytes = await readFile(path);

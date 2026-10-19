@@ -12,14 +12,14 @@
    (scheme cxr)
    (scheme file)
    (scheme write)
-   (only (native json) json->string)
+   (only (lofi host json) json->string)
    (only (chibi temp-file) call-with-temp-dir)
    (lofi compiler reader)
    (lofi compiler syntax-parser)
    (lofi compiler syntax)
    (lofi compiler source)
-   (native chromium-trace)
-   (native build-host)
+   (lofi host chromium-trace)
+   (lofi host build-host)
    (lofi compiler frontend)
    (lofi compiler library)
    (lofi compiler library-transfer)
@@ -30,7 +30,7 @@
    (only (lofi compiler types) strict-error resolve)
    (only (lofi compiler checked) program-body program-type)
    (only (lofi compiler ir) node-loc)
-   (only (native wasm) write-wasm))
+   (only (lofi host wasm) write-wasm))
   (begin
 
     ;; ---- Located file descriptions ----
@@ -276,7 +276,7 @@
    (snail-tests
     (export test-source-driver)
     (import
-     (native test-utils))
+     (lofi host test-utils))
     (begin
       (define (test-generation text)
         (parse-generation (car (reader->syntax-list (string->reader "recipe.sld" text)))))

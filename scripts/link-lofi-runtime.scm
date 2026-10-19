@@ -2,8 +2,8 @@
 (import
  (scheme base)
  (chibi string)
- (native process)
- (native runtime-wasm))
+ (lofi host process)
+ (lofi host runtime-wasm))
 
 (define (request arguments)
   (let loop ((arguments arguments) (options '()) (paths '()))
@@ -22,7 +22,7 @@
  (lambda (arguments)
    (let* ((root (car arguments)) (options (request (cdr arguments)))
           (runtime (or (option-ref options 'runtime #f)
-                       (build-wasm-runtime (path-join root "src/native")))))
+                       (build-wasm-runtime (path-join root "src/runtime")))))
      (link-wasm-runtime (option-ref options 'source #f) (option-ref options 'output #f)
                         runtime (option-ref options 'diagnostic #f))))
  "lofi")

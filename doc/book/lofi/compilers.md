@@ -3,9 +3,8 @@
 A library is data describing code. Compilation turns an assembled collection
 of those values into a Wasm artifact. The compiler is an ordinary library
 function: its caller supplies the libraries and an entry point. A command-line
-compiler is one program that calls this function. Build scripts can separately
-pass the emitted Wasm to a Wasm-to-native library and link its object with Rust
-providers.
+compiler is one program that calls this function. Build scripts link scalar
+services and execute the Wasm artifact through an explicit host.
 
 ## Building a program
 
@@ -108,7 +107,7 @@ data through an explicit serialization or builder protocol and checks the
 received structure. It does not export raw pointers into the producer's heap.
 Generated imports still have to be supplied in `application-libraries`, just
 as for a parsed library. The generated application's Wasm may run on a Wasm
-engine or pass through the separate native build sequence; that choice does not
+engine; that choice does not
 change the compiler API.
 
 The recipe is a convenience supplied by the driver. A build program can instead
@@ -168,15 +167,10 @@ it does not infer types or optimize. Optimization acts on proved facts and keeps
 runtime checks where those facts are unavailable.
 
 Wasm is the compiler's output boundary, with mandatory Binaryen optimization.
-The separate native library consumes Wasm and declared physical import/provider
-ABIs, without source syntax, bindings or inference state. Ordinary Scheme build
-scripts compose compilation, native lowering and linking directly. The current
-native platform is x86-64 Linux; unsupported operations produce diagnostics.
-The optional typed execution adapter retains semantic scalar tags such as Bool
-and Char, which cannot be recovered from their common physical `i32` type.
-One Rust runtime crate supplies both routes: Wasm engines trace managed values,
-while native execution uses the in-house collector. Scalar filesystem services
-share their implementation.
+The Wasm engine traces managed values and generates machine code. The typed
+execution adapter retains semantic scalar tags such as Bool and Char, which
+cannot be recovered from their common physical `i32` type. Rust scalar services
+own external resources behind explicit handles.
 
 Performance comparisons use equivalent Lofi, Chez and Rust workloads with the
 same inputs, algorithms and correctness checks. Reports separate compilation

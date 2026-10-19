@@ -250,8 +250,7 @@ quantified signatures, nested generic scopes, explicit list parameters, inferred
 annotated blocks, matches, overloads extended through renamed imports, local
 foreign declarations, and string/bytevector literals. It rebuilds the result
 through typed inspection views and compares it with ordinary Lofi source on
-linked Wasm and actual native execution, including collection at every native
-allocation. Malicious packets exercise lexical escape in both traversal orders,
+linked Wasm. Malicious packets exercise lexical escape in both traversal orders,
 wrong static roles, invalid Unicode, byte ranges, reserved names, duplicate
 quantifiers and attempts to claim checking evidence.
 
@@ -262,8 +261,7 @@ signed zero and computed conversions. Negative probes compare source and receive
 diagnostics. These checks are correctness evidence, not clean measurements.
 
 The [compiler service](lofi-compiler-service.md) exposes parsing, explicit maps,
-compilation and Wasm execution to Lofi. [Native loading](lofi-native-loading.md)
-is separately available through its host adapter, which consumes a Wasm artifact.
+compilation and Wasm execution to Lofi.
 Source transfers can retain an optional seventh `library` field containing
 original located syntax. Its `syntax-token`, `syntax-list` and `syntax-vector`
 nodes retain spelling and source spans, never trusted lexical contexts. The

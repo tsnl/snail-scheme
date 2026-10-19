@@ -4,8 +4,7 @@
   (import
    (scheme base)
    (chibi filesystem)
-   (native process)
-   (native native-build))
+   (lofi host process))
   (begin
 
     ;; ---- Cargo-built host capabilities ----
@@ -16,5 +15,5 @@
         (run-command! (list (tool-name "CARGO" "cargo") "build" "--quiet" "--offline" "--release"
                             "--manifest-path" (path-join root "tools/host/Cargo.toml")
                             "--target-dir" target "--bin" name)
-                      `((environment . ,(native-cargo-environment target))))
+                      '((supervisor . #f)))
         (path-join target "release" name)))))

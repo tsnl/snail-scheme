@@ -10,8 +10,8 @@
    (scheme time)
    (scheme write)
    (lofi compiler source)
-   (native chromium-trace)
-   (only (native process) path-join write-json))
+   (lofi host chromium-trace)
+   (only (lofi host process) path-join write-json))
   (begin
 
     ;; ---- Bounded source-unit spans and optional helper totals ----
@@ -139,10 +139,10 @@
    (snail-tests
     (export test-compiler-profile)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (chibi temp-file)
      (only (chibi filesystem) create-directory)
-     (only (native process) write-text read-text))
+     (only (lofi host process) write-text read-text))
     (begin
       (define (test-profile-values)
         (let* ((called 0)

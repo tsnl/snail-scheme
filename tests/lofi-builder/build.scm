@@ -5,7 +5,7 @@
  (scheme process-context)
  (lofi compiler reader)
  (lofi compiler syntax-parser)
- (native chromium-trace)
+ (lofi host chromium-trace)
  (lofi compiler primitives)
  (lofi compiler frontend)
  (lofi compiler bootstrap))
