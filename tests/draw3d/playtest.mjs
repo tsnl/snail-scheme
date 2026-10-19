@@ -70,24 +70,55 @@ function transportMarks(r) {
   return transportBatches(r).flatMap(batch=>batch.draws.flatMap(draw=>
     Array.from({length:draw.count},(_,offset)=>{
       const matrix=batch.transforms.slice((draw.first+offset)*12,(draw.first+offset+1)*12);
-      return {mesh:draw.mesh,key:batch.key,x:matrix[3],y:matrix[7],z:matrix[11],dx:matrix[0],dy:matrix[4]};
+      return {mesh:draw.mesh,x:matrix[3],y:matrix[7],z:matrix[11],width:matrix[0],height:matrix[5]};
     })));
 }
 function expectedTransport(world) {
-  const seen=new Set(),marks=[];
-  for(const rail of world.rails)for(let step=0;step<rail.path.length-1;step++) {
-    const a=rail.path[step],b=rail.path[step+1],edge=`${a},${b}`;
-    if(seen.has(edge))continue;seen.add(edge);
-    const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y;
-    for(const half of [0,1])marks.push([x+(half/2+.25)*dx,y+(half/2+.25)*dy,dx,dy,20+(step*2+half)%8].join(','));
+  const edges=new Map(),nodes=new Set();
+  for(const rail of world.rails)for(let step=1;step<rail.path.length;step++) {
+    const a=rail.path[step-1],b=rail.path[step];
+    if(a===b)continue;
+    edges.set([a,b].sort((a,b)=>a-b).join(','),[a,b]);nodes.add(a);nodes.add(b);
   }
-  return marks.sort();
+  return {edges:[...edges.values()],nodes:[...nodes]};
 }
+function transportTriangles(r) {
+  const mesh=expandBatch(transportBatches(r)[0]),triangles=[];
+  for(let i=0;i<mesh.indices.length;i+=3)
+    triangles.push(mesh.indices.slice(i,i+3).map(index=>mesh.vertices.slice(index*10,index*10+2)));
+  return triangles;
+}
+const painted=(triangles,point)=>triangles.some(triangle=>triangle.every((a,i)=>cross2(a,triangle[(i+1)%3],point)>=-1e-7));
 function checkTransport(r) {
-  const marks=transportMarks(r),actual=marks.map(({x,y,dx,dy,key})=>[x,y,dx,dy,key].join(','));
-  assert.deepEqual(actual.sort(),expectedTransport(world(r)),'each directed segment appears once with source-to-parent phase and orientation');
-  assert.ok(marks.every(mark=>Math.abs(mark.z-.065)<1e-6),'chevrons sit just above the ground');
+  const marks=transportMarks(r),triangles=transportTriangles(r),{edges,nodes}=expectedTransport(world(r));
+  for(const [a,b] of edges)for(let step=0;step<=16;step++)for(const across of [-.12,0,.12]) {
+    const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y;
+    assert.ok(painted(triangles,[x+dx*step/16-dy*across,y+dy*step/16+dx*across]),'every physical edge is a solid ribbon');
+  }
+  for(const cell of nodes)for(const x of [-.12,0,.12])for(const y of [-.12,0,.12])
+    assert.ok(painted(triangles,[cell%128+x,-Math.floor(cell/128)+y]),'endpoints, bends and junctions have filled joints');
+  assert.ok(triangles.every(triangle=>cross2(...triangle)>0),'all rail faces point upward');
+  assert.ok(triangles.every((a,i)=>triangles.slice(i+1).every(b=>overlapArea(a,b)<1e-7)),'rail pieces never stack translucent surface area');
+  const area=triangles.reduce((sum,triangle)=>sum+cross2(...triangle)/2,0);
+  assert.equal(area,edges.length*.75*.25+nodes.length*.25**2,'the surface is exactly the union of physical rails');
+  assert.ok(marks.every(mark=>Math.abs(mark.z-.065)<1e-6),'energy rails sit just above the ground');
   return marks;
+}
+function transportOnscreen(r,[x,y]) {
+  const m=r.view().scene.uniforms;
+  return Math.abs(m[0]*x+m[4]*y+m[8]*.065+m[12])<=1&&Math.abs(m[1]*x+m[5]*y+m[9]*.065+m[13])<=1;
+}
+function checkTransportBoundary(r) {
+  const triangles=transportTriangles(r);let clipped=0;
+  for(const [a,b] of expectedTransport(world(r)).edges) {
+    const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y;
+    if(transportOnscreen(r,[x,y])!==transportOnscreen(r,[x+dx,y+dy]))clipped++;
+    for(let step=0;step<=16;step++)for(const across of [-.12,0,.12]) {
+      const point=[x+dx*step/16-dy*across,y+dy*step/16+dx*across];
+      if(transportOnscreen(r,point))assert.ok(painted(triangles,point),'visible rail stays filled when its owning endpoint is offscreen');
+    }
+  }
+  return clipped;
 }
 
 {
@@ -156,7 +187,7 @@ function checkTransport(r) {
     const tracks=world(r).tracks.slice(),railMesh=batch(r,20);
     await fixtureCall(r,'fortify',[10,22]);await complete(r);
     assert.equal(siteAt(world(r),10,22).kind,2);assert.deepEqual(world(r).tracks,tracks);
-    assert.equal(batch(r,20),railMesh,'building atop the route retains the phased path mesh');
+    assert.equal(batch(r,20),railMesh,'building atop the route retains the energy rail');
     const gun=siteAt(world(r),10,22),vertices=points(batch(r,3));
     assert.ok(vertices.some(([x,y,z])=>Math.abs(x-gun.x)<.5&&Math.abs(y+gun.y)<.5&&z>1.3),
       'the gun body is raised over its open plinth');
@@ -182,43 +213,42 @@ function checkTransport(r) {
     // Accepted save routes exercise bends, shared segments and opposite traffic.
     const next=world(r),source=siteAt(next,12,22).id;
     for(const rail of next.rails)rail.path=(rail.source===source
-      ?[[12,22],[11,22],[11,21],[12,21],[12,22],[11,22],[10,22],[9,22],[8,22]]
+      ?[[12,22],[11,22],[11,21],[12,21],[12,22],[11,22],[11,23],[11,22],[10,22],[9,22],[8,22]]
       :[[13,22],[13,21],[12,21],[11,21],[11,22],[11,21],[12,21],[12,22]])
       .map(([x,y])=>routeCell(next,x,y));
     await restoreColony(r,next);
     const marks=checkTransport(r),batches=transportBatches(r),meshes=new Set(marks.map(mark=>mark.mesh));
-    assert.equal(meshes.size,1,'all accelerated path occurrences share one fixed mesh');
-    assert.deepEqual([...new Set(marks.map(({dx,dy})=>`${dx},${dy}`))].sort(),['-1,0','0,-1','0,1','1,0']);
-    assert.ok(marks.some(a=>marks.some(b=>a.x===b.x&&a.y===b.y&&a.dx===-b.dx&&a.dy===-b.dy)),
-      'opposite traffic at the same location keeps both directions');
-    for(const batch of batches) {
-      assert.ok(batch.opacity>0&&batch.opacity<=.5,'transport marks remain translucent even at the pulse crest');
-      assert.equal(batch.pulse,true);
-      const phase=(batch.key-20)*Math.PI/4;
-      // The bridge converts millidegrees; pi/4 has a different binary64 rounding path.
-      assert.ok(Math.abs(batch.pulsePhase-phase)<=4*Number.EPSILON*Math.max(1,phase),'transport pulse phases stay a quarter-pi apart');
-    }
-    const mesh=marks[0].mesh,triangles=[];
-    for(let i=0;i<mesh.indices.length;i+=3)triangles.push(mesh.indices.slice(i,i+3).map(index=>mesh.vertices.slice(index*10,index*10+2)));
-    const painted=point=>triangles.some(triangle=>triangle.every((a,i)=>cross2(a,triangle[(i+1)%3],point)>=-1e-7));
-    assert.ok(painted([.12,0])&&painted([-.1,.14])&&painted([-.1,-.14]),'the mark has a forward tip and two arms');
-    assert.equal(painted([-.12,0]),false,'the open back distinguishes a chevron from a dot or solid arrow');
-    assert.ok(triangles.every(triangle=>cross2(...triangle)>0),'all ground faces point upward');
-    assert.ok(triangles.every((a,i)=>triangles.slice(i+1).every(b=>overlapArea(a,b)<1e-7)),
-      'the arms meet without double-blending at the tip');
+    assert.equal(meshes.size,1,'all accelerated rail pieces share one fixed plane mesh');
+    assert.equal(batches.length,1,'joined segments share one display-clock pulse');
+    assert.ok(batches[0].opacity>0&&batches[0].opacity<=.5,'energy remains translucent at the pulse crest');
+    assert.equal(batches[0].pulse,true);assert.equal(batches[0].pulsePhase,0);
+    assert.ok(marks.every(mark=>mark.mesh.vertices[9]===1),'unlit energy keeps its tint at every camera heading');
+    const mesh=marks[0].mesh;
     const moved=world(r);moved.tick++;moved.rails[0].progress=1;moved.rails[0].returning=1;
     await restoreColony(r,moved);const committed=r.snapshot(1);
     await command(r,'rotate',[0,1]);await command(r,'animate',[50]);
-    transportBatches(r).forEach((batch,i)=>assert.equal(batch,batches[i],'tick, shuttle motion and camera animation reuse retained chevrons'));
+    assert.equal(transportBatches(r)[0],batches[0],'tick, shuttle motion and camera animation reuse the retained rail');
     assert.deepEqual(r.snapshot(1),committed,'display animation does not advance the colony');
     const rerouted=world(r);rerouted.rails.find(rail=>rail.source===source).path=
-      [[12,22],[12,21],[11,21],[11,22],[12,22],[11,22],[10,22],[9,22],[8,22]].map(([x,y])=>routeCell(rerouted,x,y));
+      [[12,22],[12,21],[11,21],[11,22],[12,22],[11,22],[11,23],[11,22],[10,22],[9,22],[8,22]].map(([x,y])=>routeCell(rerouted,x,y));
+    rerouted.rails.reverse();await restoreColony(r,rerouted);
+    assert.equal(transportBatches(r)[0],batches[0],'reversed traffic and route order retain the same physical rail');
+    rerouted.rails.find(rail=>rail.source===source).path=
+      [[12,22],[11,22],[10,22],[9,22],[8,22]].map(([x,y])=>routeCell(rerouted,x,y));
     await restoreColony(r,rerouted);
-    assert.ok(transportBatches(r).some((batch,i)=>batch!==batches[i]),'a route orientation change invalidates affected batches');
-    assert.ok(checkTransport(r).every(mark=>mark.mesh===mesh),'rerouting only replaces occurrences, never fixed geometry');
+    assert.notEqual(transportBatches(r)[0],batches[0],'removing a physical branch updates retained occurrences');
+    assert.ok(checkTransport(r).every(mark=>mark.mesh===mesh),'rerouting reuses the fixed plane mesh');
+    const target=at(world(r),12,22),stationary=r.snapshot(1);let clipped=0;
+    for(const heading of [0,90000])for(const offset of [-12,-10,-8,-6,0,6,8,10,12]) {
+      await restoreClient(r,{...local(r),cameraX:(target.x+offset)*1000,cameraY:target.y*1000,scale:500,
+        heading,turnFrom:heading,turnTo:heading,turnElapsed:300,homing:false});
+      clipped+=checkTransportBoundary(r);
+    }
+    assert.ok(clipped>0,'boundary coverage exercises edges with exactly one onscreen endpoint');
+    assert.deepEqual(r.snapshot(1),stationary,'visibility changes leave transport routes and freight untouched');
     await restoreClient(r,{...local(r),cameraX:0,cameraY:0,homing:false});
     assert.ok(transportBatches(r).every(batch=>batch.transforms.length===0),'offscreen routes allocate no occurrences');
-    console.log('ok - translucent transport chevrons share one open mesh, follow all directions and bends, deduplicate shared routes, and retain display-clock phases');
+    console.log('ok - continuous energy rails fill turns and crossings without alpha overlap, share reversed routes, and retain one coherent display-clock pulse');
   } finally {await r.close();}
 }
 
@@ -229,35 +259,34 @@ function checkTransport(r) {
     const next=world(r),source=siteAt(next,12,22),target=at(next,12,22);
     for(const rail of next.rails)rail.path=(rail.source===source.id
       ?[[12,22],[11,22],[10,22],[9,22],[8,22]]
-      :[[13,22],[12,22],[11,22],[11,21],[12,21],[12,22]]).map(([x,y])=>routeCell(next,x,y));
+      :[[13,22],[12,22],[12,21],[11,21],[11,22],[12,22]]).map(([x,y])=>routeCell(next,x,y));
     next.rails.reverse(); // The slower route comes first, so color cannot depend on list order.
     await restoreColony(r,next);await fixtureCall(r,'relocate-building',[13+22*48,14+22*48]);
     assert.ok(siteAt(world(r),13,22).moveX>=0,'the fixture uses an accepted pending depot move');
     const shared=()=>transportMarks(r).filter(mark=>mark.y===-target.y&&mark.x>target.x-1&&mark.x<target.x);
     const tint=mark=>mark.mesh.vertices.slice(6,9).map(value=>Math.round(value*255));
     const mixed=r.snapshot(1),batches=transportBatches(r),cyan=shared();
-    assert.equal(cyan.length,2,'mixed-speed routes draw one chevron at each half of their shared directed edge');
-    assert.deepEqual(cyan.map(mark=>mark.key).sort(),[20,21],'the eligible fast route supplies the shared phase');
-    assert.ok(cyan.every(mark=>mark.dx===-1&&mark.dy===0));
+    assert.equal(cyan.length,1,'opposite mixed-speed routes draw one shared physical edge');
     cyan.forEach(mark=>assert.deepEqual(tint(mark),[35,242,195],'any eligible fast route makes the shared edge cyan'));
-    const marks=transportMarks(r),identities=marks.map(({x,y,dx,dy})=>[x,y,dx,dy].join(','));
-    assert.equal(new Set(identities).size,identities.length,'different route colors never duplicate a directed occurrence');
-    const ordinary=marks.find(mark=>mark.x>target.x&&mark.y===-target.y);
+    const marks=checkTransport(r),identities=marks.map(({x,y})=>[x,y].join(','));
+    assert.equal(new Set(identities).size,identities.length,'different route colors never duplicate an edge or joint');
+    assert.deepEqual(tint(marks.find(mark=>mark.x===target.x&&mark.y===-target.y)),[35,242,195],'a shared joint takes the fastest incident tint');
+    const ordinary=marks.find(mark=>mark.x===target.x+.5&&mark.y===-target.y);
     assert.ok(ordinary);assert.deepEqual(tint(ordinary),[255,244,142],'the moving depot keeps ordinary marks on its unshared edge');
+    const reordered=world(r);reordered.rails.reverse();await restoreColony(r,reordered);
+    assert.equal(transportBatches(r)[0],batches[0],'mixed tint priority and occurrence order do not depend on route order');
     await fixtureCall(r,'relocate-building',[12+22*48,11+22*48]);
     assert.ok(siteAt(world(r),12,22).moveX>=0);
-    const slow=shared();assert.equal(slow.length,2);
-    assert.deepEqual(slow.map(mark=>mark.key).sort(),[22,23],'without a fast route the first ordinary route supplies phase');
+    const slow=shared();assert.equal(slow.length,1);
     slow.forEach(mark=>assert.deepEqual(tint(mark),[255,244,142]));
     assert.ok(slow.every(mark=>mark.mesh===ordinary.mesh),'eligibility changes reuse the existing ordinary mesh');
     assert.ok(transportBatches(r).some((batch,i)=>batch!==batches[i]),'changing station eligibility invalidates affected retained batches');
     await r.restore(1,mixed);
-    const restored=shared();assert.equal(restored.length,2);
-    assert.deepEqual(restored.map(mark=>mark.key).sort(),[20,21]);
-    assert.ok(restored.every(mark=>mark.dx===-1&&mark.dy===0&&mark.mesh===restored[0].mesh));
+    const restored=shared();assert.equal(restored.length,1);
+    assert.deepEqual(tint(restored[0]),[35,242,195]);
     // The live-frame cache can evict cyan while every route is slow; restoring it preserves geometry, not the old wrapper.
     assert.deepEqual(restored[0].mesh,cyan[0].mesh);
-    console.log('ok - mixed-speed shared segments emit one cyan chevron per position; moving the last fast endpoint updates phase and color without rebuilding meshes');
+    console.log('ok - shared energy edges and joints prefer fast cyan independent of route order; moving the last fast endpoint updates tint while reusing meshes');
   } finally {await r.close();}
 }
 
@@ -287,7 +316,7 @@ function checkTransport(r) {
         const value=row.reduce((sum,part,index)=>sum+part*light[index],0)/length;
         assert.ok(Math.abs(value-expected[axis])<.00001,`camera-space light axis ${axis} at ${heading}`);
       }
-      for(const key of [0,3,20,21])assert.equal(frame.batches.find(b=>b.key===key),base.batches.find(b=>b.key===key));
+      for(const key of [0,3,20])assert.equal(frame.batches.find(b=>b.key===key),base.batches.find(b=>b.key===key));
       assert.deepEqual(r.snapshot(1),committed);
     }
     fixedLight(0);await command(r,'rotate',[0,1]);
