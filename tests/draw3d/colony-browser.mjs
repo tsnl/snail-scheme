@@ -56,6 +56,20 @@ async function pointCell(x, y, click = false, z = 0) {
   if (click) await press(position);
   return position;
 }
+// A unit-width green frame belongs to the building; a worker at the same
+// cell has a narrower frame and may be flying above its roof.
+async function buildingHealthHeight(site) {
+  const heights=await evaluate(`(()=>{const heights=[];
+    for(const batch of snailApp.runtime.view().scene.batches.filter(b=>b.key===30||b.key===31))
+      for(const draw of batch.draws)if(draw.mesh.vertices.length>40&&draw.mesh.vertices[47]>draw.mesh.vertices[46])
+        for(let index=draw.first;index<draw.first+draw.count;index++) {
+          const m=batch.transforms.slice(index*12,index*12+12);
+          if(Math.abs(m[3]-${site.x})<.0001&&Math.abs(m[7]+${site.y})<.0001
+            &&Math.abs(Math.hypot(m[0],m[4],m[8])-1)<.0001)heights.push(m[11]);
+        }
+    return heights;})()`);
+  assert.equal(heights.length,1,'the selected building has one green health frame');return heights[0];
+}
 async function frameCell(x,y) {
   const hub=(await world()).surveys.find(s=>s.radius===9);
   await command('inspect-attack',[hub.x+x-8,hub.y+y-22]);
@@ -378,15 +392,22 @@ try {
   await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords(beforeFeedbackClient))})`);await resize(1100,760);await command('viewport',[1100,760]);await settled();
   console.log('ok - actual construction route failures remain visible, unclipped and actionable at desktop and small mobile sizes');
 
-  await complete();assert.equal(siteAt(await world(),15,22)?.stage,2);await frameCell(15,22);await pointCell(15,22,true,1.8);await click('upgrade');
+  await complete();assert.equal(siteAt(await world(),15,22)?.stage,2);await frameCell(15,22);
+  const upgradeSite=siteAt(await world(),15,22),healthHeight=await buildingHealthHeight(upgradeSite);
+  // The health frame is .42 above the same model top used by picking. Select
+  // halfway up that compact body, then prove the order addresses this site.
+  const pickHeight=(healthHeight-.42)/2;await pointCell(15,22,true,pickHeight);
+  assert.deepEqual([(await local()).targetX,(await local()).targetY],[upgradeSite.x,upgradeSite.y]);await click('upgrade');
   const upgrading=siteAt(await world(),15,22),spinner=`upgrade-wait-${upgrading.id}`;assert.equal(await has(spinner),true);
   const marker=()=>evaluate(`(()=>{const n=document.querySelector('[data-ui-key="${spinner}"]'),r=n.getBoundingClientRect(),s=getComputedStyle(n);return{x:r.x+r.width/2,y:r.y+r.height/2,width:parseFloat(s.width),height:parseFloat(s.height),pointer:s.pointerEvents,animation:s.animationName}})()`);
-  const firstMarker=await marker(),top=await pointCell(15,22,false,2.189);assert.ok(Math.abs(firstMarker.x-top.x)<=1&&Math.abs(firstMarker.y-top.y)<=1);
+  // The upgrade marker is .35 above that top, .07 below the green frame.
+  const firstMarker=await marker(),top=await pointCell(15,22,false,healthHeight-.07);assert.ok(Math.abs(firstMarker.x-top.x)<=1&&Math.abs(firstMarker.y-top.y)<=1);
   assert.deepEqual([firstMarker.width,firstMarker.height,firstMarker.pointer,firstMarker.animation],[24,24,'none','upgrade-wait-spin']);
   const waiting=await evaluate('snailApp.runtime.snapshot(1)');await command('drag',[18,12]);const movedMarker=await marker();
   assert.ok(Math.abs(movedMarker.x-firstMarker.x-18)<=1&&Math.abs(movedMarker.y-firstMarker.y-12)<=1);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),waiting);
   await capture('-upgrade-spinner');await click('cancel-build');assert.equal(await has(spinner),false);
-  await pointCell(15,22,true,1.8);await click('upgrade');assert.equal(await has(spinner),true);
+  await pointCell(15,22,true,pickHeight);assert.deepEqual([(await local()).targetX,(await local()).targetY],[upgradeSite.x,upgradeSite.y]);
+  await click('upgrade');assert.equal(await has(spinner),true);
   await complete();assert.equal(siteAt(await world(),15,22).level,2);assert.equal(await has(spinner),false);await key('Escape','Escape');
   console.log('ok - CSS upgrade indicators track the building top, ignore pointer input and disappear on cancellation or completion');
 
