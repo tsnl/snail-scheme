@@ -273,7 +273,8 @@
     (define (check-scavenge! world bot)
       (require! (and (> (bot-target bot) 0) (= (bot-cargo bot) 0) (= (bot-order bot) 0) (= (bot-source bot) 0)))
       (let ((found (find-building (world-buildings world) (bot-target bot))))
-        ;; Combat may remove the target after movement; next tick cancels work.
+        ;; Combat may remove the target after movement. Grounded workers cancel
+        ;; next tick; captured flights land before cancelling their work.
         (unless (null? found)
           (let ((building (car found)))
             (require! (and (ready? building) (not (arming? building)) (not (moving? building))
