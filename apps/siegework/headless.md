@@ -14,13 +14,10 @@ node tests/applications/headless.mjs /tmp/siegework-environment/solo
 node apps/siegework/environment-cli.mjs /tmp/siegework-environment/solo
 ```
 
-The reviewed gameplay baseline at
-`/tmp/snail-siegework-world12-reviewed-artifact-20261018/solo` predates the player
-observation ABI. It deliberately fails the new environment's version check.
-The implementation's tested package is
-`/tmp/snail-siegework-headless-artifact-20261018/solo`, generation
-`e3e239f3cb295587459eb6eb`. Build from source when those temporary artifacts are
-unavailable. The observation extension changes neither World12 nor gameplay.
+The package must provide player observation ABI version 1; older gameplay builds
+deliberately fail the environment's version check. Rebuild from source to obtain
+the extension, which changes neither World12 nor gameplay. Tested package
+identities and temporary artifact paths are recorded in [VALIDATION.md](VALIDATION.md).
 
 ## Node API and episode semantics
 
@@ -77,11 +74,19 @@ processes. Restore prepares a fresh instance, validates the saved World, and
 restores its episode ticks and cumulative reward together. No full snapshot is
 returned to a policy. Persistence/export of these tokens is not implemented.
 
-An unexpected simulation fault may occur after earlier ticks have committed.
+An unexpected simulation or read-only observation fault in the current episode
+requires recovery.
+Simulation faults may occur after earlier ticks have committed.
 The error's `info` reports `confirmedTicksAdvanced`, `episodeTicks`, and
 `recoveryRequired`. It does not claim to roll back the batch or expose a Wasm
 dump. Observe, step and checkpoint then require reset or restore first.
-Malformed requests and ordinary game rejections do not fault the environment.
+Standalone observation faults report zero requested/confirmed ticks. The sanitized
+error retains its original `cause` for trusted Node debugging; JSONL and MCP
+serialize only the safe message and progress info. Malformed requests and ordinary
+game rejections do not fault the environment.
+Failure while preparing a reset/restore candidate also returns a safe error, but
+preserves the current episode, checkpoints, accounting, and existing fault status.
+A healthy episode remains usable after failed preparation.
 
 The default reward is +1 for victory, -1 for defeat, and zero otherwise, including
 horizon truncation. Node callers may pass `reward: {victory, defeat, delivered,

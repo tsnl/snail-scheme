@@ -124,8 +124,16 @@ class SiegeworkEnvironment {
     if (this.#faulted) throw new Error('environment faulted; reset or restore a checkpoint');
   }
   #stat(name) { return this.#runtime.inspect(this.#indices.get(name)); }
-  #stats() {
-    return Object.fromEntries(['tick', 'outcome', 'delivered', 'hull', 'casualties'].map(name => [name, this.#stat(name)]));
+  #stats(ticksRequested) {
+    try { return Object.fromEntries(['tick', 'outcome', 'delivered', 'hull', 'casualties'].map(name => [name, this.#stat(name)])); }
+    catch (cause) { throw this.#simulationFailure(cause, ticksRequested); }
+  }
+  #simulationFailure(cause, ticksRequested = 0, elapsed = this.#elapsed) {
+    this.#faulted = true;
+    const error = new Error('simulation operation failed; reset or restore a checkpoint', {cause});
+    error.info = {ticksRequested, confirmedTicksAdvanced: this.#elapsed - elapsed,
+      episodeTicks: this.#elapsed, recoveryRequired: true};
+    return error;
   }
   async #fresh(seed, snapshot) {
     const runtime = new ReducerRuntime();
@@ -135,7 +143,12 @@ class SiegeworkEnvironment {
       if (snapshot) await runtime.restore(1, snapshot);
       else await runtime.dispatch(1, runtime.command('match', 'new-run-seed', [seed]));
       return {runtime, observation: decodeObservation(runtime.observe())};
-    } catch (error) { await runtime.close(); throw error; }
+    } catch (cause) {
+      await runtime.close();
+      const error = new Error('simulation preparation failed; current episode was not replaced', {cause});
+      error.info = {episodeTicks: this.#elapsed, episodeReward: this.#reward, recoveryRequired: this.#faulted};
+      throw error;
+    }
   }
   async #install(candidate, elapsed = 0, reward = 0) {
     const previous = this.#runtime;
@@ -152,7 +165,11 @@ class SiegeworkEnvironment {
     });
   }
   observe() {
-    return this.#enqueue(() => { this.#healthy(); return this.#result(decodeObservation(this.#runtime.observe())); });
+    return this.#enqueue(() => {
+      this.#healthy();
+      try { return this.#result(decodeObservation(this.#runtime.observe())); }
+      catch (cause) { throw this.#simulationFailure(cause); }
+    });
   }
   #result(observation, extra = {}) {
     const terminated = observation.outcome !== 0, truncated = !terminated && this.#elapsed >= this.#config.horizonTicks;
@@ -170,9 +187,9 @@ class SiegeworkEnvironment {
   }
   async #step(action, ticks) {
     this.#healthy();
-    if (this.#stat('outcome') !== 0 || this.#elapsed >= this.#config.horizonTicks)
+    const before = this.#stats(ticks), elapsed = this.#elapsed;
+    if (before.outcome !== 0 || this.#elapsed >= this.#config.horizonTicks)
       throw new Error('episode ended; reset or restore a checkpoint');
-    const before = this.#stats(), elapsed = this.#elapsed;
     try {
       const decision = await this.#act(action);
       await this.#advance(ticks);
@@ -180,13 +197,7 @@ class SiegeworkEnvironment {
       this.#reward += reward;
       const result = this.#result(observation, {ticksRequested: ticks, ticksAdvanced: this.#elapsed - elapsed, ...decision});
       return {...result, reward, terminated: result.info.terminated, truncated: result.info.truncated};
-    } catch {
-      this.#faulted = true;
-      const error = new Error('simulation operation failed; reset or restore a checkpoint');
-      error.info = {ticksRequested: ticks, confirmedTicksAdvanced: this.#elapsed - elapsed,
-        episodeTicks: this.#elapsed, recoveryRequired: true};
-      throw error;
-    }
+    } catch (cause) { throw this.#simulationFailure(cause, ticks, elapsed); }
   }
   async #act(action) {
     const command = commandFor(action, 128);

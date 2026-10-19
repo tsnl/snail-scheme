@@ -192,6 +192,57 @@ await test('partial simulation faults report confirmed progress and require fres
   await environment.reset(1); assert.equal((await environment.step(build, 0)).info.buildReason, 0); await environment.close();
 });
 
+await test('observation, decoding and pre-step inspection faults share a private recovery boundary', async () => {
+  const environment = await openEnvironment(directory), secret = new Error('private World diagnostic: nest hp=13');
+  for (const [reader, operation, decode] of [['observe', 'observe', false], ['observe', 'observe', true],
+    ['observe', 'step', false], ['inspect', 'step', false]]) {
+    await environment.reset(1); await start(environment); await environment.step(wait, 3);
+    const before = await environment.observe(), {checkpoint} = await environment.checkpoint();
+    const original = ReducerRuntime.prototype[reader], ticks = operation === 'step' ? 2 : 0;
+    ReducerRuntime.prototype[reader] = () => { if (decode) return [[999]]; throw secret; };
+    try {
+      await assert.rejects(operation === 'step' ? environment.step(wait, ticks) : environment.observe(), error => {
+        assert.equal(error.message, 'simulation operation failed; reset or restore a checkpoint');
+        if (decode) assert.match(error.cause.message, /unsupported observation row/);
+        else assert.equal(error.cause, secret);
+        assert.deepEqual(error.info, {ticksRequested: ticks, confirmedTicksAdvanced: reader === 'observe' && operation === 'step' ? 2 : 0,
+          episodeTicks: reader === 'observe' && operation === 'step' ? 5 : 3, recoveryRequired: true});
+        return true;
+      });
+    } finally { ReducerRuntime.prototype[reader] = original; }
+    await assert.rejects(environment.observe(), /faulted/); await assert.rejects(environment.step(wait, 0), /faulted/);
+    await assert.rejects(environment.checkpoint(), /faulted/);
+    assert.deepEqual(await environment.restore(checkpoint), before); await environment.step(wait, 0);
+    const observe = ReducerRuntime.prototype.observe;
+    ReducerRuntime.prototype.observe = () => { throw secret; };
+    try { await assert.rejects(environment.observe(), /simulation operation failed/); }
+    finally { ReducerRuntime.prototype.observe = observe; }
+    const reset = await environment.reset(42); assert.equal(reset.info.seed, 42); assert.equal(reset.info.episodeTicks, 0);
+    await environment.observe();
+  }
+  await environment.close();
+});
+
+await test('failed reset and restore candidates sanitize errors without replacing the healthy episode', async () => {
+  const environment = await openEnvironment(directory, {reward: {tick: 0.25}});
+  await start(environment); await environment.step(wait, 3);
+  const saved = await environment.observe(), {checkpoint} = await environment.checkpoint();
+  await environment.step(wait, 2); const before = await environment.observe();
+  for (const operation of [() => environment.reset(42), () => environment.restore(checkpoint)]) {
+    const observe = ReducerRuntime.prototype.observe, secret = new Error('private candidate World diagnostic: nest hp=13');
+    ReducerRuntime.prototype.observe = () => { throw secret; };
+    try {
+      await assert.rejects(operation(), error => {
+        assert.equal(error.message, 'simulation preparation failed; current episode was not replaced');
+        assert.equal(error.cause, secret);
+        assert.deepEqual(error.info, {episodeTicks: 5, episodeReward: 1.25, recoveryRequired: false}); return true;
+      });
+    } finally { ReducerRuntime.prototype.observe = observe; }
+    assert.deepEqual(await environment.observe(), before); await environment.step(wait, 0);
+  }
+  assert.deepEqual(await environment.restore(checkpoint), saved); await environment.close();
+});
+
 await test('checkpoint IDs are scoped, bounded, opaque and independent of the hidden World', async () => {
   const first = await openEnvironment(directory), second = await openEnvironment(directory);
   const checkpoint = await first.checkpoint(); assert.deepEqual(Object.keys(checkpoint), ['checkpoint']);
@@ -201,8 +252,8 @@ await test('checkpoint IDs are scoped, bounded, opaque and independent of the hi
   await first.close(); await second.close();
 });
 
-function subprocess(input, args = []) {
-  const child = spawnSync(process.execPath, [resolve(import.meta.dirname, '../../apps/siegework/environment-cli.mjs'), ...args, directory],
+function subprocess(input, args = [], nodeArgs = []) {
+  const child = spawnSync(process.execPath, [...nodeArgs, resolve(import.meta.dirname, '../../apps/siegework/environment-cli.mjs'), ...args, directory],
     {input, encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024});
   assert.ifError(child.error); assert.equal(child.status, 0, child.stderr); assert.equal(child.stderr, '');
   return child.stdout.trim().split('\n').map(line => JSON.parse(line));
@@ -242,6 +293,44 @@ await test('MCP subprocess negotiates lifecycle, lists tools, pages knowledge an
   assert.equal(byId.get(null).error.code, -32700);
   assert.equal(byId.get(11).result.structuredContent.observation.hub.notice, 0);
   assert.notEqual(byId.get(11).result.structuredContent.observation.tiles[0].cell, page.observation.tiles[0].cell);
+});
+
+await test('MCP rejects malformed parameter objects without acknowledging invalid notifications', async () => {
+  const rpc = (id, method, params) => ({jsonrpc: '2.0', id, method, params});
+  const initialize = capabilities => ({protocolVersion: '2025-11-25', capabilities, clientInfo: {name: 'shape-check', version: '1'}});
+  const output = subprocess(wire([rpc(1, 'initialize', initialize([])), rpc(2, 'initialize', initialize({})),
+    {jsonrpc: '2.0', method: 'notifications/initialized', params: 123}, rpc(3, 'tools/list'),
+    rpc(4, 'ping', 123), rpc(5, 'ping', []), rpc(6, 'ping', null),
+    {jsonrpc: '2.0', method: 'notifications/initialized', params: []}, rpc(7, 'tools/list'),
+    {jsonrpc: '2.0', method: 'notifications/initialized', params: {}}, rpc(8, 'tools/list'), rpc(9, 'ping', {})]), ['--mcp']);
+  assert.equal(output.length, 9); const byId = new Map(output.map(message => [message.id, message]));
+  for (const id of [1, 4, 5, 6]) assert.equal(byId.get(id).error.code, -32602);
+  assert.equal(byId.get(2).result.protocolVersion, '2025-11-25');
+  for (const id of [3, 7]) assert.equal(byId.get(id).error.code, -32000);
+  assert.equal(byId.get(8).result.tools.length, 5); assert.deepEqual(byId.get(9).result, {});
+});
+
+await test('JSONL and MCP serialize safe observation errors without exposing their trusted Node cause', async () => {
+  const preload = `import {ReducerRuntime} from ${JSON.stringify(new URL('../../src/application/runtime.mjs', import.meta.url).href)};
+    const observe = ReducerRuntime.prototype.observe; let calls = 0;
+    ReducerRuntime.prototype.observe = function() {
+      if (++calls === 2) throw new Error('private World diagnostic: nest hp=13');
+      return observe.call(this);
+    };`;
+  const nodeArgs = ['--import', `data:text/javascript,${encodeURIComponent(preload)}`];
+  const output = subprocess(wire([{id: 1, method: 'observe'}, {id: 2, method: 'step', params: {ticks: 0}},
+    {id: 3, method: 'reset'}, {id: 4, method: 'observe'}, {id: 5, method: 'close'}]), [], nodeArgs);
+  assert.doesNotMatch(JSON.stringify(output), /private World|nest hp/);
+  assert.match(output[0].error.message, /simulation operation failed/); assert.equal(output[0].error.info.recoveryRequired, true);
+  assert.match(output[1].error.message, /faulted/); assert.equal(output[3].result.observation.tick, 0);
+  const rpc = (id, method, params) => ({jsonrpc: '2.0', id, method, params});
+  const mcp = subprocess(wire([rpc(1, 'initialize', {protocolVersion: '2025-11-25', capabilities: {}, clientInfo: {name: 'fault-check', version: '1'}}),
+    {jsonrpc: '2.0', method: 'notifications/initialized'}, rpc(2, 'tools/call', {name: 'siegework_observe'}),
+    rpc(3, 'tools/call', {name: 'siegework_step', arguments: {ticks: 0}}),
+    rpc(4, 'tools/call', {name: 'siegework_reset'}), rpc(5, 'tools/call', {name: 'siegework_observe'})]), ['--mcp'], nodeArgs);
+  assert.doesNotMatch(JSON.stringify(mcp), /private World|nest hp/);
+  assert.equal(mcp[1].result.isError, true); assert.equal(JSON.parse(mcp[1].result.content[0].text).info.recoveryRequired, true);
+  assert.match(mcp[2].result.content[0].text, /faulted/); assert.equal(mcp[4].result.structuredContent.observation.tick, 0);
 });
 
 await test('bounded batch diagnostic reports observation sizes and actual simulation throughput', async () => {

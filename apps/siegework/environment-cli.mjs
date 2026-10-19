@@ -117,25 +117,27 @@ async function callTool(environment, params) {
 async function mcp(environment, message, state) {
   protocol(message && !Array.isArray(message) && message.jsonrpc === '2.0' && typeof message.method === 'string', -32600, 'invalid JSON-RPC request');
   const notification = !Object.hasOwn(message, 'id');
+  const validParams = message.params === undefined || message.params && typeof message.params === 'object' && !Array.isArray(message.params);
   if (notification) {
-    if (message.method === 'notifications/initialized' && state.initialized) state.ready = true;
+    if (validParams && message.method === 'notifications/initialized' && state.initialized) state.ready = true;
     return null;
   }
   protocol(requestId(message.id), -32600, 'invalid request id');
+  protocol(validParams, -32602, 'params must be an object');
   let result;
   switch (message.method) {
     case 'initialize':
       protocol(!state.initialized, -32600, 'already initialized');
       protocol(typeof message.params?.protocolVersion === 'string' && message.params?.capabilities
-        && typeof message.params.capabilities === 'object' && typeof message.params?.clientInfo?.name === 'string'
+        && typeof message.params.capabilities === 'object' && !Array.isArray(message.params.capabilities)
+        && typeof message.params?.clientInfo?.name === 'string'
         && typeof message.params.clientInfo.version === 'string', -32602, 'invalid initialize params');
       state.initialized = true;
       result = {protocolVersion: '2025-11-25', capabilities: {tools: {}}, serverInfo: {name: 'siegework', version: '1.0.0'}}; break;
     case 'ping': result = {}; break;
     case 'tools/list':
       protocol(state.ready, -32000, 'initialize and send notifications/initialized first');
-      protocol(message.params === undefined || message.params && typeof message.params === 'object'
-        && !Array.isArray(message.params) && !message.params.cursor, -32602, 'invalid tools/list params');
+      protocol(!message.params?.cursor, -32602, 'invalid tools/list params');
       result = {tools}; break;
     case 'tools/call':
       protocol(state.ready, -32000, 'initialize and send notifications/initialized first');

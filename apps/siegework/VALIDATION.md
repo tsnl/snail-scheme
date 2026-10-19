@@ -5,19 +5,29 @@ its privileged recording projection. The tested static package is
 `/tmp/snail-siegework-headless-artifact-20261018/solo`, generation
 `e3e239f3cb295587459eb6eb`. The host runs that package through the browser's
 `ReducerRuntime`; game rules, World12 serialization and presentation are unchanged.
+The earlier reviewed gameplay baseline at
+`/tmp/snail-siegework-world12-reviewed-artifact-20261018/solo` predates observation
+ABI version 1 and deliberately fails the new environment's package check.
 
 Executed checks for this checkpoint:
 
-- 13 focused headless checks, including exact World parity across seeds 1, 42
+- 17 focused headless checks, including exact World parity across seeds 1, 42
   and 65535; first-extractor gate; whole-request validation including JSON null;
   FIFO order; paused/unstarted time; horizon and reward checkpoint restoration;
   hidden enemies/nest health; actual Wasm victory/loss; partial-fault recovery;
   and real JSONL/MCP subprocess lifecycle, framing, paging and error responses.
+- Review regressions inject observation, decoding and initial inspection failures
+  to prove error sanitization, recovery requirements, and unchanged healthy state
+  after failed reset/restore preparation. Real subprocesses verify that private
+  Node error causes never enter protocol responses. These are fault-injection
+  consistency checks, not evidence of a naturally trapping valid World.
+  Malformed MCP capabilities and non-object parameters are also exercised;
+  invalid notifications remain silent and cannot complete initialization.
 - 12 recording checks, four first-extractor checks, and six nest-front checks
   against the new package.
 - Scheme formatting, JavaScript syntax, and whitespace checks for the changes.
 
-The focused runner's development diagnostic observed 600 ticks in 156–188 ms,
+The focused runner's development diagnostic observed 600 ticks in 154–188 ms,
 with 23171-byte initial and 34441-byte tick-600 player observations. These are
 local instrumented samples, not clean benchmarks. No Python Gymnasium wrapper,
 training result, multiplayer service, browser persistence check or GPU-rendering
