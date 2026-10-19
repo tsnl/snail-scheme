@@ -14,7 +14,7 @@ alternative spellings of `def`.
 The declaration binds a function with a concrete signature to a provider module
 and symbol. Both names are literal strings. The target checks that the signature
 is supported by its foreign ABI; declaring an arbitrary Lofi type does not make
-that type transportable. Wasm imports and native C linkage use the same declared
+that type transportable. Wasm imports use the declared
 interface. A declaration can occur at library scope or in a local block; it
 does not call the function or allocate a provider when evaluated.
 

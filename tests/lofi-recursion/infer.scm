@@ -4,7 +4,7 @@
  (scheme cxr)
  (scheme process-context)
  (lofi compiler source-driver)
- (native chromium-trace))
+ (lofi host chromium-trace))
 (let ((arguments (cdr (command-line))))
   (with-chromium-trace-to (caddr arguments)
                           (lambda () (source-file->core (car arguments) (cadr arguments)))))

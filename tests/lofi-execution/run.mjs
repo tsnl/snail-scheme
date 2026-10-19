@@ -56,7 +56,7 @@ for (const name of ['wrong-main', 'wrong-entry'])
 assert.equal(checkedProvider.exports.trace.value, 0, 'ABI mismatch precedes main effects');
 assert.throws(() => load('start'), /automatic start/);
 assert.throws(() => load('mutable-import'), /only function imports/);
-assert.throws(() => loadWasm(bytes('native.o')), /native64 loading is not supported/);
+assert.throws(() => loadWasm(new Uint8Array([0x7f, 0x45, 0x4c, 0x46])), WebAssembly.CompileError);
 
 // ---- Failed initialization returns no handle and retains external effects ----
 

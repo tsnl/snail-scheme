@@ -10,10 +10,9 @@ SCHEME_SOURCES = '*.scm' '*.sld' ':!:benchmarks/**'
 
 test:
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
-	"$(CHIBI)" -D snail-tests -I bootstrap -I src/native/tests src/native/tests/host.scm
-	"$(CHIBI)" -D snail-tests -I bootstrap -I tests -I src/native/tests tests/lofi/host.scm
-	"$(CHIBI)" -D snail-tests -I bootstrap -I tests -I src/native/tests -I benchmarks tests/lofi-benchmarks.scm
-	"$(CHIBI)" -D snail-tests -I bootstrap -I tests -I src/native/tests -I benchmarks benchmarks/wasm-reference/tests/audits.scm
+	"$(CHIBI)" -D snail-tests -I bootstrap -I tests tests/lofi/host.scm
+	"$(CHIBI)" -D snail-tests -I bootstrap -I tests -I benchmarks tests/lofi-benchmarks.scm
+	"$(CHIBI)" -D snail-tests -I bootstrap -I tests -I benchmarks benchmarks/wasm-reference/tests/audits.scm
 
 benchmark:
 	"$(CHIBI)" -I bootstrap -I benchmarks benchmarks/lofi/runner.scm prepare --output "$(BENCH_OUTPUT)"

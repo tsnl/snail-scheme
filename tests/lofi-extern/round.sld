@@ -7,10 +7,10 @@
 (def round32 (-> F32 F32)
      (lambda (value) (round value)))
 
-(def native64 (-> F64 F64)
+(def nearest64 (-> F64 F64)
      (lambda (value) (f64-round value)))
 
-(def native32 (-> F32 F32)
+(def nearest32 (-> F32 F32)
      (lambda (value) (f32-round value)))
 (def concrete64
      (ann round (-> F64 F64)))

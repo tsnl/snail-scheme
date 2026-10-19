@@ -8,9 +8,7 @@ compilation does not search directories, read source files or run generators.
 
 The service currently runs in Node on Linux with Chibi, the existing Binaryen
 tools, `mkfifo` and GNU `ps` available. Compilation always returns a Wasm artifact.
-Native builds use ordinary Chibi scripts that pass Wasm to the separate native
-package; independent native instances use the
-[Scheme native adapter](lofi-native-loading.md). This is a correctness
+This is a correctness
 implementation, with no claim about compile-service latency or clean benchmark
 timings.
 
@@ -219,6 +217,6 @@ compiles explicit maps and invokes the results. It checks fresh parse identities
 repeated insertion aliases, source-string ownership, original-library reuse, and
 errors deferred until map resolution or type checking. The builder suite also
 reconstructs a complete parsed library through Lofi views, compares linked Wasm
-and native behavior, and checks exact numeric precision and diagnostic locations.
+behavior, and checks exact numeric precision and diagnostic locations.
 The parsing runner retains bounded command records and artifacts under
 `build/lofi-parsed-library/attempt-*/`.

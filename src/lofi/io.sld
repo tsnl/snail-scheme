@@ -54,7 +54,7 @@
     (def current-output-port (-> OutputPort)
          (lambda () standard-output))
 
-    ;; All aliases share the native reader and its peek buffer. Explicit close
+    ;; All aliases share the host reader and its peek buffer. Explicit close
     ;; preserves the borrowed handle, just as it does for standard output.
     (def standard-input
          (input-port (ref (standard-input-handle)) (ref (ann 0 I64))))

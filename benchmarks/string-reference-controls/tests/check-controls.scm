@@ -1,3 +1,3 @@
 #!/usr/bin/env chibi-scheme
-(import (scheme base) (string-reference-controls checks) (native process))
+(import (scheme base) (string-reference-controls checks) (lofi host process))
 (command-line-main controls-main)

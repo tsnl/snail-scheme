@@ -63,8 +63,6 @@ function requireAbiExports(module) {
 function snapshotWasmBytes(artifactBytes) {
   if (!(artifactBytes instanceof Uint8Array)) throw new TypeError('loadWasm requires artifact bytes');
   const bytes = Uint8Array.from(artifactBytes);
-  if (bytes[0] === 0x7f && bytes[1] === 0x45 && bytes[2] === 0x4c && bytes[3] === 0x46)
-    throw new TypeError('native64 loading is not supported by the Wasm execution adapter');
   return bytes;
 }
 

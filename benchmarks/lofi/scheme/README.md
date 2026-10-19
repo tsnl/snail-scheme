@@ -1,5 +1,9 @@
 # Scheme interpreter
 
+Current runs use Lofi/Wasm and the independent Chez/Rust controls. Native Lofi
+results below are historical; see [the archive guide](../../history.md) for the
+recorded source revisions and retired build tools.
+
 `main.sld` is the complete upstream interpreter written as ordinary, statically
 checked Lofi. All 260 non-import, non-driver source forms remain, including the
 interpreter's compiler, environment, macro machinery and primitive registration.
@@ -48,17 +52,16 @@ native's retained optimized Wasm byte-identical to V8's program. An earlier nati
 attempt optimized an already optimized module again; it is retained as separate
 correctness evidence and is not the parity result. Original/adapted Chez passed
 as well. These concurrent correctness runs provide no clean timing claim. The
-later [current-source frozen checkpoint](../evidence/20261015-dynamic-scheme.md)
-compiles the unchanged current source and passes all six canonical routes,
+later [2026-10-15 frozen checkpoint](../evidence/20261015-dynamic-scheme.md)
+compiled the source recorded there and passed all six canonical routes,
 including both Rust controls. Its verifier adds ordered phase checks: the
 configuration and probe file each open and close once, followed by no canonical
 worker or cleanup file activity. Native release counts are setup 1, probes 1,
 worker 0 and cleanup 0. The original-Chez oracle separately passes all 26 probes;
-the Rust controls run the complete canonical sorting predicate. The case remains
-unmeasured.
+the Rust controls run the complete canonical sorting predicate. That checkpoint added no timing samples.
 
 The [integration review](../evidence/20261015-two-ports-review.json) repeats the
-canonical worker and probes with the current scalar runtime and native lowering.
+canonical worker and probes with the scalar runtime and native lowering recorded there.
 It reuses the retained guest after checking source-form identity, rebuilds both
 providers, and again checks optimized guest byte equality.
 

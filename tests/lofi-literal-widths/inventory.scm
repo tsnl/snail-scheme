@@ -10,7 +10,7 @@
  (lofi compiler ir)
  (lofi compiler source)
  (only (lofi compiler infer) infer-literal judgment-type judgment-detail)
- (only (native chromium-trace) with-chromium-trace-to)
+ (only (lofi host chromium-trace) with-chromium-trace-to)
  (only (scheme hash-table) make-hash-table hash-table-ref/default hash-table-set!))
 
 (define (record-literals program port)

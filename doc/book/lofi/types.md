@@ -191,7 +191,7 @@ Overflow may produce infinity; underflow may
 produce a subnormal or signed zero. Division by zero, invalid domains and
 operations with infinity or NaN operands retain their IEEE behavior. NaN payloads
 and signs are not prescribed. These contracts apply to direct primitives,
-overloads and first-class function values on both Wasm and native execution.
+overloads and first-class function values on raw and optimized Wasm.
 
 Explicit narrowing conversions remain checked: an out-of-range integer or a
 finite float that rounds to infinity traps. Floating-to-integer conversion also

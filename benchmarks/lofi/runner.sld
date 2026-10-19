@@ -1,28 +1,41 @@
 ;; Freeze authored workloads and retain actual target execution evidence.
 (define-library (lofi runner)
-  (export benchmark-root runtime-project-directory selected-cases prepare verify-preparation validate inventory
+  (export benchmark-root selected-cases prepare verify-preparation validate inventory
           record-command succeeded? frozen-environment tool source-directory case-source
-          execution-directory workload-directory compile-chez native-build native-parity
-          verify-native-parity native-artifact-files runtime-provider fft-provider
+          execution-directory workload-directory compile-chez
+          runtime-provider fft-provider
           verify-case-sources freeze-files relative-files runner-main enter-frozen-driver
           timeout-value compile-timeout run-timeout text-contains? exception-text)
-  (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme inexact)
-          (scheme process-context) (scheme read) (scheme time) (scheme write)
-          (srfi 1) (srfi 95) (except (chibi filesystem) file-exists?)
-          (only (srfi 130) string-contains)
-          (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
-          (native json) (native process) (native native-build) (lofi support))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme cxr)
+   (scheme file)
+   (scheme inexact)
+   (scheme process-context)
+   (scheme read)
+   (scheme time)
+   (scheme write)
+   (srfi 1)
+   (srfi 95)
+   (except (chibi filesystem) file-exists?)
+   (only (srfi 130) string-contains)
+   (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
+   (lofi host json)
+   (lofi host process)
+   (lofi compiler tools host-tools)
+   (lofi support))
   (begin
 
     ;; ---- Corpus and explicit configuration ----
 
     (define benchmark-root (make-parameter (current-directory)))
-    (define (runtime-project-directory root) (path-join root "src/native"))
+
     (define (trim text) (string-trim text char-whitespace?))
     (define tools
       '((CHIBI . "chibi-scheme") (WASM_OPT . "wasm-opt") (WASM_AS . "wasm-as")
         (WASM_DIS . "wasm-dis") (WASM_MERGE . "wasm-merge") (NODE . "node")
-        (CHEZ . "scheme") (RUSTC . "rustc") (CARGO . "cargo") (LLC . "llc") (LLVM_OPT . "opt")
+        (CHEZ . "scheme") (RUSTC . "rustc") (CARGO . "cargo") (CC . "cc")
         (TASKSET . "taskset") (LDD . "ldd") (GIT . "git") (ENV . "env")
         (REALPATH . "realpath") (DATE . "date") (TIMEOUT . "timeout")
         (CP . "cp") (SHA256SUM . "sha256sum")))
@@ -32,7 +45,7 @@
                        RUSTFLAGS RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER CARGO_ENCODED_RUSTFLAGS CARGO_BUILD_TARGET
                        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER
                        CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS CARGO_TARGET_WASM32_WASIP1_LINKER LD_LIBRARY_PATH LIBRARY_PATH
-                       SNAIL_NATIVE_CPU SNAIL_NATIVE_LIBC SNAIL_NATIVE_GCC SNAIL_NATIVE_SUPERVISOR CHIBI_MODULE_PATH SCHEMEHEAPDIRS LANG LC_ALL TZ))
+                       SNAIL_PROCESS_SUPERVISOR CHIBI_MODULE_PATH SCHEMEHEAPDIRS LANG LC_ALL TZ))
     (define runtime-features
       '("--mvp-features" "--enable-mutable-globals" "--enable-nontrapping-float-to-int"
         "--enable-bulk-memory" "--enable-sign-ext" "--enable-reference-types"
@@ -68,7 +81,7 @@
               (string-split (run-command! (list "git" "-C" root "ls-files" "-z")) #\null)))
 
     (define (compiler-file? name)
-      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "scripts/"))
+      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "scripts/" "tools/host/"))
           (member name '("Cargo.toml" "Cargo.lock" "rust-toolchain.toml" "build.rs"))))
 
     (define (campaign-file? name)
@@ -81,9 +94,7 @@
       (sort (filter (lambda (path) (and (campaign-file? path) (file-regular? (path-join root path))))
                     (relative-files root)) string<?))
 
-    (define (bootstrap-source? path)
-      (or (string-prefix? "src/lofi/" path) (string-prefix? "src/native/" path)
-          (string=? "src/native.sld" path)))
+    (define (bootstrap-source? path) (string-prefix? "src/lofi/" path))
 
     (define (freeze-bootstrap-file directory file)
       (let* ((source (symbol->string (car file)))
@@ -99,7 +110,7 @@
 
     (define (verify-live-campaign root files)
       (verify-source-files root
-        (filter (lambda (file) (campaign-file? (symbol->string (car file)))) files)))
+                           (filter (lambda (file) (campaign-file? (symbol->string (car file)))) files)))
 
     (define (freeze-files root destination paths)
       (map
@@ -145,25 +156,15 @@
        tools))
 
     (define (captured-environment)
-      (apply fields-with
-             (map (lambda (name) (cons name (or (get-environment-variable (symbol->string name)) 'null))) execution-variables)
-             (map (lambda (entry) (cons (string->symbol (car entry)) (cdr entry))) (native-system-environment))))
+      (map (lambda (name) (cons name (or (get-environment-variable (symbol->string name)) 'null))) execution-variables))
 
-    (define (frozen-wrapper-environment root directory environment)
-      (let ((wrapper (field environment 'RUSTC_WRAPPER 'null))
-            (workspace (field environment 'RUSTC_WORKSPACE_WRAPPER 'null)))
-        (unless (or (not (string? wrapper)) (string=? wrapper "")
-                    (paths-alias? wrapper (path-join root "src/native/scripts/rustc-native")))
-          (error "benchmark freeze requires the repository Rust compiler wrapper; unset RUSTC_WRAPPER" wrapper))
-        (when (and (string? workspace) (not (string=? workspace "")))
-          (error "benchmark freeze requires no workspace wrapper; unset RUSTC_WORKSPACE_WRAPPER" workspace))
-        (fields-with environment (cons 'RUSTC_WRAPPER (path-join directory "source/src/native/scripts/rustc-native"))
-                     (cons 'RUSTC_WORKSPACE_WRAPPER 'null))))
-
-    (define (check-frozen-native-cpu environment)
-      (let ((cpu (field environment 'SNAIL_NATIVE_CPU 'null)))
-        (when (member cpu '("" "native"))
-          (error "benchmark freeze requires a named SNAIL_NATIVE_CPU or no override" cpu))))
+    (define (checked-build-environment environment)
+      (for-each (lambda (name)
+                  (let ((wrapper (field environment name 'null)))
+                    (when (and (string? wrapper) (not (string=? wrapper "")))
+                      (error "benchmark freeze requires no Rust compiler wrappers" name wrapper))))
+                '(RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER))
+      environment)
 
     (define (file-identity path)
       `((path . ,path) (sha256 . ,(file-sha256 path))))
@@ -205,8 +206,9 @@
                                                        (path-join (get-environment-variable "HOME") ".cargo")))
                                 (filter (lambda (entry) (not (string=? (car entry) "CARGO_HOME"))) (frozen-environment manifest))))
              (result (record-command directory "vendor-locked-crates"
-                                     (list (tool manifest 'CARGO) "vendor" "--offline" "--locked" "--manifest-path" (path-join source "src/native/Cargo.toml")
-                                           "--sync" (path-join source "benchmarks/wasm-reference/Cargo.toml") destination)
+                                     (list (tool manifest 'CARGO) "vendor" "--offline" "--locked" "--manifest-path" (path-join source "src/runtime/Cargo.toml")
+                                           "--sync" (path-join source "benchmarks/wasm-reference/Cargo.toml")
+                                           "--sync" (path-join source "tools/host/Cargo.toml") destination)
                                      environment source (compile-timeout manifest))))
         (unless (succeeded? result) (error "cannot freeze locked Cargo dependencies" result))
         (create-directory* (path-join directory "toolchain/cargo-home"))
@@ -220,12 +222,12 @@
     (define (prepare root destination names compile-seconds run-seconds)
       (let* ((corpus (read-json (path-join root "benchmarks/lofi/corpus.json"))) (cases (selected-cases corpus names))
              (environment (captured-environment)))
-        (check-frozen-native-cpu environment)
+        (checked-build-environment environment)
         (for-each (lambda (case) (verify-case-sources root case)) (json-array (field corpus 'cases)))
         (when (or (file-exists? destination) (string=? root destination) (string-prefix? (string-append root "/") destination))
           (error "prepare requires a fresh destination outside the checkout" destination))
         (create-directory* destination)
-        (current-process-supervisor (ensure-native-supervisor (runtime-project-directory root)))
+        (current-process-supervisor (build-host-tool root "snail-process-supervisor"))
         (let* ((paths (campaign-paths root))
                (manifest `((format . 2) (kind . "lofi-preparation")
                            (config . ((compile_timeout . ,(timeout-value compile-seconds)) (run_timeout . ,(timeout-value run-seconds))))
@@ -234,13 +236,13 @@
                            (tools . ,(tool-identities)) (cases . ,(list->vector cases)) (measurement . "not-measured")
                            (source_revision . ,(trim (run-command! (list "git" "-C" root "rev-parse" "HEAD"))))
                            (source_status . ,(run-command! (list "git" "-C" root "status" "--porcelain" "--ignore-submodules=all")))
-                           (execution_environment . ,(frozen-wrapper-environment root destination environment))))
+                           (execution_environment . ,environment)))
                (manifest (vendor-rust destination (freeze-rust destination manifest)))
-               (supervisor (path-join destination "toolchain/snail-native-supervisor")))
+               (supervisor (path-join destination "toolchain/snail-process-supervisor")))
           (copy-file (current-process-supervisor) supervisor)
           (set! manifest (fields-with manifest
-                                      (cons 'build_dependencies (cons (cons 'toolchain/snail-native-supervisor (file-sha256 supervisor)) (field manifest 'build_dependencies)))
-                                      (cons 'execution_environment (fields-with (field manifest 'execution_environment) (cons 'SNAIL_NATIVE_SUPERVISOR supervisor)))))
+                                      (cons 'build_dependencies (cons (cons 'toolchain/snail-process-supervisor (file-sha256 supervisor)) (field manifest 'build_dependencies)))
+                                      (cons 'execution_environment (fields-with (field manifest 'execution_environment) (cons 'SNAIL_PROCESS_SUPERVISOR supervisor)))))
           (unless (equal? paths (campaign-paths root)) (error "source inventory changed during preparation"))
           (verify-live-campaign root (field manifest 'files))
           (write-json (path-join destination "manifest.json") manifest)
@@ -331,7 +333,6 @@
 
     (define (chibi-command directory manifest script)
       (list (tool manifest 'CHIBI) "-I" (path-join directory "source/bootstrap")
-            "-I" (path-join directory "source/bootstrap")
             "-I" (path-join directory "source/benchmarks") (path-join directory "source" script)))
 
     (define (lofi-build directory case source target manifest environment)
@@ -353,7 +354,7 @@
       (let* ((runtime-target (path-join directory "runtime-target"))
              (build (record-command target "runtime-build"
                                     (list (tool manifest 'CARGO) "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--locked"
-                                          "--release" "--target" "wasm32-wasip1" "--manifest-path" (path-join directory "source/src/native/runtime/Cargo.toml")
+                                          "--release" "--target" "wasm32-wasip1" "--manifest-path" (path-join directory "source/src/runtime/Cargo.toml")
                                           "--target-dir" runtime-target) environment (source-directory directory) (compile-timeout manifest))))
         (unless (succeeded? build) (error "Rust scalar runtime build failed" build))
         (copy-file (path-join runtime-target "wasm32-wasip1/release/snail_runtime.wasm") (path-join target "runtime.wasm"))
@@ -418,7 +419,7 @@
                       (runtime_sha256 . ,(file-sha256 (path-join target "runtime.wasm")))
                       (provider_sha256 . ,(file-sha256 (path-join target "provider.wasm")))))))
 
-    ;; ---- Cargo scalar providers and native artifact parity ----
+    ;; ---- Cargo scalar providers ----
 
     (define (fft-provider directory target manifest environment)
       (let ((crate (path-join target "math-provider")))
@@ -430,66 +431,6 @@
                           (list (tool manifest 'CARGO) "build" "--offline" "--release" "--target" "wasm32-wasip1"
                                 "--manifest-path" (path-join crate "Cargo.toml")) environment (compile-timeout manifest))
         (copy-file (path-join crate "target/wasm32-wasip1/release/lofi_fft_math.wasm") (path-join target "math-provider.wasm"))))
-
-    (define (native-build directory source target manifest environment timing?)
-      (let* ((support (path-join directory "source/benchmarks/lofi/support"))
-             (integer? (member (field (read-json (path-join source "spec.json")) 'name) '("pi" "chudnovsky")))
-             (prefix (if integer? "integer" "scalar")))
-        (native-sources support source target timing?)
-        (record-command target "native-build"
-                        (append (list (path-join directory "source/scripts/build-native") "--wasm" "--entry-rust"
-                                      (path-join target (string-append prefix (if timing? "-timing-entry.rs" "-entry.rs"))) "--rust-provider" "benchmark"
-                                      (path-join target (string-append prefix "-provider.rs")))
-                                (if (string=? (field (read-json (path-join source "spec.json")) 'name) "fft")
-                                    (list "--rust-provider" "math" (path-join support "fft-math.rs")) '())
-                                (list (path-join target "program.wasm.raw.wasm") (path-join target "program.native")))
-                        environment target (compile-timeout manifest))))
-
-    (define (native-attempts target)
-      (sort (filter (lambda (path) (string-prefix? "program.native.native-" (last (string-split path #\/))))
-                    (map (lambda (name) (path-join target name)) (directory-files target))) string<?))
-
-    (define (native-artifact-files target)
-      (let ((paths (append (map (lambda (name) (path-join target name)) '("program.wasm.raw.wasm" "program.wasm" "program.native"))
-                           (append-map (lambda (attempt) (map (lambda (name) (path-join attempt name))
-                                                              '("optimized.wasm" "module.ll" "build.json" "build.rs" "Cargo.toml" "main.rs"))) (native-attempts target)))))
-        (when (any file-link? paths) (error "native artifacts must be ordinary files" target))
-        (map (lambda (path) (cons (string->symbol (substring path (+ 1 (string-length target)))) (file-sha256 path)))
-             (filter file-regular? paths))))
-
-    (define (verify-native-parity target expected files)
-      (let ((attempts (native-attempts target)))
-        (unless (and (= 1 (length attempts)) (file-directory? (car attempts)) (not (file-link? (car attempts))))
-          (error "native parity requires exactly one retained build attempt" attempts))
-        (verify-source-files target `((program.wasm.raw.wasm . ,(field expected 'raw_sha256))
-                                      (program.wasm . ,(field expected 'optimized_sha256))))
-        (verify-native-evidence target (car attempts) files)
-        (unless (equal? (read-bytes (path-join (car attempts) "optimized.wasm")) (read-bytes (path-join target "program.wasm")))
-          (error "native optimized guest differs from V8 program" target))))
-
-    (define (verify-native-evidence target attempt files)
-      (let ((evidence (field (read-json (path-join attempt "build.json")) 'sha256)))
-        (for-each
-         (lambda (path)
-           (unless (string=? (field evidence (string->symbol (absolute-path path)))
-                             (field files (string->symbol (substring path (+ 1 (string-length target))))))
-             (error "native evidence does not identify retained artifact" path)))
-         (list (path-join target "program.wasm.raw.wasm") (path-join target "program.native")
-               (path-join attempt "optimized.wasm") (path-join attempt "module.ll")
-               (path-join attempt "build.rs") (path-join attempt "Cargo.toml") (path-join attempt "main.rs")))))
-
-    (define (native-parity target built expected)
-      (let ((report `((status . ,(if (succeeded? built) "failed-parity" "failed-build")) (command . ,(field built 'command)))))
-        (guard (failure (else (set! report (fields-with report (cons 'reason (exception-text failure))))))
-          (let ((files (native-artifact-files target)))
-            (set! report (fields-with report (cons 'files files)))
-            (when (succeeded? built)
-              (verify-native-parity target expected files)
-              (set! report (fields-with report (cons 'status "passed"))))))
-        (write-json (path-join target "native-parity.json") report)
-        (field report 'status)))
-
-    ;; ---- Full workload correctness on each execution route ----
 
     (define (compile-chez source target manifest environment mode . override)
       (let* ((name (string-append "chez-" mode)) (script (path-join target (string-append "compile-" name ".scm")))
@@ -525,7 +466,7 @@
                                                   "--manifest-path" (path-join directory "source/benchmarks/wasm-reference/Cargo.toml")
                                                   "--target-dir" artifacts "--bin" (field case 'name))
                                             (if wasm? '("--target" "wasm32-wasip1") '()))
-                                    (if wasm? environment (environment-with environment (native-cargo-environment target)))
+                                    environment
                                     (source-directory directory) (compile-timeout manifest))))
         (if (succeeded? built) (rust-execution directory case target manifest environment wasm? artifacts route) "failed-build")))
 
@@ -565,12 +506,10 @@
            (string-prefix? "lofi: benchmark primitive error\n" (field result 'stderr ""))
            (not (text-contains? (field result 'stderr "") "fatal compiler handler returned"))))
 
-    (define (compiler-fatal-validation directory source target manifest environment native?)
-      (let* ((route (if native? "lofi-native-fatal" "lofi-wasm-fatal"))
-             (working (workload-directory directory source target route))
-             (command (if native? (list (path-join target "program.native") "fatal")
-                          (list (tool manifest 'NODE) "--no-warnings" (path-join source "verify.mjs")
-                                (path-join target "program.wasm") (path-join target "provider.wasm") "fatal"))))
+    (define (compiler-fatal-validation directory source target manifest environment)
+      (let* ((route "lofi-wasm-fatal") (working (workload-directory directory source target route))
+             (command (list (tool manifest 'NODE) "--no-warnings" (path-join source "verify.mjs")
+                            (path-join target "program.wasm") (path-join target "provider.wasm") "fatal")))
         (if (compiler-fatal? (record-command target route command environment working (run-timeout manifest))) "passed" "failed")))
 
     (define (wasm-validation directory case source target manifest environment)
@@ -580,19 +519,7 @@
              (spec (read-json (path-join source "spec.json"))))
         (cond ((not (and (succeeded? result) (output-files-match? source working target "lofi-wasm"))) "failed")
               ((string=? (field case 'host) "integer") (if (string=? (field result 'stdout) (field spec 'output)) "passed" "failed"))
-              ((string=? (field case 'host) "compiler") (compiler-fatal-validation directory source target manifest environment #f))
-              (else "passed"))))
-
-    (define (native-execution directory case source target manifest environment)
-      (let* ((spec (read-json (path-join source "spec.json"))) (working (workload-directory directory source target "lofi-native"))
-             (command (append (list (path-join target "program.native"))
-                              (if (string=? (field case 'host) "integer") (list (path-join target "native-input.txt")) '())))
-             (result (record-command target "lofi-native" command environment working (run-timeout manifest))))
-        (cond ((not (and (succeeded? result) (output-files-match? source working target "lofi-native"))) "failed")
-              ((string=? (field case 'host) "integer") (if (string=? (field result 'stdout) (field spec 'output)) "passed" "failed"))
-              ((string=? (field case 'host) "compiler")
-               (if (string=? (field result 'stdout) (string-append (read-text (path-join source "expected-observations.txt")) "canonical2000 passed\n"))
-                   (compiler-fatal-validation directory source target manifest environment #t) "failed"))
+              ((string=? (field case 'host) "compiler") (compiler-fatal-validation directory source target manifest environment))
               (else "passed"))))
 
     ;; ---- Every attempt remains visible, including rejected and unavailable routes ----
@@ -620,14 +547,11 @@
           (stage! target status 'raw_sha256 (file-sha256 (path-join target "program.wasm.raw.wasm")))
           (stage! target status 'optimized_sha256 (file-sha256 (path-join target "program.wasm")))
           (stage! target status 'optimized "passed")
-          (guard-route target status 'wasm_validation (lambda () (wasm-validation directory case source target manifest environment)))
-          (guard-route target status 'native_validation
-                       (lambda () (let ((parity (native-parity target (native-build directory source target manifest environment #f) (cdr status))))
-                                    (if (string=? parity "passed") (native-execution directory case source target manifest environment) parity)))))))
+          (guard-route target status 'wasm_validation (lambda () (wasm-validation directory case source target manifest environment))))))
 
     (define (initial-case-status case)
       `((name . ,(field case 'name)) (source . ,(field case 'source)) (build . "not-attempted")
-        (optimized . "not-established") (wasm_validation . "pending") (native_validation . "pending")
+        (optimized . "not-established") (wasm_validation . "pending")
         (chez_validation . "pending") (chez_adapted_validation . "pending")
         (rust_wasm_validation . "pending") (rust_native_validation . "pending")
         (measurement . "not-measured") (adapted_control_required . ,(string? (field case 'chez_adapted #f)))))
@@ -712,7 +636,7 @@
       (every (lambda (case)
                (and (equal? (field case 'scheduler_validation #f) "passed")
                     (every (lambda (key) (string=? (field case key "missing") "passed"))
-                           (append '(wasm_validation native_validation chez_validation rust_wasm_validation rust_native_validation)
+                           (append '(wasm_validation chez_validation rust_wasm_validation rust_native_validation)
                                    (if (field case 'adapted_control_required) '(chez_adapted_validation) '())))))
              (json-array (field report 'cases))))
 
@@ -735,7 +659,7 @@
       (unless (string=? (absolute-path (benchmark-root)) (absolute-path (source-directory directory)))
         (let* ((manifest (verify-preparation directory))
                (attempt (make-build-directory (path-join directory "frozen-driver") "attempt-"))
-               (supervisor (field (field manifest 'execution_environment) 'SNAIL_NATIVE_SUPERVISOR))
+               (supervisor (field (field manifest 'execution_environment) 'SNAIL_PROCESS_SUPERVISOR))
                (result (parameterize ((current-process-supervisor supervisor))
                          (record-command attempt "driver" (append (chibi-command directory manifest script) arguments)
                                          (frozen-environment manifest) (source-directory directory) #f))))
@@ -754,15 +678,16 @@
               ((string=? action "verify") (verify-preparation directory) 0)
               ((string=? action "validate") (let ((report (validate directory))) (json-write report (current-output-port)) (newline) (if (all-routes-passed? report) 0 1)))
               ((string=? action "validate-case") (validate-one-case directory (field options 'benchmarks)) 0)
-              (else (error "unknown benchmark action" action)))))
-    )
+              (else (error "unknown benchmark action" action))))))
 
   ;; ---- Tests ----
 
   (cond-expand
    (snail-tests
     (export test-lofi-runner)
-    (import (native test-utils) (chibi temp-file))
+    (import
+     (lofi host test-utils)
+     (chibi temp-file))
     (begin
       (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
 
@@ -789,42 +714,32 @@
 
       (define (test-frozen-loader-view)
         (call-with-temp-dir "lofi-loader"
-          (lambda (root preserve)
-            (let ((frozen (path-join root "frozen"))
-                  (paths '("src/native.sld" "src/native/process.sld" "src/lofi/compiler.sld")))
-              (for-each (lambda (path)
-                          (create-directory* (path-directory (path-join root path)))
-                          (write-text (path-join root path) path)) paths)
-              (create-directory* (path-join root "bootstrap"))
-              (symbolic-link-file "../src/native.sld" (path-join root "bootstrap/native.sld"))
-              (let ((files (freeze-campaign-files root frozen paths)))
-                (expect (length files) 6)
-                (expect (file-link? (path-join frozen "bootstrap/native.sld")) #f)
-                (verify-live-campaign root files)
-                (write-text (path-join root "src/native.sld") "changed live source")
-                (expect (rejected? (lambda () (verify-live-campaign root files))) #t)
-                (verify-source-files frozen files))))))
+                            (lambda (root preserve)
+                              (let ((frozen (path-join root "frozen"))
+                                    (paths '("src/lofi/host/json.sld" "src/lofi/host/process.sld" "src/lofi/compiler.sld")))
+                                (for-each (lambda (path)
+                                            (create-directory* (path-directory (path-join root path)))
+                                            (write-text (path-join root path) path)) paths)
+                                (create-directory* (path-join root "bootstrap/lofi/host"))
+                                (symbolic-link-file "../../../src/lofi/host/process.sld" (path-join root "bootstrap/lofi/host/process.sld"))
+                                (let ((files (freeze-campaign-files root frozen paths)))
+                                  (expect (length files) 6)
+                                  (expect (file-link? (path-join frozen "bootstrap/lofi/host/process.sld")) #f)
+                                  (verify-live-campaign root files)
+                                  (write-text (path-join root "src/lofi/host/json.sld") "changed live source")
+                                  (expect (rejected? (lambda () (verify-live-campaign root files))) #t)
+                                  (verify-source-files frozen files))))))
 
       (define (test-timeout-contract)
         (for-each (lambda (value) (expect (rejected? (lambda () (timeout-value value))) #t))
                   (list 0 -1 #t (string->number "+nan.0") (string->number "+inf.0")))
         (expect (timeout-value 1800.5) 1800.5))
 
-      (define (test-frozen-wrapper)
-        (let ((environment (frozen-wrapper-environment "/checkout" "/frozen" '())))
-          (expect (field environment 'RUSTC_WRAPPER) "/frozen/source/src/native/scripts/rustc-native")
-          (expect (field environment 'RUSTC_WORKSPACE_WRAPPER) 'null))
-        (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WRAPPER . "/unrecorded/wrapper"))))) #t)
-        (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WORKSPACE_WRAPPER . "sccache"))))) #t))
-
-      (define (test-frozen-native-cpu)
-        (expect (and (memq 'SNAIL_NATIVE_CPU execution-variables) #t) #t)
-        (for-each (lambda (cpu)
-                    (expect (rejected? (lambda () (check-frozen-native-cpu `((SNAIL_NATIVE_CPU . ,cpu))))) #f))
-                  '(null "x86-64-v3" "compiler-decides"))
-        (for-each (lambda (cpu)
-                    (expect (rejected? (lambda () (check-frozen-native-cpu `((SNAIL_NATIVE_CPU . ,cpu))))) #t))
-                  '("" "native")))
+      (define (test-build-environment)
+        (expect (checked-build-environment '()) '())
+        (for-each (lambda (name)
+                    (expect (rejected? (lambda () (checked-build-environment (list (cons name "unrecorded-wrapper"))))) #t))
+                  '(RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER)))
 
       (define (test-execution-files)
         (call-with-temp-dir "lofi-execution"
@@ -861,7 +776,7 @@
                       (stderr . "lofi: benchmark primitive error\nfatal compiler handler returned")))))
 
       (define (test-adapted-result)
-        (let ((passed '((scheduler_validation . "passed") (wasm_validation . "passed") (native_validation . "passed")
+        (let ((passed '((scheduler_validation . "passed") (wasm_validation . "passed")
                         (chez_validation . "passed") (rust_wasm_validation . "passed")
                         (rust_native_validation . "passed") (adapted_control_required . #t))))
           (for-each
@@ -871,7 +786,7 @@
            '("failed-build" "pending" "unavailable" "passed") '(#f #f #f #t))))
 
       (define (test-recorded-processes)
-        (current-process-supervisor (ensure-native-supervisor (runtime-project-directory (benchmark-root))))
+        (current-process-supervisor (build-host-tool (benchmark-root) "snail-process-supervisor"))
         (call-with-temp-dir
          "lofi-processes"
          (lambda (root preserve)
@@ -896,17 +811,17 @@
 
       (define (validation-fixture directory)
         (for-each (lambda (path) (create-directory* (path-join directory path))) '("source" "data" "toolchain"))
-        (let* ((supervisor (path-join directory "toolchain/snail-native-supervisor"))
-               (paths '("benchmarks/lofi/runner.scm" "src/native/process.sld" "src/native/json.sld")))
+        (let* ((supervisor (path-join directory "toolchain/snail-process-supervisor"))
+               (paths '("benchmarks/lofi/runner.scm" "bootstrap/lofi/host/process.sld" "bootstrap/lofi/host/json.sld")))
           (copy-file (path-join (benchmark-root) "tests/lofi-benchmarks/validation-child.scm")
                      (path-join directory "source/benchmarks/lofi/runner.scm"))
           (for-each (lambda (path) (copy-file (path-join (benchmark-root) path) (path-join directory "source" path))) (cdr paths))
           (copy-file (current-process-supervisor) supervisor)
           (let ((manifest `((config . ((compile_timeout . 5) (run_timeout . 5)))
                             (files . ,(map (lambda (path) (cons (string->symbol path) (file-sha256 (path-join directory "source" path)))) paths)) (inputs . ())
-                            (build_dependencies . ((toolchain/snail-native-supervisor . ,(file-sha256 supervisor))))
+                            (build_dependencies . ((toolchain/snail-process-supervisor . ,(file-sha256 supervisor))))
                             (tools . ((CHIBI . ,(file-identity (find-executable 'CHIBI "chibi-scheme")))))
-                            (execution_environment . ((SNAIL_NATIVE_SUPERVISOR . ,supervisor)))
+                            (execution_environment . ((SNAIL_PROCESS_SUPERVISOR . ,supervisor)))
                             (cases . ,(list->vector (map (lambda (name) `((name . ,name) (source . "present") (chez_adapted . "fixture")))
                                                          '("exit" "signal" "missing" "late-signal" "partial-write"
                                                            "malformed-final" "malformed-checkpoint" "route-failure" "pending-routes" "pass")))))))
@@ -948,7 +863,7 @@
                      '("failed" "failed" "failed" "failed" "failed" "failed" "failed" "passed" "passed" "passed"))
              (expect (map (lambda (row) (field row 'wasm_validation)) rows)
                      '("passed" "passed" "passed" "passed" "passed" "passed" "not-completed" "passed" "pending" "passed"))
-             (expect (map (lambda (row) (field row 'native_validation)) rows)
+             (expect (map (lambda (row) (field row 'rust_native_validation)) rows)
                      '("not-completed" "not-completed" "not-completed" "passed" "not-completed" "not-completed" "not-completed" "failed" "pending" "passed"))
              (expect-case-termination directory "exit" 7 'null)
              (expect-case-termination directory "signal" 'null 15)
@@ -989,59 +904,16 @@
              (expect (field (read-json (car records)) 'signal) 15)
              (expect (field (read-json (car records)) 'descendants_gone) #t)))))
 
-      (define (parity-fixture target)
-        (let ((attempt (path-join target "program.native.native-test")))
-          (create-directory* attempt)
-          (for-each (lambda (entry) (write-text (path-join target (car entry)) (cdr entry)))
-                    '(("program.wasm.raw.wasm" . "raw") ("program.wasm" . "optimized") ("program.native" . "executable")
-                      ("program.native.native-test/optimized.wasm" . "optimized") ("program.native.native-test/module.ll" . "LLVM")
-                      ("program.native.native-test/build.rs" . "object link")
-                      ("program.native.native-test/Cargo.toml" . "package configuration")
-                      ("program.native.native-test/main.rs" . "entry source")))
-          (write-parity-evidence target)
-          `((raw_sha256 . ,(file-sha256 (path-join target "program.wasm.raw.wasm")))
-            (optimized_sha256 . ,(file-sha256 (path-join target "program.wasm"))))))
-
-      (define (write-parity-evidence target)
-        (write-json (path-join target "program.native.native-test/build.json")
-                    `((sha256 . ,(map (lambda (name) (let ((path (path-join target name))) (cons (string->symbol path) (file-sha256 path))))
-                                      '("program.wasm.raw.wasm" "program.native" "program.native.native-test/optimized.wasm" "program.native.native-test/module.ll"
-                                        "program.native.native-test/build.rs" "program.native.native-test/Cargo.toml" "program.native.native-test/main.rs"))))))
-
-      (define (test-native-parity)
-        (call-with-temp-dir "lofi-parity"
-                            (lambda (target preserve)
-                              (let ((expected (parity-fixture target)) (built '((returncode . 0) (descendants_gone . #t) (command . #("native-builder")))))
-                                (expect (native-parity target built expected) "passed")
-                                (write-text (path-join target "program.native.native-test/build.rs") "changed object link")
-                                (expect (native-parity target built expected) "failed-parity")
-                                (write-text (path-join target "program.native.native-test/build.rs") "object link")
-                                (expect (native-parity target built expected) "passed")
-                                (delete-file (path-join target "program.wasm.raw.wasm"))
-                                (expect (native-parity target built expected) "failed-parity")
-                                (write-text (path-join target "program.wasm.raw.wasm") "raw")
-                                (write-text (path-join target "program.native") "replaced executable")
-                                (expect (native-parity target built expected) "failed-parity")
-                                (write-parity-evidence target)
-                                (expect (native-parity target (fields-with built (cons 'returncode 1)) expected) "failed-build")
-                                (write-text (path-join target "program.native.native-test/optimized.wasm") "optimized again")
-                                (write-parity-evidence target)
-                                (expect (native-parity target built expected) "failed-parity")
-                                (create-directory* (path-join target "program.native.native-other"))
-                                (expect (native-parity target built expected) "failed-parity")))))
-
       (define (test-lofi-runner . execute?)
         (run-test test-frozen-source)
         (run-test test-path-containment)
         (run-test test-frozen-loader-view)
         (run-test test-timeout-contract)
-        (run-test test-frozen-wrapper)
-        (run-test test-frozen-native-cpu)
+        (run-test test-build-environment)
         (run-test test-execution-files)
         (run-test test-provider-exports)
         (run-test test-fatal-result)
         (run-test test-adapted-result)
-        (run-test test-native-parity)
         (run-test test-validation-publication)
         (when (and (pair? execute?) (car execute?))
           (run-test test-recorded-processes)

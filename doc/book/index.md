@@ -7,8 +7,6 @@ functional language and compiler target.
   and application model.
 - [Tutorials](lofi/tutorials/index.md): build a counter, an inventory and a shared
   browser board. Start here to build something.
-- [Native Execution](native/index.md): turn compiled WebAssembly into a native
-  executable.
 
 Find the source and build instructions in the
 [repository](https://github.com/tsnl/snail-scheme).

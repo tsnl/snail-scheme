@@ -27,9 +27,5 @@ name = "optimizer-probe"
 path = "harness/optimizer-probe.rs"
 
 [[bin]]
-name = "native-host-loss"
-path = "harness/native-host-loss.rs"
-
-[[bin]]
 name = "format-reference"
 path = "lofi-numbers/format-reference.rs"

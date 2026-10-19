@@ -73,7 +73,7 @@
    (snail-tests
     (export test-library)
     (import
-     (native test-utils))
+     (lofi host test-utils))
     (begin
       (define (test-dependency-order)
         (define (unit name imports)

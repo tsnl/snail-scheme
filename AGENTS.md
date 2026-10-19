@@ -49,8 +49,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   explanation and refactoring of newly written modules. Keep backend cleanup
   within those modules; preserve the structure of the landed frontend.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
-  Wasm engines trace managed references; native lowering must publish live
-  roots across collecting calls. Rust scalar providers own external resources
+  Wasm engines trace managed references. Rust scalar providers own external resources
   behind explicit handles. Resource cleanup must not retain its managed wrapper.
 - Keep the compiler hosted by Chibi until a separate self-hosting milestone.
   Type inference follows the working, measured backend baseline.
@@ -58,11 +57,13 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   APIs distinct from implemented behavior in documentation and TODOs.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path src/native/Cargo.toml --offline`,
-`cargo fmt --manifest-path src/native/Cargo.toml --all -- --check`,
+`cargo test --manifest-path src/runtime/Cargo.toml --offline`,
+`cargo test --manifest-path tools/host/Cargo.toml --offline`,
+`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`,
+`cargo fmt --manifest-path tools/host/Cargo.toml --all -- --check`,
 `scripts/test-backend`, and `scripts/test-build`.
-Backend changes should execute linked Wasm. Native executor changes need actual
-native execution; compilation alone does not test target behavior. Keep the
+Backend changes should execute linked Wasm; compilation alone does not test target
+behavior. Keep the
 57-workload comparison complete and distinguish source presence, correctness,
 clean measurements and instrumented diagnostics. See [doc/backend.md](doc/backend.md) for tools
 and [benchmarks/README.md](benchmarks/README.md) for reproducible measurements.

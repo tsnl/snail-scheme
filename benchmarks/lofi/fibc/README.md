@@ -1,5 +1,9 @@
 # FIBC
 
+Current runs use Lofi/Wasm and the independent Chez/Rust controls. Native Lofi
+results below are historical; see [the archive guide](../../history.md) for the
+recorded source revisions and retired build tools.
+
 `main.sld` ports the complete upstream `succ`, `pred`, `addc` and `fibc` algorithm.
 The canonical input remains ten evaluations of `fibc(30)`, with final result
 `832040`. The driver separately hides the input and identity continuation. The
@@ -29,8 +33,9 @@ These small observations supplement the full canonical run. The measured
 The frozen corpus runner passed the complete canonical predicate on Lofi/V8,
 Lofi/native64, original/adapted Chez, and Rust Wasm/native. That native preparation
 optimized an already optimized module again, so its program bytes differ from
-V8's input; it establishes correctness, not module parity. The runner is correcting
-that preparation separately. Concurrent validation observations are not clean
+V8's input; it establishes correctness, not module parity. The later historical
+[parity audit](../evidence/20261015-native-optimization-audit.json) records that
+preparation error separately. Concurrent validation observations are not clean
 timing data.
 
 The focused simplify review used a fresh explanation without repository access
