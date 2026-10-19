@@ -69,10 +69,17 @@ source changes alone do not count as a playable result. Keep the preview at **42
       requires clear cable sight and distance within either endpoint's actual
       reveal radius. Show matching tower guides and lower the building models.
 - [ ] Reveal one rich, mineable deposit when a nest is destroyed; award no
-      instant ore. Modestly favor deposits near nests while preserving the
-      guaranteed opening deposit and the existing early exploration budget.
+      instant ore. Increase deposit density significantly toward nests so enemy
+      approach directions also guide mining exploration. Preserve home deposits.
+- [ ] Defeating a nest lowers threat by two levels, to a minimum of level one;
+      keep difficulty progress and future enemy strength consistent.
 - [ ] Unveil the entire map on defeat, without resuming gameplay or recording
       every map tile as persistent survey history.
+- [ ] Add Scavenge to building actions: a worker dismantles the structure and
+      recovers one fifth of its construction and completed upgrade investment.
+- [ ] Defer replay recording until the game stabilizes; retain normal saves.
+- [ ] Replace the control-side toggle with explicit Right-handed and Left-handed
+      buttons and a visible selected state.
 - [x] Q/E animates between 90-degree snaps, preserving orthographic projection;
       panning and picking follow its orientation. Camera, picking and Chromium input verified.
 - [x] Reduce tower height so deposits behind towers remain accessible.
