@@ -1,6 +1,6 @@
 // A bounded history of published World banks. Banks belong to the runtime and
 // never mutate after publication; only the latest one is retained for diffing.
-import {validateManifest, parseCommand, protocolContract} from './runtime.mjs';
+import {validateManifest, parseCommand, protocolContract, endpoint} from './runtime.mjs';
 
 const encoder = new TextEncoder(), decoder = new TextDecoder('utf-8', {fatal: true});
 const magic = encoder.encode('SNLRUN01');
@@ -87,6 +87,10 @@ export class RunRecording {
     const words = runtime.stores.get(1), generation = runtime.manifest.generation;
     const run = this.manifest.settings.runMarker === undefined ? null : words[this.manifest.settings.runMarker];
     const boundary = !this.#previous || event.kind !== 'commit' || generation !== this.#generation || run !== this.#run;
+    // The runtime retains bank identity when every encoded word is unchanged.
+    // Idle clock polls must not evict play; boundaries and all other commands stay.
+    if (!boundary && words === this.#previous && !event.effects.length && runtime.manifest.settings.tick
+        && event.command?.handler === endpoint(runtime.manifest, 'match', runtime.manifest.settings.tick).id) return;
     const metadata = jsonBytes({persisted: false, ...event, sequence: this.#sequence, elapsed: Math.round(performance.now() - this.#started),
       revision: this.#revision(), generation, run});
     requireValue(metadata.length <= recordingLimits.metadataBytes, 'Recording event metadata is too large');

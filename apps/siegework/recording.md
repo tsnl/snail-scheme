@@ -20,6 +20,12 @@ The solo browser records after the IndexedDB transaction and normal state,
 revision and effect publication. Rejected reductions and failed saves produce no
 commit entry. Client camera and display-animation messages are excluded.
 
+An unchanged, effect-free call to the manifest's clock endpoint is also omitted.
+These idle polls still persist and advance the live revision, so retained
+revisions and elapsed times can have gaps. Active ticks, emitted effects and
+all other World commands remain recorded, including unchanged user commands.
+Idle time before play, while paused or after a game finishes cannot evict play.
+
 Commands/effects are the recorded event stream. Most game handlers emit no
 domain events: a dump does **not** claim to contain every individual hit, job
 decision or economic transfer. Those details can be observed or inferred from

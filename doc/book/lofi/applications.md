@@ -683,6 +683,9 @@ normal revision/effect publication. It retains exact packed snapshots using
 keyframes and word changes, alongside handled commands and emitted effects.
 Failed saves produce no commit entry. Recording failures cannot reject a live
 transition. Camera and animation messages do not enter the World journal.
+Unchanged, effect-free calls to the configured clock endpoint are omitted so
+idle polling cannot evict play. Other commands and all boundaries remain;
+retained revisions and elapsed times preserve the resulting gaps.
 
 History stays in bounded page memory, with explicit truncation and checkpoint,
 restore, run and code-generation boundaries. Binary dumps can be imported for

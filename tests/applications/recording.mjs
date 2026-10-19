@@ -86,6 +86,61 @@ if (process.argv[2]) {
     const runtime = new ReducerRuntime(); await runtime.replace(runtime.prepare(bytes, manifest));
     await runtime.initialize(1); await runtime.initialize(2); return runtime;
   }
+  await test('idle clock polls preserve a small real-Wasm history and keep durable revision gaps', async () => {
+    const runtime = await fresh(), local = new LocalState(runtime);
+    const recording = runtime.recording = RunRecording.start(runtime, {entries: 8, revision: () => local.revision});
+    const order = (binding, args = []) => local.submit(runtime.command('match', binding, args));
+    const idle = async label => {
+      const stats = recording.stats(), bank = runtime.stores.get(1), revision = local.revision;
+      for (let i = 0; i < 64; i++) await order(manifest.settings.tick);
+      assert.equal(runtime.stores.get(1), bank, `${label} polls leave the encoded World unchanged`);
+      assert.deepEqual(recording.stats(), stats, `${label} polls must not consume or evict recording entries`);
+      assert.equal(local.revision, revision + 64, 'skipping capture does not change durable publication');
+    };
+    await idle('unstarted');
+    await order('new-run-seed', [1]); const point = at(colony(runtime.snapshot(1)), 12, 20);
+    await order('extract', [point.x, point.y]); await order(manifest.settings.tick); await order(manifest.settings.tick);
+    assert.equal(colony(runtime.snapshot(1)).tick, 2, 'active simulation ticks remain recorded');
+    await order('pause-colony', [1]); await idle('paused');
+    const finished = colony(runtime.snapshot(1)); Object.assign(finished, {started: true, outcome: 1, hull: 0});
+    await local.restore(colonyWords(finished)); await idle('finished');
+    const previous = recording.entry(recording.last), bank = runtime.stores.get(1);
+    await order('set-focus', [0]);
+    assert.equal(runtime.stores.get(1), bank, 'this user command is also effect-free and unchanged');
+    assert.equal(recording.length, 8); assert.equal(recording.dropped, 0);
+    assert.equal(recording.entry(recording.last).revision, previous.revision + 65);
+    assert.equal(recording.entry(recording.last).command.handler, runtime.command('match', 'set-focus', [0]).handler);
+    const imported = await roundTrip(recording);
+    for (let sequence = recording.first; sequence <= recording.last; sequence++) {
+      assert.deepEqual(imported.entry(sequence), recording.entry(sequence));
+      assert.deepEqual(imported.snapshot(sequence), recording.snapshot(sequence));
+    }
+    await runtime.close();
+  });
+  await test('an unchanged configured clock command still records its emitted effects', async () => {
+    const runtime = await fresh(), local = new LocalState(runtime);
+    await runtime.replace(runtime.prepare(bytes, {...manifest, settings: {...manifest.settings, tick: 'pause-colony'}}));
+    const recording = runtime.recording = RunRecording.start(runtime), bank = runtime.stores.get(1);
+    await local.submit(runtime.command('match', 'pause-colony', [colony(runtime.snapshot(1)).paused]));
+    assert.equal(runtime.stores.get(1), bank); assert.equal(recording.length, 2);
+    assert.equal(recording.entry(recording.last).effects.length, 1);
+    await runtime.close();
+  });
+  await test('clock filtering follows the current manifest and preserves unchanged boundaries', async () => {
+    const runtime = await fresh(), local = new LocalState(runtime);
+    const recording = runtime.recording = RunRecording.start(runtime);
+    await local.submit(runtime.command('match', manifest.settings.tick)); assert.equal(recording.length, 1);
+    const next = {...manifest, generation: 'changed-clock', settings: {...manifest.settings, tick: 'set-focus'}};
+    await runtime.replace(runtime.prepare(bytes, next));
+    assert.equal(recording.entry(recording.last).kind, 'generation'); assert.equal(recording.length, 2);
+    await local.submit(runtime.command('match', manifest.settings.tick)); assert.equal(recording.length, 3);
+    await local.submit(runtime.command('match', 'set-focus', [0])); assert.equal(recording.length, 3);
+    await local.restore(runtime.snapshot(1));
+    assert.equal(recording.entry(recording.last).kind, 'restore'); assert.equal(recording.length, 4);
+    recording.stop(); recording.resume(runtime);
+    assert.equal(recording.entry(recording.last).kind, 'checkpoint'); assert.equal(recording.length, 5);
+    await runtime.close();
+  });
   await test('only successful published World commits record; failed storage and observer errors cannot duplicate effects', async () => {
     const runtime = await fresh(); let published = 0, save;
     const local = new LocalState(runtime, {commit: () => save, publish: () => published++});
