@@ -82,7 +82,7 @@ assert.notDeepEqual(motion.insets[0].uniforms,motion.uniforms);
 assert.deepEqual(expandBatch(motion.insets[0].batches[0]).vertices.slice(0,3),[3,3.5,6]);
 assert.notEqual(motion.insets[1].batches[0],motion.batches[0]);
 assert.equal(motion.insets[1].batches[0].draws[0].mesh,motion.batches[0].draws[0].mesh);
-assert.equal(stationary.previous, undefined); assert.equal(animated.duration, 100); assert.equal(still.duration, 200);
+assert.equal(stationary.previous, undefined); assert.ok(animated.motionClock); assert.ok(Object.isFrozen(animated.motionClock)); assert.equal(animated.duration, 100); assert.equal(still.duration, 200);
 assert.deepEqual(animated.reveal,{id:91,x:0,y:0,radius:20,edge:Math.fround(.7),elapsed:250,duration:3000});
 assert.deepEqual(animated.reveal,motion.insets[0].batches[0].reveal);
 assert.equal(animated.previous.length, animated.vertices.length / 10 * 3);
@@ -218,6 +218,35 @@ assert.equal(boundaryBridge.finish(tx).batches[0].reveal.edge,0);
 beginBoundary();assert.throws(()=>boundaryView(0,32,{...reveal,edge:-.1}),/reveal extent/);
 beginBoundary();assert.throws(()=>boundaryView(0,32,{...reveal,elapsed:-1}),/invalid scene reveal/);
 console.log('ok - reveal wrappers preserve copied geometry and validate shared identities before publishing any view');
+
+// Owner-clock metadata changes independently of geometry dependencies. The
+// bridge never exports the authoritative snapshot itself to the renderer.
+function clockBoundary(owner=1,key=1,duration=100,dependency=0) {
+  for(let index=0;index<32;index++)host.uniform(index,0);
+  host.background(0);host.batch(key,0);host.motion(duration);host['motion-clock'](owner);host.dependency(dependency);
+  const reused=host.reuse();if(!reused){boundaryInstance();host.before(...identityTransform.map(floatBits));}
+  return reused;
+}
+beginBoundary();clockBoundary();const clockInitial=boundaryBridge.finish(tx).batches[0];
+assert.ok(Object.isFrozen(clockInitial.motionClock));assert.notEqual(clockInitial.motionClock,owners.get(1));
+beginBoundary();tx.snapshots=new Map(owners).set(2,new Int32Array(1));clockBoundary();
+assert.equal(boundaryBridge.finish(tx).batches[0],clockInitial,'client updates preserve a match clock and retained geometry');
+beginBoundary();clockBoundary(1,1,100,1);const clockCamera=boundaryBridge.finish(tx).batches[0];
+assert.equal(clockCamera.motionClock,clockInitial.motionClock);assert.notEqual(clockCamera.transforms,clockInitial.transforms);
+beginBoundary();tx.snapshots=new Map(owners).set(1,new Int32Array(1));clockBoundary(1,1,100,1);
+const clockTick=boundaryBridge.finish(tx).batches[0];assert.notEqual(clockTick.motionClock,clockCamera.motionClock);
+assert.equal(clockTick.transforms,clockCamera.transforms,'new epochs do not force geometry uploads');
+beginBoundary();clockBoundary(2,1,100,1);const clockClient=boundaryBridge.finish(tx).batches[0];
+assert.notEqual(clockClient.motionClock,clockInitial.motionClock,'owners have separate epochs');
+beginBoundary();tx.instance={};clockBoundary();assert.notEqual(boundaryBridge.finish(tx).batches[0].motionClock,clockInitial.motionClock);
+beginBoundary();clockBoundary();host['begin-inset'](7,0,0,20,20);clockBoundary();host['end-inset']();
+const clockViews=boundaryBridge.finish(tx);assert.equal(clockViews.batches[0].motionClock,clockViews.insets[0].batches[0].motionClock);
+beginBoundary();clockBoundary();host['begin-inset'](7,0,0,20,20);clockBoundary(1,1,200);host['end-inset']();
+assert.throws(()=>boundaryBridge.finish(tx),/inconsistent owner motion duration/);
+beginBoundary();assert.throws(()=>clockBoundary(3),/owner snapshot/);
+beginBoundary();assert.throws(()=>clockBoundary(1,1,0),/motion clock/);
+beginBoundary();delete tx.snapshots;assert.throws(()=>clockBoundary(),/owner snapshot/);
+console.log('ok - owner motion epochs survive camera rebuilds, advance without geometry changes, isolate modules and reject mixed durations');
 
 function phasedBoundary(pulse) {
   beginBoundary();for(let index=0;index<32;index++)host.uniform(index,0);

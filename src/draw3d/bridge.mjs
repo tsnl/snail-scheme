@@ -71,11 +71,11 @@ function sceneView(key, cache) {
   return {key, cache, uniforms: [], batches: [], background: undefined,
     keys: new Set(), pending: [], open: undefined};
 }
-function revealGeometry(batch, reveal) {
+function batchMetadata(batch, reveal, motionClock) {
   const previous = batch.reveal;
-  if (previous === reveal || (previous && reveal &&
-      ['id','x','y','radius','edge','elapsed','duration'].every(key => previous[key] === reveal[key]))) return batch;
-  return {...batch, reveal};
+  const sameReveal = previous === reveal || (previous && reveal &&
+    ['id','x','y','radius','edge','elapsed','duration'].every(key => previous[key] === reveal[key]));
+  return sameReveal && batch.motionClock === motionClock ? batch : {...batch, reveal, motionClock};
 }
 function checkReveals(frames) {
   const reveals = new Map();
@@ -87,6 +87,16 @@ function checkReveals(frames) {
   }
 }
 
+function checkMotionClocks(frames) {
+  const durations = new Map();
+  for (const scene of frames) for (const batch of scene.batches) if (batch.motionClock) {
+    const prior = durations.get(batch.motionClock);
+    if (!(batch.duration > 0) || (prior !== undefined && prior !== batch.duration))
+      throw new Error('inconsistent owner motion duration');
+    durations.set(batch.motionClock,batch.duration);
+  }
+}
+
 export function createSceneBridge(provider, transaction) {
   const caches = new WeakMap();
   function scope() {
@@ -94,13 +104,23 @@ export function createSceneBridge(provider, transaction) {
     if (!tx?.readOnly) throw new Error('scene output requires a presentation query');
     if (!tx.instance) throw new Error('scene output requires an owning module instance');
     let owner = caches.get(tx.instance);
-    if (!owner) { owner = {views:new Map(), meshes:new Map()}; caches.set(tx.instance, owner); }
+    if (!owner) { owner = {views:new Map(), meshes:new Map(), motionOwners:[new WeakMap(),new WeakMap()]}; caches.set(tx.instance, owner); }
     const {views} = owner;
     if (!tx.scene) {
       const main = sceneView(-1, views.get(-1) ?? new Map());
       tx.scene = {owner, views, main, current: main, insets: [], keys: new Set([-1]), meshes:new Map()};
     }
     return tx.scene;
+  }
+  // Scene data carries only an opaque token. Weak keys never retain an old
+  // authoritative snapshot; module and owner scopes prevent accidental sharing.
+  function ownerMotionClock(owner) {
+    const snapshot = transaction().snapshots?.get(owner);
+    if (![1,2].includes(owner) || !snapshot || typeof snapshot !== 'object')
+      throw new Error('motion clock requires an immutable owner snapshot');
+    const epochs = scope().owner.motionOwners[owner - 1];
+    if (!epochs.has(snapshot)) epochs.set(snapshot,Object.freeze({}));
+    return epochs.get(snapshot);
   }
   function frame() { return scope().current; }
   function complete(scene) {
@@ -196,6 +216,11 @@ export function createSceneBridge(provider, transaction) {
       if (!open || open.ready || duration < 0) throw new Error('invalid batch motion duration');
       open.duration = duration; open.dependencies.push(duration);
     },
+    'motion-clock'(owner) {
+      const open = frame().open;
+      if (!open || open.ready || open.motionClock || open.duration <= 0) throw new Error('invalid scene motion clock');
+      open.motionClock = ownerMotionClock(owner);
+    },
     reveal(id, x, y, radius, edge, elapsed, duration) {
       const open = frame().open;
       if (!open || open.ready || open.reveal || id < 0 || elapsed < 0 || duration <= 0)
@@ -218,11 +243,12 @@ export function createSceneBridge(provider, transaction) {
       open.dependencies.push(open.unordered ? 1 : 0);
       open.ready = true;
       if (cached && sameSnapshots(cached.states, open.states) && sameValues(cached.dependencies, open.dependencies)) {
-        open.batch = revealGeometry(cached.batch,open.reveal); open.reused = true; return 1;
+        open.batch = batchMetadata(cached.batch,open.reveal,open.motionClock); open.reused = true; return 1;
       }
       open.batch = {key: open.key, draws: [], transforms: [], normals: [], unordered:!!open.unordered,
         opacity: open.opacity, pulse: open.pulse, pulsePhase: open.pulsePhase ?? 0,
-        ...(open.duration ? {duration: open.duration, previous: []} : {}), ...(open.reveal ? {reveal:open.reveal} : {})};
+        ...(open.duration ? {duration: open.duration, previous: []} : {}), ...(open.reveal ? {reveal:open.reveal} : {}),
+        ...(open.motionClock ? {motionClock:open.motionClock} : {})};
       return 0;
     },
     prototype: selectMesh,
@@ -261,7 +287,7 @@ export function createSceneBridge(provider, transaction) {
   };
   return {
     provider: provider(host, [['uniform', 2, false], ['batch', 2, false], ['opacity', 2, false], ['motion', 1, false],
-      ['reveal', 7, false],
+      ['reveal', 7, false], ['motion-clock', 1, false],
       ['dependency', 1, false], ['reuse', 0, true], ['prototype', 3, true], ['vertex', 8, false],
       ['instance', 12, false], ['normal', 9, false], ['before', 12, false], ['unordered', 0, false],
       ['triangle', 3, false], ['background', 1, false], ['viewport', 4, false], ['request-frame', 0, false],
@@ -276,7 +302,7 @@ export function createSceneBridge(provider, transaction) {
         return {uniforms: scene.uniforms, batches: scene.batches, background: scene.background,
           requestFrame: !!scene.requestFrame, ...(scene.viewport ? {viewport: scene.viewport} : {})};
       });
-      checkReveals(frames);
+      checkReveals(frames); checkMotionClocks(frames);
       // Only the complete accepted frame owns retained CPU batches and meshes.
       // Failed parsing never publishes new prototypes or evicts old references.
       owner.views = new Map([main,...insets].map(scene =>

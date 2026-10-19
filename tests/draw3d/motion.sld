@@ -34,7 +34,7 @@
              (present-scene!
               (batched-scene camera
                              (list (retained-batch 10 0 (empty-list) still-nodes)
-                                   (reveal-batch (motion-batch 11 1 (empty-list) 100 moving-nodes)
+                                   (reveal-batch (owner-motion-clock (motion-batch 11 1 (empty-list) 100 moving-nodes) 1)
                                                  91 0.0 0.0 20.0 0.7 250 3000)
                                    (motion-batch 12 0 (empty-list) 200 still-nodes))
                              (directional-light (vec3 0.0 0.0 1.0) 0.0)
