@@ -106,5 +106,12 @@
     "Peak resident memory in Sboyer was already established before emission and was not reduced.",
     "The canonical 57-workload comparison was not rerun.",
     "Host load was uncontrolled; no compiler speedup or whole-build memory ratio is claimed."
-  ]
+  ],
+  "probe_archive": "compiler-memory-fragments-2026-10-18-records.tar.gz",
+  "public_diagnostic": {
+    "result": "public-diagnostic-memory.json in the probe archive",
+    "scope": "Different observer structure; absolute counts are not comparable to the fixed probe. Additional compiler pass objects remain reachable at emission; the retention mechanism is not established.",
+    "emitted_pairs": 763783,
+    "written_pairs": 159246
+  }
 }

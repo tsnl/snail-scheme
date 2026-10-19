@@ -114,7 +114,8 @@ WAT fragments. The complete 3,138,011-byte WAT files are byte-identical. These
 counts exclude the encoded WAT bytes; they are not a whole-process memory
 ratio. Resident memory had already reached its high-water mark during checking
 and did not meaningfully decrease. See the
-[recorded observations](measurements/compiler-memory-fragments-2026-10-18.json).
+[recorded observations](measurements/compiler-memory-fragments-2026-10-18.json)
+and the [matched probes and raw logs](measurements/compiler-memory-fragments-2026-10-18-records.tar.gz).
 
 The complete Compiler input was also attempted with a 4 GiB process-group cap,
 zero swap, two CPUs, 128 tasks, a ten-minute limit and Chibi `-h16M/1G`. It timed
@@ -135,3 +136,9 @@ It writes `memory.json`, `compile.trace.json` and `source.wat`. Each snapshot
 forces collection, so this is an instrumented diagnostic. Phase boundaries also
 move some serialization work into emission; compare complete build times rather
 than interpreting the final WAT-writing span as an independent speedup.
+
+Keep the observer structure fixed when comparing counts. The public JSON tool
+retains additional compiler pass objects at emission compared with the smaller
+matched probe above; their absolute counts are not interchangeable. The archive
+includes both results. Host temporary-root liveness may depend on instrumentation;
+the precise retention mechanism has not been established.
