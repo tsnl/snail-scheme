@@ -1,7 +1,7 @@
 // An explicit Node/Linux service for compiled Lofi build programs. Chibi owns
 // parsed libraries; this scope owns copied artifacts and independent instances.
 import {spawn, execFileSync} from 'node:child_process';
-import {mkdtempSync, openSync, closeSync, readSync, writeSync, readFileSync,
+import {mkdtempSync, openSync, closeSync, readSync, writeSync, readFileSync, fstatSync,
   writeFileSync, rmSync, constants} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -50,6 +50,8 @@ function stopOwnedGroup(child) {
 
 class CompilerHost {
   directory = mkdtempSync(join(tmpdir(), 'lofi-compiler-'));
+  diagnosticBuffer = Buffer.alloc(4096);
+  diagnosticOffset = 0;
 
   constructor({chibi = process.env.CHIBI ?? 'chibi-scheme', timeout = 120000} = {}) {
     this.timeout = timeout;
@@ -72,6 +74,7 @@ class CompilerHost {
   start(chibi) {
     const errors = openSync(join(this.directory, 'host-errors.txt'), 'w');
     try {
+      this.diagnostics = openSync(join(this.directory, 'host-errors.txt'), 'r');
       this.child = spawn(chibi, ['-I', fileURLToPath(new URL('../../../bootstrap/', import.meta.url)),
         '-I', fileURLToPath(new URL('../../../bootstrap/', import.meta.url)),
         fileURLToPath(new URL('../../../scripts/serve-lofi-compiler.scm', import.meta.url)), this.directory],
@@ -83,11 +86,40 @@ class CompilerHost {
     } finally { closeSync(errors); }
   }
 
+  forwardDiagnostics(deadline, end = Infinity) {
+    // Poll the retained file while waiting synchronously on the response FIFO:
+    // Node stream callbacks cannot run inside this blocking compiler call.
+    // One bounded read per poll also preserves deadlines for a noisy host.
+    const count = readSync(this.diagnostics, this.diagnosticBuffer, 0,
+      Math.min(this.diagnosticBuffer.length, end - this.diagnosticOffset));
+    for (let offset = 0; offset < count;)
+      offset += retryIO(() => writeSync(2, this.diagnosticBuffer, offset, count - offset), deadline);
+    this.diagnosticOffset += count;
+    return count;
+  }
+
+  finishDiagnostics(deadline) {
+    // Drain the backlog present at the response, without chasing later output.
+    const end = fstatSync(this.diagnostics).size;
+    while (this.diagnosticOffset < end)
+      if (!retryIO(() => this.forwardDiagnostics(deadline, end), deadline)) break;
+  }
+
+  diagnosticTail() {
+    const size = fstatSync(this.diagnostics).size;
+    const buffer = Buffer.alloc(Math.min(size, 65536));
+    const count = readSync(this.diagnostics, buffer, 0, buffer.length, size - buffer.length);
+    return buffer.subarray(0, count).toString('utf8').trim();
+  }
+
   readLine(deadline) {
     const chunks = [];
     for (;;) {
       const buffer = Buffer.alloc(65536);
-      const count = retryIO(() => readSync(this.response, buffer), deadline);
+      const count = retryIO(() => {
+        this.forwardDiagnostics(deadline);
+        return readSync(this.response, buffer);
+      }, deadline);
       if (!count) throw new Error('compiler service closed its response stream');
       const chunk = buffer.subarray(0, count), end = chunk.indexOf(10);
       if (end !== -1 && end !== count - 1) throw new Error('unsolicited compiler service response');
@@ -98,6 +130,7 @@ class CompilerHost {
 
   receive(deadline) {
     const result = JSON.parse(this.readLine(deadline));
+    this.finishDiagnostics(deadline);
     if (!Array.isArray(result) || result.length !== 2 || typeof result[0] !== 'boolean')
       throw new Error('invalid compiler service response');
     if (!result[0]) throw new CompilerDiagnostic(result[1]);
@@ -123,7 +156,7 @@ class CompilerHost {
 
   abort(failure) {
     let diagnostics = '';
-    try { diagnostics = readFileSync(join(this.directory, 'host-errors.txt'), 'utf8').trim(); } catch {}
+    try { diagnostics = this.diagnosticTail(); } catch {}
     this.failure = [failure.message, diagnostics].filter(Boolean).join('\n');
     try { this.close(); } catch (cleanup) { this.failure += `\nCompiler cleanup failed: ${cleanup.message}`; }
     return new Error(this.failure);
@@ -133,7 +166,7 @@ class CompilerHost {
     try { stopOwnedGroup(this.child); }
     finally {
       this.child = undefined;
-      for (const name of ['request', 'response']) {
+      for (const name of ['request', 'response', 'diagnostics']) {
         if (this[name] !== undefined) closeSync(this[name]);
         this[name] = undefined;
       }
