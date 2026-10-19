@@ -5,6 +5,10 @@ its privileged recording projection. The tested static package is
 `/tmp/snail-siegework-headless-artifact-20261018/solo`, generation
 `e3e239f3cb295587459eb6eb`. The host runs that package through the browser's
 `ReducerRuntime`; game rules, World12 serialization and presentation are unchanged.
+The integrated implementation is `fd4225b0`; subsequent validation edits are
+documentation only. Its simulation is 619,469 bytes, SHA-256
+`8096de8b0247c3cc78b5361379f22737c5e024ae521ccd6ec5a1971433610329`.
+All packaged browser host modules match the integrated source byte-for-byte.
 The earlier reviewed gameplay baseline at
 `/tmp/snail-siegework-world12-reviewed-artifact-20261018/solo` predates observation
 ABI version 1 and deliberately fails the new environment's package check.
@@ -23,15 +27,31 @@ Executed checks for this checkpoint:
   consistency checks, not evidence of a naturally trapping valid World.
   Malformed MCP capabilities and non-object parameters are also exercised;
   invalid notifications remain silent and cannot complete initialization.
-- 12 recording checks, four first-extractor checks, and six nest-front checks
-  against the new package.
-- Scheme formatting, JavaScript syntax, and whitespace checks for the changes.
+- All 239 existing actual-Wasm application integration checks, 12 recording
+  checks and 22 presentation groups against the exact new package.
+- All 20 headed Chromium hosting groups, including real IndexedDB, static
+  reload/restart, input, GPU presentation and recording playback. The private
+  fixture uses software Vulkan; this is not a hardware or phone FPS measurement.
+- Independent integration smoke checks: 24 parity/recovery assertions across
+  seeds 1, 2 and 65535, plus a real MCP client completing an extractor order,
+  advancing 60 ticks, restoring a checkpoint, and rejecting malformed requests.
+- `make check`, JavaScript syntax, whitespace checks and the mdBook build.
 
-The focused runner's development diagnostic observed 600 ticks in 154–188 ms,
+A newcomer check used only public documentation and MCP metadata. It initially
+bought a tower while intending artillery because the numeric kinds lacked names.
+The metadata now names each kind, coordinate units and tick limits; the guide
+documents state codes. A targeted retry on seed 42 correctly bought an extractor
+and artillery. This tests opening usability, not strategy quality or survival.
+
+The informed Astra xhigh review independently passed all 17 focused regressions
+after its query-fault and malformed-protocol findings were fixed. It found no
+remaining blocker in those fixes. The preceding focused simplify pass used an
+independent behavioral explanation and debate; no broader refactoring was needed.
+
+The focused runner's development diagnostic observed 600 ticks in 154–204 ms,
 with 23171-byte initial and 34441-byte tick-600 player observations. These are
 local instrumented samples, not clean benchmarks. No Python Gymnasium wrapper,
-training result, multiplayer service, browser persistence check or GPU-rendering
-result is claimed by this checkpoint. The headless runner is included in the
+training result or multiplayer service is claimed. The headless runner is included in the
 applications CI partition; the full backend suite was not rerun for this change.
 
 The [environment guide](headless.md) documents the API and protocol. A 10–20
