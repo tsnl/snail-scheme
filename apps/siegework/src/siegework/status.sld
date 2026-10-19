@@ -82,6 +82,7 @@
             ((= reason 35) "Hub capacity upgrade already underway")
             ((= reason 36) "Maximum hub capacity: 24 workers")
             ((= reason 37) "Hub capacity upgrade paid · one worker assembles it at the hub")
+            ((= reason 38) "Build an extractor on a glowing deposit first · other purchases unlock afterward")
             (else "Ready to place · workers build, mine and haul")))
     (define (building-name kind)
       (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") (else "OBSERVATION TOWER")))

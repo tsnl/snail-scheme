@@ -78,17 +78,17 @@ export async function checkRanks(test,fresh) {
     }
     await r.close();
   });
-  await test('the first accepted order starts time and cancellation never stops it again',async()=>{
+  await test('only the first accepted extractor starts time and cancellation never stops it again',async()=>{
     const r=await fresh(); for(let i=0;i<30;i++)await call(r,'advance');
     assert.equal(state(r).started,false); assert.equal(state(r).tick,0);
     await call(r,'observe',[8,22]); await call(r,'advance'); assert.equal(state(r).tick,0);
     await call(r,'pause-colony',[1]); await call(r,'pause-colony',[0]); assert.equal(state(r).started,false);
     const waiting=r.snapshot(1); await r.restore(1,waiting); assert.equal(state(r).started,false);
-    await call(r,'observe',[10,22]); assert.equal(state(r).started,true);
-    await call(r,'cancel-building',[10,22]); assert.equal(state(r).buildings.length,0);
+    await call(r,'extract',[12,20]); assert.equal(state(r).started,true);
+    await call(r,'cancel-building',[12,20]); assert.equal(state(r).buildings.length,0);
     await call(r,'advance'); assert.equal(state(r).tick,1);
     await call(r,'new-run-seed',[1]); await call(r,'advance'); assert.equal(state(r).tick,0);
-    await call(r,'fabricate-worker'); await call(r,'advance'); assert.equal(state(r).started,true); assert.equal(state(r).tick,1);
+    await call(r,'fabricate-worker'); await call(r,'advance'); assert.equal(state(r).started,false); assert.equal(state(r).tick,0);
     await r.close();
   });
 }

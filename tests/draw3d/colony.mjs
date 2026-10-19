@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony, client, at, siteAt, restoreClient, restoreColony} from '../applications/colony-state.mjs';
+import {establishColony,colony, client, at, siteAt, restoreClient, restoreColony} from '../applications/colony-state.mjs';
 import {expandedVertexCount} from './scene-tools.mjs';
 const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
@@ -121,7 +121,7 @@ try {
   await command('resume');assert.deepEqual(runtime.snapshot(2),unpaid);assert.deepEqual(runtime.snapshot(1),fresh);
   await point(12,20);await command('confirm');await command('choose',[1]);
   assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,120);assert.equal(local().chooser,false);assert.equal(local().buildKind,0);
-  await advance(140);assert.equal(siteAt(world(),12,20).stage,2);await point(12,20,.94);await command('confirm');
+  await advance(140);assert.equal(siteAt(world(),12,20).stage,2);await point(12,20,.7);await command('confirm');
   assert.ok(node('upgrade'));await command('improve');assert.equal(siteAt(world(),12,20).level,2);
   console.log('ok - selecting a deposit or empty site is free; choices and costs are contextual; existing buildings upgrade explicitly');
 
@@ -148,7 +148,7 @@ try {
   assert.equal(local().chooser,true);await command('confirm');assert.equal(siteAt(world(),15,21).kind,2);assert.equal(local().lastKind,2);
   console.log('ok - settlement without a durable reply keeps the exact attempted type retryable and changes memory only on acceptance');
 
-  await runtime.restore(1,fresh);await command('center');await home();const unselected=runtime.snapshot(1);
+  await runtime.restore(1,fresh);await establishColony(runtime);await command('center');await home();const unselected=runtime.snapshot(1);
   await command('fabricate');assert.deepEqual(runtime.snapshot(1),unselected);
   assert.equal(node('worker-menu'),undefined);await command('home');await animate();assert.deepEqual(runtime.snapshot(1),unselected);assert.ok(node('worker'));
   assert.deepEqual(node('worker').action.command,runtime.command('client','fabricate'));

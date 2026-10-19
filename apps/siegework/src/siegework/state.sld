@@ -69,7 +69,7 @@
                      (>= (world-kills world) 0) (> (world-next-id world) 0) (bounded? (world-focus world) 0 2)
                      (bounded? (world-plan world) 0 9) (>= (world-delivered world) 0)
                      (bounded? (world-local-spent world) 0 (world-spent world)) (>= (world-produced world) 0) (>= (world-spent world) 0) (>= (world-lost world) 0)
-                     (bounded? (world-notice world) 0 37) (bounded? (world-paused world) 0 1)
+                     (bounded? (world-notice world) 0 38) (bounded? (world-paused world) 0 1)
                      (bounded? (world-hub-capacity-level world) 0 maximum-hub-capacity-level)
                      (bounded? (world-seed world) 1 65535) (>= (world-casualties world) 0)
                      (>= (world-lost-ore world) 0) (>= (world-run-marker world) 0))))

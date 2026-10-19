@@ -6,7 +6,7 @@ import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {checkColony} from './colony.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkLogistics} from './colony-logistics.mjs';
-import {colony, colonyBalance, restoreColony, restoreClient, client, setWorker, addEnemy, at, pixelAt, siteAt, origin, fixtureCall} from './colony-state.mjs';
+import {establishColony,colony, colonyBalance, restoreColony, restoreClient, client, setWorker, addEnemy, at, pixelAt, siteAt, origin, fixtureCall} from './colony-state.mjs';
 import {expandedVertexCount} from '../draw3d/scene-tools.mjs';
 
 export async function checkFocus(test, fresh, call) {
@@ -270,7 +270,7 @@ export async function checkFocus(test, fresh, call) {
 if (process.argv[1] === import.meta.filename) {
   const output=resolve(process.argv[2]); const manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
   const bytes=readFileSync(join(output,manifest.module));
-  async function fresh() { const r=new ReducerRuntime(); await r.replace(r.prepare(bytes,manifest)); await r.initialize(1); await r.initialize(2); return r; }
+  async function fresh() { const r=new ReducerRuntime(); await r.replace(r.prepare(bytes,manifest)); await r.initialize(1); await r.initialize(2); return establishColony(r); }
   const call=fixtureCall;
   let count=0; const test=async(name,run)=>{await run(); console.log(`ok ${++count} - ${name}`);};
   if(process.argv.includes("--regression")) {await checkColony(test,fresh,call);await checkEncounters(test,fresh,call);await checkLogistics(test,fresh,call);}

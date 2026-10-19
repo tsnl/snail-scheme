@@ -1,7 +1,7 @@
 // Compiled Scheme owns every transition. Snapshot edits establish bounded
 // encounter and cargo fixtures; there is no alternate routing or simulation.
 import assert from 'node:assert/strict';
-import {colony, colonyBalance, addEnemy, setWorker, setBuilding, setRail, restoreColony, at, pixelAt, siteAt} from './colony-state.mjs';
+import {colony, colonyBalance, addEnemy, setWorker, setBuilding, setRail, restoreColony, at, pixelAt, siteAt, establishColony} from './colony-state.mjs';
 
 export async function checkLogistics(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -100,7 +100,7 @@ export async function checkLogistics(test, fresh, call) {
     await call(r, 'cancel-building', [12,21]); balanced(r);
     assert.equal(state(r).buildings.length, 0); assert.equal(state(r).ore, 135); assert.equal(state(r).spent, 25);
     await advance(r, 40); assert.equal(state(r).ore, 135);
-    await call(r, 'new-run-seed', [1]); await call(r, 'fortify', [12,21]);
+    await call(r, 'new-run-seed', [1]); await establishColony(r); await call(r, 'fortify', [12,21]);
     await until(r, world => world.buildings[0].stock === 25 && world.bots.some(bot => bot.job === 3));
     await call(r, 'cancel-building', [12,21]); assert.equal(state(r).ore, 110);
     await until(r, world => world.ore === 135); assert.equal(state(r).spent, 25); await r.close();
@@ -214,7 +214,7 @@ export async function checkLogistics(test, fresh, call) {
     assert.equal(state(r).casualties, 1); assert.equal(state(r).lostOre, 16);
     assert.equal(state(r).buildings[0].stage, 0); assert.equal(state(r).spent, 25);
     await call(r, 'cancel-building', [13,20]); assert.equal(state(r).ore, 160);
-    await call(r, 'new-run-seed', [1]); await call(r, 'observe', [12,21]); await advance(r);
+    await call(r, 'new-run-seed', [1]); await establishColony(r); await call(r, 'observe', [12,21]); await advance(r);
     await call(r, 'cancel-building', [12,21]); const cancelled = state(r); cancelled.tick = 9; cancelled.lastRevealTick=-100;
     setWorker(cancelled, 0, {x:12,y:21,job:7,cargo:25,timer:5,hp:7}); await restoreColony(r, cancelled);
     await addEnemy(r, {x:12,y:21}); await advance(r);

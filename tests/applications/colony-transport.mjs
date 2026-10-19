@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,colonyBalance,restoreColony,fixtureCall,at,pixelAt,routeCell,setWorker} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,at,pixelAt,routeCell,setWorker} from './colony-state.mjs';
 
 export async function checkTransport(test,fresh) {
   const state=r=>colony(r.snapshot(1));
@@ -142,7 +142,7 @@ export async function checkTransport(test,fresh) {
 
 if(process.argv[1]===import.meta.filename) {
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json'))),bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0;await checkTransport(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh);
   console.log(`${count} live transport checks passed`);
 }

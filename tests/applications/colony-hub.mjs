@@ -5,7 +5,7 @@ import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {readRecord,saveContract} from '../../src/application/indexeddb.mjs';
-import {colony,colonyBalance,restoreColony,fixtureCall,at,setWorker,addEnemy} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,at,setWorker,addEnemy} from './colony-state.mjs';
 
 const state=r=>colony(r.snapshot(1)),call=fixtureCall;
 async function advance(r,count=1) {
@@ -173,7 +173,7 @@ export async function checkHub(test,fresh,bytes) {
 if(process.argv[1]===import.meta.filename) {
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
   const bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0; await checkHub(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh,bytes);
   console.log(`${count} hub and repair checks passed`);
 }

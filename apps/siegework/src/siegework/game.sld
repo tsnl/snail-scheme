@@ -192,7 +192,7 @@
             (submit-build world state kind))))
     (define (receive-build-result state cell reason)
       (if (or (not (build-pending? state)) (not (= cell (client-build-cell state))) (= (client-build-result state) 3)
-              (< reason 0) (> reason 34)) state
+              (< reason 0) (> reason 38)) state
               (client-failure-set (client-build-result-set state (if (= reason 0) 1 2)) reason)))
     ;; A failed World save publishes no reply; the authored settlement still
     ;; releases its slot. An import's superseded result is sticky until then.
@@ -380,7 +380,7 @@
                    (if (build-pending? client)
                        (and (>= (client-build-cell client) 0) (< (client-build-cell client) (* map-width map-height)))
                        (and (= (client-build-cell client) -1) (= (client-build-result client) 0)))
-                   (>= (client-failure client) 0) (<= (client-failure client) 34)
+                   (>= (client-failure client) 0) (<= (client-failure client) 38)
                    (<= (list-size (client-dismissed client)) 4) (valid-dismissals? (client-dismissed client) (empty-list))
                    (>= (client-camera-x client) -3000) (<= (client-camera-x client) (+ (* map-width 1000) 3000))
                    (>= (client-camera-y client) -3000) (<= (client-camera-y client) (+ (* map-height 1000) 3000))

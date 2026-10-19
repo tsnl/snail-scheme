@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,restoreColony,fixtureCall,routeCell,at} from './colony-state.mjs';
+import {establishColony,colony,restoreColony,fixtureCall,routeCell,at} from './colony-state.mjs';
 
 export async function checkConstructionOrders(test,fresh) {
   const state=r=>colony(r.snapshot(1));
@@ -51,7 +51,7 @@ export async function checkConstructionOrders(test,fresh) {
 if(process.argv[1]===import.meta.filename) {
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
   const bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0;await checkConstructionOrders(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh);
   console.log(`${count} construction order checks passed`);
 }

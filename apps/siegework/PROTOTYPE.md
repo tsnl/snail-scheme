@@ -9,6 +9,9 @@ The [player guide](README.md) describes the implemented controls and costs.
 - A hub, three pooled workers, one visible starter deposit and two hidden expansion
   choices. North offers a modest nearby resource; east offers richer ore beyond a
   ridge crossing. Routes follow traversable surveyed ground.
+- The first paid order must be an extractor. Until that order is accepted, time
+  stays stopped and all other ore purchases are rejected. Selecting a deposit
+  does not start the run; cancellation after acceptance does not stop it again.
 - Completed observation towers extend active sight. Remembered geography survives
   lost coverage; current enemies require active sight. Placement requires visible,
   reachable ground, and a paid kit must physically arrive before a site operates.

@@ -89,15 +89,25 @@
               (if (inside? x y) (cell-index x y) -1)))))
     (define (ground-cell camera px py width height)
       (ground-ray-cell (pointer-ray camera px py width height)))
+    ;; The arch keeps its clearance; only the structures above it get shorter.
+    ;; Picking, attached guns and launch points use the same vertical transform.
+    (define plinth-height 1.3)
+    (define upper-height-scale 0.55)
+    (define hub-height-scale 0.65)
+    (define mine-height-scale 0.8)
+    (define mine-width-scale 1.15)
+    (define (upper-height height) (+ plinth-height (* upper-height-scale height)))
     (define (building-top building)
-      (+ (if (raised-building? building) 1.3 0.0)
-         (if (not (ready? building)) 0.4
-             (cond ((tower? building) 1.67) ((= (building-kind building) 1) 1.02)
-                   ((= (building-kind building) 2) (+ 0.98 (* 0.52 (scalar (- (building-level building) 1)))))
-                   (else 1.37)))))
+      (cond ((not (ready? building)) 0.4)
+            ((tower? building) (upper-height 1.67))
+            ((= (building-kind building) 1) (* mine-height-scale 1.02))
+            (else (upper-height (+ 0.98 (* 0.52 (scalar (- (building-level building) 1))))))))
     (define (building-bounds world building)
-      (let ((center (position (building-x building) (building-y building) 0.0)))
-        (bounds (v+ center (vec3 -0.48 -0.48 0.0)) (v+ center (vec3 0.48 0.48 (building-top building))))))
+      (let ((center (position (building-x building) (building-y building) 0.0))
+            (width (if (and (ready? building) (= (building-kind building) 1)) (* 0.66 mine-width-scale) 0.48))
+            (depth (if (and (ready? building) (= (building-kind building) 1)) (* 0.45 mine-width-scale) 0.48)))
+        (bounds (v+ center (vec3 (- 0.0 width) (- 0.0 depth) 0.0))
+                (v+ center (vec3 width depth (building-top building))))))
     (define CellHit
       (datatype ()
         (cell-hit
@@ -117,11 +127,11 @@
     (define (pick-deposit world pointer x y nearest)
       (if (not (and (inside? x y) (known? world x y) (> (deposit-rate (world-seed world) x y) 0))) nearest
           (let ((center (position x y 0.0)))
-            (nearer-box pointer (bounds (v+ center (vec3 -0.38 -0.33 0.0))
-                                        (v+ center (vec3 0.35 0.27 0.64)))
+            (nearer-box pointer (bounds (v+ center (vec3 -0.48 -0.48 0.0))
+                                        (v+ center (vec3 0.48 0.48 0.56)))
                         (cell-index x y) nearest))))
-    ;; At 30° pitch, height 0.64 shifts the ground hit by at most 1.109 cells.
-    ;; With the 0.38 horizontal half-width it stays below 1.5: nine cells suffice.
+    ;; At 30° pitch, height 0.56 shifts the ground hit by at most 0.970 cells.
+    ;; With the 0.48 horizontal half-width it stays below 1.5: nine cells suffice.
     (define (nearest-deposit world pointer ground dx dy nearest)
       (cond ((or (< ground 0) (> dy 1)) nearest)
             ((> dx 1) (nearest-deposit world pointer ground -1 (+ dy 1) nearest))
@@ -134,7 +144,7 @@
     (define (nearest-landmark world pointer nearest)
       (let* ((hx (world-hub-x world)) (hy (world-hub-y world))
              (nx (world-nest-x world)) (ny (world-nest-y world))
-             (hub (nearer-box pointer (landmark-box hx hy 1.5 1.5 2.25) (cell-index hx hy) nearest)))
+             (hub (nearer-box pointer (landmark-box hx hy 1.5 1.5 (* 2.25 hub-height-scale)) (cell-index hx hy) nearest)))
         (if (known? world nx ny)
             (nearer-box pointer (landmark-box nx ny 1.4 1.4 2.8) (cell-index nx ny) hub) hub)))
     ;; The overhead ray approaches Z=0 from above. Every picked box sits on
@@ -184,9 +194,9 @@
             ((= (remainder (+ x (* y 3)) 3) 0) (material (rgb 95 190 70) 0.0))
             (else (material (rgb 121 211 78) 0.0))))
     (define mineral-model
-      (model (list (shape pyramid-geometry gemstone -0.2 0.0 0.32 0.36 0.36 0.64)
-                   (shape pyramid-geometry gem-light 0.2 0.12 0.22 0.3 0.3 0.44)
-                   (shape pyramid-geometry indigo 0.08 -0.22 0.16 0.22 0.22 0.32))))
+      (model (list (shape pyramid-geometry gemstone -0.16 -0.04 0.28 0.62 0.62 0.56)
+                   (shape pyramid-geometry gem-light 0.23 0.16 0.23 0.44 0.44 0.46)
+                   (shape pyramid-geometry indigo 0.12 -0.28 0.16 0.32 0.32 0.32))))
     (define (mineral-cluster) (list (model-instance mineral-model identity-transform)))
     (define (rock-nodes world x y)
       (let* ((remaining (world-rock-remaining world x y)) (fraction (/ (scalar remaining) (scalar rock-health)))
@@ -272,8 +282,12 @@
     (define (mineral-at world window x y glow fresh)
       (if (and (>= x (window-left window)) (< x (window-right window))
                (>= y (window-top window)) (< y (window-bottom window))
-               (> (deposit-rate (world-seed world) x y) 0) (fog-layer? world x y fresh) (null? (building-at (world-buildings world) x y)))
-          (list (at-cell x y (if glow (list (flat gemstone 0.0 0.0 0.025 0.85 0.85)) (mineral-cluster))))
+               (> (deposit-rate (world-seed world) x y) 0) (fog-layer? world x y fresh))
+          (let ((found (building-at (world-buildings world) x y)))
+            (cond ((null? found) (list (at-cell x y (if glow (list (flat gemstone 0.0 0.0 0.025 1.1 1.1)) (mineral-cluster)))))
+                  ((and glow (= (building-kind (car found)) 1))
+                   (list (at-cell x y (list (flat gemstone 0.0 0.0 0.025 1.6 1.6)))))
+                  (else (empty-list))))
           (empty-list)))
     (define (regional-minerals world window glow fresh rx ry)
       (cond ((>= ry 9) (empty-list)) ((>= rx 12) (regional-minerals world window glow fresh 0 (+ ry 1)))
@@ -326,7 +340,8 @@
                    (block steel -1.0 -1.32 0.65 0.32 0.05 0.9)
                    (block steel 1.0 -1.32 0.65 0.32 0.05 0.9))))
     (define (hub-nodes world)
-      (list (model-instance hub-model (translation (position (world-hub-x world) (world-hub-y world) 0.0)))))
+      (list (model-instance hub-model (compose (translation (position (world-hub-x world) (world-hub-y world) 0.0))
+                                               (scaling 1.0 1.0 hub-height-scale)))))
 
     ;; ---- Fixed colored building models; aiming belongs to each occurrence ----
 
@@ -336,7 +351,7 @@
       (and (ready? building) (or (tower? building) (= (building-kind building) 2))))
     (define (site-lift world x y)
       (let ((found (building-at (world-buildings world) x y)))
-        (if (and (not (null? found)) (raised-building? (car found))) 1.3 0.0)))
+        (if (and (not (null? found)) (raised-building? (car found))) plinth-height 0.0)))
     (define (stone-box-vertices frame index)
       (if (= index 24) (empty-list)
           (let ((point (geometry-vertex box-geometry index)))
@@ -387,8 +402,10 @@
             (shape pyramid-geometry steel 0.0 0.0 0.44 0.3 0.3 0.64)
             (block brass -0.56 -0.15 0.12 0.2 0.42 0.24)
             (block (if (>= level 2) brass steel) 0.56 -0.15 0.12 0.2 0.42 0.24)))
-    (define mine-model (model (mine-parts 1)))
-    (define upgraded-mine-model (model (mine-parts 2)))
+    (define (make-mine-model level)
+      (model (list (group (scaling mine-width-scale mine-width-scale mine-height-scale) (mine-parts level)))))
+    (define mine-model (make-mine-model 1))
+    (define upgraded-mine-model (make-mine-model 2))
     (define cannon-model
       (model (list (block rust 0.0 -0.1 0.0 0.58 0.5 0.32)
                    (block cream 0.0 0.35 0.09 0.22 0.72 0.22)
@@ -399,13 +416,14 @@
       (let* ((target (moving-position (building-aim-x building) (building-aim-y building) 0.0))
              (direction (v- target (position (building-x building) (building-y building) 0.0)))
              (aim (if (< (dot direction direction) 0.001) (vec3 0.0 1.0 0.0) direction))
-             (center (vec3 0.0 0.0 height)))
-        (list (model-instance cannon-model (look-at center (v+ center aim) (vec3 0.0 0.0 1.0))))))
+             (center (vec3 0.0 0.0 (upper-height height))))
+        (list (model-instance cannon-model (compose (look-at center (v+ center aim) (vec3 0.0 0.0 1.0))
+                                                    (scaling 1.0 1.0 upper-height-scale))))))
     ;; A separate gun assembly per level makes upgrades visible from the map.
     ;; The authoritative gun still owns one aim/cooldown and the existing DPS.
     (define (artillery-cannons building count)
       (if (= count 0) (empty-list)
-          (append (cannon-nodes building (+ 1.98 (* 0.52 (scalar (- count 1)))))
+          (append (cannon-nodes building (+ 0.68 (* 0.52 (scalar (- count 1)))))
                   (artillery-cannons building (- count 1)))))
     (define (artillery-parts level)
       (list (block steel 0.0 0.0 0.1 0.94 0.94 0.2)
@@ -417,7 +435,7 @@
             (block (if (>= level 3) brass steel) 0.4 -0.26 0.46 0.18 0.26 0.2)))
     (define (raised-model parts)
       (model (list (mesh plinth-geometry plinth-stone identity-transform)
-                   (group (translation (vec3 0.0 0.0 1.3)) parts))))
+                   (group (compose (translation (vec3 0.0 0.0 plinth-height)) (scaling 1.0 1.0 upper-height-scale)) parts))))
     (define artillery-models
       (vector (raised-model (artillery-parts 1)) (raised-model (artillery-parts 2))
               (raised-model (artillery-parts 3))))
@@ -456,7 +474,7 @@
       (cons (model-instance (building-model building) identity-transform)
             (cond ((not (ready? building)) (empty-list))
                   ((= (building-kind building) 2) (artillery-cannons building (building-level building)))
-                  ((armed? building) (cannon-nodes building 2.4))
+                  ((armed? building) (cannon-nodes building 1.1))
                   (else (empty-list)))))
     (define warning-model
       (model (list (block steel 0.0 -0.4 0.48 0.045 0.045 0.8)
@@ -558,13 +576,12 @@
                               (shape pyramid-geometry blue 0.0 -0.18 0.89 0.22 0.22 0.16)))
             ((= kind 2) (list (block rust 0.0 -0.18 0.68 0.27 0.16 0.12)
                               (block cream 0.0 -0.02 0.73 0.08 0.26 0.08)))
-            ((= kind 4) (list (block steel 0.0 -0.18 0.72 0.25 0.16 0.16)))
             ((= kind 1) (list (block cyan 0.0 -0.18 0.73 0.25 0.1 0.22)))
             (else (empty-list))))
     (define (kit-model kind)
       (model (append (list (block cream 0.0 -0.2 0.45 0.38 0.3 0.32)
                            (block steel 0.0 -0.36 0.45 0.08 0.025 0.34)) (kit-symbol kind))))
-    (define kit-models (vector (kit-model 0) (kit-model 1) (kit-model 2) (kit-model 3) (kit-model 4)))
+    (define kit-models (vector (kit-model 0) (kit-model 1) (kit-model 2) (kit-model 3)))
     (define ore-model
       (model (list (block brass 0.0 -0.2 0.37 0.34 0.23 0.16)
                    (shape pyramid-geometry gemstone 0.0 -0.2 0.56 0.24 0.2 0.28))))
@@ -692,7 +709,7 @@
     ;; one impact flash. Damage and saved aim still belong to the reducer.
     (define (shot-node world building)
       (let* ((start (position (building-x building) (building-y building)
-                              (+ (site-lift world (building-x building) (building-y building)) (if (tower? building) 1.25 (+ 0.77 (* 0.52 (scalar (- (building-level building) 1))))))))
+                              (upper-height (if (tower? building) 1.25 (+ 0.77 (* 0.52 (scalar (- (building-level building) 1))))))))
              (target (moving-position (building-aim-x building) (building-aim-y building) 0.2))
              (direction (v- target start)) (age (- 8 (building-cooldown building))))
         (if (= age 2)

@@ -1,3 +1,40 @@
+## Unpublished extractor-first and visibility checkpoint (World12)
+
+The opening keeps all 160 starting ore available until a valid paid extractor
+order is accepted. Hiring, hub expansion, repairs, other construction and
+upgrades reject before spending; disabled contextual controls explain the rule.
+Selection leaves time stopped. Canceling the first accepted extractor preserves
+the saved start history and leaves subsequent purchases available.
+
+The hub and upper tower/gun profiles are shorter while the shared stone arches
+retain their clearance. Wider, lower crystals and extractor halos use the
+existing fixed meshes and GPU pulse clock. Picking boxes, gun origins,
+projectiles and upgrade-marker anchors follow the new model heights.
+
+Canonical default-O1 generation `53423e3a85d67354d0e6ab0a` has a 592,302-byte
+simulation (SHA-256
+`c540383b1f1b9a87a8e8d1fd6b8f7e4bc068d76706a55ac23dd1c8432e9f087b`).
+The application runner passes 223 actual-Wasm checks, including four new opening
+groups. All 21 product presentation groups, eight recording groups, `make check`
+and 20 headed Chromium hosting/storage groups pass. Existing encounter fixtures
+explicitly represent an already-started colony; initial-state opening tests
+exercise the real purchase gate.
+
+The browser checks include initial mobile buttons and shortcuts, an actual
+mouse-driven extractor-then-tower construction/reload, shorter-model picking,
+upgrade-marker anchoring, native DPR changes, Q/E input and portrait/landscape
+touch expansion with repeated hiring. Indexed GPU draws still share tile,
+tower and worker meshes; camera movement uploads no geometry, and the next tick
+uploads occurrences without new mesh buffers.
+
+Evidence is in `/tmp/snail-siegework-opening-{runtime,tests,colony,playtest,onboarding,recording,check,hosting}.log`.
+Reviewed native screenshots are in `/tmp/snail-hosting-rrjZ4c`, including
+`static-playtest-opening-hub-320x568.png`, `static-playtest-deposit.png`,
+`static-playtest-upgrade-spinner.png` and both `hub-upgrade` touch states.
+This isolated package is not published and precedes the separate finite-reserve
+and multiple-nest integration. It adds no schema or storage-identity change
+beyond the unpublished hub-capacity World12 checkpoint below.
+
 ## Unpublished hub capacity checkpoint (World12)
 
 The isolated hub-capacity revision removes constructible houses and stores an
@@ -15,8 +52,11 @@ insufficient ore/staff, loaded travel and code/save reload, paused progress,
 fleeing/death refunds, malformed snapshot rejection and contextual controls.
 The complete application runner passes 219 checks, with unchanged shared-library
 fixtures reused from their verified builds. All 16 current product presentation
-groups, eight recording groups and `make check` pass. Actual browser proof is
-pending; this checkpoint is not published. `siegework-colony-v12` will begin a fresh colony when published;
+groups, eight recording groups and `make check` pass. All 20 headed Chromium
+hosting/storage groups also pass, including product touch layout and recording
+(`/tmp/snail-siegework-hub-capacity-hosting.log`; screenshots in
+`/tmp/snail-hosting-RGn2rw`). This checkpoint is not published.
+`siegework-colony-v12` will begin a fresh colony when published;
 World11 browser records remain under their previous identity.
 
 # Release validation — 2026-10-18

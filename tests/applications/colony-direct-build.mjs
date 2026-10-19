@@ -5,12 +5,13 @@ import {join,resolve} from 'node:path';
 import {BrowserApplication} from '../../src/browser/application.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,client,colonyWords,restoreClient,restoreColony,at,routeCell,siteAt,setWorker} from './colony-state.mjs';
+import {establishColony,colony,client,colonyWords,restoreClient,restoreColony,at,routeCell,siteAt,setWorker} from './colony-state.mjs';
 const world=h=>colony(h.runtime.snapshot(1)),state=h=>client(h.runtime.snapshot(2));
 const deferred=()=>{let resolve;const promise=new Promise(yes=>{resolve=yes;});return{promise,resolve};};
 function node(h,key,value=h.runtime.view().ui){if(value.key===key)return value;for(const child of value.children){const found=node(h,key,child);if(found)return found;}}
-async function host(fresh){
+async function host(fresh,started=true){
   const runtime=await fresh(),errors=[],orders=[],controls={commit:()=>{}};
+  if(started)await establishColony(runtime);
   const app=Object.assign(Object.create(BrowserApplication.prototype),{runtime,manifest:runtime.manifest,updates:Promise.resolve(),closing:false,localWork:0,dirty:false,note:()=>{},report:error=>errors.push(error)});
   const local=new LocalState(runtime,{commit:(...args)=>controls.commit(...args),publish:output=>app.queueEffects(output.effects)});
   app.session={submit:command=>{orders.push(command);return local.submit(command);}};
@@ -25,12 +26,12 @@ const construction=h=>h.orders.filter(command=>command.handler===h.runtime.comma
 
 export async function checkDirectBuild(test,fresh){
   await test('one site selection exposes its own costs without spending or starting time',async()=>{
-    const h=await host(fresh),before=h.runtime.snapshot(1);
+    const h=await host(fresh,false),before=h.runtime.snapshot(1);
     await select(h,12,20);assert.ok(node(h,'extractor'));assert.equal(node(h,'tower'),undefined);assert.equal(state(h).choiceKind,1);
     assert.match(node(h,'extractor-caption').text,/40 ore/);
     await select(h,12,22);assert.equal(node(h,'extractor'),undefined);for(const key of ['tower','artillery'])assert.ok(node(h,key));
     assert.deepEqual([node(h,'tower').text,node(h,'artillery').text],['1','2']);
-    assert.equal(state(h).choiceKind,3);assert.match(node(h,'context-description').text,/Buttons build here/);assert.ok(node(h,'close-context'));
+    assert.equal(state(h).choiceKind,3);assert.match(node(h,'context-description').text,/extractor.*first/);assert.ok(node(h,'close-context'));
     for(const key of ['tower','artillery'])assert.equal(node(h,key).properties[2],0,'one-shot construction is not a mode toggle');
     await action(h,'dismiss');assert.equal(state(h).chooser,false);assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(world(h).started,false);
     for(const old of ['build-menu','done-plan','clear-plan'])assert.equal(node(h,old),undefined);await h.app.close();

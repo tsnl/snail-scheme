@@ -6,7 +6,7 @@ import {join,resolve} from 'node:path';
 import {BrowserApplication} from '../../src/browser/application.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,client,colonyWords,restoreColony,pixelAt,fixtureCall} from './colony-state.mjs';
+import {establishColony,colony,client,colonyWords,restoreColony,pixelAt,fixtureCall} from './colony-state.mjs';
 const world=h=>colony(h.runtime.snapshot(1)),state=h=>client(h.runtime.snapshot(2));
 const deferred=()=>{let resolve;const promise=new Promise(yes=>{resolve=yes;});return{promise,resolve};};
 function node(h,key,value=h.runtime.view().ui){if(value.key===key)return value;for(const child of value.children){const found=node(h,key,child);if(found)return found;}}
@@ -83,6 +83,6 @@ export async function checkColonyMenus(test,fresh){
 }
 if(process.argv[1]===import.meta.filename){
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json'))),bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0;await checkColonyMenus(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh);console.log(`${count} asynchronous menu checks passed`);
 }

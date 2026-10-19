@@ -57,6 +57,11 @@ button cannot order a new selection. The second tap on the same empty tile emits
 that same typed `build-cell(kind, cell)` request. Deposits offer only extractors;
 existing-building taps inspect, with separate explicit upgrade and cancel actions.
 The model's normal placement operation validates and pays for each order.
+Before the first accepted extractor, placement and the other purchase rules
+reject every alternative use of ore. Only accepting that paid extractor sets
+the saved `started` flag; selection, failed requests and camera input do not.
+Contextual disabled actions explain the same restriction without enforcing it
+only in the interface.
 
 One local placement slot remains occupied through reply and completion. Imports
 clear selection and supersede the older result without releasing that slot early.

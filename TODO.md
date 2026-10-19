@@ -152,6 +152,8 @@ source edits remain unchecked until compiled and exercised.
 - [x] Recompute a deterministic transport minimum spanning tree each tick; display only current paths as directional pulsing dots.
 - [x] Give every tower and artillery a shared stone plinth with open arches on
       all four sides.
+- [x] Lower the hub and upper building profiles while preserving arch clearance;
+      enlarge resource crystals and keep a pulsing halo around extractors.
 - [x] Allow buildings on current transport paths and intersections.
 - [x] Replace constructible houses with six paid hub capacity upgrades: 12 base
       places, two per tier, maximum 24; prices double from 100 through 3,200 ore.
@@ -202,7 +204,8 @@ source edits remain unchecked until compiled and exercised.
       existing carriers can reveal their destination while following a known route.
 - [x] Obsolete track geometry disappears; source-owned freight is conserved
       across reroutes and counted once when its source is destroyed.
-- [x] First accepted order starts the clock; inspection and selection do not.
+- [x] Require an accepted paid extractor before any other ore purchase; that
+      order starts the clock, while inspection and selection leave time stopped.
 - [x] Rejecting a transition keeps the exact committed colony; retain one
       separate command/snapshot reproduction for debugging.
 - [x] Restart confirmation pauses, with cancellation returning to the Pause menu.

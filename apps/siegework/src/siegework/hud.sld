@@ -187,7 +187,7 @@
         (ui-hover ((action-preview actions) kind) ((action-preview actions) 0)
                   (priced-circle (building-key kind) shortcut (string-append (integer-text (building-cost kind)) " ore")
                                  (string-append (building-name kind) " · " (priced-help (building-cost kind) (reason-text reason)))
-                                 (not (hud-build-pending context)) #f
+                                 (and (not (hud-build-pending context)) (not (= reason 38))) #f
                                  ((action-construct actions) kind (cell-index (hud-x context) (hud-y context)))))))
     (define (pause-control actions)
       (circle "pause" "Pause" "Pause and open the game menu · P" #t #f (action-pause-menu actions)))
@@ -230,13 +230,14 @@
                        (= reason 0) #f (action-improve actions))))
     (define (hub-capacity-description world)
       (let ((capacity (worker-capacity world)) (reason (hub-upgrade-reason world)))
-        (if (= capacity maximum-workers) "Capacity 24 · maximum\nHire workers separately."
-            (string-append "Capacity " (integer-text capacity) " → " (integer-text (+ capacity 2)) "\n"
-                           (integer-text (hub-upgrade-cost world)) (if (= reason 35) " ore paid\n" " ore · 3s assembly\n")
-                           (cond ((= reason 35) "Worker upgrading hub.")
-                                 ((= reason 7) "Not enough hub ore.")
-                                 ((= reason 27) "No available worker.")
-                                 (else "Hire separately: 25 ore."))))))
+        (cond ((= reason 38) "Build an extractor on a glowing deposit first.\nThen hire and upgrade.")
+              ((= capacity maximum-workers) "Capacity 24 · maximum\nHire workers separately.")
+              (else (string-append "Capacity " (integer-text capacity) " → " (integer-text (+ capacity 2)) "\n"
+                                   (integer-text (hub-upgrade-cost world)) (if (= reason 35) " ore paid\n" " ore · 3s assembly\n")
+                                   (cond ((= reason 35) "Worker upgrading hub.")
+                                         ((= reason 7) "Not enough hub ore.")
+                                         ((= reason 27) "No available worker.")
+                                         (else "Hire separately: 25 ore.")))))))
     (define (hub-description world)
       (string-append (hub-capacity-description world) "\n"
                      (if (pending-repair? (world-bots world)) "Repair in progress."
@@ -246,7 +247,7 @@
         (ui-at (rect-x area) (rect-y area)
                (ui-pointing-panel "onboarding" (px context-width) (px 76) 8 0
                                   (pointing-side context layout) (pointing-offset context layout)
-                                  (list (line "onboarding-help" 60 "Tap the highlighted deposit, then build an extractor." 0))))))
+                                  (list (line "onboarding-help" 60 "Start with an extractor on the glowing deposit. Tap it to build." 0))))))
 
     ;; ---- Existing structures keep explicit upgrade and repair actions ----
 
@@ -281,6 +282,7 @@
             ((= reason 34) "Construction was not saved. Nothing was charged. Try again.")
             ((= reason 35) "A worker is already upgrading the hub.")
             ((= reason 36) "Maximum capacity: 24 workers.")
+            ((= reason 38) "Build an extractor on a glowing deposit first.")
             (else "Select a cell inside the field.")))
     (define (structure-title building)
       (cond ((= (building-kind building) 1) (string-append "Extractor · Lv" (integer-text (building-level building))))

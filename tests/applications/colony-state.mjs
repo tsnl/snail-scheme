@@ -39,6 +39,12 @@ export const clientWords = local => {
 };
 export const restoreColony = (runtime, world) => runtime.restore(1, colonyWords(world));
 export const restoreClient = (runtime, local) => runtime.restore(2, clientWords(local));
+// A previously accepted and cancelled extractor leaves a started, empty colony.
+// Older encounter fixtures use that state explicitly; opening tests use initialize.
+export async function establishColony(runtime) {
+  const world=colony(runtime.snapshot(1));world.started=true;
+  await restoreColony(runtime,world);return runtime;
+}
 
 // Established neighborhood scenarios use coordinates relative to the original
 // hub at (8,22). Product snapshots and new world tests retain actual coordinates.

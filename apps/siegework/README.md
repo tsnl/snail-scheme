@@ -51,7 +51,9 @@ the Node analysis command.
 
 - Tap a resource deposit to open its **Extractor** action (`1`). Extractors
   are not part of the ordinary construction choices. Persistent first-extractor
-  guidance points toward the highlighted deposit.
+  guidance points toward the glowing deposit. The first accepted extractor order
+  spends 40 ore and starts the clock. Every other purchase stays locked until
+  then, preserving the initial 160 ore for this opening. Selection alone is free.
 - Tap an empty tile to open its construction popup: **Tower** (`1`),
   or **Artillery** (`2`), with ore costs shown before ordering.
   The hologram uses this session’s last successfully ordered ordinary building, starting
@@ -68,6 +70,9 @@ the Node analysis command.
   not upgrade or cancel it. Dismissing selection does not cancel construction.
   Completed towers and artillery always stand on the same stone plinth, with
   corner supports and open arches on all four faces. Workers and carts pass underneath.
+  Their upper structures and the hub have lower profiles; the arches retain
+  their clearance. Wider violet crystals and pulsing extractor halos identify
+  resource sites using the existing fixed meshes and display clock.
   An animated indicator above a tower or artillery shows that it is waiting
   for upgrade materials; current services stay active.
   Buildings may occupy transport paths and intersections; their foundations
@@ -166,7 +171,7 @@ The transport network is a deterministic minimum spanning tree rebuilt from
 scratch each simulation tick over the hub and completed towers. Its edge cost
 is squared straight-line cell distance, restricted to links with a known,
 passable route of at most 1024 steps. It does not minimize terrain travel
-length. Walls and extractors obstruct freight paths; tower and artillery
+length. Extractors obstruct freight paths; tower and artillery
 plinths permit crossings. Unreachable depots keep their stock.
 
 Dotted lights pulse toward the hub at display rate. They show only the current

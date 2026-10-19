@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,client,at,siteAt,setWorker,restoreColony,restoreClient,fixtureCall} from '../applications/colony-state.mjs';
+import {establishColony,colony,client,at,siteAt,setWorker,restoreColony,restoreClient,fixtureCall} from '../applications/colony-state.mjs';
 import {expandBatch} from './scene-tools.mjs';
 
 const output=process.argv[2],manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
 const bytes=readFileSync(join(output,manifest.module));
 async function fresh() {
-  const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);r.uiBridge.resize(936,608);return r;
+  const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);r.uiBridge.resize(936,608);return establishColony(r);
 }
 const world=r=>colony(r.snapshot(1)),local=r=>client(r.snapshot(2));
 async function apply(r,action) {
@@ -134,13 +134,13 @@ function overlappingTowerFaces(mesh,site) {
     assert.equal(siteAt(world(r),10,22).kind,2);assert.deepEqual(world(r).tracks,tracks);
     assert.equal(batch(r,20),railMesh,'building atop the route retains the phased path mesh');
     const gun=siteAt(world(r),10,22),vertices=points(batch(r,3));
-    assert.ok(vertices.some(([x,y,z])=>Math.abs(x-gun.x)<.5&&Math.abs(y+gun.y)<.5&&z>1.8),
+    assert.ok(vertices.some(([x,y,z])=>Math.abs(x-gun.x)<.5&&Math.abs(y+gun.y)<.5&&z>1.3),
       'the gun body is raised over its open plinth');
     let previousTop=0;
     for(const level of [1,2,3]) {
       if(level>1){const next=world(r),site=siteAt(next,10,22);site.level=level;next.spent+=25;next.ore-=25;await restoreColony(r,next);}
       const visible=points(batch(r,3)).filter(([x,y])=>Math.abs(x-gun.x)<0.3&&Math.abs(y+gun.y)<0.3);
-      const top=Math.max(...visible.map(point=>point[2]));assert.ok(top>previousTop+0.45);previousTop=top;
+      const top=Math.max(...visible.map(point=>point[2]));assert.ok(top>previousTop+0.2);previousTop=top;assert.ok(top<2.5,'the stacked upper guns keep a low profile');
       const mesh=batch(r,3).vertices,stones=Array.from({length:mesh.length/10},(_,i)=>mesh.slice(i*10,i*10+10))
         .filter(vertex=>Math.abs(vertex[6]-186/255)<1e-6&&Math.abs(vertex[7]-190/255)<1e-6);
       assert.ok(stones.filter(([x,y,z])=>Math.abs(x-gun.x)<0.3&&Math.abs(y+gun.y)<0.3&&z>0.1&&z<1.0).length===0,
