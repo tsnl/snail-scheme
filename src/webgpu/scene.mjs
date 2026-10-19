@@ -18,7 +18,15 @@ function descriptor(module, format, translucent, depthWriteEnabled) {
   return {layout: 'auto', vertex: {module, entryPoint: 'vertex_main', buffers: [{arrayStride: 40, attributes: [
     {shaderLocation: 0, offset: 0, format: 'float32x3'}, {shaderLocation: 1, offset: 12, format: 'float32x3'},
     {shaderLocation: 2, offset: 24, format: 'float32x4'}]},
-    {arrayStride: 40, attributes: [{shaderLocation: 3, offset: 0, format: 'float32x3'}]}]},
+    {arrayStride:48,stepMode:'instance',attributes:[
+      {shaderLocation:3,offset:0,format:'float32x4'}, {shaderLocation:4,offset:16,format:'float32x4'},
+      {shaderLocation:5,offset:32,format:'float32x4'}]},
+    {arrayStride:36,stepMode:'instance',attributes:[
+      {shaderLocation:6,offset:0,format:'float32x3'}, {shaderLocation:7,offset:12,format:'float32x3'},
+      {shaderLocation:8,offset:24,format:'float32x3'}]},
+    {arrayStride:48,stepMode:'instance',attributes:[
+      {shaderLocation:9,offset:0,format:'float32x4'}, {shaderLocation:10,offset:16,format:'float32x4'},
+      {shaderLocation:11,offset:32,format:'float32x4'}]}]},
     fragment: {module, entryPoint: 'fragment_main', targets: [{format, ...(translucent ? {blend: {color: {srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha'}, alpha: {srcFactor:'one',dstFactor:'one-minus-src-alpha'}}} : {})}]},
     primitive: {topology: 'triangle-list', cullMode: 'none'},
     depthStencil: {format: 'depth24plus', depthWriteEnabled, depthCompare: 'less'}};
@@ -28,32 +36,22 @@ function growBuffer(device, buffer, size, usage) {
   const next = device.createBuffer({size: Math.max(4096, size * 2), usage: usage | GPUBufferUsage.COPY_DST});
   buffer?.destroy(); return next;
 }
-function depthTarget(device, width, height) {
-  const texture = device.createTexture({size: [width, height], format: 'depth24plus',
+function depthTexture(device, width, height) {
+  return device.createTexture({size: [width, height], format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT});
-  return {width, height, texture, view: texture.createView()};
 }
 function destroyGeometry(value) {
-  value?.vertices?.destroy(); value?.previousVertices?.destroy(); value?.indices?.destroy(); value?.uniform?.destroy();
+  value?.transforms?.destroy(); value?.normals?.destroy(); value?.previousTransforms?.destroy(); value?.uniform?.destroy();
 }
 function geometryKey(view, batch) { return view === undefined ? batch : `${view}:${batch}`; }
 function destroyInset(view) {
-  view.texture.destroy(); view.depth.texture.destroy(); view.uniform.destroy();
+  view.texture.destroy(); view.depth.destroy(); view.uniform.destroy();
 }
-// Both bindings use the existing stride. Static batches bind their current
-// buffer twice; only moving batches copy another buffer with prior positions.
-function previousVertices(batch, current) {
-  if (!batch.duration) return undefined;
-  if (!batch.previous || batch.previous.length !== current.length / 10 * 3)
-    throw new Error('invalid previous scene vertices');
-  if (!current.length) return undefined;
-  const previous = current.slice();
-  for (let vertex = 0; vertex < current.length / 10; vertex++) {
-    previous[vertex * 10] = batch.previous[vertex * 3];
-    previous[vertex * 10 + 1] = batch.previous[vertex * 3 + 1];
-    previous[vertex * 10 + 2] = batch.previous[vertex * 3 + 2];
-  }
-  return previous;
+function destroyMesh(value) { value.vertices.destroy(); value.indices.destroy(); }
+function uploadData(device, buffer, values, usage) {
+  const data = Float32Array.from(values), next = growBuffer(device,buffer,data.byteLength,usage);
+  if (data.length) device.queue.writeBuffer(next,0,data);
+  return next;
 }
 function motionFraction(batch, time) {
   return batch.source.duration ? Math.max(0, Math.min((time - batch.started) / batch.source.duration, 1)) : 1;
@@ -79,7 +77,8 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST});
   const uniform = device.createBuffer({size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
   let current, previous, depth, closed = false, lost = false, closing, uploads = 0, frames = 0;
-  const geometry = new Map(), insets = new Map(), pending = new Set(); let latest, reveals = new Map();
+  const geometry = new Map(), meshes = new Map(), insets = new Map(), pending = new Set();
+  let latest, reveals = new Map(), meshUploads = 0, drawCalls = 0, instancedDraws = 0;
   device.addEventListener('uncapturederror', event => { if (!closed) onError(event.error); });
   device.lost.then(info => { lost = true; if (!closed) onError(new Error(`WebGPU device lost: ${info.message}`)); });
   function track(operation) {
@@ -98,34 +97,40 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     if ((source.duration || (source.opacity ?? 1) < 1 || source.reveal) && !batch.uniform)
       batch.uniform = device.createBuffer({size:128,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
   }
+  function uploadMesh(source) {
+    const cached = meshes.get(source); if (cached) return cached;
+    let vertices, indices;
+    try {
+      vertices = uploadData(device,undefined,source.vertices,GPUBufferUsage.VERTEX);
+      const data = Uint32Array.from(source.indices);
+      indices = growBuffer(device,undefined,data.byteLength,GPUBufferUsage.INDEX);
+      if (data.length) device.queue.writeBuffer(indices,0,data);
+      const mesh = {vertices,indices,count:data.length}; meshes.set(source,mesh); meshUploads++; return mesh;
+    } catch (error) { vertices?.destroy(); indices?.destroy(); throw error; }
+  }
   function upload(batch, time, view) {
     const key = geometryKey(view, batch.key); let stored = geometry.get(key);
     if (stored?.source === batch) return stored;
     stored ??= {};
-    // Reveal age/identity is presentation metadata, independent of geometry.
-    // Updating it neither uploads vertices nor restarts the motion transition.
-    if (stored.source?.vertices === batch.vertices && stored.source?.indices === batch.indices &&
-        stored.source?.previous === batch.previous && stored.source?.duration === batch.duration) {
+    // Reveal metadata never uploads instances or restarts their motion clock.
+    if (stored.source?.transforms === batch.transforms && stored.source?.normals === batch.normals &&
+        stored.source?.draws === batch.draws && stored.source?.previous === batch.previous && stored.source?.duration === batch.duration) {
       batchUniform(stored,batch); stored.source = batch; return stored;
     }
-    const vertexData = Float32Array.from(batch.vertices), indexData = Uint32Array.from(batch.indices);
-    const previousData = previousVertices(batch, vertexData);
+    for (const draw of batch.draws) uploadMesh(draw.mesh);
     batchUniform(stored,batch);
-    stored.vertices = growBuffer(device, stored.vertices, vertexData.byteLength, GPUBufferUsage.VERTEX);
-    stored.indices = growBuffer(device, stored.indices, indexData.byteLength, GPUBufferUsage.INDEX);
-    if (vertexData.length) device.queue.writeBuffer(stored.vertices, 0, vertexData);
-    if (indexData.length) device.queue.writeBuffer(stored.indices, 0, indexData);
-    if (previousData) {
-      stored.previousVertices = growBuffer(device, stored.previousVertices, previousData.byteLength, GPUBufferUsage.VERTEX);
-      if (previousData.length) device.queue.writeBuffer(stored.previousVertices, 0, previousData);
-    } else { stored.previousVertices?.destroy(); stored.previousVertices = undefined; }
-    stored.started = time; stored.fraction = previousData ? 0 : 1;
-    stored.source = batch; stored.count = indexData.length; geometry.set(key, stored); uploads++; return stored;
+    stored.transforms = uploadData(device,stored.transforms,batch.transforms,GPUBufferUsage.VERTEX);
+    stored.normals = uploadData(device,stored.normals,batch.normals,GPUBufferUsage.VERTEX);
+    if (batch.previous) stored.previousTransforms = uploadData(device,stored.previousTransforms,batch.previous,GPUBufferUsage.VERTEX);
+    else { stored.previousTransforms?.destroy(); stored.previousTransforms = undefined; }
+    stored.started = time; stored.fraction = batch.duration ? 0 : 1;
+    stored.source = batch; stored.count = batch.draws.reduce((count,draw) => count + draw.mesh.indices.length * draw.count,0);
+    geometry.set(key, stored); uploads++; return stored;
   }
   function resize() {
     if (depth?.width === canvas.width && depth?.height === canvas.height) return;
-    const next = depthTarget(device, canvas.width, canvas.height);
-    depth?.texture.destroy(); depth = next;
+    const next = depthTexture(device, canvas.width, canvas.height);
+    depth?.destroy(); depth = next;
   }
   function insetView(key, width, height) {
     let view = insets.get(key);
@@ -134,10 +139,10 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
       insets.set(key, view);
     }
     if (view.width !== width || view.height !== height) {
-      view.texture?.destroy(); view.depth?.texture.destroy(); view.width = width; view.height = height;
+      view.texture?.destroy(); view.depth?.destroy(); view.width = width; view.height = height;
       view.texture = device.createTexture({size:[width,height],format,
         usage:GPUTextureUsage.RENDER_ATTACHMENT|GPUTextureUsage.COPY_SRC});
-      view.depth = depthTarget(device,width,height);
+      view.depth = depthTexture(device,width,height);
     }
     if (view.pipeline !== current.pipeline) {
       view.pipeline = current.pipeline;
@@ -154,7 +159,7 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
       batch.bindings = device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:batch.uniform}}]});
     }
     const values = Float32Array.from(scene.uniforms);
-    values[23] = (batch.source.opacity ?? 1) * (batch.source.pulse ? 0.72 + 0.28 * Math.sin((time % 1570.796327) * 0.004) : 1);
+    values[23] = (batch.source.opacity ?? 1) * (batch.source.pulse ? 0.72 + 0.28 * Math.sin((time % 1570.796327) * 0.004 - (batch.source.pulsePhase ?? 0)) : 1);
     values[24] = batch.fraction = motionFraction(batch, time);
     if (batch.source.reveal) values.set(revealUniform(reveals.get(batch.source.reveal.id)),28);
     device.queue.writeBuffer(batch.uniform, 0, values); return batch.bindings;
@@ -163,15 +168,22 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     const alpha = (batch.source.opacity ?? 1) < 1;
     const pipeline = alpha ? current.translucent : batch.source.reveal ? current.revealing : current.pipeline;
     pass.setPipeline(pipeline); pass.setBindGroup(0,batchBindings(batch,pipeline,scene,time,bindings));
-    pass.setVertexBuffer(0, batch.vertices); pass.setVertexBuffer(1, batch.previousVertices ?? batch.vertices);
-    pass.setIndexBuffer(batch.indices, 'uint32'); pass.drawIndexed(batch.count);
+    pass.setVertexBuffer(1,batch.transforms); pass.setVertexBuffer(2,batch.normals);
+    pass.setVertexBuffer(3,batch.previousTransforms ?? batch.transforms);
+    for (const draw of batch.source.draws) {
+      const mesh = meshes.get(draw.mesh);
+      pass.setVertexBuffer(0,mesh.vertices); pass.setIndexBuffer(mesh.indices,'uint32');
+      pass.drawIndexed(mesh.count,draw.count,0,0,draw.first); drawCalls++;
+      if (draw.count > 1) instancedDraws++;
+    }
   }
   function drawView(commands, view, scene, logicalWidth, logicalHeight, time, present) {
     device.queue.writeBuffer(view.uniform, 0, Float32Array.from(scene.uniforms));
     const [r,g,b] = scene.background;
+    // Each pass stores its single-sample color for presentation, inset copies or readback.
     const pass = commands.beginRenderPass({colorAttachments: [{view: view.texture.createView(),
       clearValue: {r, g, b, a: 1}, loadOp: 'clear', storeOp: 'store'}],
-      depthStencilAttachment: {view: view.depth.view, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard'}});
+      depthStencilAttachment: {view: view.depth.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard'}});
     pass.setPipeline(current.pipeline); pass.setBindGroup(0, view.bindings);
     if (scene.viewport) {
       const [x, y, width, height] = scene.viewport, sx = view.width / logicalWidth, sy = view.height / logicalHeight;
@@ -222,7 +234,7 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     checkTargetSizes(scene,logicalWidth,logicalHeight);
     reveals = frameReveals(scene,time);
     resize(); const target = context.getCurrentTexture(), commands = device.createCommandEncoder();
-    const present = new Set(), visible = new Set();
+    const present = new Set(), visible = new Set(); drawCalls = instancedDraws = 0;
     drawView(commands,{texture:target,depth,uniform,bindings:current.bindings,width:canvas.width,height:canvas.height},
       scene,logicalWidth,logicalHeight,time,present);
     for (const inset of scene.insets ?? [])
@@ -232,6 +244,8 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     // keys; a later rollback can upload its immutable CPU batches again.
     for (const [key, value] of geometry) if (!present.has(value)) { destroyGeometry(value); geometry.delete(key); }
     for (const [key, view] of insets) if (!visible.has(key)) { destroyInset(view); insets.delete(key); }
+    const liveMeshes = new Set([...present].flatMap(batch => batch.source.draws.map(draw => draw.mesh)));
+    for (const [source,mesh] of meshes) if (!liveMeshes.has(source)) { destroyMesh(mesh); meshes.delete(source); }
     return target;
   }
   function draw(scene, logicalWidth = canvas.clientWidth || canvas.width, logicalHeight = canvas.clientHeight || canvas.height) {
@@ -263,9 +277,10 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
   async function dispose() {
     await Promise.allSettled([...pending]);
     if (!lost) await device.queue.onSubmittedWorkDone().catch(() => {});
-    context.unconfigure(); depth?.texture.destroy(); for (const value of geometry.values()) destroyGeometry(value);
+    context.unconfigure(); depth?.destroy(); for (const value of geometry.values()) destroyGeometry(value);
     for (const view of insets.values()) destroyInset(view);
-    uniform.destroy(); geometry.clear(); insets.clear(); reveals.clear(); latest = current = previous = depth = undefined; device.destroy();
+    for (const mesh of meshes.values()) destroyMesh(mesh);
+    uniform.destroy(); geometry.clear(); meshes.clear(); insets.clear(); reveals.clear(); latest = current = previous = depth = undefined; device.destroy();
   }
   return {adapter: adapter.info, device, prepare, draw, animate,
     replace(candidate) { if (closed) return; previous = current; current = candidate; },
@@ -273,9 +288,12 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     readPixels: scene => track(readPixels(scene)),
     close() { if (!closing) { closed = true; closing = dispose(); } return closing; },
     get resources() { return {closed, lost, uploads, frames, batches: geometry.size,
-      vertexBytes: [...geometry.values()].reduce((total, value) => total + (value.vertices?.size ?? 0) + (value.previousVertices?.size ?? 0), 0),
-      motionBytes: [...geometry.values()].reduce((total, value) => total + (value.previousVertices?.size ?? 0), 0),
-      indexBytes: [...geometry.values()].reduce((total, value) => total + (value.indices?.size ?? 0), 0),
+      meshes:meshes.size, meshUploads, drawCalls, instancedDraws,
+      instances:[...geometry.values()].reduce((total,value) => total + value.source.transforms.length / 12,0),
+      vertexBytes:[...meshes.values()].reduce((total,value) => total + value.vertices.size,0),
+      instanceBytes:[...geometry.values()].reduce((total,value) => total + value.transforms.size + value.normals.size + (value.previousTransforms?.size ?? 0),0),
+      motionBytes:[...geometry.values()].reduce((total,value) => total + (value.previousTransforms?.size ?? 0),0),
+      indexBytes:[...meshes.values()].reduce((total,value) => total + value.indices.size,0),
       insets: insets.size, insetPixels: [...insets.values()].reduce((total,view) => total+view.width*view.height,0),
       reveals: reveals.size,
       textures: (depth ? 1 : 0)+2*insets.size, pending: pending.size}; }};

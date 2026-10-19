@@ -1,0 +1,1218 @@
+{
+  "kind": "shared-host actual-Wasm CPU diagnostic; uninstrumented alternating timings; separate identity-based transfer counts",
+  "node": "v24.19.0",
+  "fixtureSha256": "95538bde143246a505b095fa1e114ad59d35d4abfd6b6de3c1161649fa47661b",
+  "equivalence": 60,
+  "maxEndpointError": 1.4036893844604492e-05,
+  "packages": [
+    {
+      "path": "/tmp/snail-siegework-instancing-reference-artifact-20261018/solo",
+      "generation": "8138945b801b7eff2aeaef96",
+      "wasmBytes": 567429,
+      "wasmSha256": "c62641cd75c5d1178d22897757f4e6526b82e40710c9ef9564c3806e4a56b465",
+      "runtimeSha256": "c5158e55176aeddb673715301062fa74b1c683c3b7dc9ecee76540a4ab3feb1c",
+      "bridgeSha256": "49ec3fea1b55bb609e651d518751587df6ad65d1269b0e048b73f00e3d98ef59"
+    },
+    {
+      "path": "/tmp/snail-siegework-instanced-product-20261018/solo",
+      "generation": "2ffe90d18d12b3cb9fb2dc6a",
+      "wasmBytes": 583357,
+      "wasmSha256": "809d28a60d8ebecaf832d6966de3ac39e23ba0a92518773bca1ace40eb62f3db",
+      "runtimeSha256": "c5158e55176aeddb673715301062fa74b1c683c3b7dc9ecee76540a4ab3feb1c",
+      "bridgeSha256": "6abb82f717927a3ab0d4accebc64a8203c973e2abd7a657b6ef99f7709be9ea3"
+    }
+  ],
+  "rounds": [
+    {
+      "round": 0,
+      "variant": 0,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.12187900000026275,
+          "p95": 0.13738300000022718
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.19947099999990314,
+          "p95": 0.2101729999994859
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.15283399999952962,
+          "p95": 0.2072040000002744
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.11226799999985815,
+          "p95": 0.11840099999972153
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 19.291866000000482,
+          "p95": 31.522227999999814
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.15089500000067346,
+          "p95": 0.17033900000024005
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.10404400000061287,
+          "p95": 0.11168600000019069
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 21.93990699999995,
+          "p95": 34.92043999999987
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1427560000001904,
+          "p95": 0.15170999999918422
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.10828499999934138,
+          "p95": 0.11254900000039925
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.756163999999444,
+          "p95": 7.935816000000159
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.15202799999951822,
+          "p95": 0.15880299999935232
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.13146299999971234,
+          "p95": 0.15659799999957613
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 22.44282800000019,
+          "p95": 30.221238000000085
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.17053200000009383,
+          "p95": 0.20326199999999517
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "variant": 1,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.12893299999996088,
+          "p95": 0.16525799999999435
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.20792700000038167,
+          "p95": 0.22728800000004412
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1552590000001146,
+          "p95": 0.1704359999994267
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.11562999999932799,
+          "p95": 0.12027300000045216
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 2.70863399999962,
+          "p95": 4.042944000000716
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.15402999999969325,
+          "p95": 0.1626750000004904
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.10856500000045344,
+          "p95": 0.11207999999987805
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 7.645690000000286,
+          "p95": 11.719804999999724
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.15138700000079552,
+          "p95": 0.21567400000003545
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.11351400000057765,
+          "p95": 0.12015400000018417
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.5803640000003725,
+          "p95": 7.250973000000158
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.15403100000003178,
+          "p95": 0.16115700000045763
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.13573100000030536,
+          "p95": 0.16136899999946763
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 7.638748999999734,
+          "p95": 12.770612000000256
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1755089999996926,
+          "p95": 0.2151770000000397
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "variant": 1,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09173000000009779,
+          "p95": 0.10482499999943684
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.17542600000069797,
+          "p95": 0.22169699999994918
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12688600000001315,
+          "p95": 0.13774499999999534
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09774500000003172,
+          "p95": 0.1089640000000145
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 2.6010749999995824,
+          "p95": 4.128337000000101
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1401480000004085,
+          "p95": 0.15137899999990623
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09684699999979784,
+          "p95": 0.1026080000001457
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 7.57158200000049,
+          "p95": 11.105937000000267
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.13622599999962404,
+          "p95": 0.1562019999992117
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.10412899999937508,
+          "p95": 0.11115200000040204
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.553173999999672,
+          "p95": 7.506806999999753
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1368689999999333,
+          "p95": 0.15795100000013917
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.11491899999964517,
+          "p95": 0.12711299999955372
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 7.316953000000467,
+          "p95": 11.096271999999772
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.15123599999969883,
+          "p95": 0.15571400000044378
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "variant": 0,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08892300000115938,
+          "p95": 0.10162599999966915
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.17365400000016962,
+          "p95": 0.23274399999900197
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12538000000131433,
+          "p95": 0.1291689999998198
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08813799999916228,
+          "p95": 0.0944020000006276
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 18.969637000000148,
+          "p95": 21.760841999999684
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1303009999992355,
+          "p95": 0.15327500000057626
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09045699999842327,
+          "p95": 0.12528000000020256
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 21.986269999999422,
+          "p95": 30.683391000000483
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12705300000015995,
+          "p95": 0.15739200000098208
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09548800000084157,
+          "p95": 0.10122400000000198
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.611397999999099,
+          "p95": 7.684015999999247
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.13618600000154402,
+          "p95": 0.15468499999951746
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.11202800000137358,
+          "p95": 0.12124699999912991
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 21.8842139999997,
+          "p95": 31.66750999999931
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.14948999999978696,
+          "p95": 0.16576700000041455
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "variant": 0,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08288200000060897,
+          "p95": 0.0881199999985256
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.16031399999883433,
+          "p95": 0.16739999999845168
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12063099999977567,
+          "p95": 0.1247640000001411
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.0843780000013794,
+          "p95": 0.09890700000141806
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 19.12838499999998,
+          "p95": 28.669159999999465
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12039200000072015,
+          "p95": 0.1292620000003808
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08522599999923841,
+          "p95": 0.08958700000039244
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 21.56897200000094,
+          "p95": 33.64123000000109
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12130699999943317,
+          "p95": 0.1258399999987887
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09282200000052399,
+          "p95": 0.10499800000070536
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.64284200000111,
+          "p95": 8.335094000000026
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.13035799999852316,
+          "p95": 0.16765599999962433
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.1091309999992518,
+          "p95": 0.12495099999978265
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 21.550272000000405,
+          "p95": 35.015354999999545
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.14969699999892327,
+          "p95": 0.23193999999966763
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "variant": 1,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08588500000041677,
+          "p95": 0.09378900000046997
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.16758699999991222,
+          "p95": 0.1874150000003283
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12328399999933026,
+          "p95": 0.1584259999999631
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08844899999894551,
+          "p95": 0.10788400000092224
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 2.577398000001267,
+          "p95": 4.141464000000269
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12512100000094506,
+          "p95": 0.13282900000012887
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08683800000108022,
+          "p95": 0.10486299999865878
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 7.189155000000028,
+          "p95": 10.87547000000086
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12305999999989581,
+          "p95": 0.12993099999948754
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09515000000101281,
+          "p95": 0.09929700000066077
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.809038999999757,
+          "p95": 7.951747000000978
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1339929999994638,
+          "p95": 0.149437999998554
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.11208000000078755,
+          "p95": 0.12164800000027753
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 7.2246479999994335,
+          "p95": 10.968885000000228
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.14967299999989336,
+          "p95": 0.1637829999999667
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "variant": 1,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08378799999991315,
+          "p95": 0.09506599999986065
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.15959899999870686,
+          "p95": 0.17638199999964854
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.11811499999930675,
+          "p95": 0.12531500000113738
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08497499999975844,
+          "p95": 0.08789600000091013
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 2.570981999999276,
+          "p95": 4.138290999999299
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12287800000012794,
+          "p95": 0.1352279999991879
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08516700000109267,
+          "p95": 0.10288000000036845
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 7.481476999999359,
+          "p95": 12.096927000000505
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1281749999998283,
+          "p95": 0.1509200000000419
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09343100000114646,
+          "p95": 0.09701600000153121
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.503909000000931,
+          "p95": 7.624567000000752
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1290260000005219,
+          "p95": 0.137564000000566
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.11031099999854632,
+          "p95": 0.13554199999998673
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 7.248901999999362,
+          "p95": 12.161132999999609
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.14612900000065565,
+          "p95": 0.15152099999977509
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "variant": 0,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.0819790000005014,
+          "p95": 0.0851860000002489
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.1568520000000717,
+          "p95": 0.16245600000002014
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.11654699999962759,
+          "p95": 0.1414939999995113
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08143099999870174,
+          "p95": 0.08559799999966344
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 18.93872100000044,
+          "p95": 21.43739900000037
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1185010000008333,
+          "p95": 0.12649899999996705
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08186800000112271,
+          "p95": 0.08672499999920547
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 21.369273999998768,
+          "p95": 33.75934299999972
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.11961899999914749,
+          "p95": 0.12464299999919604
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09066600000005565,
+          "p95": 0.0974289999994653
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.5777150000012625,
+          "p95": 7.710974999999962
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1258429999998043,
+          "p95": 0.13195700000142097
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.10641600000053586,
+          "p95": 0.13710100000025705
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 21.249321999999665,
+          "p95": 33.02563799999916
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.14332199999989825,
+          "p95": 0.15700600000127451
+        }
+      ]
+    }
+  ],
+  "work": [
+    {
+      "variant": 0,
+      "fixture": "fresh",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 6
+    },
+    {
+      "variant": 0,
+      "fixture": "fresh",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 6
+    },
+    {
+      "variant": 0,
+      "fixture": "fresh",
+      "operation": "tickAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 6
+    },
+    {
+      "variant": 0,
+      "fixture": "grown",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "grown",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "grown",
+      "operation": "tickAndView",
+      "vertexBytes": 1148160,
+      "indexBytes": 169608,
+      "instanceBytes": 0,
+      "motionBytes": 263616,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "crowd",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "crowd",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "crowd",
+      "operation": "tickAndView",
+      "vertexBytes": 1302720,
+      "indexBytes": 190488,
+      "instanceBytes": 0,
+      "motionBytes": 309984,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "paused",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "paused",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "paused",
+      "operation": "tickAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "alerts",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "alerts",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 13
+    },
+    {
+      "variant": 0,
+      "fixture": "alerts",
+      "operation": "tickAndView",
+      "vertexBytes": 1314240,
+      "indexBytes": 192216,
+      "instanceBytes": 0,
+      "motionBytes": 313440,
+      "draws": 13
+    },
+    {
+      "variant": 1,
+      "fixture": "fresh",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 15
+    },
+    {
+      "variant": 1,
+      "fixture": "fresh",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 15
+    },
+    {
+      "variant": 1,
+      "fixture": "fresh",
+      "operation": "tickAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 15
+    },
+    {
+      "variant": 1,
+      "fixture": "grown",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 38
+    },
+    {
+      "variant": 1,
+      "fixture": "grown",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 38
+    },
+    {
+      "variant": 1,
+      "fixture": "grown",
+      "operation": "tickAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 117012,
+      "motionBytes": 2688,
+      "draws": 36
+    },
+    {
+      "variant": 1,
+      "fixture": "crowd",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 39
+    },
+    {
+      "variant": 1,
+      "fixture": "crowd",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 39
+    },
+    {
+      "variant": 1,
+      "fixture": "crowd",
+      "operation": "tickAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 125160,
+      "motionBytes": 7344,
+      "draws": 38
+    },
+    {
+      "variant": 1,
+      "fixture": "paused",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 39
+    },
+    {
+      "variant": 1,
+      "fixture": "paused",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 39
+    },
+    {
+      "variant": 1,
+      "fixture": "paused",
+      "operation": "tickAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 39
+    },
+    {
+      "variant": 1,
+      "fixture": "alerts",
+      "operation": "view",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 51
+    },
+    {
+      "variant": 1,
+      "fixture": "alerts",
+      "operation": "cameraAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 0,
+      "motionBytes": 0,
+      "draws": 51
+    },
+    {
+      "variant": 1,
+      "fixture": "alerts",
+      "operation": "tickAndView",
+      "vertexBytes": 0,
+      "indexBytes": 0,
+      "instanceBytes": 126168,
+      "motionBytes": 7920,
+      "draws": 50
+    }
+  ],
+  "oldProviderRejectsWithoutReplacement": true
+}

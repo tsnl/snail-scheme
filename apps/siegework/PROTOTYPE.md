@@ -1,6 +1,6 @@
 # Siegework prototype contract
 
-Build one complete eight-minute colony experiment on a seeded 48×36 map. Keep the
+Build a fast colony expedition targeting about ten minutes on a seeded 128×128 map. Keep the
 art simple so discovery, logistics and defensive choices can be playtested.
 The [player guide](README.md) describes the implemented controls and costs.
 
@@ -102,9 +102,11 @@ publication. A failed write preserves the previous state. Online checkpoint ETag
 version remote replacement separately and reject stale writes. External effects
 still need their own delivery contract.
 
-The colony uses world schema 7 and client schema 1 with variable-size derived snapshots.
+The colony uses world schema 11 and client schema 8 with variable-size derived snapshots.
 Its world envelope exposes a checked run marker before the generic binary payload.
-The application ID `siegework-colony-v10` starts a fresh save identity.
+The application ID `siegework-colony-v11` starts a fresh save identity for compact
+geography. World10 seeds and saved routes cannot be silently remapped; old browser
+records remain untouched under their previous identity and old imports reject.
 Schema versions cover field meaning as well as shape. Reject incompatible schemas
 until a deliberate migration exists. Portable snapshots contain values, not GPU
 handles or WasmGC references. Copying a bounded record into a fresh module heap is

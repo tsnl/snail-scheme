@@ -338,7 +338,7 @@
     (define (lofi-build directory case source target manifest environment)
       (let ((exports (cons (field case 'entry) (json-array (field (read-json (path-join source "spec.json")) 'additional_exports '#())))))
         (record-command target "lofi-build"
-                        (append (list (path-join directory "source/scripts/build-lofi"))
+                        (append (list (path-join directory "source/scripts/build-lofi") "--release")
                                 (append-map (lambda (name) (list "--export" name)) exports)
                                 (list (path-join source "main.sld") (path-join target "program.wasm")))
                         environment (source-directory directory) (compile-timeout manifest))))

@@ -31,6 +31,10 @@ export async function checkColony(test, fresh, call) {
     for (let tick = 0; tick < 300 && state(r).ore < 25; tick++) await advance(r);
     await call(r, 'fabricate-worker'); assert.equal(state(r).bots.length, 3); let northCollected = false;
     assert.ok(state(r).bots.some(bot => bot.job === 4 || bot.job === 6));
+    // Isolate the delivery route from earlier setup time. Scheduled attacks are
+    // exercised separately; this fixture gives the new outpost its opening span.
+    const opening=state(r);opening.tick=0;opening.lastRevealTick=-100;opening.enemies=[];
+    await restoreColony(r,opening);
     const deliveredBefore = state(r).delivered;
     for (let tick = 0; tick < 600; tick++) {
       const before = state(r);
@@ -73,7 +77,7 @@ export async function checkColony(test, fresh, call) {
     await call(r, 'observe', [22,20]); await advance(r, 200);
     const outpost = siteAt(state(r),22,20);
     assert.equal(outpost.stage, 2);
-    const checkpoint = state(r); checkpoint.tick = 899; checkpoint.lastRevealTick=-100; checkpoint.enemies.length=0; await restoreColony(r, checkpoint);
+    const checkpoint = state(r); checkpoint.tick = 1349; checkpoint.lastRevealTick=-100; checkpoint.enemies.length=0; await restoreColony(r, checkpoint);
     await advance(r); assert.equal(state(r).enemies.length, 5);
     assert.ok(state(r).enemies.every(enemy => enemy.kind === 1 && enemy.target === outpost.id));
     for (let tick = 0; tick < 1800 && state(r).lost === 0 && state(r).outcome === 0; tick++) await advance(r);
@@ -94,13 +98,13 @@ export async function checkColony(test, fresh, call) {
   });
 
   await test('an undefended heavy nest wave reaches and destroys a healthy hub without passive healing', async () => {
-    const r = await fresh(), world = state(r); world.started = true; world.tick = 3599; world.lastRevealTick=-100; await restoreColony(r, world);
+    const r = await fresh(), world = state(r); world.started = true; world.tick = 5399; world.lastRevealTick=-100; await restoreColony(r, world);
     await advance(r); assert.equal(state(r).enemies[0].kind, 2);
     let firstDamage = 0;
     for(let count=0;count<4000 && state(r).outcome===0;count++) {
       await advance(r); if (state(r).hull < 300 && firstDamage === 0) firstDamage = state(r).tick;
     }
-    assert.ok(firstDamage > 3600); assert.equal(state(r).outcome, 1);
+    assert.ok(firstDamage > 5400); assert.equal(state(r).outcome, 1);
     assert.equal(state(r).nestHp,1500);
     assert.equal(state(r).spent, 0); await r.close();
   });
@@ -119,8 +123,8 @@ export async function checkColony(test, fresh, call) {
     const invalid = client(initial); invalid.cameraX = -3001;
     await assert.rejects(() => restoreClient(r, invalid), WebAssembly.RuntimeError);
     await local('pan', [100, 100]); const bounded = client(r.snapshot(2));
-    assert.ok(bounded.cameraX >= -3000 && bounded.cameraX <= 387000);
-    assert.ok(bounded.cameraY >= -3000 && bounded.cameraY <= 291000); await r.close();
+    assert.ok(bounded.cameraX >= -3000 && bounded.cameraX <= 131000);
+    assert.ok(bounded.cameraY >= -3000 && bounded.cameraY <= 131000); await r.close();
   });
 
   await test('shared pause freezes all simulation while retaining inspection and paid planning', async () => {
