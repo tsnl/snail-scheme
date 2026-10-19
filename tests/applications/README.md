@@ -24,6 +24,15 @@ fixtures without compiling the game.
 The same runner executes [`max-dps-test`](max-dps-test.md), a small model-only
 balance probe with three-minute deposit discovery and 0.5 artillery utilization.
 Its optimistic capacity result is distinct from a real-map survival playtest.
+The same compiled probe runs [`starter-economy-test`](starter-economy-test.md):
+64 seeded price experiments compare visible-only paid scouting, a geometric
+lower bound, explicit defense allowances and ideal depletion windows. Both
+scout policies currently fail one sampled seed; CI checks the necessary geometric
+budget floor and real-model accounting, not reliable exploration or survival.
+An actual-tick seed-one sprint then replays one measured route through ordinary
+paid game commands, requiring the second mine to operate before starter
+exhaustion. It retains worker travel, construction and waves; its fixed route and
+zero deliberation do not establish typical player timing.
 The paid pacing fixture executes a seed-one expedition with north, southeast and
 southwest search bearings through visible-site orders, extraction, hauling,
 construction and combat. It requires genuine paid expansion beyond the finite
