@@ -541,7 +541,7 @@
     (define carrying-worker-model (worker-model brass))
     (define (worker-body bot)
       (cond ((= (bot-job bot) 7) fleeing-worker-model)
-            ((or (= (bot-job bot) 8) (= (bot-job bot) 9)) mining-worker-model)
+            ((or (= (bot-job bot) 8) (= (bot-job bot) 9) (scavenge-worker? bot)) mining-worker-model)
             ((> (bot-cargo bot) 0) carrying-worker-model) (else idle-worker-model)))
     (define (kit-symbol kind)
       (cond ((= kind 3) (list (block blue 0.0 -0.18 0.72 0.09 0.09 0.28)

@@ -74,6 +74,14 @@ The hub starts with **12 worker places**. Hiring a worker costs **25 ore** and
 requires an existing worker to return and assemble the recruit. Queued recruits
 use capacity too.
 
+**Scavenge** (`X`) sends an empty worker to dismantle a completed building. Its
+button quotes **20% of construction and all completed upgrades**, rounded down.
+The building keeps working during travel and the two-second demolition. You
+receive the refund only when demolition finishes, together with its stored ore
+and outbound freight. **Cancel** (`C`) stops the job; enemy destruction or worker
+death pays no structural refund. The hub, pending work and uncollected supply
+reservations cannot be scavenged. Deposit reserves remain available afterward.
+
 Select the hub and choose **Upgrade** to add **two places**. The six upgrades cost
 100, 200, 400, 800, 1,600 and 3,200 ore, reaching a maximum of **24 workers**.
 Capacity increases only when a worker completes the upgrade. Hiring and capacity

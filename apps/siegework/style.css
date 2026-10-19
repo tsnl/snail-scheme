@@ -152,3 +152,4 @@ body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto
 :is([data-ui-key="right-handed"], [data-ui-key="left-handed"]) .snail-ui-button-label { font-size: 12px; }
 [data-ui-key="controls-title"] { text-align: center; font-size: 11px; line-height: 12px; }
 .snail-ui-button:is([data-ui-key="right-handed"], [data-ui-key="left-handed"]) { padding-left: 2px; padding-right: 2px; }
+[data-ui-key="scavenge"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m8%204%203-2%203%202M11%202v6m8%201%203%202-1%204m1-4-5%203m-5%207H8l-2-4m2%204%203-5M6%207l-4%207h5m10%205h4l-1-4M15%205l-2-3%22%2F%3E%3C%2Fsvg%3E"); }

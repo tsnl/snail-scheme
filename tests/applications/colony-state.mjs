@@ -73,7 +73,7 @@ export function pixelAt(world, x, y) { const cell = at(world, x, y); return {x:c
 export function siteAt(world, x, y) { const cell = at(world, x, y); return world.buildings.find(site => site.x === cell.x && site.y === cell.y); }
 export function routeCell(world, x, y) { const cell = at(world, x, y); return cell.x + cell.y * 128; }
 export function fixtureArguments(world, name, args = []) {
-  if (['extract','fortify','observe','upgrade','arm-tower','cancel-building'].includes(name)) {
+  if (['extract','fortify','observe','upgrade','arm-tower','cancel-building','scavenge-building'].includes(name)) {
     const cell = at(world, ...args); return [cell.x,cell.y];
   }
   if (name === 'relocate-building') return args.map(index => routeCell(world, index % 48, Math.floor(index / 48)));

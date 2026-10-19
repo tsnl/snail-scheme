@@ -9,7 +9,7 @@ Scheme owns the game rules and presentation executed in the browser.
 | Module | Responsibility |
 | --- | --- |
 | [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, weighted bounded walking/flight pathfinding and exact grid-crossing direct fire. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, worker demolition with a completed-investment refund, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, compatible World12 reserve migration, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's nest-adjusted strength interval, shared by the HUD and accessible status. No independent game clock. |
@@ -67,7 +67,7 @@ The selected tile and remembered ordinary building type are Client presentation
 state. A construction button captures both its kind and absolute cell, so a stale
 button cannot order a new selection. The second tap on the same empty tile emits
 that same typed `build-cell(kind, cell)` request. Deposits offer only extractors;
-existing-building taps inspect, with separate explicit upgrade and cancel actions.
+existing-building taps inspect, with separate explicit upgrade, Scavenge and cancel actions.
 The model's normal placement operation validates and pays for each order.
 Before the first accepted extractor, placement and the other purchase rules
 reject every alternative use of ore. Only accepting that paid extractor sets

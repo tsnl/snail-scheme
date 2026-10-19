@@ -31,6 +31,7 @@
                  (extract (state (x I32) (y I32)) (no-effects (extract-world state x y)))
                  (fortify (state (x I32) (y I32)) (no-effects (fortify-world state x y)))
                  (observe (state (x I32) (y I32)) (no-effects (observe-world state x y)))
+                 (scavenge-building (state (x I32) (y I32)) (no-effects (scavenge-world state x y)))
                  (upgrade (state (x I32) (y I32)) (no-effects (upgrade-world state x y)))
                  (fabricate-worker (state) (no-effects (fabricate-world state)))
                  (repair-hub (state) (no-effects (repair-world state)))
@@ -313,6 +314,7 @@
                              (no-effects (if (and (= (client-dialog state) 1) (= (client-dialog-pending state) 0)
                                                   (or (= left 0) (= left 1)))
                                              (client-left-handed-set state (= left 1)) state)))
+                 (scavenge (state) (if (selection-open? state) (send-request state (scavenge-building (target-x state) (target-y state))) (no-effects state)))
                  (improve (state) (if (selection-open? state) (send-request state (upgrade (target-x state) (target-y state))) (no-effects state)))
                  (restart (state) (request-restart state))
                  (accept-restart (state) (confirm-restart state))
@@ -393,7 +395,7 @@
       client)
     (define (decode-client words) (validate-client (ann (decode-snapshot words) Client)))
     (define actions
-      (hud-actions construct preview (improve) (fabricate) turn (repair) (home) (dismiss) (cancel)
+      (hud-actions construct preview (improve) (scavenge) (fabricate) turn (repair) (home) (dismiss) (cancel)
                    (restart) (accept-restart) (dismiss-restart) (pause-menu) (resume) handedness))
     (define (world-viewport client)
       ;; Cards overlay the world; UI layout never changes camera or picking.

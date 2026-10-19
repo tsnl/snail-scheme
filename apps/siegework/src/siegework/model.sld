@@ -4,6 +4,7 @@
   (export World make-world initial-world advance-world extract-world observe-world place-cell-world
           ConstructionOutcome construction-world construction-reason place-cell-outcome
           fortify-world automatic-world upgrade-world fabricate-world focus-world move-world pause-world restart-world seeded-world
+          scavenge-world scavenge-reason scavenge-pending? scavenge-worker? scavenge-ticks scavenge-refund completed-investment
           cancel-world arm-world artillery-range artillery-damage final-siege-tick run-end-tick maximum-enemies next-attack-tick next-attack-number attack-countdown-span attack-kind attack-size threat-tier
           DifficultyWindow difficulty-window difficulty-window-for world-difficulty-window world-threat-tick difficulty-tier difficulty-start difficulty-end difficulty-step-ticks simulation-ticks-per-second
           world-tick world-outcome world-credits world-hull world-kills world-next-id world-started
@@ -99,6 +100,8 @@
     ;; Jobs 14/15 return for a paid hub capacity upgrade / assemble it. Fleeing
     ;; timer 14 retains that order. Target owns its price, separate from cargo;
     ;; capacity changes only on completion, and death refunds the unused price.
+    ;; Jobs 16/17 travel to a reserved building / dismantle it. Target is its
+    ;; identity; no ore changes hands until twenty on-site work ticks finish.
     ;; A committed flight owns movement only. Cargo and paid work remain on Bot;
     ;; its fixed ground endpoints remain meaningful after either tower is lost.
     (define-immutable-record Flight make-flight
@@ -477,7 +480,8 @@
             ((= (building-level building) 1) 40) (else 160)))
     (define (upgrade-building world building)
       (let ((price (upgrade-cost building)))
-        (cond ((or (not (ready? building)) (>= (building-level building) 3) (arming? building) (moving? building))
+        (cond ((scavenge-pending? world (building-id building)) (world-notice-set world 41))
+              ((or (not (ready? building)) (>= (building-level building) 3) (arming? building) (moving? building))
                (world-notice-set world 11))
               ((and (= (building-kind building) 1) (= (ore-remaining world (building-x building) (building-y building)) 0))
                (world-notice-set world 39))
@@ -646,6 +650,8 @@
     (define (cancel-world world x y)
       (let ((found (building-at (world-buildings world) x y)))
         (cond ((not (active? world)) (world-notice-set world 9))
+              ((and (not (null? found)) (scavenge-pending? world (building-id (car found))))
+               (world-notice-set (cancel-scavenge world (world-bots world) (building-id (car found))) 46))
               ((and (not (null? found)) (moving? (car found)))
                (world-notice-set (put-building (spend world -5) (clear-move (car found))) 23))
               ((or (null? found) (= (building-stage (car found)) 2)) (world-notice-set world 19))
@@ -682,7 +688,7 @@
     ;; local-spent ledger keeps locally consumed ore out of both hub currency
     ;; and raw stock totals; no purchase can spend both balances for one kit.
     (define (local-supply? world source amount)
-      (and (ready? source) (not (moving? source)) (or (= (building-kind source) 1) (connected-depot? world (building-id source)))
+      (and (ready? source) (not (moving? source)) (not (scavenge-pending? world (building-id source))) (or (= (building-kind source) 1) (connected-depot? world (building-id source)))
            (>= (building-stock source) amount)))
     (define (local-affordable? world buildings amount)
       (and (not (null? buildings))
@@ -1083,6 +1089,79 @@
     (define (advance-rails world)
       (let ((world (move-rails world (world-rails world)))) (load-rails world (world-rails world))))
 
+    ;; ---- Worker demolition recovers completed investment once ----
+
+    (define scavenge-ticks 20)
+    (define (completed-investment building)
+      (+ (building-cost (building-kind building))
+         (cond ((or (tower? building) (= (building-kind building) 2)) (* 25 (- (building-level building) 1)))
+               ((= (building-level building) 1) 0) ((= (building-level building) 2) 40) (else 200))))
+    (define (scavenge-refund building) (quotient (completed-investment building) 5))
+    (define (scavenge-worker? bot) (or (= (bot-job bot) 16) (= (bot-job bot) 17)))
+    (define (scavenge-claims bots id)
+      (and (not (null? bots))
+           (or (and (scavenge-worker? (car bots)) (= (bot-target (car bots)) id))
+               (scavenge-claims (cdr bots) id))))
+    (define (scavenge-pending? world id) (scavenge-claims (world-bots world) id))
+    (define (prepare-scavenger world bot building)
+      (if (not (and (assembler-eligible? world bot) (= (bot-cargo bot) 0))) (empty-list)
+          (let ((path (route-from world bot (building-x building) (building-y building) #t)))
+            (if (reachable? bot (building-x building) (building-y building) path)
+                (list (make-builder-choice bot 0 (travel-ticks world bot path) path)) (empty-list)))))
+    (define (choose-scavenger world building bots best)
+      (if (null? bots) best
+          (choose-scavenger world building (cdr bots)
+                            (best-builder (prepare-scavenger world (car bots) building) best))))
+    (define (scavenge-reason world building)
+      (cond ((not (active? world)) 9)
+            ((not (world-started world)) 38)
+            ((scavenge-pending? world (building-id building)) 41)
+            ((or (not (ready? building)) (arming? building) (moving? building)) 40)
+            ((> (reserved-stock (world-buildings world) (building-id building)) 0) 43)
+            ((null? (choose-scavenger world building (world-bots world) (empty-list))) 42)
+            (else 0)))
+    (define (scavenge-world world x y)
+      (let ((found (building-at (world-buildings world) x y)))
+        (if (null? found) (world-notice-set world 40)
+            (let* ((building (car found)) (reason (scavenge-reason world building)))
+              (if (not (= reason 0)) (world-notice-set world reason)
+                  (let* ((choice (car (choose-scavenger world building (world-bots world) (empty-list))))
+                         (bot (builder-worker choice)))
+                    (world-notice-set (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 16 (building-id building)
+                                                               0 0 (builder-pickup choice) (bot-hp bot) 0 0 (empty-list))) 44)))))))
+    (define (cancel-scavenge world bots id)
+      (if (null? bots) world
+          (let ((bot (car bots)))
+            (cancel-scavenge (if (and (scavenge-worker? bot) (= (bot-target bot) id))
+                                 (put-bot world (clear-job bot)) world) (cdr bots) id))))
+    ;; The spent lower bound includes every remaining building and returning
+    ;; cancelled kit. Removing investment C frees at least C above local claims;
+    ;; refund <= C makes any excess local-spent safe to reclassify as delivered.
+    ;; The raw ledger and delivered + local-spent remain unchanged by this step.
+    (define (refund-scavenged world refund)
+      (let* ((world (spend world (- 0 refund)))
+             (excess (maximum 0 (- (world-local-spent world) (world-spent world)))))
+        (world-delivered-set (world-local-spent-set world (- (world-local-spent world) excess))
+                             (+ (world-delivered world) excess))))
+    (define (recover-scavenged-stock world building)
+      (let* ((id (building-id building)) (found (find-rail (world-rails world) id))
+             (cargo (if (null? found) 0 (rail-cargo (car found))))
+             (world (credit-delivery world (+ (raw-stock building) cargo))))
+        ;; Remove the source-owned shuttle before rebuilding; its cargo has
+        ;; already been recovered. Other sources keep their ordinary reroute rule.
+        (world-rails-set (world-buildings-set world (remove-building (world-buildings world) id))
+                         (remove-rail (world-rails world) id))))
+    (define (complete-scavenge world bot building)
+      (let* ((world (recover-scavenged-stock world building))
+             (world (refund-scavenged world (scavenge-refund building)))
+             (world (put-bot world (clear-job bot))))
+        (world-notice-set (rebuild-transport world) 45)))
+    (define (dismantle-building world bot)
+      (let ((found (find-building (world-buildings world) (bot-target bot))))
+        (cond ((null? found) (put-bot world (clear-job bot)))
+              ((> (bot-timer bot) 1) (put-bot world (bot-timer-set bot (- (bot-timer bot) 1))))
+              (else (complete-scavenge world bot (car found))))))
+
     ;; ---- Short relocations drain existing ownership before moving ----
 
     (define (moving? building) (>= (building-move-x building) 0))
@@ -1120,6 +1199,7 @@
             (list candidate) (empty-list))))
     (define (move-reason world building x y)
       (cond ((not (world-started world)) 38)
+            ((scavenge-pending? world (building-id building)) 41)
             ((or (not (active? world)) (not (ready? building)) (arming? building)
                  (= (building-kind building) 1) (moving? building)) 24)
             ((or (= (distance x y (building-x building) (building-y building)) 0)
@@ -1446,6 +1526,7 @@
             ((= (bot-job bot) 11) (reserved-work world bot))
             ((= (bot-job bot) 12) (start-repair world bot))
             ((= (bot-job bot) 14) (start-hub-upgrade world bot))
+            ((= (bot-job bot) 16) (put-bot world (bot-timer-set (bot-job-set bot 17) scavenge-ticks)))
             (else world)))
     (define (mine-bot world bot)
       (let ((found (find-building (world-buildings world) (bot-target bot))))
@@ -1477,6 +1558,9 @@
               ((= (bot-job bot) 7) (flee-bot world bot))
               ((and (not (sheltered? world bot)) (danger? (world-enemies world) (bot-x bot) (bot-y bot)))
                (interrupt-bot world bot))
+              ((and (scavenge-worker? bot) (null? (find-building (world-buildings world) (bot-target bot))))
+               (world-notice-set (put-bot world (clear-job bot)) 46))
+              ((= (bot-job bot) 17) (dismantle-building world bot))
               ((outward-missing? world bot) (put-bot world (clear-job bot)))
               ((and (= (bot-job bot) 2) (> (bot-target bot) 0)
                     (not (accepting-depot? world (bot-target bot)))) (return-ore world bot))
@@ -1600,11 +1684,12 @@
       (let* ((kind (lane-kind world nest kind lane))
              (target (if (= kind 1) (outpost-target world nest (world-buildings world) (empty-list)) (empty-list)))
              (x (+ (nest-site-x nest) (- (remainder lane 3) 1))) (y (+ (nest-site-y nest) 2))
+             (health (enemy-spawn-health (world-threat-tick world) kind rank))
              (enemy (make-enemy (world-next-id world) (cell-x x) (cell-y y)
-                                (enemy-spawn-health (world-threat-tick world) kind rank) kind
+                                health kind
                                 (if (null? target) 0 (building-id (car target))) (empty-list)
                                 (burrower-id? world (world-next-id world)) rank
-                                (enemy-spawn-health (world-threat-tick world) kind rank))))
+                                health)))
         (world-next-id-set (world-enemies-set world (append (world-enemies world) (list (route-enemy world enemy))))
                            (+ (world-next-id world) 1))))
     ;; Introduce one strongest enemy, a familiar previous rank, then mixed

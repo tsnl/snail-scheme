@@ -112,6 +112,13 @@ import/export controls. Headless current-state inspection remains available.
   indicator above a tower or artillery shows that it is waiting for upgrade
   materials; current services stay active. Straight aerial cables leave their
   intermediate ground cells available for construction.
+- **Scavenge** (`X`) on a completed building quotes 20% of its construction and
+  completed upgrades, rounded down. An empty worker travels there and dismantles
+  it for two seconds; the building keeps working until demolition finishes. Only
+  then do you receive the quoted refund and recover its stored ore and outbound
+  freight. **Cancel** (`C`) stops the job. The hub, unfinished work and buildings
+  with uncollected supply reservations cannot be scavenged. Enemy destruction
+  or a lost worker pays no structural refund. Underground reserves stay intact.
 - Select the hub, then choose **New worker** (`F`)
   to order paid recruits. The actions remain open for repeated orders. An existing
   worker assembles each recruit. The hub occupies nine tiles. Worker capacity

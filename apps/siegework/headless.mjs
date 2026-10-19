@@ -26,7 +26,7 @@ export function parseAction(action, width = 128, height = 128) {
     case 'build':
       object(action, ['type', 'kind', 'cell'], 'action');
       return {type: 'build', kind: integer(action.kind, 1, 3, 'kind'), cell: cell(action.cell)};
-    case 'upgrade': case 'cancel':
+    case 'upgrade': case 'cancel': case 'scavenge':
       object(action, ['type', 'cell'], 'action'); return {type: action.type, cell: cell(action.cell)};
     case 'relocate':
       object(action, ['type', 'from', 'to'], 'action');
@@ -43,6 +43,7 @@ function commandFor(action, width) {
     case 'wait': return null;
     case 'build': return ['build-cell', [action.kind, action.cell]];
     case 'upgrade': return ['upgrade', [action.cell % width, Math.floor(action.cell / width)]];
+    case 'scavenge': return ['scavenge-building', [action.cell % width, Math.floor(action.cell / width)]];
     case 'cancel': return ['cancel-building', [action.cell % width, Math.floor(action.cell / width)]];
     case 'relocate': return ['relocate-building', [action.from, action.to]];
     case 'fabricate': return ['fabricate-worker', []];
@@ -83,6 +84,7 @@ export function decodeObservation(rows) {
       case 10: result.tiles.push(fields('cell visible terrain depositRate oreRemaining rockRemaining', values)); break;
       case 20: result.buildings.push(fields('id kind cell level hp stage', values)); break;
       case 21: Object.assign(result.buildings.at(-1), fields('id stock armed cooldown moveX moveY', values)); break;
+      case 22: Object.assign(result.buildings.at(-1), fields('id scavengeRefund scavenging', values)); break;
       case 30: result.workers.push(fields('id x y hp job cargo', values)); break;
       case 40: result.enemies.push(fields('id x y hp kind rank', values)); break;
       case 50: result.nests.push(fields('id cell hp', values)); break;
