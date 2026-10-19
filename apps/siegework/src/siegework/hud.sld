@@ -160,7 +160,7 @@
         (ui-dial "workers" (px hud-control-diameter) (px hud-control-diameter) (string-append (integer-text active) "/" (integer-text total))
                  (string-append "Working jobs: " (integer-text active) " of " (integer-text total)
                                 " workers; capacity " (integer-text (worker-capacity world))
-                                "; idle, fleeing and hiding excluded; queued: " (integer-text (pending-workers (world-bots world))))
+                                "; idle and waiting excluded; queued: " (integer-text (pending-workers (world-bots world))))
                  active (larger total 1) 2)))
     (define (difficulty-dial value)
       (ui-dial "difficulty" (px hud-control-diameter) (px hud-control-diameter) (integer-text (difficulty-number value))

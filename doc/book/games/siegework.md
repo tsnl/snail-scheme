@@ -55,6 +55,9 @@ reserves keep an empty purple frame. These bars have no text, red warning or
 pulse. Workers haul the final stock, then seek other work. Green bars above other
 units show their health.
 
+Workers keep mining, hauling and building when enemies approach. Enemies attack
+the hub and structures rather than workers.
+
 Completed towers connect to the hub through straight aerial ziplines. A link
 needs clear cable sight and must fit within either endpoint's reveal radius;
 cyan guides show tower reach. Carts carry workers and ore above water and the
@@ -85,8 +88,8 @@ needed. The hub retains its ordinary paid **Repair** action.
 button quotes **20% of construction and all completed upgrades**, rounded down.
 The building keeps working during travel and the two-second demolition. You
 receive the refund only when demolition finishes, together with its stored ore
-and outbound freight. **Cancel** (`C`) stops the job; enemy destruction or worker
-death pays no structural refund. The hub, pending work and uncollected supply
+and outbound freight. **Cancel** (`C`) stops the job; enemy destruction
+pays no structural refund. The hub, pending work and uncollected supply
 reservations cannot be scavenged. Deposit reserves remain available afterward.
 
 Select the hub and choose **Upgrade** to add **two places**. The six upgrades cost

@@ -141,8 +141,8 @@ import/export controls. Headless current-state inspection remains available.
   Towers and artillery have no separate repair action: at maximum level they
   remain damaged, keeping expansion and replacement part of colony planning.
 - Ore, hub health, working workers and difficulty have separate readouts. The
-  worker ring shows busy workers divided by all workers, excluding idle,
-  fleeing and hiding jobs from the busy count. It is not a population-cap ring.
+  worker ring shows busy workers divided by all workers, excluding idle and
+  waiting jobs from the busy count. It is not a population-cap ring.
   The difficulty ring advances toward the next strength increase, not an unseen
   enemy spawn. Home (`H`) smoothly returns to the hub.
 - **Pause** (`P`) stops the colony and opens the menu. **Resume**, Escape or a
@@ -193,8 +193,9 @@ card and selects that cell without placing an order.
 
 Workers choose reachable jobs using travel and completion costs. They can take
 construction supplies from nearby extractor or tower stock, preempt suitable
-jobs for construction, and flee threats. Carried gems, construction crates,
-destination markers, sweat and carts make their activity visible.
+jobs for construction, and keep working near enemies. Enemies attack the hub
+and buildings, never workers. Carried gems, construction crates,
+destination markers and carts make their activity visible.
 
 A mine has one worker slot per level; upgrades increase slots and output together.
 Its three levels provide an expensive fallback when further deposits are hard to

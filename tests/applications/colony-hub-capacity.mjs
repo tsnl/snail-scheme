@@ -1,4 +1,5 @@
 // Actual World12 transitions own paid hub expansion, capacity and ore refunds.
+import {settleWorker} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -87,7 +88,7 @@ export async function checkHubCapacity(test,fresh,bytes){
     setWorker(world,0,{x:12,y:20,job:2,cargo:16,path:[971,970,969,968,1016,1064]});await restoreColony(r,world);await upgrade(r);
     const fleeing=state(r);Object.assign(fleeing.bots[0],{job:7,timer:14,path:[],hp:7});fleeing.tick=9;await restoreColony(r,fleeing);
     await upgrade(r);assert.equal(state(r).notice,35);assert.equal(state(r).spent,100);await roundTrip(r);
-    await addEnemy(r,{x:12,y:20});await advance(r);assert.equal(state(r).hubCapacityLevel,0);assert.equal(state(r).ore,160);assert.equal(state(r).spent,0);assert.equal(state(r).lostOre,16);
+    await settleWorker(r,fleeing.bots[0].id);assert.equal(state(r).hubCapacityLevel,0);assert.equal(state(r).ore,160);assert.equal(state(r).spent,0);assert.equal(state(r).lostOre,16);
     assert.equal(state(r).casualties,1);await advance(r,5);assert.equal(state(r).ore,160);await roundTrip(r);await r.close();
   });
   await test('the decoder rejects impossible hub tiers, unpaid investment and conflicting pending owners atomically',async()=>{

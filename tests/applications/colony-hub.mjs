@@ -1,4 +1,5 @@
 // Hub orders and paid repairs use the compiled reducer and its real decoder.
+import {settleWorker} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -116,14 +117,15 @@ export async function checkHub(test,fresh,bytes) {
   await test('a killed repair worker refunds unused hub materials once and loses only carried ore',async()=>{
     const r=await fresh(); await loaded(r); await call(r,'repair-hub');
     const world=state(r); world.tick=9; world.bots[0].hp=7; await restoreColony(r,world);
-    await addEnemy(r,{x:12,y:20}); await advance(r);
+    await settleWorker(r,world.bots[0].id);
     assert.equal(state(r).ore,160); assert.equal(state(r).spent,0); assert.equal(state(r).lostOre,16);
     assert.equal(state(r).casualties,1); assert.equal(state(r).hull,180);
     assert.ok(state(r).bots.every(bot=>![12,13].includes(bot.job)));
     await advance(r,20); assert.equal(state(r).ore,160); assert.equal(state(r).spent,0); await r.close();
   });
-  await test('a surviving repair worker retains its payment through retreat, reload and return',async()=>{
-    const r=await fresh();await loaded(r);await call(r,'repair-hub');await addEnemy(r,{x:12,y:20});await advance(r);
+  await test('a legacy retreating repair worker retains payment through reload and resumes near enemies',async()=>{
+    const r=await fresh();await loaded(r);await call(r,'repair-hub');
+    const legacy=state(r);Object.assign(legacy.bots[0],{job:7,timer:12,path:[]});await restoreColony(r,legacy);await addEnemy(r,{x:12,y:20});
     const fleeing=state(r).bots[0];assert.equal(fleeing.job,7);assert.equal(fleeing.timer,12);
     assert.equal(fleeing.target,60);assert.equal(fleeing.cargo,16);await roundTrip(r);
     const saved=r.snapshot(1);await r.replace(r.prepare(bytes,r.manifest));await r.initialize(1);

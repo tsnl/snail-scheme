@@ -76,7 +76,8 @@ export async function checkTransport(test,fresh) {
     assert.equal(next.rails[1].cargo,16);assert.equal(next.rails[1].progress,48);
     assert.deepEqual(next.rails.map(rail=>rail.path),loaded.rails.map(rail=>rail.path));await r.close();
   });
-  await test('worker flights lift, cross a direct diagonal and land before delivering cargo',async()=>{
+  await test('current and legacy retreat flights lift, land and deliver cargo exactly once',async()=>{
+    for(const legacy of [false,true]) {
     const r=await fresh(),world=state(r);fund(world);depot(world,12,24);
     await restoreColony(r,world);await step(r);const riding=state(r),route=riding.rails[0].path;
     assert.equal(route.length,2);withdrawReserves(riding,16);
@@ -87,11 +88,13 @@ export async function checkTransport(test,fresh) {
     await step(r);assert.deepEqual([state(r).bots[0].x,state(r).bots[0].y],start);
     await step(r);bot=state(r).bots[0];assert.ok(bot.x<start[0]&&bot.y<start[1]);
     assert.equal(bot.cargo,16);assert.equal(state(r).delivered,riding.delivered);
+    if(legacy){const old=state(r);Object.assign(old.bots[0],{job:7,timer:2,path:[]});await restoreColony(r,old);}
     const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);
     while(state(r).bots[0].flight.length)await step(r);
     bot=state(r).bots[0];assert.deepEqual([bot.x,bot.y],Object.values(pixelAt(riding,8,22)));
     assert.equal(bot.cargo,16);assert.equal(state(r).delivered,riding.delivered);
     await step(r);assert.equal(state(r).delivered,riding.delivered+16);await r.close();
+    }
   });
   await test('freight speed doubles at each shared tower level and keeps its 32-ore load',async()=>{
     for(const level of [1,2,3]) {

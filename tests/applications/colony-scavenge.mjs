@@ -1,4 +1,5 @@
 // Actual compiled reducer transitions own demolition, ownership and refunds.
+import {settleWorker} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -117,7 +118,8 @@ export async function checkScavenge(test,fresh) {
       const r=await fresh(),world=state(r),site=building(world);setWorker(world,0,{x:12,y:22,hp:7});
       if(targetBuilding)site.hp=7;await restoreColony(r,world);await fixtureCall(r,'scavenge-building',[12,22]);await step(r);
       const working=state(r);working.tick=9;working.lastRevealTick=-100;await restoreColony(r,working);
-      await addEnemy(r,{x:12,y:22,target:targetBuilding?site.id:0});await step(r);
+      if(targetBuilding){await addEnemy(r,{x:12,y:22,target:site.id});await step(r);}
+      else await settleWorker(r,working.bots[0].id);
       const attacked=state(r);assert.equal(attacked.ore,world.ore);assert.equal(attacked.spent,world.spent);
       if(targetBuilding)assert.equal(attacked.buildings.length,0);else assert.equal(attacked.casualties,1);
       await r.restore(1,r.snapshot(1));attacked.enemies=[];await restoreColony(r,attacked);await step(r,40);
@@ -144,15 +146,14 @@ export async function checkScavenge(test,fresh) {
       await step(r,20);assert.equal(state(r).ore,done.ore);await r.close();
     }
   });
-  await test('fleeing cancels partial demolition and a later claim restarts the full work timer',async()=>{
+  await test('nearby enemies do not interrupt paid demolition or reset its work timer',async()=>{
     const r=await fresh(),world=state(r);world.bots.length=1;building(world);setWorker(world,0,{x:12,y:22});
     await restoreColony(r,world);await fixtureCall(r,'scavenge-building',[12,22]);await step(r,6);
     assert.equal(state(r).bots[0].timer,15);await addEnemy(r,{x:13,y:22,hp:80});await step(r);
-    const fleeing=state(r);assert.equal([16,17].includes(fleeing.bots[0].job),false);
-    assert.equal(fleeing.ore,world.ore);assert.equal(fleeing.buildings.length,1);
-    fleeing.enemies=[];setWorker(fleeing,0,{x:12,y:22});await restoreColony(r,fleeing);
-    await fixtureCall(r,'scavenge-building',[12,22]);await step(r);assert.equal(state(r).bots[0].timer,20);
-    await step(r,20);assert.equal(state(r).ore,world.ore+5);await r.close();
+    const working=state(r);assert.equal(working.bots[0].job,17);assert.equal(working.bots[0].timer,14);
+    assert.equal(working.bots[0].hp,14);assert.equal(working.ore,world.ore);
+    await step(r,14);assert.equal(state(r).ore,world.ore+5);assert.equal(state(r).buildings.length,0);
+    assert.equal(state(r).casualties,0);await step(r,5);assert.equal(state(r).ore,world.ore+5);await r.close();
   });
   await test('malformed demolition claims reject atomically without replacing the saved colony',async()=>{
     const r=await fresh(),world=state(r);building(world);setWorker(world,0,{x:12,y:22});await restoreColony(r,world);

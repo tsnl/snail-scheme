@@ -86,18 +86,18 @@
       (deriving derive-serialize derive-deserialize))
     ;; Job: 0 available, 1 collect, 2 deliver ore, 3 deliver building kit,
     ;; 4 returning to assemble a worker, 5 returning kit, 6 hub assembly,
-    ;; 7 fleeing (timer: 2 ore / 4 worker assembly / 5 kit / 11 reserved pickup),
-    ;; 8 occupied mining slot, 9 travelling to a slot, 10 work blocked by danger,
+    ;; 7 blocked return / legacy retreat (timer preserves the prior owned job),
+    ;; 8 occupied mining slot, 9 travelling to a slot, 10 legacy blocked work,
     ;; 11 collecting a reserved construction kit. Order retains that reservation
-    ;; while unrelated cargo is delivered or danger forces a retreat.
+    ;; while unrelated cargo is delivered or physical access is unavailable.
     ;; A building kit is already paid for; returning it refunds exactly that cost.
     ;; Production jobs reserve a future worker ID in target; the paid materials
     ;; stay at the hub while cargo remains ordinary ore. Job 6 with target 0 is
     ;; the sole-colonist recovery exception, never a paid production order.
-    ;; Jobs 12/13 return for a paid hub repair / perform that repair. Fleeing
+    ;; Jobs 12/13 return for a paid hub repair / perform that repair. Legacy
     ;; timer 12 retains the repair order; target owns its paid ore amount and
     ;; cargo remains ordinary mined ore. No repair target denotes an entity ID.
-    ;; Jobs 14/15 return for a paid hub capacity upgrade / assemble it. Fleeing
+    ;; Jobs 14/15 return for a paid hub capacity upgrade / assemble it. Legacy
     ;; timer 14 retains that order. Target owns its price, separate from cargo;
     ;; capacity changes only on completion, and death refunds the unused price.
     ;; Jobs 16/17 travel to a reserved building / dismantle it. Target is its
@@ -520,11 +520,10 @@
       (+ base-worker-capacity (* 2 (world-hub-capacity-level world))))
     (define (assembler-eligible? world bot)
       (and (null? (bot-flight bot)) (= (bot-order bot) 0)
-           (or (<= (bot-job bot) 2) (= (bot-job bot) 8) (= (bot-job bot) 9) (= (bot-job bot) 10))
-           (or (sheltered? world bot) (not (danger? (world-enemies world) (bot-x bot) (bot-y bot))))))
+           (or (<= (bot-job bot) 2) (= (bot-job bot) 8) (= (bot-job bot) 9) (= (bot-job bot) 10))))
     (define (prepare-assembler world bot)
       (if (not (assembler-eligible? world bot)) (empty-list)
-          (let ((path (route-from world bot (world-hub-x world) (world-hub-y world) #t)))
+          (let ((path (route-from world bot (world-hub-x world) (world-hub-y world))))
             (if (reachable? bot (world-hub-x world) (world-hub-y world) path)
                 (list (make-builder-choice bot 0 (travel-ticks world bot path) path)) (empty-list)))))
     (define (choose-assembler world bots best)
@@ -727,7 +726,7 @@
             (bot-y-set (bot-x-set (bot-flight-set (clear-job bot) (empty-list)) (cell-x (building-x site))) (cell-y (building-y site))))))
     (define (source-path world bot source)
       (let ((position (source-position world source bot)))
-        (route-from world bot (quotient (bot-x position) cell-size) (quotient (bot-y position) cell-size) #t)))
+        (route-from world bot (quotient (bot-x position) cell-size) (quotient (bot-y position) cell-size))))
     (define (source-reachable? world bot source path)
       (let ((position (source-position world source bot)))
         (reachable? bot (quotient (bot-x position) cell-size) (quotient (bot-y position) cell-size) path)))
@@ -767,15 +766,14 @@
       (and (null? (bot-flight bot)) (= (bot-order bot) 0)
            (< (committed-builders (world-bots world)) (maximum 1 (- (list-size (world-bots world)) 2)))
            (or (<= (bot-job bot) 2) (= (bot-job bot) 8) (= (bot-job bot) 9) (= (bot-job bot) 10))
-           (or (not (= (bot-job bot) 2)) (= (bot-target bot) 0) (accepting-depot? world (bot-target bot)))
-           (or (sheltered? world bot) (not (danger? (world-enemies world) (bot-x bot) (bot-y bot))))))
+           (or (not (= (bot-job bot) 2)) (= (bot-target bot) 0) (accepting-depot? world (bot-target bot)))))
     (define (prepare-builder-source world bot building source)
       (let* ((loaded (and (= (bot-job bot) 2) (> (bot-cargo bot) 0)))
              (delivery (if loaded (source-path world bot (bot-target bot)) (empty-list)))
              (origin (if loaded (source-position world (bot-target bot) bot) bot))
              (pickup (source-path world origin source))
              (supply (source-position world source bot))
-             (site (route-from world supply (building-x building) (building-y building) #t)))
+             (site (route-from world supply (building-x building) (building-y building))))
         (if (and (or (not loaded) (source-reachable? world bot (bot-target bot) delivery))
                  (source-reachable? world origin source pickup)
                  (reachable? supply (building-x building) (building-y building) site))
@@ -807,7 +805,6 @@
     (define (transferable-supply? world bot building reserve)
       (let ((source (bot-source bot)))
         (and (= (construction-kit-size building) 25) (not (= (bot-target bot) (building-id building)))
-             (or (sheltered? world bot) (not (danger? (world-enemies world) (bot-x bot) (bot-y bot))))
              (if (>= (building-source building) 0) (= source (building-source building))
                  (if (= source 0) (>= (world-credits world) (+ reserve (construction-cost building)))
                      (local-affordable-source? world source (construction-cost building)))))))
@@ -816,7 +813,7 @@
         (and (not (null? found)) (local-supply? world (car found) amount))))
     (define (prepare-carrier world bot building reserve)
       (if (not (transferable-supply? world bot building reserve)) (empty-list)
-          (let ((path (route-from world bot (building-x building) (building-y building) #t)))
+          (let ((path (route-from world bot (building-x building) (building-y building))))
             (if (and (reachable? bot (building-x building) (building-y building) path)
                      (< (travel-ticks world bot path) (travel-ticks world bot (bot-path bot))))
                 (list (make-builder-choice bot (bot-source bot) (travel-ticks world bot path) path)) (empty-list)))))
@@ -865,7 +862,7 @@
       (if (null? buildings) 0
           (+ (if (= (building-kind (car buildings)) 1) 1 0) (count-mines (cdr buildings)))))
     (define (safe-site? world x y)
-      (let ((bot (idle-bot (world-seed world) 0))) (reachable? bot x y (route-from world bot x y #t))))
+      (let ((bot (idle-bot (world-seed world) 0))) (reachable? bot x y (route-from world bot x y))))
 
     ;; ---- Reserved track geometry in the serialized world ----
 
@@ -1116,7 +1113,7 @@
     (define (scavenge-pending? world id) (scavenge-claims (world-bots world) id))
     (define (prepare-scavenger world bot building)
       (if (not (and (assembler-eligible? world bot) (= (bot-cargo bot) 0))) (empty-list)
-          (let ((path (route-from world bot (building-x building) (building-y building) #t)))
+          (let ((path (route-from world bot (building-x building) (building-y building))))
             (if (reachable? bot (building-x building) (building-y building) path)
                 (list (make-builder-choice bot 0 (travel-ticks world bot path) path)) (empty-list)))))
     (define (choose-scavenger world building bots best)
@@ -1297,19 +1294,12 @@
     (define (at-hub? world bot)
       (and (= (bot-x bot) (cell-x (world-hub-x world))) (= (bot-y bot) (cell-y (world-hub-y world)))))
     (define (sheltered? world bot) (and (null? (bot-flight bot)) (> (world-hull world) 0) (at-hub? world bot)))
-    ;; Routes avoid observed threats and threats close enough for this worker to
-    ;; sense. Empty means either already there or unreachable; callers prove which.
-    (define (worker-hazards world bot enemies radius)
-      (if (null? enemies) (empty-list)
-          (let* ((enemy (car enemies)) (x (quotient (enemy-x enemy) cell-size))
-                 (y (quotient (enemy-y enemy) cell-size))
-                 (rest (worker-hazards world bot (cdr enemies) radius)))
-            (if (or (visible? world x y) (within? (bot-x bot) (bot-y bot) (enemy-x enemy) (enemy-y enemy) 160))
-                (cons (make-survey x y radius) rest) rest))))
-    (define (route-from world bot a b safe)
+    ;; Terrain, visibility and current links determine worker routes. Enemies
+    ;; do not block work; empty means already there or physically unreachable.
+    (define (route-from world bot a b)
       (let* ((start (landing-cell bot)) (x (index-x start)) (y (index-y start))
              (path (cart-path (world-seed world) (world-breaches world) (fast-rails world (world-rails world)) x y a b (world-surveys world)
-                              (if safe (worker-hazards world bot (world-enemies world) 3) (empty-list)))))
+                              (empty-list))))
         (if (and (null? path) (not (and (= x a) (= y b)))) path
             (if (or (not (null? (bot-flight bot)))
                     (and (= (bot-x bot) (cell-x x)) (= (bot-y bot) (cell-y y)))) path
@@ -1327,31 +1317,31 @@
       (cargo I32 assignment-cargo assignment-cargo-set)
       (distance I32 assignment-distance assignment-distance-set)
       (path (List I32) assignment-path assignment-path-set))
-    (define (prepare-assignment world bot job target x y safe)
-      (let ((path (route-from world bot x y safe)))
+    (define (prepare-assignment world bot job target x y)
+      (let ((path (route-from world bot x y)))
         (if (reachable? bot x y path)
             (list (make-assignment job target 0 (travel-ticks world bot path) path)) (empty-list))))
     (define (choose-nearer candidate best)
       (if (and (not (null? candidate))
                (or (null? best) (< (assignment-distance (car candidate)) (assignment-distance (car best))))) candidate best))
-    (define (mine-choice world bot mine safe)
+    (define (mine-choice world bot mine)
       (let* ((id (building-id mine))
              (slots (+ (workers-at (world-bots world) 8 id) (workers-at (world-bots world) 9 id)))
              (available (and (> (ore-remaining world (building-x mine) (building-y mine)) 0)
                              (< slots (building-level mine)) (can-staff? world bot))))
         (cond ((and available (< (building-stock mine) 16))
-               (prepare-assignment world bot 9 id (building-x mine) (building-y mine) safe))
+               (prepare-assignment world bot 9 id (building-x mine) (building-y mine)))
               ((> (mine-backlog world mine) 0)
-               (prepare-assignment world bot 1 id (building-x mine) (building-y mine) safe))
+               (prepare-assignment world bot 1 id (building-x mine) (building-y mine)))
               ((and available (< (building-stock mine) 120))
-               (prepare-assignment world bot 9 id (building-x mine) (building-y mine) safe))
+               (prepare-assignment world bot 9 id (building-x mine) (building-y mine)))
               (else (empty-list)))))
-    (define (choose-work world bot buildings safe best)
+    (define (choose-work world bot buildings best)
       (if (null? buildings) best
           (let ((mine (car buildings)))
-            (choose-work world bot (cdr buildings) safe
+            (choose-work world bot (cdr buildings)
                          (if (and (ready? mine) (= (building-kind mine) 1))
-                             (choose-nearer (mine-choice world bot mine safe) best) best)))))
+                             (choose-nearer (mine-choice world bot mine) best) best)))))
     (define (install-assignment world bot assignment)
       (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) (assignment-job assignment)
                                (assignment-target assignment) 0 0 (assignment-path assignment) (bot-hp bot) 0 0 (bot-flight bot))))
@@ -1360,7 +1350,7 @@
         (cond ((null? found) (put-bot world (release-order bot)))
               ((construction-hidden? world (car found)) (suspend-construction world (car found) bot))
               (else (let* ((building (car found))
-                           (path (route-from world bot (building-x building) (building-y building) #t)))
+                           (path (route-from world bot (building-x building) (building-y building))))
                       (if (not (reachable? bot (building-x building) (building-y building) path))
                           (put-bot world (bot-job-set (clear-job bot) 10))
                           (put-bot (put-building world (construction-stage-set building 1))
@@ -1382,12 +1372,12 @@
                                                  (bot-hp bot) (bot-order bot) 0 (bot-flight bot))))))))
     (define (assign-work world bot)
       (if (> (bot-order bot) 0) (reserved-work world bot)
-          (let ((choice (choose-work world bot (world-buildings world) #t (empty-list))))
+          (let ((choice (choose-work world bot (world-buildings world) (empty-list))))
             (if (null? choice)
-                (put-bot world (bot-job-set bot (if (null? (choose-work world bot (world-buildings world) #f (empty-list))) 0 10)))
+                (put-bot world (bot-job-set bot 0))
                 (install-assignment world bot (car choice))))))
 
-    ;; ---- Worker travel, escape and physical delivery ----
+    ;; ---- Worker travel and physical delivery ----
 
     (define (approach value target speed)
       (if (< value target) (+ value (minimum speed (- target value)))
@@ -1408,15 +1398,15 @@
                         (bot-x-set bot (approach (bot-x bot) x 8)))))
         (if (at-cell? moved (index-x next) (index-y next)) (bot-path-set moved (cdr (bot-path bot))) moved)))
     ;; A saved waypoint is a plan, never permission to fly. A lost next link
-    ;; replans to the same final goal; failure enters the existing safe retreat.
+    ;; replans to the same final goal; failure preserves owned cargo while waiting for physical access.
     (define (replan-bot world bot)
       (let* ((goal (last-transport-cell (bot-path bot)))
-             (path (route-from world bot (index-x goal) (index-y goal) #t)))
+             (path (route-from world bot (index-x goal) (index-y goal))))
         (if (reachable? bot (index-x goal) (index-y goal) path)
             (put-bot world (bot-path-set bot path)) (interrupt-bot world bot))))
     ;; Four staggered five-tick windows reconsider walking plans after new links
     ;; or upgrades. A cell takes five walking ticks, so every grounded traveler
-    ;; gets a chance within twenty ticks. Flights and fleeing keep their routes.
+    ;; gets a chance within twenty ticks. Flights and blocked returns keep their routes.
     (define (route-refresh-due? world bot)
       (let ((cell (landing-cell bot)))
         (and (not (= (bot-job bot) 7))
@@ -1425,7 +1415,7 @@
     (define (refresh-walking-route world bot fast)
       (if (or (null? fast) (not (route-refresh-due? world bot))) bot
           (let* ((goal (last-transport-cell (bot-path bot)))
-                 (path (route-from world bot (index-x goal) (index-y goal) #t)))
+                 (path (route-from world bot (index-x goal) (index-y goal))))
             (if (and (not (null? path))
                      (< (path-work fast (bot-x bot) (bot-y bot) path)
                         (path-work fast (bot-x bot) (bot-y bot) (bot-path bot))))
@@ -1439,39 +1429,31 @@
                     (world-ground? world (index-x next) (index-y next)))
                (put-bot world (ground-step bot next)))
               (else (replan-bot world bot)))))
-    (define (danger? enemies x y)
-      (and (not (null? enemies))
-           (or (within? x y (enemy-x (car enemies)) (enemy-y (car enemies)) 130)
-               (danger? (cdr enemies) x y))))
     (define (clear-job bot)
       (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 0 0 0 0 (empty-list) (bot-hp bot) (bot-order bot) 0 (bot-flight bot)))
     (define (return-home world bot job)
-      (let* ((path (route-from world bot (world-hub-x world) (world-hub-y world) #t))
-             (returning (and (reachable? bot (world-hub-x world) (world-hub-y world) path) (not (= job 11)))))
-        ;; An uncollected reservation stays in retreat until hub arrival; job
-        ;; 11 always means travel to the actual paid source, which may be local.
+      (let* ((path (route-from world bot (world-hub-x world) (world-hub-y world)))
+             (returning (reachable? bot (world-hub-x world) (world-hub-y world) path)))
+        ;; Preserve the owned job while physical access is unavailable.
         (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot)
                                  (if returning job 7)
                                  (if (= job 2) 0 (bot-target bot)) (bot-cargo bot)
                                  (if returning 0 job) path (bot-hp bot) (bot-order bot) (bot-source bot) (bot-flight bot)))))
-    (define (escape-bot world bot)
-      (let* ((x (quotient (bot-x bot) cell-size)) (y (quotient (bot-y bot) cell-size))
-             (path (cart-escape-path (world-seed world) (world-breaches world) (fast-rails world (world-rails world)) x y (world-surveys world)
-                                     (worker-hazards world bot (world-enemies world) 4))))
-        (put-bot world (bot-path-set bot path))))
-    (define (flee-bot world bot)
-      (cond ((sheltered? world bot) (arrive-bot world (bot-job-set (bot-timer-set bot 0) (bot-timer bot))))
-            ((not (null? (bot-path bot))) (walk-bot world bot))
-            ((danger? (world-enemies world) (bot-x bot) (bot-y bot)) (escape-bot world bot))
+    ;; Legacy retreats discard their escape waypoints and resume owned work.
+    ;; A captured flight finishes first; its landing cell is still authoritative.
+    (define (resume-return world bot)
+      (cond ((= (bot-timer bot) 11) (reserved-work world (bot-path-set bot (empty-list))))
+            ((sheltered? world bot) (arrive-bot world (bot-job-set (bot-timer-set bot 0) (bot-timer bot))))
+            ((= (bot-timer bot) 2) (return-ore world (bot-path-set bot (empty-list))))
             (else (return-home world bot (bot-timer bot)))))
     (define (interrupt-bot world bot)
       (let ((job (if (or (= (bot-job bot) 3) (= (bot-job bot) 5)) 5
                      (if (or (= (bot-job bot) 4) (= (bot-job bot) 12) (= (bot-job bot) 14)) (bot-job bot)
                          (if (= (bot-job bot) 11) 11 (if (= (bot-job bot) 7) (bot-timer bot) 2))))))
-        (flee-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 7 (bot-target bot)
-                                  (bot-cargo bot) job (empty-list) (bot-hp bot) (bot-order bot) (bot-source bot) (bot-flight bot)))))
+        (resume-return world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 7 (bot-target bot)
+                                       (bot-cargo bot) job (empty-list) (bot-hp bot) (bot-order bot) (bot-source bot) (bot-flight bot)))))
     (define (drop-choice world bot id x y best)
-      (let ((path (route-from world bot x y #t)))
+      (let ((path (route-from world bot x y)))
         (if (and (reachable? bot x y path)
                  (or (null? best) (< (travel-ticks world bot path) (assignment-distance (car best)))))
             (list (make-assignment 2 id (bot-cargo bot) (travel-ticks world bot path) path)) best)))
@@ -1574,9 +1556,7 @@
               ((= (bot-job bot) 6) (assemble-worker world bot))
               ((= (bot-job bot) 13) (repair-hub world bot))
               ((= (bot-job bot) 15) (assemble-hub-upgrade world bot))
-              ((= (bot-job bot) 7) (flee-bot world bot))
-              ((and (not (sheltered? world bot)) (danger? (world-enemies world) (bot-x bot) (bot-y bot)))
-               (interrupt-bot world bot))
+              ((= (bot-job bot) 7) (resume-return world bot))
               ((and (scavenge-worker? bot) (null? (find-building (world-buildings world) (bot-target bot))))
                (world-notice-set (put-bot world (clear-job bot)) 46))
               ((= (bot-job bot) 17) (dismantle-building world bot))
@@ -1972,12 +1952,6 @@
     (define (enemy-target-building world enemy)
       (let ((target (find-building (world-buildings world) (enemy-target enemy))))
         (if (and (not (null? target)) (ready? (car target))) target (empty-list))))
-    (define (near-worker world enemy bots)
-      (if (null? bots) (empty-list)
-          (let ((bot (car bots)))
-            (if (and (null? (bot-flight bot)) (> (bot-hp bot) 0) (not (sheltered? world bot))
-                     (within? (enemy-x enemy) (enemy-y enemy) (bot-x bot) (bot-y bot) 56))
-                (list bot) (near-worker world enemy (cdr bots))))))
     (define (near-building enemy buildings)
       (if (null? buildings) (empty-list)
           (let ((building (car buildings)))
@@ -1988,7 +1962,7 @@
     (define (encounter? world enemy)
       (let ((target (enemy-target-building world enemy)))
         (if (null? target)
-            (or (near-hub? world enemy) (not (null? (near-worker world enemy (world-bots world))))
+            (or (near-hub? world enemy)
                 (not (null? (near-building enemy (world-buildings world)))))
             (not (null? (near-building enemy target))))))
     (define attack-alert-ticks 80)
@@ -2005,15 +1979,10 @@
     (define (attack-target world enemy)
       (let* ((damage (enemy-rank-damage (enemy-rank enemy)))
              (target (enemy-target-building world enemy))
-             (worker (near-worker world enemy (world-bots world)))
              (site (near-building enemy (if (null? target) (world-buildings world) target))))
         (cond ((not (null? target)) (if (null? site) world (damage-building world (car site) damage)))
               ((and (near-hub? world enemy) (> (world-hull world) 0))
                (record-attack (world-hull-set world (maximum 0 (- (world-hull world) damage))) (world-hub-x world) (world-hub-y world) 0))
-              ((not (null? worker))
-               (let ((bot (car worker)))
-                 (record-attack (put-bot world (bot-hp-set bot (maximum 0 (- (bot-hp bot) damage))))
-                                (quotient (bot-x bot) cell-size) (quotient (bot-y bot) cell-size) 4)))
               ((not (null? site))
                (damage-building world (car site) damage))
               (else world))))
@@ -2021,7 +1990,7 @@
       (record-attack (put-building world (building-hp-set building (maximum 0 (- (building-hp building) damage))))
                      (building-x building) (building-y building) (building-kind building)))
     ;; Tick cadence belongs to the attacker, not a freshly selected target.
-    ;; Switching between workers and buildings cannot reset or accelerate hits.
+    ;; Switching between structures cannot reset or accelerate hits.
     (define (attack-targets world enemies)
       (if (null? enemies) world
           (attack-targets (attack-target world (car enemies)) (cdr enemies))))

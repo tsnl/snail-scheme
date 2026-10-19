@@ -160,8 +160,8 @@ The numeric vocabulary comes from the model and
 | Building stage 0 / 1 / 2 / 3 | Paid kit awaiting a worker / kit being carried / operational / kit reserved for a worker. |
 | Building stage 4 / 5 / 7 | Operational structure awaiting upgrade: mirrors 0 / 1 / 3. |
 | Worker job 0..3 | Available, collect, deliver ore, deliver building kit. |
-| Worker job 4..7 | Return to assemble worker, return kit, hub assembly, flee. |
-| Worker job 8..11 | Mining, travel to mining slot, danger-blocked work, collect reserved kit. |
+| Worker job 4..7 | Return to assemble worker, return kit, hub assembly, blocked return (also accepts old retreat saves). |
+| Worker job 8..11 | Mining, travel to mining slot, legacy blocked work (retried), collect reserved kit. |
 | Worker job 12..15 | Return for repair, repair, return for hub expansion, assemble expansion. |
 | Enemy kind 0 / 1 / 2 | Siege minion / outpost raider / final beast. Rank is its independent strength tier. |
 | Reason 0 / 1 / 2 / 3 | Accepted or available / outside sight / rock or water / occupied. |

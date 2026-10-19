@@ -1,4 +1,5 @@
 // Worker paths and cargo remain authoritative while completed stations add speed.
+import {settleWorker} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -53,7 +54,7 @@ export async function checkCarts(test,fresh) {
     for(let i=0;i<world.bots.length;i++)if(i!==index)setWorker(world,i);
     setWorker(world,index,{x:12,y:22,job:7,target,cargo:25,timer:5,hp:7}); world.tick=9; world.lastRevealTick=-100;
     world.buildings[0].cooldown=8;
-    await restoreColony(r,world); await addEnemy(r,{x:12,y:22}); await advance(r);
+    await restoreColony(r,world);await settleWorker(r,world.bots[index].id);
     assert.equal(state(r).casualties,1); assert.equal(state(r).buildings[0].stage,2);
     assert.equal(state(r).buildings[0].level,1); assert.equal(state(r).buildings[0].kind,2);
     assert.equal(state(r).spent,75); assert.equal(state(r).ore,bank-25); await r.close();

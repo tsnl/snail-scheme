@@ -60,6 +60,9 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
+- [x] Try calm workers: enemies attack only structures, workers keep their jobs,
+      and old fleeing saves resume their cargo and paid work safely.
+
 - [x] Increase transport-line contrast and replace the nest count with hollow
       stars that fill as nests are defeated; publish the checked preview on 4212.
 - [x] Replace world-space numeric ore badges with compact green HP bars and

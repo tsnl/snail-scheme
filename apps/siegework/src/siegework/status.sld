@@ -152,7 +152,7 @@
     (define (reserved-worker-text bot)
       (cond ((= (bot-job bot) 11) "worker collecting reserved materials")
             ((= (bot-job bot) 10) "worker reserved · waiting for a safe route")
-            ((= (bot-job bot) 7) "reserved worker retreating · kit remains at source")
+            ((= (bot-job bot) 7) "reserved worker waiting for access · kit remains at source")
             ((and (= (bot-job bot) 2) (> (bot-cargo bot) 0)) "worker delivering existing ore before kit pickup")
             ((and (= (bot-job bot) 5) (> (bot-cargo bot) 0)) "worker returning existing kit before pickup")
             (else "worker reserved · finishing current work before kit pickup")))

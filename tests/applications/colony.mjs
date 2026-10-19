@@ -60,11 +60,12 @@ export async function checkColony(test, fresh, call) {
     await r.close();
   });
 
-  await test('interrupted construction returns exactly one paid kit and resumes after danger', async () => {
+  await test('construction keeps its single paid kit and completes while enemies approach', async () => {
     const r = await fresh(); await call(r, 'observe', [12,14]); await advance(r);
     const project = state(r).buildings[0]; assert.equal(project.stage, 1);
     await addEnemy(r, {x:8, y:22}); await advance(r, 3);
-    assert.equal(state(r).bots.filter(bot => bot.job === 7 && bot.timer === 5 && bot.target === project.id).length, 1);
+    assert.equal(state(r).bots.filter(bot=>bot.job===3&&bot.target===project.id).length,1);
+    assert.ok(state(r).bots.every(bot=>bot.job!==7));
     await advance(r, 25); assert.equal(state(r).buildings[0].stage, 1);
     assert.equal(state(r).spent, 25); materialBalance(state(r));
     const clear = state(r); clear.enemies.length = 0; await restoreColony(r, clear); await advance(r, 260);
