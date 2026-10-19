@@ -1,0 +1,110 @@
+{
+  "kind": "forced-gc-emission-storage-diagnostic",
+  "base_revision": "812ffaad2907413a52305f184617577d32e44ab9",
+  "source": "benchmarks/lofi/sboyer/main.sld",
+  "source_sha256": "06276512effa119ef54787616b5fad432a2fb6efbb797c57a32fcac1dfcf214f",
+  "compiler_files": {
+    "src/lofi/compiler/emit-wasm.sld": {
+      "before_sha256": "4e4f55fabcff2e5907b9d34ad961ab9017999a2a4e05cdfa2344e02dd6d4c49a",
+      "after_sha256": "503ac921669582776ff71b44cd9bd6edbb30592cf6694c1cda773bb98f8bfcf5"
+    },
+    "src/lofi/host/wasm.sld": {
+      "before_sha256": "0e7095aa10d5229da2e10542f58d3dbfa60d8faa5d7c2e0d68408d04e031573d",
+      "after_sha256": "8198305171fce137327dc0b7f05b27572478352c2766dda490267b2279f0882f"
+    }
+  },
+  "limits": {
+    "memory_bytes": 4294967296,
+    "swap_bytes": 0,
+    "cpu_quota_percent": 200,
+    "tasks_max": 128,
+    "runtime_seconds": 600,
+    "chibi_heap_arguments": "-h16M/1G"
+  },
+  "method": "Force Chibi GC after loading/checking/specialization/emission/writing. Both samples use the same diagnostic probe. Object counts include compiler host objects; emitted minus written estimates pairs retained by the output module. WAT strings occupy additional storage. These are diagnostic retained-object counts, not clean timings or total-memory speedups.",
+  "before": [
+    {
+      "phase": "loaded",
+      "pairs": 150647,
+      "wat_fragments": 0,
+      "resident_kib": 19712
+    },
+    {
+      "phase": "checked",
+      "pairs": 331542,
+      "wat_fragments": 0,
+      "resident_kib": 532708
+    },
+    {
+      "phase": "specialized",
+      "pairs": 434340,
+      "wat_fragments": 0,
+      "resident_kib": 532708
+    },
+    {
+      "phase": "emitted",
+      "pairs": 722357,
+      "wat_fragments": 0,
+      "resident_kib": 532772
+    },
+    {
+      "phase": "written",
+      "pairs": 157465,
+      "wat_fragments": 0,
+      "resident_kib": 532772
+    }
+  ],
+  "after": [
+    {
+      "phase": "loaded",
+      "pairs": 151483,
+      "wat_fragments": 0,
+      "resident_kib": 19752
+    },
+    {
+      "phase": "checked",
+      "pairs": 332376,
+      "wat_fragments": 0,
+      "resident_kib": 532808
+    },
+    {
+      "phase": "specialized",
+      "pairs": 435174,
+      "wat_fragments": 0,
+      "resident_kib": 532808
+    },
+    {
+      "phase": "emitted",
+      "pairs": 197968,
+      "wat_fragments": 534,
+      "resident_kib": 534408
+    },
+    {
+      "phase": "written",
+      "pairs": 158299,
+      "wat_fragments": 0,
+      "resident_kib": 534408
+    }
+  ],
+  "output": {
+    "bytes": 3138011,
+    "sha256": "72c3cebea58e68bedc0f8b72a8ecb68f05e01e4aa345f70021c2177d5f4604a2",
+    "byte_identical": true
+  },
+  "complete_compiler_attempt": {
+    "source": "benchmarks/lofi/compiler/main.sld",
+    "source_sha256": "1aa6381ddce0a2bba98b63e06776c1e4359108646f2a59c5d677ad3217cef513",
+    "emitter": "before-compaction, with live phase logging",
+    "terminal_status": "timeout",
+    "last_phase": "resolve",
+    "runtime_seconds": 600.017,
+    "process_group_memory_peak_bytes": 2383024128,
+    "swap_bytes": 0,
+    "scope": "Complete input retained. Never reached checking, specialization or emission within this bounded attempt; does not establish a fix for the historical complete Compiler emission failure. Earlier 8/16GiB evidence is unchanged."
+  },
+  "limitations": [
+    "Peak resident memory in Sboyer was already established before emission and was not reduced.",
+    "The canonical 57-workload comparison was not rerun.",
+    "Host load was uncontrolled; no compiler speedup or whole-build memory ratio is claimed."
+  ]
+}

@@ -1,15 +1,28 @@
 ;; Serialize structured Wasm into the text format accepted by Binaryen.
 ;; This module has no source-language analysis or compilation dependencies.
 (define-library (lofi host wasm)
-  (export write-wasm)
+  (export write-wasm compact-wasm-definition)
   (import
    (scheme base)
    (scheme cxr)
    (scheme write)
-   (lofi host chromium-trace))
+   (lofi host chromium-trace)
+   (lofi host log))
   (begin
 
     ;; ---- Wasm text ----
+
+    ;; Finished definitions need no more inspection. Retain their exact WAT
+    ;; bytes instead of every instruction's pairs while later functions emit.
+    ;; Only this serializer constructs the opaque fragment; callers cannot
+    ;; inject arbitrary text through the structured-Wasm interface.
+    (define-record-type <wasm-text>
+      (make-wasm-text text) wasm-text?
+      (text wasm-text))
+    (define (compact-wasm-definition definition)
+      (let ((port (open-output-string)))
+        (write-definition definition port)
+        (make-wasm-text (get-output-string port))))
 
     ;; Generated function identifiers use plain WAT tokens. Foreign import names
     ;; are arbitrary UTF-8 strings and require WAT byte escapes, not Scheme's.
@@ -36,10 +49,10 @@
       (write-simple (cadddr definition) port) (display ")" port))
 
     (define (write-definition definition port)
-      (cond ((eq? (car definition) 'import) (write-import definition port))
-            ((negative-infinity? definition) (write-with-infinity definition port))
-            (else (write-simple definition port)))
-      (newline port))
+      (cond ((wasm-text? definition) (display (wasm-text definition) port))
+            ((eq? (car definition) 'import) (write-import definition port) (newline port))
+            ((negative-infinity? definition) (write-with-infinity definition port) (newline port))
+            (else (write-simple definition port) (newline port))))
 
     ;; Scheme quotes the WAT token -inf as a symbol. Only definitions containing
     ;; that exceptional leaf need a Scheme walk; the ordinary path uses Chibi's built-in writer.
@@ -59,9 +72,11 @@
 
     (define write-wasm
       (chromium-trace "write-wasm" (lambda (datum port)
-                                     (display "(module\n" port)
-                                     (for-each (lambda (definition) (write-definition definition port)) (cdr datum))
-                                     (display ")\n" port))))
+                                     (call-with-log-phase "write WAT"
+                                                          (lambda ()
+                                                            (display "(module\n" port)
+                                                            (for-each (lambda (definition) (write-definition definition port)) (cdr datum))
+                                                            (display ")\n" port))))))
 
     )
 
@@ -82,4 +97,16 @@
         (let ((port (open-output-string)))
           (write-definition '(global $infinity f64 (f64.const -inf)) port)
           (expect (get-output-string port) "(global $infinity f64 (f64.const -inf))\n")))
-      (define (test-wasm) (run-test test-wat-leaves))))))
+      (define (test-compact-definitions)
+        (for-each
+         (lambda (definition)
+           (let ((ordinary (open-output-string)) (compact (open-output-string)))
+             (write-definition definition ordinary)
+             (write-definition (compact-wasm-definition definition) compact)
+             (expect (get-output-string compact) (get-output-string ordinary))))
+         '((func $f (result i32) (i32.const 42))
+           (global $infinity f64 (f64.const -inf))
+           (import "quote\" slash\\ λ" "function" (func $f (param i32))))))
+      (define (test-wasm)
+        (run-test test-wat-leaves)
+        (run-test test-compact-definitions))))))

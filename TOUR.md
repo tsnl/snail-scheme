@@ -39,7 +39,7 @@ remains proposed.
 | 3. Resolution and expansion | [`library.sld`](src/lofi/compiler/library.sld), [`macros.sld`](src/lofi/compiler/macros.sld) | Resolve imported binding identities, expand `syntax-rules` and attached derive transformers, then parse the expanded kernel. |
 | 4. Checking | [`infer.sld`](src/lofi/compiler/infer.sld) | `infer-program` checks bodies and freezes immutable evidence in [`typed.sld`](src/lofi/compiler/typed.sld); [`checked.sld`](src/lofi/compiler/checked.sld) holds the program and class evidence. |
 | 5. Concrete demand | [`specialize.sld`](src/lofi/compiler/specialize.sld) | `prepare-generation` builds [`concrete.sld`](src/lofi/compiler/concrete.sld) trees, chooses storage and captures, then partitions values by activation owner. |
-| 6. Emission | [`emit-wasm.sld`](src/lofi/compiler/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence, indexed layouts and the prepared activation partition. |
+| 6. Emission | [`emit-wasm.sld`](src/lofi/compiler/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence, indexed layouts and the prepared activation partition. Finished function bodies become opaque WAT fragments through [`host/wasm.sld`](src/lofi/host/wasm.sld), releasing instruction trees before later functions emit. |
 
 ```text
 located library source → imported identities and hygienic expansion
@@ -84,6 +84,11 @@ The public commands and Siegework recipe default to debug Wasm optimization;
 `--release` selects the full O3 pipeline. [`(lofi host wasm-optimize)`](src/lofi/host/wasm-optimize.sld)
 owns the scoped profile, which also reaches generated dependencies and the final
 runtime link. Library APIs and lower-level build scripts retain release defaults.
+
+[`(lofi host log)`](src/lofi/host/log.sld) prints and flushes coarse phase
+progress to stderr, including during synchronous compiler-service calls.
+`SNAIL_LOG=off` silences progress; imports remain quiet. See
+[live logging and traces](doc/tracing.md).
 
 ## Where things live
 
