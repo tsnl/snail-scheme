@@ -70,6 +70,8 @@ source changes alone do not count as a playable result. Keep the preview at **42
       reveal radius. Show matching tower guides and lower the building models.
 - [x] Render ziplines as single solid, constant-color meshes without pulsing
       glow or contrasting outlines; preserve flight and reveal guides.
+- [x] Separate overlapping tower and turret range outlines so both guide
+      colors remain visible without changing their gameplay ranges.
 - [x] Reveal one rich, mineable deposit when a nest is destroyed; award no
       instant ore. Increase deposit density significantly toward nests so enemy
       approach directions also guide mining exploration. Preserve home deposits.

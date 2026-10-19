@@ -176,7 +176,35 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
     const cooling=world(r);cooling.buildings[0].cooldown=8;await restoreColony(r,cooling);
     assert.equal(batch(r,4),frame,'cooldown preserves gun coverage and its retained mesh');
     assert.ok(r.view().scene.batches.filter(value=>value.reveal).every(value=>value.reveal.edge===0));
-    console.log('ok - active-gun coverage is the exact grid union without internal or duplicate edges; cooldown retains it');
+    const faces=key=>{
+      const vertices=points(batch(r,key)),result=new Map();
+      for(let i=0;i<vertices.length;i+=4){const face=vertices.slice(i,i+4);
+        const center=[0,1,2].map(axis=>face.reduce((sum,p)=>sum+p[axis],0)/4);
+        result.set(center.slice(0,2).map(value=>Math.round(value*2)).join(','),{face,center});}
+      return result;
+    };
+    for(const [width,height] of [[1100,760],[390,844]])for(const heading of [0,90000,180000,270000]) {
+      await command(r,'viewport',[width,height]);
+      const middle=at(world(r),13,22);
+      await restoreClient(r,{...local(r),cameraX:middle.x*1000,cameraY:middle.y*1000,scale:1000,
+        heading,turnFrom:heading,turnTo:heading,turnElapsed:300,homing:false});
+      const orange=faces(4),cyan=faces(14),m=r.view().scene.uniforms;
+      const screen=p=>[(m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12])*width/2,
+        (m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13])*height/2];
+      let shared=0;
+      for(const [key,a] of orange){const b=cyan.get(key);if(!b)continue;shared++;
+        assert.ok(Math.abs(a.center[2]-b.center[2])<1e-6,'both guides use the same elevation');
+        const horizontal=Number(key.split(',')[0])%2===0;
+        const tangent=screen(a.center.map((value,axis)=>value+(axis===(horizontal?0:1)?1:0))),origin=screen(a.center);
+        const direction=tangent.map((value,axis)=>value-origin[axis]),length=Math.hypot(...direction);
+        const normal=p=>cross2(origin,tangent,screen(p))/length;
+        const aa=a.face.map(normal),bb=b.face.map(normal);
+        const gap=Math.max(Math.min(...aa)-Math.max(...bb),Math.min(...bb)-Math.max(...aa));
+        assert.ok(gap>.5,`both colors have separate visible strokes at ${width}x${height}, heading ${heading}`);
+      }
+      assert.ok(shared>=2,'fixture exercises coincident range boundaries');
+    }
+    console.log('ok - exact range unions retain without seams; overlapping colors stay separate through desktop/mobile rotation');
   } finally {await r.close();}
 }
 {

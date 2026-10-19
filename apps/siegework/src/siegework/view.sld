@@ -837,6 +837,8 @@
                       (append (coverage-edge guides x y 0 -1 surface height) (coverage-edge guides x y 0 1 surface height)))))
     ;; First-cover ownership removes duplicate internal seams for both gold gun
     ;; range and cyan observation range. Only actual current tower radii enter.
+    ;; Their batches offset the complete outlines in opposite ground-plane
+    ;; directions so coincident edges show both colors without a depth contest.
     (define (guide-coverage guides earlier guide window radius dx dy surface height)
       (cond ((> dy radius) (empty-list))
             ((> dx radius) (guide-coverage guides earlier guide window radius (- 0 radius) (+ dy 1) surface height))
@@ -951,9 +953,11 @@
                                                                             (mineral-nodes world window #f #f)))))
                         (owner-motion-clock (motion-batch 3 1 (empty-list) 100 (lambda () (append (starter-nodes world) (entity-nodes world previous #f)))) 1)
                         (retained-batch 4 0 (append (window-dependencies window) (survey-dependencies guns))
-                                        (lambda () (coverage-nodes guns guns (empty-list) window brass 0.07)))
+                                        (lambda () (list (group (translation (vec3 -0.08 -0.08 0.0))
+                                                                (coverage-nodes guns guns (empty-list) window brass 0.075)))))
                         (retained-batch 14 0 (append (window-dependencies window) (survey-dependencies towers))
-                                        (lambda () (coverage-nodes towers towers (empty-list) window cyan 0.075)))
+                                        (lambda () (list (group (translation (vec3 0.08 0.08 0.0))
+                                                                (coverage-nodes towers towers (empty-list) window cyan 0.075)))))
                         (revealed-batch world (unordered-batch (retained-batch 9 0 terrain
                                                                                (lambda () (append (terrain-nodes world window #t (window-left window) (window-top window))
                                                                                                   (mineral-nodes world window #f #t))))))
