@@ -453,7 +453,7 @@
                                    (if (construction-hidden? world building) (construction-warning) (empty-list))))
                   (building-nodes world (cdr buildings))))))
 
-    ;; ---- Current transport paths share one energy pulse ----
+    ;; ---- Solid aerial cables and moving freight ----
 
     (define shuttle-parts
       (list (block steel 0.0 0.0 0.22 0.46 0.38 0.2)
@@ -487,7 +487,6 @@
     ;; One retained straight span per undirected physical link. Packing the
     ;; two 14-bit cells and tint stays below 2^29; at most 256 spans are emitted.
     ;; Sorting and max tint make opposite/list-reordered traffic identical.
-    (define energy-outline (material (rgb 18 24 44) 1.0))
     (define energy-ordinary (material (rgb 255 244 142) 1.0))
     (define energy-fast (material (rgb 108 250 255) 1.0))
     (define (energy-visible? a b window)
@@ -513,21 +512,19 @@
                                (insert-energy marks (energy-mark a b (if fast 2 1))) marks)))))
     (define (energy-dependencies world window)
       (energy-routes world (world-rails world) window (empty-list)))
-    (define (energy-piece mark outline?)
+    (define (energy-piece mark)
       (let* ((a (quotient mark 32768)) (b (quotient (remainder mark 32768) 2))
              (from (position (index-x a) (index-y a) 0.0)) (to (position (index-x b) (index-y b) 0.0))
              (delta (v- to from)) (length (sqrt (dot delta delta))) (along (v* delta (/ 1.0 length)))
-             (center (v+ (v* (v+ from to) 0.5) (vec3 0.0 0.0 (+ (/ (scalar flight-height) 1000.0) (if outline? -0.005 0.0)))))
-             (surface (if outline? energy-outline (if (= (remainder mark 2) 1) energy-fast energy-ordinary))))
+             (center (v+ (v* (v+ from to) 0.5) (vec3 0.0 0.0 (/ (scalar flight-height) 1000.0))))
+             (surface (if (= (remainder mark 2) 1) energy-fast energy-ordinary)))
         (group (transform along (cross (vec3 0.0 0.0 1.0) along) (vec3 0.0 0.0 1.0) center)
-               (list (flat surface 0.0 0.0 0.0 length (if outline? 0.375 0.25))))))
-    (define (energy-nodes marks outline? nodes)
+               (list (flat surface 0.0 0.0 0.0 length 0.25)))))
+    (define (energy-nodes marks nodes)
       (if (null? marks) nodes
-          (energy-nodes (cdr marks) outline? (cons (energy-piece (car marks) outline?) nodes))))
-    (define (energy-outline-batch marks)
-      (retained-batch 21 0 marks (lambda () (energy-nodes marks #t (empty-list)))))
+          (energy-nodes (cdr marks) (cons (energy-piece (car marks)) nodes))))
     (define (energy-rail-batch marks)
-      (translucent-batch 20 0 marks 0.95 #t (lambda () (energy-nodes marks #f (empty-list)))))
+      (retained-batch 20 0 marks (lambda () (energy-nodes marks (empty-list)))))
 
     ;; ---- Fixed actor bodies; only their occurrence poses change each tick ----
 
@@ -947,31 +944,30 @@
         ;; All depth-writing ground/structures, including fresh reveals, precede
         ;; translucent previews, water and mineral glows.
         (batched-scene camera
-                       (append (list
-                                (retained-batch 0 0 (list (world-seed world)) (lambda () (append (world-base) (hub-nodes world))))
-                                (unordered-batch (retained-batch 1 0 terrain
-                                                                 (lambda () (append (terrain-nodes world window #f (window-left window) (window-top window))
-                                                                                    (mineral-nodes world window #f #f)))))
-                                (owner-motion-clock (motion-batch 3 1 (empty-list) 100 (lambda () (append (starter-nodes world) (entity-nodes world previous #f)))) 1)
-                                (retained-batch 4 0 (append (window-dependencies window) (survey-dependencies guns))
-                                                (lambda () (coverage-nodes guns guns (empty-list) window brass 0.07)))
-                                (retained-batch 14 0 (append (window-dependencies window) (survey-dependencies towers))
-                                                (lambda () (coverage-nodes towers towers (empty-list) window cyan 0.075)))
-                                (revealed-batch world (unordered-batch (retained-batch 9 0 terrain
-                                                                                       (lambda () (append (terrain-nodes world window #t (window-left window) (window-top window))
-                                                                                                          (mineral-nodes world window #f #t))))))
-                                (revealed-batch world (owner-motion-clock (motion-batch 10 1 (empty-list) 100 (lambda () (entity-nodes world previous #t))) 1))
-                                (unit-bar-batch 30 world previous camera #f)
-                                (revealed-batch world (unit-bar-batch 31 world previous camera #t))
-                                (energy-outline-batch energy)
-                                (translucent-batch 5 1 (list x y preview-kind) 0.45 #t
-                                                   (lambda () (append (preview-nodes world x y preview-kind)
-                                                                      (construction-previews world (world-buildings world)))))
-                                (translucent-batch 6 0 terrain 0.25 #t
-                                                   (lambda () (water-glints world window #f (window-left window) (window-top window))))
-                                (translucent-batch 7 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #f)))
-                                (revealed-batch world (translucent-batch 11 0 terrain 0.25 #t
-                                                                         (lambda () (water-glints world window #t (window-left window) (window-top window)))))
-                                (revealed-batch world (translucent-batch 12 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #t)))))
-                               (list (energy-rail-batch energy)))
+                       (list
+                        (retained-batch 0 0 (list (world-seed world)) (lambda () (append (world-base) (hub-nodes world))))
+                        (unordered-batch (retained-batch 1 0 terrain
+                                                         (lambda () (append (terrain-nodes world window #f (window-left window) (window-top window))
+                                                                            (mineral-nodes world window #f #f)))))
+                        (owner-motion-clock (motion-batch 3 1 (empty-list) 100 (lambda () (append (starter-nodes world) (entity-nodes world previous #f)))) 1)
+                        (retained-batch 4 0 (append (window-dependencies window) (survey-dependencies guns))
+                                        (lambda () (coverage-nodes guns guns (empty-list) window brass 0.07)))
+                        (retained-batch 14 0 (append (window-dependencies window) (survey-dependencies towers))
+                                        (lambda () (coverage-nodes towers towers (empty-list) window cyan 0.075)))
+                        (revealed-batch world (unordered-batch (retained-batch 9 0 terrain
+                                                                               (lambda () (append (terrain-nodes world window #t (window-left window) (window-top window))
+                                                                                                  (mineral-nodes world window #f #t))))))
+                        (revealed-batch world (owner-motion-clock (motion-batch 10 1 (empty-list) 100 (lambda () (entity-nodes world previous #t))) 1))
+                        (unit-bar-batch 30 world previous camera #f)
+                        (revealed-batch world (unit-bar-batch 31 world previous camera #t))
+                        (energy-rail-batch energy)
+                        (translucent-batch 5 1 (list x y preview-kind) 0.45 #t
+                                           (lambda () (append (preview-nodes world x y preview-kind)
+                                                              (construction-previews world (world-buildings world)))))
+                        (translucent-batch 6 0 terrain 0.25 #t
+                                           (lambda () (water-glints world window #f (window-left window) (window-top window))))
+                        (translucent-batch 7 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #f)))
+                        (revealed-batch world (translucent-batch 11 0 terrain 0.25 #t
+                                                                 (lambda () (water-glints world window #t (window-left window) (window-top window)))))
+                        (revealed-batch world (translucent-batch 12 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #t)))))
                        (camera-light camera) (vec3 0.5 0.5 0.46) (rgb 28 151 223))))))

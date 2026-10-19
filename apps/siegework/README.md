@@ -217,8 +217,7 @@ Remembered explored terrain does not extend this reach. Unconnected depots keep
 their stock. Current mountains are lower than the cable plane, so they do not
 block links. Cyan boundary lines show the combined hub and tower reveal range.
 
-A straight aerial energy cable pulses uniformly on the display clock. Its
-steady dark border separates the bright core from terrain. Cyan identifies
+A straight aerial cable uses one solid, constant-color mesh. Cyan identifies
 available worker service and warm yellow marks ordinary freight links. Workers
 lift for two ticks, fly at their captured speed, then land; jobs, cargo and source
 reservations stay with them. A flight already underway finishes safely even if

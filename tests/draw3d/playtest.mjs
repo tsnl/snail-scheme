@@ -100,7 +100,7 @@ function checkTransport(r,key=20,width=.25,elevation=.9) {
   assert.ok(triangles.every(triangle=>cross2(...triangle)>0),'all cable faces point upward');
   const area=triangles.reduce((sum,triangle)=>sum+cross2(...triangle)/2,0);
   assert.ok(Math.abs(area-expectedArea)<1e-4,'one rectangle spans each undirected endpoint pair');
-  assert.ok(marks.every(mark=>Math.abs(mark.z-elevation)<1e-6),'cable layers share the simulation flight altitude');
+  assert.ok(marks.every(mark=>Math.abs(mark.z-elevation)<1e-6),'cable meshes share the simulation flight altitude');
   return marks;
 }
 function transportOnscreen(r,[x,y],elevation=.9) {
@@ -206,33 +206,28 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
   try {
     for(const x of [12,13]){await fixtureCall(r,'observe',[x,22]);await complete(r);}
     const next=world(r);await restoreColony(r,next);
-    const marks=checkTransport(r),batches=transportBatches(r),outline=transportBatches(r,21)[0];
-    const backing=checkTransport(r,21,.375,.895),scene=r.view().scene;
+    const marks=checkTransport(r),batches=transportBatches(r),scene=r.view().scene;
     assert.equal(new Set(marks.map(mark=>mark.mesh)).size,1);assert.equal(marks.length,next.rails.length);
-    assert.equal(batches.length,1);assert.equal(batches[0].pulse,true);assert.equal(batches[0].pulsePhase,0);
-    assert.ok(batches[0].opacity>=.9&&batches[0].opacity<1);
-    assert.equal(outline.opacity,1);assert.equal(outline.pulse,false);
-    assert.ok(backing.every(mark=>mark.mesh.vertices[9]===1&&mark.mesh.vertices.slice(6,9).every(channel=>channel<.2)));
-    assert.ok(scene.batches.indexOf(outline)<scene.batches.findIndex(batch=>batch.opacity<1));
-    const beneath=transportTriangles(r,21);
-    assert.ok(transportTriangles(r).every(triangle=>triangle.every(point=>painted(beneath,point))));
+    assert.equal(batches.length,1);assert.equal(batches[0].pulse,false);assert.equal(batches[0].pulsePhase,0);
+    assert.equal(batches[0].opacity,1);assert.deepEqual(transportBatches(r,21),[]);
+    assert.ok(scene.batches.indexOf(batches[0])<scene.batches.findIndex(batch=>batch.opacity<1));
     const moved=world(r);moved.tick++;moved.rails[0].progress=1;moved.rails[0].returning=1;
     await restoreColony(r,moved);const committed=r.snapshot(1);
     await command(r,'rotate',[0,1]);await command(r,'animate',[50]);
-    assert.equal(transportBatches(r)[0],batches[0]);assert.equal(transportBatches(r,21)[0],outline);
+    assert.equal(transportBatches(r)[0],batches[0]);
     assert.deepEqual(r.snapshot(1),committed);
     const reordered=world(r);reordered.rails.reverse();await restoreColony(r,reordered);
-    assert.equal(transportBatches(r)[0],batches[0]);assert.equal(transportBatches(r,21)[0],outline);
+    assert.equal(transportBatches(r)[0],batches[0]);
     const target=at(world(r),12,22),stationary=r.snapshot(1);let clipped=0;
     for(const heading of [0,90000])for(const offset of [-12,-10,-8,-6,0,6,8,10,12]) {
       await restoreClient(r,{...local(r),cameraX:(target.x+offset)*1000,cameraY:target.y*1000,scale:500,
         heading,turnFrom:heading,turnTo:heading,turnElapsed:300,homing:false});
-      clipped+=checkTransportBoundary(r);clipped+=checkTransportBoundary(r,21,.375,.895);
+      clipped+=checkTransportBoundary(r);
     }
     assert.ok(clipped>0);assert.deepEqual(r.snapshot(1),stationary);
     await restoreClient(r,{...local(r),cameraX:0,cameraY:0,homing:false});
     assert.equal(transportMarks(r).length,0);assert.equal(transportMarks(r,21).length,0);
-    console.log('ok - straight aerial energy spans retain their dark backing and pulsing core, including clipped camera boundaries');
+    console.log('ok - straight solid aerial cables retain one opaque mesh without pulse or backing, including clipped camera boundaries');
   } finally {await r.close();}
 }
 

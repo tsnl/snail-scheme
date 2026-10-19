@@ -179,18 +179,18 @@ export async function checkTransport(test,fresh) {
     await restoreColony(r,world);await step(r,2);
     assert.deepEqual(state(r).rails,[]);assert.equal(state(r).buildings[0].stock,16);assert.equal(state(r).lostOre,0);await r.close();
   });
-  await test('paused legacy track cells leave both retained rail layers unchanged and only the core pulses',async()=>{
+  await test('paused legacy track cells leave the single solid cable batch unchanged',async()=>{
     const r=await fresh(),world=state(r);fund(world);depot(world,12,22);
     await restoreColony(r,world);await step(r);await fixtureCall(r,'pause-colony',[1]);
     const clean=state(r),before=r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
     const a=routeCell(clean,8,23);clean.tracks=[a*32+17,(a+1)*32+20];await restoreColony(r,clean);
     const after=r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
-    assert.deepEqual(after.map(batch=>batch.key),[21,20]);
+    assert.deepEqual(after.map(batch=>batch.key),[20]);
     for(const [index,batch] of after.entries()) {
-      assert.equal(batch,before[index]);assert.equal(batch.pulsePhase,0);assert.equal(batch.pulse,batch.key===20);
+      assert.equal(batch,before[index]);assert.equal(batch.pulsePhase,0);assert.equal(batch.pulse,false);
       assert.equal(batch.transforms,before[index].transforms);assert.equal(batch.draws,before[index].draws);
     }
-    assert.equal(after[0].opacity,1);assert.ok(after[1].opacity>0&&after[1].opacity<1);
+    assert.equal(after[0].opacity,1);
     const saved=r.snapshot(1);await step(r);assert.deepEqual(r.snapshot(1),saved);
     await fixtureCall(r,'pause-colony',[0]);await step(r);assert.deepEqual(state(r).tracks,[]);await r.close();
   });
