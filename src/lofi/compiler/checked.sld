@@ -1,7 +1,7 @@
-;; Checked programs retain source, binding schemes, lexical scopes and static
-;; class evidence. Expression typing results never become part of this record.
+;; Checked programs own immutable typed expressions and static class evidence.
+;; Solver scopes and provisional judgments are released before construction.
 (define-library (lofi compiler checked)
-  (export make-program program? program-body program-globals program-classes program-instances program-type program-scopes
+  (export make-program program? program-body program-globals program-classes program-instances program-type program-expression
           make-class class? class-definition class-variables class-methods class-overload?
           class-instance-cache set-class-instance-cache!
           make-instance instance? instance-class instance-types instance-members instance-scheme instance-row)
@@ -13,13 +13,13 @@
     ;; ---- Checked compilation roots ----
 
     (define-record-type <program>
-      (make-program body globals classes instances type scopes) program?
+      (make-program body globals classes instances type expression) program?
       (body program-body)
       (globals program-globals)
       (classes program-classes)
       (instances program-instances)
       (type program-type)
-      (scopes program-scopes))
+      (expression program-expression))
 
     ;; ---- Static class evidence ----
 
