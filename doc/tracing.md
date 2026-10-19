@@ -1,5 +1,27 @@
 # Chromium traces
 
+## Live compilation progress
+
+Compiler and build phases print `[lofi]` start/completion messages to stderr and
+flush each message immediately. Completion includes elapsed milliseconds; an
+interrupted or failed phase has no successful completion message. Source paths
+and public entry names distinguish nested builds. Program output and compiler
+protocol stdout remain separate. Set `SNAIL_LOG=off` (or `0`) for quiet builds:
+
+```sh
+SNAIL_LOG=off ./lofi run examples/scheme-fibonacci.sld
+```
+
+The Chibi host library `(lofi host log)` exports `log-message`,
+`call-with-log-phase` and the scoped Boolean parameter `log-enabled?`. Importing
+it prints nothing. Progress uses Chibi's wall-clock jiffies, with backward steps
+clamped to zero; these durations are build diagnostics rather than benchmark
+measurements. Messages remain live through the synchronous Node compiler service,
+which forwards its retained stderr file while waiting for FIFO responses. Host
+loss reports retain only the last 64 KiB of diagnostics in memory.
+
+## Trace files
+
 The Chibi-hosted compiler uses `(lofi host chromium-trace)`. Importing its
 libraries creates no trace files. A build establishes a destination before
 running traced passes and closes it on normal return.

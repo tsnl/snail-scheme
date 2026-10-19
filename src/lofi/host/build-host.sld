@@ -6,6 +6,7 @@
    (scheme process-context)
    (scheme write)
    (lofi host chromium-trace)
+   (lofi host log)
    (only (lofi host process) close-owned-descriptor)
    (only (chibi process) fork execute waitpid)
    (only (chibi filesystem) change-directory open open/read duplicate-file-descriptor-to))
@@ -16,10 +17,12 @@
     (define (tool-name variable default)
       (or (get-environment-variable variable) default))
     (define (run-command stage arguments . directory)
-      ((chromium-trace stage
-                       (lambda ()
-                         (let ((status (process-status arguments (if (null? directory) "." (car directory)) #f (car arguments))))
-                           (unless (zero? status) (error "build command failed" arguments status)))))))
+      (call-with-log-phase stage
+                           (lambda ()
+                             ((chromium-trace stage
+                                              (lambda ()
+                                                (let ((status (process-status arguments (if (null? directory) "." (car directory)) #f (car arguments))))
+                                                  (unless (zero? status) (error "build command failed" arguments status)))))))))
 
     (define (child-process argv directory input? identity)
       (if (not (change-directory directory)) (error "cannot enter directory" directory))

@@ -1,5 +1,9 @@
 # Siegework 3D compilation
 
+For current phase progress and emission-memory diagnostics, see
+[live logging](tracing.md#live-compilation-progress) and
+[retained compiler storage](#retained-emission-storage-18-october-2026).
+
 The [latest checkpoint](#checked-expression-evidence-18-october-2026) measures
 the canonical application after preserving checked type evidence. The earlier
 checkpoint below uses the 3D application in [PR #322](https://github.com/tsnl/snail-scheme/pull/322),
@@ -91,3 +95,50 @@ Use a wrapper that invokes the pinned Chibi executable with `-h16M/1G`, and
 apply the recorded resource limits externally. The raw archive includes that
 wrapper and the bounded launcher used for these samples. `--3d` selects the
 earlier application under `apps/siegework/three`.
+
+## Retained emission storage, 18 October 2026
+
+Completed function definitions, including the module initializer, now become
+opaque immutable WAT fragments immediately. Each fragment owns encoded byte
+chunks; there is no large string join or second UTF-8 encoding. The existing serializer handles
+escaping and exceptional numeric tokens once. Emission still discovers layouts,
+imports and constants in the same order before writing the module header; no
+analysis is repeated and no expression cache or temporary-file pipeline is added.
+The internal `write-wasm` API takes a binary output port, allowing byte chunks
+to cross UTF-8 character boundaries without decoding them.
+
+On the complete Sboyer input, a forced-GC diagnostic reduced pairs retained after
+emission from **722,357 to 199,084**. Subtracting each sample's post-write host
+baseline gives **564,892 versus 40,706 output-associated pairs**, plus 534 compact
+WAT fragments. The complete 3,138,011-byte WAT files are byte-identical. These
+counts exclude the encoded WAT bytes; they are not a whole-process memory
+ratio. Resident memory had already reached its high-water mark during checking
+and did not meaningfully decrease. See the
+[recorded observations](measurements/compiler-memory-fragments-2026-10-18.json)
+and the [matched probes and raw logs](measurements/compiler-memory-fragments-2026-10-18-records.tar.gz).
+
+The complete Compiler input was also attempted with a 4 GiB process-group cap,
+zero swap, two CPUs, 128 tasks, a ten-minute limit and Chibi `-h16M/1G`. It timed
+out during resolution at a 2.22 GiB process-group peak, before checking or
+emission. That attempt does not establish a fix for the historical complete
+Compiler emission failure. The earlier 8/16 GiB evidence and all 57 workload
+sources remain unchanged.
+
+For retained object counts and Linux resident-memory snapshots, run this tool
+under the same external resource limits:
+
+```sh
+chibi-scheme -h16M/1G -I bootstrap scripts/measure-compiler-memory.scm \
+  . benchmarks/lofi/sboyer/main.sld /tmp/lofi-memory
+```
+
+It writes `memory.json`, `compile.trace.json` and `source.wat`. Each snapshot
+forces collection, so this is an instrumented diagnostic. Phase boundaries also
+move some serialization work into emission; compare complete build times rather
+than interpreting the final WAT-writing span as an independent speedup.
+
+Keep the observer structure fixed when comparing counts. The public JSON tool
+retains additional compiler pass objects at emission compared with the smaller
+matched probe above; their absolute counts are not interchangeable. The archive
+includes both results. Host temporary-root liveness may depend on instrumentation;
+the precise retention mechanism has not been established.

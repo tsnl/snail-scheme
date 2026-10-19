@@ -14,6 +14,7 @@
    (lofi compiler artifact)
    (lofi compiler specialize)
    (lofi compiler emit-wasm)
+   (lofi host log)
    (only (lofi compiler types) strict-error resolve scheme-variables scheme-type
          function-type? function-domains function-result)
    (only (lofi compiler checked) program-globals program-type)
@@ -44,7 +45,7 @@
     ;; ---- Compilation from supplied library values ----
 
     (define (resolved-root libraries key)
-      (let ((root (assoc key (resolve-library-map libraries))))
+      (let ((root (assoc key (call-with-log-phase "resolve" (lambda () (resolve-library-map libraries))))))
         (unless root (error "Lofi root library not found" key)) (cdr root)))
     (define (library-map->core libraries root-key)
       (guard (failure (else (raise-source-diagnostic failure)))
@@ -52,7 +53,8 @@
     (define (resolved-library->core program . trailing-items)
       (let* ((libraries (library:library-dependency-order program))
              (items (apply append (map library:library-body libraries))))
-        (infer-program (append items trailing-items) (primitive-bindings libraries) (library:library-loc program))))
+        (call-with-log-phase "check"
+                             (lambda () (infer-program (append items trailing-items) (primitive-bindings libraries) (library:library-loc program))))))
     (define (public-entry-binding library entry)
       (let find ((exports (library:library-exports library)))
         (cond ((null? exports)
@@ -77,18 +79,19 @@
     ;; closure storage without changing their provider or public identity.
     (define (entry-program libraries entry)
       (unless (entry? entry) (error "compile requires an entry value" entry))
+      (log-message "compile " (entry-library entry) " " (entry-export entry))
       (let* ((root (resolved-root libraries (entry-library entry)))
              (public (public-entry-binding root entry)) (loc (value-definition-loc public))
              (abi (make-value-definition 'entry loc))
              (core (resolved-library->core root (make-value-binding abi (make-name public loc) loc)))
              (checked (checked-binding core (binding-origin abi))))
         (check-entry-function checked)
-        (prepare-entry-generation core checked)))
+        (call-with-log-phase "specialize" (lambda () (prepare-entry-generation core checked)))))
     (define (compile libraries entry)
       (guard (failure (else (raise-source-diagnostic failure)))
         (let* ((program (entry-program libraries entry))
                (type (value-type (cdar (prepared-exports program)))))
-          (emit-artifact (strict-core->wasm program) entry
+          (emit-artifact (call-with-log-phase "emit Wasm" (lambda () (strict-core->wasm program))) entry
                          (map resolve (function-domains type)) (resolve (function-result type))))))
 
     )

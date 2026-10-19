@@ -16,7 +16,9 @@
    (lofi compiler specialize)
    (lofi compiler primitives)
    (lofi compiler wasm-extern)
-   (lofi compiler wasm-strings))
+   (lofi compiler wasm-strings)
+   (lofi host log)
+   (only (lofi host wasm) compact-wasm-definition))
   (begin
 
     ;; ---- Concrete layout registry ----
@@ -724,6 +726,17 @@
 
     ;; ---- Standalone Wasm module ----
 
+    ;; Layouts/imports are discovered as bodies emit, so the module header
+    ;; must wait. Retain only completed WAT text; each temporary instruction
+    ;; tree dies before the next function. Progress stays outside expression walks.
+    (define (emit-function-bodies functions state)
+      (let ((total (length functions)))
+        (let loop ((functions functions) (done 0) (bodies '()))
+          (if (null? functions) (reverse bodies)
+              (let ((body (compact-wasm-definition (emit-function (car functions) state)))
+                    (done (+ done 1)))
+                (when (zero? (modulo done 100)) (log-message "emitted " done "/" total " functions"))
+                (loop (cdr functions) done (cons body bodies)))))))
     (define (global-definitions value state)
       `((global ,(identifier "global" (value-index value)) (mut ,(storage-type (value-type value) state))
                 ,(default-value (value-type value) state))
@@ -766,7 +779,7 @@
              (state (make-state '() (hashmap concrete-key-comparator) '() (captured-locals closures plan)
                                 '() '() '() plan (prepared-activations program) 0))
              (globals (apply append (map (lambda (value) (global-definitions value state)) (site-values (prepared-globals program) plan))))
-             (bodies (map (lambda (function) (emit-function function state)) functions))
+             (bodies (emit-function-bodies functions state))
              (context (make-context state '() '() 0 #f)) (main (emit-entry program context))
              (exports (let visit ((entries (prepared-exports program)) (index 0))
                         (if (null? entries) '() (cons (emit-export (car entries) index state) (visit (cdr entries) (+ index 1))))))
@@ -784,6 +797,7 @@
                       (type $top-reference (struct (field i32) (field eqref))) ,@layouts ,@environments)
                  ,@(map (lambda (entry) (extern-wasm-import (car entry) (cdr entry))) (state-imports state))
                  (global $execution (mut i32) (i32.const 0)) ,@strings ,@bytes ,@empty-values ,@globals ,@string-functions ,@string-initializers ,@bodies ,@workers ,@exports
-                 (func $main (export "main") ,@(if (eq? (resolve (program-type (compilation-program plan))) 'Unit) '()
-                                                   (result-declaration (require-concrete (program-type (compilation-program plan)) #f) state))
-                       ,@(context-locals context) ,main))))))
+                 ,(compact-wasm-definition
+                   `(func $main (export "main") ,@(if (eq? (resolve (program-type (compilation-program plan))) 'Unit) '()
+                                                      (result-declaration (require-concrete (program-type (compilation-program plan)) #f) state))
+                          ,@(context-locals context) ,main)))))))

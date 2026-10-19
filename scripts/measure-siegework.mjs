@@ -31,7 +31,7 @@ function compilerOverlay(source) {
     ['(resolve-library-map libraries)', 'lofi.resolve'],
     ['(infer-program (append items trailing-items)', 'lofi.check'],
     ['(prepare-entry-generation core checked)', 'lofi.specialize'],
-    ['(emit-artifact (strict-core->wasm program)', 'lofi.artifact'],
+    ['(emit-artifact ', 'lofi.artifact'],
     ['(strict-core->wasm program)', 'lofi.emit'],
   ]) source = decorate(source, call, 'profile-phase', name);
   return source;

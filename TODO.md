@@ -27,6 +27,12 @@ of implemented behavior separate from proposed language changes.
   limit during emission with Chibi `-h64M/4G`. Distinguish retained syntax,
   checked/concrete trees and emitted Wasm before choosing a change; preserve
   the complete workload and the recorded failures.
+  Finished function bodies now retain compact WAT instead of instruction pairs;
+  the [bounded diagnostic](doc/compilation-performance.md#retained-emission-storage-18-october-2026)
+  reduces Sboyer's retained output structures, but leaves whole-process peak
+  memory unchanged. A fresh complete Compiler attempt timed out during
+  resolution under the 4 GiB/ten-minute budget; the original emission issue
+  remains open. `scripts/measure-compiler-memory.scm` records forced-GC snapshots.
 
 ## Deferred: Ott formalization and proofs
 

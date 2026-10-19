@@ -4,6 +4,7 @@
  (scheme write)
  (only (lofi host json) test-json)
  (only (lofi host process) test-process)
+ (only (lofi host log) test-log)
  (only (lofi host chromium-trace) test-chromium-trace)
  (only (lofi host wasm) test-wasm)
  (only (lofi host chromium-trace) with-chromium-trace-to)
@@ -31,6 +32,7 @@
 
 (test-json)
 (test-process)
+(test-log)
 (test-chromium-trace)
 (test-compiler)
 (test-compiler-profile)

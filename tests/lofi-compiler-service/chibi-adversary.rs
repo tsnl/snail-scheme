@@ -49,6 +49,15 @@ fn main() {
             .read_line(&mut request)
             .unwrap();
     }
+    if mode == "progress-request" {
+        eprintln!("[lofi] blocked phase started");
+        while !directory.join("release").exists() {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        eprintln!("{}", "x".repeat(512_000));
+        eprintln!("[lofi] burst completed");
+        response.write_all(b"[true,1]\n").unwrap();
+    }
     if mode.starts_with("noisy") {
         loop {
             response.write_all(&[b' '; 65_536]).unwrap();

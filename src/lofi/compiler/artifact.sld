@@ -83,7 +83,7 @@
       (let ((text (string-append directory "/source.wat"))
             (binary (string-append directory "/source.wasm")) (output (string-append directory "/artifact.wasm")))
         (check-binaryen-tools)
-        (call-with-output-file text (lambda (port) (write-wasm module port)))
+        (call-with-port (open-binary-output-file text) (lambda (port) (write-wasm module port)))
         (assemble-wasm text binary)
         (optimize-wasm binary output)
         (file-bytes output)))
