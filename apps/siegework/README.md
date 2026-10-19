@@ -206,8 +206,9 @@ length. Extractors obstruct freight paths; tower and artillery
 plinths permit crossings. Unreachable depots keep their stock.
 
 A continuous, bidirectional energy rail pulses uniformly on the display clock.
-It shows only the current network, with cyan identifying available worker cart
-service. Terrain maps and
+Its steady dark border separates the bright core from terrain throughout the
+pulse. It shows only the current network, with cyan identifying available worker
+cart service and warm yellow marking ordinary freight links. Terrain maps and
 legal paths are cached by their inputs; tree selection itself runs afresh.
 Unchanged routes retain shuttle progress and cargo. Rerouting returns a
 shuttle's cargo once to its surviving source and resets that shuttle; destroying

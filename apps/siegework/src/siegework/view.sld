@@ -532,12 +532,13 @@
           (let ((rest (shuttle-nodes world (cdr rails) previous)))
             (if (ready-rail? world (car rails))
                 (cons (shuttle-node (car rails) (prior-rail previous (rail-source (car rails)) (car rails))) rest) rest))))
-    ;; Each node owns a quarter-cell square; each edge owns the rectangle
-    ;; between its endpoint squares. Their exact binary dimensions meet without
-    ;; gaps or positive-area overlap, including at turns and crossings. One
-    ;; shared plane mesh keeps translucent joints from accumulating opacity.
+    ;; Each layer partitions the same network into node squares and the strips
+    ;; between them. Width + strip length = 1 in exact binary fractions, so
+    ;; turns/crossings meet without gaps or same-layer overlap. The opaque
+    ;; 3/8-cell backing keeps the 1/4-cell pulsing core clear of terrain colors.
+    (define energy-outline (material (rgb 18 24 44) 1.0))
     (define energy-ordinary (material (rgb 255 244 142) 1.0))
-    (define energy-fast (material (rgb 35 242 195) 1.0))
+    (define energy-fast (material (rgb 108 250 255) 1.0))
     (define (energy-cell-visible? cell window)
       (and (>= (index-x cell) (window-left window)) (< (index-x cell) (window-right window))
            (>= (index-y cell) (window-top window)) (< (index-y cell) (window-bottom window))))
@@ -591,19 +592,21 @@
              (pieces (make-vector (i32->i64 (* 3 (* width height))) 0)))
         (energy-routes! pieces window world (world-rails world))
         (energy-marks pieces window 0 (empty-list))))
-    (define (energy-piece cell kind tint)
-      (flat (if (= tint 2) energy-fast energy-ordinary)
-            (+ (scalar (index-x cell)) (if (= kind 1) 0.5 0.0))
-            (- (- 0.0 (scalar (index-y cell))) (if (= kind 2) 0.5 0.0)) 0.065
-            (if (= kind 1) 0.75 0.25) (if (= kind 2) 0.75 0.25)))
-    (define (energy-nodes marks nodes)
+    (define (energy-piece cell kind tint outline?)
+      (let ((width (if outline? 0.375 0.25)))
+        (flat (if outline? energy-outline (if (= tint 2) energy-fast energy-ordinary))
+              (+ (scalar (index-x cell)) (if (= kind 1) 0.5 0.0))
+              (- (- 0.0 (scalar (index-y cell))) (if (= kind 2) 0.5 0.0)) (if outline? 0.06 0.065)
+              (if (= kind 1) (- 1.0 width) width) (if (= kind 2) (- 1.0 width) width))))
+    (define (energy-nodes marks outline? nodes)
       (if (null? marks) nodes
           (let ((mark (car marks)))
-            (energy-nodes (cdr marks)
-                          (cons (energy-piece (quotient mark 6) (remainder (quotient mark 2) 3) (+ 1 (remainder mark 2))) nodes)))))
-    (define (energy-rail-batch world window)
-      (let ((marks (energy-dependencies world window)))
-        (translucent-batch 20 0 marks 0.5 #t (lambda () (energy-nodes marks (empty-list))))))
+            (energy-nodes (cdr marks) outline?
+                          (cons (energy-piece (quotient mark 6) (remainder (quotient mark 2) 3) (+ 1 (remainder mark 2)) outline?) nodes)))))
+    (define (energy-outline-batch marks)
+      (retained-batch 21 0 marks (lambda () (energy-nodes marks #t (empty-list)))))
+    (define (energy-rail-batch marks)
+      (translucent-batch 20 0 marks 0.95 #t (lambda () (energy-nodes marks #f (empty-list)))))
 
     ;; ---- Fixed actor bodies; only their occurrence poses change each tick ----
 
@@ -899,7 +902,7 @@
                                                     (append (excavation-nodes world (world-excavations world)) (damage-smoke world (world-alerts world)))))))))
     (define (colony-scene world previous camera x y preview-kind)
       (let* ((window (camera-window camera)) (terrain (append (window-dependencies window) (terrain-dependencies world)))
-             (guns (active-guns (world-buildings world))))
+             (guns (active-guns (world-buildings world))) (energy (energy-dependencies world window)))
         ;; All depth-writing ground/structures, including fresh reveals, precede
         ;; translucent previews, water and mineral glows.
         (batched-scene camera
@@ -915,6 +918,7 @@
                                                                                        (lambda () (append (terrain-nodes world window #t (window-left window) (window-top window))
                                                                                                           (mineral-nodes world window #f #t))))))
                                 (revealed-batch world (motion-batch 10 1 (empty-list) 100 (lambda () (entity-nodes world previous #t))))
+                                (energy-outline-batch energy)
                                 (translucent-batch 5 1 (list x y preview-kind) 0.45 #t
                                                    (lambda () (append (preview-nodes world x y preview-kind)
                                                                       (construction-previews world (world-buildings world)))))
@@ -924,5 +928,5 @@
                                 (revealed-batch world (translucent-batch 11 0 terrain 0.25 #t
                                                                          (lambda () (water-glints world window #t (window-left window) (window-top window)))))
                                 (revealed-batch world (translucent-batch 12 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #t)))))
-                               (list (energy-rail-batch world window)))
+                               (list (energy-rail-batch energy)))
                        (camera-light camera) (vec3 0.5 0.5 0.46) (rgb 28 151 223))))))
