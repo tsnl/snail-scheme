@@ -127,6 +127,7 @@
   "resetPresentation": "reset-presentation",
   "zoomHandler": "zoom",
   "dragHandler": "drag",
+  "observation": {"version": 1},
   "recording": {
     "menuKey": "pause-dialog",
     "prepareCamera": "recording-camera",

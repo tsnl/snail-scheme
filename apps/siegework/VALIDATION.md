@@ -1,3 +1,33 @@
+## Shared headless environment checkpoint
+
+The same World12 game now exposes a Scheme-authored player observation alongside
+its privileged recording projection. The tested static package is
+`/tmp/snail-siegework-headless-artifact-20261018/solo`, generation
+`e3e239f3cb295587459eb6eb`. The host runs that package through the browser's
+`ReducerRuntime`; game rules, World12 serialization and presentation are unchanged.
+
+Executed checks for this checkpoint:
+
+- 13 focused headless checks, including exact World parity across seeds 1, 42
+  and 65535; first-extractor gate; whole-request validation including JSON null;
+  FIFO order; paused/unstarted time; horizon and reward checkpoint restoration;
+  hidden enemies/nest health; actual Wasm victory/loss; partial-fault recovery;
+  and real JSONL/MCP subprocess lifecycle, framing, paging and error responses.
+- 12 recording checks, four first-extractor checks, and six nest-front checks
+  against the new package.
+- Scheme formatting, JavaScript syntax, and whitespace checks for the changes.
+
+The focused runner's development diagnostic observed 600 ticks in 156–188 ms,
+with 23171-byte initial and 34441-byte tick-600 player observations. These are
+local instrumented samples, not clean benchmarks. No Python Gymnasium wrapper,
+training result, multiplayer service, browser persistence check or GPU-rendering
+result is claimed by this checkpoint. The headless runner is included in the
+applications CI partition; the full backend suite was not rerun for this change.
+
+The [environment guide](headless.md) documents the API and protocol. A 10–20
+minute game remains a pacing goal, not a guarantee; the paid seed-one result
+below is still a 7:34 loss. Host horizon truncation is distinct from game outcome.
+
 ## Combined World12 playtest release
 
 The integrated source checkpoint is `39ece757`, based on main `812ffaad` and

@@ -12,7 +12,8 @@ const name = value => { const bytes = encoder.encode(value); return [...uleb(byt
 const section = (id, bytes) => [id, ...uleb(bytes.length), ...bytes];
 function scalarProvider(functions, signatures = [['length', 1, true], ['read', 2, true], ['write', 3, false],
     ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false],
-    ['previous-length', 1, true], ['previous-read', 2, true], ['identity', 2, true]]) {
+    ['previous-length', 1, true], ['previous-read', 2, true], ['identity', 2, true],
+    ['observe', 7, false]]) {
   const types = signatures.flatMap(([, count, result]) => [0x60, count, ...Array(count).fill(0x7f), ...(result ? [1, 0x7f] : [0])]);
   const imports = signatures.flatMap(([key], i) => [...name('host'), ...name(key), 0, i]);
   const exports = signatures.flatMap(([key], i) => [...name(key), 0, i]);
@@ -109,6 +110,7 @@ export class ReducerRuntime {
       command: (owner, slot, a, b) => this.stageEffect({kind: 'send', owner, slot, args: [a, b]}),
       note: (index, value) => this.stageText('note', index, value),
       quad: (...words) => this.active.output.quads.push(words),
+      observe: (...words) => this.stageObservation(words),
       label: (index, value) => this.stageText('label', index, value),
       'previous-length': id => this.previousBank(id).length,
       'previous-read': (id, index) => this.previousBank(id, index)[index],
@@ -157,6 +159,12 @@ export class ReducerRuntime {
     if (this.active.readOnly) throw new Error('effect during a query or candidate validation');
     this.active.effects.push(effect);
   }
+  stageObservation(words) {
+    if (!this.active?.readOnly || !this.active.output.observation)
+      throw new Error('observation row outside an observation query');
+    if (this.active.output.observation.length >= 131072) throw new Error('observation row limit');
+    this.active.output.observation.push(words);
+  }
   stageText(kind, index, value) {
     if (index === -1) {
       if (value < 0 || value > 65536) throw new Error('invalid text length');
@@ -192,10 +200,10 @@ export class ReducerRuntime {
 
   // ---- Synchronous scalar scope; no host I/O can observe its candidate ----
 
-  #stage(instance, args, {owner, readOnly = false, snapshots = this.stores, manifest = this.manifest} = {}) {
+  #stage(instance, args, {owner, readOnly = false, snapshots = this.stores, manifest = this.manifest, observation = false} = {}) {
     if (this.active) throw new Error('nested transition');
     this.active = {owner, readOnly, snapshots, previousSnapshots: this.previousSnapshots,
-      instance, effects: [], output: {quads: []}};
+      instance, effects: [], output: {quads: [], ...(observation ? {observation: []} : {})}};
     try {
       const result = invokeEntry(instance, args), tx = this.active;
       this.validateReplacement(instance, tx);
@@ -203,6 +211,7 @@ export class ReducerRuntime {
       const scene = this.sceneBridge.finish(tx);
       const output = freezeValue({result, effects: tx.effects.map(effect => this.#materializeEffect(effect)),
         quads: tx.output.quads, label: tx.label ? String.fromCodePoint(...tx.label) : '',
+        ...(observation ? {observation: tx.output.observation} : {}),
         ...(ui ? {ui} : {}), ...(scene ? {scene} : {})});
       return {next: tx.next, output};
     } catch (error) {
@@ -366,6 +375,12 @@ export class ReducerRuntime {
       .finally(() => this.#recoveries.delete(activation));
   }
   snapshot(owner) { return Array.from(this.stores.get(owner)); }
+  observe() {
+    if (this.#closing) throw new Error('runtime is closing');
+    if (this.manifest.settings?.observation?.version !== 1)
+      throw new Error('package does not support observation version 1; rebuild the application');
+    return this.#stage(this.instance, [12, 0, 0, 0], {readOnly: true, observation: true}).output.observation;
+  }
   inspect(index) {
     if (this.#closing) throw new Error('runtime is closing');
     const projection = this.manifest.settings?.recording?.inspection;
