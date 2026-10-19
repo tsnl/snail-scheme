@@ -120,16 +120,26 @@ assert.equal(invokeEntry(fixed,[0]),1);const replaced=bridge.finish(tx);
 assert.notEqual(replaced.batches[2].transforms,composite.transforms);
 assert.equal(replaced.batches[2].draws[0].mesh,composite.draws[0].mesh,'new occurrence data retains fixed mesh identity');
 for(const mode of [1,2,4]){tx={readOnly:true,snapshots:owners,instance:fixed};assert.throws(()=>invokeEntry(fixed,[mode]),WebAssembly.RuntimeError);}
+tx={readOnly:true,snapshots:owners,instance:fixed};invokeEntry(fixed,[0]);const beforeRejected=bridge.finish(tx);
+for(const [mode,error]of [[5,/singular copied scene/],[6,/singular copied scene/],[7,/subnormal scene normal/]]) {
+  tx={readOnly:true,snapshots:owners,instance:fixed};assert.throws(()=>invokeEntry(fixed,[mode]),error);
+  tx={readOnly:true,snapshots:owners,instance:fixed};invokeEntry(fixed,[0]);const afterRejected=bridge.finish(tx);
+  for(let i=0;i<beforeRejected.batches.length;i++)assert.equal(afterRejected.batches[i],beforeRejected.batches[i]);
+}
 tx={readOnly:true,snapshots:owners,instance:fixed};assert.equal(invokeEntry(fixed,[3]),1);
 const extreme=expandBatch(bridge.finish(tx).batches[0]);
 assert.ok(extreme.vertices.every(Number.isFinite));
+tx={readOnly:true,snapshots:owners,instance:fixed};assert.equal(invokeEntry(fixed,[8]),1);
+const anisotropic=bridge.finish(tx);assert.ok(expandBatch(anisotropic.batches[0]).vertices.every(Number.isFinite));
+assert.ok(anisotropic.batches[0].normals[4]>0&&anisotropic.batches[0].normals[4]<1e-35);
+writeFileSync(join(output,'anisotropic.json'),JSON.stringify(anisotropic));
 const other=instantiate(load('instances'),new Map([['snail.scene',bridge.provider]]));
 tx={readOnly:true,snapshots:owners,instance:other};assert.equal(invokeEntry(other,[0]),1);
 assert.notEqual(bridge.finish(tx).batches[0].draws[0].mesh,ordered.draws[0].mesh,'module-local identities never alias generations');
 closeInstance(fixed);closeInstance(other);
 writeFileSync(join(output,'instances.json'),JSON.stringify(instances));
 console.log('ok - actual Wasm fixed models share immutable colored prototypes, preserve ordered runs, regroup only declared opaque batches and isolate module identities');
-console.log('ok - reflected nonuniform model instances preserve current normals and both motion endpoints; unrepresentable or singular transforms reject');
+console.log('ok - reflected and anisotropic model instances preserve normals and endpoints; singular copied current/prior bases and subnormal coefficients reject without replacing retained batches');
 
 const settings={width:960,height:640,cellSize:40,pointer:{move:'move',confirm:'confirm'},viewportHandler:'viewport'};
 const native=parseInputSettings(settings);
@@ -226,6 +236,13 @@ console.log('ok - bounded pulse phases retain their exact dependency and preserv
 // A rejected partial occurrence cannot publish its new prototype or evict the
 // accepted frame. Omitting a mesh from the full frame releases its cache entry.
 beginBoundary();boundaryView(71);const owned=boundaryBridge.finish(tx);
+for(const [normal,error]of [[[1,-1,0,-1,1,0,0,0,1e-5],/singular copied scene/],
+  [[1,0,0,0,1e-40,0,0,0,1],/subnormal scene normal/]]) {
+  beginBoundary();for(let i=0;i<32;i++)host.uniform(i,0);host.background(0);host.batch(1,0);host.dependency(72);host.reuse();
+  host.prototype(1,0,0);host.instance(...identityTransform.map(floatBits));
+  assert.throws(()=>host.normal(...normal.map(floatBits)),error);
+  beginBoundary();assert.equal(boundaryView(71),1);assert.equal(boundaryBridge.finish(tx).batches[0],owned.batches[0]);
+}
 beginBoundary();for(let i=0;i<32;i++)host.uniform(i,0);host.background(0);host.batch(1,0);host.dependency(72);host.reuse();
 assert.equal(host.prototype(2,0,0),0);host.vertex(0,0,0,0,0,floatBits(1),0,0);host.instance(...identityTransform.map(floatBits));
 assert.throws(()=>boundaryBridge.finish(tx),/incomplete scene instance/);

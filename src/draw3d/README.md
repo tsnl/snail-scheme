@@ -137,8 +137,11 @@ checks finite copied scalars, complete instance payloads, uniforms and indices.
 The shader applies the current/prior affine matrices to each fixed local vertex,
 then the camera matrix and Lambert lighting. Current normals use a commonly
 scaled inverse transpose and normalize before raster interpolation. Nonzero
-normal-matrix coefficients must remain representable in binary32; an underflow
-rejects the presentation instead of silently losing a normal direction.
+normal-matrix coefficients must remain normal binary32 values; underflow or
+subnormal coefficients reject the presentation because GPUs may flush them to
+zero. Copied current, prior and normal bases must also remain nonsingular.
+These checks catch collapsed bases, not every precision loss in ill-conditioned
+transforms. Well-conditioned transforms remain the intended rendering input.
 
 `src/webgpu/scene.mjs` owns one high-performance adapter/device, shared immutable
 prototype vertex/index buffers, growable transform/normal buffers per batch and
@@ -226,10 +229,11 @@ An ordinary `group` or mesh transform applies at both endpoints; nested
 `moving-group` nodes supply both complete transform hierarchies. Outside a motion
 batch, a moving group draws its current transform directly.
 
-Scheme transforms corresponding previous and current vertex positions when a
-changed batch is built. The browser uploads them once, then advances a per-batch
+Scheme composes previous and current occurrence transforms when a changed batch
+is built. The browser uploads those matrices once, then advances a per-batch
 fraction from 0 to 1 using elapsed display time from its first draw. The vertex
-shader mixes those positions before camera projection. The browser's animation
+shader applies both matrices to the fixed local geometry and mixes the resulting
+positions before camera projection. The browser's animation
 frame loop redraws active motion without running the Scheme view, reducers or UI
 layout again. After drawing the final fraction once, motion stops redrawing.
 Existing pulse animation can continue independently. `phased-batch` takes the

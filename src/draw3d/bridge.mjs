@@ -7,6 +7,19 @@ function scalar(bits) {
   if (!Number.isFinite(real[0]) || Math.abs(real[0]) > 1e30) throw new Error('invalid scene scalar');
   return real[0];
 }
+// Test the copied binary32 basis using binary64 arithmetic. Binary32 determinant
+// arithmetic could itself underflow for supported diagonal scales. This catches
+// bases collapsed by copying, not every loss of precision from ill conditioning.
+function instanceMatrix(bits, stride) {
+  const m = bits.map(scalar), s = stride, t = stride * 2;
+  const determinant = m[0] * (m[s+1] * m[t+2] - m[s+2] * m[t+1]) -
+    m[1] * (m[s] * m[t+2] - m[s+2] * m[t]) + m[2] * (m[s] * m[t+1] - m[s+1] * m[t]);
+  if (determinant === 0) throw new Error('singular copied scene instance matrix');
+  // GPUs may flush subnormal coefficients even when the host preserves them.
+  if (stride === 3 && m.some(value => value !== 0 && Math.abs(value) < 2 ** -126))
+    throw new Error('subnormal scene normal coefficient');
+  return m;
+}
 function rgb(value) {
   if (value < 0 || value > 0xffffff) throw new Error('invalid scene color');
   return [(value >> 16) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
@@ -227,7 +240,7 @@ export function createSceneBridge(provider, transaction) {
     instance(...values) {
       const batch = currentBatch(); completeInstance(batch);
       if (values.length !== 12 || batch.transforms.length >= 2400000) throw new Error('invalid scene instance');
-      const transform = values.map(scalar), mesh = finishMesh(), last = batch.draws.at(-1);
+      const transform = instanceMatrix(values, 4), mesh = finishMesh(), last = batch.draws.at(-1);
       if (last?.mesh === mesh) last.count++;
       else batch.draws.push({mesh, first:batch.transforms.length / 12, count:1});
       batch.transforms.push(...transform);
@@ -236,13 +249,13 @@ export function createSceneBridge(provider, transaction) {
       const batch = currentBatch(), count = batch.transforms.length / 12;
       if (values.length !== 9 || batch.normals.length !== (count - 1) * 9)
         throw new Error('invalid scene normal sequence');
-      batch.normals.push(...values.map(scalar));
+      batch.normals.push(...instanceMatrix(values, 3));
     },
     before(...values) {
       const batch = currentBatch(), count = batch.transforms.length / 12;
       if (values.length !== 12 || !batch.previous || batch.previous.length !== (count - 1) * 12 || batch.normals.length !== count * 9)
         throw new Error('invalid previous scene instance sequence');
-      batch.previous.push(...values.map(scalar));
+      batch.previous.push(...instanceMatrix(values, 4));
     },
     background(color) { frame().background = rgb(color); }
   };

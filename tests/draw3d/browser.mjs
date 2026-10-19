@@ -52,6 +52,15 @@ try {
   for(const [key,value]of Object.entries({meshes:3,newMeshes:3,instances:8,instancedDraws:2,cameraReuse:true,transformOnly:true}))assert.equal(instances[key],value,key);
   assert.ok(instances.instanceBytes>0);assert.deepEqual(instances.errors,[]);
   console.log('ok - GPU indexed draws use real instance counts and shared colored model buffers; camera changes upload nothing and new ticks upload only occurrence data',instances);
+  const anisotropic=await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
+    const {hydrateFrame}=await import('./scene-tools.mjs');
+    const scene=hydrateFrame(await(await fetch('./anisotropic.json')).json());
+    try{const result=await renderer.readPixels(scene),at=Math.floor(canvas.height/2)*result.bytesPerRow+Math.floor(canvas.width/2)*4;
+      return{pixel:Array.from(result.bytes.slice(at,at+4)),coefficient:scene.batches[0].normals[4],errors:sceneErrors};}
+    finally{renderer.draw(frame);}})()`);
+  assert.deepEqual(anisotropic.pixel,[255,255,255,255]);assert.deepEqual(anisotropic.errors,[]);
+  assert.ok(anisotropic.coefficient>0&&anisotropic.coefficient<1e-35);
+  console.log('ok - actual Wasm diagonal anisotropy retains a tiny finite normal coefficient and produces the expected lit GPU pixel');
   const order=await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
     const {identityTransform:t,identityNormal:n}=await import('./scene-tools.mjs');
     function mesh(color){const vertices=[];for(const[x,y]of[[-.8,-.8],[.8,-.8],[0,.8]])vertices.push(x,y,.3,0,0,1,...color,1);return{vertices,indices:[0,1,2]};}
@@ -267,7 +276,10 @@ try {
   const singleSample = await evaluate(`(async()=>{const {createSceneRenderer}=await import('./lib/webgpu/scene.mjs');
     const canvas=document.createElement('canvas');canvas.style.width='128px';canvas.style.height='96px';
     canvas.width=256;canvas.height=192;document.body.append(canvas);
-    const errors=[],renderer=sceneFixture.adaptProbeRenderer(await createSceneRenderer(canvas,error=>errors.push(error.message))),textures=[];
+    const errors=[],renderer=sceneFixture.adaptProbeRenderer(await createSceneRenderer(canvas,error=>errors.push(error.message))),textures=[],buffers=[];
+    const createBuffer=renderer.device.createBuffer.bind(renderer.device);
+    renderer.device.createBuffer=descriptor=>{const buffer=createBuffer(descriptor),destroy=buffer.destroy.bind(buffer),record={destroyed:0};
+      buffers.push(record);buffer.destroy=()=>{record.destroyed++;destroy();};return buffer;};
     const createTexture=renderer.device.createTexture.bind(renderer.device);
     renderer.device.createTexture=descriptor=>{const texture=createTexture(descriptor),destroy=texture.destroy.bind(texture);
       const record={width:texture.width,height:texture.height,samples:texture.sampleCount,destroyed:0};textures.push(record);
@@ -296,10 +308,13 @@ try {
       const resizedOwned=owned(),replacedTargets=textures.slice(0,count).every(texture=>texture.destroyed===1);
       const fullResolution={width:canvas.width,height:canvas.height,insetPixels:renderer.resources.insetPixels,textures:renderer.resources.textures};
       await renderer.readPixels(picture);const omitted={owned:owned(),textures:renderer.resources.textures};
+      const {hydrateFrame}=await import('./scene-tools.mjs');
+      await renderer.readPixels(hydrateFrame(await(await fetch('./instances.json')).json()));
       const closing=renderer.readPixels(scene);await renderer.close();await closing;
       return{first,replaced,rolledBack,resized,initial,resizedOwned,reused,replacedTargets,fullResolution,omitted,
         closed:renderer.resources.closed&&renderer.resources.textures===0&&owned().length===0,
-        destroyedOnce:textures.every(texture=>texture.destroyed===1),errors};
+        destroyedOnce:textures.every(texture=>texture.destroyed===1),buffers:buffers.length,
+        buffersDestroyedOnce:buffers.every(buffer=>buffer.destroyed===1),errors};
     }finally{await renderer.close();canvas.remove();}})()`);
   for(const view of [...singleSample.first,...singleSample.resized]){
     assert.ok(view.white>0&&view.black>0,'each view must contain foreground and background');
@@ -311,9 +326,10 @@ try {
   assert.deepEqual(singleSample.initial,targets(2));assert.deepEqual(singleSample.resizedOwned,targets(3));
   assert.deepEqual(singleSample.fullResolution,{width:384,height:288,insetPixels:24192,textures:7});
   assert.deepEqual(singleSample.omitted,{owned:[[384,288,1]],textures:1});
-  for(const flag of ['reused','replacedTargets','closed','destroyedOnce'])assert.equal(singleSample[flag],true,flag);
+  for(const flag of ['reused','replacedTargets','closed','destroyedOnce','buffersDestroyedOnce'])assert.equal(singleSample[flag],true,flag);
+  assert.ok(singleSample.buffers>20,'track prototype, instance, prior, uniform and readback buffers');
   assert.deepEqual(singleSample.errors,[]);
-  console.log('ok - single-sample main and three inset views retain hard edges at DPR 2/3, reuse targets and destroy every texture once');
+  console.log('ok - single-sample main and three inset views retain hard edges at DPR 2/3, reuse targets and destroy every texture and buffer once');
   const lifetime = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture;
     const source=await(await fetch('./shader.wgsl')).text(),preparing=renderer.prepare(source);
     const closingFrame={...frame,insets:[{...frame,key:9,rect:[10,10,96,72]}]};
