@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,client,at,siteAt,routeCell,setWorker,restoreColony,restoreClient,fixtureCall} from '../applications/colony-state.mjs';
+import {establishColony,colony,client,at,siteAt,routeCell,setWorker,restoreColony,restoreClient,fixtureCall,withdrawReserves} from '../applications/colony-state.mjs';
 import {expandBatch} from './scene-tools.mjs';
 
 const output=process.argv[2],manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
@@ -120,6 +120,61 @@ function checkTransportBoundary(r) {
   }
   return clipped;
 }
+// Seed-1 ground lower bound for a large saved-route fixture. Omitting nest
+// clearings can only exclude ground; actual Wasm restoration checks every cell.
+const fixtureOffset=(seed,stride,count)=>((seed*stride)%65521)%count;
+const fixtureRegion=(x,y,stride,count)=>fixtureOffset(1+Math.floor(x/32)*97+Math.floor(y/32)*193,stride,count);
+function fixtureGround(x,y) {
+  if(x<0||x>=128||y<0||y>=128)return false;
+  const hx=x-61+8,hy=y-71+22;
+  if(hx>=0&&hx<48&&hy>=0&&hy<36)
+    return !((hx>=23&&hx<=24&&hy<31&&(hy<16||hy>=20))
+      ||(hy===10&&hx<19&&(hx<10||hx>=14))||(hx>=32&&hx<=38&&hy>=25&&hy<=28));
+  const kind=fixtureRegion(x,y,137,5);if(kind===4)return true;
+  const height=kind===0?9:11,width=(kind===0?5:3)+fixtureRegion(x,y,109,3),v=y%32-16;
+  const bend=Math.trunc((Math.abs(((y%32+fixtureOffset(1,41,24))%24)-12)-6)/3),u=x%32-(16+bend);
+  return u*u*height*height+v*v*width*width>width*width*height*height;
+}
+function fixtureNeighbors(cell) {
+  const x=cell%128,y=Math.floor(cell/128);
+  return [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].filter(([x,y])=>fixtureGround(x,y)).map(([x,y])=>x+y*128);
+}
+function denseRailWalk(hub,deposits) {
+  const cells=new Set([hub]),walk=[hub],stack=[{cell:hub,next:0,neighbors:fixtureNeighbors(hub)}];
+  while(stack.length) {
+    const current=stack.at(-1),next=current.neighbors[current.next++];
+    if(next===undefined){stack.pop();if(stack.length)walk.push(stack.at(-1).cell);continue;}
+    if(cells.has(next))continue;
+    cells.add(next);walk.push(next);
+    if(cells.size>=11300&&!deposits.has(next))return {cells,walk};
+    stack.push({cell:next,next:0,neighbors:fixtureNeighbors(next)});
+  }
+  throw Error('insufficient seed-1 connected ground');
+}
+function addRailDepot(world,path,parent) {
+  const cell=path[0],x=cell%128,y=Math.floor(cell/128),id=world.nextId++;
+  world.buildings.push({id,kind:3,x,y,level:1,hp:90,stock:0,stage:2,cooldown:0,
+    aimX:x*40+20,aimY:y*40+20,armed:0,source:0,moveX:-1,moveY:-1});
+  world.rails.push({source:id,parent,progress:0,returning:0,cargo:0,path});
+  world.surveys.push({x,y,radius:7});return id;
+}
+function denseTransportWorld(world) {
+  assert.equal(world.seed,1);assert.equal(world.buildings.length,0);assert.equal(world.spent,0);
+  const hub=61+71*128,deposits=new Set(world.deposits.map(value=>value.cell));
+  const {cells,walk}=denseRailWalk(hub,deposits),endpoints=new Set([hub]);let start=0,parent=0;
+  while(start<walk.length-1) {
+    let end=Math.min(start+1000,walk.length-1);
+    while(end>start&&(endpoints.has(walk[end])||deposits.has(walk[end])))end--;
+    assert.ok(end>start,'each bounded route ends at a distinct buildable depot');
+    parent=addRailDepot(world,walk.slice(start,end+1).reverse(),parent);endpoints.add(walk[end]);start=end;
+  }
+  for(const cell of cells) {
+    const x=cell%128,y=Math.floor(cell/128);
+    if(!world.surveys.some(s=>(x-s.x)**2+(y-s.y)**2<=s.radius**2))world.surveys.push({x,y,radius:10});
+  }
+  world.spent=25*world.buildings.length;const earned=Math.max(0,world.spent-160);
+  withdrawReserves(world,earned);world.delivered=earned;world.ore=160+earned-world.spent;return world;
+}
 
 {
   const r=await fresh();
@@ -202,7 +257,7 @@ function checkTransportBoundary(r) {
         'the stone mesh leaves its center open below the deck');
       await r.restore(1,r.snapshot(1));
     }
-    console.log('ok - artillery has an open stone plinth and retains the current transport lights');
+    console.log('ok - artillery has an open stone plinth and retains the current energy rail');
   } finally {await r.close();}
 }
 
@@ -287,6 +342,24 @@ function checkTransportBoundary(r) {
     // The live-frame cache can evict cyan while every route is slow; restoring it preserves geometry, not the old wrapper.
     assert.deepEqual(restored[0].mesh,cyan[0].mesh);
     console.log('ok - shared energy edges and joints prefer fast cyan independent of route order; moving the last fast endpoint updates tint while reusing meshes');
+  } finally {await r.close();}
+}
+
+{
+  const r=await fresh();
+  try {
+    const dense=denseTransportWorld(world(r)),{edges,nodes}=expectedTransport(dense),count=edges.length+nodes.length;
+    assert.ok(count*3>65536,'the admitted network exceeds the former three-scalar description limit');
+    await restoreColony(r,dense);const committed=r.snapshot(1);
+    await restoreClient(r,{...local(r),cameraX:64000,cameraY:64000,scale:32000,homing:false});
+    const marks=transportMarks(r),rail=transportBatches(r)[0];
+    assert.equal(marks.length,count);assert.equal(new Set(marks.map(({x,y})=>`${x},${y}`)).size,count);
+    assert.equal(rail.draws.length,1);assert.equal(rail.pulse,true);assert.equal(rail.pulsePhase,0);
+    assert.ok(count+4<65536,'packed pieces and metadata fit the unchanged bridge limit');
+    await restoreClient(r,{...local(r),cameraX:61000,cameraY:71000,scale:500,homing:false});
+    const visible=transportMarks(r).length;assert.ok(visible>0&&visible<count/4,'occurrences stay bounded by the padded camera window');
+    assert.deepEqual(r.snapshot(1),committed,'full-map and close-up views preserve the accepted large colony');
+    console.log('ok - a 22,599-piece accepted rail network fits one retained batch, reuses one mesh, and culls outside the camera window');
   } finally {await r.close();}
 }
 

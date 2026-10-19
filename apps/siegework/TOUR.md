@@ -143,8 +143,8 @@ arrival job still runs on the next tick.
 Freight belongs to its source until unloading. Reroutes return it to the living
 source exactly once; source destruction accounts for it as lost. The reserved
 track field is checked on input and cleared on the next simulation tick. Views
-ignore it: eight retained dot groups encode the current directed paths and
-phase offsets, so display-clock opacity animation needs no geometry rebuild.
+ignore it: one retained energy rail represents the current undirected paths,
+so its uniform display-clock pulse needs no geometry rebuild.
 
 Construction reserves one entire kit from one source. The source's loose stock
 excludes the reservation, while extractor capacity includes it. `local-spent`
