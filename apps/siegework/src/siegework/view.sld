@@ -501,7 +501,7 @@
                                    (if (construction-hidden? world building) (construction-warning) (empty-list))))
                   (building-nodes world (cdr buildings))))))
 
-    ;; ---- Current transport paths glow toward the hub ----
+    ;; ---- Current transport paths share one energy pulse ----
 
     (define shuttle-parts
       (list (block steel 0.0 0.0 0.22 0.46 0.38 0.2)
@@ -532,77 +532,78 @@
           (let ((rest (shuttle-nodes world (cdr rails) previous)))
             (if (ready-rail? world (car rails))
                 (cons (shuttle-node (car rails) (prior-rail previous (rail-source (car rails)) (car rails))) rest) rest))))
-    ;; One open stripe points along local +X. Its arms meet without overlap,
-    ;; so translucency stays even at the tip; every occurrence shares this mesh.
-    (define flow-chevron-geometry
-      (let ((up (vec3 0.0 0.0 1.0)))
-        (indexed-geometry
-         (vector (vertex (vec3 0.16 0.0 0.0) up)
-                 (vertex (vec3 -0.12 0.2 0.0) up)
-                 (vertex (vec3 -0.18 0.12 0.0) up)
-                 (vertex (vec3 0.0 0.0 0.0) up)
-                 (vertex (vec3 -0.18 -0.12 0.0) up)
-                 (vertex (vec3 -0.12 -0.2 0.0) up))
-         (vector 0 1 2 0 2 3 0 3 4 0 4 5))))
-    ;; Eight immutable groups share one display clock. Phase increases from
-    ;; source to parent, so each crest travels toward the hub through bends.
-    ;; Dependencies contain directed cells, never cargo or simulation time.
-    (define (flow-cell-visible? cell window)
+    ;; Each node owns a quarter-cell square; each edge owns the rectangle
+    ;; between its endpoint squares. Their exact binary dimensions meet without
+    ;; gaps or positive-area overlap, including at turns and crossings. One
+    ;; shared plane mesh keeps translucent joints from accumulating opacity.
+    (define energy-ordinary (material (rgb 255 244 142) 1.0))
+    (define energy-fast (material (rgb 35 242 195) 1.0))
+    (define (energy-cell-visible? cell window)
       (and (>= (index-x cell) (window-left window)) (< (index-x cell) (window-right window))
            (>= (index-y cell) (window-top window)) (< (index-y cell) (window-bottom window))))
-    ;; Local scratch is bounded by the visible window. Fast routes claim their
-    ;; directed edges first, so shared segments stay cyan without stacking alpha.
-    ;; The first eligible route supplies the phase; reverse traffic stays distinct.
-    (define (flow-edge-index a b window)
-      (let ((cell (+ (- (index-x a) (window-left window))
-                     (* (- (index-y a) (window-top window)) (- (window-right window) (window-left window)))))
-            (direction (cond ((= b (+ a 1)) 0) ((= b (- a 1)) 1) ((> b a) 2) (else 3))))
-        (i32->i64 (+ (* cell 4) direction))))
-    (define (flow-mark! groups a b half fast distance)
-      (let* ((phase (i32->i64 (remainder (+ distance half) 8)))
-             (found (vector-ref groups phase)))
-        (vector-set! groups phase (cons a (cons b (cons half (cons fast found)))))))
-    (define (flow-edge! a b window distance fast seen groups)
-      (let ((index (flow-edge-index a b window)))
-        (unless (vector-ref seen index)
-          (vector-set! seen index #t)
-          (flow-mark! groups a b 0 fast distance)
-          (flow-mark! groups a b 1 fast distance))))
-    (define (flow-path! path window distance fast seen groups)
+    ;; Three slots per visible cell hold its node, east edge and south edge.
+    ;; Zero means absent; ordinary=1 and fast=2 make shared tint a commutative
+    ;; maximum, independent of route order or direction. The padded camera
+    ;; window keeps culled boundary pieces beyond the actual viewport.
+    (define (energy-piece-index cell kind window)
+      (let ((local (+ (- (index-x cell) (window-left window))
+                      (* (- (index-y cell) (window-top window)) (- (window-right window) (window-left window))))))
+        (i32->i64 (+ (* local 3) kind))))
+    (define (energy-claim! pieces window cell kind tint)
+      (when (energy-cell-visible? cell window)
+        (let ((index (energy-piece-index cell kind window)))
+          (vector-set! pieces index (max tint (vector-ref pieces index))))))
+    (define (energy-edge! pieces window a b tint)
+      (unless (= a b)
+        (energy-claim! pieces window a 0 tint)
+        (energy-claim! pieces window b 0 tint)
+        (energy-claim! pieces window (min a b) (if (= (index-y a) (index-y b)) 1 2) tint)))
+    (define (energy-path! pieces window path tint)
       (unless (or (null? path) (null? (cdr path)))
-        (let ((a (car path)) (b (car (cdr path))))
-          (when (flow-cell-visible? a window) (flow-edge! a b window distance fast seen groups))
-          (flow-path! (cdr path) window (+ distance 2) fast seen groups))))
-    (define (flow-dependencies! world rails window fast seen groups)
+        (energy-edge! pieces window (car path) (car (cdr path)) tint)
+        (energy-path! pieces window (cdr path) tint)))
+    (define (energy-routes! pieces window world rails)
       (unless (null? rails)
         (let ((rail (car rails)))
-          (when (and (ready-rail? world rail)
-                     (= fast (if (and (cart-station? world (rail-source rail)) (cart-station? world (rail-parent rail))) 1 0)))
-            (flow-path! (rail-path rail) window 0 fast seen groups))
-          (flow-dependencies! world (cdr rails) window fast seen groups))))
-    (define (flow-groups world window)
+          (when (ready-rail? world rail)
+            (energy-path! pieces window (rail-path rail)
+                          (if (and (cart-station? world (rail-source rail)) (cart-station? world (rail-parent rail))) 2 1)))
+          (energy-routes! pieces window world (cdr rails)))))
+    (define (energy-piece-cell index window)
+      (let ((local (quotient index 3)) (width (- (window-right window) (window-left window))))
+        (cell-index (+ (window-left window) (remainder local width))
+                    (+ (window-top window) (quotient local width)))))
+    ;; Each dependency packs an absolute cell, piece kind and fast-tint bit:
+    ;; 6*cell + 2*kind + (tint-1), in 0..98303. All 49152 possible map pieces
+    ;; fit below the bridge's 65536-scalar batch limit. Stable grid order omits
+    ;; route direction, cargo and clocks, retaining unchanged physical rails.
+    (define (energy-mark cell kind tint)
+      (+ (* cell 6) (+ (* kind 2) (- tint 1))))
+    (define (energy-marks pieces window index marks)
+      (if (= index (i64->i32 (vector-length pieces))) marks
+          (let ((tint (vector-ref pieces (i32->i64 index))))
+            (energy-marks pieces window (+ index 1)
+                          (if (= tint 0) marks
+                              (cons (energy-mark (energy-piece-cell index window) (remainder index 3) tint) marks))))))
+    (define (energy-dependencies world window)
       (let* ((width (max 0 (- (window-right window) (window-left window))))
              (height (max 0 (- (window-bottom window) (window-top window))))
-             (seen (make-vector (i32->i64 (* 4 (* width height))) #f))
-             (groups (make-vector (i32->i64 8) (empty-list))))
-        (flow-dependencies! world (world-rails world) window 1 seen groups)
-        (flow-dependencies! world (world-rails world) window 0 seen groups) groups))
-    (define (flow-chevron a b half fast)
-      (let* ((fraction (if (= half 0) 0.25 0.75))
-             (dx (scalar (- (index-x b) (index-x a)))) (dy (scalar (- (index-y a) (index-y b))))
-             (center (vec3 (+ (scalar (index-x a)) (* fraction dx))
-                           (+ (- 0.0 (scalar (index-y a))) (* fraction dy)) 0.065)))
-        (mesh flow-chevron-geometry (if (= fast 1) cyan lamp)
-              (transform (vec3 dx dy 0.0) (vec3 (- 0.0 dy) dx 0.0) (vec3 0.0 0.0 1.0) center))))
-    (define (flow-nodes marks)
-      (if (null? marks) (empty-list)
-          (cons (flow-chevron (car marks) (car (cdr marks)) (car (cdr (cdr marks))) (car (cdr (cdr (cdr marks)))))
-                (flow-nodes (cdr (cdr (cdr (cdr marks))))))))
-    (define (flow-batches groups phase)
-      (if (= phase 8) (empty-list)
-          (let ((marks (vector-ref groups (i32->i64 phase))))
-            (cons (phased-batch (+ 20 phase) 0 marks 0.4 (* phase 45000) (lambda () (flow-nodes marks)))
-                  (flow-batches groups (+ phase 1))))))
+             (pieces (make-vector (i32->i64 (* 3 (* width height))) 0)))
+        (energy-routes! pieces window world (world-rails world))
+        (energy-marks pieces window 0 (empty-list))))
+    (define (energy-piece cell kind tint)
+      (flat (if (= tint 2) energy-fast energy-ordinary)
+            (+ (scalar (index-x cell)) (if (= kind 1) 0.5 0.0))
+            (- (- 0.0 (scalar (index-y cell))) (if (= kind 2) 0.5 0.0)) 0.065
+            (if (= kind 1) 0.75 0.25) (if (= kind 2) 0.75 0.25)))
+    (define (energy-nodes marks nodes)
+      (if (null? marks) nodes
+          (let ((mark (car marks)))
+            (energy-nodes (cdr marks)
+                          (cons (energy-piece (quotient mark 6) (remainder (quotient mark 2) 3) (+ 1 (remainder mark 2))) nodes)))))
+    (define (energy-rail-batch world window)
+      (let ((marks (energy-dependencies world window)))
+        (translucent-batch 20 0 marks 0.5 #t (lambda () (energy-nodes marks (empty-list))))))
 
     ;; ---- Fixed actor bodies; only their occurrence poses change each tick ----
 
@@ -923,5 +924,5 @@
                                 (revealed-batch world (translucent-batch 11 0 terrain 0.25 #t
                                                                          (lambda () (water-glints world window #t (window-left window) (window-top window)))))
                                 (revealed-batch world (translucent-batch 12 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #t)))))
-                               (flow-batches (flow-groups world window) 0))
+                               (list (energy-rail-batch world window)))
                        (camera-light camera) (vec3 0.5 0.5 0.46) (rgb 28 151 223))))))

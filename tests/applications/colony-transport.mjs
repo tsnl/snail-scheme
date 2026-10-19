@@ -127,14 +127,14 @@ export async function checkTransport(test,fresh) {
     await restoreColony(r,world);await step(r,2);
     assert.deepEqual(state(r).rails,[]);assert.equal(state(r).buildings[0].stock,16);assert.equal(state(r).lostOre,0);await r.close();
   });
-  await test('paused legacy track cells are ignored and static flow meshes retain display-clock phases',async()=>{
+  await test('paused legacy track cells are ignored and retained energy rails share one display-clock pulse',async()=>{
     const r=await fresh(),world=state(r);fund(world);depot(world,12,22);
     await restoreColony(r,world);await step(r);await fixtureCall(r,'pause-colony',[1]);
     const clean=state(r),before=r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
     const a=routeCell(clean,8,23);clean.tracks=[a*32+17,(a+1)*32+20];await restoreColony(r,clean);
     const after=r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
-    assert.equal(after.length,8);assert.ok(after.every((batch,i)=>Math.abs(batch.pulsePhase-i*Math.PI/4)<1e-12));
-    for(let i=0;i<8;i++){assert.equal(after[i].transforms,before[i].transforms);assert.equal(after[i].draws,before[i].draws);assert.equal(after[i].pulse,true);}
+    assert.equal(after.length,1);assert.equal(after[0].pulsePhase,0);
+    assert.equal(after[0].transforms,before[0].transforms);assert.equal(after[0].draws,before[0].draws);assert.equal(after[0].pulse,true);
     const saved=r.snapshot(1);await step(r);assert.deepEqual(r.snapshot(1),saved);
     await fixtureCall(r,'pause-colony',[0]);await step(r);assert.deepEqual(state(r).tracks,[]);await r.close();
   });

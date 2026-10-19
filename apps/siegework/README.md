@@ -205,8 +205,9 @@ passable route of at most 1024 steps. It does not minimize terrain travel
 length. Extractors obstruct freight paths; tower and artillery
 plinths permit crossings. Unreachable depots keep their stock.
 
-Dotted lights pulse toward the hub at display rate. They show only the current
-network, with cyan identifying available worker cart service. Terrain maps and
+A continuous, bidirectional energy rail pulses uniformly on the display clock.
+It shows only the current network, with cyan identifying available worker cart
+service. Terrain maps and
 legal paths are cached by their inputs; tree selection itself runs afresh.
 Unchanged routes retain shuttle progress and cargo. Rerouting returns a
 shuttle's cargo once to its surviving source and resets that shuttle; destroying

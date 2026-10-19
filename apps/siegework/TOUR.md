@@ -143,8 +143,8 @@ arrival job still runs on the next tick.
 Freight belongs to its source until unloading. Reroutes return it to the living
 source exactly once; source destruction accounts for it as lost. The reserved
 track field is checked on input and cleared on the next simulation tick. Views
-ignore it: eight retained dot groups encode the current directed paths and
-phase offsets, so display-clock opacity animation needs no geometry rebuild.
+ignore it: one retained energy rail represents the current undirected paths,
+so its uniform display-clock pulse needs no geometry rebuild.
 
 Construction reserves one entire kit from one source. The source's loose stock
 excludes the reservation, while extractor capacity includes it. `local-spent`
@@ -206,9 +206,12 @@ worker or picking up a kit. A carrier already traveling on a proved route can
 complete it. The HUD and world marker share the same hidden-construction rule.
 
 Each simulation tick rebuilds the rooted depot tree. Its current paths supply
-eight retained groups of translucent chevrons pointing toward the hub, with their
-phases following the display clock. Shared directed segments draw each chevron
-once. Reserved track bitmasks never produce geometry. Both towers and
+one retained, translucent energy rail that pulses uniformly on the display clock.
+Undirected edges and shared joints draw once, with fast cyan taking priority over
+ordinary gold. Shortened edge rectangles meet node squares without gaps or
+overlapping alpha; every piece instances the shared plane mesh. The padded
+camera window bounds scratch storage and occurrences. Reserved track bitmasks
+never produce geometry. Both towers and
 artillery reuse one stone plinth mesh, with
 four corner pillars and an open arch on each face. Buildings can occupy
 transport paths and intersections without removing their connections.
