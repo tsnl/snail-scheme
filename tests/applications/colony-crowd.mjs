@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,restoreColony,fixtureCall,pixelAt,routeCell,setWorker} from './colony-state.mjs';
+import {establishColony,colony,restoreColony,fixtureCall,pixelAt,routeCell,setWorker} from './colony-state.mjs';
 
 export async function checkCrowd(test,fresh,bytes) {
   const state=r=>colony(r.snapshot(1)),call=fixtureCall;
@@ -94,19 +94,19 @@ export async function checkCrowd(test,fresh,bytes) {
     await advance(r,24);assert.ok(state(r).enemies.every(enemy=>enemy.x===point.x&&enemy.y<point.y-80));
     const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);await r.close();
   });
-  await test('spread crowds can destroy an ordinary house while approaching the hub',async()=>{
-    const r=await fresh();await call(r,'build-house',[10,22]);
+  await test('spread crowds can destroy an ordinary tower while approaching the hub',async()=>{
+    const r=await fresh();await call(r,'observe',[10,22]);
     for(let i=0;i<80&&state(r).buildings[0].stage!==2;i++)await advance(r);
-    const world=state(r),house=world.buildings[0];assert.equal(house.stage,2);world.tick=0;world.lastRevealTick=-100;
+    const world=state(r),tower=world.buildings[0];assert.equal(tower.stage,2);world.tick=0;world.lastRevealTick=-100;
     for(let i=0;i<world.bots.length;i++)setWorker(world,i);
     await restoreColony(r,crowd(world,4,pixelAt(world,20,22),line(world,20,22,-1,0,12)));
     let attacked=false;
-    for(let i=0;i<280&&state(r).buildings.some(site=>site.id===house.id);i++) {
-      await advance(r);const after=state(r),standing=after.buildings.find(site=>site.id===house.id);
-      attacked ||= !standing||standing.hp<house.hp;
+    for(let i=0;i<280&&state(r).buildings.some(site=>site.id===tower.id);i++) {
+      await advance(r);const after=state(r),standing=after.buildings.find(site=>site.id===tower.id);
+      attacked ||= !standing||standing.hp<tower.hp;
     }
-    assert.ok(attacked);assert.ok(!state(r).buildings.some(site=>site.id===house.id));
-    assert.ok(state(r).alerts.some(alert=>alert.kind===5));await r.close();
+    assert.ok(attacked);assert.ok(!state(r).buildings.some(site=>site.id===tower.id));
+    assert.ok(state(r).alerts.some(alert=>alert.kind===3));await r.close();
   });
   await test('a full 1024-cell route waits for space before adding its two lane steps',async()=>{
     const r=await fresh(),world=state(r),point=pixelAt(world,20,22);
@@ -135,7 +135,7 @@ export async function checkCrowd(test,fresh,bytes) {
 if(process.argv[1]===import.meta.filename) {
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
   const bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0;await checkCrowd(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh,bytes);
   console.log(`${count} crowd checks passed`);
 }

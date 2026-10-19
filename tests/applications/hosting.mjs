@@ -97,11 +97,12 @@ const state = async page => colony(await page.evaluate('snailApp.runtime.snapsho
 async function startColony(page) {
   const before = await state(page); assert.equal(before.started, false); assert.equal(before.tick, 0);
   await page.evaluate("snailApp.local('resume')");
-  await page.evaluate("snailApp.local('home')");
-  await page.evaluate("snailApp.local('fabricate')");
-  await until(async () => (await state(page)).started, 'paid worker order did not start the colony');
-  const ordered = await state(page); assert.equal(ordered.ore, before.ore - 25);
-  assert.equal(ordered.spent, before.spent + 25); assert.equal(ordered.bots.length, before.bots.length);
+  await page.evaluate("snailApp.local('center')");
+  await page.evaluate("snailApp.local('confirm')");
+  await page.evaluate("snailApp.local('choose',[1])");
+  await until(async () => (await state(page)).started, 'paid extractor order did not start the colony');
+  const ordered = await state(page); assert.equal(ordered.ore, before.ore - 40);
+  assert.equal(ordered.spent, before.spent + 40); assert.equal(ordered.bots.length, before.bots.length);
   await paused(page);
 }
 let browser;

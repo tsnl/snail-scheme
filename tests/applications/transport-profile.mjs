@@ -4,13 +4,13 @@ import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {performance} from 'node:perf_hooks';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,colonyWords,at,routeCell,restoreColony,fixtureCall} from './colony-state.mjs';
+import {colony,colonyWords,at,routeCell,restoreColony,fixtureCall, withdrawReserves} from './colony-state.mjs';
 
 const directory=resolve(process.argv[2]);
 const manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
 const bytes=readFileSync(join(directory,manifest.module));
 function fixture(world,count) {
-  world.produced+=100000;world.delivered+=100000;world.ore+=100000;
+  withdrawReserves(world, 10000);world.delivered+=10000;world.ore+=10000;
   world.started=true;world.tracks=[];world.rails=[];
   const cells=[];
   for(let y=11;y<=30;y++)for(let column=0;column<20;column++) {

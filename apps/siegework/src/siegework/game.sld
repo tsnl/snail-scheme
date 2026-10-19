@@ -25,7 +25,7 @@
 
     ;; ---- The match owns colony orders and one deterministic clock ----
 
-    (application match-app (state World 11) (initial-world)
+    (application match-app (state World 12) (initial-world)
                  (advance (state) (no-effects (advance-world state)))
                  (extract (state (x I32) (y I32)) (no-effects (extract-world state x y)))
                  (fortify (state (x I32) (y I32)) (no-effects (fortify-world state x y)))
@@ -48,9 +48,7 @@
                                                                  (pause-state (world-paused next)))))))
                  (new-run-seed (state (seed I32)) (no-effects (seeded-world state seed)))
                  (cancel-building (state (x I32) (y I32)) (no-effects (cancel-world state x y)))
-                 (arm-tower (state (x I32) (y I32)) (no-effects (arm-world state x y)))
-                 (build-house (state (x I32) (y I32)) (no-effects (house-world state x y)))
-                 (build-wall (state (x I32) (y I32)) (no-effects (wall-world state x y))))
+                 (arm-tower (state (x I32) (y I32)) (no-effects (arm-world state x y))))
     (define match-target (destination match-owner match-app))
 
     ;; ---- Camera, selection and one placement attempt belong to the client ----
@@ -159,12 +157,12 @@
     (define (build-site? world x y)
       (and (inside? x y) (known? world x y) (not (hub-cell? world x y))
            (null? (building-at (world-buildings world) x y))
-           (not (and (= x (world-nest-x world)) (= y (world-nest-y world))))))
+           (not (nest-site? (world-seed world) x y))))
     (define (site-kind world state x y)
       (if (> (deposit-rate (world-seed world) x y) 0) 1 (client-last-kind state)))
     (define (build-kind-allowed? world x y kind)
       (and (build-site? world x y)
-           (if (> (deposit-rate (world-seed world) x y) 0) (= kind 1) (and (>= kind 2) (<= kind 4)))))
+           (if (> (deposit-rate (world-seed world) x y) 0) (= kind 1) (and (>= kind 2) (<= kind 3)))))
     (define (select-site world state)
       (let* ((state (clear-choice state))
              (state (if (hub-cell? world (client-x state) (client-y state))
@@ -190,11 +188,11 @@
     (define (choose-construction state slot)
       (if (not (selection-open? state)) (no-effects state)
           (let* ((world (context-world)) (deposit (> (deposit-rate (world-seed world) (target-x state) (target-y state)) 0))
-                 (kind (if deposit (if (= slot 1) 1 0) (cond ((= slot 1) 3) ((= slot 2) 2) ((= slot 3) 4) (else 0)))))
+                 (kind (if deposit (if (= slot 1) 1 0) (cond ((= slot 1) 3) ((= slot 2) 2) (else 0)))))
             (submit-build world state kind))))
     (define (receive-build-result state cell reason)
       (if (or (not (build-pending? state)) (not (= cell (client-build-cell state))) (= (client-build-result state) 3)
-              (< reason 0) (> reason 34)) state
+              (< reason 0) (> reason 39)) state
               (client-failure-set (client-build-result-set state (if (= reason 0) 1 2)) reason)))
     ;; A failed World save publishes no reply; the authored settlement still
     ;; releases its slot. An import's superseded result is sticky until then.
@@ -317,7 +315,7 @@
                  (accept-restart (state) (confirm-restart state))
                  (dismiss-restart (state) (cancel-restart state))
                  (preview (state (kind I32)) (no-effects (if (dialog-open? state) state
-                                                             (client-preview-set state (if (selection-open? state) (clamp kind 0 4) 0)))))
+                                                             (client-preview-set state (if (selection-open? state) (clamp kind 0 3) 0)))))
                  (zoom (state (delta I32)) (no-effects (if (dialog-open? state) state (zoom-client state delta))))
                  (pan (state (dx I32) (dy I32)) (no-effects (if (dialog-open? state) state (shift-camera state (* dx 1000) (* dy 1000)))))
                  (drift (state (dx I32) (dy I32)) (no-effects (if (dialog-open? state) state (shift-camera state (* (clamp dx -50 50) 9) (* (clamp dy -50 50) 9)))))
@@ -370,19 +368,19 @@
                    (>= (client-turn-to client) -180000) (<= (client-turn-to client) 540000)
                    (>= (client-turn-elapsed client) 0) (<= (client-turn-elapsed client) 300)
                    (>= (client-scale client) 500) (<= (client-scale client) 32000)
-                   (>= (client-preview client) 0) (<= (client-preview client) 4)
+                   (>= (client-preview client) 0) (<= (client-preview client) 3)
                    (>= (client-dialog client) 0) (<= (client-dialog client) 2)
                    (>= (client-dialog-pending client) 0) (<= (client-dialog-pending client) 3)
                    (>= (client-dialog-result client) 0) (<= (client-dialog-result client) 2)
                    (or (> (client-dialog-pending client) 0) (= (client-dialog-result client) 0))
-                   (>= (client-last-kind client) 2) (<= (client-last-kind client) 4)
-                   (>= (client-choice-kind client) 1) (<= (client-choice-kind client) 4)
-                   (>= (client-build-kind client) 0) (<= (client-build-kind client) 4)
+                   (>= (client-last-kind client) 2) (<= (client-last-kind client) 3)
+                   (>= (client-choice-kind client) 1) (<= (client-choice-kind client) 3)
+                   (>= (client-build-kind client) 0) (<= (client-build-kind client) 3)
                    (>= (client-build-result client) 0) (<= (client-build-result client) 3)
                    (if (build-pending? client)
                        (and (>= (client-build-cell client) 0) (< (client-build-cell client) (* map-width map-height)))
                        (and (= (client-build-cell client) -1) (= (client-build-result client) 0)))
-                   (>= (client-failure client) 0) (<= (client-failure client) 34)
+                   (>= (client-failure client) 0) (<= (client-failure client) 39)
                    (<= (list-size (client-dismissed client)) 4) (valid-dismissals? (client-dismissed client) (empty-list))
                    (>= (client-camera-x client) -3000) (<= (client-camera-x client) (+ (* map-width 1000) 3000))
                    (>= (client-camera-y client) -3000) (<= (client-camera-y client) (+ (* map-height 1000) 3000))

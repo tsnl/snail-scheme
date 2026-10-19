@@ -1,7 +1,7 @@
 // Compiled Scheme owns every transition. Snapshot edits establish bounded
 // encounter and cargo fixtures; there is no alternate routing or simulation.
 import assert from 'node:assert/strict';
-import {colony, colonyBalance, addEnemy, setWorker, setBuilding, setRail, restoreColony, at, pixelAt, siteAt} from './colony-state.mjs';
+import {establishColony,colony, colonyBalance, addEnemy, setWorker, setBuilding, setRail, restoreColony, at, pixelAt, siteAt, withdrawReserves} from './colony-state.mjs';
 
 export async function checkLogistics(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -25,7 +25,7 @@ export async function checkLogistics(test, fresh, call) {
     return siteAt(state(r), x, y);
   }
   async function loadedWorker(r) {
-    const world = state(r); world.produced = 16; world.bots.length = 1;
+    const world = state(r); withdrawReserves(world, (16) - world.produced); world.bots.length = 1;
     setWorker(world, 0, {x:12,y:20,job:2,cargo:16,path:[971,970,969,968,1016,1064]});
     await restoreColony(r, world);
   }
@@ -55,7 +55,7 @@ export async function checkLogistics(test, fresh, call) {
   });
 
   await test('busy builders reject more production and paid pending workers reserve the population cap', async () => {
-    const r = await fresh(), supplied = state(r); supplied.produced = 500; supplied.delivered = 500; supplied.ore += 500;
+    const r = await fresh(), supplied = state(r); withdrawReserves(supplied, (500) - supplied.produced); supplied.delivered = 500; supplied.ore += 500;
     await restoreColony(r, supplied);
     for (let i = 0; i < 3; i++) await call(r, 'fabricate-worker');
     const busy = state(r); await call(r, 'fabricate-worker');
@@ -100,7 +100,7 @@ export async function checkLogistics(test, fresh, call) {
     await call(r, 'cancel-building', [12,21]); balanced(r);
     assert.equal(state(r).buildings.length, 0); assert.equal(state(r).ore, 135); assert.equal(state(r).spent, 25);
     await advance(r, 40); assert.equal(state(r).ore, 135);
-    await call(r, 'new-run-seed', [1]); await call(r, 'fortify', [12,21]);
+    await call(r, 'new-run-seed', [1]); await establishColony(r); await call(r, 'fortify', [12,21]);
     await until(r, world => world.buildings[0].stock === 25 && world.bots.some(bot => bot.job === 3));
     await call(r, 'cancel-building', [12,21]); assert.equal(state(r).ore, 110);
     await until(r, world => world.ore === 135); assert.equal(state(r).spent, 25); await r.close();
@@ -214,7 +214,7 @@ export async function checkLogistics(test, fresh, call) {
     assert.equal(state(r).casualties, 1); assert.equal(state(r).lostOre, 16);
     assert.equal(state(r).buildings[0].stage, 0); assert.equal(state(r).spent, 25);
     await call(r, 'cancel-building', [13,20]); assert.equal(state(r).ore, 160);
-    await call(r, 'new-run-seed', [1]); await call(r, 'observe', [12,21]); await advance(r);
+    await call(r, 'new-run-seed', [1]); await establishColony(r); await call(r, 'observe', [12,21]); await advance(r);
     await call(r, 'cancel-building', [12,21]); const cancelled = state(r); cancelled.tick = 9; cancelled.lastRevealTick=-100;
     setWorker(cancelled, 0, {x:12,y:21,job:7,cargo:25,timer:5,hp:7}); await restoreColony(r, cancelled);
     await addEnemy(r, {x:12,y:21}); await advance(r);
@@ -239,7 +239,7 @@ export async function checkLogistics(test, fresh, call) {
   await test('tower placement fixes an upstream tree and freight traverses each link before credit', async () => {
     const r = await fresh(), parent = await tower(r, 12,21), child = await tower(r, 16,21);
     const links = state(r).rails; assert.equal(links.find(link => link.source === child.id).parent, parent.id);
-    const world = state(r); world.produced = 32; setBuilding(world, 1, {stock:32}); await restoreColony(r, world);
+    const world = state(r); withdrawReserves(world, (32) - world.produced); setBuilding(world, 1, {stock:32}); await restoreColony(r, world);
     await advance(r); assert.equal(state(r).delivered, 0);
     const loaded = state(r).rails.find(link => link.source === child.id);
     assert.equal(loaded.cargo, 32); assert.equal(loaded.progress, 0);
@@ -260,7 +260,7 @@ export async function checkLogistics(test, fresh, call) {
   await test('legacy armed towers retain their gun, sight and depot when upgrading cart speed', async () => {
     const r = await fresh(), towerSite = await tower(r, 12,21);
     await call(r,'upgrade',[12,21]); await until(r,world=>world.buildings[0].level===2);
-    const world = state(r); world.produced = 16;
+    const world = state(r); withdrawReserves(world, (16) - world.produced);
     setBuilding(world, 0, {stock:16,armed:1}); await restoreColony(r, world);
     const before = state(r); await call(r, 'upgrade', [12,21]); const armed = state(r);
     assert.equal(armed.buildings[0].id, towerSite.id); assert.equal(armed.buildings[0].armed, 1);
@@ -279,7 +279,7 @@ export async function checkLogistics(test, fresh, call) {
 
   await test('destroyed sources lose their freight once while children recover cargo and reconnect', async () => {
     const r = await fresh(); await tower(r, 12,21); const child = await tower(r, 16,21);
-    const world = state(r); world.tick = 9; world.lastRevealTick=-100; world.produced = 48;
+    const world = state(r); world.tick = 9; world.lastRevealTick=-100; withdrawReserves(world, (48) - world.produced);
     for (let i = 0; i < 3; i++) setWorker(world, i, {id:i+1});
     setBuilding(world, 0, {hp:7}); setRail(world, 0, {cargo:16}); setRail(world, 1, {cargo:32});
     await restoreColony(r, world); await addEnemy(r, {x:12,y:21}); await advance(r);
@@ -299,7 +299,7 @@ export async function checkLogistics(test, fresh, call) {
     await until(r, world => world.buildings[0].stage === 2); const valid = r.snapshot(1);
     const cycle = colony(valid); setRail(cycle, 0, {parent:state(r).buildings[0].id});
     await assert.rejects(() => restoreColony(r, cycle), WebAssembly.RuntimeError);
-    const phantom = colony(valid); setRail(phantom, 0, {returning:1,cargo:16,progress:16}); phantom.produced += 16;
+    const phantom = colony(valid); setRail(phantom, 0, {returning:1,cargo:16,progress:16}); withdrawReserves(phantom, 16);
     await assert.rejects(() => restoreColony(r, phantom), WebAssembly.RuntimeError);
     assert.deepEqual(r.snapshot(1), valid); await r.close();
   });

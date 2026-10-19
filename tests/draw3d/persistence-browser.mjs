@@ -74,37 +74,29 @@ try {
   await evaluate('snailApp.local("restart-seed",[1])'); await acknowledged();
   await pointCell(10,21,true);
   assert.equal((await local()).chooser,true);
-  assert.equal(await evaluate('!!document.querySelector("[data-ui-key=context]")'),true);
-  assert.equal(await evaluate('document.querySelector("[data-ui-key=tower]")?.disabled'),false);
-  assert.equal((await world()).buildings.length,0);
-  assert.equal((await world()).ore,160); assert.equal((await world()).spent,0);
-  await capture('-selected');
-  await click('tower');
-
-  await acknowledged();
-  const ordered=await world(); assert.equal(ordered.ore,135); assert.equal(ordered.spent,25);
-  const tower=siteAt(ordered,10,21); assert.equal(tower?.kind,3); assert.equal(ordered.buildings.length,1);
-  assert.equal((await local()).buildKind,0); assert.equal((await local()).chooser,false);
-  await carrying(tower,25);
-  await complete(3,10,21); await reload(); await acknowledged();
-  const restoredTower=siteAt(await world(),10,21);
-  assert.equal(restoredTower?.id,tower.id); assert.equal(restoredTower.kind,3); assert.equal(restoredTower.stage,2);
+  assert.equal(await evaluate('document.querySelector("[data-ui-key=tower]")?.disabled'),true);
+  assert.equal((await world()).ore,160);assert.equal((await world()).started,false);
+  await click('close-context');await pointCell(12,20,true);
+  assert.equal(await evaluate('document.querySelector("[data-ui-key=extractor]")?.disabled'),false);
+  assert.equal((await world()).buildings.length,0);await capture('-selected');await click('extractor');await acknowledged();
+  const ordered=await world();assert.equal(ordered.ore,120);assert.equal(ordered.spent,40);assert.equal(ordered.started,true);
+  const extractor=siteAt(ordered,12,20);assert.equal(extractor?.kind,1);assert.equal(ordered.buildings.length,1);
+  assert.equal((await local()).buildKind,0);assert.equal((await local()).chooser,false);
+  await carrying(extractor,40);await complete(1,12,20);await reload();await acknowledged();
+  const restoredExtractor=siteAt(await world(),12,20);
+  assert.equal(restoredExtractor?.id,extractor.id);assert.equal(restoredExtractor.kind,1);assert.equal(restoredExtractor.stage,2);
   assert.equal((await world()).paused,0);
 
-  await pointCell(12,20);
-  assert.equal(await evaluate('!!document.querySelector("[data-ui-key=context]")'),false);
-  const beforeMine=(await world()).buildings.length;await pointCell(12,20,true);
-  assert.equal((await world()).buildings.length,beforeMine);
+  const beforeTower=await world();await pointCell(10,21,true);
+  assert.equal((await world()).buildings.length,beforeTower.buildings.length);
   assert.equal((await local()).chooser,true);
-  assert.equal(await evaluate('!!document.querySelector("[data-ui-key=context]")'),true);
-  assert.equal(await evaluate('document.querySelector("[data-ui-key=extractor]")?.disabled'),false);
-  assert.equal((await world()).ore,135); assert.equal((await world()).spent,25);
-  await click('extractor');await acknowledged();
-  const mining=await world(); assert.equal(mining.ore,95); assert.equal(mining.spent,65);
-  const extractor=siteAt(mining,12,20); assert.equal(extractor?.kind,1); assert.equal(mining.buildings.length,beforeMine+1);
-  assert.equal((await local()).buildKind,0); assert.equal((await local()).chooser,false);
-  await carrying(extractor,40);
-  await complete(1,12,20);
+  assert.equal(await evaluate('document.querySelector("[data-ui-key=tower]")?.disabled'),false);
+  await click('tower');await acknowledged();
+  const building=await world();assert.equal(building.spent,beforeTower.spent+25);
+  assert.equal(building.ore,160+building.delivered+building.localSpent-building.spent);
+  const tower=siteAt(building,10,21);assert.equal(tower?.kind,3);assert.equal(building.buildings.length,2);
+  assert.equal((await local()).buildKind,0);assert.equal((await local()).chooser,false);
+  await carrying(tower,25);await complete(3,10,21);
   const completed=await world(); await reload(); await acknowledged(); const reopened=await world();
   assert.deepEqual(reopened.buildings.map(b=>[b.id,b.kind,b.x,b.y,b.stage]),completed.buildings.map(b=>[b.id,b.kind,b.x,b.y,b.stage]));
   assert.equal(reopened.spent,completed.spent); assert.equal(reopened.paused,0); assert.ok(reopened.tick>=completed.tick);
@@ -112,7 +104,7 @@ try {
   await pointCell(10,21,true,1.35); await capture('');
 
   const errors=trace.filter(e=>e.method==='Runtime.exceptionThrown'); assert.equal(errors.length,0);
-  console.log('ok - actual mouse selection is free; Tower/Extractor buttons order kits, workers complete them, and active reload persists', {origin,spent:reopened.spent,buildings:reopened.buildings.length,tick:reopened.tick});
+  console.log('ok - actual mouse selection is free; Extractor then Tower buttons order kits, workers complete them, and active reload persists', {origin,spent:reopened.spent,buildings:reopened.buildings.length,tick:reopened.tick});
 } finally {
   if(process.argv[4])writeFileSync(process.argv[4].replace('.png','-trace.json'),JSON.stringify(trace,null,2));
   ws.close(); await fetch(`${devtools}/json/close/${target.id}`);

@@ -6,7 +6,7 @@ import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {checkColony} from './colony.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkLogistics} from './colony-logistics.mjs';
-import {colony, colonyBalance, restoreColony, restoreClient, client, setWorker, addEnemy, at, pixelAt, siteAt, origin, fixtureCall} from './colony-state.mjs';
+import {establishColony,colony, colonyBalance, restoreColony, restoreClient, client, setWorker, addEnemy, at, pixelAt, siteAt, origin, fixtureCall, withdrawReserves} from './colony-state.mjs';
 import {expandedVertexCount} from '../draw3d/scene-tools.mjs';
 
 export async function checkFocus(test, fresh, call) {
@@ -31,7 +31,7 @@ export async function checkFocus(test, fresh, call) {
   async function mineStock(r, stock = 50, bank = 0) {
     const mine = await build(r, 'extract', 12, 20), world = state(r);
     const value = world.buildings.find(b => b.id === mine.id);
-    world.produced += stock - value.stock; value.stock = stock;
+    withdrawReserves(world, stock - value.stock); value.stock = stock;
     world.spent += world.ore - bank; world.ore = bank;
     setWorker(world, 0, {x:12,y:20}); setWorker(world, 1); setWorker(world, 2);
     await restoreColony(r, world); return mine.id;
@@ -115,7 +115,7 @@ export async function checkFocus(test, fresh, call) {
   });
   await test('queued tower movement drains freight, preserves value and survives pause/reload', async () => {
     const r = await fresh(), parent = await build(r,'observe',12,21), child = await build(r,'observe',16,21);
-    const world=state(r); world.produced+=48; world.buildings[0].stock=16; world.buildings[0].hp=61;
+    const world=state(r); withdrawReserves(world, 48); world.buildings[0].stock=16; world.buildings[0].hp=61;
     world.rails.find(l=>l.source===child.id).cargo=32;
     await restoreColony(r,world); const before=state(r).ore;
     await move(r,12,21,12,22); assert.equal(state(r).ore,before-5);
@@ -136,7 +136,7 @@ export async function checkFocus(test, fresh, call) {
   await test('moving a loaded three-tower chain drains in either request order', async () => {
     for(const order of [[0,1,2],[2,1,0]]) {
       const r=await fresh(); for(const x of [12,16,20]) await build(r,'observe',x,21);
-      const world=state(r); world.produced+=96;
+      const world=state(r); withdrawReserves(world, 96);
       for(const b of world.buildings)b.stock=16;
       for(const rail of world.rails)rail.cargo=16;
       const identities=world.buildings.map(b=>b.id),parents=world.rails.map(l=>l.parent);
@@ -167,7 +167,7 @@ export async function checkFocus(test, fresh, call) {
   });
   await test('local tower kits are exclusive against rail loading', async () => {
     const r=await fresh(), tower=await build(r,'observe',12,21), world=state(r);
-    world.buildings[0].stock=50; world.produced+=50; world.spent+=world.ore; world.ore=0;
+    world.buildings[0].stock=50; withdrawReserves(world, 50); world.spent+=world.ore; world.ore=0;
     setWorker(world,0,{x:12,y:21}); setWorker(world,1); setWorker(world,2); await restoreColony(r,world);
     await call(r,'fortify',[13,21]); assert.equal(state(r).buildings.at(-1).source,tower.id);
     await advance(r); assert.equal(state(r).rails[0].cargo,0); assert.equal(state(r).bots[0].cargo,25);
@@ -229,7 +229,7 @@ export async function checkFocus(test, fresh, call) {
   });
   await test('loaded workers with a destroyed depot reroute before new construction assignment', async () => {
     const r=await fresh(), depot=await build(r,'observe',12,21), world=state(r);
-    world.buildings=[]; world.rails=[]; world.produced+=16;
+    world.buildings=[]; world.rails=[]; withdrawReserves(world, 16);
     setWorker(world,0,{x:12,y:20,job:2,target:depot.id,cargo:16,path:[1020]});
     world.bots.length=1; await restoreColony(r,world);
     await call(r,'observe',[13,20]); assert.equal(state(r).buildings[0].stage,0);
@@ -245,7 +245,7 @@ export async function checkFocus(test, fresh, call) {
     }
   });
   await test('recurring nest attacks select one schedule and strengthen later heavy beasts', async () => {
-    for(const [tick,count,kind,hp] of [[449,0,0],[450,4,0],[750,4,0],[1350,5,1],[1650,4,0],[1950,4,0],[2250,6,1],[3150,7,1],[3450,5,0],[5400,7,2,1800],[7650,12,1],[10800,8,2,1890]]) {
+    for(const [tick,count,kind,hp] of [[449,0,0],[450,6,0],[750,6,0],[1350,7,1],[1650,6,0],[1950,6,0],[2250,8,1],[3150,9,1],[3450,7,0],[5400,9,2,1800],[7650,14,1],[10800,10,2,1890]]) {
       const r=await fresh(), world=state(r); world.started=true; world.tick=tick-1; await restoreColony(r,world);
       await advance(r); const enemies=state(r).enemies; assert.equal(enemies.length,count);
       if(kind===2){assert.equal(enemies.filter(e=>e.kind===2).length,1);assert.equal(enemies[0].hp,hp);}
@@ -270,7 +270,7 @@ export async function checkFocus(test, fresh, call) {
 if (process.argv[1] === import.meta.filename) {
   const output=resolve(process.argv[2]); const manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
   const bytes=readFileSync(join(output,manifest.module));
-  async function fresh() { const r=new ReducerRuntime(); await r.replace(r.prepare(bytes,manifest)); await r.initialize(1); await r.initialize(2); return r; }
+  async function fresh() { const r=new ReducerRuntime(); await r.replace(r.prepare(bytes,manifest)); await r.initialize(1); await r.initialize(2); return establishColony(r); }
   const call=fixtureCall;
   let count=0; const test=async(name,run)=>{await run(); console.log(`ok ${++count} - ${name}`);};
   if(process.argv.includes("--regression")) {await checkColony(test,fresh,call);await checkEncounters(test,fresh,call);await checkLogistics(test,fresh,call);}

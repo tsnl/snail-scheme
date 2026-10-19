@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,client,colonyBalance,restoreColony,restoreClient,fixtureCall,at,setWorker,pixelAt} from './colony-state.mjs';
+import {establishColony,colony,client,colonyBalance,restoreColony,restoreClient,fixtureCall,at,setWorker,pixelAt} from './colony-state.mjs';
 
 const state=r=>colony(r.snapshot(1));
-const orders=[['extract',5,5,40,1],['observe',12,11,25,3],['fortify',12,11,50,2],['build-house',12,11,8,4]];
+const orders=[['extract',5,5,40,1],['observe',12,11,25,3],['fortify',12,11,50,2]];
 async function advance(r,count=1) {
   for(let i=0;i<count;i++) {
     await fixtureCall(r,'advance'); const world=state(r),balance=colonyBalance(world);
@@ -79,7 +79,7 @@ export async function checkVisibility(test,fresh) {
     const world=state(r); world.buildings[0].hp=7; world.tick=9; world.lastRevealTick=-100;
     for(let i=0;i<world.bots.length;i++)setWorker(world,i);
     await restoreColony(r,world); await select(r,12,11); const selected=r.snapshot(2),pending=[];
-    for(const kind of [3,2,4]) {
+    for(const kind of [3,2]) {
       await r.restore(2,selected);const result=await prepareOrder(r,kind);
       pending.push({result,client:r.snapshot(2)});
     }
@@ -93,7 +93,7 @@ export async function checkVisibility(test,fresh) {
       await r.restore(2,order.client);await settleOrder(r,order.result,0);
       assert.deepEqual(state(r),{...destroyed,notice:1});
     }
-    for(const kind of [3,2,4]) {
+    for(const kind of [3,2]) {
       await r.restore(2,selected);await settleOrder(r,await prepareOrder(r,kind),0);
       assert.deepEqual(state(r),{...destroyed,notice:1});
     }
@@ -104,7 +104,7 @@ export async function checkVisibility(test,fresh) {
 if(process.argv[1]===import.meta.filename) {
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
   const bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0; await checkVisibility(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh);
   console.log(`${count} construction visibility checks passed`);
 }

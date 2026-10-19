@@ -8,14 +8,14 @@ Scheme owns the game rules and presentation executed in the browser.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/nest placement, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; shared kits, house capacity, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement and immutable deposit capacities, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
-| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, canonical site identities, routes, ownership and exact underground/produced material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's ninety-second interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for replay/dump analysis; no recording storage or game transitions. |
-| [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, combat totals, orders and frontier progress. |
+| [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, individual nest clears, exhaustion counts, orders and frontier progress. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
@@ -57,6 +57,11 @@ button cannot order a new selection. The second tap on the same empty tile emits
 that same typed `build-cell(kind, cell)` request. Deposits offer only extractors;
 existing-building taps inspect, with separate explicit upgrade and cancel actions.
 The model's normal placement operation validates and pays for each order.
+Before the first accepted extractor, placement and the other purchase rules
+reject every alternative use of ore. Only accepting that paid extractor sets
+the saved `started` flag; selection, failed requests and camera input do not.
+Contextual disabled actions explain the same restriction without enforcing it
+only in the interface.
 
 One local placement slot remains occupied through reply and completion. Imports
 clear selection and supersede the older result without releasing that slot early.
@@ -92,10 +97,9 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 11 and client schema 8 under application ID
-`siegework-colony-v11`, which starts a fresh save identity for compact geography.
-World10 coordinates and paths are deliberately rejected rather than reinterpreted
-under the same seed. Record sizes grow and
+The game declares world schema 12 and client schema 8 under application ID
+`siegework-colony-v12`, which starts a fresh save identity for explicit hub capacity
+removal of house buildings, finite deposits and three persistent nests. Earlier worlds are rejected rather than reinterpreted. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts or geography and are rejected; derivation does not migrate existing saves. The browser retains
 an incompatible record and explains how to reopen a compatible package; changing
@@ -139,6 +143,28 @@ local spending, raw losses and all remaining loose stock/cargo/freight. Returnin
 a local paid kit to the hub transfers its cost from local spending to delivered
 ore before refunding or retaining the project's hub-backed reservation.
 
+Every deposit retains its own remaining reserve after extractor loss or depletion.
+Canonical order identifies the three home sites followed by the regional candidates.
+The parser compares that list and all three nest identities/coordinates with one
+trusted seed-derived layout, retained only for the current seed in each Wasm
+instance. Building the layout visits nineteen candidates, never 16,384 map cells.
+A restore cannot populate the cache or replenish a reserve. Exact total original
+capacity minus remaining underground ore must equal `produced`; the existing
+physical stock, cargo, freight, spending and loss equation proves where it went.
+Production clips each withdrawal before increasing the mine buffer. Exhaustion
+releases miners and the loose cache, but leaves paid kits with their owners and
+hauls the final partial load. Upgrades change slots without changing geology.
+
+Three immutable nest records retain seed-owned IDs/coordinates and individual
+health. Every scheduled wave assigns its global enemy positions to rotating
+front shares before skipping dead nests; clearing a front removes its share
+rather than reallocating it. Raids select the nearest exposed operation closer
+to their own source than the hub. Spawn precedes combat, so a nest killed on a
+spawn tick emits its last share. Clearing all three wins even if enemies remain;
+that outcome retains the existing precedence over same-tick hub destruction.
+The fixed nest model is instanced three times, and dead sites retain their seeded
+terrain clearing. Depletion changes retained terrain only on its final unit.
+
 Accepted restarts increment a bounded run marker, including replaying the same
 seed; the maximum wraps to zero. Rejected seed input retains it. The saved world
 retains this marker as an application invariant; the browser
@@ -172,8 +198,7 @@ Each simulation tick rebuilds the rooted depot tree. Its current paths supply
 eight retained groups of glowing dots whose phases travel toward the hub on the
 display clock. Reserved track bitmasks never produce geometry. Both towers and
 artillery reuse one stone plinth mesh, with
-four corner pillars and an open arch on each face. Houses use ordinary solid
-building geometry; they have no connecting shield panels. Buildings can occupy
+four corner pillars and an open arch on each face. Buildings can occupy
 transport paths and intersections without removing their connections.
 
 Unchanged directed routes preserve freight progress. Changed routes return the
@@ -194,11 +219,19 @@ One placement still owns its pending slot through reply and authored settlement;
 a failed durable save releases the slot without reporting success. Client 8
 stores that rejection and removes the former worker-menu state.
 
-Completed kind-four houses add four worker places to the hub's base 12, capped
-at 64. Hiring counts both living workers and paid queued recruits. The decoder
-enforces the hard bound, allowing housing destruction to leave a valid
-over-capacity colony. Houses use the ordinary eight-ore construction ledger,
-health and worker jobs.
+World12 saves `hub-capacity-level` from zero through six. Capacity is derived as
+12 plus twice that tier; prices are 100 times two to the tier. The tier is
+independent of the hub's fixed transport grade three. An accepted expansion
+charges hub ore and assigns one worker: job 14 returns, job 15 assembles for
+30 simulation ticks, and fleeing timer 14 retains the same paid order. Its target
+stores the reserved price; cargo remains ordinary mined ore. Completion advances
+the tier and clears the job atomically. Death before completion refunds exactly
+the stored price. There is no separate pending queue or automatic recruit.
+
+The decoder proves the tier bounds, at most one expansion owner, the matching
+price, phase/location constraints, and enough investment for completed and pending
+upgrades. Hiring counts both living workers and paid recruits against completed
+capacity. Existing exact bank and produced-ore conservation equations remain.
 
 Attack alerts are ordinary location/dismiss controls and create no scene insets.
 Upgrade waiting labels project above their buildings through the shared camera;

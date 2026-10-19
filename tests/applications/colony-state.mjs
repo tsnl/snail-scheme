@@ -1,4 +1,4 @@
-// Derived schema-11 records for assertions and bounded encounter fixtures. Only
+// Derived schema-12 records for assertions and bounded encounter fixtures. Only
 // actual compiled Scheme transitions implement jobs, routing or combat.
 import {snapshotValue, snapshotWords} from './snapshots.mjs';
 
@@ -13,7 +13,7 @@ function readable(value) {
 export const colony = words => readable(snapshotValue(words, {marked:true}));
 export const client = words => readable(snapshotValue(words));
 const symbol = text => ({symbol:text});
-const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack'};
+const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack', deposits:'Deposit', nests:'Nest'};
 function typedRecord(type, value) {
   if (type === 'Enemy') {
     const {burrower = false, rank = value.kind === 2 ? 6 : 0, ...fields} = value;
@@ -30,7 +30,7 @@ function typedField(field, value) {
   if (!type) throw new Error(`unknown fixture list ${field}`);
   return [symbol(`(List ${name})`), value.map(item => type === 'I32' ? [symbol(type), item] : typedRecord(type, item))];
 }
-export const colonyWords = world => snapshotWords(11, typedRecord('World', world), world.runMarker);
+export const colonyWords = world => snapshotWords(12, typedRecord('World', world), world.runMarker);
 export const clientWords = local => {
   const {originX,originY,menu,...fields}=local;
   return snapshotWords(8, typedRecord('Client', {...fields, heading:local.heading ?? 0,
@@ -39,6 +39,27 @@ export const clientWords = local => {
 };
 export const restoreColony = (runtime, world) => runtime.restore(1, colonyWords(world));
 export const restoreClient = (runtime, local) => runtime.restore(2, clientWords(local));
+// A previously accepted and cancelled extractor leaves a started, empty colony.
+// Older encounter fixtures use that state explicitly; opening tests use initialize.
+export async function establishColony(runtime) {
+  const world=colony(runtime.snapshot(1));world.started=true;
+  await restoreColony(runtime,world);return runtime;
+}
+
+// Boundary fixtures may relocate mined material, but must explicitly withdraw
+// it from finite underground reserves. Remote sites drain first so a starter
+// mining scenario keeps its ordinary resource; this never runs in the product.
+export function withdrawReserves(world, amount) {
+  if (!Number.isInteger(amount) || amount < 0) throw new Error('invalid fixture withdrawal');
+  let remaining = amount;
+  for (const deposit of world.deposits.toReversed()) {
+    const take = Math.min(remaining, deposit.remaining);
+    deposit.remaining -= take; remaining -= take;
+  }
+  if (remaining) throw new Error('fixture exceeds the finite map reserves');
+  world.produced += amount;
+  return world;
+}
 
 // Established neighborhood scenarios use coordinates relative to the original
 // hub at (8,22). Product snapshots and new world tests retain actual coordinates.
@@ -51,7 +72,7 @@ export function pixelAt(world, x, y) { const cell = at(world, x, y); return {x:c
 export function siteAt(world, x, y) { const cell = at(world, x, y); return world.buildings.find(site => site.x === cell.x && site.y === cell.y); }
 export function routeCell(world, x, y) { const cell = at(world, x, y); return cell.x + cell.y * 128; }
 export function fixtureArguments(world, name, args = []) {
-  if (['extract','fortify','observe','build-wall','build-house','upgrade','arm-tower','cancel-building'].includes(name)) {
+  if (['extract','fortify','observe','upgrade','arm-tower','cancel-building'].includes(name)) {
     const cell = at(world, ...args); return [cell.x,cell.y];
   }
   if (name === 'relocate-building') return args.map(index => routeCell(world, index % 48, Math.floor(index / 48)));
@@ -75,7 +96,7 @@ export function setWorker(world, index, {id = world.bots[index].id, x = 8, y = 2
 export const setBuilding = (world, index, changes) => Object.assign(world.buildings[index], changes);
 export const setRail = (world, index, changes) => Object.assign(world.rails[index], changes);
 export function colonyBalance(world) {
-  const cargo = world.bots.filter(bot => [2,4,12].includes(bot.job) || (bot.job === 7 && [2,4,12].includes(bot.timer)))
+  const cargo = world.bots.filter(bot => [2,4,12,14].includes(bot.job) || (bot.job === 7 && [2,4,12,14].includes(bot.timer)))
     .reduce((sum, bot) => sum + bot.cargo, 0);
   return {bank:160 + world.delivered + world.localSpent - world.spent,
     raw:world.delivered + world.localSpent + world.lostOre + cargo

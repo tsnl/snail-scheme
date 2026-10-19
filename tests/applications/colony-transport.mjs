@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,colonyBalance,restoreColony,fixtureCall,at,pixelAt,routeCell,setWorker} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,at,pixelAt,routeCell,setWorker, withdrawReserves} from './colony-state.mjs';
 
 export async function checkTransport(test,fresh) {
   const state=r=>colony(r.snapshot(1));
@@ -14,7 +14,7 @@ export async function checkTransport(test,fresh) {
       assert.equal(world.ore,balance.bank); assert.equal(world.produced,balance.raw);
     }
   }
-  function fund(world) {world.produced+=10000;world.delivered+=10000;world.ore+=10000;}
+  function fund(world) {withdrawReserves(world, 10000);world.delivered+=10000;world.ore+=10000;}
   function depot(world,x,y,level=1) {
     const cell=at(world,x,y),point=pixelAt(world,x,y),cost=25*level;
     const site={id:world.nextId++,kind:3,...cell,level,hp:90,stock:0,stage:2,cooldown:0,
@@ -50,7 +50,7 @@ export async function checkTransport(test,fresh) {
   await test('new depot rerouting refunds source freight once and preserves a worker between grid centers',async()=>{
     const r=await fresh(),world=state(r);fund(world);const old=depot(world,16,22);
     await restoreColony(r,world);await step(r);const changed=state(r);
-    changed.produced+=48;Object.assign(changed.rails[0],{cargo:32,progress:16});
+    withdrawReserves(changed, 48);Object.assign(changed.rails[0],{cargo:32,progress:16});
     setWorker(changed,0,{x:15,y:22,job:2,cargo:16,path:[14,13,12,11,10,9,8].map(x=>x+22*48)});
     changed.bots[0].x-=8;const workerX=changed.bots[0].x,newer=depot(changed,12,22);
     await restoreColony(r,changed);await step(r);const rerouted=state(r),edge=rerouted.rails.find(rail=>rail.source===old.id);
@@ -69,7 +69,7 @@ export async function checkTransport(test,fresh) {
   });
   await test('unchanged directed routes preserve loaded and returning shuttle progress across recomputation',async()=>{
     const r=await fresh(),world=state(r);fund(world);depot(world,12,22);depot(world,16,22);
-    await restoreColony(r,world);await step(r);const loaded=state(r);loaded.produced+=16;
+    await restoreColony(r,world);await step(r);const loaded=state(r);withdrawReserves(loaded, 16);
     Object.assign(loaded.rails[0],{returning:1,progress:80});Object.assign(loaded.rails[1],{cargo:16,progress:16});
     await restoreColony(r,loaded);await step(r);const next=state(r);
     assert.equal(next.rails[0].returning,1);assert.equal(next.rails[0].progress,48);
@@ -80,7 +80,7 @@ export async function checkTransport(test,fresh) {
     const r=await fresh(),world=state(r);fund(world);depot(world,12,24);
     await restoreColony(r,world);await step(r);const riding=state(r),route=riding.rails[0].path;
     const corner=route.findIndex((cell,i)=>i>0&&i+1<route.length&&Math.abs(cell-route[i-1])!==Math.abs(route[i+1]-cell));
-    assert.ok(corner>0);const start=route[corner-1];riding.produced+=16;
+    assert.ok(corner>0);const start=route[corner-1];withdrawReserves(riding, 16);
     Object.assign(riding.bots[0],{x:(start%128)*40+20,y:Math.floor(start/128)*40+20,job:2,target:0,cargo:16,path:route.slice(corner)});
     await restoreColony(r,riding);await step(r);const next=state(r),point=route[corner+1];
     assert.deepEqual([next.bots[0].x,next.bots[0].y],[(point%128)*40+20,Math.floor(point/128)*40+20]);
@@ -90,7 +90,7 @@ export async function checkTransport(test,fresh) {
   await test('freight speed doubles at each shared tower level and keeps its 32-ore load',async()=>{
     for(const level of [1,2,3]) {
       const r=await fresh(),world=state(r);fund(world);depot(world,16,22,level);
-      await restoreColony(r,world);await step(r);const loaded=state(r);loaded.produced+=32;loaded.rails[0].cargo=32;
+      await restoreColony(r,world);await step(r);const loaded=state(r);withdrawReserves(loaded, 32);loaded.rails[0].cargo=32;
       await restoreColony(r,loaded);await step(r);assert.equal(state(r).rails[0].progress,32*2**(level-1));
       assert.equal(state(r).rails[0].cargo,32);await r.restore(1,r.snapshot(1));await r.close();
     }
@@ -100,7 +100,7 @@ export async function checkTransport(test,fresh) {
     await restoreColony(r,world);await step(r);const riding=state(r);
     const path=[[12,22],[12,23],[12,24],[11,24],[10,24],[9,24],[8,24],[8,23],[8,22]]
       .map(([x,y])=>routeCell(riding,x,y));
-    riding.rails[0].path=path;riding.produced+=16;
+    riding.rails[0].path=path;withdrawReserves(riding, 16);
     const start=path[0];Object.assign(riding.bots[0],{x:(start%128)*40+20,y:Math.floor(start/128)*40+20,
       job:2,target:0,cargo:16,path:path.slice(1)});
     await restoreColony(r,riding);await step(r);const arrived=state(r),hub=pixelAt(arrived,8,22);
@@ -113,7 +113,7 @@ export async function checkTransport(test,fresh) {
     const r=await fresh(),world=state(r);fund(world);depot(world,12,22);
     await restoreColony(r,world);await step(r);const restored=state(r);
     const path=[[12,22],[12,23],[11,23],[10,23],[9,23],[8,23],[8,22]].map(([x,y])=>routeCell(restored,x,y));
-    restored.produced+=16;Object.assign(restored.rails[0],{cargo:16,progress:16,path});
+    withdrawReserves(restored, 16);Object.assign(restored.rails[0],{cargo:16,progress:16,path});
     await restoreColony(r,restored);await step(r);
     assert.deepEqual(state(r).rails[0].path,path);assert.equal(state(r).rails[0].progress,48);
     assert.equal(state(r).rails[0].cargo,16);assert.equal(state(r).lostOre,0);await r.close();
@@ -122,7 +122,7 @@ export async function checkTransport(test,fresh) {
     const r=await fresh(),world=state(r);fund(world);const site=depot(world,16,22);
     // Ground immediately around a remote depot is known, but no surveyed
     // corridor reaches it. The seed's original hub is deliberately far away.
-    const remote={x:2,y:2};Object.assign(site,remote,{aimX:100,aimY:100,stock:16});world.produced+=16;
+    const remote={x:2,y:2};Object.assign(site,remote,{aimX:100,aimY:100,stock:16});withdrawReserves(world, 16);
     world.surveys=[world.surveys[0],{...remote,radius:7}];
     await restoreColony(r,world);await step(r,2);
     assert.deepEqual(state(r).rails,[]);assert.equal(state(r).buildings[0].stock,16);assert.equal(state(r).lostOre,0);await r.close();
@@ -142,7 +142,7 @@ export async function checkTransport(test,fresh) {
 
 if(process.argv[1]===import.meta.filename) {
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json'))),bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0;await checkTransport(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh);
   console.log(`${count} live transport checks passed`);
 }

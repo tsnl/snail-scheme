@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync, copyFileSync, mkdtempSync, rmSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
-import {colony, client, restoreColony, fixtureCall, at} from './colony-state.mjs';
+import {establishColony,colony, client, restoreColony, fixtureCall, at, withdrawReserves} from './colony-state.mjs';
 import {checkColony} from './colony.mjs';
+import {checkReserves} from './colony-reserves.mjs';
+import {checkFronts} from './colony-fronts.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkLogistics} from './colony-logistics.mjs';
 import {checkFocus} from './colony-focus.mjs';
@@ -12,7 +14,8 @@ import {checkVisibility} from './colony-visibility.mjs';
 import {checkHub} from './colony-hub.mjs';
 import {checkConstructionOrders} from './colony-construction.mjs';
 import {checkDirectBuild} from './colony-direct-build.mjs';
-import {checkHousing} from './colony-housing.mjs';
+import {checkHubCapacity} from './colony-hub-capacity.mjs';
+import {checkOpening} from './colony-opening.mjs';
 import {checkCrowd} from './colony-crowd.mjs';
 import {checkRetaliation} from './colony-retaliation.mjs';
 import {checkDigging} from './colony-digging.mjs';
@@ -34,6 +37,7 @@ const output = resolve(process.argv[2]), fixtures = resolve(process.argv[3]);
 const artifacts = resolve(process.argv[4] ?? output);
 const manifest = JSON.parse(readFileSync(join(output, 'manifest.json'))), bytes = readFileSync(join(output, manifest.module));
 async function fresh() { const r = new ReducerRuntime(); await r.replace(r.prepare(bytes, manifest)); await r.initialize(1); await r.initialize(2); return r; }
+const established=async()=>establishColony(await fresh());
 const call = fixtureCall;
 function fixture(name) { return readFileSync(join(fixtures, `${name}.wasm`)); }
 let passed = 0;
@@ -83,7 +87,7 @@ await test('a selected deposit spends only on construction and unlocks after rep
   assert.equal(client(r.snapshot(2)).buildKind,0);assert.equal(client(r.snapshot(2)).chooser,false);await r.close();
 });
 await test('worker hiring requires the selected hub and retains its dialog for another paid order',async()=>{
-  const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
+  const r=await established(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
   assert.deepEqual((await local('fabricate')).effects,[]); await local('confirm');
   assert.deepEqual((await local('fabricate')).effects,[]); assert.equal(colony(r.snapshot(1)).ore,160);
   await local('nudge',[-4,2]); await local('confirm');
@@ -95,7 +99,7 @@ await test('worker hiring requires the selected hub and retains its dialog for a
   assert.equal(colony(r.snapshot(1)).bots.filter(bot=>bot.job===6).length,2); await r.close();
 });
 await test('dismiss closes a selected project while explicit cancellation owns its refund',async()=>{
-  const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
+  const r=await established(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
   await local('nudge',[-2,2]);await local('confirm');
   const selected=await local('choose',[1]),committed=await r.dispatch(1,r.effectCommand(selected.effects[0]));
   await r.dispatch(2,r.effectCommand(committed.effects[0]));await r.dispatch(2,r.effectCommand(selected.effects[1]));
@@ -112,7 +116,7 @@ await test('pause menu stops time; restart cancellation stays paused and Resume 
     await apply(await r.dispatch(effect.owner,r.effectCommand(effect)));
     if(effect.owner===1&&effect.command.handler===r.command('match','new-run').handler)await local('reset-presentation');
   }};
-  await call(r,'fabricate-worker');await apply(await local('pause-menu'));assert.equal(client(r.snapshot(2)).dialog,1);
+  await call(r,'extract',[12,20]);await apply(await local('pause-menu'));assert.equal(client(r.snapshot(2)).dialog,1);
   const paused=r.snapshot(1);for(let i=0;i<10;i++)await call(r,'advance');assert.deepEqual(r.snapshot(1),paused);
   await apply(await local('restart'));assert.equal(client(r.snapshot(2)).dialog,2);
   assert.deepEqual((await local('dismiss-restart')).effects,[]);assert.equal(client(r.snapshot(2)).dialog,1);assert.equal(colony(r.snapshot(1)).paused,1);
@@ -174,7 +178,7 @@ await test('packaging rejects invalid simulation bytes before publishing a manif
 });
 await test('local submissions serialize, publish only durable state, and resume from old browser saves', async () => {
   const r = await fresh(); let durable, published = 0;
-  await call(r, 'fabricate-worker');
+  await call(r, 'extract', [12,20]);
   const local = new LocalState(r, {commit: (snapshot, expected) => {
     assert.equal(snapshot.revision, expected + 1); durable = structuredClone(snapshot);
   }, publish: () => { assert.deepEqual(local.snapshot(), durable); published++; }});
@@ -193,9 +197,9 @@ await test('failed local persistence leaves state, revision and effects unchange
   assert.deepEqual(r.snapshot(1), before); assert.equal(local.revision, 0); assert.equal(published, 0); await r.close();
 });
 await test('unprotected run loses; supplied defenders kill threats without generating ore', async () => {
-  const r = await fresh(); await call(r,'fabricate-worker'); for (let i = 0; i < 4800; i++) await call(r, 'advance');
+  const r = await fresh(); await call(r,'extract',[12,20]); for (let i = 0; i < 4800; i++) await call(r, 'advance');
   assert.equal(colony(r.snapshot(1)).outcome, 1); await call(r, 'new-run-seed', [1]);
-  const supplied = colony(r.snapshot(1)); supplied.produced += 500; supplied.delivered += 500; supplied.ore += 500;
+  const supplied = colony(r.snapshot(1)); withdrawReserves(supplied, 500); supplied.delivered += 500; supplied.ore += 500;
   await restoreColony(r, supplied); await call(r, 'extract', [12,20]);
   await call(r, 'fortify', [15,20]); await call(r, 'observe', [16,21]);
   const sites = [[12,22],[12,24],[10,24],[10,22],[9,24],[8,25],[7,24],[10,20],[11,21]];
@@ -212,25 +216,28 @@ await test('unprotected run loses; supplied defenders kill threats without gener
   }
   assert.ok(sawKill); await r.close();
 });
-await checkColony(test, fresh, call);
-await checkEncounters(test, fresh, call);
-await checkLogistics(test, fresh, call);
-await checkFocus(test, fresh, call);
-await checkWorld(test, fresh);
-await checkVisibility(test, fresh);
-await checkHub(test, fresh, bytes);
-await checkConstructionOrders(test, fresh);
+await checkReserves(test, fresh);
+await checkFronts(test, fresh);
+await checkOpening(test, fresh, bytes);
+await checkColony(test, established, call);
+await checkEncounters(test, established, call);
+await checkLogistics(test, established, call);
+await checkFocus(test, established, call);
+await checkWorld(test, established);
+await checkVisibility(test, established);
+await checkHub(test, established, bytes);
+await checkConstructionOrders(test, established);
 await checkDirectBuild(test, fresh);
-await checkHousing(test, fresh);
-await checkCrowd(test, fresh, bytes);
-await checkRetaliation(test, fresh, bytes);
-await checkDigging(test, fresh);
+await checkHubCapacity(test, fresh, bytes);
+await checkCrowd(test, established, bytes);
+await checkRetaliation(test, established, bytes);
+await checkDigging(test, established);
 await checkRanks(test, fresh);
-await checkCarts(test, fresh);
-await checkTransport(test, fresh);
-await checkInstancing(test, fresh);
+await checkCarts(test, established);
+await checkTransport(test, established);
+await checkInstancing(test, established);
 await checkAsyncRuntime(test, fixture);
 await checkSnapshotCache(test, fixture);
 await checkBrowserEffects(test, fixture);
-await checkColonyMenus(test, fresh);
+await checkColonyMenus(test, established);
 console.log(`${passed} application integration checks passed`);

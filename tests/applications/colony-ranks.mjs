@@ -53,7 +53,7 @@ export async function checkRanks(test,fresh) {
   await test('exploration gets forty-five seconds before waves begin and ordinary waves stay thirty seconds apart',async()=>{
     const r=await fresh();
     for(const tick of [1,150,300,449,451,749,751,900,1049,1349])assert.equal((await wave(r,tick)).length,0,`tick ${tick}`);
-    for(const [tick,count] of [[450,4],[750,4],[1050,4],[1350,5],[1650,4],[1950,4],[2250,6],[3150,7],[3450,5]]) {
+    for(const [tick,count] of [[450,6],[750,6],[1050,6],[1350,7],[1650,6],[1950,6],[2250,8],[3150,9],[3450,7]]) {
       const enemies=await wave(r,tick);assert.equal(enemies.length,count,`tick ${tick}`);
       if(tick<900)assert.ok(enemies.every(enemy=>enemy.rank===0));
       if(tick===1350||tick===2250||tick===3150)assert.ok(enemies.every(enemy=>enemy.kind===1));
@@ -78,17 +78,17 @@ export async function checkRanks(test,fresh) {
     }
     await r.close();
   });
-  await test('the first accepted order starts time and cancellation never stops it again',async()=>{
+  await test('only the first accepted extractor starts time and cancellation never stops it again',async()=>{
     const r=await fresh(); for(let i=0;i<30;i++)await call(r,'advance');
     assert.equal(state(r).started,false); assert.equal(state(r).tick,0);
     await call(r,'observe',[8,22]); await call(r,'advance'); assert.equal(state(r).tick,0);
     await call(r,'pause-colony',[1]); await call(r,'pause-colony',[0]); assert.equal(state(r).started,false);
     const waiting=r.snapshot(1); await r.restore(1,waiting); assert.equal(state(r).started,false);
-    await call(r,'observe',[10,22]); assert.equal(state(r).started,true);
-    await call(r,'cancel-building',[10,22]); assert.equal(state(r).buildings.length,0);
+    await call(r,'extract',[12,20]); assert.equal(state(r).started,true);
+    await call(r,'cancel-building',[12,20]); assert.equal(state(r).buildings.length,0);
     await call(r,'advance'); assert.equal(state(r).tick,1);
     await call(r,'new-run-seed',[1]); await call(r,'advance'); assert.equal(state(r).tick,0);
-    await call(r,'fabricate-worker'); await call(r,'advance'); assert.equal(state(r).started,true); assert.equal(state(r).tick,1);
+    await call(r,'fabricate-worker'); await call(r,'advance'); assert.equal(state(r).started,false); assert.equal(state(r).tick,0);
     await r.close();
   });
 }

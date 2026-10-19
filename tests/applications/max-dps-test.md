@@ -13,8 +13,9 @@ scripts/max-dps-test --discovery-minutes 5 --multiplier 0.5 --minutes 360
 scripts/max-dps-test --seed 7 --output build/max-dps-test/seed7.json
 ```
 
-The default six-hour horizon includes the current model's fully escalated enemy
-health and maximum ordinary, raid and boss wave sizes. The game has no final
+The default ten-minute horizon checks the intended expedition window and first
+nine-minute boss. `--minutes 360` additionally covers fully escalated enemy health
+and maximum ordinary, raid and boss wave sizes. The game has no final
 wave. The report states its finite horizon and never treats surviving a timer as
 a nest victory. `--minutes 10` checks the intended expedition window and its
 first nine-minute boss. It includes twenty spawn windows through minute 10.25.
@@ -33,7 +34,8 @@ probe's SHA-256, extracted facts, every wave, discoveries and the final economy.
 `max-dps-probe.sld` imports `(siegework model)` and `(siegework terrain)` and runs
 through linked Wasm. It reads initial ore/workers, construction and upgrade
 prices, worker assembly time and population limit, building limits, map deposit
-yields, and the wave schedule. Controlled actual model ticks measure artillery
+yields and finite capacities, hub expansion prices and completed capacity, and
+the wave schedule. Controlled actual model ticks measure artillery
 shot damage/cooldown, mining production cadence, occupied slots per mine level,
 and each spawned wave's complete HP. Wave composition, rank scaling and the
 terrain-dependent raider health reduction therefore remain in Scheme. The host
@@ -43,7 +45,9 @@ reads tick duration from the game's settings.
 
 The initial nearby deposit is known at time zero. Later actual deposits appear
 in increasing Manhattan distance from the hub, with cell index breaking ties.
-Discovery costs nothing. Every deposit keeps its actual map yield.
+Discovery costs nothing. Every deposit keeps its actual yield and finite reserve.
+Production clips the final unit; depletion disables its slots and upgrades never
+replenish it. The policy saves one 40-ore extractor kit while unseen deposits remain.
 
 The policy first buys productive mine slots and the workers to staff them. It
 saves for its next resource purchase before buying artillery, and assigns miners
@@ -52,6 +56,10 @@ delay without taking an existing miner away for assembly. Once the available
 useful resource investment is funded, remaining ore buys the greatest extra shot
 damage per ore; ties upgrade an existing gun first. All artillery levels share
 the same cooldown, so extra shot damage per ore also ranks extra DPS per ore.
+The policy pays every hub expansion and waits for its thirty-tick completion
+before using the new capacity. The initial twelve places can grow to twenty-four;
+the six upgrades cost 6,300 ore total, in addition to hiring. Like hiring, this
+optimistic bound omits the existing worker's return trip and assembly labor.
 The policy obeys the game's population and total-building limits. It does not
 claim to find an exact globally optimal purchase schedule.
 
@@ -68,7 +76,9 @@ overkill or shot-phase penalty. Damage starts when a wave spawns. Unused damage
 cannot be saved for another wave. Each wave must fit the integrated capacity
 before the next spawn; the report records its HP, effective starting DPS, clear
 time and capacity/HP ratio. This is a damage-budget bound, not a discrete combat
-simulation.
+simulation. The full wave budget assumes all three nests remain alive.
+Aggregate DPS also assumes every gun can reach every front; separated approaches
+may require more artillery than this algebra funds. Coverage needs actual placement.
 
 Wave windows are independent. A missed deadline fails the test and retains the
 remaining HP in that wave's JSON result, but that surviving HP is not carried
@@ -88,4 +98,6 @@ meets exactly one shot's damage budget, half utilization misses that deadline,
 and a long preceding idle period cannot supply a second shot's damage. The
 economy also asserts ore conservation and forbids spending future income on
 every simulation tick. These checks protect the timing and utilization contract
-without copying game balance values into JavaScript.
+without copying game balance values into JavaScript. Additional controlled cases
+exhaust a five-unit deposit without overproduction and reach the actual maximum
+worker count only after paying and completing all six capacity upgrades.

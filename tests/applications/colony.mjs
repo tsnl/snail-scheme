@@ -78,8 +78,8 @@ export async function checkColony(test, fresh, call) {
     const outpost = siteAt(state(r),22,20);
     assert.equal(outpost.stage, 2);
     const checkpoint = state(r); checkpoint.tick = 1349; checkpoint.lastRevealTick=-100; checkpoint.enemies.length=0; await restoreColony(r, checkpoint);
-    await advance(r); assert.equal(state(r).enemies.length, 5);
-    assert.ok(state(r).enemies.every(enemy => enemy.kind === 1 && enemy.target === outpost.id));
+    await advance(r); assert.equal(state(r).enemies.length, 7);
+    assert.ok(state(r).enemies.every(enemy => enemy.kind === 1) && state(r).enemies.some(enemy => enemy.target === outpost.id));
     for (let tick = 0; tick < 1800 && state(r).lost === 0 && state(r).outcome === 0; tick++) await advance(r);
     assert.equal(state(r).lost, 1); const knowledge = state(r).surveys;
     const cleared = state(r); cleared.enemies.length = 0; await restoreColony(r, cleared);
@@ -105,7 +105,7 @@ export async function checkColony(test, fresh, call) {
       await advance(r); if (state(r).hull < 300 && firstDamage === 0) firstDamage = state(r).tick;
     }
     assert.ok(firstDamage > 5400); assert.equal(state(r).outcome, 1);
-    assert.equal(state(r).nestHp,1500);
+    assert.deepEqual(state(r).nests.map(nest=>nest.hp),[900,900,900]);
     assert.equal(state(r).spent, 0); await r.close();
   });
 

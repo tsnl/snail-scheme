@@ -4,7 +4,8 @@
   (export map-width map-height hub-x hub-y cell-size cell-x cell-y cell-index
           index-x index-y inside? ground? water? deposit-rate distance within?
           Survey make-survey survey-x survey-y survey-radius surveyed?
-          next-map-seed spawn-x spawn-y nest-x nest-y northern-x northern-y eastern-x eastern-y regional-deposit-x regional-deposit-y
+          next-map-seed spawn-x spawn-y nest-x nest-y front-x front-y nest-site? deposit-capacity
+          northern-x northern-y eastern-x eastern-y regional-deposit-x regional-deposit-y
           walking-path tunneling-path avoiding-path escape-path clear-shot? observed-shot?
           open-ground? walking-open-path avoiding-open-path escape-open-path clear-open-shot? observed-open-shot?
           CartEdge make-cart-edge cart-step-cost rail-edge rail-step? cart-path cart-escape-path)
@@ -63,6 +64,21 @@
             (if (< direction 2) major (- 0 major)) minor)))
     (define (nest-x seed) (+ (spawn-x seed) (nest-offset seed #t)))
     (define (nest-y seed) (+ (spawn-y seed) (nest-offset seed #f)))
+    ;; Three fronts use the original bearing and integer rotations of ±120°.
+    ;; Across every seed they remain at least sixteen cells from the map edge
+    ;; and fifty-four cells apart. Clearings depend on the seed, never nest HP.
+    (define (front-offset seed front horizontal)
+      (let ((x (nest-offset seed #t)) (y (nest-offset seed #f))
+            (turn (if (= front 1) 866 -866)))
+        (if (= front 0) (if horizontal x y)
+            (quotient (if horizontal (- (* -500 x) (* turn y))
+                          (+ (* turn x) (* -500 y))) 1000))))
+    (define (front-x seed front) (+ (spawn-x seed) (front-offset seed front #t)))
+    (define (front-y seed front) (+ (spawn-y seed) (front-offset seed front #f)))
+    (define (front-cell? seed front x y)
+      (and (= x (front-x seed front)) (= y (front-y seed front))))
+    (define (nest-site? seed x y)
+      (or (front-cell? seed 0 x y) (front-cell? seed 1 x y) (front-cell? seed 2 x y)))
     (define (home-x seed x) (+ (- x (spawn-x seed)) hub-x))
     (define (home-y seed y) (+ (- y (spawn-y seed)) hub-y))
     (define (home-cell? x y) (and (>= x 0) (< x 48) (>= y 0) (< y 36)))
@@ -74,7 +90,7 @@
       (let ((x (+ (- (spawn-x seed) hub-x) (if (= seed 1) 36 (+ 33 (map-offset seed 199 9))))))
         ;; The compact nest may share the eastern clearing. Keep its deposit
         ;; buildable by moving a coincident crystal one clear cell west.
-        (if (and (= x (nest-x seed)) (= (eastern-y seed) (nest-y seed))) (- x 1) x)))
+        (if (nest-site? seed x (eastern-y seed)) (- x 1) x)))
     (define (eastern-y seed)
       (+ (- (spawn-y seed) hub-y) (if (= seed 1) 12 (+ 7 (map-offset seed 239 10)))))
 
@@ -124,7 +140,9 @@
       (let ((kind (region-value seed x y 137 5)))
         (and (> kind 0) (< kind 4) (region-shape? seed x y 3 11))))
     (define (nest-clearing? seed x y)
-      (within? x y (nest-x seed) (nest-y seed) 10))
+      (or (within? x y (front-x seed 0) (front-y seed 0) 10)
+          (within? x y (front-x seed 1) (front-y seed 1) 10)
+          (within? x y (front-x seed 2) (front-y seed 2) 10)))
     (define (water? seed x y)
       (and (inside? x y) (not (home-cell? (home-x seed x) (home-y seed y)))
            (not (nest-clearing? seed x y)) (region-water? seed x y)))
@@ -153,13 +171,16 @@
       (and (= (remainder x 32) (+ 2 (region-value seed x y 157 3)))
            (= (remainder y 32) (+ 2 (region-value seed x y 181 3)))))
     (define (deposit-rate seed x y)
-      (cond ((or (not (inside? x y)) (and (= x (nest-x seed)) (= y (nest-y seed)))) 0)
+      (cond ((or (not (inside? x y)) (nest-site? seed x y)) 0)
             ((and (= x (+ (spawn-x seed) 4)) (= y (- (spawn-y seed) 2))) 2)
             ((and (= x (northern-x seed)) (= y (northern-y seed))) 3)
             ((and (= x (eastern-x seed)) (= y (eastern-y seed))) 6)
             ((home-cell? (home-x seed x) (home-y seed y)) 0)
             ((regional-deposit? seed x y) (+ 2 (region-value seed x y 211 5)))
             (else 0)))
+    (define (deposit-capacity seed x y)
+      (let ((rate (deposit-rate seed x y)))
+        (if (= rate 0) 0 (* 300 rate))))
 
     ;; ---- Direct fire crosses every touched grid cell ----
 

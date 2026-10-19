@@ -5,12 +5,13 @@ import {join,resolve} from 'node:path';
 import {BrowserApplication} from '../../src/browser/application.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,client,colonyWords,restoreClient,restoreColony,at,routeCell,siteAt,setWorker} from './colony-state.mjs';
+import {establishColony,colony,client,colonyWords,restoreClient,restoreColony,at,routeCell,siteAt,setWorker} from './colony-state.mjs';
 const world=h=>colony(h.runtime.snapshot(1)),state=h=>client(h.runtime.snapshot(2));
 const deferred=()=>{let resolve;const promise=new Promise(yes=>{resolve=yes;});return{promise,resolve};};
 function node(h,key,value=h.runtime.view().ui){if(value.key===key)return value;for(const child of value.children){const found=node(h,key,child);if(found)return found;}}
-async function host(fresh){
+async function host(fresh,started=true){
   const runtime=await fresh(),errors=[],orders=[],controls={commit:()=>{}};
+  if(started)await establishColony(runtime);
   const app=Object.assign(Object.create(BrowserApplication.prototype),{runtime,manifest:runtime.manifest,updates:Promise.resolve(),closing:false,localWork:0,dirty:false,note:()=>{},report:error=>errors.push(error)});
   const local=new LocalState(runtime,{commit:(...args)=>controls.commit(...args),publish:output=>app.queueEffects(output.effects)});
   app.session={submit:command=>{orders.push(command);return local.submit(command);}};
@@ -25,13 +26,13 @@ const construction=h=>h.orders.filter(command=>command.handler===h.runtime.comma
 
 export async function checkDirectBuild(test,fresh){
   await test('one site selection exposes its own costs without spending or starting time',async()=>{
-    const h=await host(fresh),before=h.runtime.snapshot(1);
+    const h=await host(fresh,false),before=h.runtime.snapshot(1);
     await select(h,12,20);assert.ok(node(h,'extractor'));assert.equal(node(h,'tower'),undefined);assert.equal(state(h).choiceKind,1);
     assert.match(node(h,'extractor-caption').text,/40 ore/);
-    await select(h,12,22);assert.equal(node(h,'extractor'),undefined);for(const key of ['tower','artillery','house'])assert.ok(node(h,key));
-    assert.deepEqual([node(h,'tower').text,node(h,'artillery').text,node(h,'house').text],['1','2','3']);
-    assert.equal(state(h).choiceKind,3);assert.match(node(h,'context-description').text,/Buttons build here/);assert.ok(node(h,'close-context'));
-    for(const key of ['tower','artillery','house'])assert.equal(node(h,key).properties[2],0,'one-shot construction is not a mode toggle');
+    await select(h,12,22);assert.equal(node(h,'extractor'),undefined);for(const key of ['tower','artillery'])assert.ok(node(h,key));
+    assert.deepEqual([node(h,'tower').text,node(h,'artillery').text],['1','2']);
+    assert.equal(state(h).choiceKind,3);assert.match(node(h,'context-description').text,/extractor.*first/);assert.ok(node(h,'close-context'));
+    for(const key of ['tower','artillery'])assert.equal(node(h,key).properties[2],0,'one-shot construction is not a mode toggle');
     await action(h,'dismiss');assert.equal(state(h).chooser,false);assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(world(h).started,false);
     for(const old of ['build-menu','done-plan','clear-plan'])assert.equal(node(h,old),undefined);await h.app.close();
   });
@@ -47,36 +48,36 @@ export async function checkDirectBuild(test,fresh){
     const nest=h.runtime.snapshot(1);await action(h,'dismiss');assert.equal(state(h).chooser,false);assert.deepEqual(h.runtime.snapshot(1),nest);await h.app.close();
   });
   await test('successful ordinary construction is remembered; deposits do not replace that choice',async()=>{
-    const h=await host(fresh);await select(h,12,22);await action(h,'choose',[3]);assert.equal(state(h).lastKind,4);
-    await select(h,13,22);assert.equal(state(h).choiceKind,4);assert.equal(world(h).ore,152);await action(h,'confirm');assert.equal(siteAt(world(h),13,22).kind,4);
-    await select(h,12,20);assert.equal(state(h).choiceKind,1);await action(h,'choose',[1]);assert.equal(state(h).lastKind,4);
-    await select(h,14,22);assert.equal(state(h).choiceKind,4);assert.equal(world(h).ore,104);
+    const h=await host(fresh);await select(h,12,22);await action(h,'choose',[1]);assert.equal(state(h).lastKind,3);
+    await select(h,13,22);assert.equal(state(h).choiceKind,3);assert.equal(world(h).ore,135);await action(h,'confirm');assert.equal(siteAt(world(h),13,22).kind,3);
+    await select(h,12,20);assert.equal(state(h).choiceKind,1);await action(h,'choose',[1]);assert.equal(state(h).lastKind,3);
+    await select(h,14,22);assert.equal(state(h).choiceKind,3);assert.equal(world(h).ore,70);
     await action(h,'choose',[2]);assert.equal(siteAt(world(h),14,22).kind,2);assert.equal(state(h).lastKind,2);await h.app.close();
   });
   await test('slow placement locks repeat taps and stale explicit buttons cannot charge a retargeted site',async()=>{
-    const h=await host(fresh);await select(h,12,22);const cell=routeCell(world(h),12,22),gate=delaySave(h),placing=h.app.local('construct',[4,cell]);await gate.entered;
-    assert.equal(state(h).buildKind,4);assert.equal(world(h).ore,160);
-    const repeats=[h.app.local('confirm'),h.app.local('construct',[4,cell]),h.app.local('nudge',[1,0]),h.app.local('confirm')];
-    gate.release();await Promise.all([placing,...repeats]);await h.app.drainUpdates();assert.equal(world(h).ore,152);assert.equal(construction(h).length,1);
-    await select(h,13,22);const before=h.runtime.snapshot(1);await action(h,'construct',[4,cell]);assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(state(h).chooser,true);await h.app.close();
+    const h=await host(fresh);await select(h,12,22);const cell=routeCell(world(h),12,22),gate=delaySave(h),placing=h.app.local('construct',[3,cell]);await gate.entered;
+    assert.equal(state(h).buildKind,3);assert.equal(world(h).ore,160);
+    const repeats=[h.app.local('confirm'),h.app.local('construct',[3,cell]),h.app.local('nudge',[1,0]),h.app.local('confirm')];
+    gate.release();await Promise.all([placing,...repeats]);await h.app.drainUpdates();assert.equal(world(h).ore,135);assert.equal(construction(h).length,1);
+    await select(h,13,22);const before=h.runtime.snapshot(1);await action(h,'construct',[3,cell]);assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(state(h).chooser,true);await h.app.close();
   });
   await test('failed and rejected construction retain the selected intended type without changing memory',async()=>{
     const h=await host(fresh);await select(h,12,22);const cell=routeCell(world(h),12,22),before=h.runtime.snapshot(1);
     failSave(h);await action(h,'construct',[2,cell]);assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(state(h).buildKind,0);assert.equal(state(h).choiceKind,2);assert.equal(state(h).lastKind,3);assert.equal(state(h).chooser,true);assert.equal(state(h).failure,34);assert.match(node(h,'context-description').text,/not saved/);
     await action(h,'confirm');assert.equal(siteAt(world(h),12,22).kind,2);assert.equal(state(h).lastKind,2);assert.equal(world(h).ore,110);
-    const poor=world(h);poor.spent+=poor.ore;poor.ore=0;await restoreColony(h.runtime,poor);await select(h,13,22);await action(h,'choose',[3]);
-    assert.equal(state(h).choiceKind,4);assert.equal(state(h).lastKind,2);assert.equal(state(h).buildKind,0);assert.equal(state(h).chooser,true);assert.equal(world(h).notice,7);assert.equal(world(h).ore,0);await h.app.close();
+    const poor=world(h);poor.spent+=poor.ore;poor.ore=0;await restoreColony(h.runtime,poor);await select(h,13,22);await action(h,'choose',[1]);
+    assert.equal(state(h).choiceKind,3);assert.equal(state(h).lastKind,2);assert.equal(state(h).buildKind,0);assert.equal(state(h).chooser,true);assert.equal(world(h).notice,7);assert.equal(world(h).ore,0);await h.app.close();
   });
   await test('Pause can cover a placement while its committed result settles without closing the menu',async()=>{
-    const h=await host(fresh);await select(h,12,22);const gate=delaySave(h),placing=h.app.local('choose',[3]);await gate.entered;
+    const h=await host(fresh);await select(h,12,22);const gate=delaySave(h),placing=h.app.local('choose',[1]);await gate.entered;
     const pause=h.app.local('pause-menu');gate.release();await Promise.all([placing,pause]);await h.app.drainUpdates();
-    assert.equal(world(h).ore,152);assert.equal(world(h).paused,1);assert.equal(state(h).dialog,1);assert.equal(state(h).buildKind,0);assert.equal(state(h).lastKind,4);assert.equal(state(h).chooser,false);
+    assert.equal(world(h).ore,135);assert.equal(world(h).paused,1);assert.equal(state(h).dialog,1);assert.equal(state(h).buildKind,0);assert.equal(state(h).lastKind,3);assert.equal(state(h).chooser,false);
     await action(h,'resume');assert.equal(world(h).paused,0);await h.app.close();
   });
   await test('an authoritative import supersedes an older placement reply and preserves imported pause',async()=>{
-    const h=await host(fresh);await select(h,12,22);const imported={...world(h),paused:1},gate=delaySave(h),placing=h.app.local('choose',[3]);await gate.entered;
+    const h=await host(fresh);await select(h,12,22);const imported={...world(h),paused:1},gate=delaySave(h),placing=h.app.local('choose',[1]);await gate.entered;
     const replace=h.app.update(async()=>{await h.local.restore(colonyWords(imported));await h.app.localTransition(h.runtime.command('client','reset-presentation'));
-      assert.equal(state(h).buildKind,4);assert.equal(state(h).buildResult,3);assert.equal(state(h).chooser,false);});
+      assert.equal(state(h).buildKind,3);assert.equal(state(h).buildResult,3);assert.equal(state(h).chooser,false);});
     gate.release();await Promise.all([placing,replace]);await h.app.drainUpdates();assert.deepEqual(world(h),imported);assert.equal(state(h).lastKind,3);assert.equal(state(h).buildKind,0);assert.equal(state(h).dialog,1);
     await action(h,'resume');assert.equal(world(h).paused,0);await h.app.close();
   });
@@ -84,9 +85,9 @@ export async function checkDirectBuild(test,fresh){
     const h=await host(fresh);await select(h,12,22);const entered=deferred(),release=deferred();let writes=0,clock;
     h.controls.commit=()=>{if(++writes===1){clock=h.local.submit(h.runtime.command('match','advance'));throw new Error('controlled first write failure');}
       if(writes===2){entered.resolve();return release.promise;}};
-    const placing=h.app.local('choose',[3]);await entered.promise;await placing;
+    const placing=h.app.local('choose',[1]);await entered.promise;await placing;
     const retry=h.app.local('confirm');release.resolve();await Promise.all([clock,retry]);await h.app.drainUpdates();
-    assert.equal(h.errors.length,1);assert.equal(construction(h).length,2);assert.equal(world(h).buildings.length,1);assert.equal(world(h).ore,152);assert.equal(state(h).lastKind,4);await h.app.close();
+    assert.equal(h.errors.length,1);assert.equal(construction(h).length,2);assert.equal(world(h).buildings.length,1);assert.equal(world(h).ore,135);assert.equal(state(h).lastKind,3);await h.app.close();
   });
   await test('the selected popup retains the actual surveyed-route rejection after unrelated world notices',async()=>{
     const h=await host(fresh),isolated=world(h);isolated.surveys.unshift({...at(isolated,12,8),radius:4});setWorker(isolated,0,{x:12,y:12});await restoreColony(h.runtime,isolated);
