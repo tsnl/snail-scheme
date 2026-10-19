@@ -8,27 +8,28 @@ Scheme owns the game rules and presentation executed in the browser.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement and immutable deposit capacities, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, weighted bounded walking/flight pathfinding and exact grid-crossing direct fire. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, worker demolition with a completed-investment refund, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
-| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, canonical site identities, routes, ownership and exact underground/produced material conservation. |
-| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's ninety-second interval, shared by the HUD and accessible status. No independent game clock. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, compatible World12 reserve migration, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
+| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's nest-adjusted strength interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
-| [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for replay/dump analysis; no recording storage or game transitions. |
+| [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for headless diagnostics and retained developer analysis; no recording storage or game transitions. |
 | [`observation.sld`](src/siegework/observation.sld) | Read-only player knowledge projection through bounded scalar rows; real visibility and purchase previews, with hidden hostile/reserve data withheld. |
 | [`headless.mjs`](headless.mjs) | Node owner of the same compiled reducer, explicit simulation ticks, FIFO operations, episode horizons/reward, opaque checkpoints and optional privileged diagnostics. |
 | [`environment-cli.mjs`](environment-cli.mjs) | Bounded JSONL and MCP stdio transports sharing the headless environment; MCP pages player observations. See the [environment contract](headless.md). |
 | [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, individual nest clears, exhaustion counts, orders and frontier progress. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
-| [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses and nearest-building/crystal/ground picking. |
+| [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, straight aerial transport pulses, cyan reveal-radius guides, camera-facing health/reserve instances and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
-| [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts, projected deposit reserve badges and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
+| [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
-The [recording guide](recording.md) follows the optional publication recorder in
-`src/application/recording.mjs`, isolated snapshot player in
-`src/application/playback.mjs`, and Pause controls in `src/browser/recording.mjs`.
+Recording and replay are deferred in the Siegework package. Its disabled
+recording setting prevents browser recorder loading and per-tick history capture.
+The [recording guide](recording.md) documents retained developer libraries and
+analysis tools; current-state headless inspection remains available.
 The `solo/` package runs from static hosting and stores one game record in
 IndexedDB under a stable application ID. A Web Lock gives one tab ownership.
 A build with `SAVE_SERVICE_URL` also emits static `synced/` files with explicit
@@ -66,7 +67,7 @@ The selected tile and remembered ordinary building type are Client presentation
 state. A construction button captures both its kind and absolute cell, so a stale
 button cannot order a new selection. The second tap on the same empty tile emits
 that same typed `build-cell(kind, cell)` request. Deposits offer only extractors;
-existing-building taps inspect, with separate explicit upgrade and cancel actions.
+existing-building taps inspect, with separate explicit upgrade, Scavenge and cancel actions.
 The model's normal placement operation validates and pays for each order.
 Before the first accepted extractor, placement and the other purchase rules
 reject every alternative use of ore. Only accepting that paid extractor sets
@@ -112,9 +113,20 @@ The game declares world schema 12 and client schema 8 under application ID
 `siegework-colony-v12`, which starts a fresh save identity for explicit hub capacity
 removal of house buildings, finite deposits and three persistent nests. Earlier worlds are rejected rather than reinterpreted. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
-layouts or geography and are rejected; derivation does not migrate existing saves. The browser retains
+layouts or geography and are rejected. The browser retains
 an incompatible record and explains how to reopen a compatible package; changing
 the static mount path leaves its origin/application save identity unchanged.
+
+Within that envelope, payload revision 1 adds a final `payload-version = 1`
+World field, `Enemy.max-hp`, and `Bot.flight` (empty or one committed `Flight`).
+The app-local decoder recognizes only the original 33-field World with the
+original 11-field Bot and 9-field Enemy, or the complete revision-1 shape.
+It extends the original shape before ordinary typed decoding and validation;
+the first accepted transition serializes the canonical revision. Legacy flights
+start empty. Legacy maximum HP freezes `max(current HP, spawn health at saved
+tick)` because the original spawn tick is unavailable. New spawns store the exact
+maximum once, so wounds and later difficulty never change their denominator.
+This compatibility is forward only; old packages reject the extended records.
 
 Typed construction establishes field shape. The app then checks scalar/count
 bounds, distinct IDs, legal bounded routes, construction carriers and
@@ -124,26 +136,22 @@ parent-chain checks prove that every freight route reaches the hub; newer tower
 IDs may be parents. These checks remain in Scheme for every host.
 
 Transport derives a fresh dense Prim tree every tick. Squared Euclidean cell
-distance ranks eligible edges, then endpoint IDs break ties. The graph admits
-only routes within the serialized 1024-step bound: a cached surveyed-ground
-flood rejects disconnected nodes, and exact bounded BFS tests candidate edges
-lazily. Rejected candidates are replaced by the cheapest remaining parent;
-later joined nodes may still connect a previously blocked candidate. Navigation
-scratch is keyed by seed, breaches, surveys and blocking building footprints.
-Saved legal paths take priority over canonical cached paths. The cache cannot
-supply topology or override a restored shuttle's valid route.
+distance ranks eligible straight links, then endpoint IDs break ties. Eligibility
+uses the larger endpoint reveal radius and a conservative terrain-column sight
+test; no map-sized transport flood or route cache is needed.
 
-`CartEdge` carries a physical adjacent edge and its traversal cost. Walking
-costs forty units; level-one, level-two and level-three links cost four, two and
-one. Both route search and the worker's bounded movement budget use those
-costs. The slower endpoint selects a link's service level, with the hub at
-level three. A worker can cross up to eight adjacent cells per tick, but its
-arrival job still runs on the next tick.
+`CartEdge` carries two exact endpoints and their service cost. The bounded route
+search visits walking neighbors and boarding connections. Walking costs 1600
+work units per cell; a flight costs 320 times its tick duration, including two
+lift ticks and two landing ticks. The slower endpoint chooses speed 80, 160 or
+320 world units per tick, with the hub at level three. Adjacent station cells
+remain walking steps because boarding cannot improve their travel time. Arrival
+jobs run on the following tick after movement finishes.
 
 Freight belongs to its source until unloading. Reroutes return it to the living
 source exactly once; source destruction accounts for it as lost. The reserved
 track field is checked on input and cleared on the next simulation tick. Views
-ignore it: one retained energy rail represents the current undirected paths,
+ignore it: the retained energy rail represents the current undirected paths,
 so its uniform display-clock pulse needs no geometry rebuild.
 
 Construction reserves one entire kit from one source. The source's loose stock
@@ -155,11 +163,19 @@ a local paid kit to the hub transfers its cost from local spending to delivered
 ore before refunding or retaining the project's hub-backed reservation.
 
 Every deposit retains its own remaining reserve after extractor loss or depletion.
-The HUD projects a fixed-size ore meter above each known onscreen deposit or
-extractor. Its denominator comes from the seed's original capacity. A positive
-reserve at or below 10% uses a red border animated by CSS display time; zero is
-quiet and explicitly empty. Labels stay readable, ignore pointer input and sit
-below controls. Discovery gates the whole badge, including accessible text.
+The view draws compact unlit green health bars and optional purple reserve bars
+with no text or warning animation. Fixed colored frames and fill meshes are
+instanced in opaque unordered batches. Reserve denominators come from the seed;
+health uses the unit's maximum, including each enemy's saved spawn maximum.
+Known terrain gates deposits/nests, current sight gates enemies, and swept
+viewport culling preserves moving bars until both endpoints leave the view.
+
+Bar endpoints derive from the actual body poses (including worker flight height)
+and static model tops. Their camera-facing matrices share the World owner's
+motion epoch with body batches. Camera-only changes rebuild bar instances while
+retaining body geometry and the same interpolation fraction. Display animation
+requires no new Scheme queries; an exhausted reserve retains its purple frame.
+
 Canonical order identifies the three home sites followed by the regional candidates.
 The parser compares that list and all three nest identities/coordinates with one
 trusted seed-derived layout, retained only for the current seed in each Wasm
@@ -178,8 +194,23 @@ rather than reallocating it. Raids select the nearest exposed operation closer
 to their own source than the hub. Spawn precedes combat, so a nest killed on a
 spawn tick emits its last share. Clearing all three wins even if enemies remain;
 that outcome retains the existing precedence over same-tick hub destruction.
-The fixed nest model is instanced three times, and dead sites retain their seeded
-terrain clearing. Depletion changes retained terrain only on its final unit.
+Each live nest covers one persistent 2,400-ore reserve. Clearing it removes the
+nest mesh and picking obstruction, exposes the reserve to ordinary mining, and
+subtracts two strength tiers for future spawns. Existing enemies retain their
+spawn maximum; real wave timing is unchanged. The strength cap is applied
+before the nest credit, so late clears reduce the terminal difficulty too.
+
+World12 payload revision 2 keeps the revision-1 fields. Original and revision-1
+saves prove their old seeded deposit prefix before the decoder appends new
+reserves once. A tower or gun already occupying an added bonus site may remain
+there through restore; its occupancy hides the crystal and blocks extraction.
+This explicit coexistence rule does not prove the building came from an old save.
+New construction still rejects non-mines on deposits.
+
+Defeat derives full-map knowledge from the outcome without adding surveys.
+Terrain cache dependencies include outcome and the identity of cleared nests; viewport
+culling still bounds the rendered ground. Depletion changes retained terrain
+only on its final unit.
 
 Accepted restarts increment a bounded run marker, including replaying the same
 seed; the maximum wraps to zero. Rejected seed input retains it. The saved world
@@ -218,22 +249,38 @@ current knowledge; construction checks current visibility before assigning a new
 worker or picking up a kit. A carrier already traveling on a proved route can
 complete it. The HUD and world marker share the same hidden-construction rule.
 
-Each simulation tick rebuilds the rooted depot tree. Its current paths supply
-one retained, translucent energy rail that pulses uniformly on the display clock.
-Undirected edges and shared joints draw once, with fast cyan taking priority over
-ordinary gold. Shortened edge rectangles meet node squares without gaps or
-overlapping alpha; every piece instances the shared plane mesh. The padded
-camera window bounds scratch storage and occurrences. Reserved track bitmasks
-never produce geometry. Both towers and
-artillery reuse one stone plinth mesh, with
-four corner pillars and an open arch on each face. Buildings can occupy
-transport paths and intersections without removing their connections.
+Each simulation tick rebuilds a deterministic hub-rooted minimum spanning tree.
+A candidate straight cable must have clear terrain sight and fit within the
+larger actual reveal radius of its two endpoints; the hub contributes radius
+nine. Remembered surveys do not extend link reach. Squared Euclidean distance
+and endpoint IDs determine the tree independently of list order or tower age.
+The shared terrain-height rule bounds today's rock peaks at 850 thousandths of
+a cell. The cable plane is 900, so current mountains never obstruct it; the
+conservative grid-column sight test also checks both cells at diagonal corners.
 
-Unchanged directed routes preserve freight progress. Changed routes return the
+The cable endpoints supply two retained layers: a steady opaque dark backing
+and a narrower bright core that pulses uniformly on the display clock. Each
+undirected pair instances one straight rectangle, sorted and packed with its
+fast-cyan or ordinary-gold tint. The padded camera window culls whole spans;
+reserved legacy track bitmasks never produce geometry. Towers and artillery
+use compact ground-level models. Cyan outlines show the union of the hub's
+and ready towers' actual reveal radii.
+
+Unchanged directed links preserve freight progress. Changed links return the
 load once to its surviving source; a destroyed source loses its own cargo.
-Every completed tower offers worker carts. The slower endpoint determines the
-link's speed; each tower level doubles it, and the hub counts as level three.
-Weighted route costs and assignment estimates use those same travel speeds.
+Freight shuttles lift, cross the cable and lower before unloading. Every ready
+tower offers worker flights; the slower endpoint determines speed, each level
+doubles it, and the hub counts as level three. Walking and flight costs include
+the same movement time used by assignment estimates and execution.
+
+A worker boards only at a current link endpoint. Its captured origin,
+destination, progress and speed then determine lift, cruise and landing without
+consulting the towers again. Destruction cannot interrupt that committed flight
+or duplicate its job, cargo or source reservation. The next queued leg is
+checked again before boarding and replanned if the tree changed. Saves validate
+captured coordinates and safe ground endpoints; no live tower is needed to
+resume an active flight. Legacy routed freight is accepted at the boundary and
+settled once when the next tick replaces its route with a current straight link.
 
 A rejected transition never becomes the saved colony. The runtime captures the
 command, committed snapshots and any staged candidate; the browser retains one

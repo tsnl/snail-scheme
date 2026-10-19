@@ -57,6 +57,8 @@ function checkSettings(settings, protocol) {
   }
 }
 function checkRecordingSettings(recording, select) {
+  if (recording.enabled !== undefined && typeof recording.enabled !== 'boolean')
+    throw new Error('recording enabled must be a boolean');
   if (typeof recording.menuKey !== 'string' || !recording.menuKey || recording.menuKey.length > 64
       || !Array.isArray(recording.cameraHandlers) || recording.cameraHandlers.length > 64)
     throw new Error('recording requires a menu key and bounded camera handlers');

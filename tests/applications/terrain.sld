@@ -5,6 +5,7 @@
    (scheme base)
    (scheme immutable)
    (siegework terrain)
+   (only (siegework model) initial-world world-terrain-height clear-zipline? flight-height)
    (only (lofi core) ann -> I32))
   (begin
 
@@ -40,15 +41,18 @@
                  (kind (if (ground? seed x y) 1 (if (water? seed x y) 2 0)))
                  (value (+ kind (* 10 (deposit-rate seed x y)))))
             (fingerprint seed (+ cell 1) (remainder (+ (* total 31) value) 65521)))))
+    ;; These fingerprints include the bounded nest-density bonus deposits.
+    ;; Omitting only those bonuses reproduces the previous eight fingerprints;
+    ;; opening geometry, placement and route invariants are checked separately.
     (define (stable-maps?)
-      (and (= (fingerprint 1 0 0) 11165)
-           (= (fingerprint 2 0 0) 25115)
-           (= (fingerprint 3 0 0) 49315)
-           (= (fingerprint 37 0 0) 2066)
-           (= (fingerprint 249 0 0) 38322)
-           (= (fingerprint 250 0 0) 42873)
-           (= (fingerprint 251 0 0) 44140)
-           (= (fingerprint 65535 0 0) 45257)))
+      (and (= (fingerprint 1 0 0) 14897)
+           (= (fingerprint 2 0 0) 10721)
+           (= (fingerprint 3 0 0) 29119)
+           (= (fingerprint 37 0 0) 50078)
+           (= (fingerprint 249 0 0) 23540)
+           (= (fingerprint 250 0 0) 47689)
+           (= (fingerprint 251 0 0) 42139)
+           (= (fingerprint 65535 0 0) 34975)))
     (define (seed-cycle?)
       (and (= (next-map-seed -1) 1) (= (next-map-seed 0) 1)
            (= (next-map-seed 1) 2) (= (next-map-seed 2) 3)
@@ -218,14 +222,26 @@
                            (list (make-survey 96 96 32) (make-survey 2 2 0)) #f)))
     (define (cart-detour?)
       (let* ((a (cell-index (home-x 8) (home-y 22))) (b (+ a 1)) (c (+ a 2))
-             (d (+ a map-width)) (e (+ d 1)) (f (+ d 2))
-             (fast (list (make-cart-edge (rail-edge a d) 1) (make-cart-edge (rail-edge d e) 1)
-                         (make-cart-edge (rail-edge e f) 1) (make-cart-edge (rail-edge f c) 1)))
+             (fast (list (make-cart-edge a c 1)))
              (path (cart-path 1 (empty-list) fast (index-x a) (index-y a) (index-x c) (index-y c) all-surveys (empty-list))))
-        (and (= (path-length path) 4) (= (car path) d)
-             (rail-step? fast a d) (rail-step? fast d a) (not (rail-step? fast a b))
+        (and (= (path-length path) 1) (= (car path) c)
+             (rail-step? fast a c) (rail-step? fast c a) (not (rail-step? fast a b))
              (= (path-length (cart-path 1 (empty-list) (empty-list) (index-x a) (index-y a)
                                         (index-x c) (index-y c) all-surveys (empty-list))) 2))))
+
+    ;; The production cable clears all current terrain. Lower probe heights
+    ;; exercise rejection, including conservative diagonal corner coverage.
+    (define (first-rock world cell)
+      (if (> (world-terrain-height world (index-x cell) (index-y cell)) 0) cell
+          (first-rock world (+ cell 1))))
+    (define (cable-sight?)
+      (let* ((world (initial-world)) (rock (first-rock world (+ map-width 1)))
+             (a (- rock map-width)) (b (+ rock 1)))
+        (and (= (world-terrain-height world (index-x rock) (index-y rock)) 850)
+             (clear-zipline? world a b flight-height)
+             (clear-zipline? world b a flight-height)
+             (not (clear-zipline? world a b 850))
+             (not (clear-zipline? world b a 850)))))
 
     ;; ---- Tests ----
 
@@ -250,5 +266,6 @@
                    ((not (permanent-breach?)) -17)
                    ((not (water-cannot-open?)) -18)
                    ((not (cart-detour?)) -19)
+                   ((not (cable-sight?)) -20)
                    (else 1)))
            (-> I32)))))

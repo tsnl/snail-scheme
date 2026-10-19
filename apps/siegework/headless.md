@@ -104,7 +104,8 @@ for the environment's lifetime.
 | `wait` | none | Only the requested ticks. |
 | `build` | `kind`, `cell` | Paid construction: **1 extractor (40 ore), 2 artillery (50), 3 observation tower (25)**. |
 | `upgrade` | `cell` | Upgrade that building, or hub capacity when selecting a hub cell. |
-| `cancel` | `cell` | Cancel an unfinished building, upgrade, or pending move. |
+| `cancel` | `cell` | Cancel an unfinished building, upgrade, pending move, or Scavenge job. |
+| `scavenge` | `cell` | Assign a worker to demolish a completed non-hub building; pay its quoted 20% investment refund only on completion. |
 | `relocate` | `from`, `to` | Ordinary paid move of a completed tower/artillery. |
 | `fabricate` | none | Order a worker (25 ore), subject to the game's capacity and available workers. |
 | `repair` | none | Order the game's paid hub repair. |
@@ -247,3 +248,7 @@ sample ran 600 ticks in 156 ms, with initial and tick-600 observations of 23171
 and 34441 JSON bytes. These are instrumented local diagnostics, not a clean
 benchmark or a throughput guarantee. Rendering, browser persistence and learning
 quality are covered by separate work.
+
+Building observations include `scavengeRefund` (completed construction and upgrade
+investment divided by five, rounded down) and `scavenging` (a worker currently
+claims demolition). Stored ore recovery is separate from this structural quote.

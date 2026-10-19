@@ -33,12 +33,21 @@ time, artifact size and runtime performance can differ.
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
 The current application ID is `siegework-colony-v12`, with world schema 12 and
-client schema 8. Hub capacity upgrades deliberately start a new colony: World12 stores a completed
+client schema 8. The release introducing hub capacity upgrades required a new
+colony. Buying an upgrade during play preserves the colony. World12 stores a completed
 capacity tier, finite deposit reserves and three persistent nests, and removes
 constructible houses. Old browser records
 remain under their previous identity; importing them into this version is rejected.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
+
+World12 payload revision 1 retains that save identity and explicitly upgrades the
+original World12 record layout. It adds stable enemy maximum health and an empty
+worker flight slot. Existing funds, jobs and resources survive; the next accepted
+command writes the new layout. An old wounded enemy's original maximum is unknown,
+so migration freezes the larger of its current HP and the spawn-health estimate at
+the saved difficulty. New enemies retain their exact spawn maximum. Older packages
+cannot read revision 1; unknown or mixed layouts are rejected without replacing the save.
 
 An optional `SAVE_SERVICE_URL` build also emits `synced/` with explicit online
 checkpoint controls. Gameplay still runs locally. See the
@@ -71,14 +80,13 @@ to their origin, so a colony from localhost does not automatically move online.
 ## One interface for mouse and touch
 
 The status dials and controls occupy one vertical edge strip. **Pause** opens a
-centered menu with Resume, Restart and the control-side setting. The same icons
+centered menu with Resume, Restart, and explicit **Right-handed** and
+**Left-handed** buttons. The selected choice places the controls on that edge. The same icons
 and touch-sized buttons appear on desktop and mobile.
 
-Pause also exposes the in-memory game recorder, replay scrubber and dump
-export/import controls. Recording starts at this page's checkpoint and is
-bounded; export before reloading to keep its history. Replay preserves the saved
-colony. See [recording and analysis](recording.md) for the event contract and
-the Node analysis command.
+Recording and replay are deferred while the game stabilizes. The game saves its
+current colony normally; it does not capture per-tick history or show dump
+import/export controls. Headless current-state inspection remains available.
 
 - Tap a resource deposit to open its **Extractor** action (`1`). Extractors
   are not part of the ordinary construction choices. Persistent first-extractor
@@ -99,15 +107,18 @@ the Node analysis command.
 - Select an existing building for **Upgrade** (`U`) or **Cancel** (`C`) on its
   pending order. Repeated tile taps only inspect an existing building; they do
   not upgrade or cancel it. Dismissing selection does not cancel construction.
-  Completed towers and artillery always stand on the same stone plinth, with
-  corner supports and open arches on all four faces. Workers and carts pass underneath.
-  Their upper structures and the hub have lower profiles; the arches retain
-  their clearance. Wider violet crystals and pulsing extractor halos identify
-  resource sites using the existing fixed meshes and display clock.
-  An animated indicator above a tower or artillery shows that it is waiting
-  for upgrade materials; current services stay active.
-  Buildings may occupy transport paths and intersections; their foundations
-  leave clearance for the carts.
+  Completed towers and artillery use compact ground-level models. Wider violet
+  crystals and pulsing extractor halos identify resource sites. An animated
+  indicator above a tower or artillery shows that it is waiting for upgrade
+  materials; current services stay active. Straight aerial cables leave their
+  intermediate ground cells available for construction.
+- **Scavenge** (`X`) on a completed building quotes 20% of its construction and
+  completed upgrades, rounded down. An empty worker travels there and dismantles
+  it for two seconds; the building keeps working until demolition finishes. Only
+  then do you receive the quoted refund and recover its stored ore and outbound
+  freight. **Cancel** (`C`) stops the job. The hub, unfinished work and buildings
+  with uncollected supply reservations cannot be scavenged. Enemy destruction
+  or a lost worker pays no structural refund. Underground reserves stay intact.
 - Select the hub, then choose **New worker** (`F`)
   to order paid recruits. The actions remain open for repeated orders. An existing
   worker assembles each recruit. The hub occupies nine tiles. Worker capacity
@@ -193,22 +204,26 @@ Each upgrade needs another delivered 25-ore kit and keeps the current level
 working until delivery completes. Artillery starts with two kits; a tower starts
 with one. Existing tower-mounted guns remain functional when their towers are
 upgraded. Every completed tower provides carts. Links run at the slower tower's
-level; the hub supports level three. Workers travel 2, 4 or 8 cells per tick
+level; the hub supports level three. Workers cruise at 2, 4 or 8 cells per tick
 (10×, 20× or 40× walking speed); freight moves 32, 64 or 128 world units per
 tick and carries up to 32 ore. These are movement speeds, not extra deliveries
 or production within one tick.
 
-The transport network is a deterministic minimum spanning tree rebuilt from
-scratch each simulation tick over the hub and completed towers. Its edge cost
-is squared straight-line cell distance, restricted to links with a known,
-passable route of at most 1024 steps. It does not minimize terrain travel
-length. Extractors obstruct freight paths; tower and artillery
-plinths permit crossings. Unreachable depots keep their stock.
+The transport network is a deterministic minimum spanning tree rebuilt each
+simulation tick over the hub and completed towers. Its edge cost is squared
+straight-line cell distance. A link needs clear cable sight and must fit inside
+the larger actual reveal radius of its endpoints; the hub radius is nine cells.
+Remembered explored terrain does not extend this reach. Unconnected depots keep
+their stock. Current mountains are lower than the cable plane, so they do not
+block links. Cyan boundary lines show the combined hub and tower reveal range.
 
-A continuous, bidirectional energy rail pulses uniformly on the display clock.
-It shows only the current network, with cyan identifying available worker cart
-service. Terrain maps and
-legal paths are cached by their inputs; tree selection itself runs afresh.
+A straight aerial energy cable pulses uniformly on the display clock. Its
+steady dark border separates the bright core from terrain. Cyan identifies
+available worker service and warm yellow marks ordinary freight links. Workers
+lift for two ticks, fly at their captured speed, then land; jobs, cargo and source
+reservations stay with them. A flight already underway finishes safely even if
+a tower is destroyed. Queued flights recheck the current network before boarding.
+Freight shuttles also lift and lower around their straight trip.
 Unchanged routes retain shuttle progress and cargo. Rerouting returns a
 shuttle's cargo once to its surviving source and resets that shuttle; destroying
 the source loses its stock and undelivered freight. Obsolete track cells never
@@ -225,10 +240,11 @@ excavation. They stop and chip away before a permanent opening appears.
 
 Deposits run out. The starter holds 600 ore, the northern deposit 900, the rich
 eastern deposit 1,800, and regional deposits hold 300 times their base yield.
-Each discovered deposit has an overhead ore count and a bar showing its share
-of the original reserve. At 10% or less, a red border pulses while the amount
-stays readable. Empty sites show a quiet "0 ore · Empty" badge. Selecting a
-deposit or extractor also shows what remains underground. Extraction
+Green bars above units show their current health. A purple bar beneath an
+extractor, or above a bare deposit, shows the fraction of its original underground
+reserve. Empty reserves keep an empty purple frame. These world bars contain no
+text, never turn red and never pulse. Selecting a deposit or extractor still
+shows what remains underground. Extraction
 upgrades add mining slots without replenishing the reserve. Exhausted sites stop
 pulsing; workers haul the last stock and find other work. Rebuilding an extractor
 preserves its reserve. Keep ore for the next extractor and protect its supply route.
@@ -236,14 +252,31 @@ preserves its reserve. Keep ore for the next extractor and protect its supply ro
 The 128×128 map places the hub within eight cells of its center and three nests
 32–41 cells away on separated bearings, roughly five or six observation hops each. The intended ordinary
 expedition lasts about ten minutes. Enemy
-approach directions help locate them. Waves introduce progressively stronger ranks
+approach directions help locate them and richer mining territory. Ordinary deposits
+become significantly denser near nests. Each front considers four inner sites
+6–9 cells away with a 75% acceptance chance and four outer sites 13–17 cells
+away with a 25% chance, then rejects blocked ground, existing mines and the
+20-cell opening radius. These are seeded candidate odds, not guarantees for
+each map or a probability of ore on every tile. At most 24 small deposits are
+added; each holds 600 ore. The three opening deposits keep their old quantities.
+Waves introduce progressively stronger ranks
 with distinct shapes, armor and colors, including elites and a much larger boss.
 The opening lasts 45 seconds before the first spawn. Ordinary waves are thirty
 seconds apart, strength steps are ninety seconds apart, and the first boss spawns
 at nine minutes. Raids replace an ordinary wave every ninety seconds starting at
 2:15. The opening wave has six enemies total, shared among the three fronts.
-Each nest has 900 health. Destroying one removes its share of future waves; its
-remaining enemies keep fighting. Raids prefer an exposed operation on their own
+Each nest has 900 health. Destroying one removes its share of future waves,
+reveals a mineable 2,400-ore reserve with base yield 8, and lowers difficulty by
+two levels, down to level one. There is no immediate ore payout. Its remaining
+enemies keep their existing health and strength. The reserve stays depleted
+after saving, loading or rebuilding an extractor.
+
+The strength clock subtracts 1,800 ticks per cleared nest from real time, after
+capping real time at 36,000 ticks, and floors the result at zero. The displayed
+next increase translates that clock back to real time: an early clear delays
+the next increase until tick 2,700, even when the displayed level was already
+one. Clearing at the cap permanently reduces the terminal level. Wave times
+and numbering keep using real time. Raids prefer an exposed operation on their own
 approach. Wave sizes grow more slowly than strength. Destroy every nest to win;
 time never grants a victory, and unfinished runs continue beyond ten minutes.
 Artillery has limited range and deals more damage at close range. The map outlines
@@ -252,6 +285,8 @@ attacker. Other buildings do not intercept that pursuit.
 Crowds spread into nearby walking lanes.
 Defeated enemies
 award no ore: extraction and defending your supply lines remain necessary.
+If the hub is destroyed, the frozen map is fully revealed for inspection.
+Panning and selection remain available; purchases and simulation stay stopped.
 
 Attacks produce smoke and compact red notifications. Select a notification
 to move to that attack. Newly surveyed ground unveils with a sharp, expanding

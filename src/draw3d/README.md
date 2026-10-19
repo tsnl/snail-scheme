@@ -249,6 +249,22 @@ transition. Static batches allocate no prior-transform buffer: both endpoint
 bindings reuse the current transform buffer. A motion batch owns a separate prior
 transform buffer and uniform so concurrent batches can use different durations.
 
+When separately retained batches must move together, wrap each motion batch in
+`(owner-motion-clock batch owner)`, where owner `1` is match state and `2` is
+client state. All batches for that owner use the same duration. This opt-in clock
+starts on the first rendered observation of each immutable owner snapshot, even
+when a batch's geometry dependencies stay equal. Camera-dependent indicator
+instances can rebuild beside a retained body without restarting either interval.
+A paused world therefore keeps its motion endpoint while its camera turns.
+
+The bridge weakly maps each module/owner snapshot to an opaque epoch token; scene
+data contains no gameplay values. Every complete frame registers the tokens in
+all its batches, including empty batches and clipped inset views. A token stays
+alive while any batch declares it, across cameras and shader replacement, and
+is removed when the complete frame omits it. Reintroducing an omitted token
+starts a fresh interval. Closing the renderer clears all clocks. The ordinary
+`motion-batch` constructor retains its geometry-change timing contract.
+
 For a simulation committing every 100 ms, a duration of 100 ms displays the
 transition from the prior committed state to the current one over the following
 tick interval. This adds approximately one simulation tick of visual latency;

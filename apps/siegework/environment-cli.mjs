@@ -70,7 +70,7 @@ const cell = {...int(0, 16383), description: 'Absolute map cell x + y * 128; use
 const actionVariant = (type, properties = {}) => ({...schema({type: {const: type}, ...properties}), required: ['type', ...Object.keys(properties)]});
 const actionSchema = {oneOf: [actionVariant('wait'), actionVariant('build', {
   kind: {...int(1, 3), description: '1 = extractor (first required purchase), 2 = artillery, 3 = observation tower.'}, cell}),
-  actionVariant('upgrade', {cell}), actionVariant('cancel', {cell}), actionVariant('relocate', {from: cell, to: cell}),
+  actionVariant('upgrade', {cell}), actionVariant('cancel', {cell}), actionVariant('scavenge', {cell}), actionVariant('relocate', {from: cell, to: cell}),
   actionVariant('fabricate'), actionVariant('repair'), actionVariant('pause', {paused: {type: 'boolean'}})]};
 const tools = [
   {name: 'siegework_reset', description: 'Start a fresh seeded episode. The first paid extractor starts its simulation clock.', inputSchema: schema({seed: int(1, 65535)})},

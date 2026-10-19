@@ -678,7 +678,11 @@ are the [WebGPU specification](https://www.w3.org/TR/webgpu/) and Node's
 
 ## Bounded recording and snapshot playback
 
-The optional browser recorder observes World publication after persistence and
+Setting `recording.enabled` to `false` skips browser recorder loading and capture
+while retaining its inspection metadata. Siegework currently uses this setting
+while recording and replay are deferred.
+
+When enabled, the optional browser recorder observes World publication after persistence and
 normal revision/effect publication. It retains exact packed snapshots using
 keyframes and word changes, alongside handled commands and emitted effects.
 Failed saves produce no commit entry. Recording failures cannot reject a live
