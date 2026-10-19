@@ -101,6 +101,8 @@ export class ReducerRuntime {
   stores = new Map(); previousSnapshots = new Map(); active; instance; manifest; sizes; previous;
   #tail = Promise.resolve(); #closing; #activation = 0; #recoveries = new Set();
   #snapshotIdentities = new WeakMap(); #nextSnapshotIdentity = 1;
+  // One optional diagnostic recorder. It observes publication, never owns it.
+  recording;
   constructor() {
     this.provider = scalarProvider({length: id => this.bank(id).length,
       read: (id, index) => this.read(id, index), write: (id, index, value) => this.write(id, index, value),
@@ -288,6 +290,7 @@ export class ReducerRuntime {
     this.previous = this.instance ? {instance: this.instance, manifest: this.manifest, sizes: this.sizes} : undefined;
     this.stores = stores; this.instance = candidate.instance; this.manifest = candidate.manifest; this.sizes = candidate.sizes;
     this.#activation++;
+    this.#record('generation', 1);
   }
   initialize(owner) {
     return this.message(() => {
@@ -303,6 +306,7 @@ export class ReducerRuntime {
   }
   async #transition(owner, command, {persist, publish} = {}) {
     const {handler, args} = parseCommand(this.manifest, owner === 1 ? 'match' : 'client', command);
+    const handledCommand = owner === 1 ? {handler: handler.id, args: args.slice()} : undefined;
     let staged;
     try { staged = this.#stage(this.instance, [owner === 1 ? 2 : 3, handler.slot, args[0] ?? 0, args[1] ?? 0], {owner}); }
     catch (error) {
@@ -318,7 +322,9 @@ export class ReducerRuntime {
     // receives an immutable copy, never the buffer that will become committed.
     if (persist) await persist(Object.freeze(Array.from(staged.next ?? this.stores.get(owner))), staged.output.effects);
     if (staged.next) this.#commitSnapshot(owner, staged.next, false);
-    if (publish) publish(staged.output); // Local revision joins this synchronous publication turn.
+    // Recording cannot interrupt revision publication or queue effects twice.
+    try { if (publish) publish(staged.output); }
+    finally { this.#record('commit', owner, handledCommand, staged.output.effects, !!persist); }
     return staged.output;
   }
   // Both endpoints advance in the publication turn, after validation and any
@@ -328,6 +334,14 @@ export class ReducerRuntime {
     this.previousSnapshots = new Map(this.previousSnapshots).set(owner, reset ? next : this.stores.get(owner));
     this.stores = new Map(this.stores).set(owner, next);
   }
+  #record(kind, owner, command = null, effects = [], persisted = false) {
+    if (owner !== 1 || !this.recording || !this.stores.get(1)?.[0]) return;
+    try { this.recording.capture(this, {kind, command, effects, persisted}); }
+    catch (error) {
+      this.recordingError = String(error.message ?? error);
+      try { this.recording.fail(this.recordingError); } catch {} // Diagnostics stay nonfatal.
+    }
+  }
   #recoverCode(error) {
     // A trap does not commit. Persistence failures alone must not change code.
     if (error.transitionPhase !== 'reduce' || !this.previous) return;
@@ -335,6 +349,7 @@ export class ReducerRuntime {
     closeInstance(this.instance); this.instance = this.previous.instance;
     this.manifest = this.previous.manifest; this.sizes = this.previous.sizes; this.previous = undefined;
     this.#activation++;
+    this.#record('generation', 1);
   }
   command(owner, binding, args = []) { return {handler: endpoint(this.manifest, owner, binding).id, args}; }
   effectCommand(effect) { return effect.command; }
@@ -351,6 +366,13 @@ export class ReducerRuntime {
       .finally(() => this.#recoveries.delete(activation));
   }
   snapshot(owner) { return Array.from(this.stores.get(owner)); }
+  inspect(index) {
+    if (this.#closing) throw new Error('runtime is closing');
+    const projection = this.manifest.settings?.recording?.inspection;
+    if (!projection || !Number.isInteger(index) || index < -1 || index >= projection.fields.length)
+      throw new Error('unsupported diagnostic projection or field');
+    return this.#stage(this.instance, [11, index, 0, 0], {readOnly: true}).output.result;
+  }
   async restore(owner, words, {persist, publish} = {}) {
     words = structuredClone(words);
     return this.message(() => this.#restoreState(owner, words, {persist, publish}));
@@ -364,7 +386,8 @@ export class ReducerRuntime {
     this.validateState(this.instance, snapshots);
     if (persist) await persist(Object.freeze(words), []);
     this.#commitSnapshot(owner, snapshots.get(owner), true);
-    if (publish) publish({effects: []});
+    try { if (publish) publish({effects: []}); }
+    finally { this.#record('restore', owner, null, [], !!persist); }
   }
 
   close() {
