@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {colony, client, at, siteAt, restoreClient} from '../applications/colony-state.mjs';
+import {expandedVertexCount} from './scene-tools.mjs';
 const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
 await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
@@ -76,7 +77,7 @@ function controlsFit(width,height) {
 }
 try {
   const fresh=runtime.snapshot(1),frame=runtime.view();
-  assert.ok(frame.scene.batches.reduce((n,b)=>n+b.vertices.length,0)>1000);
+  assert.ok(frame.scene.batches.reduce((n,b)=>n+expandedVertexCount(b)*10,0)>1000);
   assert.deepEqual(runtime.snapshot(1),fresh);assert.equal(node('context'),undefined);
   assert.equal(manifest.settings.controller,undefined);assert.equal(manifest.settings.controllerAxes,undefined);
   for(const direction of [[1,0],[-1,0],[0,1],[0,-1],[1,-1]]){

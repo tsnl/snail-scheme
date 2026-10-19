@@ -19,6 +19,7 @@ import {checkDigging} from './colony-digging.mjs';
 import {checkRanks} from './colony-ranks.mjs';
 import {checkCarts} from './colony-carts.mjs';
 import {checkTransport} from './colony-transport.mjs';
+import {checkInstancing} from './colony-instancing.mjs';
 import {checkAsyncRuntime} from './async-runtime.mjs';
 import {checkSnapshotCache} from './snapshot-cache.mjs';
 import {checkBrowserEffects} from './browser-effects.mjs';
@@ -27,6 +28,7 @@ import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {packageApplication} from '../../src/browser/build.mjs';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/compiler/execute.mjs';
+import {expandedVertexCount} from '../draw3d/scene-tools.mjs';
 
 const output = resolve(process.argv[2]), fixtures = resolve(process.argv[3]);
 const artifacts = resolve(process.argv[4] ?? output);
@@ -63,7 +65,7 @@ await test('immutable prior snapshots, automatic hauling, placement and pure vie
   await call(r, 'extract', [18, 10]); assert.equal(colony(r.snapshot(1)).ore, 120);
   for (let tick = 0; tick < 120; tick++) await call(r, 'advance');
   assert.ok(colony(r.snapshot(1)).ore > 120); const snapshot = r.snapshot(1), view = r.view();
-  assert.ok(view.scene.batches.some(batch => batch.vertices.length > 100)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
+  assert.ok(view.scene.batches.some(batch => expandedVertexCount(batch) > 10)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
 });
 await test('a selected deposit spends only on construction and unlocks after reply and settlement', async () => {
   const r = await fresh(), before = r.snapshot(1), local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
@@ -226,6 +228,7 @@ await checkDigging(test, fresh);
 await checkRanks(test, fresh);
 await checkCarts(test, fresh);
 await checkTransport(test, fresh);
+await checkInstancing(test, fresh);
 await checkAsyncRuntime(test, fixture);
 await checkSnapshotCache(test, fixture);
 await checkBrowserEffects(test, fixture);

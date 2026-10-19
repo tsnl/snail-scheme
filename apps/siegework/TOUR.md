@@ -15,7 +15,7 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
-| [`view.sld`](src/siegework/view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan, animated 90-degree Q/E rotation, scale-only zoom, fragment reveal, shared open stone plinths, stacked artillery level cues, display-clock transport pulses and nearest-building/crystal/ground picking over the existing grid. |
+| [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
 | [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
 

@@ -134,7 +134,7 @@ export async function checkTransport(test,fresh) {
     const a=routeCell(clean,8,23);clean.tracks=[a*32+17,(a+1)*32+20];await restoreColony(r,clean);
     const after=r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
     assert.equal(after.length,8);assert.ok(after.every((batch,i)=>Math.abs(batch.pulsePhase-i*Math.PI/4)<1e-12));
-    for(let i=0;i<8;i++){assert.equal(after[i].vertices,before[i].vertices);assert.equal(after[i].pulse,true);}
+    for(let i=0;i<8;i++){assert.equal(after[i].transforms,before[i].transforms);assert.equal(after[i].draws,before[i].draws);assert.equal(after[i].pulse,true);}
     const saved=r.snapshot(1);await step(r);assert.deepEqual(r.snapshot(1),saved);
     await fixtureCall(r,'pause-colony',[0]);await step(r);assert.deepEqual(state(r).tracks,[]);await r.close();
   });

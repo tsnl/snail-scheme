@@ -7,6 +7,7 @@ import {checkColony} from './colony.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkLogistics} from './colony-logistics.mjs';
 import {colony, colonyBalance, restoreColony, restoreClient, client, setWorker, addEnemy, at, pixelAt, siteAt, origin, fixtureCall} from './colony-state.mjs';
+import {expandedVertexCount} from '../draw3d/scene-tools.mjs';
 
 export async function checkFocus(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -254,11 +255,11 @@ export async function checkFocus(test, fresh, call) {
     }
   });
   await test('the bounded live enemy backlog survives pause, save/reload and presentation', async () => {
-    const r=await fresh(),baseVertices=r.view().scene.batches.reduce((n,b)=>n+b.vertices.length,0),world=state(r); world.started=true; world.tick=3000; world.lastRevealTick=-100; world.paused=1;
+    const r=await fresh(),baseVertices=r.view().scene.batches.reduce((n,b)=>n+expandedVertexCount(b)*10,0),world=state(r); world.started=true; world.tick=3000; world.lastRevealTick=-100; world.paused=1;
     for(let i=0;i<128;i++)world.enemies.push({id:world.nextId++,...pixelAt(world,12,20),hp:i===127?1800:170,
       kind:i===127?2:0,target:0,path:[]});
     await restoreColony(r,world); const saved=r.snapshot(1);
-    assert.ok(saved.length<1048576); assert.ok(r.view().scene.batches.reduce((n,b)=>n+b.vertices.length,0)>=baseVertices+512);
+    assert.ok(saved.length<1048576); assert.ok(r.view().scene.batches.reduce((n,b)=>n+expandedVertexCount(b)*10,0)>=baseVertices+512);
     await r.restore(1,saved); await advance(r,5); assert.deepEqual(r.snapshot(1),saved);
     const excess=state(r); excess.enemies.push({...excess.enemies[0],id:excess.nextId++});
     await assert.rejects(()=>restoreColony(r,excess),WebAssembly.RuntimeError);

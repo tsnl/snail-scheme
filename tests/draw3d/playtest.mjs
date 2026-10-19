@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {colony,client,at,siteAt,setWorker,restoreColony,restoreClient,fixtureCall} from '../applications/colony-state.mjs';
+import {expandBatch} from './scene-tools.mjs';
 
 const output=process.argv[2],manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
 const bytes=readFileSync(join(output,manifest.module));
@@ -29,7 +30,13 @@ function project(r,x,y,z=0) {
   return[Math.round((m[0]*x-m[4]*y+m[8]*z+m[12]+1)*s.width/2),
     Math.round((1-(m[1]*x-m[5]*y+m[9]*z+m[13]))*s.height/2)];
 }
-const batch=(r,key)=>r.view().scene.batches.find(value=>value.key===key);
+const expanded=new WeakMap();
+function batch(r,key) {
+  const value=r.view().scene.batches.find(value=>value.key===key);
+  if(!value)return undefined;
+  if(!expanded.has(value))expanded.set(value,expandBatch(value));
+  return expanded.get(value);
+}
 const points=batch=>Array.from({length:batch.vertices.length/10},(_,index)=>batch.vertices.slice(index*10,index*10+3));
 function cross2(a,b,c){return(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);}
 function overlapArea(left,right) {
@@ -67,7 +74,7 @@ function overlappingTowerFaces(mesh,site) {
       await command(r,'move',project(r,x,y));await command(r,'confirm');
       assert.deepEqual([local(r).targetX,local(r).targetY],[hub.x,hub.y]);
       assert.match(node(r,'context-title').text,/hub/i);assert.ok(node(r,'repair')&&node(r,'worker'));
-      assert.deepEqual(node(r,'worker').action.command,r.command('client','hire'));
+      assert.deepEqual(node(r,'worker').action.command,r.command('client','fabricate'));
       assert.equal(node(r,'close-context'),undefined);
     }
     assert.deepEqual(r.snapshot(1),initial);
@@ -78,21 +85,21 @@ function overlappingTowerFaces(mesh,site) {
     await r.restore(1,initial);const limited=world(r);limited.hull=100;limited.ore=30;limited.spent=130;limited.started=true;await restoreColony(r,limited);
     assert.match(node(r,'context-description').text,/Repair to 53% · 30 ore/);await apply(r,node(r,'repair').action);assert.equal(world(r).ore,0);
     await r.restore(1,initial);await command(r,'dismiss');
-    await command(r,'worker-menu');assert.deepEqual(r.snapshot(1),initial);
-    assert.deepEqual(node(r,'worker').action.command,r.command('client','hire'));
+    await command(r,'move',project(r,8,22));await command(r,'confirm');assert.deepEqual(r.snapshot(1),initial);
+    assert.deepEqual(node(r,'worker').action.command,r.command('client','fabricate'));
     await apply(r,node(r,'worker').action);await apply(r,node(r,'worker').action);
-    assert.equal(world(r).ore,110);assert.equal(local(r).chooser,false);
+    assert.equal(world(r).ore,110);assert.equal(local(r).chooser,true);await command(r,'dismiss');
     assert.match(node(r,'workers').help,/queued: 2/);
     const hired=r.snapshot(1);await command(r,'fabricate');assert.deepEqual(r.snapshot(1),hired);
     await command(r,'dismiss');
     for(const [width,height] of [[1100,760],[390,844],[640,360],[568,320],[320,568],[360,640]]) {
       await command(r,'viewport',[width,height]);
-      for(const key of ['ore','health','workers','difficulty','home','pause','worker-menu','rotate-left','rotate-right'])
+      for(const key of ['ore','health','workers','difficulty','home','pause','rotate-left','rotate-right'])
         assert.deepEqual(node(r,key).rect.slice(2),[56,56],`${key} circle at ${width}×${height}`);
       assert.equal(node(r,'ore').text,'');assert.match(node(r,'ore-readout-label').text,/110 ore/);
       assert.equal(node(r,'health').properties[3],300);assert.equal(node(r,'health').properties[5],300);
     }
-    console.log('ok - every hub tile selects the same hub; worker panel opens without charging and hiring repeats; all main circles have one diameter');
+    console.log('ok - every hub tile selects the same hub; hub actions open without charging and hiring repeats; all main circles have one diameter');
   } finally {await r.close();}
 }
 {

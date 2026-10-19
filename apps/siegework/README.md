@@ -202,8 +202,12 @@ and freight interpolate at display frame rate.
 
 Start with [TOUR.md](TOUR.md), then the [application chapter](../../doc/book/lofi/applications.md),
 [UI contract](../../doc/ui.md) and [scene library](../../src/draw3d/README.md).
-No colony rules are implemented in JavaScript. Geometry is retained between
-changes; display animation does not rebuild the Scheme HUD each frame.
+No colony rules are implemented in JavaScript. Tiles share fixed colored meshes;
+buildings, workers, freight and enemies use fixed colored composite models.
+Changed ticks transfer their occurrence transforms, while the GPU retains model
+vertices and indices. Independently aimed guns remain separate instances.
+Camera motion reuses these batches; display animation does not rebuild the
+Scheme HUD each frame. Native HiDPI and single-sample rendering remain in use.
 
 ```sh
 scripts/test-applications
