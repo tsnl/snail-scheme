@@ -120,6 +120,10 @@ body:has([data-ui-key="rail"][style*="left: 0px"]) .connection:not([data-state="
 }
 
 /* The pause menu uses readable labels and large, ordinary menu buttons. */
+.player-help { display: none; position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 51; min-width: 80px; min-height: 44px; padding: 10px 14px; align-items: center; justify-content: center; color: var(--ui-text); background: var(--ui-panel); border: 1px solid #d6bb83; border-radius: 10px; font-weight: 750; text-decoration: none; }
+body:has([data-ui-key="pause-dialog"]) .player-help { display: flex; }
+.player-help:hover { background: #fffdf5; }
+.player-help:focus-visible { outline: 3px solid #81d7eb; outline-offset: 2px; }
 body:has([data-ui-key="dialog-backdrop"]) [data-ui] { z-index: 21; }
 body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto; white-space: normal; position: fixed; inset: auto 12px 6px; width: auto; max-height: 40px; overflow-y: auto; z-index: 22; padding: 3px 8px; border-radius: 8px; line-height: 16px; }
 [data-ui-key="pause-title"] { text-align: center; font-size: 20px; line-height: 28px; font-weight: 800; }

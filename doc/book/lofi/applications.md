@@ -310,7 +310,7 @@ turns that interval into a label and progress value. Display animation interpola
 positions or advances visual effects between committed snapshots. It must not
 invent a second game timer or change the simulated outcome.
 
-Siegework's [`presentation.sld`](../../../apps/siegework/src/siegework/presentation.sld)
+Siegework's [`presentation.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/presentation.sld)
 contains that projection. Its HUD and accessible status consume the same result;
 changing a difficulty interval does not require changing either renderer. Camera
 and selection belong to client state, while transient GPU interpolation belongs
@@ -341,7 +341,7 @@ the previous read uses the current snapshot. History is transient runtime data
 and is not part of a saved checkpoint. Compatible code replacement preserves it.
 
 A presentation query can read the prior world and match entities by ID
-to supply `moving-group` transforms in a [`motion-batch`](../../../src/draw3d/README.md#motion-between-committed-states).
+to supply `moving-group` transforms in a [`motion-batch`](https://github.com/tsnl/snail-scheme/blob/main/src/draw3d/README.md#motion-between-committed-states).
 Create fixed colored bodies once with `(model nodes)`, then place them with
 `(model-instance model transform)`. Presentation copies occurrence transforms;
 the GPU reuses each fixed model's vertex and index buffers. Ordered batches
@@ -472,7 +472,7 @@ bindings and typed payloads both when packaging and in the browser. After focus,
 device or generation changes, held controls must be released before activating
 again. Native controls and editable elements retain their keyboard behavior.
 
-Applications can use the [Scheme UI library](../../ui.md) to declare typed
+Applications can use the [Scheme UI library](https://github.com/tsnl/snail-scheme/blob/main/doc/ui.md) to declare typed
 controls and allocate their rectangles in one top-down pass. Its browser adapter
 maintains semantic DOM controls; Siegework's HUD uses this path. A handwritten
 HTML form can also bind one or two text fields to a typed client handler.
@@ -523,7 +523,7 @@ Compile and serve `OUTPUT/solo` over HTTPS or localhost. It works under a subpat
 runs all game logic locally, and automatically saves to IndexedDB. For explicit
 cross-device checkpoint transfer, build with `SAVE_SERVICE_URL`; the additional
 `OUTPUT/synced` directory is also entirely static. A service outage does not stop
-gameplay or local saving. See the [static save guide](../../static-saves.md) for
+gameplay or local saving. See the [static save guide](https://github.com/tsnl/snail-scheme/blob/main/doc/static-saves.md) for
 complete build, service and API examples.
 
 `packageApplications(root, app, artifacts, {saveServiceURL})` packages already
