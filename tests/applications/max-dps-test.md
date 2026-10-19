@@ -43,6 +43,10 @@ reads tick duration from the game's settings.
 
 ## What is idealized
 
+The separate [`starter-economy-test`](starter-economy-test.md) prices visible-only
+exploration to a second mine across fixed seeds. Its policy failures and defense
+allowances document the calibration gap left by this test's free discovery.
+
 The initial nearby deposit is known at time zero. Later actual deposits appear
 in increasing Manhattan distance from the hub, with cell index breaking ties.
 Discovery costs nothing. Every deposit keeps its actual yield and finite reserve.

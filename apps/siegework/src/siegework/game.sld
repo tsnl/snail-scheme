@@ -487,6 +487,7 @@
                            (rect-x area) (rect-y area) (rect-width area) (rect-height area))
         (present-ui! (destination client-owner client-app)
                      (colony-hud world context actions layout
+                                 (deposit-indicators world camera (client-width client) (client-height client) (world-deposits world))
                                  (append (upgrade-indicators world client (world-buildings world))
                                          (attack-toasts world client attacks 0))))
         (empty-list)))

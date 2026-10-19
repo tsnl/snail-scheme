@@ -225,7 +225,10 @@ excavation. They stop and chip away before a permanent opening appears.
 
 Deposits run out. The starter holds 600 ore, the northern deposit 900, the rich
 eastern deposit 1,800, and regional deposits hold 300 times their base yield.
-Selecting a deposit or extractor shows what remains underground. Extraction
+Each discovered deposit has an overhead ore count and a bar showing its share
+of the original reserve. At 10% or less, a red border pulses while the amount
+stays readable. Empty sites show a quiet "0 ore · Empty" badge. Selecting a
+deposit or extractor also shows what remains underground. Extraction
 upgrades add mining slots without replenishing the reserve. Exhausted sites stop
 pulsing; workers haul the last stock and find other work. Rebuilding an extractor
 preserves its reserve. Keep ore for the next extractor and protect its supply route.
@@ -272,6 +275,7 @@ scripts/test-applications
 scripts/test-ui
 scripts/test-draw3d
 node tests/draw3d/colony.mjs build/siegework/solo
+node tests/draw3d/depletion.mjs build/siegework/solo
 scripts/max-dps-test
 node tests/draw3d/onboarding.mjs build/siegework/solo /tmp/siegework-fixtures
 # These browser checks reset disposable saves: use an isolated test host/profile.

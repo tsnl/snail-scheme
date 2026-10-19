@@ -2,7 +2,7 @@
 ;; All actions are lexical typed requests; labels never carry command identity.
 (define-library (siegework hud)
   (export HudContext hud-context hud-x hud-y hud-chooser hud-width hud-height hud-layout
-          HudActions hud-actions colony-hud hud-notification-capacity hud-notification-y hud-attachment-x
+          HudActions hud-actions colony-hud deposit-indicators hud-notification-capacity hud-notification-y hud-attachment-x
           hud-control-diameter hud-attachment-width hud-notification-height hud-notification-step)
   (import
    (scheme base)
@@ -15,6 +15,7 @@
    (siegework presentation)
    (siegework guidance)
    (siegework terrain)
+   (only (siegework view) building-top world-screen-position projected-point-x projected-point-y)
    (only (lofi core) datatype -> I32)
    (only (lofi base) string-append))
   (begin
@@ -58,6 +59,46 @@
     (define (larger left right) (if (> left right) left right))
     (define (smaller left right) (if (< left right) left right))
     (define (alive? world) (= (world-outcome world) 0))
+
+    ;; ---- Remaining ore above remembered deposits ----
+
+    (define deposit-badge-width 88)
+    (define deposit-badge-height 28)
+    (define (deposit-tone remaining capacity)
+      (cond ((= remaining 0) 1) ((<= (* remaining 10) capacity) 4) (else 0)))
+    (define (deposit-label remaining)
+      (if (= remaining 0) "0 ore · Empty" (string-append (integer-text remaining) " ore")))
+    (define (deposit-height world x y)
+      (let ((found (building-at (world-buildings world) x y)))
+        (+ 0.2 (if (null? found) 0.56 (building-top (car found))))))
+    ;; Cull the complete badge at the inset viewport boundary, without moving
+    ;; it away from its deposit or placing an offscreen resource on the edge.
+    (define (deposit-badge-visible? x y width height)
+      (and (>= x 0) (>= y 0) (<= (+ x deposit-badge-width) (- width 24))
+           (<= (+ y deposit-badge-height) (- height 32))))
+    (define (deposit-badge point width height cell remaining capacity)
+      (let ((x (- (projected-point-x point) (+ 12 (quotient deposit-badge-width 2))))
+            (y (- (projected-point-y point) (+ 12 deposit-badge-height))))
+        (if (not (deposit-badge-visible? x y width height)) (empty-list)
+            (list (ui-at x y (ui-meter (string-append "deposit-ore-" (integer-text cell))
+                                       (px deposit-badge-width) (px deposit-badge-height) (deposit-label remaining)
+                                       remaining capacity (deposit-tone remaining capacity)))))))
+    (define (deposit-indicator world camera width height deposit)
+      (let* ((cell (deposit-cell deposit)) (x (index-x cell)) (y (index-y cell)))
+        (if (not (known? world x y)) (empty-list)
+            (deposit-badge (world-screen-position camera x y (deposit-height world x y) width height)
+                           width height cell (deposit-remaining deposit)
+                           (deposit-capacity (world-seed world) x y)))))
+    ;; The seed owns capacity; remaining ore and extractor upgrades never change
+    ;; the denominator. CSS animates only the critical badge's border, so paused
+    ;; colonies keep a warning without simulation ticks or geometry rebuilds.
+    (define (deposit-indicators world camera width height deposits)
+      (if (null? deposits) (empty-list)
+          (append (deposit-indicator world camera width height (car deposits))
+                  (deposit-indicators world camera width height (cdr deposits)))))
+
+    ;; ---- Edge controls and their attached callouts ----
+
     (define hud-control-diameter 56)
     (define control-step (+ hud-control-diameter 4))
     (define rail-width (+ (* hud-control-diameter 2) 4))
@@ -423,11 +464,12 @@
     (define (attached-panels world context actions layout alerts)
       (append (cond ((or (hud-chooser context) (not (alive? world))) (list (context-card world context actions layout)))
                     ((onboarding-visible? world context) (list (onboarding-panel context layout))) (else (empty-list))) alerts))
-    (define (colony-hud world context actions layout alerts)
+    (define (colony-hud world context actions layout indicators alerts)
       (ui-layer "hud" (grow 1) (grow 1)
-                (append (list (rail world context actions)
-                              (ui-at (if (hud-left-handed context) (- (hud-root-width context) 132) 0) 0
-                                     (ui-label "nest-objective" (px 132) (px 20)
-                                               (string-append "Nests left " (integer-text (living-nests (world-nests world))) " / 3") 0)))
-                        (if (> (hud-dialog context) 0) (dialog-overlay context actions)
-                            (attached-panels world context actions layout alerts)))))))
+                (append indicators
+                        (append (list (rail world context actions)
+                                      (ui-at (if (hud-left-handed context) (- (hud-root-width context) 132) 0) 0
+                                             (ui-label "nest-objective" (px 132) (px 20)
+                                                       (string-append "Nests left " (integer-text (living-nests (world-nests world))) " / 3") 0)))
+                                (if (> (hud-dialog context) 0) (dialog-overlay context actions)
+                                    (attached-panels world context actions layout alerts))))))))

@@ -1,6 +1,7 @@
 ;; Scalar observations of the real model keep the capacity test's economy,
-;; weapons and waves tied to Scheme. Constructed worlds isolate one operation;
-;; the capacity simulation lives in max-dps-test.mjs, not in the game.
+;; weapons and waves tied to Scheme. The starter experiment also accepts paid
+;; survey orders in an explicitly instantaneous fixture; neither host test is a
+;; second game simulation.
 (define-library (tests max-dps-probe)
   (export answer)
   (import
@@ -8,7 +9,8 @@
    (scheme immutable)
    (siegework model)
    (siegework terrain)
-   (only (lofi core) ann -> I32))
+   (only (siegework state) validate-world)
+   (only (lofi core) ann -> I32 I64))
   (begin
 
     ;; ---- Controlled model observations ----
@@ -72,6 +74,93 @@
         (expanded-hub (world-bots-set (world-credits-set world 1000000)
                                       (list (fixture-worker 1 (world-hub-x world) (world-hub-y world) 0 0))) level)))
 
+    ;; ---- Paid survey experiment, without elapsed time or enemies ----
+
+    ;; This one-cell fixture is private to each Wasm instance. The initial mine
+    ;; spends real starting cash before its finite reserve is moved to delivered
+    ;; ore. Material invariants hold, but extraction and delivery take no time.
+    (define scout-state (vector (initial-world)))
+    (define (scout-world) (vector-ref scout-state (ann 0 I64)))
+    (define (reset-scout! seed)
+      (begin
+        (vector-set! scout-state (ann 0 I64) (seeded-world (initial-world) seed))
+        0))
+    (define (tile seed cell)
+      (+ (* 2 (deposit-rate seed (index-x cell) (index-y cell)))
+         (if (ground? seed (index-x cell) (index-y cell)) 1 0)))
+    (define (scout-tile cell)
+      (let ((world (scout-world)))
+        (if (and (visible? world (index-x cell) (index-y cell))
+                 (surveyed? (world-surveys world) (index-x cell) (index-y cell)))
+            (tile (world-seed world) cell) -1)))
+    (define (completed-buildings buildings)
+      (if (null? buildings) buildings
+          (cons (building-stage-set (car buildings) 2) (completed-buildings (cdr buildings)))))
+    (define (complete-scout-project world cell)
+      (let* ((world (world-buildings-set world (completed-buildings (world-buildings world))))
+             (site (car (building-at (world-buildings world) (index-x cell) (index-y cell))))
+             (survey (make-survey (building-x site) (building-y site) (building-radius site))))
+        (validate-world
+         (rebuild-transport
+          (world-bots-set (world-surveys-set world (cons survey (world-surveys world)))
+                          (world-bots (seeded-world (initial-world) (world-seed world))))))))
+    (define (scout-purchase! kind cell)
+      (let ((outcome (place-cell-outcome (scout-world) kind cell)))
+        (begin
+          (when (= (construction-reason outcome) 0)
+            (vector-set! scout-state (ann 0 I64) (complete-scout-project (construction-world outcome) cell)))
+          (construction-reason outcome))))
+    (define (drain-deposit deposits cell)
+      (if (null? deposits) deposits
+          (cons (if (= (deposit-cell (car deposits)) cell) (make-deposit cell 0) (car deposits))
+                (drain-deposit (cdr deposits) cell))))
+    ;; These three ledgers and the underground reserve change together. Copying
+    ;; the concrete World keeps this fixture out of the product's public API.
+    (define (deliver-starter world cell amount)
+      (make-world
+       (world-tick world)
+       (world-outcome world)
+       (+ (world-credits world) amount)
+       (world-hull world)
+       (world-kills world)
+       (world-next-id world)
+       (world-buildings world)
+       (world-bots world)
+       (world-enemies world)
+       (world-surveys world)
+       (world-focus world)
+       (world-plan world)
+       (+ (world-delivered world) amount)
+       (+ (world-produced world) amount)
+       (world-spent world)
+       (world-lost world)
+       (world-notice world)
+       (world-paused world)
+       (world-seed world)
+       (world-casualties world)
+       (world-lost-ore world)
+       (world-alerts world)
+       (world-run-marker world)
+       (world-rails world)
+       (world-local-spent world)
+       (world-nests world)
+       (world-last-reveal-tick world)
+       (world-breaches world)
+       (world-excavations world)
+       (world-started world)
+       (world-tracks world)
+       (world-hub-capacity-level world)
+       (drain-deposit (world-deposits world) cell)))
+    (define (fund-starter!)
+      (let* ((world (scout-world)) (buildings (world-buildings world)))
+        (if (or (> (world-produced world) 0)
+                (not (= (list-size buildings) 1)) (not (= (building-kind (car buildings)) 1))) -1
+                (let* ((site (car buildings)) (cell (cell-index (building-x site) (building-y site)))
+                       (reserve (ore-remaining world (building-x site) (building-y site))))
+                  (begin
+                    (vector-set! scout-state (ann 0 I64) (validate-world (deliver-starter world cell reserve)))
+                    reserve)))))
+
     ;; ---- One typed scalar entry for the host's named queries ----
 
     (define answer
@@ -105,5 +194,18 @@
                ((= operation 25) (worker-capacity (capacity-world seed value)))
                ((= operation 26) hub-upgrade-ticks)
                ((= operation 27) maximum-hub-capacity-level)
+               ((= operation 28) (reset-scout! seed))
+               ((= operation 29) (scout-tile value))
+               ((= operation 30) (placement-reason (scout-world) 3 (index-x value) (index-y value)))
+               ((= operation 31) (scout-purchase! 3 value))
+               ((= operation 32) (scout-purchase! 1 value))
+               ((= operation 33) (world-credits (scout-world)))
+               ((= operation 34) (world-spent (scout-world)))
+               ((= operation 35) (fund-starter!))
+               ((= operation 36) (building-radius (fixture-building (quotient value 10) (remainder value 10) 0 0)))
+               ((= operation 37) (survey-radius (car (world-surveys (scout-world)))))
+               ((= operation 38) (tile seed value))
+               ((= operation 39) (list-size (walking-path seed (spawn-x seed) (spawn-y seed)
+                                                          (index-x value) (index-y value) (empty-list) #t)))
                (else -1)))
        (-> I32 I32 I32 I32)))))
