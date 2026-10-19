@@ -13,6 +13,7 @@
    (siegework terrain)
    (siegework state)
    (siegework recording)
+   (siegework observation)
    (siegework status)
    (siegework view)
    (siegework hud)
@@ -494,5 +495,6 @@
     (define game (program match-app client-app 0 0 decode-world encode-world decode-client encode-client view status))
     (define application-entry
       (ann (lambda (operation a b c)
-             (if (= operation 11) (recording-stat (read-program-world game) a)
-                 (run-program game operation a b c))) (-> I32 I32 I32 I32 I32)))))
+             (cond ((= operation 11) (recording-stat (read-program-world game) a))
+                   ((= operation 12) (observe-player! (read-program-world game)))
+                   (else (run-program game operation a b c)))) (-> I32 I32 I32 I32 I32)))))
