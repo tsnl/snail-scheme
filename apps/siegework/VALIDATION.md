@@ -30,6 +30,25 @@ history. The 64-MiB recorder is bounded and reports eviction: a synthetic ten-mi
 only the final 6m48s. These are instrumented diagnostics, not phone-FPS results.
 See [the recording guide](recording.md) for replay, binary dumps and analysis.
 
+## Idle-clock retention correction
+
+The recorder-only correction at `9e8a4137` was repackaged with the default-O1
+build recipe. Generation, Wasm bytes and SHA-256 remain exactly the same as the
+recording checkpoint above; the packaged JavaScript recorder matches the
+corrected source. All eleven recording checks pass against this rebuilt
+package. A fresh headed Chromium run of `recording-browser.mjs` also passes,
+including failed IndexedDB publication, generation changes, dump playback and
+import, stale input on replay exit, unchanged live saves, and checkpoint reload.
+The previous complete 20-section browser run remains the broader baseline.
+
+A paired actual-Wasm test with an eight-entry budget and 192 idle polls ends at
+live revision 199 in both versions. Previously only revisions 198–199 remained;
+the correction retains all eight meaningful entries, with honest revision gaps
+and no eviction. User commands, effects, advancing ticks and all history
+boundaries remain recorded. An informed Astra xhigh review found no blocker and
+independently passed all eleven checks. No scheduler, save or game-state rule
+changed.
+
 ## Published combined World11 package
 
 The final default `-O1` build from source `aba9a809` combines fixed model
