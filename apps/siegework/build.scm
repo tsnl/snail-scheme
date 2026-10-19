@@ -1,6 +1,6 @@
 ;; From any directory:
 ;; chibi-scheme -I "$repo/bootstrap" \
-;;   "$repo/apps/siegework/build.scm" "$repo" "$repo/build/siegework"
+;;   "$repo/apps/siegework/build.scm" [--release] "$repo" "$repo/build/siegework"
 (import
  (scheme base)
  (scheme process-context)
@@ -9,6 +9,7 @@
  (chibi string)
  (lofi host process)
  (lofi host chromium-trace)
+ (only (lofi host wasm-optimize) wasm-release-optimization?)
  (lofi compiler bootstrap)
  (lofi compiler source-driver)
  (application manifest bootstrap)
@@ -18,7 +19,9 @@
 ;; ---- Explicit inputs and product source roots ----
 
 (define arguments (cdr (command-line)))
-(unless (= 2 (length arguments)) (error "usage: build.scm REPOSITORY OUTPUT-DIRECTORY"))
+(define release? (and (pair? arguments) (string=? (car arguments) "--release")))
+(when release? (set! arguments (cdr arguments)))
+(unless (= 2 (length arguments)) (error "usage: build.scm [--release] REPOSITORY OUTPUT-DIRECTORY"))
 (define root (absolute-path (car arguments)))
 (define output (absolute-path (cadr arguments)))
 (define app (path-join root "apps/siegework"))
@@ -43,6 +46,7 @@
 (with-chromium-trace-to
  (path-join output "build.trace.json")
  (lambda ()
-   (compile-entry "src/draw3d/shaders.sld" 'shader-entry "shader.wasm")
-   (compile-entry "apps/siegework/src/siegework/game.sld" 'application-entry "simulation.wasm")))
+   (parameterize ((wasm-release-optimization? release?))
+     (compile-entry "src/draw3d/shaders.sld" 'shader-entry "shader.wasm")
+     (compile-entry "apps/siegework/src/siegework/game.sld" 'application-entry "simulation.wasm"))))
 (display (run-command! (list "node" (path-join root "src/browser/build.mjs") root app output)))

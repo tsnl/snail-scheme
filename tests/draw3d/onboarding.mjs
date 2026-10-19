@@ -14,8 +14,18 @@ const world = () => colony(runtime.snapshot(1)), local = () => {
   return {...value,cursorX:value.cursorX<0?-1:value.cursorX-hub.x+8,cursorY:value.cursorY<0?-1:value.cursorY-hub.y+22};
 };
 async function command(binding, args = []) {
+  if(binding==='viewport')runtime.uiBridge.resize(args[0]-24,args[1]-32);
   const result = await runtime.dispatch(2, runtime.command('client', binding, args));
-  for (const effect of result.effects) if (effect.kind === 'send') await runtime.dispatch(1, runtime.effectCommand(effect));
+  await effects(result.effects);
+}
+async function effects(values) {
+  for(const effect of values)if(effect.kind==='send'){
+    const result=await runtime.dispatch(effect.owner,runtime.effectCommand(effect));await effects(result.effects);
+    if(effect.owner===1&&['new-run','new-run-seed'].some(name=>effect.command.handler===runtime.command('match',name,name==='new-run-seed'?[1]:[]).handler))await command('reset-presentation');
+  }
+}
+async function placeExtractor() {
+  if(!client(runtime.snapshot(2)).chooser)await command('confirm');await command('choose',[1]);
 }
 async function advance(ticks) {
   for (let i = 0; i < ticks; i++) await runtime.dispatch(1, runtime.command('match', 'advance'));
@@ -23,6 +33,12 @@ async function advance(ticks) {
 function node(key, value = runtime.view().ui) {
   if (value.key === key) return value;
   for (const child of value.children) { const found = node(key, child); if (found) return found; }
+}
+function placed(key,value=runtime.view().ui,x=0,y=0) {
+  x+=value.rect[0];y+=value.rect[1];
+  if(value.key===key)return{node:value,x,y,width:value.rect[2],height:value.rect[3]};
+  const pad=value.kind===5?value.properties[6]:0;
+  for(const child of value.children){const found=placed(key,child,x+pad,y+pad);if(found)return found;}
 }
 async function home() {
   await command('home');
@@ -44,7 +60,23 @@ function save(name) {
 }
 try {
   const fresh=runtime.snapshot(1);
-  assert.equal(node('onboarding'),undefined);assert.equal(node('context'),undefined);
+  assert.ok(node('onboarding'));assert.equal(node('context'),undefined);
+  for(const [width,height]of[[320,568],[390,844],[568,320],[640,360],[1100,760]]) {
+    await command('viewport',[width,height]);
+    for(const left of [false,true]) {
+      if(left){await command('pause-menu');await command('handedness');await command('resume');}
+      const hint=placed('onboarding'),rail=placed('rail');
+      assert.match(node('onboarding-help').text,/Tap the highlighted deposit/);
+      assert.ok(hint.x+hint.width<=rail.x||hint.x>=rail.x+rail.width||hint.y+hint.height<=rail.y||hint.y>=rail.y+rail.height,'guidance leaves the control rail clear');
+      assert.ok(hint.node.properties[9]>0,'the hint points toward its highlighted deposit');
+      assert.ok(hint.x>=0&&hint.y>=0&&hint.x+hint.width<=width-24&&hint.y+hint.height<=height-32);
+      assert.ok(placed('rotate-left').x<placed('rotate-right').x,'rotation arrows keep screen order');
+      assert.deepEqual(runtime.snapshot(1),fresh,'layout and handedness leave the fresh colony unchanged');
+    }
+    await command('pause-menu');await command('handedness');await command('resume');
+  }
+  await command('viewport',[960,640]);
+  console.log('ok - first-extractor guidance points toward the highlighted deposit on both edges at portrait and short landscape sizes');
   await command('center');cursor(12,20);
   await command('pan',[20,-20]);await home();cursor(8,22);
   assert.match(node('context-title').text,/hub/i);assert.deepEqual(runtime.snapshot(1),fresh);
@@ -52,13 +84,13 @@ try {
   await runtime.replace(runtime.prepare(bytes,manifest));assert.deepEqual(runtime.snapshot(1),fresh);
   // The tallest visible tip projects onto an adjacent ground cell.
   await point(11.8,20,.63);cursor(12,20);assert.equal(node('context'),undefined);
-  await command('confirm');assert.match(node('context-title').text,/deposit/i);
-  assert.deepEqual(runtime.snapshot(1),fresh);await command('choose',[1]);assert.equal(world().buildings[0].kind,1);
+  await command('confirm');assert.ok(node('extractor'));assert.equal(node('tower'),undefined);
+  assert.deepEqual(runtime.snapshot(1),fresh);await point(12,20);await placeExtractor();assert.equal(world().buildings[0].kind,1);
   await point(11.8,20,.63);cursor(12,20);await command('confirm');await command('cancel');
   assert.equal(world().buildings.length,0);await command('center');cursor(12,20);
-  await command('confirm');await command('choose',[1]);await advance(140);assert.equal(world().buildings[0].stage,2);
+  await placeExtractor();await advance(140);assert.equal(world().buildings[0].stage,2);
   assert.ok(world().surveys.some(s=>s.x===at(world(),12,20).x&&s.y===at(world(),12,20).y));
-  await command('center');cursor(8,22);await command('suspend',[1]);
+  await command('center');cursor(8,22);await command('pause-menu');
   const established=runtime.snapshot(1),selection=runtime.snapshot(2);save('established');
   if(fixtures){
     // Bounded known-location alerts exercise live cameras without revealing fog.
@@ -78,6 +110,7 @@ try {
     console.log('ok - compatible old and current modules preserve exact owner snapshots');
   }
 
+  await command('resume');
   const attacked=world();attacked.buildings[0].hp=1;attacked.paused=0;
   await restoreColony(runtime,attacked);await addEnemy(runtime,{x:12,y:20,target:attacked.buildings[0].id});await advance(20);
   assert.equal(world().buildings.length,0);assert.equal(world().outcome,0);
@@ -90,7 +123,7 @@ try {
     const site=at(world(),10,y);await runtime.dispatch(1,runtime.command('match','observe',[site.x,site.y]));await advance(180);
   }
   await command('center');cursor(5,5);const explored=runtime.snapshot(1);
-  await command('confirm');assert.deepEqual(runtime.snapshot(1),explored);await command('choose',[1]);await advance(10);
+  await command('confirm');assert.deepEqual(runtime.snapshot(1),explored);await placeExtractor();await advance(10);
   const planned=siteAt(world(),5,5);assert.ok(planned);assert.equal(planned.kind,1);
   console.log('ok - explored richer deposits become the guidance target while construction stays explicit');
 

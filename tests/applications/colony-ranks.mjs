@@ -13,7 +13,7 @@ export async function checkRanks(test,fresh) {
   }
   await test('each strength rank arrives singly with familiar escorts before the first boss',async()=>{
     const r=await fresh(),health=[65,90,125,180,300,500,1800];
-    for(const [tick,rank] of [[300,0],[600,1],[1200,2],[1800,3],[2400,4],[3000,5],[3600,6]]) {
+    for(const [tick,rank] of [[450,0],[1050,1],[1950,2],[2850,3],[3750,4],[4650,5],[5400,6]]) {
       const enemies=await wave(r,tick); assert.equal(Math.max(...enemies.map(enemy=>enemy.rank)),rank);
       if(rank>0)assert.equal(enemies.filter(enemy=>enemy.rank===rank).length,1);
       assert.ok(enemies.some(enemy=>enemy.rank===0));
@@ -24,10 +24,10 @@ export async function checkRanks(test,fresh) {
     await r.close();
   });
   await test('bosses recur separately while new enemies continue gaining health after rank six',async()=>{
-    const r=await fresh(); assert.ok((await wave(r,3900)).every(enemy=>enemy.rank<6));
-    const later=await wave(r,7200); assert.equal(later[0].rank,6); assert.equal(later[0].hp,1890);
+    const r=await fresh(); assert.ok((await wave(r,5550)).every(enemy=>enemy.rank<6));
+    const later=await wave(r,10800); assert.equal(later[0].rank,6); assert.equal(later[0].hp,1890);
     assert.equal(later.filter(enemy=>enemy.rank===6).length,1);
-    assert.equal((await wave(r,25200))[0].hp,2310); assert.equal((await wave(r,28800))[0].hp,2310);
+    assert.equal((await wave(r,37800))[0].hp,2310); assert.equal((await wave(r,43200))[0].hp,2310);
     await r.close();
   });
   await test('wounded ranks retain their damage and survive pause and snapshot restore',async()=>{
@@ -43,10 +43,38 @@ export async function checkRanks(test,fresh) {
     await r.close();
   });
   await test('rank and continued-health bounds are checked before a snapshot replaces live state',async()=>{
-    const r=await fresh(); await wave(r,3600); const saved=r.snapshot(1);
+    const r=await fresh(); await wave(r,5400); const saved=r.snapshot(1);
     for(const edit of [enemy=>enemy.rank=-1,enemy=>enemy.rank=7,enemy=>enemy.hp=2311]) {
       const world=colony(saved); edit(world.enemies[0]);
       await assert.rejects(()=>restoreColony(r,world),WebAssembly.RuntimeError); assert.deepEqual(r.snapshot(1),saved);
+    }
+    await r.close();
+  });
+  await test('exploration gets forty-five seconds before waves begin and ordinary waves stay thirty seconds apart',async()=>{
+    const r=await fresh();
+    for(const tick of [1,150,300,449,451,749,751,900,1049,1349])assert.equal((await wave(r,tick)).length,0,`tick ${tick}`);
+    for(const [tick,count] of [[450,4],[750,4],[1050,4],[1350,5],[1650,4],[1950,4],[2250,6],[3150,7],[3450,5]]) {
+      const enemies=await wave(r,tick);assert.equal(enemies.length,count,`tick ${tick}`);
+      if(tick<900)assert.ok(enemies.every(enemy=>enemy.rank===0));
+      if(tick===1350||tick===2250||tick===3150)assert.ok(enemies.every(enemy=>enemy.kind===1));
+    }
+    await r.close();
+  });
+  await test('difficulty dial follows strength intervals and never reveals the wave schedule',async()=>{
+    const r=await fresh();
+    function node(value,key) {
+      if(value.key===key)return value;
+      for(const child of value.children){const found=node(child,key);if(found)return found;}
+    }
+    for(const [tick,seconds,elapsed,tier] of [[0,90,0,1],[449,46,449,1],[450,45,450,1],
+      [750,15,750,1],[899,1,899,1],[900,90,0,2],[1350,45,450,2],
+      [5250,15,750,6],[5400,90,0,7],[5550,75,150,7],[36000,0,1,41],[2147480000,0,1,41]]) {
+      const world=state(r);world.started=true;world.tick=tick;world.enemies=[];world.lastRevealTick=-100;
+      await restoreColony(r,world);const ui=r.view().ui,dial=node(ui,'difficulty');
+      assert.equal(dial.text,String(tier));assert.equal(dial.properties[3],elapsed);assert.equal(dial.properties[5],tier===41?1:900);
+      assert.equal(dial.help,tier===41?'Maximum difficulty reached':`Difficulty ${tier}; increases in ${seconds} seconds`);
+      assert.equal(node(ui,'wave-summary'),undefined);assert.equal(node(ui,'difficulty-summary'),undefined);
+      assert.doesNotMatch(r.view().status??'',/NEXT SPAWN/);
     }
     await r.close();
   });

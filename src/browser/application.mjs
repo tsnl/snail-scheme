@@ -30,6 +30,10 @@ export class BrowserApplication {
     // Browser operations may await network renewal or GPU preparation. They
     // call into the runtime FIFO; runtime messages never wait on this lane.
     if (this.closing) return Promise.reject(new Error('Browser application is closing'));
+    return this.continueUpdate(operation);
+  }
+  continueUpdate(operation) {
+    // Work emitted by an admitted transition also drains during close.
     const result = this.updates.then(operation); this.updates = result.catch(() => {}); return result;
   }
   async open(target) {
@@ -65,9 +69,13 @@ export class BrowserApplication {
     if (ticket !== this.reloadTicket) { this.runtime.discard(candidate); return; }
     await this.runtime.replace(candidate); this.renderer?.replace(pipeline);
     this.manifest = this.runtime.manifest; this.generation = this.manifest.generation;
-    this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
+    this.applySettings(settings);
     await this.runtime.initialize(1); await this.runtime.initialize(2); this.dirty = true;
     this.note(`LIVE · state preserved · ${this.generation.slice(0, 7)}`);
+  }
+  applySettings(settings) {
+    this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
+    if (this.viewport) this.resizeViewport();
   }
   start(session) {
     this.session = session;
@@ -80,6 +88,8 @@ export class BrowserApplication {
     globalThis.snailApp = this; // Executable browser diagnostics.
   }
   local(binding, args = []) {
+    // The returned promise includes outgoing durable World orders. Reverse
+    // Client effects enter the FIFO after publication and run in later turns.
     const command = this.runtime.command('client', binding, args.slice()); this.localWork++;
     return this.update(() => this.localTransition(command)).catch(error => this.report(error)).finally(() => this.localWork--);
   }
@@ -93,31 +103,59 @@ export class BrowserApplication {
     const rect = this.canvas.getBoundingClientRect();
     const width = Math.max(1, Math.floor(rect.width)), height = Math.max(1, Math.floor(rect.height));
     const scale = devicePixelRatio || 1;
-    if (this.viewport?.[0] === width && this.viewport?.[1] === height && this.viewportScale === scale) return;
-    this.viewport = [width, height]; this.inputSettings = {...this.inputSettings, width, height};
+    const changed = this.viewport?.[0] !== width || this.viewport?.[1] !== height;
+    if (!changed && this.viewportScale === scale) return;
+    // Only the backing buffer uses physical pixels. Input, camera and DOM keep CSS units.
     this.viewportScale = scale;
-    this.canvas.width = Math.round(width * scale); this.canvas.height = Math.round(height * scale);
+    const pixelsWide = Math.max(1, Math.round(width * scale)), pixelsHigh = Math.max(1, Math.round(height * scale));
+    if (this.canvas.width !== pixelsWide) this.canvas.width = pixelsWide;
+    if (this.canvas.height !== pixelsHigh) this.canvas.height = pixelsHigh;
+    this.dirty = true;
+    if (!changed) return;
+    this.viewport = [width, height]; this.inputSettings = {...this.inputSettings, width, height};
     void this.local(this.manifest.settings.viewportHandler, [width, height]);
   }
   async localTransition(command) {
     const result = await this.runtime.dispatch(2, command);
-    for (const effect of result.effects) {
-      if (effect.kind === 'send' && effect.owner === 1) await this.session.submit(this.runtime.effectCommand(effect));
-      else if (effect.kind === 'notice') this.note(effect.text);
+    this.dirty = true; // The committed Client can show progress while World saves.
+    await this.routeEffects(result.effects);
+    this.dirty = true;
+  }
+  queueEffects(effects) {
+    // Publication runs inside the runtime FIFO. Never await this browser lane
+    // there: its current Client turn may be waiting for that durable commit.
+    for (const effect of effects)
+      void this.continueUpdate(() => this.deliverEffect(effect)).catch(error => this.report(error));
+  }
+  async deliverEffect(effect) {
+    if (effect.kind === 'notice') this.note(effect.text);
+    else if (effect.owner === 1) await this.session.submit(this.runtime.effectCommand(effect));
+    else await this.localTransition(this.runtime.effectCommand(effect));
+  }
+  async routeEffects(effects) {
+    const failures = [];
+    for (const effect of effects) {
+      if (effect.kind === 'send' && effect.owner === 1) {
+        try { await this.session.submit(this.runtime.effectCommand(effect)); }
+        catch (error) { failures.push(error); }
+      } else this.queueEffects([effect]);
     }
+    // Authored settlement messages still run when a preceding save fails.
+    if (failures.length) void this.continueUpdate(() => this.report(failures.length === 1 ? failures[0]
+      : new AggregateError(failures, failures.map(error => error.message).join('; '))));
     this.dirty = true;
   }
   reconcileGeneration() {
     if (this.manifest && this.generation !== this.runtime.manifest.generation) {
       this.manifest = this.runtime.manifest; this.generation = this.manifest.generation; this.renderer?.rollback();
-      const settings = parseInputSettings(this.manifest.settings);
-      this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
+      this.applySettings(parseInputSettings(this.manifest.settings));
       this.dirty = true;
     }
   }
   report(error) {
     this.reconcileGeneration(); this.dirty = true;
-    this.note(`Transition rejected; committed state retained: ${error.message}`, 'error');
+    const clock = this.session?.faulted ? '; clock stopped. Retry the action or reload.' : '';
+    this.note(`Transition rejected; committed state retained: ${error.message}${clock}`, 'error');
   }
   frame(time) {
     if (this.closing) return;
@@ -145,8 +183,15 @@ export class BrowserApplication {
     this.closing = true;
     this.uiResize?.disconnect();
     this.viewportResize?.disconnect();
-    await this.updates; // UI work already accepted may still submit to the runtime.
+    await this.drainUpdates();
+    // A clock save can publish replies independently of a browser operation.
+    await this.runtime.message(() => {});
+    await this.drainUpdates();
     await this.runtime.close();
     await this.renderer?.close();
+  }
+  async drainUpdates() {
+    let pending;
+    do { pending = this.updates; await pending; } while (pending !== this.updates);
   }
 }

@@ -3,7 +3,7 @@
 `(draw3d)` is an initial reusable scene drawing library. Geometry, materials,
 transforms, camera projection, ray picking, and scene composition are Scheme
 values and operations. `(webgpu shader)` checks the Scheme shader expressions
-and generates WGSL. The browser host owns GPU buffers and submits indexed draws.
+and generates WGSL. The browser host owns shared fixed-mesh buffers and submits indexed instance draws.
 
 ```scheme
 (import
@@ -73,6 +73,33 @@ rendering algorithm used here.
   Rays are unbounded forward rays; these intersection functions do not apply
   camera clipping. The prototype's camera interval contains its selectable grid.
 
+## Fixed colored models and instances
+
+Build a reusable colored body once, outside presentation queries:
+
+```scheme
+(define worker-body
+  (model (list (mesh box-geometry (material 12298387 0.0)
+                     (scaling 0.3 0.2 0.2))
+               (mesh pyramid-geometry (material 16711680 0.1)
+                     (translation (vec3 0.0 0.0 0.3))))))
+
+(model-instance worker-body (translation (vec3 4.0 2.0 0.0)))
+```
+
+`model` bakes a static node list into one immutable colored indexed mesh. It
+preserves the parts' triangle order and rejects `moving-group` inside the model.
+Aimed guns and other independently moving parts remain separate model instances.
+A `model-instance` takes the model and a local transform, and can occur inside
+ordinary or moving groups. Existing `mesh` nodes also use fixed GPU prototypes;
+geometry identity and material **values** select a colored prototype, so freshly
+constructed equal materials share it.
+
+Geometry and model constructors allocate checked, non-recycled `I32` identities
+inside their owning Wasm instance. Another instance or module generation has a
+separate namespace. The host copies a prototype only while it is absent from the
+live frame's mesh table; it does not hash all vertices during presentation.
+
 ## Rendering and ownership
 
 `scene` eagerly describes one uncached batch. For a retained scene, use
@@ -95,19 +122,49 @@ A mask-zero batch can depend on selected scalar fields instead of a whole owner.
 Siegework does this for terrain visibility and rail paths, while workers, enemies
 and shuttles depend on game state. Camera movement changes uniforms and reuses
 geometry batches. No managed reference or GPU handle enters the cache:
-retained data consists of copied vertices and indices, scoped to one Wasm instance.
+retained data consists of fixed colored prototypes and occurrence matrices, scoped to one Wasm instance.
 Replacing the module starts fresh geometry caches while preserving typed state.
 
-`present-scene!` transforms positions and normals only for changed batches.
-The host validates finite scalars, complete uniforms and bounded indices. The
-shaders apply the camera matrix and Lambert lighting. `src/webgpu/scene.mjs`
-uploads only changed batch geometry and draws each view in its own render pass.
-It owns one high-performance adapter/device, growable vertex/index buffers per
-batch, a shared uniform buffer and one single-sample depth target. Motion batches
-also own previous positions and a uniform buffer; translucent batches own a
-uniform buffer for their opacity. Resize releases the old
-depth target; shader replacement preserves buffers and retains the prior pipeline
-for rollback.
+Completed numeric arrays are frozen at the bridge's construction boundary, so
+the presentation finalizer can preserve them without recursively copying every
+number. Wrappers and reveal metadata still receive recursive freezing. See the
+[measured finalization cost](../../doc/measurements/scene-finalization-2026-10-18.md)
+for avoided work, output-equivalence checks and remaining mobile costs.
+
+`present-scene!` composes each occurrence's world transforms and current normal
+matrix for changed batches. It does not expand transformed vertices. The bridge
+checks finite copied scalars, complete instance payloads, uniforms and indices.
+The shader applies the current/prior affine matrices to each fixed local vertex,
+then the camera matrix and Lambert lighting. Current normals use a commonly
+scaled inverse transpose and normalize before raster interpolation. Nonzero
+normal-matrix coefficients must remain normal binary32 values; underflow or
+subnormal coefficients reject the presentation because GPUs may flush them to
+zero. Copied current, prior and normal bases must also remain nonsingular.
+These checks catch collapsed bases, not every precision loss in ill-conditioned
+transforms. Well-conditioned transforms remain the intended rendering input.
+
+`src/webgpu/scene.mjs` owns one high-performance adapter/device, shared immutable
+prototype vertex/index buffers, growable transform/normal buffers per batch and
+one depth texture for the main canvas. Repeated adjacent occurrences draw with
+`drawIndexed(indexCount, instanceCount, ..., firstInstance)`. Ordinary batches
+preserve submission order, including opaque depth ties and transparent A/B/A
+sequences. Wrap a batch in `(unordered-batch batch)` only when its caller permits
+regrouping occurrences by fixed model. This requires opacity one, no pulse and
+no soft reveal; hard reveals with edge zero remain supported. Interbatch order
+never changes.
+
+CPU and GPU prototype caches retain only their live frame/view/batch references.
+Omission releases them; an old immutable frame can upload its prototypes again
+on rollback. Failed frame parsing publishes no prototypes or cache eviction.
+Every pipeline and target is single-sample. The main pass stores color directly
+in the native-resolution canvas. Motion batches also own prior transforms and
+an independent uniform; static batches bind their current transforms at both
+endpoints. Resize releases old attachments, while shader replacement preserves
+buffers and retains the prior pipeline for rollback.
+
+This instance transport changes the `snail.scene` provider ABI. Existing open
+pages need a full package refresh before loading modules compiled for this ABI;
+a failed compatible-reload preparation retains the committed application.
 
 Close stops admission, drains preparation/readback and submitted work,
 unconfigures the canvas and destroys all owned resources. An embedding host uses
@@ -115,7 +172,7 @@ unconfigures the canvas and destroys all owned resources. An embedding host uses
 shared browser session includes cleanup. Scheme scene values require no GPU
 resource disposal. See the [WebGPU specification](https://www.w3.org/TR/webgpu/).
 
-Instanced GPU transforms, textures, glTF import, transparent sorting, shadow maps,
+Textures, glTF import, transparent sorting, shadow maps,
 richer materials, animation assets and path tracing remain future features.
 Picking currently intersects ground planes and axis-aligned boxes.
 
@@ -136,7 +193,9 @@ complete inset before copying its visible rectangle preserves its projection
 when the right or bottom edge extends beyond the canvas.
 
 All views share one adapter, device and submission. Each inset owns a camera
-uniform and color/depth targets; batch keys are scoped to their view, so two
+uniform, a depth texture and a color texture for copying to the canvas.
+Resource diagnostics count one owned texture for the main view plus two per
+inset. Batch keys are scoped to their view, so two
 cameras may both use batch key 3. The bridge validates every view before
 publishing any retained batch changes. Resize replaces targets while preserving
 geometry, and omitted or fully clipped insets release their GPU resources.
@@ -144,7 +203,9 @@ Explicit previous/current motion remains authoritative when a view reappears.
 Animation in an inset redraws the complete frame without rerunning Scheme.
 
 The browser uses the full native device-pixel ratio for the main canvas and
-insets. Requested physical sizes exceeding the device's texture limit fail
+insets, with single-sample rendering and no MSAA. DOM UI stays native HiDPI;
+camera and input coordinates use the logical CSS viewport. There is no reduced
+world target or enlarged-pixel presentation pass. Requested physical sizes exceeding the device's texture limit fail
 before target allocation. Insets use GPU texture copies, with no per-frame
 readback or additional device requests. Close drains pending readbacks and
 releases every view's resources.
@@ -168,19 +229,25 @@ An ordinary `group` or mesh transform applies at both endpoints; nested
 `moving-group` nodes supply both complete transform hierarchies. Outside a motion
 batch, a moving group draws its current transform directly.
 
-Scheme transforms corresponding previous and current vertex positions when a
-changed batch is built. The browser uploads them once, then advances a per-batch
+Scheme composes previous and current occurrence transforms when a changed batch
+is built. The browser uploads those matrices once, then advances a per-batch
 fraction from 0 to 1 using elapsed display time from its first draw. The vertex
-shader mixes those positions before camera projection. The browser's animation
+shader applies both matrices to the fixed local geometry and mixes the resulting
+positions before camera projection. The browser's animation
 frame loop redraws active motion without running the Scheme view, reducers or UI
 layout again. After drawing the final fraction once, motion stops redrawing.
-Existing pulse animation can continue independently.
+Existing pulse animation can continue independently. `phased-batch` takes the
+same key, state mask, dependencies and opacity as `translucent-batch`, followed
+by a phase in millidegrees (`0..359999`) and the node thunk. Increasing phase
+along static geometry makes the bright crest travel forward. All phases share
+the browser display clock; only opacity uniforms change. Ordinary
+`translucent-batch` pulse behavior retains phase zero.
 
 Reusing the same immutable batch preserves its clock and GPU buffers, including
 during camera changes or shader replacement. A new batch value starts a new
-transition. Static batches allocate no previous-position buffer: both vertex
-bindings reuse the current buffer. A motion batch owns a separate previous
-buffer and uniform so concurrent batches can use different durations.
+transition. Static batches allocate no prior-transform buffer: both endpoint
+bindings reuse the current transform buffer. A motion batch owns a separate prior
+transform buffer and uniform so concurrent batches can use different durations.
 
 For a simulation committing every 100 ms, a duration of 100 ms displays the
 transition from the prior committed state to the current one over the following
@@ -208,14 +275,15 @@ Wrap any retained, motion or translucent batch with a radial reveal:
 ```
 
 The wrapper takes the batch, a nonnegative `I32` transition identity, world XY
-center, enclosing radius, positive feather width, nonnegative initial elapsed
+center, enclosing radius, nonnegative edge width, nonnegative initial elapsed
 milliseconds and positive duration milliseconds. Center, radius and feather are
-`F64`; times are `I32`. The radius must enclose **all** supplied geometry in XY,
+`F64`; times are `I32`. An edge width of zero requests a sharp continuous contour;
+a positive width feathers it. The radius must enclose **all** supplied geometry in XY,
 including tile corners and both endpoints of moving geometry. Stage the complete
 geometry at the start. Previously revealed geometry belongs in ordinary batches.
 
 The fragment shader measures distance from each interpolated world position to
-the center. A continuous soft edge advances with a quintic easing curve: slow
+the center. The continuous contour advances with a quintic easing curve: slow
 start, fast middle, slow finish. The host updates a small uniform and redraws
 existing buffers at display rate; Scheme, reducers and UI layout do not run on
 that path. Exactly invisible fragments discard, and the endpoint exposes the
@@ -242,13 +310,14 @@ translucent batches keep blending without depth writes, including when wrapped.
 
 ## Checks
 
-Run `scripts/test-draw3d` to compile and execute the math/geometry/shader checks
-and real colony and nested-motion frames in Wasm. It produces a browser fixture
+Run `scripts/test-draw3d` to compile and execute the math/geometry/model/shader checks
+and real colony, shared-instance and nested-motion frames in Wasm. It produces a browser fixture
 in `build/draw3d-tests/`. Serve that directory, then run
 `node tests/draw3d/browser.mjs FIXTURE_URL DEVTOOLS_URL` against an isolated
 Chromium instance. GPU checks cover intermediate and final motion pixels,
 independent durations, shared reveal clocks, fragment opacity, inset cameras,
-native DPR, shader replacement, buffer reuse and resource cleanup.
+native DPR, single-sample edge coverage, shader replacement, buffer/target
+reuse and resource cleanup.
 The product surface does not currently support
 `cond-expand`; test entry points follow the existing Lofi library convention,
 with private helpers in final `Tests` sections.

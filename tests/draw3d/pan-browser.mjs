@@ -63,7 +63,7 @@ async function nearBound(screen) {
 try {
   await call('Network.enable'); await call('Network.setCacheDisabled', {cacheDisabled:true});
   await call('Page.navigate', {url:origin}); await call('Page.bringToFront'); await until('!!globalThis.snailApp');
-  await command('suspend', [1]); const committed = await evaluate('snailApp.runtime.snapshot(1)');
+  await command('resume');await evaluate('snailApp.session.stopClock()');const committed = await evaluate('snailApp.runtime.snapshot(1)');
   const directions = [['w',[0,-1]],['s',[0,1]],['a',[-1,0]],['d',[1,0]]];
   const evidence = [];
   for (const [value, screen] of directions) {
