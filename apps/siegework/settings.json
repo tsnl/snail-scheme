@@ -130,5 +130,14 @@
   },
   "resetPresentation": "reset-presentation",
   "zoomHandler": "zoom",
-  "dragHandler": "drag"
+  "dragHandler": "drag",
+  "recording": {
+    "menuKey": "pause-dialog",
+    "prepareCamera": "recording-camera",
+    "cameraHandlers": ["move", "viewport", "nudge", "zoom", "pan", "drift", "drag", "turn", "rotate", "animate", "home", "center", "inspect-attack", "dismiss-attack"],
+    "inspection": {
+      "version": 1,
+      "fields": ["tick", "run", "seed", "outcome", "ore", "produced", "delivered", "spent", "lostOre", "hull", "nestHp", "kills", "casualties", "buildings", "extractors", "towers", "artillery", "houses", "pending", "workers", "busyWorkers", "enemies", "surveys", "frontierDistanceSquared", "lastRevealTick", "nestKnown", "nestVisible", "paused", "started"]
+    }
+  }
 }

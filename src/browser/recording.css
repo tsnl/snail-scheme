@@ -1,0 +1,16 @@
+.snail-recording { position: fixed; z-index: 50; left: 50%; bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%); width: min(360px, calc(100vw - 24px)); box-sizing: border-box;
+  padding: 12px; border: 1px solid #536674; border-radius: 12px; background: #15252fee; color: #f3f6f8;
+  font: 12px/1.45 system-ui, sans-serif; box-shadow: 0 5px 24px #0008; }
+.snail-recording[hidden], .snail-recording [hidden] { display: none; }
+.snail-recording p { margin: 0 0 8px; }
+.snail-recording-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.snail-recording button { min-height: 42px; flex: 1; padding: 7px 10px; color: inherit; background: #29414f;
+  border: 1px solid #607684; border-radius: 7px; cursor: pointer; font: inherit; }
+.snail-recording button:focus-visible, .snail-recording input:focus-visible { outline: 3px solid #81d7eb; outline-offset: 2px; }
+.snail-recording input[type=range] { width: 100%; min-height: 40px; margin: 4px 0; }
+.snail-recording input[type=range] ~ button { margin-right: 6px; }
+@media (max-height: 560px) and (min-width: 480px) {
+  .snail-recording { left: 12px; transform: none; width: calc((100vw - 280px) / 2);
+    max-height: calc(100vh - 24px); overflow: auto; }
+}

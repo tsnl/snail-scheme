@@ -20,7 +20,8 @@ export class RemoteSaves {
     button.addEventListener('click', () => void this.run(operation)); this.controls.append(button); return button;
   }
   async run(operation) {
-    if (this.busy) return; this.busy = true; this.saveButton.disabled = this.loadButton.disabled = true;
+    if (this.busy || this.app.recording?.replaying || this.app.recording?.opening) return;
+    this.busy = true; this.saveButton.disabled = this.loadButton.disabled = true;
     try { await operation(); }
     catch (error) { if (!this.controller.signal.aborted) this.status.textContent = `${error.message} Local progress is saved.`; }
     finally { this.busy = false; this.saveButton.disabled = this.loadButton.disabled = false; }
@@ -45,6 +46,8 @@ export class RemoteSaves {
     const snapshot = readRecord(record, this.app.manifest.settings.id, saveContract(this.app.manifest));
     if (!snapshot) throw new Error('Invalid online checkpoint.');
     const accepted = await this.app.update(async () => {
+      if (this.app.recording?.replaying || this.app.recording?.opening)
+        throw new Error('Return to the colony before loading an online checkpoint.');
       if (!confirm('Replace this browser’s colony with the online checkpoint?')) return false;
       await this.session.local.restore(snapshot.state);
       // Already inside the browser lane: apply the configured import hook

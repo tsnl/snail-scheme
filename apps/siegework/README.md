@@ -43,6 +43,12 @@ The status dials and controls occupy one vertical edge strip. **Pause** opens a
 centered menu with Resume, Restart and the control-side setting. The same icons
 and touch-sized buttons appear on desktop and mobile.
 
+Pause also exposes the in-memory game recorder, replay scrubber and dump
+export/import controls. Recording starts at this page's checkpoint and is
+bounded; export before reloading to keep its history. Replay preserves the saved
+colony. See [recording and analysis](recording.md) for the event contract and
+the Node analysis command.
+
 - Tap a resource deposit to open its **Extractor** action (`1`). Extractors
   are not part of the ordinary construction choices. Persistent first-extractor
   guidance points toward the highlighted deposit.

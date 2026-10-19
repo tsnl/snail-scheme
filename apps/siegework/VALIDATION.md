@@ -1,5 +1,54 @@
 # Release validation — 2026-10-18
 
+## Recording checkpoint — 2026-10-18
+
+The recording follow-up preserves the deployed World11 save contract. Its
+canonical default-O1 package is generation `d8a53467290cafd21cbee80b`, built
+from integration code checkpoint `5c4e3e49` on landed main `812ffaad`. The
+586,067-byte module has SHA-256
+`001be8dbe734d4f10d1a13b391aa02aa3a79f38fe203c05a4d1fb3bb9ff0b558`.
+
+The exact package passes 218 actual-Wasm application checks, eight recording
+checks, and all 20 headed Chromium hosting/storage sections. The latter includes
+recording import/export, actual IndexedDB aborts, camera input during read-only
+playback, stale replay input during exit, and unchanged live World, Client,
+revision and saved bytes. Formatting and the book build pass. Existing linked
+counter/application fixtures were reused because their source and ABI did not
+change; the game itself was rebuilt with current main's build recipe.
+
+The informed Astra review of the recorder found one input-admission race.
+The corrected host binds queued input to its admission runtime; a separate
+Astra source review and red/green Chromium regression verify that exiting replay
+cannot redirect an old command into the live colony. No other recorder blocker
+was found. The optional native-pixel-alignment candidate remains unpublished:
+its low-DPR border gaps are less regular than the current continuous projection.
+
+Recording begins at the current page's saved checkpoint. Refresh can therefore
+export an existing completed colony's final state, but cannot recover its earlier
+history. The 64-MiB recorder is bounded and reports eviction: a synthetic ten-minute
+100-KB fixture fits in 16.8 MiB; a sustained dense 6,000-active-tick fixture retains
+only the final 6m48s. These are instrumented diagnostics, not phone-FPS results.
+See [the recording guide](recording.md) for replay, binary dumps and analysis.
+
+## Idle-clock retention correction
+
+The recorder-only correction at `9e8a4137` was repackaged with the default-O1
+build recipe. Generation, Wasm bytes and SHA-256 remain exactly the same as the
+recording checkpoint above; the packaged JavaScript recorder matches the
+corrected source. All eleven recording checks pass against this rebuilt
+package. A fresh headed Chromium run of `recording-browser.mjs` also passes,
+including failed IndexedDB publication, generation changes, dump playback and
+import, stale input on replay exit, unchanged live saves, and checkpoint reload.
+The previous complete 20-section browser run remains the broader baseline.
+
+A paired actual-Wasm test with an eight-entry budget and 192 idle polls ends at
+live revision 199 in both versions. Previously only revisions 198–199 remained;
+the correction retains all eight meaningful entries, with honest revision gaps
+and no eviction. User commands, effects, advancing ticks and all history
+boundaries remain recorded. An informed Astra xhigh review found no blocker and
+independently passed all eleven checks. No scheduler, save or game-state rule
+changed.
+
 ## Published combined World11 package
 
 The final default `-O1` build from source `aba9a809` combines fixed model

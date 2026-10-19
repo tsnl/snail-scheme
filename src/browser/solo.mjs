@@ -1,6 +1,7 @@
 import {BrowserApplication} from './application.mjs';
 import {LocalState} from '../application/local.mjs';
 import {acquireWriter, openStore, saveContract} from '../application/indexeddb.mjs';
+import {BrowserRecording} from './recording.mjs';
 
 class SoloSession {
   stopping = false; faulted = false;
@@ -16,6 +17,7 @@ class SoloSession {
     this.local = await LocalState.open(runtime, {saved,
       commit: (snapshot, expected) => this.store.commit(snapshot, expected), publish: output => this.publish(output)});
     if (!saved && manifest.settings.randomSeed) await this.local.submit(this.seedCommand());
+    if (manifest.settings.recording) this.app.recording = new BrowserRecording(this.app, this);
   }
   seedCommand() {
     const {handler, minimum, maximum} = this.app.manifest.settings.randomSeed;
@@ -62,13 +64,13 @@ class SoloSession {
   stopClock() { this.faulted = true; clearTimeout(this.timer); }
   startClock() {
     // A manual retry may finish while an earlier tick is still settling.
-    if (this.stopping || this.faulted || this.ticking) return;
+    if (this.stopping || this.faulted || this.ticking || this.app.recording?.replaying || this.app.recording?.opening) return;
     clearTimeout(this.timer); this.timer = setTimeout(() => void this.tick(), this.app.manifest.settings.tickMilliseconds);
   }
   async tick() {
     this.ticking = true;
     try {
-      if (!this.stopping && !this.faulted && !document.hidden)
+      if (!this.stopping && !this.faulted && !document.hidden && !this.app.recording?.replaying && !this.app.recording?.opening)
         await this.local.submit(this.app.runtime.command('match', this.app.manifest.settings.tick));
     } catch (error) {
       this.stopClock(); await this.recordFailure(error); this.app.report(error);
