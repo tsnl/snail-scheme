@@ -127,13 +127,13 @@ try {
   const planned=siteAt(world(),5,5);assert.ok(planned);assert.equal(planned.kind,1);
   console.log('ok - explored richer deposits become the guidance target while construction stays explicit');
 
-  await runtime.restore(1,fresh);const unsafe=world();await addEnemy(runtime,{x:12,y:20});await command('center');cursor(8,22);
-  await restoreColony(runtime,{...unsafe,hull:1});await addEnemy(runtime,{x:8,y:22});await advance(20);
+  await runtime.restore(1,fresh);const beforeEnemy=world();await addEnemy(runtime,{x:12,y:20});await command('center');cursor(12,20);
+  await restoreColony(runtime,{...beforeEnemy,hull:1});await addEnemy(runtime,{x:8,y:22});await advance(20);
   assert.equal(world().outcome,1);assert.ok(node('result'));assert.match(node('context-title').text,/colony lost/i);
   assert.equal(node('restart').properties[1],1);
   await restoreColony(runtime,{...world(),bots:[]});assert.ok(node('workers'));assert.equal(world().bots.length,0);runtime.view();save('defeated');
   await command('restart');assert.equal(world().outcome,1);assert.ok(node('restart-dialog'));
   await command('accept-restart');assert.equal(world().outcome,0);assert.equal(node('restart-dialog'),undefined);
   await command('center');cursor(12,20);
-  console.log('ok - unsafe guidance falls back to the hub, a zero-worker HUD renders, and defeat requires explicit restart confirmation');
+  console.log('ok - nearby enemies preserve deposit guidance, a zero-worker HUD renders, and defeat requires explicit restart confirmation');
 } finally { await runtime.close(); }
