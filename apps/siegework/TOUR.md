@@ -8,7 +8,7 @@ Scheme owns the game rules and presentation executed in the browser.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, weighted bounded walking/flight pathfinding and exact grid-crossing direct fire. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, bounded shortest-time worker routing over walking and bidirectional flights and exact grid-crossing direct fire. |
 | [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, completion-only upgrade healing and normalized bank refunds, worker demolition with a completed-investment refund, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, compatible World12 reserve migration, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
@@ -147,6 +147,16 @@ lift ticks and two landing ticks. The slower endpoint chooses speed 80, 160 or
 320 world units per tick, with the hub at level three. Adjacent station cells
 remain walking steps because boarding cannot improve their travel time. Arrival
 jobs run on the following tick after movement finishes.
+
+Worker A* uses a consistent lower bound: the cheapest cost per Manhattan cell
+among walking and all available flights. It considers walking detours to
+stations, reverse trips, multiple links and destinations beyond a station.
+Successful searches minimize elapsed travel time; exhausting the existing
+8192-slot / 6144-discovery budget returns no route, not an approximate route.
+Other long-distance walking and tunneling searches retain their weighted mode.
+Grounded workers reconsider queued walking plans in four staggered five-tick
+windows, at cell centers only. A faster route replaces only the waypoint list;
+the worker keeps its job, target and cargo. Captured flights finish unchanged.
 
 Freight belongs to its source until unloading. Reroutes return it to the living
 source exactly once; source destruction accounts for it as lost. The reserved

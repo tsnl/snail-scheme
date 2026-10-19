@@ -72,6 +72,9 @@ source changes alone do not count as a playable result. Keep the preview at **42
       glow or contrasting outlines; preserve flight and reveal guides.
 - [x] Separate overlapping tower and turret range outlines so both guide
       colors remain visible without changing their gameplay ranges.
+- [x] Compare walking with bidirectional, multi-hop zipline travel using elapsed
+      time, and refresh queued walking plans when new service can shorten them.
+      Keep bounded searches, captured flights and paid cargo ownership intact.
 - [x] Reveal one rich, mineable deposit when a nest is destroyed; award no
       instant ore. Increase deposit density significantly toward nests so enemy
       approach directions also guide mining exploration. Preserve home deposits.

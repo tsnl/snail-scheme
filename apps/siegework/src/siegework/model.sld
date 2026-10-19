@@ -1414,9 +1414,25 @@
              (path (route-from world bot (index-x goal) (index-y goal) #t)))
         (if (reachable? bot (index-x goal) (index-y goal) path)
             (put-bot world (bot-path-set bot path)) (interrupt-bot world bot))))
+    ;; Four staggered five-tick windows reconsider walking plans after new links
+    ;; or upgrades. A cell takes five walking ticks, so every grounded traveler
+    ;; gets a chance within twenty ticks. Flights and fleeing keep their routes.
+    (define (route-refresh-due? world bot)
+      (let ((cell (landing-cell bot)))
+        (and (not (= (bot-job bot) 7))
+             (= (remainder (+ (quotient (world-tick world) 5) (bot-id bot)) 4) 0)
+             (at-cell? bot (index-x cell) (index-y cell)))))
+    (define (refresh-walking-route world bot fast)
+      (if (or (null? fast) (not (route-refresh-due? world bot))) bot
+          (let* ((goal (last-transport-cell (bot-path bot)))
+                 (path (route-from world bot (index-x goal) (index-y goal) #t)))
+            (if (and (not (null? path))
+                     (< (path-work fast (bot-x bot) (bot-y bot) path)
+                        (path-work fast (bot-x bot) (bot-y bot) (bot-path bot))))
+                (bot-path-set bot path) bot))))
     (define (walk-bot world bot)
-      (let* ((next (car (bot-path bot))) (here (landing-cell bot))
-             (fast (fast-rails world (world-rails world))))
+      (let* ((fast (fast-rails world (world-rails world))) (bot (refresh-walking-route world bot fast))
+             (next (car (bot-path bot))) (here (landing-cell bot)))
         (cond ((and (at-cell? bot (index-x here) (index-y here)) (rail-step? fast here next))
                (put-bot world (board-flight bot fast next)))
               ((and (<= (distance (index-x here) (index-y here) (index-x next) (index-y next)) 1)

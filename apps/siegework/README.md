@@ -228,6 +228,10 @@ available worker service and warm yellow marks ordinary freight links. Workers
 lift for two ticks, fly at their captured speed, then land; jobs, cargo and source
 reservations stay with them. A flight already underway finishes safely even if
 a tower is destroyed. Queued flights recheck the current network before boarding.
+Workers use links in either direction and compare total travel time, including
+walks to stations, connecting flights and the walk to their destination. They
+periodically reconsider walking plans at cell centers so newly completed or
+upgraded links can shorten a trip already underway; shorter walks stay on foot.
 Freight shuttles also lift and lower around their straight trip.
 Unchanged routes retain shuttle progress and cargo. Rerouting returns a
 shuttle's cargo once to its surviving source and resets that shuttle; destroying

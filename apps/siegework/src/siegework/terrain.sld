@@ -270,6 +270,7 @@
       (opened (List I32) search-opened search-opened-set)
       (fast (List CartEdge) search-fast search-fast-set)
       (walking-cost I32 search-walking-cost search-walking-cost-set)
+      (estimate-cost I32 search-estimate-cost search-estimate-cost-set)
       (target I32 search-target search-target-set)
       (weight I32 search-weight search-weight-set)
       (surveys (List Survey) search-surveys search-surveys-set)
@@ -290,7 +291,8 @@
       (if (and (>= target 0)
                (> (distance (index-x start) (index-y start) (index-x target) (index-y target)) 96)) 2 1))
     (define (new-search seed opened fast walking-cost start target surveys blocked warnings unrestricted tunneling capacity)
-      (make-search seed opened fast walking-cost target (route-weight start target) surveys blocked warnings unrestricted tunneling capacity
+      (make-search seed opened fast walking-cost (route-estimate-cost fast walking-cost)
+                   target (if (= walking-cost cart-walking-cost) 1 (route-weight start target)) surveys blocked warnings unrestricted tunneling capacity
                    (make-vector (i32->i64 capacity) -1)
                    (make-vector (i32->i64 capacity) -1)
                    (make-vector (i32->i64 capacity) 0)
@@ -309,7 +311,7 @@
     (define (remaining-steps search slot)
       (let ((cell (read-cell (search-cells search) slot)) (target (search-target search)))
         (if (< target 0) 0
-            (* (if (null? (search-fast search)) 1 20)
+            (* (search-estimate-cost search)
                (distance (index-x cell) (index-y cell) (index-x target) (index-y target))))))
     (define (earlier-slot? search a b)
       (let* ((ga (read-cell (search-steps search) a)) (gb (read-cell (search-steps search) b))
@@ -322,9 +324,9 @@
 
     ;; ---- The frontier heap supports shorter paths to open cells ----
 
-    ;; Local trips use consistent Manhattan distance and return shortest routes.
-    ;; Trips farther than 96 cells double that heuristic to cross large regions
-    ;; within the discovery budget; these routes are valid, not always shortest.
+    ;; Worker trips use a consistent time lower bound, including distant trips.
+    ;; Other walking/tunneling trips farther than 96 cells double their estimate
+    ;; to cross large regions; those routes are valid, not always shortest.
     ;; All modes improve open cells, while closed cells keep their chosen parent.
     (define (heap-swap! search a b)
       (let ((left (read-cell (search-heap search) a)) (right (read-cell (search-heap search) b)))
@@ -404,6 +406,17 @@
         (if (= (+ x y) 0) 0 (ceiling-root (+ (* x x) (* y y)) 0 (+ x y)))))
     (define (flight-duration a b speed)
       (+ 4 (quotient (+ (segment-length a b) (- speed 1)) speed)))
+    (define cart-walking-cost 1600)
+    ;; Every edge costs at least this much per Manhattan cell. The resulting
+    ;; heuristic is consistent for walking and either direction of every flight,
+    ;; even when the fastest route first walks away from its destination.
+    (define (route-estimate-cost fast walking-cost)
+      (if (null? fast) walking-cost
+          (let* ((edge (car fast)) (a (cart-edge-a edge)) (b (cart-edge-b edge))
+                 (cost (if (rail-step? (list edge) a b)
+                           (quotient (* 320 (flight-duration a b (quotient 320 (cart-edge-cost edge))))
+                                     (distance (index-x a) (index-y a) (index-x b) (index-y b))) walking-cost)))
+            (route-estimate-cost (cdr fast) (if (< cost walking-cost) cost walking-cost)))))
     (define (traversable? seed opened x y tunneling)
       (and (inside? x y) (if tunneling (not (water? seed x y)) (open-ground? seed opened x y))))
     (define (search-enter? search x y)
@@ -497,7 +510,7 @@
     (define (avoiding-path seed x y a b surveys hazards)
       (avoiding-open-path seed (empty-list) x y a b surveys hazards))
     (define (cart-path seed opened fast x y a b surveys hazards)
-      (find-path seed opened fast (if (null? fast) 1 1600) x y a b surveys hazards #f #f))
+      (find-path seed opened fast cart-walking-cost x y a b surveys hazards #f #f))
 
     ;; ---- Emergency escape crosses warnings but not enemy positions ----
 
@@ -513,7 +526,7 @@
           (search-path seed opened (empty-list) 1 (cell-index x y) -1 surveys (occupied-hazards hazards) hazards #f #f 512)))
     (define (cart-escape-path seed opened fast x y surveys hazards)
       (if (not (open-ground? seed opened x y)) (empty-list)
-          (search-path seed opened fast (if (null? fast) 1 1600) (cell-index x y) -1 surveys
+          (search-path seed opened fast cart-walking-cost (cell-index x y) -1 surveys
                        (occupied-hazards hazards) hazards #f #f 512)))
     (define (escape-path seed x y surveys hazards)
       (escape-open-path seed (empty-list) x y surveys hazards))))

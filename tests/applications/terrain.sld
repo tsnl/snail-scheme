@@ -228,6 +228,12 @@
              (rail-step? fast a c) (rail-step? fast c a) (not (rail-step? fast a b))
              (= (path-length (cart-path 1 (empty-list) (empty-list) (index-x a) (index-y a)
                                         (index-x c) (index-y c) all-surveys (empty-list))) 2))))
+    ;; Independent breadth-first enumeration of seed one's open cells gives
+    ;; 230 steps. The distant weighted walking mode takes 232 on this trip;
+    ;; worker time minimization must retain the shorter route without a cable.
+    (define (distant-worker-route?)
+      (= (path-length (cart-path 1 (empty-list) (empty-list) 5 5 120 120
+                                all-surveys (empty-list))) 230))
 
     ;; The production cable clears all current terrain. Lower probe heights
     ;; exercise rejection, including conservative diagonal corner coverage.
@@ -267,5 +273,6 @@
                    ((not (water-cannot-open?)) -18)
                    ((not (cart-detour?)) -19)
                    ((not (cable-sight?)) -20)
+                   ((not (distant-worker-route?)) -21)
                    (else 1)))
            (-> I32)))))
