@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
+import {LocalState} from '../../src/application/local.mjs';
+import {readRecord,saveContract} from '../../src/application/indexeddb.mjs';
 import {colony,restoreColony,fixtureCall,pixelAt} from './colony-state.mjs';
 
 export async function checkRanks(test,fresh) {
@@ -18,7 +20,10 @@ export async function checkRanks(test,fresh) {
       if(rank>0)assert.equal(enemies.filter(enemy=>enemy.rank===rank).length,1);
       assert.ok(enemies.some(enemy=>enemy.rank===0));
       if(rank>1)assert.ok(enemies.some(enemy=>enemy.rank===rank-1));
-      for(const enemy of enemies)assert.equal(enemy.hp,enemy.kind===1?Math.floor(health[enemy.rank]*4/5):health[enemy.rank]);
+      for(const enemy of enemies) {
+        assert.equal(enemy.hp,enemy.kind===1?Math.floor(health[enemy.rank]*4/5):health[enemy.rank]);
+        assert.equal(enemy.maxHp,enemy.hp);
+      }
       assert.equal(enemies.filter(enemy=>enemy.kind===2).length,rank===6?1:0);
     }
     await r.close();
@@ -39,6 +44,41 @@ export async function checkRanks(test,fresh) {
       assert.equal(state(r).hull,300-damage[rank]); assert.equal(state(r).enemies[0].rank,rank);
       await call(r,'pause-colony',[1]); const saved=r.snapshot(1); await r.restore(1,saved); await call(r,'advance');
       assert.deepEqual(r.snapshot(1),saved); await call(r,'pause-colony',[0]);
+    }
+    await r.close();
+  });
+  await test('spawn maximum stays exact after wounds and later difficulty increases',async()=>{
+    const r=await fresh();await wave(r,10800);const world=state(r),maximum=world.enemies[0].maxHp;
+    world.enemies[0].hp=7;world.tick=35999;world.lastRevealTick=-100;
+    await restoreColony(r,world);await call(r,'advance');
+    const survivor=state(r).enemies.find(enemy=>enemy.id===world.enemies[0].id);
+    assert.equal(maximum,1890);assert.equal(survivor.hp,7);assert.equal(survivor.maxHp,maximum);
+    const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);await r.close();
+  });
+  await test('the original World12 saved checkpoint migrates without changing funds, jobs or resources',async()=>{
+    const fixture=JSON.parse(readFileSync(new URL('./fixtures/siegework-world12.json',import.meta.url)));
+    const r=await fresh(),saved=readRecord(fixture.record,r.manifest.settings.id,saveContract(r.manifest));
+    const before=colony(saved.state),committed=[];
+    const local=await LocalState.open(r,{saved,commit:(snapshot,revision)=>committed.push({snapshot,revision})});
+    assert.equal(local.revision,7);assert.deepEqual(r.snapshot(1),saved.state);r.view();
+    await local.submit(r.command('match','pause-colony',[1]));const after=state(r);
+    assert.equal(after.payloadVersion,2);assert.ok(after.bots.every(bot=>bot.flight.length===0));
+    assert.equal(after.enemies[0].maxHp,135);assert.equal(after.enemies[0].hp,30);
+    const retained=structuredClone(after);delete retained.payloadVersion;
+    for(const bot of retained.bots)delete bot.flight;for(const enemy of retained.enemies)delete enemy.maxHp;
+    assert.deepEqual(retained.deposits.slice(0,before.deposits.length),before.deposits);
+    retained.deposits=before.deposits;assert.deepEqual(retained,before);assert.equal(committed[0].revision,7);assert.equal(local.revision,8);
+    const canonical=r.snapshot(1);await r.restore(1,canonical);assert.deepEqual(r.snapshot(1),canonical);
+    after.tick=36000;await restoreColony(r,after);await call(r,'pause-colony',[1]);assert.equal(state(r).enemies[0].maxHp,135);
+    await r.close();
+  });
+  await test('unknown payload revisions, mixed layouts and invalid maxima cannot replace a live colony',async()=>{
+    const r=await fresh();await wave(r,5400);const saved=r.snapshot(1);
+    for(const edit of [world=>world.payloadVersion=3,world=>delete world.payloadVersion,
+      world=>world.extra=0,world=>world.bots[0].extra=0,world=>world.enemies[0].maxHp=0,
+      world=>world.enemies[0].maxHp=world.enemies[0].hp-1,world=>world.enemies[0].maxHp=2311]) {
+      const world=colony(saved);edit(world);await assert.rejects(()=>restoreColony(r,world),WebAssembly.RuntimeError);
+      assert.deepEqual(r.snapshot(1),saved);
     }
     await r.close();
   });

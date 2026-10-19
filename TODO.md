@@ -60,6 +60,26 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
+- [x] Increase transport-line contrast and replace the nest count with hollow
+      stars that fill as nests are defeated; publish the checked preview on 4212.
+- [x] Replace world-space numeric ore badges with compact green HP bars and
+      optional purple reserve bars beneath them. No numbers, low-ore red or
+      pulsing; moving bars must share their units' display-rate animation clock.
+- [x] Replace ground transport with straight elevated ziplines. A connection
+      requires clear cable sight and distance within either endpoint's actual
+      reveal radius. Show matching tower guides and lower the building models.
+- [x] Reveal one rich, mineable deposit when a nest is destroyed; award no
+      instant ore. Increase deposit density significantly toward nests so enemy
+      approach directions also guide mining exploration. Preserve home deposits.
+- [x] Defeating a nest lowers threat by two levels, to a minimum of level one;
+      keep difficulty progress and future enemy strength consistent.
+- [x] Unveil the entire map on defeat, without resuming gameplay or recording
+      every map tile as persistent survey history.
+- [x] Add Scavenge to building actions: a worker dismantles the structure and
+      recovers one fifth of its construction and completed upgrade investment.
+- [x] Defer replay recording until the game stabilizes; retain normal saves.
+- [x] Replace the control-side toggle with explicit Right-handed and Left-handed
+      buttons and a visible selected state.
 - [x] Q/E animates between 90-degree snaps, preserving orthographic projection;
       panning and picking follow its orientation. Camera, picking and Chromium input verified.
 - [x] Reduce tower height so deposits behind towers remain accessible.
@@ -149,10 +169,11 @@ source edits remain unchecked until compiled and exercised.
       matching high-contrast labels or badges.
 - [x] Quote hub repairs to the highest affordable percentage, spending only the
       ore needed or available; complete the paid work with a worker.
-- [x] Recompute a deterministic transport minimum spanning tree each tick; display only current paths as directional pulsing dots.
-- [x] Give every tower and artillery a shared stone plinth with open arches on
-      all four sides.
-- [x] Lower the hub and upper building profiles while preserving arch clearance;
+- [x] Recompute a deterministic transport minimum spanning tree each tick;
+      display current aerial links as continuous pulsing energy.
+- [x] Keep tower and artillery models compact; aerial transport replaces the
+      former tall plinths and their pass-under arches.
+- [x] Lower the hub and upper building profiles;
       enlarge resource crystals and keep a pulsing halo around extractors.
 - [x] Allow buildings on current transport paths and intersections.
 - [x] Replace constructible houses with six paid hub capacity upgrades: 12 base

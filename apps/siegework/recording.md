@@ -1,20 +1,15 @@
 # Recording and inspecting games
 
-Recording starts automatically when the browser opens a colony. **Pause** shows
-Recording on/off, **Replay**, **Export dump**, and **Open dump**. Replay has a
-scrubber, Play, and Return to colony. Drag/pinch or the ordinary camera keys move
-its independent camera. Play advances one recorded transition per 100 ms; orders
-and pauses can occupy additional transitions at the same simulation tick.
+Recording and replay are **deferred** while Siegework stabilizes. Its package
+sets `recording.enabled` to `false`: the browser neither loads the recording UI
+nor captures transition history. Ordinary IndexedDB saves, reload and restart
+continue normally. Headless inspection reads the current World on demand.
 
-The recording is held in this page's memory. Export before closing or reloading
-the page. Reload starts from the current IndexedDB checkpoint, including a
-finished game, but cannot recover that game's earlier unrecorded history. This
-feature follows the application schema. The competing-fronts revision uses
-`siegework-colony-v12`, World12/Client8 and inspection projection 3. It retains the completed
-hub capacity tier and adds living nests, individual nest health, depleted-deposit
-count, all remaining underground ore and known remaining ore. The old `nestHp`
-field is the sum of all three; known/visible nest fields are counts. Existing World11
-recordings remain usable with their matching package.
+The reusable recording libraries and manual developer tests remain available.
+The rest of this document describes that retained developer format, not a
+currently available player feature. Inspection metadata stays in the manifest
+for headless diagnostics and existing analysis tools. The competing-fronts
+revision uses `siegework-colony-v12`, World12/Client8 and inspection projection 3.
 
 ## What a dump means
 
@@ -123,7 +118,9 @@ node tests/draw3d/recording-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9
 
 The profiler executes real ticks between explicit dense-fixture restores. Its
 capture timings measure instrumented CPU overhead, not frame rate or natural
-player behavior. The browser check requires a disposable origin/profile and
+player behavior. The browser check applies only to a developer package with
+`recording.enabled` set to `true`; it is skipped by Siegework hosting checks
+while the feature is deferred. It requires a disposable origin/profile and
 exercises a real IndexedDB abort, dump import, camera/gameplay input isolation
 and saved-checkpoint reload. Never run that fixture against a player's save.
 

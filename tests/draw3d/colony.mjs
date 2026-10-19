@@ -66,8 +66,8 @@ function controlsFit(width,height) {
   function walk(value,x=0,y=0) {
     x+=value.rect[0];y+=value.rect[1];
     if((value.kind===2&&value.key!=='dialog-backdrop'&&!value.key.startsWith('attack-inspect-'))||value.kind===6) {
-      const menu=['resume','restart-menu','handedness','dismiss-restart','accept-restart'].includes(value.key);
-      assert.deepEqual(value.rect.slice(2),menu?[208,48]:[56,56],value.key);
+      const menu=['resume','restart-menu','dismiss-restart','accept-restart'].includes(value.key);
+      assert.deepEqual(value.rect.slice(2),menu?[208,48]:['right-handed','left-handed'].includes(value.key)?[100,48]:[56,56],value.key);
       assert.ok(x>=0&&y>=0&&x+value.rect[2]<=width-24&&y+value.rect[3]<=height-32,`${value.key} fits ${width}×${height}: ${x},${y}`);
     }
     const padding=value.kind===5?value.properties[6]:0;
@@ -175,14 +175,19 @@ try {
   console.log('ok - all four dimetric snaps project 2:1 ground diamonds with shared picking and smooth screen-space drag');
   for(const[width,height]of[[1100,760],[390,844],[640,360],[568,320],[320,568],[360,640]]){
     await command('viewport',[width,height]);await home();controlsFit(width,height);
-    const right=placed('rail').left;await command('pause-menu');controlsFit(width,height);assert.ok(node('resume')&&node('restart-menu')&&node('handedness'));
+    const right=placed('rail').left;await command('pause-menu');controlsFit(width,height);assert.ok(node('resume')&&node('restart-menu')&&node('right-handed')&&node('left-handed'));
     assert.deepEqual(node('rotate-left').action.command,runtime.command('client','turn',[-1]));
     assert.deepEqual(node('rotate-right').action.command,runtime.command('client','turn',[1]));
-    await command('handedness');controlsFit(width,height);assert.equal(placed('rail').left,0);assert.ok(right>0);
+    await command('handedness',[Number(!local().leftHanded)]);controlsFit(width,height);assert.equal(placed('rail').left,0);assert.ok(right>0);
+    assert.equal(node('left-handed').properties[2],1);assert.equal(node('right-handed').properties[2],0);
+    const selected=runtime.snapshot(2);await command('handedness',[1]);assert.deepEqual(runtime.snapshot(2),selected);
+    await command('handedness',[2]);assert.deepEqual(runtime.snapshot(2),selected,'invalid preference values are ignored');
+    assert.deepEqual(node('right-handed').action.command,runtime.command('client','handedness',[0]));
+    assert.deepEqual(node('left-handed').action.command,runtime.command('client','handedness',[1]));
     assert.ok(placed('rotate-left').left<placed('rotate-right').left,'Q stays physically left of E');
     await command('resume');await point(12,22);await command('confirm');controlsFit(width,height);popupControlsFit();assert.ok(node('tower')&&node('artillery')&&!node('house'));
     const target=project(12,22),card=placed('context');assert.ok(target[0]-12<card.left||target[0]-12>=card.right||target[1]-16<card.top||target[1]-16>=card.bottom,'selected tile remains outside the popup');
-    await command('home');await animate();controlsFit(width,height);await command('dismiss');await command('pause-menu');await command('handedness');await command('resume');
+    await command('home');await animate();controlsFit(width,height);await command('dismiss');await command('pause-menu');await command('handedness',[Number(!local().leftHanded)]);await command('resume');
   }
   console.log('ok - same 56px controls fit desktop, portrait and short landscape; handedness mirrors the entire rail and attached panels');
 
@@ -209,11 +214,23 @@ try {
   await restoreClient(runtime,{...local(),chooser:true,cursorX:x,cursorY:y,targetX:x,targetY:y,dialog:0});
   assert.match(node('context-description').text,/Depleted/);assert.equal(node('extractor').properties[1],0);
   const fronts=world();for(const nest of fronts.nests)fronts.surveys.push({x:nest.x,y:nest.y,radius:4});
-  fronts.nests[2].hp=0;await restoreColony(runtime,fronts);assert.equal(node('nest-objective').text,'Nests left 2 / 3');
+  fronts.nests[2].hp=0;await restoreColony(runtime,fronts);assert.equal(node('nest-objective').text,'★☆☆');
   const matches=runtime.view().scene.batches.filter(batch=>[3,10].includes(batch.key)).flatMap(batch=>batch.draws.flatMap(draw=>
     Array.from({length:draw.count},(_,offset)=>({mesh:draw.mesh,index:draw.first+offset,batch})))).filter(({index,batch})=>
       fronts.nests.some(nest=>batch.transforms[index*12+3]===nest.x&&batch.transforms[index*12+7]===-nest.y));
-  assert.equal(matches.length,3);assert.ok(matches.every(value=>value.mesh===matches[0].mesh),'three nests reuse one fixed mesh');
-  assert.ok(matches.some(({index,batch})=>Math.abs(batch.transforms[index*12+10]-.18)<1e-5),'cleared nest has a low remnant');
+  assert.equal(matches.length,2);assert.ok(matches.every(value=>value.mesh===matches[0].mesh),'live nests reuse one fixed mesh');
+  assert.ok(matches.every(({index,batch})=>Math.abs(batch.transforms[index*12+10]-1)<1e-5),'cleared nest leaves its crystal unobstructed');
   console.log('ok - depleted deposits stop pulsing and reject purchase; all nest instances share geometry and expose the remaining objective');
+  for(const [cleared,stars] of ['☆☆☆','★☆☆','★★☆','★★★'].entries()) {
+    const progress=structuredClone(fronts);progress.nests.forEach((nest,index)=>nest.hp=index<cleared?0:900);progress.outcome=cleared===3?3:0;
+    await restoreColony(runtime,progress);
+    assert.equal(node('nest-objective').text,stars);
+    assert.match(runtime.view().label,cleared===3?/ALL NESTS DESTROYED/:new RegExp(`${3-cleared} / 3 nests left`),'the screen-reader status preserves descriptive objective progress');
+    for(const [width,height] of [[1100,760],[390,844]])for(const leftHanded of [false,true]) {
+      await restoreClient(runtime,{...local(),leftHanded,chooser:false,dialog:0});await command('viewport',[width,height]);
+      controlsFit(width,height);const objective=placed('nest-objective');
+      assert.equal(objective.left,leftHanded?width-24-132:0,'stars remain opposite the mirrored control strip');
+    }
+  }
+  console.log('ok - all four nest-star states retain descriptive status and stay opposite the controls on desktop and portrait');
 } finally {await runtime.close();}

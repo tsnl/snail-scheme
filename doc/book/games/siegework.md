@@ -49,15 +49,19 @@ pause menu resumes play. Restart asks for confirmation first.
 ## Keep the colony supplied
 
 Extractors mine **finite deposits**. Upgrades add mining slots and output but do
-not refill the ground. The badge above each known deposit shows its remaining ore;
-the bar shows the fraction of its original reserve. At 10% or below, the badge
-turns red and its border pulses. An exhausted deposit reads **0 ore · Empty**
-without pulsing. Workers haul its final stock, then seek other work.
+not refill the ground. **Purple bars** show the fraction of ore remaining in each
+known deposit; an extractor carries that bar below its **green health bar**. Empty
+reserves keep an empty purple frame. These bars have no text, red warning or
+pulse. Workers haul the final stock, then seek other work. Green bars above other
+units show their health.
 
-Completed towers connect to the hub and each other along known, passable routes.
-Carts move workers and ore through this network. A distant project can stall if
-its route or supplies are inaccessible, or its site is no longer visible. Expand
-your observation network and keep workers' routes protected. Water blocks travel.
+Completed towers connect to the hub through straight aerial ziplines. A link
+needs clear cable sight and must fit within either endpoint's reveal radius;
+cyan guides show tower reach. Carts carry workers and ore above water and the
+current mountains. Workers still need accessible ground routes to reach a
+station or a building site. A distant project can stall if its route or supplies
+are inaccessible, or its site is no longer visible. Expand your observation
+network and protect the ground routes; water blocks walking.
 
 Select a completed structure to see its upgrade price. Tower upgrades improve
 observation or transport; artillery upgrades add firepower. Their current services
@@ -69,6 +73,14 @@ unused materials, but a worker already carrying a kit must bring it home first.
 The hub starts with **12 worker places**. Hiring a worker costs **25 ore** and
 requires an existing worker to return and assemble the recruit. Queued recruits
 use capacity too.
+
+**Scavenge** (`X`) sends an empty worker to dismantle a completed building. Its
+button quotes **20% of construction and all completed upgrades**, rounded down.
+The building keeps working during travel and the two-second demolition. You
+receive the refund only when demolition finishes, together with its stored ore
+and outbound freight. **Cancel** (`C`) stops the job; enemy destruction or worker
+death pays no structural refund. The hub, pending work and uncollected supply
+reservations cannot be scavenged. Deposit reserves remain available afterward.
 
 Select the hub and choose **Upgrade** to add **two places**. The six upgrades cost
 100, 200, 400, 800, 1,600 and 3,200 ore, reaching a maximum of **24 workers**.
@@ -91,7 +103,8 @@ The HUD has four readouts:
 ## Win the siege
 
 Three nests lie beyond your initial view, on different sides of the colony.
-Enemy approach directions help you find them. Select a red attack notification
+Enemy approach directions help you find them and new ore: deposits become
+significantly denser as you approach a nest. Select a red attack notification
 to move the camera to the trouble spot; its close button briefly mutes that area.
 
 The first wave starts **45 seconds after your first extractor order**. Ordinary
@@ -99,11 +112,19 @@ waves are 30 seconds apart and enemy strength increases every **90 seconds**.
 Stronger ranks and raids arrive as the run continues. There is no victory timer:
 you win by destroying every nest, and lose if the hub falls.
 
-Destroying a nest stops its future waves; enemies already on the map keep
-fighting. Artillery has limited range and does more damage up close. Defeated
+Destroying a nest stops its future waves, lowers difficulty by **two levels**
+(to a minimum of one), and reveals a rich **2,400-ore deposit** beneath it.
+Build an extractor to mine that reserve; destroying the nest gives no immediate
+ore. Its cleared site remains available, and loading a save never refills it.
+Enemies already on the map keep their existing health and strength. An early
+clear delays the next difficulty increase even at level one; wave timing
+continues normally. Artillery has limited range and does more damage up close. Defeated
 enemies drop no ore, so a working supply network matters throughout the siege.
 
-## Saving, help and recordings
+If the hub falls, the entire map is revealed. You can pan around and inspect
+the frozen colony before restarting; construction and purchases are stopped.
+
+## Saving and help
 
 Use a current Chromium browser with **WebGPU and WasmGC** support. The hosted game
 uses HTTPS and needs no installation or game server. If it cannot start, check
@@ -117,10 +138,8 @@ automatically transfer to this website: browser storage belongs to its origin.
 Open **Pause → Help** to return to this guide in a new tab while the colony stays
 paused. Restart replaces your colony with a new seeded world after confirmation.
 
-Pause also offers an optional recorder and replay controls. **Export dump** keeps
-a `.snailrun` history you can reopen for viewing; it is not a transferable colony
-save. History starts at the page's checkpoint and is bounded, so export before
-reloading if you want to keep it. Replay leaves your live saved colony intact.
+Recording and replay are deferred while the game stabilizes. Automatic browser
+saves continue normally, without recording history or dump import/export controls.
 
 ## For developers
 

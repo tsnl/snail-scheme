@@ -53,8 +53,9 @@ function uploadData(device, buffer, values, usage) {
   if (data.length) device.queue.writeBuffer(next,0,data);
   return next;
 }
-function motionFraction(batch, time) {
-  return batch.source.duration ? Math.max(0, Math.min((time - batch.started) / batch.source.duration, 1)) : 1;
+function motionFraction(batch, time, clocks) {
+  const started = batch.source.motionClock ? clocks.get(batch.source.motionClock).started : batch.started;
+  return batch.source.duration ? Math.max(0, Math.min((time - started) / batch.source.duration, 1)) : 1;
 }
 function sameReveal(left, right) {
   return ['x','y','radius','edge','duration'].every(key => left[key] === right[key]);
@@ -78,7 +79,7 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
   const uniform = device.createBuffer({size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
   let current, previous, depth, closed = false, lost = false, closing, uploads = 0, frames = 0;
   const geometry = new Map(), meshes = new Map(), insets = new Map(), pending = new Set();
-  let latest, reveals = new Map(), meshUploads = 0, drawCalls = 0, instancedDraws = 0;
+  let latest, reveals = new Map(), motionClocks = new Map(), meshUploads = 0, drawCalls = 0, instancedDraws = 0;
   device.addEventListener('uncapturederror', event => { if (!closed) onError(event.error); });
   device.lost.then(info => { lost = true; if (!closed) onError(new Error(`WebGPU device lost: ${info.message}`)); });
   function track(operation) {
@@ -160,7 +161,7 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     }
     const values = Float32Array.from(scene.uniforms);
     values[23] = (batch.source.opacity ?? 1) * (batch.source.pulse ? 0.72 + 0.28 * Math.sin((time % 1570.796327) * 0.004 - (batch.source.pulsePhase ?? 0)) : 1);
-    values[24] = batch.fraction = motionFraction(batch, time);
+    values[24] = batch.fraction = motionFraction(batch, time, motionClocks);
     if (batch.source.reveal) values.set(revealUniform(reveals.get(batch.source.reveal.id)),28);
     device.queue.writeBuffer(batch.uniform, 0, values); return batch.bindings;
   }
@@ -228,11 +229,21 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     for (const clock of next.values()) clock.fraction = Math.max(0,Math.min((time-clock.started)/clock.source.duration,1));
     return next;
   }
+  function frameMotionClocks(scene, time) {
+    const next = new Map();
+    for (const view of [scene,...scene.insets ?? []]) for (const batch of view.batches) if (batch.motionClock) {
+      const clock = next.get(batch.motionClock) ?? motionClocks.get(batch.motionClock);
+      if (!(batch.duration > 0) || (clock && clock.duration !== batch.duration)) throw new Error('inconsistent owner motion duration');
+      next.set(batch.motionClock,clock ?? {started:time,duration:batch.duration});
+    }
+    return next;
+  }
   function render(scene, logicalWidth, logicalHeight, time = performance.now()) {
     if (closed || lost || !current || !scene) return;
     if ((scene.insets?.length ?? 0) > 3) throw new Error('at most three scene insets are supported');
     checkTargetSizes(scene,logicalWidth,logicalHeight);
-    reveals = frameReveals(scene,time);
+    const nextMotionClocks = frameMotionClocks(scene,time), nextReveals = frameReveals(scene,time);
+    motionClocks = nextMotionClocks; reveals = nextReveals;
     resize(); const target = context.getCurrentTexture(), commands = device.createCommandEncoder();
     const present = new Set(), visible = new Set(); drawCalls = instancedDraws = 0;
     drawView(commands,{texture:target,depth,uniform,bindings:current.bindings,width:canvas.width,height:canvas.height},
@@ -280,7 +291,7 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     context.unconfigure(); depth?.destroy(); for (const value of geometry.values()) destroyGeometry(value);
     for (const view of insets.values()) destroyInset(view);
     for (const mesh of meshes.values()) destroyMesh(mesh);
-    uniform.destroy(); geometry.clear(); meshes.clear(); insets.clear(); reveals.clear(); latest = current = previous = depth = undefined; device.destroy();
+    uniform.destroy(); geometry.clear(); meshes.clear(); insets.clear(); reveals.clear(); motionClocks.clear(); latest = current = previous = depth = undefined; device.destroy();
   }
   return {adapter: adapter.info, device, prepare, draw, animate,
     replace(candidate) { if (closed) return; previous = current; current = candidate; },
@@ -295,6 +306,6 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
       motionBytes:[...geometry.values()].reduce((total,value) => total + (value.previousTransforms?.size ?? 0),0),
       indexBytes:[...meshes.values()].reduce((total,value) => total + value.indices.size,0),
       insets: insets.size, insetPixels: [...insets.values()].reduce((total,view) => total+view.width*view.height,0),
-      reveals: reveals.size,
+      reveals: reveals.size, motionClocks: motionClocks.size,
       textures: (depth ? 1 : 0)+2*insets.size, pending: pending.size}; }};
 }

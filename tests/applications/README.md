@@ -57,6 +57,15 @@ The headless runner executes the same compiled browser package through the
 World parity, player visibility, action validation, episode limits, checkpoint
 accounting and actual JSONL/MCP subprocesses. It runs in the applications CI
 partition. Its local timing/size sample is diagnostic, not a clean benchmark.
+`nest-rewards.mjs` executes bounded combat, construction and depletion encounters,
+original/revision-1 World12 migration, threat-clock boundaries, and defeat map
+inspection through the compiled game. These establish transition invariants,
+not normal-player survival or completion times. `resource-geography.mjs` runs
+32 deterministic seeds through a compiled map probe and the actual reducer. It
+measures deposits per eligible ground cell in three distance bands, checks the
+realized density gradient and verifies bounded unique reserves; candidate
+acceptance percentages alone do not establish those results.
+
 There is no network game server, command outbox or snapshot-replication path.
 The save service does not run game logic.
 

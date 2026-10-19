@@ -36,7 +36,7 @@ export async function checkReserves(test,fresh) {
     const r=await fresh();
     for(const seed of [1,7,43,65535]) {
       await call(r,'new-run-seed',[seed]);const w=state(r),starter=at(w,12,20);
-      assert.equal(reserve(w,starter).remaining,600);assert.ok(w.deposits.length<=19&&w.deposits.length>3);
+      assert.equal(reserve(w,starter).remaining,600);assert.ok(w.deposits.length<=46&&w.deposits.length>3);
       assert.equal(new Set(w.deposits.map(d=>d.cell)).size,w.deposits.length);assert.equal(w.produced,0);
       const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);
     }

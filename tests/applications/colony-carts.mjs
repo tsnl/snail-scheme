@@ -94,14 +94,15 @@ export async function checkCarts(test,fresh) {
     const r=await fresh();await fund(r);await build(r,'observe',12,22);await build(r,'observe',16,22);
     async function loaded() {
       const world=state(r);withdrawReserves(world, 16);
-      setWorker(world,0,{x:16,y:22,job:2,cargo:16,path:Array.from({length:8},(_,i)=>15-i+22*48)});
+      setWorker(world,0,{x:16,y:22,job:2,cargo:16,path:[12+22*48,8+22*48]});
       await restoreColony(r,world);return {x:world.bots[0].x,bank:world.ore};
     }
     for(const [parent,child,speed] of [[1,1,80],[2,1,80],[2,2,160],[3,2,160],[3,3,320]]) {
       while(siteAt(state(r),12,22).level<parent)await upgrade(r,12,22);
       while(siteAt(state(r),16,22).level<child)await upgrade(r,16,22);
       const before=await loaded();await advance(r);
-      assert.equal(state(r).bots[0].x,before.x-speed);assert.equal(state(r).bots[0].cargo,16);
+      assert.equal(state(r).bots[0].x,before.x);assert.equal(state(r).bots[0].flight[0].speed,speed);
+      assert.equal(state(r).bots[0].cargo,16);await advance(r,2);assert.ok(state(r).bots[0].x<before.x);
       await until(r,world=>world.bots[0].cargo===0);assert.equal(state(r).ore,before.bank+16);
       const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);
     }
@@ -111,32 +112,19 @@ export async function checkCarts(test,fresh) {
     const r=await fresh(); await fund(r); await build(r,'observe',12,22); await upgrade(r,12,22); await upgrade(r,12,22);
     await build(r,'extract',12,20); const world=state(r); world.bots.length=1; setWorker(world,0,{x:8,y:21});
     await restoreColony(r,world); await advance(r); const bot=state(r).bots[0];
-    assert.equal(bot.job,9); assert.equal(bot.path[0],routeCell(world,8,22)); assert.equal(bot.path.length,7);
-    await advance(r,19); assert.deepEqual([state(r).bots[0].x,state(r).bots[0].y],Object.values(pixelAt(world,12,20)));
+    assert.equal(bot.job,9); assert.equal(bot.path[0],routeCell(world,8,22)); assert.equal(bot.path.length,4);
+    await advance(r,21); assert.deepEqual([state(r).bots[0].x,state(r).bots[0].y],Object.values(pixelAt(world,12,20)));
     await r.close();
   });
-  await test('guns and towers permit existing freight paths beneath their plinths',async()=>{
-    const r=await fresh(); await fund(r); await build(r,'fortify',10,22); const tower=await build(r,'observe',12,22);
-    const world=state(r),rail=world.rails.find(rail=>rail.source===tower.id),gunCell=routeCell(world,10,22);
-    assert.ok(rail.path.includes(gunCell)); const cell=rail.path[1],offset=origin(world);
-    const x=cell%128-offset.x,y=Math.floor(cell/128)-offset.y,bank=world.ore;
-    for(const action of ['observe','fortify']) {
-      await call(r,action,[x,y]); assert.equal(state(r).notice,10);
-      assert.deepEqual(state(r).rails.find(link=>link.source===tower.id),rail);
-      assert.deepEqual(state(r).tracks,world.tracks); await r.restore(1,r.snapshot(1));
-      await call(r,'cancel-building',[x,y]); assert.equal(state(r).ore,bank);
-      assert.equal(state(r).buildings.length,2);
-    }
-    await call(r,'extract',[x,y]); assert.equal(state(r).notice,4); assert.equal(state(r).ore,bank);
-    await build(r,'fortify',13,22); await call(r,'relocate-building',[13+22*48,x+y*48]);
-    assert.equal(state(r).notice,21); const moving=state(r);
-    await call(r,'cancel-building',[13,22]); assert.equal(state(r).ore,moving.ore+5);
-    const freight=state(r); withdrawReserves(freight, 16); freight.rails.find(link=>link.source===tower.id).cargo=16;
-    await restoreColony(r,freight); await call(r,'relocate-building',[13+22*48,x+y*48]); await advance(r);
-    assert.equal(siteAt(state(r),x,y)?.kind,2); assert.deepEqual(state(r).tracks,world.tracks);
+  await test('straight aerial freight spans leave intermediate ground available for construction',async()=>{
+    const r=await fresh();await fund(r);const tower=await build(r,'observe',12,22);
+    const before=state(r),rail=before.rails.find(rail=>rail.source===tower.id);
+    assert.deepEqual(rail.path,[routeCell(before,12,22),routeCell(before,8,22)]);
+    await build(r,'fortify',10,22);assert.equal(siteAt(state(r),10,22).kind,2);
     assert.deepEqual(state(r).rails.find(link=>link.source===tower.id).path,rail.path);
-    await until(r,value=>value.delivered===freight.delivered+16); assert.equal(state(r).lostOre,0);
-    await r.restore(1,r.snapshot(1)); await r.close();
+    const freight=state(r);withdrawReserves(freight,16);freight.rails[0].cargo=16;
+    await restoreColony(r,freight);await until(r,value=>value.delivered===freight.delivered+16);
+    assert.equal(state(r).lostOre,0);await r.restore(1,r.snapshot(1));await r.close();
   });
   await test('destroyed stations remove their light paths while source freight is lost once and workers dismount',async()=>{
     const r=await fresh(); await fund(r); await build(r,'observe',12,22); await upgrade(r,12,22); await upgrade(r,12,22);
@@ -152,7 +140,7 @@ export async function checkCarts(test,fresh) {
     await build(r,'fortify',11,22); assert.deepEqual(state(r).tracks,tracks);
     await build(r,'observe',12,22); assert.equal(state(r).lostOre,16);
     assert.deepEqual(state(r).tracks,[]);
-    assert.ok(state(r).rails[0].path.includes(routeCell(state(r),11,22)));
+    assert.deepEqual(state(r).rails[0].path,[routeCell(state(r),12,22),routeCell(state(r),8,22)]);
     await advance(r,50); assert.equal(state(r).lostOre,16);
     assert.equal(new Set(state(r).tracks.map(track=>Math.floor(track/32))).size,state(r).tracks.length);
     await r.close();

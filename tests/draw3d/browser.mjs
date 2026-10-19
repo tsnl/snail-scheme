@@ -123,6 +123,44 @@ try {
   assert.deepEqual(motion, {start:[red,blue],halfway:[red,blue,black],replacement:[red,blue],
     separated:[red,blue],endpoint:[red,blue],animated:true,terminal:true,stopped:true,motionBuffers:true,reused:true,errors:[]});
   console.log('ok - GPU motion reaches intermediate and final pixels with independent clocks, reused buffers and shader replacement');
+  const sharedMotion = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
+    const original=Object.getOwnPropertyDescriptor(performance,'now');let time=1000;
+    Object.defineProperty(performance,'now',{configurable:true,value:()=>time});
+    function triangle(key,y,color){const vertices=[],previous=[];
+      for(const [x,dy] of [[-.12,-.12],[.12,-.12],[0,.18]]){
+        vertices.push(.48+x,y+dy,.3,0,0,1,...color,1);previous.push(-.48+x,y+dy,.3);}
+      return{key,vertices,previous,indices:[0,1,2],duration:100,motionClock:epoch};}
+    let epoch={},body=triangle(35,.4,[1,0,0]),bar=triangle(36,-.4,[0,0,1]);
+    let probe={batches:[body,bar],background:[0,0,0],uniforms:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,1,1,0,0,0,0,0,0,-1]};
+    async function sample(x){const result=await renderer.readPixels(probe),m=probe.uniforms;
+      return [.4,-.4].map(y=>{const px=m[0]*x+m[4]*y+m[12],py=m[1]*x+m[5]*y+m[13];
+        const at=Math.floor((1-py)*canvas.height/2)*result.bytesPerRow+Math.floor((1+px)*canvas.width/2)*4;
+        const pixel=Array.from(result.bytes.slice(at,at+4));if(result.format.startsWith('bgra'))[pixel[0],pixel[2]]=[pixel[2],pixel[0]];return pixel;});}
+    try{const start=await sample(-.48);time=1050;const halfway=await sample(0),uploads=renderer.resources.uploads;
+      bar={...bar,vertices:bar.vertices.slice()};probe={...probe,batches:[body,bar]};
+      const rebuilt=await sample(0),onlyBarUploaded=renderer.resources.uploads===uploads+1;
+      const matrix=probe.uniforms.slice();matrix[0]=0;matrix[1]=.75;matrix[4]=-.75;matrix[5]=0;matrix[12]=.1;matrix[13]=-.1;
+      probe={...probe,uniforms:matrix};const camera=await sample(0),cameraReused=renderer.resources.uploads===uploads+1;
+      time=1250;const paused=await sample(.48);epoch={};body={...body,motionClock:epoch};bar={...bar,motionClock:epoch};
+      probe={...probe,batches:[body,bar]};const beforeEpoch=renderer.resources.uploads,newEpoch=await sample(-.48);
+      const metadataReused=renderer.resources.uploads===beforeEpoch;time=1300;const nextHalf=await sample(0);
+      const hidden={...probe,batches:[{key:37,vertices:[],indices:[],previous:[],duration:100,motionClock:epoch}],
+        insets:[{...probe,key:7,rect:[(canvas.clientWidth||canvas.width)+10,0,20,20],batches:[body]}]};
+      renderer.draw(hidden);const hiddenFrames=renderer.resources.frames,held=renderer.resources.motionClocks;
+      time=1400;renderer.animate(time);const hiddenQuiet=renderer.resources.frames===hiddenFrames;
+      const visibleAgain=await sample(.48),beforeRejected=renderer.resources;
+      let rejected=false;try{renderer.draw({...probe,batches:[body,{...bar,duration:200}]});}catch{rejected=true;}
+      const atomic=renderer.resources.uploads===beforeRejected.uploads&&renderer.resources.motionClocks===held;
+      renderer.draw({...probe,batches:[]});const released=renderer.resources.motionClocks;
+      time=1500;const reintroduced=await sample(-.48);
+      return{start,halfway,rebuilt,camera,paused,newEpoch,nextHalf,visibleAgain,reintroduced,
+        onlyBarUploaded,cameraReused,metadataReused,hiddenQuiet,held,released,rejected,atomic,errors:sceneErrors};
+    }finally{if(original)Object.defineProperty(performance,'now',original);else delete performance.now;renderer.draw(frame);}})()`);
+  for(const key of ['start','halfway','rebuilt','camera','paused','newEpoch','nextHalf','visibleAgain','reintroduced'])
+    assert.deepEqual(sharedMotion[key],[red,blue],key);
+  for(const key of ['onlyBarUploaded','cameraReused','metadataReused','hiddenQuiet','rejected','atomic'])assert.equal(sharedMotion[key],true,key);
+  assert.equal(sharedMotion.held,1);assert.equal(sharedMotion.released,0);assert.deepEqual(sharedMotion.errors,[]);
+  console.log('ok - owner-clock GPU bodies and attachments stay aligned across camera rebuilds, paused views, new ticks and hidden lifetimes');
   const phases = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
     const original=Object.getOwnPropertyDescriptor(performance,'now');let time=Math.PI/2/.004;
     Object.defineProperty(performance,'now',{configurable:true,value:()=>time});
@@ -337,7 +375,7 @@ try {
     return {drawStopped:renderer.draw(frame)===undefined,closed:renderer.resources.closed,
       preparationRejected:await preparing.then(()=>false,()=>true),
       vertexBytes:renderer.resources.vertexBytes,motionBytes:renderer.resources.motionBytes,insets:renderer.resources.insets,
-      reveals:renderer.resources.reveals,textures:renderer.resources.textures,pending:renderer.resources.pending};})()`);
-  assert.deepEqual(lifetime, {drawStopped: true, closed: true, preparationRejected:true,vertexBytes:0,motionBytes:0,insets:0,reveals:0,textures:0,pending:0});
+      reveals:renderer.resources.reveals,motionClocks:renderer.resources.motionClocks,textures:renderer.resources.textures,pending:renderer.resources.pending};})()`);
+  assert.deepEqual(lifetime, {drawStopped: true, closed: true, preparationRejected:true,vertexBytes:0,motionBytes:0,insets:0,reveals:0,motionClocks:0,textures:0,pending:0});
   console.log('ok - close drains queued readback, rejects in-flight preparation and stops further draw admission');
 } finally { ws.close(); await fetch(`${devtools}/json/close/${target.id}`); }

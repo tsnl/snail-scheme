@@ -56,7 +56,7 @@ function overlappingTowerFaces(mesh,site) {
   const faces=[];
   for(let i=0;i<mesh.indices.length;i+=3) {
     const vertices=mesh.indices.slice(i,i+3).map(index=>mesh.vertices.slice(index*10,index*10+10));
-    if(!vertices.every(([x,y,z])=>Math.abs(x-site.x)<.7&&Math.abs(y+site.y)<.7&&z>=1.3))continue;
+    if(!vertices.every(([x,y,z])=>Math.abs(x-site.x)<.7&&Math.abs(y+site.y)<.7&&z>=0.0))continue;
     const axis=[0,1,2].find(axis=>Math.abs(vertices[0][axis+3])>.9999);if(axis===undefined)continue;
     if(!vertices.every(v=>Math.abs(v[axis]-vertices[0][axis])<1e-6))continue;
     faces.push({axis,sign:Math.sign(vertices[0][axis+3]),plane:vertices[0][axis],
@@ -65,115 +65,59 @@ function overlappingTowerFaces(mesh,site) {
   return faces.flatMap((a,i)=>faces.slice(i+1).filter(b=>a.axis===b.axis&&a.sign===b.sign&&Math.abs(a.plane-b.plane)<1e-6
     &&overlapArea(a.points,b.points)>1e-5).map(b=>({axis:a.axis,plane:a.plane,area:overlapArea(a.points,b.points)})));
 }
-const transportBatches=r=>r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
-function transportMarks(r) {
-  return transportBatches(r).flatMap(batch=>batch.draws.flatMap(draw=>
+const transportBatches=(r,key=20)=>r.view().scene.batches.filter(batch=>batch.key===key);
+function transportMarks(r,key=20) {
+  return transportBatches(r,key).flatMap(batch=>batch.draws.flatMap(draw=>
     Array.from({length:draw.count},(_,offset)=>{
       const matrix=batch.transforms.slice((draw.first+offset)*12,(draw.first+offset+1)*12);
       return {mesh:draw.mesh,x:matrix[3],y:matrix[7],z:matrix[11],width:matrix[0],height:matrix[5]};
     })));
 }
 function expectedTransport(world) {
-  const edges=new Map(),nodes=new Set();
-  for(const rail of world.rails)for(let step=1;step<rail.path.length;step++) {
-    const a=rail.path[step-1],b=rail.path[step];
-    if(a===b)continue;
-    edges.set([a,b].sort((a,b)=>a-b).join(','),[a,b]);nodes.add(a);nodes.add(b);
+  const edges=new Map();
+  for(const rail of world.rails) {
+    const a=rail.path[0],b=rail.path.at(-1);
+    if(a!==b)edges.set([a,b].sort((a,b)=>a-b).join(','),[a,b]);
   }
-  return {edges:[...edges.values()],nodes:[...nodes]};
+  return {edges:[...edges.values()]};
 }
-function transportTriangles(r) {
-  const mesh=expandBatch(transportBatches(r)[0]),triangles=[];
+function transportTriangles(r,key=20) {
+  const mesh=expandBatch(transportBatches(r,key)[0]),triangles=[];
   for(let i=0;i<mesh.indices.length;i+=3)
     triangles.push(mesh.indices.slice(i,i+3).map(index=>mesh.vertices.slice(index*10,index*10+2)));
   return triangles;
 }
 const painted=(triangles,point)=>triangles.some(triangle=>triangle.every((a,i)=>cross2(a,triangle[(i+1)%3],point)>=-1e-7));
-function checkTransport(r) {
-  const marks=transportMarks(r),triangles=transportTriangles(r),{edges,nodes}=expectedTransport(world(r));
-  for(const [a,b] of edges)for(let step=0;step<=16;step++)for(const across of [-.12,0,.12]) {
-    const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y;
-    assert.ok(painted(triangles,[x+dx*step/16-dy*across,y+dy*step/16+dx*across]),'every physical edge is a solid ribbon');
+function checkTransport(r,key=20,width=.25,elevation=.9) {
+  const marks=transportMarks(r,key),triangles=transportTriangles(r,key),{edges}=expectedTransport(world(r));
+  let expectedArea=0;
+  for(const [a,b] of edges) {
+    const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y,length=Math.hypot(dx,dy);
+    expectedArea+=length*width;
+    for(let step=0;step<=16;step++)for(const across of [-width*.48,0,width*.48])
+      assert.ok(painted(triangles,[x+dx*step/16-dy*across/length,y+dy*step/16+dx*across/length]),'direct cables form solid straight ribbons');
   }
-  for(const cell of nodes)for(const x of [-.12,0,.12])for(const y of [-.12,0,.12])
-    assert.ok(painted(triangles,[cell%128+x,-Math.floor(cell/128)+y]),'endpoints, bends and junctions have filled joints');
-  assert.ok(triangles.every(triangle=>cross2(...triangle)>0),'all rail faces point upward');
-  assert.ok(triangles.every((a,i)=>triangles.slice(i+1).every(b=>overlapArea(a,b)<1e-7)),'rail pieces never stack translucent surface area');
+  assert.ok(triangles.every(triangle=>cross2(...triangle)>0),'all cable faces point upward');
   const area=triangles.reduce((sum,triangle)=>sum+cross2(...triangle)/2,0);
-  assert.equal(area,edges.length*.75*.25+nodes.length*.25**2,'the surface is exactly the union of physical rails');
-  assert.ok(marks.every(mark=>Math.abs(mark.z-.065)<1e-6),'energy rails sit just above the ground');
+  assert.ok(Math.abs(area-expectedArea)<1e-4,'one rectangle spans each undirected endpoint pair');
+  assert.ok(marks.every(mark=>Math.abs(mark.z-elevation)<1e-6),'cable layers share the simulation flight altitude');
   return marks;
 }
-function transportOnscreen(r,[x,y]) {
+function transportOnscreen(r,[x,y],elevation=.9) {
   const m=r.view().scene.uniforms;
-  return Math.abs(m[0]*x+m[4]*y+m[8]*.065+m[12])<=1&&Math.abs(m[1]*x+m[5]*y+m[9]*.065+m[13])<=1;
+  return Math.abs(m[0]*x+m[4]*y+m[8]*elevation+m[12])<=1&&Math.abs(m[1]*x+m[5]*y+m[9]*elevation+m[13])<=1;
 }
-function checkTransportBoundary(r) {
-  const triangles=transportTriangles(r);let clipped=0;
+function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
+  const triangles=transportTriangles(r,key);let clipped=0;
   for(const [a,b] of expectedTransport(world(r)).edges) {
     const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y;
-    if(transportOnscreen(r,[x,y])!==transportOnscreen(r,[x+dx,y+dy]))clipped++;
-    for(let step=0;step<=16;step++)for(const across of [-.12,0,.12]) {
-      const point=[x+dx*step/16-dy*across,y+dy*step/16+dx*across];
-      if(transportOnscreen(r,point))assert.ok(painted(triangles,point),'visible rail stays filled when its owning endpoint is offscreen');
+    if(transportOnscreen(r,[x,y],elevation)!==transportOnscreen(r,[x+dx,y+dy],elevation))clipped++;
+    for(let step=0;step<=16;step++)for(const across of [-width*.48,0,width*.48]) {
+      const point=[x+dx*step/16-dy*across/Math.hypot(dx,dy),y+dy*step/16+dx*across/Math.hypot(dx,dy)];
+      if(transportOnscreen(r,point,elevation))assert.ok(painted(triangles,point),'visible rail stays filled when its owning endpoint is offscreen');
     }
   }
   return clipped;
-}
-// Seed-1 ground lower bound for a large saved-route fixture. Omitting nest
-// clearings can only exclude ground; actual Wasm restoration checks every cell.
-const fixtureOffset=(seed,stride,count)=>((seed*stride)%65521)%count;
-const fixtureRegion=(x,y,stride,count)=>fixtureOffset(1+Math.floor(x/32)*97+Math.floor(y/32)*193,stride,count);
-function fixtureGround(x,y) {
-  if(x<0||x>=128||y<0||y>=128)return false;
-  const hx=x-61+8,hy=y-71+22;
-  if(hx>=0&&hx<48&&hy>=0&&hy<36)
-    return !((hx>=23&&hx<=24&&hy<31&&(hy<16||hy>=20))
-      ||(hy===10&&hx<19&&(hx<10||hx>=14))||(hx>=32&&hx<=38&&hy>=25&&hy<=28));
-  const kind=fixtureRegion(x,y,137,5);if(kind===4)return true;
-  const height=kind===0?9:11,width=(kind===0?5:3)+fixtureRegion(x,y,109,3),v=y%32-16;
-  const bend=Math.trunc((Math.abs(((y%32+fixtureOffset(1,41,24))%24)-12)-6)/3),u=x%32-(16+bend);
-  return u*u*height*height+v*v*width*width>width*width*height*height;
-}
-function fixtureNeighbors(cell) {
-  const x=cell%128,y=Math.floor(cell/128);
-  return [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].filter(([x,y])=>fixtureGround(x,y)).map(([x,y])=>x+y*128);
-}
-function denseRailWalk(hub,deposits) {
-  const cells=new Set([hub]),walk=[hub],stack=[{cell:hub,next:0,neighbors:fixtureNeighbors(hub)}];
-  while(stack.length) {
-    const current=stack.at(-1),next=current.neighbors[current.next++];
-    if(next===undefined){stack.pop();if(stack.length)walk.push(stack.at(-1).cell);continue;}
-    if(cells.has(next))continue;
-    cells.add(next);walk.push(next);
-    if(cells.size>=11300&&!deposits.has(next))return {cells,walk};
-    stack.push({cell:next,next:0,neighbors:fixtureNeighbors(next)});
-  }
-  throw Error('insufficient seed-1 connected ground');
-}
-function addRailDepot(world,path,parent) {
-  const cell=path[0],x=cell%128,y=Math.floor(cell/128),id=world.nextId++;
-  world.buildings.push({id,kind:3,x,y,level:1,hp:90,stock:0,stage:2,cooldown:0,
-    aimX:x*40+20,aimY:y*40+20,armed:0,source:0,moveX:-1,moveY:-1});
-  world.rails.push({source:id,parent,progress:0,returning:0,cargo:0,path});
-  world.surveys.push({x,y,radius:7});return id;
-}
-function denseTransportWorld(world) {
-  assert.equal(world.seed,1);assert.equal(world.buildings.length,0);assert.equal(world.spent,0);
-  const hub=61+71*128,deposits=new Set(world.deposits.map(value=>value.cell));
-  const {cells,walk}=denseRailWalk(hub,deposits),endpoints=new Set([hub]);let start=0,parent=0;
-  while(start<walk.length-1) {
-    let end=Math.min(start+1000,walk.length-1);
-    while(end>start&&(endpoints.has(walk[end])||deposits.has(walk[end])))end--;
-    assert.ok(end>start,'each bounded route ends at a distinct buildable depot');
-    parent=addRailDepot(world,walk.slice(start,end+1).reverse(),parent);endpoints.add(walk[end]);start=end;
-  }
-  for(const cell of cells) {
-    const x=cell%128,y=Math.floor(cell/128);
-    if(!world.surveys.some(s=>(x-s.x)**2+(y-s.y)**2<=s.radius**2))world.surveys.push({x,y,radius:10});
-  }
-  world.spent=25*world.buildings.length;const earned=Math.max(0,world.spent-160);
-  withdrawReserves(world,earned);world.delivered=earned;world.ore=160+earned-world.spent;return world;
 }
 
 {
@@ -244,20 +188,16 @@ function denseTransportWorld(world) {
     assert.equal(siteAt(world(r),10,22).kind,2);assert.deepEqual(world(r).tracks,tracks);
     assert.equal(batch(r,20),railMesh,'building atop the route retains the energy rail');
     const gun=siteAt(world(r),10,22),vertices=points(batch(r,3));
-    assert.ok(vertices.some(([x,y,z])=>Math.abs(x-gun.x)<.5&&Math.abs(y+gun.y)<.5&&z>1.3),
-      'the gun body is raised over its open plinth');
+    assert.ok(vertices.some(([x,y,z])=>Math.abs(x-gun.x)<.5&&Math.abs(y+gun.y)<.5&&z>.3&&z<.9),
+      'the compact gun body sits close to the ground');
     let previousTop=0;
     for(const level of [1,2,3]) {
       if(level>1){const next=world(r),site=siteAt(next,10,22);site.level=level;next.spent+=25;next.ore-=25;await restoreColony(r,next);}
       const visible=points(batch(r,3)).filter(([x,y])=>Math.abs(x-gun.x)<0.3&&Math.abs(y+gun.y)<0.3);
-      const top=Math.max(...visible.map(point=>point[2]));assert.ok(top>previousTop+0.2);previousTop=top;assert.ok(top<2.5,'the stacked upper guns keep a low profile');
-      const mesh=batch(r,3).vertices,stones=Array.from({length:mesh.length/10},(_,i)=>mesh.slice(i*10,i*10+10))
-        .filter(vertex=>Math.abs(vertex[6]-186/255)<1e-6&&Math.abs(vertex[7]-190/255)<1e-6);
-      assert.ok(stones.filter(([x,y,z])=>Math.abs(x-gun.x)<0.3&&Math.abs(y+gun.y)<0.3&&z>0.1&&z<1.0).length===0,
-        'the stone mesh leaves its center open below the deck');
+      const top=Math.max(...visible.map(point=>point[2]));assert.ok(top>previousTop+0.1);previousTop=top;assert.ok(top<1.2,'the stacked upper guns keep a compact profile');
       await r.restore(1,r.snapshot(1));
     }
-    console.log('ok - artillery has an open stone plinth and retains the current energy rail');
+    console.log('ok - artillery has a compact ground-level model and retains the current energy rail');
   } finally {await r.close();}
 }
 
@@ -265,101 +205,63 @@ function denseTransportWorld(world) {
   const r=await fresh();
   try {
     for(const x of [12,13]){await fixtureCall(r,'observe',[x,22]);await complete(r);}
-    // Accepted save routes exercise bends, shared segments and opposite traffic.
-    const next=world(r),source=siteAt(next,12,22).id;
-    for(const rail of next.rails)rail.path=(rail.source===source
-      ?[[12,22],[11,22],[11,21],[12,21],[12,22],[11,22],[11,23],[11,22],[10,22],[9,22],[8,22]]
-      :[[13,22],[13,21],[12,21],[11,21],[11,22],[11,21],[12,21],[12,22]])
-      .map(([x,y])=>routeCell(next,x,y));
-    await restoreColony(r,next);
-    const marks=checkTransport(r),batches=transportBatches(r),meshes=new Set(marks.map(mark=>mark.mesh));
-    assert.equal(meshes.size,1,'all accelerated rail pieces share one fixed plane mesh');
-    assert.equal(batches.length,1,'joined segments share one display-clock pulse');
-    assert.ok(batches[0].opacity>0&&batches[0].opacity<=.5,'energy remains translucent at the pulse crest');
-    assert.equal(batches[0].pulse,true);assert.equal(batches[0].pulsePhase,0);
-    assert.ok(marks.every(mark=>mark.mesh.vertices[9]===1),'unlit energy keeps its tint at every camera heading');
-    const mesh=marks[0].mesh;
+    const next=world(r);await restoreColony(r,next);
+    const marks=checkTransport(r),batches=transportBatches(r),outline=transportBatches(r,21)[0];
+    const backing=checkTransport(r,21,.375,.895),scene=r.view().scene;
+    assert.equal(new Set(marks.map(mark=>mark.mesh)).size,1);assert.equal(marks.length,next.rails.length);
+    assert.equal(batches.length,1);assert.equal(batches[0].pulse,true);assert.equal(batches[0].pulsePhase,0);
+    assert.ok(batches[0].opacity>=.9&&batches[0].opacity<1);
+    assert.equal(outline.opacity,1);assert.equal(outline.pulse,false);
+    assert.ok(backing.every(mark=>mark.mesh.vertices[9]===1&&mark.mesh.vertices.slice(6,9).every(channel=>channel<.2)));
+    assert.ok(scene.batches.indexOf(outline)<scene.batches.findIndex(batch=>batch.opacity<1));
+    const beneath=transportTriangles(r,21);
+    assert.ok(transportTriangles(r).every(triangle=>triangle.every(point=>painted(beneath,point))));
     const moved=world(r);moved.tick++;moved.rails[0].progress=1;moved.rails[0].returning=1;
     await restoreColony(r,moved);const committed=r.snapshot(1);
     await command(r,'rotate',[0,1]);await command(r,'animate',[50]);
-    assert.equal(transportBatches(r)[0],batches[0],'tick, shuttle motion and camera animation reuse the retained rail');
-    assert.deepEqual(r.snapshot(1),committed,'display animation does not advance the colony');
-    const rerouted=world(r);rerouted.rails.find(rail=>rail.source===source).path=
-      [[12,22],[12,21],[11,21],[11,22],[12,22],[11,22],[11,23],[11,22],[10,22],[9,22],[8,22]].map(([x,y])=>routeCell(rerouted,x,y));
-    rerouted.rails.reverse();await restoreColony(r,rerouted);
-    assert.equal(transportBatches(r)[0],batches[0],'reversed traffic and route order retain the same physical rail');
-    rerouted.rails.find(rail=>rail.source===source).path=
-      [[12,22],[11,22],[10,22],[9,22],[8,22]].map(([x,y])=>routeCell(rerouted,x,y));
-    await restoreColony(r,rerouted);
-    assert.notEqual(transportBatches(r)[0],batches[0],'removing a physical branch updates retained occurrences');
-    assert.ok(checkTransport(r).every(mark=>mark.mesh===mesh),'rerouting reuses the fixed plane mesh');
+    assert.equal(transportBatches(r)[0],batches[0]);assert.equal(transportBatches(r,21)[0],outline);
+    assert.deepEqual(r.snapshot(1),committed);
+    const reordered=world(r);reordered.rails.reverse();await restoreColony(r,reordered);
+    assert.equal(transportBatches(r)[0],batches[0]);assert.equal(transportBatches(r,21)[0],outline);
     const target=at(world(r),12,22),stationary=r.snapshot(1);let clipped=0;
     for(const heading of [0,90000])for(const offset of [-12,-10,-8,-6,0,6,8,10,12]) {
       await restoreClient(r,{...local(r),cameraX:(target.x+offset)*1000,cameraY:target.y*1000,scale:500,
         heading,turnFrom:heading,turnTo:heading,turnElapsed:300,homing:false});
-      clipped+=checkTransportBoundary(r);
+      clipped+=checkTransportBoundary(r);clipped+=checkTransportBoundary(r,21,.375,.895);
     }
-    assert.ok(clipped>0,'boundary coverage exercises edges with exactly one onscreen endpoint');
-    assert.deepEqual(r.snapshot(1),stationary,'visibility changes leave transport routes and freight untouched');
+    assert.ok(clipped>0);assert.deepEqual(r.snapshot(1),stationary);
     await restoreClient(r,{...local(r),cameraX:0,cameraY:0,homing:false});
-    assert.ok(transportBatches(r).every(batch=>batch.transforms.length===0),'offscreen routes allocate no occurrences');
-    console.log('ok - continuous energy rails fill turns and crossings without alpha overlap, share reversed routes, and retain one coherent display-clock pulse');
+    assert.equal(transportMarks(r).length,0);assert.equal(transportMarks(r,21).length,0);
+    console.log('ok - straight aerial energy spans retain their dark backing and pulsing core, including clipped camera boundaries');
   } finally {await r.close();}
 }
 
 {
   const r=await fresh();
   try {
-    for(const x of [12,13]){await fixtureCall(r,'observe',[x,22]);await complete(r);}
-    const next=world(r),source=siteAt(next,12,22),target=at(next,12,22);
-    for(const rail of next.rails)rail.path=(rail.source===source.id
-      ?[[12,22],[11,22],[10,22],[9,22],[8,22]]
-      :[[13,22],[12,22],[12,21],[11,21],[11,22],[12,22]]).map(([x,y])=>routeCell(next,x,y));
-    next.rails.reverse(); // The slower route comes first, so color cannot depend on list order.
-    await restoreColony(r,next);await fixtureCall(r,'relocate-building',[13+22*48,14+22*48]);
-    assert.ok(siteAt(world(r),13,22).moveX>=0,'the fixture uses an accepted pending depot move');
-    const shared=()=>transportMarks(r).filter(mark=>mark.y===-target.y&&mark.x>target.x-1&&mark.x<target.x);
+    for(const x of [12,16]){await fixtureCall(r,'observe',[x,22]);await complete(r);}
     const tint=mark=>mark.mesh.vertices.slice(6,9).map(value=>Math.round(value*255));
-    const mixed=r.snapshot(1),batches=transportBatches(r),cyan=shared();
-    assert.equal(cyan.length,1,'opposite mixed-speed routes draw one shared physical edge');
-    cyan.forEach(mark=>assert.deepEqual(tint(mark),[35,242,195],'any eligible fast route makes the shared edge cyan'));
-    const marks=checkTransport(r),identities=marks.map(({x,y})=>[x,y].join(','));
-    assert.equal(new Set(identities).size,identities.length,'different route colors never duplicate an edge or joint');
-    assert.deepEqual(tint(marks.find(mark=>mark.x===target.x&&mark.y===-target.y)),[35,242,195],'a shared joint takes the fastest incident tint');
-    const ordinary=marks.find(mark=>mark.x===target.x+.5&&mark.y===-target.y);
-    assert.ok(ordinary);assert.deepEqual(tint(ordinary),[255,244,142],'the moving depot keeps ordinary marks on its unshared edge');
-    const reordered=world(r);reordered.rails.reverse();await restoreColony(r,reordered);
-    assert.equal(transportBatches(r)[0],batches[0],'mixed tint priority and occurrence order do not depend on route order');
-    await fixtureCall(r,'relocate-building',[12+22*48,11+22*48]);
-    assert.ok(siteAt(world(r),12,22).moveX>=0);
-    const slow=shared();assert.equal(slow.length,1);
-    slow.forEach(mark=>assert.deepEqual(tint(mark),[255,244,142]));
-    assert.ok(slow.every(mark=>mark.mesh===ordinary.mesh),'eligibility changes reuse the existing ordinary mesh');
-    assert.ok(transportBatches(r).some((batch,i)=>batch!==batches[i]),'changing station eligibility invalidates affected retained batches');
-    await r.restore(1,mixed);
-    const restored=shared();assert.equal(restored.length,1);
-    assert.deepEqual(tint(restored[0]),[35,242,195]);
-    // The live-frame cache can evict cyan while every route is slow; restoring it preserves geometry, not the old wrapper.
-    assert.deepEqual(restored[0].mesh,cyan[0].mesh);
-    console.log('ok - shared energy edges and joints prefer fast cyan independent of route order; moving the last fast endpoint updates tint while reusing meshes');
+    const before=transportBatches(r)[0];assert.ok(transportMarks(r).every(mark=>tint(mark).join(',')==='108,250,255'));
+    await fixtureCall(r,'relocate-building',[16+22*48,17+22*48]);
+    const marks=transportMarks(r);assert.ok(marks.some(mark=>tint(mark).join(',')==='255,244,142'));
+    assert.notEqual(transportBatches(r)[0],before);
+    const reordered=world(r),current=transportBatches(r)[0];reordered.rails.reverse();await restoreColony(r,reordered);
+    assert.equal(transportBatches(r)[0],current);
+    console.log('ok - unavailable boarding endpoints change cable tint while route order retains identical spans');
   } finally {await r.close();}
 }
 
 {
   const r=await fresh();
   try {
-    const dense=denseTransportWorld(world(r)),{edges,nodes}=expectedTransport(dense),count=edges.length+nodes.length;
-    assert.ok(count*3>65536,'the admitted network exceeds the former three-scalar description limit');
-    await restoreColony(r,dense);const committed=r.snapshot(1);
-    await restoreClient(r,{...local(r),cameraX:64000,cameraY:64000,scale:32000,homing:false});
-    const marks=transportMarks(r),rail=transportBatches(r)[0];
-    assert.equal(marks.length,count);assert.equal(new Set(marks.map(({x,y})=>`${x},${y}`)).size,count);
-    assert.equal(rail.draws.length,1);assert.equal(rail.pulse,true);assert.equal(rail.pulsePhase,0);
-    assert.ok(count+4<65536,'packed pieces and metadata fit the unchanged bridge limit');
-    await restoreClient(r,{...local(r),cameraX:61000,cameraY:71000,scale:500,homing:false});
-    const visible=transportMarks(r).length;assert.ok(visible>0&&visible<count/4,'occurrences stay bounded by the padded camera window');
-    assert.deepEqual(r.snapshot(1),committed,'full-map and close-up views preserve the accepted large colony');
-    console.log('ok - a 22,599-piece accepted rail network fits one retained batch, reuses one mesh, and culls outside the camera window');
+    const base=r.view().scene.batches.find(value=>value.key===14);assert.ok(base.draws.length>0);
+    await fixtureCall(r,'observe',[12,22]);await complete(r);
+    const guide=r.view().scene.batches.find(value=>value.key===14);assert.notEqual(guide,base);
+    const stable=world(r);stable.tick++;await restoreColony(r,stable);
+    assert.equal(r.view().scene.batches.find(value=>value.key===14),guide);
+    const mesh=expandBatch(guide);assert.ok(mesh.vertices.length>0);
+    for(let i=0;i<mesh.vertices.length;i+=10)assert.ok(Math.abs(mesh.vertices[i+2]-.075)<1e-6);
+    console.log('ok - cyan reveal-radius guides update with ready towers and retain across ticks');
   } finally {await r.close();}
 }
 
@@ -373,7 +275,7 @@ function denseTransportWorld(world) {
       next.bots.forEach((bot,i)=>{assert.equal(bot.cargo,0);setWorker(next,i);});await restoreColony(r,next);
       assert.deepEqual(overlappingTowerFaces(batch(r,3),site),[],`level ${level} has no overlapping coplanar outward faces`);
     }
-    console.log('ok - all tower levels avoid overlapping coplanar outward faces above the shared plinth');
+    console.log('ok - all tower levels avoid overlapping coplanar outward faces in their compact ground-level models');
   } finally {await r.close();}
 }
 

@@ -6,7 +6,7 @@ import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {openEnvironment, decodeObservation} from '../../apps/siegework/headless.mjs';
-import {colony, restoreColony} from './colony-state.mjs';
+import {colony, restoreColony, at, pixelAt, setWorker} from './colony-state.mjs';
 
 const directory = resolve(process.argv[2]);
 const manifest = JSON.parse(readFileSync(join(directory, 'manifest.json'))), bytes = readFileSync(join(directory, manifest.module));
@@ -39,6 +39,7 @@ async function fixtureEnvironment(edit, options = {}) {
 }
 
 await test('default observations are player knowledge and the headless path does not render', async () => {
+  assert.equal(manifest.settings.recording.enabled,false,'current-state observations do not need replay enabled');
   const view = ReducerRuntime.prototype.view;
   ReducerRuntime.prototype.view = () => { throw new Error('headless rendering'); };
   try {
@@ -96,6 +97,21 @@ await test('complete request validation and FIFO ownership prevent partial malfo
   await pending; assert.equal((await next).info.episodeTicks, 5); assert.equal((await observation).observation.tick, 5);
   await environment.close(); assert.equal(environment.close(), environment.close());
   await assert.rejects(environment.reset(1), /closed/); await assert.rejects(environment.observe(), /closed/);
+});
+
+await test('Scavenge exposes its quote and pending worker through the same headless action protocol', async () => {
+  const environment = await fixtureEnvironment(world => {
+    const site=at(world,12,22),point=pixelAt(world,12,22);
+    world.started=true;world.spent=25;world.ore-=25;world.bots.length=1;setWorker(world,0,{x:12,y:22});
+    world.buildings=[{id:world.nextId++,kind:3,...site,level:1,hp:90,stock:0,stage:2,cooldown:0,
+      aimX:point.x,aimY:point.y,armed:0,source:0,moveX:-1,moveY:-1}];world.surveys.push({...site,radius:7});
+  });
+  const before=(await environment.observe()).observation,site=before.buildings[0];
+  assert.equal(site.scavengeRefund,5);assert.equal(site.scavenging,0);
+  const ordered=await environment.step({type:'scavenge',cell:site.cell},0);
+  assert.equal(ordered.observation.ore,before.ore);assert.equal(ordered.observation.buildings[0].scavenging,1);
+  const done=await environment.step(wait,21);assert.equal(done.observation.buildings.length,0);
+  assert.equal(done.observation.ore,before.ore+5);await environment.close();
 });
 
 await test('horizon, pause, zero ticks, reward and opaque checkpoint accounting restore together', async () => {

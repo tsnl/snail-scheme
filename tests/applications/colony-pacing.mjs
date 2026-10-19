@@ -28,7 +28,10 @@ function observe(world,known,nest) {
     for(let y=Math.max(0,center.y-center.radius);y<Math.min(height,center.y+center.radius+1);y++)
       for(let x=Math.max(0,center.x-center.radius);x<Math.min(width,center.x+center.radius+1);x++) {
         const cell=x+y*width;
-        if(square(center,{x,y})<=center.radius**2&&!known.has(cell))known.set(cell,{x,y,value:query(0,world.seed,cell)});
+        if(square(center,{x,y})<=center.radius**2){
+          const cleared=world.nests.some(site=>site.hp===0&&site.x===x&&site.y===y);
+          if(!known.has(cell)||cleared)known.set(cell,{x,y,value:query(cleared?9:0,world.seed,cell)});
+        }
       }
   return visible(world,nest)?nest:null;
 }
@@ -115,10 +118,25 @@ for(const seed of [1]) {
   const known=new Map(),checkpoints=[],discoveries=new Map(),clearTicks=new Map(),depletionTicks=new Map();
   const bearings=[{x:0,y:-1},{x:1,y:0.5},{x:-1,y:0.5}];
   let firstExtraction=null,firstShot=null,orders=0,world=colony(runtime.snapshot(1));
-  const terrainDeposits=[];
-  for(let cell=0;cell<width*height;cell++)if(query(0,seed,cell)>=10)terrainDeposits.push({cell,remaining:query(8,seed,cell)});
-  assert.deepEqual(world.deposits.toSorted((a,b)=>a.cell-b.cell),terrainDeposits,'saved sites enumerate the independently queried terrain');
-  const originalOre=terrainDeposits.reduce((sum,site)=>sum+site.remaining,0);
+  // Capacity includes sealed nest rewards; initial tile yield includes only
+  // ordinary mines. Query every cell independently of World's deposit list.
+  const terrainDeposits=[],lockedDeposits=[];
+  for(let cell=0;cell<width*height;cell++){
+    const capacity=query(8,seed,cell),tile=query(0,seed,cell);
+    if(tile>=10){assert.ok(capacity>0);terrainDeposits.push({cell,remaining:capacity});}
+    else if(capacity>0)lockedDeposits.push({cell,remaining:capacity});
+  }
+  const expectedLocked=Array.from({length:3},(_,front)=>({cell:query(3,seed,front)+query(4,seed,front)*width,remaining:2400}))
+    .sort((a,b)=>a.cell-b.cell);
+  assert.deepEqual(lockedDeposits,expectedLocked,'exactly the three independently seeded nest sites hold locked rewards');
+  for(const site of lockedDeposits){
+    assert.equal(query(0,seed,site.cell),1,'living nests cover ordinary ground without mineable yield');
+    assert.equal(query(9,seed,site.cell),81,'cleared nests expose yield eight on the same ground');
+  }
+  const allDeposits=[...terrainDeposits,...lockedDeposits].sort((a,b)=>a.cell-b.cell);
+  assert.deepEqual(world.deposits.toSorted((a,b)=>a.cell-b.cell),allDeposits,'saved sites enumerate all independently queried reserves');
+  const initialMineableOre=terrainDeposits.reduce((sum,site)=>sum+site.remaining,0);
+  const initialLockedOre=lockedDeposits.reduce((sum,site)=>sum+site.remaining,0),originalOre=initialMineableOre+initialLockedOre;
   for(let tick=0;tick<=7200&&world.outcome===0;tick++) {
     if(tick%20===0) {
       world=colony(runtime.snapshot(1));observe(world,known,world.nests[0]);
@@ -132,6 +150,7 @@ for(const seed of [1]) {
       world=colony(runtime.snapshot(1));const balance=colonyBalance(world);
       assert.equal(world.ore,balance.bank);assert.equal(world.produced,balance.raw);
       assert.equal(world.produced+world.deposits.reduce((sum,site)=>sum+site.remaining,0),originalOre);
+      for(const nest of world.nests)if(nest.hp>0)assert.equal(remaining(world,nest),2400,'living nests retain their entire sealed reward');
       if(firstExtraction===null&&world.produced>0)firstExtraction=world.tick;
       if(firstShot===null&&world.nests.some(nest=>nest.hp<900))firstShot=world.tick;
       if(tick%600===0)checkpoints.push({minute:world.tick/600,ore:world.ore,produced:world.produced,delivered:world.delivered,spent:world.spent,
@@ -142,10 +161,11 @@ for(const seed of [1]) {
     if(tick%20===19)world=colony(runtime.snapshot(1));
   }
   world=colony(runtime.snapshot(1));await runtime.restore(1,runtime.snapshot(1));
+  assert.equal(world.produced+world.deposits.reduce((sum,site)=>sum+site.remaining,0),originalOre);
   for(const nest of world.nests)if(nest.hp===0&&!clearTicks.has(nest.id))clearTicks.set(nest.id,world.tick);
   assert.ok(world.produced>600&&world.spent>160,'the expedition funds expansion beyond its finite starter');
   assert.ok(depletionTicks.size>0&&checkpoints.some(sample=>sample.mines.length>1),'ordinary orders reach a second mine and exhaust a deposit');
-  const result={seed,outcome:world.outcome,minutes:world.tick/600,firstExtraction,discoveries:[...discoveries],firstShot,
+  const result={seed,initialMineableOre,initialLockedOre,originalOre,outcome:world.outcome,minutes:world.tick/600,firstExtraction,discoveries:[...discoveries],firstShot,
     clears:[...clearTicks],depletions:[...depletionTicks],orders,nests:world.nests.map(nest=>nest.hp),ore:world.ore,produced:world.produced,
     delivered:world.delivered,localSpent:world.localSpent,lostOre:world.lostOre,spent:world.spent,hull:world.hull,casualties:world.casualties,lost:world.lost,kills:world.kills,
     orderJournal,routeCells:world.nests.map(nest=>query(5,seed,nest.id)),checkpoints};

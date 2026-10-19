@@ -6,9 +6,11 @@
           Survey make-survey survey-x survey-y survey-radius surveyed?
           next-map-seed spawn-x spawn-y nest-x nest-y front-x front-y nest-site? deposit-capacity
           northern-x northern-y eastern-x eastern-y regional-deposit-x regional-deposit-y
+          front-deposit-x front-deposit-y front-deposit? bonus-deposit? nest-deposit-rate
           walking-path tunneling-path avoiding-path escape-path clear-shot? observed-shot?
           open-ground? walking-open-path avoiding-open-path escape-open-path clear-open-shot? observed-open-shot?
-          CartEdge make-cart-edge cart-step-cost rail-edge rail-step? cart-path cart-escape-path)
+          CartEdge make-cart-edge cart-step-cost rail-edge rail-step? cart-path cart-escape-path
+          segment-length flight-duration)
   (import
    (scheme base)
    (scheme immutable)
@@ -170,17 +172,44 @@
     (define (regional-deposit? seed x y)
       (and (= (remainder x 32) (+ 2 (region-value seed x y 157 3)))
            (= (remainder y 32) (+ 2 (region-value seed x y 181 3)))))
+    ;; Four inner candidates use a 3/4 chance; four outer candidates use 1/4.
+    ;; Each has a seeded cardinal offset plus small sideways jitter. Ground and
+    ;; the protected opening decide which candidates become actual deposits.
+    ;; Eight candidates per front bound work without scanning all 16,384 cells.
+    (define (front-deposit-offset seed front slot horizontal)
+      (let* ((key (+ seed (+ (* front 997) (* slot 271))))
+             (major (+ (if (< slot 4) 6 13) (map-offset key 307 (if (< slot 4) 4 5)))))
+        (if (= (remainder slot 2) (if horizontal 0 1))
+            (if (< (remainder slot 4) 2) major (- 0 major))
+            (- (map-offset key 317 5) 2))))
+    (define (front-deposit-x seed front slot) (+ (front-x seed front) (front-deposit-offset seed front slot #t)))
+    (define (front-deposit-y seed front slot) (+ (front-y seed front) (front-deposit-offset seed front slot #f)))
+    (define (front-deposit? seed front slot)
+      (let ((x (front-deposit-x seed front slot)) (y (front-deposit-y seed front slot)))
+        (and (< (map-offset (+ seed (+ (* front 997) (* slot 271))) 313 4) (if (< slot 4) 3 1))
+             (ground? seed x y) (not (within? x y (spawn-x seed) (spawn-y seed) 20))
+             (not (and (= x (eastern-x seed)) (= y (eastern-y seed))))
+             (not (regional-deposit? seed x y)))))
+    (define (bonus-deposit? seed x y)
+      (let loop ((candidate 0))
+        (and (< candidate 24)
+             (let ((front (quotient candidate 8)) (slot (remainder candidate 8)))
+               (or (and (= x (front-deposit-x seed front slot)) (= y (front-deposit-y seed front slot))
+                        (front-deposit? seed front slot))
+                   (loop (+ candidate 1)))))))
+    (define nest-deposit-rate 8)
     (define (deposit-rate seed x y)
       (cond ((or (not (inside? x y)) (nest-site? seed x y)) 0)
             ((and (= x (+ (spawn-x seed) 4)) (= y (- (spawn-y seed) 2))) 2)
             ((and (= x (northern-x seed)) (= y (northern-y seed))) 3)
             ((and (= x (eastern-x seed)) (= y (eastern-y seed))) 6)
+            ((bonus-deposit? seed x y) 2)
             ((home-cell? (home-x seed x) (home-y seed y)) 0)
             ((regional-deposit? seed x y) (+ 2 (region-value seed x y 211 5)))
             (else 0)))
     (define (deposit-capacity seed x y)
-      (let ((rate (deposit-rate seed x y)))
-        (if (= rate 0) 0 (* 300 rate))))
+      (let ((rate (if (nest-site? seed x y) nest-deposit-rate (deposit-rate seed x y))))
+        (* 300 rate)))
 
     ;; ---- Direct fire crosses every touched grid cell ----
 
@@ -279,7 +308,9 @@
       (cell-slot search cell (remainder (* cell 193) (search-capacity search))))
     (define (remaining-steps search slot)
       (let ((cell (read-cell (search-cells search) slot)) (target (search-target search)))
-        (if (< target 0) 0 (distance (index-x cell) (index-y cell) (index-x target) (index-y target)))))
+        (if (< target 0) 0
+            (* (if (null? (search-fast search)) 1 20)
+               (distance (index-x cell) (index-y cell) (index-x target) (index-y target))))))
     (define (earlier-slot? search a b)
       (let* ((ga (read-cell (search-steps search) a)) (gb (read-cell (search-steps search) b))
              (fa (+ ga (* (search-weight search) (remaining-steps search a))))
@@ -337,25 +368,42 @@
 
     ;; ---- Traversal rules share an exact adjacent-cell search ----
 
-    ;; An undirected adjacent edge fits in two slots per map cell: east or
-    ;; south. Cart search and physical motion consult the same edge identities.
+    ;; Legacy track identities remain readable, but aerial edges own two exact
+    ;; endpoints. Intermediate ground cells never become boarding stations.
     (define (rail-edge a b)
       (+ (* (if (< a b) a b) 2) (if (= (index-y a) (index-y b)) 0 1)))
     ;; Costs share a forty-unit walking scale. Tower levels supply costs
     ;; 4, 2 and 1; overlapping links offer the fastest available service.
     (define-immutable-record CartEdge make-cart-edge
-      (id I32 cart-edge-id cart-edge-id-set)
+      (a I32 cart-edge-a cart-edge-a-set)
+      (b I32 cart-edge-b cart-edge-b-set)
       (cost I32 cart-edge-cost cart-edge-cost-set))
-    (define (cart-edge-price fast edge fallback)
+    (define (cart-edge-price fast a b fallback)
       (if (null? fast) fallback
           (let ((service (car fast)))
-            (cart-edge-price (cdr fast) edge
-                             (if (and (= (cart-edge-id service) edge) (< (cart-edge-cost service) fallback))
+            (cart-edge-price (cdr fast) a b
+                             (if (and (or (and (= (cart-edge-a service) a) (= (cart-edge-b service) b))
+                                          (and (= (cart-edge-a service) b) (= (cart-edge-b service) a)))
+                                      (< (cart-edge-cost service) fallback))
                                  (cart-edge-cost service) fallback)))))
     (define (cart-step-cost fast a b)
-      (if (= (distance (index-x a) (index-y a) (index-x b) (index-y b)) 1)
-          (cart-edge-price fast (rail-edge a b) 40) 40))
-    (define (rail-step? fast a b) (< (cart-step-cost fast a b) 40))
+      (cart-edge-price fast a b 40))
+    ;; Two lift ticks and two landing ticks make adjacent walking at least as
+    ;; quick. Planner and movement therefore both walk adjacent station cells.
+    (define (rail-step? fast a b)
+      (and (> (distance (index-x a) (index-y a) (index-x b) (index-y b)) 1)
+           (< (cart-step-cost fast a b) 40)))
+    (define (ceiling-root square low high)
+      (if (<= (- high low) 1) high
+          (let ((middle (quotient (+ low high) 2)))
+            (if (>= (* middle middle) square) (ceiling-root square low middle)
+                (ceiling-root square middle high)))))
+    (define (segment-length a b)
+      (let ((x (* cell-size (absolute (- (index-x a) (index-x b)))))
+            (y (* cell-size (absolute (- (index-y a) (index-y b))))))
+        (if (= (+ x y) 0) 0 (ceiling-root (+ (* x x) (* y y)) 0 (+ x y)))))
+    (define (flight-duration a b speed)
+      (+ 4 (quotient (+ (segment-length a b) (- speed 1)) speed)))
     (define (traversable? seed opened x y tunneling)
       (and (inside? x y) (if tunneling (not (water? seed x y)) (open-ground? seed opened x y))))
     (define (search-enter? search x y)
@@ -377,21 +425,32 @@
           (write-cell! (search-parents search) slot parent)
           (write-cell! (search-steps search) slot steps)
           (heap-up! search position))))
-    (define (visit-cell! search parent x y)
+    (define (visit-priced-cell! search parent x y price)
       (when (and (not (search-full? search)) (search-enter? search x y))
         (let* ((cell (cell-index x y)) (slot (find-slot search cell))
-               (previous (read-cell (search-cells search) parent))
                (steps (+ (read-cell (search-steps search) parent)
-                         (cart-edge-price (search-fast search) (rail-edge previous cell) (search-walking-cost search)))))
+                         price)))
           (if (= (read-cell (search-cells search) slot) -1)
               (discover-cell! search slot cell parent steps)
               (improve-cell! search slot parent steps)))))
+    (define (visit-cell! search parent x y)
+      (visit-priced-cell! search parent x y (search-walking-cost search)))
+    (define (visit-cart-edges! search slot edges)
+      (unless (null? edges)
+        (let* ((edge (car edges)) (here (read-cell (search-cells search) slot))
+               (other (if (= here (cart-edge-a edge)) (cart-edge-b edge) (cart-edge-a edge))))
+          (when (and (or (= here (cart-edge-a edge)) (= here (cart-edge-b edge)))
+                     (rail-step? (list edge) here other))
+            (visit-priced-cell! search slot (index-x other) (index-y other)
+                                (* 320 (flight-duration here other (quotient 320 (cart-edge-cost edge)))))))
+        (visit-cart-edges! search slot (cdr edges))))
     (define (visit-neighbors! search slot)
       (let* ((cell (read-cell (search-cells search) slot)) (x (index-x cell)) (y (index-y cell)))
         (visit-cell! search slot (+ x 1) y)
         (visit-cell! search slot (- x 1) y)
         (visit-cell! search slot x (+ y 1))
-        (visit-cell! search slot x (- y 1))))
+        (visit-cell! search slot x (- y 1))
+        (visit-cart-edges! search slot (search-fast search))))
     (define (search-destination? search slot)
       (let ((cell (read-cell (search-cells search) slot)))
         (if (>= (search-target search) 0) (= cell (search-target search))
@@ -438,7 +497,7 @@
     (define (avoiding-path seed x y a b surveys hazards)
       (avoiding-open-path seed (empty-list) x y a b surveys hazards))
     (define (cart-path seed opened fast x y a b surveys hazards)
-      (find-path seed opened fast (if (null? fast) 1 40) x y a b surveys hazards #f #f))
+      (find-path seed opened fast (if (null? fast) 1 1600) x y a b surveys hazards #f #f))
 
     ;; ---- Emergency escape crosses warnings but not enemy positions ----
 
@@ -454,7 +513,7 @@
           (search-path seed opened (empty-list) 1 (cell-index x y) -1 surveys (occupied-hazards hazards) hazards #f #f 512)))
     (define (cart-escape-path seed opened fast x y surveys hazards)
       (if (not (open-ground? seed opened x y)) (empty-list)
-          (search-path seed opened fast (if (null? fast) 1 40) (cell-index x y) -1 surveys
+          (search-path seed opened fast (if (null? fast) 1 1600) (cell-index x y) -1 surveys
                        (occupied-hazards hazards) hazards #f #f 512)))
     (define (escape-path seed x y surveys hazards)
       (escape-open-path seed (empty-list) x y surveys hazards))))

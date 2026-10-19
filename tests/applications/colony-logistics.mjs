@@ -247,7 +247,7 @@ export async function checkLogistics(test, fresh, call) {
     await r.restore(1, saved); await advance(r, 20);
     assert.deepEqual(r.snapshot(1), saved); assert.deepEqual(r.view().scene, frame);
     await call(r, 'pause-colony', [0]);
-    await advance(r, 5); assert.equal(state(r).delivered, 0);
+    await advance(r, 9); assert.equal(state(r).delivered, 0);
     assert.notDeepEqual(r.view().scene, frame);
     assert.equal(state(r).rails.find(link => link.source === parent.id).cargo, 32);
     assert.equal(state(r).rails.find(link => link.source === parent.id).progress, 0);

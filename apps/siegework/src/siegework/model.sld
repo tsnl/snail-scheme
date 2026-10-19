@@ -4,15 +4,17 @@
   (export World make-world initial-world advance-world extract-world observe-world place-cell-world
           ConstructionOutcome construction-world construction-reason place-cell-outcome
           fortify-world automatic-world upgrade-world fabricate-world focus-world move-world pause-world restart-world seeded-world
+          scavenge-world scavenge-reason scavenge-pending? scavenge-worker? scavenge-ticks scavenge-refund completed-investment
           cancel-world arm-world artillery-range artillery-damage final-siege-tick run-end-tick maximum-enemies next-attack-tick next-attack-number attack-countdown-span attack-kind attack-size threat-tier
-          DifficultyWindow difficulty-window difficulty-window-for difficulty-tier difficulty-start difficulty-end difficulty-step-ticks simulation-ticks-per-second
+          DifficultyWindow difficulty-window difficulty-window-for world-difficulty-window world-threat-tick difficulty-tier difficulty-start difficulty-end difficulty-step-ticks simulation-ticks-per-second
           world-tick world-outcome world-credits world-hull world-kills world-next-id world-started
           world-buildings world-bots world-enemies world-surveys world-focus
           world-plan world-local-spent world-delivered world-produced world-spent world-lost world-notice world-paused
           world-seed world-casualties world-lost-ore world-alerts world-run-marker world-rails world-tracks
-          world-hub-x world-hub-y world-nests world-nest-hp world-last-reveal-tick
+          world-hub-x world-hub-y world-nests world-nest-hp world-last-reveal-tick world-payload-version
           Nest make-nest nest-id nest-site-x nest-site-y nest-hp nest-at living-nests initial-nests
-          Deposit make-deposit deposit-cell deposit-remaining world-deposits initial-deposits ore-remaining remaining-ore
+          Deposit make-deposit deposit-cell deposit-remaining world-deposits world-deposits-set initial-deposits initial-deposits-v1 ore-remaining remaining-ore
+          world-deposit-rate living-nest? cleared-nest? world-payload-version-set
           nest-health maximum-buildings maximum-surveys upgrade-cost
           world-breaches world-excavations world-ground? world-rock-remaining rock-health
           Dig make-dig dig-cell dig-remaining enemy-burrower dig-at
@@ -20,11 +22,14 @@
           Building make-building building-id building-kind building-x building-y
           building-level building-hp building-stock building-stage building-cooldown
           building-aim-x building-aim-y building-armed building-source building-move-x building-move-y moving? tower? armed?
-          Bot make-bot bot-id bot-x bot-y bot-job bot-target bot-cargo bot-timer bot-path bot-hp bot-order bot-source
+          Bot make-bot bot-id bot-x bot-y bot-job bot-target bot-cargo bot-timer bot-path bot-hp bot-order bot-source bot-flight
+          Flight make-flight flight-origin flight-destination flight-progress flight-speed
           Rail make-rail rail-source rail-parent rail-progress rail-returning rail-cargo rail-path
-          rail-x rail-y bot-riding? cart-station? rebuild-transport
+          rail-x rail-y rail-elevation rail-length rail-connectable? bot-riding? bot-height cart-station? rebuild-transport
+          flight-height flight-length flight-x flight-y flight-elevation landing-cell
+          world-terrain-height clear-zipline? zipline-link?
           track-cell track-east? track-south? track-west? track-north? track-station?
-          Enemy make-enemy enemy-id enemy-x enemy-y enemy-hp enemy-kind enemy-target
+          Enemy make-enemy enemy-id enemy-x enemy-y enemy-hp enemy-max-hp enemy-kind enemy-target enemy-spawn-health
           enemy-path enemy-rank enemy-rank-health enemy-rank-damage maximum-enemy-rank maximum-enemy-health
           building-at find-building list-size visible? known? workers-see? construction-hidden? ready? building-radius
           building-health building-cost placement-reason move-reason workers-at mine-backlog
@@ -95,6 +100,16 @@
     ;; Jobs 14/15 return for a paid hub capacity upgrade / assemble it. Fleeing
     ;; timer 14 retains that order. Target owns its price, separate from cargo;
     ;; capacity changes only on completion, and death refunds the unused price.
+    ;; Jobs 16/17 travel to a reserved building / dismantle it. Target is its
+    ;; identity; no ore changes hands until twenty on-site work ticks finish.
+    ;; A committed flight owns movement only. Cargo and paid work remain on Bot;
+    ;; its fixed ground endpoints remain meaningful after either tower is lost.
+    (define-immutable-record Flight make-flight
+      (origin I32 flight-origin flight-origin-set)
+      (destination I32 flight-destination flight-destination-set)
+      (progress I32 flight-progress flight-progress-set)
+      (speed I32 flight-speed flight-speed-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record Bot make-bot
       (id I32 bot-id bot-id-set)
       (x I32 bot-x bot-x-set)
@@ -107,6 +122,7 @@
       (hp I32 bot-hp bot-hp-set)
       (order I32 bot-order bot-order-set)
       (source I32 bot-source bot-source-set)
+      (flight (List Flight) bot-flight bot-flight-set)
       (deriving derive-serialize derive-deserialize))
     ;; One source-owned shuttle follows its current tree edge toward the hub,
     ;; then returns empty. Tree construction proves ancestry, never ID order.
@@ -133,6 +149,7 @@
       (path (List I32) enemy-path enemy-path-set)
       (burrower Bool enemy-burrower enemy-burrower-set)
       (rank I32 enemy-rank enemy-rank-set)
+      (max-hp I32 enemy-max-hp enemy-max-hp-set)
       (deriving derive-serialize derive-deserialize))
     (define-immutable-record Alert make-alert
       (x I32 alert-x alert-x-set)
@@ -192,6 +209,7 @@
       (tracks (List I32) world-tracks world-tracks-set)
       (hub-capacity-level I32 world-hub-capacity-level world-hub-capacity-level-set)
       (deposits (List Deposit) world-deposits world-deposits-set)
+      (payload-version I32 world-payload-version world-payload-version-set)
       (deriving derive-serialize derive-deserialize))
     (define nest-health 900)
     (define maximum-buildings 256)
@@ -215,8 +233,9 @@
 
     ;; ---- One trusted seed layout proves persistent site identities ----
 
-    ;; Enumerate three home deposits and sixteen regional candidates, never the
-    ;; full map. Only one derived layout is retained per Wasm instance; restored
+    ;; Enumerate three home deposits, sixteen regional candidates, up to twenty-four
+    ;; small frontier deposits and three buried nest reserves, never the full map.
+    ;; Only one derived layout is retained per Wasm instance; restored
     ;; records can neither populate this cache nor change its capacities.
     (define-immutable-record SeedLayout make-seed-layout
       (seed I32 layout-seed layout-seed-set)
@@ -233,10 +252,21 @@
                  (hx (+ (- x (spawn-x seed)) hub-x)) (hy (+ (- y (spawn-y seed)) hub-y)))
             (if (or (= (deposit-rate seed x y) 0) (and (>= hx 0) (< hx 48) (>= hy 0) (< hy 36)))
                 rest (cons (deposit-site seed x y) rest)))))
-    (define (new-deposits seed)
+    (define (initial-deposits-v1 seed)
       (cons (deposit-site seed (+ (spawn-x seed) 4) (- (spawn-y seed) 2))
             (cons (deposit-site seed (northern-x seed) (northern-y seed))
                   (cons (deposit-site seed (eastern-x seed) (eastern-y seed)) (regional-deposits seed 0)))))
+    (define (front-deposits seed candidate)
+      (if (= candidate 24) (empty-list)
+          (let* ((front (quotient candidate 8)) (slot (remainder candidate 8))
+                 (rest (front-deposits seed (+ candidate 1))))
+            (if (front-deposit? seed front slot)
+                (cons (deposit-site seed (front-deposit-x seed front slot) (front-deposit-y seed front slot)) rest) rest))))
+    (define (nest-deposits seed front)
+      (if (= front 3) (empty-list)
+          (cons (deposit-site seed (front-x seed front) (front-y seed front)) (nest-deposits seed (+ front 1)))))
+    (define (new-deposits seed)
+      (append (initial-deposits-v1 seed) (append (front-deposits seed 0) (nest-deposits seed 0))))
     (define (new-nests seed front)
       (if (= front 3) (empty-list)
           (cons (make-nest front (front-x seed front) (front-y seed front) nest-health) (new-nests seed (+ front 1)))))
@@ -251,9 +281,21 @@
       (cond ((null? deposits) (empty-list))
             ((= (deposit-cell (car deposits)) cell) (list (car deposits)))
             (else (deposit-at (cdr deposits) cell))))
+    ;; A defeated nest exposes an existing reserve. No combat transition adds
+    ;; ore or resets a deposit; the ordinary mining withdrawal owns production.
+    (define (living-nest? world x y)
+      (let ((found (nest-at (world-nests world) x y)))
+        (and (not (null? found)) (> (nest-hp (car found)) 0))))
+    (define (cleared-nest? world x y)
+      (let ((found (nest-at (world-nests world) x y)))
+        (and (not (null? found)) (= (nest-hp (car found)) 0))))
+    (define (world-deposit-rate world x y)
+      (if (nest-site? (world-seed world) x y)
+          (if (cleared-nest? world x y) nest-deposit-rate 0)
+          (deposit-rate (world-seed world) x y)))
     (define (ore-remaining world x y)
       (let ((found (deposit-at (world-deposits world) (cell-index x y))))
-        (if (null? found) 0 (deposit-remaining (car found)))))
+        (if (or (= (world-deposit-rate world x y) 0) (null? found)) 0 (deposit-remaining (car found)))))
     (define (remaining-ore deposits)
       (if (null? deposits) 0 (+ (deposit-remaining (car deposits)) (remaining-ore (cdr deposits)))))
     (define (withdraw-deposit deposits cell amount)
@@ -262,13 +304,13 @@
                     (deposit-remaining-set (car deposits) (- (deposit-remaining (car deposits)) amount)) (car deposits))
                 (withdraw-deposit (cdr deposits) cell amount))))
     (define (idle-bot seed id)
-      (make-bot id (cell-x (spawn-x seed)) (cell-y (spawn-y seed)) 0 0 0 0 (empty-list) 14 0 0))
+      (make-bot id (cell-x (spawn-x seed)) (cell-y (spawn-y seed)) 0 0 0 0 (empty-list) 14 0 0 (empty-list)))
     (define (new-world seed marker)
       (make-world 0 0 160 300 0 4 (empty-list)
                   (list (idle-bot seed 1) (idle-bot seed 2) (idle-bot seed 3)) (empty-list)
                   (list (make-survey (spawn-x seed) (spawn-y seed) 9))
                   0 0 0 0 0 0 0 0 seed 0 0 (empty-list) marker (empty-list) 0 (initial-nests seed) -100
-                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed)))
+                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed) 2))
     (define (initial-world) (new-world 1 0))
     (define (next-run-marker world)
       (if (= (world-run-marker world) 2147483647) 0 (+ (world-run-marker world) 1)))
@@ -335,8 +377,10 @@
                     (within? x y (building-x (car buildings)) (building-y (car buildings))
                              (building-radius (car buildings))))
                (buildings-see? (cdr buildings) x y))))
+    ;; Defeat exposes the frozen world for inspection. Knowledge is derived
+    ;; from the outcome, never a 16,384-cell survey or a new simulation step.
     (define (visible? world x y)
-      (and (inside? x y) (or (within? x y (world-hub-x world) (world-hub-y world) 9)
+      (and (inside? x y) (or (= (world-outcome world) 1) (within? x y (world-hub-x world) (world-hub-y world) 9)
                              (buildings-see? (world-buildings world) x y)
                              (workers-see? (world-bots world) x y))))
     ;; A passing worker reveals nearby terrain immediately, without claiming
@@ -346,7 +390,8 @@
            (or (within? (cell-x x) (cell-y y) (bot-x (car bots)) (bot-y (car bots)) (* 2 cell-size))
                (workers-see? (cdr bots) x y))))
     (define (known? world x y)
-      (and (inside? x y) (or (surveyed? (world-surveys world) x y)
+      (and (inside? x y) (or (= (world-outcome world) 1) (cleared-nest? world x y)
+                             (surveyed? (world-surveys world) x y)
                              (workers-see? (world-bots world) x y))))
     (define (construction-hidden? world building)
       (and (not (= (building-stage building) 2)) (not (visible? world (building-x building) (building-y building)))))
@@ -371,12 +416,12 @@
             ((not (surveyed? (world-surveys world) x y)) 6)
             ((not (world-ground? world x y)) 2)
             ((or (hub-cell? world x y)
-                 (nest-site? (world-seed world) x y)
+                 (living-nest? world x y)
                  (not (null? (building-at (world-buildings world) x y)))
                  (reserved-move-cell? (world-buildings world) x y)) 3)
-            ((and (= kind 1) (= (deposit-rate (world-seed world) x y) 0)) 4)
+            ((and (= kind 1) (= (world-deposit-rate world x y) 0)) 4)
             ((and (= kind 1) (= (ore-remaining world x y) 0)) 39)
-            ((and (not (= kind 1)) (> (deposit-rate (world-seed world) x y) 0)) 5)
+            ((and (not (= kind 1)) (> (world-deposit-rate world x y) 0)) 5)
             ((not (affordable-kit? world (building-cost kind))) 7)
             ((or (>= (list-size (world-buildings world)) maximum-buildings)
                  (>= (list-size (world-surveys world)) maximum-surveys)) 8)
@@ -435,7 +480,8 @@
             ((= (building-level building) 1) 40) (else 160)))
     (define (upgrade-building world building)
       (let ((price (upgrade-cost building)))
-        (cond ((or (not (ready? building)) (>= (building-level building) 3) (arming? building) (moving? building))
+        (cond ((scavenge-pending? world (building-id building)) (world-notice-set world 41))
+              ((or (not (ready? building)) (>= (building-level building) 3) (arming? building) (moving? building))
                (world-notice-set world 11))
               ((and (= (building-kind building) 1) (= (ore-remaining world (building-x building) (building-y building)) 0))
                (world-notice-set world 39))
@@ -462,7 +508,7 @@
     (define (worker-capacity world)
       (+ base-worker-capacity (* 2 (world-hub-capacity-level world))))
     (define (assembler-eligible? world bot)
-      (and (= (bot-order bot) 0)
+      (and (null? (bot-flight bot)) (= (bot-order bot) 0)
            (or (<= (bot-job bot) 2) (= (bot-job bot) 8) (= (bot-job bot) 9) (= (bot-job bot) 10))
            (or (sheltered? world bot) (not (danger? (world-enemies world) (bot-x bot) (bot-y bot))))))
     (define (prepare-assembler world bot)
@@ -483,11 +529,11 @@
     (define (start-assembly world bot)
       (put-bot (credit-delivery world (bot-cargo bot))
                (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 6 (bot-target bot) 0
-                         worker-assembly-ticks (empty-list) 14 0 0)))
+                         worker-assembly-ticks (empty-list) 14 0 0 (bot-flight bot))))
     (define (accept-fabrication world choice)
       (let* ((bot (builder-worker choice)) (id (world-next-id world))
              (returning (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 4 id (bot-cargo bot) 0
-                                  (builder-pickup choice) (bot-hp bot) 0 0))
+                                  (builder-pickup choice) (bot-hp bot) 0 0 (bot-flight bot)))
              (paid (world-next-id-set (spend world worker-cost) (+ id 1))))
         (world-notice-set (if (at-hub? world bot) (start-assembly paid returning) (put-bot paid returning)) 13)))
     (define (fabricate-world world)
@@ -524,11 +570,11 @@
     (define (start-repair world bot)
       (put-bot (credit-delivery world (bot-cargo bot))
                (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 13 (bot-target bot) 0
-                         repair-ticks (empty-list) (bot-hp bot) 0 0)))
+                         repair-ticks (empty-list) (bot-hp bot) 0 0 (bot-flight bot))))
     (define (accept-repair world choice)
       (let* ((bot (builder-worker choice)) (paid-ore (repair-cost world))
              (returning (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 12 paid-ore (bot-cargo bot) 0
-                                  (builder-pickup choice) (bot-hp bot) 0 0))
+                                  (builder-pickup choice) (bot-hp bot) 0 0 (bot-flight bot)))
              (paid (spend world paid-ore)))
         (world-notice-set (if (at-hub? world bot) (start-repair paid returning) (put-bot paid returning)) 31)))
     (define (repair-world world)
@@ -563,11 +609,11 @@
     (define (start-hub-upgrade world bot)
       (put-bot (credit-delivery world (bot-cargo bot))
                (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 15 (bot-target bot) 0
-                         hub-upgrade-ticks (empty-list) (bot-hp bot) 0 0)))
+                         hub-upgrade-ticks (empty-list) (bot-hp bot) 0 0 (bot-flight bot))))
     (define (accept-hub-upgrade world choice)
       (let* ((bot (builder-worker choice)) (price (hub-upgrade-cost world))
              (returning (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 14 price (bot-cargo bot) 0
-                                  (builder-pickup choice) (bot-hp bot) 0 0))
+                                  (builder-pickup choice) (bot-hp bot) 0 0 (bot-flight bot)))
              (paid (spend world price)))
         (world-notice-set (if (at-hub? world bot) (start-hub-upgrade paid returning) (put-bot paid returning)) 37)))
     (define (upgrade-hub-world world)
@@ -604,6 +650,8 @@
     (define (cancel-world world x y)
       (let ((found (building-at (world-buildings world) x y)))
         (cond ((not (active? world)) (world-notice-set world 9))
+              ((and (not (null? found)) (scavenge-pending? world (building-id (car found))))
+               (world-notice-set (cancel-scavenge world (world-bots world) (building-id (car found))) 46))
               ((and (not (null? found)) (moving? (car found)))
                (world-notice-set (put-building (spend world -5) (clear-move (car found))) 23))
               ((or (null? found) (= (building-stage (car found)) 2)) (world-notice-set world 19))
@@ -640,7 +688,7 @@
     ;; local-spent ledger keeps locally consumed ore out of both hub currency
     ;; and raw stock totals; no purchase can spend both balances for one kit.
     (define (local-supply? world source amount)
-      (and (ready? source) (not (moving? source)) (or (= (building-kind source) 1) (connected-depot? world (building-id source)))
+      (and (ready? source) (not (moving? source)) (not (scavenge-pending? world (building-id source))) (or (= (building-kind source) 1) (connected-depot? world (building-id source)))
            (>= (building-stock source) amount)))
     (define (local-affordable? world buildings amount)
       (and (not (null? buildings))
@@ -665,7 +713,7 @@
     (define (source-position world source bot)
       (if (= source 0) (idle-bot (world-seed world) (bot-id bot))
           (let ((site (car (find-building (world-buildings world) source))))
-            (bot-y-set (bot-x-set (clear-job bot) (cell-x (building-x site))) (cell-y (building-y site))))))
+            (bot-y-set (bot-x-set (bot-flight-set (clear-job bot) (empty-list)) (cell-x (building-x site))) (cell-y (building-y site))))))
     (define (source-path world bot source)
       (let ((position (source-position world source bot)))
         (route-from world bot (quotient (bot-x position) cell-size) (quotient (bot-y position) cell-size) #t)))
@@ -677,15 +725,27 @@
       (source I32 builder-source builder-source-set)
       (ticks I32 builder-ticks builder-ticks-set)
       (pickup (List I32) builder-pickup builder-pickup-set))
-    ;; Movement spends 320 budget units. Walking costs 40 per world unit;
-    ;; links cost 4, 2, 1 at levels 1, 2, 3. Sum before rounding to simulation ticks.
+    ;; Walking costs 40 work units per pixel; each flight includes four lift /
+    ;; landing ticks. The same endpoint rule chooses movement in A* and execution.
     (define (path-work fast x y path)
       (if (null? path) 0
           (let* ((cell (car path)) (a (cell-x (index-x cell))) (b (cell-y (index-y cell)))
-                 (cost (quotient 320 (step-speed fast x y cell))))
-            (+ (* (distance x y a b) cost) (path-work fast a b (cdr path))))))
+                 (here (cell-index (quotient x cell-size) (quotient y cell-size)))
+                 (work (if (and (= x (cell-x (index-x here))) (= y (cell-y (index-y here))) (rail-step? fast here cell))
+                           (* 320 (flight-duration here cell (quotient 320 (cart-step-cost fast here cell))))
+                           (* 40 (distance x y a b)))))
+            (+ work (path-work fast a b (cdr path))))))
+    (define (remaining-flight-work bot)
+      (if (null? (bot-flight bot)) 0
+          (let ((flight (car (bot-flight bot))))
+            (* 320 (quotient (+ (- (flight-length flight) (flight-progress flight)) (- (flight-speed flight) 1))
+                             (flight-speed flight))))))
     (define (travel-ticks world bot path)
-      (+ (quotient (+ (path-work (fast-rails world (world-rails world)) (bot-x bot) (bot-y bot) path) 319) 320) 1))
+      (let* ((cell (landing-cell bot)) (flying (not (null? (bot-flight bot))))
+             (work (path-work (fast-rails world (world-rails world))
+                              (if flying (cell-x (index-x cell)) (bot-x bot))
+                              (if flying (cell-y (index-y cell)) (bot-y bot)) path)))
+        (+ 1 (quotient (+ (+ work (remaining-flight-work bot)) 319) 320))))
     (define (committed-builders bots)
       (if (null? bots) 0
           (+ (if (or (> (bot-order (car bots)) 0) (kit-carrier? (car bots))
@@ -693,7 +753,7 @@
                      (hub-upgrade-worker? (car bots))) 1 0)
              (committed-builders (cdr bots)))))
     (define (builder-eligible? world bot)
-      (and (= (bot-order bot) 0)
+      (and (null? (bot-flight bot)) (= (bot-order bot) 0)
            (< (committed-builders (world-bots world)) (maximum 1 (- (list-size (world-bots world)) 2)))
            (or (<= (bot-job bot) 2) (= (bot-job bot) 8) (= (bot-job bot) 9) (= (bot-job bot) 10))
            (or (not (= (bot-job bot) 2)) (= (bot-target bot) 0) (accepting-depot? world (bot-target bot)))
@@ -726,7 +786,7 @@
                            (if (local-supply? world source (construction-cost building))
                                (best-builder (prepare-builder-source world bot building (building-id source)) best) best)))))
     (define (prepare-builder world bot building reserve)
-      (cond ((construction-hidden? world building) (empty-list))
+      (cond ((or (not (null? (bot-flight bot))) (construction-hidden? world building)) (empty-list))
             ((and (= (bot-job bot) 3) (= (bot-cargo bot) 25)) (prepare-carrier world bot building reserve))
             ((not (builder-eligible? world bot)) (empty-list))
             ((>= (building-source building) 0) (prepare-builder-source world bot building (building-source building)))
@@ -768,7 +828,7 @@
                  (settling (and (= (bot-job bot) 2) (> (bot-cargo bot) 0)))
                  (next (if settling ordered
                            (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 11 (building-source building) 0 0
-                                     (builder-pickup choice) (bot-hp bot) (building-id building) 0))))
+                                     (builder-pickup choice) (bot-hp bot) (building-id building) 0 (bot-flight bot)))))
             (put-bot (put-building world (construction-stage-set building 3)) next))))
     (define (redirect-carrier world building choice)
       ;; Same-source reservations exchange one generic kit. The physical cargo
@@ -838,171 +898,54 @@
       (minimum (station-level world (rail-source rail)) (station-level world (rail-parent rail))))
     (define (rail-travel-cost world rail)
       (let ((level (rail-level world rail))) (cond ((= level 1) 4) ((= level 2) 2) (else 1))))
-    (define (path-edges path cost)
-      (if (or (null? path) (null? (cdr path))) (empty-list)
-          (cons (make-cart-edge (rail-edge (car path) (car (cdr path))) cost) (path-edges (cdr path) cost))))
+    (define (last-transport-cell path)
+      (if (null? (cdr path)) (car path) (last-transport-cell (cdr path))))
     (define (fast-rails world rails)
       (if (null? rails) (empty-list)
-          (let* ((rail (car rails)) (rest (fast-rails world (cdr rails))))
-            (if (and (cart-station? world (rail-source rail)) (cart-station? world (rail-parent rail)))
-                (append (path-edges (rail-path rail) (rail-travel-cost world rail)) rest) rest))))
-    ;; Navigation is derived, unsaved scratch. Its exact numeric key includes
-    ;; every passability input; rebuilding Prim never reuses a previous tree.
-    ;; One map and its bounded route cache survive reads of the same colony.
-    (define-immutable-record TransportMap make-transport-map
-      (key (List I32) transport-key transport-key-set)
-      (ground (Vector I32) transport-ground transport-ground-set)
-      (parents (Vector I32) transport-parents transport-parents-set)
-      (marks (Vector I32) transport-marks transport-marks-set)
-      (depths (Vector I32) transport-depths transport-depths-set)
-      (queue (Vector I32) transport-queue transport-queue-set)
-      (serial (Vector I32) transport-serial transport-serial-set))
-    (define-immutable-record TransportRoute make-transport-route
-      (start I32 transport-start transport-start-set)
-      (end I32 transport-end transport-end-set)
-      (path (List I32) transport-path transport-path-set))
-    (define transport-cache (vector (ann (empty-list) (List TransportMap))))
-    (define transport-routes (vector (ann (empty-list) (List TransportRoute))))
-    (define (transport-read values index) (vector-ref values (i32->i64 index)))
-    (define (transport-write! values index value) (vector-set! values (i32->i64 index) value))
+          (let* ((rail (car rails)) (path (rail-path rail)) (rest (fast-rails world (cdr rails))))
+            (if (and (= (list-size path) 2) (cart-station? world (rail-source rail)) (cart-station? world (rail-parent rail)))
+                (cons (make-cart-edge (car path) (last-transport-cell path) (rail-travel-cost world rail)) rest) rest))))
     (define (same-integers? a b)
       (if (null? a) (null? b)
           (and (not (null? b)) (= (car a) (car b)) (same-integers? (cdr a) (cdr b)))))
-    (define (contains-integer? values value)
-      (and (not (null? values)) (or (= (car values) value) (contains-integer? (cdr values) value))))
-    (define (transport-surveys surveys)
-      (if (null? surveys) (empty-list)
-          (let ((site (car surveys)))
-            (cons (survey-x site) (cons (survey-y site) (cons (survey-radius site) (transport-surveys (cdr surveys))))))))
-    ;; Workers already walk beneath buildings. Only extractors obstruct freight;
-    ;; towers and guns always have open plinths.
-    (define (transport-obstacles buildings)
-      (if (null? buildings) (empty-list)
-          (let ((site (car buildings)) (rest (transport-obstacles (cdr buildings))))
-            (if (= (building-kind site) 1)
-                (cons (cell-index (building-x site) (building-y site)) rest) rest))))
-    (define (transport-map-key world)
-      (cons (world-seed world)
-            (append (world-breaches world)
-                    (cons -1 (append (transport-obstacles (world-buildings world))
-                                     (cons -1 (transport-surveys (world-surveys world))))))))
-    (define (paint-transport-row! world ground survey x right y)
-      (when (<= x right)
-        (let ((cell (cell-index x y)))
-          (when (and (= (transport-read ground cell) 0)
-                     (within? x y (survey-x survey) (survey-y survey) (survey-radius survey)))
-            (transport-write! ground cell (if (world-ground? world x y) 1 -1))))
-        (paint-transport-row! world ground survey (+ x 1) right y)))
-    (define (paint-transport-survey! world ground survey y bottom)
-      (when (<= y bottom)
-        (paint-transport-row! world ground survey (maximum 0 (- (survey-x survey) (survey-radius survey)))
-                              (minimum (- map-width 1) (+ (survey-x survey) (survey-radius survey))) y)
-        (paint-transport-survey! world ground survey (+ y 1) bottom)))
-    (define (paint-transport-surveys! world ground surveys)
-      (unless (null? surveys)
-        (let ((survey (car surveys)))
-          (paint-transport-survey! world ground survey (maximum 0 (- (survey-y survey) (survey-radius survey)))
-                                   (minimum (- map-height 1) (+ (survey-y survey) (survey-radius survey)))))
-        (paint-transport-surveys! world ground (cdr surveys))))
-    (define (block-transport-cells! ground cells)
-      (unless (null? cells)
-        (transport-write! ground (car cells) -1)
-        (block-transport-cells! ground (cdr cells))))
-    (define (visit-transport-ground! map x y tail)
-      (if (not (and (inside? x y) (= (transport-read (transport-ground map) (cell-index x y)) 1))) tail
-          (begin (transport-write! (transport-ground map) (cell-index x y) 2)
-                 (transport-write! (transport-queue map) tail (cell-index x y)) (+ tail 1))))
-    (define (flood-transport-ground! map head tail)
-      (when (< head tail)
-        (let* ((cell (transport-read (transport-queue map) head)) (x (index-x cell)) (y (index-y cell))
-               (tail (visit-transport-ground! map (+ x 1) y tail))
-               (tail (visit-transport-ground! map (- x 1) y tail))
-               (tail (visit-transport-ground! map x (+ y 1) tail))
-               (tail (visit-transport-ground! map x (- y 1) tail)))
-          (flood-transport-ground! map (+ head 1) tail))))
-    (define (new-transport-map world key)
-      (let* ((size (i32->i64 (* map-width map-height)))
-             (map (make-transport-map key (make-vector size 0) (make-vector size 0) (make-vector size 0)
-                                      (make-vector size 0) (make-vector size 0) (make-vector (i32->i64 1) 0))))
-        (paint-transport-surveys! world (transport-ground map) (world-surveys world))
-        (block-transport-cells! (transport-ground map) (transport-obstacles (world-buildings world)))
-        (flood-transport-ground! map 0 (visit-transport-ground! map (world-hub-x world) (world-hub-y world) 0))
-        map))
-    (define (current-transport-map world)
-      (let ((key (transport-map-key world)) (cached (vector-ref transport-cache (i32->i64 0))))
-        (unless (and (not (null? cached)) (same-integers? key (transport-key (car cached))))
-          (vector-set! transport-cache (i32->i64 0) (list (new-transport-map world key)))
-          (vector-set! transport-routes (i32->i64 0) (empty-list)))
-        (car (vector-ref transport-cache (i32->i64 0)))))
-    (define (transport-cell? map cell) (= (transport-read (transport-ground map) cell) 2))
-    (define (visit-transport-route! map parent x y tail serial)
-      (let ((cell (cell-index x y)))
-        (if (not (and (inside? x y) (transport-cell? map cell)
-                      (not (= (transport-read (transport-marks map) cell) serial)))) tail
-                      (begin (transport-write! (transport-marks map) cell serial)
-                             (transport-write! (transport-parents map) cell parent)
-                             (transport-write! (transport-depths map) cell (+ (transport-read (transport-depths map) parent) 1))
-                             (transport-write! (transport-queue map) tail cell) (+ tail 1)))))
-    (define (transport-neighbors! map cell tail serial)
-      (let* ((x (index-x cell)) (y (index-y cell))
-             (tail (visit-transport-route! map cell (+ x 1) y tail serial))
-             (tail (visit-transport-route! map cell (- x 1) y tail serial))
-             (tail (visit-transport-route! map cell x (+ y 1) tail serial)))
-        (visit-transport-route! map cell x (- y 1) tail serial)))
-    (define (transport-route-back map cell route)
-      (let ((parent (transport-read (transport-parents map) cell)))
-        (if (= parent cell) (cons cell route)
-            (transport-route-back map parent (cons cell route)))))
-    ;; Exact BFS proves the 1024-step save bound. A disconnected or overlong
-    ;; candidate is absent from the graph, rather than an impossible tree edge.
-    (define (search-transport-route! map target head tail serial)
-      (if (= head tail) (empty-list)
-          (let ((cell (transport-read (transport-queue map) head)))
-            (cond ((= cell target) (transport-route-back map cell (empty-list)))
-                  ((>= (transport-read (transport-depths map) cell) 1024)
-                   (search-transport-route! map target (+ head 1) tail serial))
-                  (else (search-transport-route! map target (+ head 1) (transport-neighbors! map cell tail serial) serial))))))
-    (define (clear-transport-marks! marks cell)
-      (when (< cell (* map-width map-height))
-        (transport-write! marks cell 0) (clear-transport-marks! marks (+ cell 1))))
-    (define (next-transport-serial! map)
-      (let ((previous (transport-read (transport-serial map) 0)))
-        (if (= previous 2147483647)
-            (begin (clear-transport-marks! (transport-marks map) 0) 1) (+ previous 1))))
-    (define (find-transport-route! map start end)
-      (let ((serial (next-transport-serial! map)))
-        (transport-write! (transport-serial map) 0 serial)
-        (transport-write! (transport-marks map) start serial)
-        (transport-write! (transport-parents map) start start)
-        (transport-write! (transport-depths map) start 0)
-        (transport-write! (transport-queue map) 0 start)
-        (search-transport-route! map end 0 1 serial)))
-    (define (cached-transport-route routes start end)
-      (if (null? routes) (empty-list)
-          (let ((route (car routes)))
-            (if (and (= (transport-start route) start) (= (transport-end route) end)) (list route)
-                (cached-transport-route (cdr routes) start end)))))
-    (define (legal-transport-path? map path)
-      (or (null? path) (and (transport-cell? map (car path)) (legal-transport-path? map (cdr path)))))
-    (define (last-transport-cell path)
-      (if (null? (cdr path)) (car path) (last-transport-cell (cdr path))))
-    (define (retained-transport-path world map source parent start end)
-      (let ((old (find-rail (world-rails world) source)))
-        (if (and (not (null? old)) (= (rail-parent (car old)) parent)
-                 (= (car (rail-path (car old))) start) (= (last-transport-cell (rail-path (car old))) end)
-                 (legal-transport-path? map (rail-path (car old)))) (rail-path (car old)) (empty-list))))
-    (define (transport-link world map source parent)
-      (let* ((start (cell-index (building-x source) (building-y source)))
-             (end (cell-index (building-x parent) (building-y parent)))
-             (old (retained-transport-path world map (building-id source) (building-id parent) start end)))
-        (if (not (null? old)) old (canonical-transport-path map start end))))
-    (define (canonical-transport-path map start end)
-      (let* ((routes (vector-ref transport-routes (i32->i64 0)))
-             (cached (cached-transport-route routes start end)))
-        (if (not (null? cached)) (transport-path (car cached))
-            (let ((path (find-transport-route! map start end)))
-              (vector-set! transport-routes (i32->i64 0) (cons (make-transport-route start end path)
-                                                               (if (< (list-size routes) 1024) routes (empty-list)))) path))))
+
+    ;; Heights use thousandths of a cell in simulation and the same values in
+    ;; the mesh. Every touched terrain column must be strictly below the cable.
+    ;; The conservative peak test includes both cells at exact diagonal corners.
+    ;; Today's intact rock peaks are 850; the 900 plane clears them all. Range
+    ;; still limits connectivity, and future taller terrain would obstruct it.
+    (define flight-height 900)
+    (define (world-terrain-height world x y)
+      (quotient (* 850 (world-rock-remaining world x y)) rock-health))
+    (define (zipline-cell? world x y height)
+      (and (inside? x y) (< (world-terrain-height world x y) height)))
+    (define (zipline-cells? world x y tx ty sx sy nx ny dx dy height)
+      (and (zipline-cell? world x y height)
+           (or (and (= x tx) (= y ty))
+               (cond ((or (= dx 0) (and (> dy 0) (< (* ny dx) (* nx dy))))
+                      (zipline-cells? world x (+ y sy) tx ty sx sy nx (+ ny 2) dx dy height))
+                     ((or (= dy 0) (< (* nx dy) (* ny dx)))
+                      (zipline-cells? world (+ x sx) y tx ty sx sy (+ nx 2) ny dx dy height))
+                     (else (and (zipline-cell? world (+ x sx) y height)
+                                (zipline-cell? world x (+ y sy) height)
+                                (zipline-cells? world (+ x sx) (+ y sy) tx ty sx sy
+                                                (+ nx 2) (+ ny 2) dx dy height)))))))
+    (define (clear-zipline? world a b height)
+      (let ((x (index-x a)) (y (index-y a)) (tx (index-x b)) (ty (index-y b)))
+        (zipline-cells? world x y tx ty (if (< x tx) 1 -1) (if (< y ty) 1 -1) 1 1
+                        (distance tx 0 x 0) (distance ty 0 y 0) height)))
+    (define (station-radius site)
+      (if (= (building-id site) 0) 9 (building-radius site)))
+    (define (zipline-link? world source parent)
+      (let ((radius (maximum (station-radius source) (station-radius parent))))
+        (and (<= (transport-distance source parent) (* radius radius))
+             (clear-zipline? world (cell-index (building-x source) (building-y source))
+                             (cell-index (building-x parent) (building-y parent)) flight-height))))
+    (define (transport-station world id)
+      (if (= id 0) (make-building 0 3 (world-hub-x world) (world-hub-y world) 3 1 0 2 0 0 0 0 0 -1 -1)
+          (car (find-building (world-buildings world) id))))
+    (define (rail-connectable? world rail)
+      (zipline-link? world (transport-station world (rail-source rail)) (transport-station world (rail-parent rail))))
 
     ;; Dense Prim uses squared Euclidean cell distance, not routed terrain cost.
     ;; Its strict (cost, lower endpoint ID, higher endpoint ID) ordering makes
@@ -1010,13 +953,13 @@
     (define-immutable-record TransportChoice make-transport-choice
       (source Building transport-source transport-source-set)
       (parent Building transport-parent transport-parent-set)
-      (cost I32 transport-cost transport-cost-set)
-      (rejected (List I32) transport-rejected transport-rejected-set))
+      (cost I32 transport-cost transport-cost-set))
     (define (transport-distance source parent)
       (let ((x (- (building-x source) (building-x parent))) (y (- (building-y source) (building-y parent))))
         (+ (* x x) (* y y))))
-    (define (transport-choice source parent rejected)
-      (make-transport-choice source parent (transport-distance source parent) rejected))
+    (define (transport-choice world source parent)
+      (make-transport-choice source parent
+                             (if (zipline-link? world source parent) (transport-distance source parent) 2147483647)))
     (define (transport-lower choice) (minimum (building-id (transport-source choice)) (building-id (transport-parent choice))))
     (define (transport-upper choice) (maximum (building-id (transport-source choice)) (building-id (transport-parent choice))))
     (define (transport-before? a b)
@@ -1024,50 +967,64 @@
           (and (= (transport-cost a) (transport-cost b))
                (or (< (transport-lower a) (transport-lower b))
                    (and (= (transport-lower a) (transport-lower b)) (< (transport-upper a) (transport-upper b)))))))
-    (define (transport-frontier map buildings hub)
+    (define (transport-frontier world buildings hub)
       (if (null? buildings) (empty-list)
-          (let ((site (car buildings)) (rest (transport-frontier map (cdr buildings) hub)))
-            (if (and (tower? site) (ready? site) (transport-cell? map (cell-index (building-x site) (building-y site))))
-                (cons (transport-choice site hub (empty-list)) rest) rest))))
+          (let ((site (car buildings)) (rest (transport-frontier world (cdr buildings) hub)))
+            (if (and (tower? site) (ready? site))
+                (cons (transport-choice world site hub) rest) rest))))
     (define (cheapest-transport choices best)
       (if (null? choices) best
           (cheapest-transport (cdr choices) (if (transport-before? (car choices) best) (car choices) best))))
-    (define (relax-transport choice parent)
-      (let ((candidate (transport-choice (transport-source choice) parent (transport-rejected choice))))
-        (if (and (not (contains-integer? (transport-rejected choice) (building-id parent)))
-                 (transport-before? candidate choice)) candidate choice)))
-    (define (join-transport choices parent)
+    (define (relax-transport world choice parent)
+      (let ((candidate (transport-choice world (transport-source choice) parent)))
+        (if (transport-before? candidate choice) candidate choice)))
+    (define (join-transport world choices parent)
       (if (null? choices) (empty-list)
-          (if (= (building-id (transport-source (car choices))) (building-id parent)) (join-transport (cdr choices) parent)
-              (cons (relax-transport (car choices) parent) (join-transport (cdr choices) parent)))))
-    (define (retry-transport-parent choice joined)
-      (if (null? joined) choice
-          (retry-transport-parent (relax-transport choice (car joined)) (cdr joined))))
-    (define (reject-transport choices choice joined)
-      (if (= (building-id (transport-source (car choices))) (building-id (transport-source choice)))
-          (cons (retry-transport-parent
-                 (transport-cost-set (transport-rejected-set choice (cons (building-id (transport-parent choice)) (transport-rejected choice))) 2147483647)
-                 joined) (cdr choices))
-          (cons (car choices) (reject-transport (cdr choices) choice joined))))
+          (if (= (building-id (transport-source (car choices))) (building-id parent)) (join-transport world (cdr choices) parent)
+              (cons (relax-transport world (car choices) parent) (join-transport world (cdr choices) parent)))))
     (define (insert-transport rails rail)
       (if (or (null? rails) (< (rail-source rail) (rail-source (car rails)))) (cons rail rails)
           (cons (car rails) (insert-transport (cdr rails) rail))))
-    ;; A successful attachment introduces one previously unjoined node. Parent
-    ;; ancestry is therefore rooted and acyclic even when parent IDs are newer.
-    (define (span-transport world map choices joined rails)
+    ;; Adding one previously unjoined tower proves rooted, acyclic ancestry.
+    ;; Range rejects distant pairs before the bounded (at most ten-cell) LOS walk.
+    (define (span-transport world choices rails)
       (if (null? choices) rails
           (let* ((choice (cheapest-transport (cdr choices) (car choices)))
                  (source (transport-source choice)) (parent (transport-parent choice)))
             (if (= (transport-cost choice) 2147483647) rails
-                (let ((path (transport-link world map source parent)))
-                  (if (null? path) (span-transport world map (reject-transport choices choice joined) joined rails)
-                      (span-transport world map (join-transport choices source) (cons source joined)
-                                      (insert-transport rails (make-rail (building-id source) (building-id parent) 0 0 0 path)))))))))
+                (span-transport world (join-transport world choices source)
+                                (insert-transport rails (make-rail (building-id source) (building-id parent) 0 0 0
+                                                                   (list (cell-index (building-x source) (building-y source))
+                                                                         (cell-index (building-x parent) (building-y parent))))))))))
     (define (transport-tree world)
-      (let* ((map (current-transport-map world))
-             (hub (make-building 0 3 (world-hub-x world) (world-hub-y world) 3 1 0 2 0 0 0 0 0 -1 -1)))
-        (span-transport world map (transport-frontier map (world-buildings world) hub) (list hub) (empty-list))))
-    (define (rail-length rail) (* cell-size (- (list-size (rail-path rail)) 1)))
+      (let ((hub (transport-station world 0)))
+        (span-transport world (transport-frontier world (world-buildings world) hub) (empty-list))))
+    ;; Lift and lower each consume two captured-speed ticks. Explicit progress
+    ;; keeps vertical-only motion serializable; no position guesses a phase.
+    (define (flight-length flight)
+      (+ (segment-length (flight-origin flight) (flight-destination flight)) (* 4 (flight-speed flight))))
+    (define (aerial-coordinate a b progress ramp horizontal)
+      (let* ((length (segment-length a b)) (travel (minimum length (maximum 0 (- progress ramp))))
+             (start (cell-x (if horizontal (index-x a) (index-y a))))
+             (end (cell-x (if horizontal (index-x b) (index-y b)))))
+        (+ start (quotient (* (- end start) travel) length))))
+    (define (aerial-height length progress ramp)
+      (quotient (* flight-height (minimum ramp (minimum progress (- length progress)))) ramp))
+    (define (flight-x flight)
+      (aerial-coordinate (flight-origin flight) (flight-destination flight) (flight-progress flight) (* 2 (flight-speed flight)) #t))
+    (define (flight-y flight)
+      (aerial-coordinate (flight-origin flight) (flight-destination flight) (flight-progress flight) (* 2 (flight-speed flight)) #f))
+    (define (flight-elevation flight)
+      (aerial-height (flight-length flight) (flight-progress flight) (* 2 (flight-speed flight))))
+    (define (bot-height bot)
+      (if (null? (bot-flight bot)) 0 (flight-elevation (car (bot-flight bot)))))
+    (define (landing-cell bot)
+      (if (null? (bot-flight bot)) (cell-index (quotient (bot-x bot) cell-size) (quotient (bot-y bot) cell-size))
+          (flight-destination (car (bot-flight bot)))))
+    (define (rail-length rail)
+      (if (= (list-size (rail-path rail)) 2)
+          (+ 128 (segment-length (car (rail-path rail)) (car (cdr (rail-path rail)))))
+          (* cell-size (- (list-size (rail-path rail)) 1))))
     (define (rail-coordinate path progress horizontal)
       (let ((here (car path)))
         (if (or (null? (cdr path)) (= progress 0))
@@ -1076,8 +1033,14 @@
                 (let ((a (if horizontal (index-x here) (index-y here)))
                       (b (if horizontal (index-x (car (cdr path))) (index-y (car (cdr path))))))
                   (+ (cell-x a) (* (- b a) progress)))))))
-    (define (rail-x rail) (rail-coordinate (rail-path rail) (rail-progress rail) #t))
-    (define (rail-y rail) (rail-coordinate (rail-path rail) (rail-progress rail) #f))
+    (define (shuttle-coordinate rail horizontal)
+      (let ((path (rail-path rail)))
+        (if (= (list-size path) 2) (aerial-coordinate (car path) (car (cdr path)) (rail-progress rail) 64 horizontal)
+            (rail-coordinate path (rail-progress rail) horizontal))))
+    (define (rail-x rail) (shuttle-coordinate rail #t))
+    (define (rail-y rail) (shuttle-coordinate rail #f))
+    (define (rail-elevation rail)
+      (if (= (list-size (rail-path rail)) 2) (aerial-height (rail-length rail) (rail-progress rail) 64) 0))
     (define (same-transport-edge? a b)
       (and (= (rail-parent a) (rail-parent b)) (same-integers? (rail-path a) (rail-path b))))
     ;; Freight belongs to its source until delivery. Rerouting returns it once
@@ -1126,6 +1089,79 @@
     (define (advance-rails world)
       (let ((world (move-rails world (world-rails world)))) (load-rails world (world-rails world))))
 
+    ;; ---- Worker demolition recovers completed investment once ----
+
+    (define scavenge-ticks 20)
+    (define (completed-investment building)
+      (+ (building-cost (building-kind building))
+         (cond ((or (tower? building) (= (building-kind building) 2)) (* 25 (- (building-level building) 1)))
+               ((= (building-level building) 1) 0) ((= (building-level building) 2) 40) (else 200))))
+    (define (scavenge-refund building) (quotient (completed-investment building) 5))
+    (define (scavenge-worker? bot) (or (= (bot-job bot) 16) (= (bot-job bot) 17)))
+    (define (scavenge-claims bots id)
+      (and (not (null? bots))
+           (or (and (scavenge-worker? (car bots)) (= (bot-target (car bots)) id))
+               (scavenge-claims (cdr bots) id))))
+    (define (scavenge-pending? world id) (scavenge-claims (world-bots world) id))
+    (define (prepare-scavenger world bot building)
+      (if (not (and (assembler-eligible? world bot) (= (bot-cargo bot) 0))) (empty-list)
+          (let ((path (route-from world bot (building-x building) (building-y building) #t)))
+            (if (reachable? bot (building-x building) (building-y building) path)
+                (list (make-builder-choice bot 0 (travel-ticks world bot path) path)) (empty-list)))))
+    (define (choose-scavenger world building bots best)
+      (if (null? bots) best
+          (choose-scavenger world building (cdr bots)
+                            (best-builder (prepare-scavenger world (car bots) building) best))))
+    (define (scavenge-reason world building)
+      (cond ((not (active? world)) 9)
+            ((not (world-started world)) 38)
+            ((scavenge-pending? world (building-id building)) 41)
+            ((or (not (ready? building)) (arming? building) (moving? building)) 40)
+            ((> (reserved-stock (world-buildings world) (building-id building)) 0) 43)
+            ((null? (choose-scavenger world building (world-bots world) (empty-list))) 42)
+            (else 0)))
+    (define (scavenge-world world x y)
+      (let ((found (building-at (world-buildings world) x y)))
+        (if (null? found) (world-notice-set world 40)
+            (let* ((building (car found)) (reason (scavenge-reason world building)))
+              (if (not (= reason 0)) (world-notice-set world reason)
+                  (let* ((choice (car (choose-scavenger world building (world-bots world) (empty-list))))
+                         (bot (builder-worker choice)))
+                    (world-notice-set (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 16 (building-id building)
+                                                               0 0 (builder-pickup choice) (bot-hp bot) 0 0 (empty-list))) 44)))))))
+    (define (cancel-scavenge world bots id)
+      (if (null? bots) world
+          (let ((bot (car bots)))
+            (cancel-scavenge (if (and (scavenge-worker? bot) (= (bot-target bot) id))
+                                 (put-bot world (clear-job bot)) world) (cdr bots) id))))
+    ;; The spent lower bound includes every remaining building and returning
+    ;; cancelled kit. Removing investment C frees at least C above local claims;
+    ;; refund <= C makes any excess local-spent safe to reclassify as delivered.
+    ;; The raw ledger and delivered + local-spent remain unchanged by this step.
+    (define (refund-scavenged world refund)
+      (let* ((world (spend world (- 0 refund)))
+             (excess (maximum 0 (- (world-local-spent world) (world-spent world)))))
+        (world-delivered-set (world-local-spent-set world (- (world-local-spent world) excess))
+                             (+ (world-delivered world) excess))))
+    (define (recover-scavenged-stock world building)
+      (let* ((id (building-id building)) (found (find-rail (world-rails world) id))
+             (cargo (if (null? found) 0 (rail-cargo (car found))))
+             (world (credit-delivery world (+ (raw-stock building) cargo))))
+        ;; Remove the source-owned shuttle before rebuilding; its cargo has
+        ;; already been recovered. Other sources keep their ordinary reroute rule.
+        (world-rails-set (world-buildings-set world (remove-building (world-buildings world) id))
+                         (remove-rail (world-rails world) id))))
+    (define (complete-scavenge world bot building)
+      (let* ((world (recover-scavenged-stock world building))
+             (world (refund-scavenged world (scavenge-refund building)))
+             (world (put-bot world (clear-job bot))))
+        (world-notice-set (rebuild-transport world) 45)))
+    (define (dismantle-building world bot)
+      (let ((found (find-building (world-buildings world) (bot-target bot))))
+        (cond ((null? found) (put-bot world (clear-job bot)))
+              ((> (bot-timer bot) 1) (put-bot world (bot-timer-set bot (- (bot-timer bot) 1))))
+              (else (complete-scavenge world bot (car found))))))
+
     ;; ---- Short relocations drain existing ownership before moving ----
 
     (define (moving? building) (>= (building-move-x building) 0))
@@ -1163,6 +1199,7 @@
             (list candidate) (empty-list))))
     (define (move-reason world building x y)
       (cond ((not (world-started world)) 38)
+            ((scavenge-pending? world (building-id building)) 41)
             ((or (not (active? world)) (not (ready? building)) (arming? building)
                  (= (building-kind building) 1) (moving? building)) 24)
             ((or (= (distance x y (building-x building) (building-y building)) 0)
@@ -1170,10 +1207,10 @@
             ((not (visible? world x y)) 1)
             ((not (world-ground? world x y)) 2)
             ((or (hub-cell? world x y)
-                 (nest-site? (world-seed world) x y)
+                 (living-nest? world x y)
                  (not (null? (building-at (world-buildings world) x y)))
                  (reserved-move-cell? (world-buildings world) x y)) 3)
-            ((> (deposit-rate (world-seed world) x y) 0) 5)
+            ((> (world-deposit-rate world x y) 0) 5)
             ((< (world-credits world) 5) 7)
             ((>= (+ (list-size (world-surveys world)) (pending-move-count (world-buildings world))) maximum-surveys) 8)
             ((or (not (safe-site? world x y)) (null? (move-candidate world building x y))) 6)
@@ -1210,7 +1247,7 @@
       (if (not (and (ready? building) (= (building-kind building) 1))) 0
           (let* ((x (building-x building)) (y (building-y building))
                  (room (- (- 120 (reserved-stock (world-buildings world) (building-id building))) (building-stock building)))
-                 (yield (* (deposit-rate (world-seed world) x y) (workers-at (world-bots world) 8 (building-id building)))))
+                 (yield (* (world-deposit-rate world x y) (workers-at (world-bots world) 8 (building-id building)))))
             (minimum (ore-remaining world x y) (minimum (maximum 0 room) yield)))))
     ;; All occupied slots share one atomic withdrawal. Clipping the aggregate
     ;; prevents two miners from claiming the last units, even on an upgrade tick.
@@ -1233,8 +1270,8 @@
             (best-cache world (cdr buildings)
                         (if (and (ready? site) (= (building-kind site) 1)
                                  (> (ore-remaining world (building-x site) (building-y site)) 0)
-                                 (or (null? best) (> (deposit-rate (world-seed world) (building-x site) (building-y site))
-                                                     (deposit-rate (world-seed world) (building-x (car best)) (building-y (car best))))))
+                                 (or (null? best) (> (world-deposit-rate world (building-x site) (building-y site))
+                                                     (world-deposit-rate world (building-x (car best)) (building-y (car best))))))
                             (list site) best)))))
     (define (construction-cache world)
       (let ((mine (best-cache world (world-buildings world) (empty-list))))
@@ -1257,7 +1294,7 @@
       (or (not (has-miner? (world-bots world))) (another-hauler? (world-bots world) (bot-id bot))))
     (define (at-hub? world bot)
       (and (= (bot-x bot) (cell-x (world-hub-x world))) (= (bot-y bot) (cell-y (world-hub-y world)))))
-    (define (sheltered? world bot) (and (> (world-hull world) 0) (at-hub? world bot)))
+    (define (sheltered? world bot) (and (null? (bot-flight bot)) (> (world-hull world) 0) (at-hub? world bot)))
     ;; Routes avoid observed threats and threats close enough for this worker to
     ;; sense. Empty means either already there or unreachable; callers prove which.
     (define (worker-hazards world bot enemies radius)
@@ -1268,15 +1305,18 @@
             (if (or (visible? world x y) (within? (bot-x bot) (bot-y bot) (enemy-x enemy) (enemy-y enemy) 160))
                 (cons (make-survey x y radius) rest) rest))))
     (define (route-from world bot a b safe)
-      (let* ((x (quotient (bot-x bot) cell-size)) (y (quotient (bot-y bot) cell-size))
+      (let* ((start (landing-cell bot)) (x (index-x start)) (y (index-y start))
              (path (cart-path (world-seed world) (world-breaches world) (fast-rails world (world-rails world)) x y a b (world-surveys world)
                               (if safe (worker-hazards world bot (world-enemies world) 3) (empty-list)))))
         (if (and (null? path) (not (and (= x a) (= y b)))) path
-            (if (and (= (bot-x bot) (cell-x x)) (= (bot-y bot) (cell-y y))) path
-                (cons (cell-index x y) path)))))
+            (if (or (not (null? (bot-flight bot)))
+                    (and (= (bot-x bot) (cell-x x)) (= (bot-y bot) (cell-y y)))) path
+                    (cons (cell-index x y) path)))))
     (define (at-cell? bot x y)
       (and (= (bot-x bot) (cell-x x)) (= (bot-y bot) (cell-y y))))
-    (define (reachable? bot x y path) (or (not (null? path)) (at-cell? bot x y)))
+    (define (reachable? bot x y path)
+      (or (not (null? path))
+          (if (null? (bot-flight bot)) (at-cell? bot x y) (= (landing-cell bot) (cell-index x y)))))
     ;; Once construction has claimed workers, remaining workers choose reachable
     ;; mining and collection work. Incoming assignments reserve slots and loads.
     (define-immutable-record Assignment make-assignment
@@ -1312,7 +1352,7 @@
                              (choose-nearer (mine-choice world bot mine safe) best) best)))))
     (define (install-assignment world bot assignment)
       (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) (assignment-job assignment)
-                               (assignment-target assignment) 0 0 (assignment-path assignment) (bot-hp bot) 0 0)))
+                               (assignment-target assignment) 0 0 (assignment-path assignment) (bot-hp bot) 0 0 (bot-flight bot))))
     (define (pickup-order world bot)
       (let ((found (find-building (world-buildings world) (bot-order bot))))
         (cond ((null? found) (put-bot world (release-order bot)))
@@ -1323,7 +1363,7 @@
                           (put-bot world (bot-job-set (clear-job bot) 10))
                           (put-bot (put-building world (construction-stage-set building 1))
                                    (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 3 (building-id building)
-                                             (construction-kit-size building) 0 path (bot-hp bot) 0 (building-source building)))))))))
+                                             (construction-kit-size building) 0 path (bot-hp bot) 0 (building-source building) (bot-flight bot)))))))))
     ;; An unseen site retains its paid supplies, but releases an unladen worker
     ;; for useful work. A carrier already on the remembered route brings vision
     ;; with it and can finish once its own circle reaches the site.
@@ -1337,7 +1377,7 @@
                (put-bot world (bot-job-set (clear-job bot) 10)))
               (else (if (null? path) (pickup-order world bot)
                         (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 11 source 0 0 path
-                                                 (bot-hp bot) (bot-order bot) 0)))))))
+                                                 (bot-hp bot) (bot-order bot) 0 (bot-flight bot))))))))
     (define (assign-work world bot)
       (if (> (bot-order bot) 0) (reserved-work world bot)
           (let ((choice (choose-work world bot (world-buildings world) #t (empty-list))))
@@ -1350,39 +1390,43 @@
     (define (approach value target speed)
       (if (< value target) (+ value (minimum speed (- target value)))
           (- value (minimum speed (- value target)))))
-    ;; Reconstruct the current adjacent segment from the next center, including
-    ;; workers interrupted between centers. No vehicle owns a second cargo copy.
-    (define (step-speed fast x y next)
-      (let* ((a (index-x next)) (b (index-y next))
-             (previous (if (not (= x (cell-x a)))
-                           (cell-index (+ a (if (< x (cell-x a)) -1 1)) b)
-                           (cell-index a (+ b (if (< y (cell-y b)) -1 1))))))
-        (if (and (> (distance x y (cell-x a) (cell-y b)) 0)
-                 (<= (distance x y (cell-x a) (cell-y b)) cell-size)
-                 (< (cart-step-cost fast previous next) 40))
-            (quotient 320 (cart-step-cost fast previous next)) 8)))
-    (define (bot-riding? world bot)
-      (and (not (null? (bot-path bot)))
-           (> (step-speed (fast-rails world (world-rails world)) (bot-x bot) (bot-y bot) (car (bot-path bot))) 8)))
-    ;; One atomic movement consumes a bounded time budget across corners. It
-    ;; never processes a second job or unloads cargo; arrival remains next tick.
-    (define (walk-route bot fast budget)
-      (if (or (= budget 0) (null? (bot-path bot))) bot
-          (let* ((next (car (bot-path bot))) (x (cell-x (index-x next))) (y (cell-y (index-y next)))
-                 (cost (quotient 320 (step-speed fast (bot-x bot) (bot-y bot) next)))
-                 (length (distance (bot-x bot) (bot-y bot) x y))
-                 (amount (minimum length (quotient budget cost)))
-                 (moved (if (= (bot-x bot) x) (bot-y-set bot (approach (bot-y bot) y amount))
-                            (bot-x-set bot (approach (bot-x bot) x amount)))))
-            (if (= amount length) (walk-route (bot-path-set moved (cdr (bot-path moved))) fast (- budget (* amount cost))) moved))))
+    (define (bot-riding? world bot) (not (null? (bot-flight bot))))
+    (define (advance-flight bot)
+      (let* ((old (car (bot-flight bot)))
+             (flight (flight-progress-set old (minimum (flight-length old) (+ (flight-progress old) (flight-speed old)))))
+             (moved (bot-y-set (bot-x-set bot (flight-x flight)) (flight-y flight))))
+        (bot-flight-set moved (if (= (flight-progress flight) (flight-length flight)) (empty-list) (list flight)))))
+    (define (board-flight bot fast next)
+      (let* ((origin (landing-cell bot)) (speed (quotient 320 (cart-step-cost fast origin next)))
+             (flight (make-flight origin next 0 speed)))
+        (advance-flight (bot-flight-set (bot-path-set bot (cdr (bot-path bot))) (list flight)))))
+    (define (ground-step bot next)
+      (let* ((x (cell-x (index-x next))) (y (cell-y (index-y next)))
+             (moved (if (= (bot-x bot) x) (bot-y-set bot (approach (bot-y bot) y 8))
+                        (bot-x-set bot (approach (bot-x bot) x 8)))))
+        (if (at-cell? moved (index-x next) (index-y next)) (bot-path-set moved (cdr (bot-path bot))) moved)))
+    ;; A saved waypoint is a plan, never permission to fly. A lost next link
+    ;; replans to the same final goal; failure enters the existing safe retreat.
+    (define (replan-bot world bot)
+      (let* ((goal (last-transport-cell (bot-path bot)))
+             (path (route-from world bot (index-x goal) (index-y goal) #t)))
+        (if (reachable? bot (index-x goal) (index-y goal) path)
+            (put-bot world (bot-path-set bot path)) (interrupt-bot world bot))))
     (define (walk-bot world bot)
-      (walk-route bot (fast-rails world (world-rails world)) 320))
+      (let* ((next (car (bot-path bot))) (here (landing-cell bot))
+             (fast (fast-rails world (world-rails world))))
+        (cond ((and (at-cell? bot (index-x here) (index-y here)) (rail-step? fast here next))
+               (put-bot world (board-flight bot fast next)))
+              ((and (<= (distance (index-x here) (index-y here) (index-x next) (index-y next)) 1)
+                    (world-ground? world (index-x next) (index-y next)))
+               (put-bot world (ground-step bot next)))
+              (else (replan-bot world bot)))))
     (define (danger? enemies x y)
       (and (not (null? enemies))
            (or (within? x y (enemy-x (car enemies)) (enemy-y (car enemies)) 130)
                (danger? (cdr enemies) x y))))
     (define (clear-job bot)
-      (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 0 0 0 0 (empty-list) (bot-hp bot) (bot-order bot) 0))
+      (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 0 0 0 0 (empty-list) (bot-hp bot) (bot-order bot) 0 (bot-flight bot)))
     (define (return-home world bot job)
       (let* ((path (route-from world bot (world-hub-x world) (world-hub-y world) #t))
              (returning (and (reachable? bot (world-hub-x world) (world-hub-y world) path) (not (= job 11)))))
@@ -1391,7 +1435,7 @@
         (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot)
                                  (if returning job 7)
                                  (if (= job 2) 0 (bot-target bot)) (bot-cargo bot)
-                                 (if returning 0 job) path (bot-hp bot) (bot-order bot) (bot-source bot)))))
+                                 (if returning 0 job) path (bot-hp bot) (bot-order bot) (bot-source bot) (bot-flight bot)))))
     (define (escape-bot world bot)
       (let* ((x (quotient (bot-x bot) cell-size)) (y (quotient (bot-y bot) cell-size))
              (path (cart-escape-path (world-seed world) (world-breaches world) (fast-rails world (world-rails world)) x y (world-surveys world)
@@ -1399,7 +1443,7 @@
         (put-bot world (bot-path-set bot path))))
     (define (flee-bot world bot)
       (cond ((sheltered? world bot) (arrive-bot world (bot-job-set (bot-timer-set bot 0) (bot-timer bot))))
-            ((not (null? (bot-path bot))) (put-bot world (walk-bot world bot)))
+            ((not (null? (bot-path bot))) (walk-bot world bot))
             ((danger? (world-enemies world) (bot-x bot) (bot-y bot)) (escape-bot world bot))
             (else (return-home world bot (bot-timer bot)))))
     (define (interrupt-bot world bot)
@@ -1407,7 +1451,7 @@
                      (if (or (= (bot-job bot) 4) (= (bot-job bot) 12) (= (bot-job bot) 14)) (bot-job bot)
                          (if (= (bot-job bot) 11) 11 (if (= (bot-job bot) 7) (bot-timer bot) 2))))))
         (flee-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 7 (bot-target bot)
-                                  (bot-cargo bot) job (empty-list) (bot-hp bot) (bot-order bot) (bot-source bot)))))
+                                  (bot-cargo bot) job (empty-list) (bot-hp bot) (bot-order bot) (bot-source bot) (bot-flight bot)))))
     (define (drop-choice world bot id x y best)
       (let ((path (route-from world bot x y #t)))
         (if (and (reachable? bot x y path)
@@ -1424,7 +1468,7 @@
         (if (null? choice) (return-home world (bot-target-set bot 0) 2)
             (let ((destination (car choice)))
               (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 2 (assignment-target destination)
-                                       (bot-cargo bot) 0 (assignment-path destination) (bot-hp bot) (bot-order bot) 0))))))
+                                       (bot-cargo bot) 0 (assignment-path destination) (bot-hp bot) (bot-order bot) 0 (bot-flight bot)))))))
     (define (collect-ore world bot)
       (let ((found (find-building (world-buildings world) (bot-target bot))))
         (if (null? found) (put-bot world (clear-job bot))
@@ -1482,6 +1526,7 @@
             ((= (bot-job bot) 11) (reserved-work world bot))
             ((= (bot-job bot) 12) (start-repair world bot))
             ((= (bot-job bot) 14) (start-hub-upgrade world bot))
+            ((= (bot-job bot) 16) (put-bot world (bot-timer-set (bot-job-set bot 17) scavenge-ticks)))
             (else world)))
     (define (mine-bot world bot)
       (let ((found (find-building (world-buildings world) (bot-target bot))))
@@ -1506,18 +1551,22 @@
             (else (complete-worker world bot))))
     (define (advance-bot world bot)
       (let ((bot (if (sheltered? world bot) (bot-hp-set bot 14) bot)))
-        (cond ((= (bot-job bot) 6) (assemble-worker world bot))
+        (cond ((not (null? (bot-flight bot))) (put-bot world (advance-flight bot)))
+              ((= (bot-job bot) 6) (assemble-worker world bot))
               ((= (bot-job bot) 13) (repair-hub world bot))
               ((= (bot-job bot) 15) (assemble-hub-upgrade world bot))
               ((= (bot-job bot) 7) (flee-bot world bot))
               ((and (not (sheltered? world bot)) (danger? (world-enemies world) (bot-x bot) (bot-y bot)))
                (interrupt-bot world bot))
+              ((and (scavenge-worker? bot) (null? (find-building (world-buildings world) (bot-target bot))))
+               (world-notice-set (put-bot world (clear-job bot)) 46))
+              ((= (bot-job bot) 17) (dismantle-building world bot))
               ((outward-missing? world bot) (put-bot world (clear-job bot)))
               ((and (= (bot-job bot) 2) (> (bot-target bot) 0)
                     (not (accepting-depot? world (bot-target bot)))) (return-ore world bot))
               ((or (= (bot-job bot) 0) (= (bot-job bot) 10)) (assign-work world bot))
               ((= (bot-job bot) 8) (mine-bot world bot))
-              ((not (null? (bot-path bot))) (put-bot world (walk-bot world bot)))
+              ((not (null? (bot-path bot))) (walk-bot world bot))
               (else (arrive-bot world bot)))))
     (define (advance-bots world bots)
       (if (null? bots) world (advance-bots (advance-bot world (car bots)) (cdr bots))))
@@ -1551,6 +1600,19 @@
       (let ((tier (minimum 40 (quotient tick interval))))
         (make-difficulty-window tier (* tier interval) (if (= tier 40) 0 (* (+ tier 1) interval)))))
     (define (difficulty-window tick) (difficulty-window-for tick difficulty-step-ticks))
+    ;; Every cleared front subtracts two 90-second strength tiers. The saved
+    ;; nest health is the receipt; loading or firing again cannot award it twice.
+    ;; Cap the uncredited clock first so even a clear at the final tier matters.
+    ;; Existing enemies keep their spawn rank/max health; wave cadence stays real.
+    (define (nest-threat-credit world)
+      (* (* 2 difficulty-step-ticks) (- 3 (living-nests (world-nests world)))))
+    (define (world-threat-tick world)
+      (maximum 0 (- (minimum (world-tick world) (* 40 difficulty-step-ticks)) (nest-threat-credit world))))
+    (define (world-difficulty-window world)
+      (let* ((credit (nest-threat-credit world)) (window (difficulty-window (world-threat-tick world)))
+             (start (if (= (difficulty-tier window) 0) 0 (+ credit (difficulty-start window))))
+             (end (if (>= (world-tick world) (* 40 difficulty-step-ticks)) 0 (+ credit (difficulty-end window)))))
+        (make-difficulty-window (difficulty-tier window) start end)))
     (define (threat-tier tick) (difficulty-tier (difficulty-window tick)))
     (define (maximum-enemy-rank tick) (minimum 6 (threat-tier tick)))
     (define maximum-enemy-health 2310)
@@ -1613,8 +1675,8 @@
             (y (+ (nest-site-y nest) (- (remainder lane 5) 2))))
         (if (and (= kind 0) (not (ground? (world-seed world) x y))
                  (not (water? (world-seed world) x y))) 1 kind)))
-    (define (enemy-health world kind rank)
-      (let ((health (+ (enemy-rank-health rank) (* 15 (maximum 0 (- (threat-tier (world-tick world)) 6))))))
+    (define (enemy-spawn-health tick kind rank)
+      (let ((health (+ (enemy-rank-health rank) (* 15 (maximum 0 (- (threat-tier tick) 6))))))
         (if (= kind 1) (quotient (* 4 health) 5) health)))
     (define (burrower-id? world id)
       (= (remainder (+ (remainder (world-seed world) 10) (remainder id 10)) 10) 0))
@@ -1622,10 +1684,12 @@
       (let* ((kind (lane-kind world nest kind lane))
              (target (if (= kind 1) (outpost-target world nest (world-buildings world) (empty-list)) (empty-list)))
              (x (+ (nest-site-x nest) (- (remainder lane 3) 1))) (y (+ (nest-site-y nest) 2))
+             (health (enemy-spawn-health (world-threat-tick world) kind rank))
              (enemy (make-enemy (world-next-id world) (cell-x x) (cell-y y)
-                                (enemy-health world kind rank) kind
+                                health kind
                                 (if (null? target) 0 (building-id (car target))) (empty-list)
-                                (burrower-id? world (world-next-id world)) rank)))
+                                (burrower-id? world (world-next-id world)) rank
+                                health)))
         (world-next-id-set (world-enemies-set world (append (world-enemies world) (list (route-enemy world enemy))))
                            (+ (world-next-id world) 1))))
     ;; Introduce one strongest enemy, a familiar previous rank, then mixed
@@ -1648,7 +1712,7 @@
     (define (spawn-due world)
       (let* ((tick (world-tick world)) (count (attack-size tick)))
         (spawn-wave world (attack-kind tick) count count
-                    (if (heavy-wave? tick) 6 (minimum 5 (maximum-enemy-rank tick)))
+                    (minimum (if (heavy-wave? tick) 6 5) (maximum-enemy-rank (world-threat-tick world)))
                     (remainder (- (next-attack-number (- tick 1)) 1) 3))))
     ;; ---- Excavation and enemy routes ----
 
@@ -1892,7 +1956,7 @@
     (define (near-worker world enemy bots)
       (if (null? bots) (empty-list)
           (let ((bot (car bots)))
-            (if (and (> (bot-hp bot) 0) (not (sheltered? world bot))
+            (if (and (null? (bot-flight bot)) (> (bot-hp bot) 0) (not (sheltered? world bot))
                      (within? (enemy-x enemy) (enemy-y enemy) (bot-x bot) (bot-y bot) 56))
                 (list bot) (near-worker world enemy (cdr bots))))))
     (define (near-building enemy buildings)

@@ -23,11 +23,26 @@ export async function checkInstancing(test,fresh) {
     await restoreColony(r,world);const next=r.view().scene;
     assert.notEqual(next.batches.find(batch=>batch.key===3).transforms,actors.transforms);
     for(const [key,mesh] of meshes(next))assert.equal(mesh,prototypes.get(key),'new tick reuses every fixed prototype');
-    await r.dispatch(2,r.command('client','drift',[1,0]));const camera=r.view().scene;
+    const clock=next.batches.find(batch=>batch.key===3).motionClock;assert.ok(clock);
+    await r.dispatch(2,r.command('client','drift',[1,0]));const camera=r.view().scene,rebuilt=[];
+    assert.deepEqual(camera.batches.map(batch=>batch.key),next.batches.map(batch=>batch.key));
     for(const batch of camera.batches) {
       const previous=next.batches.find(value=>value.key===batch.key);
-      assert.equal(batch.transforms,previous.transforms);assert.equal(batch.draws,previous.draws);
+      if(batch.key===30||batch.key===31) {
+        // Billboards depend on camera orientation and viewport culling. Their
+        // instance arrays rebuild while the World-owned motion clock stays put.
+        assert.notEqual(batch.transforms,previous.transforms);assert.notEqual(batch.draws,previous.draws);
+        rebuilt.push(batch.key);
+      } else {
+        assert.equal(batch.transforms,previous.transforms,`batch ${batch.key} retains its poses`);
+        assert.equal(batch.draws,previous.draws,`batch ${batch.key} retains its geometry`);
+      }
+      if([3,10,30,31].includes(batch.key)) {
+        assert.equal(previous.motionClock,clock);assert.equal(batch.motionClock,clock);
+      }
     }
+    assert.deepEqual(rebuilt,[30,31]);
+    for(const [key,mesh] of meshes(camera))assert.equal(mesh,prototypes.get(key),'camera changes reuse every fixed prototype');
     assert.equal(camera.insets,undefined);await r.close();
   });
 }
