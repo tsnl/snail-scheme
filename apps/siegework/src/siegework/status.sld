@@ -30,7 +30,7 @@
         (string-append (difficulty-help readout) " · " (integer-text (living-nests (world-nests world)))
                        " / 3 nests left · destroy every nest to win")))
     (define (warning-text world)
-      (cond ((= (world-outcome world) 1) "RUN ENDED · HUB LOST · full map revealed · N begins a fresh colony")
+      (cond ((= (world-outcome world) 1) "The hub was destroyed")
             ((= (world-outcome world) 3) "RUN ENDED · ALL NESTS DESTROYED · the colony wins")
             (else (difficulty-text world))))
     (define (alert-name kind)

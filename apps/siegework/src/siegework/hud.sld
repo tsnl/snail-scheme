@@ -326,7 +326,7 @@
             (else "Sight, freight and worker carts at ten times walking speed.")))
     (define (context-description world context)
       (let ((found (selected-building world context)))
-        (cond ((not (alive? world)) (if (= (world-outcome world) 1) "The hub was destroyed. The full map is revealed for inspection." "Your colony destroyed all three nests."))
+        (cond ((not (alive? world)) (if (= (world-outcome world) 1) "The hub was destroyed" "Your colony destroyed all three nests."))
               ((hub-selected? world context) (hub-description world))
               ((nest-selected? world context)
                (let ((nest (car (nest-at (world-nests world) (hud-x context) (hud-y context)))))

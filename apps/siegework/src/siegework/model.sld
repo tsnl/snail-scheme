@@ -368,6 +368,16 @@
     (define (spend world amount)
       (world-spent-set (world-credits-set world (- (world-credits world) amount))
                        (+ (world-spent world) amount)))
+    ;; Spending covers remaining buildings, refundable paid work and local kits.
+    ;; Removing the refunded commitment leaves enough spent to back every local
+    ;; claim. Reclassify only excess historical local spending, including bank
+    ;; refunds after an earlier Scavenge reduced total investment.
+    ;; The raw ledger and delivered + local-spent remain unchanged by this step.
+    (define (refund-spending world refund)
+      (let* ((world (spend world (- 0 refund)))
+             (excess (maximum 0 (- (world-local-spent world) (world-spent world)))))
+        (world-delivered-set (world-local-spent-set world (- (world-local-spent world) excess))
+                             (+ (world-delivered world) excess))))
 
     ;; ---- Observation and legal orders ----
 
@@ -489,7 +499,8 @@
               ((or (tower? building) (= (building-kind building) 2))
                (if (affordable-kit? world price) (queue-upgrade world building) (world-notice-set world 7)))
               ((< (world-credits world) price) (world-notice-set world 7))
-              (else (let ((improved (building-level-set building (+ (building-level building) 1))))
+              (else (let ((improved (building-hp-set (building-level-set building (+ (building-level building) 1))
+                                                     (building-health (building-kind building)))))
                       (world-notice-set (remember-building (put-building (spend world price) improved)
                                                            improved) 12))))))
     ;; ---- Paid worker assembly ----
@@ -623,7 +634,7 @@
     (define (assemble-hub-upgrade world bot)
       (if (> (bot-timer bot) 1) (put-bot world (bot-timer-set bot (- (bot-timer bot) 1)))
           (finish-work (world-notice-set
-                        (world-hub-capacity-level-set world (+ (world-hub-capacity-level world) 1)) 12) bot)))
+                        (world-hull-set (world-hub-capacity-level-set world (+ (world-hub-capacity-level world) 1)) 300) 12) bot)))
 
     ;; Focus: 0 manual purchases, 1 explore, 2 defend. Plans are derived
     ;; status codes; they never own ore, workers or a hidden construction queue.
@@ -653,7 +664,7 @@
               ((and (not (null? found)) (scavenge-pending? world (building-id (car found))))
                (world-notice-set (cancel-scavenge world (world-bots world) (building-id (car found))) 46))
               ((and (not (null? found)) (moving? (car found)))
-               (world-notice-set (put-building (spend world -5) (clear-move (car found))) 23))
+               (world-notice-set (put-building (refund-spending world 5) (clear-move (car found))) 23))
               ((or (null? found) (= (building-stage (car found)) 2)) (world-notice-set world 19))
               (else (cancel-building world (car found))))))
     (define (release-order bot)
@@ -704,7 +715,7 @@
              (+ (world-local-spent world) amount)))))
     (define (refund-reserved-kit world building)
       (let ((source (building-source building)) (amount (uncollected-supplies building)))
-        (if (= amount 0) world (if (= source 0) (spend world (- 0 amount))
+        (if (= amount 0) world (if (= source 0) (refund-spending world amount)
                                    (let ((site (car (find-building (world-buildings world) source))))
                                      (world-local-spent-set
                                       (world-spent-set (put-building world (building-stock-set site (+ (building-stock site) amount)))
@@ -1134,15 +1145,6 @@
           (let ((bot (car bots)))
             (cancel-scavenge (if (and (scavenge-worker? bot) (= (bot-target bot) id))
                                  (put-bot world (clear-job bot)) world) (cdr bots) id))))
-    ;; The spent lower bound includes every remaining building and returning
-    ;; cancelled kit. Removing investment C frees at least C above local claims;
-    ;; refund <= C makes any excess local-spent safe to reclassify as delivered.
-    ;; The raw ledger and delivered + local-spent remain unchanged by this step.
-    (define (refund-scavenged world refund)
-      (let* ((world (spend world (- 0 refund)))
-             (excess (maximum 0 (- (world-local-spent world) (world-spent world)))))
-        (world-delivered-set (world-local-spent-set world (- (world-local-spent world) excess))
-                             (+ (world-delivered world) excess))))
     (define (recover-scavenged-stock world building)
       (let* ((id (building-id building)) (found (find-rail (world-rails world) id))
              (cargo (if (null? found) 0 (rail-cargo (car found))))
@@ -1153,7 +1155,7 @@
                          (remove-rail (world-rails world) id))))
     (define (complete-scavenge world bot building)
       (let* ((world (recover-scavenged-stock world building))
-             (world (refund-scavenged world (scavenge-refund building)))
+             (world (refund-spending world (scavenge-refund building)))
              (world (put-bot world (clear-job bot))))
         (world-notice-set (rebuild-transport world) 45)))
     (define (dismantle-building world bot)
@@ -1230,7 +1232,7 @@
       (if (not (and (moving? building) (move-drained? world building))) world
           (let ((candidate (if (hub-cell? world (building-move-x building) (building-move-y building)) (empty-list)
                                (move-candidate world building (building-move-x building) (building-move-y building)))))
-            (if (null? candidate) (world-notice-set (put-building (spend world -5) (clear-move building)) 26)
+            (if (null? candidate) (world-notice-set (put-building (refund-spending world 5) (clear-move building)) 26)
                 (let* ((world (car candidate)) (moved (car (find-building (world-buildings world) (building-id building)))))
                   (world-notice-set (remember-building world moved) 22))))))
     (define (advance-moves world buildings)
@@ -1492,6 +1494,7 @@
         (if (null? found) (put-bot world (clear-job bot))
             (let* ((site (car found)) (complete (or (arming? site) (= (+ (building-stock site) (bot-cargo bot)) (construction-cost site))))
                    (site (incorporate-kit site (bot-cargo bot) complete))
+                   (site (if (and complete (arming? site)) (building-hp-set site (building-health (building-kind site))) site))
                    (site (if complete (building-source-set (building-stage-set site 2) 0) (construction-stage-set site 0)))
                    (world (put-building world site)))
               (finish-work (if complete (remember-building world site) world) bot)))))
@@ -1506,7 +1509,7 @@
         (if (and (not (null? found)) (> (building-source (car found)) 0) (> (uncollected-supplies (car found)) 0))
             (return-local-kit world bot (car found))
             (let ((world (hub-kit world bot)))
-              (finish-work (if (null? found) (spend world (- 0 (bot-cargo bot)))
+              (finish-work (if (null? found) (refund-spending world (bot-cargo bot))
                                (put-building world (building-source-set (construction-stage-set (car found) 0) 0)))
                            (bot-hp-set bot 14))))))
     (define (return-local-kit world bot building)
@@ -2023,8 +2026,8 @@
              (world (if (null? found) world (put-building world (construction-stage-set (car found) 0))))
              (world (world-casualties-set world (+ (world-casualties world) 1)))
              ;; Cancelled hub work leaves its unconsumed materials at the hub.
-             (world (cond ((production-worker? bot) (spend world (- 0 worker-cost)))
-                          ((or (repair-worker? bot) (hub-upgrade-worker? bot)) (spend world (- 0 (bot-target bot))))
+             (world (cond ((production-worker? bot) (refund-spending world worker-cost))
+                          ((or (repair-worker? bot) (hub-upgrade-worker? bot)) (refund-spending world (bot-target bot)))
                           (else world))))
         (cond ((ore-cargo? bot) (world-lost-ore-set world (+ (world-lost-ore world) (bot-cargo bot))))
               ((kit-carrier? bot)

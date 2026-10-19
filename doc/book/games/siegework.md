@@ -74,6 +74,13 @@ The hub starts with **12 worker places**. Hiring a worker costs **25 ore** and
 requires an existing worker to return and assemble the recruit. Queued recruits
 use capacity too.
 
+A completed **upgrade fully repairs its building for free**. Towers and artillery
+heal when their upgrade kit arrives; hub capacity upgrades heal when work finishes.
+Extractor upgrades still complete immediately. Pending upgrades leave existing
+damage in place, and destruction cannot be undone. Towers and artillery have no
+manual repair action, including at maximum level; advance or replace them as
+needed. The hub retains its ordinary paid **Repair** action.
+
 **Scavenge** (`X`) sends an empty worker to dismantle a completed building. Its
 button quotes **20% of construction and all completed upgrades**, rounded down.
 The building keeps working during travel and the two-second demolition. You

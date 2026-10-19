@@ -134,6 +134,12 @@ import/export controls. Headless current-state inspection remains available.
   returns to the hub and works for three seconds; further damage can reduce
   the eventual percentage. Unused payment returns if that worker dies. There
   is no automatic repair.
+- A completed **upgrade** fully repairs its building at no additional cost.
+  Towers and artillery heal when the upgrade kit arrives; the hub heals when
+  its capacity work finishes. Extractor upgrades retain immediate completion.
+  Pending upgrades leave damage in place, and destroyed buildings never revive.
+  Towers and artillery have no separate repair action: at maximum level they
+  remain damaged, keeping expansion and replacement part of colony planning.
 - Ore, hub health, working workers and difficulty have separate readouts. The
   worker ring shows busy workers divided by all workers, excluding idle,
   fleeing and hiding jobs from the busy count. It is not a population-cap ring.

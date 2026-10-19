@@ -171,6 +171,14 @@ source edits remain unchecked until compiled and exercised.
       pill-shaped panels, visible hotkeys and a left-handed setting.
 - [x] Separate health from ore, enlarge the resource icon, and show counts in
       matching high-contrast labels or badges.
+- [x] Fully repair a building when its existing upgrade completes, including
+      extractors and hub capacity; preserve pending damage and prevent resurrection.
+      Towers and artillery have no manual repair, including at maximum level.
+- [x] Normalize bank refunds after Scavenge of local-funded buildings while
+      preserving still-refundable paid work and local construction kits.
+- [x] Use the traditional three-arrow Scavenge recycle icon, distinguish Cancel’s
+      circled cross from modal Close, and shorten the defeat message to
+      “The hub was destroyed” while retaining full-map visibility.
 - [x] Quote hub repairs to the highest affordable percentage, spending only the
       ore needed or available; complete the paid work with a worker.
 - [x] Recompute a deterministic transport minimum spanning tree each tick;
