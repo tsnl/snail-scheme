@@ -211,6 +211,7 @@ Changed ticks transfer their occurrence transforms, while the GPU retains model
 vertices and indices. Independently aimed guns remain separate instances.
 Camera motion reuses these batches; display animation does not rebuild the
 Scheme HUD each frame. Native HiDPI and single-sample rendering remain in use.
+Thin tile borders come from a small inset of those shared terrain planes.
 
 ```sh
 scripts/test-applications

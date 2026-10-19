@@ -199,7 +199,9 @@
     (define (terrain-cell world x y step)
       (let ((surface (if (and (world-ground? world x y) (not (ground? (world-seed world) x y)))
                          (material (rgb 174 139 95) 0.0) (ground-material world x y)))
-            (size (scalar step)))
+            ;; The existing world base shows through this thin tile border.
+            ;; Only occurrence scale changes; colored plane meshes stay shared.
+            (size (* 0.99 (scalar step))))
         (at-cell x y
                  (cons (flat surface 0.0 0.0 0.0 size size)
                        (cond ((water? (world-seed world) x y) (list (flat blue 0.0 0.0 0.012 size size)))
