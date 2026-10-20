@@ -4,14 +4,12 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- Languages are libraries: keep language definitions and compiler libraries
-  under `src/`, with paths matching their library names and `.sld` sources.
-  Lofi's typed kernel and the initial `(scheme base)` share hygienic
-  `syntax-rules` expansion, library resolution and the backend. Surface macros
-  expand away before ordinary checking; procedural transformers and self-hosting
-  remain deferred. Chibi hosts `(lofi compiler bootstrap)` through `bootstrap/`.
-  Compiled programs do not call the compiler; generation recipes return
-  library source text. See [the language book](doc/book/lofi/index.md).
+- Languages are libraries. The compiler lives in `src/lofi/compiler/` and runs
+  on Chibi with `-I src`; it is written with Lofi's own `struct`, `enum` and
+  `match` through `shim.sld`, so it can later compile itself. The standard
+  library lives in `lib/`, a search root Chibi never loads, with paths matching
+  library names and `.sld` sources. Surface macros expand away before checking.
+  See [the language guide](doc/language.md) and [the redesign](doc/redesign.md).
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries
@@ -23,19 +21,17 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
-- Put each Scheme import specification and record field on its own line.
+- Put each Scheme import specification and struct field on its own line.
   Name pure field replacements `<accessor>-set`, without a trailing `!`;
   reserve `!` for mutation.
 - Write section headers as `;; ---- Title ----` in Scheme,
   `// ---- Title ----` in Rust, with sentence
   case and a blank line on each side.
   Keep unit tests in a final `Tests` section of their implementation module.
-  Each tested Chibi-hosted module exports one `test-<module>` entry point under
-  the `snail-tests` feature; Lofi standard libraries export theirs
-  unconditionally because compiled Lofi has no feature flags. Test cases and
-  helpers stay private. Keep integration
+  Each tested compiler module exports one `test-<module>` entry point under
+  the `snail-tests` feature; test cases and helpers stay private. Test Lofi
+  libraries with programs and their expected output. Keep integration
   fixtures, runners, and shared assertion support in `tests/`.
-  Inactive test sections must remain readable by the Chibi compiler host.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
   atomic VM transitions, and tests may be longer when keeping them together
@@ -58,10 +54,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   APIs distinct from implemented behavior in documentation and TODOs.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path src/runtime/Cargo.toml --offline`,
-`cargo test --manifest-path tools/host/Cargo.toml --offline`,
-`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`,
-`cargo fmt --manifest-path tools/host/Cargo.toml --all -- --check`,
-`scripts/test backend`, and `scripts/test build`.
-Backend changes should execute linked Wasm; compilation alone does not test target
-behavior. See [doc/backend.md](doc/backend.md) for tools.
+`cargo test --manifest-path src/runtime/Cargo.toml --offline`, and
+`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`.
+Backend changes should execute linked Wasm; compilation alone does not test
+target behavior. Browser changes should be seen running:
+`node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.

@@ -20,7 +20,7 @@
    List Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
    list-ref list-tail any? every? find member? iota concatenate
    char->integer integer->char char-whitespace? char-numeric? char-alphabetic? digit-value
-   string-length string-ref string-append substring string=? string<? make-string
+   string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
    string->vector vector->string
    vector-length vector-ref make-vector vector-generate vector-set vector-append subvector
@@ -93,6 +93,11 @@
         ((_) "")
         ((_ text) text)
         ((_ text rest ...) (append-two-strings text (string-append rest ...)))))
+
+    ;; `(string char ...)` builds a string from characters.
+    (define-syntax string
+      (syntax-rules ()
+        ((_ char ...) (list->string (list char ...)))))
 
     (: not (-> Bool Bool))
     (define (not value)

@@ -1,121 +1,90 @@
-# Languages are libraries
+# A tour of the compiler
 
-The compiler is a library. Language definitions are libraries. Reusable Lofi and
-Scheme libraries live under `src/`, with paths matching their library names.
-Programs use `.sld`; their imports select the forms and operations they use.
-Lofi means **Low-level Functional IR**.
-
-Start with [`examples/fibonacci.sld`](examples/fibonacci.sld), then compare
-[`examples/scheme-fibonacci.sld`](examples/scheme-fibonacci.sld). Both print
-`832040`. The first uses the typed Lofi kernel; the second imports the initial
-[`(scheme base)`](src/scheme/base.sld), whose hygienic macros produce that kernel.
-Both reach the same type checker, specialization pass and Wasm backend.
-Functions have fixed parameter lists. Collection syntax such as `(vector a b)`
-expands into an explicit list passed to a fixed-arity worker before checking;
-the shared compiler has no rest-argument representation or call-site packing.
-
-The compiler is Scheme hosted by Chibi:
-[`(lofi compiler bootstrap)`](src/lofi/compiler/bootstrap.sld) composes the passes
-over an explicit library map. Compiled programs run in a Wasm engine and do not
-call back into the compiler; [`execute.mjs`](src/lofi/compiler/execute.mjs) loads
-and invokes their checked scalar entries from JavaScript.
-The compiler cannot compile its own implementation yet. `bootstrap/` is a loader
-view of `src/lofi`, keeping Chibi's own `(scheme base)` separate from the product
-library. Executable Chibi orchestration scripts retain `.scm`.
-
-## Read the passes in this order
-
-| Step | File | What to follow |
-| --- | --- | --- |
-| 1. Compilation | [`compiler/bootstrap.sld`](src/lofi/compiler/bootstrap.sld) | `compile` and `library-map->core` compose resolution, checking and emission. |
-| 2. Description | [`frontend.sld`](src/lofi/compiler/frontend.sld) | `parse-library` retains located source and imports without loading dependencies. Attached schemes carry variables, requirements, and an ordinary type; static declaration forms establish their category without kind annotations. |
-| 3. Resolution and expansion | [`library.sld`](src/lofi/compiler/library.sld), [`macros.sld`](src/lofi/compiler/macros.sld) | Resolve imported binding identities, expand `syntax-rules` and attached derive transformers, then parse the expanded kernel. |
-| 4. Checking | [`infer.sld`](src/lofi/compiler/infer.sld) | `infer-program` checks bodies and freezes immutable evidence in [`typed.sld`](src/lofi/compiler/typed.sld); [`checked.sld`](src/lofi/compiler/checked.sld) holds the program and class evidence. |
-| 5. Concrete demand | [`specialize.sld`](src/lofi/compiler/specialize.sld) | `prepare-generation` builds [`concrete.sld`](src/lofi/compiler/concrete.sld) trees, chooses storage and captures, then partitions values by activation owner. |
-| 6. Emission | [`emit-wasm.sld`](src/lofi/compiler/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence, indexed layouts and the prepared activation partition. Finished function bodies become opaque WAT fragments through [`host/wasm.sld`](src/lofi/host/wasm.sld), releasing instruction trees before later functions emit. |
+The compiler is a pipeline of five passes. Each pass consumes the previous
+pass's output and nothing earlier:
 
 ```text
-located library source → imported identities and hygienic expansion
-                       → resolved Lofi → checked program
-                       → concrete demand and storage → WasmGC → Binaryen
+text ──read──▶ located syntax
+     ──expand─▶ core program      unique names, resolved types, entity tables
+     ──check──▶ typed program     every expression typed, instances chosen
+     ──mono───▶ monomorphic program
+     ──wasm───▶ WasmGC text ──Binaryen──▶ module, linked with the Rust runtime
 ```
 
-Macro transformers retain definition-site bindings, including private helpers.
-They can emit `begin` to introduce several declarations in one library scope.
-Scope lookup indexes names while retaining ordered binding objects; hygiene and
-namespace visibility are checked when each name is used.
-The expander normalizes named `data`, `typeclass` and `instance` declarations,
-reserving their associated bindings together. Transformers and splices disappear
-before ordinary type checking and code generation. Read the
-[macro and Scheme chapter](doc/book/lofi/macros.md) for supported forms and limits.
-Modules keep their decisions together; host unit tests live in final `Tests`
-sections under the `snail-tests` feature.
+Read [`examples/fibonacci.sld`](examples/fibonacci.sld), run
+`./lofi wat examples/fibonacci.sld` to see the WebAssembly it becomes, then
+read the passes in order. The [language guide](doc/language.md) describes the
+surface they implement.
 
-Resolution examines every entry supplied in a library map. Checking examines
-every body in the root's dependency closure, including unused functions.
-Concrete demand selects the implementations and initializers needed for emitted
-code. These scopes differ deliberately.
+## The passes
 
-## Follow a file through the command
+All compiler modules live in `src/lofi/compiler/` and run on Chibi Scheme.
 
-```sh
-./lofi run examples/scheme-fibonacci.sld
-```
+- **[`shim.sld`](src/lofi/compiler/shim.sld)** gives Chibi Lofi's `struct`,
+  `enum`, `match` and `:` forms, so the compiler is written in the same style
+  as the programs it compiles. Structs become vectors tagged by their
+  constructor.
+- **[`read.sld`](src/lofi/compiler/read.sld)** turns text into `Syntax`:
+  atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
+  over a vector of characters; a line table recovers line and column only
+  when a location is needed. `compile-error` reports every diagnostic.
+- **[`core.sld`](src/lofi/compiler/core.sld)** defines the data the later
+  passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
+  `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
+  `Instance`, `Effect`), the `Program` tables, the primitive table, and
+  TypeId hashing for wire types.
+- **[`expand.sld`](src/lofi/compiler/expand.sld)** is the only pass that
+  knows binding forms. It loads libraries, resolves every identifier through
+  environments, and runs `syntax-rules`. Hygiene is renaming: each identifier
+  a template introduces gets a mark that is unique to the expansion and, when
+  unbound, resolves in the macro's own environment. Top levels expand in two
+  passes so definitions may refer to later ones; local bodies are
+  sequential. Declarations become entities in the program tables, derived
+  wire instances are generated as ordinary instance syntax, and expressions
+  become core `Expr`s with unique names.
+- **[`check.sld`](src/lofi/compiler/check.sld)** is Hindley-Milner inference
+  with effect rows. Unannotated top-level definitions are checked in
+  dependency order (Tarjan's algorithm). Each instantiation records its type
+  arguments and evidence holes; constraints are solved when a group is
+  complete, choosing instances once. Rows unify as sets with open tails.
+  Matches are checked with Maranget's usefulness algorithm.
+- **[`mono.sld`](src/lofi/compiler/mono.sld)** starts from the program's
+  statements and values and copies each reachable definition once per ground
+  instantiation. A method reference becomes the instance method its evidence
+  names, and definitions that only rename another, such as
+  `(define + i64-add)`, are replaced by their target.
+- **[`wasm.sld`](src/lofi/compiler/wasm.sld)** chooses representations and
+  emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
+  no fields is an `i32`; other data are GC structs, and enum cases are final
+  subtypes of a base holding the tag. Sequences are GC arrays. Functions are
+  closures: a struct whose first field is a typed function reference, with
+  captured variables in a subtype. Tail calls become `return_call`. Each
+  effect has a global handler stack. All GC types share one recursion group.
+- **[`build.sld`](src/lofi/compiler/build.sld)** composes the passes and runs
+  Binaryen and Cargo: assemble, optimize, and merge with the runtime.
 
-[`lofi`](lofi) starts [`scripts/lofi.scm`](scripts/lofi.scm), which owns command
-options and build directories. [`source-driver.sld`](src/lofi/compiler/source-driver.sld)
-finds `.sld` dependencies, prepares a library map and calls the compiler. It can
-also execute explicit `generate-library` recipes, which compile to Wasm and
-return their library as source text: producer and application maps are
-separate, with shared source choices and cycle detection. Build scripts
-optimize with Binaryen, link Rust scalar services and run on V8.
-
-The map-based `compile` API reads no source files. It accepts library values and
-a public export, and returns optimized artifact bytes with a checked scalar
-entry signature.
-
-The public commands and Siegework recipe default to debug Wasm optimization;
-`--release` selects the full O3 pipeline. [`(lofi host wasm-optimize)`](src/lofi/host/wasm-optimize.sld)
-owns the scoped profile, which also reaches generated dependencies and the final
-runtime link. Library APIs and lower-level build scripts retain release defaults.
-
-[`(lofi host log)`](src/lofi/host/log.sld) prints and flushes coarse phase
-progress to stderr.
-`SNAIL_LOG=off` silences progress; imports remain quiet. See
-[live logging and traces](doc/tracing.md).
-
-## Where things live
+## Around the compiler
 
 | Path | Responsibility |
 | --- | --- |
-| [`src/lofi/`](src/lofi/README.md) | Typed core and standard libraries. |
-| [`src/lofi/compiler/`](src/lofi/compiler/README.md) | Compiler implementation and the JavaScript Wasm execution adapter. |
-| [`src/scheme/`](src/scheme/) | Scheme language libraries; currently a typed subset of base forms. |
-| [`src/lofi/compiler/tools/`](src/lofi/compiler/tools/) | Trace viewing and Unicode generation libraries. |
-| [`bootstrap/`](bootstrap/README.md) | Chibi loader view of the implementation libraries. |
-| [`examples/`](examples/) | Programs and explicit build/generation examples. |
-| [`examples/applications/`](examples/applications/README.md) | Runnable checkpoints for the [five application tutorials](doc/book/lofi/tutorials/index.md), including a minimal marker board assembled from the shared browser host. |
-| [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; the [Siegework tour](apps/siegework/TOUR.md) separates Scheme game rules, pure presentation readouts and display animation, then follows the first-extractor purchase gate, direct tile construction, finite deposits, three enemy fronts, paid hub capacity, the per-tick sight/radius transport tree, bounded shortest-time worker routes and captured flights, worker-performed Scavenge refunds, completion-only upgrade healing, typed replies, shaders and browser packages. |
-| [`src/application/`](src/application/reducer.sld) | Typed lexical handlers, immutable transitions, derived snapshots and bounded per-instance decoding caches for current/prior state, one async message lane, [local durable state](src/application/local.mjs), IndexedDB tab ownership and read-only scalar observation rows for the [Siegework environment](apps/siegework/headless.md). |
-| [`src/browser/`](src/browser/application.sld) | Immutable view data, continuous input, typed forms, presentation/reload and static browser packaging. All game logic runs locally. |
-| [`src/ui/`](doc/ui.md) | Immutable typed controls, one top-down Scheme rectangle allocation, copied endpoint events and stable DOM controls; [UI lab](apps/ui-lab/src/ui-lab/game.sld) is the standalone runnable example. |
-| [`src/draw3d/`](src/draw3d/README.md) | Checked geometry, fixed colored composite models, scene hierarchies, cameras and ray picking; Scheme declares retained instance batches, motion endpoints, phased opacity pulses, radial reveals and inset views. One GPU device shares immutable model buffers, uploads occurrence transforms and advances display clocks independently of Scheme queries. Opt-in owner-snapshot motion clocks keep separately retained camera-facing attachments synchronized with their bodies. |
-| [`src/webgpu/`](src/webgpu/shader.sld) | Scheme shader AST/compiler, the quad adapter, and a depth-tested 3D adapter with display-frame motion interpolation and explicit buffer/texture lifetime. |
-| [`src/scheme/immutable.sld`](src/scheme/immutable.sld) | Functional record replacement, attached deriving and small immutable list operations. |
-| [`src/lofi/serialization.sld`](src/lofi/serialization.sld) | Separate checked serialization capabilities, derived data instances and traversal-local graph identities. |
-| [`src/lofi/scalar-text.sld`](src/lofi/scalar-text.sld) | Owned scalar text tokens, interned symbols, diagnostics and exact I64 formatting without the dynamic datum/number layers. |
-| [`src/lofi/sexp.sld`](src/lofi/sexp.sld) | Finite S-expression wire values with lossless readable text and compact binary encodings. |
-| [`src/lofi/host/`](src/lofi/host/README.md) | Chibi process, trace, JSON, Wasm serialization and Binaryen services. |
-| [`src/runtime/`](src/runtime/README.md) | Rust scalar services compiled to Wasm; managed values stay in the engine. |
-| [`scripts/`](scripts/) and [`tools/host/`](tools/host/) | Executable orchestration and host tool configuration. |
-| [`scripts/build-pages.mjs`](scripts/build-pages.mjs) and [`scripts/check-pages.mjs`](scripts/check-pages.mjs) | Build the book and solo Siegework package into one generated Pages artifact, then check its local URLs and file boundaries under `/snail-scheme/`. The [Games chapter](doc/book/games/index.md) is the player entry point. |
-| [`scripts/format-scheme`](scripts/format-scheme.el) | Scheme indentation with one import specification or record field per line; shared by the editor and `make format`/`make check`. |
-| [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. Run a suite with `scripts/test SUITE`. |
+| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile` and `wat`. |
+| `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
+| `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
+| `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI. |
+| `src/app/` | The browser host for `(lofi app)`: input, ticks, a WebGPU renderer, the HUD and saves. |
+| `scripts/build-app.scm` | Packages an application as a static site. |
+| `apps/siegework/` | The example game: `grid`, `world` (all rules), `game` (input and camera) and `view`. |
+| `examples/` | Small programs; the test suite runs them. |
+| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios and a headless game. |
 
-The Wasm engine traces managed values. `src/runtime/` owns external scalar
-resources behind explicit handles and closes them at the host boundary.
-`tools/host/process-supervisor.rs` owns build/test subprocess cleanup and timeout
-evidence; it contains no language runtime or guest loader.
+## Checks
 
-Use the [detailed compiler reference](doc/compiler.md) for pass contracts and
-execution APIs, and the [language book](doc/book/lofi/index.md) for semantics.
+```sh
+make test       # unit tests, programs, examples and Siegework
+make check      # formatting
+cargo test --manifest-path src/runtime/Cargo.toml --offline
+make site       # Siegework in build/siegework
+```
+
+`node tests/browser/page.mjs URL SCREENSHOT` opens a page in headless
+Chromium with software WebGPU and saves a screenshot.

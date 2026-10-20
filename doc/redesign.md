@@ -1,12 +1,11 @@
 # Redesign: Lofi from a clean slate, and how to get there
 
-> **Status: proposal.** Nothing in this document is implemented unless it says
-> so. The [book](book/lofi/index.md) and [tour](../TOUR.md) describe the current
+> **Status: partly implemented.** Section 7 records what exists. The
+> [language guide](language.md) and [tour](../TOUR.md) describe the current
 > compiler.
 
-This document designs Lofi as if starting over, then plans an incremental path
-from today's `main` to that design. The current compiler stays working at every
-step.
+This document designs Lofi as if starting over, then plans the path from the
+previous compiler to that design.
 
 ## 1. Requirements
 
@@ -601,73 +600,50 @@ runs the translator:
                   (scheme->lofi-text (read-source "program.scm")))
 ```
 
-## 7. Migration from today's `main`
+## 7. Migration
 
-Each phase leaves a working compiler with passing suites. Phases 1 and 2 change
-the current Chibi-hosted compiler; phase 3 replaces it.
+The phases below were first planned as changes to the previous compiler.
+Instead, phases 1 to 3 began with a new compiler written from scratch in the
+Scheme subset, beside the old one, which was then deleted.
 
-### Phase 0: cleanup (in progress)
+### Done
 
-Delete the benchmark archive, historical documentation and the compiler bridge,
-and generate libraries as text. Also remove unused application features and dead
-code, consolidate the test runners, and fix the bugs found in review.
+- **Phase 0, cleanup.** Benchmarks, historical documentation and the compiler
+  bridge are gone.
+- **Phase 1, one front end and one polymorphism mechanism.** The expander
+  emits the core program directly; nothing is parsed twice. Typeclasses with
+  generic instances replace overload families, and instances are chosen once,
+  during checking. Literals check against their expected type and default to
+  `I64` and `F64`.
+- **Phase 2, the target type surface.** `struct`, `enum` and `type`; `match`
+  with nested patterns and Maranget's checks; derived `Serialize` and
+  `Deserialize` with per-case TypeIds; effect rows, `effect`, `handle` and
+  host defaults. Applications are total `init`, `update` and `view` functions
+  over typed values, and Siegework is rewritten with enums and `match`.
+- **Phase 3, partly.** The compiler is written with `struct`, `enum` and
+  `match`, run on Chibi through `shim.sld`.
 
-### Phase 1: one front end and one polymorphism mechanism
+### Remaining
 
-1. Resolve library headers before parsing, always expand, and have the expander
-   emit IR directly. Delete the frontend's second grammar and the speculative
-   parse. This also fixes path-dependent keyword reservation.
-2. One declaration form per concept. Remove `library-begin` and
-   `(def X (datatype ...))`.
-3. Replace `define-overload` with typeclasses that allow generic instance
-   heads and requirements. Record selected instances during checking, so
-   specialization never re-resolves them. This removes the dominant
-   compile-time cost found in profiling.
-4. Literals check against the expected numeric type, and the default integer
-   type becomes `I64`, matching collection indices.
+- **Phase 3.** Replace the compiler's remaining host-specific values (`#f`
+  for absent values, host hash tables) and compile it with itself.
+- **Phase 4.** The dependent elaborator and checked interfaces.
+- **Phase 5.** The WGSL backend, wire schema export, typed destinations,
+  model checking, and `(scheme compiler)` with `type-convert`.
+- The dynamic Scheme libraries (`datum`, `read`, `write`, `number`) and
+  `generate-library` were left behind with the old compiler and must be
+  ported.
 
-**Exit criterion:** the numeric operators are typeclass methods, and no source
-form is parsed twice.
+### Simplifications made on the way
 
-### Phase 2: the target type surface on the current checker
-
-1. `struct`, `enum` and `type` replace `data`, with WasmGC subtype
-   representation and `TypeId`s.
-2. `match` with nested patterns, wildcards, and exhaustiveness and redundancy
-   checks.
-3. Derived `Serialize` and `Deserialize` keyed by `TypeId`. Add a canonical
-   byte ABI for entry parameters and results, with schema-generated JavaScript
-   decoders.
-4. Effect rows on function types, `effect` declarations with host defaults,
-   `handle`, and total application handlers.
-5. The application framework moves to typed messages and in-Wasm state, and
-   the word protocols are deleted. Rewrite Siegework's model with enums and
-   `match`. This is the forcing function for the language.
-
-**Exit criterion:** Siegework has no integer-coded state, and no hand-written
-JavaScript decoder remains.
-
-### Phase 3: self-hosting in the Scheme subset
-
-1. Fix the erasure property and write the Chibi shim.
-2. Port the compiler pass by pass into the subset, as pure passes with typed
-   records. Run each port on Chibi through the shim and compare its output with
-   the current compiler on the test corpus.
-3. Bootstrap stages 1 and 2 as in §6. Delete the old implementation and
-   `bootstrap/`.
-
-**Exit criterion:** the compiler compiles itself, and stages 1 and 2 agree.
-
-### Phase 4: the dependent elaborator
-
-Replace HM inference in the self-hosted compiler with the elaborator of §4:
-type-level functions, indexed types, implicit arguments and NbE. Add serialized
-checked interfaces, which give separate checking and faster builds.
-
-### Phase 5: distribution and devices
-
-Add the WGSL backend sharing struct layouts, wire schema export, typed
-destinations, the bounded model-checking library, and `(scheme compiler)`.
+- Local bodies are sequential: a local function may call itself but not a
+  later local definition.
+- Only unannotated top-level functions are generalized; other definitions
+  are monomorphic unless they have a signature.
+- Effect labels take no type parameters, and operations are monomorphic.
+- Classes have no superclasses and no higher-kinded parameters.
+- Wire TypeIds are 32 bits, and every struct and enum value carries its
+  case's TypeId.
 
 ### Risks
 

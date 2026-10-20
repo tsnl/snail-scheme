@@ -5,30 +5,29 @@ proposed language changes separate from implemented behavior.
 
 ## Language
 
-- [ ] Specify general first-class Scheme variadic procedures and their lowering
-  to fixed-arity calls. The current typed Scheme subset requires proper parameter
-  lists; collection packing macros are implemented separately.
-- [ ] Add explicit overflow-checking arithmetic operations.
-- [ ] Add constrained generic instances and serialization derivation for
-  parameterized data declarations.
-- [ ] Extend Scheme beyond the documented typed subset: quoted data, general
-  truthiness, mutation and other R7RS requirements.
-- [ ] Specify procedural transformer evaluation and phase interfaces.
+- [ ] Port the dynamic Scheme libraries (`datum`, `read`, `write`, `number`,
+  with exact integers and rationals) from the previous compiler's history to
+  `lib/`.
+- [ ] `generate-library`: build a library from the text a Lofi program prints.
+- [ ] A Scheme surface: `(scheme base)` over `(lofi base)`, then the
+  `(scheme compiler)` translator of the redesign's section 6.
+- [ ] `type-convert` and `Any` for the boundary between typed and dynamic code.
+- [ ] Literals at a generic numeric type, through the `Num` evidence.
+- [ ] Superclasses, so `(Ord T)` can imply an equality class.
+- [ ] Explicit overflow-checking arithmetic.
+- [ ] Mutually recursive local functions.
 
-## Formalization
+## Compiler
 
-Formalization and proof tooling are deferred. They are not prerequisites for
-documentation improvements. The [Ott/Rocq experiment in draft PR #325](https://github.com/tsnl/snail-scheme/pull/325)
-explores generated definitions and formation proofs.
-
-- [ ] Review the Ott grammar and named inference rules against the implemented
-  language, then generate the corresponding book sections from that source.
-- [ ] Add machine-checked proofs incrementally, beginning with variable scope,
-  name categories, application arity and closed instance heads.
+- [ ] Compile the compiler with itself; the shim already gives Chibi the forms
+  it uses. The compiler still uses `#f` for absent values and host hash tables.
+- [ ] Separate checking: serialize each library's checked interface.
+- [ ] Decision trees for `match` with many cases, and nullable references for
+  `Option`-shaped enums.
+- [ ] Source locations in emitted Wasm.
 
 ## Siegework
 
-Keep the local preview at port **4212**.
-
-- [ ] Rewrite the colony model with nominal sum types and `match` in place of
-  integer-coded kinds, jobs and stages.
+- [ ] Towers and guns as the original's rail network, artillery and upgrades
+  were before the rewrite, if the game needs them.
+- [ ] Hot reload of the module while keeping the running state.
