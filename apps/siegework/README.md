@@ -29,15 +29,23 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
 | Module | Responsibility |
 | --- | --- |
 | [`grid.sld`](src/siegework/grid.sld) | Cells, distances and breadth-first paths. |
-| [`world.sld`](src/siegework/world.sld) | All rules. `advance` is a pipeline of total tick functions: mine, workers, waves, enemies, guns, settle. |
+| [`world.sld`](src/siegework/world.sld) | All rules. `advance` is a pipeline of total tick functions: mine, workers, waves, enemies, guns, clean up, judge. |
 | [`game.sld`](src/siegework/game.sld) | The camera, tools and pointer around the world; maps each `Input` to a new game. |
 | [`view.sld`](src/siegework/view.sld) | Mesh instances and HUD panels for a frame. |
 | [`main.sld`](main.sld) | `define-application` ties them together. |
 
-An idle worker follows one rule: return any ore it carries, otherwise fetch
-the kit for the oldest waiting construction site, otherwise collect from the
-fullest extractor nobody else is collecting from. Its `Task` enum says which
-of these it is doing and toward which building.
+Time is the world's tick: units step on multiples of their period, guns and
+strikes fire on periodic ticks, and construction ends at a deadline, so no
+unit keeps a countdown.
 
-`tests/economy.sld` plays a scripted colony; `tests/headless.mjs` drives the
-compiled package without a browser, including a save and restore.
+A worker's `Job` names the building it works toward. An idle worker
+returns any ore it carries, otherwise fetches the kit for the oldest site no
+other worker has claimed, otherwise collects from the fullest extractor
+nobody else is collecting from. A site counts as claimed exactly when some
+worker's job names it, every job ends in `Idle`, and a job whose building is
+gone is abandoned.
+
+`tests/economy.sld` plays a scripted colony and checks that ore is
+conserved; `tests/siege.sld` runs the waves against a defended and an
+undefended hub; `tests/headless.mjs` drives the compiled package without a
+browser, including a save and restore.
