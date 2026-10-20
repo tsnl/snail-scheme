@@ -62,5 +62,3 @@ removed. The selected profile applies to generated dependencies and the final
 runtime link. Low-level `scripts/build-lofi`, `scripts/link-lofi-runtime` and
 library APIs retain release defaults; both scripts accept `--debug` and
 `--release`. Diagnostic prune-only linking retains its separate behavior.
-
-The Siegework measurement driver explicitly requests release builds.

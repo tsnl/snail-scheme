@@ -17,7 +17,6 @@
  (only (lofi compiler frontend) test-frontend)
  (only (lofi compiler macros) test-macros)
  (only (lofi compiler bootstrap) test-bootstrap)
- (only (lofi compiler profile) test-profile)
  (only (lofi compiler source-driver) test-source-driver)
  (only (lofi compiler artifact) test-artifact)
  (only (lofi compiler numeric-literals) test-numeric-literals)
@@ -34,7 +33,6 @@
 (test-log)
 (test-chromium-trace)
 (test-bootstrap)
-(test-profile)
 (test-artifact)
 (call-with-temp-dir
  "lofi-unit-traces"

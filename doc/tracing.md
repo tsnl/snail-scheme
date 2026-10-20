@@ -38,15 +38,9 @@ loading, refresh, escaped filenames and HTTP file boundaries.
 
 ## Pass boundaries
 
-Source reads and syntax parsing have their own spans. The shipped bootstrap
-compiler does not currently wrap resolution, inference, specialization and Wasm
-emission with phase spans. For those boundaries on a complete Siegework build,
-use the private instrumentation in
-[`scripts/measure-siegework.mjs`](../scripts/measure-siegework.mjs).
-`profile` adds source-labelled binding/function spans and nested preparation work;
-`hotspots` additionally retains helper call counts and inclusive/self totals in
-`operations.json` without emitting millions of tiny events.
-Assembly, mandatory Binaryen optimization and disassembly record their own build
+Source reads and syntax parsing have their own spans, as do the source
+driver's `lofi.check`, `lofi.specialize` and `lofi.emit-wasm` phases. Assembly,
+mandatory Binaryen optimization and disassembly record their own build
 operations. Inclusive/exclusive durations distinguish a pass's own work from its
 children.
 
