@@ -8,7 +8,7 @@
   (import
    (scheme base)
    (scheme immutable)
-   (only (lofi core) datatype match ann -> I32 begin)
+   (only (lofi core) datatype match ann -> I32)
    (only (lofi base) unreachable)
    (rename (only (lofi core) def) (def define-typed)))
   (begin
