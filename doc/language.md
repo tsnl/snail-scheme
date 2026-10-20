@@ -222,3 +222,4 @@ with saving and restoring the state through its wire encoding.
 | `(lofi app)` | Applications, frames and the `screen` effect. |
 | `(lofi integer)`, `(lofi rational)`, `(lofi number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data and its external representation. |
+| `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
