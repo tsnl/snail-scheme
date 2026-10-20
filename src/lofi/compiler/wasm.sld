@@ -438,6 +438,11 @@
     (define (function-wat fn name params result body)
       (wat* "func" (Cons (id name) (append params (Cons (wat "result" (rep->wat result)) (append (reverse (ref-get (Fn-locals fn))) body))))))
 
+    (: bind-params! (-> Fn (List String) (List Rep) Unit ! mut))
+    (define (bind-params! fn params reps)
+      (for-each (lambda (pair) (bind-local! fn (Pair-first pair) (wat "local.get" (id (wasm-id (Pair-first pair)))) (Pair-second pair)))
+                (zip params reps)))
+
     (: param-wats (-> (List String) (List Rep) (List Wat)))
     (define (param-wats params reps)
       (map (lambda (pair) (wat "param" (id (wasm-id (Pair-first pair))) (rep->wat (Pair-second pair)))) (zip params reps)))
@@ -447,8 +452,7 @@
       (match (Expr-term function)
         ((Lambda params body)
          (let* ((fn (new-fn m)) (signature (function-signature m (Expr-type function))) (reps (Pair-first signature)))
-           (for-each (lambda (pair) (bind-local! fn (Pair-first pair) (wat "local.get" (id (wasm-id (Pair-first pair)))) (Pair-second pair)))
-                     (zip params reps))
+           (bind-params! fn params reps)
            (let ((code (emit fn body #t)))
              (push! (Module-functions m) (function-wat fn (wasm-id name) (param-wats params reps) (Pair-second signature) code)))))
         (_ (panic "internal error: not a function"))))
@@ -622,21 +626,11 @@
       (match (Expr-term function)
         ((Lambda params body)
          (let* ((signature (function-signature m (Expr-type function))) (reps (Pair-first signature))
-                (function-id (fresh-id m "lambda"))
-                (fn (Fn-self-set (new-fn m) (match self ((Some name) (Some (Pair name function-id))) ((None) (None)))))
-                (base (closure-type m reps (Pair-second signature))))
+                (function-id (fresh-id m "lambda")) (base (closure-type m reps (Pair-second signature)))
+                (fn (lambda-fn m self function-id base)))
            (push! (Module-declared m) function-id)
-           (match self
-             ((Some name) (bind-local! fn name (wat "local.get" (Word "$closure")) (Reference base)))
-             ((None) (unit)))
-           (for-each (lambda (pair) (bind-local! fn (Pair-first pair) (wat "local.get" (id (wasm-id (Pair-first pair)))) (Pair-second pair)))
-                     (zip params reps))
-           (let* ((loads (map-indexed (lambda (index entry)
-                                        (wat "local.set" (id (declare-local! fn (Pair-first entry) (Pair-second entry)))
-                                             (wat "struct.get" (id closure) (int (+ index 1))
-                                                  (wat "ref.cast" (wat "ref" (id closure)) (wat "local.get" (Word "$closure"))))))
-                                      captured))
-                  (code (emit fn body #t)))
+           (bind-params! fn params reps)
+           (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t)))
              ;; The function's type must be the closure's code type itself,
              ;; not a structurally equal one, for `ref.func` to fit the field.
              (push! (Module-functions m)
@@ -646,6 +640,25 @@
                                   (Pair-second signature) (append loads code)))
              function-id)))
         (_ (panic "internal error: not a lambda"))))
+
+    ;; A recursive lambda reads its own name as its closure.
+    (: lambda-fn (-> Module (Option String) String String Fn ! mut))
+    (define (lambda-fn m self function-id base)
+      (match self
+        ((Some name)
+         (let ((fn (Fn-self-set (new-fn m) (Some (Pair name function-id)))))
+           (bind-local! fn name (wat "local.get" (Word "$closure")) (Reference base))
+           fn))
+        ((None) (new-fn m))))
+
+    ;; On entry, each captured variable is copied from the closure to a local.
+    (: capture-loads (-> Fn (List (Pair String Rep)) String (List Wat) ! mut))
+    (define (capture-loads fn captured closure)
+      (map-indexed (lambda (index entry)
+                     (wat "local.set" (id (declare-local! fn (Pair-first entry) (Pair-second entry)))
+                          (wat "struct.get" (id closure) (int (+ index 1))
+                               (wat "ref.cast" (wat "ref" (id closure)) (wat "local.get" (Word "$closure"))))))
+                   captured))
 
     ;; ---- Calls ----
 
@@ -1262,14 +1275,19 @@
                       (_ (unit))))
                   items)
         (emit-main! m items)
+        (module-wat m)))
+
+    ;; The fields in the order Wasm requires: one recursion group of types,
+    ;; then imports, globals, declared function references, exports and code.
+    (: module-wat (-> Module Wat ! mut))
+    (define (module-wat m)
+      (let ((types (reverse (ref-get (Module-types m)))) (declared (reverse (ref-get (Module-declared m)))))
         (wat* "module"
               (concatenate
-               (list (if (null? (ref-get (Module-types m))) (Nil) (list (wat* "rec" (reverse (ref-get (Module-types m))))))
+               (list (if (null? types) (Nil) (list (wat* "rec" types)))
                      (reverse (ref-get (Module-imports m)))
                      (reverse (ref-get (Module-globals m)))
-                     (if (null? (ref-get (Module-declared m)))
-                         (Nil)
-                         (list (wat* "elem" (Cons (Word "declare") (Cons (Word "func") (map id (reverse (ref-get (Module-declared m)))))))))
+                     (if (null? declared) (Nil) (list (wat* "elem" (Cons (Word "declare") (Cons (Word "func") (map id declared))))))
                      (reverse (ref-get (Module-exports m)))
                      (reverse (ref-get (Module-functions m))))))))
 

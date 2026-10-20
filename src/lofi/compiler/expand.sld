@@ -457,7 +457,7 @@
           ((Some (Core "define-syntax")) (define-top-macro! cx env form) (Nil))
           ((Some (Core "define"))
            (let ((ident (definition-name form)))
-             (bind-top! env ident (Global (global-name cx (ident-key ident))))
+             (bind-top! env ident (Global (unique-name cx ident)))
              (list (Pending "define" form env))))
           ((Some (Core keyword))
            (if (member? keyword declaration-keywords)
@@ -533,47 +533,67 @@
       (match (form-tail form)
         ((Cons head rest)
          (case keyword
-           (("struct")
-            (let* ((name (declared-name head)) (id (global-name cx (ident-key name))))
-              (bind-top! env name (TypeName id (length (declared-params head)) (Some id)))
-              (bind-fields! cx env name (struct-fields form) #t)))
-           (("enum")
-            (let ((name (declared-name head)))
-              (bind-top! env name (TypeName (global-name cx (ident-key name)) (length (declared-params head)) (None)))
-              (for-each (lambda (case) (scan-case! cx env case)) (enum-cases form))))
-           (("type")
-            (let ((name (declared-name head)))
-              (match rest
-                ((Cons body (Nil))
-                 (bind-top! env name (Alias (global-name cx (ident-key name)) (declared-params head) body env (ref #f))))
-                (_ (compile-error (syntax-loc form) "expected (type Name type)")))))
-           (("typeclass")
-            (let ((name (declared-name head)))
-              (bind-top! env name (ClassName (global-name cx (ident-key name))))
-              (for-each (lambda (signature)
-                          (match signature
-                            ((Form (Cons _ (Cons method _)) _) (bind-member! cx env method))
-                            (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
-                        rest)))
+           (("struct") (scan-struct! cx env head form))
+           (("enum") (scan-enum! cx env head form))
+           (("type") (scan-alias! cx env head rest form))
+           (("typeclass") (scan-class! cx env head rest))
            (("extern") (bind-member! cx env head))
-           (("effect")
-            (let ((name (expect-ident head "an effect name")))
-              (bind-top! env name (EffectName (global-name cx (ident-key name))))
-              (match rest
-                ((Cons operations _)
-                 (for-each (lambda (operation)
-                             (match operation
-                               ((Form (Cons name _) _) (bind-member! cx env name))
-                               (_ (compile-error (syntax-loc operation) "expected (operation type)"))))
-                           (form-items operations "a list of operations")))
-                (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))")))))
+           (("effect") (scan-effect! cx env head rest form))
            (else (unit))))
         (_ (compile-error (syntax-loc form) "expected a declaration"))))
+
+    ;; A declared name is global in the library that declares it.
+    (: unique-name (-> Context Syntax String))
+    (define (unique-name cx ident)
+      (global-name cx (ident-key ident)))
+
+    ;; A struct's name is both its type and its constructor.
+    (: scan-struct! (-> Context Env Syntax Syntax Unit ! mut))
+    (define (scan-struct! cx env head form)
+      (let ((name (declared-name head)))
+        (bind-top! env name (TypeName (unique-name cx name) (length (declared-params head)) (Some (unique-name cx name))))
+        (bind-fields! cx env name (struct-fields form) #t)))
+
+    (: scan-enum! (-> Context Env Syntax Syntax Unit ! mut))
+    (define (scan-enum! cx env head form)
+      (let ((name (declared-name head)))
+        (bind-top! env name (TypeName (unique-name cx name) (length (declared-params head)) (None)))
+        (for-each (lambda (case) (scan-case! cx env case)) (enum-cases form))))
+
+    (: scan-alias! (-> Context Env Syntax (List Syntax) Syntax Unit ! mut))
+    (define (scan-alias! cx env head rest form)
+      (let ((name (declared-name head)))
+        (match rest
+          ((Cons body (Nil)) (bind-top! env name (Alias (unique-name cx name) (declared-params head) body env (ref #f))))
+          (_ (compile-error (syntax-loc form) "expected (type Name type)")))))
+
+    (: scan-class! (-> Context Env Syntax (List Syntax) Unit ! mut))
+    (define (scan-class! cx env head signatures)
+      (let ((name (declared-name head)))
+        (bind-top! env name (ClassName (unique-name cx name)))
+        (for-each (lambda (signature)
+                    (match signature
+                      ((Form (Cons _ (Cons method _)) _) (bind-member! cx env method))
+                      (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
+                  signatures)))
+
+    (: scan-effect! (-> Context Env Syntax (List Syntax) Syntax Unit ! mut))
+    (define (scan-effect! cx env head rest form)
+      (let ((name (expect-ident head "an effect name")))
+        (bind-top! env name (EffectName (unique-name cx name)))
+        (match rest
+          ((Cons operations _)
+           (for-each (lambda (operation)
+                       (match operation
+                         ((Form (Cons operation-name _) _) (bind-member! cx env operation-name))
+                         (_ (compile-error (syntax-loc operation) "expected (operation type)"))))
+                     (form-items operations "a list of operations")))
+          (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))")))))
 
     (: bind-member! (-> Context Env Syntax Unit ! mut))
     (define (bind-member! cx env ident)
       (let ((ident (expect-ident ident "a name")))
-        (bind-top! env ident (Global (global-name cx (ident-key ident))))))
+        (bind-top! env ident (Global (unique-name cx ident)))))
 
     (: scan-case! (-> Context Env Syntax Unit ! mut))
     (define (scan-case! cx env case)
@@ -741,8 +761,7 @@
            global))
         (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
 
-    ;; Unbound identifiers in an instance head are its type variables. Returns
-    ;; one thunk per method, which expands its definition.
+    ;; Returns one thunk per method, which expands its definition.
     (: declare-instance! (-> Context Env Syntax (List (-> Unit ! mut)) ! mut))
     (define (declare-instance! cx env form)
       (match form
@@ -750,22 +769,25 @@
          (let* ((class (match (resolve cx env class-ident)
                          ((Some (ClassName id)) (program-class (program cx) id))
                          (_ (compile-error (syntax-loc class-ident) "instance of something that is not a typeclass"))))
-                (vars (delete-duplicates string=? (concatenate (map (lambda (type) (free-type-names cx env type)) type-args))))
-                (scope (type-scope env (map (lambda (name) (Ident name (None) loc)) vars)))
-                (parts (split-requires body))
-                (instance (Instance (fresh-global cx (short-name (Class-name class))) (Class-name class) vars
-                                    (map (lambda (type) (resolve-type cx scope type)) type-args)
-                                    (map (lambda (c) (resolve-constraint cx scope c)) (Pair-first parts)) (Nil)))
+                (parts (split-requires body)) (instance (declared-instance cx env class type-args (Pair-first parts) loc))
                 (methods (map (lambda (definition) (instance-method cx env class instance definition)) (Pair-second parts))))
            (check-instance-methods class methods loc)
            (check-overlap (program cx) instance loc)
            (add-instance! (program cx)
                           (Instance-methods-set instance
-                                                (map (lambda (method) (Pair (MethodDefinition-method method)
-                                                                            (MethodDefinition-global method)))
+                                                (map (lambda (method) (Pair (MethodDefinition-method method) (MethodDefinition-global method)))
                                                      methods)))
            (map MethodDefinition-expand methods)))
         (_ (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
+
+    ;; Unbound identifiers in an instance head are its type variables.
+    (: declared-instance (-> Context Env Class (List Syntax) (List Syntax) Loc Instance ! mut))
+    (define (declared-instance cx env class type-args requires loc)
+      (let* ((vars (delete-duplicates string=? (concatenate (map (lambda (type) (free-type-names cx env type)) type-args))))
+             (scope (type-scope env (map (lambda (name) (Ident name (None) loc)) vars))))
+        (Instance (fresh-global cx (short-name (Class-name class))) (Class-name class) vars
+                  (map (lambda (type) (resolve-type cx scope type)) type-args)
+                  (map (lambda (c) (resolve-constraint cx scope c)) requires) (Nil))))
 
     (: fresh-global (-> Context String String ! mut))
     (define (fresh-global cx base)

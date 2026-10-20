@@ -894,24 +894,29 @@
     (: check-program (-> Program Typed ! mut))
     (define (check-program program)
       (let* ((ck (Checker program (ref 0) (make-table) (make-table) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil))))
-             (items (program-items program))
-             (inferred (filter (lambda (item)
-                                 (match item
-                                   ((Define name _) (match (annotated-scheme program name) ((None) #t) ((Some _) #f)))
-                                   (_ #f)))
-                               items))
-             (results (make-table)))
+             (items (program-items program)) (inferred (check-inferred ck items))
+             (typed (map (lambda (item) (check-item ck inferred item)) items)))
+        (solve-pending! ck)
+        (for-each (lambda (item)
+                    (match item
+                      ((Expose name _ loc) (check-exposed ck name loc))
+                      (_ (unit))))
+                  items)
+        (Typed program (map zonk-item typed) (final-schemes ck items))))
+
+    ;; Checks the definitions without signatures, a group at a time in
+    ;; dependency order, and returns them by name.
+    (: check-inferred (-> Checker (List Item) (Table Item) ! mut))
+    (define (check-inferred ck items)
+      (let ((results (make-table)))
         (for-each (lambda (group)
                     (for-each (lambda (result) (table-set! results (Define-name result) result)) (check-group ck group)))
-                  (definition-groups inferred))
-        (let ((typed (map (lambda (item) (check-item ck results item)) items)))
-          (solve-pending! ck)
-          (for-each (lambda (item)
-                      (match item
-                        ((Expose name _ loc) (check-exposed ck name loc))
-                        (_ (unit))))
-                    items)
-          (Typed program (map zonk-item typed) (final-schemes ck items)))))
+                  (definition-groups (filter (lambda (item)
+                                               (match item
+                                                 ((Define name _) (match (annotated-scheme (program-of ck) name) ((None) #t) ((Some _) #f)))
+                                                 (_ #f)))
+                                             items)))
+        results))
 
     (: check-item (-> Checker (Table Item) Item Item ! mut))
     (define (check-item ck results item)
