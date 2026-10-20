@@ -54,6 +54,7 @@ export async function checkDirectBuild(test,fresh){
     for(const kind of [3,2,0]){await action(h,'preview',[kind]);assert.equal(state(h).preview,kind);assert.deepEqual(h.runtime.snapshot(1),before);}
     await action(h,'confirm');assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(state(h).choiceKind,0);
     await select(h,12,20);assert.equal(state(h).choiceKind,0);await action(h,'choose',[1]);assert.equal(siteAt(world(h),12,20).kind,1);
+    await select(h,12,20);assert.match(node(h,'context-description').text,/No ore required/);assert.match(node(h,'cancel-build').help,/free construction/);
     await select(h,14,22);assert.equal(state(h).choiceKind,0);assert.equal(state(h).preview,0);await h.app.close();
   });
   await test('slow placement locks repeat taps and stale explicit buttons cannot charge a retargeted site',async()=>{
