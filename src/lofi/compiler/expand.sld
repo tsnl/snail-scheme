@@ -85,7 +85,8 @@
       (Alias
        ((params (List Syntax))
         (body Syntax)
-        (env Env)))
+        (env Env)
+        (expanding (Ref Bool))))
       (TypeVar
        ((type Type)))
       (ClassName
@@ -406,7 +407,7 @@
                     (bind-top! cx env name (TypeName (global-name cx (ident-key name)) (length (declared-params (cadr items))) #f))
                     (for-each (lambda (case) (scan-case! cx env case)) (cddr (declaration-items form)))))
           ((type) (let ((name (declared-name (cadr items))))
-                    (bind-top! cx env name (Alias (declared-params (cadr items)) (caddr items) env))))
+                    (bind-top! cx env name (Alias (declared-params (cadr items)) (caddr items) env (ref #f)))))
           ((typeclass) (let ((name (declared-name (cadr items))))
                          (bind-top! cx env name (ClassName (global-name cx (ident-key name))))
                          (for-each (lambda (signature) (bind-member! cx env (cadr (Form-items signature)))) (cddr items))))
@@ -568,10 +569,10 @@
     (define (instance-method cx env class instance definition)
       (unless (core-form? env definition 'define) (compile-error (syntax-loc definition) "expected a method definition"))
       (let* ((ident (definition-name definition))
-             (method (match (resolve env ident) ((Global name) name) (_ #f)))
-             (global (fresh-global cx (short-name (or method (Ident-name ident))))))
-        (unless (memq method (Class-methods class))
-          (compile-error (syntax-loc ident) "not a method of this class" (Ident-name ident)))
+             (method (or (find (lambda (method) (string=? (short-name method) (symbol->string (Ident-name ident))))
+                               (Class-methods class))
+                         (compile-error (syntax-loc ident) "not a method of this class" (Ident-name ident))))
+             (global (fresh-global cx (short-name method))))
         (add-value! (program cx) global (Defined (instance-method-scheme (program cx) class method instance)))
         (list method global (lambda () (add-item! (program cx) (Define global (definition-value cx env definition)))))))
 
@@ -681,11 +682,15 @@
          (unless (= arity (length args)) (compile-error loc "wrong number of type arguments" (Ident-name ident)))
          (TCon name (map (lambda (arg) (resolve-type env arg)) args)))
         ((TypeVar type) (if (null? args) type (compile-error loc "a type variable takes no arguments")))
-        ((Alias params body alias-env)
+        ((Alias params body alias-env expanding)
          (unless (= (length params) (length args)) (compile-error loc "wrong number of alias arguments" (Ident-name ident)))
+         (when (ref-get expanding) (compile-error loc "type alias refers to itself" (Ident-name ident)))
          (let ((scope (child-env alias-env)))
            (for-each (lambda (param arg) (bind! scope param (TypeVar (resolve-type env arg)))) params args)
-           (resolve-type scope body)))
+           (ref-set! expanding #t)
+           (let ((type (resolve-type scope body)))
+             (ref-set! expanding #f)
+             type)))
         (_ (compile-error loc "not a type" (Ident-name ident)))))
 
     ;; `(-> A B R)` or `(-> A B R ! label ... [row-variable])`.
