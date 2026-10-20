@@ -289,7 +289,7 @@ reaps descendants without loading guest code.
 
 Chibi imports implementation modules through `bootstrap/`, preserving its own
 Scheme libraries. Tests add `tests/` for colocated unit-test assertions.
-`scripts/test-backend` covers the current backend inventory, including raw and
-optimized linked Wasm execution, generators and scalar services. `scripts/test-build` exercises command publication, failure
+`scripts/test backend` covers the current backend inventory, including raw and
+optimized linked Wasm execution, generators and scalar services. `scripts/test build` exercises command publication, failure
 cleanup, standard input and literal arguments. See [build tools](backend.md) for
 commands.

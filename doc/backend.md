@@ -44,8 +44,8 @@ cargo test --manifest-path src/runtime/Cargo.toml --offline
 cargo test --manifest-path tools/host/Cargo.toml --offline
 cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check
 cargo fmt --manifest-path tools/host/Cargo.toml --all -- --check
-scripts/test-backend
-scripts/test-build
+scripts/test backend
+scripts/test build
 ```
 
 Backend correctness requires actual raw and optimized Wasm execution. Integration

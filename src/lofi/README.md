@@ -102,7 +102,7 @@ so its aliases and direct foreign scalar reads share lookahead. Closing stdin
 remains a no-op. Owned file handles remain private to their Lofi wrappers; no
 public operation exposes a raw handle that could bypass pending input.
 
-`scripts/test-lofi-input-packets` exercises raw and optimized linked Wasm,
+`scripts/test lofi-input-packets` exercises raw and optimized linked Wasm,
 retains all command attempts and source/tool/artifact identities, and verifies
 packet boundaries, Unicode buffer splits, aliases, mixed readers,
 borrowed scalar interoperation, closed cached input, file growth after EOF,

@@ -1,5 +1,5 @@
 
-The `scripts/test-*` commands launch ordinary Chibi programs in `tests/snail-tests`.
+`scripts/test SUITE` launches the named suite's Chibi program in `tests/snail-tests`.
 The harness records every command, its terminal output, status, duration and owned
 process cleanup under a fresh attempt directory in `build/`. Contract tests retain raw Wasm
 and Binaryen output and execute both in V8. The engine owns GC; the host retains
@@ -14,25 +14,20 @@ success requires the exact assigned case list in both `selection.json` and
 success requires the selected suites to reach the umbrella's final validation
 record. New attempt directories prevent stale records from satisfying a check.
 
-`scripts/test-lofi-serialization` checks the complete fixture inventory in
+`scripts/test lofi-serialization` checks the complete fixture inventory in
 `serialization/cases.json`: derived graphs, nominal type tags, malformed input,
 unsupported types, S-expression text/binary boundaries and packed snapshots.
 It executes raw and optimized Wasm linked to the Rust WASI runtime. Rejection
 probes check initialization, failure status and diagnostic text. Supply fixture
 names to select cases.
 
-Lofi fixtures use `.sld` files and `(lofi ...)` imports. Frozen migration,
-validation and oracle-provenance records retain the SFIR names and paths from
-their recorded revisions, including retired native-backend execution and source
-paths. They are historical evidence, not current commands or supported targets.
+Lofi fixtures use `.sld` files and `(lofi ...)` imports.
 
-`tests/Cargo.toml` owns independent transport-data, optimizer and adversarial
-compiler-process probes. `tools/host/process-supervisor.rs` enforces command
+`tests/Cargo.toml` owns independent transport-data and optimizer probes. `tools/host/process-supervisor.rs` enforces command
 deadlines and reaps descendants; its tests include processes that change groups.
 
-Numeric, reader, writer and Unicode expectations are committed data, with source
-revision and independent oracle provenance in `oracle-provenance.json`. The
+Numeric, reader, writer and Unicode expectations are committed data. The
 integer, Fraction and seeded arithmetic cases preserve the complete previous
 case inventories. Unicode 16 folding stores every nonidentity mapping; the Rust
 data probe expands the entire 1,112,064-scalar domain, including identities.
-Changing an oracle requires reviewing its expected answers and provenance.
+Changing an oracle requires reviewing its expected answers.

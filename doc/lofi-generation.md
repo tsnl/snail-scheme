@@ -117,7 +117,7 @@ are not rolled back.
 
 ## Verification
 
-`scripts/test-lofi-generation` compiles and executes nested producers and their
+`scripts/test lofi-generation` compiles and executes nested producers and their
 generated applications. It checks distinct producer and consumer imports,
 independent preparation, explicit aliases, initialization through diamond
 imports, descriptor-relative input, name hygiene, wrong result types, generated

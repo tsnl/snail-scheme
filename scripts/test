@@ -1,0 +1,9 @@
+#!/bin/sh
+# Run one named test suite through the Chibi harness: scripts/test SUITE [OPTION ...]
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ $# -eq 0 ]; then
+  printf 'usage: scripts/test SUITE [OPTION ...]\n' >&2
+  exit 2
+fi
+exec "${CHIBI:-chibi-scheme}" -I "$root/bootstrap" -I "$root/tests" "$root/tests/run.scm" "$root" "$@"

@@ -33,7 +33,7 @@ scripts/view-traces build/output.wasm.trace.json
 
 The viewer binds to loopback and serves the selected trace and pinned Perfetto
 assets. Over SSH, forward the printed port to your browser. Serve completed
-recordings; reloading reads the current file. `scripts/test-view-traces` checks
+recordings; reloading reads the current file. `scripts/test view-traces` checks
 loading, refresh, escaped filenames and HTTP file boundaries.
 
 ## Pass boundaries
@@ -75,7 +75,7 @@ steps clamp a duration to zero. Concurrent writes to one port are unsupported.
 Decorating recursion keeps wrappers active until return and can change tail-call
 behavior, so instrumentation must stay outside clean performance comparisons.
 
-`make test` and `scripts/test-chromium-trace` check escaping, nested destinations,
+`make test` and `scripts/test chromium-trace` check escaping, nested destinations,
 closure, missing destinations, file-opening errors and abandoned spans. A future
 Lofi tracing library is separate work; the host decorator runs in Chibi.
 

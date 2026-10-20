@@ -1,6 +1,6 @@
 # Lofi integration contracts
 
-`../../scripts/test-lofi-integration` checks every compiler case in
+`../../scripts/test lofi-integration` checks every compiler case in
 `cases.json`. Each case names one authored `.sld` fixture. The runner verifies
 that the two inventories agree, compiles with the direct Lofi frontend, and
 executes both the raw diagnostic module and mandatory-Binaryen optimized module.
@@ -12,22 +12,13 @@ mutation and overlap in both directions, unused backing capacity, and independen
 copies. The older `string-blocks` fixtures retain their original large Unicode
 inputs and range checks; their names describe the former storage layout.
 
-The original 315 case identities and source hashes are recorded in `migration.json`.
-The source base was `78734dd`; the subsequent compiler checkpoint `6983894` changes
-inference scheduling and removes the old gradual emitter. A disposable converter
-outside the repository performed the one-time syntax migration. It is neither
-shipped nor invoked by a runner. Target fixtures contain explicit lambdas,
-attached signatures, lexical blocks, sequential `let`, recursive definitions,
-and two-branch conditionals. Existing constants and mutable operations remain.
-
 Every overload alternative now declares its complete signature. The former
 `overload-inferred-*` fixtures are named `overload-declared-*` and retain their
 ordinary helper inference, class proofs, result selection and initialization
 checks. The declared signatures make the former row-cycle and executable-storage
 readiness failures valid programs. Five additional rejection cases cover unsigned
 lambdas, named implementations, mixed families, unused alternatives and imported
-extensions. The migration records remain historical evidence for the original
-source snapshot.
+extensions.
 
 Five former detached-signature tests now explicitly check rejection of syntax
 removed from Lofi. They do not establish the old detached-declaration rules.
@@ -47,8 +38,8 @@ framework. Compilation and execution records are correctness evidence, not clean
 performance measurements.
 
 The adjacent `../lofi-extern` and `../lofi-io` fixtures retain their original
-custom hosts. Their runner commands are `scripts/test-lofi-extern` and
-`scripts/test-lofi-io`. The extern fixture's former macro-produced local foreign
+custom hosts. Their runner commands are `scripts/test lofi-extern` and
+`scripts/test lofi-io`. The extern fixture's former macro-produced local foreign
 binding is now explicit and distinct from its surrounding parameter.
 
 ## Library integration fixtures
@@ -57,7 +48,7 @@ The adjacent `lofi-bytes`, `lofi-extern`, `lofi-integer`, `lofi-io`,
 `lofi-numbers`, `lofi-reader`, `lofi-text`, and `lofi-write` directories retain the
 custom Node and Rust hosts and independent data oracles. Scalar trigonometry remains
 in `../lofi-math.sld` with its existing Node/Rust hosts. Their corresponding commands
-are `scripts/test-lofi-<name>`.
+are `scripts/test lofi-<name>`.
 
 These runners compile static target sources. They may generate input values,
 malformed byte streams and independent expected answers. Scheme datum streams
@@ -89,7 +80,7 @@ records the chosen profile and current input hashes. The scalar-extension and
 borrowed-stdin review covers existing numeric and owned-file reader operations,
 not the new scalar APIs, standard input, or unchanged initialization costs.
 
-`scripts/test-backend` also runs `test-lofi-numbers --domain` separately, including
+`scripts/test backend` also runs `lofi-numbers --domain` separately, including
 the Rational and Number module assertions. Historical Scheme-only diagnostics
 require their recorded source checkouts; their old active runners are retired.
 

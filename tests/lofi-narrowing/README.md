@@ -1,6 +1,6 @@
 # Checked numeric narrowing
 
-Run `scripts/test-lofi-narrowing`. It supplies 55 runtime cases to direct and
+Run `scripts/test lofi-narrowing`. It supplies 55 runtime cases to direct and
 first-class conversion calls on raw and optimized Wasm. Each run retains its
 inputs, commands, outcomes and artifact hashes under `build/lofi-narrowing/`.
 

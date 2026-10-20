@@ -1,6 +1,6 @@
 # Fixed-width arithmetic
 
-Run `scripts/test-lofi-arithmetic`. It executes 2,074 calls on raw and
+Run `scripts/test lofi-arithmetic`. It executes 2,074 calls on raw and
 Binaryen-optimized Wasm, including direct primitives, ordinary overloads and
 function values selected from mutable storage. Commands, inputs, terminal results
 and artifact hashes are retained under `build/lofi-arithmetic/`.

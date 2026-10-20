@@ -62,6 +62,6 @@ Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path tools/host/Cargo.toml --offline`,
 `cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`,
 `cargo fmt --manifest-path tools/host/Cargo.toml --all -- --check`,
-`scripts/test-backend`, and `scripts/test-build`.
+`scripts/test backend`, and `scripts/test build`.
 Backend changes should execute linked Wasm; compilation alone does not test target
 behavior. See [doc/backend.md](doc/backend.md) for tools.

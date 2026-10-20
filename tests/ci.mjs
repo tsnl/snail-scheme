@@ -82,10 +82,10 @@ function runJob(name) {
   mkdirSync(parent, {recursive: true});
   const directory = mkdtempSync(join(parent, `${name}-`));
   writeJSON(join(directory, 'job.json'), job);
-  const script = job.kind === 'backend' ? 'test-backend' : 'test-lofi-integration';
+  const suite = job.kind === 'backend' ? 'backend' : 'lofi-integration';
   const start = performance.now();
-  const result = spawnSync(join(repository, 'scripts', script),
-    ['--output', directory, ...job.items], {cwd: repository, stdio: 'inherit'});
+  const result = spawnSync(join(repository, 'scripts', 'test'),
+    [suite, '--output', directory, ...job.items], {cwd: repository, stdio: 'inherit'});
   writeJSON(join(directory, 'execution.json'), {status: result.status,
     signal: result.signal, error: result.error?.message, seconds: (performance.now() - start) / 1000});
   assert.equal(result.status, 0, `job failed; evidence: ${directory}`);

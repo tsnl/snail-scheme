@@ -263,9 +263,7 @@
     ;; ---- Ordered complete backend execution ----
 
     (define (backend-command suite)
-      (append (if (field suite 'script)
-                  (list (path "scripts" (field suite 'script)))
-                  (chibi (path "tests/run.scm") (root) (field suite 'suite)))
+      (append (chibi (path "tests/run.scm") (root) (field suite 'suite (field suite 'name)))
               (strings (field suite 'arguments #()))))
     (define (selected-backend-suites)
       (let* ((suites (rows (read-json (path "tests/backend-suites.json"))))
