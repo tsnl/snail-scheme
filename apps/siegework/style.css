@@ -128,17 +128,17 @@ body:has([data-ui-key="pause-dialog"]) .player-help { display: flex; }
 body:has([data-ui-key="dialog-backdrop"]) [data-ui] { z-index: 21; }
 body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto; white-space: normal; position: fixed; inset: auto 12px 6px; width: auto; max-height: 40px; overflow-y: auto; z-index: 22; padding: 3px 8px; border-radius: 8px; line-height: 16px; }
 [data-ui-key="pause-title"] { text-align: center; font-size: 20px; line-height: 28px; font-weight: 800; }
-:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button { border-radius: 10px; padding: 12px 8px; text-align: center; }
-:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button::before { display: none; }
-:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button-label { font-size: 14px; line-height: 20px; }
-:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button-label::first-letter { text-decoration: none; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) .snail-ui-button { border-radius: 10px; padding: 12px 8px; text-align: center; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) .snail-ui-button::before { display: none; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) .snail-ui-button-label { font-size: 14px; line-height: 20px; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) .snail-ui-button-label::first-letter { text-decoration: none; }
 [data-ui-key="resume"]:enabled { color: #fff9e9; background: #086b70; border-color: #07545d; }
 [data-ui-key="resume"]:enabled:hover { background: #087d7d; }
 [data-ui-key="resume"]:enabled:active { background: #07565f; }
-[data-ui-key="accept-restart"]:enabled { color: #fff9e9; background: #ad4636; border-color: #853b31; }
-[data-ui-key="accept-restart"]:enabled:hover { background: #bf5541; }
-[data-ui-key="accept-restart"]:enabled:active { background: #963b2e; }
-:is([data-ui-key="resume"], [data-ui-key="accept-restart"]):focus-visible { outline-color: #ffe0a0; }
+:is([data-ui-key="accept-restart"], [data-ui-key="accept-resign"]):enabled { color: #fff9e9; background: #ad4636; border-color: #853b31; }
+:is([data-ui-key="accept-restart"], [data-ui-key="accept-resign"]):enabled:hover { background: #bf5541; }
+:is([data-ui-key="accept-restart"], [data-ui-key="accept-resign"]):enabled:active { background: #963b2e; }
+:is([data-ui-key="resume"], [data-ui-key="accept-restart"], [data-ui-key="accept-resign"]):focus-visible { outline-color: #ffe0a0; }
 
 [data-ui-key="context-description"][data-tone="4"] { color: #963b2e; font-weight: 700; }
 [data-ui-key^="attack-toast-"] { background: #ad4636; border-radius: 28px; }

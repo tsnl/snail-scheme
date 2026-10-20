@@ -532,6 +532,7 @@ try {
   const finalColony=await world(),finalClient=await local(),finalHub=finalColony.surveys.find(value=>value.radius===9);
   for(const [width,height]of[[320,568],[568,320]]){
     await resize(width,height);await click('pause');await click('resign-menu');assert.ok(await has('resign-dialog'));
+    assert.deepEqual(await evaluate(`['dismiss-resign','accept-resign'].map(key=>{const n=document.querySelector('[data-ui-key="'+key+'"]');return[getComputedStyle(n).borderRadius,getComputedStyle(n,'::before').display]})`),[['10px','none'],['10px','none']]);
     await capture(`-resign-confirm-${width}x${height}`);await click('dismiss-resign');assert.equal((await world()).outcome,0);await click('resume');
   }
   await click('pause');await click('resign-menu');await holdNextSave();
