@@ -85,7 +85,9 @@
       (match type
         ((TCon name '()) (symbol->string name))
         ((TCon name args) (string-append (symbol->string name) "<" (keys->string (map type-key args)) ">"))
-        ((TFun params result _) (string-append "fn<" (keys->string (map type-key params)) "->" (type-key result) ">"))))
+        ((TFun params result _) (string-append "fn<" (keys->string (map type-key params)) "->" (type-key result) ">"))
+        ;; A row argument, as in (Task e), does not affect representation.
+        ((TRow _ _) "row")))
 
     (define (keys->string keys)
       (if (null? keys) "" (fold (lambda (key text) (string-append text "," key)) (car keys) (cdr keys))))
