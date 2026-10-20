@@ -61,7 +61,7 @@ bindings before expanding its expressions. A generated binding that would change
 an earlier macro-head or literal-identity decision is rejected with a request to
 use a direct definition. This restriction prevents retroactive expansion choices;
 ordinary forward generated definitions are supported when no earlier decision
-changes. One library expansion has a 10,000-application limit, so runaway macro
+changes. One library expansion has a 20,000-application limit, so runaway macro
 recursion produces a located diagnostic.
 
 ## Producing several library declarations

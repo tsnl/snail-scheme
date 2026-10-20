@@ -3,13 +3,13 @@
 Chibi hosts `(lofi compiler bootstrap)`. It emits WasmGC, which Binaryen assembles
 and optimizes. Node/V8 runs command-line programs; browser hosts instantiate the
 same Wasm target with browser providers. Wasm engines own managed memory and
-machine code generation. The LLVM backend and custom native collector are removed.
+machine code generation.
 
 ## Tools
 
 Enter `nix-shell`, then install the Rust target with `rustup target add wasm32-wasip1`.
 The shell supplies Chibi, Binaryen, Node, Cargo through rustup, and a C linker for
-ordinary Rust host tools. There is no LLVM guest-lowering dependency.
+ordinary Rust host tools.
 
 ```sh
 ./lofi run examples/fibonacci.sld
@@ -63,10 +63,4 @@ runtime link. Low-level `scripts/build-lofi`, `scripts/link-lofi-runtime` and
 library APIs retain release defaults; both scripts accept `--debug` and
 `--release`. Diagnostic prune-only linking retains its separate behavior.
 
-The 57-workload runner and Siegework measurement driver explicitly request
-release builds. Their optimization level is independent of development defaults.
-
-A historical [Fibonacci CLI build-and-run pair](measurements/debug-profile-reuse-2026-10-18.json)
-took 5.68 seconds in debug and 155.94 seconds in release, both printing `832040`.
-The runtime was prebuilt; caches and host load were uncontrolled. This is not a
-full Siegework measurement or a runtime speed comparison.
+The Siegework measurement driver explicitly requests release builds.

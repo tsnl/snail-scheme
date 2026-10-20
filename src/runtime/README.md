@@ -13,5 +13,4 @@ cargo test --manifest-path src/runtime/Cargo.toml --offline
 cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check
 ```
 
-Host compilation is used for unit tests. There is no Lofi native executor,
-custom collector, LLVM lowering or native guest ABI.
+Host compilation is used for unit tests.

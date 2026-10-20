@@ -661,12 +661,6 @@ status text into a scalar entry. The browser adapter forwards input, performs
 local durable submission, copies quad data and calls WebGPU. Game rules live
 entirely in Scheme and execute in the browser.
 
-Siegework now targets a fast expedition of about ten minutes on a 128×128 map.
-The nest is a short chain of observation towers away; destruction of that nest
-is the only victory condition. Its compact geography uses World11 and a new
-application storage identity. World10 seeds and routes are rejected, because
-preserving record shape alone would silently reinterpret an older map.
-
 See the [Siegework build instructions](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/README.md) and
 [prototype contract](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/PROTOTYPE.md). The
 [browser validation guide](https://github.com/tsnl/snail-scheme/blob/main/tests/applications/README.md) records the

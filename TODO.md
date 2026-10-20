@@ -1,299 +1,34 @@
 # TODO
 
-## Language documentation
+Completed work lives in git history. Keep this list to open items, and keep
+proposed language changes separate from implemented behavior.
 
-Continue improving the existing [book](doc/book/SUMMARY.md) and
-[formal summary](doc/book/lofi/reference.md) incrementally. Keep descriptions
-of implemented behavior separate from proposed language changes.
+## Language
 
-- [x] Specify and implement rank-one `All` with an optional `requires` clause:
-  rigid variables and assumptions while checking a definition, fresh inference
-  holes or explicit type arguments at each use.
-- [x] Remove legacy `=>` signatures and kind annotations from source, library
-  builders, and transfer packets. Store schemes directly as variables,
-  requirements, and an ordinary type; derive category and arity from declarations.
-- [x] Make Lofi functions fixed-arity throughout source, builders, inference,
-  specialization and emission. Replace collection rest functions with explicit
-  list workers and hygienic packing macros.
 - [ ] Specify general first-class Scheme variadic procedures and their lowering
   to fixed-arity calls. The current typed Scheme subset requires proper parameter
   lists; collection packing macros are implemented separately.
+- [ ] Add explicit overflow-checking arithmetic operations.
+- [ ] Add constrained generic instances and serialization derivation for
+  parameterized data declarations.
+- [ ] Extend Scheme beyond the documented typed subset: quoted data, general
+  truthiness, mutation and other R7RS requirements.
+- [ ] Specify procedural transformer evaluation and phase interfaces.
 
-## Deferred: Ott formalization and proofs
+## Formalization
 
 Formalization and proof tooling are deferred. They are not prerequisites for
-landing documentation improvements.
+documentation improvements. The [Ott/Rocq experiment in draft PR #325](https://github.com/tsnl/snail-scheme/pull/325)
+explores generated definitions and formation proofs.
 
-- [ ] Review the Ott grammar and named inference rules in the draft against
-  the implemented language.
-- [ ] Generate the corresponding book sections from that source once the
-  workflow is established, keeping explanations and examples alongside the rules.
-- [ ] Review the Ott-to-Rocq build before landing the proof tooling. Generating
-  definitions does not itself prove properties of the language or compiler.
+- [ ] Review the Ott grammar and named inference rules against the implemented
+  language, then generate the corresponding book sections from that source.
 - [ ] Add machine-checked proofs incrementally, beginning with variable scope,
-  name categories, application arity, and closed instance heads. State each
-  fragment's assumptions and proved properties before expanding its coverage.
+  name categories, application arity and closed instance heads.
 
-The [Ott/Rocq experiment in draft PR #325](https://github.com/tsnl/snail-scheme/pull/325)
-explores generated definitions and formation proofs. It remains separate from
-the landed compiler and book; it does not prove compiler correctness.
+## Siegework
 
-## Siegework iteration
+Keep the local preview at port **4212**.
 
-Checked items have passed focused real-Wasm or browser checks. Unchecked items include work in progress;
-source changes alone do not count as a playable result. Keep the preview at **4212**.
-
-## Current playtest requests
-
-- [x] Dock contextual construction actions below Q/E without covering the selected
-      tile; label Escape clearly and retain explicit order cancellation.
-- [x] Restore 25-ore extractor construction and make mines transport outposts,
-      sharing deposit/zipline behavior with towers while retaining mining upgrades.
-- [x] Give artillery sight through its full firing range so clear nearby nests
-      do not require a separate observation tower.
-- [x] Increase the map to an intermediate size, reduce optional resource sites
-      again, and increase siege pressure without stretching the intended run.
-- [x] Show elapsed active game time and a terminal analysis screen using real
-      resource, combat, construction and exploration totals.
-
-- [x] Replace the hidden two-worker quota and 50-ore cache with stable mining
-      assignments, useful idle builders and direct extractor freight.
-- [x] Keep returning local construction kits on their drone until the source
-      mine has capacity; cover freight release and cancellation/refunds.
-
-- [x] Halve expected bonus resource sites while preserving opening reserves,
-      rich defeated-nest deposits and stronger density near nests; use an explicit
-      World14 save boundary for the changed deposit ledger.
-- [x] Keep range boundaries on their original edges; split only coincident
-      orange/cyan segments into adjacent strokes of the usual thickness.
-- [x] Use Font Awesome's actual recycle SVG, with attribution in the bundle.
-- [x] Give hub ziplines a visible central junction that matches flight geometry.
-- [x] Replace humanoid workers with single-rotor drones and simplify the
-      extractor silhouette. Use floating Platonic solids and clusters for
-      enemies, visually related to the resource crystals.
-- [x] Gently animate resource crystals to draw attention to discoveries.
-- [x] Replace last-built previews and double-click purchases with a neutral
-      construction marker and explicit chooser actions; hover previews that action.
-- [x] Add Resign with confirmation and frozen full-map inspection.
-- [x] Trial free extractor construction, later superseded by 25-ore transport
-      extractors after playtesting showed destruction needed an economic cost.
-- [x] Explain the link between crystal enemies, nests and richer deposits in
-      opening guidance and the pause menu.
-- [x] Trial a 64×64 map, later adjusted to 80×80 after playtesting; retain
-      explicit save boundaries rather than reinterpreting old cell coordinates.
-
-- [x] Try calm workers: enemies attack only structures, workers keep their jobs,
-      and old fleeing saves resume their cargo and paid work safely.
-
-- [x] Increase transport-line contrast and replace the nest count with hollow
-      stars that fill as nests are defeated; publish the checked preview on 4212.
-- [x] Replace world-space numeric ore badges with compact green HP bars and
-      optional purple reserve bars beneath them. No numbers, low-ore red or
-      pulsing; moving bars must share their units' display-rate animation clock.
-- [x] Replace ground transport with straight elevated ziplines. A connection
-      requires clear cable sight and distance within either endpoint's actual
-      reveal radius. Show matching tower guides and lower the building models.
-- [x] Render ziplines as single solid, constant-color meshes without pulsing
-      glow or contrasting outlines; preserve flight and reveal guides.
-- [x] Separate overlapping tower and turret range outlines so both guide
-      colors remain visible without changing their gameplay ranges.
-- [x] Compare walking with bidirectional, multi-hop zipline travel using elapsed
-      time, and refresh queued walking plans when new service can shorten them.
-      Keep bounded searches, captured flights and paid cargo ownership intact.
-- [x] Reveal one rich, mineable deposit when a nest is destroyed; award no
-      instant ore. Increase deposit density significantly toward nests so enemy
-      approach directions also guide mining exploration. Preserve home deposits.
-- [x] Defeating a nest lowers threat by two levels, to a minimum of level one;
-      keep difficulty progress and future enemy strength consistent.
-- [x] Unveil the entire map on defeat, without resuming gameplay or recording
-      every map tile as persistent survey history.
-- [x] Add Scavenge to building actions: a worker dismantles the structure and
-      recovers one fifth of its construction and completed upgrade investment.
-- [x] Defer replay recording until the game stabilizes; retain normal saves.
-- [x] Replace the control-side toggle with explicit Right-handed and Left-handed
-      buttons and a visible selected state.
-- [x] Q/E animates between 90-degree snaps, preserving orthographic projection;
-      panning and picking follow its orientation. Camera, picking and Chromium input verified.
-- [x] Reduce tower height so deposits behind towers remain accessible.
-- [x] Clicking outside a build chooser dismisses it and acts on the new tile.
-- [x] Remove the Move button and M binding.
-- [x] Workers keep working near enemies; this supersedes the earlier fleeing,
-      shaking and sweat animation experiment.
-- [x] Workers visibly carry ore or construction supplies, with destination markers.
-- [x] An existing worker must assemble a paid new worker; production is not instant.
-- [x] Towers and artillery share interchangeable 25-ore construction kits:
-      one kit for a tower, two for artillery. Redirect deliveries safely.
-- [x] Adding artillery to an existing tower takes a worker and an additional kit;
-      keep the existing tower useful while the upgrade is pending.
-- [x] About 10% of enemies may begin a mountain excavation. Enemies stop and
-      visibly break rock over several seconds, permanently opening the tile.
-      Other enemies route around rock and may join an existing excavation.
-- [x] Distinct, much larger final boss silhouette.
-- [x] Leave ordinary building construction speed unchanged for this playtest.
-
-## World and objective
-
-- [x] Keep the hub stationary; win by finding and destroying the nest.
-- [x] Waves strengthen over time rather than ending at an eight-minute deadline.
-- [x] Bound rendering and pathfinding work instead of processing every tile each
-      frame. The earlier larger map is superseded by the compact 64×64 expedition.
-- [x] Randomize player spawn inside a circle near the map center.
-- [x] Randomize nest position; approaching waves provide costly directional clues.
-- [x] Keep seeded maps reproducible; use fresh randomness for new runs.
-- [x] Add diverse enemy behavior, impassable water with a gentle
-      shimmer, and less rectangular mountain ranges.
-- [x] Three extractor levels; expensive upgrades offer a fallback to exploration.
-- [x] Remove investment automation; workers retain automatic jobs and hauling.
-- [x] Restrict artillery range; nearer targets take more damage.
-- [x] Transparent pulsing build previews.
-- [x] Worker/enemy/projectile motion interpolates at display frame rate;
-      simulation and durable saves retain a fixed clock.
-
-## Presentation and delivery
-
-- [x] Prominent ore, worker and difficulty readouts with radial health/wave indicators.
-- [x] Full-screen world rendering; pointing popups beside the selected tile,
-      separate from the fixed menu. Opening them must not shift the camera.
-- [x] Clearer outcomes, off-screen attack arrows, and prominent resource deposits.
-- [x] Dramatic fog reveal when construction completes.
-- [x] Retain geometry during panning and animation; use native HiDPI rendering.
-- [x] Share fixed colored model buffers across tile, building and unit instances;
-      upload occurrence transforms on changed ticks and use real GPU instanced draws.
-- [x] Reject instance bases collapsed by binary32 copying and subnormal normal
-      coefficients; preserve the accepted frame when candidate parsing fails.
-- [x] Restore thin tile borders using the shared terrain instances; native
-      desktop/mobile views, rotation, water and fog reveals are verified.
-- [x] Keep code and shaders hot-reloadable; preserve compatible saved colonies
-      when client-only controls change. Protocol changes may require a page refresh.
-- [x] Rebase the game stack onto Perf PR #331's compiler improvements.
-- [x] Publish a playable draft PR (#334), attach a screenshot, and update port4212.
-- [x] Publish the larger-world / camera-snap revision to the same PR and preview.
-- [x] Run focused game, UI, persistence, and browser checks on the published artifact.
-
-No resources are awarded for defeated enemies. Multiplayer remains deferred;
-the supported game is the static client-side 3D bundle.
-
-## Polish pass in progress
-
-- [x] Non-scrollable control cards with visible hotkeys beside every button.
-- [x] Remove shield walls; keep vivid violet/indigo gemstones.
-- [x] Persistent difficulty indicator inside a circular progress readout.
-- [x] Gradually mixed strength ranks with distinctive enemy silhouettes.
-- [x] Separate artillery and observation/logistics upgrade trees. Preserve all
-      existing offensive capabilities when upgrading either structure.
-- [x] Every completed tower supplies worker carts; each upgrade doubles link speed, limited by the slower endpoint.
-- [x] Wheel/pinch zoom preserving look-at center.
-- [x] Touch, mouse and pen drag the map; taps select and pinches never select.
-- [x] Repeated focused simplification followed by a final Astra xhigh code review.
-- [x] Confirm Siegework build CI and consolidate the stack into mega-PR #334.
-      The PR state records CI and landing status.
-
-World9 checkpoint: 104 application integration checks and Chromium pointer,
-controller, touch, save/reopen, camera and GPU cleanup checks passed. Further
-source edits remain unchecked until compiled and exercised.
-
-## Final integration checklist
-
-- [x] Give exploration a longer opening and slow wave, strength and group-size escalation.
-- [x] Use one circle size for HUD controls and icon-only construction actions;
-      group all controls and readouts in a vertical left/right edge strip, with
-      pill-shaped panels, visible hotkeys and a left-handed setting.
-- [x] Separate health from ore, enlarge the resource icon, and show counts in
-      matching high-contrast labels or badges.
-- [x] Fully repair a building when its existing upgrade completes, including
-      extractors and hub capacity; preserve pending damage and prevent resurrection.
-      Towers and artillery have no manual repair, including at maximum level.
-- [x] Normalize bank refunds after Scavenge of local-funded buildings while
-      preserving still-refundable paid work and local construction kits.
-- [x] Use the traditional three-arrow Scavenge recycle icon, distinguish Cancel’s
-      circled cross from modal Close, and shorten the defeat message to
-      “The hub was destroyed” while retaining full-map visibility.
-- [x] Quote hub repairs to the highest affordable percentage, spending only the
-      ore needed or available; complete the paid work with a worker.
-- [x] Recompute a deterministic transport minimum spanning tree each tick;
-      display current aerial links as continuous pulsing energy.
-- [x] Keep tower and artillery models compact; aerial transport replaces the
-      former tall plinths and their pass-under arches.
-- [x] Lower the hub and upper building profiles;
-      enlarge resource crystals and keep a pulsing halo around extractors.
-- [x] Allow buildings on current transport paths and intersections.
-- [x] Replace constructible houses with six paid hub capacity upgrades: 12 base
-      places, two per tier, maximum 24; prices double from 100 through 3,200 ore.
-      A worker assembles each upgrade; World12 uses a separate save identity.
-- [x] Use a hard, continuous reveal contour instead of a fuzzy or grid-aligned edge.
-- [x] Give artillery a distinct gun silhouette.
-- [x] Count down to the next difficulty increase, never to an unseen wave spawn;
-      keep hidden enemy spawns out of the HUD and accessible status.
-- [x] Keep repeated New worker and Repair actions in the selected hub popup;
-      retain Home on the edge strip and remove the separate worker menu.
-- [x] Reserve and display a full 3×3 hub; offer explicit paid worker repairs.
-- [x] Outline the combined range of active artillery on the map.
-- [x] Enemies under fire pursue the attacker; other buildings do not intercept
-      that pursuit.
-- [x] Replace the brush planner with direct tile construction. Deposits offer
-      extractors; ordinary tiles offer tower/artillery with visible costs.
-      Repeat a tile tap to build the remembered successful type; retargeting is
-      free, and failed orders retain their intended choice for retry.
-- [x] Fix lighting relative to the camera, including intermediate Q/E rotations.
-- [x] Keep drag for panning and pinch for zoom; expose compact quarter-turn
-      buttons directly on screen. Do not add twist rotation.
-- [x] Keep mobile attack notifications separate from controls, with white-on-red
-      location labels and a dismiss action, without rendered thumbnails; inspect portrait and
-      landscape layouts, and permit later attacks to alert again.
-- [x] Profile representative mobile-sized simulation, view and GPU work;
-      record the earlier native-resolution baseline without claiming a thermal cause.
-- [x] Render the 3D world and HUD at native HiDPI resolution, without MSAA;
-      preserve logical input and smooth orthographic camera motion.
-- [x] Use 2:1 dimetric ground diamonds at quarter-turn camera snaps, with 30°
-      elevation and smooth intermediate rotation, pan and zoom.
-- [x] Add the max-dps-test using actual model facts, three-minute discovery and
-      0.5 utilization; report its optimistic assumptions and finite horizon.
-- [x] Compact the map to 128×128 and move the nest to five or six observation
-      hops; target a fast ten-minute expedition with 45-second opening,
-      thirty-second waves, ninety-second ranks and nine-minute boss pressure.
-      Preserve nest destruction as the only victory; use a distinct World11
-      storage identity so old seeds and paths are never silently remapped.
-- [x] Spread nearby enemies across open approaches without crossing terrain;
-      verify crowd movement and saved-route invariants.
-- [x] Exercise new orders on surveyed but currently hidden tiles, stale menus,
-      observer destruction and fogged kit delivery in actual Wasm. Five checks
-      pass; the reported rejected transition remains unreproduced.
-- [x] Weighted worker routes account for walking versus cart travel time.
-- [x] Pending recruits count toward completed hub capacity; pending expansions
-      grant no places and refund their paid hub ore if the assigned worker dies.
-- [x] Worker sight reveals a small radius without unbounded survey history.
-- [x] Hidden construction stalls new assignments/pickup and explains why;
-      existing carriers can reveal their destination while following a known route.
-- [x] Obsolete track geometry disappears; source-owned freight is conserved
-      across reroutes and counted once when its source is destroyed.
-- [x] Require an accepted paid extractor before any other ore purchase; that
-      order starts the clock, while inspection and selection leave time stopped.
-- [x] Rejecting a transition keeps the exact committed colony; retain one
-      separate command/snapshot reproduction for debugging.
-- [x] Restart confirmation pauses, with cancellation returning to the Pause menu.
-- [x] Smoke on damage and compact red/white attack notifications with location
-      and dismiss actions.
-- [x] Continuous display-rate unit/freight motion; hard reveal contour checked above.
-- [x] Verify the final exact artifact in Chromium, publish on 4212 and attach screenshots.
-- [x] Reconcile current main and include the Siegework build in CI.
-      Merge only after the PR checks pass.
-
-World10 model checkpoint: the compact edge-strip build passes 175 integration
-checks. Earlier stress runs covered 31,494 commands, 1,026 exact save round-trips
-and 156 close encounters. The original reported invalid-transition crash remains
-unreproduced; retained diagnostics can capture a recurrence. Current evidence,
-including the separately checked final mobile package, is recorded in
-[VALIDATION.md](apps/siegework/VALIDATION.md).
-
-## Focused menu simplification
-
-- [x] Remove the map-scale toggle; retain wheel/pinch zoom and Q/E buttons.
-- [x] Consolidate Pause, Resume, Restart and handedness into a labeled centered
-      menu. Restart cancellation returns to Pause; saved paused colonies expose
-      Resume. Keep unpaid selection intact and block covered gameplay controls.
-- [x] Keep first-extractor guidance visible and point toward the highlighted deposit.
-- [x] Keep menu operations pending until save settlement, retain retry controls
-      after failures and synchronize paused startup/imports without adding World
-      reads to camera input.
-- [x] Verify the new menu and callout in actual Wasm and Chromium at portrait
-      and short landscape sizes, on both control sides.
+- [ ] Rewrite the colony model with nominal sum types and `match` in place of
+  integer-coded kinds, jobs and stages.

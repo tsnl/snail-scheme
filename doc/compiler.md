@@ -15,7 +15,7 @@ Compiler: source → located library values → resolved imports and macro expan
 Build:    optimized Wasm → runtime Wasm linkage → Binaryen → V8/WASI
 ```
 
-The [language contract](lofi.md) describes intended language behavior. This
+The [language book](book/lofi/index.md) describes intended language behavior. This
 reference describes the current modules in `src/lofi/`.
 The compiler emits WasmGC. Chibi host utilities live in `src/lofi/host/`;
 Rust scalar services live in `src/runtime/`. The Wasm engine owns collection.

@@ -51,7 +51,7 @@ Binaryen is required and checked before compilation. Rust scalar services are
 compiled to Wasm and linked with the program.
 See [commands](doc/options.md) and [build requirements](doc/backend.md).
 
-The [language design](doc/lofi.md) defines the surface and type model.
+The [language book](doc/book/lofi/index.md) defines the surface and type model.
 The [compiler tour](TOUR.md) follows source locations and type evidence through
 the implementation. [The roadmap](doc/roadmap.md) separates current work from
 further Scheme support and self-hosting.

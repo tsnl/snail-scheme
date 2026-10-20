@@ -1,6 +1,6 @@
 # Lofi libraries
 
-This namespace contains the [Lofi language](../../doc/lofi.md), runtime libraries,
+This namespace contains the [Lofi language](../../doc/book/lofi/index.md) libraries,
 and the public compiler API. The implementation is under
 [`compiler/`](compiler/README.md), separate from the standard library. All library
 sources use `.sld`. Import `(lofi core)` for named kernel syntax and `(lofi base)`
@@ -42,14 +42,8 @@ overload families.
 
 ## Source and representation contracts
 
-The initial extraction started from `src/snail/{strict,io,math,text,bytes,integer,rational,number,datum,read,write}.sld`
-at commit `2db2216b32254bbaf9b49ebed30e0bca495ec6c2`. `strict` becomes
-`core`, subsequently renamed `base`; the other module names stay the same. All 393 value definitions, 24
-nominal data declarations, 126 overload signatures and 44 typed foreign
-declarations were retained by the initial extraction. It preserved foreign
-module/provider strings and scalar signatures. The scalar-services crate in
-[`src/runtime/`](../runtime/Cargo.toml) supplies scalar services for linked Wasm;
-the input packet extension is described below.
+The scalar-services crate in [`src/runtime/`](../runtime/Cargo.toml) supplies
+scalar services for linked Wasm; the input packet extension is described below.
 
 The libraries retain concrete storage and explicit mutation. Integer limb arrays
 are private scratch storage until publication; rationals normalize at construction;
@@ -61,9 +55,7 @@ checked. Datum hashing's named word operations have the same wrapping contract.
 Nominal `Number` inexact arithmetic, the named exact-to-F64 conversions and
 `(lofi math)` scalar services also retain IEEE results; unbounded `Integer`
 arithmetic remains exact.
-Graph equality and output keep their existing work lists and cycle handling.
-No generic evaluator, boxed replacement algorithm or reduced numeric domain is
-introduced by the migration.
+Graph equality and output use explicit work lists and cycle handling.
 
 `string-foldcase` follows the [Unicode 16 default full mappings](https://www.unicode.org/Public/16.0.0/ucd/CaseFolding.txt)
 and returns fresh mutable string storage, including for empty and unchanged
@@ -71,19 +63,6 @@ strings. A first traversal computes the checked output length; a second fills
 it. Rust returns scalar mapping lengths and components, without receiving
 managed strings or allocating temporary strings. The generated casing exceptions
 record Rust's Unicode baseline and require regeneration when it changes.
-
-Every former procedure definition is an explicit `def` containing a lambda,
-with any existing signature attached. A lambda has one body expression;
-`begin` supplies ordered statements and a final value. A statement `let` binds
-its name only after its initializer. The surface migration preserves each old
-parallel let with a fresh block: all initializers run before aliases introduce
-the old names. Existing nested blocks remain separate lexical scopes.
-
-The 79 local recursive loops use a fresh lexical `begin`, an explicit lambda
-definition and the initial call. Their original initializers contain no reference
-to the loop binding, so this change does not capture an outer name. Call operands
-retain left-to-right, exactly-once evaluation. These blocks must not be flattened
-into their enclosing lexical scope.
 
 Boolean short-circuiting is explicit `if`: a strict Boolean operand is evaluated
 once, and later operands run only on the required branch. Count/range checks,
@@ -94,11 +73,9 @@ File close detaches the shared handle before a potentially failing host close;
 closing borrowed standard streams remains a no-op. Callback helpers close after normal
 return without adding exception recovery.
 
-Small accessors and conversions remain direct. Recursive construction loops,
-multi-step numeric transitions, exhaustive data dispatch and the final tests can
-exceed the ten-line target when their explicit binding and sequencing make the
-whole operation easier to follow. They retain their original cohesive operations
-instead of introducing helpers solely to reduce a line count.
+Recursive construction loops, multi-step numeric transitions, exhaustive data
+dispatch and the final tests can exceed the ten-line target when keeping them
+together makes the whole operation easier to follow.
 
 ## Text input cursor
 
@@ -133,64 +110,15 @@ packet boundaries, Unicode buffer splits, aliases, mixed readers,
 borrowed scalar interoperation, closed cached input, file growth after EOF,
 valid output before malformed input, and resource release.
 
-## Tests and current validation
+## Tests
 
 The final `Tests` sections of `text`, `integer`, `rational`, `number`, `datum`,
-`read` and `write` retain all existing test bodies. Each exposes one ordinary
-`test-<module>` function returning `42` on success; helpers remain private. These
-exports are always available in Lofi, replacing the old `snail-tests` conditional
-expansion. A program can call them directly without a language feature flag.
+`read` and `write` each expose one ordinary `test-<module>` function returning
+`42` on success; helpers remain private. These exports are always available in
+Lofi programs, without a feature flag, so tests can call them from linked Wasm.
 
-Empty lists use the polymorphic `empty-list` operation. Quoted list syntax is
-rejected.
-The private reader delimiter test constructs its twelve integer elements with
-explicit `cons` calls. This is the only test-allocation adaptation; no production
-constant or benchmark kernel changes allocation behavior.
+## Compiler APIs
 
-The initial extraction's structural audit checked bare-form arities, retained definitions, attached
-signatures, data/overload/foreign declarations, numeric/string/character constants
-and non-control application inventories. Its only extra non-control calls are
-the reader test's twelve `cons` operations. This audit supplements execution; it
-does not establish runtime correctness by itself.
-
-The historical source checkpoint `3ae7928`, before the published surface
-migration, passed the following execution checks:
-
-- A core fixture returned `42` on raw and mandatory-Binaryen-optimized Wasm,
-  including the invocation guard. The same fixture also passed with committed
-  frontend `b74e437`.
-- Every retained `test-<module>` entry point returned `42` on raw linked Wasm,
-  optimized linked Wasm, native64 and native64 with collection forced at each
-  allocation opportunity.
-- Focused I/O checks passed on both linked Wasm forms and native64. They cover
-  generic file callbacks, CR/LF/CRLF and EOF, exact Unicode and minimum-I64 output,
-  borrowed stdout, and closed-alias reads and empty writes. The positive native
-  check also passed with forced collection. Node verified that owned descriptors
-  drained and standard descriptors stayed open.
-
-The combined module and I/O checks used a frozen 97-file compiler snapshot taken
-before `b74e437`; its individual source hashes are retained with the command
-records. The later core smoke used the committed compiler itself. The first
-combined build was deliberately interrupted after discovering the private
-nonempty-quote test assumption. The first I/O fixture was correctly rejected
-because its negative-check export returned a nominal value; its corrected export
-discards that value and returns `Unit`. Both initial records are retained.
-
-These are library correctness checks, not complete benchmark-suite coverage or
-performance measurements. Historical strict-Scheme measurements remain historical.
-The [surface migration manifest](../../tests/lofi/surface-migration.json) records
-original, mechanically migrated, and formatted source hashes. Formatting preserves
-every syntax token and comment. Its checks do not revalidate the historical
-execution artifacts against the new compiler surface.
-
-The focused `core`/`io` clarity review used the pinned
-[simplify skill](../../.agents/skills/simplify/SKILL.md), a fresh explainer without
-repository access, and informed debate about scope, initialization, short-circuit
-behavior and port lifetime. It supported the explicit control forms above and
-retaining Wasm bulk copies, initialized vector storage, CR/LF/CRLF behavior,
-empty-write lifetime checks and the existing minimum-I64 formatting algorithm.
-
-The former `artifacts.sld` belonged to the removed Scheme build machinery.
 `compiler/builder.sld` constructs and inspects complete Lofi library syntax.
 Compiled producers transfer owned values into Chibi through the checked
 [builder protocol](../../doc/lofi-builder.md). The

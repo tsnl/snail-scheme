@@ -344,8 +344,7 @@ node tests/applications/hosting.mjs build/siegework
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9452
 ```
 
-See [validation evidence](VALIDATION.md) for exact results and limitations, and
-[TODO.md](../../TODO.md) for delivery status. This is an early scene library;
+This is an early scene library;
 textures, arbitrary-mesh picking, shadows and full Three.js compatibility remain
 future work. Multiplayer and automatic investment are outside this iteration.
 

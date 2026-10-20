@@ -143,4 +143,4 @@ This representation preserves the WasmGC and scalar-resource ownership boundary.
 
 The [tour](../TOUR.md) gives a reading order through `src/lofi/`, and the
 [compiler reference](compiler.md) describes each module's contract.
-[The Lofi design](lofi.md) is the language contract.
+[The Lofi book](book/lofi/index.md) is the language contract.

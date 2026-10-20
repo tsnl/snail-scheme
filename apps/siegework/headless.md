@@ -16,8 +16,7 @@ node apps/siegework/environment-cli.mjs /tmp/siegework-environment/solo
 
 The package must provide player observation ABI version 1; older gameplay builds
 deliberately fail the environment's version check. Rebuild from source to obtain
-the extension, which changes neither World15 nor gameplay. Tested package
-identities and temporary artifact paths are recorded in [VALIDATION.md](VALIDATION.md).
+the extension, which changes neither World15 nor gameplay.
 
 ## Node API and episode semantics
 

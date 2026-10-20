@@ -127,9 +127,7 @@ Replacing the module starts fresh geometry caches while preserving typed state.
 
 Completed numeric arrays are frozen at the bridge's construction boundary, so
 the presentation finalizer can preserve them without recursively copying every
-number. Wrappers and reveal metadata still receive recursive freezing. See the
-[measured finalization cost](../../doc/measurements/scene-finalization-2026-10-18.md)
-for avoided work, output-equivalence checks and remaining mobile costs.
+number. Wrappers and reveal metadata still receive recursive freezing.
 
 `present-scene!` composes each occurrence's world transforms and current normal
 matrix for changed batches. It does not expand transformed vertices. The bridge

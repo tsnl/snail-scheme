@@ -1,11 +1,7 @@
 # Lofi commands
 
-Lofi means **Low-level Functional IR**. It was previously named SFIR.
-Source files now use `.sld`, standard libraries use `(lofi ...)`, and the
-command is `lofi`. Rename existing files and imports before rebuilding.
-Compiler services and saved artifacts also use `lofi` protocol names; rebuild
-artifacts and update their consumers together. SRFI names belong to the Scheme
-host's libraries and retain their original spelling.
+Lofi means **Low-level Functional IR**. Source files use `.sld`, standard
+libraries use `(lofi ...)`, and the command is `lofi`.
 
 `lofi` is hosted by Chibi. Help works before dependency checks.
 

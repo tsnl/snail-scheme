@@ -11,7 +11,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   expand away before ordinary checking; procedural transformers and self-hosting
   remain deferred. Chibi hosts `(lofi compiler bootstrap)` through `bootstrap/`;
   product sources import the public `(lofi compiler)`. See [the language
-  contract](doc/lofi.md).
+  book](doc/book/lofi/index.md).
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries
@@ -30,8 +30,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   `// ---- Title ----` in Rust, with sentence
   case and a blank line on each side.
   Keep unit tests in a final `Tests` section of their implementation module.
-  Each tested Scheme module exports one `test-<module>` entry point under the
-  `snail-tests` feature; test cases and helpers stay private. Keep integration
+  Each tested Chibi-hosted module exports one `test-<module>` entry point under
+  the `snail-tests` feature; Lofi standard libraries export theirs
+  unconditionally because compiled Lofi has no feature flags. Test cases and
+  helpers stay private. Keep integration
   fixtures, runners, and shared assertion support in `tests/`.
   Inactive test sections must remain readable by the Chibi compiler host.
 - Target **ten lines of logic per function**. Name complete operations, not

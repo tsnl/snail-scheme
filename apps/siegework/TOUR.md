@@ -243,8 +243,7 @@ Scheme/Wasm transitions, including cancellation, preemption, depot freight,
 endpoint loss, invalid ownership and persistence failures. Fixture helpers edit
 typed wire records to establish boundary scenarios; they contain no alternate
 game simulation. Browser checks exercise shared input, WebGPU presentation,
-online checkpoint transfers and compatible or rejected reloads. Current evidence
-is recorded in [`VALIDATION.md`](VALIDATION.md).
+online checkpoint transfers and compatible or rejected reloads.
 The shared model-only probe also supports the
 [`starter economy experiment`](../../tests/applications/starter-economy-test.md).
 Its instantaneous, validated fixtures price paid survey orders against the finite

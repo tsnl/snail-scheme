@@ -1,8 +1,7 @@
 
 The `scripts/test-*` commands launch ordinary Chibi programs in `tests/snail-tests`.
 The harness records every command, its terminal output, status, duration and owned
-process cleanup under a fresh attempt directory in `build/`. These durations are
-diagnostics, not clean benchmark measurements. Contract tests retain raw Wasm
+process cleanup under a fresh attempt directory in `build/`. Contract tests retain raw Wasm
 and Binaryen output and execute both in V8. The engine owns GC; the host retains
 explicit scalar-resource cleanup checks.
 
@@ -14,36 +13,6 @@ success requires the exact assigned case list in both `selection.json` and
 `results.json`, all cases passing, and a matching `completion.json`. Backend
 success requires the selected suites to reach the umbrella's final validation
 record. New attempt directories prevent stale records from satisfying a check.
-
-The initial scheduling baseline on 2026-10-17 was a successful 29-suite run with
-3,432.268 seconds of summed constituent command duration, including 1,632.856
-seconds in integration. That is 57.20 minutes of recorded command time, not a
-measured GitHub Actions wall time. That historical integration attempt passed 356
-cases; the current inventory is `lofi-integration/cases.json`. Sharding preserves
-those cases, including expected compile rejections and both Wasm forms for
-executable cases.
-The separate 57-workload benchmark comparison remains unchanged.
-
-A matched local sample at `c9a1c05d` selected 32 evenly spaced integration cases
-(`floor(i * 366 / 31)`, `i = 0..31`). With the same toolchain, a warm supervisor,
-fresh output directories and `BINARYEN_CORES=1`, serial execution took 121.900
-seconds and four concurrent shards took 34.398 seconds on a 24-CPU host. Both
-completed the same 19 executable cases, 13 compile rejections and 70 fixture
-commands. Summed command durations, including each process's setup, were 120.005
-and 121.012 seconds. This cut sample wait time by 71.78% (3.54x faster); it is
-not a cold build measurement or a per-case compiler speedup.
-
-The first complete [hosted run](https://github.com/tsnl/snail-scheme/actions/runs/39014095547)
-at that revision passed in 19 minutes 2 seconds, including queueing and setup.
-Its four ordinary backend groups took 1,000.258, 476.507, 866.857 and 808.016
-seconds in their runners; the longest integration shard took 405.424 seconds.
-Those recorded suite durations motivated nine backend groups: their longest
-summed suite time would be 570.513 seconds, compared with 987.916 seconds in the
-original four-group assignment. That calculation excludes setup and is a
-scheduling estimate, not an observed speedup. Nine backend, eight integration
-and three host/public jobs fit 20 simultaneous runners at that checkpoint.
-The current matrix uses two host/public jobs after retiring the native suite;
-`ci.mjs` derives its assignments from the suite inventories.
 
 `scripts/test-lofi-serialization` checks the complete fixture inventory in
 `serialization/cases.json`: derived graphs, nominal type tags, malformed input,
