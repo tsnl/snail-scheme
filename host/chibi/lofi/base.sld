@@ -111,7 +111,7 @@
 
     (define (member? value items) (if (member value items) #t #f))
 
-    (define (concatenate lists) (apply append lists))
+    (define (concatenate lists) (fold-right append '() lists))
 
     (define (delete-duplicates same? items)
       (reverse (fold-left (lambda (kept item) (if (any (lambda (other) (same? other item)) kept) kept (cons item kept)))
@@ -139,7 +139,11 @@
           ""
           (fold-left (lambda (joined text) (string-append joined separator text)) (car texts) (cdr texts))))
 
-    (define (string-concatenate texts) (apply string-append texts))
+    ;; Without `apply`, which would push every string onto Chibi's stack.
+    (define (string-concatenate texts)
+      (let ((out (open-output-string)))
+        (for-each (lambda (text) (write-string text out)) texts)
+        (get-output-string out)))
 
     (define (string-generate count f)
       (let ((text (make-string count #\space)))

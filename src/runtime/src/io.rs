@@ -223,6 +223,41 @@ pub extern "C" fn flush(id: u32) {
     checked(result);
 }
 
+// ---- Command-line arguments ----
+
+// The arguments never change during an invocation, so Lofi reads them as
+// total functions: a count, then each argument one scalar at a time.
+fn argument(index: i32) -> Result<String, String> {
+    usize::try_from(index)
+        .ok()
+        .and_then(|index| std::env::args().nth(index))
+        .ok_or_else(|| format!("no command-line argument {index}"))
+}
+
+#[unsafe(export_name = "snail:process/argument-count")]
+pub extern "C" fn argument_count() -> i32 {
+    i32::try_from(std::env::args().count()).unwrap_or(i32::MAX)
+}
+
+#[unsafe(export_name = "snail:process/argument-length")]
+pub extern "C" fn argument_length(index: i32) -> i32 {
+    let result =
+        argument(index).map(|text| i32::try_from(text.chars().count()).unwrap_or(i32::MAX));
+    checked(result)
+}
+
+#[unsafe(export_name = "snail:process/argument-character")]
+pub extern "C" fn argument_character(index: i32, position: i32) -> u32 {
+    let result = argument(index).and_then(|text| {
+        usize::try_from(position)
+            .ok()
+            .and_then(|position| text.chars().nth(position))
+            .map(u32::from)
+            .ok_or_else(|| format!("no character {position} in argument {index}"))
+    });
+    checked(result)
+}
+
 // ---- Explicit resource release ----
 
 fn release_file(mut port: Port) -> Result<(), String> {

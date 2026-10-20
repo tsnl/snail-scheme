@@ -15,7 +15,8 @@
    fs
    read-file
    write-file
-   file-exists?)
+   file-exists?
+   command-line)
   (import
    (lofi base))
   (begin
@@ -124,5 +125,21 @@
             (port-write port (string-ref text index))
             (loop (+ index 1))))
         (port-close port)))
+
+    ;; ---- Command line ----
+
+    ;; The program's arguments, starting with its own path. They never change
+    ;; while it runs, so reading them is total.
+    (extern argument-count "snail.library" "snail:process/argument-count" (-> I32))
+    (extern argument-length "snail.library" "snail:process/argument-length" (-> I32 I32))
+    (extern argument-character "snail.library" "snail:process/argument-character" (-> I32 I32 Char))
+
+    (: command-line (-> (List String)))
+    (define (command-line)
+      (map (lambda (index)
+             (let ((argument (i64->i32 index)))
+               (string-generate (i32->i64 (argument-length argument))
+                                (lambda (position) (argument-character argument (i64->i32 position))))))
+           (iota (i32->i64 (argument-count)))))
 
     ))

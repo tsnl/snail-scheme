@@ -4,12 +4,14 @@
    read-file
    write-file
    file-exists?
+   command-line
    write-string
    write-line
    newline)
   (import
    (rename (scheme base) (write-string scheme-write-string) (newline scheme-newline))
-   (scheme file))
+   (scheme file)
+   (scheme process-context))
   (begin
 
     (define (read-file path)

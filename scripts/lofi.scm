@@ -10,7 +10,7 @@
 
 ;; ---- Requests ----
 
-(define usage "usage: lofi compile|run|wat [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...]")
+(define usage "usage: lofi compile|run|wat [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | lofi bootstrap")
 
 
 
@@ -70,4 +70,6 @@
 
 (let ((arguments (command-line)))
   (exit (guard (failure (#t (report failure)))
-               (perform (cadr arguments) (request (cddr arguments))))))
+               (if (equal? (cddr arguments) '("bootstrap"))
+                   (begin (bootstrap! (cadr arguments)) 0)
+                   (perform (cadr arguments) (request (cddr arguments)))))))
