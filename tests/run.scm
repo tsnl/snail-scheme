@@ -70,11 +70,11 @@
              (let ((text (error-text failure)) (wanted (trim-newline (read-text expected-error))))
                (or (string-contains text wanted) (report name "wrong diagnostic" (string-append text "\nexpected: " wanted)))))
             (#t (report name "compile failed" (error-text failure))))
-           (build-program root directories source program #f)
-           (cond ((file-exists? expected-error) (report name "compiled, but a diagnostic was expected" ""))
-                 ((not (file-exists? expected-output)) (report name "no expected output" ""))
-                 (else (let ((output (run-wasm root program)) (expected (read-text expected-output)))
-                         (or (equal? output expected) (report name "wrong output" (string-append output "\nexpected:\n" expected)))))))))
+      (build-program root directories source program #f)
+      (cond ((file-exists? expected-error) (report name "compiled, but a diagnostic was expected" ""))
+            ((not (file-exists? expected-output)) (report name "no expected output" ""))
+            (else (let ((output (run-wasm root program)) (expected (read-text expected-output)))
+                    (or (equal? output expected) (report name "wrong output" (string-append output "\nexpected:\n" expected)))))))))
 
 (define (run-suite root suite libraries selected)
   (let* ((directory (path-join root suite)) (build (path-join root "build/tests" suite))
@@ -89,11 +89,11 @@
 
 (define (run-siegework root)
   (guard (failure (#t (report "siegework" "headless run failed" (error-text failure))))
-         (let ((program (path-join root "build/tests/siegework/app.wasm")))
-           (build-program root (list (path-join root "apps/siegework/src") (path-join root "lib"))
-                          (path-join root "apps/siegework/main.sld") program #f)
-           (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs") program))))
-             (or (zero? (caddr result)) (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))))
+    (let ((program (path-join root "build/tests/siegework/app.wasm")))
+      (build-program root (list (path-join root "apps/siegework/src") (path-join root "lib"))
+                     (path-join root "apps/siegework/main.sld") program #f)
+      (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs") program))))
+        (or (zero? (caddr result)) (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))))
 
 ;; The command line itself: printing text and running a program.
 (define (run-command-line root)

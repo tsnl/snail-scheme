@@ -5,6 +5,8 @@
 (dolist (form '(struct enum typeclass instance effect match))
   (put form 'scheme-indent-function 1))
 (put 'handle 'scheme-indent-function 2)
+;; Emacs 31 indents `guard' this way; older versions treat it as a call.
+(put 'guard 'scheme-indent-function 1)
 
 (defun snail-format-entries (header-length)
   "Put each list entry after HEADER-LENGTH elements on its own line."
