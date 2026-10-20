@@ -13,10 +13,11 @@
    Integral quotient remainder modulo
    Fractional / sqrt floor ceiling round truncate
    i32->i64 i64->i32 i64->f64 f64->i64 i32->f64 f64->i32 f32->f64 f64->f32 i64->f32 f32->i64
+   i32->f32 f32->i32
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string f64->string
    Option Some None Result Ok Err Pair Pair-first Pair-second
-   List Cons Nil list null? length reverse append map for-each filter fold-left fold-right
+   List Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
    list-ref list-tail any? every? find member? iota concatenate
    char->integer integer->char char-whitespace? char-numeric? char-alphabetic? digit-value
    string-length string-ref string-append substring string=? string<? make-string
@@ -28,7 +29,8 @@
    ref ref-get ref-set!)
   (import
    (lofi core)
-   (lofi primitive))
+   (lofi primitive)
+   (rename (only (lofi primitive) string-append) (string-append append-two-strings)))
   (begin
 
     ;; ---- Derived syntax ----
@@ -84,6 +86,13 @@
         ((_ ((name init step) ...) (test result ...) body ...)
          (let loop ((name init) ...)
            (if test (begin (unit) result ...) (begin body ... (loop step ...)))))))
+
+    ;; `string-append` takes any number of strings.
+    (define-syntax string-append
+      (syntax-rules ()
+        ((_) "")
+        ((_ text) text)
+        ((_ text rest ...) (append-two-strings text (string-append rest ...)))))
 
     (: not (-> Bool Bool))
     (define (not value)
@@ -298,6 +307,13 @@
     (: map (All (A B e) (-> (-> A B ! e) (List A) (List B) ! e)))
     (define (map f items)
       (reverse (fold-left (lambda (mapped item) (Cons (f item) mapped)) (Nil) items)))
+
+    (: map-indexed (All (A B e) (-> (-> I64 A B ! e) (List A) (List B) ! e)))
+    (define (map-indexed f items)
+      (let loop ((items items) (index 0) (mapped (Nil)))
+        (match items
+          ((Nil) (reverse mapped))
+          ((Cons item rest) (loop rest (+ index 1) (Cons (f index item) mapped))))))
 
     (: for-each (All (A e) (-> (-> A Unit ! e) (List A) Unit ! e)))
     (define (for-each f items)

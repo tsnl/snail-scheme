@@ -18,7 +18,7 @@
    case-id=?)
   (import
    (lofi base)
-   (lofi primitive))
+   (except (lofi primitive) string-append))
   (begin
 
     ;; ---- Classes ----

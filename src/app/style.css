@@ -1,0 +1,17 @@
+/* Layout for (lofi app) pages: a full-window canvas and four HUD corners. */
+html, body { margin: 0; height: 100%; overflow: hidden; background: #10141c; color: #e8ecf2;
+  font: 14px/1.4 system-ui, sans-serif; }
+canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+#overlay { position: fixed; inset: 0; pointer-events: none; }
+.panel { position: absolute; display: flex; flex-direction: column; gap: 6px; max-width: 360px; }
+.panel:empty { display: none; }
+.top-left { top: 12px; left: 12px; }
+.top-right { top: 12px; right: 12px; align-items: flex-end; }
+.bottom-left { bottom: 12px; left: 12px; flex-direction: row; flex-wrap: wrap; }
+.bottom-right { bottom: 12px; right: 12px; align-items: flex-end; }
+.label, .meter { padding: 4px 10px; border-radius: 6px; background: rgba(16, 20, 28, 0.78); }
+.meter { background: linear-gradient(90deg, rgba(220, 80, 70, 0.55) var(--fill), rgba(16, 20, 28, 0.78) var(--fill)); }
+button { pointer-events: auto; padding: 8px 12px; border: 1px solid #3a4658; border-radius: 6px;
+  background: #1c2433; color: inherit; font: inherit; cursor: pointer; }
+button:hover { background: #26324a; }
+button.selected { border-color: #8fd18f; background: #23402a; }

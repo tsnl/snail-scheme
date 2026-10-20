@@ -45,7 +45,7 @@
                     (let ((text (error-text failure)) (wanted (string-trim-newline (read-text expected-error))))
                       (or (string-contains text wanted) (report name "wrong diagnostic" (string-append text "\nexpected: " wanted))))
                     (report name "compile failed" (error-text failure)))))
-      (build-program root (list (path-join root "lib") directory (path-join directory "lib")) source program #f)
+      (build-program root (list (path-join root "lib") directory (path-join directory "lib") (path-join root "apps/siegework/src")) source program #f)
       (if (file-exists? expected-error)
           (report name "compiled, but a diagnostic was expected" "")
           (let ((record (run-command/capture (list (tool-name "NODE" "node") "--no-warnings" (path-join root "scripts/run-lofi.mjs") program)

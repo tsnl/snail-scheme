@@ -612,16 +612,16 @@
     ;; ---- Definitions ----
 
     ;; An unannotated group of mutually recursive definitions is inferred
-    ;; together. If every initializer is total it is solved and generalized
-    ;; now; otherwise it stays monomorphic, and its constraints wait until the
-    ;; whole program is checked, so later uses can still fix literal types.
+    ;; together. A group of functions is solved and generalized now. Any other
+    ;; group stays monomorphic, and its constraints wait until the whole
+    ;; program is checked, so later uses can still fix the type of a literal.
     (define (check-group ck definitions)
       (for-each (lambda (definition)
                   (hash-table-set! (Checker-schemes ck) (Define-name definition) (mono-scheme (fresh-meta ck))))
                 definitions)
       (let ((results (map (lambda (definition) (infer-definition ck definition)) definitions)))
         (for-each (lambda (result) (check-host-effects ck (cdr result) (Expr-loc (car result)))) results)
-        (if (every (lambda (result) (total? (cdr result))) results)
+        (if (every (lambda (definition) (match (Expr-term (Define-value definition)) ((Lambda _ _) #t) (_ #f))) definitions)
             (let ((stuck (solve-now! ck '() (take-wanted! ck))))
               (unless (null? stuck) (ambiguous-error stuck))
               (generalize! ck definitions))

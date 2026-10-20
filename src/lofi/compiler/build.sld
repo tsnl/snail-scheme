@@ -7,6 +7,7 @@
   (import
    (scheme base)
    (scheme file)
+   (chibi filesystem)
    (lofi compiler expand)
    (lofi compiler check)
    (lofi compiler mono)
@@ -30,6 +31,7 @@
     (define (build-program root directories source output release?)
       (let ((wat (string-append output ".wat")) (raw (string-append output ".raw.wasm"))
             (module (string-append output ".module.wasm")))
+        (create-directory* (path-directory output))
         (write-text wat (compile->wat directories source))
         (parameterize ((wasm-release-optimization? release?))
           (assemble-wasm wat raw)
