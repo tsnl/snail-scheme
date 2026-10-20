@@ -807,7 +807,7 @@
         (if (and (or (not loaded) (source-reachable? world bot (bot-target bot) delivery))
                  (reachable? origin (building-x building) (building-y building) path))
             (list (make-builder-choice (if loaded (bot-path-set bot delivery) bot) 0
-                                      (+ (if loaded (travel-ticks world bot delivery) 0) (travel-ticks world origin path)) path))
+                                       (+ (if loaded (travel-ticks world bot delivery) 0) (travel-ticks world origin path)) path))
             (empty-list))))
     (define (prepare-builder world bot building reserve)
       (cond ((or (not (null? (bot-flight bot))) (construction-hidden? world building)) (empty-list))

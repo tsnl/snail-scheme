@@ -18,17 +18,14 @@
 
     (define (bounded? value low high) (and (>= value low) (<= value high)))
     (define (require! valid) (unless valid (unreachable)))
-    ;; A previously legal structure may occupy a newly introduced bonus site.
-    ;; Coexistence preserves its orders; the occupied cell blocks mining until
-    ;; it moves or is destroyed. New orders still reserve deposits for mines.
+    ;; World13 starts a new geography: every deposit remains reserved for mines.
     (define (check-building! value world)
       (require! (and (> (building-id value) 0) (bounded? (building-kind value) 1 3)
                      (world-ground? world (building-x value) (building-y value))
                      (bounded? (building-level value) 1 3)
                      (bounded? (building-hp value) 1 (building-health (building-kind value)))
                      (if (= (building-kind value) 1) (> (world-deposit-rate world (building-x value) (building-y value)) 0)
-                         (or (= (world-deposit-rate world (building-x value) (building-y value)) 0)
-                             (bonus-deposit? (world-seed world) (building-x value) (building-y value))))
+                         (= (world-deposit-rate world (building-x value) (building-y value)) 0))
                      (bounded? (building-aim-x value) 0 (- (* map-width cell-size) 1)) (bounded? (building-aim-y value) 0 (- (* map-height cell-size) 1))
                      (>= (building-stock value) 0)
                      (if (ready? value)
@@ -170,7 +167,7 @@
         (let ((x (building-move-x building)) (y (building-move-y building)))
           (require! (and (surveyed? (world-surveys world) x y)
                          (not (and (= x (world-hub-x world)) (= y (world-hub-y world))))
-                         (or (= (world-deposit-rate world x y) 0) (bonus-deposit? (world-seed world) x y))
+                         (= (world-deposit-rate world x y) 0)
                          (unique-move? later x y) (null? (building-at (world-buildings world) x y)))))))
     (define (check-buildings! world buildings)
       (unless (null? buildings)
