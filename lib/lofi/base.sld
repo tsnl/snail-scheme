@@ -60,13 +60,15 @@
         ((_ value ((datum ...) body ...) clause ...)
          (if (or (= value datum) ...) (begin body ...) (case-clauses value clause ...)))))
 
+    ;; The body's last expression is a Unit, and stays in tail position, so
+    ;; a loop written with `when` runs in constant space.
     (define-syntax when
       (syntax-rules ()
-        ((_ test body ...) (if test (begin body ... (unit)) (unit)))))
+        ((_ test body ...) (if test (begin body ...) (unit)))))
 
     (define-syntax unless
       (syntax-rules ()
-        ((_ test body ...) (if test (unit) (begin body ... (unit))))))
+        ((_ test body ...) (if test (unit) (begin body ...)))))
 
     (define-syntax and
       (syntax-rules ()

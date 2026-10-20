@@ -168,7 +168,8 @@
            (map (lambda (field) (rep m (substitute substitution (Field-type field)))) (Case-fields case))))))
 
     ;; A struct is one GC struct. An enum is a base struct holding the tag,
-    ;; with one final subtype per case; the base is registered first because a
+    ;; with a final subtype for each case that has fields; a field-less case
+    ;; is the base struct itself. The base is registered first because a
     ;; supertype must precede its subtypes.
     (define (data-type m type)
       (let ((key (type-key type)))
@@ -177,7 +178,8 @@
               (hash-table-set! (Module-type-ids m) key id)
               (if (DataType-enum? data)
                   (begin (push! (Module-types m) `(type ,id (sub (struct (field i32)))))
-                         (for-each (lambda (case) (case-type m type case)) (DataType-cases data)))
+                         (for-each (lambda (case) (case-type m type case))
+                                   (filter (lambda (case) (pair? (Case-fields case))) (DataType-cases data))))
                   (let ((fields (case-fields m type (car (DataType-cases data)))))
                     (push! (Module-types m) `(type ,id (struct ,@(map (lambda (f) `(field ,f)) fields))))))
               id))))
@@ -205,15 +207,17 @@
     ;; ---- Functions ----
 
     ;; `access` maps each visible local name to the instruction that reads it,
-    ;; and `reps` to its representation.
+    ;; and `reps` to its representation. In a recursive lambda, `self` pairs
+    ;; its own name with its Wasm function, so it can call itself directly.
     (struct Fn
       ((module Module)
        (locals (Ref (List Datum)))
        (access HashTable)
-       (reps HashTable)))
+       (reps HashTable)
+       (self (Pair Symbol Symbol))))
 
     (define (new-fn m)
-      (Fn m (ref '()) (make-hash-table eq?) (make-hash-table eq?)))
+      (Fn m (ref '()) (make-hash-table eq?) (make-hash-table eq?) #f))
 
     (define (bind-local! fn name read rep)
       (hash-table-set! (Fn-access fn) name read)
@@ -393,7 +397,8 @@
       (match (Expr-term function)
         ((Lambda params body)
          (let-values (((param-reps result) (function-signature m (Expr-type function))))
-           (let* ((fn (new-fn m)) (id (fresh-id m "lambda")) (base (closure-type m param-reps result)))
+           (let* ((id (fresh-id m "lambda")) (fn (Fn-self-set (new-fn m) (and self (cons self id))))
+                  (base (closure-type m param-reps result)))
              (push! (Module-declared m) id)
              (when self (bind-local! fn self '(local.get $closure) (ref-of base)))
              (for-each (lambda (param rep) (bind-local! fn param `(local.get ,(wasm-id param)) rep)) params param-reps)
@@ -416,7 +421,9 @@
       (let ((m (Fn-module fn)))
         (match (Expr-term callee)
           ((Var name _ _)
-           (cond ((local-access fn name) (closure-call fn expr callee args tail?))
+           (cond ((and (Fn-self fn) (eq? name (car (Fn-self fn))))
+                  `((,(if tail? 'return_call 'call) ,(cdr (Fn-self fn)) (local.get $closure) ,@(map (lambda (arg) (emit1 fn arg)) args))))
+                 ((local-access fn name) (closure-call fn expr callee args tail?))
                  ((hash-table-ref/default (Module-definitions m) name #f)
                   => (lambda (definition)
                        (if (lambda-expr? definition)
@@ -426,13 +433,14 @@
           (_ (closure-call fn expr callee args tail?)))))
 
     (define (builtin-call fn expr name args)
-      (match (program-value (program-of (Fn-module fn)) name)
-        ((Constructor case _) (list (construct fn case (Expr-type expr) (map (lambda (arg) (emit1 fn arg)) args))))
-        ((Accessor case index _) (list (field-access fn case index (car args))))
-        ((Replacer case index _) (list (replace-field fn case index (car args) (cadr args))))
-        ((Primitive _) (emit-primitive fn name args (Expr-type expr)))
-        ((Operation effect _) (perform fn effect name args (Expr-type expr)))
-        ((Foreign module symbol scheme) (foreign-call fn name module symbol (Scheme-type scheme) args))))
+      (let ((m (Fn-module fn)) (code (lambda () (map (lambda (arg) (emit1 fn arg)) args))))
+        (match (program-value (program-of m) name)
+          ((Constructor case _) (list (construct fn case (Expr-type expr) (code))))
+          ((Accessor case index _) (list (field-access fn case index (car args))))
+          ((Replacer case index _) (list (replace-field fn case index (car args) (cadr args))))
+          ((Primitive _) (emit-primitive fn name args (Expr-type expr)))
+          ((Operation effect _) `((call ,(performer m effect name) ,@(code))))
+          ((Foreign module symbol scheme) (foreign-call fn name module symbol (Scheme-type scheme) args)))))
 
     (define (closure-call fn expr callee args tail?)
       (let-values (((params result) (function-signature (Fn-module fn) (Expr-type callee))))
@@ -443,11 +451,9 @@
             (,(if tail? 'return_call_ref 'call_ref) ,(code-type m base) ,read ,@(map (lambda (arg) (emit1 fn arg)) args)
              (struct.get ,base 0 ,read))))))
 
-    (define (data-case-type m type case)
-      (case-type m type case))
-
-    ;; Tag enums are i32 constants; nullary cases of other enums are shared
-    ;; immutable globals.
+    ;; Tag enums are i32 constants; field-less cases of other enums are shared
+    ;; immutable globals of the base type, so constructing them allocates
+    ;; nothing.
     (define (construct fn case type args)
       (let* ((m (Fn-module fn)) (name (Case-type case)))
         (cond ((tag-enum? m name) `(i32.const ,(Case-tag case)))
@@ -458,8 +464,8 @@
     (define (singleton m type case)
       (memoize! m (list 'singleton (type-key type) (Case-name case))
                 (lambda ()
-                  (let ((id (fresh-id m "value")) (case-id (case-type m type case)))
-                    (push! (Module-globals m) `(global ,id (ref ,case-id) (struct.new ,case-id (i32.const ,(Case-tag case)))))
+                  (let ((id (fresh-id m "value")) (base (data-type m type)))
+                    (push! (Module-globals m) `(global ,id (ref ,base) (struct.new ,base (i32.const ,(Case-tag case)))))
                     `(global.get ,id)))))
 
     (define (field-access fn case index value)
@@ -600,45 +606,45 @@
           (global.set ,current (local.get ,saved))
           (local.get ,result))))
 
-    ;; Arguments are evaluated before the handler is consulted, since they
-    ;; may perform the same effect.
-    (define (perform fn effect operation args type)
-      (let* ((m (Fn-module fn)) (id (handler-type m effect)) (info (program-effect (program-of m) effect))
-             (temps (map (lambda (arg) (declare-temp! fn (fn-rep fn (Expr-type arg)))) args))
-             (handler (declare-temp! fn `(ref null ,id))) (current (handler-global effect)))
-        `(,@(map (lambda (temp arg) `(local.set ,temp ,(emit1 fn arg))) temps args)
-          (local.set ,handler (global.get ,current))
-          (if (result ,(fn-rep fn type)) (ref.is_null (local.get ,handler))
-              (then ,@(host-default fn info operation (operation-type m operation) temps))
-              (else ,@(call-implementation fn info operation handler temps type))))))
-
     (define (handler-global effect)
       (wasm-id "handler." (symbol->string effect) ".current"))
 
-    ;; The implementation runs with its handler popped, which is restored
-    ;; when it returns.
-    (define (call-implementation fn info operation handler temps type)
-      (let-values (((params result) (function-signature (Fn-module fn) (operation-type (Fn-module fn) operation))))
-        (let* ((m (Fn-module fn)) (id (handler-type m (Effect-name info))) (base (closure-type m params result))
-               (implementation (declare-temp! fn (ref-of base))) (value (declare-temp! fn (fn-rep fn type)))
-               (current (handler-global (Effect-name info))))
-          `((local.set ,implementation (struct.get ,id ,(list-index (lambda (o) (eq? o operation)) (Effect-operations info)) (local.get ,handler)))
-            (global.set ,current (struct.get ,id ,(length (Effect-operations info)) (local.get ,handler)))
-            (local.set ,value (call_ref ,(code-type m base) (local.get ,implementation)
-                                        ,@(map (lambda (temp) `(local.get ,temp)) temps)
-                                        (struct.get ,base 0 (local.get ,implementation))))
-            (global.set ,current (local.get ,handler))
-            (local.get ,value)))))
+    ;; Each operation is one function, so its call sites are ordinary calls.
+    ;; It runs the innermost handler's implementation with that handler
+    ;; popped, then restores it; with no handler it uses the host default.
+    (define (performer m effect operation)
+      (helper! m (list "perform" operation)
+               (lambda (id)
+                 (let-values (((params result) (function-signature m (operation-type m operation))))
+                   (let* ((names (map (lambda (index) (string->symbol (string-append "$argument." (number->string index))))
+                                      (iota (length params))))
+                          (handler-id (handler-type m effect)) (info (program-effect (program-of m) effect)))
+                     `(func ,id ,@(map (lambda (name p) `(param ,name ,p)) names params) (result ,result)
+                            (local $handler (ref null ,handler-id)) (local $value ,result)
+                            (local.set $handler (global.get ,(handler-global effect)))
+                            (if (ref.is_null (local.get $handler))
+                                (then (return ,@(host-default m info operation names))))
+                            ,@(call-implementation m info operation names params result)))))))
 
-    (define (host-default fn info operation type temps)
+    (define (call-implementation m info operation names params result)
+      (let* ((id (handler-type m (Effect-name info))) (base (closure-type m params result))
+             (current (handler-global (Effect-name info)))
+             (implementation `(struct.get ,id ,(list-index (lambda (o) (eq? o operation)) (Effect-operations info)) (local.get $handler))))
+        `((global.set ,current (struct.get ,id ,(length (Effect-operations info)) (local.get $handler)))
+          (local.set $value (call_ref ,(code-type m base) ,implementation ,@(map (lambda (name) `(local.get ,name)) names)
+                                      (struct.get ,base 0 ,implementation)))
+          (global.set ,current (local.get $handler))
+          (local.get $value))))
+
+    (define (host-default m info operation names)
       (let ((import
-             (assq operation (Effect-host info))))
+             (assq operation (Effect-host info))) (type (operation-type m operation)))
         (if import
-            (let-values (((params result) (function-signature (Fn-module fn) type)))
-              (let* ((id (import! (Fn-module fn) (cadr import) (cddr import) params (if (unit-type? type) #f result)))
-                     (call `(call ,id ,@(map (lambda (temp) `(local.get ,temp)) temps))))
+            (let-values (((params result) (function-signature m type)))
+              (let* ((id (import! m (cadr import) (cddr import) params (if (unit-type? type) #f result)))
+                     (call `(call ,id ,@(map (lambda (name) `(local.get ,name)) names))))
                 (if (unit-type? type) (list call '(i32.const 0)) (list call))))
-            `((call ,(panic-helper (Fn-module fn)) ,(string-literal (Fn-module fn) (string-append "unhandled effect operation " (short-name operation))))
+            `((call ,(panic-helper m) ,(string-literal m (string-append "unhandled effect operation " (short-name operation))))
               (unreachable)))))
 
     ;; ---- Primitives ----
