@@ -79,6 +79,7 @@ async function frameCell(x,y) {
     const free=await evaluate(`[[.18,.65],[.82,.65],[.5,.82],[.18,.82],[.82,.82]].map(([x,y])=>({x:Math.round(innerWidth*x),y:Math.round(innerHeight*y)})).find(p=>document.elementFromPoint(p.x,p.y)===snailApp.canvas)`);
     assert.ok(free,'the fixture must choose an exposed world target');await command('drag',[Math.round(free.x-point.x),Math.round(free.y-point.y)]);
   }
+  await tileIsTappable(x,y);
 
 }
 async function capture(suffix='') {
@@ -387,14 +388,15 @@ try {
   await evaluate(`(()=>{const pad={index:0,id:'ignored gamepad',connected:true,axes:[.8,-.8],buttons:Array.from({length:16},()=>({pressed:true}))};
     Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[pad]});snailApp.input.pollController(performance.now(),0);delete navigator.getGamepads;})()`);
   await settled();assert.deepEqual(await evaluate('({world:snailApp.runtime.snapshot(1),client:snailApp.runtime.snapshot(2)})'),ignored);
-  console.log('ok - rapid doubleclick builds one remembered structure; retargeting is free; delayed and failed writes preserve intent; hires remain explicit');
+  console.log('ok - doubleclick only selects; explicit choices build once; delayed and failed writes preserve intent; hires remain explicit');
 
   const beforeFeedback=await world(),beforeFeedbackClient=await local(),unreachable=structuredClone(freshHint);
-  unreachable.started=true;unreachable.surveys.unshift({...at(unreachable,12,8),radius:4});setWorker(unreachable,0,{x:12,y:12});
+  // An established colony has completed an extractor; this fixture tests route feedback, not first-play guidance.
+  unreachable.started=true;unreachable.surveys.unshift({...at(unreachable,12,8),radius:4},{...at(unreachable,12,20),radius:4});setWorker(unreachable,0,{x:12,y:12});
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(unreachable))})`);await settled();await command('center');
   for(const [width,height,left]of[[1100,760,false],[320,568,false],[568,320,false],[568,320,true]]) {
     await resize(width,height);if((await local()).leftHanded!==left){await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');}
-    await frameCell(12,11);await pointCell(12,11,true);await click('tower');assert.equal((await local()).failure,32);assert.equal((await world()).ore,160);
+    await frameCell(12,11);await pointCell(12,11,true);assert.equal(await has('tower'),true,JSON.stringify({width,height,state:await local(),title:await evaluate('document.querySelector("[data-ui-key=context-title]")?.textContent')}));await click('tower');assert.equal((await local()).failure,32);assert.equal((await world()).ore,160);
     assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'),/No worker route through surveyed ground/);
     await capture(`-route-rejection-${width}x${height}-${left?'left':'right'}`);await key('Escape','Escape');
   }
