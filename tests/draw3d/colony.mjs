@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {MAP_WIDTH,establishColony,colony, client, at, siteAt, restoreClient, restoreColony, withdrawReserves} from '../applications/colony-state.mjs';
-import {expandedVertexCount} from './scene-tools.mjs';
+import {expandBatch,expandedVertexCount} from './scene-tools.mjs';
 const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
 await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
@@ -241,4 +241,25 @@ try {
     }
   }
   console.log('ok - all four nest-star states retain descriptive status and stay opposite the controls on desktop and portrait');
+  const terminalBase=colony(fresh),terminalHub=at(terminalBase,8,22);
+  const remote={x:terminalHub.x<MAP_WIDTH/2?MAP_WIDTH-4:3,y:terminalHub.y<MAP_WIDTH/2?MAP_WIDTH-4:3};
+  assert.ok(Math.hypot(remote.x-terminalHub.x,remote.y-terminalHub.y)>20,'the terminal camera is outside the original survey');
+  await restoreClient(runtime,{...local(),cameraX:remote.x*1000,cameraY:remote.y*1000,scale:1000,
+    heading:0,turnFrom:0,turnTo:0,turnElapsed:300,homing:false,chooser:false,dialog:0});
+  let defeatTerrain;
+  for(const outcome of [1,4]) {
+    const terminal=structuredClone(terminalBase);terminal.started=true;terminal.outcome=outcome;terminal.hull=outcome===1?0:300;
+    await restoreColony(runtime,terminal);const committed=runtime.snapshot(1),scene=runtime.view().scene;
+    const terrain=expandBatch(scene.batches.find(batch=>batch.key===1));
+    assert.ok(terrain.vertices.length>0,`terminal outcome ${outcome} reveals distant ground`);
+    assert.ok(terrain.vertices.length/10<MAP_WIDTH*MAP_WIDTH*4,'terminal revelation keeps viewport culling');
+    assert.equal(expandedVertexCount(scene.batches.find(batch=>batch.key===9)),0,
+      'fully revealed terminal ground never passes through the latest-survey fragment mask');
+    if(outcome===1)defeatTerrain=terrain.vertices;
+    else assert.deepEqual(terrain.vertices,defeatTerrain,'resignation reveals the same distant terrain as defeat with a healthy hub');
+    assert.deepEqual(runtime.snapshot(1),committed,'rendering leaves the bounded survey history and world unchanged');
+    assert.deepEqual(world().surveys,terminalBase.surveys);
+  }
+  console.log('ok - defeat and resignation reveal distant terrain identically without clipping, survey growth or lost viewport culling');
+
 } finally {await runtime.close();}
