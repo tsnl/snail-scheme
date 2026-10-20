@@ -23,6 +23,10 @@ Lofi compiles to WasmGC and runs on V8. Chibi hosts the compiler. The
 
 ## Next
 
+[The redesign proposal](redesign.md) describes the target language and a phased
+migration from the current compiler. The near-term items below are its first
+steps.
+
 - Keep WasmGC as the execution target. Broaden typed host interfaces with an
   explicit ABI and execution checks.
 - Add constrained generic instances, so parameterized types such as options can

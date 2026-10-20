@@ -1,0 +1,529 @@
+# Redesign: Lofi from a clean slate, and how to get there
+
+> **Status: proposal.** Nothing in this document is implemented unless it says
+> so. The [book](book/lofi/index.md) and [tour](../TOUR.md) describe the current
+> compiler.
+
+This document designs Lofi as if starting over, then plans an incremental path
+from today's `main` to that design. The current compiler stays working at every
+step.
+
+## 1. Requirements
+
+Lofi must:
+
+1. Compile to WebAssembly, with proper tail calls.
+2. Be a low-level language that is still pleasant: explicit representations,
+   fixed-width scalars, predictable code generation, no hidden boxing.
+3. Have one type system that can grow into dependent types and protocol types
+   without being rebuilt.
+4. Work in a distributed setting: types that cross a process, network or device
+   boundary have stable identities and a schema both sides check.
+5. Be an idiomatic pure functional language.
+6. Support typed code generation ("templates with concepts"), not only untyped
+   `syntax-rules`.
+7. Support typeclasses and instances, including generic instances.
+8. Be a Lisp: S-expressions, `define-library`, `define-syntax`/`syntax-rules`.
+9. Replace `data` with explicit `struct` definitions, `type` aliases, and
+   unions written as a set of member types (`T1 | T2 | T3`).
+10. Implement the compiler in the Scheme subset that Lofi itself accepts. Only the
+    program entry point may differ between hosts, and preferably not even that.
+11. Implement full, dynamically typed Scheme as a library that generates Lofi,
+    using `generate-library`.
+
+Garbage collection is acceptable. Affine and graded types are out of scope for
+now, but the core keeps room for them (§3.8).
+
+## 2. Assessment of the starting point
+
+### 2.1 What is reusable from today's compiler
+
+- The backend idea: monomorphize, then emit WasmGC with `return_call`, then run
+  Binaryen. Lofi on Wasm measured about 2× slower than Rust on Wasm, which is a
+  reasonable baseline.
+- The Rust scalar services for Unicode, float printing and parsing, and WASI I/O.
+- The dynamic Scheme libraries: `datum`, `read`, `write`, `number`, `rational`
+  and `integer`. They become the runtime for the generated Scheme of §6.
+- Hygienic `syntax-rules` and `define-library` resolution, as behavior. The
+  implementation is restructured (§4).
+- The test discipline of executing raw and optimized Wasm.
+
+### 2.2 What the review found structurally wrong
+
+1. **Types stop at every boundary.** The application protocol is numbered `I32`
+   words, the GPU layout is synchronized by hand, and the checker produces no
+   artifact that a host can consume.
+2. **The whole program is the only compilation unit.** All libraries are
+   concatenated and checked together. Type tags are local to one module.
+3. **The kernel grammar and its scoping rules are implemented three times**: in
+   the expander, the frontend parser and the (now deleted) transfer receiver.
+   Libraries are parsed speculatively, then parsed again after expansion.
+4. **Two ad hoc polymorphism mechanisms**: typeclasses with concrete heads, and
+   overload families. Overload selection is speculative unification that raises
+   an exception on each mismatch, and it is repeated during specialization.
+5. **No real program uses the type system.** Siegework encodes its domain as
+   integers, and the compiler is untyped Chibi Scheme.
+
+### 2.3 Is the `tachyon` type system enough?
+
+The sketch is a dependently typed functional language. Types are values
+(`Vec3(T: type)`), typeclasses are type-indexed records, instances specialize
+them, and functions can be defined by clauses checked for exhaustiveness.
+Without grades and with GC, this is a sound foundation for the requirements
+above. It needs seven amendments:
+
+1. **Separate closed and open definitions.** Clause definitions of an ordinary
+   function are closed: they must be exhaustive and non-redundant. Typeclass
+   instances are open: they are spread across libraries and must not overlap,
+   and an instance must live with its class or with its head type (an orphan
+   rule). An open declaration needs its own form, rather than being inferred
+   from the absence of a blanket implementation.
+2. **Instance requirements.** A generic instance needs a context:
+   `ToHex(List(T))` requires `ToHex(T)`. Resolution matches heads and then
+   resolves requirements recursively. It terminates when each requirement is
+   structurally smaller than its head.
+3. **Unions must be disjoint by head.** A union collapses if its members can be
+   equal: with `Option(T) = T | None`, the type `Option(Option(I32))` cannot
+   tell its two `None`s apart. Require every member to be a struct type or a
+   struct family applied to arguments, with pairwise distinct heads. Then
+   `Option(T) = Some(T) | None` is compositional and every union is a real sum
+   (§3.3).
+4. **Erasure still needs a phase distinction.** Without grades, Lofi still has
+   to know which arguments exist at run time. Arguments of kind `Type` (and
+   later, proofs) are static: they are erased or monomorphized. Value indices
+   of types are erased. A representation depends only on static type
+   arguments.
+5. **Definitional equality uses normalization.** Type-level functions are
+   evaluated by normalization by evaluation (NbE). Evaluation in types is
+   fuel-bounded with a clear error. A totality checker can come later.
+6. **"Templates with concepts" are dependent functions plus typeclasses.**
+   `Vec3(T: Type)` is a template, a requirement is a concept, and
+   monomorphization is instantiation. Unlike C++, the body is checked once, at
+   its definition. Macros are then needed only for new syntax (§3.6).
+7. **Wire types get structural identities** (§3.7).
+
+`WASM64` is unnecessary with GC. WasmGC objects do not live in linear memory,
+and memory64 matters only for large byte buffers. Target WasmGC with tail calls
+(Wasm 3.0); V8 and Wasmtime support both.
+
+## 3. Language design
+
+### 3.1 Syntax and libraries
+
+Lofi programs are R7RS `define-library` forms. Lofi keeps Scheme's binding forms
+(`define`, `lambda`, `let`, `let*`, `letrec`, named `let`, `if`, `cond`,
+`case`, `when`, `unless`, `begin`) with their Scheme meanings, restricted by
+types. `if` requires `Bool`. Lofi adds a small number of typed forms:
+
+| Form | Meaning |
+| --- | --- |
+| `(: name type)` | Signature for a following `define`. |
+| `(struct (Name param ...) (field type) ...)` | Nominal record type and its constructor, accessors and pattern. |
+| `(type (Name param ...) type)` | Transparent alias, including unions. |
+| `(union T ...)` | Union of struct heads (written `T1 \| T2 \| T3` in prose). |
+| `(typeclass (Class param ...) (: method type) ...)` | Open, type-indexed record of methods. |
+| `(instance (Class type ...) [(requires ...)] (define ...) ...)` | Instance; may be generic. |
+| `(match e (pattern body ...) ...)` | Nested patterns, wildcards and literals; exhaustiveness and redundancy checked. |
+| `(ann e type)` | Checked annotation. |
+
+The `tachyon` color example becomes:
+
+```scheme
+(define-library (example colors)
+  (import
+   (lofi base))
+  (export Red Green Blue Primary Rgb Vec3 PrimaryColor Color ToHex to-hex)
+  (begin
+    (struct (Vec3 T) (x T) (y T) (z T))
+    (struct Red)
+    (struct Green)
+    (struct Blue)
+    (struct Rgb (value (Vec3 F32)))
+    (type PrimaryColor (union Red Green Blue))
+    (type Color (union PrimaryColor Rgb)) ; flattens to (union Red Green Blue Rgb)
+
+    (typeclass (ToHex T)
+      (: to-hex (-> T String)))
+
+    (instance (ToHex PrimaryColor)
+      (define (to-hex color)
+        (match color
+          ((Red) "#ff0000")
+          ((Green) "#00ff00")
+          ((Blue) "#0000ff"))))
+
+    (instance (ToHex (Vec3 F32))
+      (define (to-hex v)
+        (string-append "#" (channel-hex (Vec3-x v))
+                       (channel-hex (Vec3-y v)) (channel-hex (Vec3-z v)))))
+
+    (instance (ToHex Color)
+      (define (to-hex color)
+        (match color
+          ((Rgb value) (to-hex value))
+          (primary (to-hex primary)))))))   ; the remaining heads: PrimaryColor
+```
+
+`Primary { pc }` from the sketch is unnecessary: because `PrimaryColor`'s members
+are already distinct struct heads, they join `Color` directly.
+
+`fibonacci_v2` uses `match`. Closed clause syntax can be sugar over it later:
+
+```scheme
+(: fibonacci (-> I64 I64))
+(define (fibonacci n)
+  (match n
+    (0 0)
+    (1 1)
+    (n (+ (fibonacci (- n 1)) (fibonacci (- n 2))))))
+```
+
+Top-level definitions that are polymorphic or exported carry signatures. Local
+definitions are inferred.
+
+### 3.2 Scalars, functions and literals
+
+Scalars are `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`, plus `String`
+(immutable UTF-8) and `Bytes`. A literal checks against an expected numeric type
+and is range-checked at compile time. With no expected type it defaults to `I64`
+or `F64`. Computed values never convert implicitly. Arithmetic is a typeclass
+(`Num`), so `(+ x 1)` works for any `x` with a `Num` instance. Collection
+lengths and indices are `I64`, consistent with that default. Overflow behavior
+is part of the instance: wrapping for the fixed-width types, with explicit
+checked operations.
+
+Functions have fixed arity. Proper tail calls are guaranteed. A function type
+may name its parameters, so the result can depend on them:
+`(-> (n I64) (Vector I32 n))`.
+
+### 3.3 Structs and unions
+
+A `struct` is a nominal type with immutable fields. Its constructor, accessors
+and pattern are generated. A struct family `(Vec3 T)` is a function from types
+to a struct type.
+
+A `union` is a set of struct heads:
+
+- **Flattening.** `(union A (union B C))` is `(union A B C)`. Member order is
+  irrelevant.
+- **Disjointness.** Heads must be pairwise distinct and statically known. Bare
+  type variables cannot be members.
+- **Injection.** A value of a member type checks against the union with no
+  runtime work. Injection happens only in checking mode, so ordinary inference
+  needs no subtyping.
+- **Widening.** A union whose heads are a subset of another union's heads also
+  checks against it, and this is free at runtime. Each value carries its struct
+  identity, not an index into a particular union.
+- **Narrowing.** `match` tests heads. A trailing variable pattern binds the
+  remaining heads at their union type.
+- **Representation.** Each struct is a WasmGC struct type under a common
+  supertype. A union is a reference to that supertype, and `match` compiles to
+  `br_on_cast`.
+
+`Option`, `Result` and enums are ordinary libraries:
+
+```scheme
+(struct (Some T) (value T))
+(struct None)
+(type (Option T) (union (Some T) None))
+```
+
+The elaborated core sees unions as sums with explicit injections that compile to
+nothing. The core calculus therefore needs no subtyping, which keeps it a
+standard dependent type theory.
+
+### 3.4 Typeclasses
+
+A typeclass elaborates to a struct of methods indexed by its type parameters.
+An instance is a value of that struct. Resolution happens at each use: match
+instance heads against the normalized type, then resolve requirements. The
+elaborated core passes instances as explicit arguments. Monomorphization then
+specializes them away, so there is no runtime dictionary unless code is
+polymorphic at run time.
+
+Rules:
+
+- No overlapping heads. An instance lives with its class or its head type.
+- A class's parameters must be determined by each method's type.
+- Generic instances may have requirements.
+- Resolution uses the exact normalized type and never widens a union. In the
+  color example, `(to-hex (Red))` needs an annotation choosing `PrimaryColor`
+  or `Color`; inside `ToHex Color`, the fallback arm's variable already has
+  type `PrimaryColor`.
+
+This replaces both today's concrete-head classes and `define-overload`.
+
+### 3.5 Purity and effects
+
+Functions are pure. Effects (foreign calls, mutation of `Ref` and vectors, I/O)
+have type `(IO T)`. `do`-style sequencing is a macro over the monad operations,
+and the runtime runs only the program's entry action. `Ref` and mutable vectors
+are created and used inside `IO`, or inside a local `ST`-style runner whose
+result cannot leak them.
+
+Purity is what makes application handlers model-checkable (§5), and it keeps the
+compiler's passes pure, so host divergence stays at the entry point (§6).
+
+**Decision for you:** enforced purity through `IO` (recommended), or Scheme-style
+effects anywhere as today.
+
+### 3.6 Macros and typed code generation
+
+There are two layers:
+
+1. **Syntax.** `define-syntax` with hygienic `syntax-rules`, using scope sets.
+   Macros expand before elaboration and exist for new surface syntax such as
+   binding forms and DSL notation. This layer provides Scheme compatibility.
+2. **Typed staging** (later). `(Code T)` quotations are checked when they are
+   written, and splices are evaluated at compile time by the elaborator's own
+   evaluator. This is the MetaOCaml model, and the typed counterpart of
+   templates. It needs no separate interpreter.
+
+Generic code needs neither layer. It uses dependent functions and typeclasses
+(§2.3, item 6). `generate-library` remains for producing whole libraries from
+external input (§6).
+
+### 3.7 Wire types and stable identities
+
+A type is a **wire type** if it is a scalar, `String`, `Bytes`, `List` or
+`Vector` of a wire type, or a struct or union of wire types. Functions, `Ref`
+and `IO` are not wire types. A `Wire` class is derived automatically for every
+wire type.
+
+Each struct has a `TypeId`:
+
+```text
+TypeId(struct) = H(library name, struct name, parameters,
+                   [(field name, TypeId(field type)) ...])
+TypeId(F args) = H(TypeId(F), TypeId(args) ...)
+TypeId(union)  = H(sorted member TypeIds)
+```
+
+Aliases are transparent and have no identity of their own. The ID changes
+exactly when the schema or its declaring library changes. Two programs exchange
+a value only if they agree on its `TypeId`, which a link or handshake step can
+check. Adding a member to a union does not change the encodings of the existing
+members.
+
+This combines Unison's content-addressed definitions with nominal identity
+through the library name. It is close to Cap'n Proto's scoped IDs and Avro's
+schema fingerprints.
+
+The encoding is `(TypeId, fields)` in the existing compact binary format, with
+an equivalent readable S-expression form. The compiler exports wire schemas as
+data, and WIT, Protobuf or JSON Schema can be printed from that.
+
+The same schemas define the **canonical ABI** for every Wasm boundary.
+Wire values cross to JavaScript or to another module as bytes in linear memory,
+encoded and decoded by code generated from the schema. That one mechanism
+replaces today's `I32` word protocols and the deleted compiler bridge, and it
+serves application commands and state, persistence, IPC, and calling a
+Wasm-hosted compiler from JavaScript.
+
+### 3.8 Room for later type features
+
+Binders in the core carry a multiplicity slot. It is always `0` (static) or `ω`
+(unrestricted) for now. That is quantitative type theory restricted to two
+points, so adding `1` (affine or linear) later does not change the core's shape.
+Session types are first expressed as indexed protocol types over `IO`. The
+handle is hidden inside the action, so it cannot be duplicated even without
+linear types.
+
+GPU code is a checked subset of Lofi (scalars, vector structs, no allocation,
+recursion or closures) emitted as WGSL by a second backend. Host and shader
+share the same `struct` definitions, so layouts are never synchronized by hand.
+
+## 4. Compiler architecture
+
+Every pass is a pure function on immutable data. The driver composes them.
+
+```text
+text ──read──▶ located S-expressions
+     ──load──▶ library headers: imports and exports resolved first
+     ──expand─▶ core AST              (hygienic syntax-rules; knows binding forms)
+     ──elaborate▶ explicit typed core + checked interface per library
+     ──specialize▶ first-order mono IR (types erased, instances specialized,
+                                       closures and tail calls decided)
+     ──emit───▶ WasmGC binary          (Binaryen optional)
+              ▶ WGSL                   (GPU subset)
+              ▶ wire schemas           (canonical ABI, WIT/Protobuf)
+```
+
+1. **Reader.** About 300 lines of hand-written recursive descent producing
+   syntax objects with spans. No parser-combinator framework.
+2. **Loader.** Reads `define-library` headers, resolves imports against
+   explicit library maps, and detects cycles. Nothing is parsed speculatively.
+3. **Expander.** The only module that knows Lofi's binding forms. Bodies use
+   two-pass expansion: expand heads to discover definitions, then expand
+   bodies, as R6RS and Racket do. It emits core AST directly, with no fixpoint
+   loop and no second parse.
+4. **Elaborator.** Bidirectional checking with metavariables, NbE, implicit
+   arguments, instance resolution, unions, and pattern compilation with
+   Maranget's exhaustiveness and redundancy checks. Its output is an explicit
+   core plus a **checked interface** for each library: exported names, types,
+   structs with `TypeId`s, and instances. Interfaces are serialized and cached,
+   so libraries are checked once rather than with every program.
+5. **Specializer.** Erases static arguments and monomorphizes over types and
+   instances. It records selected instances on the nodes, never re-resolving
+   them, and decides closure conversion and tail positions.
+6. **Backends.** WasmGC and WGSL. Wire schemas come from interfaces.
+
+Each pass owns one data structure, with one record type per node kind, and
+consumes the previous pass's output without consulting earlier
+representations.
+
+## 5. Runtime and application model
+
+An application is a set of actors. Each actor has a typed state `S`, a message
+union `M` of wire types, and a pure handler `(-> S M (Transition S))`. A
+transition contains the next state and a list of typed effects. A send effect
+names a destination typed by that destination's message union, so the set of
+messages each handler may send is visible in its type.
+
+The host delivers one message at a time per actor. State lives in Wasm as a
+typed value. Bytes cross the boundary only for persistence and reload, using the
+state's wire encoding. Reload is compatible when the state's `TypeId` is
+unchanged; otherwise it requires an explicit migration function `(-> Old New)`.
+
+Because handlers are pure and states and messages are wire types, a test library
+can explore bounded state spaces, check invariants and replay traces without
+browser code. Host scheduling semantics are written once as a pure Lofi
+reference model and checked against the JavaScript host.
+
+Siegework is rewritten as an ordinary functional program in this model: unions
+for building kinds and job states, `match`, `Option`, and a world value with no
+integer codes.
+
+## 6. Bootstrap, self-hosting and Scheme
+
+**Scheme compatibility.** Lofi's Scheme-shaped core is designed with an
+*erasure property*. Delete the typed forms of §3.1, replacing them with
+untyped R7RS equivalents, and the result is an R7RS program with the same
+behavior whenever the Lofi program does not trap. `struct` maps to
+`define-record-type`, `union` and `type` disappear, and `match` maps to a
+portable pattern-matching macro.
+
+**The compiler is written in that core.** No host-specific code appears in the
+passes. Hosts differ only in library implementations, which is ordinary
+in Scheme, where every implementation provides its own `(scheme base)`:
+
+- **On Lofi.** The typed forms are built in, and `(scheme base)` and
+  `(scheme file)` are Lofi libraries backed by WASI.
+- **On Chibi.** A small shim library defines `:`, `struct`, `type`, `typeclass`,
+  `instance` and `match` as erasing macros. Typeclass methods dispatch on the
+  runtime struct type of their first argument, so the compiler's own code avoids
+  methods that dispatch only on their result type.
+
+The entry point reads arguments and files through `(scheme process-context)` and
+`(scheme file)`, which both hosts provide. Nothing else diverges.
+
+This also removes today's `bootstrap/` loader view. Lofi's implementations of
+the R7RS libraries live on Lofi's search path only, so Chibi never sees them, and
+Chibi runs the compiler with `-I src -I shims/chibi`.
+
+**Bootstrap.**
+
+1. Stage 0 is the compiler source running on Chibi through the shim.
+2. Stage 0 compiles the same source to Wasm, giving stage 1.
+3. Stage 1 compiles stage 2.
+4. Stages 1 and 2 must produce identical output on the test corpus.
+
+After that, a pinned Wasm build can bootstrap without Chibi. Chibi remains an
+optional host for debugging.
+
+**Full Scheme.** `(scheme compiler)` is a Lofi library: a reader plus a
+translator from R7RS source text to Lofi source text. Its output represents
+every value as a `Datum` and uses the existing dynamic libraries (`datum`,
+`number`, `read`, `write`). A `generate-library` recipe runs it:
+
+```scheme
+(generate-library (legacy program)
+                  (import
+                   (scheme compiler))
+                  (scheme->lofi-text (read-source "program.scm")))
+```
+
+## 7. Migration from today's `main`
+
+Each phase leaves a working compiler with passing suites. Phases 1 and 2 change
+the current Chibi-hosted compiler; phase 3 replaces it.
+
+### Phase 0: cleanup (in progress)
+
+Delete the benchmark archive, historical documentation and the compiler bridge,
+and generate libraries as text. Also remove unused application features and dead
+code, consolidate the test runners, and fix the bugs found in review.
+
+### Phase 1: one front end and one polymorphism mechanism
+
+1. Resolve library headers before parsing, always expand, and have the expander
+   emit IR directly. Delete the frontend's second grammar and the speculative
+   parse. This also fixes path-dependent keyword reservation.
+2. One declaration form per concept. Remove `library-begin` and
+   `(def X (datatype ...))`.
+3. Replace `define-overload` with typeclasses that allow generic instance
+   heads and requirements. Record selected instances during checking, so
+   specialization never re-resolves them. This removes the dominant
+   compile-time cost found in profiling.
+4. Literals check against the expected numeric type, and the default integer
+   type becomes `I64`, matching collection indices.
+
+**Exit criterion:** the numeric operators are typeclass methods, and no source
+form is parsed twice.
+
+### Phase 2: the target type surface on the current checker
+
+1. `struct`, `type` and `union` replace `data`, with WasmGC subtype
+   representation and `TypeId`s.
+2. `match` with nested patterns, wildcards, and exhaustiveness and redundancy
+   checks.
+3. Derived `Wire`, keyed by `TypeId`. Add a canonical byte ABI for entry
+   parameters and results, with schema-generated JavaScript decoders.
+4. The application framework moves to typed messages and in-Wasm state, and
+   the word protocols are deleted. Rewrite Siegework's model with unions and
+   `match`. This is the forcing function for the language.
+
+**Exit criterion:** Siegework has no integer-coded state, and no hand-written
+JavaScript decoder remains.
+
+### Phase 3: self-hosting in the Scheme subset
+
+1. Fix the erasure property and write the Chibi shim.
+2. Port the compiler pass by pass into the subset, as pure passes with typed
+   records. Run each port on Chibi through the shim and compare its output with
+   the current compiler on the test corpus.
+3. Bootstrap stages 1 and 2 as in §6. Delete the old implementation and
+   `bootstrap/`.
+
+**Exit criterion:** the compiler compiles itself, and stages 1 and 2 agree.
+
+### Phase 4: the dependent elaborator
+
+Replace HM inference in the self-hosted compiler with the elaborator of §4:
+type-level functions, indexed types, implicit arguments and NbE. Add serialized
+checked interfaces, which give separate checking and faster builds.
+
+### Phase 5: distribution and devices
+
+Add the WGSL backend sharing struct layouts, wire schema export, typed effects
+and destinations, the bounded model-checking library, and `(scheme compiler)`.
+
+### Risks
+
+- **Compile time.** The current compiler takes about a minute for Siegework and
+  ran out of memory on a large Scheme program. Phase 1.3 addresses the measured
+  hot spot. Phase 3 still needs the compiler to compile something its own size,
+  so measure that before starting the port.
+- **Scope.** A dependent elaborator with typeclasses, unions and good
+  diagnostics is large. Phases 1–3 deliver a useful typed Scheme without it,
+  and the core's multiplicity slot and explicit instances keep phase 4
+  additive.
+
+## 8. Decisions needed
+
+1. Enforced purity through `IO` (§3.5)?
+2. Default integer type `I64` (§3.2)?
+3. Surface names: `struct`/`type`/`union`/`typeclass`/`instance`, or
+   `define-`-prefixed forms?
+4. Is the erasure property (§6) the right definition of the Scheme subset the
+   compiler is written in?
