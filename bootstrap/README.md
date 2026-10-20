@@ -6,9 +6,5 @@ resolves its own `(scheme base)` instead of `src/scheme/base.sld`.
 Absolute paths work outside the repository root.
 
 Host scripts import `(lofi compiler bootstrap)` and `(lofi host ...)` services.
-Product Scheme and Lofi sources import the public `(lofi compiler)` library.
-Unit tests add `-I "$repo/tests"` for `(lofi host test-utils)`.
-
-The benchmark freezer materializes the loader view as ordinary files in its
-private snapshot and records their hashes. Libraries and product programs use
-`.sld`; executable Chibi orchestration scripts retain `.scm`.
+Unit tests add `-I "$repo/tests"` for `(lofi host test-utils)`. Libraries and
+product programs use `.sld`; executable Chibi orchestration scripts retain `.scm`.

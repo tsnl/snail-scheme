@@ -14,10 +14,11 @@ Functions have fixed parameter lists. Collection syntax such as `(vector a b)`
 expands into an explicit list passed to a fixed-arity worker before checking;
 the shared compiler has no rest-argument representation or call-site packing.
 
-The public [`(lofi compiler)`](src/lofi/compiler.sld) is usable by either surface.
-It supplies parsing, explicit library maps, compilation and Wasm execution through
-the compiler service. The current implementation is Scheme hosted by Chibi:
-[`(lofi compiler bootstrap)`](src/lofi/compiler/bootstrap.sld) composes the passes.
+The compiler is Scheme hosted by Chibi:
+[`(lofi compiler bootstrap)`](src/lofi/compiler/bootstrap.sld) composes the passes
+over an explicit library map. Compiled programs run in a Wasm engine and do not
+call back into the compiler; [`execute.mjs`](src/lofi/compiler/execute.mjs) loads
+and invokes their checked scalar entries from JavaScript.
 The compiler cannot compile its own implementation yet. `bootstrap/` is a loader
 view of `src/lofi`, keeping Chibi's own `(scheme base)` separate from the product
 library. Executable Chibi orchestration scripts retain `.scm`.
@@ -82,7 +83,7 @@ owns the scoped profile, which also reaches generated dependencies and the final
 runtime link. Library APIs and lower-level build scripts retain release defaults.
 
 [`(lofi host log)`](src/lofi/host/log.sld) prints and flushes coarse phase
-progress to stderr, including during synchronous compiler-service calls.
+progress to stderr.
 `SNAIL_LOG=off` silences progress; imports remain quiet. See
 [live logging and traces](doc/tracing.md).
 
@@ -90,8 +91,8 @@ progress to stderr, including during synchronous compiler-service calls.
 
 | Path | Responsibility |
 | --- | --- |
-| [`src/lofi/`](src/lofi/README.md) | Typed core, standard libraries and the public `(lofi compiler)` API. |
-| [`src/lofi/compiler/`](src/lofi/compiler/README.md) | Compiler implementation, library builders and execution adapters. |
+| [`src/lofi/`](src/lofi/README.md) | Typed core and standard libraries. |
+| [`src/lofi/compiler/`](src/lofi/compiler/README.md) | Compiler implementation and the JavaScript Wasm execution adapter. |
 | [`src/scheme/`](src/scheme/) | Scheme language libraries; currently a typed subset of base forms. |
 | [`src/lofi/compiler/tools/`](src/lofi/compiler/tools/) | Trace viewing and Unicode generation libraries. |
 | [`bootstrap/`](bootstrap/README.md) | Chibi loader view of the implementation libraries. |

@@ -2,4 +2,4 @@
                   (import
                    (producer make)
                    (producer services))
-                  (constant-library (read-offset)))
+                  (constant-library "(generated offset)" (read-offset)))

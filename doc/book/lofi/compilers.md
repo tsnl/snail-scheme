@@ -31,11 +31,8 @@ This build fragment assumes imported map and source operations, a supplied map `
 keys for `(demo math)` and `(demo app)`, and the name `main`. `parse-library` reads a
 `define-library` description. A source driver additionally recognizes generation recipes and
 collects dependencies. Source reads and artifact writes are explicit operations around compilation.
-The implemented [Lofi compiler
-service](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-compiler-service.md) spells parsing
-as `(parse-library source-name source-text)` and returns an ordinary `CompilerResult LofiLibrary`;
-its [syntax views](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-builder.md) allow
-inspection and transformation before map insertion.
+The implemented `compile` lives in the Chibi-hosted `(lofi compiler bootstrap)`; compiled Wasm
+programs do not call back into the compiler.
 
 Libraries retain type information and polymorphic implementations so the
 compiler can specialize calls across their boundaries. They are translation
@@ -87,28 +84,26 @@ executing it. It does not require a separate Lofi interpreter implementation.
 
 ## Running a generator
 
-A `generate-library` recipe has a body returning a `LofiLibrary`. To run it,
-the driver packages that body as an exported function with the recipe's imports.
-It obtains those dependencies, compiles the generator to Wasm, loads it, creates
-an instance, and invokes the function.
+A `generate-library` recipe has a body returning a `String`: the source text of
+the generated `define-library`. To run it, the driver packages that body as an
+exported function with the recipe's imports. It obtains those dependencies,
+compiles the generator to Wasm, loads it, creates an instance, and invokes the
+function.
 
 ```scheme
 (let producer-code
     (load (compile producer-libraries producer-entry)))
 (let producer (instantiate producer-code build-providers))
-(let generated (invoke-generator producer inputs))
+(let generated (parse-library (invoke-generator producer inputs)))
 (let application-libraries (map-insert dependencies generated-key generated))
 (let artifact (compile application-libraries application-entry))
 ```
 
-`invoke-generator` is the adapter for a producer returning library data. If the
-producer runs in a separate execution context, this operation transfers that
-data through an explicit serialization or builder protocol and checks the
-received structure. It does not export raw pointers into the producer's heap.
-Generated imports still have to be supplied in `application-libraries`, just
-as for a parsed library. The generated application's Wasm may run on a Wasm
-engine; that choice does not
-change the compiler API.
+`invoke-generator` copies the produced text out of the producer's execution
+context; it does not export raw pointers into the producer's heap. The text is
+parsed and checked like any source file, so generated code can use macros and
+other language libraries. Generated imports still have to be supplied in
+`application-libraries`, just as for a parsed library.
 
 The recipe is a convenience supplied by the driver. A build program can instead
 call a producer function already available in its own execution context. Neither
@@ -141,7 +136,7 @@ Language definitions are libraries. [`(scheme base)`](https://github.com/tsnl/sn
 defines an initial Scheme surface with Lofi `syntax-rules`; both surfaces share
 one resolver, expander, checked representation and backend. Imports select the
 forms used by a `.sld` source. Neither extension nor implementation language
-changes the meaning of `(lofi compiler)`.
+changes the compiler.
 
 A library description retains source syntax when expansion needs imported
 transformers. Resolution obtains providers from the explicit library map, then

@@ -12,11 +12,11 @@ primary runtime; the engine owns managed memory and machine code generation.
 Languages are libraries. The typed Lofi kernel, hygienic `syntax-rules` macros,
 and an initial `(scheme base)` share one library system and backend. All language
 and compiler libraries live under `src/`; `.sld` files use imports to select their
-forms. The public `(lofi compiler)` works from either surface. Its implementation
-remains Scheme hosted by Chibi; self-hosting and full R7RS support are future work.
+forms. The compiler is Scheme hosted by Chibi; self-hosting and full R7RS support
+are future work.
 
-The [Lofi chapters](doc/book/lofi/index.md) specify the typed language,
-library values and compiler-as-library model, with examples and formal rules.
+The [Lofi chapters](doc/book/lofi/index.md) specify the typed language and
+library model, with examples and formal rules.
 The [online book](https://tsnl.github.io/snail-scheme/) and
 [Siegework](https://tsnl.github.io/snail-scheme/play/siegework/) are built from
 `main` by the Book and Pages workflow. GitHub Actions uploads the generated site

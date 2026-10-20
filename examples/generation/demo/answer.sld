@@ -1,14 +1,9 @@
-;; This recipe executes as Wasm and returns syntax for a separate application.
+;; This recipe executes as Wasm. Its String result is the source of a separate
+;; library, which the driver parses and checks like any other file.
 (generate-library (demo answer)
                   (import
-                   (lofi compiler builder)
-                   (only (lofi primitive) cons empty-list))
-                  (begin
-                    (let span (source-span (builder-name "generated-answer.sld") 1 1))
-                    (let scope (library-scope))
-                    (let answer (binding scope (builder-name "answer") span))
-                    (let body (lambda-expression (nested-scope scope) (empty-list) (literal-i32 42 span) span))
-                    (lofi-library
-                     (cons (builder-name "demo") (cons (builder-name "answer") (empty-list))) scope (empty-list)
-                     (cons (library-export (builder-name "main") (local-reference answer span)) (empty-list))
-                     (cons (definition answer (function-type (empty-list) (type-i32)) body span) (empty-list)) span)))
+                   (only (lofi base) string-append * i32->i64)
+                   (only (lofi scalar-text) i64->string))
+                  (string-append "(define-library (demo answer) (export main)"
+                                 " (begin (def main (-> I32) (lambda () "
+                                 (i64->string (i32->i64 (* 6 7))) "))))"))

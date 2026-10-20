@@ -1,7 +1,8 @@
 ;; A build chooses source once per key. Generator dependencies and the imports
 ;; of the returned library have separate maps, but share a preparation chain.
 ;; Start with source-file->core and source-file->wasm for the ordinary file path.
-;; They prepare a library map for compiler.sld, then emit Wasm for the build driver.
+;; They prepare a library map for the bootstrap compiler, then emit Wasm.
+;; A generation recipe compiles to Wasm and returns its library as source text.
 (define-library (lofi compiler source-driver)
   (export make-generation-context generation-context?
           prepare-library collect-libraries collect-source-file
@@ -23,7 +24,6 @@
    (lofi host build-host)
    (lofi compiler frontend)
    (lofi compiler library)
-   (lofi compiler library-transfer)
    (lofi compiler bootstrap)
    (lofi compiler specialize)
    (lofi compiler emit-wasm)
@@ -101,18 +101,29 @@
           (let read ((pieces '()) (piece (read-string 4096 port)))
             (if (eof-object? piece) (apply string-append (reverse pieces))
                 (read (cons piece pieces) (read-string 4096 port)))))))
-    (define (generator-command choice context binary packet)
-      (list (tool-name "NODE" "node") (generation-runner context) binary packet (choice-path choice)
+    (define (generator-command choice context binary output)
+      (list (tool-name "NODE" "node") (generation-runner context) binary output (choice-path choice)
             (json->string (list->vector (map symbol->string (choice-key choice))))
             (or (generation-providers context) "")))
     (define (execute-generator artifact choice context directory)
-      (let ((binary (string-append directory "/producer.wasm")) (packet (string-append directory "/library.json")))
+      (let ((binary (string-append directory "/producer.wasm")) (output (string-append directory "/generated.sld")))
         (write-artifact artifact binary)
-        (let ((status (process-status (generator-command choice context binary packet) "." #f "lofi-generator")))
+        (let ((status (process-status (generator-command choice context binary output) "." #f "lofi-generator")))
           (unless (zero? status)
             (error "Lofi library generation failed" (choice-loc choice) (choice-key choice)
-                   (if (file-exists? (string-append packet ".error")) (read-text (string-append packet ".error")) status))))
-        (receive-library-transfer (make-library-transfer-context) (call-with-input-file packet read-library-transfer))))
+                   (if (file-exists? (string-append output ".error")) (read-text (string-append output ".error")) status))))
+        (generated-library (read-text output) choice)))
+    ;; Generated text is ordinary source: one define-library naming the recipe key.
+    ;; Diagnostics locate it as the recipe path followed by #generated.
+    (define (generated-library text choice)
+      (let ((forms (reader->syntax-list (string->reader (string-append (choice-path choice) "#generated") text))))
+        (unless (and (= (length forms) 1) (eq? (form-head (car forms)) 'define-library))
+          (error "generated text must contain one define-library form" (choice-loc choice) (choice-key choice)))
+        (let ((library (parse-library (car forms))))
+          (unless (equal? (lofi-library-name library) (choice-key choice))
+            (error "generated library name does not match recipe" (lofi-library-loc library) (choice-key choice)
+                   (lofi-library-name library)))
+          library)))
 
     ;; ---- One selected library value per build key ----
 
@@ -189,20 +200,33 @@
         (if (assoc key libraries) libraries
             (let* ((chain (cons choice pending)) (library (produce-choice choice state chain)))
               (collect-imports library state (cons (cons key library) libraries) chain)))))
-    ;; The private adapter's ordinary call checks LofiLibrary nominally before
-    ;; its token becomes the scalar execution ABI. It cannot capture body names.
+    ;; The private adapter checks that the recipe produced a String, then streams
+    ;; its Unicode scalars to the runner. It cannot capture names in the body.
     (define (generator-adapter key producer-key loc)
       (parse-library
        (located-datum
         `(define-library ,key
            (import
             (only ,producer-key produce)
-            (only (lofi compiler builder) LofiLibrary library-token))
-           (export run) (begin (def run (-> I64) (lambda () (library-token (ann (produce) LofiLibrary)))))) loc)))
+            (only (lofi base) + < string-length string-ref char->integer i64->i32))
+           (export run)
+           (begin
+             (define-extern emit-character "lofi:generator" "character" (-> I32 Unit))
+             (def run (-> I32)
+                  (lambda ()
+                    (begin
+                      (let text (ann (produce) String))
+                      (def emit-from (-> I64 I32)
+                           (lambda (index)
+                             (if (< index (string-length text))
+                                 (begin (emit-character (i64->i32 (char->integer (string-ref text index))))
+                                        (emit-from (+ index (ann 1 I64))))
+                                 0)))
+                      (emit-from (ann 0 I64))))))) loc)))
     (define (generator-artifact choice state pending)
       (let* ((producer (generation-producer (choice-description choice)))
              (dependencies (collect-imports producer state '() pending))
-             (libraries (collect-key '(lofi compiler builder) state dependencies pending (choice-loc choice)))
+             (libraries (collect-key '(lofi base) state dependencies pending (choice-loc choice)))
              (with-producer (cons (cons (choice-key choice) producer) libraries))
              (adapter-key (fresh-library-key '(lofi generation-adapter) with-producer))
              (adapter (generator-adapter adapter-key (choice-key choice) (choice-loc choice))))

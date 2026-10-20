@@ -11,7 +11,7 @@ transformers and their binding identities. Expansion then produces the same
 Lofi declarations. Neither representation is fully typed until checking.
 
 Library names correspond to paths under `src/`: `(scheme base)` lives at
-`src/scheme/base.sld`, `(lofi compiler)` at `src/lofi/compiler.sld`. Imports select
+`src/scheme/base.sld`, `(lofi base)` at `src/lofi/base.sld`. Imports select
 language/forms; `.sld` is common to all of them.
 
 ## Writing a library
@@ -158,16 +158,16 @@ declarations. The driver recognizes this second file-level form:
 (generate-library (demo legacy)
                   (import
                    (lofi base)
-                   (lofi compiler)
                    (frontend scheme))
-                  (scheme->lofi (read-source "legacy.scm")))
+                  (scheme->lofi-text (read-source "legacy.scm")))
 ```
 
 The imports belong to the generator. Its body is an ordinary Lofi expression
-that must return a `LofiLibrary`. The driver runs it and registers that result
-under `(demo legacy)`. The result has its own imports for the generated program.
-Relative source paths in this example are resolved against the descriptor's
-directory, which the driver supplies as an explicit source context.
+that must return a `String` containing one `define-library` named `(demo legacy)`.
+The driver runs it, parses that text and registers the result under
+`(demo legacy)`. The result has its own imports for the generated program.
+A provider such as `read-source` can resolve relative paths against the
+descriptor's directory, which the driver supplies as an explicit source context.
 
 ```text
 generation_file ::= "(" "generate-library" library_name import_clause expression ")"

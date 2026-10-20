@@ -9,9 +9,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   Lofi's typed kernel and the initial `(scheme base)` share hygienic
   `syntax-rules` expansion, library resolution and the backend. Surface macros
   expand away before ordinary checking; procedural transformers and self-hosting
-  remain deferred. Chibi hosts `(lofi compiler bootstrap)` through `bootstrap/`;
-  product sources import the public `(lofi compiler)`. See [the language
-  book](doc/book/lofi/index.md).
+  remain deferred. Chibi hosts `(lofi compiler bootstrap)` through `bootstrap/`.
+  Compiled programs do not call the compiler; generation recipes return
+  library source text. See [the language book](doc/book/lofi/index.md).
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries

@@ -6,8 +6,7 @@
    (scheme file)
    (scheme write)
    (only (chibi filesystem) chmod symbolic-link-file)
-   (snail-tests harness)
-   (only (lofi host json) string->json))
+   (snail-tests harness))
   (begin
 
     ;; ---- A compiler copy containing only neutral package libraries ----
@@ -48,33 +47,14 @@
         (checked "isolated-linked-execute" (node (path-join copy "scripts/run-lofi.mjs") (build-path "linked.wasm"))
                  (cons '(status . 42) options))))
 
-    ;; ---- The compiler service consumes a finite recorded request stream ----
-
-    (define (service-requests directory)
-      (let ((source "(define-library (isolated answer) (export answer) (begin (def answer (-> I32) (lambda () 42))))"))
-        (write-text (path-join directory "requests")
-                    (string-append (join (map json-text
-                                              (list '#("empty") '#("primitives" 1)
-                                                    (vector "source" 2 '#("isolated" "answer") "isolated-service.sld" source)
-                                                    '#("compile" 3 #("isolated" "answer") "answer") '#("close"))) "\n") "\n"))))
-    (define (check-compiler-service copy options)
-      (let ((session (build-path "service")) (runner (path-join copy "service-entry.mjs")))
-        (create-directory* session) (service-requests session)
-        (checked "isolated-service" (isolated-chibi copy "scripts/serve-lofi-compiler.scm" session) options)
-        (assert-equal (map string->json (lines (read-text (path-join session "responses"))))
-                      '(#(#t "ready") #(#t 1) #(#t 2) #(#t 3) #(#t #t) #(#t "closed")))
-        (write-text runner
-                    "import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs';\nimport {loadWasm,instantiate,invokeEntry,closeInstance} from './src/lofi/compiler/execute.mjs';\nconst instance=instantiate(loadWasm(readFileSync(process.argv[2])));\ntry { assert.equal(invokeEntry(instance, []), 42); } finally { closeInstance(instance); }\n")
-        (checked "isolated-service-execute" (node runner (path-join session "artifact.wasm")) options)))
-
     (define (run-package-isolation)
       (let* ((outside (make-build-directory "/tmp" "lofi-package-isolation-"))
              (copy (copy-wasm-compiler outside)) (working (path-join outside "working")) (forbidden (forbidden-tool))
              (options (isolated-options working forbidden)))
         (write-json (build-path "isolation-paths.json") `((compiler_copy . ,copy) (working_directory . ,working)))
         (create-directory* working) (runtime-build)
-        (check-wasm-only copy options) (check-compiler-service copy options)
+        (check-wasm-only copy options)
         (assert-that (not (file-exists? (string-append forbidden ".invoked"))) "supplied-runtime execution invoked a Rust build tool")
         (complete! "Wasm compiler isolation and supplied-runtime execution"
                    '((passed . #t) (runtime_sources_absent . #t) (rust_tools_forbidden . #t)
-                     (compiler_service . #t) (supplied_runtime . #t) (outside_working_directory . #t)))))))
+                     (supplied_runtime . #t) (outside_working_directory . #t)))))))

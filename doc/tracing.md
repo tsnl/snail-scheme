@@ -16,9 +16,7 @@ The Chibi host library `(lofi host log)` exports `log-message`,
 `call-with-log-phase` and the scoped Boolean parameter `log-enabled?`. Importing
 it prints nothing. Progress uses Chibi's wall-clock jiffies, with backward steps
 clamped to zero; these durations are build diagnostics rather than benchmark
-measurements. Messages remain live through the synchronous Node compiler service,
-which forwards its retained stderr file while waiting for FIFO responses. Host
-loss reports retain only the last 64 KiB of diagnostics in memory.
+measurements.
 
 ## Trace files
 

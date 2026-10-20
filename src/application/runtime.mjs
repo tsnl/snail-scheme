@@ -1,27 +1,17 @@
 // Stable owner, replaceable code. Only this private scalar bridge handles
 // mutable buffers; application handlers receive explicit immutable values.
-import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/compiler/execute.mjs';
+import {loadWasm, instantiate, invokeEntry, closeInstance, scalarProvider as hostProvider}
+  from '../lofi/compiler/execute.mjs';
 import {createUiBridge} from '../ui/bridge.mjs';
 import {createSceneBridge} from '../draw3d/bridge.mjs';
 
 // ---- Typed Wasm forwarding for host scalar functions ----
 
-const encoder = new TextEncoder();
-const uleb = value => { const bytes = []; do { const n = value & 127; value >>>= 7; bytes.push(n | (value ? 128 : 0)); } while (value); return bytes; };
-const name = value => { const bytes = encoder.encode(value); return [...uleb(bytes.length), ...bytes]; };
-const section = (id, bytes) => [id, ...uleb(bytes.length), ...bytes];
-function scalarProvider(functions, signatures = [['length', 1, true], ['read', 2, true], ['write', 3, false],
-    ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false],
-    ['previous-length', 1, true], ['previous-read', 2, true], ['identity', 2, true],
-    ['observe', 7, false]]) {
-  const types = signatures.flatMap(([, count, result]) => [0x60, count, ...Array(count).fill(0x7f), ...(result ? [1, 0x7f] : [0])]);
-  const imports = signatures.flatMap(([key], i) => [...name('host'), ...name(key), 0, i]);
-  const exports = signatures.flatMap(([key], i) => [...name(key), 0, i]);
-  const count = signatures.length;
-  const bytes = [0, 97, 115, 109, 1, 0, 0, 0, ...section(1, [count, ...types]),
-    ...section(2, [count, ...imports]), ...section(7, [count, ...exports])];
-  return new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from(bytes)), {host: functions});
-}
+const snapshotSignatures = [['length', 1, true], ['read', 2, true], ['write', 3, false],
+  ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false],
+  ['previous-length', 1, true], ['previous-read', 2, true], ['identity', 2, true],
+  ['observe', 7, false]];
+const scalarProvider = (functions, signatures = snapshotSignatures) => hostProvider(functions, signatures);
 const i32 = value => Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
 const maximumSnapshotWords = 1048576;
 function sameSnapshot(left, right) {

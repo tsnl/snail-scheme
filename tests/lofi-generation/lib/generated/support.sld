@@ -1,4 +1,4 @@
 (generate-library (generated support)
                   (import
                    (producer make))
-                  (constant-library 35))
+                  (constant-library "(generated support)" 35))

@@ -1,6 +1,6 @@
 // Load Chibi-produced Wasm artifacts and own independently initialized instances.
 // The host supplies already instantiated Wasm providers; no files or runtimes
-// are discovered here. Compiler/library-value transport is a separate boundary.
+// are discovered here.
 
 const codes = new WeakMap();
 const instances = new WeakMap();
@@ -97,6 +97,20 @@ function wasmName(name) {
 
 function wasmSection(id, bytes) {
   return [id, ...encodeUnsigned(bytes.length), ...bytes];
+}
+
+// Wrap host functions as a Wasm provider instance. Each signature is
+// [name, parameter count, returns a value?]; every parameter and result is i32.
+// A real instance lets instantiate check the guest's import types.
+export function scalarProvider(functions, signatures) {
+  const types = signatures.flatMap(([, count, result]) =>
+    [0x60, count, ...Array(count).fill(0x7f), ...(result ? [1, 0x7f] : [0])]);
+  const imports = signatures.flatMap(([key], index) => [...wasmName('host'), ...wasmName(key), 0, index]);
+  const exports = signatures.flatMap(([key], index) => [...wasmName(key), 0, index]);
+  const count = encodeUnsigned(signatures.length);
+  const bytes = [0, 97, 115, 109, 1, 0, 0, 0, ...wasmSection(1, [...count, ...types]),
+    ...wasmSection(2, [...count, ...imports]), ...wasmSection(7, [...count, ...exports])];
+  return new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from(bytes)), {host: functions});
 }
 
 // This module has only types and imports. Instantiating it cannot call either

@@ -21,10 +21,9 @@ The compiler emits WasmGC. Chibi host utilities live in `src/lofi/host/`;
 Rust scalar services live in `src/runtime/`. The Wasm engine owns collection.
 
 All product/compiler library paths follow their names under `src/lofi` and
-`src/scheme`. The public `(lofi compiler)` is a product library calling the
-compiler service. `(lofi compiler bootstrap)` is its current Chibi implementation;
-other implementation modules remain Chibi-hosted too. Use `-I bootstrap` for
-Chibi so its host `(scheme base)` is distinct from `src/scheme/base.sld`.
+`src/scheme`. `(lofi compiler bootstrap)` composes the Chibi-hosted passes. Use
+`-I bootstrap` for Chibi so its host `(scheme base)` is distinct from
+`src/scheme/base.sld`.
 
 For a first read, start with `compile` and `entry-program` in
 [`compiler.sld`](../src/lofi/compiler/bootstrap.sld), then the source records in
@@ -212,67 +211,13 @@ opens retained evidence in Perfetto.
 
 `scripts/build-lofi` keeps its script behavior and `--export` selector for unique
 flattened binding names. The library API uses public Entry selection.
-Lofi producers can construct, inspect and transfer the complete library syntax
-described below. [`(lofi compiler)`](../src/lofi/compiler.sld) also exposes explicit
-map assembly, compilation, Wasm loading, independent instantiation and checked
-scalar entry invocation as ordinary Lofi calls. Every fallible operation returns
-an ordinary `CompilerResult` success or diagnostic string.
-
-[`compiler-service.mjs`](../src/lofi/compiler/service.mjs) owns one Chibi
-process, the matching builder arena, copied artifacts and runtime instances.
-[`serve-lofi-compiler.scm`](../scripts/serve-lofi-compiler.scm) parses supplied source
-once or receives constructed syntax and retains unresolved library values in
-immutable maps. Compilation resolves only the supplied map; provider linkage
-remains a separate execution operation. Failed initialization publishes no
-instance; a trapped call retains its instance and preceding effects. A lost
-compiler process invalidates map operations while copied artifacts and existing
-runtime instances remain owned by the service scope. See the
-[service API](lofi-compiler-service.md) for lifecycle rules, Wasm execution
-and first-class parsed `LofiLibrary` values.
 
 [`run-lofi-generator.mjs`](../scripts/run-lofi-generator.mjs) executes compiled
-recipes through the checked builder boundary. An explicit provider factory
-receives the selected descriptor's directory and owns its foreign services until
-cleanup. The driver registers the returned syntax and separately obtains its
-imports. See [source recipes](lofi-generation.md) for the API, command example,
-source context and preparation errors.
-
-## Parsed and constructed library values
-
-[`compiler/builder.sld`](../src/lofi/compiler/builder.sld) lets compiled Lofi
-producers compose nominal library, declaration, type, scope, binding and reference
-values. Constructors use explicit operands; no ambient current library is mutated.
-The API covers the book's types and binding signatures, literals, expressions,
-ordered blocks, static definitions and existing extern/overload extensions.
-Explicit type-variable identities carry generic scope alongside ordinary binding
-identities. Typed inspection views expose all constructor fields and copy mutable
-literal payloads. Binding references are distinct from expressions, and private
-handles do not expose managed pointers.
-
-[`library-builder.mjs`](../src/lofi/compiler/builder.mjs) supplies typed scalar
-constructors in an invocation-owned arena. `invokeLibraryGenerator` initializes
-and calls an ordinary compiled producer, copies its completed syntax graph into
-an owned transfer, and closes the arena and producer instance on success or trap.
-The same arena receives copied parse packets with checked structure and fresh
-local identities; parsed and constructed values share all typed views.
-The transfer has a versioned schema and preserves nodes and their local IDs.
-
-[`library-transfer.sld`](../src/lofi/compiler/library-transfer.sld) receives that data
-in Chibi, checks Unicode and structure, then reserves definitions and visits
-statements in order, introducing each `let` after its initializer. Every reference
-is checked against its lexical occurrence, including quantified type identities
-and static binding roles. It shares the frontend's reserved binding-name rule
-and creates an unresolved `LofiLibrary`. An explicit receiving context preserves
-reuse of legitimate owned transfers; reading raw bytes again creates fresh
-identities.
-Its reverse writer traverses unresolved parser declarations with binder identity
-maps, deriving scope owners from lexical structure. `def`/`let` evidence, attached
-signature locations, quantified variables and numeric source spellings survive
-that copy. Parsing still uses only `frontend.sld`; no types are inferred during
-transfer. Output imports need their own supplied map. The receiver neither discovers
-dependencies nor accepts inferred IR as evidence. See the [builder API and
-executable example](lofi-builder.md) for ownership, supported constructors,
-and typed inspection.
+recipes and collects the library source text they stream back. An explicit
+provider factory receives the selected descriptor's directory and owns its
+foreign services until cleanup. The driver parses the returned text and
+separately obtains its imports. See [source recipes](lofi-generation.md) for the
+API, command example, source context and preparation errors.
 
 ## Wasm artifacts, execution and scalar services
 
@@ -345,7 +290,6 @@ reaps descendants without loading guest code.
 Chibi imports implementation modules through `bootstrap/`, preserving its own
 Scheme libraries. Tests add `tests/` for colocated unit-test assertions.
 `scripts/test-backend` covers the current backend inventory, including raw and
-optimized linked Wasm execution, generators, scalar services and compiler-service
-lifecycle contracts. `scripts/test-build` exercises command publication, failure
+optimized linked Wasm execution, generators and scalar services. `scripts/test-build` exercises command publication, failure
 cleanup, standard input and literal arguments. See [build tools](backend.md) for
 commands.

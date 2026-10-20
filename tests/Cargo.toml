@@ -15,14 +15,6 @@ name = "snail-test-data"
 path = "harness/data.rs"
 
 [[bin]]
-name = "chibi-probe"
-path = "lofi-compiler-service/chibi-probe.rs"
-
-[[bin]]
-name = "chibi-adversary"
-path = "lofi-compiler-service/chibi-adversary.rs"
-
-[[bin]]
 name = "optimizer-probe"
 path = "harness/optimizer-probe.rs"
 

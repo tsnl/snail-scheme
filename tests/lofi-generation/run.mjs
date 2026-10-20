@@ -19,4 +19,4 @@ closeInstance(hygiene);
 const records = readFileSync(join(directory, 'providers.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
 assert.deepEqual(records.map(record => [record.action, record.libraryKey.at(-1)]),
   [['open', 'offset'], ['close', 'offset'], ['open', 'answer'], ['close', 'answer'], ['open', 'support'], ['close', 'support']]);
-console.log('PASS nested compiled recipes, separate dependency maps, identity, initialization, source context and provider cleanup');
+console.log('PASS nested text recipes, separate dependency maps, identity, initialization, source context and provider cleanup');

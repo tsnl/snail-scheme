@@ -1,7 +1,7 @@
 # Lofi libraries
 
-This namespace contains the [Lofi language](../../doc/book/lofi/index.md) libraries,
-and the public compiler API. The implementation is under
+This namespace contains the [Lofi language](../../doc/book/lofi/index.md) libraries.
+The compiler implementation is under
 [`compiler/`](compiler/README.md), separate from the standard library. All library
 sources use `.sld`. Import `(lofi core)` for named kernel syntax and `(lofi base)`
 for scalar operators and homogeneous collections. The sibling `(scheme base)`
@@ -37,8 +37,6 @@ overload families.
 | `scalar-text` | Scalar text tokens, interned symbols and diagnostics. |
 | `serialization` | Checked serialization capabilities and derived concrete data instances. |
 | `sexp` | Shared S-expression graph and text/binary wire encodings. |
-| `compiler builder` | Complete library syntax, typed inspection and owned transfer handles. |
-| `compiler` | Explicit maps, parsing, compilation and checked Wasm execution services. |
 
 ## Source and representation contracts
 
@@ -117,15 +115,10 @@ The final `Tests` sections of `text`, `integer`, `rational`, `number`, `datum`,
 `42` on success; helpers remain private. These exports are always available in
 Lofi programs, without a feature flag, so tests can call them from linked Wasm.
 
-## Compiler APIs
+## Compiler
 
-`compiler/builder.sld` constructs and inspects complete Lofi library syntax.
-Compiled producers transfer owned values into Chibi through the checked
-[builder protocol](../../doc/lofi-builder.md). The
-[source driver](../../doc/lofi-generation.md) executes explicit `generate-library`
-recipes. `compiler.sld` provides first-class parsing, explicit library maps,
-compilation, loading, independent instances and checked scalar invocation through
-the Chibi-hosted [compiler service](../../doc/lofi-compiler-service.md). That service
-always compiles to WasmGC. Source discovery and provider installation remain
-explicit driver operations. The engine owns managed references and machine code;
-Rust scalar services live in `src/runtime/`.
+The [source driver](../../doc/lofi-generation.md) executes explicit
+`generate-library` recipes: each compiles to Wasm and returns its library as
+source text. Source discovery and provider installation remain explicit driver
+operations. The engine owns managed references and machine code; Rust scalar
+services live in `src/runtime/`.

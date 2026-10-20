@@ -2,4 +2,4 @@
                   (import
                    (producer make)
                    (generated offset))
-                  (dependent-library (value)))
+                  (dependent-library "(generated answer)" (value)))

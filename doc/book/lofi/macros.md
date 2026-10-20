@@ -3,9 +3,7 @@
 Languages are libraries. Lofi has a small typed kernel and hygienic declarative
 macros. `(scheme base)` uses those macros to provide initial Scheme binding and
 control forms. Both surfaces use `.sld`, share imports and exports, and compile
-to the same checked Lofi representation. The public `(lofi compiler)` can be
-imported from either; its current Chibi implementation is a separate bootstrap
-library, not a different meaning of that public name.
+to the same checked Lofi representation.
 
 ## Defining and using transformers
 
@@ -257,10 +255,8 @@ lowering convention; these macros do not implement that convention.
 
 Parsing retains located source without obtaining dependencies. Resolution gets
 transformers from the explicit library map and expands afresh for that map;
-compilation never discovers missing files. Source transfer retains original
-syntax and reestablishes lexical identities in the receiver. Kernel declaration
-inspection of a library awaiting expansion can be empty; see the
-[builder protocol](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-builder.md).
+compilation never discovers missing files. Generated libraries arrive as source
+text and are parsed and expanded like any other file.
 
 Chibi reads compiler implementation sources through `bootstrap/`, a loader view
 of `src/lofi` that leaves Chibi's own `(scheme base)` unshadowed. Product source

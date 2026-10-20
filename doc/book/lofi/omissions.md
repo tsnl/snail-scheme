@@ -67,12 +67,9 @@ The present chapters describe the unrestricted core and reserve `many(T)` for
 the property needed at an Any boundary. They do not yet constitute a formal
 ownership calculus.
 
-The [builder protocol](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-builder.md) documents
-the implemented structured representation and owned transfer of library data between compiled Lofi
-and Chibi. Additional cross-runtime transports, procedural macro interfaces and general target
-capability contracts need separate specifications. The [compiler
-service](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-compiler-service.md) documents its
-current interfaces and restrictions.
+Generation recipes return library source text; there is no structured syntax transfer between
+compiled Lofi and the compiler. Procedural macro interfaces and general target capability contracts
+need separate specifications.
 
 > TODO: Complete the formal rules for nominal declarations, exhaustive matching,
 > datatype and typeclass formers, instance checking, affine ownership,

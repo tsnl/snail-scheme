@@ -20,7 +20,6 @@
  (only (lofi compiler profile) test-compiler-profile)
  (only (lofi compiler source-driver) test-source-driver)
  (only (lofi compiler artifact) test-artifact)
- (only (lofi compiler library-transfer) test-library-transfer)
  (only (lofi compiler numeric-literals) test-numeric-literals)
  (only (lofi compiler types) test-types)
  (only (lofi compiler typed) test-typed)
@@ -37,7 +36,6 @@
 (test-compiler)
 (test-compiler-profile)
 (test-artifact)
-(test-library-transfer)
 (call-with-temp-dir
  "lofi-unit-traces"
  (lambda (directory preserve)
