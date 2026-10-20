@@ -1,7 +1,0 @@
-{
-  "body_tokens_unchanged": true,
-  "before_library_sha256": "e5f08db0140df8e0930423eb9455343b11015cb53171087bbafcb18dfb9a6cf0",
-  "after_library_sha256": "9838b7363d271432e194c045aef1d09c345675c5dad67765e3c899b0de143989",
-  "tokens_sha256": "7c4fa3cb47fc46d6bb7663788f9aceee0e30a41e0ec6defc4a01156489bd326a",
-  "note": "Repository formatter changed whitespace only; the tested unit source retains the exact earlier arithmetic body."
-}

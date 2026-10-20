@@ -1,7 +1,0 @@
-{
-  "archive_sha256": "f9789a452fe6dc94c4fd61329f5950a3e45d73f8872532b06c554cf3587d0f8d",
-  "checked_file_bytes": 648,
-  "checked_terminal_records": 288,
-  "passed": true,
-  "prior_review_assertions": "Two parent script attempts treated the inventory list as a scalar count. Corrected the audit to compare its length and independently hash every file; archive unchanged."
-}

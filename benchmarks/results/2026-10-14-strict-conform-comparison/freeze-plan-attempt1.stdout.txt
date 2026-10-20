@@ -1,3 +1,0 @@
-Validated 7 complete frames and rejected 170 corruptions
-Validated 7 complete frames and rejected 170 corruptions
-Frozen 56 jobs and 453 identities; no clean timing run

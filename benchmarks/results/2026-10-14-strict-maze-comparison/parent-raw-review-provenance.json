@@ -1,6 +1,0 @@
-{
-  "original_path": "/tmp/snail-general-specialization-20261012/build/maze-integration-review/measurement-raw-review.json",
-  "actual_tool_chunk": "e64b98",
-  "actual_exit_code": 0,
-  "scope": "Parent separate replay of all 56 raw captures/clock values, hashes, terminal/cleanup records and schedule positions; reproduces seven medians/ranges."
-}

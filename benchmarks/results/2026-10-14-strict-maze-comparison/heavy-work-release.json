@@ -1,9 +1,0 @@
-{
-  "raw_campaign_terminal": true,
-  "clean_run_session_id": 62668,
-  "clean_run_exit_code": 0,
-  "terminal_chunk_id": "39749a",
-  "quiet_window_released": true,
-  "parent_message": "Quiet window released after actual62668 terminal0/chunk39749a. All56 planned processes are complete, so you may run independent audit and package evidence.",
-  "other_agent_notified": "Compiler agent notified of actual terminal and parent release."
-}

@@ -1,8 +1,0 @@
-{
-  "actual_tool_terminal": true,
-  "chunk_id": "7b1209",
-  "wall_time_seconds": 0.171035499,
-  "exit_code": 0,
-  "original_token_count": 50,
-  "output": "PASS seven actual complete protocol frames, synthetic capture controls, exact rotation balance; original groups quiescent\nplan_sha256 09f16e4cded8ee975a7426dfca357d102bb45bea4beaecff5550f052501da7e9\n"
-}

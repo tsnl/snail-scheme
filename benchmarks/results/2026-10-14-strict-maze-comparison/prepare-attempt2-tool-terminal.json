@@ -1,9 +1,0 @@
-{
-  "actual_exec_session": 68175,
-  "actual_tool_terminal": true,
-  "exit_code": 1,
-  "tool_chunk": "99a190",
-  "clean_timing_started": false,
-  "stage": "Successful current compile/link; historical Wasm byte equality assertion failed",
-  "current_artifacts_preserved": true
-}

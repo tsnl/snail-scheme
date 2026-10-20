@@ -1,8 +1,0 @@
-{
-  "actual_tool_terminal": true,
-  "chunk_id": "9fe747",
-  "wall_time_seconds": 0.054898465,
-  "exit_code": 0,
-  "original_token_count": 20,
-  "output": "PASS frozen schedule, sources, artifacts and import closure; no guest started\n"
-}

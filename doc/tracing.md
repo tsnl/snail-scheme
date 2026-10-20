@@ -83,5 +83,4 @@ closure, missing destinations, file-opening errors and abandoned spans. A future
 Lofi tracing library is separate work; the host decorator runs in Chibi.
 
 WasmGC collection belongs to the engine. This utility records compiler operations;
-it does not record engine collection pauses. Historical custom-collector traces
-remain in the [benchmark archive](../benchmarks/history.md).
+it does not record engine collection pauses.

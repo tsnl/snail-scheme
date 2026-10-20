@@ -132,51 +132,18 @@ attached `deriving` clauses invoke ordinary declarative transformers.
   scalar host services and explicit resource cleanup; the Wasm engine traces roots.
 - [x] Validate the public command, imported libraries, error paths and actual
   linked Wasm execution. Compilation alone is insufficient.
-- [x] Author all 57 bare Lofi benchmark ports with canonical inputs,
-  algorithms and result predicates. The historical full57 freeze passed all then-supported
-  native routes and 56 Wasm routes, preserving Ack's Wasm stack failure.
-- [x] Measure Lofi, original/adapted Chez controls and Rust on the frozen full
-  corpus, recording the then-supported native and Wasm routes separately. Preserve
-  failed/unavailable routes, complete predicates, preparation costs and instrumented diagnostics.
-  Report the Mperm timer correction as a distinct campaign.
 - [x] Complete focused clarity reviews of [recursive inference](../tests/lofi-recursion/README.md),
   [literal construction](../tests/lofi-literal-widths/README.md),
   [arithmetic lowering](../tests/lofi-arithmetic/README.md) and
   [shared I/O ownership](../src/lofi/README.md). Retain independent explanations,
   rejected alternatives and target execution evidence for those concrete changes.
-- [ ] Investigate the measured full57 bottlenecks and continue scoped compiler
-  and runtime simplification with type/ownership evidence and execution checks.
-  Completed reviews do not establish universal optimization or explain every slowdown.
-- [x] Measure default arithmetic and direct native array access with unchanged
-  inputs and repeated Chez/Rust controls in the
-  [four-arm, six-workload ablation](../benchmarks/results/2026-10-15-arithmetic-array-ablation/README.md).
-  Retain the inlining experiment as evidence: its GCbench recovery trades off
-  against a substantial bytevector/string conversion regression.
-- [ ] Bound recursive code expansion while preserving useful helper inlining.
-  Measure both allocation-heavy and conversion-heavy workloads before changing
-  the global policy; smaller Wasm alone does not establish faster execution.
 - [x] Retire the LLVM backend and custom native collector; remove native root frames.
-- [ ] Measure remaining Wasm allocation, redundant zero fills and repeated
-  UTF-8 validation using the representation and execution contracts in that report.
 
 The implementation migration landed in [PR #227](https://github.com/tsnl/snail-scheme/pull/227),
 with frontend, integration, library, public-command and then-supported native
 execution checks.
 [PR #228](https://github.com/tsnl/snail-scheme/pull/228) adds full Unicode string
-folding through scalar services. The
-[completed full57 report](../benchmarks/lofi/evidence/20261015-full57.md)
-records 326 measured routes and 1,956 successful scheduled attempts at compiler
-`8e547bfb`, with both Ack Wasm failures and primary Mperm name rejections retained.
-Lofi trails Chez and Rust on all six aggregate comparisons. The later
-[packet-input comparison](../benchmarks/lofi/evidence/20261015-input-packets.md)
-measures one concrete I/O change separately; it is not a new full-suite result.
-The earlier [six-case measurements](../benchmarks/lofi/evidence/20261015-clean-six.md)
-remain historical. The compiler service produces and executes Wasm; native
-loading has been retired with the LLVM backend.
-
-The [corpus manifest](../benchmarks/lofi/corpus.json) tracks source presence,
-validation and measurement independently. Pre-migration strict-Scheme results
-are historical evidence, not a current Lofi score.
+folding through scalar services.
 
 ## After the migration
 

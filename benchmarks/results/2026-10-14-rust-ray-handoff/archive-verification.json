@@ -1,9 +1,0 @@
-{
-  "kind": "Post-pack complete blob/path reconstruction and hash verification; replay results recorded separately",
-  "archive_sha256": "ccae65c5b02302fc14d3f693eeb5e2b47c2dbc1cecad21170cdda4ffeb18f0fa",
-  "blobs": 149,
-  "mapped_files": 224,
-  "restore_root": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-handoff-restored",
-  "all_blobs_and_reconstructed_files_verified": true,
-  "performance_samples": false
-}

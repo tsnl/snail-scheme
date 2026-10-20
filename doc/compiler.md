@@ -348,4 +348,4 @@ Scheme libraries. Tests add `tests/` for colocated unit-test assertions.
 optimized linked Wasm execution, generators, scalar services and compiler-service
 lifecycle contracts. `scripts/test-build` exercises command publication, failure
 cleanup, standard input and literal arguments. See [build tools](backend.md) for
-commands and [benchmarks](../benchmarks/README.md) for the 57-workload corpus.
+commands.

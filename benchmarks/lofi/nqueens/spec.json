@@ -1,9 +1,0 @@
-{
-  "name": "nqueens",
-  "count": 10,
-  "inputs": [
-    13
-  ],
-  "expected": 73712,
-  "barriers_per_iteration": 1
-}

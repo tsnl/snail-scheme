@@ -52,7 +52,6 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   Wasm engines trace managed references. Rust scalar providers own external resources
   behind explicit handles. Resource cleanup must not retain its managed wrapper.
 - Keep the compiler hosted by Chibi until a separate self-hosting milestone.
-  Type inference follows the working, measured backend baseline.
 - Update [TOUR.md](TOUR.md) when module responsibilities change. Keep proposed
   APIs distinct from implemented behavior in documentation and TODOs.
 
@@ -63,7 +62,4 @@ Relevant checks are `make test`, `make check`,
 `cargo fmt --manifest-path tools/host/Cargo.toml --all -- --check`,
 `scripts/test-backend`, and `scripts/test-build`.
 Backend changes should execute linked Wasm; compilation alone does not test target
-behavior. Keep the
-57-workload comparison complete and distinguish source presence, correctness,
-clean measurements and instrumented diagnostics. See [doc/backend.md](doc/backend.md) for tools
-and [benchmarks/README.md](benchmarks/README.md) for reproducible measurements.
+behavior. See [doc/backend.md](doc/backend.md) for tools.

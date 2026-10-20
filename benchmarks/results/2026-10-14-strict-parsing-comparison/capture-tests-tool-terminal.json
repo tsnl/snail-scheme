@@ -1,8 +1,0 @@
-{
-  "actual_tool_terminal": true,
-  "chunk_id": "42551e",
-  "wall_time_seconds": 0.166182396,
-  "exit_code": 0,
-  "original_token_count": 21,
-  "output": "PASS retained synthetic capture/terminal/cleanup checks; no benchmark guest started\n"
-}

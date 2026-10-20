@@ -131,13 +131,7 @@ public operation exposes a raw handle that could bypass pending input.
 retains all command attempts and source/tool/artifact identities, and verifies
 packet boundaries, Unicode buffer splits, aliases, mixed readers,
 borrowed scalar interoperation, closed cached input, file growth after EOF,
-valid output before malformed input, and resource release. The historical
-[paired Cat/WC measurement](../../benchmarks/lofi/evidence/20261015-input-packets.md)
-retains the original sources, count 50 and full predicates. Median scalar/packet
-workload-time ratios were 1.49×/1.51× for Cat and 2.31×/1.80× for WC (V8/native);
-all 48 attempts passed on CPU 2 with ordinary desktop background activity.
-These results cover those two workloads. The historical character-buffer
-prototype and its timing artifacts remain separate.
+valid output before malformed input, and resource release.
 
 ## Tests and current validation
 

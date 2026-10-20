@@ -52,11 +52,6 @@ Backend correctness requires actual raw and optimized Wasm execution. Integratio
 fixtures retain expected rejections, values, effects, traps and cleanup checks.
 CI partitions the complete current backend and integration inventories.
 
-The [57-workload corpus](../benchmarks/README.md) retains all sources and frozen
-measurements. New campaigns compare Lofi/Wasm with original/adapted Chez and
-Rust/Wasm and Rust/native controls. Historical six-route campaigns retain their
-original results, including the retired Lofi/native route; they are not new
-measurements of the current compiler.
 
 ## Build profiles
 

@@ -118,7 +118,6 @@ progress to stderr, including during synchronous compiler-service calls.
 | [`scripts/build-pages.mjs`](scripts/build-pages.mjs) and [`scripts/check-pages.mjs`](scripts/check-pages.mjs) | Build the book and solo Siegework package into one generated Pages artifact, then check its local URLs and file boundaries under `/snail-scheme/`. The [Games chapter](doc/book/games/index.md) is the player entry point. |
 | [`scripts/format-scheme`](scripts/format-scheme.el) | Scheme indentation with one import specification or record field per line; shared by the editor and `make format`/`make check`. |
 | [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. |
-| [`benchmarks/`](benchmarks/README.md) | All 57 workloads, controls and preserved measurement evidence. |
 
 The Wasm engine traces managed values. `src/runtime/` owns external scalar
 resources behind explicit handles and closes them at the host boundary.

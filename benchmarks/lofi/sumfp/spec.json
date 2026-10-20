@@ -1,9 +1,0 @@
-{
-  "name": "sumfp",
-  "count": 500,
-  "inputs": [
-    1000000.0
-  ],
-  "expected": 500000500000.0,
-  "barriers_per_iteration": 1
-}

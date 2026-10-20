@@ -1,9 +1,0 @@
-{
-  "name": "fibfp",
-  "count": 10,
-  "inputs": [
-    35.0
-  ],
-  "expected": 9227465.0,
-  "barriers_per_iteration": 1
-}

@@ -1,22 +1,14 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test benchmark
+.PHONY: format check test
 
 CHIBI ?= chibi-scheme
 EMACS ?= emacs
 NIXFMT ?= nixfmt
-BENCH_OUTPUT ?= /tmp/lofi-benchmarks
-# Benchmark captures retain their recorded source hashes and layout.
-SCHEME_SOURCES = '*.scm' '*.sld' ':!:benchmarks/**'
+SCHEME_SOURCES = '*.scm' '*.sld'
 
 test:
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
 	"$(CHIBI)" -D snail-tests -I bootstrap -I tests tests/lofi/host.scm
-	"$(CHIBI)" -D snail-tests -I bootstrap -I tests -I benchmarks tests/lofi-benchmarks.scm
-	"$(CHIBI)" -D snail-tests -I bootstrap -I tests -I benchmarks benchmarks/wasm-reference/tests/audits.scm
-
-benchmark:
-	"$(CHIBI)" -I bootstrap -I benchmarks benchmarks/lofi/runner.scm prepare --output "$(BENCH_OUTPUT)"
-	"$(CHIBI)" -I bootstrap -I benchmarks benchmarks/lofi/runner.scm validate --output "$(BENCH_OUTPUT)"
 
 format:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --write

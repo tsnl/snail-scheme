@@ -26,6 +26,3 @@ path = "lofi-compiler-service/chibi-adversary.rs"
 name = "optimizer-probe"
 path = "harness/optimizer-probe.rs"
 
-[[bin]]
-name = "format-reference"
-path = "lofi-numbers/format-reference.rs"

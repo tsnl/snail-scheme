@@ -1,7 +1,0 @@
-{
-  "vector-fields-and-copy": "(define (update x i v) (vector-set! x i v) (vector-ref x i)) (update (vector 1 2) 0 3)",
-  "arithmetic-location-overlap": "(define (f n) (let ((x (- n 1))) (+ x x n))) (f 9)",
-  "comparison-sequence-stack": "(define (f a b c d e) (if (< a b c d e) (+ a b) (+ d e))) (f 1 2 3 4 5)",
-  "mutable-cons-fields": "(define (f a b) (let ((p (cons a b))) (set-car! p b) (set-cdr! p a) (list (car p) (cdr p)))) (f 1 2)",
-  "independent-small-addition": "(+ 1 2)"
-}

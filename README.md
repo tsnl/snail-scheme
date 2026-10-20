@@ -56,13 +56,4 @@ The [compiler tour](TOUR.md) follows source locations and type evidence through
 the implementation. [The roadmap](doc/roadmap.md) separates current work from
 further Scheme support and self-hosting.
 
-The [benchmark corpus](benchmarks/README.md) retains all 57 workloads and compares
-Lofi, Chez and Rust. Source ports, target validation and clean measurements are
-recorded separately. The [completed full-suite report](benchmarks/lofi/evidence/20261015-full57.md)
-retains Ack's Wasm failures and a separately corrected Mperm timer identity.
-Its frozen Lofi baseline trails Chez and Rust on every aggregate comparison;
-the later [packet-input results](benchmarks/lofi/evidence/20261015-input-packets.md)
-describe a separate implementation and campaign. Historical Scheme reports
-remain historical evidence.
-
 [Apache-2.0](LICENSE)

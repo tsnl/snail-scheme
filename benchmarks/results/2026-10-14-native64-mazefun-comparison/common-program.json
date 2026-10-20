@@ -1,8 +1,0 @@
-{
-  "native_generation": "/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/mazefun-native.native-tt2knd0m",
-  "input_sha256": "90463bc162ca1c78b29bc92f90a18f029fbbf27852bd84a0fa1d5b105b204f0b",
-  "optimized_sha256": "24c2a941a3721de8340f435259cc9184868e81ec0c3ca73a939fa73c10caf442",
-  "native_sha256": "b93d36ca76fdea9e05a6c20f410a9cf417f831b9ad0261e19a03bb8d3b625e10",
-  "optimized_identical_to_preparation": false,
-  "optimized_text_identical_to_preparation": false
-}
