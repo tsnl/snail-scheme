@@ -35,3 +35,8 @@
 (display (case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8 9) 'composite) (else 'other))) (newline)
 (for-each (lambda (x) (display (* x x)) (display " ")) '(1 2 3))
 (newline)
+(define (small? n) (and (< n 3) (* n 10)))
+(display (let* ((a 1) (b (+ a 1)))
+           (list (cond ((small? b) => (lambda (x) (+ x 1))) (else 'none))
+                 (cond ((small? 5)) ((small? a)) (else 'none)))))
+(newline)

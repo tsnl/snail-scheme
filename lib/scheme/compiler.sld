@@ -177,8 +177,11 @@
     (: translate-let* (-> (List Datum) (List Datum) String))
     (define (translate-let* bindings body)
       (match bindings
-        ((Nil) (translate-let (Cons (NullDatum) body)))
-        ((Cons first rest) (translate-let (list (datum-list (list first)) (PairDatum (SymbolDatum "let*") (PairDatum (datum-list rest) (datum-list body))))))))
+        ((Nil) (translate-body body))
+        ((Cons first rest)
+         (let ((pair (binding first)))
+           (string-append "(let ((" (variable (Pair-first pair)) " (ref " (translate (Pair-second pair)) "))) "
+                          (translate-let* rest body) ")")))))
 
     (: translate-letrec (-> (List Datum) (List Datum) String))
     (define (translate-letrec bindings body)
@@ -221,7 +224,9 @@
         ((Cons clause rest)
          (match (items clause)
            ((Cons (SymbolDatum "else") body) (translate-body body))
-           ((Cons test (Nil)) (translate-or (list test (PairDatum (SymbolDatum "cond") (datum-list rest)))))
+           ((Cons test (Nil))
+            (string-append "(let ((cond.value " (translate test) ")) (if (datum-truthy? cond.value) cond.value "
+                           (translate-cond rest) "))"))
            ((Cons test (Cons (SymbolDatum "=>") (Cons receiver (Nil))))
             (string-append "(let ((cond.value " (translate test) ")) (if (datum-truthy? cond.value) (call " (translate receiver)
                            " (list cond.value)) " (translate-cond rest) "))"))
