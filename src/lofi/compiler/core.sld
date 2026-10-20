@@ -115,7 +115,8 @@
    add-item!
    program-item-list
    primitives
-   short-name)
+   short-name
+   case-type-id)
   (import
    (scheme base)
    (scheme char)
@@ -485,6 +486,51 @@
 
     (define (program-item-list program)
       (reverse (ref-get (Program-items program))))
+
+    ;; ---- Wire identities ----
+
+    ;; A case's TypeId hashes its declaring library, type, name and fields.
+    ;; Field types contribute their own schemas, cut at recursive references,
+    ;; so the identity changes exactly when the encoded shape can change.
+    (define (case-type-id program case)
+      (let ((hash (fnv-1a (case-schema program case '()))))
+        (if (>= hash (expt 2 31)) (- hash (expt 2 32)) hash)))
+
+    (define (case-schema program case visiting)
+      (let* ((data (program-type program (Case-type case))) (params (DataType-params data))
+             (visiting (cons (DataType-name data) visiting)))
+        (string-append (symbol->string (Case-name case)) "("
+                       (apply string-append
+                              (map (lambda (field)
+                                     (string-append (symbol->string (Field-name field)) ":"
+                                                    (type-schema program (Field-type field) params visiting) ";"))
+                                   (Case-fields case)))
+                       ")")))
+
+    (define (type-schema program type params visiting)
+      (match type
+        ((TRigid name) (string-append "#" (number->string (length (memq name (reverse params))))))
+        ((TCon name args)
+         (let ((data (program-type program name))
+               (arguments (apply string-append (map (lambda (arg) (string-append (type-schema program arg params visiting) ",")) args))))
+           (string-append (symbol->string name) "<" arguments ">"
+                          (if (and data (not (memq name visiting)))
+                              (apply string-append (map (lambda (case) (case-schema program case visiting)) (DataType-cases data)))
+                              ""))))
+        (_ "fn")))
+
+    (define (fnv-1a text)
+      (let loop ((hash 2166136261) (chars (string->list text)))
+        (if (null? chars)
+            hash
+            (loop (modulo (* (exclusive-or hash (char->integer (car chars))) 16777619) 4294967296) (cdr chars)))))
+
+    (define (exclusive-or a b)
+      (let loop ((a a) (b b) (bit 1) (result 0))
+        (if (and (= a 0) (= b 0))
+            result
+            (loop (quotient a 2) (quotient b 2) (* bit 2)
+                  (if (= (modulo a 2) (modulo b 2)) result (+ result bit))))))
 
     ;; ---- Primitives ----
 

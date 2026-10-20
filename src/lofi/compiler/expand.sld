@@ -118,10 +118,11 @@
        (directories (List String))
        (libraries HashTable)
        (counter (Ref I64))
+       (deriving (Ref Env))
        (prefix String)))
 
     (define (make-context directories)
-      (let ((cx (Context (make-program) directories (make-hash-table equal?) (ref 0) "")))
+      (let ((cx (Context (make-program) directories (make-hash-table equal?) (ref 0) (ref #f) "")))
         (hash-table-set! (Context-libraries cx) '(lofi core) (core-library))
         (hash-table-set! (Context-libraries cx) '(lofi primitive) (primitive-library cx))
         cx))
@@ -148,7 +149,7 @@
 
     (define core-keywords
       '(define lambda if begin let define-syntax syntax-rules quote : struct enum type
-         typeclass instance match ann extern effect handle expose))
+         typeclass instance match ann extern effect handle expose case-id))
 
     (define (core-library)
       (Library '(lofi core)
@@ -316,7 +317,11 @@
           ((Core keyword)
            (if (memq keyword '(: struct enum type typeclass instance extern effect expose))
                (begin (scan-declaration cx env keyword form)
-                      (list (list keyword form env)))
+                      (cons (list keyword form env)
+                            (if (memq keyword '(struct enum))
+                                (append-each (lambda (instance) (scan-top-level cx env instance))
+                                             (derived-instances cx env form (eq? keyword 'enum)))
+                                '())))
                (list (list 'expression form env))))
           (_ (list (list 'expression form env))))))
 
@@ -383,7 +388,7 @@
                       (bind-fields! cx env name (struct-fields form) #t)))
           ((enum) (let ((name (declared-name (cadr items))))
                     (bind-top! cx env name (TypeName (global-name cx (ident-key name)) (length (declared-params (cadr items))) #f))
-                    (for-each (lambda (case) (scan-case! cx env case)) (cddr items))))
+                    (for-each (lambda (case) (scan-case! cx env case)) (cddr (declaration-items form)))))
           ((type) (let ((name (declared-name (cadr items))))
                     (bind-top! cx env name (Alias (declared-params (cadr items)) (caddr items) env))))
           ((typeclass) (let ((name (declared-name (cadr items))))
@@ -432,10 +437,22 @@
         (_ '())))
 
     (define (struct-fields form)
-      (match (Form-items form)
+      (match (declaration-items form)
         ((list _ _) '())
         ((list _ _ fields) (form-items fields "a field list"))
         (_ (compile-error (syntax-loc form) "expected (struct Name ((field type) ...))"))))
+
+    ;; A struct or enum may end with `(deriving Class ...)`.
+    (define (declaration-items form)
+      (remove deriving-clause? (Form-items form)))
+
+    (define (deriving-clause? syntax)
+      (match syntax
+        ((Form (Cons (Ident 'deriving _ _) _) _) #t)
+        (_ #f)))
+
+    (define (derived-classes form)
+      (append-map (lambda (item) (cdr (Form-items item))) (filter deriving-clause? (Form-items form))))
 
     ;; A type parameter scope binds each parameter to a rigid variable.
     (define (type-scope env params)
@@ -447,8 +464,8 @@
       (let* ((head (cadr (Form-items form))) (params (declared-params head))
              (id (TypeName-name (resolve env (declared-name head)))) (scope (type-scope env params))
              (cases (if enum?
-                        (map (lambda (case) (form-items case "an enum case")) (cddr (Form-items form)))
-                        (list (cons (declared-name head) (if (null? (struct-fields form)) '() (list (caddr (Form-items form))))))))
+                        (map (lambda (case) (form-items case "an enum case")) (cddr (declaration-items form)))
+                        (list (cons (declared-name head) (if (null? (struct-fields form)) '() (list (caddr (declaration-items form))))))))
              (data (DataType id (map Ident-name params)
                              (map (lambda (case tag) (resolve-case scope case id tag)) cases (iota (length cases)))
                              enum?)))
@@ -715,6 +732,9 @@
                  ((list _ value type) (expr (Ann (expand-expr cx env value) (resolve-type env type)) loc))
                  (_ (compile-error loc "expected (ann expression type)"))))
         ((handle) (expand-handle cx env items loc))
+        ((case-id) (match items
+                     ((list _ constructor) (expr (Ann (expr (Lit (constructor-case-id cx env constructor)) loc) (TCon 'I32 '())) loc))
+                     (_ (compile-error loc "expected (case-id Constructor)"))))
         ((quote) (match items
                    ((list _ (Atom value _)) (expr (Lit value) loc))
                    (_ (compile-error loc "only literals can be quoted"))))
@@ -802,6 +822,90 @@
                          (expand-body cx env body loc))
                  loc)))
         (_ (compile-error loc "expected (handle Effect ((operation implementation) ...) body ...)"))))
+
+    (define (constructor-case-id cx env constructor)
+      (match (program-value (program cx) (pattern-constructor env constructor))
+        ((Constructor case _) (case-type-id (program cx) case))
+        (_ (compile-error (syntax-loc constructor) "not a constructor"))))
+
+    ;; ---- Deriving ----
+
+    ;; Derived instances are ordinary instance declarations, built as syntax.
+    ;; Identifiers they introduce are marked to resolve in an environment of
+    ;; (lofi core), (lofi primitive) and (lofi wire), whatever the declaring
+    ;; library imports.
+    (define (derived-instances cx env form enum?)
+      (let* ((head (cadr (Form-items form))) (loc (syntax-loc form))
+             (cases (if enum?
+                        (map (lambda (case) (let ((items (Form-items case)))
+                                              (cons (car items) (if (pair? (cdr items)) (length (Form-items (cadr items))) 0))))
+                             (cddr (declaration-items form)))
+                        (list (cons (declared-name head) (length (struct-fields form)))))))
+        (map (lambda (class)
+               (case (Ident-name class)
+                 ((Serialize) (serialize-instance cx head cases loc))
+                 ((Deserialize) (deserialize-instance cx head cases loc))
+                 (else (compile-error (syntax-loc class) "only Serialize and Deserialize can be derived"))))
+             (derived-classes form))))
+
+    (define (deriving-env cx loc)
+      (or (ref-get (Context-deriving cx))
+          (let ((env (child-env #f)))
+            (for-each (lambda (entry) (hash-table-set! (Env-table env) (car entry) (cdr entry)))
+                      (append (Library-exports (load-library cx '(lofi core) loc))
+                              (Library-exports (load-library cx '(lofi primitive) loc))
+                              (Library-exports (load-library cx '(lofi wire) loc))))
+            (ref-set! (Context-deriving cx) env)
+            env)))
+
+    (define (wire-ident cx name loc)
+      (let ((original (Ident name #f loc)))
+        (Ident name (Mark (string->symbol (string-append (symbol->string name) "%deriving")) original (deriving-env cx loc)) loc)))
+
+    (define (form loc . items)
+      (Form items loc))
+
+    (define (field-idents cx count loc)
+      (map (lambda (index) (wire-ident cx (string->symbol (string-append "field" (number->string index))) loc)) (iota count)))
+
+    (define (instance-head cx class head loc)
+      (let ((params (declared-params head)))
+        (append (list (wire-ident cx 'instance loc) (form loc (wire-ident cx class loc) head))
+                (if (null? params) '()
+                    (list (apply form loc (wire-ident cx 'requires loc)
+                                 (map (lambda (param) (form loc (wire-ident cx class loc) param)) params)))))))
+
+    ;; Each case writes its TypeId, then its fields in order.
+    (define (serialize-instance cx head cases loc)
+      (let ((w (lambda (name) (wire-ident cx name loc))) (value (wire-ident cx 'value loc)) (encoder (wire-ident cx 'encoder loc)))
+        (apply form loc
+               (append (instance-head cx 'Serialize head loc)
+                       (list (form loc (w 'define) (form loc (w 'encode) value encoder)
+                                   (apply form loc (w 'match) value
+                                          (map (lambda (case)
+                                                 (let ((fields (field-idents cx (cdr case) loc)))
+                                                   (apply form loc (apply form loc (car case) fields)
+                                                          (form loc (w 'encode-case-id) encoder (form loc (w 'case-id) (car case)))
+                                                          (append (map (lambda (field) (form loc (w 'encode) field encoder)) fields)
+                                                                  (list (form loc (w 'unit)))))))
+                                               cases))))))))
+
+    ;; The TypeId read selects the case; an unknown one is a schema mismatch.
+    (define (deserialize-instance cx head cases loc)
+      (let* ((w (lambda (name) (wire-ident cx name loc))) (decoder (wire-ident cx 'decoder loc)) (id (wire-ident cx 'id loc))
+             (decode-case (lambda (case)
+                            (let ((fields (field-idents cx (cdr case) loc)))
+                              (fold-right (lambda (field body) (form loc (w 'let) (form loc (form loc field (form loc (w 'decode) decoder))) body))
+                                          (apply form loc (car case) fields) fields)))))
+        (apply form loc
+               (append (instance-head cx 'Deserialize head loc)
+                       (list (form loc (w 'define) (form loc (w 'decode) decoder)
+                                   (form loc (w 'let) (form loc (form loc id (form loc (w 'decode-case-id) decoder)))
+                                         (fold-right (lambda (case otherwise)
+                                                       (form loc (w 'if) (form loc (w 'case-id=?) id (form loc (w 'case-id) (car case)))
+                                                             (decode-case case) otherwise))
+                                                     (form loc (w 'panic) (Atom "wire data has a different schema" loc))
+                                                     cases))))))))
 
     ;; ---- Patterns ----
 
