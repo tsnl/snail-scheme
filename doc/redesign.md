@@ -19,9 +19,10 @@ Lofi must:
    without being rebuilt.
 4. Work in a distributed setting: types that cross a process, network or device
    boundary have stable identities and a schema both sides check.
-5. Be an idiomatic pure functional language.
-6. Support typed code generation ("templates with concepts"), not only untyped
-   `syntax-rules`.
+5. Be an idiomatic pure functional language whose effects are tracked by the
+   type system.
+6. Support generic code that is checked once, at its definition ("templates
+   with concepts"), alongside `syntax-rules`.
 7. Support typeclasses and instances, including generic instances.
 8. Be a Lisp: S-expressions, `define-library`, `define-syntax`/`syntax-rules`.
 9. Replace `data` with explicit `struct` definitions, `enum` sums and `type`
@@ -82,7 +83,9 @@ types. `if` requires `Bool`. Lofi adds a small number of typed forms:
 | `(typeclass (Class param ...) (: method type) ...)` | Open, type-indexed record of methods. |
 | `(instance (Class type ...) [(requires ...)] (define ...) ...)` | Instance; may be generic. |
 | `(match e (pattern body ...) ...)` | Nested patterns, wildcards and literals; exhaustiveness and redundancy checked. |
-| `(ann e type)` | Checked annotation. |
+| `(ann e type)` | Static annotation; never checks at run time. |
+| `(type-convert e type)` | Upcast checked statically, or downcast checked at run time (§6). |
+| `(extern name module symbol type)` | Foreign function; its type declares its effects (§3.5). |
 
 A color example:
 
@@ -209,33 +212,53 @@ Rules:
 
 This replaces both today's concrete-head classes and `define-overload`.
 
-### 3.5 Purity and effects
+### 3.5 Effects
 
-Functions are pure. Effects (foreign calls, mutation of `Ref` and vectors, I/O)
-have type `(IO T)`. `do`-style sequencing is a macro over the monad operations,
-and the runtime runs only the program's entry action. `Ref` and mutable vectors
-are created and used inside `IO`, or inside a local `ST`-style runner whose
-result cannot leak them.
+Every function type carries an effect row, in the style of Koka. A function
+with an empty row is total: it reads only its arguments and immutable data.
 
-Purity is what makes application handlers model-checkable (§5), and it keeps the
-compiler's passes pure, so host divergence stays at the entry point (§6).
+```scheme
+(: parse (-> String Config))                         ; total
+(: load-config (-> String Config ! fs))              ; reads files
+(: map (All (A B e) (-> (-> A B ! e) (List A) (List B) ! e)))
+```
 
-**Decision for you:** enforced purity through `IO` (recommended), or Scheme-style
-effects anywhere as today.
+- **Labels.** `mut` covers writes to shared `Ref` and vector storage; `io`
+  covers console, clock and randomness. A library can declare further labels
+  with `(effect name)`, for example `fs`, `net` or `gpu`.
+- **Rows.** A row lists labels after `!`. A type variable in a row makes it
+  open, so `map` has exactly the effects of its function argument.
+- **Inference.** Rows unify like types, so local functions and lambdas need no
+  effect annotations, and code stays in direct style.
+- **Foreign calls.** An `extern` states its effects in its type. A foreign
+  function declared without effects is trusted to be total; that is the
+  boundary's explicit unsafe assumption.
+- **No handlers yet.** Effects are checked and then erased; they have no run
+  time representation. Traps and divergence are not tracked initially.
 
-### 3.6 Macros and typed code generation
+Purity is enforced, rather than left to convention, because later stages rely
+on it:
 
-There are two layers:
+- **Model checking.** Application handlers must be total (§5), so a test can
+  replay and explore transitions without a browser or a network.
+- **Optimization.** The compiler may drop, merge, reorder or hoist calls whose
+  rows are empty.
+- **Boundaries.** A handler's type shows whether it can touch files, the
+  network or a GPU, which is what checking across processes and devices needs.
+- **Self-hosting.** The compiler's passes are total, so host divergence stays
+  at the entry point (§6).
 
-1. **Syntax.** `define-syntax` with hygienic `syntax-rules`, using scope sets.
-   Macros expand before elaboration and exist for new surface syntax such as
-   binding forms and DSL notation. This layer provides Scheme compatibility.
-2. **Typed staging** (later). `(Code T)` quotations are checked when they are
-   written, and splices are evaluated at compile time by the elaborator's own
-   evaluator. This is the MetaOCaml model, and the typed counterpart of
-   templates. It needs no separate interpreter.
+An effect system gives these guarantees while keeping Scheme's direct style.
+That keeps the erasure property of §6 trivial: rows are part of signatures, and
+signatures erase.
 
-Generic code needs neither layer. A dependent function such as `Vec3` over
+### 3.6 Macros and generic code
+
+`define-syntax` with hygienic `syntax-rules`, using scope sets, provides new
+surface syntax such as binding forms and DSL notation. Macros expand before
+elaboration. This also provides Scheme compatibility.
+
+Generic code needs no macros. A dependent function such as `Vec3` over
 `(T Type)` is a template, a typeclass requirement is a concept, and
 monomorphization is instantiation; unlike C++, the body is checked once, at its
 definition. `generate-library` remains for producing whole libraries from
@@ -243,10 +266,10 @@ external input (§6).
 
 ### 3.7 Wire types and stable identities
 
-A type is a **wire type** if it is a scalar, `String`, `Bytes`, `List` or
-`Vector` of a wire type, or a struct or enum of wire types. Functions, `Ref`
-and `IO` are not wire types. A `Wire` class is derived automatically for every
-wire type.
+A type is a **wire type** if it implements `Serialize` and `Deserialize`.
+Deriving supplies both for structs and enums whose fields are wire types;
+scalars, `String`, `Bytes`, `List` and `Vector` have them. Functions and `Ref`
+have no instances.
 
 Each struct and each enum case has a `TypeId`:
 
@@ -285,9 +308,8 @@ Wasm-hosted compiler from JavaScript.
 Binders in the core carry a multiplicity slot. It is always `0` (static) or `ω`
 (unrestricted) for now. That is quantitative type theory restricted to two
 points, so adding `1` (affine or linear) later does not change the core's shape.
-Session types are first expressed as indexed protocol types over `IO`. The
-handle is hidden inside the action, so it cannot be duplicated even without
-linear types.
+Session types become expressible once that slot gains `1`, making channel
+endpoints linear.
 
 GPU code is a checked subset of Lofi (scalars, vector structs, no allocation,
 recursion or closures) emitted as WGSL by a second backend. Host and shader
@@ -318,7 +340,7 @@ text ──read──▶ located S-expressions
    bodies, as R6RS and Racket do. It emits core AST directly, with no fixpoint
    loop and no second parse.
 4. **Elaborator.** Bidirectional checking with metavariables, NbE, implicit
-   arguments, instance resolution, and pattern compilation with
+   arguments, instance resolution, effect rows, and pattern compilation with
    Maranget's exhaustiveness and redundancy checks. Its output is an explicit
    core plus a **checked interface** for each library: exported names, types,
    structs with `TypeId`s, and instances. Interfaces are serialized and cached,
@@ -335,7 +357,7 @@ representations.
 ## 5. Runtime and application model
 
 An application is a set of actors. Each actor has a typed state `S`, a message
-enum `M` of wire types, and a pure handler `(-> S M (Transition S))`. A
+enum `M` of wire types, and a total handler `(-> S M (Transition S))`. A
 transition contains the next state and a list of typed effects. A send effect
 names a destination typed by that destination's message enum, so the set of
 messages each handler may send is visible in its type.
@@ -345,7 +367,7 @@ typed value. Bytes cross the boundary only for persistence and reload, using the
 state's wire encoding. Reload is compatible when the state's `TypeId` is
 unchanged; otherwise it requires an explicit migration function `(-> Old New)`.
 
-Because handlers are pure and states and messages are wire types, a test library
+Because handlers are total and states and messages are wire types, a test library
 can explore bounded state spaces, check invariants and replay traces without
 browser code. Host scheduling semantics are written once as a pure Lofi
 reference model and checked against the JavaScript host.
@@ -365,7 +387,8 @@ behavior whenever the Lofi program does not trap or overflow:
 | --- | --- |
 | `(struct (Vec3 T) ((x T) (y T) (z T)))` | `(define-record-type Vec3 (Vec3 x y z) Vec3? (x Vec3-x) (y Vec3-y) (z Vec3-z))` |
 | `(enum (Option T) (Some ((value T))) (None))` | One record type per case (`Some`, `None`) and a predicate `Option?` that tests the cases. |
-| `(: ...)`, `(type ...)`, `(ann e T)` | Removed; `(ann e T)` becomes `e`. |
+| `(: ...)`, `(type ...)`, `(effect ...)` | Removed, including effect rows. |
+| `(ann e T)`, `(type-convert e T)` | `e` |
 | `(match e ((Some v) a) ((None) b))` | `(let ((x e)) (cond ((Some? x) (let ((v (Some-value x))) a)) ((None? x) b)))` |
 | Typeclass method | A generic procedure that dispatches on its first argument's record predicate. |
 | `I64`, `F64` literals | Exact integers and flonums. |
@@ -403,8 +426,20 @@ optional host for debugging.
 
 **Full Scheme.** `(scheme compiler)` is a Lofi library: a reader plus a
 translator from R7RS source text to Lofi source text. Its output represents
-every value as a `Datum` and uses the existing dynamic libraries (`datum`,
-`number`, `read`, `write`). A `generate-library` recipe runs it:
+every value as `Any` and uses the existing dynamic libraries (`datum`,
+`number`, `read`, `write`) for Scheme's own data. Wherever generated code meets
+typed Lofi code, the translator inserts `(type-convert e T)`, liberally and
+without proving it necessary:
+
+- **Upcast.** Converting a typed value to `Any` is checked statically and
+  injects the value with its `TypeId`.
+- **Downcast.** Converting an `Any` to a specific type checks the `TypeId` at
+  run time and traps on a mismatch.
+- **Redundancy.** The compiler removes conversions it proves redundant, such
+  as a downcast of a value just upcast from the same type.
+
+On Chibi, `type-convert` erases to its expression. A `generate-library` recipe
+runs the translator:
 
 ```scheme
 (generate-library (legacy program)
@@ -447,9 +482,12 @@ form is parsed twice.
    representation and `TypeId`s.
 2. `match` with nested patterns, wildcards, and exhaustiveness and redundancy
    checks.
-3. Derived `Wire`, keyed by `TypeId`. Add a canonical byte ABI for entry
-   parameters and results, with schema-generated JavaScript decoders.
-4. The application framework moves to typed messages and in-Wasm state, and
+3. Derived `Serialize` and `Deserialize` keyed by `TypeId`. Add a canonical
+   byte ABI for entry parameters and results, with schema-generated JavaScript
+   decoders.
+4. Effect rows on function types, `extern` effect declarations, and total
+   application handlers.
+5. The application framework moves to typed messages and in-Wasm state, and
    the word protocols are deleted. Rewrite Siegework's model with enums and
    `match`. This is the forcing function for the language.
 
@@ -475,8 +513,8 @@ checked interfaces, which give separate checking and faster builds.
 
 ### Phase 5: distribution and devices
 
-Add the WGSL backend sharing struct layouts, wire schema export, typed effects
-and destinations, the bounded model-checking library, and `(scheme compiler)`.
+Add the WGSL backend sharing struct layouts, wire schema export, typed
+destinations, the bounded model-checking library, and `(scheme compiler)`.
 
 ### Risks
 
@@ -488,12 +526,3 @@ and destinations, the bounded model-checking library, and `(scheme compiler)`.
   diagnostics is large. Phases 1–3 deliver a useful typed Scheme without it,
   and the core's multiplicity slot and explicit instances keep phase 4
   additive.
-
-## 8. Decisions needed
-
-1. Enforced purity through `IO` (§3.5)?
-2. Default integer type `I64` (§3.2)?
-3. Surface names: `struct`/`enum`/`type`/`typeclass`/`instance`, or
-   `define-`-prefixed forms?
-4. Is the erasure property (§6) the right definition of the Scheme subset the
-   compiler is written in?
