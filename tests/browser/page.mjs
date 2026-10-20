@@ -1,12 +1,12 @@
 // Opens a page in headless Chromium through the DevTools protocol, reports
-// console output and errors, optionally clicks or presses keys, and saves a
-// screenshot:  node page.mjs URL SCREENSHOT [SECONDS]
+// console output and errors, runs any JavaScript steps a second apart, and
+// saves a screenshot:  node page.mjs URL SCREENSHOT [SECONDS] [STEP ...]
 import {spawn} from 'node:child_process';
 import {writeFile, mkdtemp} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
-const [url, screenshot, seconds = '6'] = process.argv.slice(2);
+const [url, screenshot, seconds = '6', ...steps] = process.argv.slice(2);
 const chrome = process.env.CHROMIUM ?? 'chromium';
 const profile = await mkdtemp(join(tmpdir(), 'lofi-page-'));
 const port = 9300 + Math.floor(Math.random() * 500);
@@ -49,6 +49,11 @@ await send('Runtime.enable');
 await send('Page.enable');
 await send('Page.navigate', {url});
 await sleep(Number(seconds) * 1000);
+for (const step of steps) {
+  const result = await send('Runtime.evaluate', {expression: step, returnByValue: true});
+  console.log('step:', step, '->', JSON.stringify(result.result?.result?.value));
+  await sleep(1000);
+}
 const state = await send('Runtime.evaluate', {expression: 'JSON.stringify(document.body.dataset)', returnByValue: true});
 console.log('page state:', state.result?.result?.value);
 const shot = await send('Page.captureScreenshot', {format: 'png'});
