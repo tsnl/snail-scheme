@@ -634,11 +634,35 @@ Scheme subset, beside the old one, which was then deleted.
   type's identity, a downcast checks it at run time, and a downcast of a
   value just upcast from the same type is removed.
 
+- **Phase 5, partly.** `lofi schema` prints the wire schema of every data
+  type with a `Serialize` instance: each case's TypeId and field types.
+  `(lofi explore)` checks an invariant of a total state machine by bounded
+  breadth-first search, identifying states by their wire encoding.
+
 ### Remaining
 
-- **Phase 4.** The dependent elaborator and checked interfaces.
-- **Phase 5.** The WGSL backend, wire schema export, typed destinations,
-  model checking, and `(scheme compiler)`.
+- **Phase 5.** `(scheme compiler)`.
+
+### Cut from the plan
+
+These parts of sections 3 to 5 were dropped because they would cost more
+than they give the programs Lofi runs today. Each can return if a program
+needs it.
+
+- **The dependent elaborator.** Generic code is served by Hindley–Milner
+  checking with typeclasses, effect rows and monomorphization. Normalization
+  by evaluation, implicit arguments and multiplicity slots would roughly
+  double the checker for type-level computation no program uses, so the core
+  has no multiplicity slot.
+- **Checked interfaces.** The compiled compiler checks Siegework, the
+  largest program, in a fraction of a second, so caching a serialized
+  interface per library would add a format and its invalidation without a
+  measurable gain. Wire schemas come from the checked program instead.
+- **The WGSL backend.** The renderer has one shader of about 25 lines, which
+  shares no structs with Lofi code beyond a fixed instance layout.
+- **Typed destinations.** An application is one actor whose host delivers
+  input and ticks; with nothing else to send to, a destination type would
+  have one inhabitant.
 
 ### Simplifications made on the way
 

@@ -63,6 +63,7 @@
    PCon
    pattern-type
    lambda-expr?
+   expr-references
    DataType
    DataType-name
    DataType-params
@@ -128,7 +129,8 @@
    program-items
    primitives
    fnv-1a
-   case-type-id)
+   case-type-id
+   wire-schemas)
   (import
    (lofi base)
    (lofi table)
@@ -424,6 +426,25 @@
         ((Lambda _ _) #t)
         (_ #f)))
 
+    ;; Every name an expression refers to, with repeats; locals are
+    ;; included, since names are unique.
+    (: expr-references (-> Expr (List String)))
+    (define (expr-references expr)
+      (match (Expr-term expr)
+        ((Lit _) (Nil))
+        ((Var name _ _) (list name))
+        ((Lambda _ body) (expr-references body))
+        ((App callee args) (concatenate (map expr-references (Cons callee args))))
+        ((If test then otherwise) (concatenate (map expr-references (list test then otherwise))))
+        ((Let _ value body) (append (expr-references value) (expr-references body)))
+        ((Seq first rest) (append (expr-references first) (expr-references rest)))
+        ((Match scrutinee clauses)
+         (append (expr-references scrutinee) (concatenate (map (lambda (clause) (expr-references (Clause-body clause))) clauses))))
+        ((Ann inner _) (expr-references inner))
+        ((Convert inner _) (expr-references inner))
+        ((Handle _ implementations body)
+         (append (concatenate (map (lambda (entry) (expr-references (Pair-second entry))) implementations)) (expr-references body)))))
+
     ;; ---- Declared entities ----
 
     ;; A struct is a data type with one case named after it.
@@ -645,6 +666,35 @@
                             (string-concatenate (map (lambda (case) (case-schema program case visiting))
                                                      (DataType-cases (program-type program name)))))))
         (_ "fn")))
+
+    ;; ---- Wire schemas ----
+
+    ;; Every data type with a Serialize instance, as text: `(Type (Case
+    ;; type-id (field type) ...) ...)` with full names. Programs that agree on
+    ;; a case's line agree on its encoding.
+    (: wire-schemas (-> Program String ! mut))
+    (define (wire-schemas program)
+      (string-concatenate
+       (map (lambda (instance)
+              (match (Instance-types instance)
+                ((Cons (TCon name _) (Nil))
+                 (if (table-contains? (Program-types program) name) (data-schema program (program-type program name)) ""))
+                (_ "")))
+            (class-instances program "lofi.wire:Serialize"))))
+
+    (: data-schema (-> Program DataType String ! mut))
+    (define (data-schema program data)
+      (string-append
+       "(" (DataType-name data)
+       (string-concatenate
+        (map (lambda (case)
+               (string-append "\n  (" (short-name (Case-name case)) " " (i64->string (case-type-id program case))
+                              (string-concatenate
+                               (map (lambda (field) (string-append " (" (Field-name field) " " (type-key (Field-type field)) ")"))
+                                    (Case-fields case)))
+                              ")"))
+             (DataType-cases data)))
+       ")\n"))
 
     ;; ---- Primitives ----
 

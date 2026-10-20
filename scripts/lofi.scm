@@ -10,7 +10,7 @@
 
 ;; ---- Requests ----
 
-(define usage "usage: lofi compile|run|wat [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | lofi bootstrap")
+(define usage "usage: lofi compile|run|wat|schema [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | lofi bootstrap")
 
 
 
@@ -19,7 +19,7 @@
 
 ;; Returns an association list of the options, the source and its arguments.
 (define (request arguments)
-  (unless (and (pair? arguments) (member (car arguments) '("compile" "run" "wat"))) (error usage))
+  (unless (and (pair? arguments) (member (car arguments) '("compile" "run" "wat" "schema"))) (error usage))
   (let loop ((rest (cdr arguments)) (options (list (cons 'action (car arguments)))))
     (cond ((null? rest) (error usage))
           ((string=? (car rest) "--release") (loop (cdr rest) (cons '(release . #t) options)))
@@ -44,13 +44,15 @@
 
 (define (perform root options)
   (let ((source (option options 'source #f)) (action (option options 'action "run")))
-    (if (string=? action "wat")
-        (begin (write-string (program->wat root (directories root options) source)) 0)
-        (let ((output (or (option options 'output #f) (path-join root "build/lofi-run/program.wasm"))))
-          (build-program root (directories root options) source output (option options 'release #f))
-          (if (string=? action "compile")
-              0
-              (run-program root output (option options 'arguments '())))))))
+    (cond
+     ((string=? action "wat") (write-string (program->wat root (directories root options) source)) 0)
+     ((string=? action "schema") (write-string (program->schemas root (directories root options) source)) 0)
+     (else
+      (let ((output (or (option options 'output #f) (path-join root "build/lofi-run/program.wasm"))))
+        (build-program root (directories root options) source output (option options 'release #f))
+        (if (string=? action "compile")
+            0
+            (run-program root output (option options 'arguments '()))))))))
 
 ;; The program inherits standard input and output; its status is returned.
 (define (run-program root program arguments)

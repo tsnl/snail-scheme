@@ -1,12 +1,13 @@
 ;; The command-line driver: one source file to a linked, runnable Wasm
 ;; program. The compiler runs as a separate program with one interface,
-;; `compile SOURCE OUTPUT GENERATED DIRECTORY ...`: normally as Wasm, built
+;; `compile MODE SOURCE OUTPUT GENERATED DIRECTORY ...`: normally as Wasm, built
 ;; from its own source by bootstrapping, and on Chibi only to start a
 ;; bootstrap. Binaryen assembles, optimizes and links the text with the Rust
 ;; runtime.
 (define-library (lofi build)
   (export
    program->wat
+   program->schemas
    build-program
    bootstrap!
    run-tool
@@ -36,25 +37,29 @@
       (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "LOFI_HEAP") "2G")
             "-I" (path-join root "host/chibi") "-I" (path-join root "src") (path-join root "bootstrap/compile.sld")))
 
+    (define (selected-compiler root)
+      (if (equal? (get-environment-variable "LOFI_STAGE0") "chibi")
+          (chibi-compiler root)
+          (wasm-compiler root (current-compiler root))))
+
     (define (program->wat root directories source)
-      (run-compiler root
-                    (if (equal? (get-environment-variable "LOFI_STAGE0") "chibi")
-                        (chibi-compiler root)
-                        (wasm-compiler root (current-compiler root)))
-                    directories source))
+      (run-compiler root (selected-compiler root) "wat" directories source))
+
+    (define (program->schemas root directories source)
+      (run-compiler root (selected-compiler root) "schema" directories source))
 
     ;; The compiler stops with `generate KEY` when it needs a generated
     ;; library that has not been produced; producing it and compiling again
     ;; then finds its text.
-    (define (run-compiler root command directories source)
+    (define (run-compiler root command mode directories source)
       (create-directory* (generated-directory root))
       (create-directory* (path-join root "build/lofi-run"))
       (let* ((output (path-join root "build/lofi-run/compiler-output.wat"))
              (result (process->output+error+status
-                      (append command (list source output (generated-directory root)) directories))))
+                      (append command (list mode source output (generated-directory root)) directories))))
         (cond ((zero? (caddr result)) (read-file output))
               ((generate-request (cadr result))
-               => (lambda (key) (produce! root directories key) (run-compiler root command directories source)))
+               => (lambda (key) (produce! root directories key) (run-compiler root command mode directories source)))
               (else (error (diagnostic (cadr result)))))))
 
     ;; The digits after `generate `, if the compiler asked for a library.
@@ -110,8 +115,8 @@
              (stage3 (path-join directory "stage3.wat")) (sources (compiler-directories root)))
         (create-directory* directory)
         (link-wat root (stage1-text root entry) stage1 #f)
-        (link-wat root (run-compiler root (wasm-compiler root stage1) sources entry) stage2 #f)
-        (write-file stage3 (run-compiler root (wasm-compiler root stage2) sources entry))
+        (link-wat root (run-compiler root (wasm-compiler root stage1) "wat" sources entry) stage2 #f)
+        (write-file stage3 (run-compiler root (wasm-compiler root stage2) "wat" sources entry))
         (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
           (error "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
         (rename-file stage2 (compiler-path root))))
@@ -119,13 +124,17 @@
     (define (stage1-text root entry)
       (let ((previous (compiler-path root)) (sources (compiler-directories root)))
         (or (and (file-exists? previous)
-                 (guard (failure (#t #f)) (run-compiler root (wasm-compiler root previous) sources entry)))
-            (run-compiler root (chibi-compiler root) sources entry))))
+                 (guard (failure (#t #f)) (run-compiler root (wasm-compiler root previous) "wat" sources entry)))
+            (run-compiler root (chibi-compiler root) "wat" sources entry))))
 
+    ;; The compiler's own source: its modules, its entry program, and the
+    ;; three libraries it imports.
     (define (newest-source-time root)
       (apply max (map file-modification-time
-                      (append (list (path-join root "bootstrap/compile.sld") (path-join root "src/lofi/compiler.sld"))
-                              (sld-files (path-join root "src/lofi/compiler")) (sld-files (path-join root "lib/lofi"))))))
+                      (append (map (lambda (path) (path-join root path))
+                                   '("bootstrap/compile.sld" "src/lofi/compiler.sld" "lib/lofi/base.sld" "lib/lofi/table.sld"
+                                     "lib/lofi/io.sld"))
+                              (sld-files (path-join root "src/lofi/compiler"))))))
 
     (define (sld-files directory)
       (let loop ((files (directory-files directory)) (out '()))

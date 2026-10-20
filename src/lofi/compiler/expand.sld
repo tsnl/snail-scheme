@@ -65,13 +65,22 @@
         ((Core name) (string-append "%core " name))
         ((Macro id _ _ _) id)))
 
-    (struct Env
-      ((table (Table Binding))
-       (parent (Option Env))))
+    ;; An environment is a chain of local frames, each binding one
+    ;; identifier, that ends in a top level: a table the scan fills before any
+    ;; body is expanded, over the table of its imports. Frames never change; a
+    ;; body that defines a name passes a longer chain to the forms after it.
+    (enum Env
+      (Frame
+       ((key String)
+        (binding Binding)
+        (rest Env)))
+      (Top
+       ((table (Table Binding))
+        (parent (Option Env)))))
 
-    (: child-env (-> (Option Env) Env ! mut))
-    (define (child-env parent)
-      (Env (make-table) parent))
+    (: extend (-> Env Syntax Binding Env))
+    (define (extend env ident binding)
+      (Frame (ident-key ident) binding env))
 
     ;; A marked identifier is keyed by its mark, so the same name introduced by
     ;; two expansions binds two variables.
@@ -86,20 +95,20 @@
     ;; the macro that introduced it.
     (: resolve (-> Context Env Syntax (Option Binding) ! mut))
     (define (resolve cx env ident)
-      (let lookup ((frame (Some env)))
-        (match frame
-          ((Some env)
-           (match (table-ref (Env-table env) (ident-key ident))
-             ((Some binding) (Some binding))
-             ((None) (lookup (Env-parent env)))))
-          ((None)
-           (match ident
-             ((Ident _ (Some mark) _) (resolve cx (scope-env cx (Mark-scope mark)) (Mark-original mark)))
-             (_ (None)))))))
-
-    (: bind! (-> Env Syntax Binding Unit ! mut))
-    (define (bind! env ident binding)
-      (table-set! (Env-table env) (ident-key ident) binding))
+      (let ((key (ident-key ident)))
+        (let lookup ((env env))
+          (match env
+            ((Frame other binding rest) (if (string=? other key) (Some binding) (lookup rest)))
+            ((Top table parent)
+             (match (table-ref table key)
+               ((Some binding) (Some binding))
+               ((None)
+                (match parent
+                  ((Some parent) (lookup parent))
+                  ((None)
+                   (match ident
+                     ((Ident _ (Some mark) _) (resolve cx (scope-env cx (Mark-scope mark)) (Mark-original mark)))
+                     (_ (None))))))))))))
 
     (: expect-ident (-> Syntax String Syntax))
     (define (expect-ident syntax what)
@@ -340,19 +349,19 @@
 
     (: import-env (-> Context (List Syntax) Env ! mut fs))
     (define (import-env cx specs)
-      (let ((imports (child-env (None))))
+      (let ((imports (make-table)))
         (for-each (lambda (spec)
                     (for-each (lambda (entry) (import-binding! imports entry (syntax-loc spec))) (import-set cx spec)))
                   specs)
-        (child-env (Some imports))))
+        (Top (make-table) (Some (Top imports (None))))))
 
-    (: import-binding! (-> Env (Pair String Binding) Loc Unit ! mut))
-    (define (import-binding! env entry loc)
-      (match (table-ref (Env-table env) (Pair-first entry))
+    (: import-binding! (-> (Table Binding) (Pair String Binding) Loc Unit ! mut))
+    (define (import-binding! imports entry loc)
+      (match (table-ref imports (Pair-first entry))
         ((Some existing)
          (unless (string=? (binding-identity existing) (binding-identity (Pair-second entry)))
            (compile-error loc (string-append "conflicting imports of " (Pair-first entry)))))
-        ((None) (table-set! (Env-table env) (Pair-first entry) (Pair-second entry)))))
+        ((None) (table-set! imports (Pair-first entry) (Pair-second entry)))))
 
     ;; The (name . binding) entries an import set provides.
     (: import-set (-> Context Syntax Exports ! mut fs))
@@ -445,7 +454,7 @@
       (let ((form (expand-head cx env form)))
         (match (head-binding cx env form)
           ((Some (Core "begin")) (concatenate (map (lambda (item) (scan-top-level cx env item)) (form-tail form))))
-          ((Some (Core "define-syntax")) (define-macro! cx env form) (Nil))
+          ((Some (Core "define-syntax")) (define-top-macro! cx env form) (Nil))
           ((Some (Core "define"))
            (let ((ident (definition-name form)))
              (bind-top! env ident (Global (global-name cx (ident-key ident))))
@@ -463,9 +472,12 @@
 
     (: bind-top! (-> Env Syntax Binding Unit ! mut))
     (define (bind-top! env ident binding)
-      (when (table-contains? (Env-table env) (ident-key ident))
-        (compile-error (syntax-loc ident) (string-append "duplicate top-level definition " (Ident-name ident))))
-      (bind! env ident binding))
+      (match env
+        ((Top table _)
+         (when (table-contains? table (ident-key ident))
+           (compile-error (syntax-loc ident) (string-append "duplicate top-level definition " (Ident-name ident))))
+         (table-set! table (ident-key ident) binding))
+        (_ (panic "internal error: not a top level"))))
 
     (: definition-name (-> Syntax Syntax))
     (define (definition-name form)
@@ -641,11 +653,9 @@
       (concatenate (map form-tail (filter deriving-clause? (form-tail form)))))
 
     ;; A type parameter scope binds each parameter to a rigid variable.
-    (: type-scope (-> Env (List Syntax) Env ! mut))
+    (: type-scope (-> Env (List Syntax) Env))
     (define (type-scope env params)
-      (let ((scope (child-env (Some env))))
-        (for-each (lambda (param) (bind! scope param (TypeVar (TRigid (Ident-name param))))) params)
-        scope))
+      (fold-left (lambda (scope param) (extend scope param (TypeVar (TRigid (Ident-name param))))) env params))
 
     ;; A case is its name followed by an optional field list; a struct is one
     ;; case named after the struct.
@@ -927,9 +937,8 @@
          (unless (= (length params) (length args))
            (compile-error loc (string-append "wrong number of alias arguments: " (Ident-name ident))))
          (when (ref-get expanding) (compile-error loc (string-append "type alias refers to itself: " (Ident-name ident))))
-         (let ((scope (child-env (Some alias-env))))
-           (for-each (lambda (pair) (bind! scope (Pair-first pair) (TypeVar (resolve-type cx env (Pair-second pair)))))
-                     (zip params args))
+         (let ((scope (fold-left (lambda (scope pair) (extend scope (Pair-first pair) (TypeVar (resolve-type cx env (Pair-second pair)))))
+                                 alias-env (zip params args))))
            (ref-set! expanding #t)
            (let ((type (resolve-type cx scope body)))
              (ref-set! expanding #f)
@@ -1030,18 +1039,23 @@
 
     (: expand-lambda (-> Context Env (List Syntax) (List Syntax) Loc Expr ! mut))
     (define (expand-lambda cx env params body loc)
-      (let* ((scope (child-env (Some env)))
-             (names (map (lambda (param)
-                           (let ((name (fresh cx (Ident-name (expect-ident param "a parameter name")))))
-                             (bind! scope param (Local name))
-                             name))
-                         params)))
-        (expr (Lambda names (expand-body cx scope body loc)) loc)))
+      (let ((locals (bind-locals cx env params)))
+        (expr (Lambda (Pair-second locals) (expand-body cx (Pair-first locals) body loc)) loc)))
+
+    ;; Binds each identifier to a fresh local, in order; returns the longer
+    ;; environment and the unique names.
+    (: bind-locals (-> Context Env (List Syntax) (Pair Env (List String)) ! mut))
+    (define (bind-locals cx env idents)
+      (let ((bound (fold-left (lambda (bound ident)
+                                (let ((name (fresh cx (Ident-name (expect-ident ident "a variable name")))))
+                                  (Pair (extend (Pair-first bound) ident (Local name)) (Cons name (Pair-second bound)))))
+                              (Pair env (Nil)) idents)))
+        (Pair (Pair-first bound) (reverse (Pair-second bound)))))
 
     (: expand-body (-> Context Env (List Syntax) Loc Expr ! mut))
     (define (expand-body cx env forms loc)
       (when (null? forms) (compile-error loc "empty body"))
-      (expand-body-forms cx (child-env (Some env)) forms (None) loc))
+      (expand-body-forms cx env forms (None) loc))
 
     ;; A local body is sequential: each definition is visible to the forms
     ;; after it, and a function definition is also visible to itself. A
@@ -1054,7 +1068,8 @@
          (let ((form (expand-head cx scope form)))
            (match (head-binding cx scope form)
              ((Some (Core "begin")) (expand-body-forms cx scope (append (form-tail form) rest) signature loc))
-             ((Some (Core "define-syntax")) (define-macro! cx scope form) (expand-body-forms cx scope rest signature loc))
+             ((Some (Core "define-syntax"))
+              (expand-body-forms cx (define-local-macro cx scope form) rest signature loc))
              ((Some (Core ":")) (expand-body-forms cx scope rest (Some (local-signature cx scope form)) loc))
              ((Some (Core "define")) (expand-local-definition cx scope form rest signature loc))
              (_ (let ((value (expand-expr cx scope form)))
@@ -1074,14 +1089,12 @@
                           ((Form (Cons _ (Cons (Form _ _) _)) _) #t)
                           ((Form (Cons _ (Cons _ (Cons value (Nil)))) _) (core-form? cx scope value "lambda"))
                           (_ #f))))
-        (when function? (bind! scope ident (Local name)))
-        (let ((value (definition-value cx scope form)))
-          (unless function? (bind! scope ident (Local name)))
-          (let ((value (match signature
-                         ((Some (Pair signed type))
-                          (if (string=? signed (Ident-name ident)) (expr (Ann value type) (Expr-loc value)) value))
-                         ((None) value))))
-            (expr (Let name value (expand-body-forms cx scope rest (None) loc)) (syntax-loc form))))))
+        (let* ((inner (extend scope ident (Local name))) (value (definition-value cx (if function? inner scope) form))
+               (value (match signature
+                        ((Some (Pair signed type))
+                         (if (string=? signed (Ident-name ident)) (expr (Ann value type) (Expr-loc value)) value))
+                        ((None) value))))
+          (expr (Let name value (expand-body-forms cx inner rest (None) loc)) (syntax-loc form)))))
 
     ;; `(let ((name value) ...) body ...)` or the named-let loop form.
     (: expand-let (-> Context Env (List Syntax) Loc Expr ! mut))
@@ -1096,8 +1109,7 @@
 
     (: expand-named-let (-> Context Env Syntax (List Syntax) (List Syntax) Loc Expr ! mut))
     (define (expand-named-let cx env ident bindings body loc)
-      (let ((name (fresh cx (Ident-name ident))) (scope (child-env (Some env))))
-        (bind! scope ident (Local name))
+      (let* ((name (fresh cx (Ident-name ident))) (scope (extend env ident (Local name))))
         (expr (Let name (expand-lambda cx scope (map binding-name bindings) body loc)
                    (expr (App (expr (Var name (Nil) (Nil)) loc)
                               (map (lambda (binding) (expand-expr cx env (binding-value binding))) bindings))
@@ -1107,14 +1119,9 @@
     (: expand-plain-let (-> Context Env (List Syntax) (List Syntax) Loc Expr ! mut))
     (define (expand-plain-let cx env bindings body loc)
       (let* ((values (map (lambda (binding) (expand-expr cx env (binding-value binding))) bindings))
-             (scope (child-env (Some env)))
-             (names (map (lambda (binding)
-                           (let ((name (fresh cx (Ident-name (binding-name binding)))))
-                             (bind! scope (binding-name binding) (Local name))
-                             name))
-                         bindings)))
+             (locals (bind-locals cx env (map binding-name bindings))))
         (fold-right (lambda (pair body) (expr (Let (Pair-first pair) (Pair-second pair) body) loc))
-                    (expand-body cx scope body loc) (zip names values))))
+                    (expand-body cx (Pair-first locals) body loc) (zip (Pair-second locals) values))))
 
     (: binding-name (-> Syntax Syntax))
     (define (binding-name binding)
@@ -1189,8 +1196,8 @@
       (match (ref-get (Context-deriving cx))
         ((Some scope) scope)
         ((None)
-         (let ((env (child-env (None))))
-           (for-each (lambda (entry) (table-set! (Env-table env) (Pair-first entry) (Pair-second entry)))
+         (let* ((table (make-table)) (env (Top table (None))))
+           (for-each (lambda (entry) (table-set! table (Pair-first entry) (Pair-second entry)))
                      (concatenate (map (lambda (name) (load-library cx name loc))
                                        (list (list "lofi" "core") (list "lofi" "primitive") (list "lofi" "wire")))))
            (let ((scope (register-scope! cx env)))
@@ -1269,26 +1276,44 @@
          (expr (Match (expand-expr cx env scrutinee) (map (lambda (clause) (expand-clause cx env clause)) clauses)) loc))
         (_ (compile-error loc "expected (match expression clause ...)"))))
 
+    ;; A clause binds its pattern's variables first, so the pattern itself
+    ;; only looks names up.
     (: expand-clause (-> Context Env Syntax Clause ! mut))
     (define (expand-clause cx env clause)
       (match (form-items clause "a match clause")
         ((Cons pattern body)
-         (let* ((scope (child-env (Some env))) (pattern (expand-pattern cx env scope pattern)))
-           (Clause pattern (expand-body cx scope body (syntax-loc clause)))))
+         (let ((scope (Pair-first (bind-locals cx env (pattern-variables pattern)))))
+           (Clause (expand-pattern cx env scope pattern) (expand-body cx scope body (syntax-loc clause)))))
         ((Nil) (compile-error (syntax-loc clause) "expected (pattern body ...)"))))
 
-    ;; Bare identifiers are variables or `_`; constructors are always applied,
-    ;; as in `(None)`.
+    ;; The variables of a pattern, in order, each named once.
+    (: pattern-variables (-> Syntax (List Syntax)))
+    (define (pattern-variables syntax)
+      (let ((variables (pattern-idents syntax)))
+        (for-each (lambda (variable)
+                    (when (< 1 (length (filter (lambda (other) (string=? (ident-key other) (ident-key variable))) variables)))
+                      (compile-error (syntax-loc variable) (string-append "pattern variable bound twice: " (Ident-name variable)))))
+                  variables)
+        variables))
+
+    (: pattern-idents (-> Syntax (List Syntax)))
+    (define (pattern-idents syntax)
+      (match syntax
+        ((Ident "_" _ _) (Nil))
+        ((Ident _ _ _) (list syntax))
+        ((Form (Cons _ args) _) (concatenate (map pattern-idents args)))
+        (_ (Nil))))
+
+    ;; Bare identifiers are `_` or variables bound in `scope`; constructors
+    ;; resolve in `env` and are always applied, as in `(None)`.
     (: expand-pattern (-> Context Env Env Syntax Pattern ! mut))
     (define (expand-pattern cx env scope syntax)
       (match syntax
         ((Ident "_" _ _) (PWild unchecked))
-        ((Ident name _ loc)
-         (let ((local (fresh cx name)))
-           (when (table-contains? (Env-table scope) (ident-key syntax))
-             (compile-error loc (string-append "pattern variable bound twice: " name)))
-           (bind! scope syntax (Local local))
-           (PVar local unchecked)))
+        ((Ident _ _ _)
+         (match (resolve cx scope syntax)
+           ((Some (Local name)) (PVar name unchecked))
+           (_ (panic "internal error: unbound pattern variable"))))
         ((Atom value _) (PLit value unchecked))
         ((Form (Cons head args) _)
          (PCon (pattern-constructor cx env head) (map (lambda (arg) (expand-pattern cx env scope arg)) args) unchecked))
@@ -1300,12 +1325,32 @@
 
     ;; ---- Syntax rules ----
 
-    (: define-macro! (-> Context Env Syntax Unit ! mut))
-    (define (define-macro! cx env form)
+    (struct MacroForm
+      ((name Syntax)
+       (literals (List Syntax))
+       (rules (List Syntax))))
+
+    (: macro-form (-> Syntax MacroForm))
+    (define (macro-form form)
       (match form
         ((Form (Cons _ (Cons name (Cons (Form (Cons (Ident "syntax-rules" _ _) (Cons (Form literals _) rules)) _) (Nil)))) _)
-         (bind! env (expect-ident name "a macro name") (Macro (fresh cx "%macro") literals rules (register-scope! cx env))))
+         (MacroForm (expect-ident name "a macro name") literals rules))
         (_ (compile-error (syntax-loc form) "expected (define-syntax name (syntax-rules (literal ...) rule ...))"))))
+
+    ;; A macro's template resolves in the environment of its definition,
+    ;; which includes the macro, so it may expand to a use of itself.
+    (: define-top-macro! (-> Context Env Syntax Unit ! mut))
+    (define (define-top-macro! cx env form)
+      (let ((parts (macro-form form)))
+        (bind-top! env (MacroForm-name parts)
+                   (Macro (fresh cx "%macro") (MacroForm-literals parts) (MacroForm-rules parts) (register-scope! cx env)))))
+
+    (: define-local-macro (-> Context Env Syntax Env ! mut))
+    (define (define-local-macro cx env form)
+      (let* ((parts (macro-form form)) (scope (register-scope! cx env))
+             (inner (extend env (MacroForm-name parts) (Macro (fresh cx "%macro") (MacroForm-literals parts) (MacroForm-rules parts) scope))))
+        (table-set! (Context-scopes cx) (i64->string scope) inner)
+        inner))
 
     (: apply-macro (-> Context Env Syntax (List Syntax) (List Syntax) I64 Syntax ! mut))
     (define (apply-macro cx env form literals rules scope)

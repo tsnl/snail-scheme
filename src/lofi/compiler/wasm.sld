@@ -524,25 +524,9 @@
 
     (: emit-let (-> Fn String Expr Expr Bool (List Wat) ! mut))
     (define (emit-let fn name value body tail?)
-      (let* ((code (if (and (lambda-expr? value) (member? name (references value))) (closure fn value (Some name)) (emit1 fn value)))
+      (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value))) (closure fn value (Some name)) (emit1 fn value)))
              (local (declare-local! fn name (fn-rep fn (Expr-type value)))))
         (Cons (wat "local.set" (id local) code) (emit fn body tail?))))
-
-    (: references (-> Expr (List String)))
-    (define (references expr)
-      (match (Expr-term expr)
-        ((Lit _) (Nil))
-        ((Var name _ _) (list name))
-        ((Lambda _ body) (references body))
-        ((App callee args) (concatenate (map references (Cons callee args))))
-        ((If test then otherwise) (concatenate (map references (list test then otherwise))))
-        ((Let _ value body) (append (references value) (references body)))
-        ((Seq first rest) (append (references first) (references rest)))
-        ((Match scrutinee clauses) (append (references scrutinee) (concatenate (map (lambda (c) (references (Clause-body c))) clauses))))
-        ((Handle _ implementations body)
-         (append (concatenate (map (lambda (entry) (references (Pair-second entry))) implementations)) (references body)))
-        ((Convert inner _) (references inner))
-        ((Ann inner _) (references inner))))
 
     ;; ---- Variables ----
 
@@ -593,7 +577,7 @@
     (: closure (-> Fn Expr (Option String) Wat ! mut))
     (define (closure fn function self)
       (let ((captured (filter (lambda (name) (and (not (self-name? self name)) (local? fn name)))
-                              (delete-duplicates string=? (references function)))))
+                              (delete-duplicates string=? (expr-references function)))))
         (if (null? captured)
             (closure-value (Fn-module fn) function self)
             (closure-with-captures fn function self captured))))
