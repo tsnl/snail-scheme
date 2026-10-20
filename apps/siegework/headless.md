@@ -57,7 +57,7 @@ zero for acceptance, even when later ticks replace the current notice.
 `step(action, ticks)` submits one action and up to `ticks` simulation ticks,
 stopping at game termination or the episode horizon. Zero ticks submits only
 the action. There are ten simulation ticks per game second. Paused and unstarted
-worlds do not advance; only the first accepted paid extractor starts the clock.
+worlds do not advance; only the first accepted free extractor starts the clock.
 `info.ticksAdvanced` and `episodeTicks` count actual advancement, not attempted
 ticks or elapsed host time. Ordinary actions do not advance time themselves.
 
@@ -102,7 +102,7 @@ for the environment's lifetime.
 | Action | Fields | Effect |
 | --- | --- | --- |
 | `wait` | none | Only the requested ticks. |
-| `build` | `kind`, `cell` | Paid construction: **1 extractor (40 ore), 2 artillery (50), 3 observation tower (25)**. |
+| `build` | `kind`, `cell` | Worker construction: **1 extractor (free), 2 artillery (50 ore), 3 observation tower (25)**. |
 | `upgrade` | `cell` | Upgrade that building, or hub capacity when selecting a hub cell. |
 | `cancel` | `cell` | Cancel an unfinished building, upgrade, pending move, or Scavenge job. |
 | `scavenge` | `cell` | Assign a worker to demolish a completed non-hub building; pay its quoted 20% investment refund only on completion. |
@@ -110,8 +110,9 @@ for the environment's lifetime.
 | `fabricate` | none | Order a worker (25 ore), subject to the game's capacity and available workers. |
 | `repair` | none | Order the game's paid hub repair. |
 | `pause` | Boolean `paused` | Explicitly pause/resume. |
+| `resign` | none | End the run intact, freeze simulation, and reveal the map. |
 
-Actions are objects such as `{"type":"build","kind":1,"cell":7744}`.
+Actions are objects such as `{"type":"build","kind":1,"cell":2017}`.
 Use a returned candidate's cell; do not assume an example cell is suitable for
 another seed. Unknown types and extra fields are rejected. Restart belongs to
 `reset`, not the action vocabulary. Legacy inert commands and presentation/camera
