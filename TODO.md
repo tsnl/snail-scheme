@@ -5,10 +5,8 @@ proposed language changes separate from implemented behavior.
 
 ## Language
 
-- [ ] Port the dynamic Scheme libraries (`datum`, `read`, `write`, `number`,
-  with exact integers and rationals) from the previous compiler's history to
-  `lib/`.
-- [ ] `generate-library`: build a library from the text a Lofi program prints.
+- [ ] Complex numbers, mutable pairs and shared-structure labels in the
+  dynamic Scheme libraries, which the port left out.
 - [ ] A Scheme surface: `(scheme base)` over `(lofi base)`, then the
   `(scheme compiler)` translator of the redesign's section 6.
 - [ ] `type-convert` and `Any` for the boundary between typed and dynamic code.

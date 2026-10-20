@@ -12,6 +12,7 @@
    (scheme cxr)
    (scheme file)
    (scheme process-context)
+   (scheme write)
    (chibi filesystem)
    (chibi pathname)
    (chibi process)
@@ -23,11 +24,26 @@
 
     ;; ---- Passes ----
 
-    (define (compile->wat directories source)
-      (let* ((program (expand-program (make-context directories) source))
+    (define (compile->wat root directories source)
+      (let* ((program (expand-program (make-context directories (lambda (forms name) (run-producer root directories forms name))) source))
              (typed (check-program program))
              (mono (monomorphize typed)))
         (wat->string (emit-module mono))))
+
+    ;; A generated library's producer is an ordinary program; what it prints
+    ;; is the library.
+    (define (run-producer root directories forms name)
+      (let* ((source (path-join root "build/generated" (string-append (mangle-path name) ".sld")))
+             (program (string-append source ".wasm")))
+        (create-directory* (path-directory source))
+        (call-with-output-file source (lambda (port) (for-each (lambda (form) (write form port) (newline port)) forms)))
+        (build-program root directories source program #f)
+        (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "scripts/run-lofi.mjs") program))))
+          (unless (zero? (caddr result)) (error (string-append "the producer of " name " failed:\n" (cadr result))))
+          (car result))))
+
+    (define (mangle-path path)
+      (list->string (map (lambda (char) (if (memv char '(#\/ #\#)) #\_ char)) (string->list path))))
 
     ;; ---- Tools ----
 
@@ -90,7 +106,7 @@
       (let ((wat (string-append output ".wat")) (raw (string-append output ".raw.wasm"))
             (module (string-append output ".module.wasm")))
         (create-directory* (path-directory output))
-        (call-with-output-file wat (lambda (port) (write-string (compile->wat directories source) port)))
+        (call-with-output-file wat (lambda (port) (write-string (compile->wat root directories source) port)))
         (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list wat "-o" raw)))
         (apply wasm-opt raw module (optimization release?))
         (link module output (build-runtime root) release?)

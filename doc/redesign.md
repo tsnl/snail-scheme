@@ -622,6 +622,9 @@ Scheme subset, beside the old one, which was then deleted.
   over typed values, and Siegework is rewritten with enums and `match`.
 - **Phase 3, partly.** The compiler is written with `struct`, `enum` and
   `match`, run on Chibi through `shim.sld`.
+- The dynamic Scheme libraries (`integer`, `rational`, `number`, `datum`,
+  `read`, `write`) and `generate-library` are ported, without complex
+  numbers or mutable pairs.
 
 ### Remaining
 
@@ -630,9 +633,6 @@ Scheme subset, beside the old one, which was then deleted.
 - **Phase 4.** The dependent elaborator and checked interfaces.
 - **Phase 5.** The WGSL backend, wire schema export, typed destinations,
   model checking, and `(scheme compiler)` with `type-convert`.
-- The dynamic Scheme libraries (`datum`, `read`, `write`, `number`) and
-  `generate-library` were left behind with the old compiler and must be
-  ported.
 
 ### Simplifications made on the way
 

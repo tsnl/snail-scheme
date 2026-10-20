@@ -14,11 +14,13 @@ milestones are implemented; open items are tracked in [TODO.md](../TODO.md).
 - Effect rows with tail-resumptive handlers and host defaults.
 - Wire types: derived `Serialize` and `Deserialize` with per-case TypeIds.
 - `(lofi app)` applications with a browser host, and Siegework on top of it.
+- Exact integers and rationals, Scheme data with `read` and `write`, and
+  `generate-library`.
 
 ## Next
 
-1. Port the dynamic Scheme libraries and add `generate-library`.
-2. Grow a Scheme surface on `(lofi base)`, then the Scheme translator.
-3. Compile the compiler with itself, and retire Chibi as the only host.
-4. The dependent elaborator, WGSL backend and checked interfaces of the
+1. Grow a Scheme surface on `(lofi base)`, then the Scheme translator that
+   `generate-library` and the dynamic libraries were ported for.
+2. Compile the compiler with itself, and retire Chibi as the only host.
+3. The dependent elaborator, WGSL backend and checked interfaces of the
    redesign's phases 4 and 5.

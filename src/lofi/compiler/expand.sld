@@ -113,16 +113,20 @@
 
     ;; Shared by every library of one compilation. `prefix` names the library
     ;; being expanded, so its globals are `prefix:name`.
+    ;; `generate` runs a producer program for `generate-library` and returns
+    ;; what it prints; the driver supplies it, because running a program
+    ;; means compiling one.
     (struct Context
       ((program Program)
        (directories (List String))
        (libraries HashTable)
        (counter (Ref I64))
        (deriving (Ref Env))
+       (generate (-> (List Datum) String String))
        (prefix String)))
 
-    (define (make-context directories)
-      (let ((cx (Context (make-program) directories (make-hash-table equal?) (ref 0) (ref #f) "")))
+    (define (make-context directories generate)
+      (let ((cx (Context (make-program) directories (make-hash-table equal?) (ref 0) (ref #f) generate "")))
         (hash-table-set! (Context-libraries cx) '(lofi core) (core-library))
         (hash-table-set! (Context-libraries cx) '(lofi primitive) (primitive-library cx))
         cx))
@@ -204,11 +208,23 @@
       (let ((path (find (lambda (path) (file-exists? path))
                         (map (lambda (directory) (library-path directory name)) (Context-directories cx)))))
         (unless path (compile-error loc "library not found" name))
-        (match (read-file path)
-          ((list (Form (Cons head declarations) form-loc))
-           (unless (ident-named? head 'define-library) (compile-error form-loc "expected define-library"))
-           (expand-library cx name declarations form-loc))
-          (_ (compile-error (Loc path 1 1) "expected exactly one define-library form")))))
+        (library-from-forms cx name (read-file path) path)))
+
+    ;; A library file holds one `define-library`, or one `generate-library`
+    ;; whose program prints the library's source text.
+    (define (library-from-forms cx name forms path)
+      (match forms
+        ((list (Form (Cons (Ident 'define-library _ _) declarations) loc)) (expand-library cx name declarations loc))
+        ((list (Form (list (Ident 'generate-library _ _) declared (Form (Cons (Ident 'import _ _) imports) _) expression) loc))
+         (unless (equal? (syntax->datum declared) name) (compile-error loc "library name does not match its path" (syntax->datum declared)))
+         (let ((generated (string-append path "#generated")))
+           (library-from-forms cx name (read-text ((Context-generate cx) (producer imports expression) generated) generated) generated)))
+        (_ (compile-error (Loc path 1 1) "expected exactly one define-library or generate-library form"))))
+
+    ;; The producer imports what the recipe imports and prints its expression.
+    (define (producer imports expression)
+      (list (cons 'import (append (map syntax->datum imports) '((only (lofi io) write-string))))
+            (list 'write-string (syntax->datum expression))))
 
     (define (expand-library cx name declarations loc)
       (let ((declared (syntax->datum (car declarations))))

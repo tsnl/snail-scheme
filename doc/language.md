@@ -27,6 +27,19 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 
 `lib/` is always on the search path. `./lofi run -I DIR program.sld` adds more.
 
+A library file may instead hold a `generate-library` recipe: a program whose
+output is the library's source text. The compiler builds and runs it first:
+
+```scheme
+(generate-library (sample table)
+  (import
+   (lofi base))
+  (string-append "(define-library (sample table) (export squares) (import (lofi base))"
+                 " (begin (define squares (list "
+                 (string-join (map (lambda (i) (show (* i i))) (iota 6)) " ")
+                 "))))"))
+```
+
 ## Forms
 
 | Form | Meaning |
@@ -205,3 +218,5 @@ with saving and restoring the state through its wire encoding.
 | `(lofi random)` | A deterministic generator as a value. |
 | `(lofi wire)` | `Serialize`, `Deserialize` and the byte encoding. |
 | `(lofi app)` | Applications, frames and the `screen` effect. |
+| `(lofi integer)`, `(lofi rational)`, `(lofi number)` | Exact integers of any size, rationals, and Scheme numbers. |
+| `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data and its external representation. |
