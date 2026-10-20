@@ -31,6 +31,9 @@ if (contract === 'scalar') {
   assert.equal(api['bool-worker'](1), 1);
   assert.equal(api['bool-worker'](0), 0);
   assert.equal(api['char-worker'](0x10ffff), 0x10ffff);
+  // Provider results outside Bool and Char representations trap at the boundary.
+  for (const value of [2, -1]) trap(() => api['bool-worker'](value));
+  for (const value of [0xd800, 0xdfff, 0x110000, -1]) trap(() => api['char-worker'](value));
   trap(() => api.main());
   assert.equal(api.worker(1), 6);
   assert.equal(producer.marks.value, 5);

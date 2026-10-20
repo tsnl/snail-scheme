@@ -275,7 +275,8 @@ export class ReducerRuntime {
     if ([1, 2].every(owner => snapshots.get(owner)?.[0]))
       this.#stage(instance, [4, 0, 0, 0], {readOnly: true, snapshots, manifest});
   }
-  discard(candidate) { closeInstance(candidate.instance); }
+  // An installed candidate is the live instance; only an uninstalled one closes.
+  discard(candidate) { if (candidate.instance !== this.instance) closeInstance(candidate.instance); }
   replace(candidate) {
     return this.message(() => this.#install(candidate));
   }

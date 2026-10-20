@@ -101,10 +101,12 @@ for (const value of ['', 'ab', '\ud800', '\udfff', 65])
   assert.throws(() => invokeEntry(char, [value]), /Unicode scalar/);
 assert.equal(invokeEntry(unit, []), undefined);
 assert.throws(() => invokeEntry(unit, [undefined]), /parameter count/);
+// A provider's out-of-range Bool or Char traps at the foreign-call boundary,
+// before the entry adapter could decode it.
 for (const name of ['bad-bool', 'bad-char']) {
   const instance = instantiate(load(name), bindings(provider()));
-  assert.throws(() => invokeEntry(instance, []), /invalid .* entry result/);
-  assert.throws(() => invokeEntry(instance, []), /invalid .* entry result/);
+  assert.throws(() => invokeEntry(instance, []), WebAssembly.RuntimeError);
+  assert.throws(() => invokeEntry(instance, []), WebAssembly.RuntimeError);
 }
 
 // ---- Calls preserve prior effects after traps and reject reentrant operations ----

@@ -42,7 +42,7 @@
     ;; Reject them here: a managed reference is never a numeric resource ID.
     (define (extern-scalar-type type)
       (case type
-        ((I32 Char Bool Boolean) 'i32)
+        ((I32 Char Bool) 'i32)
         ((I64) 'i64) ((F32) 'f32) ((F64) 'f64)
         (else (error "unsupported concrete extern type" type))))
 

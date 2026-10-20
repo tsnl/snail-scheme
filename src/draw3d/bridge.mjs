@@ -201,7 +201,9 @@ export function createSceneBridge(provider, transaction) {
     },
     opacity(bits, pulse) {
       const open = frame().open, opacity = scalar(bits);
-      if (!open || open.ready || opacity <= 0 || opacity > 1 || !Number.isInteger(pulse) || pulse < 0 || pulse > 360000)
+      // A pulse animates translucency, so it requires opacity below one.
+      if (!open || open.ready || opacity <= 0 || opacity > 1 || !Number.isInteger(pulse) || pulse < 0 || pulse > 360000
+          || (pulse && opacity === 1))
         throw new Error('invalid batch opacity');
       open.opacity = opacity; open.pulse = !!pulse; open.pulsePhase = pulse ? (pulse - 1) * Math.PI / 180000 : 0;
       open.dependencies.push(bits, pulse);

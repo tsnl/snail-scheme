@@ -280,9 +280,11 @@ beginBoundary();for(let i=0;i<32;i++)host.uniform(i,0);host.background(0);host.b
 beginBoundary();for(let i=0;i<32;i++)host.uniform(i,0);host.background(0);host.batch(1,0);host.reuse();
 assert.equal(host.prototype(1,0,0),0);host.vertex(0,0,0,0,0,floatBits(1),0,0);host.instance(...identityTransform.map(floatBits));host.normal(...identityNormal.map(floatBits));
 assert.notEqual(boundaryBridge.finish(tx).batches[0].draws[0].mesh,owned.batches[0].draws[0].mesh);
-for(const [opacity,pulse,edge]of [[.5,0,0],[1,1,0],[1,0,.1]]){
+for(const [opacity,pulse,edge]of [[.5,0,0],[.5,1,0],[1,0,.1]]){
   beginBoundary();for(let i=0;i<32;i++)host.uniform(i,0);host.background(0);host.batch(8,0);
   host.opacity(floatBits(opacity),pulse);host.unordered();if(edge)host.reveal(1,0,0,floatBits(1),floatBits(edge),0,100);
   assert.throws(()=>host.reuse(),/must be opaque/);
 }
+beginBoundary();for(let i=0;i<32;i++)host.uniform(i,0);host.background(0);host.batch(8,0);
+assert.throws(()=>host.opacity(floatBits(1),1),/invalid batch opacity/); // A pulse requires translucency.
 console.log('ok - failed instance parsing preserves the accepted frame; omitted prototypes are evicted and unsafe regrouping declarations reject');

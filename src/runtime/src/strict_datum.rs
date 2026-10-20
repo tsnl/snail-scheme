@@ -26,14 +26,24 @@ struct Tokens {
 }
 
 impl Tokens {
+    // IDs increase to i32::MAX, then wrap to zero, skipping live handles. A
+    // closed handle stays invalid until its ID comes around again, so a long
+    // run never exhausts the space while fewer than 2^31 handles are open.
     fn open(&mut self) -> Result<u32, String> {
-        let id = self.next;
-        self.next = id
-            .checked_add(1)
-            .filter(|&next| next <= i32::MAX as u32)
-            .ok_or("token handle space exhausted")?;
+        if self.live.len() > i32::MAX as usize {
+            return Err("token handle space exhausted".into());
+        }
+        let mut id = self.next;
+        while self.live.contains_key(&id) {
+            id = Self::after(id);
+        }
+        self.next = Self::after(id);
         self.live.insert(id, Token::Text(String::new()));
         Ok(id)
+    }
+
+    fn after(id: u32) -> u32 {
+        if id >= i32::MAX as u32 { 0 } else { id + 1 }
     }
 
     fn get(&self, id: u32) -> Result<&Token, String> {
@@ -121,8 +131,8 @@ impl Token {
 
 thread_local! { static TOKENS: RefCell<Tokens> = RefCell::new(Tokens::default()); }
 
-// IDs are never reused, even after terminal cleanup. Each operation ends its
-// RefCell borrow before reporting a fatal error; no temporary stores managed
+// IDs are reused only after wrapping around (see Tokens::open). Each operation
+// ends its RefCell borrow before reporting a fatal error; no temporary stores managed
 // references or invokes guest callbacks. Independent IDs may be interleaved.
 pub(crate) fn close_all() {
     TOKENS.with_borrow_mut(|tokens| tokens.live.clear());
@@ -363,6 +373,18 @@ pub extern "C" fn symbol_character(id: u32, index: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn token_ids_wrap_and_skip_live_handles() {
+        let mut tokens = Tokens {
+            next: i32::MAX as u32,
+            ..Tokens::default()
+        };
+        assert_eq!(tokens.open(), Ok(i32::MAX as u32));
+        tokens.live.insert(0, Token::Text(String::new()));
+        assert_eq!(tokens.open(), Ok(1));
+        assert_eq!(tokens.next, 2);
+    }
 
     #[test]
     fn identifiers_follow_the_sign_and_dot_grammar() {

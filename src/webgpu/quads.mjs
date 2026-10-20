@@ -69,14 +69,16 @@ export async function createRenderer(canvas, onError = () => {}) {
     },
     async readPixels(quads, width, height) {
       const target = renderer.draw(quads, width, height);
+      if (!target) throw new Error('quad renderer has no frame to read');
       const bytesPerRow = Math.ceil(canvas.width * 4 / 256) * 256;
       const copy = device.createBuffer({size: bytesPerRow * canvas.height,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ});
-      const commands = device.createCommandEncoder();
-      commands.copyTextureToBuffer({texture: target}, {buffer: copy, bytesPerRow}, [canvas.width, canvas.height]);
-      device.queue.submit([commands.finish()]); await copy.mapAsync(GPUMapMode.READ);
-      const bytes = new Uint8Array(copy.getMappedRange()).slice(); copy.unmap(); copy.destroy();
-      return {bytes, bytesPerRow, format};
+      try {
+        const commands = device.createCommandEncoder();
+        commands.copyTextureToBuffer({texture: target}, {buffer: copy, bytesPerRow}, [canvas.width, canvas.height]);
+        device.queue.submit([commands.finish()]); await copy.mapAsync(GPUMapMode.READ);
+        return {bytes: new Uint8Array(copy.getMappedRange()).slice(), bytesPerRow, format};
+      } finally { copy.destroy(); } // Destroying a mapped buffer also unmaps it.
     },
     close() { closed = true; buffer?.destroy(); device.destroy(); }
   };

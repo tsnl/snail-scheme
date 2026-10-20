@@ -9,8 +9,8 @@
           f64-ieee-add f64-ieee-sub f64-ieee-mul f64-ieee-div f64-sqrt f64-truncate f64-round
           f64-floor f64-ceiling i64->f64 i32->i64 i64->i32 f32->f64 f32->i32 f64->f32 f64->i64
           f32->bits bits->f32 f64->bits bits->f64
-          char=? char<? char<=? char>? char>=? char->integer integer->char make-string string-
-          length string-ref string-set! string-eq? string-copy! substring string=? utf8->string
+          char=? char<? char<=? char>? char>=? char->integer integer->char make-string
+          string-length string-ref string-set! string-eq? string-copy! substring string=? utf8->string
           string->utf8 make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!
           bytevector-eq? bytevector-copy! not unit ref ref-get ref-set! ref-eq? empty-list cons
           car cdr null? unreachable empty-vector make-vector vector-length vector-ref vector-set!

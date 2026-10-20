@@ -502,7 +502,28 @@
               (set-state-imports! state (append (state-imports state) (list (cons declaration name)))) name))))
     (define (emit-extern-call declaration arguments state)
       (let ((call (extern-wasm-call declaration (extern-import! declaration state) arguments)))
-        (if (eq? (extern-result-type declaration) 'Unit) `(block (result i32) ,call (i32.const 0)) call)))
+        (case (extern-result-type declaration)
+          ((Unit) `(block (result i32) ,call (i32.const 0)))
+          ((Bool) `(call $extern-bool ,call))
+          ((Char) `(call $extern-char ,call))
+          (else call))))
+    ;; A provider can return any i32. Bool and Char results are checked at the
+    ;; boundary, so code after the call can rely on their representation.
+    (define (extern-check-definitions imports)
+      (let ((results (map (lambda (entry) (extern-result-type (car entry))) imports)))
+        (append
+         (if (memq 'Bool results)
+             '((func $extern-bool (param $value i32) (result i32)
+                     (if (i32.gt_u (local.get $value) (i32.const 1)) (then (unreachable)))
+                     (local.get $value)))
+             '())
+         (if (memq 'Char results)
+             '((func $extern-char (param $value i32) (result i32)
+                     (if (i32.or (i32.gt_u (local.get $value) (i32.const 1114111))
+                                 (i32.le_u (i32.sub (local.get $value) (i32.const 55296)) (i32.const 2047)))
+                         (then (unreachable)))
+                     (local.get $value)))
+             '()))))
 
     ;; ---- Explicit Top injection and projection ----
 
@@ -796,7 +817,8 @@
         `(module (rec (type $top-scalar (struct (field i32) (field i64)))
                       (type $top-reference (struct (field i32) (field eqref))) ,@layouts ,@environments)
                  ,@(map (lambda (entry) (extern-wasm-import (car entry) (cdr entry))) (state-imports state))
-                 (global $execution (mut i32) (i32.const 0)) ,@strings ,@bytes ,@empty-values ,@globals ,@string-functions ,@string-initializers ,@bodies ,@workers ,@exports
+                 (global $execution (mut i32) (i32.const 0)) ,@strings ,@bytes ,@empty-values ,@globals ,@string-functions ,@string-initializers
+                 ,@(extern-check-definitions (state-imports state)) ,@bodies ,@workers ,@exports
                  ,(compact-wasm-definition
                    `(func $main (export "main") ,@(if (eq? (resolve (program-type (compilation-program plan))) 'Unit) '()
                                                       (result-declaration (require-concrete (program-type (compilation-program plan)) #f) state))

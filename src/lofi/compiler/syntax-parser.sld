@@ -492,37 +492,28 @@
         (not-followed-by (char-if char-bare-atom?)))
        (lambda (_) s-expr)))
 
-    (define (fenced-improper-list open close)
+    ;; Elements are parsed once. An optional dotted tail may follow at least one
+    ;; element; without it the list is proper and its tail is the empty list.
+    (define (fenced-list open close)
       (pmap
-       (named-tuple
-        `(loc . ,(location))
-        `(_ . ,(char open))
-        `(elements . ,(repeat-at-least-once s-expr))
-        `(tail . ,improper-tail)
-        `(_ . ,(optional intertoken-space))
-        `(_ . ,(expect-closing (char close) (string close))))
+       (where
+        (named-tuple
+         `(loc . ,(location))
+         `(_ . ,(char open))
+         `(elements . ,(repeat s-expr))
+         `(tail . ,(optional improper-tail))
+         `(_ . ,(optional intertoken-space))
+         `(_ . ,(expect-closing (char close) (string close))))
+        (lambda (fields) (or (pair? (cdr (assq 'elements fields))) (null? (cdr (assq 'tail fields))))))
        (lambda (fields)
          (make-list-syntax (cdr (assq 'elements fields)) (cdr (assq 'tail fields))
                            (cdr (assq 'loc fields))))))
 
-    (define improper-list
-      (choice
-       (fenced-improper-list #\( #\))
-       (fenced-improper-list #\[ #\])
-       (fenced-improper-list #\{ #\})))
-
     (define s-list
       (choice
-       (pmap
-        (named-tuple
-         `(loc . ,(location))
-         `(elements . ,(choice
-                        (fenced-elements #\( #\) s-expr)
-                        (fenced-elements #\[ #\] s-expr)
-                        (fenced-elements #\{ #\} s-expr))))
-        (lambda (fields)
-          (make-list-syntax (cdr (assq 'elements fields)) '() (cdr (assq 'loc fields)))))
-       improper-list))
+       (fenced-list #\( #\))
+       (fenced-list #\[ #\])
+       (fenced-list #\{ #\})))
 
     (define s-vector
       (pmap
