@@ -76,8 +76,8 @@ types. `if` requires `Bool`. Lofi adds a small number of typed forms:
 | Form | Meaning |
 | --- | --- |
 | `(: name type)` | Signature for a following `define`. |
-| `(struct (Name param ...) ((field type) ...))` | Nominal record type and its constructor, accessors and pattern. |
-| `(enum (Name param ...) (Case ((field type) ...)) ...)` | Nominal, disjoint tagged sum; each case gets a constructor, accessors and pattern. |
+| `(struct (Name param ...) [((field type) ...)])` | Nominal record type and its constructor, accessors and pattern. |
+| `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Nominal, disjoint tagged sum; each case gets a constructor, accessors and pattern. |
 | `(type (Name param ...) type)` | Transparent alias. |
 | `(typeclass (Class param ...) (: method type) ...)` | Open, type-indexed record of methods. |
 | `(instance (Class type ...) [(requires ...)] (define ...) ...)` | Instance; may be generic. |
@@ -94,9 +94,9 @@ A color example:
   (begin
     (struct (Vec3 T) ((x T) (y T) (z T)))
     (enum PrimaryColor
-      (Red ())
-      (Green ())
-      (Blue ()))
+      (Red)
+      (Green)
+      (Blue))
     (enum Color
       (Primary ((value PrimaryColor)))
       (Rgb ((value (Vec3 F32)))))
@@ -165,7 +165,8 @@ with a clear error; a totality checker can come later.
 ### 3.3 Structs and enums
 
 A `struct` is a nominal type with immutable fields, listed together. Its
-constructor, accessors and pattern are generated. A struct family `(Vec3 T)` is
+constructor, accessors and pattern are generated. An empty field list can be
+omitted, as in `(struct Marker)`, unless a later clause follows it. A struct family `(Vec3 T)` is
 a function from types to a struct type.
 
 An `enum` is a nominal sum with named cases:
@@ -173,13 +174,15 @@ An `enum` is a nominal sum with named cases:
 ```scheme
 (enum (Option T)
   (Some ((value T)))
-  (None ()))
+  (None))
 (enum (Result T E)
   (Ok ((value T)))
   (Err ((error E))))
 ```
 
 - **Cases are constructors, not types.** `(Some 1)` has type `(Option I64)`.
+  A case without fields omits its field list, so declaration, construction and
+  pattern all read `(None)`.
 - **Disjoint by construction.** Cases are tags of their enum, so type variables
   are fine and `(Option (Option I32))` keeps both levels.
 - **Matching.** `match` tests case tags and must cover every case.
@@ -361,7 +364,7 @@ behavior whenever the Lofi program does not trap or overflow:
 | Lofi | R7RS after erasure |
 | --- | --- |
 | `(struct (Vec3 T) ((x T) (y T) (z T)))` | `(define-record-type Vec3 (Vec3 x y z) Vec3? (x Vec3-x) (y Vec3-y) (z Vec3-z))` |
-| `(enum (Option T) (Some ((value T))) (None ()))` | One record type per case (`Some`, `None`) and a predicate `Option?` that tests the cases. |
+| `(enum (Option T) (Some ((value T))) (None))` | One record type per case (`Some`, `None`) and a predicate `Option?` that tests the cases. |
 | `(: ...)`, `(type ...)`, `(ann e T)` | Removed; `(ann e T)` becomes `e`. |
 | `(match e ((Some v) a) ((None) b))` | `(let ((x e)) (cond ((Some? x) (let ((v (Some-value x))) a)) ((None? x) b)))` |
 | Typeclass method | A generic procedure that dispatches on its first argument's record predicate. |
