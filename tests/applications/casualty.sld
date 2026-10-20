@@ -19,7 +19,7 @@
                                 (bot-cargo bot) (bot-timer bot) (bot-path bot) 0
                                 (bot-order bot) (bot-source bot) (bot-flight bot)) bot)
                   (wound (cdr bots) id)))))
-    (application world (state World 12) (initial-world)
+    (application world (state World 13) (initial-world)
                  (settle (value (id I32))
                          (no-effects (clear-casualties (world-bots-set value (wound (world-bots value) id))))))
     (application local (state I32 1) 0

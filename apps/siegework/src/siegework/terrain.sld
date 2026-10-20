@@ -21,8 +21,8 @@
 
     ;; ---- Map coordinates ----
 
-    (define map-width 128)
-    (define map-height 128)
+    (define map-width 64)
+    (define map-height 64)
     (define cell-size 40)
     (define hub-x 8)
     (define hub-y 22)
@@ -49,26 +49,26 @@
     ;; corners toward its center. Both coordinates accept the same candidate;
     ;; the bounded replay needs no random state or per-query pair allocation.
     (define (spawn-offset seed attempt horizontal)
-      (let ((x (- (map-offset seed 73 17) 8)) (y (- (map-offset seed 151 17) 8)))
-        (cond ((<= (+ (* x x) (* y y)) 64) (if horizontal x y))
+      (let ((x (- (map-offset seed 73 9) 4)) (y (- (map-offset seed 151 9) 4)))
+        (cond ((<= (+ (* x x) (* y y)) 16) (if horizontal x y))
               ((= attempt 23) 0)
               (else (spawn-offset (remainder (+ (* seed 25173) 13849) 65521)
                                   (+ attempt 1) horizontal)))))
-    (define (spawn-x seed) (+ 64 (spawn-offset seed 0 #t)))
-    (define (spawn-y seed) (+ 64 (spawn-offset seed 0 #f)))
-    ;; Five or six observation hops reach the nest. Even the farthest seed
-    ;; leaves fifteen cells to the edge for its clearing and spawn lanes.
+    (define (spawn-x seed) (+ 32 (spawn-offset seed 0 #t)))
+    (define (spawn-y seed) (+ 32 (spawn-offset seed 0 #f)))
+    ;; Two or three observation hops reach each front. Radius-four hub jitter
+    ;; and sixteen-to-twenty-cell fronts keep all three nests inside the map.
     (define (nest-offset seed horizontal)
       (let ((direction (map-offset seed 67 4))
-            (major (+ 32 (map-offset seed 173 9)))
-            (minor (- (map-offset seed 227 17) 8)))
+            (major (+ 16 (map-offset seed 173 5)))
+            (minor (- (map-offset seed 227 9) 4)))
         (if (= (remainder direction 2) (if horizontal 0 1))
             (if (< direction 2) major (- 0 major)) minor)))
     (define (nest-x seed) (+ (spawn-x seed) (nest-offset seed #t)))
     (define (nest-y seed) (+ (spawn-y seed) (nest-offset seed #f)))
     ;; Three fronts use the original bearing and integer rotations of ±120°.
-    ;; Across every seed they remain at least sixteen cells from the map edge
-    ;; and fifty-four cells apart. Clearings depend on the seed, never nest HP.
+    ;; Their six-cell clearings fit within the compact map and remain distinct.
+    ;; Clearings depend on the seed, never nest HP.
     (define (front-offset seed front horizontal)
       (let ((x (nest-offset seed #t)) (y (nest-offset seed #f))
             (turn (if (= front 1) 866 -866)))
@@ -84,17 +84,12 @@
     (define (home-x seed x) (+ (- x (spawn-x seed)) hub-x))
     (define (home-y seed y) (+ (- y (spawn-y seed)) hub-y))
     (define (home-cell? x y) (and (>= x 0) (< x 48) (>= y 0) (< y 36)))
-    (define (northern-x seed)
-      (+ (- (spawn-x seed) hub-x) (if (= seed 1) 5 (+ 4 (map-offset seed 73 11)))))
-    (define (northern-y seed)
-      (+ (- (spawn-y seed) hub-y) (if (= seed 1) 5 (+ 3 (map-offset seed 151 4)))))
+    (define (northern-x seed) (+ (spawn-x seed) (- (map-offset seed 73 5) 2)))
+    (define (northern-y seed) (- (spawn-y seed) 9))
     (define (eastern-x seed)
-      (let ((x (+ (- (spawn-x seed) hub-x) (if (= seed 1) 36 (+ 33 (map-offset seed 199 9))))))
-        ;; The compact nest may share the eastern clearing. Keep its deposit
-        ;; buildable by moving a coincident crystal one clear cell west.
+      (let ((x (+ (spawn-x seed) 13)))
         (if (nest-site? seed x (eastern-y seed)) (- x 1) x)))
-    (define (eastern-y seed)
-      (+ (- (spawn-y seed) hub-y) (if (= seed 1) 12 (+ 7 (map-offset seed 239 10)))))
+    (define (eastern-y seed) (- (spawn-y seed) (+ 4 (map-offset seed 239 3))))
 
     ;; The ridge stays east of the hub and starter. Its crossing is at least
     ;; three cells tall, and the southern edge remains a second way around it.
@@ -142,9 +137,9 @@
       (let ((kind (region-value seed x y 137 5)))
         (and (> kind 0) (< kind 4) (region-shape? seed x y 3 11))))
     (define (nest-clearing? seed x y)
-      (or (within? x y (front-x seed 0) (front-y seed 0) 10)
-          (within? x y (front-x seed 1) (front-y seed 1) 10)
-          (within? x y (front-x seed 2) (front-y seed 2) 10)))
+      (or (within? x y (front-x seed 0) (front-y seed 0) 6)
+          (within? x y (front-x seed 1) (front-y seed 1) 6)
+          (within? x y (front-x seed 2) (front-y seed 2) 6)))
     (define (water? seed x y)
       (and (inside? x y) (not (home-cell? (home-x seed x) (home-y seed y)))
            (not (nest-clearing? seed x y)) (region-water? seed x y)))
@@ -175,10 +170,10 @@
     ;; Four inner candidates use a 3/4 chance; four outer candidates use 1/4.
     ;; Each has a seeded cardinal offset plus small sideways jitter. Ground and
     ;; the protected opening decide which candidates become actual deposits.
-    ;; Eight candidates per front bound work without scanning all 16,384 cells.
+    ;; Eight candidates per front bound work without scanning all 4,096 cells.
     (define (front-deposit-offset seed front slot horizontal)
       (let* ((key (+ seed (+ (* front 997) (* slot 271))))
-             (major (+ (if (< slot 4) 6 13) (map-offset key 307 (if (< slot 4) 4 5)))))
+             (major (+ (if (< slot 4) 4 8) (map-offset key 307 (if (< slot 4) 3 3)))))
         (if (= (remainder slot 2) (if horizontal 0 1))
             (if (< (remainder slot 4) 2) major (- 0 major))
             (- (map-offset key 317 5) 2))))
@@ -187,7 +182,7 @@
     (define (front-deposit? seed front slot)
       (let ((x (front-deposit-x seed front slot)) (y (front-deposit-y seed front slot)))
         (and (< (map-offset (+ seed (+ (* front 997) (* slot 271))) 313 4) (if (< slot 4) 3 1))
-             (ground? seed x y) (not (within? x y (spawn-x seed) (spawn-y seed) 20))
+             (ground? seed x y) (not (within? x y (spawn-x seed) (spawn-y seed) 10))
              (not (and (= x (eastern-x seed)) (= y (eastern-y seed))))
              (not (regional-deposit? seed x y)))))
     (define (bonus-deposit? seed x y)

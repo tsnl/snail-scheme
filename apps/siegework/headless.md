@@ -16,7 +16,7 @@ node apps/siegework/environment-cli.mjs /tmp/siegework-environment/solo
 
 The package must provide player observation ABI version 1; older gameplay builds
 deliberately fail the environment's version check. Rebuild from source to obtain
-the extension, which changes neither World12 nor gameplay. Tested package
+the extension, which changes neither World13 nor gameplay. Tested package
 identities and temporary artifact paths are recorded in [VALIDATION.md](VALIDATION.md).
 
 ## Node API and episode semantics
@@ -117,7 +117,7 @@ another seed. Unknown types and extra fields are rejected. Restart belongs to
 `reset`, not the action vocabulary. Legacy inert commands and presentation/camera
 commands are not exposed.
 
-Coordinates are explicit: `cell = x + y * width`, where width/height are 128.
+Coordinates are explicit: `cell = x + y * width`, where width/height are 64.
 Hub `x/y` and building `moveX/moveY` use grid cells; `-1` means no pending move.
 Workers and enemies use integer world-space `x/y`, with `cellSize = 40` units
 per grid cell. A cell center is `(x * 40 + 20, y * 40 + 20)`; divide an entity's
@@ -252,3 +252,9 @@ quality are covered by separate work.
 Building observations include `scavengeRefund` (completed construction and upgrade
 investment divided by five, rounded down) and `scavenging` (a worker currently
 claims demolition). Stored ore recovery is separate from this structural quote.
+
+World13 uses `siegework-colony-v13` for the 64×64 map. World12 saves and
+checkpoints are rejected rather than reinterpreting their cell indices. Extractor
+construction costs zero ore but still requires a worker to reach the site; its
+40/160-ore upgrades remain paid. Outcome 4 means resigned: the intact world is
+frozen and fully revealed, and a new run starts through the normal reset intent.

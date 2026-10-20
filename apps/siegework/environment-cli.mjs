@@ -66,15 +66,15 @@ async function jsonl(environment, message) {
 
 const schema = properties => ({type: 'object', properties, additionalProperties: false});
 const int = (minimum, maximum) => ({type: 'integer', minimum, maximum});
-const cell = {...int(0, 16383), description: 'Absolute map cell x + y * 128; use a player-observed tile.cell or buildCandidate.cell.'};
+const cell = {...int(0, 4095), description: 'Absolute map cell x + y * 64; use a player-observed tile.cell or buildCandidate.cell.'};
 const actionVariant = (type, properties = {}) => ({...schema({type: {const: type}, ...properties}), required: ['type', ...Object.keys(properties)]});
 const actionSchema = {oneOf: [actionVariant('wait'), actionVariant('build', {
   kind: {...int(1, 3), description: '1 = extractor (first required purchase), 2 = artillery, 3 = observation tower.'}, cell}),
   actionVariant('upgrade', {cell}), actionVariant('cancel', {cell}), actionVariant('scavenge', {cell}), actionVariant('relocate', {from: cell, to: cell}),
-  actionVariant('fabricate'), actionVariant('repair'), actionVariant('pause', {paused: {type: 'boolean'}})]};
+  actionVariant('fabricate'), actionVariant('repair'), actionVariant('resign'), actionVariant('pause', {paused: {type: 'boolean'}})]};
 const tools = [
-  {name: 'siegework_reset', description: 'Start a fresh seeded episode. The first paid extractor starts its simulation clock.', inputSchema: schema({seed: int(1, 65535)})},
-  {name: 'siegework_observe', description: 'Player knowledge only. Arrays are paged independently; counts report omitted entries. Build candidates are previews, not guaranteed purchases. Grid cells use cell=x+y*128; worker/enemy x,y use world units (40 per cell, center at grid*40+20). Terrain: 0 rock, 1 ground, 2 water. Unknown reserves/HP are -1. Building kinds: 1 extractor, 2 artillery, 3 observation tower.',
+  {name: 'siegework_reset', description: 'Start a fresh seeded episode. The first explicit extractor starts its simulation clock.', inputSchema: schema({seed: int(1, 65535)})},
+  {name: 'siegework_observe', description: 'Player knowledge only. Arrays are paged independently; counts report omitted entries. Build candidates are previews, not guaranteed purchases. Grid cells use cell=x+y*64; worker/enemy x,y use world units (40 per cell, center at grid*40+20). Terrain: 0 rock, 1 ground, 2 water. Unknown reserves/HP are -1. Building kinds: 1 extractor, 2 artillery, 3 observation tower.',
     inputSchema: schema({offset: int(0, 65535), limit: int(1, 256)})},
   {name: 'siegework_step', description: 'Submit one player action, then at most ticks explicit simulation ticks. A rejected purchase still performs the requested wait. Arrays default to the first 32 entries.',
     inputSchema: schema({action: actionSchema, ticks: {...int(0, 600), description: 'Simulation ticks after the action; 10 ticks = one game second. Defaults to 1. Zero submits the action without advancing time.'}})},

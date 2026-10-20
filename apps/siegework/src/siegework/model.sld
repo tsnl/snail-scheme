@@ -3,7 +3,7 @@
 (define-library (siegework model)
   (export World make-world initial-world advance-world extract-world observe-world place-cell-world
           ConstructionOutcome construction-world construction-reason place-cell-outcome
-          fortify-world automatic-world upgrade-world fabricate-world focus-world move-world pause-world restart-world seeded-world
+          fortify-world automatic-world upgrade-world fabricate-world focus-world move-world pause-world resign-world restart-world seeded-world
           scavenge-world scavenge-reason scavenge-pending? scavenge-worker? scavenge-ticks scavenge-refund completed-investment
           cancel-world arm-world artillery-range artillery-damage final-siege-tick run-end-tick maximum-enemies next-attack-tick next-attack-number attack-countdown-span attack-kind attack-size threat-tier
           DifficultyWindow difficulty-window difficulty-window-for world-difficulty-window world-threat-tick difficulty-tier difficulty-start difficulty-end difficulty-step-ticks simulation-ticks-per-second
@@ -245,9 +245,9 @@
     (define (deposit-site seed x y)
       (make-deposit (cell-index x y) (deposit-capacity seed x y)))
     (define (regional-deposits seed region)
-      (if (= region 16) (empty-list)
-          (let* ((x (regional-deposit-x seed (remainder region 4) (quotient region 4)))
-                 (y (regional-deposit-y seed (remainder region 4) (quotient region 4)))
+      (if (= region 4) (empty-list)
+          (let* ((x (regional-deposit-x seed (remainder region 2) (quotient region 2)))
+                 (y (regional-deposit-y seed (remainder region 2) (quotient region 2)))
                  (rest (regional-deposits seed (+ region 1)))
                  (hx (+ (- x (spawn-x seed)) hub-x)) (hy (+ (- y (spawn-y seed)) hub-y)))
             (if (or (= (deposit-rate seed x y) 0) (and (>= hx 0) (< hx 48) (>= hy 0) (< hy 36)))
@@ -310,7 +310,7 @@
                   (list (idle-bot seed 1) (idle-bot seed 2) (idle-bot seed 3)) (empty-list)
                   (list (make-survey (spawn-x seed) (spawn-y seed) 9))
                   0 0 0 0 0 0 0 0 seed 0 0 (empty-list) marker (empty-list) 0 (initial-nests seed) -100
-                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed) 2))
+                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed) 1))
     (define (initial-world) (new-world 1 0))
     (define (next-run-marker world)
       (if (= (world-run-marker world) 2147483647) 0 (+ (world-run-marker world) 1)))
@@ -318,7 +318,9 @@
     (define (seeded-world world seed)
       (if (and (>= seed 1) (<= seed 65535)) (new-world seed (next-run-marker world)) (world-notice-set world 16)))
     (define (pause-world world value)
-      (if (or (= value 0) (= value 1)) (world-paused-set world value) world))
+      (if (and (active? world) (or (= value 0) (= value 1))) (world-paused-set world value) world))
+    (define (resign-world world)
+      (if (active? world) (world-outcome-set world 4) world))
     (define (list-size xs) (if (null? xs) (ann 0 I32) (+ 1 (list-size (cdr xs)))))
     (define (minimum a b) (if (< a b) a b))
     (define (maximum a b) (if (> a b) a b))
@@ -328,7 +330,7 @@
       (and (or (= (building-stage building) 2) (arming? building)) (> (building-hp building) 0)))
     (define (tower? building) (= (building-kind building) 3))
     (define (armed? building) (or (= (building-kind building) 2) (= (building-armed building) 1)))
-    (define (building-cost kind) (cond ((= kind 1) 40) ((= kind 2) 50) (else 25)))
+    (define (building-cost kind) (cond ((= kind 1) 0) ((= kind 2) 50) (else 25)))
     (define (construction-stage building)
       (if (arming? building) (- (building-stage building) 4) (building-stage building)))
     (define (construction-stage-set building stage)
@@ -337,7 +339,7 @@
       (cond ((arming? building) 25) ((tower? building) (* 25 (building-level building)))
             (else (building-cost (building-kind building)))))
     (define (construction-kit-size building)
-      (if (= (building-kind building) 1) 40 25))
+      (if (= (building-kind building) 1) 0 25))
     (define (uncollected-supplies building)
       (- (- (construction-cost building) (if (or (= (building-stage building) 2) (arming? building)) 0 (building-stock building)))
          (if (= (construction-stage building) 1) (construction-kit-size building) 0)))
@@ -387,10 +389,10 @@
                     (within? x y (building-x (car buildings)) (building-y (car buildings))
                              (building-radius (car buildings))))
                (buildings-see? (cdr buildings) x y))))
-    ;; Defeat exposes the frozen world for inspection. Knowledge is derived
-    ;; from the outcome, never a 16,384-cell survey or a new simulation step.
+    ;; Defeat and resignation expose the frozen world for inspection. Knowledge
+    ;; follows the outcome without changing surveys or advancing simulation.
     (define (visible? world x y)
-      (and (inside? x y) (or (= (world-outcome world) 1) (within? x y (world-hub-x world) (world-hub-y world) 9)
+      (and (inside? x y) (or (= (world-outcome world) 1) (= (world-outcome world) 4) (within? x y (world-hub-x world) (world-hub-y world) 9)
                              (buildings-see? (world-buildings world) x y)
                              (workers-see? (world-bots world) x y))))
     ;; A passing worker reveals nearby terrain immediately, without claiming
@@ -400,7 +402,7 @@
            (or (within? (cell-x x) (cell-y y) (bot-x (car bots)) (bot-y (car bots)) (* 2 cell-size))
                (workers-see? (cdr bots) x y))))
     (define (known? world x y)
-      (and (inside? x y) (or (= (world-outcome world) 1) (cleared-nest? world x y)
+      (and (inside? x y) (or (= (world-outcome world) 1) (= (world-outcome world) 4) (cleared-nest? world x y)
                              (surveyed? (world-surveys world) x y)
                              (workers-see? (world-bots world) x y))))
     (define (construction-hidden? world building)
@@ -416,8 +418,8 @@
             (world-last-reveal-tick-set
              (world-surveys-set world (cons (make-survey x y radius) (world-surveys world))) (world-tick world)))))
     ;; Cheap preview reasons; the command also proves a known walking route.
-    ;; Before the first paid extractor order, no other purchase may consume the
-    ;; starting ore. Selection is free; only acceptance below starts the clock.
+    ;; The first explicit extractor order starts the clock. Its construction is
+    ;; free; other purchases remain gated until that order is accepted.
     (define (placement-reason world kind x y)
       (cond ((not (active? world)) 9)
             ((and (not (world-started world)) (not (= kind 1))) 38)
@@ -675,7 +677,8 @@
       (let* ((bot (if (= (bot-order bot) id) (release-order bot) bot))
              (world (put-bot world bot)))
         (if (and (= (bot-target bot) id) (kit-carrier? bot))
-            (return-home world (bot-target-set bot 0) 5) world)))
+            (if (= (bot-cargo bot) 0) (put-bot world (clear-job bot))
+                (return-home world (bot-target-set bot 0) 5)) world)))
     (define (cancel-workers world bots id)
       (if (null? bots) world
           (cancel-workers (cancel-worker world (car bots) id) (cdr bots) id)))
@@ -794,10 +797,23 @@
             (choose-supply world bot building (cdr sources)
                            (if (local-supply? world source (construction-cost building))
                                (best-builder (prepare-builder-source world bot building (building-id source)) best) best)))))
+    ;; A free extractor needs a worker, not a hub kit. Existing raw cargo must
+    ;; reach its chosen depot before that worker travels directly to the site.
+    (define (prepare-free-builder world bot building)
+      (let* ((loaded (and (= (bot-job bot) 2) (> (bot-cargo bot) 0)))
+             (delivery (if loaded (source-path world bot (bot-target bot)) (empty-list)))
+             (origin (if loaded (source-position world (bot-target bot) bot) bot))
+             (path (route-from world origin (building-x building) (building-y building))))
+        (if (and (or (not loaded) (source-reachable? world bot (bot-target bot) delivery))
+                 (reachable? origin (building-x building) (building-y building) path))
+            (list (make-builder-choice (if loaded (bot-path-set bot delivery) bot) 0
+                                      (+ (if loaded (travel-ticks world bot delivery) 0) (travel-ticks world origin path)) path))
+            (empty-list))))
     (define (prepare-builder world bot building reserve)
       (cond ((or (not (null? (bot-flight bot))) (construction-hidden? world building)) (empty-list))
             ((and (= (bot-job bot) 3) (= (bot-cargo bot) 25)) (prepare-carrier world bot building reserve))
             ((not (builder-eligible? world bot)) (empty-list))
+            ((= (construction-cost building) 0) (prepare-free-builder world bot building))
             ((>= (building-source building) 0) (prepare-builder-source world bot building (building-source building)))
             (else (choose-supply world bot building (world-buildings world)
                                  (if (>= (world-credits world) (+ reserve (construction-cost building)))
@@ -828,9 +844,15 @@
                                                          building (building-id source)))))
                 (building-id source) (waiting-local-source world building (cdr sources))))))
     (define (waiting-source world building reserve)
-      (if (>= (world-credits world) (+ reserve (construction-cost building))) 0
+      (if (or (= (construction-cost building) 0) (>= (world-credits world) (+ reserve (construction-cost building)))) 0
           (waiting-local-source world building (world-buildings world))))
     (define (reserve-builder world building choice)
+      (if (and (= (construction-cost building) 0) (= (bot-cargo (builder-worker choice)) 0))
+          (pickup-order (put-building (put-bot world (bot-order-set (builder-worker choice) (building-id building)))
+                                      (construction-stage-set building 3))
+                        (bot-order-set (builder-worker choice) (building-id building)))
+          (reserve-paid-builder world building choice)))
+    (define (reserve-paid-builder world building choice)
       (if (= (bot-job (builder-worker choice)) 3) (redirect-carrier world building choice)
           (let* ((bot (builder-worker choice)) (ordered (bot-order-set bot (building-id building)))
                  (settling (and (= (bot-job bot) 2) (> (bot-cargo bot) 0)))
@@ -1365,6 +1387,7 @@
       (let* ((building (car (find-building (world-buildings world) (bot-order bot))))
              (source (building-source building)) (path (source-path world bot source)))
         (cond ((construction-hidden? world building) (suspend-construction world building bot))
+              ((= (construction-cost building) 0) (pickup-order world bot))
               ((not (source-reachable? world bot source path))
                (put-bot world (bot-job-set (clear-job bot) 10)))
               (else (if (null? path) (pickup-order world bot)
@@ -2002,10 +2025,11 @@
       (or (= (bot-job bot) 2) (= (bot-job bot) 4) (= (bot-job bot) 12) (= (bot-job bot) 14)
           (and (= (bot-job bot) 7)
                (or (= (bot-timer bot) 2) (= (bot-timer bot) 4) (= (bot-timer bot) 12) (= (bot-timer bot) 14)))))
+    ;; Construction ownership follows the job and target, even when a free
+    ;; extractor needs no material. The decoder proves each exact cargo amount.
     (define (kit-carrier? bot)
-      (and (> (bot-cargo bot) 4)
-           (or (= (bot-job bot) 3) (= (bot-job bot) 5)
-               (and (= (bot-job bot) 7) (= (bot-timer bot) 5)))))
+      (or (= (bot-job bot) 3) (= (bot-job bot) 5)
+          (and (= (bot-job bot) 7) (= (bot-timer bot) 5))))
     (define (settle-dead-worker world bot)
       (let* ((found (find-building (world-buildings world) (bot-order bot)))
              (world (if (null? found) world (put-building world (construction-stage-set (car found) 0))))

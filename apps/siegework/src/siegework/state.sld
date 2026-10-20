@@ -67,8 +67,8 @@
       (require! (and (world-ground? world (survey-x value) (survey-y value))
                      (bounded? (survey-radius value) 4 10))))
     (define (check-world-fields! world)
-      (require! (and (= (world-payload-version world) 2)
-                     (bounded? (world-tick world) 0 run-end-tick) (bounded? (world-outcome world) 0 3)
+      (require! (and (= (world-payload-version world) 1)
+                     (bounded? (world-tick world) 0 run-end-tick) (bounded? (world-outcome world) 0 4)
                      (or (world-started world)
                          (and (= (world-tick world) 0) (= (world-spent world) 0)
                               (null? (world-buildings world)) (null? (world-enemies world))))
@@ -88,6 +88,7 @@
        ((= (world-outcome world) 0) (require! (and (> (world-hull world) 0) (> (world-nest-hp world) 0))))
        ((= (world-outcome world) 1) (require! (and (= (world-hull world) 0) (> (world-nest-hp world) 0))))
        ((= (world-outcome world) 3) (require! (= (world-nest-hp world) 0)))
+       ((= (world-outcome world) 4) (require! (and (> (world-hull world) 0) (> (world-nest-hp world) 0))))
        (else (require! #f))))
     ;; Capacity only rises. Every living worker and paid recruit owns one of
     ;; the completed hub tier's places; pending upgrades grant none yet.
@@ -126,9 +127,7 @@
         (require! (and (< (car ids) next) (not (contains-id? (cdr ids) (car ids)))))
         (check-identities! (cdr ids) next)))
     (define (construction-carrier? bot id)
-      (and (= (bot-target bot) id) (> (bot-cargo bot) 4)
-           (or (= (bot-job bot) 3) (= (bot-job bot) 5)
-               (and (= (bot-job bot) 7) (= (bot-timer bot) 5)))))
+      (and (= (bot-target bot) id) (kit-carrier? bot)))
     (define (construction-claims bots id)
       (if (null? bots) 0 (+ (if (construction-carrier? (car bots) id) 1 0)
                             (construction-claims (cdr bots) id))))
@@ -155,7 +154,8 @@
              (local-refund-cost (cdr bots)))))
     (define (check-building-supply! world building)
       (require! (and (< (building-source building) (world-next-id world))
-                     (or (not (= (building-stage building) 2)) (= (building-source building) 0))))
+                     (or (not (= (building-stage building) 2)) (= (building-source building) 0))
+                     (or (not (= (building-kind building) 1)) (= (building-source building) 0))))
       (when (and (> (building-source building) 0)
                  (> (uncollected-supplies building) 0))
         (let ((source (find-building (world-buildings world) (building-source building))))
@@ -230,7 +230,7 @@
                              (arrives-at? bot (building-x (car found)) (building-y (car found)))))))))
     (define (check-returned-kit! world bot)
       (if (= (bot-target bot) 0)
-          (require! (or (= (bot-cargo bot) 25) (= (bot-cargo bot) 40)))
+          (require! (= (bot-cargo bot) 25))
           (check-kit! world bot)))
     (define (returned-kit-destination? world bot)
       (or (arrives-at? bot (world-hub-x world) (world-hub-y world))
@@ -551,75 +551,11 @@
       (check-rails! world (world-rails world)))
 
 
-    ;; ---- Explicit compatible payload revision within the World12 envelope ----
+    ;; ---- A visible restart marker surrounds the derived World13 payload ----
 
-    ;; The host's schema and save identity stay 12. Revision 1 added exactly one
-    ;; World field, one Bot field and one Enemy field. Revision 2 adds only seeded
-    ;; reserves, preserving every old amount. Only the original and revision-1
-    ;; layouts migrate; mixed records and unknown revisions reach no live state.
-    ;; Derived decoding still proves every tag, field name, order and scalar type.
-    (define (wire-fields value count)
-      (let ((fields (sexp-list-values value)))
-        (require! (= (list-size fields) count)) fields))
-    (define (wire-at fields index)
-      (if (= index 0) (car fields) (wire-at (cdr fields) (- index 1))))
-    (define (wire-content field) (car (cdr (wire-fields field 2))))
-    (define (wire-integer field) (ann (deserialize (wire-content field)) I32))
-    (define empty-flight-field
-      (sexp-list (list (sexp-symbol "flight")
-                       (sexp-list (list (sexp-symbol "(List (siegework model):Flight)")
-                                        (sexp-list (empty-list)))))))
-    (define (legacy-bot value)
-      (sexp-list (append (wire-fields value 14) (list empty-flight-field))))
-    ;; An old wound has lost its spawn tick. Freeze a conservative saved-tick
-    ;; estimate, at least current HP; new enemies always retain their exact max.
-    (define (legacy-enemy value tick)
-      (let* ((fields (wire-fields value 12))
-             (hp (wire-integer (wire-at fields 6)))
-             (kind (wire-integer (wire-at fields 7)))
-             (rank (wire-integer (wire-at fields 11)))
-             (estimate (enemy-spawn-health tick kind rank)))
-        (sexp-list (append fields (list (sexp-list (list (sexp-symbol "max-hp")
-                                                         (serialize (if (> hp estimate) hp estimate)))))))))
-    (define (legacy-actors values enemies? tick)
-      (if (null? values) values
-          (cons (if enemies? (legacy-enemy (car values) tick) (legacy-bot (car values)))
-                (legacy-actors (cdr values) enemies? tick))))
-    (define (legacy-actor-field field enemies? tick)
-      (let* ((pair (wire-fields field 2)) (typed (wire-fields (car (cdr pair)) 2))
-             (actors (legacy-actors (sexp-list-values (car (cdr typed))) enemies? tick))
-             (contents (sexp-list (list (car typed) (sexp-list actors)))))
-        (sexp-list (list (car pair) contents))))
-    (define (legacy-world-fields fields index tick)
-      (if (null? fields)
-          (list (sexp-list (list (sexp-symbol "payload-version") (serialize (ann 1 I32)))))
-          (cons (cond ((= index 10) (legacy-actor-field (car fields) #f tick))
-                      ((= index 11) (legacy-actor-field (car fields) #t tick))
-                      (else (car fields)))
-                (legacy-world-fields (cdr fields) (+ index 1) tick))))
-    (define (canonical-world-payload value)
-      (let* ((fields (sexp-list-values value)) (count (list-size fields)))
-        (cond ((= count 36)
-               (sexp-list (legacy-world-fields fields 0 (wire-integer (wire-at fields 3)))))
-              ((= count 37) value)
-              (else (require! #f) value))))
-
-    (define (append-new-reserves saved expected)
-      (if (null? saved) expected
-          (cons (car saved) (append-new-reserves (cdr saved) (cdr expected)))))
-    (define (upgrade-reserves world)
-      (if (not (= (world-payload-version world) 1)) world
-          (let ((seed (world-seed world)) (saved (world-deposits world)))
-            (require! (bounded? seed 1 65535))
-            (check-deposits! saved (initial-deposits-v1 seed))
-            (world-payload-version-set
-             (world-deposits-set world (append-new-reserves saved (initial-deposits seed))) 2))))
-
-    ;; ---- A visible restart marker surrounds the derived world payload ----
-
-    ;; Schema 12 owns an explicit hub capacity tier and has no house buildings.
-    ;; Its separate application identity leaves earlier colony records untouched.
-    ;; The host reads the restart marker; decoding checks it against the World.
+    ;; A 64-cell row changes every saved cell index. World13 uses a separate
+    ;; application namespace and rejects World12 before interpreting its payload.
+    ;; No coordinate or funding migration can silently reinterpret an old run.
     (define (copy-payload! destination source destination-start source-start count)
       (let loop ((index 0))
         (when (< index count)
@@ -627,22 +563,22 @@
                        (vector-ref source (i32->i64 (+ source-start index))))
           (loop (+ index 1)))))
     (define (encode-world world)
-      (let* ((payload (encode-snapshot 12 world))
+      (let* ((payload (encode-snapshot 13 world))
              (count (vector-length payload))
              (words (make-vector (+ count (ann 1 I64)) 0)))
-        (vector-set! words (ann 0 I64) 12)
+        (vector-set! words (ann 0 I64) 13)
         (vector-set! words (ann 1 I64) (world-run-marker world))
         (copy-payload! words payload 2 1 (- (i64->i32 count) 1))
         words))
     (define (world-payload words)
       (let ((count (vector-length words)))
-        (require! (and (>= count (ann 3 I64)) (= (vector-ref words (ann 0 I64)) 12)))
+        (require! (and (>= count (ann 3 I64)) (= (vector-ref words (ann 0 I64)) 13)))
         (let ((payload (make-vector (- count (ann 1 I64)) 0)))
-          (vector-set! payload (ann 0 I64) 12)
+          (vector-set! payload (ann 0 I64) 13)
           (copy-payload! payload words 1 2 (- (i64->i32 count) 2))
           payload)))
     (define (validate-world world) (check-world! world) world)
     (define (decode-world words)
-      (let ((world (ann (deserialize (canonical-world-payload (snapshot->sexp (world-payload words)))) World)))
+      (let ((world (ann (deserialize (snapshot->sexp (world-payload words))) World)))
         (require! (= (vector-ref words (ann 1 I64)) (world-run-marker world)))
-        (validate-world (upgrade-reserves world))))))
+        (validate-world world)))))
