@@ -3,7 +3,7 @@
 (define-library (lofi base)
   (export
    define lambda if begin let define-syntax syntax-rules quote : struct enum type
-   typeclass instance match ann extern effect handle
+   typeclass instance match ann extern effect handle expose
    U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do

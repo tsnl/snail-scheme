@@ -29,7 +29,9 @@
        (counter (Ref I64))
        (locals HashTable)
        (schemes HashTable)
-       (wanted (Ref (List Wanted)))))
+       (wanted (Ref (List Wanted)))
+       (deferred (Ref (List (Pair Wanted (List Constraint)))))
+       (monomorphic (Ref (List Symbol)))))
 
     (enum Wanted
       (WantClass
@@ -433,18 +435,35 @@
 
     ;; Literals are defaulted and range-checked first, then class constraints
     ;; are solved. Returns the class constraints that are still ambiguous.
-    (define (solve! ck givens)
+    (define (solve-now! ck givens wanted)
+      (for-each (lambda (want) (match want ((WantLiteral value type loc) (solve-literal! ck value type loc)) (_ #f))) wanted)
+      (filter (lambda (want) (match want ((WantClass constraint cell loc) (not (solve-class! ck want givens))) (_ #f)))
+              wanted))
+
+    (define (take-wanted! ck)
       (let ((wanted (reverse (ref-get (Checker-wanted ck)))))
         (ref-set! (Checker-wanted ck) '())
-        (for-each (lambda (want) (match want ((WantLiteral value type loc) (solve-literal! ck value type loc)) (_ #f))) wanted)
-        (filter (lambda (want)
-                  (match want
-                    ((WantClass constraint cell loc)
-                     (let ((evidence (find-evidence ck constraint givens loc)))
-                       (when evidence (ref-set! cell evidence))
-                       (not evidence)))
-                    (_ #f)))
-                wanted)))
+        wanted))
+
+    (define (solve-class! ck want givens)
+      (match want
+        ((WantClass constraint cell loc)
+         (let ((evidence (find-evidence ck constraint givens loc)))
+           (when evidence (ref-set! cell evidence))
+           evidence))))
+
+    ;; Solves what the types already determine and defers the rest, with its
+    ;; givens, until the whole program is checked.
+    (define (solve-later! ck givens)
+      (for-each (lambda (want)
+                  (unless (match want
+                            ((WantLiteral value type loc) (and (not (meta? (prune type))) (begin (solve-literal! ck value type loc) #t)))
+                            (_ (solve-class! ck want givens)))
+                    (defer! ck want givens)))
+                (take-wanted! ck)))
+
+    (define (defer! ck want givens)
+      (ref-set! (Checker-deferred ck) (cons (cons want givens) (ref-get (Checker-deferred ck)))))
 
     (define (solve-literal! ck value type loc)
       (let ((default (if (exact-integer? value) 'I64 'F64)))
@@ -593,18 +612,43 @@
     ;; ---- Definitions ----
 
     ;; An unannotated group of mutually recursive definitions is inferred
-    ;; together and generalized if every initializer is total.
+    ;; together. If every initializer is total it is solved and generalized
+    ;; now; otherwise it stays monomorphic, and its constraints wait until the
+    ;; whole program is checked, so later uses can still fix literal types.
     (define (check-group ck definitions)
       (for-each (lambda (definition)
                   (hash-table-set! (Checker-schemes ck) (Define-name definition) (mono-scheme (fresh-meta ck))))
                 definitions)
-      (let* ((results (map (lambda (definition) (infer-definition ck definition)) definitions))
-             (stuck (solve! ck '())))
-        (unless (null? stuck) (ambiguous-error stuck))
+      (let ((results (map (lambda (definition) (infer-definition ck definition)) definitions)))
         (for-each (lambda (result) (check-host-effects ck (cdr result) (Expr-loc (car result)))) results)
-        (generalize! ck definitions (every (lambda (result) (total? (cdr result))) results))
-        (map (lambda (definition result) (Define (Define-name definition) (zonk-expr (car result))))
-             definitions results)))
+        (if (every (lambda (result) (total? (cdr result))) results)
+            (let ((stuck (solve-now! ck '() (take-wanted! ck))))
+              (unless (null? stuck) (ambiguous-error stuck))
+              (generalize! ck definitions))
+            (begin (for-each (lambda (want) (defer! ck want '())) (take-wanted! ck))
+                   (ref-set! (Checker-monomorphic ck) (append (map Define-name definitions) (ref-get (Checker-monomorphic ck))))))
+        (map (lambda (definition result) (Define (Define-name definition) (car result))) definitions results)))
+
+    ;; Solves every deferred constraint, records the schemes of monomorphic
+    ;; groups, and zonks every item.
+    (define (finish! ck typed deferred-names)
+      (let ((deferred (reverse (ref-get (Checker-deferred ck)))))
+        (solve-now! ck '() (filter (lambda (want) (match want ((WantLiteral _ _ _) #t) (_ #f))) (map car deferred)))
+        (for-each (lambda (entry)
+                    (match (car entry)
+                      ((WantClass _ _ _) (unless (solve-class! ck (car entry) (cdr entry)) (ambiguous-error (list (car entry)))))
+                      (_ #f)))
+                  deferred))
+      (for-each (lambda (name)
+                  (hash-table-set! (Checker-schemes ck) name
+                                   (mono-scheme (zonk (Scheme-type (hash-table-ref (Checker-schemes ck) name))))))
+                deferred-names)
+      (map (lambda (item)
+             (match item
+               ((Define name value) (Define name (zonk-expr value)))
+               ((Do value) (Do (zonk-expr value)))
+               (_ item)))
+           typed))
 
     (define (infer-definition ck definition)
       (let* ((row (fresh-meta ck)) (value (infer ck (Define-value definition) row)))
@@ -619,12 +663,14 @@
                                            "; add a signature or an annotation")))))
 
     ;; Unsolved metavariables become the scheme's variables: `t1`, `t2`, ...
-    (define (generalize! ck definitions total?)
-      (let ((metas (if total?
-                       (delete-duplicates
-                        (append-map (lambda (definition) (free-metas (Scheme-type (hash-table-ref (Checker-schemes ck) (Define-name definition))))) definitions)
-                        eq?)
-                       '())))
+    ;; except those still shared with a monomorphic definition's type.
+    (define (generalize! ck definitions)
+      (let* ((fixed (append-map (lambda (name) (free-metas (Scheme-type (hash-table-ref (Checker-schemes ck) name))))
+                                (ref-get (Checker-monomorphic ck))))
+             (metas (filter (lambda (meta) (not (memq meta fixed)))
+                            (delete-duplicates
+                             (append-map (lambda (definition) (free-metas (Scheme-type (hash-table-ref (Checker-schemes ck) (Define-name definition))))) definitions)
+                             eq?))))
         (let ((names (map (lambda (meta index) (string->symbol (string-append "t" (number->string index)))) metas (iota (length metas) 1))))
           (for-each (lambda (meta name) (ref-set! (TVar-cell meta) (TRigid name))) metas names)
           (for-each (lambda (definition)
@@ -651,16 +697,30 @@
         (unify ck (Scheme-type scheme) (Expr-type value) loc)
         (when (and (pair? (Scheme-vars scheme)) (not (total? row)))
           (compile-error loc "a polymorphic definition must have a total initializer"))
-        (let ((stuck (solve! ck (Scheme-constraints scheme))))
-          (unless (null? stuck) (ambiguous-error stuck)))
+        (solve-later! ck (Scheme-constraints scheme))
         (check-host-effects ck row loc)
-        (Define (Define-name definition) (zonk-expr value))))
+        (Define (Define-name definition) value)))
 
     (define (check-statement ck expr)
-      (let* ((row (fresh-meta ck)) (value (infer ck expr row)) (stuck (solve! ck '())))
-        (unless (null? stuck) (ambiguous-error stuck))
+      (let* ((row (fresh-meta ck)) (value (infer ck expr row)))
+        (solve-later! ck '())
         (check-host-effects ck row (Expr-loc value))
-        (Do (zonk-expr value))))
+        (Do value)))
+
+    ;; The host passes and receives scalars only, and implements every effect
+    ;; an exposed function performs.
+    (define (check-exposed ck name loc)
+      (match (global-scheme ck name)
+        ((Scheme '() '() (TFun params result row))
+         (unless (every host-scalar? (cons result params))
+           (compile-error loc "an exposed function takes and returns scalars only"))
+         (check-host-effects ck row loc))
+        (_ (compile-error loc "an exposed function must be a monomorphic function"))))
+
+    (define (host-scalar? type)
+      (match type
+        ((TCon name '()) (memq name '(I32 I64 F32 F64 Bool Char Unit)))
+        (_ #f)))
 
     ;; Effects performed at program start need host implementations.
     (define (check-host-effects ck row loc)
@@ -676,7 +736,7 @@
     ;; Unannotated definitions are checked first, in dependency order; then
     ;; annotated definitions and statements, which only need schemes.
     (define (check-program program)
-      (let* ((ck (Checker program (ref 0) (make-hash-table eq?) (make-hash-table eq?) (ref '())))
+      (let* ((ck (Checker program (ref 0) (make-hash-table eq?) (make-hash-table eq?) (ref '()) (ref '()) (ref '())))
              (items (program-item-list program))
              (inferred (filter (lambda (item) (match item ((Define name _) (not (annotated-scheme program name))) (_ #f))) items))
              (results (make-hash-table eq?)))
@@ -684,14 +744,18 @@
                     (for-each (lambda (result) (hash-table-set! results (Define-name result) result))
                               (check-group ck group)))
                   (definition-groups inferred))
+        (let ((deferred (filter (lambda (name) (null? (Scheme-vars (hash-table-ref (Checker-schemes ck) name))))
+                                (map Define-name inferred))))
         (let ((typed (map (lambda (item)
                             (match item
                               ((Define name _) (or (hash-table-ref/default results name #f)
                                                    (check-annotated ck item (annotated-scheme program name))))
-                              ((Do expr) (check-statement ck expr))))
+                              ((Do expr) (check-statement ck expr))
+                              ((Expose name symbol loc) item)))
                           items)))
+          (for-each (lambda (item) (match item ((Expose name symbol loc) (check-exposed ck name loc)) (_ #f))) items)
           (record-annotated-schemes! ck items)
-          (Typed program typed (Checker-schemes ck)))))
+          (Typed program (finish! ck typed deferred) (Checker-schemes ck))))))
 
     (define (annotated-scheme program name)
       (match (program-value program name)

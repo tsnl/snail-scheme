@@ -148,7 +148,7 @@
 
     (define core-keywords
       '(define lambda if begin let define-syntax syntax-rules quote : struct enum type
-         typeclass instance match ann extern effect handle))
+         typeclass instance match ann extern effect handle expose))
 
     (define (core-library)
       (Library '(lofi core)
@@ -314,7 +314,7 @@
                             (bind-top! cx env ident (Global (global-name cx (ident-key ident))))
                             (list (list 'define form env))))
           ((Core keyword)
-           (if (memq keyword '(: struct enum type typeclass instance extern effect))
+           (if (memq keyword '(: struct enum type typeclass instance extern effect expose))
                (begin (scan-declaration cx env keyword form)
                       (list (list keyword form env)))
                (list (list 'expression form env))))
@@ -349,8 +349,18 @@
           ((extern) (declare-extern! cx env form) '())
           ((effect) (declare-effect! cx env form) '())
           ((define) (list (lambda () (define-top-level! cx signatures env form))))
+          ((expose) (list (lambda () (add-item! (program cx) (expose-item env form)))))
           ((expression) (list (lambda () (add-item! (program cx) (Do (expand-expr cx env form))))))
           (else '()))))
+
+    ;; `(expose name "symbol")` exports a top-level function to the host.
+    (define (expose-item env form)
+      (match (Form-items form)
+        ((list _ name (Atom symbol _))
+         (match (resolve env (expect-ident name "a function name"))
+           ((Global global) (Expose global symbol (syntax-loc form)))
+           (_ (compile-error (syntax-loc name) "only a top-level function can be exposed" (Ident-name name)))))
+        (_ (compile-error (syntax-loc form) "expected (expose name \"symbol\")"))))
 
     (define (define-top-level! cx signatures env form)
       (let ((name (Global-name (resolve env (definition-name form)))))

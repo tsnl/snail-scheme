@@ -191,11 +191,13 @@
                 (append-map (lambda (item statement)
                               (match item
                                 ((Define name _) (hash-table-ref/default (State-specialized state) name '()))
-                                ((Do _) (list statement))))
+                                ((Do _) (list statement))
+                                ((Expose _ _ _) (list item))))
                             (Typed-items typed) statements)))))
 
     (define (root-item state item)
       (match item
+        ((Expose name _ _) (request! state name '() '()) #f)
         ((Do expr) (Do (copy-expr state (Instantiation '() '()) expr)))
         ((Define name value)
          (let ((scheme (definition-scheme (State-typed state) name)))

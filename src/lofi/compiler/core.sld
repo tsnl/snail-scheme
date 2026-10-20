@@ -93,6 +93,7 @@
    Define-value
    Do
    Do-expr
+   Expose
    Program
    make-program
    Program-values
@@ -421,13 +422,18 @@
         (symbol String)
         (scheme Scheme))))
 
-    ;; Top-level items run in order when the program starts.
+    ;; Top-level items run in order when the program starts. An exposed
+    ;; function is exported to the host under `symbol`.
     (enum Item
       (Define
        ((name Symbol)
         (value Expr)))
       (Do
-       ((expr Expr))))
+       ((expr Expr)))
+      (Expose
+       ((name Symbol)
+        (symbol String)
+        (loc Loc))))
 
     ;; ---- Programs ----
 

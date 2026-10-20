@@ -34,6 +34,7 @@
        (globals (Ref (List Datum)))
        (functions (Ref (List Datum)))
        (declared (Ref (List Symbol)))
+       (exports (Ref (List Datum)))
        (memo HashTable)
        (counter (Ref I64))))
 
@@ -828,7 +829,7 @@
     ;; `main` initializes the globals and runs the statements in program order.
     (define (emit-module mono)
       (let* ((m (Module (Mono-program mono) (make-hash-table eq?) (make-hash-table equal?) (ref '()) (ref '()) (ref '())
-                        (ref '()) (ref '()) (make-hash-table equal?) (ref 0)))
+                        (ref '()) (ref '()) (ref '()) (make-hash-table equal?) (ref 0)))
              (items (Mono-items mono)))
         (for-each (lambda (item) (match item ((Define name value) (hash-table-set! (Module-definitions m) name value)) (_ #f))) items)
         (for-each (lambda (item)
@@ -842,6 +843,7 @@
           ,@(reverse (ref-get (Module-imports m)))
           ,@(reverse (ref-get (Module-globals m)))
           ,@(if (null? (ref-get (Module-declared m))) '() `((elem declare func ,@(reverse (ref-get (Module-declared m))))))
+          ,@(reverse (ref-get (Module-exports m)))
           ,@(reverse (ref-get (Module-functions m))))))
 
     (define (emit-main! m items)
@@ -855,7 +857,12 @@
                              (let ((r (rep m (Expr-type value))))
                                (push! (Module-globals m) `(global ,(wasm-id name) (mut ,(nullable r)) ,(default-value r)))
                                `((global.set ,(wasm-id name) ,(emit1 fn value))))))
-                        ((Do expr) `((drop ,(emit1 fn expr))))))
+                        ((Do expr) `((drop ,(emit1 fn expr))))
+                        ((Expose name symbol loc)
+                         (unless (lambda-expr? (hash-table-ref (Module-definitions m) name))
+                           (compile-error loc "an exposed function must be defined with lambda"))
+                         (push! (Module-exports m) `(export ,symbol (func ,(wasm-id name))))
+                         '())))
                     items)))
         (push! (Module-functions m)
                `(func $main (export "main") (result i32) ,@(reverse (ref-get (Fn-locals fn))) ,@code (i32.const 0)))))
