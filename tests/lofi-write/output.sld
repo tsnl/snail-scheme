@@ -173,5 +173,5 @@
 
 (def stdout-failure (-> Unit)
      (lambda ()
-       (begin (pending-file) (write-string "failed output"))))
+       (begin (pending-file) (write-string "failed output") (flush-output-port))))
 (unit)

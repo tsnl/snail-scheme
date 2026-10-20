@@ -2,6 +2,7 @@
 //! them explicitly; borrowed stdin/stdout remain open after invocation cleanup.
 
 use std::{
+    cell::RefCell,
     fs::File,
     io::{BufRead, BufReader, BufWriter, Read, Write},
 };
@@ -66,10 +67,10 @@ impl Port {
         }
     }
 
-    fn flush(&mut self) -> Result<(), String> {
+    pub(crate) fn flush(&mut self) -> Result<(), String> {
         match self {
             Self::FileOutput(file) => file.flush().map_err(|error| error.to_string()),
-            Self::Stdout => std::io::stdout().flush().map_err(|error| error.to_string()),
+            Self::Stdout => flush_standard_output(),
             #[cfg(test)]
             Self::Capture(_) => Ok(()),
             _ => Err("expected an open output port".into()),
@@ -79,7 +80,7 @@ impl Port {
     pub(crate) fn write(&mut self, text: &str) -> Result<(), String> {
         match self {
             Self::FileOutput(file) => file.write_all(text.as_bytes()).map_err(|e| e.to_string()),
-            Self::Stdout => write_stream(&mut std::io::stdout().lock(), text),
+            Self::Stdout => write_standard_output(text),
             #[cfg(test)]
             Self::Capture(buffer) => {
                 buffer.push_str(text);
@@ -150,14 +151,42 @@ impl TextInput {
     }
 }
 
-// ---- UTF-8 and stream I/O ----
+// ---- Standard output ----
 
-fn write_stream(output: &mut impl Write, text: &str) -> Result<(), String> {
+// Standard output is line buffered. A newline, a full buffer, a standard-input
+// read, an explicit flush or cleanup writes it. Taking the buffer before the
+// write reports a failure once; the text that failed to write is discarded.
+thread_local! {
+    static STANDARD_OUTPUT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+}
+
+const STANDARD_OUTPUT_CAPACITY: usize = 8192;
+
+fn write_standard_output(text: &str) -> Result<(), String> {
+    let full = STANDARD_OUTPUT.with_borrow_mut(|buffer| {
+        buffer.extend_from_slice(text.as_bytes());
+        text.contains('\n') || buffer.len() >= STANDARD_OUTPUT_CAPACITY
+    });
+    if full {
+        flush_standard_output()
+    } else {
+        Ok(())
+    }
+}
+
+pub(crate) fn flush_standard_output() -> Result<(), String> {
+    let bytes = STANDARD_OUTPUT.with_borrow_mut(std::mem::take);
+    if bytes.is_empty() {
+        return Ok(());
+    }
+    let mut output = std::io::stdout().lock();
     output
-        .write_all(text.as_bytes())
-        .and_then(|_| output.flush())
+        .write_all(&bytes)
+        .and_then(|()| output.flush())
         .map_err(|e| e.to_string())
 }
+
+// ---- UTF-8 input ----
 
 /// Read one Unicode scalar without buffering past it or waiting for stdin EOF.
 fn read_utf8_char(input: &mut impl Read) -> Result<Option<char>, String> {

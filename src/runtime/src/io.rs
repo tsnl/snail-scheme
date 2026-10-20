@@ -5,7 +5,10 @@
 //! A trapped instance is terminal. There is no GC finalization of these files.
 //! Standard streams have reserved borrowed IDs, outside the owned-file registry.
 
-use crate::{fail_message, host::Port};
+use crate::{
+    fail_message,
+    host::{Port, flush_standard_output},
+};
 use std::{cell::RefCell, collections::BTreeMap, path::Path};
 
 const STANDARD_OUTPUT: u32 = (-2_i32) as u32;
@@ -155,7 +158,8 @@ pub extern "C" fn check_output_port(id: u32) {
 #[unsafe(export_name = "snail:io/read-character")]
 pub extern "C" fn read_code(id: u32) -> i32 {
     let result = if id == STANDARD_INPUT {
-        INPUT.with_borrow_mut(Port::read_char)
+        // A prompt written without a newline appears before input is awaited.
+        flush_standard_output().and_then(|()| INPUT.with_borrow_mut(Port::read_char))
     } else {
         FILES.with_borrow_mut(|files| files.get(id)?.read_char())
     };
@@ -173,7 +177,8 @@ pub extern "C" fn read_packet(id: u32) -> i64 {
 #[unsafe(export_name = "snail:io/peek-character")]
 pub extern "C" fn peek_code(id: u32) -> i32 {
     let result = if id == STANDARD_INPUT {
-        INPUT.with_borrow_mut(|port| port.text_input()?.peek_char())
+        flush_standard_output()
+            .and_then(|()| INPUT.with_borrow_mut(|port| port.text_input()?.peek_char()))
     } else {
         FILES.with_borrow_mut(|files| files.get(id)?.text_input()?.peek_char())
     };
@@ -192,6 +197,16 @@ pub extern "C" fn write_code(id: u32, code: u32) {
         write_character(&mut Port::Stdout, code)
     } else {
         FILES.with_borrow_mut(|files| write_character(files.get(id)?, code))
+    };
+    checked(result);
+}
+
+#[unsafe(export_name = "snail:io/flush")]
+pub extern "C" fn flush(id: u32) {
+    let result = if id == STANDARD_OUTPUT {
+        flush_standard_output()
+    } else {
+        FILES.with_borrow_mut(|files| files.get(id)?.flush())
     };
     checked(result);
 }
@@ -218,10 +233,11 @@ pub extern "C" fn close(id: u32) {
 }
 
 fn release_all() -> Result<(), String> {
+    let flushed = flush_standard_output();
     crate::datum::close_all();
     PATHNAME.with_borrow_mut(Option::take);
     let ports = FILES.with_borrow_mut(|files| std::mem::take(&mut files.live));
-    let mut result = Ok(());
+    let mut result = flushed;
     for port in ports.into_values() {
         let closed = release_file(port);
         if result.is_ok() {
@@ -243,9 +259,17 @@ fn checked<T>(result: Result<T, String>) -> T {
 // The host uses this nontrapping cleanup after arbitrary guest traps. It must
 // preserve an earlier failure, and must not resume guest code in that instance.
 // Returned close errors do not prevent later closes; a trapping host import can.
+// A failed cleanup, such as buffered output that cannot be written, is
+// reported on stderr as well as through the nonzero result.
 #[unsafe(export_name = "snail:io/close-all")]
 pub extern "C" fn close_all() -> i32 {
-    i32::from(release_all().is_err())
+    match release_all() {
+        Ok(()) => 0,
+        Err(error) => {
+            eprintln!("lofi: {error}");
+            1
+        }
+    }
 }
 
 // ---- Tests ----

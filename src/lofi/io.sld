@@ -8,7 +8,7 @@
           file-exists? delete-file open-input-file close-input-port
           call-with-input-file read-line open-output-file close-output-port
           call-with-output-file current-output-port output-port=?
-          write-char write-string write-i64 newline)
+          write-char write-string write-i64 newline flush-output-port)
   (import
    (lofi base))
 
@@ -44,6 +44,7 @@
     (define-extern standard-output-handle "snail.library" "snail:io/standard-output" (-> I32))
     (define-extern standard-input-handle "snail.library" "snail:io/standard-input" (-> I32))
     (define-extern port-check-output "snail.library" "snail:io/check-output" (-> I32 Unit))
+    (define-extern port-flush "snail.library" "snail:io/flush" (-> I32 Unit))
 
     ;; This singleton borrows stdout. Its reserved scalar ID never names an
     ;; owned file, and neither explicit close nor trap cleanup closes the stream.
@@ -298,6 +299,12 @@
       (lambda (text) (write-string-to text (current-output-port))))
     (define-overload newline (-> OutputPort Unit) newline-to)
     (define-overload newline (-> Unit) (lambda () (newline-to (current-output-port))))
+    ;; Standard output is line buffered and files are buffered until close;
+    ;; flushing writes pending text and reports a write failure now.
+    (define-overload flush-output-port (-> OutputPort Unit)
+      (lambda (port) (port-flush (ref-get (output-handle port)))))
+    (define-overload flush-output-port (-> Unit)
+      (lambda () (flush-output-port (current-output-port))))
 
     (def write-i64 (-> I64 OutputPort Unit)
          (lambda (number port)

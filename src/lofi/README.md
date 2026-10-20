@@ -75,6 +75,13 @@ Recursive construction loops, multi-step numeric transitions, exhaustive data
 dispatch and the final tests can exceed the ten-line target when keeping them
 together makes the whole operation easier to follow.
 
+## Output buffering
+
+Standard output is line buffered, as R7RS permits: a newline, 8 KiB of pending
+text, a standard-input read, `flush-output-port` or cleanup writes it. File
+output is buffered until `flush-output-port` or close. A write failure surfaces
+at the next flush; cleanup reports one on stderr and in its status.
+
 ## Text input cursor
 
 An owned `InputPort` contains shared mutable cells for its host handle and
