@@ -306,21 +306,26 @@
    (snail-tests
     (export test-source-driver)
     (import
-     (lofi host test-utils))
+     (lofi host test-utils)
+     (only (lofi compiler resolved-library) library-body))
     (begin
       (define (test-generation text)
         (parse-generation (car (reader->syntax-list (string->reader "recipe.sld" text)))))
+      ;; A producer's body expands when resolution supplies its imports.
+      (define (test-producer-body text)
+        (let ((producer (generation-producer (test-generation text))))
+          (library-body (cdar (resolve-library-map (list (cons (lofi-library-name producer) producer)))))))
       (define (test-recipe-grammar)
         (let ((producer (generation-producer (test-generation "(generate-library (test a) (import) 42)"))))
           (expect (lofi-library-name producer) '(test a))
-          (expect (length (lofi-library-declarations producer)) 1)
-          (expect (length (lofi-library-bindings producer)) 1))
+          (expect (length (test-producer-body "(generate-library (test a) (import) 42)")) 1))
         (for-each
          (lambda (text)
            (expect (guard (failure (else #t)) (test-generation text) #f) #t))
          '("(generate-library () (import) 42)" "(generate-library (test a) (export) 42)"
            "(generate-library (test a) (import) 1 2)" "(generate-library (test a) (import))"
-           "(generate-library (test a) (import) (def x 42))" "(generate-library (test a) (import) 42 . tail)")))
+           "(generate-library (test a) (import) 42 . tail)"))
+        (expect (guard (failure (else #t)) (test-producer-body "(generate-library (test a) (import) (def x 42))") #f) #t))
       (define (test-source-read-diagnostic)
         (let ((path "tests/lofi/unclosed-library.sld.txt"))
           (for-each

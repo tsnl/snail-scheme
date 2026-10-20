@@ -2,7 +2,7 @@
 ;; Pattern variables retain use-site syntax. Introduced identifiers remember the
 ;; definition environment and a fresh context shared only by this application.
 (define-library (lofi compiler macros)
-  (export expand-library-body expansion-required? finish-expansion! rebase-transformers!
+  (export expand-library-body finish-expansion! rebase-transformers!
           protected-reference? resolve-protected-reference core-syntax-names make-core-definition)
   (import
    (scheme base)
@@ -159,8 +159,12 @@
               (else (make-identifier-syntax (lexical-emitted binding) (syntax-loc form) 'generated
                                             (and definition (make-protected-reference definition (atom-syntax-value form) (syntax-loc form)))
                                             (atom-syntax-source-name form))))))
+    ;; Binders are checked before any identifier is read from them.
+    (define (binding-identifier form)
+      (unless (syntax-identifier? form) (fail form "expected an identifier"))
+      form)
     (define (reserve form)
-      (unless (syntax-identifier? form) (fail form "expected a binding identifier"))
+      (binding-identifier form)
       (let ((text (symbol->string (atom-syntax-value form))))
         (when (and (>= (string-length text) 7) (string=? (substring text 0 7) "#%lofi:")
                    (not (eq? (atom-syntax-context form) 'generated)))
@@ -479,31 +483,13 @@
             (and (eq? kind 'def) (= (length (parts form)) 3)
                  (if (null? environments) (headed? (caddr (parts form)) 'syntax-rules)
                      (eq? (form-kind (caddr (parts form)) (car environments)) 'syntax-rules))))))
-    (define (contains-expansion-form? form)
-      (or (macro-definition? form) (memq (and (head form) (atom-syntax? (head form)) (atom-syntax-value (head form)))
-                                         '(identifier-name library-name type-name))
-          (and (list-syntax? form) (let scan ((forms (list-syntax-elements form)))
-                                     (and (pair? forms) (or (contains-expansion-form? (car forms)) (scan (cdr forms))))))))
-    ;; Declaration groups and named declarations require expansion only at
-    ;; library scope. Nested begin and wrapped typeclass/instance are kernel forms.
-    (define (declaration-expansion-form? form)
-      (or (memq (and (head form) (atom-syntax? (head form)) (atom-syntax-value (head form)))
-                '(begin library-begin data typeclass instance))
-          (contains-expansion-form? form)))
-    (define (expansion-required? forms imports)
-      (or (let scan ((forms forms)) (and (pair? forms) (or (declaration-expansion-form? (car forms)) (scan (cdr forms)))))
-          (let scan ((bindings (import-environment imports)))
-            (and (pair? bindings) (or (lexical-transformer (car bindings))
-                                      (and (lexical-definition (car bindings))
-                                           (eq? (binding-kind (lexical-definition (car bindings))) 'syntax-form)
-                                           (not (eq? (lexical-name (car bindings)) (binding-payload (lexical-definition (car bindings))))))
-                                      (scan (cdr bindings)))))))
     (define (definition-names source environment)
       (let ((form (normalize-declaration source environment)))
         (case (form-kind form environment)
-          ((define-syntax) (list (cadr (parts form))))
+          ((define-syntax) (list (binding-identifier (definition-name form))))
           ((def define-extern define-overload)
            (let* ((items (parts form)) (body (car (reverse items))))
+             (binding-identifier (definition-name form))
              (cond ((eq? (form-kind body environment) 'datatype)
                     (cons (cadr items) (apply append (map (lambda (row)
                                                             (cons (car (parts row)) (apply append (map (lambda (field)
@@ -512,6 +498,10 @@
                    ((eq? (form-kind body environment) 'typeclass) (cons (cadr items) (map (lambda (row) (cadr (parts row))) (cddr (parts body)))))
                    (else (list (cadr items))))))
           (else '()))))
+    (define (definition-name form)
+      (let ((items (parts form)))
+        (unless (>= (length items) 3) (fail form "wrong form arity" 2))
+        (cadr items)))
     (define (reserve-declaration name form environment primary?)
       (let* ((binding (reserve name)) (kind (form-kind form environment))
              (imported (and (eq? kind 'define-overload) (lookup name environment))))
@@ -691,7 +681,7 @@
     ;; capture frame and therefore see the completed definition-site scope.
     (define (statement-scope form environment definitions)
       (if (not (eq? (form-kind form environment) 'let)) environment
-          (let ((name (cadr (parts form))))
+          (let ((name (binding-identifier (definition-name form))))
             (when (local-binding (atom-syntax-value name) (atom-syntax-context name) definitions)
               (fail name "let conflicts with a definition or import"))
             (extend-environment (list (reserve name)) environment))))

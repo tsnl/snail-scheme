@@ -106,12 +106,14 @@
      (lofi compiler frontend)
      (lofi compiler reader)
      (lofi compiler syntax-parser)
+     (only (lofi compiler source) loc-filename)
      (only (lofi compiler checked) program-body)
      (only (srfi 130) string-contains)
      (only (lofi compiler ir) name-definition application-operator lambda-body value-binding-initializer))
     (begin
-      (define (test-parsed text)
-        (parse-library (car (reader->syntax-list (string->reader "map-compilation.sld" text)))))
+      (define (test-parsed text . filename)
+        (parse-library (car (reader->syntax-list
+                             (string->reader (if (pair? filename) (car filename) "map-compilation.sld") text)))))
       (define (test-map-compilation)
         (let* ((primitive (make-primitive-library primitive-names))
                (provider (test-parsed "(define-library (test math)
@@ -122,28 +124,26 @@
                (libraries (list (cons '(lofi primitive) primitive) (cons '(test math) provider)
                                 (cons '(test app) app))))
           (expect (resolve (program-type (library-map->core libraries '(test app)))) 'I32)
-          (expect (resolve (program-type (library-map->core libraries '(test app)))) 'I32)
-          (expect (scoped-reference?
-                   (name-definition (application-operator
-                                     (lambda-body (value-binding-initializer
-                                                   (car (lofi-library-declarations provider))))))) #t)))
+          (expect (resolve (program-type (library-map->core libraries '(test app)))) 'I32)))
       (define (test-entry-identity)
         (let* ((provider (test-parsed "(define-library (test provider) (export (rename worker public))
-                                       (begin (def private (lambda () (ann 42 I64))) (def worker (lambda () (private)))))"))
-               (decoy (test-parsed "(define-library (test decoy) (begin (def worker (lambda () (ann 99 I64)))))"))
+                                       (begin (def private (lambda () (ann 42 I64))) (def worker (lambda () (private)))))"
+                                      "provider.sld"))
+               (decoy (test-parsed "(define-library (test decoy) (begin (def worker (lambda () (ann 99 I64)))))" "decoy.sld"))
                (facade (test-parsed "(define-library (test facade)
                                      (import (rename (test provider) (public local)) (only (test alias)) (only (test decoy)))
                                      (export (rename local main) (rename local again)))"))
                (libraries (list (cons '(test provider) provider) (cons '(test alias) provider)
-                                (cons '(test decoy) decoy) (cons '(test facade) facade) (cons '(test other) facade)))
-               (origin (binding-origin (cdr (assq 'worker (lofi-library-bindings provider))))))
+                                (cons '(test decoy) decoy) (cons '(test facade) facade) (cons '(test other) facade))))
           (for-each
            (lambda (entry)
              (let* ((program (entry-program libraries entry)) (exports (prepared-exports program))
                     (initializer (value-initializer (cdar exports)))
                     (selected (car (node-data initializer))))
                (expect (map car exports) '(entry))
-               (expect (eq? (binding-origin selected) origin) #t)
+               ;; Expansion creates binding identities at resolution, so the
+               ;; selected definition is identified by its source.
+               (expect (loc-filename (value-definition-loc selected)) "provider.sld")
                (expect (function-result (value-type (cdar exports))) 'I64)))
            (list (make-entry '(test facade) 'main) (make-entry '(test other) 'again)))))
       (define (test-entry-error libraries entry message)

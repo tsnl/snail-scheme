@@ -183,16 +183,6 @@
           (fail source "invalid intrinsic primitive manifest"))
         (let ((library (make-primitive-library names (syntax-loc source))))
           (make-expanding-library library (lambda (resolved) library) source))))
-    (define (local-expansion? forms imports)
-      (or (expansion-required? forms '())
-          (let scan ((imports imports))
-            (and (pair? imports) (or (equal? (lofi-import-provider (car imports)) '(scheme base))
-                                     (scan (cdr imports)))))))
-    (define (initial-body name forms source scope imports pending?)
-      (define (empty-body) (make-lofi-library name (scope-imports scope) imports '() '() '() (syntax-loc source)))
-      (if pending? (values (empty-body) #f)
-          (guard (failure (else (if (null? imports) (raise failure) (values (empty-body) failure))))
-            (values (parse-expanded-body name forms source scope imports '()) #f))))
     (define (check-imported-keyword entry loc)
       (unless (or (lofi-binding-name? (named-binding-name entry))
                   (memq (binding-kind (named-binding-definition entry)) '(syntax syntax-form)))
@@ -201,15 +191,15 @@
       (for-each (lambda (declaration)
                   (for-each (lambda (entry) (check-imported-keyword entry (import-declaration-loc declaration)))
                             (import-declaration-bindings declaration))) imports))
+    ;; A body's meaning depends on the transformers its imports supply, so it is
+    ;; expanded and parsed once, when resolution provides those imports.
     (define (describe-body name forms source scope imports)
-      (let ((pending? (local-expansion? forms imports)))
-        (let-values (((parsed failure) (initial-body name forms source scope imports pending?)))
-          (make-expanding-library
-           parsed (lambda (resolved)
-                    (check-source-imports resolved)
-                    (if (or pending? (expansion-required? forms resolved))
-                        (expand-library name forms source scope imports resolved)
-                        (if failure (raise failure) parsed))) source))))
+      (make-expanding-library
+       (make-lofi-library name (scope-imports scope) imports '() '() '() (syntax-loc source))
+       (lambda (resolved)
+         (check-source-imports resolved)
+         (expand-library name forms source scope imports resolved))
+       source))
     (define (parse-library-body name forms source)
       (let* ((scope (make-source-scope '() '() (make-scope-id)))
              (imports (apply append (map (lambda (form) (parse-import form (scope-imports scope)))
@@ -607,6 +597,9 @@
         (expect (guard (failure (else #t)) (test-source text) #f) #t))
       (define (test-parsed text)
         (syntax-list->lofi-library (reader->syntax-list (string->reader "parsed-test.sld" text))))
+      ;; Body diagnostics appear when resolution expands the body.
+      (define (test-expanded text)
+        (resolve-library-map (list (cons '(test parsed) (test-parsed text)))))
       (define (test-library-map . libraries)
         (resolve-library-map (map (lambda (library) (cons (lofi-library-name library) library)) libraries)))
       (define (test-export library name)
@@ -615,30 +608,25 @@
               (loop (cdr exports)))))
       (define (test-resolution-error text . providers)
         (expect (guard (failure (else #t)) (apply test-library-map (test-parsed text) providers) #f) #t))
+      ;; Parsing describes a library without its dependencies: its name and
+      ;; imports are known, and the body waits for resolution to expand.
       (define (test-independent-library-parse)
         (let* ((text "(define-library (test app) (import (only (missing dependency) remote))
                         (export answer) (begin (def answer (lambda (x) (remote x)))))")
-               (library (test-parsed text)) (other (test-parsed text))
-               (definition (car (lofi-library-declarations library)))
-               (function (value-binding-initializer definition)) (call (lambda-body function))
-               (reference (name-definition (application-operator call))))
+               (library (test-parsed text)) (other (test-parsed text)))
           (expect (lofi-library? library) #t)
+          (expect (lofi-library-name library) '(test app))
           (expect (library-id? (lofi-library-id library)) #t)
           (expect (eq? (lofi-library-id library) (lofi-library-id other)) #f)
-          (expect (scoped-reference? reference) #t)
-          (expect (reference-name reference) 'remote)
-          (expect (eq? (reference-scope reference) (lofi-library-scope library)) #t)
-          (expect (loc-filename (reference-loc reference)) "parsed-test.sld")
-          (expect (eq? (name-definition (car (application-operands call))) (car (lambda-parameters function))) #t)
-          (expect (eq? (binding-origin (value-binding-definition definition))
-                       (binding-origin (value-binding-definition (car (lofi-library-declarations other))))) #f)))
+          (expect (map lofi-import-provider (lofi-library-imports library)) '((missing dependency)))
+          (expect (lofi-library-declarations library) '())))
       (define (test-immediate-kernel-parse)
         (let* ((library (test-parsed
                          "(def Flag (datatype () (flag)))
                           (def C (typeclass (T) (: method (-> T T))))
                           (def evidence (instance (C Flag) (method (lambda (value) value))))
                           (def run (-> I32) (lambda () (begin (let value 42) value)))"))
-               (items (lofi-library-declarations library)))
+               (items (library-body (cdar (resolve-library-map (list (cons '(test kernel) library)))))))
           (expect (map node-kind items) '(data-schema class-declaration instance-declaration bind))
           (expect (node-kind (lambda-body (value-binding-initializer (list-ref items 3)))) 'block)))
       (define (test-map-aliases-and-reexports)
@@ -669,13 +657,10 @@
                (two (cdr (assoc '(test app) (test-library-map app second))))
                (read-one (name-definition (value-binding-initializer (car (library-body one)))))
                (read-two (name-definition (value-binding-initializer (car (library-body two))))))
-          (expect (eq? (binding-origin (test-export one 'result)) (binding-origin (test-export two 'result))) #t)
           (expect (eq? (test-export one 'result) (test-export two 'result)) #f)
           (expect (eq? (binding-origin read-one) (binding-origin read-two)) #f)
           (expect (literal-value (binding-initializer read-one)) 1)
-          (expect (literal-value (binding-initializer read-two)) 2)
-          (expect (scoped-reference? (name-definition
-                                      (value-binding-initializer (car (lofi-library-declarations app))))) #t)))
+          (expect (literal-value (binding-initializer read-two)) 2)))
       (define (test-imported-macro-maps)
         (let* ((consumer (test-parsed "(define-library (test app) (import (test provider))
                                        (export answer) (begin (def answer (choose))))"))
@@ -859,7 +844,7 @@
                            (else (let ((location (car (error-object-irritants failure))))
                                    (list (error-object-message failure) (loc-filename location)
                                          (loc-line location) (loc-column location)))))
-                     (test-parsed text) #f)
+                     (test-expanded text) #f)
                    '("expected an identifier" "parsed-test.sld" 2 1)))
          '("(def bad (All (T) (requires (\n(C) T)) (-> T T)) (lambda (value) value))"
            "(def bad (All (T) (requires (\n42 T)) (-> T T)) (lambda (value) value))")))
@@ -875,7 +860,7 @@
       (define (test-rejected-static-annotations)
         (for-each
          (lambda (text)
-           (expect (guard (failure (else (error-object-message failure))) (test-parsed text) #f)
+           (expect (guard (failure (else (error-object-message failure))) (test-expanded text) #f)
                    "static definitions do not accept kind annotations"))
          '("(def Flag Type (datatype () (off) (on)))"
            "(def C (Kind-> Type Constraint) (typeclass (T) (: f (-> T T))))"
@@ -892,7 +877,7 @@
         (for-each
          (lambda (declaration)
            (expect (guard (failure (else (error-object-message failure)))
-                     (test-parsed (string-append "(lambda () " declaration ")")) #f)
+                     (test-expanded (string-append "(lambda () " declaration ")")) #f)
                    "declarations require library scope"))
          '("(data Flag () (flag))"
            "(typeclass C (T) (: method (-> T T)))"
@@ -916,7 +901,7 @@
       (define (test-explicit-overload-signatures)
         (for-each
          (lambda (text)
-           (expect (guard (failure (else (error-object-message failure))) (test-parsed text) #f)
+           (expect (guard (failure (else (error-object-message failure))) (test-expanded text) #f)
                    "overload requires an explicit signature"))
          '("(define-overload identity (lambda (value) value))"
            "(def identity (All (T) (-> T T)) (lambda (value) value)) (define-overload choose identity)"
