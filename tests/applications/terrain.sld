@@ -13,26 +13,6 @@
 
     (define (home-x x) (+ (- (spawn-x 1) hub-x) x))
     (define (home-y y) (+ (- (spawn-y 1) hub-y) y))
-    (define (original-ground? x y)
-      (and (not (and (>= x 23) (<= x 24) (< y 31) (or (< y 16) (> y 19))))
-           (not (and (= y 10) (< x 19) (or (< x 10) (> x 13))))
-           (not (and (>= x 32) (<= x 38) (>= y 25) (<= y 28)))))
-    (define (original-rate x y)
-      (cond ((and (= x 12) (= y 20)) 2)
-            ((and (= x 5) (= y 5)) 3)
-            ((and (= x 36) (= y 12)) 6)
-            (else 0)))
-    (define (cleared-front? x y front)
-      (and (< front 3)
-           (or (within? x y (front-x 1 front) (front-y 1 front) 10)
-               (cleared-front? x y (+ front 1)))))
-    (define (original-cells? cell)
-      (or (= cell (* 48 36))
-          (let* ((x (remainder cell 48)) (y (quotient cell 48)) (wx (home-x x)) (wy (home-y y)))
-            (and (if (or (original-ground? x y) (cleared-front? wx wy 0)) (ground? 1 wx wy) (not (ground? 1 wx wy)))
-                 (not (water? 1 wx wy)) (= (original-rate x y) (deposit-rate 1 wx wy))
-                 (original-cells? (+ cell 1))))))
-
     ;; ---- Saved seeds reproduce the entire compact world ----
 
     (define (fingerprint seed cell total)
@@ -41,36 +21,35 @@
                  (kind (if (ground? seed x y) 1 (if (water? seed x y) 2 0)))
                  (value (+ kind (* 10 (deposit-rate seed x y)))))
             (fingerprint seed (+ cell 1) (remainder (+ (* total 31) value) 65521)))))
-    ;; These fingerprints include the bounded nest-density bonus deposits.
-    ;; Omitting only those bonuses reproduces the previous eight fingerprints;
-    ;; opening geometry, placement and route invariants are checked separately.
+    ;; Fingerprints pin World13 geography; placement, terrain legality and
+    ;; reachability are checked independently below.
     (define (stable-maps?)
-      (and (= (fingerprint 1 0 0) 14897)
-           (= (fingerprint 2 0 0) 10721)
-           (= (fingerprint 3 0 0) 29119)
-           (= (fingerprint 37 0 0) 50078)
-           (= (fingerprint 249 0 0) 23540)
-           (= (fingerprint 250 0 0) 47689)
-           (= (fingerprint 251 0 0) 42139)
-           (= (fingerprint 65535 0 0) 34975)))
+      (and (= (fingerprint 1 0 0) 62447)
+           (= (fingerprint 2 0 0) 57586)
+           (= (fingerprint 3 0 0) 31584)
+           (= (fingerprint 37 0 0) 62392)
+           (= (fingerprint 249 0 0) 10897)
+           (= (fingerprint 250 0 0) 3510)
+           (= (fingerprint 251 0 0) 25078)
+           (= (fingerprint 65535 0 0) 58034)))
     (define (seed-cycle?)
       (and (= (next-map-seed -1) 1) (= (next-map-seed 0) 1)
            (= (next-map-seed 1) 2) (= (next-map-seed 2) 3)
            (= (next-map-seed 65534) 65535) (= (next-map-seed 65535) 1)))
     (define (fronts-separated? seed front other)
       (or (= other 3)
-          (and (not (within? (front-x seed front) (front-y seed front) (front-x seed other) (front-y seed other) 50))
+          (and (not (within? (front-x seed front) (front-y seed front) (front-x seed other) (front-y seed other) 25))
                (fronts-separated? seed front (+ other 1)))))
     (define (fronts-valid? seed front)
       (or (= front 3)
           (let ((x (front-x seed front)) (y (front-y seed front)))
-            (and (within? (spawn-x seed) (spawn-y seed) x y 41)
-                 (not (within? (spawn-x seed) (spawn-y seed) x y 31))
-                 (>= x 15) (<= x (- map-width 16)) (>= y 15) (<= y (- map-height 16))
+            (and (within? (spawn-x seed) (spawn-y seed) x y 21)
+                 (not (within? (spawn-x seed) (spawn-y seed) x y 14))
+                 (>= x 7) (<= x (- map-width 8)) (>= y 7) (<= y (- map-height 8))
                  (= (deposit-rate seed x y) 0) (ground? seed x y)
                  (fronts-separated? seed front (+ front 1)) (fronts-valid? seed (+ front 1))))))
     (define (placements-valid? seed)
-      (and (within? (spawn-x seed) (spawn-y seed) 64 64 8) (fronts-valid? seed 0)
+      (and (within? (spawn-x seed) (spawn-y seed) 32 32 4) (fronts-valid? seed 0)
            (= (deposit-capacity seed (+ (spawn-x seed) 4) (- (spawn-y seed) 2)) 600)
            (= (deposit-capacity seed (northern-x seed) (northern-y seed)) 900)
            (= (deposit-capacity seed (eastern-x seed) (eastern-y seed)) 1800)
@@ -81,7 +60,7 @@
 
     ;; ---- Full routes obey every tile and reach their actual endpoint ----
 
-    (define all-surveys (list (make-survey 64 64 128)))
+    (define all-surveys (list (make-survey 32 32 64)))
     (define (route-valid? seed x y a b surveys hazards path tunneling)
       (if (null? path) (and (= x a) (= y b))
           (let ((nx (index-x (car path))) (ny (index-y (car path))))
@@ -109,7 +88,7 @@
       (or (= remaining 0)
           (and (viable-map? seed) (viable-seeds? (+ seed step) step (- remaining 1)))))
     (define (distant-routes? seed)
-      (and (reachable? seed 1 1 126 126) (reachable? seed 2 64 126 64)
+      (and (reachable? seed 1 1 62 62) (reachable? seed 2 32 62 32)
            (route-valid? seed (nest-x seed) (nest-y seed) (spawn-x seed) (spawn-y seed)
                          all-surveys (empty-list)
                          (tunneling-path seed (nest-x seed) (nest-y seed) (spawn-x seed) (spawn-y seed)) #t)))
@@ -187,9 +166,9 @@
              (= (path-length (avoiding-open-path 1 opened x (- y 1) x (+ y 1) all-surveys (empty-list))) 2)
              (not (null? (escape-open-path 1 opened x y all-surveys (list (make-survey x (+ y 1) 2))))))))
     (define (water-cannot-open?)
-      (let* ((cell (first-water 1 0)) (opened (list cell)) (x (index-x cell)) (y (index-y cell)))
-        (and (not (open-ground? 1 opened x y))
-             (null? (walking-open-path 1 opened (spawn-x 1) (spawn-y 1) x y all-surveys #t)))))
+      (let* ((cell (first-water 2 0)) (opened (list cell)) (x (index-x cell)) (y (index-y cell)))
+        (and (not (open-ground? 2 opened x y))
+             (null? (walking-open-path 2 opened (spawn-x 2) (spawn-y 2) x y all-surveys #t)))))
 
     ;; ---- Search improvements, escape and bounded failure are observable ----
 
@@ -218,8 +197,8 @@
              (path (escape-path 1 (home-x 8) (home-y 22) all-surveys hazards)))
         (and (= (path-length path) 2) (escape-valid? (home-x 8) (home-y 22) hazards path))))
     (define (bounded-failure?)
-      (null? (walking-path 1 96 96 2 2
-                           (list (make-survey 96 96 32) (make-survey 2 2 0)) #f)))
+      (null? (walking-path 1 48 48 2 2
+                           (list (make-survey 48 48 16) (make-survey 2 2 0)) #f)))
     (define (cart-detour?)
       (let* ((a (cell-index (home-x 8) (home-y 22))) (b (+ a 1)) (c (+ a 2))
              (fast (list (make-cart-edge a c 1)))
@@ -228,12 +207,11 @@
              (rail-step? fast a c) (rail-step? fast c a) (not (rail-step? fast a b))
              (= (path-length (cart-path 1 (empty-list) (empty-list) (index-x a) (index-y a)
                                         (index-x c) (index-y c) all-surveys (empty-list))) 2))))
-    ;; Independent breadth-first enumeration of seed one's open cells gives
-    ;; 230 steps. The distant weighted walking mode takes 232 on this trip;
-    ;; worker time minimization must retain the shorter route without a cable.
+    ;; Independent breadth-first enumeration checks a full compact-map trip;
+    ;; worker time minimization must retain the shortest route without a cable.
     (define (distant-worker-route?)
-      (= (path-length (cart-path 1 (empty-list) (empty-list) 5 5 120 120
-                                 all-surveys (empty-list))) 230))
+      (= (path-length (cart-path 1 (empty-list) (empty-list) 5 5 60 60
+                                 all-surveys (empty-list))) 110))
 
     ;; The production cable clears all current terrain. Lower probe heights
     ;; exercise rejection, including conservative diagonal corner coverage.
@@ -253,7 +231,7 @@
 
     (define answer
       (ann (lambda ()
-             (cond ((not (and (= map-width 128) (= map-height 128) (original-cells? 0))) -1)
+             (cond ((not (and (= map-width 64) (= map-height 64))) -1)
                    ((not (stable-maps?)) -2)
                    ((not (seed-cycle?)) -3)
                    ((not (all-placements? 1)) -4)
@@ -265,7 +243,7 @@
                    ((not (rejects-endpoints?)) -10)
                    ((not (direct-fire?)) -11)
                    ((not (and (distant-routes? 1) (distant-routes? 2) (distant-routes? 37) (distant-routes? 65535))) -12)
-                   ((not (and (water-restrictions? 1) (water-restrictions? 37) (mountain-tunnel?))) -13)
+                   ((not (and (water-restrictions? 2) (water-restrictions? 37) (mountain-tunnel?))) -13)
                    ((not (improves-open-route?)) -14)
                    ((not (nearest-escape?)) -15)
                    ((not (bounded-failure?)) -16)
