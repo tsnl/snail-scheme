@@ -457,6 +457,7 @@
 
     (define (literal-fits? value type)
       (case type
+        ((U8) (and (exact-integer? value) (<= 0 value 255)))
         ((I32) (and (exact-integer? value) (<= (- (expt 2 31)) value (- (expt 2 31) 1))))
         ((I64) (and (exact-integer? value) (<= (- (expt 2 63)) value (- (expt 2 63) 1))))
         ((F32 F64) #t)

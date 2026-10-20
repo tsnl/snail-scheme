@@ -93,15 +93,24 @@
       (match type
         ((TCon name args)
          (case name
-           ((I32 Bool Char Unit) 'i32)
+           ((U8 I32 Bool Char Unit) 'i32)
            ((I64) 'i64)
            ((F32) 'f32)
            ((F64) 'f64)
            ((String) (ref-of (array-type m 'i32)))
-           ((Array Vector) (ref-of (array-type m (rep m (car args)))))
+           ((Array Vector) (ref-of (array-type m (element-rep m (car args)))))
            ((Ref) (ref-of (cell-type m (rep m (car args)))))
            (else (if (tag-enum? m name) 'i32 (ref-of (data-type m type))))))
         ((TFun params result _) (ref-of (closure-type m (map (lambda (p) (rep m p)) params) (rep m result))))))
+
+    ;; Byte arrays are packed; a byte is an i32 everywhere else.
+    (define (element-rep m type)
+      (match type
+        ((TCon 'U8 '()) 'i8)
+        (_ (rep m type))))
+
+    (define (array-get array)
+      (if (eq? array '$arr.i8) 'array.get_u 'array.get))
 
     (define (register-type! m key id definition)
       (hash-table-set! (Module-type-ids m) key id)
@@ -657,11 +666,13 @@
                  ((unsafe-total) (closure-call fn #f (car args) '() #f))
                  ((panic) `((call ,(panic-helper m) ,@code) (unreachable)))
                  ;; Strings and character vectors share one representation.
-                 ((bool->i32 char->i32 i32->char string->vector vector->string) code)
+                 ((bool->i32 char->i32 i32->char string->vector vector->string u8->i32) code)
+                 ((i32->u8) `((i32.and ,(car code) (i32.const 255))))
                  ((i32->bool) `((i32.ne ,(car code) (i32.const 0))))
                  ((string-length vector-length array-length) `((i64.extend_i32_u (array.len ,(car code)))))
                  ((string-ref vector-ref array-ref)
-                  `((array.get ,(sequence-type m (car arg-types)) ,(car code) ,(index (cadr code)))))
+                  (let ((array (sequence-type m (car arg-types))))
+                    `((,(array-get array) ,array ,(car code) ,(index (cadr code))))))
                  ((array-set!)
                   `((array.set ,(sequence-type m (car arg-types)) ,(car code) ,(index (cadr code)) ,(caddr code)) (i32.const 0)))
                  ((make-string make-vector make-array)
@@ -705,7 +716,7 @@
                         (local $result (ref ,array))
                         (if (i32.eqz (array.len (local.get $a))) (then (return (local.get $b))))
                         (if (i32.eqz (array.len (local.get $b))) (then (return (local.get $a))))
-                        (local.set $result (array.new ,array (array.get ,array (local.get $a) (i32.const 0))
+                        (local.set $result (array.new ,array (,(array-get array) ,array (local.get $a) (i32.const 0))
                                                       (i32.add (array.len (local.get $a)) (array.len (local.get $b)))))
                         (array.copy ,array ,array (local.get $result) (array.len (local.get $a)) (local.get $b) (i32.const 0)
                                     (array.len (local.get $b)))
@@ -720,7 +731,7 @@
                         (local $result (ref ,array)) (local $length i32)
                         (local.set $length (i32.wrap_i64 (i64.sub (local.get $end) (local.get $start))))
                         (if (i32.eqz (local.get $length)) (then (return (array.new_fixed ,array 0))))
-                        (local.set $result (array.new ,array (array.get ,array (local.get $a) (i32.wrap_i64 (local.get $start)))
+                        (local.set $result (array.new ,array (,(array-get array) ,array (local.get $a) (i32.wrap_i64 (local.get $start)))
                                                       (local.get $length)))
                         (array.copy ,array ,array (local.get $result) (i32.const 0) (local.get $a) (i32.wrap_i64 (local.get $start))
                                     (local.get $length))
@@ -732,7 +743,7 @@
                  `(func ,id (param $a (ref ,array)) (result (ref ,array))
                         (local $result (ref ,array))
                         (if (i32.eqz (array.len (local.get $a))) (then (return (array.new_fixed ,array 0))))
-                        (local.set $result (array.new ,array (array.get ,array (local.get $a) (i32.const 0)) (array.len (local.get $a))))
+                        (local.set $result (array.new ,array (,(array-get array) ,array (local.get $a) (i32.const 0)) (array.len (local.get $a))))
                         (array.copy ,array ,array (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
                         (local.get $result)))))
 

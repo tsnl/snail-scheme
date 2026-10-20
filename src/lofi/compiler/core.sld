@@ -162,7 +162,7 @@
       (Scheme '() '() type))
 
     (define builtin-types
-      '((I32 . 0) (I64 . 0) (F32 . 0) (F64 . 0) (Bool . 0) (Char . 0) (Unit . 0)
+      '((U8 . 0) (I32 . 0) (I64 . 0) (F32 . 0) (F64 . 0) (Bool . 0) (Char . 0) (Unit . 0)
         (String . 0) (Array . 1) (Vector . 1) (Ref . 1)))
 
     ;; Unique names look like `lofi.base:map`; diagnostics show the source name.
@@ -521,7 +521,7 @@
         (i32->f32 (-> I32 F32)) (f32->i32 (-> F32 I32)) (i64->f32 (-> I64 F32)) (f32->i64 (-> F32 I64))
         (f32->f64 (-> F32 F64)) (f64->f32 (-> F64 F32))
         (f32->bits (-> F32 I32)) (bits->f32 (-> I32 F32)) (f64->bits (-> F64 I64)) (bits->f64 (-> I64 F64))
-        (bool->i32 (-> Bool I32)) (i32->bool (-> I32 Bool))
+        (bool->i32 (-> Bool I32)) (i32->bool (-> I32 Bool)) (u8->i32 (-> U8 I32)) (i32->u8 (-> I32 U8))
         (char->i32 (-> Char I32)) (i32->char (-> I32 Char))
         (string-length (-> String I64)) (string-ref (-> String I64 Char))
         (string-append (-> String String String)) (substring (-> String I64 I64 String))

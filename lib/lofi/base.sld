@@ -4,7 +4,8 @@
   (export
    define lambda if begin let define-syntax syntax-rules quote : struct enum type
    typeclass instance match ann extern effect handle
-   I32 I64 F32 F64 Bool Char Unit String Array Vector Ref mut
+   U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes mut
+   u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total
    Num + - * negate abs
@@ -115,6 +116,19 @@
       (: ceiling (-> T T))
       (: round (-> T T))
       (: truncate (-> T T)))
+
+    (instance (Num U8)
+      (define (+ a b) (i32->u8 (i32-add (u8->i32 a) (u8->i32 b))))
+      (define (- a b) (i32->u8 (i32-sub (u8->i32 a) (u8->i32 b))))
+      (define (* a b) (i32->u8 (i32-mul (u8->i32 a) (u8->i32 b))))
+      (define (negate a) (i32->u8 (i32-sub 0 (u8->i32 a)))))
+
+    (instance (Ord U8)
+      (define (= a b) (i32-eq (u8->i32 a) (u8->i32 b)))
+      (define (< a b) (i32-lt (u8->i32 a) (u8->i32 b)))
+      (define (<= a b) (i32-le (u8->i32 a) (u8->i32 b)))
+      (define (> a b) (i32-gt (u8->i32 a) (u8->i32 b)))
+      (define (>= a b) (i32-ge (u8->i32 a) (u8->i32 b))))
 
     (instance (Num I32)
       (define + i32-add)
@@ -230,6 +244,9 @@
     (: max (All (T) (requires (Ord T)) (-> T T T)))
     (define (max a b)
       (if (< a b) b a))
+
+    ;; Bytes are packed one per array slot.
+    (type Bytes (Vector U8))
 
     ;; ---- Common data ----
 
@@ -463,6 +480,9 @@
 
     (instance (Show I64)
       (define show i64->string))
+
+    (instance (Show U8)
+      (define (show n) (i64->string (i32->i64 (u8->i32 n)))))
 
     (instance (Show I32)
       (define (show n) (i64->string (i32->i64 n))))
