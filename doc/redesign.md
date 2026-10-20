@@ -24,8 +24,8 @@ Lofi must:
    `syntax-rules`.
 7. Support typeclasses and instances, including generic instances.
 8. Be a Lisp: S-expressions, `define-library`, `define-syntax`/`syntax-rules`.
-9. Replace `data` with explicit `struct` definitions, `type` aliases, and
-   unions written as a set of member types (`T1 | T2 | T3`).
+9. Replace `data` with explicit `struct` definitions, `enum` sums and `type`
+   aliases.
 10. Implement the compiler in the Scheme subset that Lofi itself accepts. Only the
     program entry point may differ between hosts, and preferably not even that.
 11. Implement full, dynamically typed Scheme as a library that generates Lofi,
@@ -78,8 +78,7 @@ types. `if` requires `Bool`. Lofi adds a small number of typed forms:
 | `(: name type)` | Signature for a following `define`. |
 | `(struct (Name param ...) ((field type) ...))` | Nominal record type and its constructor, accessors and pattern. |
 | `(enum (Name param ...) (Case ((field type) ...)) ...)` | Nominal, disjoint tagged sum; each case gets a constructor, accessors and pattern. |
-| `(type (Name param ...) type)` | Transparent alias, including unions. |
-| `(union T ...)` | Structural union of types (written `T1 \| T2 \| T3` in prose). |
+| `(type (Name param ...) type)` | Transparent alias. |
 | `(typeclass (Class param ...) (: method type) ...)` | Open, type-indexed record of methods. |
 | `(instance (Class type ...) [(requires ...)] (define ...) ...)` | Instance; may be generic. |
 | `(match e (pattern body ...) ...)` | Nested patterns, wildcards and literals; exhaustiveness and redundancy checked. |
@@ -91,15 +90,16 @@ A color example:
 (define-library (example colors)
   (import
    (lofi base))
-  (export Red Green Blue Primary Rgb Vec3 PrimaryColor Color ToHex to-hex)
+  (export Vec3 PrimaryColor Red Green Blue Color Primary Rgb ToHex to-hex)
   (begin
     (struct (Vec3 T) ((x T) (y T) (z T)))
-    (struct Red ())
-    (struct Green ())
-    (struct Blue ())
-    (struct Rgb ((value (Vec3 F32))))
-    (type PrimaryColor (union Red Green Blue))
-    (type Color (union PrimaryColor Rgb)) ; flattens to (union Red Green Blue Rgb)
+    (enum PrimaryColor
+      (Red ())
+      (Green ())
+      (Blue ()))
+    (enum Color
+      (Primary ((value PrimaryColor)))
+      (Rgb ((value (Vec3 F32)))))
 
     (typeclass (ToHex T)
       (: to-hex (-> T String)))
@@ -119,12 +119,12 @@ A color example:
     (instance (ToHex Color)
       (define (to-hex color)
         (match color
-          ((Rgb value) (to-hex value))
-          (primary (to-hex primary)))))))   ; the remaining members: PrimaryColor
+          ((Primary value) (to-hex value))
+          ((Rgb value) (to-hex value)))))))
 ```
 
-`PrimaryColor`'s members are types in their own right, so they join `Color`
-directly, without a wrapping case.
+Enum cases are constructors of their enum, not types of their own. Nesting gives
+`Color` its primary colors: `(Primary (Red))`.
 
 A function defined by cases uses `match`. Closed clause syntax can be sugar over
 it later:
@@ -162,7 +162,7 @@ Value indices of types, such as `n` above, are erased. Definitional equality
 uses normalization by evaluation, and evaluation inside types is fuel-bounded
 with a clear error; a totality checker can come later.
 
-### 3.3 Structs, enums and unions
+### 3.3 Structs and enums
 
 A `struct` is a nominal type with immutable fields, listed together. Its
 constructor, accessors and pattern are generated. A struct family `(Vec3 T)` is
@@ -186,33 +186,8 @@ An `enum` is a nominal sum with named cases:
 - **Representation.** Each case is a WasmGC struct type under the enum's
   supertype, and `match` compiles to `br_on_cast`.
 
-A `union` is a structural set of types:
-
-- **Flattening and collapse.** `(union A (union B C))` is `(union A B C)`, and
-  member order is irrelevant. Equal members collapse, including after
-  substitution: `(union T None)` at `T = None` is `None`.
-- **Annotation only.** Union types come from signatures, aliases and `ann`. The
-  checker never invents one to join two branch types, so ordinary inference
-  needs no subtyping.
-- **Injection and widening.** A member, or a union of members, checks against
-  the union. For reference members this is free at run time, because every
-  struct value carries its own identity rather than an index into a
-  particular union.
-- **Narrowing.** `match` tests runtime type identity, trying arms in order. An
-  arm that becomes unreachable after substitution is not an error.
-- **Representation.** A reference to a common supertype. Scalar members are
-  boxed with their `TypeId` when the union has other members. A union mentioning
-  a type variable becomes concrete when monomorphization instantiates it.
-
-Use an `enum` for closed algebraic data, especially generic data. Use a `union`
-for an open set of independently defined types, especially at boundaries: a
-protocol `(type Request (union Ping Fetch Store))` can gain a message without
-changing the others' encodings, and one message struct can belong to several
-protocols.
-
-The elaborated core treats enums as ordinary inductive sums and union injections
-as explicit coercions that compile to nothing. The core calculus therefore needs
-no subtyping, which keeps it a standard dependent type theory.
+The elaborated core treats enums as ordinary inductive sums and needs no
+subtyping, which keeps it a standard dependent type theory.
 
 ### 3.4 Typeclasses
 
@@ -228,10 +203,6 @@ Rules:
 - No overlapping heads. An instance lives with its class or its head type.
 - A class's parameters must be determined by each method's type.
 - Generic instances may have requirements.
-- Resolution uses the exact normalized type and never widens a union. In the
-  color example, `(to-hex (Red))` needs an annotation choosing `PrimaryColor`
-  or `Color`; inside `ToHex Color`, the fallback arm's variable already has
-  type `PrimaryColor`.
 
 This replaces both today's concrete-head classes and `define-overload`.
 
@@ -270,26 +241,26 @@ external input (§6).
 ### 3.7 Wire types and stable identities
 
 A type is a **wire type** if it is a scalar, `String`, `Bytes`, `List` or
-`Vector` of a wire type, or a struct, enum or union of wire types. Functions, `Ref`
+`Vector` of a wire type, or a struct or enum of wire types. Functions, `Ref`
 and `IO` are not wire types. A `Wire` class is derived automatically for every
 wire type.
 
-Each struct has a `TypeId`:
+Each struct and each enum case has a `TypeId`:
 
 ```text
 TypeId(struct) = H(library name, struct name, parameters,
                    [(field name, TypeId(field type)) ...])
-TypeId(enum)   = H(library name, enum name, parameters,
-                   [(case name, [(field name, TypeId(field type)) ...]) ...])
+TypeId(case)   = H(library name, enum name, parameters, case name,
+                   [(field name, TypeId(field type)) ...])
 TypeId(F args) = H(TypeId(F), TypeId(args) ...)
-TypeId(union)  = H(sorted member TypeIds)
 ```
 
-Aliases are transparent and have no identity of their own. The ID changes
-exactly when the schema or its declaring library changes. Two programs exchange
-a value only if they agree on its `TypeId`, which a link or handshake step can
-check. Adding a member to a union does not change the encodings of the existing
-members.
+Aliases are transparent and have no identity of their own. An ID changes exactly
+when its schema or declaring library changes. Two programs exchange a value only
+if they agree on its `TypeId`, which a link or handshake step can check. An enum
+value is encoded with its case's `TypeId`, so adding a case does not change the
+encodings of existing cases: a protocol enum can grow without breaking old
+messages.
 
 This combines Unison's content-addressed definitions with nominal identity
 through the library name. It is close to Cap'n Proto's scoped IDs and Avro's
@@ -344,7 +315,7 @@ text ──read──▶ located S-expressions
    bodies, as R6RS and Racket do. It emits core AST directly, with no fixpoint
    loop and no second parse.
 4. **Elaborator.** Bidirectional checking with metavariables, NbE, implicit
-   arguments, instance resolution, unions, and pattern compilation with
+   arguments, instance resolution, and pattern compilation with
    Maranget's exhaustiveness and redundancy checks. Its output is an explicit
    core plus a **checked interface** for each library: exported names, types,
    structs with `TypeId`s, and instances. Interfaces are serialized and cached,
@@ -361,9 +332,9 @@ representations.
 ## 5. Runtime and application model
 
 An application is a set of actors. Each actor has a typed state `S`, a message
-union `M` of wire types, and a pure handler `(-> S M (Transition S))`. A
+enum `M` of wire types, and a pure handler `(-> S M (Transition S))`. A
 transition contains the next state and a list of typed effects. A send effect
-names a destination typed by that destination's message union, so the set of
+names a destination typed by that destination's message enum, so the set of
 messages each handler may send is visible in its type.
 
 The host delivers one message at a time per actor. State lives in Wasm as a
@@ -391,20 +362,13 @@ behavior whenever the Lofi program does not trap or overflow:
 | --- | --- |
 | `(struct (Vec3 T) ((x T) (y T) (z T)))` | `(define-record-type Vec3 (Vec3 x y z) Vec3? (x Vec3-x) (y Vec3-y) (z Vec3-z))` |
 | `(enum (Option T) (Some ((value T))) (None ()))` | One record type per case (`Some`, `None`) and a predicate `Option?` that tests the cases. |
-| `(: ...)`, `(type ...)`, `(union ...)`, `(ann e T)` | Removed; `(ann e T)` becomes `e`. |
+| `(: ...)`, `(type ...)`, `(ann e T)` | Removed; `(ann e T)` becomes `e`. |
 | `(match e ((Some v) a) ((None) b))` | `(let ((x e)) (cond ((Some? x) (let ((v (Some-value x))) a)) ((None? x) b)))` |
-| A scalar arm in a union `match` | A test with `exact-integer?`, `inexact?`, `string?`, `char?`, `boolean?` or `bytevector?` |
 | Typeclass method | A generic procedure that dispatches on its first argument's record predicate. |
 | `I64`, `F64` literals | Exact integers and flonums. |
 
 Each `define-record-type` creates a fresh runtime type, so struct identities and
-enum cases stay distinct after erasure. A union, however, can only be matched
-by tests R7RS can perform. In the erasable subset a union's members must
-therefore stay distinguishable after erasure: any number of distinct record
-types, at most one member per scalar category (`I32` and `I64` both become exact
-integers), and no two members with the same parameterized head, since `(List
-I32)` and `(List String)` both become lists. Full Lofi on WasmGC carries
-`TypeId`s and has no such limit.
+enum cases stay distinct after erasure.
 
 **The compiler is written in that core.** No host-specific code appears in the
 passes. Hosts differ only in library implementations, which is ordinary
@@ -413,7 +377,7 @@ in Scheme, where every implementation provides its own `(scheme base)`:
 - **On Lofi.** The typed forms are built in, and `(scheme base)` and
   `(scheme file)` are Lofi libraries backed by WASI.
 - **On Chibi.** A small shim library defines `:`, `struct`, `enum`, `type`,
-  `union`, `typeclass`, `instance` and `match` as erasing macros. Typeclass methods dispatch on the
+  `typeclass`, `instance` and `match` as erasing macros. Typeclass methods dispatch on the
   runtime struct type of their first argument, so the compiler's own code avoids
   methods that dispatch only on their result type.
 
@@ -476,14 +440,14 @@ form is parsed twice.
 
 ### Phase 2: the target type surface on the current checker
 
-1. `struct`, `enum`, `type` and `union` replace `data`, with WasmGC subtype
+1. `struct`, `enum` and `type` replace `data`, with WasmGC subtype
    representation and `TypeId`s.
 2. `match` with nested patterns, wildcards, and exhaustiveness and redundancy
    checks.
 3. Derived `Wire`, keyed by `TypeId`. Add a canonical byte ABI for entry
    parameters and results, with schema-generated JavaScript decoders.
 4. The application framework moves to typed messages and in-Wasm state, and
-   the word protocols are deleted. Rewrite Siegework's model with unions and
+   the word protocols are deleted. Rewrite Siegework's model with enums and
    `match`. This is the forcing function for the language.
 
 **Exit criterion:** Siegework has no integer-coded state, and no hand-written
@@ -517,7 +481,7 @@ and destinations, the bounded model-checking library, and `(scheme compiler)`.
   ran out of memory on a large Scheme program. Phase 1.3 addresses the measured
   hot spot. Phase 3 still needs the compiler to compile something its own size,
   so measure that before starting the port.
-- **Scope.** A dependent elaborator with typeclasses, unions and good
+- **Scope.** A dependent elaborator with typeclasses, pattern matching and good
   diagnostics is large. Phases 1–3 deliver a useful typed Scheme without it,
   and the core's multiplicity slot and explicit instances keep phase 4
   additive.
@@ -526,8 +490,7 @@ and destinations, the bounded model-checking library, and `(scheme compiler)`.
 
 1. Enforced purity through `IO` (§3.5)?
 2. Default integer type `I64` (§3.2)?
-3. `enum` for disjoint sums alongside a structural `union` (§3.3)?
-4. Surface names: `struct`/`enum`/`type`/`union`/`typeclass`/`instance`, or
+3. Surface names: `struct`/`enum`/`type`/`typeclass`/`instance`, or
    `define-`-prefixed forms?
-5. Is the erasure property (§6) the right definition of the Scheme subset the
+4. Is the erasure property (§6) the right definition of the Scheme subset the
    compiler is written in?
