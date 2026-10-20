@@ -283,7 +283,7 @@
     ;; Old observations never fade. The newest circle gets a GPU fragment
     ;; reveal; nearby workers illuminate their small local circle immediately.
     (define (old-coverage? world x y)
-      (or (= (world-outcome world) 1) (cleared-nest? world x y)
+      (or (= (world-outcome world) 1) (= (world-outcome world) 4) (cleared-nest? world x y)
           (and (not (null? (world-surveys world))) (surveyed? (cdr (world-surveys world)) x y))
           (workers-see? (world-bots world) x y)))
     (define (fog-layer? world x y fresh)
