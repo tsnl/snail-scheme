@@ -23,10 +23,11 @@
     (define (item mesh position width height depth color)
       (Item mesh position (Vec3 width height depth) 0.0 color))
 
-    ;; Between steps a unit is drawn partway from its previous cell.
-    (: mover-point (-> Mover I64 F32 F32 Vec3))
-    (define (mover-point mover speed alpha height)
-      (let* ((progress (max 0.0 (min 1.0 (- 1.0 (/ (- (i64->f32 (Mover-wait mover)) alpha) (i64->f32 (- speed 1)))))))
+    ;; A unit steps on multiples of its period, so between steps it is drawn
+    ;; partway from its previous cell.
+    (: mover-point (-> Mover I64 I64 F32 F32 Vec3))
+    (define (mover-point mover period tick alpha height)
+      (let* ((progress (min 1.0 (/ (+ (i64->f32 (remainder tick period)) alpha) (i64->f32 period))))
              (from (cell-point (Mover-previous mover) height)) (to (cell-point (Mover-cell mover) height)))
         (Vec3 (+ (Vec3-x from) (* progress (- (Vec3-x to) (Vec3-x from))))
               height
@@ -53,7 +54,7 @@
 
     (: building-items (-> Building (List Item)))
     (define (building-items building)
-      (let* ((cell (Building-cell building)) (built? (match (Building-progress building) ((Built) #t) (_ #f)))
+      (let* ((cell (Building-cell building)) (built? (match (Building-stage building) ((Built) #t) ((Site) #f)))
              (shade (lambda (color) (if built? color (rgb 120 120 130)))))
         (match (Building-kind building)
           ((Hub) (list (item (Box) (cell-point cell 0.1) 1.4 1.2 1.4 (rgb 70 120 200))
@@ -73,7 +74,7 @@
                            (filter (lambda (deposit) (and (explored? world (Deposit-cell deposit)) (> (Deposit-reserve deposit) 0)))
                                    (World-deposits world)))
                       (map (lambda (nest)
-                             (let ((size (+ 0.6 (* 0.0015 (i64->f32 (Nest-hp nest))))))
+                             (let ((size (+ 0.6 (* 0.0015 (i64->f32 (Nest-health nest))))))
                                (item (Sphere) (cell-point (Nest-cell nest) 0.0) size size size (rgb 120 30 40))))
                            (filter (lambda (nest) (explored? world (Nest-cell nest))) (World-nests world))))))
 
@@ -82,16 +83,16 @@
     (: unit-items (-> Game F32 (List Item)))
     (define (unit-items game alpha)
       (let ((world (Game-world game)))
-        (append (concatenate (map (lambda (worker) (worker-items worker alpha)) (World-workers world)))
-                (append (map (lambda (enemy) (item (Pyramid) (mover-point (Enemy-mover enemy) enemy-speed alpha 0.1) 0.5 0.6 0.5 (rgb 220 50 50)))
+        (append (concatenate (map (lambda (worker) (worker-items worker (World-tick world) alpha)) (World-workers world)))
+                (append (map (lambda (enemy) (item (Pyramid) (mover-point (Enemy-mover enemy) enemy-period (World-tick world) alpha 0.1) 0.5 0.6 0.5 (rgb 220 50 50)))
                              (World-enemies world))
                         (append (map shot-item (World-shots world)) (cursor-items game))))))
 
-    (: worker-items (-> Worker F32 (List Item)))
-    (define (worker-items worker alpha)
-      (let ((point (mover-point (Worker-mover worker) worker-speed alpha 0.3)))
+    (: worker-items (-> Worker I64 F32 (List Item)))
+    (define (worker-items worker tick alpha)
+      (let ((point (mover-point (Worker-mover worker) worker-period tick alpha 0.3)))
         (Cons (item (Sphere) point 0.4 0.4 0.4 (rgb 120 200 255))
-              (if (> (Worker-cargo worker) 0)
+              (if (> (Worker-ore worker) 0)
                   (list (item (Box) (Vec3 (Vec3-x point) 0.7 (Vec3-z point)) 0.2 0.2 0.2 (rgb 240 200 80)))
                   (Nil)))))
 
@@ -145,8 +146,8 @@
                (match (Game-hover game)
                  ((Some cell)
                   (Cons (Label (string-append "Cell " (show (Cell-x cell)) ", " (show (Cell-y cell))))
-                        (append (map (lambda (b) (Label (string-append (kind-name (Building-kind b)) " · health " (show (Building-hp b))
-                                                                       (match (Building-progress b) ((Built) "") (_ " · awaiting construction")))))
+                        (append (map (lambda (b) (Label (string-append (kind-name (Building-kind b)) " · health " (show (Building-health b))
+                                                                       (match (Building-stage b) ((Built) "") ((Site) " · awaiting construction")))))
                                      (filter (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world)))
                                 (map (lambda (d) (Label (string-append "Ore deposit · " (show (Deposit-reserve d)) " left")))
                                      (filter (lambda (d) (and (cell=? (Deposit-cell d) cell) (explored? world cell))) (World-deposits world))))))
@@ -166,8 +167,8 @@
     (define (view-game game alpha)
       (let ((world (Game-world game)))
         (Frame (game-camera game alpha) (rgb 16 20 28)
-               (list (Batch 1 (i64->i32 (World-terrain-version world)) (lambda () (terrain-items world)))
-                     (Batch 2 (i64->i32 (World-version world)) (lambda () (structure-items world)))
+               (list (Batch 1 (i64->i32 (World-explored-version world)) (lambda () (terrain-items world)))
+                     (Batch 2 (i64->i32 (World-structure-version world)) (lambda () (structure-items world)))
                      (Batch 3 (i64->i32 (+ (* (World-tick world) 128) (f32->i64 (* alpha 100.0)))) (lambda () (unit-items game alpha))))
                (list (status-panel world) (tool-panel game) (inspect-panel game) (help-panel world)))))
 

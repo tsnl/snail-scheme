@@ -1,5 +1,6 @@
 ;; A scripted colony: build an extractor on the starter deposit and check
-;; that ore flows back to the hub, then that the first wave arrives.
+;; that ore flows back to the hub and is conserved, then that the first wave
+;; arrives.
 (import
  (lofi base)
  (lofi io)
@@ -25,6 +26,15 @@
                      (string-append "enemies " (show (length (World-enemies world)))))
                ", "))
 
+;; Ore in the bank, carried by workers, stocked in extractors and left in
+;; deposits. Only spending changes it before enemies destroy anything.
+(: total-ore (-> World I64))
+(define (total-ore world)
+  (+ (World-ore world)
+     (+ (fold-left + 0 (map Worker-ore (World-workers world)))
+        (+ (fold-left + 0 (map Building-stock (World-buildings world)))
+           (fold-left + 0 (map Deposit-reserve (World-deposits world)))))))
+
 (: first-deposit (-> World Cell))
 (define (first-deposit world)
   (match (World-deposits world)
@@ -33,10 +43,12 @@
 
 (let ()
   (define world (new-world 7))
+  (define before (total-ore world))
   (write-line (summary world))
   (define world (expect-ok (place world (Extractor) (first-deposit world))))
   (write-line (World-message world))
   (define world (run world 300))
   (write-line (summary world))
+  (write-line (string-append "ore conserved: " (show (= (total-ore world) (- before 25)))))
   (define world (run world 400))
   (write-line (summary world)))
