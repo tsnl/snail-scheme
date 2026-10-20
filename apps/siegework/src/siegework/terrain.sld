@@ -120,7 +120,7 @@
     ;; Each 32-cell region contains one bounded, bending ellipse or open land.
     ;; The outer four rows and columns stay clear, joining neighboring regions
     ;; into walking corridors. The translated starter geography has its own
-    ;; crossings; seed 1 preserves that entire 48-by-36 neighborhood exactly.
+    ;; crossings; the map boundary clips the translated home neighborhood.
     (define (region-value seed x y stride count)
       (map-offset (+ seed (+ (* (quotient x 32) 97) (* (quotient y 32) 193))) stride count))
     (define (triangle value)

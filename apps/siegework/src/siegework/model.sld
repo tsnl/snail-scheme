@@ -13,7 +13,7 @@
           world-seed world-casualties world-lost-ore world-alerts world-run-marker world-rails world-tracks
           world-hub-x world-hub-y world-nests world-nest-hp world-last-reveal-tick world-payload-version
           Nest make-nest nest-id nest-site-x nest-site-y nest-hp nest-at living-nests initial-nests
-          Deposit make-deposit deposit-cell deposit-remaining world-deposits world-deposits-set initial-deposits initial-deposits-v1 ore-remaining remaining-ore
+          Deposit make-deposit deposit-cell deposit-remaining world-deposits world-deposits-set initial-deposits ore-remaining remaining-ore
           world-deposit-rate living-nest? cleared-nest? world-payload-version-set
           nest-health maximum-buildings maximum-surveys upgrade-cost
           world-breaches world-excavations world-ground? world-rock-remaining rock-health
@@ -64,6 +64,7 @@
     ;; saves contain unfinished level-two towers (the former artillery design).
     ;; Stage: 0 paid kit at source awaiting a worker, 1 carried kit, 2 operational,
     ;; 3 paid kit at source reserved for a worker settling cargo or collecting it.
+    ;; Free extractors use the same reservation and travel stages with zero cargo.
     ;; Stages 4/5/7 mirror 0/1/3 while an operational tower awaits its upgrade kit.
     ;; Unfinished stock is incorporated construction, not loose ore: artillery
     ;; needs two identical 25-ore deliveries. Operational stock remains raw ore.
@@ -252,7 +253,7 @@
                  (hx (+ (- x (spawn-x seed)) hub-x)) (hy (+ (- y (spawn-y seed)) hub-y)))
             (if (or (= (deposit-rate seed x y) 0) (and (>= hx 0) (< hx 48) (>= hy 0) (< hy 36)))
                 rest (cons (deposit-site seed x y) rest)))))
-    (define (initial-deposits-v1 seed)
+    (define (base-deposits seed)
       (cons (deposit-site seed (+ (spawn-x seed) 4) (- (spawn-y seed) 2))
             (cons (deposit-site seed (northern-x seed) (northern-y seed))
                   (cons (deposit-site seed (eastern-x seed) (eastern-y seed)) (regional-deposits seed 0)))))
@@ -266,7 +267,7 @@
       (if (= front 3) (empty-list)
           (cons (deposit-site seed (front-x seed front) (front-y seed front)) (nest-deposits seed (+ front 1)))))
     (define (new-deposits seed)
-      (append (initial-deposits-v1 seed) (append (front-deposits seed 0) (nest-deposits seed 0))))
+      (append (base-deposits seed) (append (front-deposits seed 0) (nest-deposits seed 0))))
     (define (new-nests seed front)
       (if (= front 3) (empty-list)
           (cons (make-nest front (front-x seed front) (front-y seed front) nest-health) (new-nests seed (+ front 1)))))
@@ -693,7 +694,7 @@
              (world (cancel-workers world (world-bots world) id))
              (world (abandon-project world (car (find-building (world-buildings world) id))))
              (world (world-focus-set world 0)))
-        (world-notice-set world (if carried 18 17))))
+        (world-notice-set world (if (= (construction-cost building) 0) 47 (if carried 18 17)))))
     ;; ---- Exclusive construction materials and completion estimates ----
 
     ;; Source 0 is paid hub ore; a positive ID is local raw ore packed into a
