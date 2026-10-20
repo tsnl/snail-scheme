@@ -314,10 +314,10 @@
                             (bind-top! cx env ident (Global (global-name cx (ident-key ident))))
                             (list (list 'define form env))))
           ((Core keyword)
-           (unless (memq keyword '(: struct enum type typeclass instance extern effect))
-             (compile-error (syntax-loc form) "expected a definition or an expression" keyword))
-           (scan-declaration cx env keyword form)
-           (list (list keyword form env)))
+           (if (memq keyword '(: struct enum type typeclass instance extern effect))
+               (begin (scan-declaration cx env keyword form)
+                      (list (list keyword form env)))
+               (list (list 'expression form env))))
           (_ (list (list 'expression form env))))))
 
     ;; `append-map` with a guaranteed left-to-right order, for effectful passes.

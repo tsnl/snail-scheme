@@ -189,13 +189,18 @@
       (apply string-append (map (lambda (type) (string-append " " (type->string type))) types)))
 
     (define (row->string row)
+      (let* ((flat (row-parts row '())) (labels (car flat)) (tail (cdr flat)))
+        (if (and (null? labels) (not tail))
+            ""
+            (string-append " !" (apply string-append (map (lambda (label) (string-append " " (short-name label))) labels))
+                           (if tail (string-append " " (type->string tail)) "")))))
+
+    ;; The labels of a row, following bound tails, and its final tail.
+    (define (row-parts row labels)
       (match row
-        ((TRow '() #f) "")
-        ((TRow labels tail)
-         (string-append " !" (apply string-append (map (lambda (label) (string-append " " (short-name label))) labels))
-                        (if tail (string-append " " (type->string tail)) "")))
-        ((TVar _ cell) (if (ref-get cell) (row->string (ref-get cell)) (string-append " ! " (type->string row))))
-        (_ (string-append " ! " (type->string row)))))
+        ((TRow more tail) (if tail (row-parts tail (append labels more)) (cons (append labels more) #f)))
+        ((TVar _ cell) (if (ref-get cell) (row-parts (ref-get cell) labels) (cons labels row)))
+        (_ (cons labels row))))
 
     ;; Replaces rigid variables by the types an association list gives them.
     (define (substitute substitution type)

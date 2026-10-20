@@ -260,6 +260,23 @@
         (let ((body (infer ck body body-row)))
           (typed (Lambda params body) (TFun types (Expr-type body) body-row) loc))))
 
+    ;; Checks an expression against a known type: a lambda's parameters and
+    ;; body row come from the type; anything else is inferred.
+    (define (check-value ck expr type row)
+      (match (Expr-term expr)
+        ((Lambda params body)
+         (match (prune type)
+           ((TFun param-types result body-row)
+            (if (= (length params) (length param-types))
+                (begin
+                  (for-each (lambda (param param-type) (hash-table-set! (Checker-locals ck) param param-type)) params param-types)
+                  (let ((body (infer ck body body-row)))
+                    (unify ck result (Expr-type body) (Expr-loc body))
+                    (typed (Lambda params body) type (Expr-loc expr))))
+                (infer ck expr row)))
+           (_ (infer ck expr row))))
+        (_ (infer ck expr row))))
+
     (define (infer-app ck callee args row loc)
       (let* ((callee (infer ck callee row))
              (args (map (lambda (arg) (infer ck arg row)) args))
@@ -305,17 +322,17 @@
         (check-coverage ck (map Clause-pattern clauses) loc)
         (typed (Match scrutinee clauses) result loc)))
 
-    ;; Implementations run in the handler's outer context. The handled effect
-    ;; is removed from the body's row; the rest flows to the outer row.
+    ;; Implementations run in the handler's outer context. The body may
+    ;; perform the handled effect plus whatever the context allows: its row
+    ;; is `{effect | rest}`, and `rest` flows to the outer row.
     (define (infer-handle ck effect implementations body row loc)
       (let ((operations (Effect-operations (program-effect (program-of ck) effect))))
         (unless (and (= (length operations) (length implementations))
                      (every (lambda (operation) (assq operation implementations)) operations))
           (compile-error loc "a handler implements each operation of its effect exactly once"))
         (let* ((implementations (map (lambda (entry) (infer-implementation ck entry row loc)) implementations))
-               (body-row (fresh-meta ck)) (body (infer ck body body-row))
-               (flat (flatten-row body-row)))
-          (perform! ck (TRow (delete effect (car flat)) (cdr flat)) row loc)
+               (rest (fresh-meta ck)) (body (infer ck body (TRow (list effect) rest))))
+          (perform! ck rest row loc)
           (typed (Handle effect implementations body) (Expr-type body) loc))))
 
     (define (infer-implementation ck entry row loc)
@@ -624,9 +641,12 @@
           ((TRow _ tail) (if tail (free-metas tail) '()))
           (_ '()))))
 
-    ;; A signature's variables are rigid and its constraints are given.
+    ;; A signature's variables are rigid and its constraints are given. A
+    ;; function is checked against it directly, so a mismatch is reported
+    ;; where it occurs.
     (define (check-annotated ck definition scheme)
-      (let* ((row (fresh-meta ck)) (value (infer ck (Define-value definition) row)) (loc (Expr-loc value)))
+      (let* ((row (fresh-meta ck)) (value (check-value ck (Define-value definition) (Scheme-type scheme) row))
+             (loc (Expr-loc value)))
         (unify ck (Scheme-type scheme) (Expr-type value) loc)
         (when (and (pair? (Scheme-vars scheme)) (not (total? row)))
           (compile-error loc "a polymorphic definition must have a total initializer"))

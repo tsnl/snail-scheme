@@ -72,16 +72,22 @@
 
     ;; ---- Line table ----
 
+    ;; The text is held as a vector: indexing a host string can take time
+    ;; proportional to its length.
     (struct Source
       ((file String)
-       (text String)
+       (chars (Vector Char))
        (line-starts (Vector I64))))
 
     (define (make-source file text)
-      (let loop ((index 0) (starts '(0)))
-        (cond ((= index (string-length text)) (Source file text (list->vector (reverse starts))))
-              ((char=? (string-ref text index) #\newline) (loop (+ index 1) (cons (+ index 1) starts)))
-              (else (loop (+ index 1) starts)))))
+      (let ((chars (string->vector text)))
+        (let loop ((index 0) (starts '(0)))
+          (cond ((= index (vector-length chars)) (Source file chars (list->vector (reverse starts))))
+                ((char=? (vector-ref chars index) #\newline) (loop (+ index 1) (cons (+ index 1) starts)))
+                (else (loop (+ index 1) starts))))))
+
+    (define (source-text source start end)
+      (vector->string (Source-chars source) start end))
 
     ;; Binary search for the last line that starts at or before `index`.
     (define (source-loc source index)
@@ -97,8 +103,8 @@
     ;; ---- Characters and atmosphere ----
 
     (define (char-at source index)
-      (let ((text (Source-text source)))
-        (if (< index (string-length text)) (string-ref text index) #f)))
+      (let ((chars (Source-chars source)))
+        (if (< index (vector-length chars)) (vector-ref chars index) #f)))
 
     (define (delimiter? char)
       (or (not char) (char-whitespace? char) (memv char '(#\( #\) #\[ #\] #\" #\; #\'))))
@@ -179,7 +185,7 @@
         (if (or (not char) (char=? char stop)) index (scan-until source (+ index 1) stop))))
 
     (define (hex-char source start end loc)
-      (let ((value (string->number (substring (Source-text source) start end) 16)))
+      (let ((value (string->number (source-text source start end) 16)))
         (unless (and value (exact-integer? value)) (compile-error loc "invalid hexadecimal escape"))
         (integer->char value)))
 
@@ -191,7 +197,7 @@
     ;; `#\a`, `#\space` or `#\x41`. The first character is always part of the
     ;; name, so `#\(` and `#\ ` read as themselves.
     (define (read-character source index loc)
-      (let* ((end (token-end source (+ index 1))) (name (substring (Source-text source) index end)))
+      (let* ((end (token-end source (+ index 1))) (name (source-text source index end)))
         (cond ((= (string-length name) 1) (values (Atom (string-ref name 0) loc) end))
               ((assoc name character-names) => (lambda (entry) (values (Atom (cdr entry) loc) end)))
               ((char=? (string-ref name 0) #\x) (values (Atom (hex-char source (+ index 1) end loc) loc) end))
@@ -201,7 +207,7 @@
       (if (delimiter? (char-at source index)) index (token-end source (+ index 1))))
 
     (define (read-token source start loc)
-      (let* ((end (token-end source start)) (text (substring (Source-text source) start end)))
+      (let* ((end (token-end source start)) (text (source-text source start end)))
         (values (token-syntax text loc) end)))
 
     (define (token-syntax text loc)

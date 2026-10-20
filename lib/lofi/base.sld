@@ -13,7 +13,7 @@
    Fractional / sqrt floor ceiling round truncate
    i32->i64 i64->i32 i64->f64 f64->i64 i32->f64 f64->i32 f32->f64 f64->f32 i64->f32 f32->i64
    f32->bits bits->f32 f64->bits bits->f64
-   Show show i64->string
+   Show show i64->string f64->string
    Option Some None Result Ok Err Pair Pair-first Pair-second
    List Cons Nil list null? length reverse append map for-each filter fold-left fold-right
    list-ref list-tail any? every? find member? iota concatenate
@@ -469,5 +469,38 @@
 
     (instance (Show Unit)
       (define (show value) "()"))
+
+    (instance (Show (List T))
+      (requires (Show T))
+      (define (show items)
+        (string-append "(" (string-append (string-join (map show items) " ") ")"))))
+
+    (instance (Show (Option T))
+      (requires (Show T))
+      (define (show value)
+        (match value
+          ((Some x) (string-append "(Some " (string-append (show x) ")")))
+          ((None) "(None)"))))
+
+    (instance (Show F64)
+      (define show f64->string))
+
+    (instance (Show F32)
+      (define (show value) (f64->string (f32->f64 value))))
+
+    ;; The runtime formats floats; the returned handle owns the text until
+    ;; it is closed.
+    (extern real-text "snail.library" "snail:datum/real-text" (-> F64 I32))
+    (extern text-length "snail.library" "snail:datum/token-text-length" (-> I32 I32))
+    (extern text-character "snail.library" "snail:datum/token-text-character" (-> I32 I32 Char))
+    (extern text-close "snail.library" "snail:datum/token-close" (-> I32 Unit))
+
+    (: f64->string (-> F64 String))
+    (define (f64->string value)
+      (let* ((handle (real-text value))
+             (text (string-generate (i32->i64 (text-length handle))
+                                    (lambda (index) (text-character handle (i64->i32 index))))))
+        (text-close handle)
+        text))
 
     ))
