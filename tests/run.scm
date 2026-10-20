@@ -95,6 +95,14 @@
            (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs") program))))
              (or (zero? (caddr result)) (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))))
 
+;; The command line itself: printing text and running a program.
+(define (run-command-line root)
+  (let ((wat (process->output+error+status (list (path-join root "lofi") "wat" (path-join root "examples/fibonacci.sld"))))
+        (run (process->output+error+status (list (path-join root "lofi") "run" (path-join root "examples/fibonacci.sld")))))
+    (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main"))) (report "lofi wat" "no module text" (cadr wat)))
+          ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
+          (else #t))))
+
 (define (main root selected)
   (test-read)
   (test-core)
@@ -102,7 +110,7 @@
   (let* ((results (append (run-suite root "examples" '("examples") selected)
                           (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                           (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
-                          (if (null? selected) (list (run-siegework root)) '())))
+                          (if (null? selected) (list (run-command-line root) (run-siegework root)) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
     (if (zero? failures) 0 1)))
