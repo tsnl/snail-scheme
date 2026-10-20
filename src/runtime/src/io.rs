@@ -201,6 +201,18 @@ pub extern "C" fn write_code(id: u32, code: u32) {
     checked(result);
 }
 
+/// The console effect's default: one scalar to buffered standard output.
+#[unsafe(export_name = "snail:io/console-write")]
+pub extern "C" fn console_write(code: u32) {
+    checked(write_character(&mut Port::Stdout, code));
+}
+
+/// The console effect's default: the next scalar of standard input, or -1.
+#[unsafe(export_name = "snail:io/console-read")]
+pub extern "C" fn console_read() -> i32 {
+    read_code(STANDARD_INPUT)
+}
+
 #[unsafe(export_name = "snail:io/flush")]
 pub extern "C" fn flush(id: u32) {
     let result = if id == STANDARD_OUTPUT {

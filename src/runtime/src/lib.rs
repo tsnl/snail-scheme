@@ -62,6 +62,27 @@ pub unsafe extern "C" fn report_error(pointer: *const u8, length: usize) {
     std::process::exit(1)
 }
 
+// ---- Guest panics ----
+
+thread_local! {
+    static PANIC_MESSAGE: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+}
+
+/// Append one Unicode scalar to the pending panic message.
+#[unsafe(export_name = "snail:panic/character")]
+pub extern "C" fn panic_character(code: u32) {
+    let character = char::from_u32(code).unwrap_or(char::REPLACEMENT_CHARACTER);
+    PANIC_MESSAGE.with_borrow_mut(|message| message.push(character));
+}
+
+/// Release files, flushing buffered output, then report the message and stop.
+#[unsafe(export_name = "snail:panic/raise")]
+pub extern "C" fn panic_raise() {
+    let message = PANIC_MESSAGE.with_borrow_mut(std::mem::take);
+    io::close_all();
+    fail_message(&message)
+}
+
 // ---- Floating-point text shared by scalar token services ----
 
 fn parse_float(text: &str) -> Option<f64> {
