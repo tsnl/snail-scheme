@@ -106,7 +106,10 @@
       (let ((wat (string-append output ".wat")) (raw (string-append output ".raw.wasm"))
             (module (string-append output ".module.wasm")))
         (create-directory* (path-directory output))
-        (call-with-output-file wat (lambda (port) (write-string (compile->wat root directories source) port)))
+        ;; Compile before opening the file: a generated library compiles and
+        ;; runs another program meanwhile.
+        (let ((text (compile->wat root directories source)))
+          (call-with-output-file wat (lambda (port) (write-string text port))))
         (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list wat "-o" raw)))
         (apply wasm-opt raw module (optimization release?))
         (link module output (build-runtime root) release?)
