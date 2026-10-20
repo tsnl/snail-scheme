@@ -14,11 +14,10 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked World15 restart envelope, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty, active-play clock and final colony statistics derived from committed model time and ledgers, shared by the HUD and accessible status. No independent clock or replay storage. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
-| [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for headless diagnostics and retained developer analysis; no recording storage or game transitions. |
+| [`inspection.sld`](src/siegework/inspection.sld) | Pure on-demand observations of a validated World for headless diagnostics; no storage or game transitions. |
 | [`observation.sld`](src/siegework/observation.sld) | Read-only player knowledge projection through bounded scalar rows; real visibility and purchase previews, with hidden hostile/reserve data withheld. |
 | [`headless.mjs`](headless.mjs) | Node owner of the same compiled reducer, explicit simulation ticks, FIFO operations, episode horizons/reward, opaque checkpoints and optional privileged diagnostics. |
 | [`environment-cli.mjs`](environment-cli.mjs) | Bounded JSONL and MCP stdio transports sharing the headless environment; MCP pages player observations. See the [environment contract](headless.md). |
-| [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, individual nest clears, exhaustion counts, orders and frontier progress. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, single-rotor drones, freight and floating crystal enemies; per-occurrence poses, crystal shimmer and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, static aerial cables, exact range outlines with shared-edge separation, camera-facing health/reserve instances and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
@@ -26,20 +25,14 @@ Scheme owns the game rules and presentation executed in the browser.
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
-Recording and replay are deferred in the Siegework package. Its disabled
-recording setting prevents browser recorder loading and per-tick history capture.
-The [recording guide](recording.md) documents retained developer libraries and
-analysis tools; current-state headless inspection remains available.
 The `solo/` package runs from static hosting and stores one game record in
 IndexedDB under a stable application ID. A Web Lock gives one tab ownership.
-A build with `SAVE_SERVICE_URL` also emits static `synced/` files with explicit
-online save/load. The optional service stores opaque checkpoints; all simulation
-runs in the browser. See the [save guide](../../doc/static-saves.md).
+All simulation runs in the browser. See the [save guide](../../doc/static-saves.md).
 
 Headless execution instantiates that same static package in Node. Operation 12
 reads one validated World and emits the player projection without invoking the
 view. Its rows share the runtime's read-only scalar transaction and bounded
-publication output. Privileged operation 11 remains the recording projection;
+publication output. Privileged operation 11 is the inspection projection;
 its global nest/enemy/reserve totals are not player observations. The host queues
 whole policy operations, advances only explicit ticks, and owns the external
 episode horizon. Neither transport owns another simulation or changes World15.
@@ -242,8 +235,8 @@ state. Shutdown drains admitted messages before closing durable storage.
 Scheme/Wasm transitions, including cancellation, preemption, depot freight,
 endpoint loss, invalid ownership and persistence failures. Fixture helpers edit
 typed wire records to establish boundary scenarios; they contain no alternate
-game simulation. Browser checks exercise shared input, WebGPU presentation,
-online checkpoint transfers and compatible or rejected reloads.
+game simulation. Browser checks exercise shared input, WebGPU presentation
+and compatible or rejected reloads.
 The shared model-only probe also supports the
 [`starter economy experiment`](../../tests/applications/starter-economy-test.md).
 Its instantaneous, validated fixtures price paid survey orders against the finite

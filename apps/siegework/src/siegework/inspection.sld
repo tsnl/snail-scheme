@@ -1,7 +1,7 @@
-;; On-demand diagnostic observations of a validated World. Recording retains
-;; the exact World; these counters describe it without inventing combat events.
-(define-library (siegework recording)
-  (export recording-stat)
+;; On-demand diagnostic observations of a validated World for headless tools.
+;; These counters describe the World without inventing combat events.
+(define-library (siegework inspection)
+  (export inspection-stat)
   (import
    (scheme base)
    (siegework model)
@@ -45,7 +45,7 @@
 
     ;; Field positions and projection version are declared in settings.json.
     ;; Exhaustive scalar projection keeps this diagnostic ABI visible together.
-    (define (recording-stat world index)
+    (define (inspection-stat world index)
       (cond ((= index -1) 3)
             ((= index 0) (world-tick world))
             ((= index 1) (world-run-marker world))

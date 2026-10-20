@@ -19,7 +19,7 @@ for (const name of ['counter', 'inventory', 'testing']) {
 const directory = join(output, 'marker-board/solo');
 const manifest = JSON.parse(readFileSync(join(directory, 'manifest.json')));
 const bytes = readFileSync(join(directory, manifest.module));
-assert.equal(manifest.target, 'solo'); assert.equal(manifest.saveService, undefined);
+assert.equal(manifest.target, 'solo');
 assert.match(readFileSync(join(directory, 'index.html'), 'utf8'), /lib\/browser\/solo\.mjs/);
 for (const file of ['browser/cloud.mjs', 'browser/server.mjs', 'application/authority.mjs', 'application/sqlite.mjs'])
   assert.equal(existsSync(join(directory, 'lib', file)), false);

@@ -12,7 +12,7 @@
    (siegework guidance)
    (siegework terrain)
    (siegework state)
-   (siegework recording)
+   (siegework inspection)
    (siegework observation)
    (siegework status)
    (siegework view)
@@ -379,9 +379,6 @@
                  (center (state) (no-effects (if (or (build-pending? state) (dialog-open? state)) state (center-client (context-world) state))))
                  ;; The host uses this after a committed reset or saved-world restore.
                  (reset-presentation (state) (no-effects (reset-client (context-world) state)))
-                 ;; Host playback uses a separate runtime; this only opens its camera.
-                 (recording-camera (state)
-                                   (no-effects (client-dialog-set (client-dialog-pending-set (clear-choice state) 0) 0)))
                  (dismiss-attack (state (key I32)) (no-effects (if (dialog-open? state) state (dismiss-attack-client state key))))
                  (inspect-attack (state (x I32) (y I32)) (no-effects (if (and (not (dialog-open? state)) (not (build-pending? state)) (inside? x y)) (travel-client state x y) state)))
                  (restart-seed (state (seed I32)) (if (or (build-pending? state) (dialog-open? state)) (no-effects state)
@@ -541,6 +538,6 @@
     (define game (program match-app client-app 0 0 decode-world encode-world decode-client encode-client view status))
     (define application-entry
       (ann (lambda (operation a b c)
-             (cond ((= operation 11) (recording-stat (read-program-world game) a))
+             (cond ((= operation 11) (inspection-stat (read-program-world game) a))
                    ((= operation 12) (observe-player! (read-program-world game)))
                    (else (run-program game operation a b c)))) (-> I32 I32 I32 I32 I32)))))

@@ -116,7 +116,7 @@ class SiegeworkEnvironment {
   #elapsed = 0; #reward = 0; #checkpoints = new Map(); #indices;
   constructor(bytes, manifest, config) {
     this.#bytes = bytes; this.#manifest = manifest; this.#config = config;
-    this.#indices = new Map(manifest.settings.recording.inspection.fields.map((name, index) => [name, index]));
+    this.#indices = new Map(manifest.settings.inspection.fields.map((name, index) => [name, index]));
   }
   #enqueue(operation) {
     if (this.#closing) return Promise.reject(new Error('environment is closed'));

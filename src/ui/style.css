@@ -28,8 +28,3 @@
 .snail-ui-node[data-arrow="2"]::before { right: -9px; top: calc(var(--ui-arrow-offset) - 8px); border-bottom: 0; border-left: 0; }
 .snail-ui-node[data-arrow="3"]::before { top: -9px; left: calc(var(--ui-arrow-offset) - 8px); border-bottom: 0; border-right: 0; }
 .snail-ui-node[data-arrow="4"]::before { bottom: -9px; left: calc(var(--ui-arrow-offset) - 8px); border-top: 0; border-left: 0; }
-.remote-saves { position: fixed; right: 12px; bottom: 36px; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: calc(100vw - 24px); padding: 8px; border: 1px solid #456c60; border-radius: 8px; background: #173b32; color: #fff5d7; font: 14px system-ui; }
-.remote-saves button { padding: 8px 12px; color: inherit; background: #315c48; border: 1px solid #94c6ac; border-radius: 5px; font: inherit; cursor: pointer; }
-.remote-saves button:focus-visible { outline: 3px solid #ffe09a; }
-.remote-saves button:disabled { opacity: .5; cursor: wait; }
-.remote-saves span { max-width: 300px; }

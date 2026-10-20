@@ -146,7 +146,7 @@ deserialize World or reconstruct visibility/game rules. Version 1 contains:
 
 The seed is public and deterministic. This is a policy-observation contract,
 not adversarial secrecy against a program reconstructing seeded geography.
-Full snapshots and the recording projection include hidden information. They
+Full snapshots and the inspection projection include hidden information. They
 are available only to Node callers opening with `{diagnostics: true}` through
 `env.diagnostics()`, or JSONL explicitly started with `--diagnostics`. MCP never
 lists a diagnostic tool. Ordinary observations remain filtered in diagnostic mode.

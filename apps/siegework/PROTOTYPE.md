@@ -104,8 +104,7 @@ Keep state lifetimes explicit:
 3. Camera, cursor and input survive code replacement but reset with a full page load.
 
 A local transition writes state and a monotonically increasing revision before
-publication. A failed write preserves the previous state. Online checkpoint ETags
-version remote replacement separately and reject stale writes. External effects
+publication. A failed write preserves the previous state. External effects
 still need their own delivery contract.
 
 The colony uses world schema 15 and client schema 8 with variable-size derived snapshots.
@@ -124,7 +123,7 @@ acceptable initially; document its cost and keep it behind the typed state API.
 | --- | --- |
 | Real browser path | Reproducible app-local `build.scm`; generated simulation Wasm executes; Scheme shader AST compiles to inspectable WGSL; real WebGPU submits indexed meshes. |
 | Colony game | Multiple mine deliveries; hub/local construction conservation; cancellation and preemption ownership; depot/rail delivery and endpoint loss; discovery and known-route rules; calm drones; deterministic loss, resign, raid and surviving layout; zero kill income, staffed slots, sole-worker recovery, loss accounting and seeded replay. |
-| Static solo | Local-only package makes no gameplay-server requests; IndexedDB commits precede publication; optional online checkpoint transfer leaves local play independent of service availability. |
+| Static solo | Local-only package makes no gameplay-server requests; IndexedDB commits precede publication. |
 | Immutable transitions | Retained prior snapshots stay unchanged; concurrent submissions have no lost updates; trap and failed durability commit publish no partial state/effects. |
 | Compatible reload | Reload during hauling and combat, with a selected tool/cell, overscrolled camera, manual pause and pending input; preserve state and consume no simulation tick. |
 | Failure isolation | Invalid candidate, incompatible schema and invalid WGSL leave the old application/pipeline usable. |

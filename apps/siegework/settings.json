@@ -131,14 +131,8 @@
   "zoomHandler": "zoom",
   "dragHandler": "drag",
   "observation": {"version": 1},
-  "recording": {
-    "enabled": false,
-    "menuKey": "pause-dialog",
-    "prepareCamera": "recording-camera",
-    "cameraHandlers": ["move", "viewport", "nudge", "zoom", "pan", "drift", "drag", "turn", "rotate", "animate", "home", "center", "inspect-attack", "dismiss-attack"],
-    "inspection": {
-      "version": 3,
-      "fields": ["tick", "run", "seed", "outcome", "ore", "produced", "delivered", "spent", "lostOre", "hull", "nestHp", "kills", "casualties", "buildings", "extractors", "towers", "artillery", "hubCapacityLevel", "pending", "workers", "busyWorkers", "enemies", "surveys", "frontierDistanceSquared", "lastRevealTick", "nestKnown", "nestVisible", "paused", "started", "nestsAlive", "depositsDepleted", "oreRemaining", "knownOreRemaining", "nest0Hp", "nest1Hp", "nest2Hp"]
-    }
+  "inspection": {
+    "version": 3,
+    "fields": ["tick", "run", "seed", "outcome", "ore", "produced", "delivered", "spent", "lostOre", "hull", "nestHp", "kills", "casualties", "buildings", "extractors", "towers", "artillery", "hubCapacityLevel", "pending", "workers", "busyWorkers", "enemies", "surveys", "frontierDistanceSquared", "lastRevealTick", "nestKnown", "nestVisible", "paused", "started", "nestsAlive", "depositsDepleted", "oreRemaining", "knownOreRemaining", "nest0Hp", "nest1Hp", "nest2Hp"]
   }
 }

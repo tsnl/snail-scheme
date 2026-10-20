@@ -45,10 +45,6 @@ The decoder checks the World15 envelope before interpreting coordinates and
 proves the shape, ownership and resource ledger of the decoded colony. It does
 not attempt to convert older geography or assume its financial history.
 
-An optional `SAVE_SERVICE_URL` build also emits `synced/` with explicit online
-checkpoint controls. Gameplay still runs locally. See the
-[save service guide](../../doc/static-saves.md).
-
 ## Publish with the book
 
 `node scripts/build-pages.mjs` builds the book and game together with Chibi,
@@ -79,10 +75,6 @@ The status dials and controls occupy one vertical edge strip. **Pause** opens a
 centered menu with Resume, Restart, Resign, and explicit **Right-handed** and
 **Left-handed** buttons. The selected choice places the controls on that edge. The same icons
 and touch-sized buttons appear on desktop and mobile.
-
-Recording and replay are deferred while the game stabilizes. The game saves its
-current colony normally; it does not capture per-tick history or show dump
-import/export controls. Headless current-state inspection remains available.
 
 - Tap a resource deposit to open its **Extractor** action (`1`). Extractors
   are not part of the ordinary construction choices. Persistent first-extractor

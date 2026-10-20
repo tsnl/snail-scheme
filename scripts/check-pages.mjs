@@ -41,12 +41,7 @@ function localReference(reference, source, files) {
 function references(text, pattern) { return [...text.matchAll(pattern)].map(match => match[1]); }
 
 function checkModule(text, source, files) {
-  const imports = references(text, moduleImports);
-  for (const reference of references(text, dynamicImports)) {
-    // SoloSession loads this optional library only when saveService is present.
-    if (source === game + 'lib/browser/solo.mjs' && reference === '../application/remote-saves.mjs') continue;
-    imports.push(reference);
-  }
+  const imports = [...references(text, moduleImports), ...references(text, dynamicImports)];
   for (const reference of imports) {
     assert.ok(reference.startsWith('.'), `${source}: browser import must be relative: ${reference}`);
     localReference(reference, source, files);
@@ -57,7 +52,6 @@ function checkModule(text, source, files) {
 function checkManifest(root, files) {
   const source = game + 'manifest.json', manifest = JSON.parse(readFileSync(join(root, source), 'utf8'));
   assert.equal(manifest.target, 'solo', 'Pages must contain the solo game');
-  assert.equal(manifest.saveService, undefined, 'Pages must not require a save service');
   assert.match(manifest.settings.id, /^siegework-colony-v\d+$/);
   assert.equal(manifest.settings.title, 'Siegework');
   assert.match(manifest.module, /^simulation\.[a-f0-9]+\.wasm$/);

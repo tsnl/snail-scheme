@@ -26,16 +26,13 @@ rejects('root-relative resources cannot escape the project prefix', copy => {
 rejects('module imports must exist', copy => {
   writeFileSync(join(copy, 'play/siegework/lib/bad.mjs'), "import './missing.mjs';");
 }, /missing local resource/);
-rejects('recording stylesheet must exist', copy => {
-  unlinkSync(join(copy, 'play/siegework/lib/browser/recording.css'));
+rejects('interface stylesheet must exist', copy => {
+  unlinkSync(join(copy, 'play/siegework/lib/ui/style.css'));
 }, /missing local resource/);
 rejects('game must link to its player guide', copy => {
   const path = join(copy, 'play/siegework/index.html');
   writeFileSync(path, readFileSync(path, 'utf8').replace('games/siegework.html', 'games/index.html'));
 }, /missing link to games\/siegework.html/);
-rejects('save service cannot enter the solo site', copy => {
-  writeFileSync(join(copy, 'play/siegework/manifest.json'), JSON.stringify({...manifest, saveService: {url: '/saves/'}}));
-}, /must not require a save service/);
 rejects('symlinks cannot enter the Pages artifact', copy => {
   symlinkSync('index.html', join(copy, 'linked.html'));
 }, /contains a symlink/);

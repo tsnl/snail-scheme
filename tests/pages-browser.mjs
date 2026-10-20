@@ -92,7 +92,7 @@ try {
     await until(() => evaluate(`snailApp.viewport?.[0] === ${width} && snailApp.viewport?.[1] === ${height} && !snailApp.dirty`), 'viewport did not settle');
     const result = await evaluate(`(() => {
       const help = document.querySelector('.player-help'), rect = help.getBoundingClientRect(); help.focus();
-      const overlaps = [...document.querySelectorAll('[data-ui-key=pause-dialog], .snail-recording')].some(node => {
+      const overlaps = [...document.querySelectorAll('[data-ui-key=pause-dialog]')].some(node => {
         const other = node.getBoundingClientRect();
         return node.checkVisibility() && rect.left < other.right && other.left < rect.right && rect.top < other.bottom && other.top < rect.bottom;
       });

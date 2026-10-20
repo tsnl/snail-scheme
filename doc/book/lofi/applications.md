@@ -186,10 +186,7 @@ network command queue, player session, presence tracking or server-owned clock.
 operations; use the supplied dispatcher once inside it and do not await another
 queued mutation from that callback. Ordinary callers use `dispatch` or `LocalState`.
 
-Optional online save/load transfers complete checkpoints outside the reducer lane.
-A load validates and persists its replacement through `local.restore(state)`;
-failed validation or storage leaves the previous game intact. Effects are emitted
-after a committed transition. The runtime does not promise exactly-once external
+Effects are emitted after a committed transition. The runtime does not promise exactly-once external
 effects; a future payment or other remote effect needs its own delivery contract.
 
 The initial build inspects literal `application` declarations inside a library's
@@ -360,10 +357,7 @@ package already-built `simulation.wasm`, `shader.wasm`, and the
 `application.syntax.json` emitted by that host helper from the selected parsed
 library. The compiler writes these raw inputs once into `OUTPUT`; packaging
 emits `OUTPUT/solo`, a static distribution with a browser-local simulation and
-IndexedDB saves. With `SAVE_SERVICE_URL` set, it also emits `OUTPUT/synced`, a
-static distribution with optional explicit online save/load. Both use identical
-simulation bytes and `lib/browser/solo.mjs`. Disabled builds omit the online
-save module entirely. Build outputs must stay
+IndexedDB saves. Build outputs must stay
 outside source directories. The shader entry signals a diagnostic by returning a
 negative length; the build refuses to publish it. Packaging also executes isolated
 initial states and the pure view before publishing the manifest. Vector lengths
@@ -517,23 +511,16 @@ The shader compiler, pure application API and immutable record library are
 independent of this two-owner host. Broader owner routing and richer wire codecs
 can be added without making them game-specific.
 
-## Static hosting and optional online saves
+## Static hosting and local saves
 
 Compile and serve `OUTPUT/solo` over HTTPS or localhost. It works under a subpath,
-runs all game logic locally, and automatically saves to IndexedDB. For explicit
-cross-device checkpoint transfer, build with `SAVE_SERVICE_URL`; the additional
-`OUTPUT/synced` directory is also entirely static. A service outage does not stop
-gameplay or local saving. See the [static save guide](https://github.com/tsnl/snail-scheme/blob/main/doc/static-saves.md) for
-complete build, service and API examples.
+runs all game logic locally, and automatically saves to IndexedDB. See the
+[static save guide](https://github.com/tsnl/snail-scheme/blob/main/doc/static-saves.md) for
+build and verification commands.
 
-`packageApplications(root, app, artifacts, {saveServiceURL})` packages already
-compiled inputs once. Without the option it produces only `solo`; with the option
-it also produces `synced`. `packageApplication(root, app, artifacts,
-{output, saveServiceURL})` writes a single static bundle to an explicit directory.
-Both manifests have target `solo`; the enabled build also declares `saveService`.
-An existing cloud or unversioned output requires a fresh destination. Old output
-directories and SQLite databases are retained and must not be published as static
-files. Existing browser saves remain compatible.
+`packageApplication(root, app, artifacts, {output})` packages already compiled
+inputs into one static bundle with target `solo`. An output directory holding a
+different target requires a fresh destination.
 
 An origin/application pair owns database `snail.application:<settings.id>` and
 Web Lock `snail.application:<settings.id>:writer`. Build hash and mount path do
@@ -555,7 +542,7 @@ state. An incompatible save is preserved with an explanation rather than erased.
 transaction. Transaction `complete` is the success boundary; a successful `put`
 followed by an abort still fails. Strict durability is a browser hint, not a
 universal power-loss guarantee. `store.record(checkpoint)` supplies the versioned
-envelope used by online transfers.
+checkpoint envelope.
 
 Rejected reducers never replace the committed save. The browser retains one
 separate failure reproduction, readable with `store.failure()`: generation,
@@ -571,7 +558,6 @@ retry restarts it. Slow storage slows simulation without accumulating tick work.
 The browser polls its static manifest once per second after the previous poll
 settles. Compatible application and shader replacement preserves both models.
 Full reload restores the saved game and pause; camera and selection start anew.
-Changing the online-save build configuration requires a page reload.
 
 Closing stops admission and timers, drains accepted transitions, closes GPU and
 storage resources, then releases the writer lock. Leaving during startup performs
@@ -666,36 +652,8 @@ See the [Siegework build instructions](https://github.com/tsnl/snail-scheme/blob
 [browser validation guide](https://github.com/tsnl/snail-scheme/blob/main/tests/applications/README.md) records the
 tested Chromium/SwiftShader setup, GPU pixel readback and headless screenshot
 limitations. Its flags are for an isolated software-GPU test process, not normal
-hardware-WebGPU browser use. The host APIs used here
-are the [WebGPU specification](https://www.w3.org/TR/webgpu/) and Node's
-[`node:sqlite` API](https://nodejs.org/docs/latest-v24.x/api/sqlite.html).
-
-## Bounded recording and snapshot playback
-
-Setting `recording.enabled` to `false` skips browser recorder loading and capture
-while retaining its inspection metadata. Siegework currently uses this setting
-while recording and replay are deferred.
-
-When enabled, the optional browser recorder observes World publication after persistence and
-normal revision/effect publication. It retains exact packed snapshots using
-keyframes and word changes, alongside handled commands and emitted effects.
-Failed saves produce no commit entry. Recording failures cannot reject a live
-transition. Camera and animation messages do not enter the World journal.
-Unchanged, effect-free calls to the configured clock endpoint are omitted so
-idle polling cannot evict play. Other commands and all boundaries remain;
-retained revisions and elapsed times preserve the resulting gaps.
-
-History stays in bounded page memory, with explicit truncation and checkpoint,
-restore, run and code-generation boundaries. Binary dumps can be imported for
-read-only playback in a separate runtime. Playback uses compatible current
-presentation code, discards effects and never restores into the saved colony.
-Reload begins at the saved checkpoint; earlier in-memory history requires an
-export. This is exact snapshot playback, not historical command re-execution.
-
-Siegework's pure Scheme projection supplies economy, construction, combat totals
-and frontier observations for an offline Node analyzer. These derived values
-are separate from the command/effect event stream. See the
-[recording API and executable examples](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/recording.md).
+hardware-WebGPU browser use. The host API used here is the
+[WebGPU specification](https://www.w3.org/TR/webgpu/).
 
 ## TODO: model checking and protocol analysis
 

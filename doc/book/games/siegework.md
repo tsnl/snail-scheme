@@ -167,13 +167,9 @@ ledgers are not silently reinterpreted.
 Open **Pause → Help** to return to this guide in a new tab while the colony stays
 paused. Restart replaces your colony with a new seeded world after confirmation.
 
-Recording and replay are deferred while the game stabilizes. Automatic browser
-saves continue normally, without recording history or dump import/export controls.
-
 ## For developers
 
 The player guide ends here. For implementation and experiments, see the
 [source and local build instructions](https://github.com/tsnl/snail-scheme/tree/main/apps/siegework),
-[architecture tour](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/TOUR.md),
-[headless environment](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/headless.md)
-and [recording format](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/recording.md).
+[architecture tour](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/TOUR.md)
+and [headless environment](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/headless.md).

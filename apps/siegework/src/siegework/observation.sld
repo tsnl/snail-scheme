@@ -13,7 +13,7 @@
     ;; ---- Public colony facts ----
 
     ;; Tags and field names are decoded in headless.mjs. This version describes
-    ;; player knowledge, independently of the privileged recording projection.
+    ;; player knowledge, independently of the privileged inspection projection.
     (define (observe-colony! world)
       (row! 0 1 map-width map-height cell-size simulation-ticks-per-second (world-seed world))
       (row! 1 (world-tick world) (world-outcome world) (world-paused world)

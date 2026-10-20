@@ -9,17 +9,12 @@ class SoloSession {
   async open() {
     const {manifest, runtime} = this.app;
     this.identity = manifest.settings.id; this.contract = saveContract(manifest);
-    this.saveService = JSON.stringify(manifest.saveService);
     this.release = await acquireWriter(manifest.settings.id);
     this.store = await openStore(manifest);
     const saved = await this.store.load();
     this.local = await LocalState.open(runtime, {saved,
       commit: (snapshot, expected) => this.store.commit(snapshot, expected), publish: output => this.publish(output)});
     if (!saved && manifest.settings.randomSeed) await this.local.submit(this.seedCommand());
-    if (manifest.settings.recording && manifest.settings.recording.enabled !== false) {
-      const {BrowserRecording} = await import('./recording.mjs');
-      this.app.recording = new BrowserRecording(this.app, this);
-    }
   }
   seedCommand() {
     const {handler, minimum, maximum} = this.app.manifest.settings.randomSeed;
@@ -32,8 +27,7 @@ class SoloSession {
     return this.app.runtime.command('match', handler, [minimum + sample[0] % span]);
   }
   checkManifest(next) {
-    if (next.settings.id !== this.identity || saveContract(next) !== this.contract
-        || JSON.stringify(next.saveService) !== this.saveService)
+    if (next.settings.id !== this.identity || saveContract(next) !== this.contract)
       throw new Error('incompatible solo save contract; previous code and save retained');
   }
   publish(output) {
@@ -66,13 +60,13 @@ class SoloSession {
   stopClock() { this.faulted = true; clearTimeout(this.timer); }
   startClock() {
     // A manual retry may finish while an earlier tick is still settling.
-    if (this.stopping || this.faulted || this.ticking || this.app.recording?.replaying || this.app.recording?.opening) return;
+    if (this.stopping || this.faulted || this.ticking) return;
     clearTimeout(this.timer); this.timer = setTimeout(() => void this.tick(), this.app.manifest.settings.tickMilliseconds);
   }
   async tick() {
     this.ticking = true;
     try {
-      if (!this.stopping && !this.faulted && !document.hidden && !this.app.recording?.replaying && !this.app.recording?.opening)
+      if (!this.stopping && !this.faulted && !document.hidden)
         await this.local.submit(this.app.runtime.command('match', this.app.manifest.settings.tick));
     } catch (error) {
       this.stopClock(); await this.recordFailure(error); this.app.report(error);
@@ -90,7 +84,7 @@ class SoloSession {
     this.closed = this.drain(); return this.closed;
   }
   async drain() {
-    this.saves?.close(); await this.app.close(); this.store?.close(); await this.release?.();
+    await this.app.close(); this.store?.close(); await this.release?.();
   }
 }
 const app = new BrowserApplication(), session = new SoloSession(app);
@@ -105,10 +99,6 @@ async function start() {
     }
     session.startClock(); void session.reload();
     app.note(`SOLO · saved on this browser · ${app.manifest.settings.renderer === 'dom' ? 'DOM' : 'WebGPU'}`);
-    if (app.manifest.saveService) {
-      const {RemoteSaves} = await import('../application/remote-saves.mjs');
-      if (!session.stopping) session.saves = new RemoteSaves(app, session);
-    }
   } catch (error) { app.note(`Cannot start: ${error.message}`); console.error(error); await session.close(); }
 }
 const startup = start();

@@ -4,7 +4,6 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 output="$root/build/application-tests"
 mkdir -p "$output"
-node "$root/tests/applications/save-service.mjs"
 chibi-scheme -I "$root/bootstrap" \
   "$root/apps/siegework/build.scm" "$root" "$output/siegework"
 node "$root/tests/applications/build-casualty.mjs" "$output/casualty.wasm"
@@ -32,7 +31,6 @@ done
 node "$root/tests/applications/runtime.mjs" "$output/siegework/solo" "$output" "$output/siegework"
 node "$root/tests/applications/nest-rewards.mjs" "$output/siegework/solo"
 node "$root/tests/applications/resource-geography.mjs" "$output/siegework/solo" "$output/resource-geography.wasm" "$output/resource-geography-report.json"
-node "$root/tests/applications/recording.mjs" "$output/siegework/solo"
 node "$root/tests/applications/headless.mjs" "$output/siegework/solo"
 node "$root/tests/draw3d/playtest.mjs" "$output/siegework/solo"
 node "$root/tests/draw3d/colony.mjs" "$output/siegework/solo"

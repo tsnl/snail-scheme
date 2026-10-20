@@ -201,9 +201,6 @@ async function checkUnitBars() {
 try {
   await call('Runtime.enable');await call('Network.enable');await call('Network.setCacheDisabled',{cacheDisabled:true});
   await call('Page.navigate',{url:origin});await call('Page.bringToFront');await until(()=>evaluate('!!globalThis.snailApp'),'3D startup');
-  assert.deepEqual(await evaluate(`({recording:!!snailApp.recording,capture:!!snailApp.runtime.recording,
-    controls:!!document.querySelector('.snail-recording'),loaded:performance.getEntriesByType('resource').some(r=>r.name.includes('/recording.')||r.name.includes('/playback.'))})`),
-    {recording:false,capture:false,controls:false,loaded:false},'recording remains disabled without loading its UI or history code');
   await resize(1100,760);if(await has('pause-dialog'))await command('resume');
   await command('restart-seed',[1]);await evaluate('snailApp.session.stopClock()');await command('center');
   for(const dpr of [1,2,3]){await resize(1101,761,dpr);await checkResolution(1101,761,dpr);}

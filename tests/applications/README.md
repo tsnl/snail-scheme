@@ -42,10 +42,8 @@ policy loses before discovering a nest; it is pressure evidence, not a victory
 proof, normal-player duration or a general scouting strategy across seeds.
 
 ```sh
-node tests/applications/save-service.mjs
 node tests/applications/async-runtime.mjs build/application-tests
 node tests/applications/snapshot-cache.mjs build/application-tests
-node tests/applications/recording.mjs build/application-tests/siegework/solo
 node tests/applications/headless.mjs build/application-tests/siegework/solo
 node tests/applications/world-profile.mjs build/application-tests/siegework/solo
 node tests/applications/runtime.mjs build/application-tests/siegework/solo build/application-tests build/application-tests/siegework
@@ -83,18 +81,15 @@ node tests/applications/hosting.mjs build/application-tests/siegework
 
 It checks:
 
-- Pure static packaging and identical local/online simulation bytes; online-save
-  code is absent from the disabled build and Node code is absent from both.
+- Pure static packaging with no Node modules in the browser bundle.
 - Real transaction abort after `put` succeeds; concurrent IndexedDB CAS writes;
   incompatible records retained; legacy browser records reopened without receipts.
 - Web Lock ownership, browser restart, moved static subpaths and saved pause.
 - Slow persistence without tick accumulation, abort/retry, hidden-page behavior,
   compatible hot replacement and cleanup when leaving during startup.
-- Explicit online save/load, conditional-write conflicts, service outage and
-  local reopen after an unavailable online save.
 
-Default ports are static 4282/4283, saves 4294 and DevTools 9346. Use
-`TEST_SOLO_PORT`, `TEST_SYNCED_PORT`, `TEST_SAVE_PORT` and `TEST_CDP_PORT` to override.
+Default ports are static 4282 and DevTools 9346. Use `TEST_SOLO_PORT` and
+`TEST_CDP_PORT` to override.
 The runner prints its disposable artifact directory. With `DISPLAY` set it uses
 headed Chromium; otherwise it uses headless Chromium with SwiftShader.
 
@@ -105,10 +100,9 @@ package and an isolated Chromium DevTools instance:
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9336
 node tests/draw3d/persistence-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9336
 node tests/draw3d/onboarding-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9336
-node tests/draw3d/recording-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9336
 ```
 
-The persistence, onboarding and recording checks reset their test colony. Never point them
+The persistence and onboarding checks reset their test colony. Never point them
 at a player's save. See the [static save guide](../../doc/static-saves.md).
 
 ## Input and rendering
