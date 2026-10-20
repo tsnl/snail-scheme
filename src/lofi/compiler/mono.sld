@@ -155,8 +155,8 @@
            ((EvInstance instance instance-types subs)
             (let ((class-arity (length (Class-params (program-class (program-of state) class)))))
               (definition-reference state (instance-method state instance name)
-                                    (append instance-types (drop types class-arity))
-                                    (append subs (cdr evidence)) type loc)))))
+                (append instance-types (drop types class-arity))
+                (append subs (cdr evidence)) type loc)))))
         (_ (Expr (Var name '() '()) type loc))))
 
     (define (instance-method state instance method)

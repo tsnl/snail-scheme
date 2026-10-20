@@ -576,7 +576,8 @@
               (hash-table-set! (Module-type-ids m) key id)
               (let ((fields (map (lambda (operation) `(field ,(rep m (operation-type m operation))))
                                  (Effect-operations (program-effect (program-of m) effect)))))
-                (push! (Module-types m) `(type ,id (struct ,@fields (field (ref null ,id)))))
+                (push! (Module-types m) `(type ,id (struct ,@fields
+                                                     (field (ref null ,id)))))
                 (push! (Module-globals m) `(global ,(wasm-id key ".current") (mut (ref null ,id)) (ref.null ,id)))
                 id)))))
 
@@ -619,7 +620,8 @@
                         (local.get ,result))))))))
 
     (define (host-default fn info operation type temps)
-      (let ((import (assq operation (Effect-host info))))
+      (let ((import
+             (assq operation (Effect-host info))))
         (if import
             (let-values (((params result) (function-signature (Fn-module fn) type)))
               (let* ((id (import! (Fn-module fn) (cadr import) (cddr import) params (if (unit-type? type) #f result)))
@@ -930,7 +932,7 @@
    (snail-tests
     (export test-wasm)
     (import
-     (lofi host test-utils))
+     (lofi testing))
     (begin
       (define (test-wasm)
         (expect (mangle "a b,c(d)") "a_b~c<d>"))))

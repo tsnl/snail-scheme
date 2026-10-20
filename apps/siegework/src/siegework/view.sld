@@ -146,7 +146,7 @@
                  ((Some cell)
                   (Cons (Label (string-append "Cell " (show (Cell-x cell)) ", " (show (Cell-y cell))))
                         (append (map (lambda (b) (Label (string-append (kind-name (Building-kind b)) " · health " (show (Building-hp b))
-                                                                      (match (Building-progress b) ((Built) "") (_ " · awaiting construction")))))
+                                                                       (match (Building-progress b) ((Built) "") (_ " · awaiting construction")))))
                                      (filter (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world)))
                                 (map (lambda (d) (Label (string-append "Ore deposit · " (show (Deposit-reserve d)) " left")))
                                      (filter (lambda (d) (and (cell=? (Deposit-cell d) cell) (explored? world cell))) (World-deposits world))))))

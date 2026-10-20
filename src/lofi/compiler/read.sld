@@ -248,7 +248,7 @@
    (snail-tests
     (export test-read)
     (import
-     (lofi host test-utils))
+     (lofi testing))
     (begin
       (define (test-read)
         (expect (map syntax->datum

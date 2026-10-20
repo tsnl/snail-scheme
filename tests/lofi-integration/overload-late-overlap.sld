@@ -1,7 +1,0 @@
-(import
- (lofi base))
-(define-overload same (All (T) (-> T T)) (lambda (value) value))
-(def wrapper
-     (lambda (value) (same value)))
-(define-overload same (-> I64 I64) (lambda (value) value))
-(if (wrapper #t) (ann 42 I64) (unreachable))

@@ -66,9 +66,9 @@
               (let* ((field (caar fields))
                      (accessor `(,define* (,(joined-name name "-" field) value) (,vector-ref* value ,index)))
                      (setter `(,define* (,(joined-name name "-" field "-set") value replacement)
-                               (,(rename 'let) ((copy (,(rename 'vector-copy) value)))
-                                (,(rename 'vector-set!) copy ,index replacement)
-                                copy))))
+                                (,(rename 'let) ((copy (,(rename 'vector-copy) value)))
+                                 (,(rename 'vector-set!) copy ,index replacement)
+                                 copy))))
                 (loop (cdr fields) (+ index 1)
                       (if setters? (cons setter (cons accessor out)) (cons accessor out))))))))
 

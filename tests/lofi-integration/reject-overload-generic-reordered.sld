@@ -1,5 +1,0 @@
-(import
- (lofi base))
-(define-overload choose (All (A B) (-> A B A)) (lambda (left right) left))
-(define-overload choose (All (B A) (-> A B A)) (lambda (left right) left))
-42

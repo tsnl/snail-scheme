@@ -398,7 +398,7 @@
     ;; What a unique value name denotes.
     (enum Value
       (Defined
-       ((scheme Scheme)))
+        ((scheme Scheme)))
       (Constructor
        ((case Case)
         (scheme Scheme)))
@@ -427,8 +427,8 @@
     ;; function is exported to the host under `symbol`.
     (enum Item
       (Define
-       ((name Symbol)
-        (value Expr)))
+        ((name Symbol)
+         (value Expr)))
       (Do
        ((expr Expr)))
       (Expose
@@ -600,7 +600,7 @@
    (snail-tests
     (export test-core)
     (import
-     (lofi host test-utils))
+     (lofi testing))
     (begin
       (define (test-core)
         (expect (type->string (datum->type '(-> I64 (Vector A) A))) "(-> I64 (Vector A) A)")

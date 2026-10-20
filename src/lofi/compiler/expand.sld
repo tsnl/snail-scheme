@@ -422,7 +422,7 @@
       (Ident (string->symbol (string-append (symbol->string (Ident-name name)) "-"
                                             (symbol->string (Ident-name (expect-ident field "a field name"))) suffix))
              (and (Ident-mark name) (Mark (string->symbol (string-append (symbol->string (ident-key name)) "-"
-                                                                          (symbol->string (Ident-name field)) suffix))
+                                                                         (symbol->string (Ident-name field)) suffix))
                                           (Mark-original (Ident-mark name)) (Mark-env (Ident-mark name))))
              (Ident-loc field)))
 
@@ -533,7 +533,7 @@
     (define (declare-instance! cx env form)
       (let* ((items (Form-items form)) (head (form-items (cadr items) "an instance head"))
              (class (match (resolve env (car head)) ((ClassName id) (program-class (program cx) id))
-                      (_ (compile-error (syntax-loc (car head)) "instance of something that is not a typeclass"))))
+                           (_ (compile-error (syntax-loc (car head)) "instance of something that is not a typeclass"))))
              (vars (delete-duplicates (append-map (lambda (type) (free-type-idents env type)) (cdr head)) eq?))
              (scope (type-scope env (map (lambda (name) (Ident name #f (syntax-loc form))) vars)))
              (requires? (and (pair? (cddr items)) (match (caddr items) ((Form (Cons (Ident 'requires _ _) _) _) #t) (_ #f))))

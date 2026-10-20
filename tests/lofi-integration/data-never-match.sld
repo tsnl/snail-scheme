@@ -1,6 +1,0 @@
-(import
- (lofi base))
-(def Choice (datatype ()
-              (left)
-              (right)))
-(match (left) ((left) (unreachable)) ((right) (unreachable)))

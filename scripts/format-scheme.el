@@ -2,8 +2,9 @@
 
 (require 'scheme)
 
-(put 'datatype 'scheme-indent-function 1)
-(put 'data 'scheme-indent-function 2)
+(dolist (form '(struct enum typeclass instance effect match))
+  (put form 'scheme-indent-function 1))
+(put 'handle 'scheme-indent-function 2)
 
 (defun snail-format-entries (header-length)
   "Put each list entry after HEADER-LENGTH elements on its own line."
@@ -20,23 +21,35 @@
       (forward-sexp)
       (forward-comment (point-max)))))
 
-(defun snail-format-datatype (header-length)
-  "Put each datatype constructor's fields on their own lines."
+(defun snail-format-line-break ()
+  "Start a new line at point unless it already begins one."
+  (unless (save-excursion (skip-chars-backward " \t") (bolp))
+    (delete-horizontal-space)
+    (insert "\n")))
+
+(defun snail-format-struct ()
+  "Put the field list of the struct at point on its own line, one field per line."
   (save-excursion
-    (snail-format-entries header-length)
     (down-list)
-    (forward-sexp header-length)
+    (forward-sexp 2)
     (forward-comment (point-max))
-    (while (eq (char-after) ?\()
-      (snail-format-entries 1)
-      (forward-sexp)
-      (forward-comment (point-max)))))
+    (when (eq (char-after) ?\()
+      (snail-format-line-break)
+      (down-list)
+      (forward-comment (point-max))
+      (when (eq (char-after) ?\()
+        (forward-sexp)
+        (forward-comment (point-max))
+        (while (eq (char-after) ?\()
+          (snail-format-line-break)
+          (forward-sexp)
+          (forward-comment (point-max)))))))
 
 (defun snail-format-declarations ()
-  "Separate import specifications and record fields, preserving comments."
+  "Separate import specifications and struct fields, preserving comments."
   (goto-char (point-min))
   (while (re-search-forward
-          "(\\(import\\|define-record-type\\|define-immutable-record\\|datatype\\|data\\)\\_>"
+          "(\\(import\\|define-record-type\\|struct\\)\\_>"
           nil t)
     (let ((form (match-string 1))
           (start (match-beginning 0))
@@ -49,9 +62,7 @@
                 (cond
                  ((equal form "import") (snail-format-entries 1))
                  ((equal form "define-record-type") (snail-format-entries 4))
-                 ((equal form "define-immutable-record") (snail-format-entries 3))
-                 ((equal form "datatype") (snail-format-datatype 2))
-                 ((equal form "data") (snail-format-datatype 3))))
+                 ((equal form "struct") (snail-format-struct))))
               ;; Import specs are data: (define-record-type alias) is a rename.
               (when (equal form "import")
                 (goto-char start)

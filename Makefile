@@ -1,14 +1,15 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test
+.PHONY: format check test site
 
 CHIBI ?= chibi-scheme
 EMACS ?= emacs
 NIXFMT ?= nixfmt
 SCHEME_SOURCES = '*.scm' '*.sld'
 
+# The compiler's unit tests, every test program, and Siegework headless.
 test:
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
-	"$(CHIBI)" -D snail-tests -I bootstrap -I tests tests/lofi/host.scm
+	"$(CHIBI)" -D snail-tests -I src -I tests tests/run.scm "$(CURDIR)"
 
 format:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --write
@@ -16,5 +17,8 @@ format:
 
 check:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --check
-	awk -v limit=100 -f scripts/check-line-length.awk src/lofi/compiler/ir.sld
 	$(NIXFMT) --check shell.nix
+
+# Siegework as a static site in build/siegework.
+site:
+	"$(CHIBI)" -I src scripts/build-app.scm "$(CURDIR)" --release apps/siegework build/siegework
