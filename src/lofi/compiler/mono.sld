@@ -213,16 +213,4 @@
         ((Var _ _ _) #t)
         (_ #f)))
 
-    )
-
-  ;; ---- Tests ----
-
-  (cond-expand
-   (snail-tests
-    (export test-mono)
-    (import
-     (lofi host test-utils))
-    (begin
-      (define (test-mono)
-        #t)))
-   (else)))
+    ))

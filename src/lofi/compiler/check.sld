@@ -767,16 +767,4 @@
         ((Handle _ implementations body) (append (append-map (lambda (e) (expr-references (cdr e))) implementations)
                                                  (expr-references body)))))
 
-    )
-
-  ;; ---- Tests ----
-
-  (cond-expand
-   (snail-tests
-    (export test-check)
-    (import
-     (lofi host test-utils))
-    (begin
-      (define (test-check)
-        #t)))
-   (else)))
+    ))

@@ -961,16 +961,4 @@
               (hash-table-set! renames key renamed)
               renamed))))
 
-    )
-
-  ;; ---- Tests ----
-
-  (cond-expand
-   (snail-tests
-    (export test-expand)
-    (import
-     (lofi host test-utils))
-    (begin
-      (define (test-expand)
-        #t)))
-   (else)))
+    ))

@@ -656,7 +656,8 @@
                  ((unit) '((i32.const 0)))
                  ((unsafe-total) (closure-call fn #f (car args) '() #f))
                  ((panic) `((call ,(panic-helper m) ,@code) (unreachable)))
-                 ((bool->i32 char->i32 i32->char) code)
+                 ;; Strings and character vectors share one representation.
+                 ((bool->i32 char->i32 i32->char string->vector vector->string) code)
                  ((i32->bool) `((i32.ne ,(car code) (i32.const 0))))
                  ((string-length vector-length array-length) `((i64.extend_i32_u (array.len ,(car code)))))
                  ((string-ref vector-ref array-ref)
@@ -669,7 +670,7 @@
                  ((substring subvector) `((call ,(slice-helper m (sequence-type m type)) ,@code)))
                  ((vector-set) `((call ,(set-helper m (sequence-type m type) (fn-rep fn (caddr arg-types))) ,@code)))
                  ((array->vector vector->array) `((call ,(copy-helper m (sequence-type m type)) ,@code)))
-                 ((array-copy!)
+                 ((array-copy! vector-copy!)
                   (let ((id (sequence-type m (car arg-types))))
                     `((array.copy ,id ,id ,(car code) ,(index (cadr code)) ,(caddr code) ,(index (cadddr code))
                                   ,(index (list-ref code 4)))

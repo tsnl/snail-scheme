@@ -527,6 +527,7 @@
         (string-append (-> String String String)) (substring (-> String I64 I64 String))
         (string=? (-> String String Bool)) (string-compare (-> String String I32))
         (make-string (-> I64 Char String))
+        (string->vector (-> String (Vector Char))) (vector->string (-> (Vector Char) String))
         (vector-length (-> (Vector A) I64)) (vector-ref (-> (Vector A) I64 A))
         (vector-append (-> (Vector A) (Vector A) (Vector A))) (subvector (-> (Vector A) I64 I64 (Vector A)))
         (make-vector (-> I64 A (Vector A))) (vector-set (-> (Vector A) I64 A (Vector A)))
@@ -536,6 +537,7 @@
         (array-ref (-> (Array A) I64 A ! mut)) (array-set! (-> (Array A) I64 A Unit ! mut))
         (array->vector (-> (Array A) (Vector A) ! mut)) (vector->array (-> (Vector A) (Array A) ! mut))
         (array-copy! (-> (Array A) I64 (Array A) I64 I64 Unit ! mut))
+        (vector-copy! (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut))
         (ref (-> A (Ref A) ! mut)) (ref-get (-> (Ref A) A ! mut)) (ref-set! (-> (Ref A) A Unit ! mut))))
 
     )

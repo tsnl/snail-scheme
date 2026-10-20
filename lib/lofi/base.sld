@@ -20,9 +20,10 @@
    char->integer integer->char char-whitespace? char-numeric? char-alphabetic? digit-value
    string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
+   string->vector vector->string
    vector-length vector-ref make-vector vector-generate vector-set vector-append subvector
    vector-map vector-for-each vector-fold vector->list list->vector
-   make-array array-length array-ref array-set! array->vector vector->array array-copy!
+   make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
    ref ref-get ref-set!)
   (import
    (lofi core)
@@ -416,18 +417,26 @@
 
     (: list->string (-> (List Char) String))
     (define (list->string chars)
-      (let ((vector (list->vector chars)))
-        (string-generate (vector-length vector) (lambda (index) (vector-ref vector index)))))
+      (vector->string (list->vector chars)))
 
+    ;; Copies each string once into one array of the total length.
     (: string-concatenate (-> (List String) String))
     (define (string-concatenate texts)
-      (fold-left string-append "" texts))
+      (unsafe-total
+       (lambda ()
+         (let ((chars (make-array (fold-left (lambda (total text) (+ total (string-length text))) 0 texts) #\space)))
+           (fold-left (lambda (offset text)
+                        (vector-copy! chars offset (string->vector text) 0 (string-length text))
+                        (+ offset (string-length text)))
+                      0 texts)
+           (vector->string (array->vector chars))))))
 
     (: string-join (-> (List String) String String))
     (define (string-join texts separator)
       (match texts
         ((Nil) "")
-        ((Cons first rest) (fold-left (lambda (joined text) (string-append joined (string-append separator text))) first rest))))
+        ((Cons first rest)
+         (string-concatenate (Cons first (fold-right (lambda (text joined) (Cons separator (Cons text joined))) (Nil) rest))))))
 
     (: string-index (-> String Char (Option I64)))
     (define (string-index text char)
