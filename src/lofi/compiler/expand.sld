@@ -544,6 +544,7 @@
              (methods (map (lambda (definition) (instance-method cx env class instance definition))
                            (if requires? (cdddr items) (cddr items)))))
         (check-instance-methods class methods (syntax-loc form))
+        (check-overlap (program cx) instance (syntax-loc form))
         (add-instance! (program cx) (Instance-methods-set instance (map (lambda (method) (cons (car method) (cadr method))) methods)))
         (map caddr methods)))
 
@@ -565,6 +566,24 @@
            (Scheme (append (Instance-vars instance) (drop method-vars (length class-vars)))
                    (append (Instance-requires instance) (map (lambda (c) (substitute-constraint substitution c)) own))
                    (substitute substitution type))))))
+
+    ;; Instance selection matches heads, so two heads may never both match
+    ;; the same types. A type variable in either head matches anything.
+    (define (check-overlap program instance loc)
+      (for-each (lambda (other)
+                  (when (every heads-overlap? (Instance-types instance) (Instance-types other))
+                    (compile-error loc "this instance overlaps another instance of the class")))
+                (class-instances program (Instance-class instance))))
+
+    (define (heads-overlap? a b)
+      (match a
+        ((TRigid _) #t)
+        ((TCon name args)
+         (match b
+           ((TRigid _) #t)
+           ((TCon other others) (and (eq? name other) (every heads-overlap? args others)))
+           (_ #f)))
+        (_ #t)))
 
     (define (check-instance-methods class methods loc)
       (for-each (lambda (method)
