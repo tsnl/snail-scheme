@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
+import {decodeObservation} from '../../apps/siegework/headless.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,restoreColony,fixtureCall,pixelAt,routeCell,setWorker} from './colony-state.mjs';
+import {MAP_WIDTH,establishColony,colony,restoreColony,fixtureCall,pixelAt,routeCell,setWorker} from './colony-state.mjs';
 
 export async function checkCrowd(test,fresh,bytes) {
   const state=r=>colony(r.snapshot(1)),call=fixtureCall;
@@ -77,8 +78,10 @@ export async function checkCrowd(test,fresh,bytes) {
   await test('lake banks reject sideways crowd lanes without interrupting forward movement',async()=>{
     const r=await fresh();await call(r,'new-run-seed',[2]);
     const world=state(r),point={x:23*40+20,y:42*40+20};
-    const path=Array.from({length:20},(_,i)=>23+(43+i)*64);
+    const path=Array.from({length:20},(_,i)=>23+(43+i)*MAP_WIDTH);
+    world.surveys.push({x:23,y:46,radius:7});
     await restoreColony(r,crowd(world,16,point,path));let width=0;
+    assert.equal(decodeObservation(r.observe()).tiles.find(tile=>tile.cell===22+46*MAP_WIDTH)?.terrain,2);
     for(let i=0;i<40;i++) {
       await advance(r);const enemies=state(r).enemies;width=Math.max(width,span(enemies,'x'));
       assert.ok(enemies.every(enemy=>enemy.x>=point.x),'the lake rejects the western parallel lane');

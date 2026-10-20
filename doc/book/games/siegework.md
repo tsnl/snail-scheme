@@ -9,7 +9,7 @@ materials and build your orders. You choose the sites and priorities.
 ## Your first colony
 
 1. **Tap the shimmering crystal deposit**, then choose Extractor. Construction
-   is **free**, but a drone must reach the site and assemble it. This first order
+   costs **25 ore**, and a drone must deliver its kit and assemble it. This first order
    starts the clock; take your time looking around before accepting it. Other
    purchases unlock afterward.
 2. **Build a tower** on empty ground to reveal more terrain and extend your
@@ -21,7 +21,8 @@ materials and build your orders. You choose the sites and priorities.
    runs out. Their approach directions are clues: deposits become more common
    near nests. Protect your route and advance your guns as you explore.
 
-Selecting a tile is free. On empty ground, the popup offers Tower and Artillery.
+Selecting a tile is free. Actions appear below the Q/E buttons, leaving the
+selected tile visible. On empty ground, choose Tower or Artillery.
 Choose a building explicitly; hovering its button previews the hologram.
 Repeated tile taps do not purchase anything. Tapping another tile moves your
 selection without spending ore. If an order
@@ -62,9 +63,10 @@ Workers are single-rotor drones. They keep mining, hauling and building when
 enemies approach. The floating crystal creatures attack the hub and structures
 rather than drones.
 
-Completed towers connect to the hub through straight aerial ziplines. A link
+Completed towers and extractors connect to the hub through straight aerial ziplines. A link
 needs clear cable sight and must fit within either endpoint's reveal radius;
-cyan guides show tower reach. Carts carry workers and ore above water and the
+cyan guides show outpost reach. Each extractor is also a 25-ore outpost,
+so it needs no neighboring tower to ship its output. Carts carry workers and ore above water and the
 current mountains. Workers still need accessible ground routes to reach a
 station or a building site. A distant project can stall if its route or supplies
 are inaccessible, or its site is no longer visible. Expand your observation
@@ -123,8 +125,10 @@ to move the camera to the trouble spot; its close button briefly mutes that area
 
 The first wave starts **45 seconds after your first extractor order**. Ordinary
 waves are 30 seconds apart and enemy strength increases every **90 seconds**.
-Stronger ranks and raids arrive as the run continues. There is no victory timer:
-you win by destroying every nest, and lose if the hub falls.
+The opening wave has eight enemies. Raids arrive every minute starting at 1:45;
+stronger ranks arrive as the run continues. There is no victory timer:
+you win by destroying every nest, and lose if the hub falls. The larger map has
+fewer optional resource sites, so following enemy approaches matters.
 
 Destroying a nest stops its future waves, lowers difficulty by **two levels**
 (to a minimum of one), and reveals a rich **2,400-ore deposit** beneath it.
@@ -139,6 +143,12 @@ If the hub falls, the entire map is revealed. **Pause → Resign** also ends the
 run and reveals the map after confirmation, preserving the colony for inspection.
 You can pan around before restarting; construction and purchases are stopped.
 
+The active game timer starts with your first accepted extractor. It freezes
+on pause and when the run ends. The results panel shows duration, kills,
+ore mined/spent/lost, surviving structures and drones, losses, cleared nests
+and seed. Choose **Map · Esc** to inspect the final colony; **Results** reopens
+this summary. These are current-state totals, not replay recordings.
+
 ## Saving and help
 
 Use a current Chromium browser with **WebGPU and WasmGC** support. The hosted game
@@ -150,9 +160,9 @@ time. Return with the same browser profile and website address to continue;
 clearing site data removes the save. A colony played on `localhost` does **not**
 automatically transfer to this website: browser storage belongs to its origin.
 
-The compact **64×64** map uses a new save identity. Colonies from the earlier
-128×128 map remain in their old browser record; their coordinates are not
-silently reinterpreted in the smaller world.
+The **80×80** map and paid extractor economy use a new save identity. Earlier
+colonies remain in their old browser records; their coordinates and material
+ledgers are not silently reinterpreted.
 
 Open **Pause → Help** to return to this guide in a new tab while the colony stays
 paused. Restart replaces your colony with a new seeded world after confirmation.

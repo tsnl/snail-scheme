@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,colonyBalance,restoreColony,at,setWorker,fixtureCall,pixelAt,routeCell, withdrawReserves} from './colony-state.mjs';
+import {MAP_WIDTH,MAP_HEIGHT,establishColony,colony,colonyBalance,restoreColony,at,setWorker,fixtureCall,pixelAt,routeCell, withdrawReserves} from './colony-state.mjs';
 
 export async function checkWorld(test,fresh) {
   const state=r=>colony(r.snapshot(1));
@@ -24,10 +24,10 @@ export async function checkWorld(test,fresh) {
     const r=await fresh(),spawns=new Set();
     for(const seed of [1,7,43,65535]) {
       await call(r,'new-run-seed',[seed]); const world=state(r),hub=world.surveys[0];
-      assert.ok((hub.x-32)**2+(hub.y-32)**2<=4**2); spawns.add(`${hub.x},${hub.y}`);
+      assert.ok((hub.x-MAP_WIDTH/2)**2+(hub.y-MAP_HEIGHT/2)**2<=4**2); spawns.add(`${hub.x},${hub.y}`);
       assert.ok(world.bots.every(bot=>bot.x===hub.x*40+20&&bot.y===hub.y*40+20));
       assert.deepEqual(world.nests.map(nest=>nest.hp),[900,900,900]); assert.equal(world.lastRevealTick,-100); assert.equal(world.outcome,0);
-      assert.equal(r.snapshot(1)[0],14);
+      assert.equal(r.snapshot(1)[0],15);
       const again=state(r); await call(r,'new-run-seed',[seed]); again.runMarker++;
       assert.deepEqual(state(r),again);
     }
@@ -44,7 +44,7 @@ export async function checkWorld(test,fresh) {
   await test('forward artillery destroys the final nest and that victory survives save and pause',async()=>{
     const r=await fresh(),point=at(state(r),10,23); await build(r,'fortify',point.x,point.y);
     const world=state(r),site=world.buildings[0],nest=world.nests[0]; Object.assign(site,{kind:2,level:1,armed:0,x:nest.x,y:nest.y+4,cooldown:0}); world.rails=[];
-    world.surveys.unshift({x:nest.x,y:nest.y+4,radius:4}); world.lastRevealTick=world.tick; world.nests.forEach(nest=>nest.hp=nest.id===0?6:0);
+    world.surveys.unshift({x:nest.x,y:nest.y+4,radius:6}); world.lastRevealTick=world.tick; world.nests.forEach(nest=>nest.hp=nest.id===0?6:0);
     await restoreColony(r,world); const bank=state(r).ore; await advance(r);
     assert.ok(state(r).nests.every(nest=>nest.hp===0)); assert.equal(state(r).outcome,3); assert.equal(state(r).ore,bank);
     assert.deepEqual([state(r).buildings[0].aimX,state(r).buildings[0].aimY],[nest.x*40+20,nest.y*40+20]);

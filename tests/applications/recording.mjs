@@ -6,7 +6,7 @@ import {RunRecording, encodeChange, applyChange} from '../../src/application/rec
 import {SnapshotPlayback} from '../../src/application/playback.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {LocalState} from '../../src/application/local.mjs';
-import {colony, colonyWords, at} from './colony-state.mjs';
+import {MAP_WIDTH,colony, colonyWords, at} from './colony-state.mjs';
 import {analyzeRecording} from '../../apps/siegework/analyze-recording.mjs';
 
 let count = 0;
@@ -194,13 +194,13 @@ if (process.argv[2]) {
     const runtime=await fresh(),local=new LocalState(runtime),point=at(colony(runtime.snapshot(1)),12,20);
     await local.submit(runtime.command('match','extract',[point.x,point.y]));
     for(let tick=0;tick<40;tick++)await local.submit(runtime.command('match','advance'));
-    const world=colony(runtime.snapshot(1)),deposit=world.deposits.find(site=>site.cell===point.x+point.y*64);
+    const world=colony(runtime.snapshot(1)),deposit=world.deposits.find(site=>site.cell===point.x+point.y*MAP_WIDTH);
     world.produced+=deposit.remaining-2;world.lostOre+=deposit.remaining-2;deposit.remaining=2;world.tick=49;
     Object.assign(world.bots[0],{x:point.x*40+20,y:point.y*40+20,job:8,target:world.buildings[0].id,cargo:0,path:[]});
     const nest=world.nests[0];nest.hp=6;const x=nest.x,y=nest.y+4;
     world.buildings.push({id:world.nextId++,kind:2,x,y,level:1,hp:100,stock:0,stage:2,cooldown:0,
       aimX:x*40+20,aimY:y*40+20,armed:0,source:0,moveX:-1,moveY:-1});
-    world.surveys.push({x,y,radius:4});world.spent+=50;world.ore-=50;
+    world.surveys.push({x,y,radius:6});world.spent+=50;world.ore-=50;
     await local.restore(colonyWords(world));const recording=runtime.recording=RunRecording.start(runtime);
     await local.submit(runtime.command('match','advance'));
     const playback=await SnapshotPlayback.open(bytes,manifest,await roundTrip(recording)),observed=playback.inspect();

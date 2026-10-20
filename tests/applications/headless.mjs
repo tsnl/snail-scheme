@@ -6,7 +6,7 @@ import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {openEnvironment, decodeObservation} from '../../apps/siegework/headless.mjs';
-import {colony, restoreColony, at, pixelAt, setWorker} from './colony-state.mjs';
+import {MAP_WIDTH,MAP_HEIGHT,colony, restoreColony, at, pixelAt, setWorker} from './colony-state.mjs';
 
 const directory = resolve(process.argv[2]);
 const manifest = JSON.parse(readFileSync(join(directory, 'manifest.json'))), bytes = readFileSync(join(directory, manifest.module));
@@ -46,7 +46,7 @@ await test('default observations are player knowledge and the headless path does
     const environment = await openEnvironment(directory), {observation} = await environment.observe();
     assert.equal(observation.tick, 0); assert.equal(observation.started, 0); assert.equal(observation.ore, 160);
     assert.equal(observation.nests.length, 0); assert.equal(observation.enemies.length, 0);
-    assert.ok(observation.tiles.length > 200 && observation.tiles.length < 64 * 64);
+    assert.ok(observation.tiles.length > 200 && observation.tiles.length < MAP_WIDTH * MAP_HEIGHT);
     assert.ok(observation.buildCandidates.every(candidate => candidate.kind === 1));
     assert.equal(observation.purchaseReasons.fabricate, 38);
     assert.equal('nestHp' in observation, false); assert.equal('oreRemaining' in observation, false);
@@ -65,8 +65,8 @@ await test('same seeds and public actions match exact browser World snapshots an
       [{type: 'fabricate'}, 'fabricate-worker', [], 2], [{type: 'repair'}, 'repair-hub', [], 0],
       [{type: 'pause', paused: true}, 'pause-colony', [1], 10], [wait, null, [], 5],
       [{type: 'pause', paused: false}, 'pause-colony', [0], 10],
-      [{type: 'upgrade', cell: build.cell}, 'upgrade', [build.cell % 64, Math.floor(build.cell / 64)], 0],
-      [{type: 'cancel', cell: build.cell}, 'cancel-building', [build.cell % 64, Math.floor(build.cell / 64)], 1],
+      [{type: 'upgrade', cell: build.cell}, 'upgrade', [build.cell % MAP_WIDTH, Math.floor(build.cell / MAP_WIDTH)], 0],
+      [{type: 'cancel', cell: build.cell}, 'cancel-building', [build.cell % MAP_WIDTH, Math.floor(build.cell / MAP_WIDTH)], 1],
       [{type: 'relocate', from: build.cell, to: build.cell + 1}, 'relocate-building', [build.cell, build.cell + 1], 1]];
     for (const [action, name, args, ticks] of actions) {
       const result = await environment.step(action, ticks);
@@ -86,7 +86,7 @@ await test('complete request validation and FIFO ownership prevent partial malfo
   const environment = await openEnvironment(directory, {diagnostics: true}), build = extractor((await environment.observe()).observation);
   const before = await snapshot(environment);
   for (const [action, ticks] of [[build, -1], [build, 601], [build, NaN], [build, 1.2],
-    [{...build, kind: 4}, 1], [{...build, cell: 4096}, 1], [{...build, extra: 1}, 1],
+    [{...build, kind: 4}, 1], [{...build, cell: (MAP_WIDTH*MAP_HEIGHT)}, 1], [{...build, extra: 1}, 1],
     [{type: 'new-run-seed'}, 1], [{type: 'pause', paused: 1}, 1], [null, 0]]) {
     await assert.rejects(environment.step(action, ticks)); assert.deepEqual(await snapshot(environment), before);
   }
@@ -137,7 +137,7 @@ await test('game-rejected purchases preserve their decision and still perform th
   const environment = await openEnvironment(directory), opening = await environment.step({type: 'fabricate'}, 5);
   assert.equal(opening.observation.hub.notice, 38); assert.equal(opening.observation.ore, 160); assert.equal(opening.info.ticksAdvanced, 0);
   const build = await start(environment), rejected = await environment.step(build, 3);
-  assert.equal(rejected.info.buildReason, 3); assert.equal(rejected.observation.ore, 160);
+  assert.equal(rejected.info.buildReason, 3); assert.equal(rejected.observation.ore, 135);
   assert.equal(rejected.info.ticksAdvanced, 3); await environment.close();
 });
 
@@ -149,7 +149,7 @@ await test('hidden nest health and enemies do not appear through observations or
   await restoreColony(runtime, world); assert.deepEqual(decodeObservation(runtime.observe()), before);
   world.surveys.push({x: nest.x, y: nest.y, radius: 4}); await restoreColony(runtime, world);
   const known = decodeObservation(runtime.observe()); assert.equal(known.enemies.length, 0);
-  assert.deepEqual(known.nests, [{id: nest.id, cell: nest.x + nest.y * 64, hp: -1}]);
+  assert.deepEqual(known.nests, [{id: nest.id, cell: nest.x + nest.y * MAP_WIDTH, hp: -1}]);
   for (const tile of known.tiles.filter(tile => !tile.visible)) {
     assert.equal(tile.oreRemaining, -1); assert.equal(tile.rockRemaining, -1);
     assert.equal(known.buildCandidates.some(candidate => candidate.cell === tile.cell), false);
@@ -168,7 +168,7 @@ await test('actual victory takes precedence over the horizon and cannot earn ter
     world.buildings.push({id: world.nextId++, kind: 2, x: nest.x, y: nest.y + 4, level: 1, hp: 100,
       stock: 0, stage: 2, cooldown: 0, aimX: nest.x * 40 + 20, aimY: (nest.y + 4) * 40 + 20,
       armed: 0, source: 0, moveX: -1, moveY: -1});
-    world.surveys.push({x: nest.x, y: nest.y + 4, radius: 4});
+    world.surveys.push({x: nest.x, y: nest.y + 4, radius: 6});
   }, {horizonTicks: 1});
   const result = await environment.step(wait, 5);
   assert.equal(result.terminated, true); assert.equal(result.truncated, false); assert.equal(result.reward, 1);
@@ -193,7 +193,7 @@ await test('resign is a distinct intact terminal result with zero advanced ticks
   const before=colony(await snapshot(environment)),result=await environment.step({type:'resign'},20);
   assert.equal(result.terminated,true);assert.equal(result.truncated,false);assert.equal(result.info.outcome,'resigned');
   assert.equal(result.info.ticksAdvanced,0);assert.equal(result.reward,0);assert.equal(result.observation.hull,300);
-  assert.equal(result.observation.tiles.length,4096);assert.deepEqual(colony(await snapshot(environment)),{...before,outcome:4});
+  assert.equal(result.observation.tiles.length,(MAP_WIDTH*MAP_HEIGHT));assert.deepEqual(colony(await snapshot(environment)),{...before,outcome:4});
   await assert.rejects(environment.step(wait,1),/episode ended/);await environment.reset(1);
   assert.equal((await environment.observe()).observation.outcome,0);await environment.close();
 });

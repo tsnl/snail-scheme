@@ -14,7 +14,7 @@ const results=[],orderJournal=[];
 const query=(operation,seed,cell=0)=>invokeEntry(probe,[operation,seed,cell]);
 const width=query(6,1),height=query(7,1),square=(a,b)=>(a.x-b.x)**2+(a.y-b.y)**2;
 const ready=site=>site.stage===2||site.stage>=4;
-const radius=site=>site.kind===4?0:site.kind===3?(site.level===1?7:10):4;
+const radius=site=>site.kind===4?0:(site.kind===1||site.kind===3)?(site.level===1?7:10):6;
 const hubOf=world=>world.surveys.find(survey=>survey.radius===9);
 const pixelCell=entity=>({x:(entity.x-20)/40,y:(entity.y-20)/40});
 
@@ -66,7 +66,9 @@ async function decide(runtime,world,known,direction,nest) {
   const hub=hubOf(world),sites=world.buildings,points=choices(world,known);
   const mines=sites.filter(site=>site.kind===1),guns=sites.filter(site=>site.kind===2),towers=sites.filter(site=>site.kind===3);
   const open=points.filter(point=>point.value===1),progress=point=>bearing(point,hub,direction);
-  const abandoned=towers.find(site=>!ready(site)&&!visible(world,site));
+  // Lost observers can strand any unfinished project; cancellation releases
+  // that paid order before the policy considers currently visible sites.
+  const abandoned=sites.find(site=>!ready(site)&&!visible(world,site));
   if(abandoned)return purchase(runtime,world,'cancel-building',[abandoned.x,abandoned.y]);
   const resource=points.filter(point=>point.value>=10&&remaining(world,point)>0).sort((a,b)=>square(a,hub)-square(b,hub));
   if(!mines.length)return place(runtime,world,resource,1);
@@ -91,7 +93,8 @@ async function decide(runtime,world,known,direction,nest) {
   if(homeUpgrade&&world.ore>=65)return purchase(runtime,world,'upgrade',[homeUpgrade.x,homeUpgrade.y]);
   if(world.hull<200&&world.ore>=100)return purchase(runtime,world,'repair-hub',[]);
   const forwardTowers=towers.filter(site=>ready(site)&&progress(site)>5).sort((a,b)=>progress(b)-progress(a));
-  const frontier=nest??forwardTowers[0];
+  const observedNest=nest&&visible(world,nest)?nest:null;
+  const frontier=observedNest??forwardTowers[0];
   if(frontier&&guns.every(site=>!ready(site)||square(site,frontier)>25)) {
     if(world.ore<90||guns.some(site=>!ready(site)&&square(site,frontier)<=25))return false;
     const candidates=open.filter(point=>square(point,frontier)<=9&&progress(point)>=progress(frontier));
@@ -99,11 +102,11 @@ async function decide(runtime,world,known,direction,nest) {
   }
   const forwardGun=guns.find(site=>site.level<3&&site.stage===2&&progress(site)>5);
   if(forwardGun&&world.ore>=65)return purchase(runtime,world,'upgrade',[forwardGun.x,forwardGun.y]);
-  if(nest&&world.ore>=90&&guns.filter(site=>square(site,nest)<=36).length<3) {
-    const candidates=open.filter(point=>square(point,nest)<=25);
-    if(await place(runtime,world,candidates.sort((a,b)=>square(a,nest)-square(b,nest)),2))return true;
+  if(observedNest&&world.ore>=90&&guns.filter(site=>square(site,observedNest)<=36).length<3) {
+    const candidates=open.filter(point=>square(point,observedNest)<=25);
+    if(await place(runtime,world,candidates.sort((a,b)=>square(a,observedNest)-square(b,observedNest)),2))return true;
   }
-  if(!nest&&world.ore>=65&&!towers.some(site=>!ready(site))) {
+  if(!observedNest&&world.ore>=65&&!towers.some(site=>!ready(site))) {
     const candidates=open.filter(point=>towers.every(site=>square(site,point)>=25));
     const nextResource=[...known.values()].filter(point=>point.value>=10&&remaining(world,point)>0&&!mines.some(site=>square(site,point)===0))
       .sort((a,b)=>square(a,hub)-square(b,hub))[0];
@@ -165,11 +168,16 @@ for(const seed of [1]) {
   assert.equal(world.produced+world.deposits.reduce((sum,site)=>sum+site.remaining,0),originalOre);
   for(const nest of world.nests)if(nest.hp===0&&!clearTicks.has(nest.id))clearTicks.set(nest.id,world.tick);
   assert.ok(world.produced>600&&world.spent>160,'the expedition funds expansion beyond its finite starter');
-  // A compact expedition can win before mining the last few starter units.
-  // Exact exhaustion is covered in colony-reserves; this policy must expand
-  // while drawing down at least 90% of its finite opening supply.
-  assert.ok(world.deposits[0].remaining<=60&&checkpoints.some(sample=>sample.mines.length>1),
-    'ordinary orders reach a second mine and consume most of the starter reserve');
+  // Extractor sight can reveal richer opening mines before the starter drains.
+  // Expansion must operate a second mine and draw down one guaranteed opening
+  // reserve by 90%; choosing the richer mine is valid. Colony-reserves checks
+  // exact starter exhaustion separately, and conservation is checked above.
+  const openingCapacities=[600,900,1800],initialReserves=new Map(allDeposits.map(deposit=>[deposit.cell,deposit.remaining]));
+  const openingDrawnDown=world.deposits.slice(0,3).some((deposit,index)=>deposit.remaining<=openingCapacities[index]/10);
+  const secondMineOperated=checkpoints.some(sample=>sample.mines
+    .filter(mine=>mine.remaining<initialReserves.get(mine.x+mine.y*width)).length>1);
+  assert.ok(openingDrawnDown&&secondMineOperated,
+    'ordinary orders operate a second mine and consume most of one opening reserve');
   const result={seed,initialMineableOre,initialLockedOre,originalOre,outcome:world.outcome,minutes:world.tick/600,firstExtraction,discoveries:[...discoveries],firstShot,
     clears:[...clearTicks],depletions:[...depletionTicks],orders,nests:world.nests.map(nest=>nest.hp),ore:world.ore,produced:world.produced,
     delivered:world.delivered,localSpent:world.localSpent,lostOre:world.lostOre,spent:world.spent,hull:world.hull,casualties:world.casualties,lost:world.lost,kills:world.kills,
@@ -178,4 +186,4 @@ for(const seed of [1]) {
 }
 closeInstance(probe);
 if(process.argv[4])writeFileSync(process.argv[4],JSON.stringify({generation:manifest.generation,
-  policy:'Seed-one north, southeast, southwest expedition; visible tiles only; public orders every two seconds; no snapshot edits, free ore or removed enemies. Free extractors still require worker construction. Losses and clear times are reported without requiring victory. Discovery and depletion are observed every two seconds. This is a pressure observation, not a general search strategy or normal-player duration.',results},null,2)+'\n');
+  policy:'Seed-one north, southeast, southwest expedition; visible tiles only; public orders every two seconds; no snapshot edits, free ore or removed enemies. Extractors cost 25 ore and require transported construction kits. Unfinished projects that lose all current sight are cancelled through public orders; remembered nests need current sight before offensive construction. Losses and clear times are reported without requiring victory. Discovery and depletion are observed every two seconds. This is a pressure observation, not a general search strategy or normal-player duration.',results},null,2)+'\n');

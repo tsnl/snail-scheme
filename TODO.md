@@ -60,6 +60,22 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
+- [x] Dock contextual construction actions below Q/E without covering the selected
+      tile; label Escape clearly and retain explicit order cancellation.
+- [x] Restore 25-ore extractor construction and make mines transport outposts,
+      sharing deposit/zipline behavior with towers while retaining mining upgrades.
+- [x] Give artillery sight through its full firing range so clear nearby nests
+      do not require a separate observation tower.
+- [x] Increase the map to an intermediate size, reduce optional resource sites
+      again, and increase siege pressure without stretching the intended run.
+- [x] Show elapsed active game time and a terminal analysis screen using real
+      resource, combat, construction and exploration totals.
+
+- [x] Replace the hidden two-worker quota and 50-ore cache with stable mining
+      assignments, useful idle builders and direct extractor freight.
+- [x] Keep returning local construction kits on their drone until the source
+      mine has capacity; cover freight release and cancellation/refunds.
+
 - [x] Halve expected bonus resource sites while preserving opening reserves,
       rich defeated-nest deposits and stronger density near nests; use an explicit
       World14 save boundary for the changed deposit ledger.
@@ -74,12 +90,12 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Replace last-built previews and double-click purchases with a neutral
       construction marker and explicit chooser actions; hover previews that action.
 - [x] Add Resign with confirmation and frozen full-map inspection.
-- [x] Make extractor construction free while retaining worker construction,
-      paid upgrades and exact refunds for actual investment.
+- [x] Trial free extractor construction, later superseded by 25-ore transport
+      extractors after playtesting showed destruction needed an economic cost.
 - [x] Explain the link between crystal enemies, nests and richer deposits in
       opening guidance and the pause menu.
-- [x] Reduce the map to 64×64, a quarter of its previous area, with an explicit
-      save-version boundary rather than reinterpreting old cell coordinates.
+- [x] Trial a 64×64 map, later adjusted to 80×80 after playtesting; retain
+      explicit save boundaries rather than reinterpreting old cell coordinates.
 
 - [x] Try calm workers: enemies attack only structures, workers keep their jobs,
       and old fleeing saves resume their cargo and paid work safely.

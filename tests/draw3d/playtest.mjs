@@ -406,9 +406,10 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
     w.alerts=[0,1,4].map((kind,index)=>({x:hub.x+index*2,y:hub.y,kind,tick:w.tick}));await restoreColony(r,w);
     for(const [width,height]of[[320,568],[390,844],[568,320],[640,360]])for(const leftHanded of [false,true]) {
       await command(r,'viewport',[width,height]);
-      await restoreClient(r,{...local(r),chooser:true,targetX:target.x,targetY:target.y,cursorX:target.x,cursorY:target.y,leftHanded});
+      await restoreClient(r,{...local(r),chooser:false,targetX:target.x,targetY:target.y,cursorX:target.x,cursorY:target.y,leftHanded});
       const before=project(r,12,22),wanted=[leftHanded?40:width-40,height-110];
-      await command(r,'drag',wanted.map((value,index)=>value-before[index]));const point=project(r,12,22);
+      await command(r,'drag',wanted.map((value,index)=>value-before[index]));
+      await command(r,'confirm');const point=project(r,12,22);
       const card=node(r,'context');assert.ok(card);const origin=[];
       function place(value,x=0,y=0){x+=value.rect[0];y+=value.rect[1];if(value.key==='context')origin.push(x+12,y+12);for(const child of value.children)place(child,x,y);}
       place(r.view().ui);const rect=[...origin,...card.rect.slice(2)];
@@ -416,10 +417,10 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
       for(const inset of r.view().scene.insets??[]) {
         const value=inset.rect;assert.ok(point[0]<value[0]||point[0]>value[0]+value[2]||point[1]<value[1]||point[1]>value[1]+value[3],'attack thumbnail does not cover the selected tile');
       }
-      function inspect(value,x=0,y=0){x+=value.rect[0];y+=value.rect[1];if(value.key.startsWith('attack-toast-'))assert.ok(point[0]<x+12||point[0]>x+12+value.rect[2]||point[1]<y+12||point[1]>y+12+value.rect[3],'attack card leaves the second-tap target clear');for(const child of value.children)inspect(child,x,y);}
+      function inspect(value,x=0,y=0){x+=value.rect[0];y+=value.rect[1];if(value.key.startsWith('attack-toast-'))assert.ok(point[0]<x+12||point[0]>x+12+value.rect[2]||point[1]<y+12||point[1]>y+12+value.rect[3],'attack card leaves the selected target clear');for(const child of value.children)inspect(child,x,y);}
       inspect(r.view().ui);
     }
-    console.log('ok - narrow mirrored popups and attack cards leave the selected tile available for inspection');
+    console.log('ok - selecting near either dock keeps the tile and attack cards clear after the camera adjustment');
   } finally {await r.close();}
 }
 

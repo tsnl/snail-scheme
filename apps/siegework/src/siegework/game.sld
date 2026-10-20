@@ -26,8 +26,12 @@
 
     ;; ---- The match owns colony orders and one deterministic clock ----
 
-    (application match-app (state World 14) (initial-world)
-                 (advance (state) (no-effects (advance-world state)))
+    (application match-app (state World 15) (initial-world)
+                 (advance (state)
+                          (let ((next (advance-world state)))
+                            (transition next (if (and (= (world-outcome state) 0) (> (world-outcome next) 0))
+                                                 (list (enqueue (destination client-owner client-app) (show-results)))
+                                                 (empty-list)))))
                  (extract (state (x I32) (y I32)) (no-effects (extract-world state x y)))
                  (fortify (state (x I32) (y I32)) (no-effects (fortify-world state x y)))
                  (observe (state (x I32) (y I32)) (no-effects (observe-world state x y)))
@@ -173,7 +177,17 @@
              (state (if (hub-cell? world (client-x state) (client-y state))
                         (client-y-set (client-x-set state (world-hub-x world)) (world-hub-y world)) state)))
         (if (and (inside? (client-x state) (client-y state)) (known? world (client-x state) (client-y state)))
-            (client-choice-kind-set (choose-site state) 0) state)))
+            (reveal-selected-site world (client-choice-kind-set (choose-site state) 0)) state)))
+    (define (reveal-selected-site world state)
+      (let* ((area (hud-layout world (client-context world state)))
+             (point (cell-screen-position (client-camera state) (target-x state) (target-y state)
+                                          (client-width state) (client-height state)))
+             (x (projected-point-x point)) (y (projected-point-y point))
+             (left (+ (rect-x area) 12)) (right (+ left (rect-width area))))
+        (if (and (= (world-outcome world) 0) (> x (- left 24)) (< x (+ right 24))
+                 (> y (- (+ (rect-y area) 12) 24)) (< y (+ (+ (rect-y area) (rect-height area)) 36)))
+            (drag-client state (- (if (client-left-handed state) (quotient (+ right (client-width state)) 2) (quotient left 2)) x) 0)
+            state)))
     ;; One local placement occupies its slot through the attempted write and
     ;; ordered replies. Accepted sites become inspect-only before it is released.
     (define (submit-build world state kind)
@@ -307,6 +321,13 @@
     (define (receive-resign-state state outcome)
       (if (and (= outcome 4) (= (client-dialog-pending state) 4) (= (client-dialog-result state) 0))
           (client-dialog-result-set state 1) state))
+    ;; A terminal chooser means map inspection; closing it shows the results.
+    ;; The existing selection bit is sufficient and keeps Client schema eight.
+    (define (dismiss-selection state)
+      (let ((world (context-world)))
+        (if (= (world-outcome world) 0) (clear-choice state)
+            (client-target-y-set (client-target-x-set (client-chooser-set (clear-choice state) #t)
+                                                      (world-hub-x world)) (world-hub-y world)))))
     (application client-app (state Client 8) (initial-client)
                  (move (state (x I32) (y I32))
                        (no-effects (if (dialog-open? state) state (point-client state x y))))
@@ -369,7 +390,8 @@
                                         ((= (client-dialog state) 2) (cancel-restart state))
                                         ((dialog-open? state) (resume-colony state))
                                         ((build-pending? state) (no-effects state))
-                                        (else (no-effects (clear-choice state)))))
+                                        (else (no-effects (dismiss-selection state)))))
+                 (show-results (state) (no-effects (if (= (world-outcome (context-world)) 0) state (clear-choice state))))
                  (cancel (state)
                          (if (selection-open? state)
                              (send-request (clear-choice state) (cancel-building (target-x state) (target-y state))) (no-effects state)))
@@ -418,9 +440,9 @@
     (define (decode-client words) (validate-client (ann (decode-snapshot words) Client)))
     (define actions
       (hud-actions construct preview (improve) (scavenge) (fabricate) turn (repair) (home) (dismiss) (cancel)
-                   (restart) (accept-restart) (dismiss-restart) (resign-menu) (accept-resign) (dismiss-resign) (pause-menu) (resume) handedness))
+                   (restart) (accept-restart) (dismiss-restart) (resign-menu) (accept-resign) (dismiss-resign) (pause-menu) (resume) handedness (show-results)))
     (define (world-viewport client)
-      ;; Cards overlay the world; UI layout never changes camera or picking.
+      ;; The renderer and picker share the full viewport; selection can pan clear of the dock.
       (rect 0 0 (client-width client) (client-height client)))
     (define (client-context world client)
       (let* ((starter (if (client-chooser client) -1 (starter-deposit world)))

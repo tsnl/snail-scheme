@@ -32,10 +32,10 @@ async function loaded(r) {
 }
 
 export async function checkHub(test,fresh,bytes) {
-  await test('World14 compact map rejects old geography and uses a distinct storage identity',async()=>{
+  await test('World15 expanded map rejects old geography and uses a distinct storage identity',async()=>{
     const r=await fresh(),fixture=JSON.parse(readFileSync(new URL('./siegework-world10.json',import.meta.url)));
     const saved=r.snapshot(1),record={format:1,application:fixture.application,contract:fixture.contract,snapshot:{revision:17,state:fixture.world}};
-    assert.equal(r.manifest.settings.id,'siegework-colony-v14');assert.equal(saved[0],14);
+    assert.equal(r.manifest.settings.id,'siegework-colony-v15');assert.equal(saved[0],15);
     assert.throws(()=>readRecord(record,r.manifest.settings.id,saveContract(r.manifest)),/incompatible/);
     await assert.rejects(()=>r.restore(1,fixture.world),/invalid snapshot schema/);
     assert.deepEqual(r.snapshot(1),saved);assert.equal(record.snapshot.state[0],10);
@@ -76,7 +76,7 @@ export async function checkHub(test,fresh,bytes) {
     assert.equal(state(r).ore,pending.ore+5); assert.equal(state(r).buildings[0].moveX,-1);
     const bank=state(r).ore; await advance(r,3); assert.equal(state(r).ore,bank); await r.close();
     const legacy=await fresh(); await call(legacy,'fortify',[10,23]); await until(legacy,world=>world.buildings[0]?.stage===2);
-    const world=state(legacy); Object.assign(world.buildings[0],at(world,9,23));world.surveys.push({...at(world,9,23),radius:4});
+    const world=state(legacy); Object.assign(world.buildings[0],at(world,9,23));world.surveys.push({...at(world,9,23),radius:6});
     await restoreColony(legacy,world); await roundTrip(legacy); await advance(legacy);
     assert.deepEqual([state(legacy).buildings[0].x,state(legacy).buildings[0].y],Object.values(at(world,9,23)));
     await legacy.close();
