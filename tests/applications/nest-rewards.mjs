@@ -136,10 +136,13 @@ await test('importing a different cleared front invalidates cached reserve geome
   const r=await fresh();try{
     const w=state(r);w.started=true;w.nests.forEach(n=>w.surveys.push({x:n.x,y:n.y,radius:4}));
     w.nests[0].hp=0;await restoreColony(r,w);await center(r,w.nests[0]);
-    const before=Array.from(r.view().scene.batches.find(b=>b.key===7).transforms);
+    const before=Array.from(r.view().scene.batches.find(b=>b.key===7).transforms),nest=w.nests[0];
+    const containsSite=transforms=>transforms.some((_,index)=>index%12===3
+      &&Math.abs(transforms[index]-nest.x)<1e-6&&Math.abs(transforms[index+4]+nest.y)<1e-6);
+    assert.ok(containsSite(before),'cleared front has a crystal instance at its reserve');
     w.nests[0].hp=900;w.nests[1].hp=0;await restoreColony(r,w);
     const after=Array.from(r.view().scene.batches.find(b=>b.key===7).transforms);
-    assert.notDeepEqual(after,before);assert.ok(after.length<before.length);
+    assert.notDeepEqual(after,before);assert.equal(containsSite(after),false,'the sealed reserve loses its crystal instance');
   }finally{await r.close();}
 });
 
