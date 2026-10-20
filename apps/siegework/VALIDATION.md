@@ -1,3 +1,57 @@
+# Siegework validation
+
+## Compact World13 and readable crystal colonies
+
+The checked package is generation `c82b9683241ce6cf4f91e0de`, with a
+653,188-byte simulation and SHA-256
+`cabce8c1f28fdcbccb95ddf600e4ab4b6c64ec0148492f9c914d18fa06bc1b2e`.
+It uses `siegework-colony-v13`, World13/payload revision 1 and Client8. World12
+records remain under their old identity and reject before coordinate decoding.
+The smaller map starts a fresh colony; this is an explicit compatibility boundary.
+
+Executed against freshly compiled game and fixture binaries:
+
+- 277 application integration checks, including seven new compact-world groups,
+  free physical construction, exact cancellation/refund accounting, in-flight
+  resignation, invalid imports and durable menu failure/retry behavior.
+- 19 headless/JSONL/MCP checks, five nest reward/visibility groups, 12 retained
+  recording-library checks, 27 rendering groups and five onboarding groups.
+- All 65,535 seed placements and 194 sampled map viability cases, plus seeded
+  route, visibility, water, excavation and independent search comparisons.
+- 32 resource-distribution samples: 21.28 / 4.56 / 1.26 deposits per 1,000 eligible
+  ground cells in the near (within seven), approach (seven to twelve) and farther
+  bands. Samples exclude the ten-cell protected opening and nest centers.
+- A deterministic public-order expedition cleared all three nests at tick 3,836
+  (6:23.6), with 63 orders, 2,334 ore produced, 1,850 spent and intact hub health.
+  The finite starter retained 18 ore: the pacing check allows a small remainder
+  on victory, while dedicated reserve tests prove exact exhaustion separately.
+- Max-DPS: all 20 waves clear at 0.5× available DPS with discoveries every three
+  minutes. The 64-seed starter budget guardrail and real seed-one sprint pass;
+  the latter reaches its second operational mine at tick 84 using free extractors.
+
+Actual headed Chromium WebGPU checks used an isolated profile and software
+Vulkan. Desktop/portrait quarter turns prove both colors on coincident range
+edges, readable models, central cable alignment and crystal shimmer without
+rebuilding its retained batch. Sixteen UI browser groups cover mouse/touch
+construction, hover previews, delayed/failed saves, reload and all terminal
+outcomes on both control sides. Six icon groups check the pinned Font Awesome
+SVG, Scavenge, Cancel and defeat text; final portrait/landscape checks cover
+Resign confirmation styling. These establish correctness, not hardware FPS.
+
+`make check` and all nine book/Pages assembly checks pass. The application script
+compiled the game and every fixture freshly; after updating old map/model/pacing
+assumptions, its runtime and remaining stages were rerun using those same binaries.
+No production rule was changed to satisfy an obsolete fixture.
+
+A fresh no-history Astra HIGH explainer reviewed free construction, resource
+ownership, resignation and save geometry, then refined the model under challenge.
+The comparison retained existing jobs, completed levels and derived visibility;
+it added no free-material item, investment ledger or persistent reveal history.
+Earlier implementation-agent clarity passes were local because their initial
+explainer attempts hit the concurrent thread limit.
+
+The following checkpoints are historical and retain their original versions.
+
 ## Nest reserves, resource gradient and defeat inspection
 
 The local artifact `/tmp/snail-siegework-nest-reward-final-20261019/solo` has

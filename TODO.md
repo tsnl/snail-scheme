@@ -60,6 +60,27 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
+- [x] Keep range boundaries on their original edges; split only coincident
+      orange/cyan segments into adjacent strokes of the usual thickness.
+- [x] Use Font Awesome's actual recycle SVG, with attribution in the bundle.
+- [x] Give hub ziplines a visible central junction that matches flight geometry.
+- [x] Replace humanoid workers with single-rotor drones and simplify the
+      extractor silhouette. Use floating Platonic solids and clusters for
+      enemies, visually related to the resource crystals.
+- [x] Gently animate resource crystals to draw attention to discoveries.
+- [x] Replace last-built previews and double-click purchases with a neutral
+      construction marker and explicit chooser actions; hover previews that action.
+- [x] Add Resign with confirmation and frozen full-map inspection.
+- [x] Make extractor construction free while retaining worker construction,
+      paid upgrades and exact refunds for actual investment.
+- [x] Explain the link between crystal enemies, nests and richer deposits in
+      opening guidance and the pause menu.
+- [x] Reduce the map to 64×64, a quarter of its previous area, with an explicit
+      save-version boundary rather than reinterpreting old cell coordinates.
+
+- [x] Try calm workers: enemies attack only structures, workers keep their jobs,
+      and old fleeing saves resume their cargo and paid work safely.
+
 - [x] Increase transport-line contrast and replace the nest count with hollow
       stars that fill as nests are defeated; publish the checked preview on 4212.
 - [x] Replace world-space numeric ore badges with compact green HP bars and
@@ -68,6 +89,13 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Replace ground transport with straight elevated ziplines. A connection
       requires clear cable sight and distance within either endpoint's actual
       reveal radius. Show matching tower guides and lower the building models.
+- [x] Render ziplines as single solid, constant-color meshes without pulsing
+      glow or contrasting outlines; preserve flight and reveal guides.
+- [x] Separate overlapping tower and turret range outlines so both guide
+      colors remain visible without changing their gameplay ranges.
+- [x] Compare walking with bidirectional, multi-hop zipline travel using elapsed
+      time, and refresh queued walking plans when new service can shorten them.
+      Keep bounded searches, captured flights and paid cargo ownership intact.
 - [x] Reveal one rich, mineable deposit when a nest is destroyed; award no
       instant ore. Increase deposit density significantly toward nests so enemy
       approach directions also guide mining exploration. Preserve home deposits.
@@ -85,7 +113,8 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Reduce tower height so deposits behind towers remain accessible.
 - [x] Clicking outside a build chooser dismisses it and acts on the new tile.
 - [x] Remove the Move button and M binding.
-- [x] Workers flee with shaking and sweat droplets.
+- [x] Workers keep working near enemies; this supersedes the earlier fleeing,
+      shaking and sweat animation experiment.
 - [x] Workers visibly carry ore or construction supplies, with destination markers.
 - [x] An existing worker must assemble a paid new worker; production is not instant.
 - [x] Towers and artillery share interchangeable 25-ore construction kits:
@@ -103,7 +132,7 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Keep the hub stationary; win by finding and destroying the nest.
 - [x] Waves strengthen over time rather than ending at an eight-minute deadline.
 - [x] Bound rendering and pathfinding work instead of processing every tile each
-      frame. The earlier larger map is superseded by the compact 128×128 expedition.
+      frame. The earlier larger map is superseded by the compact 64×64 expedition.
 - [x] Randomize player spawn inside a circle near the map center.
 - [x] Randomize nest position; approaching waves provide costly directional clues.
 - [x] Keep seeded maps reproducible; use fresh randomness for new runs.
@@ -167,6 +196,14 @@ source edits remain unchecked until compiled and exercised.
       pill-shaped panels, visible hotkeys and a left-handed setting.
 - [x] Separate health from ore, enlarge the resource icon, and show counts in
       matching high-contrast labels or badges.
+- [x] Fully repair a building when its existing upgrade completes, including
+      extractors and hub capacity; preserve pending damage and prevent resurrection.
+      Towers and artillery have no manual repair, including at maximum level.
+- [x] Normalize bank refunds after Scavenge of local-funded buildings while
+      preserving still-refundable paid work and local construction kits.
+- [x] Use the traditional three-arrow Scavenge recycle icon, distinguish Cancel’s
+      circled cross from modal Close, and shorten the defeat message to
+      “The hub was destroyed” while retaining full-map visibility.
 - [x] Quote hub repairs to the highest affordable percentage, spending only the
       ore needed or available; complete the paid work with a worker.
 - [x] Recompute a deterministic transport minimum spanning tree each tick;

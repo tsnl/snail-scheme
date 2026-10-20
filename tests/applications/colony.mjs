@@ -10,7 +10,7 @@ export async function checkColony(test, fresh, call) {
     assert.equal(world.ore, 160 + world.delivered + world.localSpent - world.spent);
     assert.equal(world.produced, colonyBalance(world).raw);
     for (const building of world.buildings) {
-      const carriers = world.bots.filter(bot => ([3,5].includes(bot.job) || (bot.job === 7 && bot.timer === 5)) && bot.cargo > 4 && bot.target === building.id);
+      const carriers = world.bots.filter(bot => ([3,5].includes(bot.job) || (bot.job === 7 && bot.timer === 5)) && (bot.cargo > 4 || building.kind === 1) && bot.target === building.id);
       assert.equal(carriers.length, [1,5].includes(building.stage) ? 1 : 0);
     }
   }
@@ -19,14 +19,13 @@ export async function checkColony(test, fresh, call) {
     const r = await fresh(), retained = r.stores.get(1);
     await call(r, 'extract', [12,20]); await call(r, 'observe', [12,14]);
     assert.equal(state(r).surveys.length, 1); assert.equal(state(r).buildings[1].stage, 0);
-    const paid = state(r).ore; await call(r, 'extract', [5,5]);
+    const paid = state(r).ore; await call(r, 'extract', [21,16]);
     assert.equal(state(r).notice, 1); assert.equal(state(r).ore, paid);
     await advance(r, 100); assert.equal(state(r).buildings[1].stage, 2);
-    await call(r, 'observe', [12,8]); await advance(r, 200);
-    await call(r, 'upgrade', [12,8]);
-    for(let i=0;i<250&&siteAt(state(r),12,8).level!==2;i++)await advance(r);
-    await call(r, 'extract', [5,5]);
-    const northern = siteAt(state(r),5,5);
+    await call(r, 'upgrade', [12,14]);
+    for(let i=0;i<250&&siteAt(state(r),12,14).level!==2;i++)await advance(r);
+    await call(r, 'extract', [21,16]);
+    const northern = siteAt(state(r),21,16);
     assert.ok(northern);
     for (let tick = 0; tick < 300 && state(r).ore < 25; tick++) await advance(r);
     await call(r, 'fabricate-worker'); assert.equal(state(r).bots.length, 3); let northCollected = false;
@@ -60,11 +59,12 @@ export async function checkColony(test, fresh, call) {
     await r.close();
   });
 
-  await test('interrupted construction returns exactly one paid kit and resumes after danger', async () => {
+  await test('construction keeps its single paid kit and completes while enemies approach', async () => {
     const r = await fresh(); await call(r, 'observe', [12,14]); await advance(r);
     const project = state(r).buildings[0]; assert.equal(project.stage, 1);
     await addEnemy(r, {x:8, y:22}); await advance(r, 3);
-    assert.equal(state(r).bots.filter(bot => bot.job === 7 && bot.timer === 5 && bot.target === project.id).length, 1);
+    assert.equal(state(r).bots.filter(bot=>bot.job===3&&bot.target===project.id).length,1);
+    assert.ok(state(r).bots.every(bot=>bot.job!==7));
     await advance(r, 25); assert.equal(state(r).buildings[0].stage, 1);
     assert.equal(state(r).spent, 25); materialBalance(state(r));
     const clear = state(r); clear.enemies.length = 0; await restoreColony(r, clear); await advance(r, 260);

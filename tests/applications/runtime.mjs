@@ -1,3 +1,4 @@
+import {configureCasualties} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync, copyFileSync, mkdtempSync, rmSync} from 'node:fs';
 import {join, resolve} from 'node:path';
@@ -16,12 +17,15 @@ import {checkConstructionOrders} from './colony-construction.mjs';
 import {checkDirectBuild} from './colony-direct-build.mjs';
 import {checkHubCapacity} from './colony-hub-capacity.mjs';
 import {checkOpening} from './colony-opening.mjs';
+import {checkCompact} from './colony-compact.mjs';
 import {checkCrowd} from './colony-crowd.mjs';
 import {checkRetaliation} from './colony-retaliation.mjs';
 import {checkDigging} from './colony-digging.mjs';
 import {checkRanks} from './colony-ranks.mjs';
 import {checkCarts} from './colony-carts.mjs';
 import {checkTransport} from './colony-transport.mjs';
+import {checkUpgradeHealing} from './colony-upgrade-healing.mjs';
+import {checkWorkerRoutes} from './colony-worker-routes.mjs';
 import {checkScavenge} from './colony-scavenge.mjs';
 import {checkInstancing} from './colony-instancing.mjs';
 import {checkAsyncRuntime} from './async-runtime.mjs';
@@ -41,6 +45,7 @@ async function fresh() { const r = new ReducerRuntime(); await r.replace(r.prepa
 const established=async()=>establishColony(await fresh());
 const call = fixtureCall;
 function fixture(name) { return readFileSync(join(fixtures, `${name}.wasm`)); }
+configureCasualties(fixture('casualty'));
 let passed = 0;
 async function test(name, run) { await run(); console.log(`ok ${++passed} - ${name}`); }
 
@@ -66,22 +71,23 @@ await test('direct Scheme handler tests initialize state and inspect effect vari
 });
 await test('immutable prior snapshots, automatic hauling, placement and pure view', async () => {
   const r = await fresh(), before = r.stores.get(1); await call(r, 'extract', [12, 20]);
-  assert.equal(colony(r.snapshot(1)).ore, 120); assert.equal(colony(before).ore, 160);
-  await call(r, 'extract', [18, 10]); assert.equal(colony(r.snapshot(1)).ore, 120);
+  assert.equal(colony(r.snapshot(1)).ore, 160); assert.equal(colony(before).ore, 160);
+  await call(r, 'extract', [18, 10]); assert.equal(colony(r.snapshot(1)).ore, 160);
   for (let tick = 0; tick < 120; tick++) await call(r, 'advance');
-  assert.ok(colony(r.snapshot(1)).ore > 120); const snapshot = r.snapshot(1), view = r.view();
+  assert.ok(colony(r.snapshot(1)).ore > 160); const snapshot = r.snapshot(1), view = r.view();
   assert.ok(view.scene.batches.some(batch => expandedVertexCount(batch) > 10)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
 });
-await test('a selected deposit spends only on construction and unlocks after reply and settlement', async () => {
+await test('an explicit free extractor action unlocks after reply and settlement', async () => {
   const r = await fresh(), before = r.snapshot(1), local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
   assert.deepEqual((await local('confirm')).effects, []); assert.equal(client(r.snapshot(2)).chooser, true);
   assert.deepEqual(r.snapshot(1), before); assert.equal(colony(r.snapshot(1)).started,false);
-  const selected=client(r.snapshot(2)),cell=selected.cursorX+selected.cursorY*128;
-  const result=await local('confirm');assert.deepEqual(r.snapshot(1),before);
+  const selected=client(r.snapshot(2)),cell=selected.cursorX+selected.cursorY*64;
+  assert.deepEqual((await local('confirm')).effects,[]);
+  const result=await local('choose',[1]);assert.deepEqual(r.snapshot(1),before);
   assert.deepEqual(result.effects,[{kind:'send',owner:1,command:r.command('match','build-cell',[1,cell])},
     {kind:'send',owner:2,command:r.command('client','build-settled',[cell])}]);
   assert.equal(client(r.snapshot(2)).buildKind,1);
-  const committed=await r.dispatch(1,r.effectCommand(result.effects[0]));assert.equal(colony(r.snapshot(1)).ore,120);
+  const committed=await r.dispatch(1,r.effectCommand(result.effects[0]));assert.equal(colony(r.snapshot(1)).ore,160);
   assert.deepEqual(committed.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,0])}]);
   await r.dispatch(2,r.effectCommand(committed.effects[0]));assert.equal(client(r.snapshot(2)).buildKind,1);
   await r.dispatch(2,r.effectCommand(result.effects[1]));
@@ -220,6 +226,7 @@ await test('unprotected run loses; supplied defenders kill threats without gener
 await checkReserves(test, fresh);
 await checkFronts(test, fresh);
 await checkOpening(test, fresh, bytes);
+await checkCompact(test, fresh);
 await checkColony(test, established, call);
 await checkEncounters(test, established, call);
 await checkLogistics(test, established, call);
@@ -236,7 +243,9 @@ await checkDigging(test, established);
 await checkRanks(test, fresh);
 await checkCarts(test, established);
 await checkTransport(test, established);
+await checkWorkerRoutes(test, established);
 await checkScavenge(test, established);
+await checkUpgradeHealing(test, established);
 await checkInstancing(test, established);
 await checkAsyncRuntime(test, fixture);
 await checkSnapshotCache(test, fixture);

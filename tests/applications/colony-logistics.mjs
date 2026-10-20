@@ -1,5 +1,6 @@
 // Compiled Scheme owns every transition. Snapshot edits establish bounded
 // encounter and cargo fixtures; there is no alternate routing or simulation.
+import {settleWorker} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {establishColony,colony, colonyBalance, addEnemy, setWorker, setBuilding, setRail, restoreColony, at, pixelAt, siteAt, withdrawReserves} from './colony-state.mjs';
 
@@ -44,14 +45,18 @@ export async function checkLogistics(test, fresh, call) {
     await advance(r, 40); assert.equal(state(r).bots.length, 4); assert.equal(state(r).spent, 25); await r.close();
   });
 
-  await test('a recalled loaded worker brings physical ore home before starting worker assembly', async () => {
+  await test('current and legacy recalled workers deliver ore before paid assembly near enemies', async () => {
+    for(const legacy of [false,true]) {
     const r = await fresh(); await loadedWorker(r); await call(r, 'fabricate-worker');
     const ordered = state(r); assert.equal(ordered.bots.length, 1); assert.equal(ordered.bots[0].job, 4);
     assert.equal(ordered.bots[0].cargo, 16); assert.equal(ordered.delivered, 0); assert.equal(ordered.ore, 135);
+    if(legacy){const old=state(r);Object.assign(old.bots[0],{job:7,timer:4,path:[]});await restoreColony(r,old);}
+    await addEnemy(r,{x:12,y:20});await r.restore(1,r.snapshot(1));
     await until(r, world => world.bots[0].job === 6);
     assert.equal(state(r).delivered, 16); assert.equal(state(r).ore, 151); assert.equal(state(r).bots[0].timer, 30);
     await advance(r, 29); assert.equal(state(r).bots.length, 1);
     await advance(r); assert.equal(state(r).bots.length, 2); assert.equal(state(r).spent, 25); await r.close();
+    }
   });
 
   await test('busy builders reject more production and paid pending workers reserve the population cap', async () => {
@@ -70,7 +75,7 @@ export async function checkLogistics(test, fresh, call) {
   await test('a killed worker builder refunds its hub supplies once and loses only its carried ore', async () => {
     const r = await fresh(); await loadedWorker(r); await call(r, 'fabricate-worker');
     const world = state(r); world.tick = 9; world.lastRevealTick=-100; await restoreColony(r, world);
-    await addEnemy(r, {x:12,y:20}); await addEnemy(r, {x:12,y:20}); await advance(r);
+    await settleWorker(r,world.bots[0].id);
     assert.equal(state(r).ore, 160); assert.equal(state(r).spent, 0); assert.equal(state(r).lostOre, 16);
     assert.equal(state(r).casualties, 1); assert.equal(state(r).bots.length, 1);
     assert.equal(state(r).bots[0].job, 6); assert.equal(state(r).bots[0].target, 0);
@@ -210,14 +215,14 @@ export async function checkLogistics(test, fresh, call) {
   await test('death releases an uncollected kit but loses a cancelled carried kit without refund', async () => {
     const r = await fresh(); await loadedWorker(r); await call(r, 'observe', [13,20]);
     const world = state(r); world.tick = 9; world.lastRevealTick=-100; world.bots[0].hp = 7; await restoreColony(r, world);
-    await addEnemy(r, {x:12,y:20}); await advance(r);
+    await settleWorker(r,world.bots[0].id);
     assert.equal(state(r).casualties, 1); assert.equal(state(r).lostOre, 16);
     assert.equal(state(r).buildings[0].stage, 0); assert.equal(state(r).spent, 25);
     await call(r, 'cancel-building', [13,20]); assert.equal(state(r).ore, 160);
     await call(r, 'new-run-seed', [1]); await establishColony(r); await call(r, 'observe', [12,21]); await advance(r);
     await call(r, 'cancel-building', [12,21]); const cancelled = state(r); cancelled.tick = 9; cancelled.lastRevealTick=-100;
     setWorker(cancelled, 0, {x:12,y:21,job:7,cargo:25,timer:5,hp:7}); await restoreColony(r, cancelled);
-    await addEnemy(r, {x:12,y:21}); await advance(r);
+    await settleWorker(r,cancelled.bots[0].id);
     assert.equal(state(r).casualties, 1); assert.equal(state(r).ore, 135); assert.equal(state(r).spent, 25);
     await advance(r, 20); assert.equal(state(r).ore, 135); await r.close();
   });

@@ -1,12 +1,13 @@
 ;; Orders dismiss the first step immediately; completed extractors leave a
 ;; permanent deposit-centered survey, even if the structure is later destroyed.
 (define-library (siegework guidance)
-  (export extractor-start? starter-deposit)
+  (export extractor-start? starter-deposit frontier-hint)
   (import
    (scheme base)
    (siegework model)
    (siegework terrain))
   (begin
+    (define frontier-hint "Follow the crystal creatures: richer crystal deposits cluster near their nests.")
     (define (available-deposit? world x y)
       (and (visible? world x y) (> (world-deposit-rate world x y) 0)
            (null? (building-at (world-buildings world) x y)) (safe-site? world x y)))
@@ -37,6 +38,6 @@
       (and (= (world-outcome world) 0) (= (count-mines (world-buildings world)) 0)
            (not (extraction-survey? world (world-surveys world)))))
     ;; Prefer the richest safely reachable known deposit, with a stable tie break.
-    ;; The actual order still checks prices and colony capacity.
+    ;; The actual order still checks worker routes and colony capacity.
     (define (starter-deposit world)
       (if (extractor-start? world) (known-deposit world) -1))))

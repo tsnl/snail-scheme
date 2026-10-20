@@ -17,11 +17,11 @@ export function object(value, keys, name) {
       || Object.keys(value).some(key => !keys.includes(key))) throw new Error(`invalid ${name} fields`);
   return value;
 }
-export function parseAction(action, width = 128, height = 128) {
+export function parseAction(action, width = 64, height = 64) {
   object(action, ['type', 'kind', 'cell', 'from', 'to', 'paused'], 'action');
   const cell = value => integer(value, 0, width * height - 1, 'cell');
   switch (action.type) {
-    case 'wait': case 'fabricate': case 'repair':
+    case 'wait': case 'fabricate': case 'repair': case 'resign':
       object(action, ['type'], 'action'); return {type: action.type};
     case 'build':
       object(action, ['type', 'kind', 'cell'], 'action');
@@ -48,6 +48,7 @@ function commandFor(action, width) {
     case 'relocate': return ['relocate-building', [action.from, action.to]];
     case 'fabricate': return ['fabricate-worker', []];
     case 'repair': return ['repair-hub', []];
+    case 'resign': return ['resign', []];
     case 'pause': return ['pause-colony', [Number(action.paused)]];
   }
 }
@@ -101,8 +102,8 @@ export function decodeObservation(rows) {
 export async function openEnvironment(directory, options = {}) {
   const config = parseOptions(options), path = resolve(directory);
   const manifest = JSON.parse(await readFile(join(path, 'manifest.json'), 'utf8'));
-  if (manifest.settings?.id !== 'siegework-colony-v12' || manifest.settings.observation?.version !== 1)
-    throw new Error('expected a Siegework World12 package with observation version 1; rebuild the application');
+  if (manifest.settings?.id !== 'siegework-colony-v13' || manifest.settings.observation?.version !== 1)
+    throw new Error('expected a Siegework World13 package with observation version 1; rebuild the application');
   const bytes = await readFile(join(path, manifest.module));
   const environment = new SiegeworkEnvironment(bytes, manifest, config);
   try { await environment.reset(1); return environment; }
@@ -179,7 +180,7 @@ class SiegeworkEnvironment {
       simulationTick: observation.tick, elapsedSeconds: observation.tick / observation.ticksPerSecond,
       episodeTicks: this.#elapsed, episodeReward: this.#reward, horizonTicks: this.#config.horizonTicks,
       maxTicksPerStep: this.#config.maxTicksPerStep,
-      terminated, truncated, outcome: ({0: 'ongoing', 1: 'defeat', 3: 'victory'})[observation.outcome] ?? 'ended', ...extra}};
+      terminated, truncated, outcome: ({0: 'ongoing', 1: 'defeat', 3: 'victory', 4: 'resigned'})[observation.outcome] ?? 'ended', ...extra}};
   }
   step(action = {type: 'wait'}, ticks = 1) {
     // Capture input now; a caller cannot change the request while it waits.
@@ -202,7 +203,7 @@ class SiegeworkEnvironment {
     } catch (cause) { throw this.#simulationFailure(cause, ticks, elapsed); }
   }
   async #act(action) {
-    const command = commandFor(action, 128);
+    const command = commandFor(action, 64);
     if (!command) return {};
     const output = await this.#runtime.dispatch(1, this.#runtime.command('match', ...command));
     // Match replies update presentation only. Headless policies have no Client

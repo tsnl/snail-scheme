@@ -16,7 +16,7 @@ node apps/siegework/environment-cli.mjs /tmp/siegework-environment/solo
 
 The package must provide player observation ABI version 1; older gameplay builds
 deliberately fail the environment's version check. Rebuild from source to obtain
-the extension, which changes neither World12 nor gameplay. Tested package
+the extension, which changes neither World13 nor gameplay. Tested package
 identities and temporary artifact paths are recorded in [VALIDATION.md](VALIDATION.md).
 
 ## Node API and episode semantics
@@ -57,7 +57,7 @@ zero for acceptance, even when later ticks replace the current notice.
 `step(action, ticks)` submits one action and up to `ticks` simulation ticks,
 stopping at game termination or the episode horizon. Zero ticks submits only
 the action. There are ten simulation ticks per game second. Paused and unstarted
-worlds do not advance; only the first accepted paid extractor starts the clock.
+worlds do not advance; only the first accepted free extractor starts the clock.
 `info.ticksAdvanced` and `episodeTicks` count actual advancement, not attempted
 ticks or elapsed host time. Ordinary actions do not advance time themselves.
 
@@ -102,7 +102,7 @@ for the environment's lifetime.
 | Action | Fields | Effect |
 | --- | --- | --- |
 | `wait` | none | Only the requested ticks. |
-| `build` | `kind`, `cell` | Paid construction: **1 extractor (40 ore), 2 artillery (50), 3 observation tower (25)**. |
+| `build` | `kind`, `cell` | Worker construction: **1 extractor (free), 2 artillery (50 ore), 3 observation tower (25)**. |
 | `upgrade` | `cell` | Upgrade that building, or hub capacity when selecting a hub cell. |
 | `cancel` | `cell` | Cancel an unfinished building, upgrade, pending move, or Scavenge job. |
 | `scavenge` | `cell` | Assign a worker to demolish a completed non-hub building; pay its quoted 20% investment refund only on completion. |
@@ -110,14 +110,15 @@ for the environment's lifetime.
 | `fabricate` | none | Order a worker (25 ore), subject to the game's capacity and available workers. |
 | `repair` | none | Order the game's paid hub repair. |
 | `pause` | Boolean `paused` | Explicitly pause/resume. |
+| `resign` | none | End the run intact, freeze simulation, and reveal the map. |
 
-Actions are objects such as `{"type":"build","kind":1,"cell":7744}`.
+Actions are objects such as `{"type":"build","kind":1,"cell":2017}`.
 Use a returned candidate's cell; do not assume an example cell is suitable for
 another seed. Unknown types and extra fields are rejected. Restart belongs to
 `reset`, not the action vocabulary. Legacy inert commands and presentation/camera
 commands are not exposed.
 
-Coordinates are explicit: `cell = x + y * width`, where width/height are 128.
+Coordinates are explicit: `cell = x + y * width`, where width/height are 64.
 Hub `x/y` and building `moveX/moveY` use grid cells; `-1` means no pending move.
 Workers and enemies use integer world-space `x/y`, with `cellSize = 40` units
 per grid cell. A cell center is `(x * 40 + 20, y * 40 + 20)`; divide an entity's
@@ -160,8 +161,8 @@ The numeric vocabulary comes from the model and
 | Building stage 0 / 1 / 2 / 3 | Paid kit awaiting a worker / kit being carried / operational / kit reserved for a worker. |
 | Building stage 4 / 5 / 7 | Operational structure awaiting upgrade: mirrors 0 / 1 / 3. |
 | Worker job 0..3 | Available, collect, deliver ore, deliver building kit. |
-| Worker job 4..7 | Return to assemble worker, return kit, hub assembly, flee. |
-| Worker job 8..11 | Mining, travel to mining slot, danger-blocked work, collect reserved kit. |
+| Worker job 4..7 | Return to assemble worker, return kit, hub assembly, blocked return (also accepts old retreat saves). |
+| Worker job 8..11 | Mining, travel to mining slot, legacy blocked work (retried), collect reserved kit. |
 | Worker job 12..15 | Return for repair, repair, return for hub expansion, assemble expansion. |
 | Enemy kind 0 / 1 / 2 | Siege minion / outpost raider / final beast. Rank is its independent strength tier. |
 | Reason 0 / 1 / 2 / 3 | Accepted or available / outside sight / rock or water / occupied. |
@@ -252,3 +253,9 @@ quality are covered by separate work.
 Building observations include `scavengeRefund` (completed construction and upgrade
 investment divided by five, rounded down) and `scavenging` (a worker currently
 claims demolition). Stored ore recovery is separate from this structural quote.
+
+World13 uses `siegework-colony-v13` for the 64×64 map. World12 saves and
+checkpoints are rejected rather than reinterpreting their cell indices. Extractor
+construction costs zero ore but still requires a worker to reach the site; its
+40/160-ore upgrades remain paid. Outcome 4 means resigned: the intact world is
+frozen and fully revealed, and a new run starts through the normal reset intent.

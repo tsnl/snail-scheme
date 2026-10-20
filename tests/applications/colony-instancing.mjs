@@ -1,6 +1,6 @@
 // Execute the product's fixed-model declarations through the real Wasm bridge.
 import assert from 'node:assert/strict';
-import {colony,restoreColony,at,pixelAt} from './colony-state.mjs';
+import {colony,restoreColony,at,pixelAt,setWorker} from './colony-state.mjs';
 
 const meshes=scene=>new Map(scene.batches.flatMap(batch=>batch.draws.map(draw=>[draw.mesh.key,draw.mesh])));
 export async function checkInstancing(test,fresh) {
@@ -13,9 +13,14 @@ export async function checkInstancing(test,fresh) {
         cooldown:0,aimX:aim.x,aimY:aim.y,armed:0,source:0,moveX:-1,moveY:-1});
       world.surveys.push({...point,radius:7});world.spent+=25;world.ore-=25;
     }
+    world.bots.forEach((_,index)=>setWorker(world,index,{x:13+index,y:24}));
     await restoreColony(r,world);const first=r.view().scene,actors=first.batches.find(batch=>batch.key===3);
     assert.ok(actors.draws.some(draw=>draw.count===3&&draw.mesh.vertices.length>72*10),'three complete towers share one model');
-    assert.ok(actors.draws.some(draw=>draw.count===3&&draw.mesh.vertices.length===72*10),'three colored worker bodies share one model');
+    assert.ok(actors.draws.some(draw=>draw.count===world.bots.length&&world.bots.every((bot,index)=>{
+      const offset=(draw.first+index)*12;
+      return Math.abs(actors.transforms[offset+3]-(bot.x/40-.5))<1e-6
+        &&Math.abs(actors.transforms[offset+7]+(bot.y/40-.5))<1e-6;
+    })),'all drone bodies share one fixed model at their actual positions');
     assert.ok(first.batches.some(batch=>batch.unordered&&batch.draws.some(draw=>draw.count>20&&draw.mesh.vertices.length===40)),
       'terrain colors batch repeated fixed tile meshes');
     assert.ok(first.batches.every(batch=>!('vertices' in batch)),'product batches carry occurrences, never expanded vertices');

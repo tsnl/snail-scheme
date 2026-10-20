@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,client,establishColony,restoreColony,restoreClient,fixtureCall,siteAt,pixelAt} from '../applications/colony-state.mjs';
+import {MAP_WIDTH,colony,client,establishColony,restoreColony,restoreClient,fixtureCall,siteAt,pixelAt} from '../applications/colony-state.mjs';
 
 const output=process.argv[2],manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
 const bytes=readFileSync(join(output,manifest.module));
@@ -35,9 +35,9 @@ function removeOre(value,cell,remaining) {
   assert.ok(removed>=0);deposit.remaining=remaining;value.produced+=removed;value.lostOre+=removed;return value;
 }
 async function center(r,cell,changes={}) {
-  await restoreClient(r,{...local(r),cameraX:(cell%128)*1000,cameraY:Math.floor(cell/128)*1000,homing:false,...changes});
+  await restoreClient(r,{...local(r),cameraX:(cell%MAP_WIDTH)*1000,cameraY:Math.floor(cell/MAP_WIDTH)*1000,homing:false,...changes});
 }
-const depositPoint=cell=>[cell%128,-Math.floor(cell/128),.78];
+const depositPoint=cell=>[cell%MAP_WIDTH,-Math.floor(cell/MAP_WIDTH),.78];
 function noOreLabels(node) {
   assert.ok(!node.key?.startsWith('deposit-ore-'));for(const child of node.children)noOreLabels(child);
 }
@@ -66,7 +66,7 @@ function noOreLabels(node) {
   try {
     const initial=world(r),deposit=initial.deposits.find(value=>value.remaining>600),cell=deposit.cell,capacity=deposit.remaining;
     await center(r,cell);assert.ok(!bars(r).some(value=>value.frame&&value.kind==='reserve'&&near(point(value.matrix),depositPoint(cell))),'undiscovered reserves remain hidden');
-    const remembered=removeOre(initial,cell,capacity/10);remembered.surveys.push({x:cell%128,y:Math.floor(cell/128),radius:4});
+    const remembered=removeOre(initial,cell,capacity/10);remembered.surveys.push({x:cell%MAP_WIDTH,y:Math.floor(cell/MAP_WIDTH),radius:4});
     await restoreColony(r,remembered);assert.ok(close(fraction(r,depositPoint(cell),'reserve').value,.1));
     const committed=r.snapshot(1);await center(r,0);assert.equal(bars(r).length,0,'offscreen bars never dock to the edge');
     assert.deepEqual(r.snapshot(1),committed);
@@ -89,7 +89,7 @@ function noOreLabels(node) {
       const reserve=point(health.frame.matrix,[0,-.22,0]);assert.ok(close(fraction(r,reserve,'reserve').value,.1));
       assert.ok(reserve[2]>.816,'both bars clear the actual extractor roof');await r.restore(1,saved);
     }
-    console.log('ok - paid level-one/two extractors pair green health above purple original-reserve fractions without changing the reserve');
+    console.log('ok - worker-built level-one/two extractors pair green health above purple original-reserve fractions without changing the reserve');
   } finally {await r.close();}
 }
 
@@ -100,20 +100,21 @@ function noOreLabels(node) {
     value.hull=150;value.bots[0].hp=7;
     value.enemies=[{id:value.nextId++,...enemyPoint,hp:65,maxHp:130,kind:0,target:0,path:[],rank:0,burrower:false}];
     await restoreColony(r,value);
-    assert.ok(close(fraction(r,[hub.x,-hub.y,2.25*.65+.22],'health').value,.5));
-    const bot=value.bots[0],workerAnchor=[bot.x/40-.5+(bot.id%5)*.36-.72,.5-bot.y/40-1.7,.34+.22];
+    assert.ok(close(fraction(r,[hub.x,-hub.y,.9+.06*.65+.22],'health').value,.5));
+    const bot=value.bots[0],workerAnchor=[bot.x/40-.5+(bot.id%5)*.36-.72,.5-bot.y/40-1.7,.57+.22];
     assert.ok(close(fraction(r,workerAnchor,'health').value,.5),'workers use their actual 14-HP maximum');
-    const enemyAnchor=[enemyPoint.x/40-.5,.5-enemyPoint.y/40,.85*.62+.22];
+    const enemyAnchor=[enemyPoint.x/40-.5,.5-enemyPoint.y/40,.85*.79+.22];
     assert.ok(close(fraction(r,enemyAnchor,'health').value,.5));
     const later=world(r);later.tick+=9000;await restoreColony(r,later);
     assert.ok(close(fraction(r,enemyAnchor,'health').value,.5),'difficulty never changes an existing enemy denominator');
     const remote=world(r),nest=remote.nests[0];nest.hp=450;remote.surveys.push({x:nest.x,y:nest.y,radius:4});
-    await restoreColony(r,remote);await center(r,nest.x+128*nest.y);
+    await restoreColony(r,remote);await center(r,nest.x+MAP_WIDTH*nest.y);
     assert.ok(close(fraction(r,[nest.x,-nest.y,3.04],'health').value,.5));
     const dead=world(r);dead.nests[0].hp=0;await restoreColony(r,dead);
     assert.ok(!bars(r).some(bar=>bar.frame&&bar.kind==='health'&&near(point(bar.matrix),[nest.x,-nest.y,3.04])));
     const hidden=world(r);hidden.enemies[0].x=nest.x*40+20;hidden.enemies[0].y=nest.y*40+20;await restoreColony(r,hidden);
-    assert.ok(!bars(r).some(bar=>bar.frame&&bar.kind==='health'),'remembered ground never reveals an enemy outside current sight');
+    assert.ok(!bars(r).some(bar=>bar.frame&&bar.kind==='health'&&near(point(bar.matrix),[nest.x,-nest.y,.85*.79+.22])),
+      'remembered ground never reveals this enemy outside current sight, even when other entities fit the compact viewport');
     console.log('ok - hub, workers, visible enemies and live nests use health bars; enemy maxima stay fixed and hidden/dead enemies or nests expose none');
   } finally {await r.close();}
 }

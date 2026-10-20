@@ -20,7 +20,7 @@
       (if (null? path) 0 (+ 1 (path-length (cdr path)))))
     (define (nest-route seed front)
       (path-length (walking-path seed (spawn-x seed) (spawn-y seed) (front-x seed front) (front-y seed front)
-                                 (list (make-survey 64 64 128)) #f)))
+                                 (list (make-survey (quotient map-width 2) (quotient map-height 2) map-width)) #f)))
     (define answer
       (ann (lambda (operation seed cell)
              (cond ((= operation 0) (tile seed cell #f))

@@ -60,13 +60,13 @@ function save(name) {
 }
 try {
   const fresh=runtime.snapshot(1);
-  assert.ok(node('onboarding'));assert.equal(node('context'),undefined);
+  assert.ok(node('onboarding'));assert.match(node('onboarding-help').text,/Follow the crystal creatures.*near their nests/);assert.equal(node('context'),undefined);
   for(const [width,height]of[[320,568],[390,844],[568,320],[640,360],[1100,760]]) {
     await command('viewport',[width,height]);
     for(const left of [false,true]) {
       if(left){await command('pause-menu');await command('handedness',[1]);await command('resume');}
       const hint=placed('onboarding'),rail=placed('rail');
-      assert.match(node('onboarding-help').text,/extractor on the glowing deposit/);
+      assert.match(node('onboarding-help').text,/Select the glowing deposit, then choose Extractor\. It is free\./);
       assert.ok(hint.x+hint.width<=rail.x||hint.x>=rail.x+rail.width||hint.y+hint.height<=rail.y||hint.y>=rail.y+rail.height,'guidance leaves the control rail clear');
       assert.ok(hint.node.properties[9]>0,'the hint points toward its highlighted deposit');
       assert.ok(hint.x>=0&&hint.y>=0&&hint.x+hint.width<=width-24&&hint.y+hint.height<=height-32);
@@ -122,18 +122,18 @@ try {
   for(const y of [15,9]){
     const site=at(world(),10,y);await runtime.dispatch(1,runtime.command('match','observe',[site.x,site.y]));await advance(180);
   }
-  await command('center');cursor(5,5);const explored=runtime.snapshot(1);
+  await command('center');const richer=local();assert.notDeepEqual([richer.cursorX,richer.cursorY],[12,20]);const explored=runtime.snapshot(1);
   await command('confirm');assert.deepEqual(runtime.snapshot(1),explored);await placeExtractor();await advance(10);
-  const planned=siteAt(world(),5,5);assert.ok(planned);assert.equal(planned.kind,1);
+  const planned=siteAt(world(),richer.cursorX,richer.cursorY);assert.ok(planned);assert.equal(planned.kind,1);
   console.log('ok - explored richer deposits become the guidance target while construction stays explicit');
 
-  await runtime.restore(1,fresh);const unsafe=world();await addEnemy(runtime,{x:12,y:20});await command('center');cursor(8,22);
-  await restoreColony(runtime,{...unsafe,hull:1});await addEnemy(runtime,{x:8,y:22});await advance(20);
+  await runtime.restore(1,fresh);const beforeEnemy=world();await addEnemy(runtime,{x:12,y:20});await command('center');cursor(12,20);
+  await restoreColony(runtime,{...beforeEnemy,hull:1});await addEnemy(runtime,{x:8,y:22});await advance(20);
   assert.equal(world().outcome,1);assert.ok(node('result'));assert.match(node('context-title').text,/colony lost/i);
   assert.equal(node('restart').properties[1],1);
   await restoreColony(runtime,{...world(),bots:[]});assert.ok(node('workers'));assert.equal(world().bots.length,0);runtime.view();save('defeated');
   await command('restart');assert.equal(world().outcome,1);assert.ok(node('restart-dialog'));
   await command('accept-restart');assert.equal(world().outcome,0);assert.equal(node('restart-dialog'),undefined);
   await command('center');cursor(12,20);
-  console.log('ok - unsafe guidance falls back to the hub, a zero-worker HUD renders, and defeat requires explicit restart confirmation');
+  console.log('ok - nearby enemies preserve deposit guidance, a zero-worker HUD renders, and defeat requires explicit restart confirmation');
 } finally { await runtime.close(); }

@@ -1,7 +1,8 @@
 // Actual Wasm transitions at ownership and combat boundaries; these fixtures do
 // not provide an alternate simulation or pathfinder.
+import {settleWorker} from './casualty.mjs';
 import assert from 'node:assert/strict';
-import {colony, colonyBalance, addEnemy, setWorker, restoreColony, at, pixelAt, withdrawReserves} from './colony-state.mjs';
+import {colony, colonyBalance, addEnemy, setWorker, restoreColony, at, pixelAt, routeCell, withdrawReserves} from './colony-state.mjs';
 
 export async function checkEncounters(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -51,27 +52,43 @@ export async function checkEncounters(test, fresh, call) {
     assert.equal(assigned.job, 9); assert.equal(assigned.target, mine.id); assert.equal(assigned.x, position.x);
     await advance(r); assert.equal(state(r).bots.find(bot => bot.id === builder.id).job, 8); await r.close();
   });
-  await test('a blocked home route triggers visible escape and work resumes after danger', async () => {
-    const r = await fresh(), mine = await builtMine(r);
-    await cleanWorkers(r, [{x:12,y:20,job:8,target:mine.id},{},{}]);
-    await addEnemy(r, {x:10,y:20}); const bank = state(r).ore; await advance(r);
-    let fleeing = state(r).bots.some(bot => bot.job === 7), away = false;
-    for (let i = 0; i < 45; i++) { await advance(r); const bot = state(r).bots[0];
-      const minePoint=pixelAt(state(r),12,20), threatPoint=pixelAt(state(r),10,20);
-      fleeing ||= bot.job === 7; away ||= bot.x > minePoint.x || bot.y !== minePoint.y;
-      assert.ok(Math.abs(bot.x - threatPoint.x) + Math.abs(bot.y - threatPoint.y) > 40); balanced(r);
+  await test('workers keep mining near every enemy kind while attackers ignore worker targets', async () => {
+    for(const kind of [0,1,2]) {
+      const r=await fresh(),mine=await builtMine(r);
+      await cleanWorkers(r,[{x:12,y:20,job:8,target:mine.id},{x:12,y:20,job:10},{}]);
+      await addEnemy(r,{x:12,y:20,kind});
+      const saved=state(r),worker=saved.bots[0];saved.enemies[0].target=worker.id;
+      saved.enemies[0].path=[routeCell(saved,12,20)];saved.tick=9;saved.lastRevealTick=-100;await restoreColony(r,saved);
+      const produced=saved.produced;await advance(r,10);
+      const after=state(r);assert.equal(after.bots[0].job,8);assert.equal(after.bots[0].hp,worker.hp);
+      assert.equal(after.bots[0].x,worker.x);assert.equal(after.bots[0].y,worker.y);
+      assert.ok(after.produced>produced);assert.equal(after.casualties,0);
+      assert.ok(after.enemies.every(enemy=>enemy.target!==worker.id));
+      assert.ok(after.bots.every(bot=>bot.job!==7&&bot.job!==10));
+      assert.ok(after.buildings[0].hp<saved.buildings[0].hp,'nearby structures still take attacks');
+      balanced(r);await r.close();
     }
-    assert.ok(fleeing && away); assert.equal(state(r).casualties, 0);
-    const world = state(r); world.enemies.length = 0; await restoreColony(r, world); await advance(r, 220);
-    assert.ok(state(r).produced > 0); assert.ok(state(r).ore >= bank); await r.close();
   });
-  await test('worker death loses cargo once, records its location and assembles one replacement', async () => {
+  await test('nearby enemies do not refuse construction, recruiting or paid hub work',async()=>{
+    for(const [command,args,job,price] of [
+      ['observe',[12,21],11,25],['fabricate-worker',[],4,25],
+      ['repair-hub',[],12,60],['upgrade',[8,22],14,100]]) {
+      const r=await fresh(),world=state(r);world.hull=180;
+      world.bots.forEach((bot,index)=>setWorker(world,index,{x:12,y:20}));
+      await restoreColony(r,world);await addEnemy(r,{x:12,y:20});await call(r,command,args);
+      const ordered=state(r);assert.equal(ordered.ore,160-price);assert.equal(ordered.spent,price);
+      assert.equal(ordered.bots.filter(bot=>bot.job===job).length,1);
+      await advance(r,5);assert.ok(state(r).bots.every(bot=>bot.hp===14&&bot.job!==7));
+      balanced(r);await r.close();
+    }
+  });
+  await test('direct casualty settlement loses cargo once and assembles one replacement', async () => {
     const r = await fresh(); const world = state(r); world.bots.length = 1; world.started = true; world.tick = 9; world.lastRevealTick=-100;
     withdrawReserves(world, (16) - world.produced); setWorker(world, 0, {id:1,x:12,y:20,job:7,cargo:16,timer:2}); await restoreColony(r, world);
-    await addEnemy(r, {x:12,y:20}); await addEnemy(r, {x:12,y:20}); await advance(r);
+    await settleWorker(r,1);
     const dead = state(r); assert.equal(dead.casualties, 1); assert.equal(dead.lostOre, 16);
     assert.equal(dead.ore, 160); assert.equal(dead.bots.length, 1); assert.equal(dead.bots[0].job, 6);
-    assert.equal(dead.bots[0].timer, 60); assert.deepEqual(dead.alerts.map(a => [a.x,a.y,a.kind]), [[at(dead,12,20).x,at(dead,12,20).y,4]]);
+    assert.equal(dead.bots[0].timer,60);assert.deepEqual(dead.alerts,[]);
     const saved = r.snapshot(1); await r.restore(1, saved); await advance(r, 20);
     assert.equal(state(r).bots.length, 1); assert.equal(state(r).bots[0].timer, 40); assert.equal(state(r).casualties, 1);
     balanced(r); await r.close();
@@ -81,7 +98,7 @@ export async function checkEncounters(test, fresh, call) {
     const before = state(r), carrier = before.bots.find(b => b.job === 3), world = state(r);
     const index = before.bots.findIndex(b => b.id === carrier.id);
     setWorker(world, index, {id:carrier.id,x:12,y:21,job:7,target:carrier.target,cargo:25,timer:5});
-    world.tick = 9; world.lastRevealTick=-100; await restoreColony(r, world); await addEnemy(r, {x:12,y:21}); await addEnemy(r, {x:12,y:21}); await advance(r);
+    world.tick = 9; world.lastRevealTick=-100; await restoreColony(r,world);await settleWorker(r,carrier.id);
     assert.equal(state(r).buildings.length, 0); assert.equal(state(r).ore, 135); assert.equal(state(r).spent, 25);
     assert.equal(state(r).casualties, 1); await advance(r, 20); assert.equal(state(r).spent, 25); balanced(r); await r.close();
   });

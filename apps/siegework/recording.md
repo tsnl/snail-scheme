@@ -8,8 +8,10 @@ continue normally. Headless inspection reads the current World on demand.
 The reusable recording libraries and manual developer tests remain available.
 The rest of this document describes that retained developer format, not a
 currently available player feature. Inspection metadata stays in the manifest
-for headless diagnostics and existing analysis tools. The competing-fronts
-revision uses `siegework-colony-v12`, World12/Client8 and inspection projection 3.
+for headless diagnostics and existing analysis tools. The compact-map revision
+uses `siegework-colony-v13`, World13/Client8 and inspection projection 3.
+World12 recordings belong to earlier packages and cannot be loaded into the
+smaller map. Historical measurements below retain their original version labels.
 
 ## What a dump means
 

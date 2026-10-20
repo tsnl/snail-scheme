@@ -8,10 +8,10 @@ Scheme owns the game rules and presentation executed in the browser.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, weighted bounded walking/flight pathfinding and exact grid-crossing direct fire. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, worker demolition with a completed-investment refund, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, bounded shortest-time worker routing over walking and bidirectional flights and exact grid-crossing direct fire. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, completion-only upgrade healing and normalized bank refunds, worker demolition with a completed-investment refund, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
-| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, compatible World12 reserve migration, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked World13 restart envelope, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's nest-adjusted strength interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for headless diagnostics and retained developer analysis; no recording storage or game transitions. |
@@ -20,7 +20,7 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`environment-cli.mjs`](environment-cli.mjs) | Bounded JSONL and MCP stdio transports sharing the headless environment; MCP pages player observations. See the [environment contract](headless.md). |
 | [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, individual nest clears, exhaustion counts, orders and frontier progress. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
-| [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, straight aerial transport pulses, cyan reveal-radius guides, camera-facing health/reserve instances and nearest-building/crystal/ground picking. |
+| [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, single-rotor drones, freight and floating crystal enemies; per-occurrence poses, crystal shimmer and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, static aerial cables, exact range outlines with shared-edge separation, camera-facing health/reserve instances and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
 | [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
 
@@ -42,7 +42,7 @@ view. Its rows share the runtime's read-only scalar transaction and bounded
 publication output. Privileged operation 11 remains the recording projection;
 its global nest/enemy/reserve totals are not player observations. The host queues
 whole policy operations, advances only explicit ticks, and owns the external
-episode horizon. Neither transport owns another simulation or changes World12.
+episode horizon. Neither transport owns another simulation or changes World13.
 
 ## Follow one accepted command
 
@@ -60,17 +60,18 @@ episode horizon. Neither transport owns another simulation or changes World12.
    revision and effects publish together. Failed saves preserve the old game.
 6. The browser queues committed replies back to Client. One placement keeps its
    pending slot until the authored completion message runs, including when
-   persistence fails. An accepted reply closes selection and remembers the next
-   ordinary building type; a failure keeps the intended choice available to retry.
+   persistence fails. An accepted reply closes selection; a failure keeps the
+   intended choice available to retry.
 
-The selected tile and remembered ordinary building type are Client presentation
-state. A construction button captures both its kind and absolute cell, so a stale
-button cannot order a new selection. The second tap on the same empty tile emits
-that same typed `build-cell(kind, cell)` request. Deposits offer only extractors;
+The selected tile and hovered construction action are Client presentation state.
+A construction button captures both its kind and absolute cell, so a stale
+button cannot order a new selection. Repeated tile taps remain selection;
+only an explicit action emits the typed `build-cell(kind, cell)` request.
+Deposits offer only extractors;
 existing-building taps inspect, with separate explicit upgrade, Scavenge and cancel actions.
 The model's normal placement operation validates and pays for each order.
 Before the first accepted extractor, placement and the other purchase rules
-reject every alternative use of ore. Only accepting that paid extractor sets
+reject every alternative purchase. Only accepting that free extractor sets
 the saved `started` flag; selection, failed requests and camera input do not.
 Contextual disabled actions explain the same restriction without enforcing it
 only in the interface.
@@ -83,10 +84,13 @@ messages, without a batch protocol or a second game world. Code replacement and
 shutdown drain admitted commands and replies.
 
 Pause presentation covers the current selection without replacing it.
-Client distinguishes the closed menu, Pause and restart confirmation; committed
+Client distinguishes the closed menu, Pause, restart and resignation confirmation; committed
 World pause also supplies the Pause menu after a saved colony reloads. Resume
 unpauses explicitly, while canceling restart returns to Pause. Covered gameplay
 actions are ignored, but pending build replies and display updates still run.
+Resign commits terminal outcome four without changing hull, cargo, flights or
+the saved pause flag. Terminal inspection derives full-map visibility from that
+outcome. Its local menu can offer Restart without unpausing a finished World.
 One menu operation remains pending through its ordered settlement. A committed
 reply records success without releasing that slot; a failed save returns to the
 appropriate retry state. Startup and checkpoint imports call the existing
@@ -109,24 +113,20 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 12 and client schema 8 under application ID
-`siegework-colony-v12`, which starts a fresh save identity for explicit hub capacity
-removal of house buildings, finite deposits and three persistent nests. Earlier worlds are rejected rather than reinterpreted. Record sizes grow and
+The game declares world schema 13 and client schema 8 under application ID
+`siegework-colony-v13`. This starts a fresh save identity for the 64×64 map and
+zero-cost extractor construction. Earlier worlds are rejected rather than
+reinterpreting their coordinates or financial history. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts or geography and are rejected. The browser retains
 an incompatible record and explains how to reopen a compatible package; changing
 the static mount path leaves its origin/application save identity unchanged.
 
-Within that envelope, payload revision 1 adds a final `payload-version = 1`
-World field, `Enemy.max-hp`, and `Bot.flight` (empty or one committed `Flight`).
-The app-local decoder recognizes only the original 33-field World with the
-original 11-field Bot and 9-field Enemy, or the complete revision-1 shape.
-It extends the original shape before ordinary typed decoding and validation;
-the first accepted transition serializes the canonical revision. Legacy flights
-start empty. Legacy maximum HP freezes `max(current HP, spawn health at saved
-tick)` because the original spawn tick is unavailable. New spawns store the exact
-maximum once, so wounds and later difficulty never change their denominator.
-This compatibility is forward only; old packages reject the extended records.
+The decoder accepts the current record layout only. Stable enemy maximum HP
+and captured worker flights retain their ordinary typed fields. New enemies
+store their exact spawn maximum, so wounds and later difficulty never change
+their health-bar denominator. Old browser records remain under their previous
+application identity; World12 migration is no longer part of this package.
 
 Typed construction establishes field shape. The app then checks scalar/count
 bounds, distinct IDs, legal bounded routes, construction carriers and
@@ -148,11 +148,20 @@ lift ticks and two landing ticks. The slower endpoint chooses speed 80, 160 or
 remain walking steps because boarding cannot improve their travel time. Arrival
 jobs run on the following tick after movement finishes.
 
+Worker A* uses a consistent lower bound: the cheapest cost per Manhattan cell
+among walking and all available flights. It considers walking detours to
+stations, reverse trips, multiple links and destinations beyond a station.
+Successful searches minimize elapsed travel time; exhausting the existing
+8192-slot / 6144-discovery budget returns no route, not an approximate route.
+Other long-distance walking and tunneling searches retain their weighted mode.
+Grounded workers reconsider queued walking plans in four staggered five-tick
+windows, at cell centers only. A faster route replaces only the waypoint list;
+the worker keeps its job, target and cargo. Captured flights finish unchanged.
+
 Freight belongs to its source until unloading. Reroutes return it to the living
 source exactly once; source destruction accounts for it as lost. The reserved
 track field is checked on input and cleared on the next simulation tick. Views
-ignore it: the retained energy rail represents the current undirected paths,
-so its uniform display-clock pulse needs no geometry rebuild.
+ignore it: retained, static cable meshes represent the current undirected paths.
 
 Construction reserves one entire kit from one source. The source's loose stock
 excludes the reservation, while extractor capacity includes it. `local-spent`
@@ -200,12 +209,11 @@ subtracts two strength tiers for future spawns. Existing enemies retain their
 spawn maximum; real wave timing is unchanged. The strength cap is applied
 before the nest credit, so late clears reduce the terminal difficulty too.
 
-World12 payload revision 2 keeps the revision-1 fields. Original and revision-1
-saves prove their old seeded deposit prefix before the decoder appends new
-reserves once. A tower or gun already occupying an added bonus site may remain
-there through restore; its occupancy hides the crystal and blocks extraction.
-This explicit coexistence rule does not prove the building came from an old save.
-New construction still rejects non-mines on deposits.
+Every decoded reserve must match the current seed-owned deposit identity and
+capacity. Construction rejects non-extractors on deposits. A free extractor
+still reserves a worker and site, but carries no ore kit: ownership follows the
+construction job and target, not a positive cargo amount. Its cancellation
+creates no refund, and its completed investment includes only paid upgrades.
 
 Defeat derives full-map knowledge from the outcome without adding surveys.
 Terrain cache dependencies include outcome and the identity of cleared nests; viewport
@@ -258,13 +266,15 @@ The shared terrain-height rule bounds today's rock peaks at 850 thousandths of
 a cell. The cable plane is 900, so current mountains never obstruct it; the
 conservative grid-column sight test also checks both cells at diagonal corners.
 
-The cable endpoints supply two retained layers: a steady opaque dark backing
-and a narrower bright core that pulses uniformly on the display clock. Each
-undirected pair instances one straight rectangle, sorted and packed with its
+Each cable is one retained, opaque, constant-color mesh. Each undirected pair
+instances one straight rectangle, sorted and packed with its
 fast-cyan or ordinary-gold tint. The padded camera window culls whole spans;
 reserved legacy track bitmasks never produce geometry. Towers and artillery
-use compact ground-level models. Cyan outlines show the union of the hub's
-and ready towers' actual reveal radii.
+use compact ground-level models; the hub exposes a central junction at the
+shared flight altitude. Cyan outlines show the union of the hub's and ready
+towers' actual reveal radii. Unshared orange/cyan edges retain their exact
+positions. Only coincident grid-edge segments become two adjacent strokes,
+each with the regular thickness; neither whole outline is shifted.
 
 Unchanged directed links preserve freight progress. Changed links return the
 load once to its surviving source; a destroyed source loses its own cargo.
@@ -294,7 +304,7 @@ One placement still owns its pending slot through reply and authored settlement;
 a failed durable save releases the slot without reporting success. Client 8
 stores that rejection and removes the former worker-menu state.
 
-World12 saves `hub-capacity-level` from zero through six. Capacity is derived as
+World13 saves `hub-capacity-level` from zero through six. Capacity is derived as
 12 plus twice that tier; prices are 100 times two to the tier. The tier is
 independent of the hub's fixed transport grade three. An accepted expansion
 charges hub ore and assigns one worker: job 14 returns, job 15 assembles for

@@ -1,5 +1,5 @@
 // Real compiled reducers own generation, construction, combat and conservation.
-// Seed 1's nest clearing at (59,37) supplies a bounded forward-artillery fixture.
+// Seed-owned nest clearings supply bounded forward-artillery fixtures.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -24,10 +24,10 @@ export async function checkWorld(test,fresh) {
     const r=await fresh(),spawns=new Set();
     for(const seed of [1,7,43,65535]) {
       await call(r,'new-run-seed',[seed]); const world=state(r),hub=world.surveys[0];
-      assert.ok((hub.x-64)**2+(hub.y-64)**2<=8**2); spawns.add(`${hub.x},${hub.y}`);
+      assert.ok((hub.x-32)**2+(hub.y-32)**2<=4**2); spawns.add(`${hub.x},${hub.y}`);
       assert.ok(world.bots.every(bot=>bot.x===hub.x*40+20&&bot.y===hub.y*40+20));
       assert.deepEqual(world.nests.map(nest=>nest.hp),[900,900,900]); assert.equal(world.lastRevealTick,-100); assert.equal(world.outcome,0);
-      assert.equal(r.snapshot(1)[0],12);
+      assert.equal(r.snapshot(1)[0],13);
       const again=state(r); await call(r,'new-run-seed',[seed]); again.runMarker++;
       assert.deepEqual(state(r),again);
     }
@@ -43,31 +43,31 @@ export async function checkWorld(test,fresh) {
   });
   await test('forward artillery destroys the final nest and that victory survives save and pause',async()=>{
     const r=await fresh(),point=at(state(r),10,23); await build(r,'fortify',point.x,point.y);
-    const world=state(r),site=world.buildings[0]; Object.assign(site,{kind:2,level:1,armed:0,x:59,y:41,cooldown:0}); world.rails=[];
-    world.surveys.unshift({x:59,y:41,radius:4}); world.lastRevealTick=world.tick; world.nests.forEach(nest=>nest.hp=nest.id===0?6:0);
+    const world=state(r),site=world.buildings[0],nest=world.nests[0]; Object.assign(site,{kind:2,level:1,armed:0,x:nest.x,y:nest.y+4,cooldown:0}); world.rails=[];
+    world.surveys.unshift({x:nest.x,y:nest.y+4,radius:4}); world.lastRevealTick=world.tick; world.nests.forEach(nest=>nest.hp=nest.id===0?6:0);
     await restoreColony(r,world); const bank=state(r).ore; await advance(r);
     assert.ok(state(r).nests.every(nest=>nest.hp===0)); assert.equal(state(r).outcome,3); assert.equal(state(r).ore,bank);
-    assert.deepEqual([state(r).buildings[0].aimX,state(r).buildings[0].aimY],[59*40+20,37*40+20]);
+    assert.deepEqual([state(r).buildings[0].aimX,state(r).buildings[0].aimY],[nest.x*40+20,nest.y*40+20]);
     const won=r.snapshot(1); await r.restore(1,won); await advance(r,10); assert.deepEqual(r.snapshot(1),won); await r.close();
   });
   await test('the continuing wave respects the 128-enemy live cap',async()=>{
     const r=await fresh(),world=state(r); world.started=true; world.tick=449;
-    for(let i=0;i<127;i++)world.enemies.push({id:world.nextId++,x:59*40+20,y:37*40+20,hp:80,kind:0,target:0,path:[]});
+    for(let i=0;i<127;i++)world.enemies.push({id:world.nextId++,...pixelAt(world,20,22),hp:80,kind:0,target:0,path:[]});
     await restoreColony(r,world); await advance(r); assert.equal(state(r).enemies.length,128);
     const saved=r.snapshot(1); await r.restore(1,saved); assert.deepEqual(r.snapshot(1),saved); await r.close();
   });
   await test('light raiders travel faster than ordinary enemies and the heavy beast',async()=>{
-    const r=await fresh(),world=state(r),start=59*40+20; world.started=true;
-    for(const kind of [0,1,2])world.enemies.push({id:world.nextId++,x:start,y:37*40+20,
-      hp:kind===2?1800:80,kind,target:0,path:[60+37*128]});
+    const r=await fresh(),world=state(r),start=pixelAt(world,20,22).x; world.started=true;
+    for(const kind of [0,1,2])world.enemies.push({id:world.nextId++,x:start,y:pixelAt(world,20,22).y,
+      hp:kind===2?1800:80,kind,target:0,path:[routeCell(world,21,22)]});
     await restoreColony(r,world); await advance(r);
     assert.deepEqual(state(r).enemies.map(enemy=>enemy.x-start),[5,7,5]);
     await r.close();
   });
   await test('long enemy routes beyond the old snapshot cap round-trip through the bounded real decoder',async()=>{
     const r=await fresh(),world=state(r); world.started=true; world.paused=1;
-    const path=Array.from({length:1024},(_,i)=>59+(i%2===0?1:0)+37*128);
-    for(let i=0;i<128;i++)world.enemies.push({id:world.nextId++,x:59*40+20,y:37*40+20,hp:80,kind:0,target:0,path:[...path]});
+    const path=Array.from({length:1024},(_,i)=>routeCell(world,20+(i%2===0?1:0),22));
+    for(let i=0;i<128;i++)world.enemies.push({id:world.nextId++,...pixelAt(world,20,22),hp:80,kind:0,target:0,path:[...path]});
     await restoreColony(r,world); const saved=r.snapshot(1); assert.ok(saved.length>65536&&saved.length<=1048576);
     await r.restore(1,saved); await advance(r); assert.deepEqual(r.snapshot(1),saved); await r.close();
   });
