@@ -3,7 +3,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
-import {LocalState} from '../../src/application/local.mjs';
 import {readRecord,saveContract} from '../../src/application/indexeddb.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {decodeObservation} from '../../apps/siegework/headless.mjs';
@@ -11,7 +10,7 @@ import {colony,client,colonyBalance,restoreColony,restoreClient} from './colony-
 
 const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
 const bytes=readFileSync(join(directory,manifest.module)),state=r=>colony(r.snapshot(1));
-const cell=site=>site.x+site.y*128,reserve=(world,site)=>world.deposits.find(d=>d.cell===cell(site));
+const cell=site=>site.x+site.y*64,reserve=(world,site)=>world.deposits.find(d=>d.cell===cell(site));
 const send=(r,name,args=[])=>r.dispatch(1,r.command('match',name,args));
 const observe=r=>decodeObservation(r.observe());
 let passed=0;
@@ -22,7 +21,7 @@ function structure(world,kind,x,y,stage=2){
   const site={id:world.nextId++,kind,x,y,level:1,hp:kind===1?140:kind===2?100:90,stock:0,stage,cooldown:0,
     aimX:x*40+20,aimY:y*40+20,armed:0,source:0,moveX:-1,moveY:-1};
   world.buildings.push(site);world.surveys.unshift({x,y,radius:kind===3?7:4});
-  const cost=kind===1?40:kind===2?50:25;world.spent+=cost;world.ore-=cost;world.started=true;return site;
+  const cost=kind===1?0:kind===2?50:25;world.spent+=cost;world.ore-=cost;world.started=true;return site;
 }
 function workerAt(bot,site,job=0,target=0){return {...bot,x:site.x*40+20,y:site.y*40+20,job,target,cargo:0,timer:0,path:[],order:0,source:0,flight:[]};}
 function assertBalance(world){const sums=colonyBalance(world);assert.equal(world.ore,sums.bank);assert.equal(world.produced,sums.raw);}
@@ -31,8 +30,8 @@ async function center(r,site){await restoreClient(r,{...client(r.snapshot(2)),ca
 async function surveyedWorld(r,world){
   await restoreColony(r,{...world,started:true,hull:0,outcome:1});
   const terrain=observe(r).tiles;
-  world.surveys.push(...terrain.filter(t=>t.terrain===1&&t.cell%8===0&&Math.floor(t.cell/128)%8===0)
-    .map(t=>({x:t.cell%128,y:Math.floor(t.cell/128),radius:10})));
+  world.surveys.push(...terrain.filter(t=>t.terrain===1&&t.cell%8===0&&Math.floor(t.cell/64)%8===0)
+    .map(t=>({x:t.cell%64,y:Math.floor(t.cell/64),radius:10})));
   await restoreColony(r,world);return world;
 }
 
@@ -75,9 +74,9 @@ await test('defeat reveals all map facts without survey growth, allows inspectio
     w.enemies=[{id:w.nextId++,x:w.surveys[0].x*40+20,y:w.surveys[0].y*40+20,hp:80,kind:0,target:0,path:[]},
       {id:w.nextId++,x:nest.x*40+20,y:nest.y*40+20,hp:80,kind:0,target:0,path:[]}];
     await restoreColony(r,w);await center(r,nest);
-    const playing=observe(r),beforeScene=r.view().scene;assert.equal(playing.enemies.length,1);assert.ok(playing.tiles.length<16384);
+    const playing=observe(r),beforeScene=r.view().scene;assert.equal(playing.enemies.length,1);assert.ok(playing.tiles.length<4096);
     const surveys=structuredClone(w.surveys);await advance(r);const ended=state(r);assert.equal(ended.outcome,1);
-    const known=observe(r);assert.equal(known.tiles.length,16384);assert.ok(known.tiles.every(t=>t.visible===1));
+    const known=observe(r);assert.equal(known.tiles.length,4096);assert.ok(known.tiles.every(t=>t.visible===1));
     assert.equal(known.nests.length,3);assert.equal(known.enemies.length,2);assert.deepEqual(known.buildCandidates,[]);
     assert.deepEqual(ended.surveys,surveys);assert.ok(r.snapshot(1).length<5000,'no persisted per-cell reveal history');
     const revealed=r.view().scene;assert.notEqual(revealed.batches.find(b=>b.key===1).transforms,beforeScene.batches.find(b=>b.key===1).transforms);
@@ -87,50 +86,21 @@ await test('defeat reveals all map facts without survey growth, allows inspectio
       ['repair-hub',[]],['upgrade',[w.surveys[0].x,w.surveys[0].y]],['cancel-building',[0,0]],['relocate-building',[0,1]]]){
       await send(r,name,args);const next=state(r);assert.deepEqual({...next,notice:ended.notice},ended);
     }
-    const committed=r.snapshot(1);await center(r,{x:0,y:0});r.view();await center(r,{x:127,y:127});r.view();assert.deepEqual(r.snapshot(1),committed);
+    const committed=r.snapshot(1);await center(r,{x:0,y:0});r.view();await center(r,{x:63,y:63});r.view();assert.deepEqual(r.snapshot(1),committed);
   }finally{await r.close();}
 });
 
-await test('revision-1 restoration keeps its exact reserves and occupying structures, appending each seeded reserve once',async()=>{
+await test('World13 refuses old geography and incomplete current deposit records without replacing live state',async()=>{
   const r=await fresh();try{
-    const freshWorld=state(r),old=JSON.parse(readFileSync(new URL('./fixtures/siegework-world12.json',import.meta.url))).record.snapshot.state;
-    const legacy=colony(old),prefix=legacy.deposits.length;
-    const bonus=freshWorld.deposits.slice(prefix,-3)[0];assert.ok(bonus);
-    for(const stage of [2,0]){
-      const w=structuredClone(freshWorld);w.payloadVersion=1;w.deposits=w.deposits.slice(0,prefix);
-      const exhausted=w.deposits[0].remaining;w.deposits[0].remaining=0;w.produced+=exhausted;w.lostOre+=exhausted;
-      const at={x:bonus.cell%128,y:Math.floor(bonus.cell/128)},building=structure(w,3,at.x,at.y,stage);
-      w.bots[0]=workerAt(w.bots[0],at);
-      await restoreColony(r,w);await send(r,'pause-colony',[1]);const migrated=state(r);
-      assert.equal(migrated.payloadVersion,2);assert.deepEqual(migrated.deposits.slice(0,prefix),w.deposits);
-      assert.deepEqual(migrated.buildings,w.buildings);assert.equal(migrated.ore,w.ore);assert.equal(migrated.produced,w.produced);
-      assert.equal(migrated.deposits.length,freshWorld.deposits.length);assert.equal(reserve(migrated,at).remaining,600);
-      await send(r,'extract',[at.x,at.y]);assert.equal(state(r).notice,3);
-      const repeated=r.snapshot(1);await r.restore(1,repeated);await send(r,'pause-colony',[1]);assert.deepEqual(r.snapshot(1),repeated);
-      // The structure can leave without resetting or duplicating the deposit.
-      const cleared=state(r);cleared.buildings=[];cleared.rails=[];cleared.bots=cleared.bots.map(b=>workerAt(b,at));
-      await restoreColony(r,cleared);assert.equal(reserve(state(r),at).remaining,600);
-      assert.equal(state(r).deposits.filter(d=>d.cell===bonus.cell).length,1);assert.equal(building.kind,3);
+    const saved=r.snapshot(1);
+    for(const name of ['siegework-world12.json','siegework-world12-revision1.json']){
+      const fixture=JSON.parse(readFileSync(new URL('./fixtures/'+name,import.meta.url)));
+      assert.throws(()=>readRecord(fixture.record,r.manifest.settings.id,saveContract(r.manifest)));
+      await assert.rejects(()=>r.restore(1,fixture.record.snapshot.state));assert.deepEqual(r.snapshot(1),saved);
     }
-  }finally{await r.close();}
-});
-
-await test('the exact revision-1 saved checkpoint retains funds, jobs and remaining ore through host migration',async()=>{
-  const r=await fresh();try{
-    const fixture=JSON.parse(readFileSync(new URL('./fixtures/siegework-world12-revision1.json',import.meta.url)));
-    const saved=readRecord(fixture.record,r.manifest.settings.id,saveContract(r.manifest));
-    const before=colony(saved.state),commits=[];
-    assert.equal(before.payloadVersion,1);
-    const local=await LocalState.open(r,{saved,commit:(snapshot,revision)=>commits.push({snapshot,revision})});
-    assert.deepEqual(r.snapshot(1),saved.state);r.view();
-    await local.submit(r.command('match','pause-colony',[1]));const after=state(r);
-    assert.equal(after.payloadVersion,2);assert.equal(local.revision,saved.revision+1);
-    assert.deepEqual(after.deposits.slice(0,before.deposits.length),before.deposits);
-    assert.deepEqual({...after,deposits:before.deposits,payloadVersion:1},before);
-    const canonical=r.snapshot(1);await r.restore(1,canonical);await send(r,'pause-colony',[1]);assert.deepEqual(r.snapshot(1),canonical);
     for(const edit of [w=>w.deposits.pop(),w=>w.deposits.reverse(),w=>w.deposits[0].cell++,w=>w.deposits.push(w.deposits[0])]){
-      const broken=structuredClone(before);edit(broken);await assert.rejects(()=>restoreColony(r,broken),WebAssembly.RuntimeError);
-      assert.deepEqual(r.snapshot(1),canonical);
+      const broken=state(r);edit(broken);await assert.rejects(()=>restoreColony(r,broken),WebAssembly.RuntimeError);
+      assert.deepEqual(r.snapshot(1),saved);
     }
   }finally{await r.close();}
 });
@@ -170,25 +140,6 @@ await test('importing a different cleared front invalidates cached reserve geome
     w.nests[0].hp=900;w.nests[1].hp=0;await restoreColony(r,w);
     const after=Array.from(r.view().scene.batches.find(b=>b.key===7).transforms);
     assert.notDeepEqual(after,before);assert.ok(after.length<before.length);
-  }finally{await r.close();}
-});
-
-await test('a previously legal relocation onto a new bonus site survives migration, while new orders reject it',async()=>{
-  const r=await fresh();try{
-    const w=state(r),old=colony(JSON.parse(readFileSync(new URL('./fixtures/siegework-world12.json',import.meta.url))).record.snapshot.state);
-    const bonus=w.deposits[old.deposits.length],at={x:bonus.cell%128,y:Math.floor(bonus.cell/128)};
-    await restoreColony(r,{...w,started:true,hull:0,outcome:1});
-    const tiles=observe(r).tiles,near=tiles.find(t=>t.terrain===1&&t.depositRate===0&&
-      Math.abs(t.cell%128-at.x)+Math.abs(Math.floor(t.cell/128)-at.y)===1);
-    assert.ok(near);const from={x:near.cell%128,y:Math.floor(near.cell/128)};
-    const site=structure(w,3,from.x,from.y);site.moveX=at.x;site.moveY=at.y;w.spent+=5;w.ore-=5;
-    w.payloadVersion=1;w.deposits=w.deposits.slice(0,old.deposits.length);
-    await restoreColony(r,w);await send(r,'pause-colony',[1]);
-    const migrated=state(r);assert.deepEqual(migrated.buildings,w.buildings);assert.equal(migrated.ore,w.ore);
-    assert.equal(reserve(migrated,at).remaining,600);
-    const cleared=state(r);cleared.buildings=[];cleared.paused=0;cleared.bots=cleared.bots.map(b=>workerAt(b,at));
-    await restoreColony(r,cleared);await send(r,'observe',[at.x,at.y]);assert.equal(state(r).notice,5);
-    await send(r,'fortify',[at.x,at.y]);assert.equal(state(r).notice,5);
   }finally{await r.close();}
 });
 

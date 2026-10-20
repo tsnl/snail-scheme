@@ -60,11 +60,11 @@ export async function checkRetaliation(test,fresh,bytes) {
     const r=await fresh();await build(r,'fortify',12,21);await build(r,'fortify',12,25);
     const world=encounter(state(r),16,23),first=world.buildings[0],last=world.buildings.at(-1);
     await restoreColony(r,world);await advance(r);assert.equal(state(r).enemies[0].target,last.id);
-    assert.equal(state(r).enemies[0].path.at(-1),last.x+last.y*128);
+    assert.equal(state(r).enemies[0].path.at(-1),last.x+last.y*64);
     const saved=r.snapshot(1);await r.restore(1,saved);await r.replace(r.prepare(bytes,r.manifest));assert.deepEqual(r.snapshot(1),saved);
     const next=state(r);next.buildings.find(site=>site.id===first.id).cooldown=0;
     next.buildings.find(site=>site.id===last.id).cooldown=8;await restoreColony(r,next);await advance(r);
-    assert.equal(state(r).enemies[0].target,first.id);assert.equal(state(r).enemies[0].path.at(-1),first.x+first.y*128);await r.close();
+    assert.equal(state(r).enemies[0].target,first.id);assert.equal(state(r).enemies[0].path.at(-1),first.x+first.y*64);await r.close();
   });
   await test('towers do not intercept enemies pursuing their remembered artillery attacker',async()=>{
     const r=await fresh(),tower=await build(r,'observe',12,22),gun=await build(r,'fortify',14,22);
@@ -81,12 +81,14 @@ export async function checkRetaliation(test,fresh,bytes) {
     assert.equal(enemy.target,0);assert.equal(enemy.path.at(-1),routeCell(world,8,22));await r.close();
   });
   await test('retaliation walks around water even when the incoming shot crosses it',async()=>{
-    const r=await fresh(),gun=await build(r,'fortify',12,22),world=encounter(state(r),8,22);
-    const site=world.buildings.find(site=>site.id===gun.id);Object.assign(site,{x:81,y:7});world.rails=[];world.tracks=[];
-    world.surveys.unshift({x:81,y:7,radius:4});Object.assign(world.enemies[0],{x:83*40+20,y:7*40+20});
+    const r=await fresh();await call(r,'new-run-seed',[2]);
+    const initial=state(r);initial.started=true;await restoreColony(r,initial);
+    const gun=await build(r,'fortify',12,22),world=encounter(state(r),8,22);
+    const site=world.buildings.find(site=>site.id===gun.id);Object.assign(site,{x:15,y:39});world.rails=[];world.tracks=[];
+    world.surveys.unshift({x:15,y:39,radius:4});Object.assign(world.enemies[0],{x:17*40+20,y:39*40+20});
     await restoreColony(r,world);await advance(r);const enemy=state(r).enemies[0];
-    assert.ok(enemy.hp<500);assert.equal(enemy.target,gun.id);assert.equal(enemy.path.at(-1),81+7*128);
-    assert.ok(!enemy.path.includes(82+7*128));assert.ok(enemy.path.length>2);
+    assert.ok(enemy.hp<500);assert.equal(enemy.target,gun.id);assert.equal(enemy.path.at(-1),15+39*64);
+    assert.ok(!enemy.path.includes(16+39*64));assert.ok(enemy.path.length>2);
     await advance(r,12);assert.deepEqual(state(r).breaches,[]);assert.deepEqual(state(r).excavations,[]);await r.close();
   });
   await test('the 3-by-3 hub has a rounded attack boundary along its sides and corners',async()=>{
@@ -111,8 +113,8 @@ export async function checkRetaliation(test,fresh,bytes) {
     const r=await fresh(),gun=await build(r,'fortify',12,22),base=state(r);
     for(const [level,damage] of [[1,12],[3,24]]) {
       const world=structuredClone(base),site=world.buildings.find(site=>site.id===gun.id),extraCost=25*(level-1);
-      Object.assign(site,{kind:2,level,armed:0,x:59,y:41,cooldown:0});world.rails=[];world.tracks=[];
-      world.spent+=extraCost;world.ore-=extraCost;world.surveys.unshift({x:59,y:41,radius:4});
+      const nest=world.nests[0];Object.assign(site,{kind:2,level,armed:0,x:nest.x,y:nest.y+4,cooldown:0});world.rails=[];world.tracks=[];
+      world.spent+=extraCost;world.ore-=extraCost;world.surveys.unshift({x:nest.x,y:nest.y+4,radius:4});
       await restoreColony(r,world);await advance(r);assert.equal(state(r).nests[0].hp,900-damage);
     }
     await r.close();

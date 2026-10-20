@@ -160,7 +160,7 @@ export async function checkCarts(test,fresh) {
     const legacy=state(r),a=routeCell(legacy,8,22),b=a+1;
     legacy.tracks=[a*32+17,b*32+20]; await restoreColony(r,legacy); const saved=r.snapshot(1);
     for(const edit of [world=>world.tracks.push(world.tracks[0]), world=>{world.tracks[0]^=1;},
-      world=>{world.tracks[0]=-1;}, world=>{world.tracks[0]=128*128*32+1;}]) {
+      world=>{world.tracks[0]=-1;}, world=>{world.tracks[0]=64*64*32+1;}]) {
       const invalid=colony(saved); edit(invalid); await assert.rejects(()=>restoreColony(r,invalid),WebAssembly.RuntimeError);
       assert.deepEqual(r.snapshot(1),saved);
     }

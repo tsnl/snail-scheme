@@ -32,10 +32,10 @@ async function loaded(r) {
 }
 
 export async function checkHub(test,fresh,bytes) {
-  await test('World12 hub capacity rejects old geography and uses a distinct storage identity',async()=>{
+  await test('World13 compact map rejects old geography and uses a distinct storage identity',async()=>{
     const r=await fresh(),fixture=JSON.parse(readFileSync(new URL('./siegework-world10.json',import.meta.url)));
     const saved=r.snapshot(1),record={format:1,application:fixture.application,contract:fixture.contract,snapshot:{revision:17,state:fixture.world}};
-    assert.equal(r.manifest.settings.id,'siegework-colony-v12');assert.equal(saved[0],12);
+    assert.equal(r.manifest.settings.id,'siegework-colony-v13');assert.equal(saved[0],13);
     assert.throws(()=>readRecord(record,r.manifest.settings.id,saveContract(r.manifest)),/incompatible/);
     await assert.rejects(()=>r.restore(1,fixture.world),/invalid snapshot schema/);
     assert.deepEqual(r.snapshot(1),saved);assert.equal(record.snapshot.state[0],10);

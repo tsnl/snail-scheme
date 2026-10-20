@@ -78,7 +78,7 @@ async function decide(runtime,world,known,direction,nest) {
     const preferred={x:hub.x+toward.x*3,y:hub.y+toward.y*3};
     return place(runtime,world,open.filter(point=>square(point,hub)<=16).sort((a,b)=>square(a,preferred)-square(b,preferred)),2);
   }
-  if(world.ore>=40&&resource.length)return place(runtime,world,resource,1);
+  if(resource.length)return place(runtime,world,resource,1);
   const exposedMine=mines.find(site=>remaining(world,site)>0&&square(site,hub)>81&&guns.every(gun=>square(gun,site)>25));
   if(exposedMine) {
     if(world.ore<50)return false;

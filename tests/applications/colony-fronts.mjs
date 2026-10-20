@@ -34,7 +34,7 @@ export async function checkFronts(test,fresh) {
     const r=await fresh(),w=state(r),hub=w.surveys[0],targets=new Map();w.started=true;w.tick=1349;
     for(const nest of w.nests) {
       const horizontal=Math.abs(hub.x-nest.x)>Math.abs(hub.y-nest.y);
-      const x=nest.x+(horizontal?Math.sign(hub.x-nest.x)*7:0),y=nest.y+(horizontal?0:Math.sign(hub.y-nest.y)*7);
+      const x=nest.x+(horizontal?Math.sign(hub.x-nest.x)*3:0),y=nest.y+(horizontal?0:Math.sign(hub.y-nest.y)*3);
       targets.set(nest.id,structure(w,3,x,y).id);
     }
     await restoreColony(r,w);await advance(r);const spawned=state(r);assert.equal(spawned.enemies.length,7);

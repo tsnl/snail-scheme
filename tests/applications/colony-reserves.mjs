@@ -7,7 +7,7 @@ import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {colony,colonyBalance,restoreColony,fixtureCall,setWorker,at,pixelAt,withdrawReserves} from './colony-state.mjs';
 
 const state=r=>colony(r.snapshot(1)),call=fixtureCall;
-const reserve=(world,site)=>world.deposits.find(deposit=>deposit.cell===site.x+site.y*128);
+const reserve=(world,site)=>world.deposits.find(deposit=>deposit.cell===site.x+site.y*64);
 function leaveReserve(world,site,remaining) {
   const deposit=reserve(world,site),amount=deposit.remaining-remaining;
   assert.ok(amount>=0);deposit.remaining=remaining;world.produced+=amount;world.lostOre+=amount;
@@ -28,7 +28,7 @@ function fixtureMine(world,x,y) {
   const point=at(world,x,y),aim=pixelAt(world,x,y);
   const site={id:world.nextId++,kind:1,...point,level:1,hp:140,stock:0,stage:2,cooldown:0,
     aimX:aim.x,aimY:aim.y,armed:0,source:0,moveX:-1,moveY:-1};
-  world.buildings.push(site);world.surveys.unshift({...point,radius:4});world.spent+=40;world.ore-=40;return site;
+  world.buildings.push(site);world.surveys.unshift({...point,radius:4});return site;
 }
 
 export async function checkReserves(test,fresh) {
@@ -55,7 +55,7 @@ export async function checkReserves(test,fresh) {
   });
   await test('an exhausted extractor releases incoming miners and ordinary assignment reaches the next mine',async()=>{
     const r=await mine(fresh),w=state(r),starter=w.buildings[0];leaveReserve(w,starter,0);
-    const north=fixtureMine(w,5,5);w.surveys.unshift({...at(w,12,13),radius:10});
+    const north=fixtureMine(w,9,13);w.surveys.unshift({...at(w,12,13),radius:10});
     for(let i=0;i<3;i++)setWorker(w,i,{x:12,y:20});setWorker(w,0,{x:12,y:20,job:9,target:starter.id});
     await restoreColony(r,w);await advance(r,2);
     assert.ok(state(r).bots.every(bot=>bot.target!==starter.id));

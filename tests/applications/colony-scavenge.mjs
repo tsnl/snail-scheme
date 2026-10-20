@@ -19,7 +19,7 @@ export async function checkScavenge(test,fresh) {
     for(let tick=0;tick<200&&!predicate(state(r));tick++)await step(r);
     assert.ok(predicate(state(r)),'worker transition completed');
   }
-  const investment=(kind,level)=>(kind===1?40:kind===2?50:25)+(kind===1?[0,40,200][level-1]:25*(level-1));
+  const investment=(kind,level)=>(kind===1?0:kind===2?50:25)+(kind===1?[0,40,200][level-1]:25*(level-1));
   function building(world,kind=3,level=1,x=12,y=22,local=0) {
     const cost=investment(kind,level),point=pixelAt(world,x,y),cell=at(world,x,y);
     const value={id:world.nextId++,kind,...cell,level,hp:kind===1?140:kind===2?100:90,stock:0,stage:2,cooldown:0,

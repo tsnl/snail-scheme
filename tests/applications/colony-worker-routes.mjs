@@ -6,8 +6,8 @@ import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {decodeObservation} from '../../apps/siegework/headless.mjs';
 import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,at,pixelAt,setWorker,withdrawReserves} from './colony-state.mjs';
 
-const cell=(x,y)=>x+y*128;
-const manhattan=(a,b)=>Math.abs(a%128-b%128)+Math.abs(Math.floor(a/128)-Math.floor(b/128));
+const cell=(x,y)=>x+y*64;
+const manhattan=(a,b)=>Math.abs(a%64-b%64)+Math.abs(Math.floor(a/64)-Math.floor(b/64));
 function building(world,x,y,kind=3,level=1) {
   const point=pixelAt(world,x,y),site={id:world.nextId++,kind,...at(world,x,y),level,hp:kind===3?90:100,
     stock:0,stage:2,cooldown:0,aimX:point.x,aimY:point.y,armed:0,source:0,moveX:-1,moveY:-1};
@@ -20,14 +20,14 @@ function shortestTicks(world,tiles,start,target) {
   for(const rail of world.rails) {
     const [a,b]=rail.path;if(rail.path.length!==2||manhattan(a,b)<=1)continue;
     const speed=80*2**(Math.min(levels.get(rail.source),levels.get(rail.parent))-1);
-    const ticks=4+Math.ceil(Math.hypot(a%128-b%128,Math.floor(a/128)-Math.floor(b/128))*40/speed);
+    const ticks=4+Math.ceil(Math.hypot(a%64-b%64,Math.floor(a/64)-Math.floor(b/64))*40/speed);
     for(const [from,to]of[[a,b],[b,a]])edges.set(from,[...(edges.get(from)??[]),[to,ticks]]);
   }
   const distances=new Map([[start,0]]),pending=[[start,0]];
   while(pending.length) {
     pending.sort((a,b)=>b[1]-a[1]||b[0]-a[0]);const [here,time]=pending.pop();
     if(time!==distances.get(here))continue;if(here===target)return time;
-    const neighbors=[here-128,here+128,here-1,here+1].filter(next=>manhattan(here,next)===1).map(next=>[next,5]);
+    const neighbors=[here-64,here+64,here-1,here+1].filter(next=>manhattan(here,next)===1).map(next=>[next,5]);
     for(const [next,cost]of[...neighbors,...(edges.get(here)??[])])if(ground.has(next)&&time+cost<(distances.get(next)??Infinity)) {
       distances.set(next,time+cost);pending.push([next,time+cost]);
     }

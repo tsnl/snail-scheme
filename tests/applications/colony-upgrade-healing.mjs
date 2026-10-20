@@ -20,7 +20,7 @@ export async function checkUpgradeHealing(test,fresh) {
     assert.ok(predicate(state(r)),'worker completed the bounded upgrade transition');
   }
   function building(world,{kind=3,level=1,x=12,y=22,hp=50,local=0}={}) {
-    const cost=(kind===2?50:kind===1?40:25)+25*(level-1),point=pixelAt(world,x,y),cell=at(world,x,y);
+    const cost=kind===1?[0,40,200][level-1]:(kind===2?50:25)+25*(level-1),point=pixelAt(world,x,y),cell=at(world,x,y);
     const b={id:world.nextId++,kind,...cell,level,hp,stock:0,stage:2,cooldown:0,aimX:point.x,aimY:point.y,armed:0,source:0,moveX:-1,moveY:-1};
     world.started=true;world.buildings.push(b);world.spent+=cost;world.ore-=cost;world.surveys.push({...cell,radius:level===1?7:10});
     if(local){withdrawReserves(world,local);world.localSpent+=local;world.ore+=local;}return b;
