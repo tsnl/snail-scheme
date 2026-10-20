@@ -95,13 +95,6 @@ pub extern "C" fn file_exists() -> i32 {
     checked(result)
 }
 
-#[unsafe(export_name = "snail:io/delete-file")]
-pub extern "C" fn delete_file() {
-    let result = take_pathname()
-        .and_then(|path| std::fs::remove_file(&path).map_err(|error| format!("{path}: {error}")));
-    checked(result);
-}
-
 fn open_output(path: String) -> Result<i32, String> {
     // Exhaustion is checked before creating or truncating a file. Failed opens
     // consume an ID too; no old integer can ever acquire a different resource.
@@ -130,35 +123,6 @@ pub extern "C" fn open_input_file() -> i32 {
 
 // ---- Scalar character reads and writes ----
 
-#[unsafe(export_name = "snail:io/standard-output")]
-pub extern "C" fn standard_output() -> i32 {
-    STANDARD_OUTPUT as i32
-}
-
-#[unsafe(export_name = "snail:io/standard-input")]
-pub extern "C" fn standard_input() -> i32 {
-    STANDARD_INPUT as i32
-}
-
-fn check_output(id: u32) -> Result<(), String> {
-    if id == STANDARD_OUTPUT {
-        return Ok(());
-    }
-    FILES.with_borrow_mut(|files| {
-        let port = files.get(id)?;
-        if port.is_output() && port.is_open() {
-            Ok(())
-        } else {
-            Err("expected an open output port".into())
-        }
-    })
-}
-
-#[unsafe(export_name = "snail:io/check-output")]
-pub extern "C" fn check_output_port(id: u32) {
-    checked(check_output(id));
-}
-
 // Unicode scalars are nonnegative and fit in I32. Only EOF becomes -1;
 // malformed UTF-8 and read failures take the ordinary fatal cleanup path.
 #[unsafe(export_name = "snail:io/read-character")]
@@ -168,19 +132,6 @@ pub extern "C" fn read_code(id: u32) -> i32 {
         flush_standard_output().and_then(|()| INPUT.with_borrow_mut(Port::read_char))
     } else {
         FILES.with_borrow_mut(|files| files.get(id)?.read_char())
-    };
-    checked(result).map_or(-1, |character| character as i32)
-}
-
-// Only owned files use packets. Their private Lofi wrapper owns the pending
-// characters; borrowed stdin keeps its shared host scalar cursor instead.
-#[unsafe(export_name = "snail:io/peek-character")]
-pub extern "C" fn peek_code(id: u32) -> i32 {
-    let result = if id == STANDARD_INPUT {
-        flush_standard_output()
-            .and_then(|()| INPUT.with_borrow_mut(|port| port.text_input()?.peek_char()))
-    } else {
-        FILES.with_borrow_mut(|files| files.get(id)?.text_input()?.peek_char())
     };
     checked(result).map_or(-1, |character| character as i32)
 }
@@ -211,16 +162,6 @@ pub extern "C" fn console_write(code: u32) {
 #[unsafe(export_name = "snail:io/console-read")]
 pub extern "C" fn console_read() -> i32 {
     read_code(STANDARD_INPUT)
-}
-
-#[unsafe(export_name = "snail:io/flush")]
-pub extern "C" fn flush(id: u32) {
-    let result = if id == STANDARD_OUTPUT {
-        flush_standard_output()
-    } else {
-        FILES.with_borrow_mut(|files| files.get(id)?.flush())
-    };
-    checked(result);
 }
 
 // ---- Command-line arguments ----
@@ -326,14 +267,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn standard_input_is_borrowed_and_preserves_lookahead_on_close() {
+    fn standard_input_is_borrowed_and_survives_close() {
         let next = FILES.with_borrow(|files| files.next);
-        assert_eq!(standard_input(), -3);
         INPUT.with_borrow_mut(|port| *port = Port::input_string("λ😀".into()));
-        assert_eq!(peek_code(STANDARD_INPUT), 'λ' as i32);
         close(STANDARD_INPUT);
         assert_eq!(read_code(STANDARD_INPUT), 'λ' as i32);
-        assert_eq!(peek_code(STANDARD_INPUT), '😀' as i32);
         assert_eq!(close_all(), 0);
         assert_eq!(read_code(STANDARD_INPUT), '😀' as i32);
         assert_eq!(read_code(STANDARD_INPUT), -1);
@@ -342,14 +280,10 @@ mod tests {
 
     #[test]
     fn standard_output_is_borrowed_and_never_consumes_a_file_id() {
-        assert_eq!(standard_output(), -2);
         let next = FILES.with_borrow(|files| files.next);
-        assert!(check_output(STANDARD_OUTPUT).is_ok());
         close(STANDARD_OUTPUT);
         close(STANDARD_OUTPUT);
-        assert!(check_output(STANDARD_OUTPUT).is_ok());
         assert_eq!(close_all(), 0);
-        assert!(check_output(STANDARD_OUTPUT).is_ok());
         assert_eq!(FILES.with_borrow(|files| files.next), next);
         assert!(FILES.with_borrow_mut(|files| files.get(STANDARD_OUTPUT).is_err()));
     }
@@ -372,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn scalar_input_preserves_lookahead_and_distinguishes_unicode_from_eof() {
+    fn scalar_input_distinguishes_unicode_from_eof() {
         let id = FILES.with_borrow_mut(|files| {
             let id = files.reserve_id().unwrap();
             files
@@ -381,8 +315,6 @@ mod tests {
             id as u32
         });
         for code in [0, 0x03bb, 0x1f600, 0x10ffff, -1, -1] {
-            assert_eq!(peek_code(id), code);
-            assert_eq!(peek_code(id), code);
             assert_eq!(read_code(id), code);
         }
         close(id);

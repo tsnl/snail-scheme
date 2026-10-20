@@ -43,10 +43,6 @@ impl Port {
         }
     }
 
-    pub(crate) fn is_open(&self) -> bool {
-        !matches!(self, Self::Closed)
-    }
-
     pub(crate) fn close(&mut self) -> Result<(), String> {
         if self.is_output() {
             self.flush()?;
@@ -99,29 +95,17 @@ impl Port {
 // Buffered streams return available input; they never read to EOF up front.
 pub(crate) struct TextInput {
     input: BufReader<Box<dyn Read>>,
-    peeked: Option<Option<char>>,
 }
 
 impl TextInput {
     fn new(input: impl Read + 'static) -> Self {
         Self {
             input: BufReader::new(Box::new(input)),
-            peeked: None,
         }
-    }
-
-    pub(crate) fn peek_char(&mut self) -> Result<Option<char>, String> {
-        if self.peeked.is_none() {
-            self.peeked = Some(read_utf8_char(&mut self.input)?);
-        }
-        Ok(self.peeked.unwrap())
     }
 
     pub(crate) fn read_char(&mut self) -> Result<Option<char>, String> {
-        match self.peeked.take() {
-            Some(character) => Ok(character),
-            None => read_utf8_char(&mut self.input),
-        }
+        read_utf8_char(&mut self.input)
     }
 }
 
@@ -227,24 +211,14 @@ mod tests {
     }
 
     #[test]
-    fn lookahead_eof_and_close_share_one_character_cursor() {
+    fn reads_end_at_eof_and_after_close() {
         let mut port = Port::input_string("λ\r\n😀".into());
         for character in ['λ', '\r', '\n', '😀'] {
-            assert_eq!(
-                port.text_input().unwrap().peek_char().unwrap(),
-                Some(character)
-            );
-            assert_eq!(
-                port.text_input().unwrap().peek_char().unwrap(),
-                Some(character)
-            );
             assert_eq!(port.read_char().unwrap(), Some(character));
         }
-        assert_eq!(port.text_input().unwrap().peek_char().unwrap(), None);
         assert_eq!(port.read_char().unwrap(), None);
         port.close().unwrap();
         port.close().unwrap();
-        assert!(!port.is_open());
         assert!(port.read_char().is_err());
         assert!(port.text_input().is_err());
     }
