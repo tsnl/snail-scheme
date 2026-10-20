@@ -150,7 +150,7 @@
       (cond ((= (client-dialog-pending state) 4) 3)
             ((= (client-dialog-pending state) 3) 2)
             ((> (client-dialog state) 0) (client-dialog state))
-            ((or (> (client-dialog-pending state) 0) (= (world-paused world) 1)) 1) (else 0)))
+            ((or (> (client-dialog-pending state) 0) (and (= (world-outcome world) 0) (= (world-paused world) 1))) 1) (else 0)))
     ;; Camera input remains Client-only; imports and committed replies sync pause.
     (define (dialog-open? state) (or (> (client-dialog state) 0) (> (client-dialog-pending state) 0)))
 
@@ -225,7 +225,7 @@
              (y (if (< site 0) (world-hub-y world) (index-y site))))
         (make-client x y (* x 1000) (* y 1000) (client-width state) (client-height state) #f -1 -1
                      (client-heading state) (client-turn-from state) (client-turn-to state) (client-turn-elapsed state)
-                     (client-scale state) 0 (world-paused world) 0 0 #f (client-last-kind state) 0 0 -1 0 0 (client-left-handed state) (empty-list))))
+                     (client-scale state) 0 (if (= (world-outcome world) 0) (world-paused world) 0) 0 0 #f (client-last-kind state) 0 0 -1 0 0 (client-left-handed state) (empty-list))))
     (define (reset-client world state)
       (let* ((centered (center-client world (client-last-kind-set state 3)))
              (next (if (build-pending? state)
