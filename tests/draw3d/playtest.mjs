@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,client,at,siteAt,routeCell,setWorker,restoreColony,restoreClient,fixtureCall,withdrawReserves} from '../applications/colony-state.mjs';
+import {MAP_WIDTH,establishColony,colony,client,at,siteAt,routeCell,setWorker,restoreColony,restoreClient,fixtureCall,withdrawReserves} from '../applications/colony-state.mjs';
 import {expandBatch} from './scene-tools.mjs';
 
 const output=process.argv[2],manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
@@ -92,7 +92,7 @@ function checkTransport(r,key=20,width=.25,elevation=.9) {
   const marks=transportMarks(r,key),triangles=transportTriangles(r,key),{edges}=expectedTransport(world(r));
   let expectedArea=0;
   for(const [a,b] of edges) {
-    const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y,length=Math.hypot(dx,dy);
+    const x=a%MAP_WIDTH,y=-Math.floor(a/MAP_WIDTH),dx=b%MAP_WIDTH-x,dy=-Math.floor(b/MAP_WIDTH)-y,length=Math.hypot(dx,dy);
     expectedArea+=length*width;
     for(let step=0;step<=16;step++)for(const across of [-width*.48,0,width*.48])
       assert.ok(painted(triangles,[x+dx*step/16-dy*across/length,y+dy*step/16+dx*across/length]),'direct cables form solid straight ribbons');
@@ -110,7 +110,7 @@ function transportOnscreen(r,[x,y],elevation=.9) {
 function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
   const triangles=transportTriangles(r,key);let clipped=0;
   for(const [a,b] of expectedTransport(world(r)).edges) {
-    const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y;
+    const x=a%MAP_WIDTH,y=-Math.floor(a/MAP_WIDTH),dx=b%MAP_WIDTH-x,dy=-Math.floor(b/MAP_WIDTH)-y;
     if(transportOnscreen(r,[x,y],elevation)!==transportOnscreen(r,[x+dx,y+dy],elevation))clipped++;
     for(let step=0;step<=16;step++)for(const across of [-width*.48,0,width*.48]) {
       const point=[x+dx*step/16-dy*across/Math.hypot(dx,dy),y+dy*step/16+dx*across/Math.hypot(dx,dy)];
@@ -183,6 +183,17 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
         result.set(center.slice(0,2).map(value=>Math.round(value*2)).join(','),{face,center});}
       return result;
     };
+    const boundary=sites=>{
+      const cells=new Set(),edges=new Set();
+      for(const {x:cx,y:cy,radius} of sites)for(let y=cy-radius;y<=cy+radius;y++)for(let x=cx-radius;x<=cx+radius;x++)
+        if(x>=0&&y>=0&&x<MAP_WIDTH&&y<MAP_WIDTH&&(x-cx)**2+(y-cy)**2<=radius**2)cells.add(`${x},${y}`);
+      for(const cell of cells){const [x,y]=cell.split(',').map(Number);
+        for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]])
+          if(!cells.has(`${x+dx},${y+dy}`))edges.add(`${2*x+dx},${-2*y-dy}`);}
+      return edges;
+    };
+    const gunBoundary=boundary(guns.map(gun=>({...gun,radius:6}))),hub=at(world(r),8,22);
+    const towerBoundary=boundary([{...hub,radius:9}]);
     for(const [width,height] of [[1100,760],[390,844]])for(const heading of [0,90000,180000,270000]) {
       await command(r,'viewport',[width,height]);
       const middle=at(world(r),13,22);
@@ -191,7 +202,18 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
       const orange=faces(4),cyan=faces(14),m=r.view().scene.uniforms;
       const screen=p=>[(m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12])*width/2,
         (m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13])*height/2];
-      let shared=0;
+      let shared=0,unshared=0;
+      for(const [color,own,other,lane] of [[orange,gunBoundary,towerBoundary,-.03],[cyan,towerBoundary,gunBoundary,.03]])
+        for(const [key,a] of color){
+          assert.ok(own.has(key),'each rendered segment belongs to its original exact union');
+          const original=key.split(',').map(Number).map(v=>v/2),horizontal=Number(key.split(',')[0])%2===0;
+          const axis=horizontal?1:0,coincident=other.has(key);
+          for(let coordinate=0;coordinate<2;coordinate++)assert.ok(Math.abs(a.center[coordinate]-original[coordinate]
+            -(coincident&&coordinate===axis?lane:0))<1e-5,'only the perpendicular coordinate of an exactly shared edge moves');
+          const stroke=Math.max(...a.face.map(p=>p[axis]))-Math.min(...a.face.map(p=>p[axis]));
+          assert.ok(Math.abs(stroke-.06)<1e-5,'every edge retains the regular stroke width');
+          if(!coincident)unshared++;
+        }
       for(const [key,a] of orange){const b=cyan.get(key);if(!b)continue;shared++;
         assert.ok(Math.abs(a.center[2]-b.center[2])<1e-6,'both guides use the same elevation');
         const horizontal=Number(key.split(',')[0])%2===0;
@@ -200,11 +222,16 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
         const normal=p=>cross2(origin,tangent,screen(p))/length;
         const aa=a.face.map(normal),bb=b.face.map(normal);
         const gap=Math.max(Math.min(...aa)-Math.max(...bb),Math.min(...bb)-Math.max(...aa));
-        assert.ok(gap>.5,`both colors have separate visible strokes at ${width}x${height}, heading ${heading}`);
+        assert.ok(Math.abs(gap)<.001,'two regular strokes meet at the original boundary without overlap or a gap');
+        assert.ok(Math.max(...aa)-Math.min(...aa)>.25&&Math.max(...bb)-Math.min(...bb)>.25,
+          `both colors have visible width at ${width}x${height}, heading ${heading}`);
       }
-      assert.ok(shared>=2,'fixture exercises coincident range boundaries');
+      assert.ok(shared>=2&&unshared>0,'fixture exercises coincident and unchanged range boundaries');
     }
-    console.log('ok - exact range unions retain without seams; overlapping colors stay separate through desktop/mobile rotation');
+    const oldGunEdges=batch(r,4);
+    await fixtureCall(r,'observe',[12,22]);await complete(r);
+    assert.notEqual(batch(r,4),oldGunEdges,'new tower coverage invalidates the other color’s shared-edge geometry');
+    console.log('ok - exact range unions retain without seams; only coincident edges split into regular adjacent strokes through desktop/mobile rotation');
   } finally {await r.close();}
 }
 {
@@ -330,14 +357,14 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
     const initial=world(r),hub=at(initial,8,22),other=at(initial,14,22);
     initial.started=true;initial.tick=100;
     initial.alerts=[{...hub,kind:0,tick:100},{...other,kind:3,tick:100}];await restoreColony(r,initial);
-    const key=alert=>(alert.x+alert.y*128)*8+alert.kind;
+    const key=alert=>(alert.x+alert.y*MAP_WIDTH)*8+alert.kind;
     const first=key(initial.alerts[0]),second=key(initial.alerts[1]),before=r.snapshot(1);
     assert.ok(node(r,`attack-dismiss-${first}`)&&node(r,`attack-inspect-${second}`));
     await command(r,'dismiss-attack',[first]);assert.deepEqual(r.snapshot(1),before);
     assert.equal(node(r,`attack-toast-${first}`),undefined);assert.ok(node(r,`attack-toast-${second}`));
     assert.deepEqual(local(r).dismissed,[{key:first,until:180}]);
     const hidden=r.snapshot(2);
-    for(const invalid of [-1,first+6,first+7,128*128*8,2147483647]){await command(r,'dismiss-attack',[invalid]);assert.deepEqual(r.snapshot(2),hidden);}
+    for(const invalid of [-1,first+6,first+7,MAP_WIDTH*MAP_WIDTH*8,2147483647]){await command(r,'dismiss-attack',[invalid]);assert.deepEqual(r.snapshot(2),hidden);}
     const repeated=world(r);repeated.tick=101;repeated.alerts=repeated.alerts.map(alert=>({...alert,tick:101}));await restoreColony(r,repeated);
     assert.equal(node(r,`attack-toast-${first}`),undefined,'a repeat hit does not immediately undo dismissal');
     const nearby=world(r);nearby.alerts[0]={...nearby.alerts[0],x:hub.x+2,kind:4};await restoreColony(r,nearby);
@@ -354,7 +381,8 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
       await assert.rejects(restoreClient(r,{...local(r),dismissed}));assert.deepEqual(r.snapshot(2),saved);
     }
     await command(r,'center');assert.deepEqual(local(r).dismissed,[],'resetPresentation clears local dismissal history');
-    const areas=Array.from({length:5},(_,i)=>({x:hub.x+i*6,y:hub.y,kind:i%5,tick:181+i}));
+    const direction=hub.x+24<MAP_WIDTH?1:-1;
+    const areas=Array.from({length:5},(_,i)=>({x:hub.x+direction*i*6,y:hub.y,kind:i%5,tick:181+i}));
     for(const alert of areas) {
       const next=world(r);next.tick=alert.tick;next.alerts=[alert];await restoreColony(r,next);
       const committed=r.snapshot(1);await command(r,'dismiss-attack',[key(alert)]);assert.deepEqual(r.snapshot(1),committed);
@@ -363,7 +391,7 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
       'a fifth area evicts the oldest dismissal while keeping four recent areas');
     const afterEviction=world(r);afterEviction.alerts=[areas[0],areas[4]].map(alert=>({...alert,tick:185}));await restoreColony(r,afterEviction);
     assert.ok(node(r,`attack-toast-${key(areas[0])}`));assert.equal(node(r,`attack-toast-${key(areas[4])}`),undefined);
-    const afterExpiry=world(r);afterExpiry.tick=265;afterExpiry.alerts=[{...hub,x:hub.x+36,kind:3,tick:265}];await restoreColony(r,afterExpiry);
+    const afterExpiry=world(r);afterExpiry.tick=265;afterExpiry.alerts=[{...hub,x:hub.x+direction*12,kind:3,tick:265}];await restoreColony(r,afterExpiry);
     await command(r,'dismiss-attack',[key(afterExpiry.alerts[0])]);
     assert.deepEqual(local(r).dismissed,[{key:key(afterExpiry.alerts[0]),until:345}],'a new dismissal prunes expired areas');
     await command(r,'center');assert.deepEqual(local(r).dismissed,[]);
@@ -391,7 +419,7 @@ function checkTransportBoundary(r,key=20,width=.25,elevation=.9) {
       function inspect(value,x=0,y=0){x+=value.rect[0];y+=value.rect[1];if(value.key.startsWith('attack-toast-'))assert.ok(point[0]<x+12||point[0]>x+12+value.rect[2]||point[1]<y+12||point[1]>y+12+value.rect[3],'attack card leaves the second-tap target clear');for(const child of value.children)inspect(child,x,y);}
       inspect(r.view().ui);
     }
-    console.log('ok - narrow mirrored popups and attack cards leave the selected tile available for its second tap');
+    console.log('ok - narrow mirrored popups and attack cards leave the selected tile available for inspection');
   } finally {await r.close();}
 }
 
