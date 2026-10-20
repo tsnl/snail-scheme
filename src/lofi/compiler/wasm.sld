@@ -139,14 +139,14 @@
         (or (known-type m key)
             (let ((closure (wasm-id key)) (code (wasm-id "fn." signature)))
               (hash-table-set! (Module-type-ids m) key closure)
+              (hash-table-set! (Module-type-ids m) (cons 'code closure) code)
               (register-type! m (string-append "fn." signature) code
                               `(type ,code (func (param (ref ,closure)) ,@(map (lambda (p) `(param ,p)) params) (result ,result))))
               (register-type! m key closure `(type ,closure (sub (struct (field (ref ,code))))))))))
 
     ;; Every closure subtype shares its base's code type.
     (define (code-type m closure)
-      (let ((name (symbol->string closure)))
-        (string->symbol (string-append "$fn." (substring name 5 (string-length name))))))
+      (known-type m (cons 'code closure)))
 
     (define (function-signature m type)
       (match type
@@ -351,7 +351,7 @@
                             (call (Expr (App (Expr (Var name '() '()) type #f)
                                              (map (lambda (name param) (Expr (Var name '() '()) param #f)) names params))
                                         result #f)))
-                       (closure-value m (Expr (Lambda names call) type #f))))))))
+                       (closure-value m (Expr (Lambda names call) type #f) #f)))))))
 
     ;; ---- Closures ----
 
@@ -366,9 +366,10 @@
             (closure-value m function self)
             (closure-with-captures fn function self captured))))
 
-    (define (closure-value m function . self)
+    ;; A closure without captures is one immutable global.
+    (define (closure-value m function self)
       (let-values (((params result) (function-signature m (Expr-type function))))
-        (let* ((base (closure-type m params result)) (code (lambda-function! m function (if (pair? self) (car self) #f) '() base))
+        (let* ((base (closure-type m params result)) (code (lambda-function! m function self '() base))
                (id (fresh-id m "closure")))
           (push! (Module-globals m) `(global ,id (ref ,base) (struct.new ,base (ref.func ,code))))
           `(global.get ,id))))
@@ -578,7 +579,7 @@
                                  (Effect-operations (program-effect (program-of m) effect)))))
                 (push! (Module-types m) `(type ,id (struct ,@fields
                                                      (field (ref null ,id)))))
-                (push! (Module-globals m) `(global ,(wasm-id key ".current") (mut (ref null ,id)) (ref.null ,id)))
+                (push! (Module-globals m) `(global ,(handler-global effect) (mut (ref null ,id)) (ref.null ,id)))
                 id)))))
 
     (define (operation-type m operation)
@@ -586,8 +587,7 @@
         ((Operation _ (Scheme _ _ (TFun params result _))) (TFun params result empty-row))))
 
     (define (emit-handle fn expr effect implementations body)
-      (let* ((m (Fn-module fn)) (id (handler-type m effect))
-             (current (wasm-id "handler." (symbol->string effect) ".current"))
+      (let* ((m (Fn-module fn)) (id (handler-type m effect)) (current (handler-global effect))
              (saved (declare-temp! fn `(ref null ,id))) (result (declare-temp! fn (fn-rep fn (Expr-type expr)))))
         `((local.set ,saved (global.get ,current))
           (global.set ,current
@@ -598,26 +598,35 @@
           (global.set ,current (local.get ,saved))
           (local.get ,result))))
 
+    ;; Arguments are evaluated before the handler is consulted, since they
+    ;; may perform the same effect.
     (define (perform fn effect operation args type)
       (let* ((m (Fn-module fn)) (id (handler-type m effect)) (info (program-effect (program-of m) effect))
-             (current (wasm-id "handler." (symbol->string effect) ".current"))
-             (index (list-index (lambda (o) (eq? o operation)) (Effect-operations info)))
-             (op-type (operation-type m operation))
              (temps (map (lambda (arg) (declare-temp! fn (fn-rep fn (Expr-type arg)))) args))
-             (handler (declare-temp! fn `(ref null ,id))) (result-rep (fn-rep fn type)) (result (declare-temp! fn result-rep)))
-        (let-values (((params result-type) (function-signature m op-type)))
-          (let* ((base (closure-type m params result-type)) (implementation (declare-temp! fn (ref-of base))))
-            `(,@(map (lambda (temp arg) `(local.set ,temp ,(emit1 fn arg))) temps args)
-              (local.set ,handler (global.get ,current))
-              (if (result ,result-rep) (ref.is_null (local.get ,handler))
-                  (then ,@(host-default fn info operation op-type temps))
-                  (else (local.set ,implementation (struct.get ,id ,index (local.get ,handler)))
-                        (global.set ,current (struct.get ,id ,(length (Effect-operations info)) (local.get ,handler)))
-                        (local.set ,result (call_ref ,(code-type m base) (local.get ,implementation)
-                                                     ,@(map (lambda (temp) `(local.get ,temp)) temps)
-                                                     (struct.get ,base 0 (local.get ,implementation))))
-                        (global.set ,current (local.get ,handler))
-                        (local.get ,result))))))))
+             (handler (declare-temp! fn `(ref null ,id))) (current (handler-global effect)))
+        `(,@(map (lambda (temp arg) `(local.set ,temp ,(emit1 fn arg))) temps args)
+          (local.set ,handler (global.get ,current))
+          (if (result ,(fn-rep fn type)) (ref.is_null (local.get ,handler))
+              (then ,@(host-default fn info operation (operation-type m operation) temps))
+              (else ,@(call-implementation fn info operation handler temps type))))))
+
+    (define (handler-global effect)
+      (wasm-id "handler." (symbol->string effect) ".current"))
+
+    ;; The implementation runs with its handler popped, which is restored
+    ;; when it returns.
+    (define (call-implementation fn info operation handler temps type)
+      (let-values (((params result) (function-signature (Fn-module fn) (operation-type (Fn-module fn) operation))))
+        (let* ((m (Fn-module fn)) (id (handler-type m (Effect-name info))) (base (closure-type m params result))
+               (implementation (declare-temp! fn (ref-of base))) (value (declare-temp! fn (fn-rep fn type)))
+               (current (handler-global (Effect-name info))))
+          `((local.set ,implementation (struct.get ,id ,(list-index (lambda (o) (eq? o operation)) (Effect-operations info)) (local.get ,handler)))
+            (global.set ,current (struct.get ,id ,(length (Effect-operations info)) (local.get ,handler)))
+            (local.set ,value (call_ref ,(code-type m base) (local.get ,implementation)
+                                        ,@(map (lambda (temp) `(local.get ,temp)) temps)
+                                        (struct.get ,base 0 (local.get ,implementation))))
+            (global.set ,current (local.get ,handler))
+            (local.get ,value)))))
 
     (define (host-default fn info operation type temps)
       (let ((import
@@ -850,24 +859,27 @@
 
     (define (emit-main! m items)
       (let* ((fn (new-fn m))
-             (code (append-map
-                    (lambda (item)
-                      (match item
-                        ((Define name value)
-                         (if (lambda-expr? value)
-                             '()
-                             (let ((r (rep m (Expr-type value))))
-                               (push! (Module-globals m) `(global ,(wasm-id name) (mut ,(nullable r)) ,(default-value r)))
-                               `((global.set ,(wasm-id name) ,(emit1 fn value))))))
-                        ((Do expr) `((drop ,(emit1 fn expr))))
-                        ((Expose name symbol loc)
-                         (unless (lambda-expr? (hash-table-ref (Module-definitions m) name))
-                           (compile-error loc "an exposed function must be defined with lambda"))
-                         (push! (Module-exports m) `(export ,symbol (func ,(wasm-id name))))
-                         '())))
-                    items)))
+             (code (let loop ((items items) (code '()))
+                     (if (null? items) code (loop (cdr items) (append code (main-item-code m fn (car items))))))))
         (push! (Module-functions m)
                `(func $main (export "main") (result i32) ,@(reverse (ref-get (Fn-locals fn))) ,@code (i32.const 0)))))
+
+    ;; A value becomes a mutable global set at startup; a statement runs and
+    ;; its value is dropped; an exposed function is exported.
+    (define (main-item-code m fn item)
+      (match item
+        ((Define name value)
+         (if (lambda-expr? value)
+             '()
+             (let ((r (rep m (Expr-type value))))
+               (push! (Module-globals m) `(global ,(wasm-id name) (mut ,(nullable r)) ,(default-value r)))
+               `((global.set ,(wasm-id name) ,(emit1 fn value))))))
+        ((Do expr) `((drop ,(emit1 fn expr))))
+        ((Expose name symbol loc)
+         (unless (lambda-expr? (hash-table-ref (Module-definitions m) name))
+           (compile-error loc "an exposed function must be defined with lambda"))
+         (push! (Module-exports m) `(export ,symbol (func ,(wasm-id name))))
+         '())))
 
     ;; ---- Text ----
 
