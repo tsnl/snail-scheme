@@ -22,6 +22,20 @@ Fresh compiled geography and reducer checks establish:
   round trips preserve the resource ledger; missing, reordered, duplicated or
   relocated deposit records reject.
 
+The full application run compiled fresh game and fixture binaries. After updating
+private casualty contracts and two old header assertions to World14, all 277
+integration checks passed using those binaries. The remaining checks passed:
+19 headless/JSONL/MCP, 12 retained recording-library, 27 rendering, five onboarding,
+seeded geography/routes, the public-order expedition, max-DPS, the 64-seed
+opening budget and the real starter sprint. The expedition cleared all three
+nests at tick 3,847; the starter sprint reached its second mine at tick 84.
+
+All nine Pages assembly checks and `make check` pass. An isolated Chromium
+WebGPU run passed all sixteen browser groups. The first browser attempt hit an
+intermittent state-equality assertion during hot replacement; a diagnostic repeat
+preserved state, and the subsequent unchanged browser suite passed in full.
+No browser or rendering code changed in this density adjustment.
+
 ## Compact World13 and readable crystal colonies
 
 The checked package is generation `c82b9683241ce6cf4f91e0de`, with a

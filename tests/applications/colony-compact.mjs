@@ -79,7 +79,7 @@ export async function checkCompact(test,fresh) {
     assert.equal(observed.tiles.length,MAP_WIDTH*MAP_HEIGHT);assert.equal(observed.nests.length,3);
     const old=frozen.slice();old[0]=12;await assert.rejects(r.restore(1,old));assert.deepEqual(r.snapshot(1),frozen);
     await fixtureCall(r,'new-run');const restarted=await check(r);assert.equal(restarted.outcome,0);assert.equal(restarted.hull,300);assert.equal(restarted.started,false);
-    assert.equal(restarted.ore,160);assert.equal(restarted.spent,0);assert.equal(restarted.buildings.length,0);assert.equal(restarted.payloadVersion,1);assert.equal(r.snapshot(1)[0],13);await r.close();
+    assert.equal(restarted.ore,160);assert.equal(restarted.spent,0);assert.equal(restarted.buildings.length,0);assert.equal(restarted.payloadVersion,1);assert.equal(r.snapshot(1)[0],14);await r.close();
   });
 }
 if(process.argv[1]===import.meta.filename){
