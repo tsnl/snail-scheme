@@ -16,8 +16,6 @@ proposed language changes separate from implemented behavior.
 
 ## Compiler
 
-- [ ] Compile the compiler with itself; the shim already gives Chibi the forms
-  it uses. The compiler still uses `#f` for absent values and host hash tables.
 - [ ] Separate checking: serialize each library's checked interface.
 - [ ] Decision trees for `match` with many cases, and nullable references for
   `Option`-shaped enums.

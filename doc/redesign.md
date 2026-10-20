@@ -552,29 +552,33 @@ enum cases stay distinct after erasure.
 passes. Hosts differ only in library implementations, which is ordinary
 in Scheme, where every implementation provides its own `(scheme base)`:
 
-- **On Lofi.** The typed forms are built in, and `(scheme base)` and
-  `(scheme file)` are Lofi libraries backed by WASI.
-- **On Chibi.** A small shim library defines `:`, `struct`, `enum`, `type`,
-  `typeclass`, `instance` and `match` as erasing macros. Typeclass methods dispatch on the
-  runtime struct type of their first argument, so the compiler's own code avoids
-  methods that dispatch only on their result type.
+- **On Lofi.** The typed forms are built in, and the compiler's libraries,
+  `(lofi base)`, `(lofi table)` and `(lofi io)`, are Lofi libraries backed by
+  WASI.
+- **On Chibi.** `host/chibi/` implements the same three libraries with
+  Chibi's own procedures, and `(lofi forms)` defines `:`, `struct`, `enum`,
+  `type` and `match` as erasing macros. The compiler defines no typeclass
+  instances of its own, so nothing dispatches at run time.
 
-The entry point reads arguments and files through `(scheme process-context)` and
-`(scheme file)`, which both hosts provide. Nothing else diverges.
-
-This also removes today's `bootstrap/` loader view. Lofi's implementations of
-the R7RS libraries live on Lofi's search path only, so Chibi never sees them, and
-Chibi runs the compiler with `-I src -I shims/chibi`.
+The entry program, `bootstrap/compile.sld`, reads its arguments and files
+through `(lofi io)`. Lofi's standard library lives on Lofi's search path only,
+so Chibi never sees it, and Chibi runs the compiler with
+`-I host/chibi -I src`. The hosts disagree on integer overflow, argument
+evaluation order and the order of table keys, so the compiler's output never
+depends on them, except for the numbering of generated names, which follows
+evaluation order.
 
 **Bootstrap.**
 
-1. Stage 0 is the compiler source running on Chibi through the shim.
-2. Stage 0 compiles the same source to Wasm, giving stage 1.
+1. Stage 0 is the previous compiled compiler, or, the first time, the
+   compiler's source running on Chibi.
+2. Stage 0 compiles the source to Wasm, giving stage 1.
 3. Stage 1 compiles stage 2.
-4. Stages 1 and 2 must produce identical output on the test corpus.
+4. Stage 2 must reproduce its own text exactly.
 
-After that, a pinned Wasm build can bootstrap without Chibi. Chibi remains an
-optional host for debugging.
+The driver repeats this whenever the compiler's source changes, so a pinned
+Wasm build bootstraps without Chibi. Chibi remains the host of the first
+bootstrap and of `make test-chibi`.
 
 **Full Scheme.** `(scheme compiler)` is a Lofi library: a reader plus a
 translator from R7RS source text to Lofi source text. Its output represents
@@ -620,8 +624,9 @@ Scheme subset, beside the old one, which was then deleted.
   `Deserialize` with per-case TypeIds; effect rows, `effect`, `handle` and
   host defaults. Applications are total `init`, `update` and `view` functions
   over typed values, and Siegework is rewritten with enums and `match`.
-- **Phase 3, partly.** The compiler is written with `struct`, `enum` and
-  `match`, run on Chibi through `shim.sld`.
+- **Phase 3, self-hosting.** The compiler is written in typed Lofi and
+  compiles itself; section 6 describes the bootstrap. Compiling the compiler
+  takes under a second as Wasm and about eight minutes on Chibi.
 - The dynamic Scheme libraries (`integer`, `rational`, `number`, `datum`,
   `read`, `write`) and `generate-library` are ported, without complex
   numbers or mutable pairs.
@@ -631,8 +636,6 @@ Scheme subset, beside the old one, which was then deleted.
 
 ### Remaining
 
-- **Phase 3.** Replace the compiler's remaining host-specific values (`#f`
-  for absent values, host hash tables) and compile it with itself.
 - **Phase 4.** The dependent elaborator and checked interfaces.
 - **Phase 5.** The WGSL backend, wire schema export, typed destinations,
   model checking, and `(scheme compiler)`.
@@ -650,10 +653,9 @@ Scheme subset, beside the old one, which was then deleted.
 
 ### Risks
 
-- **Compile time.** The current compiler takes about a minute for Siegework and
-  ran out of memory on a large Scheme program. Phase 1.3 addresses the measured
-  hot spot. Phase 3 still needs the compiler to compile something its own size,
-  so measure that before starting the port.
+- **Compile time.** The compiled compiler builds itself, about 5,000 lines,
+  in under a second, and Siegework in about a second. Chibi needs minutes for
+  the compiler, so it is only used to start a bootstrap.
 - **Scope.** A dependent elaborator with typeclasses, pattern matching and good
   diagnostics is large. Phases 1–3 deliver a useful typed Scheme without it,
   and the core's multiplicity slot and explicit instances keep phase 4

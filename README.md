@@ -3,7 +3,8 @@
 Lofi is a typed functional language with Scheme syntax that compiles to
 WasmGC. It has structs, enums, pattern matching, typeclasses with generic
 instances, Koka-style effect rows with handlers, and wire types with stable
-schema identities. The compiler is written in Scheme and runs on Chibi.
+schema identities. The compiler is written in Lofi and compiles itself; Chibi
+Scheme runs its source to start the first bootstrap.
 
 ```scheme
 (import

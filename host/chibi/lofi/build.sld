@@ -1,8 +1,9 @@
 ;; The command-line driver: one source file to a linked, runnable Wasm
-;; program. The compiler normally runs as Wasm, built from its own source by
-;; bootstrapping; Chibi runs the source directly only when no compiled
-;; compiler can. Binaryen assembles, optimizes and links the text with the
-;; Rust runtime.
+;; program. The compiler runs as a separate program with one interface,
+;; `compile SOURCE OUTPUT GENERATED DIRECTORY ...`: normally as Wasm, built
+;; from its own source by bootstrapping, and on Chibi only to start a
+;; bootstrap. Binaryen assembles, optimizes and links the text with the Rust
+;; runtime.
 (define-library (lofi build)
   (export
    program->wat
@@ -12,6 +13,7 @@
    path-join)
   (import
    (scheme base)
+   (scheme char)
    (scheme cxr)
    (scheme file)
    (scheme process-context)
@@ -19,71 +21,64 @@
    (chibi filesystem)
    (chibi pathname)
    (chibi process)
-   (only (chibi string) string-contains string-cursor->index)
-   (only (lofi compiler read) syntax->string)
-   (only (lofi compiler core) fnv-1a)
-   (lofi compiler))
+   (only (chibi string) string-contains string-cursor->index))
   (begin
 
     ;; ---- Compiling ----
 
-    ;; The compiled compiler is rebuilt first when its source has changed.
-    ;; LOFI_STAGE0=chibi compiles with the source running on Chibi instead.
-    (define (program->wat root directories source)
-      (if (equal? (get-environment-variable "LOFI_STAGE0") "chibi")
-          (chibi-program->wat root directories source)
-          (wasm-program->wat root (current-compiler root) directories source)))
+    ;; The command that runs a compiler. The compiled compiler is rebuilt
+    ;; first when its source has changed; LOFI_STAGE0=chibi runs the source
+    ;; on Chibi instead.
+    (define (wasm-compiler root path)
+      (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "scripts/run-lofi.mjs") path))
 
-    (define (chibi-program->wat root directories source)
-      (compile->wat directories source (lambda (forms name) (generated-text root directories forms))))
+    (define (chibi-compiler root)
+      (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "LOFI_HEAP") "2G")
+            "-I" (path-join root "host/chibi") "-I" (path-join root "src") (path-join root "bootstrap/compile.sld")))
+
+    (define (program->wat root directories source)
+      (run-compiler root
+                    (if (equal? (get-environment-variable "LOFI_STAGE0") "chibi")
+                        (chibi-compiler root)
+                        (wasm-compiler root (current-compiler root)))
+                    directories source))
 
     ;; The compiler stops with `generate KEY` when it needs a generated
     ;; library that has not been produced; producing it and compiling again
     ;; then finds its text.
-    (define (wasm-program->wat root compiler directories source)
+    (define (run-compiler root command directories source)
       (create-directory* (generated-directory root))
       (create-directory* (path-join root "build/lofi-run"))
       (let* ((output (path-join root "build/lofi-run/compiler-output.wat"))
-             (result (run-wasm root compiler (append (list source output (generated-directory root)) directories))))
+             (result (process->output+error+status
+                      (append command (list source output (generated-directory root)) directories))))
         (cond ((zero? (caddr result)) (read-file output))
               ((generate-request (cadr result))
-               => (lambda (key) (produce! root directories key) (wasm-program->wat root compiler directories source)))
-              (else (error (strip-prefix (cadr result)))))))
+               => (lambda (key) (produce! root directories key) (run-compiler root command directories source)))
+              (else (error (diagnostic (cadr result)))))))
 
+    ;; The digits after `generate `, if the compiler asked for a library.
     (define (generate-request text)
-      (let ((cursor (string-contains text "lofi: generate ")))
+      (let ((cursor (string-contains text "generate ")))
         (and cursor
-             (string-trim-newline (substring text (+ (string-cursor->index text cursor) 15) (string-length text))))))
+             (let* ((start (+ (string-cursor->index text cursor) 9))
+                    (end (let loop ((end start)) (if (and (< end (string-length text)) (char-numeric? (string-ref text end))) (loop (+ end 1)) end))))
+               (and (> end start) (substring text start end))))))
 
-    (define (strip-prefix text)
-      (string-trim-newline (if (and (>= (string-length text) 6) (string=? (substring text 0 6) "lofi: ")) (substring text 6 (string-length text)) text)))
-
-    (define (string-trim-newline text)
-      (let loop ((end (string-length text)))
-        (if (and (> end 0) (char=? (string-ref text (- end 1)) #\newline)) (loop (- end 1)) (substring text 0 end))))
+    ;; The compiler's message without the host's prefix.
+    (define (diagnostic text)
+      (let* ((cursor (string-contains text "lofi: "))
+             (start (if cursor (+ (string-cursor->index text cursor) 6) 0)))
+        (let loop ((end (string-length text)))
+          (if (and (> end start) (char=? (string-ref text (- end 1)) #\newline)) (loop (- end 1)) (substring text start end)))))
 
     ;; ---- Generated libraries ----
 
-    ;; A `generate-library` recipe becomes a producer program, cached under
-    ;; the hash of its text: KEY.sld is the producer and KEY.out what it
-    ;; printed, which is the library. bootstrap/compile.sld uses the same
-    ;; names.
+    ;; A `generate-library` recipe becomes a producer program, cached by
+    ;; bootstrap/compile.sld under the hash of its text: KEY.sld is the
+    ;; producer and KEY.out what it printed, which is the library.
     (define (generated-directory root)
       (path-join root "build/generated"))
-
-    (define (generated-text root directories forms)
-      (let* ((text (producer-text forms)) (key (number->string (fnv-1a text)))
-             (output (path-join (generated-directory root) (string-append key ".out"))))
-        (unless (file-exists? output)
-          (write-file (path-join (generated-directory root) (string-append key ".sld")) text)
-          (produce! root directories key))
-        (read-file output)))
-
-    (define (producer-text forms)
-      (let loop ((forms forms) (texts '()))
-        (if (null? forms)
-            (apply string-append (reverse texts))
-            (loop (cdr forms) (cons (string-append (syntax->string (car forms)) (if (null? (cdr forms)) "" "\n")) texts)))))
 
     (define (produce! root directories key)
       (let* ((source (path-join (generated-directory root) (string-append key ".sld")))
@@ -95,8 +90,8 @@
     ;; ---- Bootstrap ----
 
     ;; The compiler compiles itself until its output stops changing: stage 1
-    ;; is built by the current compiler (or by Chibi running the source),
-    ;; stage 2 by stage 1, and stage 2 must reproduce its own text.
+    ;; is built by the previous compiler if it can, or else by Chibi running
+    ;; the source; stage 2 by stage 1; and stage 2 must reproduce its own text.
     (define (compiler-path root)
       (path-join root "build/compiler/lofic.wasm"))
 
@@ -112,21 +107,20 @@
     (define (bootstrap! root)
       (let* ((directory (path-join root "build/compiler")) (entry (path-join root "bootstrap/compile.sld"))
              (stage1 (path-join directory "stage1.wasm")) (stage2 (path-join directory "stage2.wasm"))
-             (stage3 (path-join directory "stage3.wat")))
+             (stage3 (path-join directory "stage3.wat")) (sources (compiler-directories root)))
         (create-directory* directory)
         (link-wat root (stage1-text root entry) stage1 #f)
-        (link-wat root (wasm-program->wat root stage1 (compiler-directories root) entry) stage2 #f)
-        (write-file stage3 (wasm-program->wat root stage2 (compiler-directories root) entry))
+        (link-wat root (run-compiler root (wasm-compiler root stage1) sources entry) stage2 #f)
+        (write-file stage3 (run-compiler root (wasm-compiler root stage2) sources entry))
         (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
           (error "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
         (rename-file stage2 (compiler-path root))))
 
-    ;; The previous compiler builds stage 1 if it can; Chibi always can.
     (define (stage1-text root entry)
-      (let ((previous (compiler-path root)))
+      (let ((previous (compiler-path root)) (sources (compiler-directories root)))
         (or (and (file-exists? previous)
-                 (guard (failure (#t #f)) (wasm-program->wat root previous (compiler-directories root) entry)))
-            (chibi-program->wat root (compiler-directories root) entry))))
+                 (guard (failure (#t #f)) (run-compiler root (wasm-compiler root previous) sources entry)))
+            (run-compiler root (chibi-compiler root) sources entry))))
 
     (define (newest-source-time root)
       (apply max (map file-modification-time
@@ -159,9 +153,7 @@
 
     ;; Runs a compiled program under Node, returning (output error status).
     (define (run-wasm root program arguments)
-      (process->output+error+status
-       (append (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "scripts/run-lofi.mjs") program)
-               arguments)))
+      (process->output+error+status (append (wasm-compiler root program) arguments)))
 
     ;; Runs a command, raising its standard error if it fails. Tools can be
     ;; overridden by environment variables such as WASM_OPT.
