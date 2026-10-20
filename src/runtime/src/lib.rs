@@ -6,16 +6,14 @@
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+mod datum;
 mod host;
-mod strict_datum;
-mod strict_io;
-mod strict_math;
-mod strict_number;
-mod strict_text;
+mod io;
+mod math;
+mod number;
 mod symbols;
+mod text;
 mod unicode;
-
-pub use strict_io::close_all;
 
 // ---- Module initialization ----
 
@@ -46,7 +44,7 @@ fn fail_message(message: &str) -> ! {
     #[cfg(all(not(target_arch = "wasm32"), not(test)))]
     {
         eprintln!("lofi: {message}");
-        close_all();
+        io::close_all();
         std::process::exit(1)
     }
     #[cfg(all(not(target_arch = "wasm32"), test))]

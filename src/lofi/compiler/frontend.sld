@@ -388,7 +388,7 @@
         (when signature
           (set-binding-declaration! definition
                                     (make-type-declaration definition signature (syntax-loc (cadr items)))))
-        (make-value-binding definition initializer (syntax-loc form) (head form))))
+        (make-value-binding definition initializer (syntax-loc form))))
     (define (parse-definition form scope)
       (let ((former (definition-former form)))
         (when (and (static-former? former) (= (length (definition-parts form)) 3))

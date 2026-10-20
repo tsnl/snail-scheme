@@ -1,7 +1,7 @@
 //! Scalar services for Lofi datums. The Lofi library owns reading and allocation.
 //! Rust owns temporary text/number handles and symbol names.
 
-use crate::strict_number::{Number, Scalar};
+use crate::number::{Number, Scalar};
 use crate::symbols::Symbols;
 use std::{
     cell::RefCell,
@@ -91,7 +91,7 @@ impl Tokens {
         let Token::Text(text) = self.take(id)? else {
             return Err("token has already been parsed".into());
         };
-        let result = crate::strict_number::parse(&text, radix);
+        let result = crate::number::parse(&text, radix);
         let tag = match &result {
             Ok(None) => 0,
             Ok(Some(number)) => number.kind(),
@@ -140,7 +140,7 @@ pub(crate) fn close_all() {
 
 fn checked<T>(result: Result<T, String>) -> T {
     result.unwrap_or_else(|error| {
-        crate::strict_io::close_all();
+        crate::io::close_all();
         crate::fail_message(&error)
     })
 }
@@ -268,7 +268,7 @@ pub extern "C" fn number_text_character(id: u32, part: u32, term: u32, index: u3
     }))
 }
 
-// Formatting owns only Rust text. Scheme copies it before consuming the handle.
+// Formatting owns only Rust text. Lofi copies it before consuming the handle.
 #[unsafe(export_name = "snail:datum/real-text")]
 pub extern "C" fn real_text(value: f64) -> u32 {
     checked(TOKENS.with_borrow_mut(|tokens| {
@@ -323,7 +323,7 @@ pub extern "C" fn fail(id: u32) {
     let message = checked(TOKENS.with_borrow_mut(|tokens| tokens.take(id)))
         .text()
         .to_owned();
-    crate::strict_io::close_all();
+    crate::io::close_all();
     crate::fail_message(&message);
 }
 

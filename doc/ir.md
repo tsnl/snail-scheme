@@ -22,9 +22,7 @@ Nested `begin` blocks create scopes and must not be flattened into their parents
 A sequential `let` resolves its initializer before introducing a fresh identity
 for subsequent statements. A `def` initializer sees every definition and only
 the preceding lets. Both resolve to ordinary binding nodes; their distinct scope
-rules have already selected the identities used by every reference. A source-form
-field retains `def` versus `let` for syntax inspection and transfer; owned IR
-copies preserve it. Runtime
+rules have already selected the identities used by every reference. Runtime
 storage can be reserved conservatively without making a later let visible.
 
 Value and type scopes are separate. An attached `All` scopes its type-variable

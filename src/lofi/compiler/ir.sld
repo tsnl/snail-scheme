@@ -5,7 +5,7 @@
 (define-library (lofi compiler ir)
   (export
    make-node node? node-kind node-loc node-data
-   resolve-node-data! children copy-ir-graph attach-declarations!
+   resolve-node-data! children copy-ir-graph
    make-value-definition value-definition? value-definition-name value-definition-loc
    binding-id? binding-origin
    prepare-binding! binding-scheme set-binding-scheme!
@@ -13,7 +13,7 @@
    binding-declaration set-binding-declaration!
    make-value-binding value-binding?
    value-binding-definition
-   value-binding-initializer value-binding-form
+   value-binding-initializer
    value-binding-loc
    make-name name?
    name-definition
@@ -40,10 +40,6 @@
    conditional-consequent
    conditional-opt-alternate
    conditional-loc
-   make-assignment assignment?
-   assignment-target
-   assignment-value
-   assignment-loc
    make-type-declaration type-declaration?
    type-declaration-definition
    type-declaration-type
@@ -56,13 +52,6 @@
    instantiation-expression
    instantiation-types
    instantiation-loc
-   make-record-schema record-schema?
-   record-schema-definition
-   record-schema-constructor
-   record-schema-predicate
-   record-schema-arguments
-   record-schema-fields
-   record-schema-loc
    make-data-schema data-schema? data-schema-definition data-schema-variables data-schema-cases
    make-match match? match-subject match-arms
    make-class-declaration class-declaration?
@@ -137,14 +126,12 @@
 
     ;; The source former survives unresolved copies for syntax inspection. Both
     ;; forms have the same runtime binding operation after lexical resolution.
-    (define (make-value-binding definition initializer loc . former)
+    (define (make-value-binding definition initializer loc)
       (set-binding-initializer! definition initializer)
-      (source-node 'bind loc (list definition initializer (if (pair? former) (car former) 'def))))
+      (source-node 'bind loc (list definition initializer)))
     (define (value-binding? node) (kind? node 'bind))
     (define (value-binding-definition node) (car (node-data node)))
     (define (value-binding-initializer node) (cadr (node-data node)))
-    (define (value-binding-form node)
-      (if (pair? (cddr (node-data node))) (caddr (node-data node)) 'def))
     (define value-binding-loc node-loc)
 
     ;; The second field records a checked use's instantiation, initially empty.
@@ -190,12 +177,6 @@
     (define (conditional-opt-alternate node) (caddr (node-data node)))
     (define conditional-loc node-loc)
 
-    (define (make-assignment target value loc)
-      (source-node 'assignment loc (list target value)))
-    (define (assignment? node) (kind? node 'assignment))
-    (define (assignment-target node) (car (node-data node)))
-    (define (assignment-value node) (cadr (node-data node)))
-    (define assignment-loc node-loc)
 
     (define (make-type-declaration definition type loc)
       (source-node 'type-declaration loc (list definition type)))
@@ -218,15 +199,6 @@
     (define (instantiation-types node) (cadr (node-data node)))
     (define instantiation-loc node-loc)
 
-    (define (make-record-schema definition constructor predicate arguments fields loc)
-      (source-node 'record-schema loc (list definition constructor predicate arguments fields)))
-    (define (record-schema? node) (kind? node 'record-schema))
-    (define (record-schema-definition node) (car (node-data node)))
-    (define (record-schema-constructor node) (cadr (node-data node)))
-    (define (record-schema-predicate node) (caddr (node-data node)))
-    (define (record-schema-arguments node) (cadddr (node-data node)))
-    (define (record-schema-fields node) (list-ref (node-data node) 4))
-    (define record-schema-loc node-loc)
 
     ;; A closed sum owns constructor identities and typed fields. One case is a
     ;; nominal product. An arm stores its resolved constructor and an ordinary
@@ -288,27 +260,6 @@
     (define (overload-declaration-type node)
       (type-declaration-type (binding-declaration (overload-declaration-member node))))
 
-    ;; ---- Attached ordinary declarations ----
-
-    ;; Retain colon nodes for the gradual checker. Strict checking reads the
-    ;; signature from its unique definition; overload rows already own theirs.
-    (define (attach-declarations! items)
-      (let ((definitions (let collect ((items items))
-                           (cond ((null? items) '())
-                                 ((value-binding? (car items))
-                                  (cons (value-binding-definition (car items))
-                                        (collect (cdr items))))
-                                 (else (collect (cdr items)))))))
-        (for-each (lambda (node)
-                    (when (type-declaration? node)
-                      (attach-declaration! node definitions))) items)))
-    (define (attach-declaration! node definitions)
-      (let ((definition (type-declaration-definition node)))
-        (when (memq definition definitions)
-          (when (binding-declaration definition)
-            (strict-error (node-loc node) "type declaration requires one local definition"))
-          (set-binding-declaration! definition node))))
-
     ;; ---- Structural children preserve source dependency discovery ----
 
     (define (children node)
@@ -323,10 +274,7 @@
             ((annotation) (list (annotation-expression node)))
             ((instantiation) (list (instantiation-expression node)))
             ((match) (cons (match-subject node) (map cadr (match-arms node))))
-            ((data-field data-test) (list (car (node-data node))))
-            ((assignment) (list (assignment-value node)))
-            ((let) (append (cadr (node-data node)) (list (caddr (node-data node)))))
-            ((convert) (node-data node)) (else '()))))
+            (else '()))))
 
     ;; ---- Compilation ownership ----
 
@@ -489,19 +437,6 @@
               (loop (cdr source) (cdr copies) (+ index 1))))
           (vector-set! payload 0 'changed)
           (expect (vector-ref shared 0) 'payload)))
-      (define (test-attached-declarations)
-        (let* ((loc (make-loc "declaration.scm" 3 4))
-               (definition (make-value-definition 'answer #f))
-               (bind (make-value-binding definition (make-literal 42 #f) #f))
-               (declaration (make-type-declaration definition 'I64 loc)))
-          (attach-declarations! (list declaration bind))
-          (expect (eq? (binding-declaration definition) declaration) #t)
-          (let* ((copy (copy-ir-graph (list bind declaration)))
-                 (definition (value-binding-definition (car copy))))
-            (expect (eq? (binding-declaration definition) (cadr copy)) #t))
-          (expect (guard (failure (else (error-object-message failure)))
-                    (attach-declarations! (list bind declaration)))
-                  "declaration.scm:3:4: type declaration requires one local definition")))
       (define (test-overload-member-identity)
         (let* ((family (make-value-definition 'choose #f))
                (body (make-name (make-value-definition 'implementation #f) #f))
@@ -523,6 +458,5 @@
         (run-test test-copy-retained-identities)
         (run-test test-copy-pair-graph)
         (run-test test-copy-wide-sharing)
-        (run-test test-attached-declarations)
         (run-test test-overload-member-identity))))
    (else)))

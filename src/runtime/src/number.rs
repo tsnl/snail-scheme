@@ -1,11 +1,11 @@
-//! Strict numeric tokens describe exact digits without owning Scheme values.
-//! Scheme builds and normalizes Integers/Rationals, then applies promotion.
+//! Numeric tokens describe exact digits without owning Lofi values.
+//! Lofi builds and normalizes Integers/Rationals, then applies promotion.
 
 // ---- Lexical exactness remains distinct from rounded binary64 ----
 
 // Signed numerator digits and unsigned nonzero denominator digits are valid
 // ASCII in radix 2, 8, 10 or 16. Scale multiplies the ratio by a power of ten.
-// Keep an inexact request separate until Scheme rounds the complete ratio;
+// Keep an inexact request separate until Lofi rounds the complete ratio;
 // a lexical minus sign on zero survives there even though exact zero has no sign.
 #[derive(Debug, PartialEq)]
 pub(crate) struct Exact {
@@ -56,7 +56,7 @@ impl Scalar {
 }
 
 impl Number {
-    // Compound tags retain both validated components before Scheme applies
+    // Compound tags retain both validated components before Lofi applies
     // rectangular normalization or the exact polar-axis shortcuts.
     pub(crate) fn kind(&self) -> i32 {
         match self {

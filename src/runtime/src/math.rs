@@ -1,5 +1,5 @@
 //! Scalar real mathematics, with scalar C signatures for Wasm.
-//! No Scheme roots, allocation, callbacks or resource state cross this boundary.
+//! No Lofi roots, allocation, callbacks or resource state cross this boundary.
 
 // ---- Binary64 trigonometry ----
 

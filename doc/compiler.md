@@ -277,7 +277,7 @@ adapter discovers no files, constructs no WASI or Rust providers, and accepts Wa
 [`src/runtime/`](../src/runtime/README.md) scalar services. Rust owns external
 resources behind handles; managed values remain in WasmGC. The host closes
 resources after completion or traps. `host.rs` implements buffered Unicode
-streams; `strict_io.rs` owns handles and cleanup; `strict_text.rs` and
+streams; `io.rs` owns handles and cleanup; `text.rs` and
 `unicode.rs` implement Unicode scalar operations. Datum and number services
 retain their existing scalar boundaries.
 

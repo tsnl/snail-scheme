@@ -1,16 +1,9 @@
 (define-library (lofi compiler common)
   (export
-   display-error
    first
    second
-   third
-   fourth
-   every?
-   repeat-string
    stringify
    assert
-   todo
-   call-with-input-file
    file->string
 
    ;; ---- Character predicates ----
@@ -92,37 +85,18 @@
     (define (char-dot-subsequent? c)
       (or (char-sign-subsequent? c) (eqv? c #\.)))
 
-    ;; ---- Diagnostics ----
-
-    (define (display-error message)
-      (display message (current-error-port)))
-
     ;; ---- List accessors ----
 
     (define (first it) (list-ref it 0))
     (define (second it) (list-ref it 1))
-    (define (third it) (list-ref it 2))
-    (define (fourth it) (list-ref it 3))
 
-    (define (every? predicate items)
-      (or (null? items) (and (predicate (car items)) (every? predicate (cdr items)))))
-
-    ;; ---- String utilities ----
-
-    (define (repeat-string s n)
-      (let loop ((i 0)
-                 (a '()))
-        (if (< i n)
-            (loop (+ i 1) (cons s a))
-            (apply string-append a))))
+    ;; ---- Expression spelling ----
 
     (define (with-output-to-string thunk)
       (let ((port (open-output-string)))
         (parameterize ((current-output-port port))
           (thunk))
         (get-output-string port)))
-
-    ;; ---- Expression spelling ----
 
     (define-syntax stringify
       (syntax-rules ()
@@ -140,14 +114,8 @@
              '()
              (error "assertion failed" (stringify x))))))
 
-    ;; ---- Unimplemented operations ----
-
-    (define (todo what)
-      (error (string-append "todo: not implemented" what)))
-
     ;; ---- File input ----
 
-    ;; call-with-input-file is re-exported from (scheme file).
     (define (file->string filepath)
       (call-with-input-file filepath
         (lambda (port)

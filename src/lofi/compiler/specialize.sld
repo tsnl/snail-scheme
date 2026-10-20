@@ -332,7 +332,7 @@
             (specialize-value-reference expression type binding (cadr view) environment context tail?))))
     (define (specialize-value-reference expression type binding substitutions environment context tail?)
       (let ((site (lookup-site binding environment context)))
-        (if (memq (binding-kind binding) '(parameter mono-parameter))
+        (if (eq? (binding-kind binding) 'parameter)
             (values (concrete-expression expression type (list 'get (car (site-instances site))) '() tail?)
                     (add-function-use context (environment-owner environment) (car (site-instances site)) #f))
             (let-values (((value context) (request-value site type substitutions environment context)))

@@ -1,5 +1,5 @@
 //! Unicode scalar services with scalar C signatures for Wasm.
-//! These calls retain no Scheme values, roots or callback state. Malformed raw
+//! These calls retain no Lofi values, roots or callback state. Malformed raw
 //! scalars take the ordinary terminal cleanup path before reporting an error.
 
 use crate::unicode;
@@ -8,7 +8,7 @@ use crate::unicode;
 
 fn character(code: u32) -> char {
     char::from_u32(code).unwrap_or_else(|| {
-        crate::strict_io::close_all();
+        crate::io::close_all();
         crate::fail_message("invalid Unicode scalar")
     })
 }
@@ -37,7 +37,7 @@ pub extern "C" fn full_fold_length(code: u32) -> u32 {
 pub extern "C" fn full_fold_scalar(code: u32, index: u32) -> u32 {
     let folded = unicode::full_fold(character(code));
     if index as usize >= folded.len {
-        crate::strict_io::close_all();
+        crate::io::close_all();
         crate::fail_message("full case-fold component index out of range")
     }
     folded.scalars[index as usize] as u32
