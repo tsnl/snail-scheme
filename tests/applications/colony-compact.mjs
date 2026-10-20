@@ -1,4 +1,4 @@
-// World13 boundaries execute the compiled reducer; fixtures only establish states.
+// World14 boundaries execute the compiled reducer; fixtures only establish states.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -79,11 +79,11 @@ export async function checkCompact(test,fresh) {
     assert.equal(observed.tiles.length,MAP_WIDTH*MAP_HEIGHT);assert.equal(observed.nests.length,3);
     const old=frozen.slice();old[0]=12;await assert.rejects(r.restore(1,old));assert.deepEqual(r.snapshot(1),frozen);
     await fixtureCall(r,'new-run');const restarted=await check(r);assert.equal(restarted.outcome,0);assert.equal(restarted.hull,300);assert.equal(restarted.started,false);
-    assert.equal(restarted.ore,160);assert.equal(restarted.spent,0);assert.equal(restarted.buildings.length,0);assert.equal(restarted.payloadVersion,1);assert.equal(r.snapshot(1)[0],13);await r.close();
+    assert.equal(restarted.ore,160);assert.equal(restarted.spent,0);assert.equal(restarted.buildings.length,0);assert.equal(restarted.payloadVersion,1);assert.equal(r.snapshot(1)[0],14);await r.close();
   });
 }
 if(process.argv[1]===import.meta.filename){
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json'))),bytes=readFileSync(join(directory,manifest.module));
   const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
-  let count=0;await checkCompact(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh);console.log(`${count} compact World13 groups passed`);
+  let count=0;await checkCompact(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh);console.log(`${count} compact World14 groups passed`);
 }

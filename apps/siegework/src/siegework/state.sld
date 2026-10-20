@@ -18,7 +18,7 @@
 
     (define (bounded? value low high) (and (>= value low) (<= value high)))
     (define (require! valid) (unless valid (unreachable)))
-    ;; World13 starts a new geography: every deposit remains reserved for mines.
+    ;; Every deposit remains reserved for mines, including exhausted sites.
     (define (check-building! value world)
       (require! (and (> (building-id value) 0) (bounded? (building-kind value) 1 3)
                      (world-ground? world (building-x value) (building-y value))
@@ -548,11 +548,11 @@
       (check-rails! world (world-rails world)))
 
 
-    ;; ---- A visible restart marker surrounds the derived World13 payload ----
+    ;; ---- A visible restart marker surrounds the derived World14 payload ----
 
-    ;; A 64-cell row changes every saved cell index. World13 uses a separate
-    ;; application namespace and rejects World12 before interpreting its payload.
-    ;; No coordinate or funding migration can silently reinterpret an old run.
+    ;; Sparser deposits change the canonical resource ledger. World14 uses a
+    ;; separate application namespace and rejects earlier worlds before decoding.
+    ;; No removed site or mined reserve can silently reinterpret an old run.
     (define (copy-payload! destination source destination-start source-start count)
       (let loop ((index 0))
         (when (< index count)
@@ -560,18 +560,18 @@
                        (vector-ref source (i32->i64 (+ source-start index))))
           (loop (+ index 1)))))
     (define (encode-world world)
-      (let* ((payload (encode-snapshot 13 world))
+      (let* ((payload (encode-snapshot 14 world))
              (count (vector-length payload))
              (words (make-vector (+ count (ann 1 I64)) 0)))
-        (vector-set! words (ann 0 I64) 13)
+        (vector-set! words (ann 0 I64) 14)
         (vector-set! words (ann 1 I64) (world-run-marker world))
         (copy-payload! words payload 2 1 (- (i64->i32 count) 1))
         words))
     (define (world-payload words)
       (let ((count (vector-length words)))
-        (require! (and (>= count (ann 3 I64)) (= (vector-ref words (ann 0 I64)) 13)))
+        (require! (and (>= count (ann 3 I64)) (= (vector-ref words (ann 0 I64)) 14)))
         (let ((payload (make-vector (- count (ann 1 I64)) 0)))
-          (vector-set! payload (ann 0 I64) 13)
+          (vector-set! payload (ann 0 I64) 14)
           (copy-payload! payload words 1 2 (- (i64->i32 count) 2))
           payload)))
     (define (validate-world world) (check-world! world) world)

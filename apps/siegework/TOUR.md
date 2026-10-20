@@ -11,7 +11,7 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, bounded shortest-time worker routing over walking and bidirectional flights and exact grid-crossing direct fire. |
 | [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, completion-only upgrade healing and normalized bank refunds, worker demolition with a completed-investment refund, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
-| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked World13 restart envelope, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked World14 restart envelope, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's nest-adjusted strength interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for headless diagnostics and retained developer analysis; no recording storage or game transitions. |
@@ -42,7 +42,7 @@ view. Its rows share the runtime's read-only scalar transaction and bounded
 publication output. Privileged operation 11 remains the recording projection;
 its global nest/enemy/reserve totals are not player observations. The host queues
 whole policy operations, advances only explicit ticks, and owns the external
-episode horizon. Neither transport owns another simulation or changes World13.
+episode horizon. Neither transport owns another simulation or changes World14.
 
 ## Follow one accepted command
 
@@ -113,10 +113,10 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 13 and client schema 8 under application ID
-`siegework-colony-v13`. This starts a fresh save identity for the 64×64 map and
-zero-cost extractor construction. Earlier worlds are rejected rather than
-reinterpreting their coordinates or financial history. Record sizes grow and
+The game declares world schema 14 and client schema 8 under application ID
+`siegework-colony-v14`. This starts a fresh save identity for sparser resource placement on the
+64×64 map. Earlier worlds are rejected rather than
+reinterpreting their deposit identities or financial history. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts or geography and are rejected. The browser retains
 an incompatible record and explains how to reopen a compatible package; changing
@@ -304,7 +304,7 @@ One placement still owns its pending slot through reply and authored settlement;
 a failed durable save releases the slot without reporting success. Client 8
 stores that rejection and removes the former worker-menu state.
 
-World13 saves `hub-capacity-level` from zero through six. Capacity is derived as
+World14 saves `hub-capacity-level` from zero through six. Capacity is derived as
 12 plus twice that tier; prices are 100 times two to the tier. The tier is
 independent of the hub's fixed transport grade three. An accepted expansion
 charges hub ore and assigns one worker: job 14 returns, job 15 assembles for

@@ -27,7 +27,7 @@ export async function checkWorld(test,fresh) {
       assert.ok((hub.x-32)**2+(hub.y-32)**2<=4**2); spawns.add(`${hub.x},${hub.y}`);
       assert.ok(world.bots.every(bot=>bot.x===hub.x*40+20&&bot.y===hub.y*40+20));
       assert.deepEqual(world.nests.map(nest=>nest.hp),[900,900,900]); assert.equal(world.lastRevealTick,-100); assert.equal(world.outcome,0);
-      assert.equal(r.snapshot(1)[0],13);
+      assert.equal(r.snapshot(1)[0],14);
       const again=state(r); await call(r,'new-run-seed',[seed]); again.runMarker++;
       assert.deepEqual(state(r),again);
     }

@@ -234,7 +234,7 @@
 
     ;; ---- One trusted seed layout proves persistent site identities ----
 
-    ;; Enumerate three home deposits, sixteen regional candidates, up to twenty-four
+    ;; Enumerate three home deposits, four regional candidates, up to twenty-four
     ;; small frontier deposits and three buried nest reserves, never the full map.
     ;; Only one derived layout is retained per Wasm instance; restored
     ;; records can neither populate this cache nor change its capacities.

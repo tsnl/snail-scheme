@@ -167,13 +167,13 @@
     (define (regional-deposit? seed x y)
       (and (= (remainder x 32) (+ 2 (region-value seed x y 157 3)))
            (= (remainder y 32) (+ 2 (region-value seed x y 181 3)))))
-    ;; Four inner candidates use a 3/4 chance; four outer candidates use 1/4.
+    ;; Four inner candidates use a 3/8 chance; four outer candidates use 1/8.
     ;; Each has a seeded cardinal offset plus small sideways jitter. Ground and
     ;; the protected opening decide which candidates become actual deposits.
     ;; Eight candidates per front bound work without scanning all 4,096 cells.
     (define (front-deposit-offset seed front slot horizontal)
       (let* ((key (+ seed (+ (* front 997) (* slot 271))))
-             (major (+ (if (< slot 4) 4 8) (map-offset key 307 (if (< slot 4) 3 3)))))
+             (major (+ (if (< slot 4) 4 8) (map-offset key 307 3))))
         (if (= (remainder slot 2) (if horizontal 0 1))
             (if (< (remainder slot 4) 2) major (- 0 major))
             (- (map-offset key 317 5) 2))))
@@ -181,7 +181,7 @@
     (define (front-deposit-y seed front slot) (+ (front-y seed front) (front-deposit-offset seed front slot #f)))
     (define (front-deposit? seed front slot)
       (let ((x (front-deposit-x seed front slot)) (y (front-deposit-y seed front slot)))
-        (and (< (map-offset (+ seed (+ (* front 997) (* slot 271))) 313 4) (if (< slot 4) 3 1))
+        (and (< (map-offset (+ seed (+ (* front 997) (* slot 271))) 313 8) (if (< slot 4) 3 1))
              (ground? seed x y) (not (within? x y (spawn-x seed) (spawn-y seed) 10))
              (not (and (= x (eastern-x seed)) (= y (eastern-y seed))))
              (not (regional-deposit? seed x y)))))

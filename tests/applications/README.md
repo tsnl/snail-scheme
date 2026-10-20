@@ -67,7 +67,7 @@ realized density gradient and verifies bounded unique reserves; candidate
 acceptance percentages alone do not establish those results.
 `colony-compact.mjs` checks free physical extractor construction, zero-cargo
 ownership, cancellation and casualty accounting, paid-upgrade refunds and
-resignation during a captured flight on the 64×64 World13 map.
+resignation during a captured flight on the 64×64 World14 map.
 
 There is no network game server, command outbox or snapshot-replication path.
 The save service does not run game logic.

@@ -1,4 +1,4 @@
-// Actual World13 transitions own paid hub expansion, capacity and ore refunds.
+// Actual World14 transitions own paid hub expansion, capacity and ore refunds.
 import {settleWorker} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
