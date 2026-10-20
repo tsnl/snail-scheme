@@ -33,8 +33,10 @@
     (define (wasm-compiler root path)
       (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "scripts/run-lofi.mjs") path))
 
+    ;; Chibi sweeps its whole heap on every collection, and compiling the
+    ;; compiler allocates gigabytes, so a large heap keeps collections rare.
     (define (chibi-compiler root)
-      (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "LOFI_HEAP") "2G")
+      (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "LOFI_STAGE0_HEAP") "6G")
             "-I" (path-join root "host/chibi") "-I" (path-join root "src") (path-join root "bootstrap/compile.sld")))
 
     (define (selected-compiler root)

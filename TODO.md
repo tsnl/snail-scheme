@@ -16,7 +16,6 @@ proposed language changes separate from implemented behavior.
 
 ## Compiler
 
-- [ ] Separate checking: serialize each library's checked interface.
 - [ ] Decision trees for `match` with many cases, and nullable references for
   `Option`-shaped enums.
 - [ ] Source locations in emitted Wasm.

@@ -171,7 +171,7 @@
     ;; Characters outside Wasm's identifier set are replaced.
     (: mangle (-> String String))
     (define (mangle text)
-      (string-generate (string-length text) (lambda (index) (mangle-char (string-ref text index)))))
+      (vector->string (vector-map mangle-char (string->vector text))))
 
     (: mangle-char (-> Char Char))
     (define (mangle-char c)
@@ -577,7 +577,7 @@
     (: closure (-> Fn Expr (Option String) Wat ! mut))
     (define (closure fn function self)
       (let ((captured (filter (lambda (name) (and (not (self-name? self name)) (local? fn name)))
-                              (delete-duplicates string=? (expr-references function)))))
+                              (expr-references function))))
         (if (null? captured)
             (closure-value (Fn-module fn) function self)
             (closure-with-captures fn function self captured))))

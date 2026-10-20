@@ -626,7 +626,7 @@ Scheme subset, beside the old one, which was then deleted.
   over typed values, and Siegework is rewritten with enums and `match`.
 - **Phase 3, self-hosting.** The compiler is written in typed Lofi and
   compiles itself; section 6 describes the bootstrap. Compiling the compiler
-  takes under a second as Wasm and about eight minutes on Chibi.
+  takes under a second as Wasm and about forty seconds on Chibi.
 - The dynamic Scheme libraries (`integer`, `rational`, `number`, `datum`,
   `read`, `write`) and `generate-library` are ported, without complex
   numbers or mutable pairs.
@@ -682,8 +682,9 @@ needs it.
 ### Risks
 
 - **Compile time.** The compiled compiler builds itself, about 5,000 lines,
-  in under a second, and Siegework in about a second. Chibi needs minutes for
-  the compiler, so it is only used to start a bootstrap.
+  in under a second, and Siegework in about a second. Chibi needs about
+  forty seconds and several gigabytes of heap for the compiler, so it only
+  starts a bootstrap.
 - **Scope.** A dependent elaborator with typeclasses, pattern matching and good
   diagnostics is large. Phases 1–3 deliver a useful typed Scheme without it,
   and the core's multiplicity slot and explicit instances keep phase 4

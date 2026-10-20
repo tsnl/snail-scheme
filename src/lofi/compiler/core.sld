@@ -187,13 +187,16 @@
       (list (Pair "Any" 0) (Pair "U8" 0) (Pair "I32" 0) (Pair "I64" 0) (Pair "F32" 0) (Pair "F64" 0) (Pair "Bool" 0)
             (Pair "Char" 0) (Pair "Unit" 0) (Pair "String" 0) (Pair "Array" 1) (Pair "Vector" 1) (Pair "Ref" 1)))
 
-    ;; Unique names look like `lofi.base:map`; diagnostics show the source name.
+    ;; Unique names look like `lofi.base:map`; diagnostics show the source
+    ;; name. Text is scanned as a vector of characters, which both hosts index
+    ;; in constant time.
     (: short-name (-> String String))
     (define (short-name name)
-      (let loop ((index (- (string-length name) 1)))
-        (cond ((< index 0) name)
-              ((char=? (string-ref name index) #\:) (substring name (+ index 1) (string-length name)))
-              (else (loop (- index 1))))))
+      (let ((chars (string->vector name)))
+        (let loop ((index (- (vector-length chars) 1)))
+          (cond ((< index 0) name)
+                ((char=? (vector-ref chars index) #\:) (substring name (+ index 1) (string-length name)))
+                (else (loop (- index 1)))))))
 
     (: type->string (-> Type String ! mut))
     (define (type->string type)
@@ -426,24 +429,31 @@
         ((Lambda _ _) #t)
         (_ #f)))
 
-    ;; Every name an expression refers to, with repeats; locals are
-    ;; included, since names are unique.
-    (: expr-references (-> Expr (List String)))
+    ;; Every name an expression refers to, once each, in order of first
+    ;; occurrence. Locals are included, since names are unique.
+    (: expr-references (-> Expr (List String) ! mut))
     (define (expr-references expr)
-      (match (Expr-term expr)
-        ((Lit _) (Nil))
-        ((Var name _ _) (list name))
-        ((Lambda _ body) (expr-references body))
-        ((App callee args) (concatenate (map expr-references (Cons callee args))))
-        ((If test then otherwise) (concatenate (map expr-references (list test then otherwise))))
-        ((Let _ value body) (append (expr-references value) (expr-references body)))
-        ((Seq first rest) (append (expr-references first) (expr-references rest)))
-        ((Match scrutinee clauses)
-         (append (expr-references scrutinee) (concatenate (map (lambda (clause) (expr-references (Clause-body clause))) clauses))))
-        ((Ann inner _) (expr-references inner))
-        ((Convert inner _) (expr-references inner))
-        ((Handle _ implementations body)
-         (append (concatenate (map (lambda (entry) (expr-references (Pair-second entry))) implementations)) (expr-references body)))))
+      (reverse (collect-references expr (make-table) (Nil))))
+
+    ;; Adds the names not yet seen to `found`, newest first.
+    (: collect-references (-> Expr (Table Bool) (List String) (List String) ! mut))
+    (define (collect-references expr seen found)
+      (let ((collect (lambda (found expr) (collect-references expr seen found))))
+        (match (Expr-term expr)
+          ((Lit _) found)
+          ((Var name _ _)
+           (if (table-contains? seen name)
+               found
+               (begin (table-set! seen name #t) (Cons name found))))
+          ((Lambda _ body) (collect found body))
+          ((App callee args) (fold-left collect found (Cons callee args)))
+          ((If test then otherwise) (fold-left collect found (list test then otherwise)))
+          ((Let _ value body) (collect (collect found value) body))
+          ((Seq first rest) (collect (collect found first) rest))
+          ((Match scrutinee clauses) (fold-left collect (collect found scrutinee) (map Clause-body clauses)))
+          ((Ann inner _) (collect found inner))
+          ((Convert inner _) (collect found inner))
+          ((Handle _ implementations body) (collect (fold-left collect found (map Pair-second implementations)) body)))))
 
     ;; ---- Declared entities ----
 
@@ -623,10 +633,7 @@
     ;; stays below 2^56, so it never overflows I64.
     (: fnv-1a (-> String I64))
     (define (fnv-1a text)
-      (let loop ((index 0) (hash 2166136261))
-        (if (= index (string-length text))
-            hash
-            (loop (+ index 1) (i64-and (* (i64-xor hash (char->integer (string-ref text index))) 16777619) 4294967295)))))
+      (vector-fold (lambda (hash c) (i64-and (* (i64-xor hash (char->integer c)) 16777619) 4294967295)) 2166136261 (string->vector text)))
 
     ;; A case's TypeId hashes its declaring library, type, name and fields,
     ;; as a signed 32-bit value. Field types contribute their own schemas,
