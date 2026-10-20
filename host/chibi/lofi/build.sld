@@ -52,7 +52,7 @@
     ;; library that has not been produced; producing it and compiling again
     ;; then finds its text.
     (define (run-compiler root command mode directories source)
-      (create-directory* (generated-directory root))
+      (forget-generated! root)
       (create-directory* (path-join root "build/lofi-run"))
       (let* ((output (path-join root "build/lofi-run/compiler-output.wat"))
              (result (process->output+error+status
@@ -84,6 +84,20 @@
     ;; producer and KEY.out what it printed, which is the library.
     (define (generated-directory root)
       (path-join root "build/generated"))
+
+    ;; A producer may read files the key does not cover, so outputs from an
+    ;; earlier run are not trusted: each run of the driver produces every
+    ;; generated library it needs once.
+    (define generated-forgotten? #f)
+
+    (define (forget-generated! root)
+      (create-directory* (generated-directory root))
+      (unless generated-forgotten?
+        (set! generated-forgotten? #t)
+        (for-each (lambda (file)
+                    (when (and (> (string-length file) 4) (string=? (substring file (- (string-length file) 4) (string-length file)) ".out"))
+                      (delete-file (path-join (generated-directory root) file))))
+                  (directory-files (generated-directory root)))))
 
     (define (produce! root directories key)
       (let* ((source (path-join (generated-directory root) (string-append key ".sld")))

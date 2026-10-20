@@ -15,12 +15,16 @@ milestones are implemented; open items are tracked in [TODO.md](../TODO.md).
 - Effect rows with tail-resumptive handlers and host defaults.
 - Wire types: derived `Serialize` and `Deserialize` with per-case TypeIds.
 - `(lofi app)` applications with a browser host, and Siegework on top of it.
-- Exact integers and rationals, Scheme data with `read` and `write`, and
-  `generate-library`.
+- Exact integers and rationals, Scheme data with `read` and `write`,
+  `generate-library`, and `(scheme compiler)`, which translates R7RS
+  programs into Lofi libraries.
+- Wire schema export (`lofi schema`) and bounded model checking of total
+  state machines (`(lofi explore)`).
 
 ## Next
 
-1. Grow a Scheme surface on `(lofi base)`, then the Scheme translator that
-   `generate-library` and the dynamic libraries were ported for.
-2. The dependent elaborator, WGSL backend and checked interfaces of the
-   redesign's phases 4 and 5.
+1. Grow `(scheme compiler)` toward R7RS, and let Scheme code call typed Lofi
+   code through `type-convert`.
+2. Open items in [TODO.md](../TODO.md). The redesign records the parts of
+   its plan that were cut, such as the dependent elaborator and the WGSL
+   backend.

@@ -30,7 +30,8 @@
         ((NumberDatum n) (list (number->string n)))
         ((PairDatum head tail) (Cons "(" (append (datum-text head write?) (list-tail-text tail write?))))
         ((VectorDatum items) (sequence-text "#(" (map (lambda (item) (datum-text item write?)) (vector->list items))))
-        ((BytesDatum bytes) (sequence-text "#u8(" (map (lambda (byte) (list (show byte))) (vector->list bytes))))))
+        ((BytesDatum bytes) (sequence-text "#u8(" (map (lambda (byte) (list (show byte))) (vector->list bytes))))
+        ((ProcedureDatum _) (list "#<procedure>"))))
 
     (: list-tail-text (-> Datum Bool (List String)))
     (define (list-tail-text tail write?)

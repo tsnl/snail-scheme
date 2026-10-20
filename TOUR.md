@@ -74,6 +74,7 @@ forms.
 | `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program. |
 | `bootstrap/compile.sld` | The compiler's entry program when it runs as Wasm. |
 | `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
+| `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
 | `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI. |
 | `src/app/` | The browser host for `(lofi app)`: input, ticks, a WebGPU renderer, the HUD and saves. |

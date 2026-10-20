@@ -1,5 +1,7 @@
 ;; Scheme data as one Lofi type. Pairs are immutable, so data are trees
-;; and never cyclic; symbols compare by name.
+;; and never cyclic; symbols compare by name. A procedure takes its
+;; arguments as a list and may print and mutate storage, as Scheme
+;; procedures do.
 (define-library (lofi datum)
   (export
    Datum
@@ -12,12 +14,14 @@
    PairDatum
    VectorDatum
    BytesDatum
+   ProcedureDatum
    datum=?
    datum-list
    datum->list
    datum-truthy?)
   (import
    (lofi base)
+   (lofi io)
    (lofi number))
   (begin
 
@@ -30,9 +34,10 @@
       (NumberDatum ((value Number)))
       (PairDatum ((car Datum) (cdr Datum)))
       (VectorDatum ((items (Vector Datum))))
-      (BytesDatum ((bytes Bytes))))
+      (BytesDatum ((bytes Bytes)))
+      (ProcedureDatum ((call (-> (List Datum) Datum ! console mut)))))
 
-    ;; Structural equality, as Scheme's `equal?`.
+    ;; Structural equality, as Scheme's `equal?`; procedures are never equal.
     (: datum=? (-> Datum Datum Bool))
     (define (datum=? a b)
       (match (Pair a b)

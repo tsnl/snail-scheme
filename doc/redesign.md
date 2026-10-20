@@ -639,9 +639,13 @@ Scheme subset, beside the old one, which was then deleted.
   `(lofi explore)` checks an invariant of a total state machine by bounded
   breadth-first search, identifying states by their wire encoding.
 
-### Remaining
-
-- **Phase 5.** `(scheme compiler)`.
+- **Phase 5, `(scheme compiler)`.** A translator from R7RS text to the text
+  of a Lofi library, run by a `generate-library` recipe, with
+  `(scheme runtime)` for the standard procedures. It covers the core forms
+  but not macros, quasiquote, continuations or mutable pairs. Every value
+  is a `Datum`, the dynamic libraries' type for Scheme data, which gained a
+  procedure case, rather than `Any`: pattern matching on one enum replaces
+  run-time type tests, and Scheme code calls no typed Lofi code yet.
 
 ### Cut from the plan
 

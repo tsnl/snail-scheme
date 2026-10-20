@@ -7,8 +7,8 @@ proposed language changes separate from implemented behavior.
 
 - [ ] Complex numbers, mutable pairs and shared-structure labels in the
   dynamic Scheme libraries, which the port left out.
-- [ ] Grow `(scheme base)` toward R7RS, then the `(scheme compiler)`
-  translator of the redesign's section 6.
+- [ ] Grow `(scheme compiler)` toward R7RS: macros, quasiquote, vectors and
+  strings in full, and calls into typed Lofi code through `type-convert`.
 - [ ] Literals at a generic numeric type, through the `Num` evidence.
 - [ ] Superclasses, so `(Ord T)` can imply an equality class.
 - [ ] Explicit overflow-checking arithmetic.
