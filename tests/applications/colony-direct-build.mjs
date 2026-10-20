@@ -5,7 +5,7 @@ import {join,resolve} from 'node:path';
 import {BrowserApplication} from '../../src/browser/application.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,client,colonyWords,restoreClient,restoreColony,at,routeCell,siteAt,setWorker} from './colony-state.mjs';
+import {MAP_WIDTH,establishColony,colony,client,colonyWords,restoreClient,restoreColony,at,routeCell,siteAt,setWorker} from './colony-state.mjs';
 const world=h=>colony(h.runtime.snapshot(1)),state=h=>client(h.runtime.snapshot(2));
 const deferred=()=>{let resolve;const promise=new Promise(yes=>{resolve=yes;});return{promise,resolve};};
 function node(h,key,value=h.runtime.view().ui){if(value.key===key)return value;for(const child of value.children){const found=node(h,key,child);if(found)return found;}}
@@ -27,32 +27,35 @@ const construction=h=>h.orders.filter(command=>command.handler===h.runtime.comma
 export async function checkDirectBuild(test,fresh){
   await test('one site selection exposes its own costs without spending or starting time',async()=>{
     const h=await host(fresh,false),before=h.runtime.snapshot(1);
-    await select(h,12,20);assert.ok(node(h,'extractor'));assert.equal(node(h,'tower'),undefined);assert.equal(state(h).choiceKind,1);
-    assert.match(node(h,'extractor-caption').text,/40 ore/);
+    await select(h,12,20);assert.ok(node(h,'extractor'));assert.equal(node(h,'tower'),undefined);assert.equal(state(h).choiceKind,0);
+    assert.match(node(h,'extractor-caption').text,/Free/);
     await select(h,12,22);assert.equal(node(h,'extractor'),undefined);for(const key of ['tower','artillery'])assert.ok(node(h,key));
     assert.deepEqual([node(h,'tower').text,node(h,'artillery').text],['1','2']);
-    assert.equal(state(h).choiceKind,3);assert.match(node(h,'context-description').text,/extractor.*first/);assert.ok(node(h,'close-context'));
+    assert.equal(state(h).choiceKind,0);assert.match(node(h,'context-description').text,/Choose a building/);assert.ok(node(h,'close-context'));
     for(const key of ['tower','artillery'])assert.equal(node(h,key).properties[2],0,'one-shot construction is not a mode toggle');
     await action(h,'dismiss');assert.equal(state(h).chooser,false);assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(world(h).started,false);
     for(const old of ['build-menu','done-plan','clear-plan'])assert.equal(node(h,old),undefined);await h.app.close();
   });
-  await test('same-site second activation builds once and later clicks only inspect the occupied site',async()=>{
+  await test('repeated tile activation never builds; an explicit choice builds once',async()=>{
     const h=await host(fresh);await select(h,12,22);const cell=routeCell(world(h),12,22);
-    await action(h,'confirm');assert.equal(siteAt(world(h),12,22).kind,3);assert.equal(world(h).ore,135);assert.equal(state(h).chooser,false);
+    for(let i=0;i<3;i++)await action(h,'confirm');assert.equal(siteAt(world(h),12,22),undefined);assert.equal(construction(h).length,0);await action(h,'choose',[1]);assert.equal(siteAt(world(h),12,22).kind,3);assert.equal(world(h).ore,135);assert.equal(state(h).chooser,false);
     for(let i=0;i<3;i++)await action(h,'confirm');await action(h,'construct',[3,cell]);
     assert.equal(world(h).buildings.length,1);assert.equal(world(h).ore,135);assert.equal(construction(h).length,1);assert.ok(node(h,'cancel-build'));assert.ok(node(h,'close-context'));
     const occupied=h.runtime.snapshot(1);await action(h,'dismiss');assert.equal(state(h).chooser,false);assert.deepEqual(h.runtime.snapshot(1),occupied);
-    const revealed=world(h);revealed.surveys.unshift({x:59,y:37,radius:7});await restoreColony(h.runtime,revealed);
-    await restoreClient(h.runtime,{...state(h),cursorX:59,cursorY:37});await action(h,'confirm');
+    const revealed=world(h),nestSite=revealed.nests[0];revealed.surveys.unshift({x:nestSite.x,y:nestSite.y,radius:7});await restoreColony(h.runtime,revealed);
+    await restoreClient(h.runtime,{...state(h),cursorX:nestSite.x,cursorY:nestSite.y});await action(h,'confirm');
     assert.ok(node(h,'close-context'));assert.equal(node(h,'tower'),undefined);assert.match(node(h,'context-title').text,/nest/i);
     const nest=h.runtime.snapshot(1);await action(h,'dismiss');assert.equal(state(h).chooser,false);assert.deepEqual(h.runtime.snapshot(1),nest);await h.app.close();
   });
-  await test('successful ordinary construction is remembered; deposits do not replace that choice',async()=>{
-    const h=await host(fresh);await select(h,12,22);await action(h,'choose',[1]);assert.equal(state(h).lastKind,3);
-    await select(h,13,22);assert.equal(state(h).choiceKind,3);assert.equal(world(h).ore,135);await action(h,'confirm');assert.equal(siteAt(world(h),13,22).kind,3);
-    await select(h,12,20);assert.equal(state(h).choiceKind,1);await action(h,'choose',[1]);assert.equal(state(h).lastKind,3);
-    await select(h,14,22);assert.equal(state(h).choiceKind,3);assert.equal(world(h).ore,70);
-    await action(h,'choose',[2]);assert.equal(siteAt(world(h),14,22).kind,2);assert.equal(state(h).lastKind,2);await h.app.close();
+  await test('new sites remain neutral after construction and hover previews never order a building',async()=>{
+    const h=await host(fresh);await select(h,12,22);await action(h,'choose',[2]);
+    await select(h,13,22);assert.equal(state(h).choiceKind,0);assert.equal(state(h).preview,0);
+    const before=h.runtime.snapshot(1);
+    for(const kind of [3,2,0]){await action(h,'preview',[kind]);assert.equal(state(h).preview,kind);assert.deepEqual(h.runtime.snapshot(1),before);}
+    await action(h,'confirm');assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(state(h).choiceKind,0);
+    await select(h,12,20);assert.equal(state(h).choiceKind,0);await action(h,'choose',[1]);assert.equal(siteAt(world(h),12,20).kind,1);
+    await select(h,12,20);assert.match(node(h,'context-description').text,/No ore required/);assert.match(node(h,'cancel-build').help,/free construction/);
+    await select(h,14,22);assert.equal(state(h).choiceKind,0);assert.equal(state(h).preview,0);await h.app.close();
   });
   await test('slow placement locks repeat taps and stale explicit buttons cannot charge a retargeted site',async()=>{
     const h=await host(fresh);await select(h,12,22);const cell=routeCell(world(h),12,22),gate=delaySave(h),placing=h.app.local('construct',[3,cell]);await gate.entered;
@@ -61,12 +64,12 @@ export async function checkDirectBuild(test,fresh){
     gate.release();await Promise.all([placing,...repeats]);await h.app.drainUpdates();assert.equal(world(h).ore,135);assert.equal(construction(h).length,1);
     await select(h,13,22);const before=h.runtime.snapshot(1);await action(h,'construct',[3,cell]);assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(state(h).chooser,true);await h.app.close();
   });
-  await test('failed and rejected construction retain the selected intended type without changing memory',async()=>{
+  await test('failed and rejected construction retain useful feedback but require an explicit retry',async()=>{
     const h=await host(fresh);await select(h,12,22);const cell=routeCell(world(h),12,22),before=h.runtime.snapshot(1);
     failSave(h);await action(h,'construct',[2,cell]);assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(state(h).buildKind,0);assert.equal(state(h).choiceKind,2);assert.equal(state(h).lastKind,3);assert.equal(state(h).chooser,true);assert.equal(state(h).failure,34);assert.match(node(h,'context-description').text,/not saved/);
-    await action(h,'confirm');assert.equal(siteAt(world(h),12,22).kind,2);assert.equal(state(h).lastKind,2);assert.equal(world(h).ore,110);
+    await action(h,'confirm');assert.equal(siteAt(world(h),12,22),undefined);await action(h,'choose',[2]);assert.equal(siteAt(world(h),12,22).kind,2);assert.equal(state(h).lastKind,3);assert.equal(world(h).ore,110);
     const poor=world(h);poor.spent+=poor.ore;poor.ore=0;await restoreColony(h.runtime,poor);await select(h,13,22);await action(h,'choose',[1]);
-    assert.equal(state(h).choiceKind,3);assert.equal(state(h).lastKind,2);assert.equal(state(h).buildKind,0);assert.equal(state(h).chooser,true);assert.equal(world(h).notice,7);assert.equal(world(h).ore,0);await h.app.close();
+    assert.equal(state(h).choiceKind,3);assert.equal(state(h).lastKind,3);assert.equal(state(h).buildKind,0);assert.equal(state(h).chooser,true);assert.equal(world(h).notice,7);assert.equal(world(h).ore,0);await h.app.close();
   });
   await test('Pause can cover a placement while its committed result settles without closing the menu',async()=>{
     const h=await host(fresh);await select(h,12,22);const gate=delaySave(h),placing=h.app.local('choose',[1]);await gate.entered;
@@ -81,12 +84,12 @@ export async function checkDirectBuild(test,fresh){
     gate.release();await Promise.all([placing,replace]);await h.app.drainUpdates();assert.deepEqual(world(h),imported);assert.equal(state(h).lastKind,3);assert.equal(state(h).buildKind,0);assert.equal(state(h).dialog,1);
     await action(h,'resume');assert.equal(world(h).paused,0);await h.app.close();
   });
-  await test('a late activation after a failed save retries the unpaid site and still commits one building',async()=>{
+  await test('a late explicit choice after a failed save retries the unpaid site once',async()=>{
     const h=await host(fresh);await select(h,12,22);const entered=deferred(),release=deferred();let writes=0,clock;
     h.controls.commit=()=>{if(++writes===1){clock=h.local.submit(h.runtime.command('match','advance'));throw new Error('controlled first write failure');}
       if(writes===2){entered.resolve();return release.promise;}};
     const placing=h.app.local('choose',[1]);await entered.promise;await placing;
-    const retry=h.app.local('confirm');release.resolve();await Promise.all([clock,retry]);await h.app.drainUpdates();
+    const retry=h.app.local('choose',[1]);release.resolve();await Promise.all([clock,retry]);await h.app.drainUpdates();
     assert.equal(h.errors.length,1);assert.equal(construction(h).length,2);assert.equal(world(h).buildings.length,1);assert.equal(world(h).ore,135);assert.equal(state(h).lastKind,3);await h.app.close();
   });
   await test('the selected popup retains the actual surveyed-route rejection after unrelated world notices',async()=>{
@@ -103,7 +106,7 @@ export async function checkDirectBuild(test,fresh){
   });
   await test('attack notifications expose location and dismissal without rendering thumbnail scenes',async()=>{
     const h=await host(fresh),alerted=world(h),hub=alerted.surveys[0];alerted.alerts=[{x:hub.x,y:hub.y,kind:0,tick:0}];await restoreColony(h.runtime,alerted);
-    const key=(hub.x+hub.y*128)*8;assert.ok(node(h,`attack-inspect-${key}`));assert.ok(node(h,`attack-dismiss-${key}`));assert.equal(h.runtime.view().scene.insets,undefined);
+    const key=(hub.x+hub.y*MAP_WIDTH)*8;assert.ok(node(h,`attack-inspect-${key}`));assert.ok(node(h,`attack-dismiss-${key}`));assert.equal(h.runtime.view().scene.insets,undefined);
     await action(h,'dismiss-attack',[key]);assert.equal(node(h,`attack-inspect-${key}`),undefined);await h.app.close();
   });
   await test('upgrade waiting markers follow authoritative pending upgrades and disappear on cancellation',async()=>{

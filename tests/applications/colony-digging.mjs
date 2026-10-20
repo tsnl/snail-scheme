@@ -104,7 +104,7 @@ export async function checkDigging(test,fresh) {
   });
   await test('decoding rejects impossible excavation, water breaches and unqualified rock routes',async()=>{
     const r=await fresh(),saved=r.snapshot(1),base=state(r),cell=routeCell(base,6,10);
-    const edits=[world=>world.breaches=[routeCell(world,8,22)],world=>world.breaches=[80+16*128],
+    const edits=[world=>world.breaches=[routeCell(world,8,22)],world=>world.breaches=[64*64],
       world=>world.breaches=[cell,cell],world=>world.excavations=[{cell,remaining:0}],
       world=>world.excavations=[{cell,remaining:80}],world=>world.excavations=[{cell,remaining:79},{cell,remaining:78}],
       world=>{world.breaches=[cell];world.excavations=[{cell,remaining:79}];},
@@ -114,7 +114,9 @@ export async function checkDigging(test,fresh) {
       const invalid=colony(saved); edit(invalid); await assert.rejects(()=>restoreColony(r,invalid),WebAssembly.RuntimeError);
       assert.deepEqual(r.snapshot(1),saved);
     }
-    await r.close();
+    await call(r,'new-run-seed',[2]);const wet=state(r),waterCell=16+39*64;
+    wet.breaches=[waterCell];await assert.rejects(()=>restoreColony(r,wet),WebAssembly.RuntimeError);
+    assert.deepEqual(state(r).breaches,[]);await r.close();
   });
 }
 

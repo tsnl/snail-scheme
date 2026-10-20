@@ -20,14 +20,14 @@ try{
     await r.dispatch(1,r.command('match','new-run-seed',[seed]));const world=colony(r.snapshot(1));
     assert.deepEqual(world.deposits.slice(0,3).map(d=>d.remaining),[600,900,1800]);
     assert.equal(new Set(world.deposits.map(d=>d.cell)).size,world.deposits.length);
-    assert.ok(world.deposits.length<=46);assert.ok(world.deposits.every(d=>d.cell>=0&&d.cell<16384));
+    assert.ok(world.deposits.length<=46);assert.ok(world.deposits.every(d=>d.cell>=0&&d.cell<4096));
     const reserves=world.deposits.slice(-3);
-    assert.deepEqual(reserves,world.nests.map(n=>({cell:n.x+n.y*128,remaining:2400})));
+    assert.deepEqual(reserves,world.nests.map(n=>({cell:n.x+n.y*64,remaining:2400})));
     const frontier=world.deposits.slice(-3-bonus,-3),hub=world.surveys[0];
     for(const d of frontier){
-      const x=d.cell%128,y=Math.floor(d.cell/128),distance=Math.min(...world.nests.map(n=>(x-n.x)**2+(y-n.y)**2));
-      assert.equal(d.remaining,600);assert.ok(distance>=36&&distance<=293);
-      assert.ok((x-hub.x)**2+(y-hub.y)**2>400);
+      const x=d.cell%64,y=Math.floor(d.cell/64),distance=Math.min(...world.nests.map(n=>(x-n.x)**2+(y-n.y)**2));
+      assert.equal(d.remaining,600);assert.ok(distance>=16&&distance<=104);
+      assert.ok((x-hub.x)**2+(y-hub.y)**2>100);
     }
     await r.dispatch(1,r.command('match','new-run-seed',[seed]));assert.deepEqual(colony(r.snapshot(1)).deposits,world.deposits);
     samples.push({seed,fingerprint,counts,bonus});

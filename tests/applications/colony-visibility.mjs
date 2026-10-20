@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,client,colonyBalance,restoreColony,restoreClient,fixtureCall,at,setWorker,pixelAt} from './colony-state.mjs';
+import {MAP_WIDTH,establishColony,colony,client,colonyBalance,restoreColony,restoreClient,fixtureCall,at,setWorker,pixelAt} from './colony-state.mjs';
 
 const state=r=>colony(r.snapshot(1));
-const orders=[['extract',5,5,40,1],['observe',12,11,25,3],['fortify',12,11,50,2]];
+const orders=[['observe',12,11,25,3],['fortify',12,11,50,2]];
 async function advance(r,count=1) {
   for(let i=0;i<count;i++) {
     await fixtureCall(r,'advance'); const world=state(r),balance=colonyBalance(world);
@@ -24,7 +24,7 @@ async function select(r,x,y) {
   await r.dispatch(2,r.command('client','confirm'));
 }
 async function prepareOrder(r,kind) {
-  const world=r.snapshot(1),selected=client(r.snapshot(2)),cell=selected.targetX+selected.targetY*128;
+  const world=r.snapshot(1),selected=client(r.snapshot(2)),cell=selected.targetX+selected.targetY*MAP_WIDTH;
   const result=await r.dispatch(2,r.command('client','construct',[kind,cell]));assert.deepEqual(r.snapshot(1),world);
   assert.deepEqual(result.effects,[{kind:'send',owner:1,command:r.command('match','build-cell',[kind,cell])},
     {kind:'send',owner:2,command:r.command('client','build-settled',[cell])}]);
@@ -45,6 +45,18 @@ async function roundTrip(r) {
 }
 
 export async function checkVisibility(test,fresh) {
+  await test('a free extractor rejects a stale hidden menu, then keeps its unladen worker claim through restoration',async()=>{
+    const r=await fresh(),world=state(r);world.surveys.unshift({...at(world,21,16),radius:10});
+    await restoreColony(r,world);await fixtureCall(r,'extract',[21,16]);assert.deepEqual(state(r),{...world,notice:1});
+    const shown=state(r);setWorker(shown,0,{x:21,y:16});await restoreColony(r,shown);await select(r,21,16);
+    const gone=state(r);setWorker(gone,0);await restoreColony(r,gone);await settleOrder(r,await prepareOrder(r,1),0);
+    assert.deepEqual(state(r),{...gone,notice:1});
+    const visible=state(r);setWorker(visible,0,{x:21,y:16});await restoreColony(r,visible);await settleOrder(r,await prepareOrder(r,1),1);
+    const ordered=state(r),project=ordered.buildings[0];assert.equal(project.stage,1);assert.equal(ordered.ore,160);assert.equal(ordered.spent,0);
+    assert.equal(ordered.bots.filter(bot=>bot.job===3&&bot.target===project.id&&bot.cargo===0).length,1);
+    for(let i=0;i<600&&state(r).buildings[0].stage!==2;i++){await roundTrip(r);await advance(r);}
+    assert.equal(state(r).buildings[0].stage,2);assert.equal(state(r).spent,0);await roundTrip(r);await r.close();
+  });
   for(const [name,x,y,cost,choice] of orders) {
     await test(`${name}: new hidden orders preserve resources and existing kits finish after sight returns`,async()=>{
       const r=await fresh(),world=state(r);

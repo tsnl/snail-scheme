@@ -8,20 +8,23 @@ materials and build your orders. You choose the sites and priorities.
 
 ## Your first colony
 
-1. **Tap the glowing ore deposit**, then choose Extractor. It costs **40 ore**
-   from your starting 160. This first purchase starts the clock; take your time
-   looking around before you order it. Other purchases unlock after this order.
+1. **Tap the shimmering crystal deposit**, then choose Extractor. Construction
+   is **free**, but a drone must reach the site and assemble it. This first order
+   starts the clock; take your time looking around before accepting it. Other
+   purchases unlock afterward.
 2. **Build a tower** on empty ground to reveal more terrain and extend your
    supply network. Towers cost **25 ore** and provide sight, storage and carts.
 3. **Add artillery** to defend your workers and hub. Each gun costs **50 ore**;
    place it where its range covers an approach. Towers themselves provide
    observation and transport, so leave room in your budget for guns.
-4. **Expand toward new deposits and the nests.** Ore runs out. Keep enough for
-   your next extractor, protect the route, and advance your guns as you explore.
+4. **Follow the crystal creatures toward richer deposits and the nests.** Ore
+   runs out. Their approach directions are clues: deposits become more common
+   near nests. Protect your route and advance your guns as you explore.
 
 Selecting a tile is free. On empty ground, the popup offers Tower and Artillery.
-Tap the same tile again to order the previewed building, or choose its button.
-Tapping another tile moves your selection without spending ore. If an order
+Choose a building explicitly; hovering its button previews the hologram.
+Repeated tile taps do not purchase anything. Tapping another tile moves your
+selection without spending ore. If an order
 cannot proceed, the popup explains why: it may need tower coverage, a surveyed
 walking route, reachable supplies or more ore.
 
@@ -44,7 +47,7 @@ pending work. At the hub, **F** hires a worker and **R** requests repair.
 Click another tile or press Escape to dismiss a selection. Closing a construction
 popup leaves an accepted order running. Pause opens a menu with Resume, Restart
 and a setting to put the controls on either side. Escape or a tap outside the
-pause menu resumes play. Restart asks for confirmation first.
+pause menu resumes play. Restart and Resign ask for confirmation first.
 
 ## Keep the colony supplied
 
@@ -54,6 +57,10 @@ known deposit; an extractor carries that bar below its **green health bar**. Emp
 reserves keep an empty purple frame. These bars have no text, red warning or
 pulse. Workers haul the final stock, then seek other work. Green bars above other
 units show their health.
+
+Workers are single-rotor drones. They keep mining, hauling and building when
+enemies approach. The floating crystal creatures attack the hub and structures
+rather than drones.
 
 Completed towers connect to the hub through straight aerial ziplines. A link
 needs clear cable sight and must fit within either endpoint's reveal radius;
@@ -74,12 +81,19 @@ The hub starts with **12 worker places**. Hiring a worker costs **25 ore** and
 requires an existing worker to return and assemble the recruit. Queued recruits
 use capacity too.
 
+A completed **upgrade fully repairs its building for free**. Towers and artillery
+heal when their upgrade kit arrives; hub capacity upgrades heal when work finishes.
+Extractor upgrades still complete immediately. Pending upgrades leave existing
+damage in place, and destruction cannot be undone. Towers and artillery have no
+manual repair action, including at maximum level; advance or replace them as
+needed. The hub retains its ordinary paid **Repair** action.
+
 **Scavenge** (`X`) sends an empty worker to dismantle a completed building. Its
 button quotes **20% of construction and all completed upgrades**, rounded down.
 The building keeps working during travel and the two-second demolition. You
 receive the refund only when demolition finishes, together with its stored ore
-and outbound freight. **Cancel** (`C`) stops the job; enemy destruction or worker
-death pays no structural refund. The hub, pending work and uncollected supply
+and outbound freight. **Cancel** (`C`) stops the job; enemy destruction
+pays no structural refund. The hub, pending work and uncollected supply
 reservations cannot be scavenged. Deposit reserves remain available afterward.
 
 Select the hub and choose **Upgrade** to add **two places**. The six upgrades cost
@@ -121,8 +135,9 @@ clear delays the next difficulty increase even at level one; wave timing
 continues normally. Artillery has limited range and does more damage up close. Defeated
 enemies drop no ore, so a working supply network matters throughout the siege.
 
-If the hub falls, the entire map is revealed. You can pan around and inspect
-the frozen colony before restarting; construction and purchases are stopped.
+If the hub falls, the entire map is revealed. **Pause → Resign** also ends the
+run and reveals the map after confirmation, preserving the colony for inspection.
+You can pan around before restarting; construction and purchases are stopped.
 
 ## Saving and help
 
@@ -134,6 +149,10 @@ Your colony saves automatically in this browser. One tab can own the save at a
 time. Return with the same browser profile and website address to continue;
 clearing site data removes the save. A colony played on `localhost` does **not**
 automatically transfer to this website: browser storage belongs to its origin.
+
+The compact **64×64** map uses a new save identity. Colonies from the earlier
+128×128 map remain in their old browser record; their coordinates are not
+silently reinterpreted in the smaller world.
 
 Open **Pause → Help** to return to this guide in a new tab while the colony stays
 paused. Restart replaces your colony with a new seeded world after confirmation.

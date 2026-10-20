@@ -15,6 +15,10 @@ function structure(world,kind,x,y) {
   world.buildings.push(site);world.surveys.unshift({x,y,radius:kind===3?7:4});
   const cost=kind===2?50:25;world.spent+=cost;world.ore-=cost;world.started=true;return site;
 }
+function firingSite(world,nest) {
+  return [[0,4],[4,0],[0,-4],[-4,0]].map(([dx,dy])=>({x:nest.x+dx,y:nest.y+dy}))
+    .find(site=>!world.deposits.some(deposit=>deposit.cell===site.x+site.y*64));
+}
 async function advance(r,count=1){for(let i=0;i<count;i++)await call(r,'advance');}
 
 export async function checkFronts(test,fresh) {
@@ -34,7 +38,7 @@ export async function checkFronts(test,fresh) {
     const r=await fresh(),w=state(r),hub=w.surveys[0],targets=new Map();w.started=true;w.tick=1349;
     for(const nest of w.nests) {
       const horizontal=Math.abs(hub.x-nest.x)>Math.abs(hub.y-nest.y);
-      const x=nest.x+(horizontal?Math.sign(hub.x-nest.x)*7:0),y=nest.y+(horizontal?0:Math.sign(hub.y-nest.y)*7);
+      const x=nest.x+(horizontal?Math.sign(hub.x-nest.x)*3:0),y=nest.y+(horizontal?0:Math.sign(hub.y-nest.y)*3);
       targets.set(nest.id,structure(w,3,x,y).id);
     }
     await restoreColony(r,w);await advance(r);const spawned=state(r);assert.equal(spawned.enemies.length,7);
@@ -43,12 +47,12 @@ export async function checkFronts(test,fresh) {
     await r.close();
   });
   await test('artillery must clear every nest; final victory keeps surviving enemies and freezes saved time',async()=>{
-    const r=await fresh(),w=state(r),nest=w.nests[0];structure(w,2,nest.x,nest.y+4);
+    const r=await fresh(),w=state(r),nest=w.nests[0],site=firingSite(w,nest);structure(w,2,site.x,site.y);
     w.enemies.push({id:w.nextId++,x:w.surveys.at(-1).x*40+20,y:w.surveys.at(-1).y*40+20,hp:80,kind:0,target:0,path:[]});
     await restoreColony(r,w);
     for(let index=0;index<3;index++) {
       const candidate=state(r),target=candidate.nests[index],gun=candidate.buildings[0];
-      target.hp=6;Object.assign(gun,{x:target.x,y:target.y+4,cooldown:0});candidate.surveys.unshift({x:gun.x,y:gun.y,radius:4});
+      target.hp=6;Object.assign(gun,{...firingSite(candidate,target),cooldown:0});candidate.surveys.unshift({x:gun.x,y:gun.y,radius:4});
       await restoreColony(r,candidate);const bank=candidate.ore;await advance(r);const hit=state(r);
       assert.equal(hit.nests[index].hp,0);assert.equal(hit.outcome,index===2?3:0);assert.equal(hit.ore,bank);
       assert.deepEqual([hit.buildings[0].aimX,hit.buildings[0].aimY],[target.x*40+20,target.y*40+20]);

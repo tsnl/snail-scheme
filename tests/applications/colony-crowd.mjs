@@ -75,15 +75,16 @@ export async function checkCrowd(test,fresh,bytes) {
     }
   });
   await test('lake banks reject sideways crowd lanes without interrupting forward movement',async()=>{
-    const r=await fresh(),world=state(r),point={x:73*40+20,y:8*40+20};
-    const path=Array.from({length:20},(_,i)=>73+(9+i)*128);
+    const r=await fresh();await call(r,'new-run-seed',[2]);
+    const world=state(r),point={x:23*40+20,y:42*40+20};
+    const path=Array.from({length:20},(_,i)=>23+(43+i)*64);
     await restoreColony(r,crowd(world,16,point,path));let width=0;
-    for(let i=0;i<80;i++) {
+    for(let i=0;i<40;i++) {
       await advance(r);const enemies=state(r).enemies;width=Math.max(width,span(enemies,'x'));
-      assert.ok(enemies.every(enemy=>enemy.x<=point.x),'the lake rejects the eastern parallel lane');
+      assert.ok(enemies.every(enemy=>enemy.x>=point.x),'the lake rejects the western parallel lane');
       if(i%16===0){const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);}
     }
-    assert.equal(width,40);assert.ok(state(r).enemies.every(enemy=>enemy.y>point.y+160));await r.close();
+    assert.equal(width,40);assert.ok(state(r).enemies.every(enemy=>enemy.y>point.y+80));await r.close();
   });
   await test('a crowd cooperates on rock and traverses the saved one-cell breach',async()=>{
     const r=await fresh(),world=state(r),point=pixelAt(world,6,11),cell=routeCell(world,6,10);

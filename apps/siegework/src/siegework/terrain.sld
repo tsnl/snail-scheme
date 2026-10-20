@@ -21,8 +21,8 @@
 
     ;; ---- Map coordinates ----
 
-    (define map-width 128)
-    (define map-height 128)
+    (define map-width 64)
+    (define map-height 64)
     (define cell-size 40)
     (define hub-x 8)
     (define hub-y 22)
@@ -49,26 +49,26 @@
     ;; corners toward its center. Both coordinates accept the same candidate;
     ;; the bounded replay needs no random state or per-query pair allocation.
     (define (spawn-offset seed attempt horizontal)
-      (let ((x (- (map-offset seed 73 17) 8)) (y (- (map-offset seed 151 17) 8)))
-        (cond ((<= (+ (* x x) (* y y)) 64) (if horizontal x y))
+      (let ((x (- (map-offset seed 73 9) 4)) (y (- (map-offset seed 151 9) 4)))
+        (cond ((<= (+ (* x x) (* y y)) 16) (if horizontal x y))
               ((= attempt 23) 0)
               (else (spawn-offset (remainder (+ (* seed 25173) 13849) 65521)
                                   (+ attempt 1) horizontal)))))
-    (define (spawn-x seed) (+ 64 (spawn-offset seed 0 #t)))
-    (define (spawn-y seed) (+ 64 (spawn-offset seed 0 #f)))
-    ;; Five or six observation hops reach the nest. Even the farthest seed
-    ;; leaves fifteen cells to the edge for its clearing and spawn lanes.
+    (define (spawn-x seed) (+ 32 (spawn-offset seed 0 #t)))
+    (define (spawn-y seed) (+ 32 (spawn-offset seed 0 #f)))
+    ;; Two or three observation hops reach each front. Radius-four hub jitter
+    ;; and sixteen-to-twenty-cell fronts keep all three nests inside the map.
     (define (nest-offset seed horizontal)
       (let ((direction (map-offset seed 67 4))
-            (major (+ 32 (map-offset seed 173 9)))
-            (minor (- (map-offset seed 227 17) 8)))
+            (major (+ 16 (map-offset seed 173 5)))
+            (minor (- (map-offset seed 227 9) 4)))
         (if (= (remainder direction 2) (if horizontal 0 1))
             (if (< direction 2) major (- 0 major)) minor)))
     (define (nest-x seed) (+ (spawn-x seed) (nest-offset seed #t)))
     (define (nest-y seed) (+ (spawn-y seed) (nest-offset seed #f)))
     ;; Three fronts use the original bearing and integer rotations of ±120°.
-    ;; Across every seed they remain at least sixteen cells from the map edge
-    ;; and fifty-four cells apart. Clearings depend on the seed, never nest HP.
+    ;; Their six-cell clearings fit within the compact map and remain distinct.
+    ;; Clearings depend on the seed, never nest HP.
     (define (front-offset seed front horizontal)
       (let ((x (nest-offset seed #t)) (y (nest-offset seed #f))
             (turn (if (= front 1) 866 -866)))
@@ -84,17 +84,12 @@
     (define (home-x seed x) (+ (- x (spawn-x seed)) hub-x))
     (define (home-y seed y) (+ (- y (spawn-y seed)) hub-y))
     (define (home-cell? x y) (and (>= x 0) (< x 48) (>= y 0) (< y 36)))
-    (define (northern-x seed)
-      (+ (- (spawn-x seed) hub-x) (if (= seed 1) 5 (+ 4 (map-offset seed 73 11)))))
-    (define (northern-y seed)
-      (+ (- (spawn-y seed) hub-y) (if (= seed 1) 5 (+ 3 (map-offset seed 151 4)))))
+    (define (northern-x seed) (+ (spawn-x seed) (- (map-offset seed 73 5) 2)))
+    (define (northern-y seed) (- (spawn-y seed) 9))
     (define (eastern-x seed)
-      (let ((x (+ (- (spawn-x seed) hub-x) (if (= seed 1) 36 (+ 33 (map-offset seed 199 9))))))
-        ;; The compact nest may share the eastern clearing. Keep its deposit
-        ;; buildable by moving a coincident crystal one clear cell west.
+      (let ((x (+ (spawn-x seed) 13)))
         (if (nest-site? seed x (eastern-y seed)) (- x 1) x)))
-    (define (eastern-y seed)
-      (+ (- (spawn-y seed) hub-y) (if (= seed 1) 12 (+ 7 (map-offset seed 239 10)))))
+    (define (eastern-y seed) (- (spawn-y seed) (+ 4 (map-offset seed 239 3))))
 
     ;; The ridge stays east of the hub and starter. Its crossing is at least
     ;; three cells tall, and the southern edge remains a second way around it.
@@ -125,7 +120,7 @@
     ;; Each 32-cell region contains one bounded, bending ellipse or open land.
     ;; The outer four rows and columns stay clear, joining neighboring regions
     ;; into walking corridors. The translated starter geography has its own
-    ;; crossings; seed 1 preserves that entire 48-by-36 neighborhood exactly.
+    ;; crossings; the map boundary clips the translated home neighborhood.
     (define (region-value seed x y stride count)
       (map-offset (+ seed (+ (* (quotient x 32) 97) (* (quotient y 32) 193))) stride count))
     (define (triangle value)
@@ -142,9 +137,9 @@
       (let ((kind (region-value seed x y 137 5)))
         (and (> kind 0) (< kind 4) (region-shape? seed x y 3 11))))
     (define (nest-clearing? seed x y)
-      (or (within? x y (front-x seed 0) (front-y seed 0) 10)
-          (within? x y (front-x seed 1) (front-y seed 1) 10)
-          (within? x y (front-x seed 2) (front-y seed 2) 10)))
+      (or (within? x y (front-x seed 0) (front-y seed 0) 6)
+          (within? x y (front-x seed 1) (front-y seed 1) 6)
+          (within? x y (front-x seed 2) (front-y seed 2) 6)))
     (define (water? seed x y)
       (and (inside? x y) (not (home-cell? (home-x seed x) (home-y seed y)))
            (not (nest-clearing? seed x y)) (region-water? seed x y)))
@@ -175,10 +170,10 @@
     ;; Four inner candidates use a 3/4 chance; four outer candidates use 1/4.
     ;; Each has a seeded cardinal offset plus small sideways jitter. Ground and
     ;; the protected opening decide which candidates become actual deposits.
-    ;; Eight candidates per front bound work without scanning all 16,384 cells.
+    ;; Eight candidates per front bound work without scanning all 4,096 cells.
     (define (front-deposit-offset seed front slot horizontal)
       (let* ((key (+ seed (+ (* front 997) (* slot 271))))
-             (major (+ (if (< slot 4) 6 13) (map-offset key 307 (if (< slot 4) 4 5)))))
+             (major (+ (if (< slot 4) 4 8) (map-offset key 307 (if (< slot 4) 3 3)))))
         (if (= (remainder slot 2) (if horizontal 0 1))
             (if (< (remainder slot 4) 2) major (- 0 major))
             (- (map-offset key 317 5) 2))))
@@ -187,7 +182,7 @@
     (define (front-deposit? seed front slot)
       (let ((x (front-deposit-x seed front slot)) (y (front-deposit-y seed front slot)))
         (and (< (map-offset (+ seed (+ (* front 997) (* slot 271))) 313 4) (if (< slot 4) 3 1))
-             (ground? seed x y) (not (within? x y (spawn-x seed) (spawn-y seed) 20))
+             (ground? seed x y) (not (within? x y (spawn-x seed) (spawn-y seed) 10))
              (not (and (= x (eastern-x seed)) (= y (eastern-y seed))))
              (not (regional-deposit? seed x y)))))
     (define (bonus-deposit? seed x y)
@@ -270,6 +265,7 @@
       (opened (List I32) search-opened search-opened-set)
       (fast (List CartEdge) search-fast search-fast-set)
       (walking-cost I32 search-walking-cost search-walking-cost-set)
+      (estimate-cost I32 search-estimate-cost search-estimate-cost-set)
       (target I32 search-target search-target-set)
       (weight I32 search-weight search-weight-set)
       (surveys (List Survey) search-surveys search-surveys-set)
@@ -290,7 +286,8 @@
       (if (and (>= target 0)
                (> (distance (index-x start) (index-y start) (index-x target) (index-y target)) 96)) 2 1))
     (define (new-search seed opened fast walking-cost start target surveys blocked warnings unrestricted tunneling capacity)
-      (make-search seed opened fast walking-cost target (route-weight start target) surveys blocked warnings unrestricted tunneling capacity
+      (make-search seed opened fast walking-cost (route-estimate-cost fast walking-cost)
+                   target (if (= walking-cost cart-walking-cost) 1 (route-weight start target)) surveys blocked warnings unrestricted tunneling capacity
                    (make-vector (i32->i64 capacity) -1)
                    (make-vector (i32->i64 capacity) -1)
                    (make-vector (i32->i64 capacity) 0)
@@ -309,7 +306,7 @@
     (define (remaining-steps search slot)
       (let ((cell (read-cell (search-cells search) slot)) (target (search-target search)))
         (if (< target 0) 0
-            (* (if (null? (search-fast search)) 1 20)
+            (* (search-estimate-cost search)
                (distance (index-x cell) (index-y cell) (index-x target) (index-y target))))))
     (define (earlier-slot? search a b)
       (let* ((ga (read-cell (search-steps search) a)) (gb (read-cell (search-steps search) b))
@@ -322,9 +319,9 @@
 
     ;; ---- The frontier heap supports shorter paths to open cells ----
 
-    ;; Local trips use consistent Manhattan distance and return shortest routes.
-    ;; Trips farther than 96 cells double that heuristic to cross large regions
-    ;; within the discovery budget; these routes are valid, not always shortest.
+    ;; Worker trips use a consistent time lower bound, including distant trips.
+    ;; Other walking/tunneling trips farther than 96 cells double their estimate
+    ;; to cross large regions; those routes are valid, not always shortest.
     ;; All modes improve open cells, while closed cells keep their chosen parent.
     (define (heap-swap! search a b)
       (let ((left (read-cell (search-heap search) a)) (right (read-cell (search-heap search) b)))
@@ -404,6 +401,17 @@
         (if (= (+ x y) 0) 0 (ceiling-root (+ (* x x) (* y y)) 0 (+ x y)))))
     (define (flight-duration a b speed)
       (+ 4 (quotient (+ (segment-length a b) (- speed 1)) speed)))
+    (define cart-walking-cost 1600)
+    ;; Every edge costs at least this much per Manhattan cell. The resulting
+    ;; heuristic is consistent for walking and either direction of every flight,
+    ;; even when the fastest route first walks away from its destination.
+    (define (route-estimate-cost fast walking-cost)
+      (if (null? fast) walking-cost
+          (let* ((edge (car fast)) (a (cart-edge-a edge)) (b (cart-edge-b edge))
+                 (cost (if (rail-step? (list edge) a b)
+                           (quotient (* 320 (flight-duration a b (quotient 320 (cart-edge-cost edge))))
+                                     (distance (index-x a) (index-y a) (index-x b) (index-y b))) walking-cost)))
+            (route-estimate-cost (cdr fast) (if (< cost walking-cost) cost walking-cost)))))
     (define (traversable? seed opened x y tunneling)
       (and (inside? x y) (if tunneling (not (water? seed x y)) (open-ground? seed opened x y))))
     (define (search-enter? search x y)
@@ -497,7 +505,7 @@
     (define (avoiding-path seed x y a b surveys hazards)
       (avoiding-open-path seed (empty-list) x y a b surveys hazards))
     (define (cart-path seed opened fast x y a b surveys hazards)
-      (find-path seed opened fast (if (null? fast) 1 1600) x y a b surveys hazards #f #f))
+      (find-path seed opened fast cart-walking-cost x y a b surveys hazards #f #f))
 
     ;; ---- Emergency escape crosses warnings but not enemy positions ----
 
@@ -513,7 +521,7 @@
           (search-path seed opened (empty-list) 1 (cell-index x y) -1 surveys (occupied-hazards hazards) hazards #f #f 512)))
     (define (cart-escape-path seed opened fast x y surveys hazards)
       (if (not (open-ground? seed opened x y)) (empty-list)
-          (search-path seed opened fast (if (null? fast) 1 1600) (cell-index x y) -1 surveys
+          (search-path seed opened fast cart-walking-cost (cell-index x y) -1 surveys
                        (occupied-hazards hazards) hazards #f #f 512)))
     (define (escape-path seed x y surveys hazards)
       (escape-open-path seed (empty-list) x y surveys hazards))))
