@@ -1086,8 +1086,9 @@
     ;; The repeated template iterates over every variable it uses that matched
     ;; under an ellipsis; such variables must have equal lengths.
     (define (transcribe-repeated template bindings expansion)
-      (let* ((keys (template-keys template))
-             (repeated (filter (lambda (binding) (and (memq (car binding) keys) (Repeated? (cdr binding)))) bindings)))
+      (let* ((keys (delete-duplicates (template-keys template) eq?))
+             (repeated (filter (lambda (binding) (Repeated? (cdr binding)))
+                               (filter-map (lambda (key) (assq key bindings)) keys))))
         (when (null? repeated) (compile-error (Expansion-loc expansion) "ellipsis follows a template without pattern variables"))
         (let ((count (length (Repeated-matches (cdar repeated)))))
           (unless (every (lambda (binding) (= count (length (Repeated-matches (cdr binding))))) repeated)
