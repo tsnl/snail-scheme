@@ -86,7 +86,7 @@ async function capture(suffix='') {
   const layout=await evaluate(`(()=>{
     const controls=[...document.querySelectorAll('[data-ui] button:not([data-ui-key="dialog-backdrop"]):not([data-ui-key^="attack-inspect-"]),[data-ui] .snail-ui-kind-6')];
     const invalid=controls.map(node=>{const r=node.getBoundingClientRect();return{key:node.dataset.uiKey,x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}})
-      .filter(r=>{const menu=['resume','restart-menu','dismiss-restart','accept-restart'].includes(r.key);
+      .filter(r=>{const menu=['resume','restart-menu','resign-menu','dismiss-restart','accept-restart','dismiss-resign','accept-resign'].includes(r.key);
         return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(menu?208:['right-handed','left-handed'].includes(r.key)?100:56)||r.height!==(menu||['right-handed','left-handed'].includes(r.key)?48:56)});
     const clipped=[...document.querySelectorAll('.snail-ui-button-label,[data-ui-key$="-caption"],[data-ui-key$="-readout-label"],[data-ui-key="context-description"],[data-ui-key="onboarding-help"]')]
       .filter(node=>node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1).map(node=>({key:node.closest('[data-ui-key]').dataset.uiKey,text:node.textContent,width:node.clientWidth,scrollWidth:node.scrollWidth,height:node.clientHeight,scrollHeight:node.scrollHeight,font:getComputedStyle(node).fontSize,padding:getComputedStyle(node.parentElement).padding}));
@@ -101,8 +101,8 @@ async function capture(suffix='') {
       return{arrow:Number(hint.dataset.arrow),clear:!overlap(h,rail),inside:h.left>=0&&h.right<=innerWidth&&h.top>=0&&h.bottom<=innerHeight};})();
     const shade=document.querySelector('[data-ui-key="dialog-backdrop"]'),backdrop=!shade?null:(()=>{const r=shade.getBoundingClientRect(),color=getComputedStyle(shade).backgroundColor;
       return{rect:[r.x,r.y,r.width,r.height],alpha:color.startsWith('rgba(')?parseFloat(color.split(',').at(-1)):1};})();
-    const dialog=document.querySelector('[data-ui-key="pause-dialog"],[data-ui-key="restart-dialog"]');
-    const blocked=![...document.querySelectorAll('[data-ui-key="pause-dialog"] button:enabled,[data-ui-key="restart-dialog"] button:enabled,[data-ui-key="context"] button:enabled,[data-ui-key="result"] button:enabled')]
+    const dialog=document.querySelector('[data-ui-key="pause-dialog"],[data-ui-key="restart-dialog"],[data-ui-key="resign-dialog"]');
+    const blocked=![...document.querySelectorAll('[data-ui-key="pause-dialog"] button:enabled,[data-ui-key="restart-dialog"] button:enabled,[data-ui-key="resign-dialog"] button:enabled,[data-ui-key="context"] button:enabled,[data-ui-key="result"] button:enabled')]
       .every(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));});
     const error=document.querySelector('.connection[data-state="error"]');
     const errorCoversMenu=!!(dialog&&error&&overlap(dialog.getBoundingClientRect(),error.getBoundingClientRect()));
@@ -336,12 +336,12 @@ try {
   await key('Escape','Escape');assert.ok(await has('pause-dialog'));assert.equal((await world()).paused,1);
   await press({x:20,y:20});assert.equal((await world()).paused,0);assert.deepEqual(await selection(),selected);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),unbuilt);await evaluate('snailApp.session.stopClock()');
-  await tileIsTappable(12,20);await pointCell(12,20,true);
+  await tileIsTappable(12,20);await pointCell(12,20,true);await click('extractor');
   assert.equal(siteAt(await world(),12,20)?.kind,1);assert.equal((await local()).buildKind,0);assert.equal((await local()).chooser,false);
   await complete();assert.equal(siteAt(await world(),12,20)?.stage,2);
   await pointCell(12,20,true,.7);assert.equal(await has('upgrade'),true);await click('upgrade');assert.equal(siteAt(await world(),12,20)?.level,2);
   const inspected=await evaluate('snailApp.runtime.snapshot(1)');await click('close-context');assert.equal(await has('context'),false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),inspected);
-  console.log('ok - deposit selection exposes only its extractor; a second rendered tap builds once; explicit upgrades stay separate');
+  console.log('ok - deposit selection exposes only its extractor; an explicit extractor action builds once; explicit upgrades stay separate');
 
   const buildingFunds=await world();buildingFunds.ore+=100;withdrawReserves(buildingFunds,100);buildingFunds.delivered+=100;
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(buildingFunds))})`);await settled();
@@ -352,7 +352,7 @@ try {
   assert.equal((await local()).buildKind,3);assert.equal((await world()).spent,beforeOrder);
   await evaluate(`void snailApp.local('confirm');void snailApp.local('choose',[1])`);await evaluate('releaseMenuSave()');await settled();
   assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).spent,beforeOrder+25);assert.equal((await local()).lastKind,3);
-  const fastSite=await pointCell(14,21);await doubleClick(fastSite);assert.equal(siteAt(await world(),14,21)?.kind,3);assert.equal((await world()).spent,beforeOrder+50);
+  const fastSite=await pointCell(14,21);await doubleClick(fastSite);assert.equal(siteAt(await world(),14,21),undefined);assert.equal((await local()).choiceKind,0);await click('tower');assert.equal(siteAt(await world(),14,21)?.kind,3);assert.equal((await world()).spent,beforeOrder+50);
   await doubleClick(fastSite);assert.equal((await world()).spent,beforeOrder+50);assert.ok(await has('cancel-build'),'doubleclick tail inspects the ordered site');
   await key('Escape','Escape');await pointCell(15,21,true);const free=(await world()).spent;
   await pointCell(15,22,true);assert.equal((await world()).spent,free,'a different tile retargets without charging');
@@ -362,8 +362,8 @@ try {
     await frameCell(15,22);await pointCell(15,22,true);await capture(`-failed-construction-568x320${left?'-left':''}`);await tileIsTappable(15,22);
   }
   await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');await resize(1100,760);await frameCell(15,22);await pointCell(15,22,true);
-  // Re-selecting deliberately starts from the remembered tower; explicit retry still names the failed gun.
-  await click('artillery');assert.equal(siteAt(await world(),15,22)?.kind,2);assert.equal((await local()).lastKind,2);
+  // Re-selecting is neutral; an explicit retry names the failed gun.
+  await click('artillery');assert.equal(siteAt(await world(),15,22)?.kind,2);assert.equal((await local()).lastKind,3);
   await key('Escape','Escape');
   const supplied=await world(),extra=200-supplied.ore;supplied.ore+=extra;supplied.delivered+=extra;withdrawReserves(supplied,extra);
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(supplied))})`);await settled();const hireBank=(await world()).ore;
@@ -473,8 +473,8 @@ try {
   await resize(390,844,3);await command('center');await frameCell(15,21);
   const beforeTouch=await world(),touchSnapshot=await evaluate('snailApp.runtime.snapshot(1)');assert.equal(siteAt(beforeTouch,15,21),undefined);
   await touchAt(await pointCell(15,21));assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),touchSnapshot);
-  assert.equal((await local()).choiceKind,3,'a new page starts with the default tower preview');
-  await touchAt(await tileIsTappable(15,21));const orderedTouch=await world();assert.equal(siteAt(orderedTouch,15,21)?.kind,3);
+  assert.equal((await local()).choiceKind,0,'an empty site starts with a neutral construction marker');
+  await touchAt(await tileIsTappable(15,21));assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),touchSnapshot);await touchControl('tower');const orderedTouch=await world();assert.equal(siteAt(orderedTouch,15,21)?.kind,3);
   assert.equal(orderedTouch.spent,beforeTouch.spent+25);
   assert.equal(beforeTouch.ore-orderedTouch.ore+orderedTouch.localSpent-beforeTouch.localSpent,25,'bank and accessible local stock fund exactly one kit');
   await touchAt(await pointCell(15,21));assert.equal(await has('cancel-build'),true);await touchControl('cancel-build');assert.equal(siteAt(await world(),15,21),undefined);

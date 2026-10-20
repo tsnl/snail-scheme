@@ -1,6 +1,6 @@
 // Actual compiled upgrade-only building recovery and action icons rendered through Chromium WebGPU.
 import assert from 'node:assert/strict';
-import {writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync} from 'node:fs';
 import {colony, client, colonyWords, clientWords, at, pixelAt, setWorker, withdrawReserves} from '../applications/colony-state.mjs';
 const origin = process.argv[2], devtools = process.argv[3] ?? 'http://127.0.0.1:9452';
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -70,7 +70,7 @@ try {
     assert.equal(await evaluate('!!document.querySelector("[data-ui-key=repair],[data-ui-key=upgrade]")'),false);
     await command('repair');assert.equal((await world()).ore,value.ore);assert.equal((await world()).buildings[0].hp,50);
     const recycle=await evaluate('decodeURIComponent(getComputedStyle(document.querySelector("[data-ui-key=scavenge]")).getPropertyValue("--icon"))');
-    assert.equal((recycle.match(/<path /g)||[]).length,3);await inspect(`${width}x${height}-quote`);
+    assert.ok(recycle.includes(readFileSync(new URL('../../apps/siegework/assets/recycle.svg',import.meta.url),'utf8').trim()));assert.match(recycle,/Font Awesome Free 6\.7\.2/);assert.match(recycle,/viewBox="0 0 512 512"/);assert.equal((recycle.match(/<path /g)||[]).length,1);await inspect(`${width}x${height}-quote`);
     await click('scavenge');assert.equal((await world()).ore,value.ore);assert.equal((await world()).bots[0].job,16);
     await select(site);assert.equal(await evaluate('!!document.querySelector("[data-ui-key=scavenge]")'),false);
     const icons=await evaluate('["cancel-build","close-context"].map(key=>decodeURIComponent(getComputedStyle(document.querySelector(`[data-ui-key=${key}]`)).getPropertyValue("--icon")))');

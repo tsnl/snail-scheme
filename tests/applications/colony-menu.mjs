@@ -30,6 +30,29 @@ function failSave(h){h.controls.commit=()=>{h.controls.commit=()=>{};throw new E
 async function importWorld(h,value){await h.local.restore(colonyWords(value));await h.app.localTransition(h.runtime.command('client',h.runtime.manifest.settings.resetPresentation));}
 
 export async function checkColonyMenus(test,fresh){
+  await test('Resign requires confirmation, persists once, and reports resignation without destroying the hub',async()=>{
+    const h=await host(fresh);await action(h,'pause-menu');const paused=h.runtime.snapshot(1);
+    await action(h,'resign-menu');assert.equal(state(h).dialog,3);await action(h,'dismiss');
+    assert.equal(state(h).dialog,1);assert.deepEqual(h.runtime.snapshot(1),paused);
+    await action(h,'resign-menu');failSave(h);await action(h,'accept-resign');
+    assert.equal(state(h).dialog,3);assert.equal(state(h).dialogPending,0);assert.deepEqual(h.runtime.snapshot(1),paused);
+    const gate=delaySave(h),resigning=h.app.local('accept-resign');await gate.entered;
+    assert.equal(state(h).dialogPending,4);assert.equal(node(h,'accept-resign').text,'Resigning…');
+    const repeats=[h.app.local('accept-resign'),h.app.local('accept'),h.app.local('dismiss')];
+    gate.release();await Promise.all([resigning,...repeats]);await h.app.drainUpdates();
+    assert.equal(h.orders.filter(name=>name==='resign').length,2,'one failed save and one committed request');
+    assert.equal(world(h).outcome,4);assert.equal(world(h).hull,colony(paused).hull);assert.equal(state(h).dialog,0);
+    assert.match(node(h,'context-title').text,/resigned/i);assert.doesNotMatch(node(h,'context-description').text,/destroyed/);
+    const ended=h.runtime.snapshot(1);await restoreColony(h.runtime,world(h));await fixtureCall(h.runtime,'advance');assert.deepEqual(h.runtime.snapshot(1),ended);
+    await action(h,'pause-menu');assert.equal(node(h,'resign-menu').properties[1],0);await h.app.close();
+  });
+  await test('an authoritative import supersedes an older Resign reply without closing the imported pause menu',async()=>{
+    const h=await host(fresh);await action(h,'pause-menu');const imported=world(h);await action(h,'resign-menu');
+    const gate=delaySave(h),resign=h.app.local('accept-resign');await gate.entered;
+    const replacement=h.app.update(async()=>{await importWorld(h,imported);assert.equal(state(h).dialogPending,4);assert.equal(state(h).dialogResult,2);});
+    gate.release();await Promise.all([resign,replacement]);await h.app.drainUpdates();
+    assert.equal(world(h).outcome,0);assert.equal(world(h).paused,1);assert.equal(state(h).dialog,1);assert.equal(state(h).dialogPending,0);await h.app.close();
+  });
   await test('camera guards read Client only on an established 128-enemy colony',async()=>{
     const h=await host(fresh);await fixtureCall(h.runtime,'extract',[12,20]);
     for(let i=0;i<140;i++)await fixtureCall(h.runtime,'advance');

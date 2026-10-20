@@ -40,7 +40,7 @@ export async function checkOpening(test,fresh,bytes){
     const r=await fresh();await fixtureCall(r,'extract',[12,22]);assert.equal(world(r).notice,4);assert.equal(world(r).started,false);
     await select(r,12,20);const selected=r.snapshot(1);await ticks(r,10);assert.deepEqual(r.snapshot(1),selected);
     assert.equal(node(r,'extractor').properties[1],1);await command(r,'choose',[1]);
-    assert.equal(world(r).started,true);assert.equal(world(r).ore,120);assert.equal(world(r).spent,40);assert.equal(world(r).tick,0);
+    assert.equal(world(r).started,true);assert.equal(world(r).ore,160);assert.equal(world(r).spent,0);assert.equal(world(r).tick,0);
     assert.equal(world(r).buildings.length,1);await fixtureCall(r,'cancel-building',[12,20]);
     assert.equal(world(r).started,true);assert.equal(world(r).ore,160);assert.equal(world(r).buildings.length,0);
     await ticks(r,1);assert.equal(world(r).tick,1);await command(r,'home');assert.equal(node(r,'worker').properties[1],1);
