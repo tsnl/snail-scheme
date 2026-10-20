@@ -5,7 +5,7 @@ import {join,resolve} from 'node:path';
 import {BrowserApplication} from '../../src/browser/application.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,client,colonyWords,restoreClient,restoreColony,at,routeCell,siteAt,setWorker} from './colony-state.mjs';
+import {MAP_WIDTH,establishColony,colony,client,colonyWords,restoreClient,restoreColony,at,routeCell,siteAt,setWorker} from './colony-state.mjs';
 const world=h=>colony(h.runtime.snapshot(1)),state=h=>client(h.runtime.snapshot(2));
 const deferred=()=>{let resolve;const promise=new Promise(yes=>{resolve=yes;});return{promise,resolve};};
 function node(h,key,value=h.runtime.view().ui){if(value.key===key)return value;for(const child of value.children){const found=node(h,key,child);if(found)return found;}}
@@ -42,8 +42,8 @@ export async function checkDirectBuild(test,fresh){
     for(let i=0;i<3;i++)await action(h,'confirm');await action(h,'construct',[3,cell]);
     assert.equal(world(h).buildings.length,1);assert.equal(world(h).ore,135);assert.equal(construction(h).length,1);assert.ok(node(h,'cancel-build'));assert.ok(node(h,'close-context'));
     const occupied=h.runtime.snapshot(1);await action(h,'dismiss');assert.equal(state(h).chooser,false);assert.deepEqual(h.runtime.snapshot(1),occupied);
-    const revealed=world(h);revealed.surveys.unshift({x:59,y:37,radius:7});await restoreColony(h.runtime,revealed);
-    await restoreClient(h.runtime,{...state(h),cursorX:59,cursorY:37});await action(h,'confirm');
+    const revealed=world(h),nestSite=revealed.nests[0];revealed.surveys.unshift({x:nestSite.x,y:nestSite.y,radius:7});await restoreColony(h.runtime,revealed);
+    await restoreClient(h.runtime,{...state(h),cursorX:nestSite.x,cursorY:nestSite.y});await action(h,'confirm');
     assert.ok(node(h,'close-context'));assert.equal(node(h,'tower'),undefined);assert.match(node(h,'context-title').text,/nest/i);
     const nest=h.runtime.snapshot(1);await action(h,'dismiss');assert.equal(state(h).chooser,false);assert.deepEqual(h.runtime.snapshot(1),nest);await h.app.close();
   });
@@ -105,7 +105,7 @@ export async function checkDirectBuild(test,fresh){
   });
   await test('attack notifications expose location and dismissal without rendering thumbnail scenes',async()=>{
     const h=await host(fresh),alerted=world(h),hub=alerted.surveys[0];alerted.alerts=[{x:hub.x,y:hub.y,kind:0,tick:0}];await restoreColony(h.runtime,alerted);
-    const key=(hub.x+hub.y*128)*8;assert.ok(node(h,`attack-inspect-${key}`));assert.ok(node(h,`attack-dismiss-${key}`));assert.equal(h.runtime.view().scene.insets,undefined);
+    const key=(hub.x+hub.y*MAP_WIDTH)*8;assert.ok(node(h,`attack-inspect-${key}`));assert.ok(node(h,`attack-dismiss-${key}`));assert.equal(h.runtime.view().scene.insets,undefined);
     await action(h,'dismiss-attack',[key]);assert.equal(node(h,`attack-inspect-${key}`),undefined);await h.app.close();
   });
   await test('upgrade waiting markers follow authoritative pending upgrades and disappear on cancellation',async()=>{

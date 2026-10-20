@@ -1,4 +1,4 @@
-// Actual reducers enforce the first purchase across UI, shortcuts and raw commands.
+// Actual reducers enforce the first construction order across UI, shortcuts and raw commands.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -36,7 +36,7 @@ export async function checkOpening(test,fresh,bytes){
     }
     const saved=r.snapshot(2);await r.restore(2,saved);assert.deepEqual(r.snapshot(2),saved);await r.close();
   });
-  await test('only an accepted paid extractor starts time, and later cancellation keeps purchases unlocked',async()=>{
+  await test('only an accepted free extractor starts time, and later cancellation keeps purchases unlocked',async()=>{
     const r=await fresh();await fixtureCall(r,'extract',[12,22]);assert.equal(world(r).notice,4);assert.equal(world(r).started,false);
     await select(r,12,20);const selected=r.snapshot(1);await ticks(r,10);assert.deepEqual(r.snapshot(1),selected);
     assert.equal(node(r,'extractor').properties[1],1);await command(r,'choose',[1]);
@@ -55,7 +55,7 @@ export async function checkOpening(test,fresh,bytes){
     await command(r,'resume');assert.equal(world(r).paused,0);assert.equal(world(r).started,false);
     for(const seed of [1,42,65535]){
       await fixtureCall(r,'new-run-seed',[seed]);await ticks(r,5);assert.equal(world(r).tick,0);assert.equal(world(r).ore,160);
-      await fixtureCall(r,'extract',[12,20]);assert.equal(world(r).started,true);assert.equal(world(r).ore,120);
+      await fixtureCall(r,'extract',[12,20]);assert.equal(world(r).started,true);assert.equal(world(r).ore,160);
       await ticks(r,1);assert.equal(world(r).tick,1);
     }
     await r.close();

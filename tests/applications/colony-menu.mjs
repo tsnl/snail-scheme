@@ -44,7 +44,9 @@ export async function checkColonyMenus(test,fresh){
     assert.equal(world(h).outcome,4);assert.equal(world(h).hull,colony(paused).hull);assert.equal(state(h).dialog,0);
     assert.match(node(h,'context-title').text,/resigned/i);assert.doesNotMatch(node(h,'context-description').text,/destroyed/);
     const ended=h.runtime.snapshot(1);await restoreColony(h.runtime,world(h));await fixtureCall(h.runtime,'advance');assert.deepEqual(h.runtime.snapshot(1),ended);
-    await action(h,'pause-menu');assert.equal(node(h,'resign-menu').properties[1],0);await h.app.close();
+    await action(h,'pause-menu');assert.equal(node(h,'resign-menu').properties[1],0);assert.deepEqual(h.runtime.snapshot(1),ended);
+    await action(h,'resume');assert.deepEqual(h.runtime.snapshot(1),ended);assert.equal(state(h).dialog,0);
+    await action(h,'restart');assert.equal(state(h).dialog,2);assert.deepEqual(h.runtime.snapshot(1),ended);await action(h,'dismiss-restart');await action(h,'resume');await h.app.close();
   });
   await test('an authoritative import supersedes an older Resign reply without closing the imported pause menu',async()=>{
     const h=await host(fresh);await action(h,'pause-menu');const imported=world(h);await action(h,'resign-menu');

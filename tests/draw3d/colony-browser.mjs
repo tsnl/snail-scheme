@@ -1,7 +1,7 @@
 // Chromium input, WebGPU readback and durable reopen for either 3D package.
 import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
-import {colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker, withdrawReserves} from '../applications/colony-state.mjs';
+import {MAP_WIDTH,colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker, withdrawReserves} from '../applications/colony-state.mjs';
 const origin = process.argv[2], devtools = process.argv[3] ?? 'http://127.0.0.1:9452';
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const target = await (await fetch(`${devtools}/json/new?about:blank`, {method: 'PUT'})).json();
@@ -87,8 +87,8 @@ async function capture(suffix='') {
     const controls=[...document.querySelectorAll('[data-ui] button:not([data-ui-key="dialog-backdrop"]):not([data-ui-key^="attack-inspect-"]),[data-ui] .snail-ui-kind-6')];
     const invalid=controls.map(node=>{const r=node.getBoundingClientRect();return{key:node.dataset.uiKey,x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}})
       .filter(r=>{const menu=['resume','restart-menu','resign-menu','dismiss-restart','accept-restart','dismiss-resign','accept-resign'].includes(r.key);
-        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(menu?208:['right-handed','left-handed'].includes(r.key)?100:56)||r.height!==(menu||['right-handed','left-handed'].includes(r.key)?48:56)});
-    const clipped=[...document.querySelectorAll('.snail-ui-button-label,[data-ui-key$="-caption"],[data-ui-key$="-readout-label"],[data-ui-key="context-description"],[data-ui-key="onboarding-help"]')]
+        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(['right-handed','left-handed','restart-menu','resign-menu'].includes(r.key)?100:menu?208:56)||r.height!==(menu||['right-handed','left-handed'].includes(r.key)?48:56)});
+    const clipped=[...document.querySelectorAll('.snail-ui-button-label,[data-ui-key$="-caption"],[data-ui-key$="-readout-label"],[data-ui-key="context-description"],[data-ui-key="onboarding-help"],[data-ui-key="frontier-hint"]')]
       .filter(node=>node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1).map(node=>({key:node.closest('[data-ui-key]').dataset.uiKey,text:node.textContent,width:node.clientWidth,scrollWidth:node.scrollWidth,height:node.clientHeight,scrollHeight:node.scrollHeight,font:getComputedStyle(node).fontSize,padding:getComputedStyle(node.parentElement).padding}));
     const overlap=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
     const boxes=[...document.querySelectorAll('[data-ui-key^="attack-toast-"]')].map(node=>({key:node.dataset.uiKey,rect:node.getBoundingClientRect()}));
@@ -165,11 +165,11 @@ async function complete(ticks=180) {
 function depositFixture(original,remaining) {
   const value=structuredClone(original),deposit=value.deposits[0],removed=deposit.remaining-remaining;
   deposit.remaining=remaining;value.produced+=removed;value.lostOre+=removed;value.started=true;
-  value.surveys.push({x:deposit.cell%128,y:Math.floor(deposit.cell/128),radius:4});return value;
+  value.surveys.push({x:deposit.cell%MAP_WIDTH,y:Math.floor(deposit.cell/MAP_WIDTH),radius:4});return value;
 }
 async function checkUnitBars() {
   const original=await world(),camera=await local(),cell=original.deposits[0].cell;
-  const centered={...camera,cameraX:(cell%128)*1000,cameraY:Math.floor(cell/128)*1000,homing:false};
+  const centered={...camera,cameraX:(cell%MAP_WIDTH)*1000,cameraY:Math.floor(cell/MAP_WIDTH)*1000,homing:false};
   try {
     for(const [width,height] of [[1100,760],[390,844]])for(const remaining of [600,60,0]) {
       await resize(width,height);const value=depositFixture(original,remaining);value.hull=150;value.bots[0].hp=7;
@@ -348,6 +348,16 @@ try {
   await frameCell(13,21);await pointCell(13,21,true);const beforeOrder=(await world()).spent;
   assert.ok(await has('tower')&&await has('artillery')&&!(await has('house')));assert.equal(await has('extractor'),false);assert.ok(await has('close-context'));await capture('-construction');
   await click('close-context');assert.equal(await has('context'),false);await pointCell(13,21,true);assert.equal((await world()).spent,beforeOrder);
+  const neutralPreview=await evaluate('JSON.stringify(snailApp.runtime.view().scene.batches.find(batch=>batch.key===5))');
+  for(const [key,kind]of[['tower',3],['artillery',2]]){
+    const hover=await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="${key}"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+    await call('Input.dispatchMouseEvent',{type:'mouseMoved',...hover});await settled();assert.equal((await local()).preview,kind);
+    assert.notEqual(await evaluate('JSON.stringify(snailApp.runtime.view().scene.batches.find(batch=>batch.key===5))'),neutralPreview);
+    assert.equal((await world()).spent,beforeOrder);
+  }
+  await pointCell(13,21);assert.equal((await local()).preview,0);
+  assert.equal(await evaluate('JSON.stringify(snailApp.runtime.view().scene.batches.find(batch=>batch.key===5))'),neutralPreview);
+
   await holdNextSave();await evaluate(`document.querySelector('[data-ui-key="tower"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed construction save');
   assert.equal((await local()).buildKind,3);assert.equal((await world()).spent,beforeOrder);
   await evaluate(`void snailApp.local('confirm');void snailApp.local('choose',[1])`);await evaluate('releaseMenuSave()');await settled();
@@ -458,7 +468,7 @@ try {
   }
   if((await local()).leftHanded){await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');}
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(edgeWorld))})`);await settled();
-  const firstAlert=(await world()).alerts[0],alertKey=(firstAlert.x+firstAlert.y*128)*8+firstAlert.kind;
+  const firstAlert=(await world()).alerts[0],alertKey=(firstAlert.x+firstAlert.y*MAP_WIDTH)*8+firstAlert.kind;
   const beforeDismiss=await evaluate('snailApp.runtime.snapshot(1)');await touchControl(`attack-dismiss-${alertKey}`);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforeDismiss);assert.equal(await has(`attack-toast-${alertKey}`),false);
   const repeat=await world();repeat.tick++;repeat.alerts=repeat.alerts.map(alert=>({...alert,tick:repeat.tick}));
@@ -510,7 +520,7 @@ try {
   await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords(beforeHubTouchClient))})`);await settled();
   console.log('ok - portrait and landscape touch keep hub expansion and repeated hires separate, paid, delayed and clearly priced');
   await call('Emulation.setTouchEmulationEnabled',{enabled:false});await resize(1100,760);await command('center');await capture();
-  console.log('ok - centered Pause preserves selection; paused reopen, HiDPI HUD, touch repeat construction and mirrored popups fit 320–1100px');
+  console.log('ok - centered Pause preserves selection; paused reopen, HiDPI HUD, explicit touch construction and mirrored popups fit 320–1100px');
   await click('pause');await click('restart-menu');const oldMarker=(await world()).runMarker;await holdNextSave();
   await evaluate(`document.querySelector('[data-ui-key="accept-restart"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Restart save');
   assert.equal((await local()).dialogPending,3);assert.equal((await world()).runMarker,oldMarker);await until(()=>evaluate(`document.querySelector('[data-ui-key="accept-restart"]').textContent.includes('Restarting')`),'pending Restart label did not render');
@@ -518,7 +528,19 @@ try {
   assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).runMarker,oldMarker+1);assert.equal((await local()).dialog,0);assert.equal((await local()).dialogPending,0);
   console.log('ok - real IndexedDB delays keep Resume/Restart locked; failures retain the selection and repeated confirmation creates one colony');
   const finalColony=await world(),finalClient=await local(),finalHub=finalColony.surveys.find(value=>value.radius===9);
-  for(const outcome of [1,3])for(const [width,height]of[[320,568],[568,320]])for(const leftHanded of [false,true]) {
+  for(const [width,height]of[[320,568],[568,320]]){
+    await resize(width,height);await click('pause');await click('resign-menu');assert.ok(await has('resign-dialog'));
+    await capture(`-resign-confirm-${width}x${height}`);await click('dismiss-resign');assert.equal((await world()).outcome,0);await click('resume');
+  }
+  await click('pause');await click('resign-menu');await holdNextSave();
+  await evaluate(`document.querySelector('[data-ui-key="accept-resign"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Resign save');
+  assert.equal((await local()).dialogPending,4);await evaluate(`void snailApp.local('accept-resign');void snailApp.local('accept');void snailApp.local('dismiss')`);
+  await evaluate('releaseMenuSave()');await settled();assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).outcome,4);assert.equal((await world()).hull,finalColony.hull);
+  assert.equal((await local()).dialog,0);assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'),/resigned/);
+  await capture('-resigned');const resigned=await evaluate('snailApp.runtime.snapshot(1)');await evaluate('globalThis.fixtureReload=true');await call('Page.reload');await until(()=>evaluate('!globalThis.fixtureReload && !!globalThis.snailApp'),'resigned durable reopen');await settled();assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),resigned);
+  console.log('ok - Resign confirms on portrait and landscape, commits once, preserves the hub and survives reopen');
+
+  for(const outcome of [1,3,4])for(const [width,height]of[[320,568],[568,320]])for(const leftHanded of [false,true]) {
     const ended={...finalColony,outcome,started:true,hull:outcome===1?0:300,nests:finalColony.nests.map(nest=>({...nest,hp:outcome===3?0:900})),
       alerts:[0,1,4].map((kind,index)=>({x:finalHub.x+index*2,y:finalHub.y,kind,tick:finalColony.tick}))};
     await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(ended))})`);
