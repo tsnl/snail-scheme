@@ -171,8 +171,10 @@ Rows are inferred by unification, Koka-style. A call adds its callee's
 effects to the current row, and a handler removes its effect. Handler
 implementations return to the operation's caller exactly once, and they run
 in the handler's outer context, so an operation they perform goes to the
-next handler out. Effects with host defaults, such as `console` from
-`(lofi io)`, need no handler at the top level of a program.
+next handler out. A handler names operations within its effect, so they need
+not be imported. Effects with host defaults, such as `console` and `fs` from
+`(lofi io)`, need no handler at the top level of a program, and a test can
+handle `fs` to serve files from memory.
 
 `extern` declares a total foreign function; the declaration is the boundary's
 unsafe assumption. `unsafe-total` runs a thunk and discards its effects. The
@@ -214,7 +216,7 @@ with saving and restoring the state through its wire encoding.
 | Library | Contents |
 | --- | --- |
 | `(lofi base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, lists, vectors, arrays, strings, `Show`. |
-| `(lofi io)` | The `console` effect and text output. |
+| `(lofi io)` | The `console` and `fs` effects: text output, lines of input, and files. |
 | `(lofi math)` | Elementary functions on `F64`. |
 | `(lofi text)` | Unicode character properties and case mapping. |
 | `(lofi random)` | A deterministic generator as a value. |

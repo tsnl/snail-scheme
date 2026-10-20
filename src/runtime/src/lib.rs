@@ -11,7 +11,6 @@ mod host;
 mod io;
 mod math;
 mod number;
-mod symbols;
 mod text;
 mod unicode;
 

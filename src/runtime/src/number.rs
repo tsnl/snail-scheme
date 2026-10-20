@@ -46,13 +46,6 @@ impl Scalar {
             }
         }
     }
-
-    pub(crate) fn exact(&self) -> Result<&Exact, String> {
-        match self {
-            Self::Exact(value) => Ok(value),
-            _ => Err("numeric component has no exact digit fields".into()),
-        }
-    }
 }
 
 impl Number {
@@ -80,16 +73,6 @@ impl Number {
             | (Self::Polar(value, _, _), 0)
             | (Self::Polar(_, value, _), 1) => Ok(value),
             _ => Err("numeric component index out of range".into()),
-        }
-    }
-}
-
-impl Exact {
-    pub(crate) fn text(&self, term: u32) -> Result<&str, String> {
-        match term {
-            0 => Ok(&self.numerator),
-            1 => Ok(&self.denominator),
-            _ => Err("exact numeric term index out of range".into()),
         }
     }
 }

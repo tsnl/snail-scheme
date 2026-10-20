@@ -9,7 +9,8 @@
    char-unicode-whitespace?
    char-lower-case?
    string-upcase
-   string-downcase)
+   string-downcase
+   string-foldcase)
   (import
    (lofi base))
   (begin
@@ -50,5 +51,17 @@
     (: string-downcase (-> String String))
     (define (string-downcase text)
       (string-generate (string-length text) (lambda (index) (char-downcase (string-ref text index)))))
+
+    ;; Full case folding, which may expand one scalar into several, as "ß"
+    ;; into "ss"; folded strings compare equal ignoring case.
+    (extern fold-length "snail.library" "snail:text/full-fold-length" (-> Char I32))
+    (extern fold-scalar "snail.library" "snail:text/full-fold-scalar" (-> Char I32 Char))
+
+    (: string-foldcase (-> String String))
+    (define (string-foldcase text)
+      (string-concatenate
+       (map (lambda (char)
+              (string-generate (i32->i64 (fold-length char)) (lambda (index) (fold-scalar char (i64->i32 index)))))
+            (string->list text))))
 
     ))

@@ -1,5 +1,6 @@
-;; Console text. The host implements `console` by default; a handler can
-;; replace it, for example to capture output in a test.
+;; Console text and files. The host implements `console` and `fs` by
+;; default; a handler can replace either, for example to capture output or
+;; to serve files from memory in a test.
 (define-library (lofi io)
   (export
    console
@@ -9,7 +10,12 @@
    write-string
    newline
    write-line
-   display)
+   display
+   read-line
+   fs
+   read-file
+   write-file
+   file-exists?)
   (import
    (lofi base))
   (begin
@@ -22,6 +28,18 @@
       (host "snail.library"
             ((console-write "snail:io/console-write")
              (console-read "snail:io/console-read"))))
+
+    ;; ---- Text input ----
+
+    ;; The next line of standard input without its newline, or None at the
+    ;; end of input.
+    (: read-line (-> (Option String) ! console))
+    (define (read-line)
+      (let loop ((chars (Nil)))
+        (let ((code (console-read)))
+          (cond ((and (= code -1) (null? chars)) (None))
+                ((or (= code -1) (= code 10)) (Some (list->string (reverse chars))))
+                (else (loop (Cons (i32->char code) chars)))))))
 
     ;; ---- Text output ----
 
@@ -48,5 +66,63 @@
     (: display (All (T) (requires (Show T)) (-> T Unit ! console)))
     (define (display value)
       (write-string (show value)))
+
+    ;; ---- Files ----
+
+    ;; A path is sent one scalar at a time before the operation that uses
+    ;; it. Ports are runtime handles; a closed port must not be used again.
+    (effect fs
+      ((path-begin (-> Unit))
+       (path-character (-> Char Unit))
+       (path-exists (-> I32))
+       (open-input (-> I32))
+       (open-output (-> I32))
+       (port-read (-> I32 I32))
+       (port-write (-> I32 Char Unit))
+       (port-close (-> I32 Unit)))
+      (host "snail.library"
+            ((path-begin "snail:io/path-begin")
+             (path-character "snail:io/path-character")
+             (path-exists "snail:io/file-exists")
+             (open-input "snail:io/open-input-file")
+             (open-output "snail:io/open-output-file")
+             (port-read "snail:io/read-character")
+             (port-write "snail:io/write-character")
+             (port-close "snail:io/close"))))
+
+    (: send-path (-> String Unit ! fs))
+    (define (send-path path)
+      (path-begin)
+      (let loop ((index 0))
+        (when (< index (string-length path))
+          (path-character (string-ref path index))
+          (loop (+ index 1)))))
+
+    (: file-exists? (-> String Bool ! fs))
+    (define (file-exists? path)
+      (send-path path)
+      (= (path-exists) 1))
+
+    ;; The whole file as text; the runtime fails the program if it cannot
+    ;; be read.
+    (: read-file (-> String String ! fs))
+    (define (read-file path)
+      (send-path path)
+      (let ((port (open-input)))
+        (let loop ((chars (Nil)))
+          (let ((code (port-read port)))
+            (if (= code -1)
+                (begin (port-close port) (list->string (reverse chars)))
+                (loop (Cons (i32->char code) chars)))))))
+
+    (: write-file (-> String String Unit ! fs))
+    (define (write-file path text)
+      (send-path path)
+      (let ((port (open-output)))
+        (let loop ((index 0))
+          (when (< index (string-length text))
+            (port-write port (string-ref text index))
+            (loop (+ index 1))))
+        (port-close port)))
 
     ))

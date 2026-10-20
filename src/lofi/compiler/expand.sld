@@ -851,7 +851,7 @@
                      (_ (compile-error (syntax-loc effect) "not an effect" (Ident-name effect))))))
            (expr (Handle id (map (lambda (implementation)
                                    (match (Form-items implementation)
-                                     ((list name value) (cons (Global-name (resolve env name)) (expand-expr cx env value)))
+                                     ((list name value) (cons (operation-name cx id name) (expand-expr cx env value)))
                                      (_ (compile-error (syntax-loc implementation) "expected (operation implementation)"))))
                                  implementations)
                          (expand-body cx env body loc))
@@ -941,6 +941,14 @@
                                                              (decode-case case) otherwise))
                                                      (form loc (w 'panic) (Atom "wire data has a different schema" loc))
                                                      cases))))))))
+
+    ;; A handler names operations by their names within the effect, so they
+    ;; need not be imported.
+    (define (operation-name cx effect ident)
+      (let ((name (Ident-name (expect-ident ident "an operation name"))))
+        (or (find (lambda (operation) (string=? (short-name operation) (symbol->string name)))
+                  (Effect-operations (program-effect (program cx) effect)))
+            (compile-error (syntax-loc ident) "not an operation of this effect" name))))
 
     ;; ---- Patterns ----
 

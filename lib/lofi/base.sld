@@ -19,7 +19,7 @@
    Option Some None Result Ok Err Pair Pair-first Pair-second
    List Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
    list-ref list-tail any? every? find member? iota concatenate
-   char->integer integer->char char-whitespace? char-numeric? char-alphabetic? digit-value
+   char->integer integer->char char->i32 i32->char char-whitespace? char-numeric? char-alphabetic? digit-value
    string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
    string->vector vector->string

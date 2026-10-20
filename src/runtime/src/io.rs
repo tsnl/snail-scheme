@@ -49,10 +49,16 @@ impl Files {
     }
 }
 
+// WASI has no working directory of its own; the host passes it as SNAIL_CWD
+// and relative paths are resolved against it.
 fn take_pathname() -> Result<String, String> {
-    PATHNAME
+    let path = PATHNAME
         .with_borrow_mut(Option::take)
-        .ok_or_else(|| "no pathname transfer is active".into())
+        .ok_or("no pathname transfer is active")?;
+    Ok(match std::env::var("SNAIL_CWD") {
+        Ok(directory) if !path.starts_with('/') => format!("{directory}/{path}"),
+        _ => path,
+    })
 }
 
 fn append_character(text: &mut String, code: u32) -> Result<(), String> {
@@ -168,12 +174,6 @@ pub extern "C" fn read_code(id: u32) -> i32 {
 
 // Only owned files use packets. Their private Lofi wrapper owns the pending
 // characters; borrowed stdin keeps its shared host scalar cursor instead.
-#[unsafe(export_name = "snail:io/read-packet")]
-pub extern "C" fn read_packet(id: u32) -> i64 {
-    let result = FILES.with_borrow_mut(|files| files.get(id)?.text_input()?.read_packet());
-    checked(result)
-}
-
 #[unsafe(export_name = "snail:io/peek-character")]
 pub extern "C" fn peek_code(id: u32) -> i32 {
     let result = if id == STANDARD_INPUT {
