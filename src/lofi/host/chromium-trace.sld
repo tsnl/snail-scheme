@@ -1,5 +1,6 @@
 ;; File scopes own Chromium traces. Only completed calls emit spans; an initial
-;; metadata event lets every span start with a comma.
+;; metadata event lets every span start with a comma. Outside a scope, a
+;; decorated procedure runs untraced.
 (define-library (lofi host chromium-trace)
   (export chromium-trace with-chromium-trace-to)
   (import
@@ -28,8 +29,9 @@
       (if (not (procedure? procedure)) (error "chromium-trace: expected a procedure" procedure))
       (lambda arguments
         (let ((port (trace-output-port)))
-          (if (not port) (error "chromium-trace: no active with-chromium-trace-to scope"))
-          (call-with-chromium-trace-span name port procedure arguments))))
+          (if port
+              (call-with-chromium-trace-span name port procedure arguments)
+              (apply procedure arguments)))))
 
     ;; Capture the destination at invocation and emit only after normal return.
     ;; Aborted calls produce no span; abandoning a file scope skips finalization.
@@ -113,9 +115,9 @@
 
       (define (test-trace-unbound)
         (let* ((called? #f)
-               (procedure (chromium-trace "unbound" (lambda () (set! called? #t)))))
-          (expect (guard (failure (else 'caught)) (procedure)) 'caught)
-          (expect called? #f)
+               (procedure (chromium-trace "unbound" (lambda () (set! called? #t) 42))))
+          (expect (procedure) 42)
+          (expect called? #t)
           (expect (guard (failure (else 'caught)) (chromium-trace 'name values)) 'caught)
           (expect (guard (failure (else 'caught)) (chromium-trace "name" 1)) 'caught)))
 

@@ -7,7 +7,7 @@
 (define (check expected actual)
   (if (not (equal? expected actual)) (error "chromium-trace behavior mismatch" expected actual)))
 
-;; Decoration precedes binding the port. The error case must not call the body.
+;; Decoration precedes binding the port. Outside a scope the body runs untraced.
 (define unbound (chromium-trace "unbound" (lambda () (display "body ran"))))
 (define name (string-append "quote\" slash\\ line\n tab\t λ" (string (integer->char 0))))
 (define decorated (chromium-trace name values))

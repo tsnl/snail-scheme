@@ -11,7 +11,6 @@
    (only (chibi temp-file) call-with-temp-dir)
    (only (lofi host json) json->string)
    (lofi host build-host)
-   (lofi host chromium-trace)
    (lofi host wasm-optimize)
    (only (lofi host wasm) write-wasm))
   (begin
@@ -91,12 +90,9 @@
       (call-with-temp-dir
        "lofi-artifact"
        (lambda (directory preserve)
-         (with-chromium-trace-to
-          (string-append directory "/compile.trace.json")
-          (lambda ()
-            (make-artifact entry parameters result
-                           (bytevector-append (wasm-artifact module directory)
-                                              (wasm-entry-section entry parameters result)))))))))
+         (make-artifact entry parameters result
+                        (bytevector-append (wasm-artifact module directory)
+                                           (wasm-entry-section entry parameters result)))))))
 
   ;; ---- Tests ----
 

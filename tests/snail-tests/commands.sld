@@ -258,7 +258,7 @@
           (assert-that (not (string-suffix? "]" (car (reverse (lines prefix))))))
           (assert-equal (map (lambda (event) (field event 'name)) events) '("thread_name" "completed")))
         (checked "trace-directory-failure" (append command (list (path-join directory "absent"))) '((status . error) (stdout . "")))
-        (checked "trace-unbound" (append command '("unbound")) '((status . error) (stdout . "") (error . "chromium-trace: no active with-chromium-trace-to scope")))))
+        (checked "trace-unbound" (append command '("unbound")) '((stdout . "body ran")))))
 
     ;; ---- Ordered complete backend execution ----
 

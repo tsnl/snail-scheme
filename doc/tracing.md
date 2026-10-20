@@ -21,11 +21,11 @@ measurements.
 ## Trace files
 
 The Chibi-hosted compiler uses `(lofi host chromium-trace)`. Importing its
-libraries creates no trace files. A build establishes a destination before
-running traced passes and closes it on normal return.
+libraries creates no trace files. A build that wants a trace establishes a
+destination before running traced passes and closes it on normal return.
+Outside such a scope, traced procedures run untraced.
 
 `scripts/build-lofi input.sld output.wasm` retains `output.wasm.trace.json`.
-These are compiler timings, separate from benchmark execution measurements.
 
 ```sh
 scripts/view-traces build/output.wasm.trace.json
@@ -76,7 +76,7 @@ Decorating recursion keeps wrappers active until return and can change tail-call
 behavior, so instrumentation must stay outside clean performance comparisons.
 
 `make test` and `scripts/test chromium-trace` check escaping, nested destinations,
-closure, missing destinations, file-opening errors and abandoned spans. A future
+closure, untraced calls outside a scope, file-opening errors and abandoned spans. A future
 Lofi tracing library is separate work; the host decorator runs in Chibi.
 
 WasmGC collection belongs to the engine. This utility records compiler operations;

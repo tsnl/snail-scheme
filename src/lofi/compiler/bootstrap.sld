@@ -106,19 +106,12 @@
      (lofi compiler frontend)
      (lofi compiler reader)
      (lofi compiler syntax-parser)
-     (lofi host chromium-trace)
      (only (lofi compiler checked) program-body)
-     (only (chibi temp-file) call-with-temp-dir)
      (only (srfi 130) string-contains)
      (only (lofi compiler ir) name-definition application-operator lambda-body value-binding-initializer))
     (begin
       (define (test-parsed text)
-        (call-with-temp-dir
-         "lofi-map-source"
-         (lambda (directory preserve)
-           (with-chromium-trace-to
-            (string-append directory "/parse.json")
-            (lambda () (parse-library (car (reader->syntax-list (string->reader "map-compilation.sld" text)))))))))
+        (parse-library (car (reader->syntax-list (string->reader "map-compilation.sld" text)))))
       (define (test-map-compilation)
         (let* ((primitive (make-primitive-library primitive-names))
                (provider (test-parsed "(define-library (test math)
