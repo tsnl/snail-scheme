@@ -102,8 +102,8 @@ export function decodeObservation(rows) {
 export async function openEnvironment(directory, options = {}) {
   const config = parseOptions(options), path = resolve(directory);
   const manifest = JSON.parse(await readFile(join(path, 'manifest.json'), 'utf8'));
-  if (manifest.settings?.id !== 'siegework-colony-v13' || manifest.settings.observation?.version !== 1)
-    throw new Error('expected a Siegework World13 package with observation version 1; rebuild the application');
+  if (manifest.settings?.id !== 'siegework-colony-v14' || manifest.settings.observation?.version !== 1)
+    throw new Error('expected a Siegework World14 package with observation version 1; rebuild the application');
   const bytes = await readFile(join(path, manifest.module));
   const environment = new SiegeworkEnvironment(bytes, manifest, config);
   try { await environment.reset(1); return environment; }

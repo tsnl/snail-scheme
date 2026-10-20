@@ -1,5 +1,27 @@
 # Siegework validation
 
+## Sparser World14 resources
+
+The checked package is generation `3b87b4be0a35b908ebb049f4`, with a
+653,188-byte simulation and SHA-256
+`f4ea5b7b3dd648847ca97cb498d96da4eb5b2e8239885eee4c6b2270b1780bc8`.
+World14/Client8 uses `siegework-colony-v14`, starting a fresh colony because
+the canonical deposit ledger changed. A real compiled World13 snapshot is
+retained as a rejection fixture; old browser saves keep their prior identity.
+
+Fresh compiled geography and reducer checks establish:
+
+- Across the same 32 seeds, bonus sites fell from 352 to 190, a 46.0% reduction.
+  Ordinary sites outside the protected opening fell from 480 to 318, a 33.8%
+  reduction. The three opening deposits and regional sites are unchanged.
+- Realized deposits per 1,000 eligible ground cells are 11.37 / 3.28 / 1.26
+  in the inner / approach / distant bands. The near-nest gradient remains.
+- Opening reserves remain 600 / 900 / 1,800 ore. Defeated nests reveal
+  2,400 ore; real workers build, mine and exhaust that reserve without a payout.
+- World12 and World13 imports reject without replacing live state. World14
+  round trips preserve the resource ledger; missing, reordered, duplicated or
+  relocated deposit records reject.
+
 ## Compact World13 and readable crystal colonies
 
 The checked package is generation `c82b9683241ce6cf4f91e0de`, with a

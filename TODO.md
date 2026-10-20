@@ -60,6 +60,9 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
+- [x] Halve expected bonus resource sites while preserving opening reserves,
+      rich defeated-nest deposits and stronger density near nests; use an explicit
+      World14 save boundary for the changed deposit ledger.
 - [x] Keep range boundaries on their original edges; split only coincident
       orange/cyan segments into adjacent strokes of the usual thickness.
 - [x] Use Font Awesome's actual recycle SVG, with attribution in the bundle.
