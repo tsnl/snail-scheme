@@ -5,11 +5,4 @@
 
 # Intermediate build files
 /build/
-/target/
-*.trace.json
-**/__pycache__/
-/tests/target/
-
 /src/runtime/target/
-/src/runtime/build/
-/tools/host/target/
