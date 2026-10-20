@@ -54,6 +54,11 @@ assert.equal(first.batches.length, 3);
 assert.equal(first.batches[0].items, 1600, 'one item per map cell');
 assert.ok(first.text.some(text => text.startsWith('Ore 60')), first.text.join(' | '));
 
+// The camera looks at the hub, so the middle pixel picks the hub's cell.
+game.app_input(POINTER_MOVE, 480, 320, 0);
+game.app_frame(0);
+assert.ok(host.frames.at(-1).text.includes('Cell 20, 20'), host.frames.at(-1).text.join(' | '));
+
 // Choose the extractor tool and click the middle of the screen.
 game.app_input(PRESS, 1, 0, 0);
 game.app_input(POINTER_MOVE, 480, 320, 0);
