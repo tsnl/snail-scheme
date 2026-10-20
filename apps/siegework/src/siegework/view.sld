@@ -840,7 +840,7 @@
     (define (coverage-edge guides other x y dx dy surface lane)
       (if (covered? guides (+ x dx) (+ y dy)) (empty-list)
           (let ((offset (if (if (covered? other x y) (not (covered? other (+ x dx) (+ y dy))) (covered? other (+ x dx) (+ y dy))) lane 0.0)))
-            (list (flat surface (+ (scalar x) (* 0.5 (scalar dx)) (if (= dx 0) 0.0 offset))
+            (list (flat surface (+ (+ (scalar x) (* 0.5 (scalar dx))) (if (= dx 0) 0.0 offset))
                         (+ (- 0.0 (+ (scalar y) (* 0.5 (scalar dy)))) (if (= dy 0) 0.0 offset))
                         0.075 (if (= dx 0) 1.06 0.06) (if (= dy 0) 1.06 0.06))))))
     (define (coverage-cell guides other earlier guide window x y surface lane)
