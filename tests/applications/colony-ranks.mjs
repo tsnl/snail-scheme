@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {LocalState} from '../../src/application/local.mjs';
 import {readRecord,saveContract} from '../../src/application/indexeddb.mjs';
 import {colony,restoreColony,fixtureCall,pixelAt} from './colony-state.mjs';
 
@@ -55,21 +54,14 @@ export async function checkRanks(test,fresh) {
     assert.equal(maximum,1890);assert.equal(survivor.hp,7);assert.equal(survivor.maxHp,maximum);
     const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);await r.close();
   });
-  await test('the original World12 saved checkpoint migrates without changing funds, jobs or resources',async()=>{
-    const fixture=JSON.parse(readFileSync(new URL('./fixtures/siegework-world12.json',import.meta.url)));
-    const r=await fresh(),saved=readRecord(fixture.record,r.manifest.settings.id,saveContract(r.manifest));
-    const before=colony(saved.state),committed=[];
-    const local=await LocalState.open(r,{saved,commit:(snapshot,revision)=>committed.push({snapshot,revision})});
-    assert.equal(local.revision,7);assert.deepEqual(r.snapshot(1),saved.state);r.view();
-    await local.submit(r.command('match','pause-colony',[1]));const after=state(r);
-    assert.equal(after.payloadVersion,2);assert.ok(after.bots.every(bot=>bot.flight.length===0));
-    assert.equal(after.enemies[0].maxHp,135);assert.equal(after.enemies[0].hp,30);
-    const retained=structuredClone(after);delete retained.payloadVersion;
-    for(const bot of retained.bots)delete bot.flight;for(const enemy of retained.enemies)delete enemy.maxHp;
-    assert.deepEqual(retained.deposits.slice(0,before.deposits.length),before.deposits);
-    retained.deposits=before.deposits;assert.deepEqual(retained,before);assert.equal(committed[0].revision,7);assert.equal(local.revision,8);
-    const canonical=r.snapshot(1);await r.restore(1,canonical);assert.deepEqual(r.snapshot(1),canonical);
-    after.tick=36000;await restoreColony(r,after);await call(r,'pause-colony',[1]);assert.equal(state(r).enemies[0].maxHp,135);
+  await test('World12 checkpoints cannot replace a compact World13 colony',async()=>{
+    const r=await fresh(),current=r.snapshot(1);
+    for(const name of ['siegework-world12.json','siegework-world12-revision1.json']) {
+      const fixture=JSON.parse(readFileSync(new URL('./fixtures/'+name,import.meta.url)));
+      assert.throws(()=>readRecord(fixture.record,r.manifest.settings.id,saveContract(r.manifest)));
+      await assert.rejects(()=>r.restore(1,fixture.record.snapshot.state));
+      assert.deepEqual(r.snapshot(1),current);
+    }
     await r.close();
   });
   await test('unknown payload revisions, mixed layouts and invalid maxima cannot replace a live colony',async()=>{

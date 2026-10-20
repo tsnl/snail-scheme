@@ -1,4 +1,5 @@
 // Exercise the compiled Scheme authority; fixtures only establish bounded state.
+import {settleWorker} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {resolve, join} from 'node:path';
@@ -191,18 +192,18 @@ export async function checkFocus(test, fresh, call) {
     const clear=state(r); clear.enemies=[]; await restoreColony(r,clear);
     await until(r,w=>w.buildings[0].stage===2); assert.equal(state(r).localSpent,50); balanced(r); await r.close();
   });
-  await test('fleeing with local supplies converts a returned live kit without minting ore', async () => {
+  await test('a legacy retreat with local supplies settles its live kit without minting ore', async () => {
     const r=await fresh(), source=await mineStock(r); await call(r,'observe',[13,21]); await advance(r);
-    const world=state(r); world.tick=1; world.lastRevealTick=-100; await restoreColony(r,world); await addEnemy(r,{x:12,y:20});
-    await advance(r); assert.equal(state(r).bots[0].job,7); assert.equal(state(r).bots[0].source,source);
+    const world=state(r);Object.assign(world.bots[0],{job:7,timer:5,path:[]});
+    await restoreColony(r,world);await r.restore(1,r.snapshot(1));assert.equal(state(r).bots[0].source,source);
     const clear=state(r); clear.enemies=[]; await restoreColony(r,clear);
     await until(r,w=>w.localSpent===0); assert.equal(state(r).spent,185);
     assert.equal(state(r).ore,state(r).delivered-25); balanced(r); await r.close();
   });
-  await test('an uncollected local reservation retreats home before returning to its actual source', async () => {
+  await test('a legacy uncollected reservation resumes at its actual source without a detour home', async () => {
     const r=await fresh(),source=await mineStock(r); await call(r,'fortify',[13,20]);
-    await addEnemy(r,{x:12,y:20}); await advance(r);
-    assert.equal(state(r).bots[0].job,7); assert.equal(state(r).bots[0].timer,11);
+    const legacy=state(r);Object.assign(legacy.bots[0],{job:7,timer:11,path:[]});await restoreColony(r,legacy);
+    await addEnemy(r,{x:12,y:20});await advance(r);assert.notEqual(state(r).bots[0].job,7);
     const clear=state(r); clear.enemies=[]; await restoreColony(r,clear);
     await until(r,w=>w.buildings.at(-1).stage===2,250);
     assert.equal(state(r).localSpent,50); assert.equal(state(r).spent,210);
@@ -222,7 +223,7 @@ export async function checkFocus(test, fresh, call) {
     const r=await fresh(), source=await mineStock(r); await call(r,'fortify',[13,20]); await advance(r);
     const world=state(r); world.tick=9; world.lastRevealTick=-100;
     setWorker(world,0,{x:12,y:20,job:7,target:world.buildings.at(-1).id,cargo:25,timer:5,hp:7,source});
-    await restoreColony(r,world); await addEnemy(r,{x:12,y:20}); await advance(r);
+    await restoreColony(r,world); await settleWorker(r,world.bots[0].id);
     assert.equal(state(r).casualties,1); assert.equal(state(r).buildings.length,1);
     assert.equal(state(r).localSpent,25); assert.equal(state(r).lostOre,0); assert.equal(state(r).ore,0);
     balanced(r); await r.close();

@@ -39,7 +39,8 @@ function modelFacts(query) {
   facts.tickSeconds = settings.tickMilliseconds / 1000;
   facts.slots = Array.from({length:query('mineLevels', 1)}, (_, i) => query('mineSlots', i + 1));
   facts.mineUpgradePrices = facts.slots.slice(1).map((_, i) => query('upgradePrice', 11 + i));
-  assert.ok(Object.values(facts).every(value => Array.isArray(value) || value > 0));
+  assert.equal(facts.minePrice, 0, 'extractor construction is free');
+  assert.ok(Object.entries(facts).every(([name,value]) => name === 'minePrice' || Array.isArray(value) || value > 0));
   return facts;
 }
 

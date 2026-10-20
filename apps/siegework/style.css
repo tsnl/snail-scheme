@@ -69,12 +69,12 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 
 /* Callouts and alerts use the same paper edge without changing their bounds. */
 [data-ui-key="context-title"] { position: absolute; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-[data-ui-key="restart-description"] { color: var(--ui-muted); font-size: 12px; line-height: 18px; text-align: center; }
+:is([data-ui-key="restart-description"], [data-ui-key="resign-description"]) { color: var(--ui-muted); font-size: 12px; line-height: 18px; text-align: center; }
 [data-ui-key="result"][data-panel="1"] { border-color: var(--ui-danger); }
 .snail-ui-button[data-ui-key="dialog-backdrop"] { position: fixed; inset: 0 !important; width: 100vw !important; height: 100vh !important; color: transparent; background: #102f438c; border: 0; border-radius: 0; box-shadow: none; outline: 0; }
 [data-ui-key="dialog-backdrop"]::before { display: none; }
-[data-ui-key="restart-dialog"] { border-color: #c68061; box-shadow: inset 0 1px 0 #fffdf5, 0 3px 0 #945d5066, 0 12px 28px #123d5c55; }
-[data-ui-key="restart-title"] { font-size: 15px; line-height: 26px; font-weight: 800; text-align: center; }
+:is([data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) { border-color: #c68061; box-shadow: inset 0 1px 0 #fffdf5, 0 3px 0 #945d5066, 0 12px 28px #123d5c55; }
+:is([data-ui-key="restart-title"], [data-ui-key="resign-title"]) { font-size: 15px; line-height: 26px; font-weight: 800; text-align: center; }
 .snail-ui-node[data-ui-key^="attack-label-"] { border-radius: 10px; text-align: center; color: #fff; background: #ad4636; font-size: 12px; font-weight: 750; box-shadow: inset 0 1px 0 #ffffff40, 0 2px 0 #6e2d2340; }
 [data-ui-key^="attack-inspect-"] { color: transparent; background: transparent; border: 0; border-radius: 28px; box-shadow: none; }
 [data-ui-key^="attack-inspect-"]:hover { background: #a83f3214; }
@@ -106,7 +106,7 @@ body:has([data-ui-key="rail"][style*="left: 0px"]) .connection:not([data-state="
 [data-ui-key="artillery"], [data-ui-key="selected-artillery"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%229%22%20cy%3D%2217%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22m7%2013%2011-8%203%204-10%208M4%2022h16m-7-5%205%205%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="upgrade"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m5%2011%207-7%207%207M12%204v16M5%2020h14%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="worker"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%229%22%20cy%3D%226%22%20r%3D%223%22%2F%3E%3Cpath%20d%3D%22M2%2022v-6a7%207%200%200%201%2012-5M6%2022v-5m12-5v10m-5-5h10%22%2F%3E%3C%2Fsvg%3E"); }
-[data-ui-key="cancel-build"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m5%205%2014%2014M19%205%205%2019%22%2F%3E%3C%2Fsvg%3E"); }
+[data-ui-key="cancel-build"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cpath%20d%3D%22m8%208%208%208m0-8-8%208%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="restart"], [data-ui-key="accept-restart"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%2010a8%208%200%201%201%201%208M4%203v7h7%22%2F%3E%3C%2Fsvg%3E"); }
 
 [data-ui-key="health"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%205c-3-3-6-1-8%201-2-2-5-4-8-1-4%204%201%209%208%2015%207-6%2012-11%208-15z%22%2F%3E%3C%2Fsvg%3E"); }
@@ -128,17 +128,17 @@ body:has([data-ui-key="pause-dialog"]) .player-help { display: flex; }
 body:has([data-ui-key="dialog-backdrop"]) [data-ui] { z-index: 21; }
 body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto; white-space: normal; position: fixed; inset: auto 12px 6px; width: auto; max-height: 40px; overflow-y: auto; z-index: 22; padding: 3px 8px; border-radius: 8px; line-height: 16px; }
 [data-ui-key="pause-title"] { text-align: center; font-size: 20px; line-height: 28px; font-weight: 800; }
-:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button { border-radius: 10px; padding: 12px 8px; text-align: center; }
-:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button::before { display: none; }
-:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button-label { font-size: 14px; line-height: 20px; }
-:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button-label::first-letter { text-decoration: none; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) .snail-ui-button { border-radius: 10px; padding: 12px 8px; text-align: center; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) .snail-ui-button::before { display: none; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) .snail-ui-button-label { font-size: 14px; line-height: 20px; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"], [data-ui-key="resign-dialog"]) .snail-ui-button-label::first-letter { text-decoration: none; }
 [data-ui-key="resume"]:enabled { color: #fff9e9; background: #086b70; border-color: #07545d; }
 [data-ui-key="resume"]:enabled:hover { background: #087d7d; }
 [data-ui-key="resume"]:enabled:active { background: #07565f; }
-[data-ui-key="accept-restart"]:enabled { color: #fff9e9; background: #ad4636; border-color: #853b31; }
-[data-ui-key="accept-restart"]:enabled:hover { background: #bf5541; }
-[data-ui-key="accept-restart"]:enabled:active { background: #963b2e; }
-:is([data-ui-key="resume"], [data-ui-key="accept-restart"]):focus-visible { outline-color: #ffe0a0; }
+:is([data-ui-key="accept-restart"], [data-ui-key="accept-resign"]):enabled { color: #fff9e9; background: #ad4636; border-color: #853b31; }
+:is([data-ui-key="accept-restart"], [data-ui-key="accept-resign"]):enabled:hover { background: #bf5541; }
+:is([data-ui-key="accept-restart"], [data-ui-key="accept-resign"]):enabled:active { background: #963b2e; }
+:is([data-ui-key="resume"], [data-ui-key="accept-restart"], [data-ui-key="accept-resign"]):focus-visible { outline-color: #ffe0a0; }
 
 [data-ui-key="context-description"][data-tone="4"] { color: #963b2e; font-weight: 700; }
 [data-ui-key^="attack-toast-"] { background: #ad4636; border-radius: 28px; }
@@ -152,4 +152,11 @@ body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto
 :is([data-ui-key="right-handed"], [data-ui-key="left-handed"]) .snail-ui-button-label { font-size: 12px; }
 [data-ui-key="controls-title"] { text-align: center; font-size: 11px; line-height: 12px; }
 .snail-ui-button:is([data-ui-key="right-handed"], [data-ui-key="left-handed"]) { padding-left: 2px; padding-right: 2px; }
-[data-ui-key="scavenge"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m8%204%203-2%203%202M11%202v6m8%201%203%202-1%204m1-4-5%203m-5%207H8l-2-4m2%204%203-5M6%207l-4%207h5m10%205h4l-1-4M15%205l-2-3%22%2F%3E%3C%2Fsvg%3E"); }
+/* Official Font Awesome Free 6.7.2 recycle.svg; attribution retained in the embedded SVG. */
+[data-ui-key="scavenge"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%3E%3C%21--%21%20Font%20Awesome%20Free%206.7.2%20by%20%40fontawesome%20-%20https%3A%2F%2Ffontawesome.com%20License%20-%20https%3A%2F%2Ffontawesome.com%2Flicense%2Ffree%20%28Icons%3A%20CC%20BY%204.0%2C%20Fonts%3A%20SIL%20OFL%201.1%2C%20Code%3A%20MIT%20License%29%20Copyright%202024%20Fonticons%2C%20Inc.%20--%3E%3Cpath%20d%3D%22M174.7%2045.1C192.2%2017%20223%200%20256%200s63.8%2017%2081.3%2045.1l38.6%2061.7%2027-15.6c8.4-4.9%2018.9-4.2%2026.6%201.7s11.1%2015.9%208.6%2025.3l-23.4%2087.4c-3.4%2012.8-16.6%2020.4-29.4%2017l-87.4-23.4c-9.4-2.5-16.3-10.4-17.6-20s3.4-19.1%2011.8-23.9l28.4-16.4L283%2079c-5.8-9.3-16-15-27-15s-21.2%205.7-27%2015l-17.5%2028c-9.2%2014.8-28.6%2019.5-43.6%2010.5c-15.3-9.2-20.2-29.2-10.7-44.4l17.5-28zM429.5%20251.9c15-9%2034.4-4.3%2043.6%2010.5l24.4%2039.1c9.4%2015.1%2014.4%2032.4%2014.6%2050.2c.3%2053.1-42.7%2096.4-95.8%2096.4L320%20448l0%2032c0%209.7-5.8%2018.5-14.8%2022.2s-19.3%201.7-26.2-5.2l-64-64c-9.4-9.4-9.4-24.6%200-33.9l64-64c6.9-6.9%2017.2-8.9%2026.2-5.2s14.8%2012.5%2014.8%2022.2l0%2032%2096.2%200c17.6%200%2031.9-14.4%2031.8-32c0-5.9-1.7-11.7-4.8-16.7l-24.4-39.1c-9.5-15.2-4.7-35.2%2010.7-44.4zm-364.6-31L36%20204.2c-8.4-4.9-13.1-14.3-11.8-23.9s8.2-17.5%2017.6-20l87.4-23.4c12.8-3.4%2026%204.2%2029.4%2017L182%20241.2c2.5%209.4-.9%2019.3-8.6%2025.3s-18.2%206.6-26.6%201.7l-26.5-15.3L68.8%20335.3c-3.1%205-4.8%2010.8-4.8%2016.7c-.1%2017.6%2014.2%2032%2031.8%2032l32.2%200c17.7%200%2032%2014.3%2032%2032s-14.3%2032-32%2032l-32.2%200C42.7%20448-.3%20404.8%200%20351.6c.1-17.8%205.1-35.1%2014.6-50.2l50.3-80.5z%22%2F%3E%3C%2Fsvg%3E"); }
+[data-ui-key="frontier-hint"] { font-size: 11px; line-height: 15px; }
+
+/* Short landscape menus leave one readable, horizontally scrollable error line. */
+@media (max-height: 400px) {
+  body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: 16px; max-height: 16px; padding: 0 8px; white-space: nowrap; inset: auto 12px 0; overflow: auto; }
+}

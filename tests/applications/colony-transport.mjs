@@ -76,7 +76,8 @@ export async function checkTransport(test,fresh) {
     assert.equal(next.rails[1].cargo,16);assert.equal(next.rails[1].progress,48);
     assert.deepEqual(next.rails.map(rail=>rail.path),loaded.rails.map(rail=>rail.path));await r.close();
   });
-  await test('worker flights lift, cross a direct diagonal and land before delivering cargo',async()=>{
+  await test('current and legacy retreat flights lift, land and deliver cargo exactly once',async()=>{
+    for(const legacy of [false,true]) {
     const r=await fresh(),world=state(r);fund(world);depot(world,12,24);
     await restoreColony(r,world);await step(r);const riding=state(r),route=riding.rails[0].path;
     assert.equal(route.length,2);withdrawReserves(riding,16);
@@ -87,11 +88,13 @@ export async function checkTransport(test,fresh) {
     await step(r);assert.deepEqual([state(r).bots[0].x,state(r).bots[0].y],start);
     await step(r);bot=state(r).bots[0];assert.ok(bot.x<start[0]&&bot.y<start[1]);
     assert.equal(bot.cargo,16);assert.equal(state(r).delivered,riding.delivered);
+    if(legacy){const old=state(r);Object.assign(old.bots[0],{job:7,timer:2,path:[]});await restoreColony(r,old);}
     const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);
     while(state(r).bots[0].flight.length)await step(r);
     bot=state(r).bots[0];assert.deepEqual([bot.x,bot.y],Object.values(pixelAt(riding,8,22)));
     assert.equal(bot.cargo,16);assert.equal(state(r).delivered,riding.delivered);
     await step(r);assert.equal(state(r).delivered,riding.delivered+16);await r.close();
+    }
   });
   await test('freight speed doubles at each shared tower level and keeps its 32-ore load',async()=>{
     for(const level of [1,2,3]) {
@@ -179,18 +182,18 @@ export async function checkTransport(test,fresh) {
     await restoreColony(r,world);await step(r,2);
     assert.deepEqual(state(r).rails,[]);assert.equal(state(r).buildings[0].stock,16);assert.equal(state(r).lostOre,0);await r.close();
   });
-  await test('paused legacy track cells leave both retained rail layers unchanged and only the core pulses',async()=>{
+  await test('paused legacy track cells leave the single solid cable batch unchanged',async()=>{
     const r=await fresh(),world=state(r);fund(world);depot(world,12,22);
     await restoreColony(r,world);await step(r);await fixtureCall(r,'pause-colony',[1]);
     const clean=state(r),before=r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
     const a=routeCell(clean,8,23);clean.tracks=[a*32+17,(a+1)*32+20];await restoreColony(r,clean);
     const after=r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
-    assert.deepEqual(after.map(batch=>batch.key),[21,20]);
+    assert.deepEqual(after.map(batch=>batch.key),[20]);
     for(const [index,batch] of after.entries()) {
-      assert.equal(batch,before[index]);assert.equal(batch.pulsePhase,0);assert.equal(batch.pulse,batch.key===20);
+      assert.equal(batch,before[index]);assert.equal(batch.pulsePhase,0);assert.equal(batch.pulse,false);
       assert.equal(batch.transforms,before[index].transforms);assert.equal(batch.draws,before[index].draws);
     }
-    assert.equal(after[0].opacity,1);assert.ok(after[1].opacity>0&&after[1].opacity<1);
+    assert.equal(after[0].opacity,1);
     const saved=r.snapshot(1);await step(r);assert.deepEqual(r.snapshot(1),saved);
     await fixtureCall(r,'pause-colony',[0]);await step(r);assert.deepEqual(state(r).tracks,[]);await r.close();
   });

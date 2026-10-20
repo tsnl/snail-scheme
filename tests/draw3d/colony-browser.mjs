@@ -1,7 +1,7 @@
 // Chromium input, WebGPU readback and durable reopen for either 3D package.
 import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
-import {colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker, withdrawReserves} from '../applications/colony-state.mjs';
+import {MAP_WIDTH,colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker, withdrawReserves} from '../applications/colony-state.mjs';
 const origin = process.argv[2], devtools = process.argv[3] ?? 'http://127.0.0.1:9452';
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const target = await (await fetch(`${devtools}/json/new?about:blank`, {method: 'PUT'})).json();
@@ -79,6 +79,7 @@ async function frameCell(x,y) {
     const free=await evaluate(`[[.18,.65],[.82,.65],[.5,.82],[.18,.82],[.82,.82]].map(([x,y])=>({x:Math.round(innerWidth*x),y:Math.round(innerHeight*y)})).find(p=>document.elementFromPoint(p.x,p.y)===snailApp.canvas)`);
     assert.ok(free,'the fixture must choose an exposed world target');await command('drag',[Math.round(free.x-point.x),Math.round(free.y-point.y)]);
   }
+  await tileIsTappable(x,y);
 
 }
 async function capture(suffix='') {
@@ -86,9 +87,9 @@ async function capture(suffix='') {
   const layout=await evaluate(`(()=>{
     const controls=[...document.querySelectorAll('[data-ui] button:not([data-ui-key="dialog-backdrop"]):not([data-ui-key^="attack-inspect-"]),[data-ui] .snail-ui-kind-6')];
     const invalid=controls.map(node=>{const r=node.getBoundingClientRect();return{key:node.dataset.uiKey,x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}})
-      .filter(r=>{const menu=['resume','restart-menu','dismiss-restart','accept-restart'].includes(r.key);
-        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(menu?208:['right-handed','left-handed'].includes(r.key)?100:56)||r.height!==(menu||['right-handed','left-handed'].includes(r.key)?48:56)});
-    const clipped=[...document.querySelectorAll('.snail-ui-button-label,[data-ui-key$="-caption"],[data-ui-key$="-readout-label"],[data-ui-key="context-description"],[data-ui-key="onboarding-help"]')]
+      .filter(r=>{const menu=['resume','restart-menu','resign-menu','dismiss-restart','accept-restart','dismiss-resign','accept-resign'].includes(r.key);
+        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(['right-handed','left-handed','restart-menu','resign-menu'].includes(r.key)?100:menu?208:56)||r.height!==(menu||['right-handed','left-handed'].includes(r.key)?48:56)});
+    const clipped=[...document.querySelectorAll('.snail-ui-button-label,[data-ui-key$="-caption"],[data-ui-key$="-readout-label"],[data-ui-key="context-description"],[data-ui-key="onboarding-help"],[data-ui-key="frontier-hint"]')]
       .filter(node=>node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1).map(node=>({key:node.closest('[data-ui-key]').dataset.uiKey,text:node.textContent,width:node.clientWidth,scrollWidth:node.scrollWidth,height:node.clientHeight,scrollHeight:node.scrollHeight,font:getComputedStyle(node).fontSize,padding:getComputedStyle(node.parentElement).padding}));
     const overlap=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
     const boxes=[...document.querySelectorAll('[data-ui-key^="attack-toast-"]')].map(node=>({key:node.dataset.uiKey,rect:node.getBoundingClientRect()}));
@@ -101,8 +102,8 @@ async function capture(suffix='') {
       return{arrow:Number(hint.dataset.arrow),clear:!overlap(h,rail),inside:h.left>=0&&h.right<=innerWidth&&h.top>=0&&h.bottom<=innerHeight};})();
     const shade=document.querySelector('[data-ui-key="dialog-backdrop"]'),backdrop=!shade?null:(()=>{const r=shade.getBoundingClientRect(),color=getComputedStyle(shade).backgroundColor;
       return{rect:[r.x,r.y,r.width,r.height],alpha:color.startsWith('rgba(')?parseFloat(color.split(',').at(-1)):1};})();
-    const dialog=document.querySelector('[data-ui-key="pause-dialog"],[data-ui-key="restart-dialog"]');
-    const blocked=![...document.querySelectorAll('[data-ui-key="pause-dialog"] button:enabled,[data-ui-key="restart-dialog"] button:enabled,[data-ui-key="context"] button:enabled,[data-ui-key="result"] button:enabled')]
+    const dialog=document.querySelector('[data-ui-key="pause-dialog"],[data-ui-key="restart-dialog"],[data-ui-key="resign-dialog"]');
+    const blocked=![...document.querySelectorAll('[data-ui-key="pause-dialog"] button:enabled,[data-ui-key="restart-dialog"] button:enabled,[data-ui-key="resign-dialog"] button:enabled,[data-ui-key="context"] button:enabled,[data-ui-key="result"] button:enabled')]
       .every(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));});
     const error=document.querySelector('.connection[data-state="error"]');
     const errorCoversMenu=!!(dialog&&error&&overlap(dialog.getBoundingClientRect(),error.getBoundingClientRect()));
@@ -165,11 +166,11 @@ async function complete(ticks=180) {
 function depositFixture(original,remaining) {
   const value=structuredClone(original),deposit=value.deposits[0],removed=deposit.remaining-remaining;
   deposit.remaining=remaining;value.produced+=removed;value.lostOre+=removed;value.started=true;
-  value.surveys.push({x:deposit.cell%128,y:Math.floor(deposit.cell/128),radius:4});return value;
+  value.surveys.push({x:deposit.cell%MAP_WIDTH,y:Math.floor(deposit.cell/MAP_WIDTH),radius:4});return value;
 }
 async function checkUnitBars() {
   const original=await world(),camera=await local(),cell=original.deposits[0].cell;
-  const centered={...camera,cameraX:(cell%128)*1000,cameraY:Math.floor(cell/128)*1000,homing:false};
+  const centered={...camera,cameraX:(cell%MAP_WIDTH)*1000,cameraY:Math.floor(cell/MAP_WIDTH)*1000,homing:false};
   try {
     for(const [width,height] of [[1100,760],[390,844]])for(const remaining of [600,60,0]) {
       await resize(width,height);const value=depositFixture(original,remaining);value.hull=150;value.bots[0].hp=7;
@@ -336,23 +337,33 @@ try {
   await key('Escape','Escape');assert.ok(await has('pause-dialog'));assert.equal((await world()).paused,1);
   await press({x:20,y:20});assert.equal((await world()).paused,0);assert.deepEqual(await selection(),selected);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),unbuilt);await evaluate('snailApp.session.stopClock()');
-  await tileIsTappable(12,20);await pointCell(12,20,true);
+  await tileIsTappable(12,20);await pointCell(12,20,true);await click('extractor');
   assert.equal(siteAt(await world(),12,20)?.kind,1);assert.equal((await local()).buildKind,0);assert.equal((await local()).chooser,false);
   await complete();assert.equal(siteAt(await world(),12,20)?.stage,2);
   await pointCell(12,20,true,.7);assert.equal(await has('upgrade'),true);await click('upgrade');assert.equal(siteAt(await world(),12,20)?.level,2);
   const inspected=await evaluate('snailApp.runtime.snapshot(1)');await click('close-context');assert.equal(await has('context'),false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),inspected);
-  console.log('ok - deposit selection exposes only its extractor; a second rendered tap builds once; explicit upgrades stay separate');
+  console.log('ok - deposit selection exposes only its extractor; an explicit extractor action builds once; explicit upgrades stay separate');
 
   const buildingFunds=await world();buildingFunds.ore+=100;withdrawReserves(buildingFunds,100);buildingFunds.delivered+=100;
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(buildingFunds))})`);await settled();
   await frameCell(13,21);await pointCell(13,21,true);const beforeOrder=(await world()).spent;
   assert.ok(await has('tower')&&await has('artillery')&&!(await has('house')));assert.equal(await has('extractor'),false);assert.ok(await has('close-context'));await capture('-construction');
   await click('close-context');assert.equal(await has('context'),false);await pointCell(13,21,true);assert.equal((await world()).spent,beforeOrder);
+  const neutralPreview=await evaluate('JSON.stringify(snailApp.runtime.view().scene.batches.find(batch=>batch.key===5))');
+  for(const [key,kind]of[['tower',3],['artillery',2]]){
+    const hover=await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="${key}"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+    await call('Input.dispatchMouseEvent',{type:'mouseMoved',...hover});await settled();assert.equal((await local()).preview,kind);
+    assert.notEqual(await evaluate('JSON.stringify(snailApp.runtime.view().scene.batches.find(batch=>batch.key===5))'),neutralPreview);
+    assert.equal((await world()).spent,beforeOrder);
+  }
+  await pointCell(13,21);assert.equal((await local()).preview,0);
+  assert.equal(await evaluate('JSON.stringify(snailApp.runtime.view().scene.batches.find(batch=>batch.key===5))'),neutralPreview);
+
   await holdNextSave();await evaluate(`document.querySelector('[data-ui-key="tower"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed construction save');
   assert.equal((await local()).buildKind,3);assert.equal((await world()).spent,beforeOrder);
   await evaluate(`void snailApp.local('confirm');void snailApp.local('choose',[1])`);await evaluate('releaseMenuSave()');await settled();
   assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).spent,beforeOrder+25);assert.equal((await local()).lastKind,3);
-  const fastSite=await pointCell(14,21);await doubleClick(fastSite);assert.equal(siteAt(await world(),14,21)?.kind,3);assert.equal((await world()).spent,beforeOrder+50);
+  const fastSite=await pointCell(14,21);await doubleClick(fastSite);assert.equal(siteAt(await world(),14,21),undefined);assert.equal((await local()).choiceKind,0);await click('tower');assert.equal(siteAt(await world(),14,21)?.kind,3);assert.equal((await world()).spent,beforeOrder+50);
   await doubleClick(fastSite);assert.equal((await world()).spent,beforeOrder+50);assert.ok(await has('cancel-build'),'doubleclick tail inspects the ordered site');
   await key('Escape','Escape');await pointCell(15,21,true);const free=(await world()).spent;
   await pointCell(15,22,true);assert.equal((await world()).spent,free,'a different tile retargets without charging');
@@ -362,8 +373,8 @@ try {
     await frameCell(15,22);await pointCell(15,22,true);await capture(`-failed-construction-568x320${left?'-left':''}`);await tileIsTappable(15,22);
   }
   await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');await resize(1100,760);await frameCell(15,22);await pointCell(15,22,true);
-  // Re-selecting deliberately starts from the remembered tower; explicit retry still names the failed gun.
-  await click('artillery');assert.equal(siteAt(await world(),15,22)?.kind,2);assert.equal((await local()).lastKind,2);
+  // Re-selecting is neutral; an explicit retry names the failed gun.
+  await click('artillery');assert.equal(siteAt(await world(),15,22)?.kind,2);assert.equal((await local()).lastKind,3);
   await key('Escape','Escape');
   const supplied=await world(),extra=200-supplied.ore;supplied.ore+=extra;supplied.delivered+=extra;withdrawReserves(supplied,extra);
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(supplied))})`);await settled();const hireBank=(await world()).ore;
@@ -377,14 +388,15 @@ try {
   await evaluate(`(()=>{const pad={index:0,id:'ignored gamepad',connected:true,axes:[.8,-.8],buttons:Array.from({length:16},()=>({pressed:true}))};
     Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[pad]});snailApp.input.pollController(performance.now(),0);delete navigator.getGamepads;})()`);
   await settled();assert.deepEqual(await evaluate('({world:snailApp.runtime.snapshot(1),client:snailApp.runtime.snapshot(2)})'),ignored);
-  console.log('ok - rapid doubleclick builds one remembered structure; retargeting is free; delayed and failed writes preserve intent; hires remain explicit');
+  console.log('ok - doubleclick only selects; explicit choices build once; delayed and failed writes preserve intent; hires remain explicit');
 
   const beforeFeedback=await world(),beforeFeedbackClient=await local(),unreachable=structuredClone(freshHint);
-  unreachable.started=true;unreachable.surveys.unshift({...at(unreachable,12,8),radius:4});setWorker(unreachable,0,{x:12,y:12});
+  // An established colony has completed an extractor; this fixture tests route feedback, not first-play guidance.
+  unreachable.started=true;unreachable.surveys.unshift({...at(unreachable,12,8),radius:4},{...at(unreachable,12,20),radius:4});setWorker(unreachable,0,{x:12,y:12});
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(unreachable))})`);await settled();await command('center');
   for(const [width,height,left]of[[1100,760,false],[320,568,false],[568,320,false],[568,320,true]]) {
     await resize(width,height);if((await local()).leftHanded!==left){await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');}
-    await frameCell(12,11);await pointCell(12,11,true);await click('tower');assert.equal((await local()).failure,32);assert.equal((await world()).ore,160);
+    await frameCell(12,11);await pointCell(12,11,true);assert.equal(await has('tower'),true,JSON.stringify({width,height,state:await local(),title:await evaluate('document.querySelector("[data-ui-key=context-title]")?.textContent')}));await click('tower');assert.equal((await local()).failure,32);assert.equal((await world()).ore,160);
     assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'),/No worker route through surveyed ground/);
     await capture(`-route-rejection-${width}x${height}-${left?'left':'right'}`);await key('Escape','Escape');
   }
@@ -458,7 +470,7 @@ try {
   }
   if((await local()).leftHanded){await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');}
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(edgeWorld))})`);await settled();
-  const firstAlert=(await world()).alerts[0],alertKey=(firstAlert.x+firstAlert.y*128)*8+firstAlert.kind;
+  const firstAlert=(await world()).alerts[0],alertKey=(firstAlert.x+firstAlert.y*MAP_WIDTH)*8+firstAlert.kind;
   const beforeDismiss=await evaluate('snailApp.runtime.snapshot(1)');await touchControl(`attack-dismiss-${alertKey}`);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforeDismiss);assert.equal(await has(`attack-toast-${alertKey}`),false);
   const repeat=await world();repeat.tick++;repeat.alerts=repeat.alerts.map(alert=>({...alert,tick:repeat.tick}));
@@ -473,8 +485,8 @@ try {
   await resize(390,844,3);await command('center');await frameCell(15,21);
   const beforeTouch=await world(),touchSnapshot=await evaluate('snailApp.runtime.snapshot(1)');assert.equal(siteAt(beforeTouch,15,21),undefined);
   await touchAt(await pointCell(15,21));assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),touchSnapshot);
-  assert.equal((await local()).choiceKind,3,'a new page starts with the default tower preview');
-  await touchAt(await tileIsTappable(15,21));const orderedTouch=await world();assert.equal(siteAt(orderedTouch,15,21)?.kind,3);
+  assert.equal((await local()).choiceKind,0,'an empty site starts with a neutral construction marker');
+  await touchAt(await tileIsTappable(15,21));assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),touchSnapshot);await touchControl('tower');const orderedTouch=await world();assert.equal(siteAt(orderedTouch,15,21)?.kind,3);
   assert.equal(orderedTouch.spent,beforeTouch.spent+25);
   assert.equal(beforeTouch.ore-orderedTouch.ore+orderedTouch.localSpent-beforeTouch.localSpent,25,'bank and accessible local stock fund exactly one kit');
   await touchAt(await pointCell(15,21));assert.equal(await has('cancel-build'),true);await touchControl('cancel-build');assert.equal(siteAt(await world(),15,21),undefined);
@@ -510,7 +522,7 @@ try {
   await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords(beforeHubTouchClient))})`);await settled();
   console.log('ok - portrait and landscape touch keep hub expansion and repeated hires separate, paid, delayed and clearly priced');
   await call('Emulation.setTouchEmulationEnabled',{enabled:false});await resize(1100,760);await command('center');await capture();
-  console.log('ok - centered Pause preserves selection; paused reopen, HiDPI HUD, touch repeat construction and mirrored popups fit 320–1100px');
+  console.log('ok - centered Pause preserves selection; paused reopen, HiDPI HUD, explicit touch construction and mirrored popups fit 320–1100px');
   await click('pause');await click('restart-menu');const oldMarker=(await world()).runMarker;await holdNextSave();
   await evaluate(`document.querySelector('[data-ui-key="accept-restart"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Restart save');
   assert.equal((await local()).dialogPending,3);assert.equal((await world()).runMarker,oldMarker);await until(()=>evaluate(`document.querySelector('[data-ui-key="accept-restart"]').textContent.includes('Restarting')`),'pending Restart label did not render');
@@ -518,7 +530,20 @@ try {
   assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).runMarker,oldMarker+1);assert.equal((await local()).dialog,0);assert.equal((await local()).dialogPending,0);
   console.log('ok - real IndexedDB delays keep Resume/Restart locked; failures retain the selection and repeated confirmation creates one colony');
   const finalColony=await world(),finalClient=await local(),finalHub=finalColony.surveys.find(value=>value.radius===9);
-  for(const outcome of [1,3])for(const [width,height]of[[320,568],[568,320]])for(const leftHanded of [false,true]) {
+  for(const [width,height]of[[320,568],[568,320]]){
+    await resize(width,height);await click('pause');await click('resign-menu');assert.ok(await has('resign-dialog'));
+    assert.deepEqual(await evaluate(`['dismiss-resign','accept-resign'].map(key=>{const n=document.querySelector('[data-ui-key="'+key+'"]');return[getComputedStyle(n).borderRadius,getComputedStyle(n,'::before').display]})`),[['10px','none'],['10px','none']]);
+    await capture(`-resign-confirm-${width}x${height}`);await click('dismiss-resign');assert.equal((await world()).outcome,0);await click('resume');
+  }
+  await click('pause');await click('resign-menu');await holdNextSave();
+  await evaluate(`document.querySelector('[data-ui-key="accept-resign"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Resign save');
+  assert.equal((await local()).dialogPending,4);await evaluate(`void snailApp.local('accept-resign');void snailApp.local('accept');void snailApp.local('dismiss')`);
+  await evaluate('releaseMenuSave()');await settled();assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).outcome,4);assert.equal((await world()).hull,finalColony.hull);
+  assert.equal((await local()).dialog,0);assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'),/resigned/);
+  await capture('-resigned');const resigned=await evaluate('snailApp.runtime.snapshot(1)');await evaluate('globalThis.fixtureReload=true');await call('Page.reload');await until(()=>evaluate('!globalThis.fixtureReload && !!globalThis.snailApp'),'resigned durable reopen');await settled();assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),resigned);
+  console.log('ok - Resign confirms on portrait and landscape, commits once, preserves the hub and survives reopen');
+
+  for(const outcome of [1,3,4])for(const [width,height]of[[320,568],[568,320]])for(const leftHanded of [false,true]) {
     const ended={...finalColony,outcome,started:true,hull:outcome===1?0:300,nests:finalColony.nests.map(nest=>({...nest,hp:outcome===3?0:900})),
       alerts:[0,1,4].map((kind,index)=>({x:finalHub.x+index*2,y:finalHub.y,kind,tick:finalColony.tick}))};
     await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(ended))})`);

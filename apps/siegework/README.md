@@ -32,22 +32,17 @@ time, artifact size and runtime performance can differ.
 
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
-The current application ID is `siegework-colony-v12`, with world schema 12 and
-client schema 8. The release introducing hub capacity upgrades required a new
-colony. Buying an upgrade during play preserves the colony. World12 stores a completed
-capacity tier, finite deposit reserves and three persistent nests, and removes
-constructible houses. Old browser records
-remain under their previous identity; importing them into this version is rejected.
+The compact map uses application ID `siegework-colony-v13`, with world schema 13
+and client schema 8. The 64×64 map requires a fresh colony: old 128×128 cell
+identities cannot be reused. Previous browser records remain under their old
+identity; importing them into this version is rejected. Capacity upgrades,
+finite deposit reserves, captured flights and the three nests remain saved.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
 
-World12 payload revision 1 retains that save identity and explicitly upgrades the
-original World12 record layout. It adds stable enemy maximum health and an empty
-worker flight slot. Existing funds, jobs and resources survive; the next accepted
-command writes the new layout. An old wounded enemy's original maximum is unknown,
-so migration freezes the larger of its current HP and the spawn-health estimate at
-the saved difficulty. New enemies retain their exact spawn maximum. Older packages
-cannot read revision 1; unknown or mixed layouts are rejected without replacing the save.
+The decoder checks the World13 envelope before interpreting coordinates and
+proves the shape, ownership and resource ledger of the decoded colony. It does
+not attempt to convert older geography or assume its financial history.
 
 An optional `SAVE_SERVICE_URL` build also emits `synced/` with explicit online
 checkpoint controls. Gameplay still runs locally. See the
@@ -80,7 +75,7 @@ to their origin, so a colony from localhost does not automatically move online.
 ## One interface for mouse and touch
 
 The status dials and controls occupy one vertical edge strip. **Pause** opens a
-centered menu with Resume, Restart, and explicit **Right-handed** and
+centered menu with Resume, Restart, Resign, and explicit **Right-handed** and
 **Left-handed** buttons. The selected choice places the controls on that edge. The same icons
 and touch-sized buttons appear on desktop and mobile.
 
@@ -91,15 +86,14 @@ import/export controls. Headless current-state inspection remains available.
 - Tap a resource deposit to open its **Extractor** action (`1`). Extractors
   are not part of the ordinary construction choices. Persistent first-extractor
   guidance points toward the glowing deposit. The first accepted extractor order
-  spends 40 ore and starts the clock. Every other purchase stays locked until
-  then, preserving the initial 160 ore for this opening. Selection alone is free.
+  is free and starts the clock. A drone must still travel to assemble it. Every
+  other purchase stays locked until then. Selection alone never starts the run.
 - Tap an empty tile to open its construction popup: **Tower** (`1`),
   or **Artillery** (`2`), with ore costs shown before ordering.
-  The hologram uses this session’s last successfully ordered ordinary building, starting
-  with a tower. Tap that same tile again, or double-click it, to order that type.
-  Tapping a different tile only moves the selection; it does not spend ore.
-- One order saves at a time. Accepted orders close the popup and update the next
-  hologram; an extractor leaves the ordinary choice unchanged. A rejected or
+  A neutral construction marker identifies the site; hovering an action shows
+  its hologram. Choose the action explicitly. Repeated taps and double-clicks
+  never order a remembered building. Tapping a different tile moves selection.
+- One order saves at a time. Accepted orders close the popup. A rejected or
   unsaved order keeps its selected site and attempted type available for retry.
   Selection alone never starts the colony clock. The popup keeps the actual
   rejection reason, including missing tower coverage, gaps in the surveyed
@@ -108,7 +102,7 @@ import/export controls. Headless current-state inspection remains available.
   pending order. Repeated tile taps only inspect an existing building; they do
   not upgrade or cancel it. Dismissing selection does not cancel construction.
   Completed towers and artillery use compact ground-level models. Wider violet
-  crystals and pulsing extractor halos identify resource sites. An animated
+  crystals with a gentle shimmer identify resource sites. An animated
   indicator above a tower or artillery shows that it is waiting for upgrade
   materials; current services stay active. Straight aerial cables leave their
   intermediate ground cells available for construction.
@@ -134,9 +128,15 @@ import/export controls. Headless current-state inspection remains available.
   returns to the hub and works for three seconds; further damage can reduce
   the eventual percentage. Unused payment returns if that worker dies. There
   is no automatic repair.
+- A completed **upgrade** fully repairs its building at no additional cost.
+  Towers and artillery heal when the upgrade kit arrives; the hub heals when
+  its capacity work finishes. Extractor upgrades retain immediate completion.
+  Pending upgrades leave damage in place, and destroyed buildings never revive.
+  Towers and artillery have no separate repair action: at maximum level they
+  remain damaged, keeping expansion and replacement part of colony planning.
 - Ore, hub health, working workers and difficulty have separate readouts. The
-  worker ring shows busy workers divided by all workers, excluding idle,
-  fleeing and hiding jobs from the busy count. It is not a population-cap ring.
+  worker ring shows busy workers divided by all workers, excluding idle and
+  waiting jobs from the busy count. It is not a population-cap ring.
   The difficulty ring advances toward the next strength increase, not an unseen
   enemy spawn. Home (`H`) smoothly returns to the hub.
 - **Pause** (`P`) stops the colony and opens the menu. **Resume**, Escape or a
@@ -145,6 +145,8 @@ import/export controls. Headless current-state inspection remains available.
   Resume available. Pausing preserves the unpaid selection.
   Pending Resume and Restart show progress and disable duplicate actions until
   saving finishes; a failed save leaves the action available to retry.
+- **Resign** in the pause menu asks for confirmation, ends the run and reveals
+  the full map without destroying the hub. The colony remains frozen for inspection.
 - WASD pans in screen directions. Q/E smoothly rotates between quarter turns,
   always using an orthographic camera at 30° elevation. Each resting quarter
   turn gives a 2:1 dimetric ground diamond; intermediate turns remain smooth.
@@ -152,8 +154,8 @@ import/export controls. Headless current-state inspection remains available.
   wheel or two-finger pinch zooms without moving the view center. Two on-screen
   arrow buttons provide quarter turns on touchscreens, without changing the
   world-drag gesture.
-  Arrow keys move the cursor; Enter or Space selects a tile and a second press
-  orders its previewed structure. Gamepad controls are absent.
+  Arrow keys move the cursor; Enter or Space selects a tile. Construction uses
+  its explicit action or displayed shortcut. Gamepad controls are absent.
 
 Pill-shaped cards use equally sized circular action buttons, icons, costs and
 visible shortcut keys on every screen. The pause menu uses labeled rows. Names
@@ -187,8 +189,9 @@ card and selects that cell without placing an order.
 
 Workers choose reachable jobs using travel and completion costs. They can take
 construction supplies from nearby extractor or tower stock, preempt suitable
-jobs for construction, and flee threats. Carried gems, construction crates,
-destination markers, sweat and carts make their activity visible.
+jobs for construction, and keep working near enemies. Enemies attack the hub
+and buildings, never workers. Single-rotor drones, carried gems, construction crates,
+destination markers and carts make their activity visible.
 
 A mine has one worker slot per level; upgrades increase slots and output together.
 Its three levels provide an expensive fallback when further deposits are hard to
@@ -217,12 +220,15 @@ Remembered explored terrain does not extend this reach. Unconnected depots keep
 their stock. Current mountains are lower than the cable plane, so they do not
 block links. Cyan boundary lines show the combined hub and tower reveal range.
 
-A straight aerial energy cable pulses uniformly on the display clock. Its
-steady dark border separates the bright core from terrain. Cyan identifies
+A straight aerial cable uses one solid, constant-color mesh. Cyan identifies
 available worker service and warm yellow marks ordinary freight links. Workers
 lift for two ticks, fly at their captured speed, then land; jobs, cargo and source
 reservations stay with them. A flight already underway finishes safely even if
 a tower is destroyed. Queued flights recheck the current network before boarding.
+Workers use links in either direction and compare total travel time, including
+walks to stations, connecting flights and the walk to their destination. They
+periodically reconsider walking plans at cell centers so newly completed or
+upgraded links can shorten a trip already underway; shorter walks stay on foot.
 Freight shuttles also lift and lower around their straight trip.
 Unchanged routes retain shuttle progress and cargo. Rerouting returns a
 shuttle's cargo once to its surviving source and resets that shuttle; destroying
@@ -247,20 +253,23 @@ text, never turn red and never pulse. Selecting a deposit or extractor still
 shows what remains underground. Extraction
 upgrades add mining slots without replenishing the reserve. Exhausted sites stop
 pulsing; workers haul the last stock and find other work. Rebuilding an extractor
-preserves its reserve. Keep ore for the next extractor and protect its supply route.
+preserves its reserve. New extractors cost no ore; protect their supply routes.
 
-The 128×128 map places the hub within eight cells of its center and three nests
-32–41 cells away on separated bearings, roughly five or six observation hops each. The intended ordinary
-expedition lasts about ten minutes. Enemy
+The 64×64 map places the hub within four cells of its center and three nests
+16–21 cells away on separated bearings. Its area is one quarter of the previous map. The intended ordinary
+expedition lasts about ten minutes; there is no fixed victory deadline. Enemy
 approach directions help locate them and richer mining territory. Ordinary deposits
 become significantly denser near nests. Each front considers four inner sites
-6–9 cells away with a 75% acceptance chance and four outer sites 13–17 cells
+4–6 cells away with a 75% acceptance chance and four outer sites 8–10 cells
 away with a 25% chance, then rejects blocked ground, existing mines and the
-20-cell opening radius. These are seeded candidate odds, not guarantees for
+ten-cell protected opening. Small sideways offsets slightly increase those
+distances. These are seeded candidate odds, not guarantees for
 each map or a probability of ore on every tile. At most 24 small deposits are
 added; each holds 600 ore. The three opening deposits keep their old quantities.
 Waves introduce progressively stronger ranks
-with distinct shapes, armor and colors, including elites and a much larger boss.
+as floating Platonic solids and clusters, including a much larger boss. Their
+crystal shapes echo the ore deposits: following their approach leads toward
+richer mining territory. Opening guidance and the pause menu explain this clue.
 The opening lasts 45 seconds before the first spawn. Ordinary waves are thirty
 seconds apart, strength steps are ninety seconds apart, and the first boss spawns
 at nine minutes. Raids replace an ordinary wave every ninety seconds starting at
@@ -285,7 +294,7 @@ attacker. Other buildings do not intercept that pursuit.
 Crowds spread into nearby walking lanes.
 Defeated enemies
 award no ore: extraction and defending your supply lines remain necessary.
-If the hub is destroyed, the frozen map is fully revealed for inspection.
+If the hub is destroyed or you resign, the frozen map is fully revealed for inspection.
 Panning and selection remain available; purchases and simulation stay stopped.
 
 Attacks produce smoke and compact red notifications. Select a notification

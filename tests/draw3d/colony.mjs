@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony, client, at, siteAt, restoreClient, restoreColony, withdrawReserves} from '../applications/colony-state.mjs';
-import {expandedVertexCount} from './scene-tools.mjs';
+import {MAP_WIDTH,establishColony,colony, client, at, siteAt, restoreClient, restoreColony, withdrawReserves} from '../applications/colony-state.mjs';
+import {expandBatch,expandedVertexCount} from './scene-tools.mjs';
 const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
 await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
@@ -66,8 +66,8 @@ function controlsFit(width,height) {
   function walk(value,x=0,y=0) {
     x+=value.rect[0];y+=value.rect[1];
     if((value.kind===2&&value.key!=='dialog-backdrop'&&!value.key.startsWith('attack-inspect-'))||value.kind===6) {
-      const menu=['resume','restart-menu','dismiss-restart','accept-restart'].includes(value.key);
-      assert.deepEqual(value.rect.slice(2),menu?[208,48]:['right-handed','left-handed'].includes(value.key)?[100,48]:[56,56],value.key);
+      const menu=['resume','dismiss-restart','accept-restart','dismiss-resign','accept-resign'].includes(value.key);
+      assert.deepEqual(value.rect.slice(2),menu?[208,48]:['right-handed','left-handed','restart-menu','resign-menu'].includes(value.key)?[100,48]:[56,56],value.key);
       assert.ok(x>=0&&y>=0&&x+value.rect[2]<=width-24&&y+value.rect[3]<=height-32,`${value.key} fits ${width}×${height}: ${x},${y}`);
     }
     const padding=value.kind===5?value.properties[6]:0;
@@ -123,7 +123,7 @@ try {
   }
   await command('resume');assert.deepEqual(runtime.snapshot(2),unpaid);assert.deepEqual(runtime.snapshot(1),fresh);
   await point(12,20);await command('confirm');await command('choose',[1]);
-  assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,120);assert.equal(local().chooser,false);assert.equal(local().buildKind,0);
+  assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,160);assert.equal(local().chooser,false);assert.equal(local().buildKind,0);
   await advance(140);assert.equal(siteAt(world(),12,20).stage,2);await point(12,20,.7);await command('confirm');
   assert.ok(node('upgrade'));await command('improve');assert.equal(siteAt(world(),12,20).level,2);
   console.log('ok - selecting a deposit or empty site is free; choices and costs are contextual; existing buildings upgrade explicitly');
@@ -139,17 +139,19 @@ try {
   await command('pause-menu');assert.equal(world().paused,1);assert.equal(node('restart-menu').properties[1],0);
   await effects(submitted.effects);assert.equal(local().buildKind,0);assert.equal(local().lastKind,3);assert.ok(node('pause-dialog'));
   await command('resume');assert.equal(siteAt(world(),13,21).kind,3);assert.equal(local().chooser,false);
-  const spent=world().spent;await point(14,21);await command('confirm');assert.equal(world().spent,spent);assert.equal(local().choiceKind,3);
-  await command('confirm');assert.equal(world().spent,spent+25);await command('confirm');await command('confirm');
+  const spent=world().spent;await point(14,21);await command('confirm');assert.equal(world().spent,spent);assert.equal(local().choiceKind,0);
+  await command('confirm');assert.equal(world().spent,spent,'repeated tile selection never builds');
+  await command('choose',[1]);assert.equal(world().spent,spent+25);await command('confirm');await command('confirm');
   assert.equal(world().spent,spent+25);assert.ok(node('cancel-build'),'occupied-site taps inspect without cancelling');
-  console.log('ok - one in-flight order locks its site through settlement; accepted memory drives the next second-tap build');
+  console.log('ok - one in-flight order locks its site through settlement; each new site stays neutral until an explicit chooser action');
 
   await command('dismiss');await point(15,21);await command('confirm');
   const failedWorld=runtime.snapshot(1),outgoing=await runtime.dispatch(2,runtime.command('client','choose',[2]));
   assert.equal(local().buildKind,2);await effects(outgoing.effects.filter(effect=>effect.owner===2));
   assert.deepEqual(runtime.snapshot(1),failedWorld);assert.equal(local().buildKind,0);assert.equal(local().choiceKind,2);assert.equal(local().lastKind,3);
-  assert.equal(local().chooser,true);await command('confirm');assert.equal(siteAt(world(),15,21).kind,2);assert.equal(local().lastKind,2);
-  console.log('ok - settlement without a durable reply keeps the exact attempted type retryable and changes memory only on acceptance');
+  assert.equal(local().chooser,true);await command('confirm');assert.deepEqual(runtime.snapshot(1),failedWorld);
+  await command('choose',[2]);assert.equal(siteAt(world(),15,21).kind,2);assert.equal(local().lastKind,3);
+  console.log('ok - settlement without a durable reply keeps the attempted site retryable through another explicit choice');
 
   await runtime.restore(1,fresh);await establishColony(runtime);await command('center');await home();const unselected=runtime.snapshot(1);
   await command('fabricate');assert.deepEqual(runtime.snapshot(1),unselected);
@@ -205,12 +207,18 @@ try {
   await runtime.restore(1,fresh);await command('reset-presentation');await home();
   const glow=()=>runtime.view().scene.batches.filter(batch=>[7,12].includes(batch.key)).reduce((sum,batch)=>sum+expandedVertexCount(batch),0);
   await restoreClient(runtime,{...local(),heading:0,turnFrom:0,turnTo:0,turnElapsed:300,homing:false});
+  const shimmer=runtime.view().scene.batches.filter(batch=>[7,12].includes(batch.key));
+  assert.ok(shimmer.every(batch=>batch.pulse),'crystal highlights animate through retained GPU batches');
+  assert.ok(shimmer.some(batch=>batch.draws.some(draw=>draw.mesh.vertices.some((value,index)=>index%10===2&&value>.5))),
+    'the animated highlights reach the crystal tips as well as the ground glow');
+  const still=world();still.started=true;still.tick++;await restoreColony(runtime,still);
+  assert.ok(runtime.view().scene.batches.filter(batch=>[7,12].includes(batch.key)).every((batch,index)=>batch===shimmer[index]),'a clock tick retains the mineral geometry');
   const beforeGlow=glow(),exhausted=world(),deposit=exhausted.deposits[0];
   exhausted.started=true;exhausted.produced+=deposit.remaining;exhausted.lostOre+=deposit.remaining;deposit.remaining=0;
   await restoreColony(runtime,exhausted);assert.ok(glow()<beforeGlow,'exhaustion removes the crystal pulse');
-  await point(12,20,.6);assert.notEqual(local().cursorX+local().cursorY*128,deposit.cell,'a depleted site has no tall invisible picking box');
+  await point(12,20,.6);assert.notEqual(local().cursorX+local().cursorY*MAP_WIDTH,deposit.cell,'a depleted site has no tall invisible picking box');
   await point(12,20,0);cursorAt(12,20);
-  const x=deposit.cell%128,y=Math.floor(deposit.cell/128);
+  const x=deposit.cell%MAP_WIDTH,y=Math.floor(deposit.cell/MAP_WIDTH);
   await restoreClient(runtime,{...local(),chooser:true,cursorX:x,cursorY:y,targetX:x,targetY:y,dialog:0});
   assert.match(node('context-description').text,/Depleted/);assert.equal(node('extractor').properties[1],0);
   const fronts=world();for(const nest of fronts.nests)fronts.surveys.push({x:nest.x,y:nest.y,radius:4});
@@ -233,4 +241,25 @@ try {
     }
   }
   console.log('ok - all four nest-star states retain descriptive status and stay opposite the controls on desktop and portrait');
+  const terminalBase=colony(fresh),terminalHub=at(terminalBase,8,22);
+  const remote={x:terminalHub.x<MAP_WIDTH/2?MAP_WIDTH-4:3,y:terminalHub.y<MAP_WIDTH/2?MAP_WIDTH-4:3};
+  assert.ok(Math.hypot(remote.x-terminalHub.x,remote.y-terminalHub.y)>20,'the terminal camera is outside the original survey');
+  await restoreClient(runtime,{...local(),cameraX:remote.x*1000,cameraY:remote.y*1000,scale:1000,
+    heading:0,turnFrom:0,turnTo:0,turnElapsed:300,homing:false,chooser:false,dialog:0});
+  let defeatTerrain;
+  for(const outcome of [1,4]) {
+    const terminal=structuredClone(terminalBase);terminal.started=true;terminal.outcome=outcome;terminal.hull=outcome===1?0:300;
+    await restoreColony(runtime,terminal);const committed=runtime.snapshot(1),scene=runtime.view().scene;
+    const terrain=expandBatch(scene.batches.find(batch=>batch.key===1));
+    assert.ok(terrain.vertices.length>0,`terminal outcome ${outcome} reveals distant ground`);
+    assert.ok(terrain.vertices.length/10<MAP_WIDTH*MAP_WIDTH*4,'terminal revelation keeps viewport culling');
+    assert.equal(expandedVertexCount(scene.batches.find(batch=>batch.key===9)),0,
+      'fully revealed terminal ground never passes through the latest-survey fragment mask');
+    if(outcome===1)defeatTerrain=terrain.vertices;
+    else assert.deepEqual(terrain.vertices,defeatTerrain,'resignation reveals the same distant terrain as defeat with a healthy hub');
+    assert.deepEqual(runtime.snapshot(1),committed,'rendering leaves the bounded survey history and world unchanged');
+    assert.deepEqual(world().surveys,terminalBase.surveys);
+  }
+  console.log('ok - defeat and resignation reveal distant terrain identically without clipping, survey growth or lost viewport culling');
+
 } finally {await runtime.close();}
