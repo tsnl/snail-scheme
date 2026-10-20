@@ -45,9 +45,12 @@ All compiler modules live in `src/lofi/compiler/` and run on Chibi Scheme.
 - **[`check.sld`](src/lofi/compiler/check.sld)** is Hindley-Milner inference
   with effect rows. Unannotated top-level definitions are checked in
   dependency order (Tarjan's algorithm). Each instantiation records its type
-  arguments and evidence holes; constraints are solved when a group is
-  complete, choosing instances once. Rows unify as sets with open tails.
-  Matches are checked with Maranget's usefulness algorithm.
+  arguments and an evidence hole per class constraint. While items are
+  checked, constraints are only recorded; a group of functions quantifies
+  the metavariables nothing else still mentions. When the whole program is
+  checked, literals default, and each class constraint is solved once,
+  filling its hole. Rows unify as sets with open tails. Matches are checked
+  with Maranget's usefulness algorithm.
 - **[`mono.sld`](src/lofi/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence

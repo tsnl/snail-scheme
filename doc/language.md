@@ -98,9 +98,11 @@ type nothing determines defaults to `I64` or `F64`. Values never convert
 implicitly: use `i64->i32`, `i32->f64` and the other conversions. Integer
 arithmetic wraps.
 
-Unannotated top-level functions are generalized. Other unannotated
-definitions are monomorphic, and their types may be decided by later uses.
-Polymorphic definitions that are not functions need signatures.
+Unannotated top-level functions are generalized over the type variables no
+constraint mentions. Other unannotated definitions, and functions whose
+types involve a class constraint, keep one type, which later uses may
+decide. Polymorphic definitions with constraints, and polymorphic values
+that are not functions, need signatures.
 
 ## Data
 
