@@ -227,18 +227,18 @@ export async function checkLogistics(test, fresh, call) {
     await advance(r, 20); assert.equal(state(r).ore, 135); await r.close();
   });
 
-  await test('workers use a nearby connected depot and only rail arrival makes ore spendable', async () => {
+  await test('an extractor sends freight through the nearby depot and only hub arrival makes ore spendable', async () => {
     const r = await fresh(), depot = await tower(r, 12,21);
-    await call(r, 'extract', [12,20]); let deposited = false, hauled = false;
+    await call(r, 'extract', [12,20]); let deposited = false, shipped = false;
     for (let i = 0; i < 300 && state(r).delivered < 16; i++) {
       const before = state(r);
-      hauled ||= before.bots.some(bot => bot.job === 2 && bot.target === depot.id && bot.cargo > 0);
+      shipped ||= before.rails.some(rail => rail.cargo > 0);
       await advance(r); const after = state(r);
       if (!deposited && after.buildings.find(b => b.id === depot.id).stock > before.buildings.find(b => b.id === depot.id).stock) {
         deposited = true; assert.equal(after.delivered, before.delivered);
       }
     }
-    assert.ok(hauled && deposited); assert.ok(state(r).delivered >= 16); await r.close();
+    assert.ok(shipped && deposited); assert.ok(state(r).delivered >= 16); await r.close();
   });
 
   await test('tower placement fixes an upstream tree and freight traverses each link before credit', async () => {

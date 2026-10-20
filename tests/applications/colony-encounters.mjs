@@ -35,14 +35,14 @@ export async function checkEncounters(test, fresh, call) {
     await advance(r, 10); assert.equal(state(r).produced, before + 6); balanced(r);
     const bad = state(r); bad.buildings[0].level = 1; await assert.rejects(() => restoreColony(r, bad)); await r.close();
   });
-  await test('a sole worker alternates mining and physical delivery without free ore', async () => {
+  await test('a sole worker mines while its connected extractor ships ore without a manual hauling job', async () => {
     const r = await fresh(); await cleanWorkers(r, [{}]); await builtMine(r);
-    let mining = false, loaded = false;
+    let mining = false, shipped = false;
     for (let i = 0; i < 430; i++) {
       await advance(r); balanced(r); const bot = state(r).bots[0];
-      mining ||= bot.job === 8; loaded ||= bot.job === 2 && bot.cargo > 0;
+      mining ||= bot.job === 8; shipped ||= state(r).rails.some(rail => rail.cargo > 0);
     }
-    assert.ok(mining && loaded); assert.ok(state(r).delivered >= 32); assert.equal(state(r).bots.length, 1); await r.close();
+    assert.ok(mining && shipped); assert.ok(state(r).delivered >= 32); assert.equal(state(r).bots.length, 1); await r.close();
   });
   await test('construction completion chains directly into nearby mining work', async () => {
     const r = await fresh(), mine = await builtMine(r);

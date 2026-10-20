@@ -2,8 +2,9 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
+import {decodeObservation} from '../../apps/siegework/headless.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,pixelAt,routeCell,siteAt,setWorker, withdrawReserves} from './colony-state.mjs';
+import {MAP_WIDTH,MAP_HEIGHT,establishColony,colony,colonyBalance,restoreColony,fixtureCall,pixelAt,routeCell,siteAt,setWorker, withdrawReserves} from './colony-state.mjs';
 
 export async function checkDigging(test,fresh) {
   const state=r=>colony(r.snapshot(1)),call=fixtureCall;
@@ -98,13 +99,13 @@ export async function checkDigging(test,fresh) {
     await build(r,'observe',12,14); const north=await build(r,'observe',12,8);
     await build(r,'observe',16,21); await build(r,'observe',22,20);
     await build(r,'fortify',12,1);
-    const world=state(r); world.tick=1349; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
-    assert.equal(state(r).enemies.length,7); assert.ok(state(r).enemies.some(enemy=>enemy.target===north.id));
+    const world=state(r); world.tick=1049; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
+    assert.equal(state(r).enemies.length,11); assert.ok(state(r).enemies.some(enemy=>enemy.target===north.id));
     assert.ok(state(r).enemies.every(enemy=>enemy.target===0||state(r).buildings.some(site=>site.id===enemy.target&&site.kind===3))); await r.close();
   });
   await test('decoding rejects impossible excavation, water breaches and unqualified rock routes',async()=>{
     const r=await fresh(),saved=r.snapshot(1),base=state(r),cell=routeCell(base,6,10);
-    const edits=[world=>world.breaches=[routeCell(world,8,22)],world=>world.breaches=[64*64],
+    const edits=[world=>world.breaches=[routeCell(world,8,22)],world=>world.breaches=[MAP_WIDTH*MAP_HEIGHT],
       world=>world.breaches=[cell,cell],world=>world.excavations=[{cell,remaining:0}],
       world=>world.excavations=[{cell,remaining:80}],world=>world.excavations=[{cell,remaining:79},{cell,remaining:78}],
       world=>{world.breaches=[cell];world.excavations=[{cell,remaining:79}];},
@@ -114,7 +115,9 @@ export async function checkDigging(test,fresh) {
       const invalid=colony(saved); edit(invalid); await assert.rejects(()=>restoreColony(r,invalid),WebAssembly.RuntimeError);
       assert.deepEqual(r.snapshot(1),saved);
     }
-    await call(r,'new-run-seed',[2]);const wet=state(r),waterCell=16+39*64;
+    await call(r,'new-run-seed',[2]);const wet=state(r),waterCell=15+57*MAP_WIDTH;
+    wet.surveys.push({x:14,y:57,radius:6});await restoreColony(r,wet);
+    assert.equal(decodeObservation(r.observe()).tiles.find(tile=>tile.cell===waterCell)?.terrain,2);
     wet.breaches=[waterCell];await assert.rejects(()=>restoreColony(r,wet),WebAssembly.RuntimeError);
     assert.deepEqual(state(r).breaches,[]);await r.close();
   });

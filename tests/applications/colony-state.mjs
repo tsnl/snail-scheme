@@ -1,8 +1,8 @@
-// Derived schema-14, payload-revision-1 records for bounded encounter fixtures. Only
+// Derived schema-15, payload-revision-1 records for bounded encounter fixtures. Only
 // actual compiled Scheme transitions implement jobs, routing or combat.
 import {snapshotValue, snapshotWords} from './snapshots.mjs';
 
-export const MAP_WIDTH = 64, MAP_HEIGHT = 64;
+export const MAP_WIDTH = 80, MAP_HEIGHT = 80;
 const camel = field => field.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 const fieldName = field => field === 'ore' ? 'credits' : field.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
 function readable(value) {
@@ -32,7 +32,7 @@ function typedField(field, value) {
   if (!type) throw new Error(`unknown fixture list ${field}`);
   return [symbol(`(List ${name})`), value.map(item => type === 'I32' ? [symbol(type), item] : typedRecord(type, item))];
 }
-export const colonyWords = world => snapshotWords(14, typedRecord('World', world), world.runMarker);
+export const colonyWords = world => snapshotWords(15, typedRecord('World', world), world.runMarker);
 export const clientWords = local => {
   const {originX,originY,menu,...fields}=local;
   return snapshotWords(8, typedRecord('Client', {...fields, heading:local.heading ?? 0,
