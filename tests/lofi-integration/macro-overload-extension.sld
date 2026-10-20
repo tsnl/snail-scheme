@@ -1,6 +1,6 @@
 (import
  (lofi base))
-(def m (syntax-rules () ((_ value) (+ value 1))))
+(define-syntax m (syntax-rules () ((_ value) (+ value 1))))
 (def Wrapped (datatype ()
                (wrapped
                 (value I32 wrapped-value))))

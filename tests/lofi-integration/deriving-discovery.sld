@@ -9,17 +9,17 @@
   (token
    (derive-second I32 token-value))
   (deriving derive-first derive-second late))
-(def derive-first
+(define-syntax derive-first
      (syntax-rules (data)
        ((_ (data Name ()
              (constructor
               (next Type accessor))))
-        (def next (syntax-rules () ((_ declaration) (stamp 1)))))))
-(def install-late
+        (define-syntax next (syntax-rules () ((_ declaration) (stamp 1)))))))
+(define-syntax install-late
      (syntax-rules ()
        ((_ name)
-        (library-begin
+        (begin
          (begin
-           (def name (syntax-rules () ((_ declaration) (stamp 2)))))))))
+           (define-syntax name (syntax-rules () ((_ declaration) (stamp 2)))))))))
 (install-late late)
 (ref-get state)

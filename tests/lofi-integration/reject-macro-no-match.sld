@@ -1,2 +1,2 @@
-(def one (syntax-rules () ((_ value) value)))
+(define-syntax one (syntax-rules () ((_ value) value)))
 (one)

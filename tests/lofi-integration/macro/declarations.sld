@@ -5,11 +5,11 @@
    (only (lofi base) i32-add vector))
   (begin
     (def private-increment (-> I32 I32) (lambda (value) (i32-add value 1)))
-    (def define-counter
+    (define-syntax define-counter
          (syntax-rules ()
            ((_ State make-state state-value advance commands)
-            (library-begin
-             (def private-step
+            (begin
+             (define-syntax private-step
                   (syntax-rules ()
                     ((_ state) (make-state (private-increment (state-value state))))))
              (def State (datatype ()
@@ -18,15 +18,15 @@
              (def advance (-> State State) (lambda (state) (private-step state)))
              (def commands (Vector (-> State State))
                   (vector (ann advance (-> State State))))))))
-    (def call-through-binding
+    (define-syntax call-through-binding
          (syntax-rules ()
            ((_ name)
-            (library-begin
+            (begin
              (def name (-> I32 I32) (lambda (value) value))
              (name 42)))))
-    (def application
+    (define-syntax application
          (syntax-rules ()
            ((_ registry State handler ...)
-            (library-begin
+            (begin
              (def registry (Vector (-> State State))
                   (vector (ann handler (-> State State)) ...))))))))

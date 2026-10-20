@@ -1,5 +1,5 @@
 (import
  (lofi core))
-(def expose (syntax-rules () ((_) (library-begin (export)))))
+(define-syntax expose (syntax-rules () ((_) (begin (export)))))
 (expose)
 42

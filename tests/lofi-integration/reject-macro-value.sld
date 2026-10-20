@@ -1,2 +1,2 @@
-(def macro (syntax-rules () ((_) 1)))
+(define-syntax macro (syntax-rules () ((_) 1)))
 macro

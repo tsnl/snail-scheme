@@ -6,7 +6,7 @@
   (begin
     (typeclass Copy (T) (: copy-value (-> T T)))
     (instance copy-i32 (Copy I32) (copy-value (lambda (value) value)))
-    (def define-copy
+    (define-syntax define-copy
          (syntax-rules ()
            ((_ name)
             (def name (Forall (T) (needs (Copy T)) (-> T T))

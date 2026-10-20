@@ -1,2 +1,2 @@
-(def bad (syntax-rules () ((_ (x ...)) x)))
+(define-syntax bad (syntax-rules () ((_ (x ...)) x)))
 0

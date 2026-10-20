@@ -11,7 +11,7 @@ to the same checked Lofi representation.
 (import
  (lofi core)
  (lofi base))
-(def twice
+(define-syntax twice
      (syntax-rules ()
        ((_ expression)
         (begin (let value expression) (+ value value)))))
@@ -19,8 +19,8 @@ to the same checked Lofi representation.
 (twice 21) ; 42
 ```
 
-`(def name (syntax-rules (literal ...) (pattern template) ...))` creates a static
-transformer binding. `(define-syntax name (syntax-rules ...))` is an alias.
+`(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` creates a static
+transformer binding. `syntax-rules` is valid only there.
 A transformer can be exported, imported with `only` or `rename`, and re-exported.
 It cannot be passed as a runtime value. Expansion happens after imported binding
 identities are resolved, before ordinary type checking and code generation.
@@ -72,7 +72,7 @@ define a nominal type, its operations, and an application registry together:
 (import
  (lofi core)
  (lofi base))
-(def define-counter
+(define-syntax define-counter
      (syntax-rules ()
        ((_ State make-state state-value advance)
         (begin
@@ -97,8 +97,7 @@ This splicing behavior applies in a library body, including a script's implicit
 library. Inside `define-library`, write an application macro in a body clause, such as
 `(begin (application ...))`; the macro can return another `begin`. The structural
 library header parser does not accept arbitrary macro clauses. An ordinary
-expression `begin` keeps its lexical scope. `library-begin` is a compatibility
-alias for the splice and is an error inside a lambda or expression block.
+expression `begin` keeps its lexical scope.
 
 Imports, exports and `define-library` remain explicit source headers. Producing
 one during body expansion, directly or inside a splice, is a located error;

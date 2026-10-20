@@ -21,7 +21,7 @@
     ;; ---- Located syntax and grammar ----
 
     (define keywords
-      '(def lambda if let begin library-begin ann inst match import export define-library
+      '(def lambda if let begin ann inst match import export define-library
             data datatype typeclass instance define-overload define-extern
             : All requires -> Ref List Vector
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
@@ -417,7 +417,6 @@
     (define (parse-list-expression form environment)
       (when (memq (head form) unsupported-keywords) (fail form "unsupported Lofi form" (head form)))
       (case (head form)
-        ((library-begin) (fail form "library-begin is only allowed in a library body"))
         ((data typeclass instance) (fail form "declarations require library scope"))
         ((def let datatype define-extern define-overload import export define-library :)
          (fail form "declaration is not an expression"))
@@ -665,9 +664,9 @@
         (let* ((consumer (test-parsed "(define-library (test app) (import (test provider))
                                        (export answer) (begin (def answer (choose))))"))
                (first (test-parsed "(define-library (test provider) (export choose)
-                                    (begin (def choose (syntax-rules () ((_) 1)))))"))
+                                    (begin (define-syntax choose (syntax-rules () ((_) 1)))))"))
                (second (test-parsed "(define-library (test provider) (export choose)
-                                     (begin (def choose (syntax-rules () ((_) 2)))))")))
+                                     (begin (define-syntax choose (syntax-rules () ((_) 2)))))")))
           (for-each (lambda (provider expected)
                       (let ((library (cdr (assoc '(test app) (test-library-map consumer provider)))))
                         (expect (literal-value (binding-initializer (test-export library 'answer))) expected)))

@@ -8,7 +8,7 @@
   (import
    (scheme base)
    (scheme immutable)
-   (only (lofi core) datatype match ann -> I32 library-begin)
+   (only (lofi core) datatype match ann -> I32 begin)
    (only (lofi base) unreachable)
    (rename (only (lofi core) def) (def define-typed)))
   (begin
@@ -100,14 +100,14 @@
                            (Application Owner State))))
         ((_ name Owner State schema initial slot (handlers ...)
             (command (state (arg Type) ...) body ...) rest ...)
-         (library-begin
+         (begin
           (define command (command-constructor Owner State slot ((arg Type) ...)))
           (application-handlers-declare name Owner State schema initial (+ slot 1)
                                         (handlers ... (private-handler State (state (arg Type) ...) body ...)) rest ...)))))
     (define-syntax application
       (syntax-rules (state)
         ((_ name (state State schema) initial handlers ...)
-         (library-begin
+         (begin
           (define owner-tag (datatype ()
                               (owner-token)))
           (application-handlers-declare name owner-tag State schema initial 0 () handlers ...)))))))

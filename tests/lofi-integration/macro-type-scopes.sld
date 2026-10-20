@@ -5,5 +5,5 @@
            (box
             (value T))))
 (def get (All (T) (-> (Box T) T)) (lambda (value) (match value ((box T) (ann T T)))))
-(def use (syntax-rules () ((_ x) (get (box (identity x))))))
+(define-syntax use (syntax-rules () ((_ x) (get (box (identity x))))))
 (use 42)

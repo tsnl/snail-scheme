@@ -1,7 +1,7 @@
 (import
  (lofi core))
 
-(def derive-binding
+(define-syntax derive-binding
      (syntax-rules (data)
        ((_ (data Name ()
              (constructor

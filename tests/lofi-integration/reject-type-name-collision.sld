@@ -1,10 +1,10 @@
 (import
  (lofi core))
 
-(def define-private
+(define-syntax define-private
      (syntax-rules ()
        ((_ name)
-        (library-begin
+        (begin
          (data Private ()
            (private))
          (def name String (type-name Private))))))

@@ -195,9 +195,8 @@ that the host compiler receives, so protocol metadata cannot come from a later
 edit of the source file. This is Chibi build support; the public reducer API is
 shared by product Scheme and Lofi. Arbitrary generated application declarations
 are not currently inspected.
-The `application` macro itself expands through `(lofi core)`'s `library-begin`
-declaration splice; library-level `begin` also splices into the surrounding scope,
-while expression `begin` creates a block. Export handlers that
+The `application` macro itself expands to a library-level `begin`, which splices
+into the surrounding scope, while expression `begin` creates a block. Export handlers that
 another library must call, just as with other library bindings.
 
 ## Assembling a browser application

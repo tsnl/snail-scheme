@@ -2,7 +2,7 @@
  (lofi core)
  (lofi base))
 
-(def define-counter
+(define-syntax define-counter
      (syntax-rules ()
        ((_ State make-state state-value Next next next-i32 advance)
         (begin

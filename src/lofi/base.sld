@@ -154,11 +154,11 @@
     ;; List construction preserves left-to-right operand evaluation.
     ;; Specialization keeps each element type through allocation and bulk copying.
     ;; Constructors return fresh vectors and preserve referenced element identity.
-    (def list
+    (define-syntax list
          (syntax-rules ()
            ((_) (empty-list))
            ((_ first rest ...) (cons first (list rest ...)))))
-    (def vector
+    (define-syntax vector
          (syntax-rules ()
            ((_ values ...) (list->vector (list values ...)))))
     (def list->vector
@@ -200,7 +200,7 @@
                              (begin
                                (vector-copy! result (ann 0 I64) source (ann 0 I64) count)
                                result))))))
-    (def vector-append
+    (define-syntax vector-append
          (syntax-rules ()
            ((_ values ...) (vector-concatenate (list values ...)))))
     (def vector-concatenate
@@ -245,7 +245,7 @@
     (define-overload make-string (-> I64 Char String) make-filled-string)
     (define-overload make-string (-> I64 String)
       (lambda (count) (make-filled-string count #\null)))
-    (def string
+    (define-syntax string
          (syntax-rules ()
            ((_ values ...) (list->string (list values ...)))))
     (def list->string
@@ -269,7 +269,7 @@
              (loop (string-length source) (empty-list )))))
     (def string-copy
          (lambda (source) (substring source (ann 0 I64) (string-length source))))
-    (def string-append
+    (define-syntax string-append
          (syntax-rules ()
            ((_ values ...) (string-concatenate (list values ...)))))
     (def string-concatenate

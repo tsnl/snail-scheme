@@ -74,7 +74,7 @@
       (rules transformer-rules)
       (environment transformer-environment))
     (define core-syntax-names
-      '(def lambda if let begin library-begin ann inst match data deriving datatype typeclass instance
+      '(def lambda if let begin ann inst match data deriving datatype typeclass instance
             identifier-name library-name type-name
             define-overload define-extern syntax-rules define-syntax
             : All requires -> Ref List Vector
@@ -254,7 +254,7 @@
       (let ((declaration (derivation-declaration derivation)))
         (observe-identifier (derivation-keyword derivation) environment)
         (rebuild declaration
-                 (cons (intrinsic-identifier 'library-begin declaration)
+                 (cons (intrinsic-identifier 'begin declaration)
                        (cons declaration (map (lambda (target) (derivation-invocation derivation target))
                                               (derivation-targets derivation)))))))
     (define (expand-library-declaration form environment)
@@ -475,14 +475,8 @@
               (expansion-budget (- (expansion-budget) 1))
               (observe-identifier operator environment)
               (expand-head (apply-transformer transformer form environment) environment)))))
-    (define (macro-definition? form . environments)
-      (let ((kind (if (null? environments)
-                      (and (head form) (syntax-identifier? (head form)) (atom-syntax-value (head form)))
-                      (form-kind form (car environments)))))
-        (or (eq? kind 'define-syntax)
-            (and (eq? kind 'def) (= (length (parts form)) 3)
-                 (if (null? environments) (headed? (caddr (parts form)) 'syntax-rules)
-                     (eq? (form-kind (caddr (parts form)) (car environments)) 'syntax-rules))))))
+    (define (macro-definition? form environment)
+      (eq? (form-kind form environment) 'define-syntax))
     (define (definition-names source environment)
       (let ((form (normalize-declaration source environment)))
         (case (form-kind form environment)
@@ -558,7 +552,7 @@
                       ((lambda) (expand-lambda form environment))
                       ((begin) (let-values (((body scope) (expand-body (cdr (parts form)) environment #f)))
                                  (rebuild form (cons (emit-identifier (head form) environment) body))))
-                      ((library-begin) (fail form "library-begin is only allowed in a library body"))
+                      ((syntax-rules) (fail form "syntax-rules is only valid in define-syntax"))
                       ((identifier-name) (expand-identifier-name form))
                       ((library-name) (expand-library-name form))
                       ((type-name) (expand-type-name form environment))
@@ -718,7 +712,7 @@
           (set-expansion-bindings! scope (append additions (expansion-bindings scope)))
           (check-discovery-reads (car (discovery-reads))))))
     (define (library-splice-contents form scope)
-      (and (memq (form-kind form scope) '(begin library-begin))
+      (and (eq? (form-kind form scope) 'begin)
            (begin (observe-identifier (head form) scope) (cdr (parts form)))))
     ;; Expose one layer, preserving the children's syntax identities. The next
     ;; discovery pass reserves those siblings before interpreting their heads.
@@ -877,42 +871,41 @@
                       (expand-library-body (reader->syntax-list (string->reader "macro-unit.sld" text)) '())))
           (syntax->datum (car (reverse forms)))))
       (define (test-pattern-shapes)
-        (expect (expanded-datum "(def m (syntax-rules () ((_ ((x ...) ...)) #(#(x ...) ...)))) (m (() (1 2) (3)))")
+        (expect (expanded-datum "(define-syntax m (syntax-rules () ((_ ((x ...) ...)) #(#(x ...) ...)))) (m (() (1 2) (3)))")
                 '#(#() #(1 2) #(3)))
-        (expect (expanded-datum "(def m (syntax-rules () ((_ shared (x ...)) #((shared x) ...)))) (m 9 (1 2))")
+        (expect (expanded-datum "(define-syntax m (syntax-rules () ((_ shared (x ...)) #((shared x) ...)))) (m 9 (1 2))")
                 '#((9 1) (9 2)))
-        (expect (expanded-datum "(def m (syntax-rules (stop) ((_ (x ... stop y)) #(x ... y)))) (m (1 2 stop 3))") '#(1 2 3))
-        (expect (expanded-datum "(def m (syntax-rules () ((_ #(x ...)) #(x ...)))) (m #(1 2))") '#(1 2))
-        (expect (expanded-datum "(def m (syntax-rules () ((_ (x . tail)) tail))) (m (1 . 42))") 42))
+        (expect (expanded-datum "(define-syntax m (syntax-rules (stop) ((_ (x ... stop y)) #(x ... y)))) (m (1 2 stop 3))") '#(1 2 3))
+        (expect (expanded-datum "(define-syntax m (syntax-rules () ((_ #(x ...)) #(x ...)))) (m #(1 2))") '#(1 2))
+        (expect (expanded-datum "(define-syntax m (syntax-rules () ((_ (x . tail)) tail))) (m (1 . 42))") 42))
       (define (test-transformer-rejections)
         (for-each
          (lambda (text) (expect (guard (failure (else #t)) (expanded-datum text) #f) #t))
-         '("(def m (syntax-rules () ((_ x x) x))) 0"
-           "(def m (syntax-rules () ((_ (x ...)) x))) 0"
-           "(def m (syntax-rules () ((_ x) #(x ...)))) 0"
-           "(def m (syntax-rules () ((_ x) x))) (m)"
-           "(def m (syntax-rules () ((_ (x ...) (y ...)) #((x y) ...)))) (m (1 2) (3))")))
+         '("(define-syntax m (syntax-rules () ((_ x x) x))) 0"
+           "(define-syntax m (syntax-rules () ((_ (x ...)) x))) 0"
+           "(define-syntax m (syntax-rules () ((_ x) #(x ...)))) 0"
+           "(define-syntax m (syntax-rules () ((_ x) x))) (m)"
+           "(define-syntax m (syntax-rules () ((_ (x ...) (y ...)) #((x y) ...)))) (m (1 2) (3))")))
       (define (test-library-splices)
         (for-each
          (lambda (text)
            (let-values (((forms macros scope)
                          (expand-library-body (reader->syntax-list (string->reader "splice-unit.sld" text)) '())))
              (expect (map syntax->datum forms) '(1 2 3 4))))
-         '("(library-begin 1 (library-begin 2) 3) (library-begin) 4"
-           "(begin 1 (begin 2) 3) (begin) 4"
-           "(def m (syntax-rules () ((_) (begin 1 (library-begin 2) 3)))) (m) 4"))
+         '("(begin 1 (begin 2) 3) (begin) 4"
+           "(define-syntax m (syntax-rules () ((_) (begin 1 (begin 2) 3)))) (m) 4"))
         (for-each
          (lambda (text) (expect (guard (failure (else #t)) (expanded-datum text) #f) #t))
-         '("(def m (syntax-rules () ((_) (library-begin 1)))) (lambda () (m))"
-           "(def m (syntax-rules () ((_) (import (missing))))) (m)"
-           "(library-begin (export))"
-           "(library-begin (library-begin (define-library (nested))))"
-           "(library-begin (def library-begin (lambda (x) x))) 0")))
+         '("(define-syntax m (syntax-rules () ((_) (import (missing))))) (m)"
+           "(def m (syntax-rules () ((_) 1))) (m)"
+           "(begin (export))"
+           "(begin (begin (define-library (nested))))"
+           "(begin (def begin (lambda (x) x))) 0")))
       (define (test-declaration-discovery)
         (expect
          (guard (failure (else (error-object-message failure)))
            (expanded-datum "(data Flag () (flag))
-                            (def m (syntax-rules () ((_ name) (def name (lambda (x) x)))))
+                            (define-syntax m (syntax-rules () ((_ name) (def name (lambda (x) x)))))
                             (m data)")
            #f)
          "generated binding changes an earlier macro decision; use a direct definition"))
@@ -931,7 +924,7 @@
         (expect (literal-transition-rejected? #t #f) #t)
         (expect (literal-transition-rejected? #t #t) #f)
         (expect (expanded-datum
-                 "(def bind (syntax-rules (marker) ((_ name marker) (def name 1))))
+                 "(define-syntax bind (syntax-rules (marker) ((_ name marker) (def name 1))))
                   (bind marker marker) 42") 42))
       (define (test-deriving-rejections)
         (for-each
@@ -947,7 +940,7 @@
            ("(def value 1) (data Flag () (flag) (deriving value))" "deriving target must name a macro transformer"))))
       (define (test-syntax-names)
         (expect (expanded-datum "(identifier-name unbound)") "unbound")
-        (expect (expanded-datum "(def named (syntax-rules () ((_ name) (identifier-name name)))) (named original)") "original")
+        (expect (expanded-datum "(define-syntax named (syntax-rules () ((_ name) (identifier-name name)))) (named original)") "original")
         (expect (expanded-datum "(library-name)") "#f")
         (for-each (lambda (text) (expect (guard (failure (else #t)) (expanded-datum text) #f) #t))
                   '("(identifier-name)" "(identifier-name name extra)" "(identifier-name 1)" "(library-name extra)")))
@@ -962,16 +955,16 @@
            "(data Box () (box)) (def f (All (Box) (-> Box String)) (lambda (value) (type-name Box)))")))
       (define (test-unclaimed-type-names)
         (expect (expanded-datum
-                 "(def private (syntax-rules () ((_) (data Hidden () (hidden)))))
+                 "(define-syntax private (syntax-rules () ((_) (data Hidden () (hidden)))))
                   (private) (private) 42") 42))
       (define (test-deriving-forward-target)
         (let-values (((forms macros scope)
                       (expand-library-body
                        (reader->syntax-list
                         (string->reader "derive-forward.sld"
-                                        "(def install (syntax-rules (data)
+                                        "(define-syntax install (syntax-rules (data)
                                            ((_ (data Name () (constructor (target Type accessor))))
-                                            (begin (def target (syntax-rules () ((_ declaration) 1))) 2))))
+                                            (begin (define-syntax target (syntax-rules () ((_ declaration) 1))) 2))))
                                          (data Box () (box (late I32 box-value)) (deriving late install))")) '())))
           (expect (map syntax->datum (cdr forms)) '(1 2))))
       (define (test-deriving-core-targets)
@@ -980,10 +973,10 @@
            (expect (guard (failure (else (error-object-message failure)))
                      (expanded-datum (string-append "(data Flag () (flag) (deriving " (symbol->string name) "))")) #f)
                    "deriving target must name a macro transformer"))
-         '(begin library-begin def define-syntax data typeclass instance define-extern define-overload)))
+         '(begin begin def define-syntax data typeclass instance define-extern define-overload)))
       (define (test-deriving-generated-core-name)
         (expect (expanded-datum
-                 "(def install (syntax-rules () ((_ name) (def name (syntax-rules () ((_ declaration) 42))))))
+                 "(define-syntax install (syntax-rules () ((_ name) (define-syntax name (syntax-rules () ((_ declaration) 42))))))
                   (data Flag () (flag) (deriving begin))
                   (install begin)") 42))
       (define (test-macros)

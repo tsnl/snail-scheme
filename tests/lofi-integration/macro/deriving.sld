@@ -10,14 +10,14 @@
     (def private-increment (-> I32 I32) (lambda (value) (i32-add value 1)))
     (typeclass Readable (T)
                (: read-derived (-> T I32)))
-    (def derive-instance
+    (define-syntax derive-instance
          (syntax-rules (data)
            ((_ (data Name ()
                  (constructor
                   (field Type accessor))))
             (instance derived-reader (Readable Name)
                       (read-derived (lambda (value) (private-increment (accessor value))))))))
-    (def derive-reader
+    (define-syntax derive-reader
          (syntax-rules (data)
            ((_ (data Name ()
                  (constructor
@@ -25,25 +25,25 @@
             (begin
               (def reader (-> Name Type)
                    (lambda (value) (private-increment (accessor value))))))))
-    (def named-description
+    (define-syntax named-description
          (syntax-rules ()
            ((_ Name constructor field accessor)
             (string-append (library-name) "/" (identifier-name Name) "/"
                            (identifier-name constructor) "/" (identifier-name field) "/"
                            (identifier-name accessor)))))
-    (def derive-names
+    (define-syntax derive-names
          (syntax-rules (data)
            ((_ (data Name ()
                  (constructor
                   (field Type accessor))))
             (def field String (named-description Name constructor field accessor)))))
-    (def derive-type-key
+    (define-syntax derive-type-key
          (syntax-rules (data)
            ((_ (data Name (parameter ...)
                  (constructor
                   (field Type accessor))))
             (def field String (type-name Name)))))
-    (def define-named
+    (define-syntax define-named
          (syntax-rules ()
            ((_ Name constructor field accessor)
             (data Name ()

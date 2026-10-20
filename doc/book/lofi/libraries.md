@@ -69,7 +69,6 @@ library_statement ::= statement
                     | library_splice
 
 library_splice ::= "(" "begin" library_statement … ")"
-                 | "(" "library-begin" library_statement … ")"
 
 import_set ::= library_name
              | "(" "only" import_set name … ")"
@@ -91,9 +90,7 @@ clauses supply bindings to the whole body; they are not executable statements.
 Within a body, `begin` splices several forms into the same library scope;
 it is useful when a [macro](macros.md#producing-several-library-declarations)
 generates a type and several operations together. Ordinary expression `begin`
-still creates a lexical block. `library-begin` remains a compatibility alias
-for the library splice and is an error in expression position.
-Neither body macros nor splices may generate
+still creates a lexical block. Neither body macros nor splices may generate
 import, export or `define-library` directives.
 
 ## Exports and imports

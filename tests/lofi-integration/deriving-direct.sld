@@ -2,14 +2,14 @@
  (lofi core)
  (lofi base))
 
-(def derive-reader
+(define-syntax derive-reader
      (syntax-rules (data)
        ((_ (data Name (T ...)
              (constructor
               (reader Type accessor))))
         (def reader (All (T ...) (-> (Name T ...) Type))
              (lambda (value) (accessor value))))))
-(def derive-probe
+(define-syntax derive-probe
      (syntax-rules (data)
        ((_ (data Name (T ...)
              (constructor

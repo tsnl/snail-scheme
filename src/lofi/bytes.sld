@@ -21,7 +21,7 @@
     (define-overload make-bytevector (-> I64 I64 Bytevector) make-filled-bytevector)
     (define-overload make-bytevector (-> I64 Bytevector)
       (lambda (count) (make-filled-bytevector count (ann 0 I64))))
-    (def bytevector
+    (define-syntax bytevector
          (syntax-rules ()
            ((_ values ...) (list->bytevector (list values ...)))))
     (def list->bytevector
@@ -72,7 +72,7 @@
       (lambda (source start) (bytevector-copy source start (bytevector-length source))))
     (define-overload bytevector-copy (-> Bytevector Bytevector)
       (lambda (source) (bytevector-copy source (ann 0 I64) (bytevector-length source))))
-    (def bytevector-append
+    (define-syntax bytevector-append
          (syntax-rules ()
            ((_ values ...) (bytevector-concatenate (list values ...)))))
     (def bytevector-concatenate

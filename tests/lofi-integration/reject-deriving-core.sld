@@ -3,5 +3,5 @@
 
 (data Flag ()
   (flag)
-  (deriving library-begin))
+  (deriving begin))
 42

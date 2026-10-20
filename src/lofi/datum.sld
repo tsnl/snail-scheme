@@ -292,7 +292,7 @@
 
     ;; ---- Proper list operations preserve elements and shared suffixes ----
 
-    (def datum-list
+    (define-syntax datum-list
          (syntax-rules ()
            ((_ values ...) (list->datum (list values ...)))))
     (def list->datum (-> (List Datum) Datum)

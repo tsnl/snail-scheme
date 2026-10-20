@@ -1,5 +1,5 @@
 (import
- (rename (lofi core) (library-begin declarations))
+ (rename (lofi core) (begin declarations))
  (only (lofi primitive) ref ref-get ref-set! i32-add))
 (let trace (ref 0))
 (declarations

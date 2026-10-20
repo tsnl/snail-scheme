@@ -1,4 +1,4 @@
 (import
  (lofi core))
-(def again (syntax-rules () ((_) (library-begin (again)))))
+(define-syntax again (syntax-rules () ((_) (begin (again)))))
 (again)
