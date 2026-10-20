@@ -32,15 +32,16 @@ time, artifact size and runtime performance can differ.
 
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
-The compact map uses application ID `siegework-colony-v13`, with world schema 13
-and client schema 8. The 64×64 map requires a fresh colony: old 128×128 cell
-identities cannot be reused. Previous browser records remain under their old
-identity; importing them into this version is rejected. Capacity upgrades,
+The compact map uses application ID `siegework-colony-v14`, with world schema 14
+and client schema 8. Sparser resource placement requires a fresh colony:
+earlier deposit identities and mined reserves cannot be reused. Previous browser
+records remain under their old identity; importing them into this version is
+rejected. Capacity upgrades,
 finite deposit reserves, captured flights and the three nests remain saved.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
 
-The decoder checks the World13 envelope before interpreting coordinates and
+The decoder checks the World14 envelope before interpreting coordinates and
 proves the shape, ownership and resource ledger of the decoded colony. It does
 not attempt to convert older geography or assume its financial history.
 
@@ -260,12 +261,14 @@ The 64×64 map places the hub within four cells of its center and three nests
 expedition lasts about ten minutes; there is no fixed victory deadline. Enemy
 approach directions help locate them and richer mining territory. Ordinary deposits
 become significantly denser near nests. Each front considers four inner sites
-4–6 cells away with a 75% acceptance chance and four outer sites 8–10 cells
-away with a 25% chance, then rejects blocked ground, existing mines and the
+4–6 cells away with a 37.5% acceptance chance and four outer sites 8–10 cells
+away with a 12.5% chance, then rejects blocked ground, existing mines and the
 ten-cell protected opening. Small sideways offsets slightly increase those
 distances. These are seeded candidate odds, not guarantees for
 each map or a probability of ore on every tile. At most 24 small deposits are
-added; each holds 600 ore. The three opening deposits keep their old quantities.
+added; each holds 600 ore. These odds halve the expected bonus sites compared
+with World13 while keeping the stronger density near nests. The three opening
+deposits and the 2,400-ore reserves revealed by defeated nests keep their quantities.
 Waves introduce progressively stronger ranks
 as floating Platonic solids and clusters, including a much larger boss. Their
 crystal shapes echo the ore deposits: following their approach leads toward

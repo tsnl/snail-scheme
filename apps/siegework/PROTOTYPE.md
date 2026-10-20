@@ -107,10 +107,10 @@ publication. A failed write preserves the previous state. Online checkpoint ETag
 version remote replacement separately and reject stale writes. External effects
 still need their own delivery contract.
 
-The colony uses world schema 13 and client schema 8 with variable-size derived snapshots.
+The colony uses world schema 14 and client schema 8 with variable-size derived snapshots.
 Its world envelope exposes a checked run marker before the generic binary payload.
-The application ID `siegework-colony-v13` starts a fresh save identity for the
-compact map and zero-cost extractor construction. Old browser records remain untouched under their
+The application ID `siegework-colony-v14` starts a fresh save identity for the
+sparser resource placement on the compact map. Old browser records remain untouched under their
 previous identity and old imports reject.
 Schema versions cover field meaning as well as shape. Reject incompatible schemas
 until a deliberate migration exists. Portable snapshots contain values, not GPU

@@ -54,7 +54,7 @@ export async function checkRanks(test,fresh) {
     assert.equal(maximum,1890);assert.equal(survivor.hp,7);assert.equal(survivor.maxHp,maximum);
     const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);await r.close();
   });
-  await test('World12 checkpoints cannot replace a compact World13 colony',async()=>{
+  await test('World12 checkpoints cannot replace a compact World14 colony',async()=>{
     const r=await fresh(),current=r.snapshot(1);
     for(const name of ['siegework-world12.json','siegework-world12-revision1.json']) {
       const fixture=JSON.parse(readFileSync(new URL('./fixtures/'+name,import.meta.url)));
