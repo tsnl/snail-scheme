@@ -1,5 +1,47 @@
 # Siegework validation
 
+## Bounded-stack full-map revelation
+
+Generation `ee103c35bc5e1c476e7b85a2` keeps World15/Client8 and the existing
+`siegework-colony-v15` storage identity. Its 657,690-byte simulation has SHA-256
+`0960d6e3f82b4e21a832d9c993b6840e5ddade3297f2a588b45b67a9b2381ecb`.
+Existing colonies remain compatible; there is no restart or migration.
+
+Resignation commits an outcome flag, then exposes more terrain to presentation.
+The previous terrain builder used one pending call per selected tile, followed
+by another recursive list append. A 256 KiB engine-stack configuration reproduces
+`Maximum call stack size exceeded` in that builder in both Node and Chromium.
+Normal-stack Chromium passed the same 80 camera cases, explaining why ordinary
+browser checks missed the sensitivity. The corrected builder walks backward and
+prepends onto the mineral tail, using bounded stack and one list pair per tile.
+Camera-window edges are multiples of eight and each sampling step divides eight;
+the traversal preserves the existing sample grid and row-major output order.
+
+Executed checks:
+
+- All 180 complete old/new presentation hashes match, including clipped and
+  empty windows, different aspect ratios, headings and sampling steps.
+- The new `tests/draw3d/reveal.mjs` regression fails immediately on the old game
+  and passes the corrected game with `node --stack-size=256`. It covers 144
+  camera views, retained frames, resignation, restored defeat, World15 reload,
+  empty/clipped windows and restart. The application CI runner includes it.
+- Another 256 constrained-stack views across 128 seeds pass. The separate water
+  traversal remains unchanged; the largest sampled water layer has 310 nodes.
+- An isolated Chromium run with the constrained stack reproduces a failure
+  after real Pause/Resign confirmation and a durable IndexedDB commit. Compatible
+  hot reload into the corrected module renders the results and revealed map
+  while preserving both owner snapshots, the entire save record and revision.
+  A real page reopen restores that same resigned colony and renders correctly.
+- All 299 application integration checks, all four Node renderer suites,
+  `make check` and all nine Pages checks pass. The game was freshly compiled;
+  unchanged auxiliary fixture binaries were reused from the preceding main
+  build. The CI application job independently rebuilds its complete fixture set.
+
+A focused simplify explanation and debate established that pure tile construction
+can run in reverse visitation order while retaining the final list order. No
+generic traversal framework, shared-library rewrite, save field or gameplay rule
+was introduced.
+
 ## Paid outposts, stable worker priorities and stronger 80×80 expeditions
 
 Generation `dc2525c85cf251ba4ca27afd` uses World15/Client8 and

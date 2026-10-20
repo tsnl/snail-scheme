@@ -298,12 +298,17 @@
             (reveal-batch batch (reveal-id world) (scalar (survey-x fresh)) (- 0.0 (scalar (survey-y fresh)))
                           (+ 1.0 (scalar (survey-radius fresh))) 0.0
                           (* 100 (max 0 (min 30 (- (world-tick world) (world-last-reveal-tick world))))) 3000))))
-    (define (terrain-nodes world window fresh x y)
-      (cond ((>= y (window-bottom window)) (empty-list))
-            ((>= x (window-right window)) (terrain-nodes world window fresh (window-left window) (+ y (window-step window))))
-            ((fog-layer? world x y fresh)
-             (cons (terrain-cell world x y (window-step window)) (terrain-nodes world window fresh (+ x (window-step window)) y)))
-            (else (terrain-nodes world window fresh (+ x (window-step window)) y))))
+    ;; Window edges are multiples of eight and its step divides eight. Walk
+    ;; backward and prepend onto the mineral tail to retain row-major order.
+    ;; Revealing the full window grows the list without growing the call stack.
+    (define (terrain-nodes world window fresh minerals)
+      (let ((last-x (- (window-right window) (window-step window))))
+        (let loop ((x last-x) (y (- (window-bottom window) (window-step window))) (nodes minerals))
+          (cond ((< y (window-top window)) nodes)
+                ((< x (window-left window)) (loop last-x (- y (window-step window)) nodes))
+                (else (loop (- x (window-step window)) y
+                            (if (fog-layer? world x y fresh)
+                                (cons (terrain-cell world x y (window-step window)) nodes) nodes)))))))
     (define (water-glints world window fresh x y)
       (cond ((>= y (window-bottom window)) (empty-list))
             ((>= x (window-right window)) (water-glints world window fresh (window-left window) (+ y (window-step window))))
@@ -965,16 +970,14 @@
                        (list
                         (retained-batch 0 0 (list (world-seed world)) (lambda () (append (world-base) (hub-nodes world))))
                         (unordered-batch (retained-batch 1 0 terrain
-                                                         (lambda () (append (terrain-nodes world window #f (window-left window) (window-top window))
-                                                                            (mineral-nodes world window #f #f)))))
+                                                         (lambda () (terrain-nodes world window #f (mineral-nodes world window #f #f)))))
                         (owner-motion-clock (motion-batch 3 1 (empty-list) 100 (lambda () (append (starter-nodes world) (entity-nodes world previous #f)))) 1)
                         (retained-batch 4 0 (coverage-dependencies window guns towers)
                                         (lambda () (coverage-nodes guns towers guns (empty-list) window brass -0.03)))
                         (retained-batch 14 0 (coverage-dependencies window guns towers)
                                         (lambda () (coverage-nodes towers guns towers (empty-list) window cyan 0.03)))
                         (revealed-batch world (unordered-batch (retained-batch 9 0 terrain
-                                                                               (lambda () (append (terrain-nodes world window #t (window-left window) (window-top window))
-                                                                                                  (mineral-nodes world window #f #t))))))
+                                                                               (lambda () (terrain-nodes world window #t (mineral-nodes world window #f #t))))))
                         (revealed-batch world (owner-motion-clock (motion-batch 10 1 (empty-list) 100 (lambda () (entity-nodes world previous #t))) 1))
                         (unit-bar-batch 30 world previous camera #f)
                         (revealed-batch world (unit-bar-batch 31 world previous camera #t))

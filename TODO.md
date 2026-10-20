@@ -60,6 +60,9 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
+- [x] Prevent full-map revelation after resignation or defeat from exhausting
+      the browser call stack; preserve saved World15 colonies during recovery.
+
 - [x] Dock contextual construction actions below Q/E without covering the selected
       tile; label Escape clearly and retain explicit order cancellation.
 - [x] Restore 25-ore extractor construction and make mines transport outposts,
