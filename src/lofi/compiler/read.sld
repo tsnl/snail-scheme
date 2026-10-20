@@ -210,13 +210,21 @@
       (let* ((end (token-end source start)) (text (source-text source start end)))
         (values (token-syntax text loc) end)))
 
+    ;; Only a token that starts like a number is parsed as one; the host's
+    ;; number parser is slow, and most tokens are identifiers.
     (define (token-syntax text loc)
       (cond ((member text '("#t" "#true")) (Atom #t loc))
             ((member text '("#f" "#false")) (Atom #f loc))
-            ((string->number text) => (lambda (number) (Atom number loc)))
+            ((and (numeric-start? text) (string->number text)) => (lambda (number) (Atom number loc)))
             ((char=? (string-ref text 0) #\#) (compile-error loc "unsupported syntax" text))
             ((string=? text ".") (compile-error loc "dotted lists are not part of Lofi"))
             (else (Ident (string->symbol text) #f loc))))
+
+    (define (numeric-start? text)
+      (let ((first (string-ref text 0)))
+        (or (char-numeric? first)
+            (and (memv first '(#\+ #\- #\.)) (> (string-length text) 1)
+                 (or (char-numeric? (string-ref text 1)) (char=? (string-ref text 1) #\.) (memv (string-ref text 1) '(#\i #\n)))))))
 
     ;; ---- Files ----
 
