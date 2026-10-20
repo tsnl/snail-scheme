@@ -60,20 +60,15 @@ export async function checkFocus(test, fresh, call) {
     await until(r, w => w.buildings.at(-1).stage === 2, 30);
     assert.equal(state(r).ore, 0); assert.equal(state(r).localSpent, 50); await r.close();
   });
-  await test('ordinary mining retains one useful construction cache and releases it when hub ore is low', async () => {
-    const r=await fresh(); await build(r,'extract',12,20);
-    await until(r,w=>w.delivered>=16 && w.buildings[0].stock>=50,500);
-    const before=state(r); assert.ok(before.delivered>=16); assert.equal(before.localSpent,0);
-    await call(r,'fortify',[13,20]); assert.equal(state(r).buildings.at(-1).source,before.buildings[0].id);
-    assert.equal(state(r).ore,before.ore); assert.equal(state(r).localSpent,50);
-    await until(r,w=>w.buildings.at(-1).stage===2);
-    await until(r,w=>w.buildings[0].stock>=50,500);
-    const low=state(r); low.spent+=low.ore-39; low.ore=39;
-    setWorker(low,0,{x:12,y:20,job:8,target:low.buildings[0].id});
-    setWorker(low,1,{x:12,y:20}); low.bots.length=2;
-    await restoreColony(r,low); await advance(r,2);
-    assert.ok(state(r).bots.some(b=>b.job===2&&b.cargo===16));
-    assert.ok(state(r).buildings[0].stock<50); balanced(r); await r.close();
+  await test('connected mining ships stock instead of holding an implicit construction cache', async () => {
+    const r=await fresh();await build(r,'extract',12,20);
+    const start=state(r).delivered;let freight=false;
+    for(let tick=0;tick<160;tick++){
+      await advance(r);const w=state(r);freight ||= w.rails.some(link=>link.cargo>0);
+      assert.ok(w.buildings[0].stock<50);balanced(r);
+    }
+    assert.ok(freight);assert.ok(state(r).delivered>start);
+    assert.equal(state(r).localSpent,0);await r.close();
   });
   await test('uncollected local kits count against mine capacity and cancel back to the same source', async () => {
     const r = await fresh(); await mineStock(r,120,0); await call(r,'fortify',[13,20]);
@@ -82,11 +77,12 @@ export async function checkFocus(test, fresh, call) {
     setWorker(world,1,{x:12,y:20,job:8,target:world.buildings[0].id});
     setWorker(world,2,{job:1,target:world.buildings[0].id,path:[1065,1066,1067,1068,1020,972]});
     world.tick = 9; world.lastRevealTick=-100; await restoreColony(r,world);
-    await advance(r); assert.equal(state(r).buildings[0].stock,70);
+    await advance(r); assert.equal(state(r).buildings[0].stock,38);
+    assert.equal(state(r).rails.find(link=>link.source===world.buildings[0].id).cargo,32);
     await call(r,'cancel-building',[13,20]); balanced(r);
-    assert.equal(state(r).buildings[0].stock,120); assert.equal(state(r).localSpent,0);
+    assert.equal(state(r).buildings[0].stock,88); assert.equal(state(r).localSpent,0);
     assert.equal(state(r).ore,0); await call(r,'cancel-building',[13,20]);
-    assert.equal(state(r).buildings[0].stock,120); await r.close();
+    assert.equal(state(r).buildings[0].stock,88); await r.close();
   });
   await test('carried local cancellation persists and refunds only after physical hub arrival', async () => {
     const r = await fresh(); await mineStock(r); await call(r,'fortify',[13,20]); await advance(r);
@@ -97,12 +93,13 @@ export async function checkFocus(test, fresh, call) {
     assert.ok(state(r).delivered >= 25); assert.ok(state(r).ore >= 25);
     const returned = state(r); assert.equal(returned.spent,160); await r.close();
   });
-  await test('hub supply chooses total completion time, then retries waiting orders', async () => {
+  await test('hub supply chooses total completion time and other idle workers accept the next order', async () => {
     const r = await fresh(), world = state(r);
     setWorker(world,0,{x:13,y:20}); setWorker(world,1); setWorker(world,2,{x:14,y:20});
     await restoreColony(r,world); await call(r,'observe',[13,21]);
     assert.equal(state(r).bots.find(b=>b.order>0).id,2,'worker at hub beats worker by the site');
-    await call(r,'fortify',[14,21]); assert.equal(state(r).buildings.at(-1).stage,0);
+    await call(r,'fortify',[14,21]); assert.equal(state(r).buildings.at(-1).stage,3);
+    assert.equal(new Set(state(r).bots.filter(bot=>bot.order>0).map(bot=>bot.order)).size,2);
     await until(r,w=>w.buildings.every(b=>b.stage===2)); balanced(r); await r.close();
   });
   await test('visible enemies behind rock receive no direct artillery fire', async () => {
@@ -246,7 +243,7 @@ export async function checkFocus(test, fresh, call) {
     }
   });
   await test('recurring nest attacks select one schedule and strengthen later heavy beasts', async () => {
-    for(const [tick,count,kind,hp] of [[449,0,0],[450,6,0],[750,6,0],[1350,7,1],[1650,6,0],[1950,6,0],[2250,8,1],[3150,9,1],[3450,7,0],[5400,9,2,1800],[7650,14,1],[10800,10,2,1890]]) {
+    for(const [tick,count,kind,hp] of [[449,0,0],[450,8,0],[750,8,0],[1050,11,1],[1350,8,0],[1650,12,1],[1950,8,0],[2250,13,1],[3150,9,0],[3450,15,1],[5400,12,2,1800],[7650,22,1],[10800,13,2,1890]]) {
       const r=await fresh(), world=state(r); world.started=true; world.tick=tick-1; await restoreColony(r,world);
       await advance(r); const enemies=state(r).enemies; assert.equal(enemies.length,count);
       if(kind===2){assert.equal(enemies.filter(e=>e.kind===2).length,1);assert.equal(enemies[0].hp,hp);}

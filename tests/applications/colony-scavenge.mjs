@@ -19,14 +19,14 @@ export async function checkScavenge(test,fresh) {
     for(let tick=0;tick<200&&!predicate(state(r));tick++)await step(r);
     assert.ok(predicate(state(r)),'worker transition completed');
   }
-  const investment=(kind,level)=>(kind===1?0:kind===2?50:25)+(kind===1?[0,40,200][level-1]:25*(level-1));
+  const investment=(kind,level)=>(kind===2?50:25)+(kind===1?[0,40,200][level-1]:25*(level-1));
   function building(world,kind=3,level=1,x=12,y=22,local=0) {
     const cost=investment(kind,level),point=pixelAt(world,x,y),cell=at(world,x,y);
     const value={id:world.nextId++,kind,...cell,level,hp:kind===1?140:kind===2?100:90,stock:0,stage:2,cooldown:0,
       aimX:point.x,aimY:point.y,armed:0,source:0,moveX:-1,moveY:-1};
     world.started=true;world.buildings.push(value);world.spent+=cost;world.ore-=cost;
     if(local){withdrawReserves(world,local);world.localSpent+=local;world.ore+=local;}
-    world.surveys.push({...cell,radius:kind===3?(level===1?7:10):4});return value;
+    world.surveys.push({...cell,radius:kind===2?6:(level===1?7:10)});return value;
   }
   await test('every completed building quotes and refunds one fifth of its construction and all upgrades after worker demolition',async()=>{
     for(const kind of [1,2,3])for(const level of [1,2,3]) {

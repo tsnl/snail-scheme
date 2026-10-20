@@ -1,6 +1,6 @@
 # Siegework prototype contract
 
-Build a fast colony expedition targeting about ten minutes on a seeded 64×64 map. Keep the
+Build a fast colony expedition targeting about ten minutes on a seeded 80×80 map. Keep the
 art simple so discovery, logistics and defensive choices can be playtested.
 The [player guide](README.md) describes the implemented controls and costs.
 
@@ -9,13 +9,13 @@ The [player guide](README.md) describes the implemented controls and costs.
 - A hub, three pooled workers, one visible starter deposit and two hidden expansion
   choices. The starter holds 600 ore; north offers 900 and east offers 1,800 beyond a
   ridge crossing. Routes follow traversable surveyed ground.
-- The first construction order must be a free extractor. Until it is accepted, time
+- The first construction order must be a 25-ore extractor. Until it is accepted, time
   stays stopped and all other ore purchases are rejected. Selecting a deposit
   does not start the run; cancellation after acceptance does not stop it again.
 - Completed observation towers extend active sight. Remembered geography survives
   lost coverage; current enemies require active sight. Placement requires visible,
-  reachable ground. A worker assembles every site; paid structures need delivered
-  materials, while free extractors need no kit.
+  reachable ground. A worker assembles every site; all structures need delivered
+  materials. Extractors and towers need one 25-ore kit; artillery needs two.
   Towers also accept worker deliveries and send freight upstream through automatic
   rail links determined by placement. Arming a tower retains its observation and
   depot roles; rail cargo becomes spendable only on arrival at the hub.
@@ -25,8 +25,9 @@ The [player guide](README.md) describes the implemented controls and costs.
   Workers mine, collect ore, deliver it to a connected depot or
   the hub, build projects from hub or local reserved kits. No individual
   orders are needed. Additional workers, extraction upgrades and observation
-  upgrades compete with artillery for delivered ore. One extractor can retain
-  a loose construction cache when hub income and workforce allow it. Kills award no resources.
+  upgrades compete with artillery for delivered ore. Idle drones can take construction orders; the last useful economic
+  assignment is protected when another worker is available. No implicit ore cache
+  is withheld from the bank. Kills award no resources.
 - Single-rotor drones choose nearby reachable tasks and carry ore or kits.
   New orders reserve the lowest estimated complete worker/source trip, preempting mining or hauling
   while retaining any carried supplies. Uncollected kits return to their source;
@@ -37,7 +38,7 @@ The [player guide](README.md) describes the implemented controls and costs.
   and hauling; a surviving hub can assemble one emergency replacement.
   Three 900-health nests emit fixed shares of one wave budget. Clearing a nest
   removes its share; raids target exposed operations nearer their own source
-  than the hub. The first six-enemy wave spawns at 0:45, ordinary waves are thirty
+  than the hub. The first eight-enemy wave spawns at 0:45, ordinary waves are thirty
   seconds apart, ranks increase every ninety seconds, and the first boss spawns
   at 9:00. Lose the hub or destroy all three nests; time grants no victory.
 - Placement remains manual. Completed towers/guns can queue a two-cell,
@@ -107,9 +108,9 @@ publication. A failed write preserves the previous state. Online checkpoint ETag
 version remote replacement separately and reject stale writes. External effects
 still need their own delivery contract.
 
-The colony uses world schema 14 and client schema 8 with variable-size derived snapshots.
+The colony uses world schema 15 and client schema 8 with variable-size derived snapshots.
 Its world envelope exposes a checked run marker before the generic binary payload.
-The application ID `siegework-colony-v14` starts a fresh save identity for the
+The application ID `siegework-colony-v15` starts a fresh save identity for the
 sparser resource placement on the compact map. Old browser records remain untouched under their
 previous identity and old imports reject.
 Schema versions cover field meaning as well as shape. Reject incompatible schemas

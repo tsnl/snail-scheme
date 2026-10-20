@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 const contract={version:1,applications:[
-  {owner:'match',schema:14,handlers:[{binding:'settle',id:'settle',slot:0,payload:['I32']}]},
+  {owner:'match',schema:15,handlers:[{binding:'settle',id:'settle',slot:0,payload:['I32']}]},
   {owner:'client',schema:1,handlers:[{binding:'noop',id:'noop',slot:0,payload:[]}]}]};
 let bytes;
 export function configureCasualties(value){bytes=value;}

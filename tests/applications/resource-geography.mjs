@@ -11,6 +11,7 @@ const bytes=readFileSync(join(directory,manifest.module)),probe=instantiate(load
 const seeds=[1,2,3,7,42,91,255,1024,8191,32767,65535,...Array.from({length:21},(_,i)=>1+((i+1)*1879)%65535)];
 const totals=Array(6).fill(0),samples=[];
 const query=(seed,operation)=>invokeEntry(probe,[seed,operation]);
+const width=query(1,8),height=query(1,9),regions=Math.ceil(width/32)*Math.ceil(height/32);
 const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);
 try{
   for(const seed of seeds){
@@ -20,27 +21,33 @@ try{
     await r.dispatch(1,r.command('match','new-run-seed',[seed]));const world=colony(r.snapshot(1));
     assert.deepEqual(world.deposits.slice(0,3).map(d=>d.remaining),[600,900,1800]);
     assert.equal(new Set(world.deposits.map(d=>d.cell)).size,world.deposits.length);
-    assert.ok(world.deposits.length<=34);assert.ok(world.deposits.every(d=>d.cell>=0&&d.cell<4096));
+    // The eastern opening mine lies outside the protected radius; the other
+    // two opening mines and all three locked rewards are outside these counts.
+    assert.equal(world.deposits.length,counts[1]+counts[3]+counts[5]+5,
+      'saved enumeration includes every realized deposit, including partial edge regions');
+    assert.ok(world.deposits.length<=30+regions);assert.ok(world.deposits.every(d=>d.cell>=0&&d.cell<width*height));
     const reserves=world.deposits.slice(-3);
-    assert.deepEqual(reserves,world.nests.map(n=>({cell:n.x+n.y*64,remaining:2400})));
+    assert.deepEqual(reserves,world.nests.map(n=>({cell:n.x+n.y*width,remaining:2400})));
     const frontier=world.deposits.slice(-3-bonus,-3),hub=world.surveys[0];
     for(const d of frontier){
-      const x=d.cell%64,y=Math.floor(d.cell/64),distance=Math.min(...world.nests.map(n=>(x-n.x)**2+(y-n.y)**2));
+      const x=d.cell%width,y=Math.floor(d.cell/width),distance=Math.min(...world.nests.map(n=>(x-n.x)**2+(y-n.y)**2));
       assert.equal(d.remaining,600);assert.ok(distance>=16&&distance<=104);
       assert.ok((x-hub.x)**2+(y-hub.y)**2>100);
     }
     await r.dispatch(1,r.command('match','new-run-seed',[seed]));assert.deepEqual(colony(r.snapshot(1)).deposits,world.deposits);
-    samples.push({seed,fingerprint,counts,bonus});
+    samples.push({seed,fingerprint,counts,bonus,optional:world.deposits.length-6});
   }
-  // The same 32 seeds produced 352 bonus sites in the compiled World13 package.
-  // Bound the realized reduction as well as the relative near-nest gradient.
-  const bonusTotal=samples.reduce((sum,sample)=>sum+sample.bonus,0),previousBonusTotal=352;
-  assert.ok(bonusTotal>=previousBonusTotal*.4&&bonusTotal<=previousBonusTotal*.6,'bonus sites should be roughly halved');
+  // The same 32 seeds in World14 had 190 bonus and 286 optional ordinary
+  // sites. Count actual sites, so added map area cannot hide an increase.
+  const bonusTotal=samples.reduce((sum,sample)=>sum+sample.bonus,0),previousBonusTotal=190;
+  const optionalTotal=samples.reduce((sum,sample)=>sum+sample.optional,0),previousOptionalTotal=286;
+  assert.ok(bonusTotal>=previousBonusTotal*.35&&bonusTotal<=previousBonusTotal*.65,'bonus sites should be roughly halved');
+  assert.ok(optionalTotal<previousOptionalTotal*.65,'larger maps must contain substantially fewer actual optional deposits');
   const density=[0,2,4].map(i=>totals[i+1]/totals[i]);
   assert.ok(density[0]>density[1]*3,'inner nest ground must be substantially denser than the approach ring');
   assert.ok(density[1]>density[2]*1.25,'approach ring must be denser than distant ground');
   assert.ok(density[0]>density[2]*5,'nest surroundings must guide exploration strongly');
-  const report={seeds:seeds.length,bonusTotal,previousBonusTotal,totals,density,samples};
+  const report={seeds:seeds.length,bonusTotal,previousBonusTotal,optionalTotal,previousOptionalTotal,totals,density,samples};
   if(process.argv[4])writeFileSync(process.argv[4],JSON.stringify(report,null,2)+'\n');
-  console.log(`${seeds.length} deterministic maps checked; ${bonusTotal} bonus sites (World13: ${previousBonusTotal}); realized deposits per 1,000 ground cells: ${density.map(d=>(d*1000).toFixed(2)).join(' / ')} (inner / approach / distant)`);
+  console.log(`${seeds.length} deterministic maps checked; ${bonusTotal} bonus sites (World14: ${previousBonusTotal}); ${optionalTotal} optional sites (World14: ${previousOptionalTotal}); realized deposits per 1,000 ground cells: ${density.map(d=>(d*1000).toFixed(2)).join(' / ')} (inner / approach / distant)`);
 }finally{await r.close();closeInstance(probe);}

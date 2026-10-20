@@ -84,10 +84,10 @@ function noOreLabels(node) {
       if(level===2){await fixtureCall(r,'upgrade',[12,20]);for(let step=0;step<600&&siteAt(world(r),12,20).level!==2;step++)await fixtureCall(r,'advance');}
       assert.equal(siteAt(world(r),12,20).level,level);
       const saved=r.snapshot(1),value=world(r),site=siteAt(value,12,20),cell=value.deposits[0].cell;site.hp=70;
-      await restoreColony(r,removeOre(value,cell,60));const anchor=[site.x,-site.y,.816+.42];
+      await restoreColony(r,removeOre(value,cell,60));const anchor=[site.x,-site.y,.96+.42];
       const health=fraction(r,anchor,'health');assert.ok(close(health.value,.5));
       const reserve=point(health.frame.matrix,[0,-.22,0]);assert.ok(close(fraction(r,reserve,'reserve').value,.1));
-      assert.ok(reserve[2]>.816,'both bars clear the actual extractor roof');await r.restore(1,saved);
+      assert.ok(reserve[2]>.96,'both bars clear the extractor cable junction');await r.restore(1,saved);
     }
     console.log('ok - worker-built level-one/two extractors pair green health above purple original-reserve fractions without changing the reserve');
   } finally {await r.close();}

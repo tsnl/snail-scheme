@@ -67,7 +67,7 @@ function controlsFit(width,height) {
     x+=value.rect[0];y+=value.rect[1];
     if((value.kind===2&&value.key!=='dialog-backdrop'&&!value.key.startsWith('attack-inspect-'))||value.kind===6) {
       const menu=['resume','dismiss-restart','accept-restart','dismiss-resign','accept-resign'].includes(value.key);
-      assert.deepEqual(value.rect.slice(2),menu?[208,48]:['right-handed','left-handed','restart-menu','resign-menu'].includes(value.key)?[100,48]:[56,56],value.key);
+      assert.deepEqual(value.rect.slice(2),['inspect-map','restart'].includes(value.key)?[118,48]:value.key==='show-results'?[116,48]:menu?[208,48]:['right-handed','left-handed','restart-menu','resign-menu'].includes(value.key)?[100,48]:[56,56],value.key);
       assert.ok(x>=0&&y>=0&&x+value.rect[2]<=width-24&&y+value.rect[3]<=height-32,`${value.key} fits ${width}×${height}: ${x},${y}`);
     }
     const padding=value.kind===5?value.properties[6]:0;
@@ -76,7 +76,7 @@ function controlsFit(width,height) {
   walk(runtime.view().ui);
   const objective=placed('nest-objective'),rail=placed('rail');
   assert.ok(objective.left>=0&&objective.top>=0&&objective.right<=width-24&&objective.bottom<=height-32,'nest objective fits the viewport');
-  assert.ok(objective.right<=rail.left||objective.left>=rail.right,'nest objective leaves controls clear');
+  if(height>=560)assert.ok(objective.right<=rail.left||objective.left>=rail.right,'visible nest objective leaves controls clear');
 }
 try {
   const fresh=runtime.snapshot(1),frame=runtime.view();
@@ -123,7 +123,7 @@ try {
   }
   await command('resume');assert.deepEqual(runtime.snapshot(2),unpaid);assert.deepEqual(runtime.snapshot(1),fresh);
   await point(12,20);await command('confirm');await command('choose',[1]);
-  assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,160);assert.equal(local().chooser,false);assert.equal(local().buildKind,0);
+  assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,135);assert.equal(local().chooser,false);assert.equal(local().buildKind,0);
   await advance(140);assert.equal(siteAt(world(),12,20).stage,2);await point(12,20,.7);await command('confirm');
   assert.ok(node('upgrade'));await command('improve');assert.equal(siteAt(world(),12,20).level,2);
   console.log('ok - selecting a deposit or empty site is free; choices and costs are contextual; existing buildings upgrade explicitly');

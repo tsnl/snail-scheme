@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,restoreColony,fixtureCall,routeCell,at} from './colony-state.mjs';
+import {MAP_WIDTH,MAP_HEIGHT,establishColony,colony,restoreColony,fixtureCall,routeCell,at} from './colony-state.mjs';
 
 export async function checkConstructionOrders(test,fresh) {
   const state=r=>colony(r.snapshot(1));
@@ -24,7 +24,7 @@ export async function checkConstructionOrders(test,fresh) {
     for(const kind of [-2147483648,-1,0,5,2147483647]) {
       await place(r,kind,cell,0);assert.deepEqual(state(r),base);
     }
-    for(const invalid of [-2147483648,-1,64*64,2147483647]) {
+    for(const invalid of [-2147483648,-1,MAP_WIDTH*MAP_HEIGHT,2147483647]) {
       await restoreColony(r,base);await place(r,3,invalid,0);
       assert.deepEqual(state(r),{...base,notice:15});
     }

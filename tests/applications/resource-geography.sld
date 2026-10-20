@@ -1,5 +1,5 @@
 ;; Scalar probes execute the real seeded geography. Counts exclude the opening
-;; rectangle and sealed nest cells; they compare ordinary mine opportunities.
+;; radius and sealed nest cells; they compare ordinary mine opportunities.
 (define-library (tests resource-geography)
   (export answer)
   (import
@@ -40,5 +40,8 @@
       (ann (lambda (seed query)
              (cond ((= query 0) (fingerprint seed))
                    ((<= query 6) (count-cells seed (quotient (- query 1) 2) (= (remainder query 2) 0)))
-                   (else (bonus-count seed))))
+                   ((= query 7) (bonus-count seed))
+                   ((= query 8) map-width)
+                   ((= query 9) map-height)
+                   (else 0)))
            (-> I32 I32 I32)))))

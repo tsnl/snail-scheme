@@ -147,7 +147,7 @@ body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto
 @keyframes upgrade-wait-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { [data-ui-key^="upgrade-wait-"] { animation: none; border-style: dotted; } }
 
-[data-ui-key="worker-capacity"] { text-align: center; font-size: 11px; line-height: 16px; font-variant-numeric: tabular-nums; color: #2d5878; }
+[data-ui-key="worker-capacity"] { border-radius: 8px; background: #fff7e5e8; text-align: center; font-size: 11px; line-height: 16px; font-variant-numeric: tabular-nums; color: #2d5878; }
 
 :is([data-ui-key="right-handed"], [data-ui-key="left-handed"]) .snail-ui-button-label { font-size: 12px; }
 [data-ui-key="controls-title"] { text-align: center; font-size: 11px; line-height: 12px; }
@@ -159,4 +159,21 @@ body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto
 /* Short landscape menus leave one readable, horizontally scrollable error line. */
 @media (max-height: 400px) {
   body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: 16px; max-height: 16px; padding: 0 8px; white-space: nowrap; inset: auto 12px 0; overflow: auto; }
+}
+
+/* Context actions stay in the mirrored dock; none of these panels scroll. */
+:is([data-ui-key="context"], [data-ui-key="onboarding"], [data-ui-key="result"]) { border-radius: 16px; }
+[data-ui-key="elapsed-time"] { border-radius: 8px; background: #fff7e5e8; text-align: center; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+[data-ui-key="result-title"] { font-size: 18px; font-weight: 800; text-align: center; }
+[data-ui-key="result-statistics"] { white-space: pre-line; font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
+:is([data-ui-key="result-actions"], [data-ui-key="show-results"]) .snail-ui-button-label { font-size: 13px; }
+[data-ui-key="result-actions"] .snail-ui-button { padding: 8px; border-radius: 10px; }
+[data-ui-key="result-actions"] .snail-ui-button::before, [data-ui-key="show-results"]::before { display: none; }
+[data-ui-key="close-context"] { padding-inline: 3px; }
+[data-ui-key="close-context"] .snail-ui-button-label { font-size: 9px; }
+[data-ui-key="close-context"] .snail-ui-button-label::after { content: " Close"; }
+[data-ui-key="cancel-build-caption"] { font-size: 9px; line-height: 10px; }
+@media (max-height: 559px) {
+  [data-ui-key="run-progress"] { display: none; }
+  [data-ui-key="context-description"] { font-size: 11px; line-height: 12px; }
 }

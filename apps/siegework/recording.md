@@ -9,7 +9,7 @@ The reusable recording libraries and manual developer tests remain available.
 The rest of this document describes that retained developer format, not a
 currently available player feature. Inspection metadata stays in the manifest
 for headless diagnostics and existing analysis tools. The compact-map revision
-uses `siegework-colony-v14`, World14/Client8 and inspection projection 3.
+uses `siegework-colony-v15`, World15/Client8 and inspection projection 3.
 World12 recordings belong to earlier packages and cannot be loaded into the
 smaller map. Historical measurements below retain their original version labels.
 

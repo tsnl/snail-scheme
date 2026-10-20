@@ -32,8 +32,8 @@ time, artifact size and runtime performance can differ.
 
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
-The compact map uses application ID `siegework-colony-v14`, with world schema 14
-and client schema 8. Sparser resource placement requires a fresh colony:
+The expanded map uses application ID `siegework-colony-v15`, with world schema 15
+and client schema 8. The larger map and paid extractor economy require a fresh colony:
 earlier deposit identities and mined reserves cannot be reused. Previous browser
 records remain under their old identity; importing them into this version is
 rejected. Capacity upgrades,
@@ -41,7 +41,7 @@ finite deposit reserves, captured flights and the three nests remain saved.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
 
-The decoder checks the World14 envelope before interpreting coordinates and
+The decoder checks the World15 envelope before interpreting coordinates and
 proves the shape, ownership and resource ledger of the decoded colony. It does
 not attempt to convert older geography or assume its financial history.
 
@@ -87,9 +87,9 @@ import/export controls. Headless current-state inspection remains available.
 - Tap a resource deposit to open its **Extractor** action (`1`). Extractors
   are not part of the ordinary construction choices. Persistent first-extractor
   guidance points toward the glowing deposit. The first accepted extractor order
-  is free and starts the clock. A drone must still travel to assemble it. Every
+  costs 25 ore and starts the clock. A drone must still travel to assemble it. Every
   other purchase stays locked until then. Selection alone never starts the run.
-- Tap an empty tile to open its construction popup: **Tower** (`1`),
+- Tap an empty tile to open actions below the Q/E buttons: **Tower** (`1`),
   or **Artillery** (`2`), with ore costs shown before ordering.
   A neutral construction marker identifies the site; hovering an action shows
   its hologram. Choose the action explicitly. Repeated taps and double-clicks
@@ -188,15 +188,23 @@ card and selects that cell without placing an order.
 
 ## Supply lines and threats
 
-Workers choose reachable jobs using travel and completion costs. They can take
+Workers keep their active jobs. Idle drones can take paid construction orders,
+ranked by complete travel cost including collecting the materials. The last useful
+mining, collection or delivery assignment stays protected while other workers
+can build; a lone worker works sequentially. A connected mine fills every mining
+slot and ships stock directly, without reserving an idle manual hauler or hiding
+50 ore as a construction cache. They can take
 construction supplies from nearby extractor or tower stock, preempt suitable
 jobs for construction, and keep working near enemies. Enemies attack the hub
 and buildings, never workers. Single-rotor drones, carried gems, construction crates,
 destination markers and carts make their activity visible.
 
-A mine has one worker slot per level; upgrades increase slots and output together.
+An extractor costs 25 ore and is also a transport outpost: it provides sight,
+accepts deliveries and connects directly to the hub network. No adjacent tower
+is needed. A mine has one worker slot per level; upgrades increase slots and output together.
 Its three levels provide an expensive fallback when further deposits are hard to
-reach. Artillery and observation/logistics towers have separate upgrade trees:
+reach. Mine upgrades cost 40 then 160 ore, complete immediately, and also
+improve its observation/transport grade. Artillery and observation/logistics towers have separate upgrade trees:
 
 | Level | Observation/logistics tower | Artillery |
 | --- | --- | --- |
@@ -204,22 +212,22 @@ reach. Artillery and observation/logistics towers have separate upgrade trees:
 | 2 | Greater sight and twice the cart speed. | Two stacked gun assemblies; 1.5× damage. |
 | 3 | Twice the cart speed again; retains sight and depot. | Three stacked gun assemblies; 2× damage. |
 
-Each upgrade needs another delivered 25-ore kit and keeps the current level
+Each tower or artillery upgrade needs another delivered 25-ore kit and keeps the current level
 working until delivery completes. Artillery starts with two kits; a tower starts
-with one. Existing tower-mounted guns remain functional when their towers are
-upgraded. Every completed tower provides carts. Links run at the slower tower's
+with one, as does an extractor. Existing tower-mounted guns remain functional when their towers are
+upgraded. Every completed tower and extractor provides carts. Links run at the slower tower's
 level; the hub supports level three. Workers cruise at 2, 4 or 8 cells per tick
 (10×, 20× or 40× walking speed); freight moves 32, 64 or 128 world units per
 tick and carries up to 32 ore. These are movement speeds, not extra deliveries
 or production within one tick.
 
 The transport network is a deterministic minimum spanning tree rebuilt each
-simulation tick over the hub and completed towers. Its edge cost is squared
+simulation tick over the hub, completed towers and extractors. Its edge cost is squared
 straight-line cell distance. A link needs clear cable sight and must fit inside
 the larger actual reveal radius of its endpoints; the hub radius is nine cells.
 Remembered explored terrain does not extend this reach. Unconnected depots keep
 their stock. Current mountains are lower than the cable plane, so they do not
-block links. Cyan boundary lines show the combined hub and tower reveal range.
+block links. Cyan boundary lines show the combined hub and outpost reveal range.
 
 A straight aerial cable uses one solid, constant-color mesh. Cyan identifies
 available worker service and warm yellow marks ordinary freight links. Workers
@@ -254,29 +262,28 @@ text, never turn red and never pulse. Selecting a deposit or extractor still
 shows what remains underground. Extraction
 upgrades add mining slots without replenishing the reserve. Exhausted sites stop
 pulsing; workers haul the last stock and find other work. Rebuilding an extractor
-preserves its reserve. New extractors cost no ore; protect their supply routes.
+preserves its reserve. New extractors cost 25 ore; protect their supply routes.
 
-The 64×64 map places the hub within four cells of its center and three nests
-16–21 cells away on separated bearings. Its area is one quarter of the previous map. The intended ordinary
-expedition lasts about ten minutes; there is no fixed victory deadline. Enemy
-approach directions help locate them and richer mining territory. Ordinary deposits
-become significantly denser near nests. Each front considers four inner sites
-4–6 cells away with a 37.5% acceptance chance and four outer sites 8–10 cells
-away with a 12.5% chance, then rejects blocked ground, existing mines and the
-ten-cell protected opening. Small sideways offsets slightly increase those
-distances. These are seeded candidate odds, not guarantees for
-each map or a probability of ore on every tile. At most 24 small deposits are
-added; each holds 600 ore. These odds halve the expected bonus sites compared
-with World13 while keeping the stronger density near nests. The three opening
-deposits and the 2,400-ore reserves revealed by defeated nests keep their quantities.
+The 80×80 map places the hub within four cells of its center and three nests
+20–26 cells away on separated bearings. Its area is 56% larger than the 64×64
+map, while optional sites are scarcer. The intended expedition remains about
+ten to fifteen minutes; this is a playtest target, not a fixed victory deadline.
+Enemy approach directions help locate nests and richer mining territory.
+Each front considers four inner sites 4–6 cells away with an 18.75% acceptance
+chance and four outer sites 8–10 cells away with a 6.25% chance, then rejects
+blocked ground, existing mines and the protected opening. Regional candidates
+have a 25% eligibility chance. These are seeded candidate odds, not guarantees
+for each map. Opening capacities and the 2,400-ore nest rewards remain unchanged.
+Across 32 regression seeds, optional sites fell from 286 to 154 despite the
+larger map, preserving a strong near-nest resource gradient.
 Waves introduce progressively stronger ranks
 as floating Platonic solids and clusters, including a much larger boss. Their
 crystal shapes echo the ore deposits: following their approach leads toward
 richer mining territory. Opening guidance and the pause menu explain this clue.
 The opening lasts 45 seconds before the first spawn. Ordinary waves are thirty
 seconds apart, strength steps are ninety seconds apart, and the first boss spawns
-at nine minutes. Raids replace an ordinary wave every ninety seconds starting at
-2:15. The opening wave has six enemies total, shared among the three fronts.
+at nine minutes. Raids replace an ordinary wave every sixty seconds starting at
+1:45. The opening wave has eight enemies total, shared among the three fronts.
 Each nest has 900 health. Destroying one removes its share of future waves,
 reveals a mineable 2,400-ore reserve with base yield 8, and lowers difficulty by
 two levels, down to level one. There is no immediate ore payout. Its remaining
@@ -304,6 +311,13 @@ Attacks produce smoke and compact red notifications. Select a notification
 to move to that attack. Newly surveyed ground unveils with a sharp, expanding
 fragment-level contour rather than a tile-aligned edge. The simulation and durable saves run at 10Hz; moving units
 and freight interpolate at display frame rate.
+
+Elapsed active time appears beside the HUD. It remains zero before the first
+accepted extractor and freezes while paused or after the run ends. Victory,
+defeat and resignation show a summary of time, kills, ore production and net
+spending, surviving buildings/drones and losses, cleared nests, remaining bank
+and seed. Choose **Map · Esc** to inspect, then **Results** to reopen the summary.
+No replay recording is needed for these totals.
 
 ## Read and verify
 

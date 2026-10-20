@@ -2,7 +2,7 @@
 ;; animation nor the GPU interpolation clock advances these game rules.
 (define-library (siegework presentation)
   (export DifficultyReadout project-difficulty difficulty-number difficulty-elapsed
-          difficulty-span difficulty-summary difficulty-help)
+          difficulty-span difficulty-summary difficulty-help elapsed-time-text result-statistics)
   (import
    (scheme base)
    (browser application)
@@ -10,6 +10,21 @@
    (only (lofi core) datatype I32)
    (only (lofi base) string-append))
   (begin
+
+    ;; ---- Active time and honest final totals from the authoritative ledgers ----
+
+    (define (elapsed-time-text tick)
+      (let ((seconds (quotient tick simulation-ticks-per-second)))
+        (string-append (integer-text (quotient seconds 60)) ":"
+                       (if (< (remainder seconds 60) 10) "0" "")
+                       (integer-text (remainder seconds 60)))))
+    (define (result-statistics world)
+      (string-append "Time " (elapsed-time-text (world-tick world)) " · Kills " (integer-text (world-kills world))
+                     "\nOre mined " (integer-text (world-produced world)) " · Net spent " (integer-text (world-spent world))
+                     "\nBuildings " (integer-text (list-size (world-buildings world))) " · Lost " (integer-text (world-lost world))
+                     "\nDrones " (integer-text (list-size (world-bots world))) " · Lost " (integer-text (world-casualties world))
+                     "\nNests cleared " (integer-text (- 3 (living-nests (world-nests world)))) "/3 · Ore lost " (integer-text (world-lost-ore world))
+                     "\nBank " (integer-text (world-credits world)) " ore · Seed " (integer-text (world-seed world))))
 
     ;; ---- A model interval becomes one consistent readout ----
 

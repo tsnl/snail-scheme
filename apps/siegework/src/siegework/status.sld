@@ -21,10 +21,6 @@
              (stock-total (cdr buildings) kind))))
     (define (rail-cargo-total rails)
       (if (null? rails) 0 (+ (rail-cargo (car rails)) (rail-cargo-total (cdr rails)))))
-    (define (clock-text tick)
-      (string-append (integer-text (quotient tick 600)) ":"
-                     (if (< (remainder (quotient tick 10) 60) 10) "0" "")
-                     (integer-text (remainder (quotient tick 10) 60))))
     (define (difficulty-text world)
       (let ((readout (project-difficulty (world-difficulty-window world) (world-tick world))))
         (string-append (difficulty-help readout) " · " (integer-text (living-nests (world-nests world)))
@@ -73,7 +69,7 @@
             ((= reason 14) "Colony mode changed")
             ((= reason 15) "Outside map boundary · move the cursor onto the field")
             ((= reason 16) "Seed must be 1–65535; colony unchanged")
-            ((= reason 47) "Free build cancelled")
+            ((= reason 47) "Build cancelled")
             ((= reason 17) "Build cancelled · refunded")
             ((= reason 18) "Build cancelled · materials returning to hub")
             ((= reason 19) "Select an unfinished build")
@@ -111,7 +107,7 @@
                        " (+" (integer-text (workers-at (world-bots world) 9 (building-id building))) " incoming)"
                        (mine-production-text world building staff)
                        "\nStock " (integer-text (building-stock building)) "/120"
-                       (if (= (building-id building) (construction-cache world)) " · up to 50 held for construction; excess is hauled" "") " · "
+                       " · "
                        (integer-text (workers-at (world-bots world) 1 (building-id building))) " collectors en route"
                        (if (= (building-level building) 2) " · two mining slots installed"
                            (if (ready? building) " · U: +1 mining slot / 40 ore; needs another worker"
@@ -130,8 +126,8 @@
     (define (rail-destination world rail)
       (if (= (rail-parent rail) 0) "hub"
           (let ((found (find-building (world-buildings world) (rail-parent rail))))
-            (if (null? found) "missing tower"
-                (string-append "tower [" (integer-text (building-x (car found))) ","
+            (if (null? found) "missing depot"
+                (string-append "depot [" (integer-text (building-x (car found))) ","
                                (integer-text (building-y (car found))) "]")))))
     (define (shuttle-text rail)
       (string-append " · shuttle " (integer-text (rail-cargo rail)) "/32 ore · "
@@ -164,10 +160,6 @@
                        " · C: cancel + refund")))
     (define (construction-text world building)
       (cond ((ready? building) " · operational")
-            ((= (building-kind building) 1)
-             (cond ((= (building-stage building) 1) " · worker travelling to build · C: cancel")
-                   ((= (building-stage building) 3) " · worker finishing existing delivery · C: cancel")
-                   (else " · awaiting available worker · C: cancel")))
             ((= (building-stage building) 1) " · kit in transit · C: cancel; refund on hub return")
             ((= (building-stage building) 3) (reserved-kit-text world building))
             (else " · reserved kit awaiting worker · C: cancel + refund")))
@@ -187,14 +179,15 @@
                      (construction-text world building) (supply-text world building) (move-text building)
                      " · " (integer-text (building-hp building)) " health"
                      (if (= (building-kind building) 1)
-                         (mine-detail world building)
+                         (string-append (mine-detail world building) "\nSight " (integer-text (building-radius building))
+                                        " cells · " (tower-rail-text world building))
                          (if (= (building-kind building) 3)
                              (tower-detail world building)
                              " · automatic aim · 6-cell range · rocks block fire"))))
     (define (selection-text world tool x y)
       (let ((found (building-at (world-buildings world) x y)))
         (if (not (null? found)) (building-detail world (car found))
-            (if (= tool 0) "Select a deposit for an extractor, or an empty tile for construction · tap the same tile again to build its preview · select an existing structure for actions · Q/E: rotate camera"
+            (if (= tool 0) "Select a deposit for an extractor, or an empty tile for construction · choose an explicit construction action · select an existing structure for actions · Q/E: rotate camera"
                 (string-append (building-name tool) " · " (integer-text (building-cost tool)) " ore · ["
                                (integer-text x) "," (integer-text y) "] · "
                                (if (and (known? world x y) (> (world-deposit-rate world x y) 0))
@@ -206,7 +199,7 @@
       (string-append (integer-text (world-credits world)) " SPENDABLE ORE · HUB " (integer-text (world-hull world)) "/300 · "
                      "Workers " (integer-text (list-size (world-bots world))) " / " (integer-text (worker-capacity world))
                      " capacity · queued " (integer-text (pending-workers (world-bots world))) " · "
-                     (clock-text (world-tick world)) " elapsed · seed " (integer-text (world-seed world)) "\n"
+                     (elapsed-time-text (world-tick world)) " elapsed · seed " (integer-text (world-seed world)) "\n"
                      "Mine stock " (integer-text (stock-total (world-buildings world) 1))
                      " · depot stock " (integer-text (stock-total (world-buildings world) 3))
                      " · rail cargo " (integer-text (rail-cargo-total (world-rails world))) " raw ore · delivered "

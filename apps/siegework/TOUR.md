@@ -11,8 +11,8 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, bounded shortest-time worker routing over walking and bidirectional flights and exact grid-crossing direct fire. |
 | [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, completion-only upgrade healing and normalized bank refunds, worker demolition with a completed-investment refund, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
-| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked World14 restart envelope, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
-| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's nest-adjusted strength interval, shared by the HUD and accessible status. No independent game clock. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked World15 restart envelope, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
+| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty, active-play clock and final colony statistics derived from committed model time and ledgers, shared by the HUD and accessible status. No independent clock or replay storage. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for headless diagnostics and retained developer analysis; no recording storage or game transitions. |
 | [`observation.sld`](src/siegework/observation.sld) | Read-only player knowledge projection through bounded scalar rows; real visibility and purchase previews, with hidden hostile/reserve data withheld. |
@@ -22,7 +22,7 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, single-rotor drones, freight and floating crystal enemies; per-occurrence poses, crystal shimmer and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, static aerial cables, exact range outlines with shared-edge separation, camera-facing health/reserve instances and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
-| [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
+| [`hud.sld`](src/siegework/hud.sld) | Mirrored responsive edge dock, circular readouts, contextual actions below rotation controls, and dismissible colony results through the reusable top-down Scheme UI library. Short viewports use wider rows without scrolling. |
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
@@ -42,7 +42,7 @@ view. Its rows share the runtime's read-only scalar transaction and bounded
 publication output. Privileged operation 11 remains the recording projection;
 its global nest/enemy/reserve totals are not player observations. The host queues
 whole policy operations, advances only explicit ticks, and owns the external
-episode horizon. Neither transport owns another simulation or changes World14.
+episode horizon. Neither transport owns another simulation or changes World15.
 
 ## Follow one accepted command
 
@@ -71,7 +71,7 @@ Deposits offer only extractors;
 existing-building taps inspect, with separate explicit upgrade, Scavenge and cancel actions.
 The model's normal placement operation validates and pays for each order.
 Before the first accepted extractor, placement and the other purchase rules
-reject every alternative purchase. Only accepting that free extractor sets
+reject every alternative purchase. Only accepting that 25-ore extractor sets
 the saved `started` flag; selection, failed requests and camera input do not.
 Contextual disabled actions explain the same restriction without enforcing it
 only in the interface.
@@ -91,6 +91,10 @@ actions are ignored, but pending build replies and display updates still run.
 Resign commits terminal outcome four without changing hull, cargo, flights or
 the saved pause flag. Terminal inspection derives full-map visibility from that
 outcome. Its local menu can offer Restart without unpausing a finished World.
+The result card derives elapsed active time, kills, ore ledgers, standing units,
+losses and nest clearance directly from that World. Escape opens map inspection;
+Results reopens the card. The existing Client selection bit distinguishes these
+two terminal views, so this display adds no persisted fields or replay recording.
 One menu operation remains pending through its ordered settlement. A committed
 reply records success without releasing that slot; a failed save returns to the
 appropriate retry state. Startup and checkpoint imports call the existing
@@ -113,9 +117,9 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 14 and client schema 8 under application ID
-`siegework-colony-v14`. This starts a fresh save identity for sparser resource placement on the
-64×64 map. Earlier worlds are rejected rather than
+The game declares world schema 15 and client schema 8 under application ID
+`siegework-colony-v15`. This starts a fresh save identity for sparser resource placement on the
+80×80 map. Earlier worlds are rejected rather than
 reinterpreting their deposit identities or financial history. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts or geography and are rejected. The browser retains
@@ -193,7 +197,7 @@ A restore cannot populate the cache or replenish a reserve. Exact total original
 capacity minus remaining underground ore must equal `produced`; the existing
 physical stock, cargo, freight, spending and loss equation proves where it went.
 Production clips each withdrawal before increasing the mine buffer. Exhaustion
-releases miners and the loose cache, but leaves paid kits with their owners and
+releases miners and ships the last stock, but leaves paid kits with their owners and
 hauls the final partial load. Upgrades change slots without changing geology.
 
 Three immutable nest records retain seed-owned IDs/coordinates and individual
@@ -210,10 +214,11 @@ spawn maximum; real wave timing is unchanged. The strength cap is applied
 before the nest credit, so late clears reduce the terminal difficulty too.
 
 Every decoded reserve must match the current seed-owned deposit identity and
-capacity. Construction rejects non-extractors on deposits. A free extractor
-still reserves a worker and site, but carries no ore kit: ownership follows the
-construction job and target, not a positive cargo amount. Its cancellation
-creates no refund, and its completed investment includes only paid upgrades.
+capacity. Construction rejects non-extractors on deposits. An extractor costs
+25 ore and follows the same paid-kit reservation, delivery and refund path as
+other construction. Completed extractors mine and join the tower transport
+network, revealing seven cells at level one and ten after an upgrade. Their
+cyan coverage guides and cable junctions show those services.
 
 Defeat derives full-map knowledge from the outcome without adding surveys.
 Terrain cache dependencies include outcome and the identity of cleared nests; viewport
@@ -304,7 +309,7 @@ One placement still owns its pending slot through reply and authored settlement;
 a failed durable save releases the slot without reporting success. Client 8
 stores that rejection and removes the former worker-menu state.
 
-World14 saves `hub-capacity-level` from zero through six. Capacity is derived as
+World15 saves `hub-capacity-level` from zero through six. Capacity is derived as
 12 plus twice that tier; prices are 100 times two to the tier. The tier is
 independent of the hub's fixed transport grade three. An accepted expansion
 charges hub ore and assigns one worker: job 14 returns, job 15 assembles for

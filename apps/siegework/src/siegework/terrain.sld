@@ -21,8 +21,8 @@
 
     ;; ---- Map coordinates ----
 
-    (define map-width 64)
-    (define map-height 64)
+    (define map-width 80)
+    (define map-height 80)
     (define cell-size 40)
     (define hub-x 8)
     (define hub-y 22)
@@ -54,13 +54,13 @@
               ((= attempt 23) 0)
               (else (spawn-offset (remainder (+ (* seed 25173) 13849) 65521)
                                   (+ attempt 1) horizontal)))))
-    (define (spawn-x seed) (+ 32 (spawn-offset seed 0 #t)))
-    (define (spawn-y seed) (+ 32 (spawn-offset seed 0 #f)))
-    ;; Two or three observation hops reach each front. Radius-four hub jitter
-    ;; and sixteen-to-twenty-cell fronts keep all three nests inside the map.
+    (define (spawn-x seed) (+ (quotient map-width 2) (spawn-offset seed 0 #t)))
+    (define (spawn-y seed) (+ (quotient map-height 2) (spawn-offset seed 0 #f)))
+    ;; Three or four observation hops reach each front. Radius-four hub jitter
+    ;; and twenty-to-twenty-five-cell fronts keep all three nests inside the map.
     (define (nest-offset seed horizontal)
       (let ((direction (map-offset seed 67 4))
-            (major (+ 16 (map-offset seed 173 5)))
+            (major (+ 20 (map-offset seed 173 6)))
             (minor (- (map-offset seed 227 9) 4)))
         (if (= (remainder direction 2) (if horizontal 0 1))
             (if (< direction 2) major (- 0 major)) minor)))
@@ -160,17 +160,20 @@
            (or (ground? seed x y)
                (and (not (water? seed x y)) (opened-cell? opened (cell-index x y))))))
     ;; Regional deposits sit in the open corner corridors, so their sites
-    ;; cannot become islands inside a lake or a mountain. Home mines retain
-    ;; their stronger north/east progression and the nearby two-ore starter.
+    ;; cannot become islands inside a lake or a mountain. One region in four
+    ;; admits its candidate, so the larger map still holds fewer optional mines.
+    ;; Home mines retain their stronger north/east progression and the nearby
+    ;; two-ore starter.
     (define (regional-deposit-x seed rx ry) (+ (+ (* rx 32) 2) (region-value seed (* rx 32) (* ry 32) 157 3)))
     (define (regional-deposit-y seed rx ry) (+ (+ (* ry 32) 2) (region-value seed (* rx 32) (* ry 32) 181 3)))
     (define (regional-deposit? seed x y)
-      (and (= (remainder x 32) (+ 2 (region-value seed x y 157 3)))
+      (and (= (region-value seed x y 347 4) 0)
+           (= (remainder x 32) (+ 2 (region-value seed x y 157 3)))
            (= (remainder y 32) (+ 2 (region-value seed x y 181 3)))))
-    ;; Four inner candidates use a 3/8 chance; four outer candidates use 1/8.
+    ;; Four inner candidates use a 3/16 chance; four outer candidates use 1/16.
     ;; Each has a seeded cardinal offset plus small sideways jitter. Ground and
     ;; the protected opening decide which candidates become actual deposits.
-    ;; Eight candidates per front bound work without scanning all 4,096 cells.
+    ;; Eight candidates per front bound work without scanning the full map.
     (define (front-deposit-offset seed front slot horizontal)
       (let* ((key (+ seed (+ (* front 997) (* slot 271))))
              (major (+ (if (< slot 4) 4 8) (map-offset key 307 3))))
@@ -181,7 +184,7 @@
     (define (front-deposit-y seed front slot) (+ (front-y seed front) (front-deposit-offset seed front slot #f)))
     (define (front-deposit? seed front slot)
       (let ((x (front-deposit-x seed front slot)) (y (front-deposit-y seed front slot)))
-        (and (< (map-offset (+ seed (+ (* front 997) (* slot 271))) 313 8) (if (< slot 4) 3 1))
+        (and (< (map-offset (+ seed (+ (* front 997) (* slot 271))) 313 16) (if (< slot 4) 3 1))
              (ground? seed x y) (not (within? x y (spawn-x seed) (spawn-y seed) 10))
              (not (and (= x (eastern-x seed)) (= y (eastern-y seed))))
              (not (regional-deposit? seed x y)))))

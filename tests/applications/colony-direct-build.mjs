@@ -28,7 +28,7 @@ export async function checkDirectBuild(test,fresh){
   await test('one site selection exposes its own costs without spending or starting time',async()=>{
     const h=await host(fresh,false),before=h.runtime.snapshot(1);
     await select(h,12,20);assert.ok(node(h,'extractor'));assert.equal(node(h,'tower'),undefined);assert.equal(state(h).choiceKind,0);
-    assert.match(node(h,'extractor-caption').text,/Free/);
+    assert.equal(node(h,'extractor-caption').text,'25 ore');
     await select(h,12,22);assert.equal(node(h,'extractor'),undefined);for(const key of ['tower','artillery'])assert.ok(node(h,key));
     assert.deepEqual([node(h,'tower').text,node(h,'artillery').text],['1','2']);
     assert.equal(state(h).choiceKind,0);assert.match(node(h,'context-description').text,/Choose a building/);assert.ok(node(h,'close-context'));
@@ -54,7 +54,10 @@ export async function checkDirectBuild(test,fresh){
     for(const kind of [3,2,0]){await action(h,'preview',[kind]);assert.equal(state(h).preview,kind);assert.deepEqual(h.runtime.snapshot(1),before);}
     await action(h,'confirm');assert.deepEqual(h.runtime.snapshot(1),before);assert.equal(state(h).choiceKind,0);
     await select(h,12,20);assert.equal(state(h).choiceKind,0);await action(h,'choose',[1]);assert.equal(siteAt(world(h),12,20).kind,1);
-    await select(h,12,20);assert.match(node(h,'context-description').text,/No ore required/);assert.match(node(h,'cancel-build').help,/free construction/);
+    await select(h,12,20);assert.match(node(h,'context-description').text,/25 ore delivered/);assert.match(node(h,'cancel-build').help,/Cancel queued construction.*reserved materials · C/);
+    assert.equal(node(h,'cancel-build').text,'C');assert.equal(node(h,'close-context').text,'Esc');
+    const paid=h.runtime.snapshot(1);await action(h,'dismiss');assert.deepEqual(h.runtime.snapshot(1),paid);
+    await select(h,12,20);await action(h,'cancel');assert.equal(siteAt(world(h),12,20),undefined);assert.equal(world(h).ore,110);
     await select(h,14,22);assert.equal(state(h).choiceKind,0);assert.equal(state(h).preview,0);await h.app.close();
   });
   await test('slow placement locks repeat taps and stale explicit buttons cannot charge a retargeted site',async()=>{

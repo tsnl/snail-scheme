@@ -17,7 +17,9 @@ export function object(value, keys, name) {
       || Object.keys(value).some(key => !keys.includes(key))) throw new Error(`invalid ${name} fields`);
   return value;
 }
-export function parseAction(action, width = 64, height = 64) {
+// World15 input bounds; observation metadata independently proves this shape.
+export const MAP_WIDTH = 80, MAP_HEIGHT = 80;
+export function parseAction(action, width = MAP_WIDTH, height = MAP_HEIGHT) {
   object(action, ['type', 'kind', 'cell', 'from', 'to', 'paused'], 'action');
   const cell = value => integer(value, 0, width * height - 1, 'cell');
   switch (action.type) {
@@ -102,8 +104,8 @@ export function decodeObservation(rows) {
 export async function openEnvironment(directory, options = {}) {
   const config = parseOptions(options), path = resolve(directory);
   const manifest = JSON.parse(await readFile(join(path, 'manifest.json'), 'utf8'));
-  if (manifest.settings?.id !== 'siegework-colony-v14' || manifest.settings.observation?.version !== 1)
-    throw new Error('expected a Siegework World14 package with observation version 1; rebuild the application');
+  if (manifest.settings?.id !== 'siegework-colony-v15' || manifest.settings.observation?.version !== 1)
+    throw new Error('expected a Siegework World15 package with observation version 1; rebuild the application');
   const bytes = await readFile(join(path, manifest.module));
   const environment = new SiegeworkEnvironment(bytes, manifest, config);
   try { await environment.reset(1); return environment; }
@@ -203,7 +205,7 @@ class SiegeworkEnvironment {
     } catch (cause) { throw this.#simulationFailure(cause, ticks, elapsed); }
   }
   async #act(action) {
-    const command = commandFor(action, 64);
+    const command = commandFor(action, MAP_WIDTH);
     if (!command) return {};
     const output = await this.#runtime.dispatch(1, this.#runtime.command('match', ...command));
     // Match replies update presentation only. Headless policies have no Client

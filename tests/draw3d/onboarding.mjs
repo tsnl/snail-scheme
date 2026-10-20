@@ -60,15 +60,15 @@ function save(name) {
 }
 try {
   const fresh=runtime.snapshot(1);
-  assert.ok(node('onboarding'));assert.match(node('onboarding-help').text,/Follow the crystal creatures.*near their nests/);assert.equal(node('context'),undefined);
+  assert.ok(node('onboarding'));assert.match(node('onboarding-help').text,/Expand sight and transport as you mine/);assert.equal(node('context'),undefined);
   for(const [width,height]of[[320,568],[390,844],[568,320],[640,360],[1100,760]]) {
     await command('viewport',[width,height]);
     for(const left of [false,true]) {
       if(left){await command('pause-menu');await command('handedness',[1]);await command('resume');}
       const hint=placed('onboarding'),rail=placed('rail');
-      assert.match(node('onboarding-help').text,/Select the glowing deposit, then choose Extractor\. It is free\./);
+      assert.match(node('onboarding-help').text,/Select the glowing deposit, then choose Extractor · 25 ore/);
       assert.ok(hint.x+hint.width<=rail.x||hint.x>=rail.x+rail.width||hint.y+hint.height<=rail.y||hint.y>=rail.y+rail.height,'guidance leaves the control rail clear');
-      assert.ok(hint.node.properties[9]>0,'the hint points toward its highlighted deposit');
+      assert.ok(hint.y>=rail.y+rail.height,'the hint sits below the dock rotation row');
       assert.ok(hint.x>=0&&hint.y>=0&&hint.x+hint.width<=width-24&&hint.y+hint.height<=height-32);
       assert.ok(placed('rotate-left').x<placed('rotate-right').x,'rotation arrows keep screen order');
       assert.deepEqual(runtime.snapshot(1),fresh,'layout and handedness leave the fresh colony unchanged');
@@ -76,7 +76,7 @@ try {
     await command('pause-menu');await command('handedness',[0]);await command('resume');
   }
   await command('viewport',[960,640]);
-  console.log('ok - first-extractor guidance points toward the highlighted deposit on both edges at portrait and short landscape sizes');
+  console.log('ok - first-extractor guidance docks below controls on both edges at portrait and short landscape sizes');
   await command('center');cursor(12,20);
   await command('pan',[20,-20]);await home();cursor(8,22);
   assert.match(node('context-title').text,/hub/i);assert.deepEqual(runtime.snapshot(1),fresh);
@@ -129,9 +129,9 @@ try {
 
   await runtime.restore(1,fresh);const beforeEnemy=world();await addEnemy(runtime,{x:12,y:20});await command('center');cursor(12,20);
   await restoreColony(runtime,{...beforeEnemy,hull:1});await addEnemy(runtime,{x:8,y:22});await advance(20);
-  assert.equal(world().outcome,1);assert.ok(node('result'));assert.match(node('context-title').text,/colony lost/i);
+  assert.equal(world().outcome,1);assert.ok(node('result'));assert.match(node('result-title').text,/colony lost/i);
   assert.equal(node('restart').properties[1],1);
-  await restoreColony(runtime,{...world(),bots:[]});assert.ok(node('workers'));assert.equal(world().bots.length,0);runtime.view();save('defeated');
+  await restoreColony(runtime,{...world(),bots:[]});assert.match(node('result-statistics').text,/Drones 0/);assert.equal(world().bots.length,0);runtime.view();save('defeated');
   await command('restart');assert.equal(world().outcome,1);assert.ok(node('restart-dialog'));
   await command('accept-restart');assert.equal(world().outcome,0);assert.equal(node('restart-dialog'),undefined);
   await command('center');cursor(12,20);

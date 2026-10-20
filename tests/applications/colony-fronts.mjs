@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,restoreColony,fixtureCall} from './colony-state.mjs';
+import {MAP_WIDTH,colony,restoreColony,fixtureCall} from './colony-state.mjs';
 
 const state=r=>colony(r.snapshot(1)),call=fixtureCall;
 const distance=(a,b)=>(a.x-b.x)**2+(a.y-b.y)**2;
@@ -12,12 +12,12 @@ const source=(world,enemy)=>world.nests.toSorted((a,b)=>distance(a,{x:(enemy.x-2
 function structure(world,kind,x,y) {
   const site={id:world.nextId++,kind,x,y,level:1,hp:kind===2?100:90,stock:0,stage:2,cooldown:0,
     aimX:x*40+20,aimY:y*40+20,armed:0,source:0,moveX:-1,moveY:-1};
-  world.buildings.push(site);world.surveys.unshift({x,y,radius:kind===3?7:4});
+  world.buildings.push(site);world.surveys.unshift({x,y,radius:kind===2?6:7});
   const cost=kind===2?50:25;world.spent+=cost;world.ore-=cost;world.started=true;return site;
 }
 function firingSite(world,nest) {
   return [[0,4],[4,0],[0,-4],[-4,0]].map(([dx,dy])=>({x:nest.x+dx,y:nest.y+dy}))
-    .find(site=>!world.deposits.some(deposit=>deposit.cell===site.x+site.y*64));
+    .find(site=>!world.deposits.some(deposit=>deposit.cell===site.x+site.y*MAP_WIDTH));
 }
 async function advance(r,count=1){for(let i=0;i<count;i++)await call(r,'advance');}
 
@@ -28,20 +28,21 @@ export async function checkFronts(test,fresh) {
     for(const dead of [[],[0],[0,2]]) {
       const w=structuredClone(base);w.started=true;w.tick=449;for(const id of dead)w.nests[id].hp=0;
       await restoreColony(r,w);await advance(r);const spawned=state(r);
-      assert.equal(spawned.enemies.length,(3-dead.length)*2);
-      for(const nest of spawned.nests)assert.equal(spawned.enemies.filter(e=>source(spawned,e)===nest.id).length,nest.hp?2:0);
+      const shares=[3,3,2];
+      assert.equal(spawned.enemies.length,shares.reduce((sum,count,id)=>sum+(dead.includes(id)?0:count),0));
+      for(const nest of spawned.nests)assert.equal(spawned.enemies.filter(e=>source(spawned,e)===nest.id).length,nest.hp?shares[nest.id]:0);
       const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);
     }
     await r.close();
   });
   await test('three simultaneous raid fronts select their own nearer outpost rather than one distant tendril',async()=>{
-    const r=await fresh(),w=state(r),hub=w.surveys[0],targets=new Map();w.started=true;w.tick=1349;
+    const r=await fresh(),w=state(r),hub=w.surveys[0],targets=new Map();w.started=true;w.tick=1049;
     for(const nest of w.nests) {
       const horizontal=Math.abs(hub.x-nest.x)>Math.abs(hub.y-nest.y);
       const x=nest.x+(horizontal?Math.sign(hub.x-nest.x)*3:0),y=nest.y+(horizontal?0:Math.sign(hub.y-nest.y)*3);
       targets.set(nest.id,structure(w,3,x,y).id);
     }
-    await restoreColony(r,w);await advance(r);const spawned=state(r);assert.equal(spawned.enemies.length,7);
+    await restoreColony(r,w);await advance(r);const spawned=state(r);assert.equal(spawned.enemies.length,11);
     assert.equal(new Set(spawned.enemies.map(e=>e.target)).size,3);
     for(const enemy of spawned.enemies){assert.equal(enemy.kind,1);assert.equal(enemy.target,targets.get(source(spawned,enemy)));}
     await r.close();
@@ -52,7 +53,7 @@ export async function checkFronts(test,fresh) {
     await restoreColony(r,w);
     for(let index=0;index<3;index++) {
       const candidate=state(r),target=candidate.nests[index],gun=candidate.buildings[0];
-      target.hp=6;Object.assign(gun,{...firingSite(candidate,target),cooldown:0});candidate.surveys.unshift({x:gun.x,y:gun.y,radius:4});
+      target.hp=6;Object.assign(gun,{...firingSite(candidate,target),cooldown:0});candidate.surveys.unshift({x:gun.x,y:gun.y,radius:6});
       await restoreColony(r,candidate);const bank=candidate.ore;await advance(r);const hit=state(r);
       assert.equal(hit.nests[index].hp,0);assert.equal(hit.outcome,index===2?3:0);assert.equal(hit.ore,bank);
       assert.deepEqual([hit.buildings[0].aimX,hit.buildings[0].aimY],[target.x*40+20,target.y*40+20]);
@@ -64,9 +65,9 @@ export async function checkFronts(test,fresh) {
     const r=await fresh(),w=state(r),nest=w.nests[0];w.tick=449;nest.hp=6;
     structure(w,2,nest.x,nest.y-6);structure(w,3,nest.x,nest.y-4);
     await restoreColony(r,w);await advance(r);const killed=state(r);
-    assert.equal(killed.nests[0].hp,0);assert.equal(killed.enemies.length,6);assert.equal(killed.outcome,0);
+    assert.equal(killed.nests[0].hp,0);assert.equal(killed.enemies.length,8);assert.equal(killed.outcome,0);
     const next=state(r),firstId=next.nextId;next.tick=749;await restoreColony(r,next);await advance(r);
-    const later=state(r),born=later.enemies.filter(e=>e.id>=firstId);assert.equal(born.length,4);
+    const later=state(r),born=later.enemies.filter(e=>e.id>=firstId);assert.equal(born.length,6);
     assert.ok(born.every(e=>source(later,e)!==0));await r.close();
   });
   await test('dead fronts do not promote a replacement strongest enemy or boss',async()=>{

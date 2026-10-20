@@ -151,15 +151,14 @@
              (local-refund-cost (cdr bots)))))
     (define (check-building-supply! world building)
       (require! (and (< (building-source building) (world-next-id world))
-                     (or (not (= (building-stage building) 2)) (= (building-source building) 0))
-                     (or (not (= (building-kind building) 1)) (= (building-source building) 0))))
+                     (or (not (= (building-stage building) 2)) (= (building-source building) 0))))
       (when (and (> (building-source building) 0)
                  (> (uncollected-supplies building) 0))
         (let ((source (find-building (world-buildings world) (building-source building))))
           (require! (and (not (null? source)) (ready? (car source))
                          (or (= (building-kind (car source)) 1) (tower? (car source)))))))
       (when (= (building-kind building) 1)
-        (require! (<= (+ (building-stock building) (reserved-stock (world-buildings world) (building-id building))) 120))))
+        (require! (>= (depot-room world building) 0))))
     (define (check-relocation! world building later)
       ;; Old saves may contain a destination beside the former one-tile hub.
       ;; Decoding preserves it; advancing the move refunds that obsolete order.
@@ -223,7 +222,7 @@
           (let ((found (find-building (world-buildings world) (bot-target bot))))
             ;; A destroyed destination is rerouted on the worker's next tick.
             (unless (null? found)
-              (require! (and (ready? (car found)) (tower? (car found))
+              (require! (and (ready? (car found)) (transport-building? (car found))
                              (arrives-at? bot (building-x (car found)) (building-y (car found)))))))))
     (define (check-returned-kit! world bot)
       (if (= (bot-target bot) 0)
@@ -392,18 +391,18 @@
                      (rooted-rail? (world-rails world) (rail-parent rail) (list-size (world-rails world)))))
       (if (= (rail-parent rail) 0) (require! (= (last-cell (rail-path rail)) (cell-index (world-hub-x world) (world-hub-y world))))
           (let ((found (find-building (world-buildings world) (rail-parent rail))))
-            (require! (and (not (null? found)) (tower? (car found)) (ready? (car found))))
+            (require! (and (not (null? found)) (transport-building? (car found)) (ready? (car found))))
             (require! (= (last-cell (rail-path rail)) (cell-index (building-x (car found)) (building-y (car found))))))))
     (define (check-rail! world rail)
       (require! (bounded? (list-size (rail-path rail)) 2 1025))
       (let ((source (find-building (world-buildings world) (rail-source rail)))
             (length (rail-length rail)))
-        (require! (and (not (null? source)) (tower? (car source))
+        (require! (and (not (null? source)) (transport-building? (car source))
                        (= (car (rail-path rail)) (cell-index (building-x (car source)) (building-y (car source))))))
         (require! (and (bounded? (rail-progress rail) 0 length) (bounded? (rail-returning rail) 0 1)
                        (bounded? (rail-cargo rail) 0 32)))
         (if (= (rail-returning rail) 1) (require! (and (= (rail-cargo rail) 0) (> (rail-progress rail) 0)))
-            (require! (if (= (rail-cargo rail) 0) (= (rail-progress rail) 0) (< (rail-progress rail) length))))
+            (require! (if (= (rail-cargo rail) 0) (= (rail-progress rail) 0) (<= (rail-progress rail) length))))
         (unless (ready? (car source))
           (require! (and (= (rail-progress rail) 0) (= (rail-returning rail) 0) (= (rail-cargo rail) 0)))))
       (check-rail-parent! world rail)
@@ -548,9 +547,9 @@
       (check-rails! world (world-rails world)))
 
 
-    ;; ---- A visible restart marker surrounds the derived World14 payload ----
+    ;; ---- A visible restart marker surrounds the derived World15 payload ----
 
-    ;; Sparser deposits change the canonical resource ledger. World14 uses a
+    ;; Larger geography and paid extractor depots change the resource ledger. World15 uses a
     ;; separate application namespace and rejects earlier worlds before decoding.
     ;; No removed site or mined reserve can silently reinterpret an old run.
     (define (copy-payload! destination source destination-start source-start count)
@@ -560,18 +559,18 @@
                        (vector-ref source (i32->i64 (+ source-start index))))
           (loop (+ index 1)))))
     (define (encode-world world)
-      (let* ((payload (encode-snapshot 14 world))
+      (let* ((payload (encode-snapshot 15 world))
              (count (vector-length payload))
              (words (make-vector (+ count (ann 1 I64)) 0)))
-        (vector-set! words (ann 0 I64) 14)
+        (vector-set! words (ann 0 I64) 15)
         (vector-set! words (ann 1 I64) (world-run-marker world))
         (copy-payload! words payload 2 1 (- (i64->i32 count) 1))
         words))
     (define (world-payload words)
       (let ((count (vector-length words)))
-        (require! (and (>= count (ann 3 I64)) (= (vector-ref words (ann 0 I64)) 14)))
+        (require! (and (>= count (ann 3 I64)) (= (vector-ref words (ann 0 I64)) 15)))
         (let ((payload (make-vector (- count (ann 1 I64)) 0)))
-          (vector-set! payload (ann 0 I64) 14)
+          (vector-set! payload (ann 0 I64) 15)
           (copy-payload! payload words 1 2 (- (i64->i32 count) 2))
           payload)))
     (define (validate-world world) (check-world! world) world)

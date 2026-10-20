@@ -42,7 +42,9 @@ export async function checkColonyMenus(test,fresh){
     gate.release();await Promise.all([resigning,...repeats]);await h.app.drainUpdates();
     assert.equal(h.orders.filter(name=>name==='resign').length,2,'one failed save and one committed request');
     assert.equal(world(h).outcome,4);assert.equal(world(h).hull,colony(paused).hull);assert.equal(state(h).dialog,0);
-    assert.match(node(h,'context-title').text,/resigned/i);assert.doesNotMatch(node(h,'context-description').text,/destroyed/);
+    assert.match(node(h,'result-title').text,/resigned/i);assert.match(node(h,'result-statistics').text,/Time 0:00 · Kills 0/);
+    const summary=h.runtime.snapshot(1);await action(h,'dismiss');assert.equal(node(h,'result'),undefined);assert.ok(node(h,'show-results'));
+    await action(h,'show-results');assert.ok(node(h,'result'));assert.deepEqual(h.runtime.snapshot(1),summary);
     const ended=h.runtime.snapshot(1);await restoreColony(h.runtime,world(h));await fixtureCall(h.runtime,'advance');assert.deepEqual(h.runtime.snapshot(1),ended);
     await action(h,'pause-menu');assert.equal(node(h,'resign-menu').properties[1],0);assert.deepEqual(h.runtime.snapshot(1),ended);
     await action(h,'resume');assert.deepEqual(h.runtime.snapshot(1),ended);assert.equal(state(h).dialog,0);

@@ -6,11 +6,11 @@ import {join,resolve} from 'node:path';
 import {readRecord,saveContract} from '../../src/application/indexeddb.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {decodeObservation} from '../../apps/siegework/headless.mjs';
-import {colony,client,colonyBalance,restoreColony,restoreClient} from './colony-state.mjs';
+import {MAP_WIDTH,MAP_HEIGHT,colony,client,colonyBalance,restoreColony,restoreClient} from './colony-state.mjs';
 
 const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
 const bytes=readFileSync(join(directory,manifest.module)),state=r=>colony(r.snapshot(1));
-const cell=site=>site.x+site.y*64,reserve=(world,site)=>world.deposits.find(d=>d.cell===cell(site));
+const cell=site=>site.x+site.y*MAP_WIDTH,reserve=(world,site)=>world.deposits.find(d=>d.cell===cell(site));
 const send=(r,name,args=[])=>r.dispatch(1,r.command('match',name,args));
 const observe=r=>decodeObservation(r.observe());
 let passed=0;
@@ -20,8 +20,8 @@ async function advance(r,count=1){for(let n=0;n<count;n++)await send(r,'advance'
 function structure(world,kind,x,y,stage=2){
   const site={id:world.nextId++,kind,x,y,level:1,hp:kind===1?140:kind===2?100:90,stock:0,stage,cooldown:0,
     aimX:x*40+20,aimY:y*40+20,armed:0,source:0,moveX:-1,moveY:-1};
-  world.buildings.push(site);world.surveys.unshift({x,y,radius:kind===3?7:4});
-  const cost=kind===1?0:kind===2?50:25;world.spent+=cost;world.ore-=cost;world.started=true;return site;
+  world.buildings.push(site);world.surveys.unshift({x,y,radius:kind===2?6:7});
+  const cost=kind===2?50:25;world.spent+=cost;world.ore-=cost;world.started=true;return site;
 }
 function workerAt(bot,site,job=0,target=0){return {...bot,x:site.x*40+20,y:site.y*40+20,job,target,cargo:0,timer:0,path:[],order:0,source:0,flight:[]};}
 function assertBalance(world){const sums=colonyBalance(world);assert.equal(world.ore,sums.bank);assert.equal(world.produced,sums.raw);}
@@ -30,8 +30,8 @@ async function center(r,site){await restoreClient(r,{...client(r.snapshot(2)),ca
 async function surveyedWorld(r,world){
   await restoreColony(r,{...world,started:true,hull:0,outcome:1});
   const terrain=observe(r).tiles;
-  world.surveys.push(...terrain.filter(t=>t.terrain===1&&t.cell%8===0&&Math.floor(t.cell/64)%8===0)
-    .map(t=>({x:t.cell%64,y:Math.floor(t.cell/64),radius:10})));
+  world.surveys.push(...terrain.filter(t=>t.terrain===1&&t.cell%8===0&&Math.floor(t.cell/MAP_WIDTH)%8===0)
+    .map(t=>({x:t.cell%MAP_WIDTH,y:Math.floor(t.cell/MAP_WIDTH),radius:10})));
   await restoreColony(r,world);return world;
 }
 
@@ -74,9 +74,9 @@ await test('defeat reveals all map facts without survey growth, allows inspectio
     w.enemies=[{id:w.nextId++,x:w.surveys[0].x*40+20,y:w.surveys[0].y*40+20,hp:80,kind:0,target:0,path:[]},
       {id:w.nextId++,x:nest.x*40+20,y:nest.y*40+20,hp:80,kind:0,target:0,path:[]}];
     await restoreColony(r,w);await center(r,nest);
-    const playing=observe(r),beforeScene=r.view().scene;assert.equal(playing.enemies.length,1);assert.ok(playing.tiles.length<4096);
+    const playing=observe(r),beforeScene=r.view().scene;assert.equal(playing.enemies.length,1);assert.ok(playing.tiles.length<(MAP_WIDTH*MAP_HEIGHT));
     const surveys=structuredClone(w.surveys);await advance(r);const ended=state(r);assert.equal(ended.outcome,1);
-    const known=observe(r);assert.equal(known.tiles.length,4096);assert.ok(known.tiles.every(t=>t.visible===1));
+    const known=observe(r);assert.equal(known.tiles.length,(MAP_WIDTH*MAP_HEIGHT));assert.ok(known.tiles.every(t=>t.visible===1));
     assert.equal(known.nests.length,3);assert.equal(known.enemies.length,2);assert.deepEqual(known.buildCandidates,[]);
     assert.deepEqual(ended.surveys,surveys);assert.ok(r.snapshot(1).length<5000,'no persisted per-cell reveal history');
     const revealed=r.view().scene;assert.notEqual(revealed.batches.find(b=>b.key===1).transforms,beforeScene.batches.find(b=>b.key===1).transforms);
@@ -90,11 +90,11 @@ await test('defeat reveals all map facts without survey growth, allows inspectio
   }finally{await r.close();}
 });
 
-await test('World14 refuses old geography and incomplete current deposit records without replacing live state',async()=>{
+await test('World15 refuses old geography and incomplete current deposit records without replacing live state',async()=>{
   const r=await fresh();try{
     const saved=r.snapshot(1);
-    assert.equal(saved[0],14);assert.equal(r.manifest.settings.id,'siegework-colony-v14');
-    for(const name of ['siegework-world12.json','siegework-world12-revision1.json','siegework-world13.json']){
+    assert.equal(saved[0],15);assert.equal(r.manifest.settings.id,'siegework-colony-v15');
+    for(const name of ['siegework-world12.json','siegework-world12-revision1.json','siegework-world13.json','siegework-world14.json']){
       const fixture=JSON.parse(readFileSync(new URL('./fixtures/'+name,import.meta.url)));
       assert.throws(()=>readRecord(fixture.record,r.manifest.settings.id,saveContract(r.manifest)));
       await assert.rejects(()=>r.restore(1,fixture.record.snapshot.state));assert.deepEqual(r.snapshot(1),saved);
