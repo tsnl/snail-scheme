@@ -1,18 +1,14 @@
-//! Scalar services for Lofi's number text. Lofi owns reading and allocation;
-//! Rust owns temporary text handles: number tokens to parse, and formatted
-//! floats to copy out.
+//! Scalar services for Lofi's real-number text. Lofi parses integers and
+//! ratios itself; Rust owns temporary text handles: tokens to parse as reals,
+//! with correct rounding, and formatted floats to copy out.
 
-use crate::number::{Number, Scalar};
 use std::{cell::RefCell, collections::BTreeMap};
 
 // ---- Owned text transitions once to a parsed numeric result ----
 
 enum Token {
     Text(String),
-    Parsed {
-        text: String,
-        result: Result<Option<Number>, String>,
-    },
+    Parsed { text: String, real: Option<f64> },
 }
 
 #[derive(Default)]
@@ -66,17 +62,14 @@ impl Tokens {
         }
     }
 
+    // 1 if the text is a real number, otherwise 0.
     fn parse(&mut self, id: u32) -> Result<i32, String> {
         let Token::Text(text) = self.take(id)? else {
             return Err("token has already been parsed".into());
         };
-        let result = crate::number::parse(&text, 10);
-        let tag = match &result {
-            Ok(None) => 0,
-            Ok(Some(number)) => number.kind(),
-            Err(_) => 4,
-        };
-        self.live.insert(id, Token::Parsed { text, result });
+        let real = crate::parse_float(&text);
+        let tag = i32::from(real.is_some());
+        self.live.insert(id, Token::Parsed { text, real });
         Ok(tag)
     }
 }
@@ -88,13 +81,12 @@ impl Token {
         }
     }
 
-    fn number(&self) -> Result<&Number, String> {
+    fn real(&self) -> Result<f64, String> {
         match self {
             Self::Parsed {
-                result: Ok(Some(number)),
-                ..
-            } => Ok(number),
-            _ => Err("token has no successful numeric result".into()),
+                real: Some(value), ..
+            } => Ok(*value),
+            _ => Err("token is not a parsed real number".into()),
         }
     }
 }
@@ -143,24 +135,9 @@ fn checked_text_length(count: usize) -> Result<u32, String> {
         .map_err(|_| "token text exceeds scalar index range".into())
 }
 
-#[unsafe(export_name = "snail:datum/number-integer")]
-pub extern "C" fn number_integer(id: u32, part: u32) -> i64 {
-    checked(
-        TOKENS.with_borrow(|tokens| match tokens.get(id)?.number()?.component(part)? {
-            Scalar::Integer(value) => Ok(*value),
-            _ => Err("numeric component is not a machine integer".into()),
-        }),
-    )
-}
-
 #[unsafe(export_name = "snail:datum/number-real")]
-pub extern "C" fn number_real(id: u32, part: u32) -> f64 {
-    checked(
-        TOKENS.with_borrow(|tokens| match tokens.get(id)?.number()?.component(part)? {
-            Scalar::Real(value) => Ok(*value),
-            _ => Err("numeric component is not inexact".into()),
-        }),
-    )
+pub extern "C" fn number_real(id: u32) -> f64 {
+    checked(TOKENS.with_borrow(|tokens| tokens.get(id)?.real()))
 }
 
 // Formatting owns only Rust text. Lofi copies it before consuming the handle.
@@ -234,13 +211,12 @@ mod tests {
         let mut tokens = Tokens::default();
         let first = staged(&mut tokens, "42");
         let second = staged(&mut tokens, "1/0");
-        assert_eq!(tokens.parse(first).unwrap(), 1);
-        assert_eq!(tokens.parse(second).unwrap(), 4);
-        assert!(tokens.get(second).unwrap().number().is_err());
-        assert_eq!(
-            tokens.get(first).unwrap().number().unwrap(),
-            &Number::Scalar(Scalar::Integer(42))
-        );
+        assert_eq!(tokens.parse(first).unwrap(), 0);
+        assert_eq!(tokens.parse(second).unwrap(), 0);
+        assert!(tokens.get(second).unwrap().real().is_err());
+        let third = staged(&mut tokens, "4.5e1");
+        assert_eq!(tokens.parse(third).unwrap(), 1);
+        assert_eq!(tokens.get(third).unwrap().real().unwrap(), 45.0);
         assert!(tokens.append(first, 65).is_err());
         tokens.take(first).unwrap();
         assert!(tokens.get(first).is_err());

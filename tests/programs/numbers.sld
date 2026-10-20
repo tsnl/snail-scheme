@@ -10,7 +10,7 @@
     ((None) (panic (string-append "not a number: " text)))))
 
 (for-each (lambda (text) (write-line (show (parse text))))
-          (list "42" "-17" "6/4" "1.5" "1e3" "#x1F" "123456789012345678901234567890"))
+          (list "42" "-17" "6/4" "1.5" "1e3" "+inf.0" "123456789012345678901234567890"))
 (write-line (show (+ (parse "1/3") (parse "1/6"))))
 (write-line (show (* (parse "2/3") (parse "3"))))
 (write-line (show (+ (parse "1/2") (parse "0.25"))))

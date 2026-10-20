@@ -1,6 +1,6 @@
 ;; Scheme numbers: exact rationals of any size, and inexact reals. An
-;; operation is exact when all its operands are. Complex numbers are not
-;; supported.
+;; operation is exact when all its operands are. Complex numbers, radix
+;; prefixes and exactness prefixes are not supported.
 (define-library (lofi number)
   (export
    Number
@@ -140,8 +140,8 @@
     (instance (Show Number)
       (define show number->string))
 
-    ;; Exact integers and ratios are parsed here; the runtime parses every
-    ;; other numeric syntax, such as decimals, exponents and radix prefixes.
+    ;; Exact integers and ratios are parsed here; the runtime parses reals,
+    ;; such as decimals, exponents and infinities, with correct rounding.
     (: string->number (-> String (Option Number)))
     (define (string->number text)
       (match (string-index text #\/)
@@ -155,28 +155,23 @@
         ((None)
          (match (string->integer text)
            ((Some n) (Some (number-from-integer n)))
-           ((None) (runtime-number text))))))
+           ((None) (runtime-real text))))))
 
     (extern token-open "snail.library" "snail:datum/token-open" (-> I32))
     (extern token-character "snail.library" "snail:datum/token-character" (-> I32 Char Unit))
     (extern token-parse "snail.library" "snail:datum/token-parse" (-> I32 I32))
     (extern token-close "snail.library" "snail:datum/token-close" (-> I32 Unit))
-    (extern number-real "snail.library" "snail:datum/number-real" (-> I32 I32 F64))
-    (extern number-integer "snail.library" "snail:datum/number-integer" (-> I32 I32 I64))
+    (extern number-real "snail.library" "snail:datum/number-real" (-> I32 F64))
 
     ;; The token handle is owned only within this call.
-    (: runtime-number (-> String (Option Number)))
-    (define (runtime-number text)
+    (: runtime-real (-> String (Option Number)))
+    (define (runtime-real text)
       (let ((token (token-open)))
         (let loop ((index 0))
           (when (< index (string-length text))
             (token-character token (string-ref text index))
             (loop (+ index 1))))
-        (let* ((kind (token-parse token))
-               (result (case kind
-                         ((1) (Some (number-from-i64 (number-integer token 0))))
-                         ((2) (Some (Inexact (number-real token 0))))
-                         (else (None)))))
+        (let ((result (if (= (token-parse token) 1) (Some (Inexact (number-real token))) (None))))
           (token-close token)
           result)))
 

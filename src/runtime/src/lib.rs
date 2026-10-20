@@ -10,7 +10,6 @@ mod datum;
 mod host;
 mod io;
 mod math;
-mod number;
 mod text;
 mod unicode;
 
