@@ -101,6 +101,7 @@
            ((F32) 'f32)
            ((F64) 'f64)
            ((String) (ref-of (array-type m 'i32)))
+           ((Any) (ref-of (any-type m)))
            ((Array Vector) (ref-of (array-type m (element-rep m (car args)))))
            ((Ref) (ref-of (cell-type m (rep m (car args)))))
            (else (if (tag-enum? m name) 'i32 (ref-of (data-type m type))))))
@@ -270,7 +271,8 @@
           ((Let name value body) (emit-let fn name value body tail?))
           ((Seq first rest) (cons `(drop ,(emit1 fn first)) (emit fn rest tail?)))
           ((Match scrutinee clauses) (emit-match fn expr scrutinee clauses tail?))
-          ((Handle effect implementations body) (emit-handle fn expr effect implementations body)))))
+          ((Handle effect implementations body) (emit-handle fn expr effect implementations body))
+          ((Convert inner target) (emit-convert fn inner target (Expr-loc expr))))))
 
     ;; One instruction, wrapping a sequence in a block when needed.
     (define (emit1 fn expr)
@@ -326,7 +328,8 @@
         ((Let _ value body) (append (references value) (references body)))
         ((Seq first rest) (append (references first) (references rest)))
         ((Match scrutinee clauses) (append (references scrutinee) (append-map (lambda (c) (references (Clause-body c))) clauses)))
-        ((Handle _ implementations body) (append (append-map (lambda (e) (references (cdr e))) implementations) (references body)))))
+        ((Handle _ implementations body) (append (append-map (lambda (e) (references (cdr e))) implementations) (references body)))
+        ((Convert inner _) (references inner))))
 
     ;; ---- Variables ----
 
@@ -571,6 +574,68 @@
                         (_ (let ((temp (declare-temp! fn (fn-rep fn type))))
                              (cons `(local.set ,temp ,field) (pattern-code fn arg `(local.get ,temp) fail)))))))
                   args types (iota (length args))))
+
+    ;; ---- Dynamic values ----
+
+    ;; An Any is the TypeId of its value's ground type with the value itself;
+    ;; a scalar is boxed so every payload is a reference.
+    (define (any-type m)
+      (or (known-type m "any") (register-type! m "any" '$any '(type $any (struct (field i32)
+                                                                           (field anyref))))))
+
+    (define (box-type m r)
+      (let ((key (string-append "box." (rep-key r))))
+        (or (known-type m key) (register-type! m key (wasm-id key) `(type ,(wasm-id key) (struct (field ,r)))))))
+
+    (define (any-type-id type)
+      (let ((hash (fnv-1a (type-key type))))
+        (if (>= hash (expt 2 31)) (- hash (expt 2 32)) hash)))
+
+    (define (fnv-1a text)
+      (let loop ((hash 2166136261) (chars (string->list text)))
+        (if (null? chars)
+            hash
+            (loop (modulo (* (bitwise-xor hash (char->integer (car chars))) 16777619) 4294967296) (cdr chars)))))
+
+    (define (bitwise-xor a b)
+      (let loop ((a a) (b b) (bit 1) (result 0))
+        (if (and (= a 0) (= b 0))
+            result
+            (loop (quotient a 2) (quotient b 2) (* bit 2) (if (= (modulo a 2) (modulo b 2)) result (+ result bit))))))
+
+    (define (any? type)
+      (match type ((TCon 'Any '()) #t) (_ #f)))
+
+    ;; To Any boxes; from Any checks the TypeId and panics on a mismatch. A
+    ;; downcast of a value just upcast from the same type is removed.
+    (define (emit-convert fn inner target loc)
+      (let ((source (Expr-type inner)) (m (Fn-module fn)))
+        (cond ((equal? (type-key source) (type-key target)) (emit fn inner #f))
+              ((match (Expr-term inner)
+                 ((Convert original _) (equal? (type-key (Expr-type original)) (type-key target)))
+                 (_ #f))
+               (match (Expr-term inner) ((Convert original _) (emit fn original #f))))
+              ((any? target) (list (to-any m source (emit1 fn inner))))
+              ((any? source) (list (from-any fn target (emit1 fn inner))))
+              (else (compile-error loc (string-append "type-convert converts to or from Any, not from "
+                                                      (type->string source) " to " (type->string target)))))))
+
+    (define (to-any m type value)
+      (let ((r (rep m type)))
+        `(struct.new ,(any-type m) (i32.const ,(any-type-id type))
+                     ,(if (symbol? r) `(struct.new ,(box-type m r) ,value) value))))
+
+    (define (from-any fn type value)
+      (let* ((m (Fn-module fn)) (r (fn-rep fn type)) (any (declare-temp! fn `(ref ,(any-type m))))
+             (payload `(struct.get $any 1 (local.get ,any))))
+        `(block (result ,r)
+                (local.set ,any ,value)
+                (if (i32.ne (struct.get $any 0 (local.get ,any)) (i32.const ,(any-type-id type)))
+                    (then (call ,(panic-helper m) ,(string-literal m (string-append "type-convert: the value is not a " (type->string type))))
+                          (unreachable)))
+                ,(if (symbol? r)
+                     `(struct.get ,(box-type m r) 0 (ref.cast (ref ,(box-type m r)) ,payload))
+                     `(ref.cast ,r ,payload)))))
 
     ;; ---- Effect handlers ----
 

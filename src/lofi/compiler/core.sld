@@ -42,6 +42,7 @@
    Match
    Ann
    Handle
+   Convert
    Clause
    Clause-pattern
    Clause-body
@@ -164,7 +165,7 @@
       (Scheme '() '() type))
 
     (define builtin-types
-      '((U8 . 0) (I32 . 0) (I64 . 0) (F32 . 0) (F64 . 0) (Bool . 0) (Char . 0) (Unit . 0)
+      '((Any . 0) (U8 . 0) (I32 . 0) (I64 . 0) (F32 . 0) (F64 . 0) (Bool . 0) (Char . 0) (Unit . 0)
         (String . 0) (Array . 1) (Vector . 1) (Ref . 1)))
 
     ;; Unique names look like `lofi.base:map`; diagnostics show the source name.
@@ -300,7 +301,10 @@
       (Handle
        ((effect Symbol)
         (implementations (List (Pair Symbol Expr)))
-        (body Expr))))
+        (body Expr)))
+      (Convert
+       ((expr Expr)
+        (target Type))))
 
     (struct Clause
       ((pattern Pattern)
@@ -345,7 +349,8 @@
         ((Ann expr type) (list 'ann (expr->datum expr) (type->string type)))
         ((Handle effect implementations body)
          (list 'handle effect (map (lambda (entry) (list (car entry) (expr->datum (cdr entry)))) implementations)
-               (expr->datum body)))))
+               (expr->datum body)))
+        ((Convert inner target) (list 'type-convert (expr->datum inner) (type->string target)))))
 
     (define (pattern->datum pattern)
       (match pattern

@@ -625,6 +625,9 @@ Scheme subset, beside the old one, which was then deleted.
 - The dynamic Scheme libraries (`integer`, `rational`, `number`, `datum`,
   `read`, `write`) and `generate-library` are ported, without complex
   numbers or mutable pairs.
+- `Any` and `type-convert` (section 6): an upcast boxes a value with its
+  type's identity, a downcast checks it at run time, and a downcast of a
+  value just upcast from the same type is removed.
 
 ### Remaining
 
@@ -632,7 +635,7 @@ Scheme subset, beside the old one, which was then deleted.
   for absent values, host hash tables) and compile it with itself.
 - **Phase 4.** The dependent elaborator and checked interfaces.
 - **Phase 5.** The WGSL backend, wire schema export, typed destinations,
-  model checking, and `(scheme compiler)` with `type-convert`.
+  model checking, and `(scheme compiler)`.
 
 ### Simplifications made on the way
 

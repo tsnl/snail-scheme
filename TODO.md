@@ -9,7 +9,6 @@ proposed language changes separate from implemented behavior.
   dynamic Scheme libraries, which the port left out.
 - [ ] Grow `(scheme base)` toward R7RS, then the `(scheme compiler)`
   translator of the redesign's section 6.
-- [ ] `type-convert` and `Any` for the boundary between typed and dynamic code.
 - [ ] Literals at a generic numeric type, through the `Num` evidence.
 - [ ] Superclasses, so `(Ord T)` can imply an equality class.
 - [ ] Explicit overflow-checking arithmetic.

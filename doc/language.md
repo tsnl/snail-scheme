@@ -52,6 +52,7 @@ output is the library's source text. The compiler builds and runs it first:
 | `(match value (pattern body ...) ...)` | Pattern matching, checked for exhaustiveness and unreachable clauses. |
 | `(: name type)` | Signature for the following definition. |
 | `(ann expression type)` | Static type annotation. |
+| `(type-convert expression type)` | Converts to or from `Any`; a downcast is checked at run time. |
 | `(struct (Name param ...) ((field type) ...))` | Record type. |
 | `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
 | `(type (Name param ...) type)` | Transparent alias. |
@@ -79,6 +80,7 @@ uses macros (`list`, `string-append`) or lists.
 ## Types
 
 Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
+`Any` is a value of any type, used with `type-convert`.
 `String` is an immutable sequence of Unicode scalars. `(Vector T)` is an
 immutable sequence and `(Array T)` a mutable one; `(Ref T)` is a mutable
 cell. `Bytes` is `(Vector U8)`, stored packed.
@@ -181,6 +183,20 @@ unsafe assumption. `unsafe-total` runs a thunk and discards its effects. The
 standard library uses it where a function mutates only storage it allocates.
 
 Traps and non-termination are not tracked.
+
+## Dynamic values
+
+`Any` holds a value of any type together with that type's identity.
+`(type-convert e Any)` wraps a value; `(type-convert e T)` unwraps an `Any`,
+panicking if it does not hold a `T`. Converting a value to the type it already
+has does nothing, and a value converted to `Any` and straight back is never
+wrapped, so conversions can be inserted liberally where typed code meets
+dynamic code.
+
+```scheme
+(define items (list (type-convert 42 Any) (type-convert "text" Any)))
+(+ 1 (type-convert (car items) I64))
+```
 
 ## Wire types
 

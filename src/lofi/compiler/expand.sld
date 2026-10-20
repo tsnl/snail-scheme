@@ -154,7 +154,7 @@
 
     (define core-keywords
       '(define lambda if begin let define-syntax syntax-rules quote : struct enum type
-         typeclass instance match ann extern effect handle expose case-id))
+         typeclass instance match ann extern effect handle expose case-id type-convert))
 
     (define (core-library)
       (Library '(lofi core)
@@ -772,6 +772,9 @@
                  ((list _ value type) (expr (Ann (expand-expr cx env value) (resolve-type env type)) loc))
                  (_ (compile-error loc "expected (ann expression type)"))))
         ((handle) (expand-handle cx env items loc))
+        ((type-convert) (match items
+                          ((list _ value type) (expr (Convert (expand-expr cx env value) (resolve-type env type)) loc))
+                          (_ (compile-error loc "expected (type-convert expression type)"))))
         ((case-id) (match items
                      ((list _ constructor) (expr (Ann (expr (Lit (constructor-case-id cx env constructor)) loc) (TCon 'I32 '())) loc))
                      (_ (compile-error loc "expected (case-id Constructor)"))))

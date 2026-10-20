@@ -258,7 +258,10 @@
            (let ((inner (infer ck inner row)))
              (unify ck type (Expr-type inner) loc)
              inner))
-          ((Handle effect implementations body) (infer-handle ck effect implementations body row loc)))))
+          ((Handle effect implementations body) (infer-handle ck effect implementations body row loc))
+          ;; The direction is decided once types are ground: to Any, from
+          ;; Any, or nothing when the types already agree.
+          ((Convert inner target) (typed (Convert (infer ck inner row) target) target loc)))))
 
     (define (infer-lambda ck params body loc)
       (let ((types (map (lambda (param)
@@ -599,6 +602,7 @@
                  (Match (zonk-expr scrutinee)
                         (map (lambda (clause) (Clause (zonk-pattern (Clause-pattern clause)) (zonk-expr (Clause-body clause))))
                              clauses)))
+                ((Convert inner target) (Convert (zonk-expr inner) (zonk target)))
                 ((Handle effect implementations body)
                  (Handle effect (map (lambda (entry) (cons (car entry) (zonk-expr (cdr entry)))) implementations)
                          (zonk-expr body))))
@@ -828,6 +832,7 @@
         ((Seq first rest) (append (expr-references first) (expr-references rest)))
         ((Match scrutinee clauses) (append (expr-references scrutinee) (append-map (lambda (c) (expr-references (Clause-body c))) clauses)))
         ((Ann inner _) (expr-references inner))
+        ((Convert inner _) (expr-references inner))
         ((Handle _ implementations body) (append (append-map (lambda (e) (expr-references (cdr e))) implementations)
                                                  (expr-references body)))))
 

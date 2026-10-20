@@ -8,6 +8,7 @@
    :
    type
    ann
+   type-convert
    struct
    enum
    match
@@ -31,6 +32,11 @@
         ((_ . anything) (begin))))
 
     (define-syntax ann
+      (syntax-rules ()
+        ((_ expression type) expression)))
+
+    ;; Without static types, every value is already dynamic.
+    (define-syntax type-convert
       (syntax-rules ()
         ((_ expression type) expression)))
 

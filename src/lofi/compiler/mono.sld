@@ -133,7 +133,8 @@
                   (map (lambda (clause) (Clause (copy-pattern inst (Clause-pattern clause)) (copy (Clause-body clause))))
                        clauses)))
           ((Handle effect implementations body)
-           (Handle effect (map (lambda (entry) (cons (car entry) (copy (cdr entry)))) implementations) (copy body))))))
+           (Handle effect (map (lambda (entry) (cons (car entry) (copy (cdr entry)))) implementations) (copy body)))
+          ((Convert inner target) (Convert (copy inner) (ground inst target))))))
 
     (define (copy-pattern inst pattern)
       (match pattern
