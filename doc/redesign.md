@@ -64,49 +64,6 @@ now, but the core keeps room for them (§3.8).
 5. **No real program uses the type system.** Siegework encodes its domain as
    integers, and the compiler is untyped Chibi Scheme.
 
-### 2.3 Is the `tachyon` type system enough?
-
-The sketch is a dependently typed functional language. Types are values
-(`Vec3(T: type)`), typeclasses are type-indexed records, instances specialize
-them, and functions can be defined by clauses checked for exhaustiveness.
-Without grades and with GC, this is a sound foundation for the requirements
-above. It needs seven amendments:
-
-1. **Separate closed and open definitions.** Clause definitions of an ordinary
-   function are closed: they must be exhaustive and non-redundant. Typeclass
-   instances are open: they are spread across libraries and must not overlap,
-   and an instance must live with its class or with its head type (an orphan
-   rule). An open declaration needs its own form, rather than being inferred
-   from the absence of a blanket implementation.
-2. **Instance requirements.** A generic instance needs a context:
-   `ToHex(List(T))` requires `ToHex(T)`. Resolution matches heads and then
-   resolves requirements recursively. It terminates when each requirement is
-   structurally smaller than its head.
-3. **Separate disjoint sums from structural unions.** A union collapses when
-   its members can be equal: with `Option(T) = T | None`, the type
-   `Option(Option(I32))` cannot tell its two `None`s apart. Rather than
-   restricting unions, provide two forms. An `enum` is a nominal tagged sum,
-   disjoint by construction, for `Option`, `Result` and syntax trees. A
-   `union` is a structural set of types whose overlap is part of its meaning,
-   for protocols built from independently defined messages (§3.3).
-4. **Erasure still needs a phase distinction.** Without grades, Lofi still has
-   to know which arguments exist at run time. Arguments of kind `Type` (and
-   later, proofs) are static: they are erased or monomorphized. Value indices
-   of types are erased. A representation depends only on static type
-   arguments.
-5. **Definitional equality uses normalization.** Type-level functions are
-   evaluated by normalization by evaluation (NbE). Evaluation in types is
-   fuel-bounded with a clear error. A totality checker can come later.
-6. **"Templates with concepts" are dependent functions plus typeclasses.**
-   `Vec3(T: Type)` is a template, a requirement is a concept, and
-   monomorphization is instantiation. Unlike C++, the body is checked once, at
-   its definition. Macros are then needed only for new syntax (§3.6).
-7. **Wire types get structural identities** (§3.7).
-
-`WASM64` is unnecessary with GC. WasmGC objects do not live in linear memory,
-and memory64 matters only for large byte buffers. Target WasmGC with tail calls
-(Wasm 3.0); V8 and Wasmtime support both.
-
 ## 3. Language design
 
 ### 3.1 Syntax and libraries
@@ -128,7 +85,7 @@ types. `if` requires `Bool`. Lofi adds a small number of typed forms:
 | `(match e (pattern body ...) ...)` | Nested patterns, wildcards and literals; exhaustiveness and redundancy checked. |
 | `(ann e type)` | Checked annotation. |
 
-The `tachyon` color example becomes:
+A color example:
 
 ```scheme
 (define-library (example colors)
@@ -166,10 +123,11 @@ The `tachyon` color example becomes:
           (primary (to-hex primary)))))))   ; the remaining members: PrimaryColor
 ```
 
-`Primary { pc }` from the sketch is unnecessary: `PrimaryColor`'s members are
-types in their own right, so they join `Color` directly.
+`PrimaryColor`'s members are types in their own right, so they join `Color`
+directly, without a wrapping case.
 
-`fibonacci_v2` uses `match`. Closed clause syntax can be sugar over it later:
+A function defined by cases uses `match`. Closed clause syntax can be sugar over
+it later:
 
 ```scheme
 (: fibonacci (-> I64 I64))
@@ -197,6 +155,12 @@ checked operations.
 Functions have fixed arity. Proper tail calls are guaranteed. A function type
 may name its parameters, so the result can depend on them:
 `(-> (n I64) (Vector I32 n))`.
+
+Arguments of kind `Type` (and later, proofs) are static: they are erased or
+monomorphized, and a representation depends only on static type arguments.
+Value indices of types, such as `n` above, are erased. Definitional equality
+uses normalization by evaluation, and evaluation inside types is fuel-bounded
+with a clear error; a totality checker can come later.
 
 ### 3.3 Structs, enums and unions
 
@@ -297,8 +261,10 @@ There are two layers:
    evaluator. This is the MetaOCaml model, and the typed counterpart of
    templates. It needs no separate interpreter.
 
-Generic code needs neither layer. It uses dependent functions and typeclasses
-(§2.3, item 6). `generate-library` remains for producing whole libraries from
+Generic code needs neither layer. A dependent function such as `Vec3` over
+`(T Type)` is a template, a typeclass requirement is a concept, and
+monomorphization is instantiation; unlike C++, the body is checked once, at its
+definition. `generate-library` remains for producing whole libraries from
 external input (§6).
 
 ### 3.7 Wire types and stable identities
