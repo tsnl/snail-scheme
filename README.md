@@ -30,7 +30,10 @@ rustup target add wasm32-wasip1
 ```
 
 Chibi Scheme, Binaryen, Cargo and Node are required; `shell.nix` provides
-them. Programs are linked with a small Rust runtime and run under WASI.
+them. Programs are linked with a small Rust runtime and run under WASI. The
+first run bootstraps the compiler, which takes about a minute: Chibi runs
+its source once, and the compiled compiler then rebuilds itself whenever
+the source changes.
 
 ## Siegework
 
