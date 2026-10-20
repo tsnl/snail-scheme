@@ -66,6 +66,7 @@
    World-nests
    World-shots
    World-ore
+   World-ore-set
    World-outcome
    World-message
    World-message-set
@@ -138,7 +139,7 @@
     (: kind-health (-> Kind I64))
     (define (kind-health kind)
       (match kind
-        ((Hub) 400)
+        ((Hub) 600)
         ((Extractor) 100)
         ((Tower) 120)
         ((Gun) 150)))
@@ -248,7 +249,7 @@
     (define nest-health 600)
 
     (: first-wave I64)
-    (define first-wave 450)
+    (define first-wave 600)
 
     (: wave-interval I64)
     (define wave-interval 300)
@@ -574,11 +575,11 @@
     (define (strike world enemy target)
       (if (> (Enemy-cooldown enemy) 0)
           (put-enemy world (Enemy-cooldown-set enemy (- (Enemy-cooldown enemy) 1)))
-          (put-building (put-enemy world (Enemy-cooldown-set enemy 10)) (Building-hp-set target (- (Building-hp target) 8)))))
+          (put-building (put-enemy world (Enemy-cooldown-set enemy 10)) (Building-hp-set target (- (Building-hp target) 6)))))
 
     ;; ---- Guns ----
 
-    ;; A built gun fires every eight ticks at the nearest enemy within five
+    ;; A built gun fires every eight ticks at the nearest enemy within six
     ;; cells, or else at a nest in range.
     (: fire-guns (-> World World))
     (define (fire-guns world)
@@ -589,12 +590,12 @@
       (let ((cell (Building-cell gun)))
         (cond ((> (Building-cooldown gun) 0) (put-building world (Building-cooldown-set gun (- (Building-cooldown gun) 1))))
               (else
-               (match (nearest (filter (lambda (e) (<= (distance-squared cell (Mover-cell (Enemy-mover e))) 25)) (World-enemies world))
+               (match (nearest (filter (lambda (e) (<= (distance-squared cell (Mover-cell (Enemy-mover e))) 36)) (World-enemies world))
                                (lambda (e) (distance-squared cell (Mover-cell (Enemy-mover e)))))
                  ((Some enemy)
                   (shoot (put-enemy world (Enemy-hp-set enemy (- (Enemy-hp enemy) 25))) gun (Mover-cell (Enemy-mover enemy))))
                  ((None)
-                  (match (find (lambda (n) (<= (distance-squared cell (Nest-cell n)) 25)) (World-nests world))
+                  (match (find (lambda (n) (<= (distance-squared cell (Nest-cell n)) 36)) (World-nests world))
                     ((Some nest)
                      (shoot (changed (World-nests-set world (map (lambda (n) (if (= (Nest-id n) (Nest-id nest)) (Nest-hp-set n (- (Nest-hp n) 25)) n))
                                                                  (World-nests world))))

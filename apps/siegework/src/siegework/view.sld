@@ -124,7 +124,7 @@
                    (Label (string-append "Workers " (show (length (World-workers world)))))
                    (Label (string-append "Nests " (show (length (World-nests world)))))
                    (Meter (string-append "Next wave in " (show (quotient (ticks-until-wave world) 10)) "s")
-                          (- 1.0 (/ (i64->f32 (ticks-until-wave world)) 450.0)))
+                          (- 1.0 (/ (i64->f32 (ticks-until-wave world)) 600.0)))
                    (Label (World-message world)))))
 
     (: tool-panel (-> Game Panel))

@@ -17,8 +17,8 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
   on the gold deposit near the hub; workers fetch its kit from the hub, build
   it, then haul its ore home.
 - **Towers** (25) reveal more of the map. **Guns** (50) shoot enemies and
-  nests within five cells. Another **worker** costs 40.
-- The first wave leaves the nests at 45 seconds, and one comes every 30
+  nests within six cells. Another **worker** costs 40.
+- The first wave leaves the nests after a minute, and one comes every 30
   seconds after, each larger than the last. Enemies attack the nearest
   building. Destroy every nest to win; lose the hub and you lose.
 - WASD or the arrow keys pan, the wheel zooms, 1–3 choose a building, Esc
