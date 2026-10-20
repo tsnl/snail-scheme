@@ -85,8 +85,9 @@ types. `if` requires `Bool`. Lofi adds a small number of typed forms:
 | `(match e (pattern body ...) ...)` | Nested patterns, wildcards and literals; exhaustiveness and redundancy checked. |
 | `(ann e type)` | Static annotation; never checks at run time. |
 | `(type-convert e type)` | Upcast checked statically, or downcast checked at run time (§6). |
-| `(extern name module symbol type)` | Foreign function; its type declares its effects (§3.5). |
-| `(effect name)` | Declares an effect label (§3.5). |
+| `(extern name module symbol type)` | Total foreign function, such as a math routine (§3.5). |
+| `(effect Name ((operation type) ...) [(host module ((operation symbol) ...))])` | Effect and its operations, with optional host defaults (§3.5). |
+| `(handle Name ((operation implementation) ...) body ...)` | Installs an effect's implementations for the extent of `body` (§3.5). |
 
 A color example:
 
@@ -218,8 +219,10 @@ This replaces both today's concrete-head classes and `define-overload`.
 Every function type carries an **effect row**, in the style of Koka: the set of
 effects calling the function may perform. A function whose row is empty is
 **total**: its result depends only on its arguments and immutable data, and
-calling it changes nothing observable. Effects are checked and then erased;
-there are no effect handlers.
+calling it changes nothing observable. An effect declares operations, and
+`handle` binds implementations for them. Operations are tail-resumptive: an
+implementation returns to the operation's caller exactly once, so no
+continuation is ever captured.
 
 #### Syntax
 
@@ -228,25 +231,61 @@ A row follows `!` at the end of an arrow. Without `!`, the row is empty.
 ```scheme
 (: parse (-> String Config))                     ; total
 (: load-config (-> String Config ! fs))          ; reads files
-(: log-and-count (-> String I64 ! io mut))       ; prints, updates a counter
+(: count-line (-> String I64 ! console mut))     ; prints, updates a counter
 (: map (All (A B e) (-> (-> A B ! e) (List A) (List B) ! e)))
-(effect fs)                                      ; declares a label
-(extern read-file "host" "read_file" (-> String Bytes ! fs))
 ```
 
-- **Labels** are nominal, like types. `(effect name)` declares one at library
-  scope, and imports and exports treat it like a type name.
-  - `mut` (built in) covers allocating, reading and writing `Ref` and mutable
-    vector storage.
-  - `io` (built in) covers console, clock and randomness.
-  - Libraries declare the rest: `fs`, `net`, `gpu`, and so on.
-- **Rows are sets.** `! io io` is `! io`, and order is irrelevant.
+- **Labels** are nominal, like types, and imports and exports treat them like
+  type names.
+  - `mut` is built in. It covers allocating, reading and writing `Ref` and
+    mutable vector storage, has no operations and cannot be handled.
+  - Every other label is an effect declared with operations. The standard
+    library declares `console`, `clock`, `random`, `fs` and `net`.
+- **Rows are sets.** `! fs fs` is `! fs`, and order is irrelevant.
 - **Row variables.** A type variable after `!`, bound by `All`, makes the row
-  *open*: `(-> A B ! io e)` performs `io` plus whatever `e` stands for. A row
+  *open*: `(-> A B ! fs e)` performs `fs` plus whatever `e` stands for. A row
   has at most one variable, written last. Whether an `All` variable ranges over
   types or rows is inferred from where it occurs.
 - **Data.** Function-typed fields carry rows too, and a struct or enum may take
   a row parameter: `(struct (Task e) ((run (-> Unit ! e))))`.
+
+#### Declaring and handling effects
+
+```scheme
+(effect Log
+  ((log (-> String Unit))))
+
+(: quietly (All (A e) (-> (-> A ! Log e) A ! e)))
+(define (quietly action)
+  (handle Log
+    ((log (lambda (message) (unit))))
+    (action)))
+```
+
+- **Operations.** An effect lists its operations and their types, one list
+  like a struct's fields. Calling `(log "starting")` performs `Log`.
+- **Handlers.** `(handle Log ((log implementation)) body ...)` installs
+  implementations for the dynamic extent of `body` and discharges `Log` from
+  its row (HANDLE below). Implementations may perform the surrounding
+  context's effects.
+- **Dispatch.** An operation goes to the innermost handler active when it is
+  called. An implementation runs in its handler's outer context, so if it
+  performs the same effect, the next handler out receives it. A closure that
+  escapes a handler still says `! Log` in its type, so it can only be called
+  under some `Log` handler.
+- **Host defaults.** An effect can name host imports as its default
+  implementation:
+
+  ```scheme
+  (effect fs
+    ((read-file (-> String Bytes)))
+    (host "fs" ((read-file "read_file"))))
+  ```
+
+  The effects in the entry point's row must all have host defaults, which the
+  host installs at program start. Any code can shadow them with `handle`, so a
+  test can run an application under deterministic `fs`, `net`, `clock` and
+  `random` handlers.
 
 #### Typing
 
@@ -267,6 +306,10 @@ and arguments, plus the operator's latent row:
 Γ ⊢ e : T ! ε      ε ⊆ ε′
 ──────────────────────────────────────────────── WEAKEN
 Γ ⊢ e : T ! ε′
+
+Γ ⊢ body : T ! {L | ε}      Γ ⊢ implᵢ : opᵢ ! ε   (each operation of L)
+──────────────────────────────────────────────── HANDLE
+Γ ⊢ (handle L ((op₁ impl₁) …) body) : T ! ε
 ```
 
 A signature's row is an upper bound. Checking a body against
@@ -286,7 +329,7 @@ subtyping:
   missing a required label is an error. Rows have an occurs check like types.
 - **Opening instead of subeffecting.** When a name is instantiated, every closed
   row in the positive positions of its type gets a fresh tail. A total
-  `(-> A B)` can therefore be passed where `(-> A B ! io)` is expected, without
+  `(-> A B)` can therefore be passed where `(-> A B ! fs)` is expected, without
   a subtyping relation. WEAKEN is admissible from this rule.
 - **Generalization by totality.** A binding generalizes its type and row
   variables only if evaluating its initializer is total. Allocating mutable
@@ -294,7 +337,7 @@ subtyping:
   monomorphic, while an application such as `(compose f g)` can generalize.
   This replaces today's syntactic value restriction with a more precise rule.
 - **Diagnostics** name the label and the call that introduced it: "`save`
-  performs `fs` here, but its signature allows only `io`."
+  performs `fs` here, but its signature allows only `console`."
 
 #### Typeclasses and instances
 
@@ -306,14 +349,14 @@ part in instance selection.
 
 #### Foreign calls and initialization
 
-An `extern` states its effects in its type. One declared without effects is
-trusted to be total: that is the boundary's explicit unsafe assumption, and
-the reason foreign declarations must be reviewed.
+An `extern` declares a total foreign function, such as a math routine; the
+declaration asserts that totality, which is the boundary's explicit unsafe
+assumption. Effectful host services are effects with host defaults, so they
+can be handled like any other effect.
 
 Library initializers may perform any effects. Instantiating a library is the
 host's effectful act, while functions that later read a library's mutable
-state still declare `mut`. A program's entry point declares the effects the
-host must supply.
+state still declare `mut`.
 
 #### What is not tracked
 
@@ -328,7 +371,8 @@ Purity is enforced, rather than left to convention, because later stages rely
 on it:
 
 - **Model checking.** Application handlers must be total (§5), so a test can
-  replay and explore transitions without a browser or a network.
+  replay and explore transitions without a browser or a network. Code that
+  does use host effects runs under deterministic test handlers.
 - **Optimization.** The compiler may merge and reorder total calls, and drop
   those that cannot trap.
 - **Boundaries.** A handler's type shows whether it can touch files, the
@@ -339,8 +383,8 @@ on it:
 
 An effect system gives these guarantees in Scheme's direct style. Rows are part
 of signatures, so the erasure property of §6 is unaffected. The Scheme
-translator gives generated code the rows `! io mut`, matching Scheme's
-semantics.
+translator gives generated code rows naming the host effects R7RS exposes, such
+as `console`, `fs` and `mut`.
 
 #### Implementation in the current checker
 
@@ -350,9 +394,14 @@ Effect rows fit the HM checker of phase 2 before dependent types arrive:
    gains row unification with an occurs check.
 2. Inference threads one current row per function body, opens rows on
    instantiation, and generalizes only total initializers.
-3. The frontend parses `!` and `(effect name)`. `extern` rows are required in
-   source, and primitives and standard libraries get their rows.
-4. Rows are erased before specialization; code generation is unchanged.
+3. The frontend parses `!`, `effect` and `handle`. Primitives and standard
+   libraries get their rows.
+4. Rows are erased before specialization. Each effect becomes a handler stack
+   in a WasmGC global: `handle` pushes its implementations, runs the body and
+   pops; an operation loads the top implementation and calls it, possibly as a
+   tail call. An implementation runs with its own entry temporarily removed,
+   which gives the outer-context rule. Calls resolve statically when inlining
+   exposes the enclosing handler.
 
 ### 3.6 Macros and generic code
 
@@ -489,7 +538,9 @@ behavior whenever the Lofi program does not trap or overflow:
 | --- | --- |
 | `(struct (Vec3 T) ((x T) (y T) (z T)))` | `(define-record-type Vec3 (Vec3 x y z) Vec3? (x Vec3-x) (y Vec3-y) (z Vec3-z))` |
 | `(enum (Option T) (Some ((value T))) (None))` | One record type per case (`Some`, `None`) and a predicate `Option?` that tests the cases. |
-| `(: ...)`, `(type ...)`, `(effect ...)` | Removed, including effect rows. |
+| `(: ...)`, `(type ...)` | Removed, including effect rows. |
+| `(effect Log ((log T)) ...)` | A parameter holding a record of implementations and the outer record, and a procedure per operation that calls the current implementation with the parameter rebound to the outer record. The shim supplies host defaults. |
+| `(handle Log ((log impl)) body ...)` | `(parameterize ((Log (make-Log impl))) body ...)` |
 | `(ann e T)`, `(type-convert e T)` | `e` |
 | `(match e ((Some v) a) ((None) b))` | `(let ((x e)) (cond ((Some? x) (let ((v (Some-value x))) a)) ((None? x) b)))` |
 | Typeclass method | A generic procedure that dispatches on its first argument's record predicate. |
@@ -587,8 +638,8 @@ form is parsed twice.
 3. Derived `Serialize` and `Deserialize` keyed by `TypeId`. Add a canonical
    byte ABI for entry parameters and results, with schema-generated JavaScript
    decoders.
-4. Effect rows on function types, `extern` effect declarations, and total
-   application handlers.
+4. Effect rows on function types, `effect` declarations with host defaults,
+   `handle`, and total application handlers.
 5. The application framework moves to typed messages and in-Wasm state, and
    the word protocols are deleted. Rewrite Siegework's model with enums and
    `match`. This is the forcing function for the language.
