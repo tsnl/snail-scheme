@@ -60,7 +60,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path src/runtime/Cargo.toml --offline`, and
-`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`.
+`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`. The
+driver rebuilds the compiled compiler whenever the compiler's source
+changes; compiler changes must also pass `make test-chibi`, which runs the
+source on Chibi, and `make bootstrap`, which rebuilds from Chibi alone.
 Backend changes should execute linked Wasm; compilation alone does not test
 target behavior. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
