@@ -90,14 +90,16 @@ await test('defeat reveals all map facts without survey growth, allows inspectio
   }finally{await r.close();}
 });
 
-await test('World13 refuses old geography and incomplete current deposit records without replacing live state',async()=>{
+await test('World14 refuses old geography and incomplete current deposit records without replacing live state',async()=>{
   const r=await fresh();try{
     const saved=r.snapshot(1);
-    for(const name of ['siegework-world12.json','siegework-world12-revision1.json']){
+    assert.equal(saved[0],14);assert.equal(r.manifest.settings.id,'siegework-colony-v14');
+    for(const name of ['siegework-world12.json','siegework-world12-revision1.json','siegework-world13.json']){
       const fixture=JSON.parse(readFileSync(new URL('./fixtures/'+name,import.meta.url)));
       assert.throws(()=>readRecord(fixture.record,r.manifest.settings.id,saveContract(r.manifest)));
       await assert.rejects(()=>r.restore(1,fixture.record.snapshot.state));assert.deepEqual(r.snapshot(1),saved);
     }
+    await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);assertBalance(state(r));
     for(const edit of [w=>w.deposits.pop(),w=>w.deposits.reverse(),w=>w.deposits[0].cell++,w=>w.deposits.push(w.deposits[0])]){
       const broken=state(r);edit(broken);await assert.rejects(()=>restoreColony(r,broken),WebAssembly.RuntimeError);
       assert.deepEqual(r.snapshot(1),saved);

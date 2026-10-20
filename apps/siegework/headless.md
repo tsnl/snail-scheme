@@ -16,7 +16,7 @@ node apps/siegework/environment-cli.mjs /tmp/siegework-environment/solo
 
 The package must provide player observation ABI version 1; older gameplay builds
 deliberately fail the environment's version check. Rebuild from source to obtain
-the extension, which changes neither World13 nor gameplay. Tested package
+the extension, which changes neither World14 nor gameplay. Tested package
 identities and temporary artifact paths are recorded in [VALIDATION.md](VALIDATION.md).
 
 ## Node API and episode semantics
@@ -254,8 +254,8 @@ Building observations include `scavengeRefund` (completed construction and upgra
 investment divided by five, rounded down) and `scavenging` (a worker currently
 claims demolition). Stored ore recovery is separate from this structural quote.
 
-World13 uses `siegework-colony-v13` for the 64×64 map. World12 saves and
-checkpoints are rejected rather than reinterpreting their cell indices. Extractor
+World14 uses `siegework-colony-v14` for sparser resource placement on the 64×64 map. Earlier saves and
+checkpoints are rejected rather than reinterpreting their deposit identities. Extractor
 construction costs zero ore but still requires a worker to reach the site; its
 40/160-ore upgrades remain paid. Outcome 4 means resigned: the intact world is
 frozen and fully revealed, and a new run starts through the normal reset intent.

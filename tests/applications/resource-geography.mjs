@@ -20,7 +20,7 @@ try{
     await r.dispatch(1,r.command('match','new-run-seed',[seed]));const world=colony(r.snapshot(1));
     assert.deepEqual(world.deposits.slice(0,3).map(d=>d.remaining),[600,900,1800]);
     assert.equal(new Set(world.deposits.map(d=>d.cell)).size,world.deposits.length);
-    assert.ok(world.deposits.length<=46);assert.ok(world.deposits.every(d=>d.cell>=0&&d.cell<4096));
+    assert.ok(world.deposits.length<=34);assert.ok(world.deposits.every(d=>d.cell>=0&&d.cell<4096));
     const reserves=world.deposits.slice(-3);
     assert.deepEqual(reserves,world.nests.map(n=>({cell:n.x+n.y*64,remaining:2400})));
     const frontier=world.deposits.slice(-3-bonus,-3),hub=world.surveys[0];
@@ -32,11 +32,15 @@ try{
     await r.dispatch(1,r.command('match','new-run-seed',[seed]));assert.deepEqual(colony(r.snapshot(1)).deposits,world.deposits);
     samples.push({seed,fingerprint,counts,bonus});
   }
+  // The same 32 seeds produced 352 bonus sites in the compiled World13 package.
+  // Bound the realized reduction as well as the relative near-nest gradient.
+  const bonusTotal=samples.reduce((sum,sample)=>sum+sample.bonus,0),previousBonusTotal=352;
+  assert.ok(bonusTotal>=previousBonusTotal*.4&&bonusTotal<=previousBonusTotal*.6,'bonus sites should be roughly halved');
   const density=[0,2,4].map(i=>totals[i+1]/totals[i]);
   assert.ok(density[0]>density[1]*3,'inner nest ground must be substantially denser than the approach ring');
   assert.ok(density[1]>density[2]*1.25,'approach ring must be denser than distant ground');
   assert.ok(density[0]>density[2]*5,'nest surroundings must guide exploration strongly');
-  const report={seeds:seeds.length,totals,density,samples};
+  const report={seeds:seeds.length,bonusTotal,previousBonusTotal,totals,density,samples};
   if(process.argv[4])writeFileSync(process.argv[4],JSON.stringify(report,null,2)+'\n');
-  console.log(`${seeds.length} deterministic maps checked; realized deposits per 1,000 ground cells: ${density.map(d=>(d*1000).toFixed(2)).join(' / ')} (inner / approach / distant)`);
+  console.log(`${seeds.length} deterministic maps checked; ${bonusTotal} bonus sites (World13: ${previousBonusTotal}); realized deposits per 1,000 ground cells: ${density.map(d=>(d*1000).toFixed(2)).join(' / ')} (inner / approach / distant)`);
 }finally{await r.close();closeInstance(probe);}
