@@ -60,6 +60,24 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
+- [x] Keep range boundaries on their original edges; split only coincident
+      orange/cyan segments into adjacent strokes of the usual thickness.
+- [x] Use Font Awesome's actual recycle SVG, with attribution in the bundle.
+- [x] Give hub ziplines a visible central junction that matches flight geometry.
+- [x] Replace humanoid workers with single-rotor drones and simplify the
+      extractor silhouette. Use floating Platonic solids and clusters for
+      enemies, visually related to the resource crystals.
+- [x] Gently animate resource crystals to draw attention to discoveries.
+- [x] Replace last-built previews and double-click purchases with a neutral
+      construction marker and explicit chooser actions; hover previews that action.
+- [x] Add Resign with confirmation and frozen full-map inspection.
+- [x] Make extractor construction free while retaining worker construction,
+      paid upgrades and exact refunds for actual investment.
+- [x] Explain the link between crystal enemies, nests and richer deposits in
+      opening guidance and the pause menu.
+- [x] Reduce the map to 64×64, a quarter of its previous area, with an explicit
+      save-version boundary rather than reinterpreting old cell coordinates.
+
 - [x] Try calm workers: enemies attack only structures, workers keep their jobs,
       and old fleeing saves resume their cargo and paid work safely.
 
@@ -95,7 +113,8 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Reduce tower height so deposits behind towers remain accessible.
 - [x] Clicking outside a build chooser dismisses it and acts on the new tile.
 - [x] Remove the Move button and M binding.
-- [x] Workers flee with shaking and sweat droplets.
+- [x] Workers keep working near enemies; this supersedes the earlier fleeing,
+      shaking and sweat animation experiment.
 - [x] Workers visibly carry ore or construction supplies, with destination markers.
 - [x] An existing worker must assemble a paid new worker; production is not instant.
 - [x] Towers and artillery share interchangeable 25-ore construction kits:
@@ -113,7 +132,7 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Keep the hub stationary; win by finding and destroying the nest.
 - [x] Waves strengthen over time rather than ending at an eight-minute deadline.
 - [x] Bound rendering and pathfinding work instead of processing every tile each
-      frame. The earlier larger map is superseded by the compact 128×128 expedition.
+      frame. The earlier larger map is superseded by the compact 64×64 expedition.
 - [x] Randomize player spawn inside a circle near the map center.
 - [x] Randomize nest position; approaching waves provide costly directional clues.
 - [x] Keep seeded maps reproducible; use fresh randomness for new runs.

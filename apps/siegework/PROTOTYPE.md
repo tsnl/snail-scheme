@@ -1,6 +1,6 @@
 # Siegework prototype contract
 
-Build a fast colony expedition targeting about ten minutes on a seeded 128×128 map. Keep the
+Build a fast colony expedition targeting about ten minutes on a seeded 64×64 map. Keep the
 art simple so discovery, logistics and defensive choices can be playtested.
 The [player guide](README.md) describes the implemented controls and costs.
 
@@ -9,12 +9,13 @@ The [player guide](README.md) describes the implemented controls and costs.
 - A hub, three pooled workers, one visible starter deposit and two hidden expansion
   choices. The starter holds 600 ore; north offers 900 and east offers 1,800 beyond a
   ridge crossing. Routes follow traversable surveyed ground.
-- The first paid order must be an extractor. Until that order is accepted, time
+- The first construction order must be a free extractor. Until it is accepted, time
   stays stopped and all other ore purchases are rejected. Selecting a deposit
   does not start the run; cancellation after acceptance does not stop it again.
 - Completed observation towers extend active sight. Remembered geography survives
   lost coverage; current enemies require active sight. Placement requires visible,
-  reachable ground, and a paid kit must physically arrive before a site operates.
+  reachable ground. A worker assembles every site; paid structures need delivered
+  materials, while free extractors need no kit.
   Towers also accept worker deliveries and send freight upstream through automatic
   rail links determined by placement. Arming a tower retains its observation and
   depot roles; rail cargo becomes spendable only on arrival at the hub.
@@ -26,12 +27,12 @@ The [player guide](README.md) describes the implemented controls and costs.
   orders are needed. Additional workers, extraction upgrades and observation
   upgrades compete with artillery for delivered ore. One extractor can retain
   a loose construction cache when hub income and workforce allow it. Kills award no resources.
-- Workers choose nearby reachable tasks and carry ore or kits while fleeing.
+- Single-rotor drones choose nearby reachable tasks and carry ore or kits.
   New orders reserve the lowest estimated complete worker/source trip, preempting mining or hauling
   while retaining any carried supplies. Uncollected kits return to their source;
   carried kits refund only after a physical hub return. Existing builders retain
   their kit ownership and completed buildings cannot be cancelled.
-  Encountered workers and buildings can be damaged; actual hits produce bounded
+  Enemies attack buildings, never drones; actual hits produce bounded
   location alerts. Lost cargo is not refunded. A sole worker alternates mining
   and hauling; a surviving hub can assemble one emergency replacement.
   Three 900-health nests emit fixed shares of one wave budget. Clearing a nest
@@ -44,8 +45,10 @@ The [player guide](README.md) describes the implemented controls and costs.
 - Rocks block direct artillery fire. There is no automatic repair.
 - Explicit Pause/Resume freezes simulation while allowing inspection and
   paid planning. It survives durable restart and compatible reload.
-- Overhead 3D, continuous WASD/left-stick camera pan with a three-cell exterior margin,
-  pointer/arrow/D-pad cursor and snapped
+- Resign asks for confirmation and reveals the frozen map without destroying
+  the hub or advancing the simulation.
+- Overhead 3D, continuous WASD camera pan with a three-cell exterior margin,
+  pointer/arrow cursor and snapped
   construction. Guns visibly aim automatically at eligible visible enemies; bounded shot traces
   show each actual firing without changing immediate damage.
   The compact status shows the current plan, economy and rejected orders;
@@ -104,10 +107,10 @@ publication. A failed write preserves the previous state. Online checkpoint ETag
 version remote replacement separately and reject stale writes. External effects
 still need their own delivery contract.
 
-The colony uses world schema 12 and client schema 8 with variable-size derived snapshots.
+The colony uses world schema 13 and client schema 8 with variable-size derived snapshots.
 Its world envelope exposes a checked run marker before the generic binary payload.
-The application ID `siegework-colony-v12` starts a fresh save identity for explicit hub capacity
-upgrades and removal of houses. Old browser records remain untouched under their
+The application ID `siegework-colony-v13` starts a fresh save identity for the
+compact map and zero-cost extractor construction. Old browser records remain untouched under their
 previous identity and old imports reject.
 Schema versions cover field meaning as well as shape. Reject incompatible schemas
 until a deliberate migration exists. Portable snapshots contain values, not GPU
@@ -119,7 +122,7 @@ acceptable initially; document its cost and keep it behind the typed state API.
 | Check | Required evidence |
 | --- | --- |
 | Real browser path | Reproducible app-local `build.scm`; generated simulation Wasm executes; Scheme shader AST compiles to inspectable WGSL; real WebGPU submits indexed meshes. |
-| Colony game | Multiple mine deliveries; hub/local construction conservation; cancellation and preemption ownership; depot/rail delivery and endpoint loss; discovery and known-route rules; danger retreat/recovery; deterministic loss, raid and surviving layout; zero kill income, staffed slots, sole-worker recovery, loss accounting and seeded replay. |
+| Colony game | Multiple mine deliveries; hub/local construction conservation; cancellation and preemption ownership; depot/rail delivery and endpoint loss; discovery and known-route rules; calm drones; deterministic loss, resign, raid and surviving layout; zero kill income, staffed slots, sole-worker recovery, loss accounting and seeded replay. |
 | Static solo | Local-only package makes no gameplay-server requests; IndexedDB commits precede publication; optional online checkpoint transfer leaves local play independent of service availability. |
 | Immutable transitions | Retained prior snapshots stay unchanged; concurrent submissions have no lost updates; trap and failed durability commit publish no partial state/effects. |
 | Compatible reload | Reload during hauling and combat, with a selected tool/cell, overscrolled camera, manual pause and pending input; preserve state and consume no simulation tick. |
@@ -136,14 +139,14 @@ Walls with deliberate breach behavior, randomized/fairly telegraphed finales, a
 larger tech tree, terrain elevation, unbounded terrain generation and
 additional resources remain deferred. The map uses a bounded seeded family.
 Ordinary enemies retain their hub route and raiders their outpost route while
-attacking encountered workers or structures. Observation is circular rather than
-line-of-sight occlusion. Buildings do not block walking routes. Worker routes
-avoid known or locally sensed threats, with local escape when already in danger.
-Colony focus and queued orders are shared by the colony. These are experiment limits,
-not claims of a general strategy-game simulation.
-Rail parents are older connected towers or the hub, so connections form an
-upstream tree. Tracks follow surveyed walking routes and reconnect after
-an endpoint is lost or relocated. One bounded shuttle per link models throughput; there is no
+attacking structures. Observation is circular rather than
+line-of-sight occlusion. Buildings do not block walking routes. Drones continue
+working near enemies. These are experiment limits, not claims of a general
+strategy-game simulation.
+Current towers and the hub form a deterministic minimum spanning tree of
+eligible straight ziplines. Clear cable sight and either endpoint's reveal
+radius bound each link. Worker flights are bidirectional; freight moves toward
+the hub. One bounded shuttle per link models throughput; there is no
 manual track placement, rail collision or intermediate track damage.
 Richer payload codecs, migrations, broader shader syntax, browser device recovery
 and structural sharing are library milestones. Explicit opaque checkpoint
