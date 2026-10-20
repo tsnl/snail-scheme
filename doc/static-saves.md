@@ -16,7 +16,7 @@ Open `http://127.0.0.1:4191` in Chromium. Any ordinary HTTPS static host works,
 including hosting under a subpath. The game requires WasmGC, WebGPU, IndexedDB
 and Web Locks. One tab owns the save for this origin and application ID.
 
-The current application ID is `siegework-colony-v13`. A compatible module replacement
+The current application ID is `siegework-colony-v15`. A compatible module replacement
 retains the current colony, camera and selection. Schema-incompatible saves are
 rejected visibly; this build starts a fresh save identity.
 
