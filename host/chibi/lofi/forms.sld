@@ -1,9 +1,8 @@
-;; The Chibi host's view of Lofi's typed forms. Each form erases to R7RS:
-;; signatures and aliases disappear, and struct values are vectors whose first
-;; slot is their constructor procedure, so `match` can test it with `eq?`.
-;; Where the compiler uses #f for an absent value, a constructor pattern
-;; simply fails to match it.
-(define-library (lofi compiler shim)
+;; Lofi's typed forms for the Chibi host, erased to R7RS: signatures and
+;; aliases disappear, and struct values are vectors whose first slot is their
+;; constructor procedure, so `match` can test it with `eq?`. Chibi's (lofi
+;; base) re-exports these; Lofi itself never loads this library.
+(define-library (lofi forms)
   (export
    :
    type
@@ -27,9 +26,11 @@
       (syntax-rules ()
         ((_ . anything) (begin))))
 
+    ;; An alias's name is bound, so libraries can export it.
     (define-syntax type
       (syntax-rules ()
-        ((_ . anything) (begin))))
+        ((_ (name parameter ...) body) (define name 'name))
+        ((_ name body) (define name 'name))))
 
     (define-syntax ann
       (syntax-rules ()
@@ -91,10 +92,12 @@
              ,(constructor-definition name fields rename)
              ,@(record-definitions name fields #t rename))))))
 
+    ;; The enum's name is bound too, so libraries can export it.
     (define-syntax enum
       (er-macro-transformer
        (lambda (form rename compare)
          `(,(rename 'begin)
+           (,(rename 'define) ,(head-name (cadr form)) ',(head-name (cadr form)))
            ,@(apply append
                     (map (lambda (case)
                            (let ((fields (if (pair? (cdr case)) (cadr case) '())))
@@ -105,67 +108,56 @@
     ;; ---- Pattern matching ----
 
     ;; Patterns are `_`, variables, literals, `'datum`, `(Constructor pattern ...)`,
-    ;; and the list patterns `(Cons head tail)`, `(Nil)` and `(list pattern ...)`.
-    ;; Clauses are tried in order. A failed clause calls the next clause's thunk,
-    ;; so each body appears once in the expansion.
-    (define fresh-count 0)
-
-    (define (fresh-name prefix rename)
-      (set! fresh-count (+ fresh-count 1))
-      (rename (joined-name prefix (number->string fresh-count))))
-
-    (define (pattern-code value pattern success failure rename compare)
-      (cond ((and (symbol? pattern) (compare pattern (rename '_))) success)
-            ((symbol? pattern) `(,(rename 'let) ((,pattern ,value)) ,success))
-            ((and (pair? pattern) (compare (car pattern) (rename 'quote)))
-             `(,(rename 'if) (,(rename 'equal?) ,value ,pattern) ,success ,failure))
-            ((and (pair? pattern) (eq? (car pattern) 'Nil))
-             `(,(rename 'if) (,(rename 'null?) ,value) ,success ,failure))
+    ;; and the list patterns `(Cons head tail)` and `(Nil)`. Each clause becomes
+    ;; a `cond` test over paths into the scrutinee and a `let` of the paths its
+    ;; variables name, so matching allocates nothing.
+    (define (pattern-test pattern path rename compare)
+      (cond ((symbol? pattern) #t)
+            ((and (pair? pattern) (compare (car pattern) (rename 'quote))) `(,(rename 'equal?) ,path ,pattern))
+            ((and (pair? pattern) (eq? (car pattern) 'Nil)) `(,(rename 'null?) ,path))
             ((and (pair? pattern) (eq? (car pattern) 'Cons))
-             (pair-code value (cadr pattern) (caddr pattern) success failure rename compare))
-            ((and (pair? pattern) (eq? (car pattern) 'list))
-             (pattern-code value (fold-right (lambda (item tail) (list 'Cons item tail)) '(Nil) (cdr pattern))
-                           success failure rename compare))
+             `(,(rename 'and) (,(rename 'pair?) ,path)
+               ,(pattern-test (cadr pattern) `(,(rename 'car) ,path) rename compare)
+               ,(pattern-test (caddr pattern) `(,(rename 'cdr) ,path) rename compare)))
             ((pair? pattern)
-             `(,(rename 'if) (,(rename 'and) (,(rename 'vector?) ,value) (,(rename 'eq?) (,(rename 'vector-ref) ,value 0) ,(car pattern)))
-               ,(fields-code value (cdr pattern) 1 success failure rename compare)
-               ,failure))
-            (else `(,(rename 'if) (,(rename 'equal?) ,value ,pattern) ,success ,failure))))
+             `(,(rename 'and) (,(rename 'vector?) ,path) (,(rename 'eq?) (,(rename 'vector-ref) ,path 0) ,(car pattern))
+               ,@(field-tests (cdr pattern) path 1 rename compare)))
+            (else `(,(rename 'equal?) ,path ,pattern))))
 
-    ;; Scheme lists stand in for Lofi's `(List T)`, whose cases are `Cons` and `Nil`.
-    (define (pair-code value head tail success failure rename compare)
-      (let ((first (fresh-name "head" rename)) (rest (fresh-name "tail" rename)))
-        `(,(rename 'if) (,(rename 'pair?) ,value)
-          (,(rename 'let) ((,first (,(rename 'car) ,value)) (,rest (,(rename 'cdr) ,value)))
-           ,(pattern-code first head (pattern-code rest tail success failure rename compare) failure rename compare))
-          ,failure)))
-
-    (define (fold-right kons knil items)
-      (if (null? items) knil (kons (car items) (fold-right kons knil (cdr items)))))
-
-    (define (fields-code value patterns index success failure rename compare)
+    (define (field-tests patterns path index rename compare)
       (if (null? patterns)
-          success
-          (let ((field (fresh-name "field" rename)))
-            `(,(rename 'let) ((,field (,(rename 'vector-ref) ,value ,index)))
-              ,(pattern-code field (car patterns)
-                             (fields-code value (cdr patterns) (+ index 1) success failure rename compare)
-                             failure rename compare)))))
+          '()
+          (cons (pattern-test (car patterns) `(,(rename 'vector-ref) ,path ,index) rename compare)
+                (field-tests (cdr patterns) path (+ index 1) rename compare))))
 
-    (define (clauses-code value clauses rename compare)
-      (if (null? clauses)
-          `(,(rename 'error) "match: no clause matched" ,value)
-          (let ((next (fresh-name "next" rename)))
-            `(,(rename 'let) ((,next (,(rename 'lambda) () ,(clauses-code value (cdr clauses) rename compare))))
-              ,(pattern-code value (caar clauses)
-                             `(,(rename 'let) () ,@(cdar clauses))
-                             `(,next) rename compare)))))
+    ;; The (variable path) bindings of a pattern.
+    (define (pattern-bindings pattern path rename compare)
+      (cond ((and (symbol? pattern) (compare pattern (rename '_))) '())
+            ((symbol? pattern) (list (list pattern path)))
+            ((and (pair? pattern) (compare (car pattern) (rename 'quote))) '())
+            ((and (pair? pattern) (eq? (car pattern) 'Nil)) '())
+            ((and (pair? pattern) (eq? (car pattern) 'Cons))
+             (append (pattern-bindings (cadr pattern) `(,(rename 'car) ,path) rename compare)
+                     (pattern-bindings (caddr pattern) `(,(rename 'cdr) ,path) rename compare)))
+            ((pair? pattern) (field-bindings (cdr pattern) path 1 rename compare))
+            (else '())))
+
+    (define (field-bindings patterns path index rename compare)
+      (if (null? patterns)
+          '()
+          (append (pattern-bindings (car patterns) `(,(rename 'vector-ref) ,path ,index) rename compare)
+                  (field-bindings (cdr patterns) path (+ index 1) rename compare))))
 
     (define-syntax match
       (er-macro-transformer
        (lambda (form rename compare)
          (let ((value (rename 'scrutinee)))
            `(,(rename 'let) ((,value ,(cadr form)))
-             ,(clauses-code value (cddr form) rename compare))))))
+             (,(rename 'cond)
+              ,@(map (lambda (clause)
+                       `(,(pattern-test (car clause) value rename compare)
+                         (,(rename 'let) ,(pattern-bindings (car clause) value rename compare) ,@(cdr clause))))
+                     (cddr form))
+              (,(rename 'else) (,(rename 'error) "match: no clause matched" ,value))))))))
 
     ))

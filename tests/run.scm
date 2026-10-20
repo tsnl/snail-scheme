@@ -3,7 +3,7 @@
 ;; text of NAME.err in its diagnostic. Finally the Siegework package is
 ;; built and driven headlessly.
 ;;
-;;   chibi-scheme -D snail-tests -I src -I tests tests/run.scm ROOT [NAME ...]
+;;   chibi-scheme -D snail-tests -I host/chibi -I src -I tests tests/run.scm ROOT [NAME ...]
 (import
  (scheme base)
  (scheme cxr)
@@ -14,7 +14,7 @@
  (chibi process)
  (only (chibi string) string-contains string-suffix?)
  (srfi 1)
- (lofi compiler build)
+ (lofi build)
  (only (lofi compiler read) test-read)
  (only (lofi compiler core) test-core)
  (only (lofi compiler wasm) test-wasm))

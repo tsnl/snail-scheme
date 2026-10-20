@@ -8,7 +8,7 @@
  (scheme process-context)
  (chibi filesystem)
  (chibi pathname)
- (lofi compiler build))
+ (lofi build))
 
 (define host-files
   '("host.mjs" "renderer.mjs" "hud.mjs" "storage.mjs" "style.css"))

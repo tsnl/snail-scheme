@@ -6,7 +6,7 @@
  (chibi filesystem)
  (chibi pathname)
  (chibi process)
- (lofi compiler build))
+ (lofi build))
 
 ;; ---- Requests ----
 
@@ -45,7 +45,7 @@
 (define (perform root options)
   (let ((source (option options 'source #f)) (action (option options 'action "run")))
     (if (string=? action "wat")
-        (begin (write-string (compile->wat root (directories root options) source)) 0)
+        (begin (write-string (program->wat root (directories root options) source)) 0)
         (let ((output (or (option options 'output #f) (path-join root "build/lofi-run/program.wasm"))))
           (build-program root (directories root options) source output (option options 'release #f))
           (if (string=? action "compile")

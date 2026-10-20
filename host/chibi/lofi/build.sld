@@ -1,9 +1,9 @@
-;; The compiler driver: one source file to a linked, runnable Wasm program.
-;; Each pass's output is the next pass's only input; Binaryen assembles,
-;; optimizes and links the result with the Rust runtime.
-(define-library (lofi compiler build)
+;; The Chibi host's driver: one source file to a linked, runnable Wasm
+;; program. (lofi compiler) produces the text; Binaryen assembles, optimizes
+;; and links it with the Rust runtime.
+(define-library (lofi build)
   (export
-   compile->wat
+   program->wat
    build-program
    run-tool
    path-join)
@@ -16,19 +16,14 @@
    (chibi filesystem)
    (chibi pathname)
    (chibi process)
-   (lofi compiler expand)
-   (lofi compiler check)
-   (lofi compiler mono)
-   (lofi compiler wasm))
+   (only (lofi compiler read) syntax->string)
+   (lofi compiler))
   (begin
 
     ;; ---- Passes ----
 
-    (define (compile->wat root directories source)
-      (let* ((program (expand-program (make-context directories (lambda (forms name) (run-producer root directories forms name))) source))
-             (typed (check-program program))
-             (mono (monomorphize typed)))
-        (wat->string (emit-module mono))))
+    (define (program->wat root directories source)
+      (compile->wat directories source (lambda (forms name) (run-producer root directories forms name))))
 
     ;; A generated library's producer is an ordinary program; what it prints
     ;; is the library.
@@ -36,7 +31,8 @@
       (let* ((source (path-join root "build/generated" (string-append (mangle-path name) ".sld")))
              (program (string-append source ".wasm")))
         (create-directory* (path-directory source))
-        (call-with-output-file source (lambda (port) (for-each (lambda (form) (write form port) (newline port)) forms)))
+        (call-with-output-file source
+          (lambda (port) (for-each (lambda (form) (write-string (syntax->string form) port) (newline port)) forms)))
         (build-program root directories source program #f)
         (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "scripts/run-lofi.mjs") program))))
           (unless (zero? (caddr result)) (error (string-append "the producer of " name " failed:\n" (cadr result))))
@@ -108,7 +104,7 @@
         (create-directory* (path-directory output))
         ;; Compile before opening the file: a generated library compiles and
         ;; runs another program meanwhile.
-        (let ((text (compile->wat root directories source)))
+        (let ((text (program->wat root directories source)))
           (call-with-output-file wat (lambda (port) (write-string text port))))
         (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list wat "-o" raw)))
         (apply wasm-opt raw module (optimization release?))

@@ -5,7 +5,7 @@ under `src/`, an `index.html`, and tests. `scripts/build-app.scm` compiles
 `main.sld` and packages it with the shared browser host from `src/app`:
 
 ```sh
-chibi-scheme -I src scripts/build-app.scm "$PWD" apps/siegework build/siegework
+chibi-scheme -I host/chibi -I src scripts/build-app.scm "$PWD" apps/siegework build/siegework
 ```
 
 | Application | Purpose |

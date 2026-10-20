@@ -9,782 +9,1028 @@
    Context-program
    expand-program)
   (import
-   (scheme base)
-   (scheme char)
-   (scheme cxr)
-   (scheme file)
-   (srfi 1)
-   (srfi 69)
-   (lofi compiler shim)
+   (lofi base)
+   (lofi table)
+   (lofi io)
    (lofi compiler read)
    (lofi compiler core))
   (begin
 
-    ;; ---- Identifiers, marks and environments ----
+    ;; ---- Bindings and environments ----
 
-    ;; A macro expansion marks each identifier its template introduces. The
-    ;; mark's key is unique to the expansion; an unbound marked identifier
-    ;; resolves as its original in the macro's definition environment.
-    (struct Mark
-      ((key Symbol)
-       (original Syntax)
-       (env Env)))
-
-    (struct Env
-      ((table HashTable)
-       (parent Env)))
-
-    (define (child-env parent)
-      (Env (make-hash-table eq?) parent))
-
-    (define (ident-key ident)
-      (let ((mark (Ident-mark ident)))
-        (if mark (Mark-key mark) (Ident-name ident))))
-
-    (define (resolve env ident)
-      (let lookup ((frame env))
-        (cond (frame (or (hash-table-ref/default (Env-table frame) (ident-key ident) #f)
-                         (lookup (Env-parent frame))))
-              ((Ident-mark ident)
-               (resolve (Mark-env (Ident-mark ident)) (Mark-original (Ident-mark ident))))
-              (else #f))))
-
-    (define (bind! env ident binding)
-      (hash-table-set! (Env-table env) (ident-key ident) binding))
-
-    (define (ident? syntax)
-      (match syntax
-        ((Ident _ _ _) #t)
-        (_ #f)))
-
-    (define (ident-named? syntax name)
-      (and (ident? syntax) (eq? (Ident-name syntax) name)))
-
-    (define (expect-ident syntax what)
-      (unless (ident? syntax) (compile-error (syntax-loc syntax) (string-append "expected " what)))
-      syntax)
-
-    ;; The items of a form, or an error naming what was expected.
-    (define (form-items syntax what)
-      (match syntax
-        ((Form items _) items)
-        (_ (compile-error (syntax-loc syntax) (string-append "expected " what)))))
-
-    ;; ---- Bindings ----
-
-    ;; A struct's name is both a type and its constructor.
+    ;; What an identifier denotes. A struct's name is both a type and its
+    ;; constructor. A macro remembers the scope it was defined in by number,
+    ;; because the marks on the identifiers it introduces refer to it.
     (enum Binding
       (Local
-       ((name Symbol)))
+       ((name String)))
       (Global
-       ((name Symbol)))
+       ((name String)))
       (TypeName
-       ((name Symbol)
+       ((name String)
         (arity I64)
-        (constructor Symbol)))
+        (constructor (Option String))))
       (Alias
-       ((params (List Syntax))
+       ((name String)
+        (params (List Syntax))
         (body Syntax)
         (env Env)
         (expanding (Ref Bool))))
       (TypeVar
        ((type Type)))
       (ClassName
-       ((name Symbol)))
+       ((name String)))
       (EffectName
-       ((name Symbol)))
+       ((name String)))
       (Core
-       ((name Symbol)))
+       ((name String)))
       (Macro
-       ((literals (List Syntax))
+       ((id String)
+        (literals (List Syntax))
         (rules (List Syntax))
-        (env Env))))
+        (scope I64))))
 
-    (define (head-binding env syntax)
+    ;; Two bindings are the same when they denote the same entity, which
+    ;; unique names identify.
+    (: binding-identity (-> Binding String))
+    (define (binding-identity binding)
+      (match binding
+        ((Local name) name)
+        ((Global name) name)
+        ((TypeName name _ _) name)
+        ((Alias name _ _ _ _) name)
+        ((TypeVar _) "%type-variable")
+        ((ClassName name) name)
+        ((EffectName name) name)
+        ((Core name) (string-append "%core " name))
+        ((Macro id _ _ _) id)))
+
+    (struct Env
+      ((table (Table Binding))
+       (parent (Option Env))))
+
+    (: child-env (-> (Option Env) Env ! mut))
+    (define (child-env parent)
+      (Env (make-table) parent))
+
+    ;; A marked identifier is keyed by its mark, so the same name introduced by
+    ;; two expansions binds two variables.
+    (: ident-key (-> Syntax String))
+    (define (ident-key ident)
+      (match ident
+        ((Ident _ (Some mark) _) (Mark-key mark))
+        ((Ident name (None) _) name)
+        (_ (panic "internal error: not an identifier"))))
+
+    ;; An unbound marked identifier resolves as its original in the scope of
+    ;; the macro that introduced it.
+    (: resolve (-> Context Env Syntax (Option Binding) ! mut))
+    (define (resolve cx env ident)
+      (let lookup ((frame (Some env)))
+        (match frame
+          ((Some env)
+           (match (table-ref (Env-table env) (ident-key ident))
+             ((Some binding) (Some binding))
+             ((None) (lookup (Env-parent env)))))
+          ((None)
+           (match ident
+             ((Ident _ (Some mark) _) (resolve cx (scope-env cx (Mark-scope mark)) (Mark-original mark)))
+             (_ (None)))))))
+
+    (: bind! (-> Env Syntax Binding Unit ! mut))
+    (define (bind! env ident binding)
+      (table-set! (Env-table env) (ident-key ident) binding))
+
+    (: expect-ident (-> Syntax String Syntax))
+    (define (expect-ident syntax what)
       (match syntax
-        ((Form (Cons head _) _) (and (ident? head) (resolve env head)))
-        (_ #f)))
+        ((Ident _ _ _) syntax)
+        (_ (compile-error (syntax-loc syntax) (string-append "expected " what)))))
 
-    (define (core-form? env syntax name)
-      (match (head-binding env syntax)
-        ((Core keyword) (eq? keyword name))
+    ;; The items of a form, or an error naming what was expected.
+    (: form-items (-> Syntax String (List Syntax)))
+    (define (form-items syntax what)
+      (match syntax
+        ((Form items _) items)
+        (_ (compile-error (syntax-loc syntax) (string-append "expected " what)))))
+
+    ;; The items after a form's head.
+    (: form-tail (-> Syntax (List Syntax)))
+    (define (form-tail syntax)
+      (match syntax
+        ((Form (Cons _ rest) _) rest)
+        (_ (Nil))))
+
+    (: head-binding (-> Context Env Syntax (Option Binding) ! mut))
+    (define (head-binding cx env syntax)
+      (match syntax
+        ((Form (Cons head _) _)
+         (match head
+           ((Ident _ _ _) (resolve cx env head))
+           (_ (None))))
+        (_ (None))))
+
+    (: core-form? (-> Context Env Syntax String Bool ! mut))
+    (define (core-form? cx env syntax name)
+      (match (head-binding cx env syntax)
+        ((Some (Core keyword)) (string=? keyword name))
         (_ #f)))
 
     ;; ---- Expansion context ----
 
     ;; Shared by every library of one compilation. `prefix` names the library
-    ;; being expanded, so its globals are `prefix:name`.
-    ;; `generate` runs a producer program for `generate-library` and returns
-    ;; what it prints; the driver supplies it, because running a program
-    ;; means compiling one.
+    ;; being expanded, so its globals are `prefix:name`. `libraries` holds
+    ;; each library's exports, or None while it loads. `scopes` numbers the
+    ;; environments that marks refer to. `generate` runs a producer program
+    ;; for `generate-library` and returns what it prints; the driver supplies
+    ;; it, because running a program means compiling one.
     (struct Context
       ((program Program)
        (directories (List String))
-       (libraries HashTable)
+       (libraries (Table (Option Exports)))
        (counter (Ref I64))
-       (deriving (Ref Env))
-       (generate (-> (List Datum) String String))
+       (scopes (Table Env))
+       (deriving (Ref (Option I64)))
+       (generate (-> (List Syntax) String String ! mut fs))
        (prefix String)))
 
+    (type Exports (List (Pair String Binding)))
+
+    (: make-context (-> (List String) (-> (List Syntax) String String ! mut fs) Context ! mut))
     (define (make-context directories generate)
-      (let ((cx (Context (make-program) directories (make-hash-table equal?) (ref 0) (ref #f) generate "")))
-        (hash-table-set! (Context-libraries cx) '(lofi core) (core-library))
-        (hash-table-set! (Context-libraries cx) '(lofi primitive) (primitive-library cx))
+      (let ((cx (Context (make-program) directories (make-table) (ref 0) (make-table) (ref (None)) generate "")))
+        (table-set! (Context-libraries cx) "lofi.core" (Some (core-library)))
+        (table-set! (Context-libraries cx) "lofi.primitive" (Some (primitive-library cx)))
         cx))
 
-    (define (fresh cx base)
-      (let ((count (+ (ref-get (Context-counter cx)) 1)))
-        (ref-set! (Context-counter cx) count)
-        (string->symbol (string-append (if (symbol? base) (symbol->string base) base) "." (number->string count)))))
-
-    (define (global-name cx key)
-      (string->symbol (string-append (Context-prefix cx) ":" (symbol->string key))))
-
-    (define (fresh-global cx base)
-      (global-name cx (fresh cx base)))
-
+    (: program (-> Context Program))
     (define (program cx)
       (Context-program cx))
 
+    (: fresh (-> Context String String ! mut))
+    (define (fresh cx base)
+      (let ((count (+ (ref-get (Context-counter cx)) 1)))
+        (ref-set! (Context-counter cx) count)
+        (string-append base "." (i64->string count))))
+
+    (: global-name (-> Context String String))
+    (define (global-name cx key)
+      (string-append (Context-prefix cx) ":" key))
+
+    (: register-scope! (-> Context Env I64 ! mut))
+    (define (register-scope! cx env)
+      (let ((number (table-count (Context-scopes cx))))
+        (table-set! (Context-scopes cx) (i64->string number) env)
+        number))
+
+    (: scope-env (-> Context I64 Env ! mut))
+    (define (scope-env cx number)
+      (match (table-ref (Context-scopes cx) (i64->string number))
+        ((Some env) env)
+        ((None) (panic "internal error: unknown scope"))))
+
     ;; ---- Builtin libraries ----
 
-    (struct Library
-      ((name (List Symbol))
-       (exports (List (Pair Symbol Binding)))))
-
+    (: core-keywords (List String))
     (define core-keywords
-      '(define lambda if begin let define-syntax syntax-rules quote : struct enum type
-         typeclass instance match ann extern effect handle expose case-id type-convert))
+      (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type"
+            "typeclass" "instance" "match" "ann" "extern" "effect" "handle" "expose" "case-id" "type-convert"))
 
+    (: core-library (-> Exports))
     (define (core-library)
-      (Library '(lofi core)
-               (append (map (lambda (name) (cons name (Core name))) core-keywords)
-                       (map (lambda (entry) (cons (car entry) (TypeName (car entry) (cdr entry) #f))) builtin-types)
-                       (list (cons 'mut (EffectName 'mut))))))
+      (append (map (lambda (name) (Pair name (Core name))) core-keywords)
+              (append (map (lambda (entry) (Pair (Pair-first entry) (TypeName (Pair-first entry) (Pair-second entry) (None))))
+                           builtin-types)
+                      (list (Pair "mut" (EffectName "mut"))))))
 
+    (: primitive-library (-> Context Exports ! mut))
     (define (primitive-library cx)
-      (Library '(lofi primitive)
-               (map (lambda (entry)
-                      (let ((name (string->symbol (string-append "prim:" (symbol->string (car entry))))))
-                        (add-value! (program cx) name (Primitive (generalize-rigids (datum->type (cadr entry)))))
-                        (cons (car entry) (Global name))))
-                    primitives)))
-
-    ;; Quantifies every rigid variable of a primitive's type.
-    (define (generalize-rigids type)
-      (Scheme (delete-duplicates (rigid-names type '())) '() type))
-
-    (define (rigid-names type names)
-      (match type
-        ((TRigid name) (cons name names))
-        ((TCon _ args) (fold rigid-names names args))
-        ((TFun params result row) (rigid-names row (rigid-names result (fold rigid-names names params))))
-        ((TRow _ tail) (if tail (rigid-names tail names) names))
-        (_ names)))
+      (map (lambda (entry)
+             (let ((name (string-append "prim:" (Pair-first entry))))
+               (add-value! (program cx) name (Primitive (Pair-second entry)))
+               (Pair (Pair-first entry) (Global name))))
+           (primitives)))
 
     ;; ---- Libraries ----
 
-    (define (library-path directory name)
-      (string-append directory "/"
-                     (let join ((parts (map (lambda (part) (if (symbol? part) (symbol->string part) (number->string part))) name)))
-                       (if (null? (cdr parts)) (car parts) (string-append (car parts) "/" (join (cdr parts)))))
-                     ".sld"))
+    ;; `(lofi base)` is the list ("lofi" "base"); its globals are prefixed
+    ;; `lofi.base` and its source is `lofi/base.sld` in a search directory.
+    (: library-name (-> Syntax (List String)))
+    (define (library-name syntax)
+      (map (lambda (part)
+             (match part
+               ((Ident name _ _) name)
+               ((Atom (DInt number) _) (i64->string number))
+               (_ (compile-error (syntax-loc part) "expected a library name part"))))
+           (form-items syntax "a library name")))
 
-    (define (library-prefix name)
-      (let join ((parts (map (lambda (part) (if (symbol? part) (symbol->string part) (number->string part))) name)))
-        (if (null? (cdr parts)) (car parts) (string-append (car parts) "." (join (cdr parts))))))
+    (: check-library-name (-> Syntax (List String) Loc Unit))
+    (define (check-library-name declared name loc)
+      (unless (string=? (string-join (library-name declared) ".") (string-join name "."))
+        (compile-error loc "library name does not match its path")))
 
     ;; Loads each library once. A library that is still loading when it is
     ;; requested again is part of an import cycle.
+    (: load-library (-> Context (List String) Loc Exports ! mut fs))
     (define (load-library cx name loc)
-      (let ((loaded (hash-table-ref/default (Context-libraries cx) name #f)))
-        (cond ((eq? loaded 'loading) (compile-error loc "library import cycle" name))
-              (loaded loaded)
-              (else (hash-table-set! (Context-libraries cx) name 'loading)
-                    (let ((library (read-library cx name loc)))
-                      (hash-table-set! (Context-libraries cx) name library)
-                      library)))))
+      (let ((key (string-join name ".")))
+        (match (table-ref (Context-libraries cx) key)
+          ((Some (Some exports)) exports)
+          ((Some (None)) (compile-error loc (string-append "library import cycle through " key)))
+          ((None)
+           (table-set! (Context-libraries cx) key (None))
+           (let ((exports (read-library cx name loc)))
+             (table-set! (Context-libraries cx) key (Some exports))
+             exports)))))
 
+    (: read-library (-> Context (List String) Loc Exports ! mut fs))
     (define (read-library cx name loc)
-      (let ((path (find (lambda (path) (file-exists? path))
-                        (map (lambda (directory) (library-path directory name)) (Context-directories cx)))))
-        (unless path (compile-error loc "library not found" name))
-        (library-from-forms cx name (read-file path) path)))
+      (let ((relative (string-append (string-join name "/") ".sld")))
+        (match (find file-exists? (map (lambda (directory) (string-append directory "/" relative)) (Context-directories cx)))
+          ((Some path) (library-from-forms cx name (read-text (read-file path) path) path))
+          ((None) (compile-error loc (string-append "library not found: (" (string-join name " ") ")"))))))
 
     ;; A library file holds one `define-library`, or one `generate-library`
     ;; whose program prints the library's source text.
+    (: library-from-forms (-> Context (List String) (List Syntax) String Exports ! mut fs))
     (define (library-from-forms cx name forms path)
       (match forms
-        ((list (Form (Cons (Ident 'define-library _ _) declarations) loc)) (expand-library cx name declarations loc))
-        ((list (Form (list (Ident 'generate-library _ _) declared (Form (Cons (Ident 'import _ _) imports) _) expression) loc))
-         (unless (equal? (syntax->datum declared) name) (compile-error loc "library name does not match its path" (syntax->datum declared)))
+        ((Cons (Form (Cons (Ident "define-library" _ _) (Cons declared declarations)) loc) (Nil))
+         (check-library-name declared name loc)
+         (expand-library cx name declarations))
+        ((Cons (Form (Cons (Ident "generate-library" _ _)
+                           (Cons declared (Cons (Form (Cons (Ident "import" _ _) imports) _) (Cons expression (Nil)))))
+                     loc)
+               (Nil))
+         (check-library-name declared name loc)
          (let ((generated (string-append path "#generated")))
-           (library-from-forms cx name (read-text ((Context-generate cx) (producer imports expression) generated) generated) generated)))
+           (library-from-forms cx name (read-text ((Context-generate cx) (producer imports expression loc) generated) generated)
+                               generated)))
         (_ (compile-error (Loc path 1 1) "expected exactly one define-library or generate-library form"))))
 
     ;; The producer imports what the recipe imports and prints its expression.
-    (define (producer imports expression)
-      (list (cons 'import (append (map syntax->datum imports) '((only (lofi io) write-string))))
-            (list 'write-string (syntax->datum expression))))
+    (: producer (-> (List Syntax) Syntax Loc (List Syntax)))
+    (define (producer imports expression loc)
+      (let ((write-string (Ident "write-string" (None) loc)))
+        (list (Form (Cons (Ident "import" (None) loc)
+                          (append imports
+                                  (list (Form (list (Ident "only" (None) loc)
+                                                    (Form (list (Ident "lofi" (None) loc) (Ident "io" (None) loc)) loc)
+                                                    write-string)
+                                              loc))))
+                    loc)
+              (Form (list write-string expression) loc))))
 
-    (define (expand-library cx name declarations loc)
-      (let ((declared (syntax->datum (car declarations))))
-        (unless (equal? declared name) (compile-error loc "library name does not match its path" declared))
-        (let* ((sections (map (lambda (declaration) (library-section declaration)) (cdr declarations)))
-               (cx (Context-prefix-set cx (library-prefix name)))
-               (env (import-env cx (section-items sections 'import))))
-          (expand-top-level cx env (section-items sections 'begin))
-          (Library name (map (lambda (spec) (export-entry env spec)) (section-items sections 'export))))))
+    (: expand-library (-> Context (List String) (List Syntax) Exports ! mut fs))
+    (define (expand-library cx name declarations)
+      (let* ((sections (concatenate (map library-sections declarations)))
+             (cx (Context-prefix-set cx (string-join name ".")))
+             (env (import-env cx (section-items sections "import"))))
+        (expand-top-level cx env (section-items sections "begin"))
+        (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export"))))
 
-    (define (library-section declaration)
+    ;; Each declaration is a section of imports, exports or definitions, or a
+    ;; `cond-expand` choosing more declarations.
+    (: library-sections (-> Syntax (List (Pair String (List Syntax)))))
+    (define (library-sections declaration)
       (match declaration
-        ((Form (Cons (Ident kind _ _) items) _)
-         (if (memq kind '(import export begin))
-             (cons kind items)
-             (compile-error (syntax-loc declaration) "expected import, export or begin")))
-        (_ (compile-error (syntax-loc declaration) "expected import, export or begin"))))
+        ((Form (Cons (Ident "cond-expand" _ _) clauses) _) (cond-expand-sections clauses))
+        ((Form (Cons (Ident kind _ _) items) loc)
+         (if (member? kind (list "import" "export" "begin"))
+             (list (Pair kind items))
+             (compile-error loc "expected import, export, begin or cond-expand")))
+        (_ (compile-error (syntax-loc declaration) "expected import, export, begin or cond-expand"))))
 
+    ;; The declarations of the first clause whose requirement holds. Lofi's
+    ;; only feature is `lofi`.
+    (: cond-expand-sections (-> (List Syntax) (List (Pair String (List Syntax)))))
+    (define (cond-expand-sections clauses)
+      (match clauses
+        ((Nil) (Nil))
+        ((Cons (Form (Cons requirement declarations) _) rest)
+         (if (feature? requirement)
+             (concatenate (map library-sections declarations))
+             (cond-expand-sections rest)))
+        ((Cons clause _) (compile-error (syntax-loc clause) "expected (requirement declaration ...)"))))
+
+    (: feature? (-> Syntax Bool))
+    (define (feature? requirement)
+      (match requirement
+        ((Ident name _ _) (or (string=? name "lofi") (string=? name "else")))
+        ((Form (Cons (Ident "and" _ _) items) _) (every? feature? items))
+        ((Form (Cons (Ident "or" _ _) items) _) (any? feature? items))
+        ((Form (Cons (Ident "not" _ _) (Cons item (Nil))) _) (not (feature? item)))
+        (_ #f)))
+
+    (: section-items (-> (List (Pair String (List Syntax))) String (List Syntax)))
     (define (section-items sections kind)
-      (append-map cdr (filter (lambda (section) (eq? (car section) kind)) sections)))
+      (concatenate (map Pair-second (filter (lambda (section) (string=? (Pair-first section) kind)) sections))))
 
     ;; A program is a sequence of imports followed by a body.
+    (: expand-program (-> Context String Program ! mut fs))
     (define (expand-program cx path)
-      (let* ((forms (read-file path))
-             (imports (take-while (lambda (form) (match form ((Form (Cons (Ident 'import _ _) _) _) #t) (_ #f))) forms))
-             (cx (Context-prefix-set cx "main"))
-             (env (import-env cx (append-map (lambda (form) (cdr (Form-items form))) imports))))
-        (expand-top-level cx env (drop forms (length imports)))
-        (program cx)))
+      (let loop ((forms (read-text (read-file path) path)) (specs (Nil)))
+        (match forms
+          ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
+          (_ (let* ((cx (Context-prefix-set cx "main")) (env (import-env cx specs)))
+               (expand-top-level cx env forms)
+               (program cx))))))
 
     ;; ---- Imports and exports ----
 
+    (: import-env (-> Context (List Syntax) Env ! mut fs))
     (define (import-env cx specs)
-      (let ((imports (child-env #f)))
-        (for-each
-         (lambda (spec)
-           (for-each (lambda (entry) (import-binding! imports entry (syntax-loc spec)))
-                     (import-set cx spec)))
-         specs)
-        (child-env imports)))
+      (let ((imports (child-env (None))))
+        (for-each (lambda (spec)
+                    (for-each (lambda (entry) (import-binding! imports entry (syntax-loc spec))) (import-set cx spec)))
+                  specs)
+        (child-env (Some imports))))
 
+    (: import-binding! (-> Env (Pair String Binding) Loc Unit ! mut))
     (define (import-binding! env entry loc)
-      (let ((existing (hash-table-ref/default (Env-table env) (car entry) #f)))
-        (when (and existing (not (eq? existing (cdr entry))))
-          (compile-error loc "conflicting imports" (car entry)))
-        (hash-table-set! (Env-table env) (car entry) (cdr entry))))
+      (match (table-ref (Env-table env) (Pair-first entry))
+        ((Some existing)
+         (unless (string=? (binding-identity existing) (binding-identity (Pair-second entry)))
+           (compile-error loc (string-append "conflicting imports of " (Pair-first entry)))))
+        ((None) (table-set! (Env-table env) (Pair-first entry) (Pair-second entry)))))
 
-    ;; Returns the (name . binding) entries an import set provides.
+    ;; The (name . binding) entries an import set provides.
+    (: import-set (-> Context Syntax Exports ! mut fs))
     (define (import-set cx spec)
-      (let ((items (form-items spec "an import set")))
-        (match (car items)
-          ((Ident 'only _ _) (filter (lambda (entry) (memq (car entry) (names (cddr items))))
-                                     (checked-import-set cx (cadr items) (cddr items))))
-          ((Ident 'except _ _) (remove (lambda (entry) (memq (car entry) (names (cddr items))))
-                                       (checked-import-set cx (cadr items) (cddr items))))
-          ((Ident 'prefix _ _) (map (lambda (entry) (cons (symbol-append (Ident-name (caddr items)) (car entry)) (cdr entry)))
-                                    (import-set cx (cadr items))))
-          ((Ident 'rename _ _) (map (lambda (entry) (rename-entry entry (cddr items))) (checked-import-set cx (cadr items) (map (lambda (pair) (car (Form-items pair))) (cddr items)))))
-          (_ (Library-exports (load-library cx (syntax->datum spec) (syntax-loc spec)))))))
+      (match spec
+        ((Form (Cons (Ident "only" _ _) (Cons inner idents)) _)
+         (let ((names (ident-names idents)))
+           (filter (lambda (entry) (member? (Pair-first entry) names)) (checked-import-set cx inner idents))))
+        ((Form (Cons (Ident "except" _ _) (Cons inner idents)) _)
+         (let ((names (ident-names idents)))
+           (filter (lambda (entry) (not (member? (Pair-first entry) names))) (checked-import-set cx inner idents))))
+        ((Form (Cons (Ident "prefix" _ _) (Cons inner (Cons (Ident prefix _ _) (Nil)))) _)
+         (map (lambda (entry) (Pair (string-append prefix (Pair-first entry)) (Pair-second entry))) (import-set cx inner)))
+        ((Form (Cons (Ident "rename" _ _) (Cons inner pairs)) _)
+         (let ((renames (map rename-pair pairs)))
+           (map (lambda (entry)
+                  (match (assoc-ref renames (Pair-first entry))
+                    ((Some renamed) (Pair renamed (Pair-second entry)))
+                    ((None) entry)))
+                (checked-import-set cx inner (map (lambda (pair) (match pair ((Form (Cons from _) _) from) (_ pair))) pairs)))))
+        (_ (load-library cx (library-name spec) (syntax-loc spec)))))
 
+    (: checked-import-set (-> Context Syntax (List Syntax) Exports ! mut fs))
     (define (checked-import-set cx spec idents)
       (let ((entries (import-set cx spec)))
         (for-each (lambda (ident)
-                    (unless (assq (Ident-name ident) entries)
-                      (compile-error (syntax-loc ident) "import names an identifier the library does not export" (Ident-name ident))))
+                    (match (assoc-ref entries (Ident-name ident))
+                      ((Some _) (unit))
+                      ((None) (compile-error (syntax-loc ident)
+                                             (string-append "import names an identifier the library does not export: "
+                                                            (Ident-name ident))))))
                   idents)
         entries))
 
-    (define (names idents)
+    (: ident-names (-> (List Syntax) (List String)))
+    (define (ident-names idents)
       (map (lambda (ident) (Ident-name (expect-ident ident "an identifier"))) idents))
 
-    (define (rename-entry entry pairs)
-      (let ((pair (find (lambda (pair) (eq? (Ident-name (car (Form-items pair))) (car entry))) pairs)))
-        (if pair (cons (Ident-name (cadr (Form-items pair))) (cdr entry)) entry)))
+    (: rename-pair (-> Syntax (Pair String String)))
+    (define (rename-pair syntax)
+      (match syntax
+        ((Form (Cons (Ident from _ _) (Cons (Ident to _ _) (Nil))) _) (Pair from to))
+        (_ (compile-error (syntax-loc syntax) "expected (name new-name)"))))
 
-    (define (symbol-append a b)
-      (string->symbol (string-append (symbol->string a) (symbol->string b))))
-
-    (define (export-entry env spec)
+    (: export-entry (-> Context Env Syntax (Pair String Binding) ! mut))
+    (define (export-entry cx env spec)
       (match spec
-        ((Ident name _ loc) (cons name (or (resolve env spec) (compile-error loc "exported name is not defined" name))))
-        ((Form (list (Ident 'rename _ _) inner (Ident outer _ _)) loc)
-         (cons outer (or (resolve env inner) (compile-error loc "exported name is not defined" (Ident-name inner)))))
+        ((Ident name _ _) (Pair name (defined-binding cx env spec "exported name is not defined")))
+        ((Form (Cons (Ident "rename" _ _) (Cons inner (Cons (Ident outer _ _) (Nil)))) _)
+         (Pair outer (defined-binding cx env inner "exported name is not defined")))
         (_ (compile-error (syntax-loc spec) "expected an export specification"))))
+
+    ;; The binding of an identifier that must be bound.
+    (: defined-binding (-> Context Env Syntax String Binding ! mut))
+    (define (defined-binding cx env ident message)
+      (match (resolve cx env (expect-ident ident "an identifier"))
+        ((Some binding) binding)
+        ((None) (compile-error (syntax-loc ident) (string-append message ": " (Ident-name ident))))))
+
+    ;; The unique name of a top-level definition the scan bound.
+    (: global-binding (-> Context Env Syntax String ! mut))
+    (define (global-binding cx env ident)
+      (match (defined-binding cx env ident "undefined name")
+        ((Global name) name)
+        (_ (compile-error (syntax-loc ident) (string-append "not a top-level definition: " (Ident-name ident))))))
 
     ;; ---- Top-level bodies ----
 
     ;; Pass 1 discovers every top-level name, so definitions may refer to later
     ;; ones. Pass 2 resolves declarations and signatures, returning one thunk
     ;; per definition or expression; running the thunks in order expands them.
+    (struct Pending
+      ((keyword String)
+       (form Syntax)
+       (env Env)))
+
+    (: declaration-keywords (List String))
+    (define declaration-keywords
+      (list ":" "struct" "enum" "type" "typeclass" "instance" "extern" "effect" "expose"))
+
+    (: expand-top-level (-> Context Env (List Syntax) Unit ! mut fs))
     (define (expand-top-level cx env forms)
-      (let* ((pending (append-each (lambda (form) (scan-top-level cx env form)) forms))
-             (signatures (make-hash-table eq?))
-             (definitions (append-each (lambda (entry) (declare! cx signatures entry)) pending)))
+      (let* ((pending (concatenate (map (lambda (form) (scan-top-level cx env form)) forms)))
+             (signatures (make-table))
+             (definitions (concatenate (map (lambda (entry) (declare! cx signatures entry)) pending))))
         (for-each (lambda (expand!) (expand!)) definitions)))
 
-    ;; A pending entry is (keyword form env).
+    (: scan-top-level (-> Context Env Syntax (List Pending) ! mut fs))
     (define (scan-top-level cx env form)
       (let ((form (expand-head cx env form)))
-        (match (head-binding env form)
-          ((Core 'begin) (append-each (lambda (item) (scan-top-level cx env item)) (cdr (Form-items form))))
-          ((Core 'define-syntax) (define-macro! env form) '())
-          ((Core 'define) (let ((ident (definition-name form)))
-                            (bind-top! cx env ident (Global (global-name cx (ident-key ident))))
-                            (list (list 'define form env))))
-          ((Core keyword)
-           (if (memq keyword '(: struct enum type typeclass instance extern effect expose))
+        (match (head-binding cx env form)
+          ((Some (Core "begin")) (concatenate (map (lambda (item) (scan-top-level cx env item)) (form-tail form))))
+          ((Some (Core "define-syntax")) (define-macro! cx env form) (Nil))
+          ((Some (Core "define"))
+           (let ((ident (definition-name form)))
+             (bind-top! env ident (Global (global-name cx (ident-key ident))))
+             (list (Pending "define" form env))))
+          ((Some (Core keyword))
+           (if (member? keyword declaration-keywords)
                (begin (scan-declaration cx env keyword form)
-                      (cons (list keyword form env)
-                            (if (memq keyword '(struct enum))
-                                (append-each (lambda (instance) (scan-top-level cx env instance))
-                                             (derived-instances cx env form (eq? keyword 'enum)))
-                                '())))
-               (list (list 'expression form env))))
-          (_ (list (list 'expression form env))))))
+                      (Cons (Pending keyword form env)
+                            (if (or (string=? keyword "struct") (string=? keyword "enum"))
+                                (concatenate (map (lambda (instance) (scan-top-level cx env instance))
+                                                  (derived-instances cx form (string=? keyword "enum"))))
+                                (Nil))))
+               (list (Pending "expression" form env))))
+          (_ (list (Pending "expression" form env))))))
 
-    ;; `append-map` with a guaranteed left-to-right order, for effectful passes.
-    (define (append-each f items)
-      (let loop ((items items) (results '()))
-        (if (null? items)
-            (apply append (reverse results))
-            (let ((result (f (car items))))
-              (loop (cdr items) (cons result results))))))
-
-    (define (bind-top! cx env ident binding)
-      (when (hash-table-ref/default (Env-table env) (ident-key ident) #f)
-        (compile-error (syntax-loc ident) "duplicate top-level definition" (Ident-name ident)))
+    (: bind-top! (-> Env Syntax Binding Unit ! mut))
+    (define (bind-top! env ident binding)
+      (when (table-contains? (Env-table env) (ident-key ident))
+        (compile-error (syntax-loc ident) (string-append "duplicate top-level definition " (Ident-name ident))))
       (bind! env ident binding))
 
+    (: definition-name (-> Syntax Syntax))
     (define (definition-name form)
-      (match (Form-items form)
-        ((Cons _ (Cons (Form (Cons name _) _) _)) (expect-ident name "a definition name"))
-        ((list _ name _) (expect-ident name "a definition name"))
+      (match form
+        ((Form (Cons _ (Cons (Form (Cons name _) _) _)) _) (expect-ident name "a definition name"))
+        ((Form (Cons _ (Cons name (Cons _ (Nil)))) _) (expect-ident name "a definition name"))
         (_ (compile-error (syntax-loc form) "expected (define name value) or (define (name parameter ...) body ...)"))))
 
-    (define (declare! cx signatures entry)
-      (let ((keyword (car entry)) (form (cadr entry)) (env (caddr entry)))
-        (case keyword
-          ((:) (declare-signature! cx signatures env form) '())
-          ((struct enum) (declare-data! cx env form (eq? keyword 'enum)) '())
-          ((typeclass) (declare-class! cx env form) '())
-          ((instance) (declare-instance! cx env form))
-          ((extern) (declare-extern! cx env form) '())
-          ((effect) (declare-effect! cx env form) '())
-          ((define) (list (lambda () (define-top-level! cx signatures env form))))
-          ((expose) (list (lambda () (add-item! (program cx) (expose-item env form)))))
-          ((expression) (list (lambda () (add-item! (program cx) (Do (expand-expr cx env form))))))
-          (else '()))))
+    (: declare! (-> Context (Table Scheme) Pending (List (-> Unit ! mut)) ! mut fs))
+    (define (declare! cx signatures pending)
+      (let ((form (Pending-form pending)) (env (Pending-env pending)))
+        (case (Pending-keyword pending)
+          ((":") (declare-signature! cx signatures env form) (Nil))
+          (("struct") (declare-data! cx env form #f) (Nil))
+          (("enum") (declare-data! cx env form #t) (Nil))
+          (("typeclass") (declare-class! cx env form) (Nil))
+          (("instance") (declare-instance! cx env form))
+          (("extern") (declare-extern! cx env form) (Nil))
+          (("effect") (declare-effect! cx env form) (Nil))
+          (("define") (list (lambda () (define-top-level! cx signatures env form))))
+          (("expose") (list (lambda () (add-item! (program cx) (expose-item cx env form)))))
+          (("expression") (list (lambda () (add-item! (program cx) (Do (expand-expr cx env form))))))
+          (else (Nil)))))
 
     ;; `(expose name "symbol")` exports a top-level function to the host.
-    (define (expose-item env form)
-      (match (Form-items form)
-        ((list _ name (Atom symbol _))
-         (match (resolve env (expect-ident name "a function name"))
-           ((Global global) (Expose global symbol (syntax-loc form)))
-           (_ (compile-error (syntax-loc name) "only a top-level function can be exposed" (Ident-name name)))))
+    (: expose-item (-> Context Env Syntax Item ! mut))
+    (define (expose-item cx env form)
+      (match form
+        ((Form (Cons _ (Cons name (Cons (Atom (DString symbol) _) (Nil)))) loc)
+         (match (resolve cx env (expect-ident name "a function name"))
+           ((Some (Global global)) (Expose global symbol loc))
+           (_ (compile-error (syntax-loc name) (string-append "only a top-level function can be exposed: " (Ident-name name))))))
         (_ (compile-error (syntax-loc form) "expected (expose name \"symbol\")"))))
 
+    (: define-top-level! (-> Context (Table Scheme) Env Syntax Unit ! mut))
     (define (define-top-level! cx signatures env form)
-      (let ((name (Global-name (resolve env (definition-name form)))))
-        (add-value! (program cx) name (Defined (hash-table-ref/default signatures name #f)))
+      (let ((name (global-binding cx env (definition-name form))))
+        (add-value! (program cx) name (Defined (table-ref signatures name)))
         (add-item! (program cx) (Define name (definition-value cx env form)))))
 
+    (: definition-value (-> Context Env Syntax Expr ! mut))
     (define (definition-value cx env form)
-      (match (Form-items form)
-        ((Cons _ (Cons (Form (Cons name params) _) body)) (expand-lambda cx env params body (syntax-loc form)))
-        ((list _ name value) (expand-expr cx env value))))
+      (match form
+        ((Form (Cons _ (Cons (Form (Cons _ params) _) body)) loc) (expand-lambda cx env params body loc))
+        ((Form (Cons _ (Cons _ (Cons value (Nil)))) _) (expand-expr cx env value))
+        (_ (compile-error (syntax-loc form) "expected a definition"))))
 
     ;; ---- Declarations ----
 
     ;; Pass 1 binds the names a declaration introduces; pass 2 resolves types.
+    (: scan-declaration (-> Context Env String Syntax Unit ! mut))
     (define (scan-declaration cx env keyword form)
-      (let ((items (Form-items form)))
-        (case keyword
-          ((struct) (let* ((name (declared-name (cadr items))) (id (global-name cx (ident-key name))))
-                      (bind-top! cx env name (TypeName id (length (declared-params (cadr items))) id))
-                      (bind-fields! cx env name (struct-fields form) #t)))
-          ((enum) (let ((name (declared-name (cadr items))))
-                    (bind-top! cx env name (TypeName (global-name cx (ident-key name)) (length (declared-params (cadr items))) #f))
-                    (for-each (lambda (case) (scan-case! cx env case)) (cddr (declaration-items form)))))
-          ((type) (let ((name (declared-name (cadr items))))
-                    (bind-top! cx env name (Alias (declared-params (cadr items)) (caddr items) env (ref #f)))))
-          ((typeclass) (let ((name (declared-name (cadr items))))
-                         (bind-top! cx env name (ClassName (global-name cx (ident-key name))))
-                         (for-each (lambda (signature) (bind-member! cx env (cadr (Form-items signature)))) (cddr items))))
-          ((extern) (bind-member! cx env (cadr items)))
-          ((effect) (let ((name (expect-ident (cadr items) "an effect name")))
-                      (bind-top! cx env name (EffectName (global-name cx (ident-key name))))
-                      (for-each (lambda (operation) (bind-member! cx env (car (Form-items operation))))
-                                (form-items (caddr items) "a list of operations"))))
-          (else #f))))
+      (match (form-tail form)
+        ((Cons head rest)
+         (case keyword
+           (("struct")
+            (let* ((name (declared-name head)) (id (global-name cx (ident-key name))))
+              (bind-top! env name (TypeName id (length (declared-params head)) (Some id)))
+              (bind-fields! cx env name (struct-fields form) #t)))
+           (("enum")
+            (let ((name (declared-name head)))
+              (bind-top! env name (TypeName (global-name cx (ident-key name)) (length (declared-params head)) (None)))
+              (for-each (lambda (case) (scan-case! cx env case)) (enum-cases form))))
+           (("type")
+            (let ((name (declared-name head)))
+              (match rest
+                ((Cons body (Nil))
+                 (bind-top! env name (Alias (global-name cx (ident-key name)) (declared-params head) body env (ref #f))))
+                (_ (compile-error (syntax-loc form) "expected (type Name type)")))))
+           (("typeclass")
+            (let ((name (declared-name head)))
+              (bind-top! env name (ClassName (global-name cx (ident-key name))))
+              (for-each (lambda (signature)
+                          (match signature
+                            ((Form (Cons _ (Cons method _)) _) (bind-member! cx env method))
+                            (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
+                        rest)))
+           (("extern") (bind-member! cx env head))
+           (("effect")
+            (let ((name (expect-ident head "an effect name")))
+              (bind-top! env name (EffectName (global-name cx (ident-key name))))
+              (match rest
+                ((Cons operations _)
+                 (for-each (lambda (operation)
+                             (match operation
+                               ((Form (Cons name _) _) (bind-member! cx env name))
+                               (_ (compile-error (syntax-loc operation) "expected (operation type)"))))
+                           (form-items operations "a list of operations")))
+                (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))")))))
+           (else (unit))))
+        (_ (compile-error (syntax-loc form) "expected a declaration"))))
 
+    (: bind-member! (-> Context Env Syntax Unit ! mut))
     (define (bind-member! cx env ident)
       (let ((ident (expect-ident ident "a name")))
-        (bind-top! cx env ident (Global (global-name cx (ident-key ident))))))
+        (bind-top! env ident (Global (global-name cx (ident-key ident))))))
 
+    (: scan-case! (-> Context Env Syntax Unit ! mut))
     (define (scan-case! cx env case)
-      (let* ((items (form-items case "an enum case")) (name (expect-ident (car items) "a case name")))
-        (bind-member! cx env name)
-        (bind-fields! cx env name (if (pair? (cdr items)) (form-items (cadr items) "a field list") '()) #f)))
+      (match (form-items case "an enum case")
+        ((Cons name fields)
+         (bind-member! cx env name)
+         (bind-fields! cx env name (match fields ((Cons fields _) (form-items fields "a field list")) ((Nil) (Nil))) #f))
+        ((Nil) (compile-error (syntax-loc case) "expected an enum case"))))
 
     ;; Accessors are `Name-field`; structs also get replacements `Name-field-set`.
+    (: bind-fields! (-> Context Env Syntax (List Syntax) Bool Unit ! mut))
     (define (bind-fields! cx env name fields setters?)
       (for-each (lambda (field)
-                  (let ((accessor (field-ident name (car (form-items field "a field")) "")))
-                    (bind-member! cx env accessor)
-                    (when setters? (bind-member! cx env (field-ident name (car (Form-items field)) "-set")))))
+                  (match (form-items field "a field")
+                    ((Cons field-name _)
+                     (bind-member! cx env (field-ident name field-name ""))
+                     (when setters? (bind-member! cx env (field-ident name field-name "-set"))))
+                    ((Nil) (compile-error (syntax-loc field) "expected (field type)"))))
                 fields))
 
+    ;; A field identifier shares the mark of its type's name, so a struct a
+    ;; macro introduces has accessors only that expansion sees.
+    (: field-ident (-> Syntax Syntax String Syntax))
     (define (field-ident name field suffix)
-      (Ident (string->symbol (string-append (symbol->string (Ident-name name)) "-"
-                                            (symbol->string (Ident-name (expect-ident field "a field name"))) suffix))
-             (and (Ident-mark name) (Mark (string->symbol (string-append (symbol->string (ident-key name)) "-"
-                                                                         (symbol->string (Ident-name field)) suffix))
-                                          (Mark-original (Ident-mark name)) (Mark-env (Ident-mark name))))
-             (Ident-loc field)))
+      (let ((text (string-append "-" (Ident-name (expect-ident field "a field name")) suffix)))
+        (Ident (string-append (Ident-name name) text)
+               (match (Ident-mark name)
+                 ((Some mark) (Some (Mark (string-append (Mark-key mark) text) (Mark-original mark) (Mark-scope mark))))
+                 ((None) (None)))
+               (syntax-loc field))))
 
+    (: declared-name (-> Syntax Syntax))
     (define (declared-name head)
       (match head
         ((Form (Cons name _) _) (expect-ident name "a type name"))
         (_ (expect-ident head "a type name"))))
 
+    (: declared-params (-> Syntax (List Syntax)))
     (define (declared-params head)
       (match head
         ((Form (Cons _ params) _) (map (lambda (param) (expect-ident param "a type parameter")) params))
-        (_ '())))
-
-    (define (struct-fields form)
-      (match (declaration-items form)
-        ((list _ _) '())
-        ((list _ _ fields) (form-items fields "a field list"))
-        (_ (compile-error (syntax-loc form) "expected (struct Name ((field type) ...))"))))
+        (_ (Nil))))
 
     ;; A struct or enum may end with `(deriving Class ...)`.
-    (define (declaration-items form)
-      (remove deriving-clause? (Form-items form)))
-
+    (: deriving-clause? (-> Syntax Bool))
     (define (deriving-clause? syntax)
       (match syntax
-        ((Form (Cons (Ident 'deriving _ _) _) _) #t)
+        ((Form (Cons (Ident "deriving" _ _) _) _) #t)
         (_ #f)))
 
+    ;; The declaration's items after its head, without deriving clauses.
+    (: declaration-body (-> Syntax (List Syntax)))
+    (define (declaration-body form)
+      (match (form-tail form)
+        ((Cons _ rest) (filter (lambda (item) (not (deriving-clause? item))) rest))
+        ((Nil) (Nil))))
+
+    (: declaration-head (-> Syntax Syntax))
+    (define (declaration-head form)
+      (match (form-tail form)
+        ((Cons head _) head)
+        ((Nil) (compile-error (syntax-loc form) "expected a declared name"))))
+
+    (: struct-fields (-> Syntax (List Syntax)))
+    (define (struct-fields form)
+      (match (declaration-body form)
+        ((Nil) (Nil))
+        ((Cons fields (Nil)) (form-items fields "a field list"))
+        (_ (compile-error (syntax-loc form) "expected (struct Name ((field type) ...))"))))
+
+    (: enum-cases (-> Syntax (List Syntax)))
+    (define (enum-cases form)
+      (declaration-body form))
+
+    (: derived-classes (-> Syntax (List Syntax)))
     (define (derived-classes form)
-      (append-map (lambda (item) (cdr (Form-items item))) (filter deriving-clause? (Form-items form))))
+      (concatenate (map form-tail (filter deriving-clause? (form-tail form)))))
 
     ;; A type parameter scope binds each parameter to a rigid variable.
+    (: type-scope (-> Env (List Syntax) Env ! mut))
     (define (type-scope env params)
-      (let ((scope (child-env env)))
+      (let ((scope (child-env (Some env))))
         (for-each (lambda (param) (bind! scope param (TypeVar (TRigid (Ident-name param))))) params)
         scope))
 
+    ;; A case is its name followed by an optional field list; a struct is one
+    ;; case named after the struct.
+    (: declare-data! (-> Context Env Syntax Bool Unit ! mut))
     (define (declare-data! cx env form enum?)
-      (let* ((head (cadr (Form-items form))) (params (declared-params head))
-             (id (TypeName-name (resolve env (declared-name head)))) (scope (type-scope env params))
+      (let* ((head (declaration-head form)) (params (declared-params head))
+             (id (match (resolve cx env (declared-name head)) ((Some (TypeName id _ _)) id) (_ (panic "internal error: type"))))
+             (scope (type-scope env params))
              (cases (if enum?
-                        (map (lambda (case) (form-items case "an enum case")) (cddr (declaration-items form)))
-                        (list (cons (declared-name head) (if (null? (struct-fields form)) '() (list (caddr (declaration-items form))))))))
-             (data (DataType id (map Ident-name params)
-                             (map (lambda (case tag) (resolve-case scope case id tag)) cases (iota (length cases)))
+                        (map (lambda (case) (form-items case "an enum case")) (enum-cases form))
+                        (list (Cons (declared-name head) (declaration-body form)))))
+             (data (DataType id (map Ident-name params) (map-indexed (lambda (tag case) (resolve-case cx scope case id tag)) cases)
                              enum?)))
         (add-type! (program cx) data)
         (for-each (lambda (case) (declare-case-values! cx data case (not enum?))) (DataType-cases data))))
 
-    ;; A case is its name followed by an optional field list.
-    (define (resolve-case scope case type tag)
-      (Case (Global-or-constructor (resolve scope (car case))) type tag
-            (map (lambda (field)
-                   (match (form-items field "a (field type) pair")
-                     ((list name type) (Field (Ident-name (expect-ident name "a field name")) (resolve-type scope type)))
-                     (_ (compile-error (syntax-loc field) "expected (field type)"))))
-                 (if (pair? (cdr case)) (form-items (cadr case) "a field list") '()))))
+    (: resolve-case (-> Context Env (List Syntax) String I64 Case ! mut))
+    (define (resolve-case cx scope case type tag)
+      (match case
+        ((Cons name fields)
+         (Case (constructor-name cx scope name) type tag
+               (map (lambda (field) (resolve-field cx scope field))
+                    (match fields ((Cons fields _) (form-items fields "a field list")) ((Nil) (Nil))))))
+        ((Nil) (panic "internal error: empty case"))))
 
-    (define (Global-or-constructor binding)
-      (match binding
-        ((Global name) name)
-        ((TypeName _ _ constructor) constructor)))
+    (: resolve-field (-> Context Env Syntax Field ! mut))
+    (define (resolve-field cx scope field)
+      (match field
+        ((Form (Cons name (Cons type (Nil))) _) (Field (Ident-name (expect-ident name "a field name")) (resolve-type cx scope type)))
+        (_ (compile-error (syntax-loc field) "expected (field type)"))))
 
+    (: constructor-name (-> Context Env Syntax String ! mut))
+    (define (constructor-name cx env ident)
+      (match (resolve cx env ident)
+        ((Some (Global name)) name)
+        ((Some (TypeName _ _ (Some constructor))) constructor)
+        (_ (compile-error (syntax-loc ident) (string-append "not a constructor: " (Ident-name ident))))))
+
+    (: declare-case-values! (-> Context DataType Case Bool Unit ! mut))
     (define (declare-case-values! cx data case setters?)
       (let* ((params (DataType-params data)) (self (TCon (DataType-name data) (map TRigid params)))
-             (scheme (lambda (type) (Scheme params '() type))))
-        (add-value! (program cx) (Case-name case) (Constructor case (scheme (TFun (map Field-type (Case-fields case)) self empty-row))))
-        (let loop ((fields (Case-fields case)) (index 0))
-          (unless (null? fields)
-            (let ((accessor (global-member cx (Case-name case) (Field-name (car fields)) "")) (type (Field-type (car fields))))
-              (add-value! (program cx) accessor (Accessor case index (scheme (TFun (list self) type empty-row))))
-              (when setters?
-                (add-value! (program cx) (global-member cx (Case-name case) (Field-name (car fields)) "-set")
-                            (Replacer case index (scheme (TFun (list self type) self empty-row)))))
-              (loop (cdr fields) (+ index 1)))))))
-
-    (define (global-member cx case field suffix)
-      (string->symbol (string-append (symbol->string case) "-" (symbol->string field) suffix)))
+             (name (Case-name case)))
+        (add-value! (program cx) name (Constructor case (Scheme params (Nil) (TFun (map Field-type (Case-fields case)) self empty-row))))
+        (for-each (lambda (indexed)
+                    (let* ((index (Pair-first indexed)) (field (Pair-second indexed)) (type (Field-type field))
+                           (accessor (string-append name "-" (Field-name field))))
+                      (add-value! (program cx) accessor (Accessor case index (Scheme params (Nil) (TFun (list self) type empty-row))))
+                      (when setters?
+                        (add-value! (program cx) (string-append accessor "-set")
+                                    (Replacer case index (Scheme params (Nil) (TFun (list self type) self empty-row)))))))
+                  (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
     ;; `(: name type)` records a scheme for the following definition.
+    (: declare-signature! (-> Context (Table Scheme) Env Syntax Unit ! mut))
     (define (declare-signature! cx signatures env form)
-      (match (Form-items form)
-        ((list _ name type)
-         (match (resolve env (expect-ident name "a name"))
-           ((Global global) (hash-table-set! signatures global (resolve-scheme env type)))
-           (_ (compile-error (syntax-loc name) "signature names an undefined top-level definition" (Ident-name name)))))
+      (match form
+        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
+         (match (resolve cx env (expect-ident name "a name"))
+           ((Some (Global global)) (table-set! signatures global (resolve-scheme cx env type)))
+           (_ (compile-error (syntax-loc name) (string-append "signature names an undefined top-level definition: "
+                                                              (Ident-name name))))))
         (_ (compile-error (syntax-loc form) "expected (: name type)"))))
 
+    (: declare-class! (-> Context Env Syntax Unit ! mut))
     (define (declare-class! cx env form)
-      (let* ((items (Form-items form)) (head (cadr items)) (params (declared-params head))
-             (id (ClassName-name (resolve env (declared-name head)))) (scope (type-scope env params))
+      (let* ((head (declaration-head form)) (params (declared-params head))
+             (id (match (resolve cx env (declared-name head)) ((Some (ClassName id)) id) (_ (panic "internal error: class"))))
+             (scope (type-scope env params))
              (self (Constraint id (map (lambda (param) (TRigid (Ident-name param))) params))))
         (add-class! (program cx)
                     (Class id (map Ident-name params)
-                           (map (lambda (signature)
-                                  (match (Form-items signature)
-                                    ((list _ name type)
-                                     (let ((own (resolve-scheme scope type)) (global (Global-name (resolve env name))))
-                                       (add-value! (program cx) global
-                                                   (Method id (Scheme (append (map Ident-name params) (Scheme-vars own))
-                                                                      (cons self (Scheme-constraints own)) (Scheme-type own))))
-                                       global))
-                                    (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
-                                (cddr items))))))
+                           (map (lambda (signature) (declare-method! cx env scope id params self signature))
+                                (match (form-tail form) ((Cons _ signatures) signatures) ((Nil) (Nil))))))))
+
+    (: declare-method! (-> Context Env Env String (List Syntax) Constraint Syntax String ! mut))
+    (define (declare-method! cx env scope class params self signature)
+      (match signature
+        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
+         (let ((own (resolve-scheme cx scope type)) (global (global-binding cx env name)))
+           (add-value! (program cx) global
+                       (Method class (Scheme (append (map Ident-name params) (Scheme-vars own)) (Cons self (Scheme-constraints own))
+                                             (Scheme-type own))))
+           global))
+        (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
 
     ;; Unbound identifiers in an instance head are its type variables. Returns
     ;; one thunk per method, which expands its definition.
+    (: declare-instance! (-> Context Env Syntax (List (-> Unit ! mut)) ! mut))
     (define (declare-instance! cx env form)
-      (let* ((items (Form-items form)) (head (form-items (cadr items) "an instance head"))
-             (class (match (resolve env (car head)) ((ClassName id) (program-class (program cx) id))
-                           (_ (compile-error (syntax-loc (car head)) "instance of something that is not a typeclass"))))
-             (vars (delete-duplicates (append-map (lambda (type) (free-type-idents env type)) (cdr head)) eq?))
-             (scope (type-scope env (map (lambda (name) (Ident name #f (syntax-loc form))) vars)))
-             (requires? (and (pair? (cddr items)) (match (caddr items) ((Form (Cons (Ident 'requires _ _) _) _) #t) (_ #f))))
-             (instance (Instance (fresh-global cx (short-name (Class-name class))) (Class-name class) vars
-                                 (map (lambda (type) (resolve-type scope type)) (cdr head))
-                                 (if requires? (map (lambda (c) (resolve-constraint scope c)) (cdr (Form-items (caddr items)))) '())
-                                 '()))
-             (methods (map (lambda (definition) (instance-method cx env class instance definition))
-                           (if requires? (cdddr items) (cddr items)))))
-        (check-instance-methods class methods (syntax-loc form))
-        (check-overlap (program cx) instance (syntax-loc form))
-        (add-instance! (program cx) (Instance-methods-set instance (map (lambda (method) (cons (car method) (cadr method))) methods)))
-        (map caddr methods)))
+      (match form
+        ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
+         (let* ((class (match (resolve cx env class-ident)
+                         ((Some (ClassName id)) (program-class (program cx) id))
+                         (_ (compile-error (syntax-loc class-ident) "instance of something that is not a typeclass"))))
+                (vars (delete-duplicates string=? (concatenate (map (lambda (type) (free-type-names cx env type)) type-args))))
+                (scope (type-scope env (map (lambda (name) (Ident name (None) loc)) vars)))
+                (parts (split-requires body))
+                (instance (Instance (fresh-global cx (short-name (Class-name class))) (Class-name class) vars
+                                    (map (lambda (type) (resolve-type cx scope type)) type-args)
+                                    (map (lambda (c) (resolve-constraint cx scope c)) (Pair-first parts)) (Nil)))
+                (methods (map (lambda (definition) (instance-method cx env class instance definition)) (Pair-second parts))))
+           (check-instance-methods class methods loc)
+           (check-overlap (program cx) instance loc)
+           (add-instance! (program cx)
+                          (Instance-methods-set instance
+                                                (map (lambda (method) (Pair (MethodDefinition-method method)
+                                                                            (MethodDefinition-global method)))
+                                                     methods)))
+           (map MethodDefinition-expand methods)))
+        (_ (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
 
-    ;; Returns (class-method global thunk) for one method definition.
+    (: fresh-global (-> Context String String ! mut))
+    (define (fresh-global cx base)
+      (global-name cx (fresh cx base)))
+
+    ;; A body may start with `(requires (Class type ...) ...)`.
+    (: split-requires (-> (List Syntax) (Pair (List Syntax) (List Syntax))))
+    (define (split-requires items)
+      (match items
+        ((Cons (Form (Cons (Ident "requires" _ _) constraints) _) rest) (Pair constraints rest))
+        (_ (Pair (Nil) items))))
+
+    ;; One method of an instance: the class method it implements, the global
+    ;; that holds its definition, and the thunk that expands it.
+    (struct MethodDefinition
+      ((method String)
+       (global String)
+       (expand (-> Unit ! mut))))
+
+    (: instance-method (-> Context Env Class Instance Syntax MethodDefinition ! mut))
     (define (instance-method cx env class instance definition)
-      (unless (core-form? env definition 'define) (compile-error (syntax-loc definition) "expected a method definition"))
+      (unless (core-form? cx env definition "define") (compile-error (syntax-loc definition) "expected a method definition"))
       (let* ((ident (definition-name definition))
-             (method (or (find (lambda (method) (string=? (short-name method) (symbol->string (Ident-name ident))))
-                               (Class-methods class))
-                         (compile-error (syntax-loc ident) "not a method of this class" (Ident-name ident))))
+             (method (match (find (lambda (method) (string=? (short-name method) (Ident-name ident))) (Class-methods class))
+                       ((Some method) method)
+                       ((None) (compile-error (syntax-loc ident) (string-append "not a method of this class: " (Ident-name ident))))))
              (global (fresh-global cx (short-name method))))
-        (add-value! (program cx) global (Defined (instance-method-scheme (program cx) class method instance)))
-        (list method global (lambda () (add-item! (program cx) (Define global (definition-value cx env definition)))))))
+        (add-value! (program cx) global (Defined (Some (instance-method-scheme (program cx) class method instance))))
+        (MethodDefinition method global (lambda () (add-item! (program cx) (Define global (definition-value cx env definition)))))))
 
+    (: instance-method-scheme (-> Program Class String Instance Scheme ! mut))
     (define (instance-method-scheme program class method instance)
       (match (program-value program method)
-        ((Method _ (Scheme method-vars (Cons _ own) type))
-         (let* ((class-vars (Class-params class)) (substitution (map cons class-vars (Instance-types instance))))
+        ((Some (Method _ (Scheme method-vars (Cons _ own) type)))
+         (let* ((class-vars (Class-params class)) (substitution (zip class-vars (Instance-types instance))))
            (Scheme (append (Instance-vars instance) (drop method-vars (length class-vars)))
                    (append (Instance-requires instance) (map (lambda (c) (substitute-constraint substitution c)) own))
-                   (substitute substitution type))))))
+                   (substitute substitution type))))
+        (_ (panic "internal error: not a method"))))
 
     ;; Instance selection matches heads, so two heads may never both match
     ;; the same types. A type variable in either head matches anything.
+    (: check-overlap (-> Program Instance Loc Unit ! mut))
     (define (check-overlap program instance loc)
       (for-each (lambda (other)
-                  (when (every heads-overlap? (Instance-types instance) (Instance-types other))
+                  (when (heads-overlap? (Instance-types instance) (Instance-types other))
                     (compile-error loc "this instance overlaps another instance of the class")))
                 (class-instances program (Instance-class instance))))
 
-    (define (heads-overlap? a b)
+    (: heads-overlap? (-> (List Type) (List Type) Bool))
+    (define (heads-overlap? as bs)
+      (every? (lambda (pair) (head-overlaps? (Pair-first pair) (Pair-second pair))) (zip as bs)))
+
+    (: head-overlaps? (-> Type Type Bool))
+    (define (head-overlaps? a b)
       (match a
-        ((TRigid _) #t)
         ((TCon name args)
          (match b
+           ((TCon other others) (and (string=? name other) (heads-overlap? args others)))
            ((TRigid _) #t)
-           ((TCon other others) (and (eq? name other) (every heads-overlap? args others)))
            (_ #f)))
         (_ #t)))
 
+    (: check-instance-methods (-> Class (List MethodDefinition) Loc Unit))
     (define (check-instance-methods class methods loc)
       (for-each (lambda (method)
-                  (unless (assq method methods) (compile-error loc "instance is missing a method" (short-name method))))
+                  (unless (any? (lambda (definition) (string=? (MethodDefinition-method definition) method)) methods)
+                    (compile-error loc (string-append "instance is missing a method: " (short-name method)))))
                 (Class-methods class)))
 
-    (define (free-type-idents env syntax)
+    (: free-type-names (-> Context Env Syntax (List String) ! mut))
+    (define (free-type-names cx env syntax)
       (match syntax
-        ((Ident name _ _) (if (resolve env syntax) '() (list name)))
-        ((Form items _) (append-map (lambda (item) (free-type-idents env item)) items))
-        (_ '())))
+        ((Ident name _ _)
+         (match (resolve cx env syntax)
+           ((Some _) (Nil))
+           ((None) (list name))))
+        ((Form items _) (concatenate (map (lambda (item) (free-type-names cx env item)) items)))
+        (_ (Nil))))
 
+    (: declare-extern! (-> Context Env Syntax Unit ! mut))
     (define (declare-extern! cx env form)
-      (match (Form-items form)
-        ((list _ name (Atom module _) (Atom symbol _) type)
-         (add-value! (program cx) (Global-name (resolve env name))
-                     (Foreign module symbol (mono-scheme (resolve-type env type)))))
+      (match form
+        ((Form (Cons _ (Cons name (Cons (Atom (DString module) _) (Cons (Atom (DString symbol) _) (Cons type (Nil)))))) _)
+         (add-value! (program cx) (global-binding cx env name)
+                     (Foreign (Import module symbol) (mono-scheme (resolve-type cx env type)))))
         (_ (compile-error (syntax-loc form) "expected (extern name \"module\" \"symbol\" type)"))))
 
     ;; Operations perform their effect; host defaults name Wasm imports.
+    (: declare-effect! (-> Context Env Syntax Unit ! mut))
     (define (declare-effect! cx env form)
-      (let* ((items (Form-items form)) (id (EffectName-name (resolve env (cadr items))))
-             (operations (map (lambda (operation)
-                                (match (Form-items operation)
-                                  ((list name type) (declare-operation! cx env id name type))
-                                  (_ (compile-error (syntax-loc operation) "expected (operation type)"))))
-                              (Form-items (caddr items)))))
-        (add-effect! (program cx)
-                     (Effect id operations (if (pair? (cdddr items)) (host-defaults env (cadddr items)) '())))))
+      (match form
+        ((Form (Cons _ (Cons name (Cons operations host))) _)
+         (let ((id (match (resolve cx env name) ((Some (EffectName id)) id) (_ (panic "internal error: effect")))))
+           (add-effect! (program cx)
+                        (Effect id
+                                (map (lambda (operation) (declare-operation! cx env id operation))
+                                     (form-items operations "a list of operations"))
+                                (match host
+                                  ((Cons clause (Nil)) (host-defaults cx env clause))
+                                  (_ (Nil)))))))
+        (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))"))))
 
-    (define (declare-operation! cx env effect name type)
-      (match (resolve-scheme env type)
-        ((Scheme vars constraints (TFun params result (TRow '() #f)))
-         (let ((global (Global-name (resolve env name))))
-           (add-value! (program cx) global (Operation effect (Scheme vars constraints (TFun params result (TRow (list effect) #f)))))
-           global))
-        (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
+    (: declare-operation! (-> Context Env String Syntax String ! mut))
+    (define (declare-operation! cx env effect operation)
+      (match operation
+        ((Form (Cons name (Cons type (Nil))) _)
+         (match (resolve-scheme cx env type)
+           ((Scheme vars constraints (TFun params result (TRow (Nil) (None))))
+            (let ((global (global-binding cx env name)))
+              (add-value! (program cx) global
+                          (Operation effect (Scheme vars constraints (TFun params result (TRow (list effect) (None))))))
+              global))
+           (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
+        (_ (compile-error (syntax-loc operation) "expected (operation type)"))))
 
-    (define (host-defaults env syntax)
-      (match (Form-items syntax)
-        ((list (Ident 'host _ _) (Atom module _) operations)
+    (: host-defaults (-> Context Env Syntax (List (Pair String Import)) ! mut))
+    (define (host-defaults cx env syntax)
+      (match syntax
+        ((Form (Cons (Ident "host" _ _) (Cons (Atom (DString module) _) (Cons operations (Nil)))) _)
          (map (lambda (operation)
-                (match (Form-items operation)
-                  ((list name (Atom symbol _)) (cons (Global-name (resolve env name)) (cons module symbol)))))
-              (Form-items operations)))
+                (match operation
+                  ((Form (Cons name (Cons (Atom (DString symbol) _) (Nil))) _) (Pair (global-binding cx env name) (Import module symbol)))
+                  (_ (compile-error (syntax-loc operation) "expected (operation \"symbol\")"))))
+              (form-items operations "a list of host operations")))
         (_ (compile-error (syntax-loc syntax) "expected (host \"module\" ((operation \"symbol\") ...))"))))
 
     ;; ---- Types ----
 
     ;; `(All (A e) (requires (Class A) ...) type)` or a plain type.
-    (define (resolve-scheme env syntax)
+    (: resolve-scheme (-> Context Env Syntax Scheme ! mut))
+    (define (resolve-scheme cx env syntax)
       (match syntax
-        ((Form (Cons (Ident 'All _ _) (Cons (Form params _) rest)) loc)
-         (let* ((scope (type-scope env params))
-                (requires? (and (pair? (cdr rest)) (match (car rest) ((Form (Cons (Ident 'requires _ _) _) _) #t) (_ #f)))))
-           (Scheme (map Ident-name params)
-                   (if requires? (map (lambda (c) (resolve-constraint scope c)) (cdr (Form-items (car rest)))) '())
-                   (resolve-type scope (if requires? (cadr rest) (car rest))))))
-        (_ (mono-scheme (resolve-type env syntax)))))
+        ((Form (Cons (Ident "All" _ _) (Cons (Form params _) rest)) loc)
+         (let* ((params (map (lambda (param) (expect-ident param "a type variable")) params))
+                (scope (type-scope env params)) (parts (split-requires rest)))
+           (match (Pair-second parts)
+             ((Cons type (Nil))
+              (Scheme (map Ident-name params) (map (lambda (c) (resolve-constraint cx scope c)) (Pair-first parts))
+                      (resolve-type cx scope type)))
+             (_ (compile-error loc "expected (All (variable ...) [(requires constraint ...)] type)")))))
+        (_ (mono-scheme (resolve-type cx env syntax)))))
 
-    (define (resolve-constraint env syntax)
+    (: resolve-constraint (-> Context Env Syntax Constraint ! mut))
+    (define (resolve-constraint cx env syntax)
       (match syntax
         ((Form (Cons class types) loc)
-         (match (resolve env class)
-           ((ClassName id) (Constraint id (map (lambda (type) (resolve-type env type)) types)))
+         (match (resolve cx env (expect-ident class "a typeclass"))
+           ((Some (ClassName id)) (Constraint id (map (lambda (type) (resolve-type cx env type)) types)))
            (_ (compile-error loc "expected a typeclass constraint"))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
 
-    (define (resolve-type env syntax)
+    (: resolve-type (-> Context Env Syntax Type ! mut))
+    (define (resolve-type cx env syntax)
       (match syntax
-        ((Ident name _ loc) (resolve-type-name env syntax '() loc))
-        ((Form (Cons (Ident '-> _ _) items) loc) (resolve-arrow env items '() loc))
-        ((Form (Cons head args) loc) (resolve-type-name env (expect-ident head "a type constructor") args loc))
+        ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
+        ((Form (Cons (Ident "->" _ _) items) loc) (resolve-arrow cx env items (Nil) loc))
+        ((Form (Cons head args) loc) (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
         (_ (compile-error (syntax-loc syntax) "expected a type"))))
 
-    (define (resolve-type-name env ident args loc)
-      (match (resolve env ident)
-        ((TypeName name arity _)
-         (unless (= arity (length args)) (compile-error loc "wrong number of type arguments" (Ident-name ident)))
-         (TCon name (map (lambda (arg) (resolve-type env arg)) args)))
-        ((TypeVar type) (if (null? args) type (compile-error loc "a type variable takes no arguments")))
-        ((Alias params body alias-env expanding)
-         (unless (= (length params) (length args)) (compile-error loc "wrong number of alias arguments" (Ident-name ident)))
-         (when (ref-get expanding) (compile-error loc "type alias refers to itself" (Ident-name ident)))
-         (let ((scope (child-env alias-env)))
-           (for-each (lambda (param arg) (bind! scope param (TypeVar (resolve-type env arg)))) params args)
+    (: resolve-type-name (-> Context Env Syntax (List Syntax) Loc Type ! mut))
+    (define (resolve-type-name cx env ident args loc)
+      (match (resolve cx env ident)
+        ((Some (TypeName name arity _))
+         (unless (= arity (length args)) (compile-error loc (string-append "wrong number of type arguments: " (Ident-name ident))))
+         (TCon name (map (lambda (arg) (resolve-type cx env arg)) args)))
+        ((Some (TypeVar type)) (if (null? args) type (compile-error loc "a type variable takes no arguments")))
+        ((Some (Alias _ params body alias-env expanding))
+         (unless (= (length params) (length args))
+           (compile-error loc (string-append "wrong number of alias arguments: " (Ident-name ident))))
+         (when (ref-get expanding) (compile-error loc (string-append "type alias refers to itself: " (Ident-name ident))))
+         (let ((scope (child-env (Some alias-env))))
+           (for-each (lambda (pair) (bind! scope (Pair-first pair) (TypeVar (resolve-type cx env (Pair-second pair)))))
+                     (zip params args))
            (ref-set! expanding #t)
-           (let ((type (resolve-type scope body)))
+           (let ((type (resolve-type cx scope body)))
              (ref-set! expanding #f)
              type)))
-        (_ (compile-error loc "not a type" (Ident-name ident)))))
+        (_ (compile-error loc (string-append "not a type: " (Ident-name ident))))))
 
     ;; `(-> A B R)` or `(-> A B R ! label ... [row-variable])`.
-    (define (resolve-arrow env items params loc)
-      (cond ((null? items) (compile-error loc "an arrow needs a result type"))
-            ((or (null? (cdr items)) (ident-named? (cadr items) '!))
-             (TFun (reverse params) (resolve-type env (car items))
-                   (if (null? (cdr items)) empty-row (resolve-row env (cddr items) loc))))
-            (else (resolve-arrow env (cdr items) (cons (resolve-type env (car items)) params) loc))))
+    (: resolve-arrow (-> Context Env (List Syntax) (List Type) Loc Type ! mut))
+    (define (resolve-arrow cx env items params loc)
+      (match items
+        ((Nil) (compile-error loc "an arrow needs a result type"))
+        ((Cons result (Nil)) (TFun (reverse params) (resolve-type cx env result) empty-row))
+        ((Cons result (Cons (Ident "!" _ _) labels)) (TFun (reverse params) (resolve-type cx env result) (resolve-row cx env labels loc)))
+        ((Cons param rest) (resolve-arrow cx env rest (Cons (resolve-type cx env param) params) loc))))
 
-    (define (resolve-row env items loc)
-      (let loop ((items items) (labels '()))
-        (if (null? items)
-            (TRow (sort-labels labels) #f)
-            (match (resolve env (expect-ident (car items) "an effect label"))
-              ((EffectName name) (loop (cdr items) (if (memq name labels) labels (cons name labels))))
-              ((TypeVar type) (if (null? (cdr items)) (TRow (sort-labels labels) type)
-                                  (compile-error loc "a row variable must come last")))
-              (_ (compile-error (syntax-loc (car items)) "not an effect" (Ident-name (car items))))))))
-
-    (define (sort-labels labels)
-      (sort-symbols labels))
-
-    (define (sort-symbols symbols)
-      (if (null? symbols)
-          '()
-          (let ((pivot (symbol->string (car symbols))))
-            (append (sort-symbols (filter (lambda (s) (string<? (symbol->string s) pivot)) (cdr symbols)))
-                    (list (car symbols))
-                    (sort-symbols (filter (lambda (s) (string>=? (symbol->string s) pivot)) (cdr symbols)))))))
+    (: resolve-row (-> Context Env (List Syntax) Loc Type ! mut))
+    (define (resolve-row cx env items loc)
+      (let loop ((items items) (labels (Nil)))
+        (match items
+          ((Nil) (TRow labels (None)))
+          ((Cons item rest)
+           (match (resolve cx env (expect-ident item "an effect label"))
+             ((Some (EffectName name)) (loop rest (label-union labels (list name))))
+             ((Some (TypeVar type)) (if (null? rest) (TRow labels (Some type)) (compile-error loc "a row variable must come last")))
+             (_ (compile-error (syntax-loc item) (string-append "not an effect: " (Ident-name item)))))))))
 
     ;; ---- Expressions ----
 
     ;; Expands macro uses at the head of a form until the head is not a macro.
+    (: expand-head (-> Context Env Syntax Syntax ! mut))
     (define (expand-head cx env syntax)
-      (match (head-binding env syntax)
-        ((Macro literals rules macro-env) (expand-head cx env (apply-macro cx env syntax literals rules macro-env)))
+      (match (head-binding cx env syntax)
+        ((Some (Macro _ literals rules scope)) (expand-head cx env (apply-macro cx env syntax literals rules scope)))
         (_ syntax)))
 
+    (: expr (-> Term Loc Expr))
     (define (expr term loc)
-      (Expr term #f loc))
+      (Expr term unchecked loc))
 
-    (define (unit-expr loc)
-      (expr (Lit 'unit) loc))
-
+    (: expand-expr (-> Context Env Syntax Expr ! mut))
     (define (expand-expr cx env syntax)
       (let ((syntax (expand-head cx env syntax)))
         (match syntax
           ((Atom value loc) (expr (Lit value) loc))
-          ((Ident name _ loc) (expand-reference env syntax loc))
-          ((Form '() loc) (compile-error loc "empty application"))
+          ((Ident _ _ loc) (expand-reference cx env syntax loc))
+          ((Form (Nil) loc) (compile-error loc "empty application"))
           ((Form (Cons head args) loc)
-           (match (head-binding env syntax)
-             ((Core keyword) (expand-core cx env keyword syntax (Form-items syntax) loc))
+           (match (head-binding cx env syntax)
+             ((Some (Core keyword)) (expand-core cx env keyword (Form-items syntax) loc))
              (_ (expr (App (expand-expr cx env head) (map (lambda (arg) (expand-expr cx env arg)) args)) loc)))))))
 
-    (define (expand-reference env ident loc)
-      (match (resolve env ident)
-        ((Local name) (expr (Var name '() '()) loc))
-        ((Global name) (expr (Var name '() '()) loc))
-        ((TypeName _ _ constructor)
-         (if constructor (expr (Var constructor '() '()) loc) (compile-error loc "a type is not a value" (Ident-name ident))))
-        (#f (compile-error loc "unbound identifier" (Ident-name ident)))
-        (_ (compile-error loc "syntax used as a value" (Ident-name ident)))))
+    (: expand-reference (-> Context Env Syntax Loc Expr ! mut))
+    (define (expand-reference cx env ident loc)
+      (match (resolve cx env ident)
+        ((Some (Local name)) (expr (Var name (Nil) (Nil)) loc))
+        ((Some (Global name)) (expr (Var name (Nil) (Nil)) loc))
+        ((Some (TypeName _ _ (Some constructor))) (expr (Var constructor (Nil) (Nil)) loc))
+        ((Some (TypeName _ _ (None))) (compile-error loc (string-append "a type is not a value: " (Ident-name ident))))
+        ((None) (compile-error loc (string-append "unbound identifier " (Ident-name ident))))
+        (_ (compile-error loc (string-append "syntax used as a value: " (Ident-name ident))))))
 
-    (define (expand-core cx env keyword syntax items loc)
+    (: expand-core (-> Context Env String (List Syntax) Loc Expr ! mut))
+    (define (expand-core cx env keyword items loc)
       (case keyword
-        ((lambda) (if (and (pair? (cdr items)) (pair? (cddr items)))
-                      (expand-lambda cx env (form-items (cadr items) "a parameter list") (cddr items) loc)
-                      (compile-error loc "expected (lambda (parameter ...) body ...)")))
-        ((if) (match items
-                ((list _ test then else) (expr (If (expand-expr cx env test) (expand-expr cx env then) (expand-expr cx env else)) loc))
-                ((list _ test then) (expr (If (expand-expr cx env test) (expand-expr cx env then) (unit-expr loc)) loc))
-                (_ (compile-error loc "expected (if test then [else])"))))
-        ((begin) (expand-body cx env (cdr items) loc))
-        ((let) (expand-let cx env items loc))
-        ((match) (expand-match cx env items loc))
-        ((ann) (match items
-                 ((list _ value type) (expr (Ann (expand-expr cx env value) (resolve-type env type)) loc))
-                 (_ (compile-error loc "expected (ann expression type)"))))
-        ((handle) (expand-handle cx env items loc))
-        ((type-convert) (match items
-                          ((list _ value type) (expr (Convert (expand-expr cx env value) (resolve-type env type)) loc))
-                          (_ (compile-error loc "expected (type-convert expression type)"))))
-        ((case-id) (match items
-                     ((list _ constructor) (expr (Ann (expr (Lit (constructor-case-id cx env constructor)) loc) (TCon 'I32 '())) loc))
-                     (_ (compile-error loc "expected (case-id Constructor)"))))
-        ((quote) (match items
-                   ((list _ (Atom value _)) (expr (Lit value) loc))
-                   (_ (compile-error loc "only literals can be quoted"))))
-        (else (compile-error loc "this form is only valid as a definition" keyword))))
+        (("lambda")
+         (match items
+           ((Cons _ (Cons params body)) (expand-lambda cx env (form-items params "a parameter list") body loc))
+           (_ (compile-error loc "expected (lambda (parameter ...) body ...)"))))
+        (("if")
+         (match items
+           ((Cons _ (Cons test (Cons then (Cons otherwise (Nil)))))
+            (expr (If (expand-expr cx env test) (expand-expr cx env then) (expand-expr cx env otherwise)) loc))
+           ((Cons _ (Cons test (Cons then (Nil))))
+            (expr (If (expand-expr cx env test) (expand-expr cx env then) (expr (Lit (DUnit)) loc)) loc))
+           (_ (compile-error loc "expected (if test then [else])"))))
+        (("begin") (expand-body cx env (list-tail items 1) loc))
+        (("let") (expand-let cx env items loc))
+        (("match") (expand-match cx env items loc))
+        (("ann")
+         (match items
+           ((Cons _ (Cons value (Cons type (Nil)))) (expr (Ann (expand-expr cx env value) (resolve-type cx env type)) loc))
+           (_ (compile-error loc "expected (ann expression type)"))))
+        (("handle") (expand-handle cx env items loc))
+        (("type-convert")
+         (match items
+           ((Cons _ (Cons value (Cons type (Nil)))) (expr (Convert (expand-expr cx env value) (resolve-type cx env type)) loc))
+           (_ (compile-error loc "expected (type-convert expression type)"))))
+        (("case-id")
+         (match items
+           ((Cons _ (Cons constructor (Nil)))
+            (expr (Ann (expr (Lit (DInt (constructor-case-id cx env constructor))) loc) (TCon "I32" (Nil))) loc))
+           (_ (compile-error loc "expected (case-id Constructor)"))))
+        (("quote")
+         (match items
+           ((Cons _ (Cons (Atom value _) (Nil))) (expr (Lit value) loc))
+           (_ (compile-error loc "only literals can be quoted"))))
+        (else (compile-error loc (string-append "this form is only valid as a definition: " keyword)))))
 
+    (: expand-lambda (-> Context Env (List Syntax) (List Syntax) Loc Expr ! mut))
     (define (expand-lambda cx env params body loc)
-      (let* ((scope (child-env env))
+      (let* ((scope (child-env (Some env)))
              (names (map (lambda (param)
                            (let ((name (fresh cx (Ident-name (expect-ident param "a parameter name")))))
                              (bind! scope param (Local name))
@@ -792,83 +1038,126 @@
                          params)))
         (expr (Lambda names (expand-body cx scope body loc)) loc)))
 
-    ;; A local body is sequential: each definition is visible to the forms
-    ;; after it, and a function definition is also visible to itself.
+    (: expand-body (-> Context Env (List Syntax) Loc Expr ! mut))
     (define (expand-body cx env forms loc)
       (when (null? forms) (compile-error loc "empty body"))
-      (let ((scope (child-env env)))
-        (let loop ((forms forms) (signature #f))
-          (if (null? forms)
-              (compile-error loc "a body must end with an expression")
-              (expand-body-form cx scope (expand-head cx scope (car forms)) (cdr forms) signature loop)))))
+      (expand-body-forms cx (child-env (Some env)) forms (None) loc))
 
-    (define (expand-body-form cx scope form rest signature continue)
-      (match (head-binding scope form)
-        ((Core 'begin) (continue (append (cdr (Form-items form)) rest) signature))
-        ((Core 'define-syntax) (define-macro! scope form) (continue rest signature))
-        ((Core ':) (continue rest (cons (cadr (Form-items form)) (resolve-scheme scope (caddr (Form-items form))))))
-        ((Core 'define) (expand-local-definition cx scope form rest signature continue))
-        (_ (let ((value (expand-expr cx scope form)))
-             (if (null? rest) value (expr (Seq value (continue rest #f)) (Expr-loc value)))))))
+    ;; A local body is sequential: each definition is visible to the forms
+    ;; after it, and a function definition is also visible to itself. A
+    ;; signature annotates the definition that follows it.
+    (: expand-body-forms (-> Context Env (List Syntax) (Option (Pair String Type)) Loc Expr ! mut))
+    (define (expand-body-forms cx scope forms signature loc)
+      (match forms
+        ((Nil) (compile-error loc "a body must end with an expression"))
+        ((Cons form rest)
+         (let ((form (expand-head cx scope form)))
+           (match (head-binding cx scope form)
+             ((Some (Core "begin")) (expand-body-forms cx scope (append (form-tail form) rest) signature loc))
+             ((Some (Core "define-syntax")) (define-macro! cx scope form) (expand-body-forms cx scope rest signature loc))
+             ((Some (Core ":")) (expand-body-forms cx scope rest (Some (local-signature cx scope form)) loc))
+             ((Some (Core "define")) (expand-local-definition cx scope form rest signature loc))
+             (_ (let ((value (expand-expr cx scope form)))
+                  (if (null? rest) value (expr (Seq value (expand-body-forms cx scope rest (None) loc)) (Expr-loc value))))))))))
 
-    (define (expand-local-definition cx scope form rest signature continue)
+    (: local-signature (-> Context Env Syntax (Pair String Type) ! mut))
+    (define (local-signature cx scope form)
+      (match form
+        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
+         (Pair (Ident-name (expect-ident name "a name")) (Scheme-type (resolve-scheme cx scope type))))
+        (_ (compile-error (syntax-loc form) "expected (: name type)"))))
+
+    (: expand-local-definition (-> Context Env Syntax (List Syntax) (Option (Pair String Type)) Loc Expr ! mut))
+    (define (expand-local-definition cx scope form rest signature loc)
       (let* ((ident (definition-name form)) (name (fresh cx (Ident-name ident)))
-             (function? (or (match (Form-items form) ((Cons _ (Cons (Form _ _) _)) #t) (_ #f))
-                            (core-form? scope (caddr (Form-items form)) 'lambda))))
+             (function? (match form
+                          ((Form (Cons _ (Cons (Form _ _) _)) _) #t)
+                          ((Form (Cons _ (Cons _ (Cons value (Nil)))) _) (core-form? cx scope value "lambda"))
+                          (_ #f))))
         (when function? (bind! scope ident (Local name)))
         (let ((value (definition-value cx scope form)))
           (unless function? (bind! scope ident (Local name)))
-          (let ((value (if (and signature (eq? (Ident-name (car signature)) (Ident-name ident)))
-                           (expr (Ann value (Scheme-type (cdr signature))) (Expr-loc value))
-                           value)))
-            (expr (Let name value (continue rest #f)) (syntax-loc form))))))
+          (let ((value (match signature
+                         ((Some (Pair signed type))
+                          (if (string=? signed (Ident-name ident)) (expr (Ann value type) (Expr-loc value)) value))
+                         ((None) value))))
+            (expr (Let name value (expand-body-forms cx scope rest (None) loc)) (syntax-loc form))))))
 
     ;; `(let ((name value) ...) body ...)` or the named-let loop form.
+    (: expand-let (-> Context Env (List Syntax) Loc Expr ! mut))
     (define (expand-let cx env items loc)
       (match items
-        ((Cons _ (Cons (Ident _ _ _) (Cons (Form bindings _) body)))
-         (let* ((ident (cadr items)) (name (fresh cx (Ident-name ident))) (scope (child-env env)))
-           (bind! scope ident (Local name))
-           (expr (Let name (expand-lambda cx scope (map binding-name bindings) body loc)
-                      (expr (App (expr (Var name '() '()) loc) (map (lambda (b) (expand-expr cx env (binding-value b))) bindings)) loc))
-                 loc)))
-        ((Cons _ (Cons (Form bindings _) body))
-         (let* ((values (map (lambda (binding) (expand-expr cx env (binding-value binding))) bindings))
-                (scope (child-env env))
-                (names (map (lambda (binding) (let ((name (fresh cx (Ident-name (binding-name binding)))))
-                                                (bind! scope (binding-name binding) (Local name))
-                                                name))
-                            bindings)))
-           (fold-right (lambda (name value body) (expr (Let name value body) loc))
-                       (expand-body cx scope body loc) names values)))
+        ((Cons _ (Cons head (Cons more body)))
+         (match head
+           ((Ident _ _ _) (expand-named-let cx env head (form-items more "a list of bindings") body loc))
+           ((Form bindings _) (expand-plain-let cx env bindings (Cons more body) loc))
+           (_ (compile-error loc "expected (let ((name value) ...) body ...)"))))
         (_ (compile-error loc "expected (let ((name value) ...) body ...)"))))
 
-    (define (binding-name binding)
-      (expect-ident (car (form-items binding "a (name value) binding")) "a binding name"))
+    (: expand-named-let (-> Context Env Syntax (List Syntax) (List Syntax) Loc Expr ! mut))
+    (define (expand-named-let cx env ident bindings body loc)
+      (let ((name (fresh cx (Ident-name ident))) (scope (child-env (Some env))))
+        (bind! scope ident (Local name))
+        (expr (Let name (expand-lambda cx scope (map binding-name bindings) body loc)
+                   (expr (App (expr (Var name (Nil) (Nil)) loc)
+                              (map (lambda (binding) (expand-expr cx env (binding-value binding))) bindings))
+                         loc))
+              loc)))
 
+    (: expand-plain-let (-> Context Env (List Syntax) (List Syntax) Loc Expr ! mut))
+    (define (expand-plain-let cx env bindings body loc)
+      (let* ((values (map (lambda (binding) (expand-expr cx env (binding-value binding))) bindings))
+             (scope (child-env (Some env)))
+             (names (map (lambda (binding)
+                           (let ((name (fresh cx (Ident-name (binding-name binding)))))
+                             (bind! scope (binding-name binding) (Local name))
+                             name))
+                         bindings)))
+        (fold-right (lambda (pair body) (expr (Let (Pair-first pair) (Pair-second pair) body) loc))
+                    (expand-body cx scope body loc) (zip names values))))
+
+    (: binding-name (-> Syntax Syntax))
+    (define (binding-name binding)
+      (match (form-items binding "a (name value) binding")
+        ((Cons name _) (expect-ident name "a binding name"))
+        ((Nil) (compile-error (syntax-loc binding) "expected (name value)"))))
+
+    (: binding-value (-> Syntax Syntax))
     (define (binding-value binding)
-      (match (Form-items binding)
-        ((list _ value) value)
+      (match binding
+        ((Form (Cons _ (Cons value (Nil))) _) value)
         (_ (compile-error (syntax-loc binding) "expected (name value)"))))
 
+    (: expand-handle (-> Context Env (List Syntax) Loc Expr ! mut))
     (define (expand-handle cx env items loc)
       (match items
         ((Cons _ (Cons effect (Cons (Form implementations _) body)))
-         (let ((id (match (resolve env (expect-ident effect "an effect name"))
-                     ((EffectName id) id)
-                     (_ (compile-error (syntax-loc effect) "not an effect" (Ident-name effect))))))
-           (expr (Handle id (map (lambda (implementation)
-                                   (match (Form-items implementation)
-                                     ((list name value) (cons (operation-name cx id name) (expand-expr cx env value)))
-                                     (_ (compile-error (syntax-loc implementation) "expected (operation implementation)"))))
-                                 implementations)
+         (let ((id (match (resolve cx env (expect-ident effect "an effect name"))
+                     ((Some (EffectName id)) id)
+                     (_ (compile-error (syntax-loc effect) (string-append "not an effect: " (Ident-name effect)))))))
+           (expr (Handle id
+                         (map (lambda (implementation)
+                                (match implementation
+                                  ((Form (Cons name (Cons value (Nil))) _) (Pair (operation-name cx id name) (expand-expr cx env value)))
+                                  (_ (compile-error (syntax-loc implementation) "expected (operation implementation)"))))
+                              implementations)
                          (expand-body cx env body loc))
                  loc)))
         (_ (compile-error loc "expected (handle Effect ((operation implementation) ...) body ...)"))))
 
+    ;; A handler names operations by their names within the effect, so they
+    ;; need not be imported.
+    (: operation-name (-> Context String Syntax String ! mut))
+    (define (operation-name cx effect ident)
+      (let ((name (Ident-name (expect-ident ident "an operation name"))))
+        (match (find (lambda (operation) (string=? (short-name operation) name)) (Effect-operations (program-effect (program cx) effect)))
+          ((Some operation) operation)
+          ((None) (compile-error (syntax-loc ident) (string-append "not an operation of this effect: " name))))))
+
+    (: constructor-case-id (-> Context Env Syntax I64 ! mut))
     (define (constructor-case-id cx env constructor)
-      (match (program-value (program cx) (pattern-constructor env constructor))
-        ((Constructor case _) (case-type-id (program cx) case))
+      (match (program-value (program cx) (pattern-constructor cx env constructor))
+        ((Some (Constructor case _)) (case-type-id (program cx) case))
         (_ (compile-error (syntax-loc constructor) "not a constructor"))))
 
     ;; ---- Deriving ----
@@ -877,254 +1166,328 @@
     ;; Identifiers they introduce are marked to resolve in an environment of
     ;; (lofi core), (lofi primitive) and (lofi wire), whatever the declaring
     ;; library imports.
-    (define (derived-instances cx env form enum?)
-      (let* ((head (cadr (Form-items form))) (loc (syntax-loc form))
+    (: derived-instances (-> Context Syntax Bool (List Syntax) ! mut fs))
+    (define (derived-instances cx form enum?)
+      (let* ((head (declaration-head form)) (loc (syntax-loc form))
              (cases (if enum?
-                        (map (lambda (case) (let ((items (Form-items case)))
-                                              (cons (car items) (if (pair? (cdr items)) (length (Form-items (cadr items))) 0))))
-                             (cddr (declaration-items form)))
-                        (list (cons (declared-name head) (length (struct-fields form)))))))
+                        (map (lambda (case)
+                               (match (form-items case "an enum case")
+                                 ((Cons name (Cons fields _)) (Pair name (length (form-items fields "a field list"))))
+                                 ((Cons name (Nil)) (Pair name 0))
+                                 ((Nil) (compile-error (syntax-loc case) "expected an enum case"))))
+                             (enum-cases form))
+                        (list (Pair (declared-name head) (length (struct-fields form)))))))
         (map (lambda (class)
-               (case (Ident-name class)
-                 ((Serialize) (serialize-instance cx head cases loc))
-                 ((Deserialize) (deserialize-instance cx head cases loc))
-                 (else (compile-error (syntax-loc class) "only Serialize and Deserialize can be derived"))))
+               (match class
+                 ((Ident "Serialize" _ _) (serialize-instance cx head cases loc))
+                 ((Ident "Deserialize" _ _) (deserialize-instance cx head cases loc))
+                 (_ (compile-error (syntax-loc class) "only Serialize and Deserialize can be derived"))))
              (derived-classes form))))
 
-    (define (deriving-env cx loc)
-      (or (ref-get (Context-deriving cx))
-          (let ((env (child-env #f)))
-            (for-each (lambda (entry) (hash-table-set! (Env-table env) (car entry) (cdr entry)))
-                      (append (Library-exports (load-library cx '(lofi core) loc))
-                              (Library-exports (load-library cx '(lofi primitive) loc))
-                              (Library-exports (load-library cx '(lofi wire) loc))))
-            (ref-set! (Context-deriving cx) env)
-            env)))
+    (: deriving-scope (-> Context Loc I64 ! mut fs))
+    (define (deriving-scope cx loc)
+      (match (ref-get (Context-deriving cx))
+        ((Some scope) scope)
+        ((None)
+         (let ((env (child-env (None))))
+           (for-each (lambda (entry) (table-set! (Env-table env) (Pair-first entry) (Pair-second entry)))
+                     (concatenate (map (lambda (name) (load-library cx name loc))
+                                       (list (list "lofi" "core") (list "lofi" "primitive") (list "lofi" "wire")))))
+           (let ((scope (register-scope! cx env)))
+             (ref-set! (Context-deriving cx) (Some scope))
+             scope)))))
 
-    (define (wire-ident cx name loc)
-      (let ((original (Ident name #f loc)))
-        (Ident name (Mark (string->symbol (string-append (symbol->string name) "%deriving")) original (deriving-env cx loc)) loc)))
+    ;; Builds the syntax of a derived instance; `w` makes wire identifiers.
+    (struct Deriver
+      ((scope I64)
+       (loc Loc)))
 
-    (define (form loc . items)
-      (Form items loc))
+    (: w (-> Deriver String Syntax))
+    (define (w deriver name)
+      (let ((loc (Deriver-loc deriver)))
+        (Ident name (Some (Mark (string-append name "%deriving") (Ident name (None) loc) (Deriver-scope deriver))) loc)))
 
-    (define (field-idents cx count loc)
-      (map (lambda (index) (wire-ident cx (string->symbol (string-append "field" (number->string index))) loc)) (iota count)))
+    (: f (-> Deriver (List Syntax) Syntax))
+    (define (f deriver items)
+      (Form items (Deriver-loc deriver)))
 
-    (define (instance-head cx class head loc)
+    (: field-idents (-> Deriver I64 (List Syntax)))
+    (define (field-idents deriver count)
+      (map (lambda (index) (w deriver (string-append "field" (i64->string index)))) (iota count)))
+
+    (: instance-head (-> Deriver String Syntax (List Syntax)))
+    (define (instance-head d class head)
       (let ((params (declared-params head)))
-        (append (list (wire-ident cx 'instance loc) (form loc (wire-ident cx class loc) head))
-                (if (null? params) '()
-                    (list (apply form loc (wire-ident cx 'requires loc)
-                                 (map (lambda (param) (form loc (wire-ident cx class loc) param)) params)))))))
+        (append (list (w d "instance") (f d (list (w d class) head)))
+                (if (null? params)
+                    (Nil)
+                    (list (f d (Cons (w d "requires") (map (lambda (param) (f d (list (w d class) param))) params))))))))
 
     ;; Each case writes its TypeId, then its fields in order.
+    (: serialize-instance (-> Context Syntax (List (Pair Syntax I64)) Loc Syntax ! mut fs))
     (define (serialize-instance cx head cases loc)
-      (let ((w (lambda (name) (wire-ident cx name loc))) (value (wire-ident cx 'value loc)) (encoder (wire-ident cx 'encoder loc)))
-        (apply form loc
-               (append (instance-head cx 'Serialize head loc)
-                       (list (form loc (w 'define) (form loc (w 'encode) value encoder)
-                                   (apply form loc (w 'match) value
-                                          (map (lambda (case)
-                                                 (let ((fields (field-idents cx (cdr case) loc)))
-                                                   (apply form loc (apply form loc (car case) fields)
-                                                          (form loc (w 'encode-case-id) encoder (form loc (w 'case-id) (car case)))
-                                                          (append (map (lambda (field) (form loc (w 'encode) field encoder)) fields)
-                                                                  (list (form loc (w 'unit)))))))
-                                               cases))))))))
+      (let* ((d (Deriver (deriving-scope cx loc) loc)) (value (w d "value")) (encoder (w d "encoder")))
+        (f d (append (instance-head d "Serialize" head)
+                     (list (f d (list (w d "define") (f d (list (w d "encode") value encoder))
+                                      (f d (Cons (w d "match")
+                                                 (Cons value (map (lambda (case) (serialize-case d case encoder)) cases)))))))))))
+
+    (: serialize-case (-> Deriver (Pair Syntax I64) Syntax Syntax))
+    (define (serialize-case d case encoder)
+      (let ((fields (field-idents d (Pair-second case))))
+        (f d (Cons (f d (Cons (Pair-first case) fields))
+                   (Cons (f d (list (w d "encode-case-id") encoder (f d (list (w d "case-id") (Pair-first case)))))
+                         (append (map (lambda (field) (f d (list (w d "encode") field encoder))) fields)
+                                 (list (f d (list (w d "unit"))))))))))
 
     ;; The TypeId read selects the case; an unknown one is a schema mismatch.
+    (: deserialize-instance (-> Context Syntax (List (Pair Syntax I64)) Loc Syntax ! mut fs))
     (define (deserialize-instance cx head cases loc)
-      (let* ((w (lambda (name) (wire-ident cx name loc))) (decoder (wire-ident cx 'decoder loc)) (id (wire-ident cx 'id loc))
-             (decode-case (lambda (case)
-                            (let ((fields (field-idents cx (cdr case) loc)))
-                              (fold-right (lambda (field body) (form loc (w 'let) (form loc (form loc field (form loc (w 'decode) decoder))) body))
-                                          (apply form loc (car case) fields) fields)))))
-        (apply form loc
-               (append (instance-head cx 'Deserialize head loc)
-                       (list (form loc (w 'define) (form loc (w 'decode) decoder)
-                                   (form loc (w 'let) (form loc (form loc id (form loc (w 'decode-case-id) decoder)))
-                                         (fold-right (lambda (case otherwise)
-                                                       (form loc (w 'if) (form loc (w 'case-id=?) id (form loc (w 'case-id) (car case)))
-                                                             (decode-case case) otherwise))
-                                                     (form loc (w 'panic) (Atom "wire data has a different schema" loc))
-                                                     cases))))))))
+      (let* ((d (Deriver (deriving-scope cx loc) loc)) (decoder (w d "decoder")) (id (w d "id")))
+        (f d (append (instance-head d "Deserialize" head)
+                     (list (f d (list (w d "define") (f d (list (w d "decode") decoder))
+                                      (f d (list (w d "let") (f d (list (f d (list id (f d (list (w d "decode-case-id") decoder))))))
+                                                 (fold-right (lambda (case otherwise)
+                                                               (f d (list (w d "if")
+                                                                          (f d (list (w d "case-id=?") id (f d (list (w d "case-id") (Pair-first case)))))
+                                                                          (deserialize-case d case decoder) otherwise)))
+                                                             (f d (list (w d "panic") (Atom (DString "wire data has a different schema") loc)))
+                                                             cases))))))))))
 
-    ;; A handler names operations by their names within the effect, so they
-    ;; need not be imported.
-    (define (operation-name cx effect ident)
-      (let ((name (Ident-name (expect-ident ident "an operation name"))))
-        (or (find (lambda (operation) (string=? (short-name operation) (symbol->string name)))
-                  (Effect-operations (program-effect (program cx) effect)))
-            (compile-error (syntax-loc ident) "not an operation of this effect" name))))
+    (: deserialize-case (-> Deriver (Pair Syntax I64) Syntax Syntax))
+    (define (deserialize-case d case decoder)
+      (let ((fields (field-idents d (Pair-second case))))
+        (fold-right (lambda (field body) (f d (list (w d "let") (f d (list (f d (list field (f d (list (w d "decode") decoder)))))) body)))
+                    (f d (Cons (Pair-first case) fields)) fields)))
 
     ;; ---- Patterns ----
 
+    (: expand-match (-> Context Env (List Syntax) Loc Expr ! mut))
     (define (expand-match cx env items loc)
-      (when (null? (cdr items)) (compile-error loc "expected (match expression clause ...)"))
-      (expr (Match (expand-expr cx env (cadr items))
-                   (map (lambda (clause)
-                          (match (form-items clause "a match clause")
-                            ((Cons pattern body)
-                             (let ((scope (child-env env)))
-                               (let ((pattern (expand-pattern cx env scope pattern)))
-                                 (Clause pattern (expand-body cx scope body (syntax-loc clause))))))))
-                        (cddr items)))
-            loc))
+      (match items
+        ((Cons _ (Cons scrutinee clauses))
+         (expr (Match (expand-expr cx env scrutinee) (map (lambda (clause) (expand-clause cx env clause)) clauses)) loc))
+        (_ (compile-error loc "expected (match expression clause ...)"))))
+
+    (: expand-clause (-> Context Env Syntax Clause ! mut))
+    (define (expand-clause cx env clause)
+      (match (form-items clause "a match clause")
+        ((Cons pattern body)
+         (let* ((scope (child-env (Some env))) (pattern (expand-pattern cx env scope pattern)))
+           (Clause pattern (expand-body cx scope body (syntax-loc clause)))))
+        ((Nil) (compile-error (syntax-loc clause) "expected (pattern body ...)"))))
 
     ;; Bare identifiers are variables or `_`; constructors are always applied,
     ;; as in `(None)`.
+    (: expand-pattern (-> Context Env Env Syntax Pattern ! mut))
     (define (expand-pattern cx env scope syntax)
       (match syntax
-        ((Ident '_ _ _) (PWild #f))
-        ((Ident name _ _)
+        ((Ident "_" _ _) (PWild unchecked))
+        ((Ident name _ loc)
          (let ((local (fresh cx name)))
-           (when (hash-table-ref/default (Env-table scope) (ident-key syntax) #f)
-             (compile-error (syntax-loc syntax) "pattern variable bound twice" name))
+           (when (table-contains? (Env-table scope) (ident-key syntax))
+             (compile-error loc (string-append "pattern variable bound twice: " name)))
            (bind! scope syntax (Local local))
-           (PVar local #f)))
-        ((Atom value _) (PLit value #f))
-        ((Form (Cons head args) loc)
-         (PCon (pattern-constructor env head) (map (lambda (arg) (expand-pattern cx env scope arg)) args) #f))
+           (PVar local unchecked)))
+        ((Atom value _) (PLit value unchecked))
+        ((Form (Cons head args) _)
+         (PCon (pattern-constructor cx env head) (map (lambda (arg) (expand-pattern cx env scope arg)) args) unchecked))
         (_ (compile-error (syntax-loc syntax) "expected a pattern"))))
 
-    (define (pattern-constructor env head)
-      (match (resolve env (expect-ident head "a constructor"))
-        ((TypeName _ _ constructor)
-         (or constructor (compile-error (syntax-loc head) "not a constructor" (Ident-name head))))
-        ((Global name) name)
-        (_ (compile-error (syntax-loc head) "not a constructor" (Ident-name head)))))
+    (: pattern-constructor (-> Context Env Syntax String ! mut))
+    (define (pattern-constructor cx env head)
+      (constructor-name cx env (expect-ident head "a constructor")))
 
     ;; ---- Syntax rules ----
 
-    (define (define-macro! env form)
-      (match (Form-items form)
-        ((list _ name (Form (Cons (Ident 'syntax-rules _ _) (Cons (Form literals _) rules)) _))
-         (bind! env (expect-ident name "a macro name") (Macro literals rules env)))
+    (: define-macro! (-> Context Env Syntax Unit ! mut))
+    (define (define-macro! cx env form)
+      (match form
+        ((Form (Cons _ (Cons name (Cons (Form (Cons (Ident "syntax-rules" _ _) (Cons (Form literals _) rules)) _) (Nil)))) _)
+         (bind! env (expect-ident name "a macro name") (Macro (fresh cx "%macro") literals rules (register-scope! cx env))))
         (_ (compile-error (syntax-loc form) "expected (define-syntax name (syntax-rules (literal ...) rule ...))"))))
 
-    (define (apply-macro cx env form literals rules macro-env)
-      (let try ((rules rules))
-        (when (null? rules) (compile-error (syntax-loc form) "no syntax-rules pattern matches this use"))
-        (match (form-items (car rules) "a syntax rule")
-          ((list (Form (Cons _ pattern) _) template)
-           (let ((bindings (match-pattern (Form pattern #f) (Form (cdr (Form-items form)) #f) literals env macro-env)))
-             (if bindings
-                 (transcribe template bindings (Expansion (make-hash-table eq?) (fresh cx "m") macro-env (syntax-loc form)))
-                 (try (cdr rules)))))
-          (_ (compile-error (syntax-loc (car rules)) "expected ((_ pattern ...) template)")))))
+    (: apply-macro (-> Context Env Syntax (List Syntax) (List Syntax) I64 Syntax ! mut))
+    (define (apply-macro cx env form literals rules scope)
+      (let ((loc (syntax-loc form)))
+        (match rules
+          ((Nil) (compile-error loc "no syntax-rules pattern matches this use"))
+          ((Cons rule more)
+           (match rule
+             ((Form (Cons (Form (Cons _ pattern) _) (Cons template (Nil))) _)
+              (match (match-pattern cx (Form pattern loc) (Form (form-tail form) loc) literals env (scope-env cx scope))
+                ((Some bindings) (transcribe template bindings (Expansion (make-table) (fresh cx "m") scope loc)))
+                ((None) (apply-macro cx env form literals more scope))))
+             (_ (compile-error (syntax-loc rule) "expected ((_ pattern ...) template)")))))))
 
-    ;; Returns an association list from pattern-variable keys to matches, or
-    ;; #f. A variable under n ellipses matches a depth-n nested list.
-    (define (match-pattern pattern input literals env macro-env)
+    ;; What a pattern variable matched: one form, or under n ellipses a
+    ;; depth-n nesting of matches.
+    (enum Bound
+      (One
+       ((syntax Syntax)))
+      (Many
+       ((matches (List Bound)))))
+
+    (type Bindings (List (Pair String Bound)))
+
+    (: literal? (-> Syntax (List Syntax) Bool))
+    (define (literal? ident literals)
+      (any? (lambda (literal) (string=? (ident-key literal) (ident-key ident))) literals))
+
+    (: match-pattern (-> Context Syntax Syntax (List Syntax) Env Env (Option Bindings) ! mut))
+    (define (match-pattern cx pattern input literals env macro-env)
       (match pattern
-        ((Ident '_ _ _) '())
+        ((Ident "_" _ _) (Some (Nil)))
+        ((Ident _ _ _)
+         (cond ((not (literal? pattern literals)) (Some (list (Pair (ident-key pattern) (One input)))))
+               ((same-binding? cx env input macro-env pattern) (Some (Nil)))
+               (else (None))))
+        ((Atom value _)
+         (match input
+           ((Atom other _) (if (datum=? value other) (Some (Nil)) (None)))
+           (_ (None))))
+        ((Form items _)
+         (match input
+           ((Form inputs _) (match-items cx items inputs literals env macro-env))
+           (_ (None))))))
+
+    ;; A literal matches an identifier with the same binding, or the same
+    ;; name when both are unbound.
+    (: same-binding? (-> Context Env Syntax Env Syntax Bool ! mut))
+    (define (same-binding? cx env input macro-env literal)
+      (match input
         ((Ident name _ _)
-         (cond ((find (lambda (literal) (eq? (ident-key literal) (ident-key pattern))) literals)
-                (and (ident? input) (same-binding? env input macro-env pattern) '()))
-               (else (list (cons (ident-key pattern) input)))))
-        ((Atom value _) (and (match input ((Atom other _) (equal? value other)) (_ #f)) '()))
-        ((Form items _) (match input ((Form inputs _) (match-items items inputs literals env macro-env)) (_ #f)))))
+         (match (resolve cx env input)
+           ((Some a)
+            (match (resolve cx macro-env literal)
+              ((Some b) (string=? (binding-identity a) (binding-identity b)))
+              ((None) #f)))
+           ((None)
+            (match (resolve cx macro-env literal)
+              ((Some _) #f)
+              ((None) (string=? name (Ident-name literal)))))))
+        (_ #f)))
 
-    (define (same-binding? env input macro-env literal)
-      (let ((a (resolve env input)) (b (resolve macro-env literal)))
-        (if (or a b) (eq? a b) (eq? (Ident-name input) (Ident-name literal)))))
+    (: match-items (-> Context (List Syntax) (List Syntax) (List Syntax) Env Env (Option Bindings) ! mut))
+    (define (match-items cx patterns inputs literals env macro-env)
+      (match patterns
+        ((Cons repeated (Cons (Ident "..." _ _) after)) (match-ellipsis cx repeated after inputs literals env macro-env))
+        ((Nil) (if (null? inputs) (Some (Nil)) (None)))
+        ((Cons pattern more)
+         (match inputs
+           ((Nil) (None))
+           ((Cons input rest)
+            (match (match-pattern cx pattern input literals env macro-env)
+              ((Some head)
+               (match (match-items cx more rest literals env macro-env)
+                 ((Some tail) (Some (append head tail)))
+                 ((None) (None))))
+              ((None) (None))))))))
 
-    (define (match-items patterns inputs literals env macro-env)
-      (cond ((and (pair? patterns) (pair? (cdr patterns)) (ident-named? (cadr patterns) '...))
-             (match-ellipsis (car patterns) (cddr patterns) inputs literals env macro-env))
-            ((null? patterns) (and (null? inputs) '()))
-            ((null? inputs) #f)
-            (else (let ((head (match-pattern (car patterns) (car inputs) literals env macro-env)))
-                    (and head (let ((tail (match-items (cdr patterns) (cdr inputs) literals env macro-env)))
-                                (and tail (append head tail))))))))
-
-    (define (match-ellipsis repeated after inputs literals env macro-env)
+    (: match-ellipsis (-> Context Syntax (List Syntax) (List Syntax) (List Syntax) Env Env (Option Bindings) ! mut))
+    (define (match-ellipsis cx repeated after inputs literals env macro-env)
       (let ((count (- (length inputs) (length after))))
-        (and (>= count 0)
-             (let ((matches (map (lambda (input) (match-pattern repeated input literals env macro-env)) (take inputs count)))
-                   (tail (match-items after (drop inputs count) literals env macro-env)))
-               (and tail (every (lambda (m) m) matches)
-                    (append (map (lambda (key) (cons key (Repeated (map (lambda (m) (cdr (assq key m))) matches))))
-                                 (pattern-keys repeated literals))
-                            tail))))))
+        (if (< count 0)
+            (None)
+            (match (match-items cx after (drop inputs count) literals env macro-env)
+              ((None) (None))
+              ((Some tail)
+               (match (all-matched (map (lambda (input) (match-pattern cx repeated input literals env macro-env)) (take inputs count)))
+                 ((None) (None))
+                 ((Some matches)
+                  (Some (append (map (lambda (key) (Pair key (Many (map (lambda (bindings) (bound-ref bindings key)) matches))))
+                                     (pattern-keys repeated literals))
+                                tail)))))))))
 
-    (struct Repeated
-      ((matches (List Match))))
+    ;; Every match, or None if any failed.
+    (: all-matched (-> (List (Option Bindings)) (Option (List Bindings))))
+    (define (all-matched matches)
+      (fold-right (lambda (match-result rest)
+                    (match match-result
+                      ((Some bindings) (match rest ((Some more) (Some (Cons bindings more))) ((None) (None))))
+                      ((None) (None))))
+                  (Some (Nil)) matches))
 
+    (: bound-ref (-> Bindings String Bound))
+    (define (bound-ref bindings key)
+      (match (assoc-ref bindings key)
+        ((Some bound) bound)
+        ((None) (panic "internal error: unbound pattern variable"))))
+
+    (: pattern-keys (-> Syntax (List Syntax) (List String)))
     (define (pattern-keys pattern literals)
       (match pattern
         ((Ident name _ _)
-         (if (or (memq name '(_ ...)) (find (lambda (literal) (eq? (ident-key literal) (ident-key pattern))) literals))
-             '() (list (ident-key pattern))))
-        ((Form items _) (append-map (lambda (item) (pattern-keys item literals)) items))
-        (_ '())))
+         (if (or (string=? name "_") (string=? name "...") (literal? pattern literals)) (Nil) (list (ident-key pattern))))
+        ((Form items _) (concatenate (map (lambda (item) (pattern-keys item literals)) items)))
+        (_ (Nil))))
 
     ;; One expansion: identifiers the template introduces share one mark per
     ;; name, and every introduced form is located at the macro use.
     (struct Expansion
-      ((renames HashTable)
-       (stamp Symbol)
-       (env Env)
+      ((renames (Table Syntax))
+       (stamp String)
+       (scope I64)
        (loc Loc)))
 
+    (: transcribe (-> Syntax Bindings Expansion Syntax ! mut))
     (define (transcribe template bindings expansion)
       (match template
         ((Ident name _ _)
-         (let ((binding (assq (ident-key template) bindings)))
-           (cond ((not binding) (rename-ident template expansion))
-                 ((Repeated? (cdr binding)) (compile-error (Expansion-loc expansion) "pattern variable used without an ellipsis" name))
-                 (else (cdr binding)))))
+         (match (assoc-ref bindings (ident-key template))
+           ((None) (rename-ident template expansion))
+           ((Some (Many _)) (compile-error (Expansion-loc expansion) (string-append "pattern variable used without an ellipsis: " name)))
+           ((Some (One syntax)) syntax)))
         ((Atom _ _) template)
         ((Form items _) (Form (transcribe-items items bindings expansion) (Expansion-loc expansion)))))
 
-    (define (Repeated? value)
-      (match value
-        ((Repeated _) #t)
-        (_ #f)))
-
+    (: transcribe-items (-> (List Syntax) Bindings Expansion (List Syntax) ! mut))
     (define (transcribe-items items bindings expansion)
-      (cond ((null? items) '())
-            ((and (pair? (cdr items)) (ident-named? (cadr items) '...))
-             (append (transcribe-repeated (car items) bindings expansion)
-                     (transcribe-items (cddr items) bindings expansion)))
-            (else (cons (transcribe (car items) bindings expansion)
-                        (transcribe-items (cdr items) bindings expansion)))))
+      (match items
+        ((Nil) (Nil))
+        ((Cons item (Cons (Ident "..." _ _) rest))
+         (append (transcribe-repeated item bindings expansion) (transcribe-items rest bindings expansion)))
+        ((Cons item rest) (Cons (transcribe item bindings expansion) (transcribe-items rest bindings expansion)))))
 
     ;; The repeated template iterates over every variable it uses that matched
     ;; under an ellipsis; such variables must have equal lengths.
+    (: transcribe-repeated (-> Syntax Bindings Expansion (List Syntax) ! mut))
     (define (transcribe-repeated template bindings expansion)
-      (let* ((keys (delete-duplicates (template-keys template) eq?))
-             (repeated (filter (lambda (binding) (Repeated? (cdr binding)))
-                               (filter-map (lambda (key) (assq key bindings)) keys))))
-        (when (null? repeated) (compile-error (Expansion-loc expansion) "ellipsis follows a template without pattern variables"))
-        (let ((count (length (Repeated-matches (cdar repeated)))))
-          (unless (every (lambda (binding) (= count (length (Repeated-matches (cdr binding))))) repeated)
-            (compile-error (Expansion-loc expansion) "pattern variables under one ellipsis matched different lengths"))
-          (let loop ((index 0))
-            (if (= index count)
-                '()
-                (cons (transcribe template
-                                  (append (map (lambda (binding) (cons (car binding) (list-ref (Repeated-matches (cdr binding)) index))) repeated)
-                                          bindings)
-                                  expansion)
-                      (loop (+ index 1))))))))
+      (let ((repeated (concatenate (map (lambda (key)
+                                          (match (assoc-ref bindings key)
+                                            ((Some (Many matches)) (list (Pair key matches)))
+                                            (_ (Nil))))
+                                        (delete-duplicates string=? (template-keys template))))))
+        (match repeated
+          ((Nil) (compile-error (Expansion-loc expansion) "ellipsis follows a template without pattern variables"))
+          ((Cons first _)
+           (let ((count (length (Pair-second first))))
+             (unless (every? (lambda (entry) (= count (length (Pair-second entry)))) repeated)
+               (compile-error (Expansion-loc expansion) "pattern variables under one ellipsis matched different lengths"))
+             (map (lambda (index)
+                    (transcribe template
+                                (append (map (lambda (entry) (Pair (Pair-first entry) (list-ref (Pair-second entry) index))) repeated)
+                                        bindings)
+                                expansion))
+                  (iota count)))))))
 
+    (: template-keys (-> Syntax (List String)))
     (define (template-keys template)
       (match template
         ((Ident _ _ _) (list (ident-key template)))
-        ((Form items _) (append-map template-keys items))
-        (_ '())))
+        ((Form items _) (concatenate (map template-keys items)))
+        (_ (Nil))))
 
+    (: rename-ident (-> Syntax Expansion Syntax ! mut))
     (define (rename-ident ident expansion)
-      (let* ((renames (Expansion-renames expansion)) (key (ident-key ident))
-             (existing (hash-table-ref/default renames key #f)))
-        (or existing
-            (let ((renamed (Ident (Ident-name ident)
-                                  (Mark (string->symbol (string-append (symbol->string key) "%" (symbol->string (Expansion-stamp expansion))))
-                                        ident (Expansion-env expansion))
-                                  (Expansion-loc expansion))))
-              (hash-table-set! renames key renamed)
-              renamed))))
+      (let ((key (ident-key ident)))
+        (match (table-ref (Expansion-renames expansion) key)
+          ((Some renamed) renamed)
+          ((None)
+           (let ((renamed (Ident (Ident-name ident)
+                                 (Some (Mark (string-append key "%" (Expansion-stamp expansion)) ident (Expansion-scope expansion)))
+                                 (Expansion-loc expansion))))
+             (table-set! (Expansion-renames expansion) key renamed)
+             renamed)))))
 
     ))

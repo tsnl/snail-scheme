@@ -3,7 +3,7 @@
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
-HEAP ?= 512M
+HEAP ?= 2G
 EMACS ?= emacs
 NIXFMT ?= nixfmt
 SCHEME_SOURCES = '*.scm' '*.sld'
@@ -11,7 +11,7 @@ SCHEME_SOURCES = '*.scm' '*.sld'
 # The compiler's unit tests, every test program, and Siegework headless.
 test:
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
-	"$(CHIBI)" -h $(HEAP) -D snail-tests -I src -I tests tests/run.scm "$(CURDIR)"
+	"$(CHIBI)" -h $(HEAP) -D snail-tests -I host/chibi -I src -I tests tests/run.scm "$(CURDIR)"
 
 format:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --write
@@ -23,4 +23,4 @@ check:
 
 # Siegework as a static site in build/siegework.
 site:
-	"$(CHIBI)" -h $(HEAP) -I src scripts/build-app.scm "$(CURDIR)" --release apps/siegework build/siegework
+	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-app.scm "$(CURDIR)" --release apps/siegework build/siegework

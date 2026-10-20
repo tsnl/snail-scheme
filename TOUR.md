@@ -18,12 +18,12 @@ surface they implement.
 
 ## The passes
 
-All compiler modules live in `src/lofi/compiler/` and run on Chibi Scheme.
+All compiler modules live in `src/lofi/compiler/` and are written in typed
+Lofi: they import only `(lofi base)`, `(lofi table)` and `(lofi io)`, so the
+compiler can compile itself. Chibi Scheme runs the same source through
+`host/chibi/`, which implements those three libraries and erases the typed
+forms.
 
-- **[`shim.sld`](src/lofi/compiler/shim.sld)** gives Chibi Lofi's `struct`,
-  `enum`, `match` and `:` forms, so the compiler is written in the same style
-  as the programs it compiles. Structs become vectors tagged by their
-  constructor.
 - **[`read.sld`](src/lofi/compiler/read.sld)** turns text into `Syntax`:
   atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
   over a vector of characters; a line table recovers line and column only
@@ -63,14 +63,16 @@ All compiler modules live in `src/lofi/compiler/` and run on Chibi Scheme.
   closures: a struct whose first field is a typed function reference, with
   captured variables in a subtype. Tail calls become `return_call`. Each
   effect has a global handler stack. All GC types share one recursion group.
-- **[`build.sld`](src/lofi/compiler/build.sld)** composes the passes and runs
-  Binaryen and Cargo: assemble, optimize, and merge with the runtime.
+- **[`compiler.sld`](src/lofi/compiler.sld)** composes the passes, from a
+  program's path to WebAssembly text.
 
 ## Around the compiler
 
 | Path | Responsibility |
 | --- | --- |
 | `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile` and `wat`. |
+| `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program. |
+| `bootstrap/compile.sld` | The compiler's entry program when it runs as Wasm. |
 | `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
 | `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI. |

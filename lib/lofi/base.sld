@@ -15,11 +15,15 @@
    i32->i64 i64->i32 i64->f64 f64->i64 i32->f64 f64->i32 f32->f64 f64->f32 i64->f32 f32->i64
    i32->f32 f32->i32
    f32->bits bits->f32 f64->bits bits->f64
-   Show show i64->string f64->string
+   Show show i64->string string->i64 f64->string
    Option Some None Result Ok Err Pair Pair-first Pair-second
    List Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
    list-ref list-tail any? every? find member? iota concatenate
+   delete-duplicates take drop last list-index assoc-ref zip
+   i32-and i32-or i32-xor i32-shift-left i32-shift-right i32-shift-right/logical
+   i64-and i64-or i64-xor i64-shift-left i64-shift-right i64-shift-right/logical
    char->integer integer->char char->i32 i32->char char-whitespace? char-numeric? char-alphabetic? digit-value
+   char=? char<?
    string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
    string->vector vector->string
@@ -378,6 +382,60 @@
     (define (member? value items)
       (any? (lambda (item) (= item value)) items))
 
+    ;; Keeps the first of each group of equal items.
+    (: delete-duplicates (All (A e) (-> (-> A A Bool ! e) (List A) (List A) ! e)))
+    (define (delete-duplicates same? items)
+      (reverse (fold-left (lambda (kept item) (if (any? (lambda (other) (same? other item)) kept) kept (Cons item kept)))
+                          (Nil) items)))
+
+    (: take (All (T) (-> (List T) I64 (List T))))
+    (define (take items count)
+      (if (= count 0)
+          (Nil)
+          (match items
+            ((Cons item rest) (Cons item (take rest (- count 1))))
+            ((Nil) (Nil)))))
+
+    (: drop (All (T) (-> (List T) I64 (List T))))
+    (define (drop items count)
+      (if (= count 0)
+          items
+          (match items
+            ((Cons _ rest) (drop rest (- count 1)))
+            ((Nil) (Nil)))))
+
+    (: last (All (T) (-> (List T) (Option T))))
+    (define (last items)
+      (match items
+        ((Nil) (None))
+        ((Cons item (Nil)) (Some item))
+        ((Cons _ rest) (last rest))))
+
+    (: list-index (All (A e) (-> (-> A Bool ! e) (List A) (Option I64) ! e)))
+    (define (list-index test items)
+      (let loop ((items items) (index 0))
+        (match items
+          ((Nil) (None))
+          ((Cons item rest) (if (test item) (Some index) (loop rest (+ index 1)))))))
+
+    ;; The value paired with the first occurrence of `key`.
+    (: assoc-ref (All (K V) (requires (Ord K)) (-> (List (Pair K V)) K (Option V))))
+    (define (assoc-ref entries key)
+      (match entries
+        ((Nil) (None))
+        ((Cons entry rest) (if (= (Pair-first entry) key) (Some (Pair-second entry)) (assoc-ref rest key)))))
+
+    ;; Pairs the items of two lists, stopping at the end of the shorter.
+    (: zip (All (A B) (-> (List A) (List B) (List (Pair A B)))))
+    (define (zip as bs)
+      (let loop ((as as) (bs bs) (pairs (Nil)))
+        (match as
+          ((Nil) (reverse pairs))
+          ((Cons a more-as)
+           (match bs
+             ((Nil) (reverse pairs))
+             ((Cons b more-bs) (loop more-as more-bs (Cons (Pair a b) pairs))))))))
+
     (: iota (-> I64 (List I64)))
     (define (iota count)
       (let loop ((index (- count 1)) (items (Nil)))
@@ -429,6 +487,14 @@
     (: integer->char (-> I64 Char))
     (define (integer->char code)
       (i32->char (i64->i32 code)))
+
+    (: char=? (-> Char Char Bool))
+    (define (char=? a b)
+      (= a b))
+
+    (: char<? (-> Char Char Bool))
+    (define (char<? a b)
+      (< a b))
 
     (: char-whitespace? (-> Char Bool))
     (define (char-whitespace? char)
@@ -500,6 +566,22 @@
                     (if (= n 0)
                         (list->string digits)
                         (loop (quotient n 10) (Cons (integer->char (+ 48 (remainder n 10))) digits)))))))
+
+    ;; An optionally signed decimal integer, or None if the text is not one
+    ;; or does not fit in 64 bits. Digits accumulate negatively, since the
+    ;; most negative value has no positive counterpart.
+    (: string->i64 (-> String (Option I64)))
+    (define (string->i64 text)
+      (let* ((length (string-length text)) (negative (and (> length 0) (= (string-ref text 0) #\-)))
+             (start (if (and (> length 0) (or negative (= (string-ref text 0) #\+))) 1 0)))
+        (if (= start length)
+            (None)
+            (let loop ((index start) (value 0))
+              (cond ((= index length) (if negative (Some value) (if (= value -9223372036854775808) (None) (Some (negate value)))))
+                    ((not (char-numeric? (string-ref text index))) (None))
+                    ((< value -922337203685477580) (None))
+                    ((> (- (* value 10) (digit-value (string-ref text index))) (* value 10)) (None))
+                    (else (loop (+ index 1) (- (* value 10) (digit-value (string-ref text index))))))))))
 
     (instance (Show I64)
       (define show i64->string))
