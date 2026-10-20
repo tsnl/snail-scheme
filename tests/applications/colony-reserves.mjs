@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,colonyBalance,restoreColony,fixtureCall,setWorker,at,pixelAt,withdrawReserves} from './colony-state.mjs';
+import {MAP_WIDTH,colony,colonyBalance,restoreColony,fixtureCall,setWorker,at,pixelAt,withdrawReserves} from './colony-state.mjs';
 
 const state=r=>colony(r.snapshot(1)),call=fixtureCall;
-const reserve=(world,site)=>world.deposits.find(deposit=>deposit.cell===site.x+site.y*64);
+const reserve=(world,site)=>world.deposits.find(deposit=>deposit.cell===site.x+site.y*MAP_WIDTH);
 function leaveReserve(world,site,remaining) {
   const deposit=reserve(world,site),amount=deposit.remaining-remaining;
   assert.ok(amount>=0);deposit.remaining=remaining;world.produced+=amount;world.lostOre+=amount;
@@ -28,7 +28,7 @@ function fixtureMine(world,x,y) {
   const point=at(world,x,y),aim=pixelAt(world,x,y);
   const site={id:world.nextId++,kind:1,...point,level:1,hp:140,stock:0,stage:2,cooldown:0,
     aimX:aim.x,aimY:aim.y,armed:0,source:0,moveX:-1,moveY:-1};
-  world.buildings.push(site);world.surveys.unshift({...point,radius:4});return site;
+  world.buildings.push(site);world.surveys.unshift({...point,radius:7});world.spent+=25;world.ore-=25;return site;
 }
 
 export async function checkReserves(test,fresh) {
@@ -42,14 +42,14 @@ export async function checkReserves(test,fresh) {
     }
     await r.close();
   });
-  await test('three miners clip one shared final withdrawal and haul its last partial load',async()=>{
+  await test('three miners clip one shared final withdrawal and freight ships its last partial load',async()=>{
     const r=await mine(fresh,3),w=state(r),site=w.buildings[0];leaveReserve(w,site,5);
     w.tick=9;w.lastRevealTick=-100;
     for(let i=0;i<3;i++)setWorker(w,i,{x:12,y:20,job:8,target:site.id});
     await restoreColony(r,w);await advance(r);const exhausted=state(r);
     assert.equal(reserve(exhausted,site).remaining,0);assert.equal(exhausted.produced,w.produced+5);
     assert.ok(exhausted.bots.every(bot=>![8,9].includes(bot.job)));assert.equal(exhausted.buildings[0].stock,0);
-    assert.equal(exhausted.bots.reduce((sum,bot)=>sum+bot.cargo,0),5);
+    assert.equal(exhausted.bots.reduce((sum,bot)=>sum+bot.cargo,0)+exhausted.rails.reduce((sum,rail)=>sum+rail.cargo,0),5);
     await advance(r,80);assert.equal(state(r).produced,exhausted.produced);assert.equal(state(r).delivered,w.delivered+5);
     await call(r,'upgrade',[12,20]);assert.equal(state(r).notice,11);await r.close();
   });

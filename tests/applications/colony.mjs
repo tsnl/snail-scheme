@@ -18,7 +18,8 @@ export async function checkColony(test, fresh, call) {
   await test('completed observation and upgraded radius open a second working mine', async () => {
     const r = await fresh(), retained = r.stores.get(1);
     await call(r, 'extract', [12,20]); await call(r, 'observe', [12,14]);
-    assert.equal(state(r).surveys.length, 1); assert.equal(state(r).buildings[1].stage, 0);
+    assert.equal(state(r).surveys.length, 1); assert.equal(state(r).buildings[1].stage, 3);
+    assert.equal(new Set(state(r).bots.filter(bot=>bot.order>0).map(bot=>bot.order)).size,2);
     const paid = state(r).ore; await call(r, 'extract', [21,16]);
     assert.equal(state(r).notice, 1); assert.equal(state(r).ore, paid);
     await advance(r, 100); assert.equal(state(r).buildings[1].stage, 2);
@@ -37,9 +38,9 @@ export async function checkColony(test, fresh, call) {
     const deliveredBefore = state(r).delivered;
     for (let tick = 0; tick < 600; tick++) {
       const before = state(r);
-      const arriving = before.bots.find(bot => bot.job === 1 && bot.target === northern.id && bot.path.length === 0);
+      const outbound = before.rails.find(rail => rail.source === northern.id && rail.cargo > 0);
       await advance(r); materialBalance(state(r));
-      if (arriving && state(r).bots.some(bot => bot.id === arriving.id && bot.job === 2 && bot.cargo > 0)) northCollected = true;
+      if (outbound) northCollected = true;
     }
     assert.ok(northCollected); assert.ok(state(r).delivered > deliveredBefore);
     assert.equal(colony(retained).ore, 160); assert.equal(colony(retained).buildings.length, 0);
@@ -77,8 +78,8 @@ export async function checkColony(test, fresh, call) {
     await call(r, 'observe', [22,20]); await advance(r, 200);
     const outpost = siteAt(state(r),22,20);
     assert.equal(outpost.stage, 2);
-    const checkpoint = state(r); checkpoint.tick = 1349; checkpoint.lastRevealTick=-100; checkpoint.enemies.length=0; await restoreColony(r, checkpoint);
-    await advance(r); assert.equal(state(r).enemies.length, 7);
+    const checkpoint = state(r); checkpoint.tick = 1049; checkpoint.lastRevealTick=-100; checkpoint.enemies.length=0; await restoreColony(r, checkpoint);
+    await advance(r); assert.equal(state(r).enemies.length, 11);
     assert.ok(state(r).enemies.every(enemy => enemy.kind === 1) && state(r).enemies.some(enemy => enemy.target === outpost.id));
     for (let tick = 0; tick < 1800 && state(r).lost === 0 && state(r).outcome === 0; tick++) await advance(r);
     assert.equal(state(r).lost, 1); const knowledge = state(r).surveys;

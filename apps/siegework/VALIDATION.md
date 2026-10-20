@@ -1,5 +1,65 @@
 # Siegework validation
 
+## Paid outposts, stable worker priorities and stronger 80×80 expeditions
+
+Generation `dc2525c85cf251ba4ca27afd` uses World15/Client8 and
+`siegework-colony-v15`. Its 657,454-byte simulation has SHA-256
+`09215a286dfb4e00b4c26c91fe70510ee8ddbb9778aba9fa4ef4aa4151395f2d`.
+The new map and paid extractor ledger start a fresh colony; genuine World14
+and earlier imports reject without replacing live state.
+
+Executed checks:
+
+- 299 integration checks, including paid 25-ore extractor kits/refunds,
+  mixed mine/depot freight capacity, stable worker priorities and terminal UI.
+- A lone artillery damages nests five and six cells away without a tower;
+  seven-cell nests remain out of range, and intact rock blocks enemy shots.
+- Seven worker-priority groups prove idle builders, protected active economy
+  assignments, full staffing of connected mines, direct freight and no hidden
+  construction stock cache. The near-source regression fails the earlier
+  handover policy and passes the final guard.
+- 32 geography samples: 154 optional sites versus 286 previously, including
+  99 bonus sites versus 190. Inner/approach/distant density is 5.55 / 1.78 /
+  0.48 per 1,000 eligible ground cells, preserving the nestward gradient.
+- All 65,535 seeds satisfy placement bounds; 194 sampled route cases pass.
+  Eleven pressure groups establish 232 spawn attempts per ten minutes versus
+  150 previously, including 135 raid-wave enemies versus 57. Rank intervals
+  remain 90 seconds and the first boss remains at nine minutes.
+- The seed-one public-order policy wins at tick 3,654 (6:05.4), with 79 kills,
+  one lost structure, 5,376 ore mined and 2,080 net spent. This is an expert
+  scripted route, not an ordinary-player duration guarantee. Earlier attempts
+  stalled after lost sight: the policy now cancels any abandoned project,
+  restores observation toward remembered nests and uses the actual new sight
+  radii. It consumes most of at least one opening reserve rather than requiring
+  over-mining the starter after richer deposits become available. Exact reserve
+  and production conservation assertions remain unchanged.
+- Max-DPS, the 64-seed price-only opening budget and the real starter sprint
+  pass. The sprint reaches its second operational mine at tick 123 with 582
+  starter ore remaining, using three real 25-ore purchases.
+- 19 headless/JSONL/MCP checks and 12 retained recording-library checks pass.
+  In-game replay recording remains disabled. Headless action bounds use the
+  World15 80-cell stride, with exact browser/environment snapshot comparison.
+- All four Node renderer suites and the full isolated Chromium WebGPU suite
+  pass, including desktop/320px portrait/short landscape, both control sides,
+  non-scrolling dock actions, selected-tile clearance, touch, delayed saves,
+  Escape/C semantics, elapsed time and results inspection/reopening. CSS fixes
+  address measured label clipping and compact timer contrast. These software
+  Vulkan checks establish correctness, not hardware performance.
+
+Focused independent no-code explanations and challenges covered worker/material
+ownership and HUD/result-state boundaries. The implementation retains one cargo
+and existing jobs, uses authoritative ticks/ledgers for statistics, and adds no
+replay history, duplicate simulation clock or generic scheduler.
+
+An informed XHIGH review reproduced a rejected transition when a returning local
+artillery kit overfilled its source mine: raw stock, outbound freight and the
+restored reservation totaled 145 against a 120-unit limit. The worker now keeps
+the physical kit until capacity is available. Two reducer regressions prove
+waiting through freight release and cancellation/refunding exactly once; the
+first traps on the previous candidate and both pass the final artifact. A
+disconnected full source waits for reconnection, freed capacity or cancellation;
+no ore is silently discarded to force progress.
+
 ## Sparser World14 resources
 
 The checked package is generation `3b87b4be0a35b908ebb049f4`, with a

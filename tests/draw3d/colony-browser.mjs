@@ -87,8 +87,8 @@ async function capture(suffix='') {
   const layout=await evaluate(`(()=>{
     const controls=[...document.querySelectorAll('[data-ui] button:not([data-ui-key="dialog-backdrop"]):not([data-ui-key^="attack-inspect-"]),[data-ui] .snail-ui-kind-6')];
     const invalid=controls.map(node=>{const r=node.getBoundingClientRect();return{key:node.dataset.uiKey,x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}})
-      .filter(r=>{const menu=['resume','restart-menu','resign-menu','dismiss-restart','accept-restart','dismiss-resign','accept-resign'].includes(r.key);
-        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(['right-handed','left-handed','restart-menu','resign-menu'].includes(r.key)?100:menu?208:56)||r.height!==(menu||['right-handed','left-handed'].includes(r.key)?48:56)});
+      .filter(r=>{const result=['restart','inspect-map','show-results'].includes(r.key);const menu=['resume','restart-menu','resign-menu','dismiss-restart','accept-restart','dismiss-resign','accept-resign'].includes(r.key);
+        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(result?(r.key==='show-results'?116:118):['right-handed','left-handed','restart-menu','resign-menu'].includes(r.key)?100:menu?208:56)||r.height!==(menu||result||['right-handed','left-handed'].includes(r.key)?48:56)});
     const clipped=[...document.querySelectorAll('.snail-ui-button-label,[data-ui-key$="-caption"],[data-ui-key$="-readout-label"],[data-ui-key="context-description"],[data-ui-key="onboarding-help"],[data-ui-key="frontier-hint"]')]
       .filter(node=>node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1).map(node=>({key:node.closest('[data-ui-key]').dataset.uiKey,text:node.textContent,width:node.clientWidth,scrollWidth:node.scrollWidth,height:node.clientHeight,scrollHeight:node.scrollHeight,font:getComputedStyle(node).fontSize,padding:getComputedStyle(node.parentElement).padding}));
     const overlap=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
@@ -99,7 +99,7 @@ async function capture(suffix='') {
     const dimAlerts=[...document.querySelectorAll('[data-ui-key^="attack-label-"]')].filter(node=>getComputedStyle(node).color!=='rgb(255, 255, 255)').map(node=>node.dataset.uiKey);
     const hint=document.querySelector('[data-ui-key="onboarding"]');
     const anchored=!hint?null:(()=>{const h=hint.getBoundingClientRect(),rail=document.querySelector('[data-ui-key="rail"]').getBoundingClientRect();
-      return{arrow:Number(hint.dataset.arrow),clear:!overlap(h,rail),inside:h.left>=0&&h.right<=innerWidth&&h.top>=0&&h.bottom<=innerHeight};})();
+      return{below:h.top>=rail.bottom,clear:!overlap(h,rail),inside:h.left>=0&&h.right<=innerWidth&&h.top>=0&&h.bottom<=innerHeight};})();
     const shade=document.querySelector('[data-ui-key="dialog-backdrop"]'),backdrop=!shade?null:(()=>{const r=shade.getBoundingClientRect(),color=getComputedStyle(shade).backgroundColor;
       return{rect:[r.x,r.y,r.width,r.height],alpha:color.startsWith('rgba(')?parseFloat(color.split(',').at(-1)):1};})();
     const dialog=document.querySelector('[data-ui-key="pause-dialog"],[data-ui-key="restart-dialog"],[data-ui-key="resign-dialog"]');
@@ -112,7 +112,7 @@ async function capture(suffix='') {
   assert.equal(layout.blocked,false,'enabled menu actions remain reachable above shell overlays');
   assert.equal(layout.errorCoversMenu,false,'save errors remain outside the menu');
   if(layout.backdrop){assert.ok(layout.backdrop.alpha>0&&layout.backdrop.alpha<1,'hovering the backdrop keeps the world visible');const expected=await evaluate('[0,0,innerWidth,innerHeight]');assert.ok(layout.backdrop.rect.every((value,index)=>Math.abs(value-expected[index])<=1),'the dim backdrop covers the viewport within CSS subpixel rounding');}
-  if(layout.anchored)assert.ok(layout.anchored.arrow>0&&layout.anchored.clear&&layout.anchored.inside,'guidance points toward the deposit and leaves the rail clear');
+  if(layout.anchored)assert.ok(layout.anchored.below&&layout.anchored.clear&&layout.anchored.inside,'guidance docks below the rotation row and leaves the rail clear');
   assert.deepEqual(layout.clipped,[],'visible hotkeys, costs and readout labels fit');
   assert.deepEqual(layout.dimAlerts,[],'attack labels retain white-on-red contrast');
   assert.deepEqual(layout.covered,[],'attack notifications do not cover controls or selected panels');
@@ -380,7 +380,10 @@ try {
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(supplied))})`);await settled();const hireBank=(await world()).ore;
   assert.equal(await has('worker-menu'),false);assert.equal(await has('worker-panel'),false);await key('f','KeyF');assert.equal((await world()).ore,hireBank);
   await key('h','KeyH');await until(async()=>!(await local()).homing,'home selects hub');assert.equal(await has('repair'),true);assert.equal(await has('worker'),true);assert.equal(await has('close-context'),true);assert.equal(await has('upgrade'),true);await capture('-hub');
-  await click('worker');assert.equal((await world()).ore,hireBank-25);await key('f','KeyF');assert.equal((await world()).ore,hireBank-50);assert.equal((await local()).chooser,true);
+  await click('worker');assert.equal((await world()).ore,hireBank-25);
+  for(let tick=0;tick<300&&await evaluate("document.querySelector('[data-ui-key=worker]').disabled");tick++)await complete(1);
+  assert.equal(await evaluate("document.querySelector('[data-ui-key=worker]').disabled"),false,'a real assembler becomes available');
+  const hiringSpent=(await world()).spent;await key('f','KeyF');assert.equal((await world()).spent,hiringSpent+25);assert.equal((await local()).chooser,true);
   await key('Escape','Escape');await key('e','KeyE');await until(async()=>(await local()).turnElapsed===300,'keyboard rotation');
   await frameCell(12,20);await pointCell(12,20,true,.7);assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'),/extractor/i);
   await key('q','KeyQ');await until(async()=>(await local()).turnElapsed===300,'return rotation');await key('Escape','Escape');
@@ -462,9 +465,8 @@ try {
     for(const [px,py]of[[left?40:width-40,height<400?height-20:height-110],[width/2,height-168]]) {
       await frameCell(12,22);const before=await pointCell(12,22);await command('drag',[Math.round(px-before.x),Math.round(py-before.y)]);
       await pointCell(12,22,true);await capture(`-edge-${width}x${height}-${left?'left':'right'}-${px}`);const selectedPoint=await tileIsTappable(12,22);
-      const arrow=await evaluate(`(()=>{const n=document.querySelector('[data-ui-key="context"]'),r=n.getBoundingClientRect();return{side:Number(n.dataset.arrow),x:r.x,right:r.right,y:r.y,bottom:r.bottom}})()`);
-      if(selectedPoint.x<arrow.x)assert.equal(arrow.side,1);else if(selectedPoint.x>arrow.right)assert.equal(arrow.side,2);
-      else assert.equal(arrow.side,selectedPoint.y<arrow.y?3:4);
+      const dock=await evaluate(`(()=>{const n=document.querySelector('[data-ui-key="context"]'),r=n.getBoundingClientRect(),q=document.querySelector('[data-ui-key="rotate-left"]').getBoundingClientRect(),e=document.querySelector('[data-ui-key="rotate-right"]').getBoundingClientRect();return{y:r.y,bottom:r.bottom,turnBottom:Math.max(q.bottom,e.bottom),scroll:n.scrollHeight>n.clientHeight+1}})()`);
+      assert.ok(dock.y>=dock.turnBottom,'context actions stay beneath Q/E');assert.equal(dock.scroll,false,'context actions never scroll');
     }
     await key('Escape','Escape');
   }
@@ -507,7 +509,7 @@ try {
   for(const [width,height]of[[320,568],[568,320]]) {
     await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(hubTouch))})`);await settled();
     await resize(width,height);await command('home');await until(async()=>!(await local()).homing,'hub capacity touch');
-    assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'),/12 → 14/);
+    assert.match(await evaluate('document.querySelector("[data-ui-key=upgrade]").title'),/12 → 14/);
     await touchControl('upgrade');assert.equal((await world()).ore,60);assert.equal((await world()).hubCapacityLevel,0);
     assert.equal(await evaluate('document.querySelector("[data-ui-key=upgrade]").disabled'),true);
     await touchControl('worker');await touchControl('worker');assert.equal((await world()).ore,10);assert.equal((await world()).bots.length,3);
@@ -539,7 +541,7 @@ try {
   await evaluate(`document.querySelector('[data-ui-key="accept-resign"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Resign save');
   assert.equal((await local()).dialogPending,4);await evaluate(`void snailApp.local('accept-resign');void snailApp.local('accept');void snailApp.local('dismiss')`);
   await evaluate('releaseMenuSave()');await settled();assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).outcome,4);assert.equal((await world()).hull,finalColony.hull);
-  assert.equal((await local()).dialog,0);assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'),/resigned/);
+  assert.equal((await local()).dialog,0);assert.match(await evaluate('document.querySelector("[data-ui-key=result-title]").textContent'),/resigned/);
   await capture('-resigned');const resigned=await evaluate('snailApp.runtime.snapshot(1)');await evaluate('globalThis.fixtureReload=true');await call('Page.reload');await until(()=>evaluate('!globalThis.fixtureReload && !!globalThis.snailApp'),'resigned durable reopen');await settled();assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),resigned);
   console.log('ok - Resign confirms on portrait and landscape, commits once, preserves the hub and survives reopen');
 
@@ -549,6 +551,10 @@ try {
     await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(ended))})`);
     await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords({...finalClient,chooser:false,leftHanded}))})`);
     await resize(width,height);await command('viewport',[width,height]);assert.ok(await has('result'));await capture(`-outcome-${outcome}-${width}x${height}-${leftHanded?'left':'right'}`);
+    const endedSnapshot=await evaluate('snailApp.runtime.snapshot(1)');
+    assert.match(await evaluate('document.querySelector("[data-ui-key=result-statistics]").textContent'),/Time .* · Kills .*\nOre mined .* · Net spent/);
+    await key('Escape','Escape');assert.equal(await has('result'),false);assert.ok(await has('show-results'));
+    await click('show-results');assert.ok(await has('result'));assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),endedSnapshot);
   }
   console.log('ok - victory and defeat keep Restart reachable and attack alerts outside the result card on both control sides');
   await evaluate("dispatchEvent(new PageTransitionEvent('pagehide'))");

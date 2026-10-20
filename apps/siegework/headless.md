@@ -16,7 +16,7 @@ node apps/siegework/environment-cli.mjs /tmp/siegework-environment/solo
 
 The package must provide player observation ABI version 1; older gameplay builds
 deliberately fail the environment's version check. Rebuild from source to obtain
-the extension, which changes neither World14 nor gameplay. Tested package
+the extension, which changes neither World15 nor gameplay. Tested package
 identities and temporary artifact paths are recorded in [VALIDATION.md](VALIDATION.md).
 
 ## Node API and episode semantics
@@ -57,7 +57,7 @@ zero for acceptance, even when later ticks replace the current notice.
 `step(action, ticks)` submits one action and up to `ticks` simulation ticks,
 stopping at game termination or the episode horizon. Zero ticks submits only
 the action. There are ten simulation ticks per game second. Paused and unstarted
-worlds do not advance; only the first accepted free extractor starts the clock.
+worlds do not advance; only the first accepted 25-ore extractor starts the clock.
 `info.ticksAdvanced` and `episodeTicks` count actual advancement, not attempted
 ticks or elapsed host time. Ordinary actions do not advance time themselves.
 
@@ -102,7 +102,7 @@ for the environment's lifetime.
 | Action | Fields | Effect |
 | --- | --- | --- |
 | `wait` | none | Only the requested ticks. |
-| `build` | `kind`, `cell` | Worker construction: **1 extractor (free), 2 artillery (50 ore), 3 observation tower (25)**. |
+| `build` | `kind`, `cell` | Worker construction: **1 extractor (25 ore), 2 artillery (50 ore), 3 observation tower (25)**. |
 | `upgrade` | `cell` | Upgrade that building, or hub capacity when selecting a hub cell. |
 | `cancel` | `cell` | Cancel an unfinished building, upgrade, pending move, or Scavenge job. |
 | `scavenge` | `cell` | Assign a worker to demolish a completed non-hub building; pay its quoted 20% investment refund only on completion. |
@@ -254,8 +254,8 @@ Building observations include `scavengeRefund` (completed construction and upgra
 investment divided by five, rounded down) and `scavenging` (a worker currently
 claims demolition). Stored ore recovery is separate from this structural quote.
 
-World14 uses `siegework-colony-v14` for sparser resource placement on the 64×64 map. Earlier saves and
+World15 uses `siegework-colony-v15` for sparser resource placement on the 80×80 map. Earlier saves and
 checkpoints are rejected rather than reinterpreting their deposit identities. Extractor
-construction costs zero ore but still requires a worker to reach the site; its
+construction costs 25 ore and requires a worker to deliver its kit; its
 40/160-ore upgrades remain paid. Outcome 4 means resigned: the intact world is
 frozen and fully revealed, and a new run starts through the normal reset intent.

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,origin,pixelAt,routeCell,siteAt,setWorker,addEnemy, withdrawReserves} from './colony-state.mjs';
+import {MAP_WIDTH,MAP_HEIGHT,establishColony,colony,colonyBalance,restoreColony,fixtureCall,origin,pixelAt,routeCell,siteAt,setWorker,addEnemy, withdrawReserves} from './colony-state.mjs';
 
 export async function checkCarts(test,fresh) {
   const state=r=>colony(r.snapshot(1)),call=fixtureCall;
@@ -113,7 +113,7 @@ export async function checkCarts(test,fresh) {
     const r=await fresh(); await fund(r); await build(r,'observe',12,22); await upgrade(r,12,22); await upgrade(r,12,22);
     await build(r,'extract',12,20); const world=state(r); world.bots.length=1; setWorker(world,0,{x:8,y:21});
     await restoreColony(r,world); await advance(r); const bot=state(r).bots[0];
-    assert.equal(bot.job,9); assert.equal(bot.path[0],routeCell(world,8,22)); assert.equal(bot.path.length,4);
+    assert.equal(bot.job,9); assert.equal(bot.path[0],routeCell(world,8,22)); assert.equal(bot.path.length,3);
     await advance(r,21); assert.deepEqual([state(r).bots[0].x,state(r).bots[0].y],Object.values(pixelAt(world,12,20)));
     await r.close();
   });
@@ -160,7 +160,7 @@ export async function checkCarts(test,fresh) {
     const legacy=state(r),a=routeCell(legacy,8,22),b=a+1;
     legacy.tracks=[a*32+17,b*32+20]; await restoreColony(r,legacy); const saved=r.snapshot(1);
     for(const edit of [world=>world.tracks.push(world.tracks[0]), world=>{world.tracks[0]^=1;},
-      world=>{world.tracks[0]=-1;}, world=>{world.tracks[0]=64*64*32+1;}]) {
+      world=>{world.tracks[0]=-1;}, world=>{world.tracks[0]=MAP_WIDTH*MAP_HEIGHT*32+1;}]) {
       const invalid=colony(saved); edit(invalid); await assert.rejects(()=>restoreColony(r,invalid),WebAssembly.RuntimeError);
       assert.deepEqual(r.snapshot(1),saved);
     }

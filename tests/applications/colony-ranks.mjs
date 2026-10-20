@@ -54,7 +54,7 @@ export async function checkRanks(test,fresh) {
     assert.equal(maximum,1890);assert.equal(survivor.hp,7);assert.equal(survivor.maxHp,maximum);
     const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);await r.close();
   });
-  await test('World12 checkpoints cannot replace a compact World14 colony',async()=>{
+  await test('World12 checkpoints cannot replace an expanded World15 colony',async()=>{
     const r=await fresh(),current=r.snapshot(1);
     for(const name of ['siegework-world12.json','siegework-world12-revision1.json']) {
       const fixture=JSON.parse(readFileSync(new URL('./fixtures/'+name,import.meta.url)));
@@ -85,12 +85,25 @@ export async function checkRanks(test,fresh) {
   await test('exploration gets forty-five seconds before waves begin and ordinary waves stay thirty seconds apart',async()=>{
     const r=await fresh();
     for(const tick of [1,150,300,449,451,749,751,900,1049,1349])assert.equal((await wave(r,tick)).length,0,`tick ${tick}`);
-    for(const [tick,count] of [[450,6],[750,6],[1050,6],[1350,7],[1650,6],[1950,6],[2250,8],[3150,9],[3450,7]]) {
+    for(const [tick,count] of [[450,8],[750,8],[1050,11],[1350,8],[1650,12],[1950,8],[2250,13],[3150,9],[3450,15]]) {
       const enemies=await wave(r,tick);assert.equal(enemies.length,count,`tick ${tick}`);
       if(tick<900)assert.ok(enemies.every(enemy=>enemy.rank===0));
-      if(tick===1350||tick===2250||tick===3150)assert.ok(enemies.every(enemy=>enemy.kind===1));
+      if(tick===1050||tick===1650||tick===2250||tick===3450)assert.ok(enemies.every(enemy=>enemy.kind===1));
     }
     await r.close();
+  });
+  await test('ten-minute pressure grows through more raiders while rank and boss timing stay unchanged',async()=>{
+    const r=await fresh();let total=0,raiders=0,events=0;
+    for(let tick=450;tick<=6000;tick+=150) {
+      const enemies=await wave(r,tick);total+=enemies.length;
+      if(enemies.length)events++;
+      if(tick>=1050&&(tick-1050)%600===0) {
+        assert.ok(enemies.every(enemy=>enemy.kind===1));raiders+=enemies.length;
+      }
+    }
+    assert.equal(events,20);assert.equal(total,232);assert.equal(raiders,135);
+    // World14 sent 150 enemies and 57 raid-wave enemies in the same span.
+    assert.ok(total>=150*1.5);assert.ok(raiders>=57*2);await r.close();
   });
   await test('difficulty dial follows strength intervals and never reveals the wave schedule',async()=>{
     const r=await fresh();

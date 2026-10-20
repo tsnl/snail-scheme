@@ -20,7 +20,7 @@ export async function checkUpgradeHealing(test,fresh) {
     assert.ok(predicate(state(r)),'worker completed the bounded upgrade transition');
   }
   function building(world,{kind=3,level=1,x=12,y=22,hp=50,local=0}={}) {
-    const cost=kind===1?[0,40,200][level-1]:(kind===2?50:25)+25*(level-1),point=pixelAt(world,x,y),cell=at(world,x,y);
+    const cost=kind===1?25+[0,40,200][level-1]:(kind===2?50:25)+25*(level-1),point=pixelAt(world,x,y),cell=at(world,x,y);
     const b={id:world.nextId++,kind,...cell,level,hp,stock:0,stage:2,cooldown:0,aimX:point.x,aimY:point.y,armed:0,source:0,moveX:-1,moveY:-1};
     world.started=true;world.buildings.push(b);world.spent+=cost;world.ore-=cost;world.surveys.push({...cell,radius:level===1?7:10});
     if(local){withdrawReserves(world,local);world.localSpent+=local;world.ore+=local;}return b;
@@ -60,7 +60,9 @@ export async function checkUpgradeHealing(test,fresh) {
       const r=await fresh(),world=state(r),site=building(world,{level:3,hp:90,local:75});
       building(world,{level:3,x:16,hp:40,local:75});setWorker(world,0,{x:12,y:22});
       withdrawReserves(world,25);world.localSpent+=25;world.spent+=25;
-      setWorker(world,2,{x:19,y:22,job:5,cargo:25,source:site.id,path:Array.from({length:11},(_,i)=>18-i+22*48)});
+      // This separate local kit starts beyond the bank worker and its nearest
+      // surviving depot. It must remain physically carried at the first refund boundary.
+      setWorker(world,2,{x:22,y:22,job:5,cargo:25,source:site.id,path:Array.from({length:14},(_,i)=>21-i+22*48)});
       const price=job===14?100:25;world.spent+=price;world.ore-=price;world.hull=250;
       let project;
       if(job===0||job===3){
@@ -71,11 +73,18 @@ export async function checkUpgradeHealing(test,fresh) {
         path:Array.from({length:10},(_,i)=>17-i+22*48)});
       await restoreColony(r,world);await call(r,'scavenge-building',[12,22]);await step(r);
       const working=state(r);working.bots[0].timer=1;await restoreColony(r,working);await step(r);
+      const dismantled=state(r);assert.equal(dismantled.buildings.some(building=>building.id===site.id),false);
+      assert.equal(dismantled.spent,160+price);assert.equal(dismantled.localSpent,175);
+      assert.equal(dismantled.delivered,0);assert.equal(dismantled.ore,175-price,'Scavenge refunded exactly 15 ore');
       if(job===0||job===3) {
+        // The queued case may acquire its kit while Scavenge progresses. Refund
+        // follows its actual carrier, not the job this fixture began with.
+        const carrier=state(r).bots.find(bot=>bot.target===project.id&&bot.cargo===25);
         await call(r,'cancel-building',[20,22]);
-        if(job===3)await until(r,w=>w.bots[1].cargo===0);
+        if(carrier)await until(r,w=>w.bots.find(bot=>bot.id===carrier.id).cargo===0);
       } else {await settleWorker(r,world.bots[1].id);assert.equal(state(r).casualties,1);}
-      const done=state(r);assert.equal(done.localSpent,160);assert.equal(done.delivered,15);assert.equal(done.ore,175);
+      const done=state(r);assert.equal(done.bots.find(bot=>bot.id===world.bots[2].id).cargo,25);
+      assert.equal(done.localSpent,160);assert.equal(done.delivered,15);assert.equal(done.ore,175);
       done.enemies=[];await restoreColony(r,done);await until(r,w=>w.bots.find(b=>b.id===world.bots[2].id)?.cargo===0);
       assert.equal(state(r).localSpent,135);assert.equal(state(r).delivered,40);assert.equal(state(r).ore,200);await r.close();
     }

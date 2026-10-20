@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync, copyFileSync, mkdtempSync, rmSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
-import {establishColony,colony, client, restoreColony, fixtureCall, at, withdrawReserves} from './colony-state.mjs';
+import {MAP_WIDTH,establishColony,colony, client, restoreColony, fixtureCall, at, withdrawReserves} from './colony-state.mjs';
 import {checkColony} from './colony.mjs';
 import {checkReserves} from './colony-reserves.mjs';
 import {checkFronts} from './colony-fronts.mjs';
+import {checkTurretVision} from './colony-turret-vision.mjs';
+import {checkExtractorTransport} from './colony-extractor-transport.mjs';
+import {checkWorkerPriorities} from './colony-worker-priorities.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkLogistics} from './colony-logistics.mjs';
 import {checkFocus} from './colony-focus.mjs';
@@ -71,23 +74,23 @@ await test('direct Scheme handler tests initialize state and inspect effect vari
 });
 await test('immutable prior snapshots, automatic hauling, placement and pure view', async () => {
   const r = await fresh(), before = r.stores.get(1); await call(r, 'extract', [12, 20]);
-  assert.equal(colony(r.snapshot(1)).ore, 160); assert.equal(colony(before).ore, 160);
-  await call(r, 'extract', [18, 10]); assert.equal(colony(r.snapshot(1)).ore, 160);
+  assert.equal(colony(r.snapshot(1)).ore, 135); assert.equal(colony(before).ore, 160);
+  await call(r, 'extract', [18, 10]); assert.equal(colony(r.snapshot(1)).ore, 135);
   for (let tick = 0; tick < 120; tick++) await call(r, 'advance');
-  assert.ok(colony(r.snapshot(1)).ore > 160); const snapshot = r.snapshot(1), view = r.view();
+  assert.ok(colony(r.snapshot(1)).ore > 135); assert.ok(colony(r.snapshot(1)).delivered > 0); const snapshot = r.snapshot(1), view = r.view();
   assert.ok(view.scene.batches.some(batch => expandedVertexCount(batch) > 10)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
 });
-await test('an explicit free extractor action unlocks after reply and settlement', async () => {
+await test('an explicit 25-ore extractor action unlocks after reply and settlement', async () => {
   const r = await fresh(), before = r.snapshot(1), local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
   assert.deepEqual((await local('confirm')).effects, []); assert.equal(client(r.snapshot(2)).chooser, true);
   assert.deepEqual(r.snapshot(1), before); assert.equal(colony(r.snapshot(1)).started,false);
-  const selected=client(r.snapshot(2)),cell=selected.cursorX+selected.cursorY*64;
+  const selected=client(r.snapshot(2)),cell=selected.cursorX+selected.cursorY*MAP_WIDTH;
   assert.deepEqual((await local('confirm')).effects,[]);
   const result=await local('choose',[1]);assert.deepEqual(r.snapshot(1),before);
   assert.deepEqual(result.effects,[{kind:'send',owner:1,command:r.command('match','build-cell',[1,cell])},
     {kind:'send',owner:2,command:r.command('client','build-settled',[cell])}]);
   assert.equal(client(r.snapshot(2)).buildKind,1);
-  const committed=await r.dispatch(1,r.effectCommand(result.effects[0]));assert.equal(colony(r.snapshot(1)).ore,160);
+  const committed=await r.dispatch(1,r.effectCommand(result.effects[0]));assert.equal(colony(r.snapshot(1)).ore,135);
   assert.deepEqual(committed.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,0])}]);
   await r.dispatch(2,r.effectCommand(committed.effects[0]));assert.equal(client(r.snapshot(2)).buildKind,1);
   await r.dispatch(2,r.effectCommand(result.effects[1]));
@@ -225,6 +228,9 @@ await test('unprotected run loses; supplied defenders kill threats without gener
 });
 await checkReserves(test, fresh);
 await checkFronts(test, fresh);
+await checkTurretVision(test, fresh);
+await checkExtractorTransport(test, fresh);
+await checkWorkerPriorities(test, fresh);
 await checkOpening(test, fresh, bytes);
 await checkCompact(test, fresh);
 await checkColony(test, established, call);

@@ -17,7 +17,7 @@ export async function checkOpening(test,fresh,bytes){
     const commands=[['fabricate-worker'],['repair-hub'],['upgrade',[8,22]],['upgrade',[12,22]],
       ['observe',[12,22]],['fortify',[12,22]],['build-cell',[2,ordinary]],['build-cell',[3,ordinary]]];
     for(const [name,args]of commands){await fixtureCall(r,name,args);assert.deepEqual(world(r),{...initial,notice:38},name);}
-    for(const [name,args]of[['relocate-building',[12+22*48,13+22*48]],['arm-tower',[12,22]],['cancel-building',[12,22]]]){
+    for(const [name,args]of[['relocate-building',[routeCell(initial,12,22),routeCell(initial,13,22)]],['arm-tower',[12,22]],['cancel-building',[12,22]]]){
       await fixtureCall(r,name,args);const actual=world(r);assert.deepEqual({...actual,notice:0},initial,name);
     }
     await ticks(r,20);assert.equal(world(r).tick,0);assert.equal(world(r).ore,160);assert.equal(world(r).started,false);
@@ -36,17 +36,25 @@ export async function checkOpening(test,fresh,bytes){
     }
     const saved=r.snapshot(2);await r.restore(2,saved);assert.deepEqual(r.snapshot(2),saved);await r.close();
   });
-  await test('only an accepted free extractor starts time, and later cancellation keeps purchases unlocked',async()=>{
+  await test('only an accepted 25-ore extractor starts time, and later cancellation refunds its reservation',async()=>{
     const r=await fresh();await fixtureCall(r,'extract',[12,22]);assert.equal(world(r).notice,4);assert.equal(world(r).started,false);
     await select(r,12,20);const selected=r.snapshot(1);await ticks(r,10);assert.deepEqual(r.snapshot(1),selected);
     assert.equal(node(r,'extractor').properties[1],1);await command(r,'choose',[1]);
-    assert.equal(world(r).started,true);assert.equal(world(r).ore,160);assert.equal(world(r).spent,0);assert.equal(world(r).tick,0);
+    assert.equal(world(r).started,true);assert.equal(world(r).ore,135);assert.equal(world(r).spent,25);assert.equal(world(r).tick,0);
     assert.equal(world(r).buildings.length,1);await fixtureCall(r,'cancel-building',[12,20]);
     assert.equal(world(r).started,true);assert.equal(world(r).ore,160);assert.equal(world(r).buildings.length,0);
     await ticks(r,1);assert.equal(world(r).tick,1);await command(r,'home');assert.equal(node(r,'worker').properties[1],1);
     await command(r,'fabricate');assert.equal(world(r).ore,135);assert.equal(world(r).bots.length,3);
     assert.equal(world(r).bots.filter(bot=>[4,6].includes(bot.job)).length,1);
     const saved=r.snapshot(1);await r.restore(1,saved);await r.replace(r.prepare(bytes,r.manifest));assert.deepEqual(r.snapshot(1),saved);await r.close();
+  });
+  await test('the visible timer advances only with active colony ticks',async()=>{
+    const r=await fresh();assert.equal(node(r,'elapsed-time').text,'Time 0:00');
+    await ticks(r,20);assert.equal(node(r,'elapsed-time').text,'Time 0:00');
+    await select(r,12,20);await command(r,'choose',[1]);await ticks(r,10);
+    assert.equal(node(r,'elapsed-time').text,'Time 0:01');await command(r,'pause-menu');
+    await ticks(r,20);assert.equal(node(r,'elapsed-time').text,'Time 0:01');await command(r,'resume');
+    await ticks(r,10);assert.equal(node(r,'elapsed-time').text,'Time 0:02');await r.close();
   });
   await test('camera, pause and seed controls stay usable before a valid extractor starts each seeded run',async()=>{
     const r=await fresh(),initial=r.snapshot(1);
@@ -55,7 +63,7 @@ export async function checkOpening(test,fresh,bytes){
     await command(r,'resume');assert.equal(world(r).paused,0);assert.equal(world(r).started,false);
     for(const seed of [1,42,65535]){
       await fixtureCall(r,'new-run-seed',[seed]);await ticks(r,5);assert.equal(world(r).tick,0);assert.equal(world(r).ore,160);
-      await fixtureCall(r,'extract',[12,20]);assert.equal(world(r).started,true);assert.equal(world(r).ore,160);
+      await fixtureCall(r,'extract',[12,20]);assert.equal(world(r).started,true);assert.equal(world(r).ore,135);
       await ticks(r,1);assert.equal(world(r).tick,1);
     }
     await r.close();
