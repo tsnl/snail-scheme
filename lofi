@@ -3,4 +3,5 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 case ${1:-} in
   -h|--help) cat "$root/scripts/lofi-help.txt"; exit 0 ;;
 esac
-exec "${CHIBI:-chibi-scheme}" -I "$root/src" "$root/scripts/lofi.scm" "$root" "$@"
+# Chibi collects the whole heap whenever it grows, so start it large.
+exec "${CHIBI:-chibi-scheme}" -h "${LOFI_HEAP:-512M}" -I "$root/src" "$root/scripts/lofi.scm" "$root" "$@"

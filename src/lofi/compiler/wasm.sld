@@ -895,16 +895,30 @@
     (define (own-line? head part)
       (and (pair? part) (or (eq? head 'rec) (not (memq (car part) '(type param result local export))))))
 
+    ;; A named loop: the host's `for-each` is several times slower here.
     (define (write-datum datum port)
       (cond ((pair? datum)
              (write-string "(" port)
              (write-datum (car datum) port)
-             (for-each (lambda (part) (write-string " " port) (write-datum part port)) (cdr datum))
+             (let loop ((parts (cdr datum)))
+               (when (pair? parts)
+                 (write-string " " port)
+                 (write-datum (car parts) port)
+                 (loop (cdr parts))))
              (write-string ")" port))
             ((null? datum) (write-string "()" port))
             ((string? datum) (write-wat-string datum port))
             ((symbol? datum) (write-string (symbol->string datum) port))
-            (else (write datum port))))
+            ((and (exact-integer? datum) (<= 0 datum) (< datum (vector-length small-integers)))
+             (write-string (vector-ref small-integers datum) port))
+            (else (write-string (number->string datum) port))))
+
+    ;; The host's number printing is slow, and most numbers in a module are
+    ;; small indices and constants.
+    (define small-integers
+      (let ((texts (make-vector 4096)))
+        (do ((index 0 (+ index 1))) ((= index 4096) texts)
+          (vector-set! texts index (number->string index)))))
 
     ;; Wasm strings are UTF-8 bytes; anything beyond printable ASCII is escaped.
     (define (write-wat-string text port)
