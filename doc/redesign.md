@@ -86,6 +86,7 @@ types. `if` requires `Bool`. Lofi adds a small number of typed forms:
 | `(ann e type)` | Static annotation; never checks at run time. |
 | `(type-convert e type)` | Upcast checked statically, or downcast checked at run time (§6). |
 | `(extern name module symbol type)` | Foreign function; its type declares its effects (§3.5). |
+| `(effect name)` | Declares an effect label (§3.5). |
 
 A color example:
 
@@ -214,43 +215,144 @@ This replaces both today's concrete-head classes and `define-overload`.
 
 ### 3.5 Effects
 
-Every function type carries an effect row, in the style of Koka. A function
-with an empty row is total: it reads only its arguments and immutable data.
+Every function type carries an **effect row**, in the style of Koka: the set of
+effects calling the function may perform. A function whose row is empty is
+**total**: its result depends only on its arguments and immutable data, and
+calling it changes nothing observable. Effects are checked and then erased;
+there are no effect handlers.
+
+#### Syntax
+
+A row follows `!` at the end of an arrow. Without `!`, the row is empty.
 
 ```scheme
-(: parse (-> String Config))                         ; total
-(: load-config (-> String Config ! fs))              ; reads files
+(: parse (-> String Config))                     ; total
+(: load-config (-> String Config ! fs))          ; reads files
+(: log-and-count (-> String I64 ! io mut))       ; prints, updates a counter
 (: map (All (A B e) (-> (-> A B ! e) (List A) (List B) ! e)))
+(effect fs)                                      ; declares a label
+(extern read-file "host" "read_file" (-> String Bytes ! fs))
 ```
 
-- **Labels.** `mut` covers writes to shared `Ref` and vector storage; `io`
-  covers console, clock and randomness. A library can declare further labels
-  with `(effect name)`, for example `fs`, `net` or `gpu`.
-- **Rows.** A row lists labels after `!`. A type variable in a row makes it
-  open, so `map` has exactly the effects of its function argument.
-- **Inference.** Rows unify like types, so local functions and lambdas need no
-  effect annotations, and code stays in direct style.
-- **Foreign calls.** An `extern` states its effects in its type. A foreign
-  function declared without effects is trusted to be total; that is the
-  boundary's explicit unsafe assumption.
-- **No handlers yet.** Effects are checked and then erased; they have no run
-  time representation. Traps and divergence are not tracked initially.
+- **Labels** are nominal, like types. `(effect name)` declares one at library
+  scope, and imports and exports treat it like a type name.
+  - `mut` (built in) covers allocating, reading and writing `Ref` and mutable
+    vector storage.
+  - `io` (built in) covers console, clock and randomness.
+  - Libraries declare the rest: `fs`, `net`, `gpu`, and so on.
+- **Rows are sets.** `! io io` is `! io`, and order is irrelevant.
+- **Row variables.** A type variable after `!`, bound by `All`, makes the row
+  *open*: `(-> A B ! io e)` performs `io` plus whatever `e` stands for. A row
+  has at most one variable, written last. Whether an `All` variable ranges over
+  types or rows is inferred from where it occurs.
+- **Data.** Function-typed fields carry rows too, and a struct or enum may take
+  a row parameter: `(struct (Task e) ((run (-> Unit ! e))))`.
+
+#### Typing
+
+`Γ ⊢ e : T ! ε` means `e` has type `T` and evaluating it may perform the
+effects `ε`. A lambda turns its body's effects into its latent row, and creating
+the closure is total. A call performs the effects of evaluating its operator
+and arguments, plus the operator's latent row:
+
+```text
+Γ, x₁:T₁, …, xₙ:Tₙ ⊢ body : R ! ε
+──────────────────────────────────────────────── LAMBDA
+Γ ⊢ (lambda (x₁ … xₙ) body) : (-> T₁ … Tₙ R ! ε) ! ∅
+
+Γ ⊢ f : (-> T₁ … Tₙ R ! ε) ! ε₀      Γ ⊢ aᵢ : Tᵢ ! εᵢ
+──────────────────────────────────────────────── CALL
+Γ ⊢ (f a₁ … aₙ) : R ! ε₀ ∪ ε₁ ∪ … ∪ εₙ ∪ ε
+
+Γ ⊢ e : T ! ε      ε ⊆ ε′
+──────────────────────────────────────────────── WEAKEN
+Γ ⊢ e : T ! ε′
+```
+
+A signature's row is an upper bound. Checking a body against
+`(-> String Config ! fs)` fails if the body can perform `net`.
+
+#### Inference
+
+The checker infers rows the way Koka does, by unification rather than
+subtyping:
+
+- **One row per body.** Each function body has a current row, initially a fresh
+  row variable. Every call's latent row is unified into it, which implements the
+  unions in CALL. Local functions and lambdas need no annotations.
+- **Row unification.** Unifying `{l̄ | ρ₁}` with `{m̄ | ρ₂}` matches shared
+  labels, binds `ρ₂` to the labels only on the left plus a fresh tail `ρ`, and
+  binds `ρ₁` to the labels only on the right plus the same `ρ`. A closed row
+  missing a required label is an error. Rows have an occurs check like types.
+- **Opening instead of subeffecting.** When a name is instantiated, every closed
+  row in the positive positions of its type gets a fresh tail. A total
+  `(-> A B)` can therefore be passed where `(-> A B ! io)` is expected, without
+  a subtyping relation. WEAKEN is admissible from this rule.
+- **Generalization by totality.** A binding generalizes its type and row
+  variables only if evaluating its initializer is total. Allocating mutable
+  storage performs `mut`, so `(let cell (ref (empty-list)))` stays
+  monomorphic, while an application such as `(compose f g)` can generalize.
+  This replaces today's syntactic value restriction with a more precise rule.
+- **Diagnostics** name the label and the call that introduced it: "`save`
+  performs `fs` here, but its signature allows only `io`."
+
+#### Typeclasses and instances
+
+Method signatures carry rows like any other function type. An instance method
+must fit the class signature, so an instance of a total method must itself be
+total. A class whose methods need effects says so in the method type, often
+with a row variable: `(: emit (All (e) (-> T Unit ! e)))`. Effects never take
+part in instance selection.
+
+#### Foreign calls and initialization
+
+An `extern` states its effects in its type. One declared without effects is
+trusted to be total: that is the boundary's explicit unsafe assumption, and
+the reason foreign declarations must be reviewed.
+
+Library initializers may perform any effects. Instantiating a library is the
+host's effectful act, while functions that later read a library's mutable
+state still declare `mut`. A program's entry point declares the effects the
+host must supply.
+
+#### What is not tracked
+
+Traps and divergence are not tracked, so a total function may still trap or
+fail to terminate. Tracking them as labels would make most arithmetic and
+indexing effectful. The optimizer knows which primitives can trap. Mutation
+confined to storage a function allocates itself still shows as `mut`.
+
+#### Uses
 
 Purity is enforced, rather than left to convention, because later stages rely
 on it:
 
 - **Model checking.** Application handlers must be total (§5), so a test can
   replay and explore transitions without a browser or a network.
-- **Optimization.** The compiler may drop, merge, reorder or hoist calls whose
-  rows are empty.
+- **Optimization.** The compiler may merge and reorder total calls, and drop
+  those that cannot trap.
 - **Boundaries.** A handler's type shows whether it can touch files, the
-  network or a GPU, which is what checking across processes and devices needs.
+  network or a GPU, which checking across processes and devices needs. GPU
+  code must be total.
 - **Self-hosting.** The compiler's passes are total, so host divergence stays
   at the entry point (§6).
 
-An effect system gives these guarantees while keeping Scheme's direct style.
-That keeps the erasure property of §6 trivial: rows are part of signatures, and
-signatures erase.
+An effect system gives these guarantees in Scheme's direct style. Rows are part
+of signatures, so the erasure property of §6 is unaffected. The Scheme
+translator gives generated code the rows `! io mut`, matching Scheme's
+semantics.
+
+#### Implementation in the current checker
+
+Effect rows fit the HM checker of phase 2 before dependent types arrive:
+
+1. Arrow types gain a row: labels plus an optional row variable. Unification
+   gains row unification with an occurs check.
+2. Inference threads one current row per function body, opens rows on
+   instantiation, and generalizes only total initializers.
+3. The frontend parses `!` and `(effect name)`. `extern` rows are required in
+   source, and primitives and standard libraries get their rows.
+4. Rows are erased before specialization; code generation is unchanged.
 
 ### 3.6 Macros and generic code
 
