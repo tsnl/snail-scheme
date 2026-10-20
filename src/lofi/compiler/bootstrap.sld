@@ -100,7 +100,7 @@
 
   (cond-expand
    (snail-tests
-    (export test-compiler)
+    (export test-bootstrap)
     (import
      (lofi host test-utils)
      (lofi compiler frontend)
@@ -184,7 +184,7 @@
                     '((inferred . I64) (foreign . I32)))
           (let ((program (entry-program libraries (make-entry '(lofi primitive) 'i32-add))))
             (expect (function-domains (value-type (cdar (prepared-exports program)))) '(I32 I32)))))
-      (define (test-compiler)
+      (define (test-bootstrap)
         (run-test test-map-compilation)
         (run-test test-entry-identity)
         (run-test test-entry-rejections)

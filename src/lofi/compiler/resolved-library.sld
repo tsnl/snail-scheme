@@ -71,7 +71,7 @@
 
   (cond-expand
    (snail-tests
-    (export test-library)
+    (export test-resolved-library)
     (import
      (lofi host test-utils))
     (begin
@@ -86,5 +86,6 @@
           (expect (library-dependency-order root) (list base left right root))
           (expect (library-body root) 'opaque-body)))
 
-      (define (test-library)
-        (run-test test-dependency-order))))))
+      (define (test-resolved-library)
+        (run-test test-dependency-order))))
+   (else)))

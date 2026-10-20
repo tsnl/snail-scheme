@@ -69,8 +69,9 @@ code. These scopes differ deliberately.
 [`lofi`](lofi) starts [`scripts/lofi.scm`](scripts/lofi.scm), which owns command
 options and build directories. [`source-driver.sld`](src/lofi/compiler/source-driver.sld)
 finds `.sld` dependencies, prepares a library map and calls the compiler. It can
-also execute explicit `generate-library` recipes: producer and application maps
-are separate, with shared source choices and cycle detection. Build scripts
+also execute explicit `generate-library` recipes, which compile to Wasm and
+return their library as source text: producer and application maps are
+separate, with shared source choices and cycle detection. Build scripts
 optimize with Binaryen, link Rust scalar services and run on V8.
 
 The map-based `compile` API reads no source files. It accepts library values and
@@ -113,7 +114,7 @@ progress to stderr.
 | [`scripts/`](scripts/) and [`tools/host/`](tools/host/) | Executable orchestration and host tool configuration. |
 | [`scripts/build-pages.mjs`](scripts/build-pages.mjs) and [`scripts/check-pages.mjs`](scripts/check-pages.mjs) | Build the book and solo Siegework package into one generated Pages artifact, then check its local URLs and file boundaries under `/snail-scheme/`. The [Games chapter](doc/book/games/index.md) is the player entry point. |
 | [`scripts/format-scheme`](scripts/format-scheme.el) | Scheme indentation with one import specification or record field per line; shared by the editor and `make format`/`make check`. |
-| [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. |
+| [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. Run a suite with `scripts/test SUITE`. |
 
 The Wasm engine traces managed values. `src/runtime/` owns external scalar
 resources behind explicit handles and closes them at the host boundary.

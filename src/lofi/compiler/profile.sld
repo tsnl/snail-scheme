@@ -137,7 +137,7 @@
 
   (cond-expand
    (snail-tests
-    (export test-compiler-profile)
+    (export test-profile)
     (import
      (lofi host test-utils)
      (chibi temp-file)
@@ -184,7 +184,7 @@
                     (instrument-library directory (path-join directory "overlay") '("unit.sld" (worker #t)))
                     'accepted) (if (= count 1) 'accepted 'rejected))
           (expect (read-text file) (get-output-string text))))
-      (define (test-compiler-profile)
+      (define (test-profile)
         (let ((old totals) (enabled? helpers?))
           (dynamic-wind
               (lambda () (set! totals '()) (set! helpers? #t))
