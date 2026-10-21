@@ -145,8 +145,10 @@ and may require other instances:
 
 The checker chooses each instance when it checks a use and records that
 choice; monomorphization copies the chosen method for each type, so no
-dictionary exists at run time. Instance heads must not overlap. Classes have
-no superclasses: a signature lists every class it needs. Unbound names in an
+dictionary exists at run time. Instance heads must not overlap; function
+types of different arities, such as `(-> A R)` and `(-> A B R)`, are
+different heads, and matching ignores their effect rows. Classes have no
+superclasses: a signature lists every class it needs. Unbound names in an
 instance head are its type variables.
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
@@ -198,6 +200,26 @@ dynamic code.
 (+ 1 (type-convert (car items) I64))
 ```
 
+### Scheme data
+
+`(lofi datum)`'s `Datum` is one type for all of Scheme's data. Its class
+`Dynamic` converts typed values to data with `to-datum` and parses them back
+with `from-datum`, which panics when a datum is not a value of the type:
+integers and floats become numbers, strings, characters and booleans stay
+themselves, lists, vectors and pairs convert element by element, `None` is
+`#f`, and `Unit` is the unspecified value. A typed function becomes a
+procedure, and a procedure returning to typed code becomes a function. That
+function claims to be total although Scheme may print or mutate, which is
+the boundary's unsafe assumption. Any other type crosses whole once
+`define-opaque` declares it; Scheme can pass the value back but not take it
+apart:
+
+```scheme
+(define-opaque Random "random")
+(datum->string (to-datum (make-random 7)))              ; "#<random>"
+(ann (from-datum (to-datum (list 1 2))) (List I64))
+```
+
 ## Wire types
 
 `(deriving Serialize Deserialize)` at the end of a struct or enum generates
@@ -227,6 +249,41 @@ the first changed type instead of misreading it.
 with saving and restoring the state through its wire encoding.
 [Siegework](../apps/siegework) is the complete example.
 
+## Kernels
+
+A kernel is a program that keeps a Scheme environment for a host to evaluate
+text in. `(scheme eval)` interprets the Scheme; `define-kernel` from
+`(lofi kernel)` binds typed values in its standard environment, converting
+each with `Dynamic`, and exposes the entry points the hosts call:
+
+```scheme
+(import
+ (lofi base)
+ (lofi random)
+ (lofi kernel))
+
+(define-opaque Random "random")
+
+(define-kernel
+  ("make-random" make-random)
+  ("random-below" random-below))
+```
+
+`./lofi repl [-I DIR] [KERNEL.sld]` evaluates at the terminal, and
+`./lofi notebook [-o DIRECTORY] [KERNEL.sld]` builds a browser notebook of
+cells around the kernel; both use
+[`src/notebook/kernel.sld`](../src/notebook/kernel.sld) when no kernel is
+given. Top-level definitions persist from one evaluation to the next. An
+error stops its evaluation and reports a message, and the kernel goes on
+with its definitions. The kernel runs in a worker, so stopping a runaway
+evaluation starts a new kernel: the REPL replays the inputs that succeeded
+into it, and the notebook reruns its cells on request. Notebook files are
+plain Scheme whose cells begin with `;; %%` lines.
+
+A bound function's effects are not tracked across the boundary, so it
+should perform at most `console` and `mut`, which every kernel's host
+provides. Each evaluation ends by releasing the runtime's files.
+
 ## Standard library
 
 | Library | Contents |
@@ -239,5 +296,7 @@ with saving and restoring the state through its wire encoding.
 | `(lofi wire)` | `Serialize`, `Deserialize` and the byte encoding. |
 | `(lofi app)` | Applications, frames and the `screen` effect. |
 | `(lofi integer)`, `(lofi rational)`, `(lofi number)` | Exact integers of any size, rationals, and Scheme numbers. |
-| `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data and its external representation. |
+| `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data, its conversion to and from typed values, and its external representation. |
+| `(lofi kernel)` | Kernels: a Scheme environment over typed values, for the REPL and the notebook. |
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
+| `(scheme eval)` | An interpreter for Scheme data, whose top-level definitions persist in their environment. |

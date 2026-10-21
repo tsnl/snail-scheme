@@ -645,7 +645,15 @@ Scheme subset, beside the old one, which was then deleted.
   but not macros, quasiquote, continuations or mutable pairs. Every value
   is a `Datum`, the dynamic libraries' type for Scheme data, which gained a
   procedure case, rather than `Any`: pattern matching on one enum replaces
-  run-time type tests, and Scheme code calls no typed Lofi code yet.
+  run-time type tests, and translated Scheme calls no typed Lofi code yet.
+
+- **Phase 5, interactive Scheme.** `(scheme eval)` interprets Scheme data,
+  analyzing each form once and keeping top-level definitions between
+  evaluations. `(lofi datum)`'s `Dynamic` class converts typed values to
+  `Datum` and parses them back; functions convert in both directions, and
+  `define-opaque` sends any other type through `Any`. Interpreted Scheme
+  therefore calls typed Lofi code. `(lofi kernel)` exposes such an
+  environment to a terminal REPL and a browser notebook.
 
 ### Cut from the plan
 
