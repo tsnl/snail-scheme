@@ -361,8 +361,16 @@ state still declare `mut`.
 
 Traps and divergence are not tracked, so a total function may still trap or
 fail to terminate. Tracking them as labels would make most arithmetic and
-indexing effectful. The optimizer knows which primitives can trap. Mutation
-confined to storage a function allocates itself still shows as `mut`.
+indexing effectful. The optimizer knows which primitives can trap.
+
+Mutation of storage that a call allocates and never lets escape cannot be
+observed by its caller, so such a function may be total. `unsafe-total` says
+so: it runs a thunk and drops the thunk's effects. The checker does not verify
+the claim, so each use is an unsafe assumption, made where the storage is
+created, with a comment saying why none of it escapes. Builders such as
+`string-concatenate` and `serialize` use it. A function that touches storage
+it did not allocate, such as a library's top-level `Ref`, still declares
+`mut`.
 
 #### Uses
 
