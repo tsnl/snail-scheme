@@ -1,7 +1,8 @@
 ;; The test suite: the compiler's unit tests, then every program suite. A
 ;; program NAME.sld must print NAME.out exactly, or fail to compile with the
 ;; text of NAME.err in its diagnostic. Finally the Siegework package is
-;; built and driven headlessly.
+;; built and driven headlessly. Programs compile one at a time, then link
+;; and run in parallel.
 ;;
 ;;   chibi-scheme -D snail-tests -I host/chibi -I src -I tests tests/run.scm ROOT [NAME ...]
 (import
@@ -60,38 +61,50 @@
   (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "scripts/run-lofi.mjs") program))))
     (string-append (car result) (cadr result))))
 
-(define (run-case root directories directory build name)
+;; Compiles a case. A case that expects a diagnostic is decided here; any
+;; other becomes the check that links its program, runs it and compares the
+;; output.
+(define (compile-case root directories directory build name)
   (let ((source (path-join directory (string-append name ".sld")))
         (expected-output (path-join directory (string-append name ".out")))
-        (expected-error (path-join directory (string-append name ".err")))
-        (program (path-join build (string-append name ".wasm"))))
+        (expected-error (path-join directory (string-append name ".err"))))
     (guard (failure
             ((file-exists? expected-error)
              (let ((text (error-text failure)) (wanted (trim-newline (read-text expected-error))))
                (or (string-contains text wanted) (report name "wrong diagnostic" (string-append text "\nexpected: " wanted)))))
             (#t (report name "compile failed" (error-text failure))))
-      (build-program root directories source program #f)
-      (cond ((file-exists? expected-error) (report name "compiled, but a diagnostic was expected" ""))
-            ((not (file-exists? expected-output)) (report name "no expected output" ""))
-            (else (let ((output (run-wasm root program)) (expected (read-text expected-output)))
-                    (or (equal? output expected) (report name "wrong output" (string-append output "\nexpected:\n" expected)))))))))
+      (let ((text (program->wat root directories source)))
+        (cond ((file-exists? expected-error) (report name "compiled, but a diagnostic was expected" ""))
+              ((not (file-exists? expected-output)) (report name "no expected output" ""))
+              (else (lambda () (check-output root text (path-join build (string-append name ".wasm")) name expected-output))))))))
+
+(define (check-output root text program name expected-output)
+  (guard (failure (#t (report name "link failed" (error-text failure))))
+    (link-wat root text program #f)
+    (let ((output (run-wasm root program)) (expected (read-text expected-output)))
+      (or (equal? output expected) (report name "wrong output" (string-append output "\nexpected:\n" expected))))))
 
 (define (run-suite root suite libraries selected)
   (let* ((directory (path-join root suite)) (build (path-join root "build/tests" suite))
          (names (filter (lambda (name) (or (null? selected) (member name selected))) (case-names directory))))
     (create-directory* build)
     (map (lambda (name)
-           (run-case root (append (map (lambda (library) (path-join root library)) libraries) (list (path-join root "lib")))
-                     directory build name))
+           (compile-case root (append (map (lambda (library) (path-join root library)) libraries) (list (path-join root "lib")))
+                         directory build name))
          names)))
 
 ;; ---- Applications ----
 
-(define (run-siegework root)
+(define (compile-siegework root)
+  (guard (failure (#t (report "siegework" "compile failed" (error-text failure))))
+    (let ((text (program->wat root (list (path-join root "apps/siegework/src") (path-join root "lib"))
+                              (path-join root "apps/siegework/main.sld"))))
+      (lambda () (check-siegework root text)))))
+
+(define (check-siegework root text)
   (guard (failure (#t (report "siegework" "headless run failed" (error-text failure))))
     (let ((program (path-join root "build/tests/siegework/app.wasm")))
-      (build-program root (list (path-join root "apps/siegework/src") (path-join root "lib"))
-                     (path-join root "apps/siegework/main.sld") program #f)
+      (link-wat root text program #f)
       (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs") program))))
         (or (zero? (caddr result)) (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))))
 
@@ -103,14 +116,51 @@
           ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
           (else #t))))
 
+;; ---- Checks in parallel ----
+
+;; Every compiler run shares build/generated and the compiler's output file,
+;; so cases compile one at a time before any check starts. A check links and
+;; runs a program in its own files, and only the command-line check runs the
+;; compiler again, so checks run in child processes, `jobs` at a time. A
+;; child reports its own failure and exits with its result.
+(define jobs 8)
+
+(define (run-checks cases)
+  (let ((results (list->vector cases)))
+    (let loop ((pending (filter (lambda (index) (procedure? (vector-ref results index))) (iota (vector-length results))))
+               (running '()))
+      (cond ((and (pair? pending) (< (length running) jobs))
+             (loop (cdr pending) (cons (cons (start-check (vector-ref results (car pending))) (car pending)) running)))
+            ((pair? running)
+             (let* ((done (waitpid -1 0)) (entry (assv (car done) running)))
+               (vector-set! results (cdr entry) (zero? (cadr done)))
+               (loop pending (delete entry running))))
+            (else (vector->list results))))))
+
+;; Ports are flushed before the fork so no buffered text is written twice,
+;; and the child exits without unwinding into the parent's continuation.
+(define (start-check check)
+  (flush-output-port (current-output-port))
+  (flush-output-port (current-error-port))
+  (let ((pid (fork)))
+    (if (zero? pid)
+        (let ((passed (guard (failure (#t (report "check" "raised" (error-text failure)))) (check))))
+          (flush-output-port (current-output-port))
+          (flush-output-port (current-error-port))
+          (emergency-exit (if passed 0 1)))
+        pid)))
+
+;; ---- Suite ----
+
 (define (main root selected)
   (test-read)
   (test-core)
   (test-wasm)
-  (let* ((results (append (run-suite root "examples" '("examples") selected)
-                          (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
-                          (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
-                          (if (null? selected) (list (run-command-line root) (run-siegework root)) '())))
+  (let* ((cases (append (run-suite root "examples" '("examples") selected)
+                        (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
+                        (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
+                        (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root)) '())))
+         (results (run-checks cases))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
     (if (zero? failures) 0 1)))
