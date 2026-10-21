@@ -390,11 +390,10 @@
 
     (: take (All (T) (-> (List T) I64 (List T))))
     (define (take items count)
-      (if (= count 0)
-          (Nil)
-          (match items
-            ((Cons item rest) (Cons item (take rest (- count 1))))
-            ((Nil) (Nil)))))
+      (let loop ((items items) (count count) (taken (Nil)))
+        (match items
+          ((Cons item rest) (if (= count 0) (reverse taken) (loop rest (- count 1) (Cons item taken))))
+          ((Nil) (reverse taken)))))
 
     (: drop (All (T) (-> (List T) I64 (List T))))
     (define (drop items count)
