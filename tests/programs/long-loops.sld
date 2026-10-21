@@ -14,3 +14,8 @@
 (write-line (substring text 0 3))
 (display (string-length (string-append text text)))
 (newline)
+
+;; So does the list library, however long the list.
+(define numbers (iota 1000000))
+(display (length (take (append numbers (map negate numbers)) 1500000)))
+(newline)
