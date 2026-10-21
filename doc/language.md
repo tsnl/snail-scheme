@@ -233,6 +233,7 @@ with saving and restoring the state through its wire encoding.
 | --- | --- |
 | `(lofi base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, lists, vectors, arrays, strings, `Show`. |
 | `(lofi io)` | The `console` and `fs` effects: text output, lines of input, and files. |
+| `(lofi table)` | Immutable tables from strings to values. |
 | `(lofi math)` | Elementary functions on `F64`. |
 | `(lofi text)` | Unicode character properties and case mapping. |
 | `(lofi random)` | A deterministic generator as a value. |
