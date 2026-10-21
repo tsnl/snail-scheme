@@ -56,14 +56,14 @@ The same controls work with a mouse, a pen and fingers. Drag to pan, pinch
 or use the wheel to zoom, and tap a cell to select it; the selection alone
 never orders anything. The dock on the side of your hand shows hub health,
 energy and the nests' strength with the time to the next attack, then the
-turning buttons, then the build menu for the selected cell: a pylon, a
-turret, an extractor, an upgrade, a rush and closing, each greyed out where
-it does not apply. Rush finishes the selected work, or else makes new
-buildings rushed. A selected building or hub adds cancelling its work and
-scavenging it, or at the hub repair. Beside it come the menu button, up to
-two attack alerts, which go to the attack or silence it for eight seconds,
-and the build queue, with a ring while a work builds and ! while it is
-unpowered; tap one to go to it.
+build menu for the selected cell: a pylon, a turret, an extractor, an
+upgrade, a rush and closing, each greyed out where it does not apply. Rush
+finishes the selected work, or else makes new buildings rushed. A selected
+building or hub adds cancelling its work and scavenging it, or at the hub
+repair. Beside it come the menu and turning buttons, up to two attack
+alerts, which go to the attack or silence it for eight seconds, and the
+build queue, with a ring while a work builds and ! while it is unpowered;
+tap one to go to it.
 
 | Key | Action |
 | --- | --- |

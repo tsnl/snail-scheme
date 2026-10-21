@@ -1,9 +1,9 @@
 ;; The HUD: a dock one control wide on the side of the playing hand. Its
-;; edge column holds the readouts, the turning buttons and, while a cell is
-;; selected, the build menu; the column beside it holds the
-;; menu button, up to two attack alerts and the build queue. The nests and
-;; the clock sit in the opposite corner, and dialogs cover the menu, its
-;; confirmations and the results.
+;; edge column holds the readouts and, while a cell is selected, the build
+;; menu; the column beside it holds the menu and turning buttons, up to two
+;; attack alerts and the build queue. The nests and the clock sit in the
+;; opposite corner, and dialogs cover the menu, its confirmations and the
+;; results.
 ;;
 ;; Only related controls share a panel. Every button names the command it
 ;; gives; one the world would reject is greyed out and explains why in its
@@ -86,18 +86,14 @@
                                  (if (< until 100) (Warning) (Plain)) (seconds until))
                            (string-append "T" (show tier)) (/ (i64->f32 (remainder (threat-tick world) difficulty-step)) (i64->f32 difficulty-step)))))))
 
-    (: turning (-> Game Panel))
-    (define (turning game)
-      (Panel "turning" (At (side game) 0)
-             (list (plain-button (face "turn-left" "turn-left" "Turn left") "Q" (Turn -1))
-                   (plain-button (face "turn-right" "turn-right" "Turn right") "E" (Turn 1)))))
-
-    ;; The menu, or the results once the game is decided.
-    (: menu-button (-> Game Panel))
-    (define (menu-button game)
+    ;; The menu, or the results once the game is decided, then turning.
+    (: controls (-> Game Panel))
+    (define (controls game)
       (let ((decided (not (playing? (Game-world game)))))
-        (Panel "menu" (At (side game) 1)
-               (list (plain-button (face "pause" (if decided "results" "pause") (if decided "Results" "Pause")) "P" (if decided (ShowResults) (OpenMenu)))))))
+        (Panel "controls" (At (side game) 1)
+               (list (plain-button (face "pause" (if decided "results" "pause") (if decided "Results" "Pause")) "P" (if decided (ShowResults) (OpenMenu)))
+                     (plain-button (face "turn-left" "turn-left" "Turn left") "Q" (Turn -1))
+                     (plain-button (face "turn-right" "turn-right" "Turn right") "E" (Turn 1))))))
 
     ;; ---- Construction ----
 
@@ -308,7 +304,6 @@
 
     (: game-hud (-> Game (List Panel)))
     (define (game-hud game)
-      (concatenate (list (list (readouts game) (turning game)) (construction game) (list (menu-button game)) (alerts game) (queue game) (list (objective game))
-                         (dialogs game))))
+      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (alerts game) (queue game) (list (objective game)) (dialogs game))))
 
     ))
