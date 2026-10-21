@@ -256,6 +256,7 @@
     (define (quoted datum)
       (match datum
         ((NullDatum) "(NullDatum)")
+        ((UnspecifiedDatum) "unspecified")
         ((BooleanDatum value) (if value "(BooleanDatum #t)" "(BooleanDatum #f)"))
         ((CharDatum char) (string-append "(CharDatum (integer->char " (i64->string (char->integer char)) "))"))
         ((StringDatum text) (string-append "(StringDatum " (lofi-string text) ")"))
@@ -264,7 +265,8 @@
         ((PairDatum head tail) (string-append "(PairDatum " (quoted head) " " (quoted tail) ")"))
         ((VectorDatum elements) (string-append "(VectorDatum (list->vector (list" (string-concatenate (map (lambda (item) (string-append " " (quoted item))) (vector->list elements))) ")))"))
         ((BytesDatum _) (panic "scheme: bytevector literals are not supported"))
-        ((ProcedureDatum _) (panic "scheme: a procedure cannot be quoted"))))
+        ((ProcedureDatum _) (panic "scheme: a procedure cannot be quoted"))
+        ((OpaqueDatum _ _) (panic "scheme: an opaque value cannot be quoted"))))
 
     (: lofi-string (-> String String))
     (define (lofi-string text)

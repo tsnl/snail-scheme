@@ -23,6 +23,7 @@
     (define (datum-text datum write?)
       (match datum
         ((NullDatum) (list "()"))
+        ((UnspecifiedDatum) (list "#<unspecified>"))
         ((BooleanDatum value) (list (if value "#t" "#f")))
         ((CharDatum char) (if write? (list (character-name char)) (list (make-string 1 char))))
         ((StringDatum text) (if write? (list (quoted text)) (list text)))
@@ -31,7 +32,8 @@
         ((PairDatum head tail) (Cons "(" (append (datum-text head write?) (list-tail-text tail write?))))
         ((VectorDatum items) (sequence-text "#(" (map (lambda (item) (datum-text item write?)) (vector->list items))))
         ((BytesDatum bytes) (sequence-text "#u8(" (map (lambda (byte) (list (show byte))) (vector->list bytes))))
-        ((ProcedureDatum _) (list "#<procedure>"))))
+        ((ProcedureDatum _) (list "#<procedure>"))
+        ((OpaqueDatum type _) (list (string-append "#<" type ">")))))
 
     (: list-tail-text (-> Datum Bool (List String)))
     (define (list-tail-text tail write?)
