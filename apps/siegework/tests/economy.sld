@@ -1,4 +1,4 @@
-;; A scripted colony on seed 1: an extractor on the starter crystal, ready
+;; A scripted colony on seed 3, a meadow: an extractor on the starter crystal, ready
 ;; at once as every colony's first is, then its upgrade and a scavenged
 ;; pylon. Energy always equals the starting
 ;; energy plus what was produced minus what was spent, net of refunds.
@@ -6,6 +6,7 @@
  (lofi base)
  (lofi io)
  (siegework grid)
+ (only (siegework terrain) Land-starter)
  (siegework world)
  (siegework colony)
  (siegework simulation))
@@ -37,8 +38,8 @@
     ((None) 0)))
 
 (let ()
-  (define starter (Cell 42 38))
-  (define world (new-world 1))
+  (define world (new-world 3))
+  (define starter (Land-starter (World-land world)))
   (report world)
   (write-line (string-append "advancing before the first order changes nothing: " (show (= (World-tick (run world 50)) 0))))
   (define world (order world (Build (Extractor) starter #f)))
@@ -51,10 +52,10 @@
   (report world)
   (define world (run world 100))
   (report world)
-  (define world (order world (Build (Pylon) (Cell 38 46) #f)))
+  (define world (order world (Build (Pylon) (Cell 39 46) #f)))
   (define world (run world 60))
   (report world)
-  (define world (order world (Scavenge (Cell 38 46))))
+  (define world (order world (Scavenge (Cell 39 46))))
   (report world)
   (write-line (string-append "buildings " (show (length (World-buildings world)))))
   (define damaged (World-hub-set world (Hub-health-set (World-hub world) 421)))

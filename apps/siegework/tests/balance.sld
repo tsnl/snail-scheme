@@ -1,9 +1,10 @@
-;; Balance invariants, checked on eight seeds so that tuning the numbers
-;; cannot quietly break the game:
+;; Balance invariants, checked on eight seeds covering every biome so that
+;; tuning the numbers cannot quietly break the game:
 ;;
 ;; - an extractor and a turret ordered together are both finished before
 ;;   the first attack leaves the nests;
-;; - a hub left undefended falls soon after the first attack arrives;
+;; - a hub left undefended falls within 55 seconds of the first attack
+;;   leaving the nests, even where the way in winds over causeways;
 ;; - a colony that keeps adding turrets around its hub, and widens its build
 ;;   slots when it can, holds for five minutes.
 ;;
@@ -12,6 +13,7 @@
  (lofi base)
  (lofi io)
  (siegework grid)
+ (only (siegework terrain) Land-starter)
  (siegework world)
  (siegework colony)
  (siegework siege)
@@ -35,11 +37,10 @@
   (let ((hub (Hub-cell (World-hub world))))
     (Cell (+ (Cell-x hub) dx) (+ (Cell-y hub) dy))))
 
-;; Every map has its starter crystal four cells east and two north of the hub.
 (: started (-> I64 World))
 (define (started seed)
   (let ((world (new-world seed)))
-    (try world (Build (Extractor) (offset world 4 -2) #f))))
+    (try world (Build (Extractor) (Land-starter (World-land world)) #f))))
 
 (: reinforce (-> World World))
 (define (reinforce world)
@@ -62,7 +63,7 @@
 
 (: undefended-falls? (-> I64 Bool))
 (define (undefended-falls? seed)
-  (match (World-outcome (run (started seed) 900))
+  (match (World-outcome (run (started seed) 1000))
     ((Lost) #t)
     (_ #f)))
 
@@ -77,5 +78,5 @@
     (write-line (string-append claim ": " (if (null? broken) "#t" (string-append "broken on seeds " (string-join (map show broken) " ")))))))
 
 (check "an extractor and a turret are ready before the first attack" ready-for-first-attack?)
-(check "an undefended hub falls before tick 900" undefended-falls?)
+(check "an undefended hub falls before tick 1000" undefended-falls?)
 (check "a hub ringed with turrets holds through tick 3000" defended-holds?)

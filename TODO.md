@@ -22,8 +22,9 @@ proposed language changes separate from implemented behavior.
 
 ## Siegework
 
-The pre-rewrite world, siege, look and HUD are restored on `(lofi app)`,
-with an energy network in place of worker drones and journal saves. What
+The pre-rewrite siege, look and HUD are restored on `(lofi app)`, with an
+energy network in place of worker drones, journal saves, and seeded land
+in four biomes. What
 remains, none of it implemented:
 
 - [ ] Hot reload: load a changed module in place and replay the journal
@@ -31,7 +32,9 @@ remains, none of it implemented:
 - [ ] Export and import a journal, and a viewer that plays one back.
 - [ ] The original's keyboard cell cursor on the arrow keys; they pan now.
 - [ ] Picking tall buildings by their shape; a tap picks the ground cell.
-- [ ] Playtest the balance: costs, build times, yields, reach and the
-  pressure of the attacks. The balance program guards the extremes.
+- [ ] Make the siege harder now that the biomes vary the land: playtest
+  costs, build times, yields, reach and the pressure of the attacks per
+  biome, then tighten the balance program's bound on an undefended hub
+  (tick 1000, set by the archipelago's long causeways).
 - [ ] Check the HUD at phone sizes in a browser.
 - [ ] Loading authored models, if hand-made assets replace the procedural ones.

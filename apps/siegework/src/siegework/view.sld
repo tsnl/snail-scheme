@@ -1,7 +1,7 @@
-;; What the player sees, in the original Siegework's style: sunny grass on a
-;; teal world under a blue sky, warm cream and brass buildings with deep blue
-;; trim, violet crystals and crystalline enemies, glowing wires carrying
-;; pulses of energy home, and the HUD.
+;; What the player sees, in the original Siegework's style: sunny ground in
+;; its biome's colors on a teal world under a blue sky, warm cream and
+;; brass buildings with deep blue trim, violet crystals and crystalline
+;; enemies, and glowing wires carrying pulses of energy home.
 ;;
 ;; Models are lists of parts given as in the original, with z up and y
 ;; north, each shape centered on its offset; `part` turns them into items
@@ -110,26 +110,68 @@
 
     ;; ---- Ground ----
 
-    ;; Explored grass is sunny in three tones where powered buildings see,
-    ;; and teal where they no longer do; unexplored ground is the world's
-    ;; teal base.
-    (: grass (-> World Cell Paint))
-    (define (grass world cell)
-      (let ((x (Cell-x cell)) (y (Cell-y cell)))
-        (cond ((not (visible? world cell)) (Paint (rgb 67 144 113) 0.0))
-              ((= (remainder (+ (* x 13) (* y 7)) 5) 0) (Paint (rgb 154 224 74) 0.0))
-              ((= (remainder (+ x (* y 3)) 3) 0) (Paint (rgb 95 190 70) 0.0))
-              (else (Paint (rgb 121 211 78) 0.0)))))
+    ;; A biome's ground colors: open ground in three sunny tones where
+    ;; powered buildings see and a fourth where they no longer do, sand for
+    ;; shores, then water, ice, dug rock and rock.
+    (struct Tileset
+      ((light I32)
+       (middle I32)
+       (deep I32)
+       (unseen I32)
+       (shore I32)
+       (water I32)
+       (ice I32)
+       (dug I32)
+       (rock I32)))
 
+    (: tileset (-> Biome Tileset))
+    (define (tileset biome)
+      (match biome
+        ((Meadow) (Tileset (rgb 154 224 74) (rgb 121 211 78) (rgb 95 190 70) (rgb 67 144 113) (rgb 236 212 140)
+                           (rgb 54 126 238) (rgb 190 232 246) (rgb 174 139 95) (rgb 196 204 179)))
+        ((Desert) (Tileset (rgb 250 222 160) (rgb 241 206 136) (rgb 230 190 116) (rgb 168 150 110) (rgb 250 222 160)
+                           (rgb 54 126 238) (rgb 190 232 246) (rgb 196 150 104) (rgb 212 120 78)))
+        ((Tundra) (Tileset (rgb 250 252 255) (rgb 234 242 248) (rgb 220 232 242) (rgb 138 168 186) (rgb 220 232 242)
+                           (rgb 54 126 238) (rgb 160 220 242) (rgb 150 142 134) (rgb 122 136 154)))
+        ((Archipelago) (Tileset (rgb 142 224 98) (rgb 114 208 92) (rgb 90 188 86) (rgb 67 144 113) (rgb 244 222 158)
+                                (rgb 36 128 214) (rgb 190 232 246) (rgb 174 139 95) (rgb 116 110 112)))))
+
+    ;; Open ground in its biome's tone: shaded in a fixed pattern where it is
+    ;; seen, and a shore beside an archipelago's water.
+    (: open-paint (-> World Tileset Cell Paint))
+    (define (open-paint world tiles cell)
+      (let ((x (Cell-x cell)) (y (Cell-y cell)))
+        (Paint (cond ((not (visible? world cell)) (Tileset-unseen tiles))
+                     ((shore? world cell) (Tileset-shore tiles))
+                     ((= (remainder (+ (* x 13) (* y 7)) 5) 0) (Tileset-light tiles))
+                     ((= (remainder (+ x (* y 3)) 3) 0) (Tileset-deep tiles))
+                     (else (Tileset-middle tiles)))
+               0.0)))
+
+    (: shore? (-> World Cell Bool))
+    (define (shore? world cell)
+      (and (match (Land-biome (World-land world)) ((Archipelago) #t) (_ #f))
+           (any? (lambda (n) (match (ground-at (World-land world) n) ((Water) #t) (_ #f))) (neighbors cell))))
+
+    ;; Rock is a grey peak in meadows and on islands, a flat-topped mesa in
+    ;; the desert, and a snow-capped peak in the tundra. Dug rock is a floor.
     (: ground-parts (-> World Cell (List Item)))
     (define (ground-parts world cell)
-      (match (ground-at (World-land world) cell)
-        ((Grass) (list (flat (grass world cell) 0.0 0.0 0.0 0.99 0.99)))
-        ((Water) (list (flat blue 0.0 0.0 0.012 0.99 0.99)))
-        ((Rock) (if (opened? world cell)
-                    (list (flat (Paint (rgb 174 139 95) 0.0) 0.0 0.0 0.0 0.99 0.99))
-                    (list (flat (grass world cell) 0.0 0.0 0.0 0.99 0.99)
-                          (part (Pyramid) (Paint (rgb 196 204 179) 0.0) 0.0 0.0 0.425 1.0 0.94 0.85))))))
+      (let* ((biome (Land-biome (World-land world))) (tiles (tileset biome)) (floor (flat (open-paint world tiles cell) 0.0 0.0 0.0 0.99 0.99)))
+        (match (ground-at (World-land world) cell)
+          ((Open) (list floor))
+          ((Water) (list (flat (Paint (Tileset-water tiles) 0.1) 0.0 0.0 0.012 0.99 0.99)))
+          ((Ice) (list (flat (Paint (Tileset-ice tiles) 0.2) 0.0 0.0 0.008 0.99 0.99)))
+          ((Rock) (if (opened? world cell)
+                      (list (flat (Paint (Tileset-dug tiles) 0.0) 0.0 0.0 0.0 0.99 0.99))
+                      (Cons floor (rock-parts biome (Paint (Tileset-rock tiles) 0.0))))))))
+
+    (: rock-parts (-> Biome Paint (List Item)))
+    (define (rock-parts biome paint)
+      (match biome
+        ((Desert) (list (block paint 0.0 0.0 0.3 0.98 0.98 0.6)))
+        ((Tundra) (list (part (Pyramid) paint 0.0 0.0 0.425 1.0 0.94 0.85) (part (Pyramid) (Paint (rgb 250 252 255) 0.1) 0.0 0.0 0.7 0.42 0.4 0.3)))
+        (_ (list (part (Pyramid) paint 0.0 0.0 0.425 1.0 0.94 0.85)))))
 
     ;; The world's base beneath the map, with a cream rim.
     (: base-items (-> (List Item)))

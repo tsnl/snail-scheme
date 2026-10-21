@@ -17,9 +17,17 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
 <!-- ANCHOR: guide -->
 ## Playing
 
+- **The land.** Each map's seed picks one of four biomes. Meadows have
+  lakes and mountains; deserts have no water, only mesas and winding
+  canyon walls; tundra has frozen lakes, mountains and scattered
+  boulders; an archipelago is sea but for its islands. Open ground is
+  walked and built on. Rock stops walkers, sight lines and wires until
+  burrowers dig it out. Water stops only walkers, so wires reach islands
+  enemies cannot. Ice is walked but not built on. Every nest has a way in
+  to the hub, though it may wind through a pass or over a causeway.
 - **Energy.** The colony runs on one store of energy, starting at 160.
-  Extractors draw it from violet crystals until they run dry: the starter
-  beside the hub yields 2 a second, richer crystals more, and each
+  Extractors draw it from violet crystals until they run dry: the starter,
+  four cells from the hub in a direction the seed picks, yields 2 a second, richer crystals more, and each
   extractor level multiplies its yield. A destroyed nest exposes a rich
   crystal of its own.
 - **The network.** Every finished building is wired to every other within
@@ -27,7 +35,7 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
   9 cells, pylons 7, 10 and 12 by level, turrets 6 and extractors 4. A
   building the hub cannot reach through wires is unpowered and does
   nothing: no energy, no shots, no sight. Rebuild the link and it wakes up.
-- **Building takes time.** A new building needs visible grass and a
+- **Building takes time.** A new building needs visible open ground and a
   powered building that can wire to it. Its cost is paid at once and it is
   built while it holds one of the hub's build slots: pylons take 2 s,
   extractors 3 s and turrets 4 s, and the colony's first extractor is
@@ -99,8 +107,8 @@ there are no save versions.
 
 | Module | Responsibility |
 | --- | --- |
-| [`grid.sld`](src/siegework/grid.sld) | Cells, distances, the cells a straight line crosses, and breadth-first distance fields. |
-| [`terrain.sld`](src/siegework/terrain.sld) | The original game's seeded land: home neighborhood, regional lakes and mountains, nest fronts and crystal sites. |
+| [`grid.sld`](src/siegework/grid.sld) | Cells, distances, the cells a straight line crosses, the fewest closed cells joining two places, and breadth-first distance fields. |
+| [`terrain.sld`](src/siegework/terrain.sld) | The seeded land in stages: the biome, hub and nest fronts; noise fields shaped by the biome; clearings; passes so every nest can walk in; and crystal sites. |
 | [`world.sld`](src/siegework/world.sld) | The state, and what derives from it: wires, power, sight and exploration. |
 | [`colony.sld`](src/siegework/colony.sld) | Orders and their rejections, the work queue with slots and rushing, and production. |
 | [`siege.sld`](src/siegework/siege.sld) | Attacks, enemies and their routes, digging, turrets, strikes and alerts, and the outcome. |
@@ -113,8 +121,9 @@ there are no save versions.
 Time is the world's tick: periodic rules fire on multiples of their period,
 and only work in progress keeps a count.
 
-The programs in [`tests/`](tests) check the land, the economy, the queue,
-power, the siege, replay, and on eight seeds that an undefended hub falls
-soon after the first attack while a hub ringed with turrets holds for five
-minutes; `headless.mjs` drives the compiled package through taps and the
+The programs in [`tests/`](tests) check the land, that on 64 seeds every
+nest can walk in and every crystal can be wired, the economy, the queue,
+power, the siege, replay, and on eight seeds across the biomes that an
+undefended hub falls soon after the first attack while a hub ringed with
+turrets holds for five minutes; `headless.mjs` drives the compiled package through taps and the
 HUD, then replays its save.

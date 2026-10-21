@@ -8,6 +8,7 @@
  (lofi io)
  (lofi wire)
  (siegework grid)
+ (only (siegework terrain) Land-starter)
  (siegework world)
  (siegework colony)
  (siegework simulation))
@@ -66,7 +67,7 @@
 
 (let ()
   (define start (Played (new-world 3) (Nil)))
-  (define start (give start (Build (Extractor) (offset (Played-world start) 4 -2) #f)))
+  (define start (give start (Build (Extractor) (Land-starter (World-land (Played-world start))) #f)))
   (define played (play start 20))
   (define world (Played-world played))
   (define journal (reverse (Played-journal played)))

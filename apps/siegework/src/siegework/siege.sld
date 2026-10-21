@@ -199,13 +199,15 @@
                                             (list (Enemy id behavior rank burrower cell cell health health (raid-target world nest behavior) (None)))))))))
 
     ;; A raider picks the nearest exposed outpost on its own approach: a
-    ;; finished extractor or pylon more than nine cells from the hub and
-    ;; nearer this nest than the hub is. Without one it attacks the hub.
+    ;; finished extractor or pylon on the mainland, more than nine cells
+    ;; from the hub and nearer this nest than the hub is. Without one it
+    ;; attacks the hub.
     (: raid-target (-> World Nest Behavior (Option I64)))
     (define (raid-target world nest behavior)
       (match behavior
         ((Raider) (let* ((hub (Hub-cell (World-hub world))) (front (Nest-cell nest)) (limit (manhattan front hub)))
-                    (match (nearest (filter (lambda (b) (exposed? b hub front limit)) (World-buildings world)) (lambda (b) (manhattan front (Building-cell b))))
+                    (match (nearest (filter (lambda (b) (and (exposed? b hub front limit) (mainland? (World-land world) (Building-cell b)))) (World-buildings world))
+                                    (lambda (b) (manhattan front (Building-cell b))))
                       ((Some b) (Some (Building-id b)))
                       ((None) (None)))))
         (_ (None))))
@@ -226,8 +228,8 @@
 
     ;; ---- Routes ----
 
-    ;; Walkers cross grass and opened rock; burrowers also cross intact rock,
-    ;; which they dig through. Nobody crosses water. Each route is a
+    ;; Walkers cross open ground, ice and opened rock; burrowers also cross
+    ;; intact rock, which they dig through. Nobody crosses water. Each route is a
     ;; distance field toward a goal, kept until the terrain changes.
     (: route-field (-> World Cell Bool (Pair (Vector I64) World)))
     (define (route-field world goal burrower)
@@ -254,9 +256,9 @@
                        (lambda (index)
                          (let ((cell (index-cell index)))
                            (match (ground-at (World-land world) cell)
-                             ((Grass) #t)
+                             ((Rock) (or burrower (opened? world cell)))
                              ((Water) #f)
-                             ((Rock) (or burrower (opened? world cell))))))))
+                             (_ #t))))))
 
 
     ;; ---- Movement ----
@@ -358,9 +360,9 @@
     (: walkable? (-> World Cell Bool))
     (define (walkable? world cell)
       (match (ground-at (World-land world) cell)
-        ((Grass) #t)
+        ((Rock) (opened? world cell))
         ((Water) #f)
-        ((Rock) (opened? world cell))))
+        (_ #t)))
 
     (: on-step? (-> World Enemy Bool))
     (define (on-step? world enemy)
@@ -452,12 +454,13 @@
 
     ;; A wounded enemy turns on the turret that hit it unless the one it
     ;; already turned on still stands, so turrets on both sides of it cannot
-    ;; pull it back and forth.
+    ;; pull it back and forth. A turret across water is out of its reach,
+    ;; and it keeps on its way.
     (: provoke (-> World Enemy Building Enemy))
     (define (provoke world enemy turret)
       (match (standing world (Enemy-aggro enemy))
         ((Some _) enemy)
-        ((None) (Enemy-aggro-set enemy (Some (Building-id turret))))))
+        ((None) (if (mainland? (World-land world) (Building-cell turret)) (Enemy-aggro-set enemy (Some (Building-id turret))) enemy))))
 
     ;; A destroyed nest changes the structures: its crystal shows instead.
     (: hit-nest (-> World Building Nest World))

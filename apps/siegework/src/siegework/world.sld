@@ -570,7 +570,7 @@
 
     ;; ---- Wires and power ----
 
-    ;; Wires, shots and sight lines cross grass, water and opened rock.
+    ;; Wires, shots and sight lines cross everything but intact rock.
     (: clear-line? (-> World Cell Cell Bool))
     (define (clear-line? world from to)
       (every? (lambda (cell) (match (ground-at (World-land world) cell) ((Rock) (opened? world cell)) (_ #t))) (line-cells from to)))
