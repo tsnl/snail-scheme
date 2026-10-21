@@ -1,34 +1,45 @@
-// A small WebGPU renderer for (lofi app) frames: a few flat-shaded meshes,
-// drawn as instances with a position, scale, yaw and color. Batches keep
-// their instance buffers until the application changes their version.
+// A small WebGPU renderer for (lofi app) frames: flat-shaded meshes drawn
+// as instances with a position, scale, yaw, color and glow. Each instance
+// also carries where it was, and the frame's motion moves it toward where it
+// is, so animation between updates needs no new instances. Batches keep
+// their instance buffers until the application changes their version; their
+// style (opacity, or a revealed disc) is a uniform set every frame.
 
 const shaderSource = `
-struct Uniforms { viewProjection: mat4x4f, light: vec4f }
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+struct Globals { viewProjection: mat4x4f, light: vec4f, params: vec4f }
+struct Style { opacity: f32, centerX: f32, centerZ: f32, radius: f32 }
+@group(0) @binding(0) var<uniform> globals: Globals;
+@group(1) @binding(0) var<uniform> style: Style;
 
 struct Varyings {
   @builtin(position) position: vec4f,
-  @location(0) color: vec3f,
+  @location(0) color: vec4f,
   @location(1) normal: vec3f,
+  @location(2) ground: vec2f,
 }
 
 @vertex fn vertex_main(@location(0) position: vec3f, @location(1) normal: vec3f,
                        @location(2) offset: vec4f, @location(3) scale: vec4f,
-                       @location(4) color: vec4f) -> Varyings {
+                       @location(4) color: vec4f, @location(5) start: vec4f) -> Varyings {
   let c = cos(offset.w);
   let s = sin(offset.w);
   let p = position * scale.xyz;
   let n = normal / scale.xyz;
+  let origin = mix(start.xyz, offset.xyz, globals.params.y);
+  let world = vec3f(c * p.x + s * p.z, p.y, c * p.z - s * p.x) + origin;
   var out: Varyings;
-  out.position = uniforms.viewProjection * vec4f(c * p.x + s * p.z + offset.x, p.y + offset.y, c * p.z - s * p.x + offset.z, 1.0);
+  out.position = globals.viewProjection * vec4f(world, 1.0);
   out.normal = vec3f(c * n.x + s * n.z, n.y, c * n.z - s * n.x);
-  out.color = color.rgb;
+  out.color = vec4f(color.rgb, scale.w);
+  out.ground = world.xz;
   return out;
 }
 
 @fragment fn fragment_main(input: Varyings) -> @location(0) vec4f {
-  let light = max(dot(normalize(input.normal), normalize(uniforms.light.xyz)), 0.0);
-  return vec4f(input.color * (0.4 + 0.6 * light), 1.0);
+  if (style.radius >= 0.0 && distance(input.ground, vec2f(style.centerX, style.centerZ)) > style.radius) { discard; }
+  let facing = max(dot(normalize(input.normal), normalize(globals.light.xyz)), 0.0);
+  let lit = globals.params.x + globals.light.w * facing;
+  return vec4f(input.color.rgb * mix(lit, 1.0, input.color.a), style.opacity);
 }`;
 
 // ---- Meshes ----
@@ -76,8 +87,32 @@ function sphere() {
   return {vertices, indices};
 }
 
+function tile() {
+  const vertices = [], indices = [];
+  face(vertices, indices, [[-0.5, 0, -0.5], [-0.5, 0, 0.5], [0.5, 0, 0.5], [0.5, 0, -0.5]]);
+  return {vertices, indices};
+}
+
+// Solids from triangular faces, wound so their normals face outward.
+function solid(corners, faces) {
+  const vertices = [], indices = [];
+  for (const [a, b, c] of faces) face(vertices, indices, [corners[a], corners[b], corners[c]]);
+  return {vertices, indices};
+}
+
+function tetrahedron() {
+  const r = 0.5;
+  const corners = [[0, 1, 0], [r, 0, 0], [-r / 2, 0, r * 0.866], [-r / 2, 0, -r * 0.866]];
+  return solid(corners, [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]]);
+}
+
+function octahedron() {
+  const corners = [[0, 1, 0], [0.5, 0.5, 0], [0, 0.5, 0.5], [-0.5, 0.5, 0], [0, 0.5, -0.5], [0, 0, 0]];
+  return solid(corners, [[0, 2, 1], [0, 3, 2], [0, 4, 3], [0, 1, 4], [5, 1, 2], [5, 2, 3], [5, 3, 4], [5, 4, 1]]);
+}
+
 // The order matches `mesh-index` in lib/lofi/app.sld.
-const meshes = [prism(4, true), prism(4, false), prism(6, true), sphere(), prism(4, true)];
+const meshes = [prism(4, true), prism(4, false), prism(6, true), sphere(), tile(), tetrahedron(), octahedron()];
 
 // ---- Matrices ----
 
@@ -95,6 +130,12 @@ function perspective(fov, aspect, near, far) {
   return [f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, far / (near - far), -1, 0, 0, (near * far) / (near - far), 0];
 }
 
+// Depth runs from 0 at `near` to 1 at `far`, as WebGPU expects.
+function orthographic(height, aspect, near, far) {
+  const y = 2 / height, x = y / aspect, z = 1 / (near - far);
+  return [x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0, 0, 0, near * z, 1];
+}
+
 function multiply(a, b) {
   const out = new Array(16).fill(0);
   for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
@@ -102,57 +143,88 @@ function multiply(a, b) {
   return out;
 }
 
+// An orthographic camera sees everything between a plane behind the eye
+// and one well past the target, so zooming never clips the ground.
+function projection(camera, aspect) {
+  if (camera.kind === 0) return perspective(camera.value, aspect, 0.1, 500);
+  const distance = Math.hypot(...camera.eye.map((v, i) => v - camera.target[i]));
+  return orthographic(camera.value, aspect, -distance, distance * 4);
+}
+
 // ---- Renderer ----
+
+const INSTANCE_FLOATS = 16;
 
 export async function createRenderer(canvas) {
   if (!navigator.gpu) throw new Error('this browser does not support WebGPU');
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
+  device.addEventListener('uncapturederror', event => console.error('WebGPU:', event.error.message));
   const context = canvas.getContext('webgpu');
   const format = navigator.gpu.getPreferredCanvasFormat();
   context.configure({device, format, alphaMode: 'opaque'});
   const module = device.createShaderModule({code: shaderSource});
-  const pipeline = device.createRenderPipeline({
-    layout: 'auto',
+  const globalLayout = device.createBindGroupLayout({entries: [{binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {}}]});
+  const styleLayout = device.createBindGroupLayout({entries: [{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {}}]});
+  const layout = device.createPipelineLayout({bindGroupLayouts: [globalLayout, styleLayout]});
+  const pipeline = translucent => device.createRenderPipeline({
+    layout,
     vertex: {module, entryPoint: 'vertex_main', buffers: [
       {arrayStride: 24, attributes: [{shaderLocation: 0, offset: 0, format: 'float32x3'},
                                      {shaderLocation: 1, offset: 12, format: 'float32x3'}]},
-      {arrayStride: 48, stepMode: 'instance', attributes: [{shaderLocation: 2, offset: 0, format: 'float32x4'},
-                                                           {shaderLocation: 3, offset: 16, format: 'float32x4'},
-                                                           {shaderLocation: 4, offset: 32, format: 'float32x4'}]}]},
-    fragment: {module, entryPoint: 'fragment_main', targets: [{format}]},
+      {arrayStride: INSTANCE_FLOATS * 4, stepMode: 'instance', attributes: [0, 1, 2, 3].map(i => (
+        {shaderLocation: 2 + i, offset: 16 * i, format: 'float32x4'}))}]},
+    fragment: {module, entryPoint: 'fragment_main', targets: [{format, blend: translucent ? {
+      color: {srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha'},
+      alpha: {srcFactor: 'one', dstFactor: 'one-minus-src-alpha'}} : undefined}]},
     primitive: {topology: 'triangle-list', cullMode: 'none'},
-    depthStencil: {format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less'},
+    depthStencil: {format: 'depth24plus', depthWriteEnabled: !translucent, depthCompare: 'less'},
   });
-  const uniforms = device.createBuffer({size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-  const bindGroup = device.createBindGroup({layout: pipeline.getBindGroupLayout(0), entries: [{binding: 0, resource: {buffer: uniforms}}]});
+  const pipelines = [pipeline(false), pipeline(true)];
+  const globals = device.createBuffer({size: 96, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+  const globalGroup = device.createBindGroup({layout: globalLayout, entries: [{binding: 0, resource: {buffer: globals}}]});
   const geometry = meshes.map(({vertices, indices}) => {
     const vertexBuffer = device.createBuffer({size: vertices.length * 4, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST});
     device.queue.writeBuffer(vertexBuffer, 0, new Float32Array(vertices));
-    const indexBuffer = device.createBuffer({size: Math.ceil(indices.length * 2 / 4) * 4, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST});
     const indexData = new Uint16Array(Math.ceil(indices.length / 2) * 2);
     indexData.set(indices);
+    const indexBuffer = device.createBuffer({size: indexData.byteLength, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST});
     device.queue.writeBuffer(indexBuffer, 0, indexData);
     return {vertexBuffer, indexBuffer, count: indices.length};
   });
   const batches = new Map();
   let depth = null;
 
-  // Groups a batch's instances by mesh into GPU buffers.
-  function upload(batch) {
-    batches.get(batch.key)?.parts.forEach(part => part.buffer.destroy());
-    const groups = meshes.map(() => []);
-    for (let i = 0; i < batch.items.length; i += 9) {
-      const [mesh, x, y, z, sx, sy, sz, yaw, color] = batch.items.slice(i, i + 9);
-      groups[mesh].push(x, y, z, yaw, sx, sy, sz, 0, ((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255, 1);
+  // A batch's style uniform and its instances grouped by mesh. Buffers only
+  // grow, so a batch that changes every update reuses its memory.
+  function batchState(key) {
+    let state = batches.get(key);
+    if (!state) {
+      const style = device.createBuffer({size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+      state = {version: null, style, group: device.createBindGroup({layout: styleLayout, entries: [{binding: 0, resource: {buffer: style}}]}),
+               parts: meshes.map(() => ({buffer: null, capacity: 0, count: 0}))};
+      batches.set(key, state);
     }
-    const parts = groups.flatMap((values, mesh) => {
-      if (!values.length) return [];
-      const buffer = device.createBuffer({size: values.length * 4, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST});
-      device.queue.writeBuffer(buffer, 0, new Float32Array(values));
-      return [{mesh, buffer, count: values.length / 12}];
+    return state;
+  }
+
+  function upload(batch) {
+    const state = batchState(batch.key);
+    const groups = meshes.map(() => []);
+    for (const [mesh, x, y, z, sx, sy, sz, yaw, color, glow, fx, fy, fz] of batch.items)
+      groups[mesh].push(x, y, z, yaw, sx, sy, sz, glow, ((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255, 1,
+                        fx, fy, fz, 0);
+    groups.forEach((values, mesh) => {
+      const part = state.parts[mesh];
+      if (values.length > part.capacity) {
+        part.buffer?.destroy();
+        part.capacity = Math.max(values.length, part.capacity * 2);
+        part.buffer = device.createBuffer({size: part.capacity * 4, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST});
+      }
+      if (values.length) device.queue.writeBuffer(part.buffer, 0, new Float32Array(values));
+      part.count = values.length / INSTANCE_FLOATS;
     });
-    batches.set(batch.key, {version: batch.version, parts});
+    state.version = batch.version;
   }
 
   function resize() {
@@ -165,13 +237,32 @@ export async function createRenderer(canvas) {
     }
   }
 
+  function drawBatches(pass, list) {
+    for (const batch of list) {
+      const state = batches.get(batch.key);
+      pass.setBindGroup(1, state.group);
+      state.parts.forEach((part, mesh) => {
+        if (!part.count) return;
+        const shape = geometry[mesh];
+        pass.setVertexBuffer(0, shape.vertexBuffer);
+        pass.setVertexBuffer(1, part.buffer);
+        pass.setIndexBuffer(shape.indexBuffer, 'uint16');
+        pass.drawIndexed(shape.count, part.count);
+      });
+    }
+  }
+
   return {
     hasBatch(key, version) { return batches.get(key)?.version === version; },
     draw(frame) {
-      for (const batch of frame.batches) if (batch.items) upload(batch);
+      for (const batch of frame.batches) {
+        if (batch.items) upload(batch);
+        device.queue.writeBuffer(batchState(batch.key).style, 0, new Float32Array(batch.style));
+      }
       resize();
-      const matrix = multiply(perspective(0.8, canvas.width / canvas.height, 0.1, 500), lookAt(frame.eye, frame.target));
-      device.queue.writeBuffer(uniforms, 0, new Float32Array([...matrix, 0.4, 1, 0.3, 0]));
+      const matrix = multiply(projection(frame.camera, canvas.width / canvas.height), lookAt(frame.camera.eye, frame.camera.target));
+      const {direction, sun, ambient} = frame.light;
+      device.queue.writeBuffer(globals, 0, new Float32Array([...matrix, ...direction, sun, ambient, frame.motion, 0, 0]));
       const background = frame.background;
       const encoder = device.createCommandEncoder();
       const pass = encoder.beginRenderPass({
@@ -179,17 +270,11 @@ export async function createRenderer(canvas) {
                             clearValue: {r: ((background >> 16) & 255) / 255, g: ((background >> 8) & 255) / 255, b: (background & 255) / 255, a: 1}}],
         depthStencilAttachment: {view: depth.createView(), depthLoadOp: 'clear', depthStoreOp: 'store', depthClearValue: 1},
       });
-      pass.setPipeline(pipeline);
-      pass.setBindGroup(0, bindGroup);
-      for (const {key} of frame.batches) {
-        for (const part of batches.get(key)?.parts ?? []) {
-          const mesh = geometry[part.mesh];
-          pass.setVertexBuffer(0, mesh.vertexBuffer);
-          pass.setVertexBuffer(1, part.buffer);
-          pass.setIndexBuffer(mesh.indexBuffer, 'uint16');
-          pass.drawIndexed(mesh.count, part.count);
-        }
-      }
+      pass.setBindGroup(0, globalGroup);
+      pass.setPipeline(pipelines[0]);
+      drawBatches(pass, frame.batches.filter(batch => batch.style[0] >= 1));
+      pass.setPipeline(pipelines[1]);
+      drawBatches(pass, frame.batches.filter(batch => batch.style[0] < 1));
       pass.end();
       device.queue.submit([encoder.finish()]);
     },

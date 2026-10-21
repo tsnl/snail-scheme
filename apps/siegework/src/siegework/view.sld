@@ -22,9 +22,9 @@
     (define (cell-point cell height)
       (Vec3 (i64->f32 (Cell-x cell)) height (i64->f32 (Cell-y cell))))
 
-    (: item (-> Mesh Vec3 F32 F32 F32 I32 Item))
-    (define (item mesh position width height depth color)
-      (Item mesh position (Vec3 width height depth) 0.0 color))
+    (: block (-> Mesh Vec3 F32 F32 F32 I32 Item))
+    (define (block mesh position width height depth color)
+      (item mesh position (Vec3 width height depth) 0.0 color))
 
     ;; An enemy steps on multiples of its period, so between steps it is
     ;; drawn partway from its previous cell.
@@ -41,7 +41,7 @@
     (: beam (-> Vec3 Vec3 F32 I32 Item))
     (define (beam from to thickness color)
       (let ((dx (- (Vec3-x to) (Vec3-x from))) (dz (- (Vec3-z to) (Vec3-z from))))
-        (Item (Box) (Vec3 (/ (+ (Vec3-x from) (Vec3-x to)) 2.0) (Vec3-y from) (/ (+ (Vec3-z from) (Vec3-z to)) 2.0))
+        (item (Box) (Vec3 (/ (+ (Vec3-x from) (Vec3-x to)) 2.0) (Vec3-y from) (/ (+ (Vec3-z from) (Vec3-z to)) 2.0))
               (Vec3 (sqrt (+ (* dx dx) (* dz dz))) thickness thickness) (atan2-f32 (negate dz) dx) color)))
 
     (: atan2-f32 (-> F32 F32 F32))
@@ -54,11 +54,11 @@
     (define (terrain-items world)
       (map (lambda (index)
              (let ((cell (index-cell index)))
-               (cond ((not (explored? world cell)) (item (Tile) (cell-point cell 0.0) 1.0 0.05 1.0 (rgb 28 32 40)))
+               (cond ((not (explored? world cell)) (block (Tile) (cell-point cell 0.0) 1.0 0.05 1.0 (rgb 28 32 40)))
                      (else (match (ground-at (World-land world) cell)
-                             ((Rock) (item (Box) (cell-point cell 0.0) 0.95 0.7 0.95 (rgb 105 100 96)))
-                             ((Water) (item (Tile) (cell-point cell 0.0) 1.0 0.05 1.0 (rgb 54 126 238)))
-                             ((Grass) (item (Tile) (cell-point cell 0.0) 1.0 0.1 1.0 (if (visible? world cell) (rgb 74 104 66) (rgb 52 74 50)))))))))
+                             ((Rock) (block (Box) (cell-point cell 0.0) 0.95 0.7 0.95 (rgb 105 100 96)))
+                             ((Water) (block (Tile) (cell-point cell 0.0) 1.0 0.05 1.0 (rgb 54 126 238)))
+                             ((Grass) (block (Tile) (cell-point cell 0.0) 1.0 0.1 1.0 (if (visible? world cell) (rgb 74 104 66) (rgb 52 74 50)))))))))
            (iota (* map-size map-size))))
 
     ;; ---- Structures ----
@@ -71,15 +71,15 @@
                                           ((powered? world (Building-id building)) color)
                                           (else (rgb 70 70 80))))))
         (match (Building-kind building)
-          ((Extractor) (list (item (Prism) (cell-point cell 0.1) 0.8 (+ 0.3 (* 0.3 level)) 0.8 (shade (rgb 210 150 60)))))
-          ((Pylon) (list (item (Box) (cell-point cell 0.1) 0.4 (+ 0.4 (* 0.7 level)) 0.4 (shade (rgb 80 190 180)))))
-          ((Turret) (list (item (Prism) (cell-point cell 0.1) 0.9 0.5 0.9 (shade (rgb 160 70 70)))
-                          (item (Sphere) (cell-point cell 0.6) (+ 0.4 (* 0.1 level)) 0.5 (+ 0.4 (* 0.1 level)) (shade (rgb 200 90 80))))))))
+          ((Extractor) (list (block (Prism) (cell-point cell 0.1) 0.8 (+ 0.3 (* 0.3 level)) 0.8 (shade (rgb 210 150 60)))))
+          ((Pylon) (list (block (Box) (cell-point cell 0.1) 0.4 (+ 0.4 (* 0.7 level)) 0.4 (shade (rgb 80 190 180)))))
+          ((Turret) (list (block (Prism) (cell-point cell 0.1) 0.9 0.5 0.9 (shade (rgb 160 70 70)))
+                          (block (Sphere) (cell-point cell 0.6) (+ 0.4 (* 0.1 level)) 0.5 (+ 0.4 (* 0.1 level)) (shade (rgb 200 90 80))))))))
 
     (: hub-items (-> Hub (List Item)))
     (define (hub-items hub)
-      (list (item (Box) (cell-point (Hub-cell hub) 0.1) 2.6 1.0 2.6 (rgb 70 120 200))
-            (item (Pyramid) (cell-point (Hub-cell hub) 1.1) 2.6 0.6 2.6 (rgb 220 220 230))))
+      (list (block (Box) (cell-point (Hub-cell hub) 0.1) 2.6 1.0 2.6 (rgb 70 120 200))
+            (block (Pyramid) (cell-point (Hub-cell hub) 1.1) 2.6 0.6 2.6 (rgb 220 220 230))))
 
     (: wire-items (-> World (List Item)))
     (define (wire-items world)
@@ -91,7 +91,7 @@
     (define (crystal-items world)
       (map (lambda (crystal)
              (let ((size (+ 0.3 (* 0.0002 (i64->f32 (Crystal-reserve crystal))))))
-               (item (Pyramid) (cell-point (Crystal-cell crystal) 0.1) size size size (rgb 187 109 244))))
+               (block (Pyramid) (cell-point (Crystal-cell crystal) 0.1) size size size (rgb 187 109 244))))
            (filter (lambda (crystal) (and (explored? world (Crystal-cell crystal)) (> (Crystal-reserve crystal) 0)
                                           (match (nest-at world (Crystal-cell crystal)) ((Some nest) (= (Nest-health nest) 0)) ((None) #t))))
                    (World-crystals world))))
@@ -100,7 +100,7 @@
     (define (nest-items world)
       (map (lambda (nest)
              (let ((size (+ 0.6 (* 0.001 (i64->f32 (Nest-health nest))))))
-               (item (Sphere) (cell-point (Nest-cell nest) 0.0) size size size (rgb 120 30 40))))
+               (block (Sphere) (cell-point (Nest-cell nest) 0.0) size size size (rgb 120 30 40))))
            (filter (lambda (nest) (and (> (Nest-health nest) 0) (explored? world (Nest-cell nest)))) (World-nests world))))
 
     (: structure-items (-> World (List Item)))
@@ -113,7 +113,7 @@
     (: unit-items (-> Game F32 (List Item)))
     (define (unit-items game alpha)
       (let ((world (Game-world game)))
-        (append (map (lambda (enemy) (item (Pyramid) (enemy-point enemy (World-tick world) alpha 0.1) 0.5 0.6 0.5 (rgb 220 50 50)))
+        (append (map (lambda (enemy) (block (Pyramid) (enemy-point enemy (World-tick world) alpha 0.1) 0.5 0.6 0.5 (rgb 220 50 50)))
                      (filter (lambda (enemy) (visible? world (Enemy-cell enemy))) (World-enemies world)))
                 (append (map (lambda (shot) (beam (cell-point (Shot-from shot) 0.7) (cell-point (Shot-to shot) 0.4) 0.08 (rgb 255 230 120))) (World-shots world))
                         (cursor-items game)))))
@@ -121,10 +121,10 @@
     (: cursor-items (-> Game (List Item)))
     (define (cursor-items game)
       (append (match (Game-hover game)
-                ((Some cell) (list (item (Tile) (cell-point cell 0.12) 1.0 0.04 1.0 (match (Game-tool game) ((Place _) (rgb 120 240 120)) ((Select) (rgb 240 240 240))))))
+                ((Some cell) (list (block (Tile) (cell-point cell 0.12) 1.0 0.04 1.0 (match (Game-tool game) ((Place _) (rgb 120 240 120)) ((Select) (rgb 240 240 240))))))
                 ((None) (Nil)))
               (match (Game-selected game)
-                ((Some cell) (list (item (Tile) (cell-point cell 0.14) 0.6 0.04 0.6 (rgb 255 220 90))))
+                ((Some cell) (list (block (Tile) (cell-point cell 0.14) 0.6 0.04 0.6 (rgb 255 220 90))))
                 ((None) (Nil)))))
 
     ;; ---- HUD ----
@@ -195,10 +195,10 @@
     (: view-game (-> Game F32 Frame))
     (define (view-game game alpha)
       (let ((world (Game-world game)))
-        (Frame (game-camera game alpha) (rgb 16 20 28)
-               (list (Batch 1 (i64->i32 (World-explored-version world)) (lambda () (terrain-items world)))
-                     (Batch 2 (i64->i32 (World-structure-version world)) (lambda () (structure-items world)))
-                     (Batch 3 (i64->i32 (+ (* (World-tick world) 128) (f32->i64 (* alpha 100.0)))) (lambda () (unit-items game alpha))))
+        (Frame (game-camera game alpha) (Light (Vec3 0.4 1.0 0.3) 0.6 0.4) (rgb 16 20 28) 1.0
+               (list (Batch 1 (i64->i32 (World-explored-version world)) (Solid) (lambda () (terrain-items world)))
+                     (Batch 2 (i64->i32 (World-structure-version world)) (Solid) (lambda () (structure-items world)))
+                     (Batch 3 (i64->i32 (+ (* (World-tick world) 128) (f32->i64 (* alpha 100.0)))) (Solid) (lambda () (unit-items game alpha))))
                (list (status-panel world) (tool-panel game) (inspect-panel game) (help-panel game)))))
 
     ))

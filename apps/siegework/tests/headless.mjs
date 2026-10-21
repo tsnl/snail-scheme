@@ -10,7 +10,9 @@ function screen() {
   const frames = [];
   let frame = null, widget = null;
   return {frames, imports: {
-    'frame-begin'(...camera) { frame = {camera, batches: [], text: []}; },
+    'frame-begin'() { frame = {batches: [], text: []}; },
+    camera(...camera) { frame.camera = camera; },
+    light() {},
     'batch-begin'(key, version) { frame.batches.push({key, version, items: 0}); return 0; },
     instance() { frame.batches.at(-1).items++; },
     'panel-begin'() {},

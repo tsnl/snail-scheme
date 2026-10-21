@@ -56,21 +56,29 @@ function wasiImports(memory) {
 // ---- Screen effect ----
 
 // Collects one frame from the screen operations, then hands it to the
-// renderer and the HUD.
+// renderer and the HUD. A batch's style is [opacity, x, z, radius], with a
+// negative radius when nothing is hidden.
 function screenImports(renderer, hud) {
   let frame = null, batch = null, panel = null, widget = null;
+  const styles = [(a, b, c, d) => [1, 0, 0, -1], (a, b, c, d) => [a, 0, 0, -1], (a, b, c, d) => [1, b, c, d]];
   return {
-    'frame-begin'(ex, ey, ez, tx, ty, tz, background) {
-      frame = {eye: [ex, ey, ez], target: [tx, ty, tz], background, batches: [], panels: []};
+    'frame-begin'(background, motion) {
+      frame = {background, motion, batches: [], panels: []};
     },
-    'batch-begin'(key, version) {
+    camera(ex, ey, ez, tx, ty, tz, kind, value) {
+      frame.camera = {eye: [ex, ey, ez], target: [tx, ty, tz], kind, value};
+    },
+    light(dx, dy, dz, sun, ambient) {
+      frame.light = {direction: [dx, dy, dz], sun, ambient};
+    },
+    'batch-begin'(key, version, style, a, b, c, d) {
       const cached = renderer.hasBatch(key, version);
-      batch = cached ? null : {key, version, items: []};
-      frame.batches.push(cached ? {key, version} : batch);
+      batch = {key, version, style: styles[style](a, b, c, d), items: cached ? null : []};
+      frame.batches.push(batch);
       return cached ? 1 : 0;
     },
-    instance(mesh, x, y, z, sx, sy, sz, yaw, color) {
-      batch.items.push(mesh, x, y, z, sx, sy, sz, yaw, color);
+    instance(...values) {
+      batch.items.push(values);
     },
     'panel-begin'(anchor) {
       panel = {anchor, widgets: []};
