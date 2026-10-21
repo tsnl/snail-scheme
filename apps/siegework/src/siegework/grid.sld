@@ -13,6 +13,7 @@
    distance-squared
    manhattan
    within?
+   integer-sqrt
    neighbors
    line-cells
    find-path
@@ -61,6 +62,16 @@
     (: within? (-> Cell Cell I64 Bool))
     (define (within? cell center radius)
       (<= (distance-squared cell center) (* radius radius)))
+
+    ;; The largest integer whose square is at most `square`, by Newton's
+    ;; iteration from above.
+    (: integer-sqrt (-> I64 I64))
+    (define (integer-sqrt square)
+      (if (= square 0)
+          0
+          (let loop ((guess square))
+            (let ((next (quotient (+ guess (quotient square guess)) 2)))
+              (if (>= next guess) guess (loop next))))))
 
     ;; East, west, south, north: a fixed order, so ties break the same way.
     (: neighbors (-> Cell (List Cell)))

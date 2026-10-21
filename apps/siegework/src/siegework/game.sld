@@ -5,9 +5,13 @@
    Tool
    Select
    Place
-   Viewpoint
+   View
+   View-heading
    Game
    Game-world
+   Game-epoch
+   Game-view
+   Game-clock
    Game-tool
    Game-hover
    Game-selected
@@ -19,6 +23,7 @@
    game-restore
    update-game
    game-camera
+   heading-angle
    focus-cell
    action-tool
    action-upgrade
@@ -32,6 +37,7 @@
    (lofi base)
    (lofi wire)
    (lofi app)
+   (lofi math)
    (siegework grid)
    (siegework world)
    (siegework colony)
@@ -44,21 +50,33 @@
       (Select)
       (Place ((kind Kind))))
 
-    ;; The camera looks at (x, z) from `distance` away; `vx` and `vz` are its
-    ;; motion per tick, used to draw smoothly between ticks.
-    (struct Viewpoint
+    ;; The camera looks down at 30 degrees on the point (x, z) of the ground,
+    ;; from one of four quarter-turn headings, showing `scale` times 18
+    ;; cells from the bottom of the screen to the top. `vx` and `vz` are its
+    ;; motion per tick, used to draw smoothly between ticks. A turn eases
+    ;; from `turned-from` over the three ticks of the game's clock after
+    ;; `turned-at`.
+    (struct View
       ((x F32)
        (z F32)
-       (distance F32)
        (vx F32)
-       (vz F32)))
+       (vz F32)
+       (scale F32)
+       (heading I64)
+       (turned-from I64)
+       (turned-at I64)))
 
     ;; `orders` is the journal of accepted orders, newest first; `selected`
     ;; is the cell orders apply to; `message` explains the last rejection.
+    ;; `epoch` counts the games played since the page loaded, so a view of a
+    ;; new game never reuses what was drawn for the last; `clock` counts
+    ;; ticks of input, paused or not, for animating the view.
     (struct Game
       ((world World)
        (orders (List Entry))
-       (viewpoint Viewpoint)
+       (epoch I64)
+       (clock I64)
+       (view View)
        (held (List I32))
        (tool Tool)
        (hover (Option Cell))
@@ -80,12 +98,12 @@
 
     (: new-game (-> I32 I32 I32 Game))
     (define (new-game seed width height)
-      (game-around (new-world (i32->i64 seed)) (Nil) #f width height))
+      (game-around (new-world (i32->i64 seed)) (Nil) 0 #f width height))
 
-    (: game-around (-> World (List Entry) Bool I32 I32 Game))
-    (define (game-around world orders paused width height)
+    (: game-around (-> World (List Entry) I64 Bool I32 I32 Game))
+    (define (game-around world orders epoch paused width height)
       (let ((hub (Hub-cell (World-hub world))))
-        (Game world orders (Viewpoint (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 26.0 0.0 0.0) (Nil) (Select) (None) (None) paused
+        (Game world orders epoch 0 (View (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 0.0 0.0 1.0 0 0 -3) (Nil) (Select) (None) (None) paused
               "Place an extractor on the crystal near the hub." width height)))
 
     (: game-save (-> Game Save))
@@ -97,7 +115,7 @@
     (: game-restore (-> Save Game))
     (define (game-restore save)
       (match (replay (Save-seed save) (Save-orders save) (Save-tick save))
-        ((Pair world orders) (game-around world (reverse orders) (Save-paused save) 0 0))))
+        ((Pair world orders) (game-around world (reverse orders) 0 (Save-paused save) 0 0))))
 
     ;; HUD buttons report these actions; 1-3 choose a building tool.
     (: action-tool (-> Kind I32))
@@ -124,33 +142,64 @@
 
     ;; ---- Camera ----
 
+    ;; The heading in quarter turns, eased between the last two.
+    (: heading-angle (-> Game F32 F32))
+    (define (heading-angle game alpha)
+      (let* ((view (Game-view game)) (from (i64->f32 (View-turned-from view))) (to (i64->f32 (View-heading view)))
+             (t (clamp (/ (+ (i64->f32 (- (Game-clock game) (View-turned-at view))) alpha) 3.0) 0.0 1.0)))
+        (* 1.5707964 (+ from (* (- to from) (* t (* t (- 3.0 (* 2.0 t)))))))))
+
+    ;; Equal horizontal offsets give a 2:1 diamond for each resting quarter
+    ;; turn; the height, sqrt((18^2 + 18^2) / 3), gives 30 degrees.
     (: game-camera (-> Game F32 Camera))
     (define (game-camera game alpha)
-      (let* ((view (Game-viewpoint game))
-             (x (+ (Viewpoint-x view) (* alpha (Viewpoint-vx view))))
-             (z (+ (Viewpoint-z view) (* alpha (Viewpoint-vz view))))
-             (distance (Viewpoint-distance view)))
-        (Camera (Vec3 x (* 0.85 distance) (+ z (* 0.55 distance))) (Vec3 x 0.0 z) (Perspective 0.8))))
+      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game alpha)))
+             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (k (View-scale view))
+             (target (Vec3 (+ (View-x view) (* alpha (View-vx view))) 0.0 (+ (View-z view) (* alpha (View-vz view))))))
+        (Camera (Vec3 (+ (Vec3-x target) (* 18.0 (* k (+ c s)))) (* k 14.696938) (+ (Vec3-z target) (* 18.0 (* k (- c s)))))
+                target (Orthographic (* 18.0 k)))))
 
     (: held? (-> Game I32 Bool))
     (define (held? game key)
       (member? key (Game-held game)))
 
-    ;; Panning speed grows with distance, so the map moves at a steady
-    ;; on-screen rate.
+    (: held-axis (-> Game I32 I32 I32 I32 F32))
+    (define (held-axis game more more-key less less-key)
+      (- (if (or (held? game more) (held? game more-key)) 1.0 0.0) (if (or (held? game less) (held? game less-key)) 1.0 0.0)))
+
+    ;; The held keys pan in screen directions: right along the screen's
+    ;; right on the ground, up away from the camera. Speed grows with zoom,
+    ;; so the map moves at a steady rate on screen.
     (: move-camera (-> Game Game))
     (define (move-camera game)
-      (let* ((view (Game-viewpoint game)) (speed (* 0.02 (Viewpoint-distance view)))
-             (dx (- (if (or (held? game key-right) (held? game 100)) speed 0.0) (if (or (held? game key-left) (held? game 97)) speed 0.0)))
-             (dz (- (if (or (held? game key-down) (held? game 115)) speed 0.0) (if (or (held? game key-up) (held? game 119)) speed 0.0)))
+      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game 0.0)))
+             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (speed (* 0.35 (View-scale view)))
+             (right (* speed (held-axis game key-right 100 key-left 97))) (up (* speed (held-axis game key-up 119 key-down 115)))
              (limit (i64->f32 map-size)))
-        (Game-viewpoint-set game (Viewpoint (clamp (+ (Viewpoint-x view) (Viewpoint-vx view)) 0.0 limit)
-                                            (clamp (+ (Viewpoint-z view) (Viewpoint-vz view)) 0.0 limit)
-                                            (Viewpoint-distance view) dx dz))))
+        (Game-view-set game (View (clamp (+ (View-x view) (View-vx view)) 0.0 limit) (clamp (+ (View-z view) (View-vz view)) 0.0 limit)
+                                  (* 0.70710677 (- (* right (- c s)) (* up (+ c s)))) (* 0.70710677 (- (* (negate right) (+ c s)) (* up (- c s))))
+                                  (View-scale view) (View-heading view) (View-turned-from view) (View-turned-at view)))))
 
     (: clamp (-> F32 F32 F32 F32))
     (define (clamp value low high)
       (max low (min high value)))
+
+    ;; Starts a quarter turn from wherever the current one has eased to.
+    (: turn (-> Game I64 Game))
+    (define (turn game quarters)
+      (let ((view (Game-view game)))
+        (Game-view-set game (View-turned-at-set (View-turned-from-set (View-heading-set view (+ (View-heading view) quarters)) (View-heading view))
+                                                (Game-clock game)))))
+
+    (: zoom (-> Game F32 Game))
+    (define (zoom game factor)
+      (let ((view (Game-view game)))
+        (Game-view-set game (View-scale-set view (clamp (* (View-scale view) factor) 0.4 6.0)))))
+
+    (: home (-> Game Game))
+    (define (home game)
+      (let ((hub (Hub-cell (World-hub (Game-world game)))) (view (Game-view game)))
+        (Game-view-set game (View-z-set (View-x-set view (i64->f32 (Cell-x hub))) (i64->f32 (Cell-y hub))))))
 
     ;; The cell under a pixel, if the pointer is over the map.
     (: pick (-> Game I32 I32 (Option Cell)))
@@ -194,7 +243,8 @@
         ((3) (Game-tool-set game (Place (Turret))))
         ((4) (order-at game (lambda (cell) (Upgrade cell))))
         ((5) (Game-paused-set game (not (Game-paused game))))
-        ((6) (new-game (i64->i32 (+ (remainder (* (World-seed (Game-world game)) 48271) 65521) 1)) (Game-width game) (Game-height game)))
+        ((6) (game-around (new-world (+ (remainder (* (World-seed (Game-world game)) 48271) 65521) 1)) (Nil) (+ (Game-epoch game) 1) #f
+                          (Game-width game) (Game-height game)))
         ((7) (order-at game (lambda (cell) (Rush cell))))
         ((8) (order-at game (lambda (cell) (Cancel cell))))
         ((9) (order-at game (lambda (cell) (Scavenge cell))))
@@ -212,6 +262,9 @@
               ((= key 99) (press game action-cancel))
               ((= key 120) (press game action-scavenge))
               ((= key 112) (press game action-pause))
+              ((= key 113) (turn game -1))
+              ((= key 101) (turn game 1))
+              ((= key 104) (home game))
               ((= key key-escape) (Game-selected-set (Game-tool-set game (Select)) (None)))
               (else game))))
 
@@ -220,7 +273,7 @@
     (: update-game (-> Game Input Game))
     (define (update-game game input)
       (match input
-        ((Tick) (let ((game (move-camera game)))
+        ((Tick) (let ((game (move-camera (Game-clock-set game (+ (Game-clock game) 1)))))
                   (if (Game-paused game) game (Game-world-set game (advance (Game-world game))))))
         ((KeyDown key) (key-press game key))
         ((KeyUp key) (Game-held-set game (filter (lambda (k) (not (= k key))) (Game-held game))))
@@ -229,9 +282,7 @@
          (let ((game (Game-hover-set game (pick game x y))))
            (if (= button 0) (click game) (Game-selected-set (Game-tool-set game (Select)) (None)))))
         ((PointerUp x y button) game)
-        ((Wheel delta)
-         (let ((view (Game-viewpoint game)))
-           (Game-viewpoint-set game (Viewpoint-distance-set view (clamp (* (Viewpoint-distance view) (+ 1.0 (* 0.1 (i32->f32 delta)))) 8.0 90.0)))))
+        ((Wheel delta) (zoom game (+ 1.0 (* 0.1 (i32->f32 delta)))))
         ((Resize width height) (Game-height-set (Game-width-set game width) height))
         ((Press action) (press game action))))
 

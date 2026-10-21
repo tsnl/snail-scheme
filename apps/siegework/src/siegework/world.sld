@@ -124,6 +124,11 @@
    Network
    Network-wires
    Network-powered
+   Reveal
+   Reveal-before
+   Reveal-center
+   Reveal-radius
+   Reveal-tick
    World
    World-seed
    World-land
@@ -159,6 +164,7 @@
    World-network
    World-visible
    World-explored
+   World-reveal
    World-structure-version
    World-explored-version
    starting-energy
@@ -181,6 +187,7 @@
    wire-reaches?
    clear-line?
    rewire
+   lit-cells
    visible?
    explored?)
   (import
@@ -423,6 +430,15 @@
       ((wires (List Wire))
        (powered (List Node))))
 
+    ;; The cells explored most recently, for drawing them unveiled: those
+    ;; explored now but not `before`, within `radius` of `center`, since
+    ;; `tick`.
+    (struct Reveal
+      ((before (Vector Bool))
+       (center Cell)
+       (radius I64)
+       (tick I64)))
+
     ;; ---- World ----
 
     ;; The versions change whenever the buildings or the explored cells do,
@@ -450,6 +466,7 @@
        (network Network)
        (visible (Vector Bool))
        (explored (Vector Bool))
+       (reveal Reveal)
        (structure-version I64)
        (explored-version I64)))
 
@@ -457,15 +474,21 @@
     (define starting-energy 160)
 
     ;; Each crystal site holds its full reserve, the nests cover theirs, and
-    ;; each front holds a nest. The colony starts with its hub alone.
+    ;; each front holds a nest. The colony starts with its hub alone, the
+    ;; ground around it already unveiled.
     (: new-world (-> I64 World))
     (define (new-world seed)
+      (let ((world (first-world seed)))
+        (World-reveal-set world (Reveal-tick-set (World-reveal world) -1000))))
+
+    (: first-world (-> I64 World))
+    (define (first-world seed)
       (let ((land (new-land (land-seed seed))) (cells (* map-size map-size)))
         (rewire (World seed land 0 #f (Playing) starting-energy (Hub (Land-hub land) hub-health 1 (None)) (Nil)
                        (append (map site-crystal (Land-sites land)) (map nest-crystal (Land-fronts land)))
                        (map-indexed (lambda (front cell) (Nest front cell nest-health)) (Land-fronts land))
                        (Nil) (Nil) (make-vector cells #f) (Nil) (Nil) (Nil) (Ledger 0 0 0 0) 1 1 (Network (Nil) (Nil))
-                       (make-vector cells #f) (make-vector cells #f) 0 0))))
+                       (make-vector cells #f) (make-vector cells #f) (Reveal (make-vector cells #f) (Land-hub land) 0 0) 0 0))))
 
     (: site-crystal (-> Site Crystal))
     (define (site-crystal site)
@@ -599,9 +622,9 @@
 
     ;; ---- Sight ----
 
-    ;; Every cell within reach of a powered node is visible.
-    (: sight (-> (List Node) (Vector Bool)))
-    (define (sight nodes)
+    ;; Every cell within reach of one of `nodes`.
+    (: lit-cells (-> (List Node) (Vector Bool)))
+    (define (lit-cells nodes)
       (unsafe-total
        (lambda ()
          (let ((seen (make-array (* map-size map-size) #f)))
@@ -634,15 +657,24 @@
     (: rewire (-> World World))
     (define (rewire world)
       (let* ((hub (hub-node world)) (wires (wires world (Cons hub (building-nodes world)))) (powered (power hub wires)))
-        (explore (structures-changed (World-visible-set (World-network-set world (Network wires powered)) (sight powered))))))
+        (explore (structures-changed (World-visible-set (World-network-set world (Network wires powered)) (lit-cells powered))))))
 
     (: explore (-> World World))
     (define (explore world)
-      (let ((explored (World-explored world)) (visible (World-visible world)))
-        (if (every? (lambda (index) (or (vector-ref explored index) (not (vector-ref visible index)))) (iota (vector-length visible)))
+      (let* ((explored (World-explored world)) (visible (World-visible world))
+             (fresh (filter (lambda (index) (and (vector-ref visible index) (not (vector-ref explored index)))) (iota (vector-length visible)))))
+        (if (null? fresh)
             world
             (World-explored-version-set
-             (World-explored-set world (vector-generate (vector-length visible) (lambda (index) (or (vector-ref explored index) (vector-ref visible index)))))
+             (World-reveal-set (World-explored-set world (vector-generate (vector-length visible) (lambda (index) (or (vector-ref explored index) (vector-ref visible index)))))
+                               (reveal-around explored (map index-cell fresh) (World-tick world)))
              (+ (World-explored-version world) 1)))))
+
+    ;; The newly explored cells unveil from their middle outward.
+    (: reveal-around (-> (Vector Bool) (List Cell) I64 Reveal))
+    (define (reveal-around before cells tick)
+      (let* ((count (length cells))
+             (center (Cell (quotient (fold-left + 0 (map Cell-x cells)) count) (quotient (fold-left + 0 (map Cell-y cells)) count))))
+        (Reveal before center (+ 1 (integer-sqrt (fold-left max 0 (map (lambda (cell) (distance-squared cell center)) cells)))) tick)))
 
     ))
