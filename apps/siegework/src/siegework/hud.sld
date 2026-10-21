@@ -32,12 +32,15 @@
     (define (text key words)
       (Label (look key) words))
 
-    ;; A button for `command`, enabled unless `rejection` says why not.
+    ;; A button for `command`, enabled unless `rejection` says why not: one
+    ;; that may work later is marked waiting, one that cannot apply here is
+    ;; muted.
     (: command-button (-> Look String String Command (Option Rejection) Widget))
     (define (command-button look-of label caption command rejection)
       (let ((code (press-code command)))
         (match rejection
-          ((Some why) (Button (Look-help-set look-of (rejection-text why)) label caption (Pair-first code) (Pair-second code) (Disabled) -1.0))
+          ((Some why) (Button (Look-tone-set (Look-help-set look-of (rejection-text why)) (if (later? why) (Warning) (Muted)))
+                              label caption (Pair-first code) (Pair-second code) (Disabled) -1.0))
           ((None) (Button look-of label caption (Pair-first code) (Pair-second code) (Enabled) -1.0)))))
 
     (: plain-button (-> Look String Command Widget))
@@ -99,17 +102,15 @@
     ;; ---- Construction ----
 
     ;; The build menu is the same for every selected cell: a pylon, a
-    ;; turret, an extractor, an upgrade, a rush and closing, each greyed out
-    ;; where it does not apply. A building or the hub adds a panel of its
-    ;; own beneath: cancelling its work, and scavenging it or, at the hub,
-    ;; repair. The last rejection sits below them.
+    ;; turret, an extractor, an upgrade, a rush and closing, then below a
+    ;; divider cancelling work and scavenging, or at the hub repair. Each is
+    ;; greyed out where it does not apply. The last rejection sits beneath.
     (: construction (-> Game (List Panel)))
     (define (construction game)
       (match (Game-selected game)
-        ((Some cell) (Cons (Panel "construction" (At (side game) 0) (build-menu game cell))
-                           (append (care game cell)
-                                   (if (string=? (Game-message game) "") (Nil)
-                                       (list (Panel "message" (At (side game) 0) (list (Label (Look "message" "" "" (Danger) "") (Game-message game)))))))))
+        ((Some cell) (Cons (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (Label (look "divider") "") (care game cell))))
+                           (if (string=? (Game-message game) "") (Nil)
+                               (list (Panel "message" (At (side game) 0) (list (Label (Look "message" "" "" (Danger) "") (Game-message game))))))))
         ((None) (Nil))))
 
     (: build-menu (-> Game Cell (List Widget)))
@@ -169,19 +170,12 @@
             ((Some b) (Building-work b))
             ((None) (None)))))
 
-    ;; Cancelling, greyed out while nothing is being built, then scavenging
-    ;; a building or repairing the hub.
-    (: care (-> Game Cell (List Panel)))
+    ;; Cancelling, greyed out while nothing is being built, then scavenging,
+    ;; or at the hub repair.
+    (: care (-> Game Cell (List Widget)))
     (define (care game cell)
-      (let ((world (Game-world game)))
-        (cond ((hub-cell? (World-hub world) cell) (list (care-panel game (list (cancel-button game cell) (repair-button game)))))
-              (else (match (building-at world cell)
-                      ((Some b) (list (care-panel game (list (cancel-button game cell) (scavenge-button game b)))))
-                      ((None) (Nil)))))))
-
-    (: care-panel (-> Game (List Widget) Panel))
-    (define (care-panel game widgets)
-      (Panel "care" (At (side game) 0) widgets))
+      (list (cancel-button game cell)
+            (if (hub-cell? (World-hub (Game-world game)) cell) (repair-button game) (scavenge-button game cell))))
 
     (: cancel-button (-> Game Cell Widget))
     (define (cancel-button game cell)
@@ -189,10 +183,11 @@
                       (match (cell-work (Game-world game) cell) ((Some w) (string-append "+" (show (work-refund w)))) ((None) ""))
                       (CancelAt cell) (check (Game-world game) (Cancel cell))))
 
-    (: scavenge-button (-> Game Building Widget))
-    (define (scavenge-button game b)
-      (command-button (face "scavenge" "scavenge" "Scavenge: remove it for a fifth of its cost") "X" (string-append "+" (show (quotient (invested b) 5)))
-                      (ScavengeAt (Building-cell b)) (check (Game-world game) (Scavenge (Building-cell b)))))
+    (: scavenge-button (-> Game Cell Widget))
+    (define (scavenge-button game cell)
+      (command-button (face "scavenge" "scavenge" "Scavenge: remove it for a fifth of its cost") "X"
+                      (match (building-at (Game-world game) cell) ((Some b) (string-append "+" (show (quotient (invested b) 5)))) ((None) ""))
+                      (ScavengeAt cell) (check (Game-world game) (Scavenge cell))))
 
     (: repair-button (-> Game Widget))
     (define (repair-button game)

@@ -17,6 +17,7 @@
    Resign
    Rejection
    rejection-text
+   later?
    repair-price
    act
    check
@@ -94,6 +95,20 @@
         ((Idle) "There is no work to change.")
         ((MaximumLevel) "It is fully upgraded.")
         ((FullHealth) "The hub is undamaged.")))
+
+    ;; Whether an order refused for this reason may still succeed on the same
+    ;; cell once energy, work in progress or the network catch up, rather
+    ;; than never applying there.
+    (: later? (-> Rejection Bool))
+    (define (later? rejection)
+      (match rejection
+        ((NotStarted) #t)
+        ((Unseen) #t)
+        ((OutOfReach) #t)
+        ((CannotAfford) #t)
+        ((Unfinished) #t)
+        ((Busy) #t)
+        (_ #f)))
 
     ;; Checks the order, then applies it. Every order needs a game in play,
     ;; and until the first extractor is ordered nothing else may be.
