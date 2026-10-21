@@ -94,7 +94,8 @@
        (scale F32)
        (heading I64)
        (turned-from I64)
-       (turned-at I64)))
+       (turned-at I64))
+      (deriving Serialize Deserialize))
 
     ;; The dialog over the map. The menu and its confirmations pause the
     ;; colony; the results appear when the game is decided.
@@ -144,13 +145,15 @@
 
     ;; A save is the colony's seed, the tick it reached and its journal,
     ;; oldest entry first, so restoring replays the game; and how it was
-    ;; being played: paused, and for which hand.
+    ;; being played: paused, for which hand, and the view, so a reloaded
+    ;; page or module looks where the player was looking.
     (struct Save
       ((seed I64)
        (tick I64)
        (orders (List Entry))
        (paused Bool)
-       (left-handed Bool))
+       (left-handed Bool)
+       (view View))
       (deriving Serialize Deserialize))
 
     (: new-game (-> I32 I32 I32 Game))
@@ -188,16 +191,21 @@
         ((Resigning) #t)
         (_ #f)))
 
+    ;; The clock restarts with the restored game, so a turn in progress is
+    ;; saved as finished.
     (: game-save (-> Game Save))
     (define (game-save game)
-      (let ((world (Game-world game)))
-        (Save (World-seed world) (World-tick world) (reverse (Game-orders game)) (paused? game) (Game-left-handed game))))
+      (let ((world (Game-world game)) (view (Game-view game)))
+        (Save (World-seed world) (World-tick world) (reverse (Game-orders game)) (paused? game) (Game-left-handed game)
+              (View-turned-at-set (View-turned-from-set view (View-heading view)) -300))))
 
     ;; The host reports the screen's size after restoring.
     (: game-restore (-> Save Game))
     (define (game-restore save)
       (match (replay (Save-seed save) (Save-orders save) (Save-tick save))
-        ((Pair world orders) (game-around world (reverse orders) 0 (if (Save-paused save) (Paused) (Closed)) (Save-left-handed save) 0 0))))
+        ((Pair world orders)
+         (Game-view-set (game-around world (reverse orders) 0 (if (Save-paused save) (Paused) (Closed)) (Save-left-handed save) 0 0)
+                        (Save-view save)))))
 
     ;; ---- Camera ----
 
