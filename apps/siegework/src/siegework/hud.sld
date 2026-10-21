@@ -137,7 +137,7 @@
         (Cons (text "title" (ground-title world cell crystal))
               (if (explored? world cell)
                   (append (map (lambda (kind) (build-button game cell kind)) kinds)
-                          (list (toggle-button (face "rush-orders" "rush" "Rush new buildings: twice as fast for five times the price") "R" "×5" (ToggleRush) (Game-rush game))))
+                          (list (toggle-button (face "rush-orders" "rush" "Rush new buildings: ready at once for five times the price") "R" "×5" (ToggleRush) (Game-rush game))))
                   (Nil)))))
 
     (: ground-title (-> World Cell (Option Crystal) String))
@@ -182,8 +182,7 @@
     (: work-buttons (-> Game Cell (Option Work) (List Widget)))
     (define (work-buttons game cell work)
       (match work
-        ((Some w) (list (command-button (Look "rush" "rush" "Rush: twice as fast for the rest of the work" (Plain) (if (Work-rushed w) "»" "")) "R"
-                                        (if (Work-rushed w) "rushed" (show (rush-price w))) (RushAt cell) (check (Game-world game) (Rush cell)))
+        ((Some w) (list (command-button (face "rush" "rush" "Rush: finish the work now") "R" (show (rush-price w)) (RushAt cell) (check (Game-world game) (Rush cell)))
                         (command-button (face "cancel" "cancel" "Cancel the work and refund it") "C" (string-append "+" (show (work-refund w)))
                                         (CancelAt cell) (None))))
         ((None) (Nil))))
@@ -201,8 +200,8 @@
 
     ;; ---- Queue and alerts ----
 
-    ;; The works in order: a ring for each holding a slot, » when rushed,
-    ;; ! and dimmed when unpowered. Tapping one goes to it.
+    ;; The works in order: a ring for each holding a slot, and ! and dimmed
+    ;; when unpowered. Tapping one goes to it.
     (: queue (-> Game (List Panel)))
     (define (queue game)
       (let* ((world (Game-world game)) (all (tasks world)) (shown (take all 6)))
@@ -216,7 +215,7 @@
     (define (queue-chip world index task)
       (let* ((work (Task-work task)) (cell (task-cell world task)) (code (press-code (Locate cell))))
         (Button (Look (string-append "queue-" (show index)) (task-icon task) (task-help task)
-                      (if (Task-supplied task) (Plain) (Muted)) (cond ((not (Task-supplied task)) "!") ((Work-rushed work) "»") (else "")))
+                      (if (Task-supplied task) (Plain) (Muted)) (if (Task-supplied task) "" "!"))
                 "" "" (Pair-first code) (Pair-second code) (Enabled)
                 (if (Task-active task) (/ (i64->f32 (Work-progress work)) (i64->f32 (Work-duration work))) -1.0))))
 
