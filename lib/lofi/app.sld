@@ -54,8 +54,12 @@
    Item-position
    Item-position-set
    Item-scale
+   Item-scale-set
    Item-yaw
    Item-yaw-set
+   Item-color
+   Item-color-set
+   Item-glow
    Item-glow-set
    Item-from
    Item-from-set

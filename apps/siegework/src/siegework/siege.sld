@@ -437,25 +437,18 @@
       (let ((length (integer-sqrt (* 1600 (distance-squared cell (Building-cell turret))))))
         (quotient (* (+ 6 (quotient (* 18 (- 240 length)) 240)) (+ (Building-level turret) 1)) 2)))
 
-    (: integer-sqrt (-> I64 I64))
-    (define (integer-sqrt square)
-      (if (= square 0)
-          0
-          (let loop ((guess square))
-            (let ((next (quotient (+ guess (quotient square guess)) 2)))
-              (if (>= next guess) guess (loop next))))))
-
     (: hit-enemy (-> World Building Enemy World))
     (define (hit-enemy world turret enemy)
       (let ((wounded (Enemy-health-set enemy (- (Enemy-health enemy) (damage turret (Enemy-cell enemy))))))
         (shoot (put-enemy world (if (> (Enemy-health wounded) 0) (Enemy-target-set wounded (Some (Building-id turret))) wounded))
                turret (Enemy-cell enemy))))
 
+    ;; A destroyed nest changes the structures: its crystal shows instead.
     (: hit-nest (-> World Building Nest World))
     (define (hit-nest world turret nest)
-      (shoot (World-nests-set world (map (lambda (n) (if (= (Nest-front n) (Nest-front nest)) (Nest-health-set n (max 0 (- (Nest-health n) (damage turret (Nest-cell n))))) n))
-                                         (World-nests world)))
-             turret (Nest-cell nest)))
+      (let* ((health (max 0 (- (Nest-health nest) (damage turret (Nest-cell nest)))))
+             (world (World-nests-set world (map (lambda (n) (if (= (Nest-front n) (Nest-front nest)) (Nest-health-set n health) n)) (World-nests world)))))
+        (shoot (if (= health 0) (structures-changed world) world) turret (Nest-cell nest))))
 
     (: shoot (-> World Building Cell World))
     (define (shoot world turret cell)
