@@ -715,7 +715,7 @@
           ((Some (Replacer case index _)) (list (replace-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (Expr-type expr)))
           ((Some (Operation effect _)) (list (wat* "call" (Cons (id (performer m effect name)) (emit-args fn args)))))
-          ((Some (Foreign import scheme)) (foreign-call fn import (Scheme-type scheme) args))
+          ((Some (Foreign import scheme)) (host-call m import (Scheme-type scheme) (emit-args fn args) (Expr-loc expr)))
           (_ (panic (string-append "internal error: cannot call " name))))))
 
     (: first-arg (-> (List Expr) Expr))
@@ -785,12 +785,38 @@
                          (map (lambda (i) (if (= i index) (emit1 fn replacement) (wat "struct.get" (id type-id) (int i) (wat "local.get" (id temp)))))
                               (iota (length (Case-fields case)))))))))
 
-    (: foreign-call (-> Fn Import Type (List Expr) (List Wat) ! mut))
-    (define (foreign-call fn import type args)
-      (let* ((signature (function-signature (Fn-module fn) type))
-             (function-id (import! (Fn-module fn) import (Pair-first signature) (if (unit-type? type) (None) (Some (Pair-second signature)))))
-             (call (wat* "call" (Cons (id function-id) (emit-args fn args)))))
-        (if (unit-type? type) (list call (wat "i32.const" (int 0))) (list call))))
+    ;; ---- Host calls ----
+
+    ;; The runtime reads only scalars. A String argument, which must come
+    ;; last, is copied into the runtime's staging buffer just before the call,
+    ;; and the host receives its length. A Unit result is no result.
+    (: host-call (-> Module Import Type (List Wat) Loc (List Wat) ! mut))
+    (define (host-call m import type args loc)
+      (match type
+        ((TFun params result _)
+         (let* ((function-id (import! m import (host-params m params loc) (if (unit-type? type) (None) (Some (rep m result)))))
+                (call (wat* "call" (Cons (id function-id) (host-args m params args)))))
+           (if (unit-type? type) (list call (wat "i32.const" (int 0))) (list call))))
+        (_ (panic "internal error: a host function needs a function type"))))
+
+    (: string-type? (-> Type Bool))
+    (define (string-type? type)
+      (match type
+        ((TCon "String" (Nil)) #t)
+        (_ #f)))
+
+    (: host-params (-> Module (List Type) Loc (List Rep) ! mut))
+    (define (host-params m params loc)
+      (map-indexed (lambda (index param)
+                     (cond ((not (string-type? param)) (rep m param))
+                           ((= index (- (length params) 1)) (Scalar "i32"))
+                           (else (compile-error loc "a host function can take a String only as its last argument"))))
+                   params))
+
+    (: host-args (-> Module (List Type) (List Wat) (List Wat) ! mut))
+    (define (host-args m params args)
+      (map (lambda (pair) (if (string-type? (Pair-first pair)) (wat "call" (id (stage-helper m)) (Pair-second pair)) (Pair-second pair)))
+           (zip params args)))
 
     (: unit-type? (-> Type Bool))
     (define (unit-type? function-type)
@@ -1042,11 +1068,7 @@
     (define (host-default m info operation names)
       (let ((type (operation-type m operation)))
         (match (assoc-ref (Effect-host info) operation)
-          ((Some import)
-           (let* ((signature (function-signature m type))
-                  (function-id (import! m import (Pair-first signature) (if (unit-type? type) (None) (Some (Pair-second signature)))))
-                  (call (wat* "call" (Cons (id function-id) (map (lambda (name) (wat "local.get" (id name))) names)))))
-             (if (unit-type? type) (list call (wat "i32.const" (int 0))) (list call))))
+          ((Some import) (host-call m import type (map (lambda (name) (wat "local.get" (id name))) names) no-loc))
           ((None)
            (list (wat "call" (id (panic-helper m)) (string-literal m (string-append "unhandled effect operation " (short-name operation))))
                  (wat "unreachable"))))))
@@ -1250,6 +1272,25 @@
              (i32.lt_u (array.len (local.get $a)) (array.len (local.get $b)))))"
                         (list (Pair "array" (array-type m (Scalar "i32"))))))
 
+    ;; Copies a string's scalars into the runtime's staging buffer, four bytes
+    ;; each, and returns how many there are.
+    (: stage-helper (-> Module String ! mut))
+    (define (stage-helper m)
+      (let ((stage (import! m (Import "snail.library" "snail:io/stage") (list (Scalar "i32")) (Some (Scalar "i32")))))
+        (template-helper! m "stage" ""
+                          "(func {id} (param $text (ref {array})) (result i32)
+    (local $address i32) (local $index i32)
+    (local.set $address (call {stage} (array.len (local.get $text))))
+    (block $done
+      (loop $next
+        (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $text))))
+        (i32.store (i32.add (local.get $address) (i32.shl (local.get $index) (i32.const 2)))
+                   (array.get {array} (local.get $text) (local.get $index)))
+        (local.set $index (i32.add (local.get $index) (i32.const 1)))
+        (br $next)))
+    (array.len (local.get $text)))"
+                          (list (Pair "array" (array-type m (Scalar "i32"))) (Pair "stage" stage)))))
+
     ;; Sends the message to the runtime one scalar at a time, then stops.
     (: panic-helper (-> Module String ! mut))
     (define (panic-helper m)
@@ -1296,13 +1337,16 @@
 
     ;; The fields in the order Wasm requires: one recursion group of types,
     ;; then imports, globals, declared function references, exports and code.
+    ;; Every module imports the runtime's linear memory, where staged text
+    ;; goes; once linked, the two share it.
     (: module-wat (-> Module Wat ! mut))
     (define (module-wat m)
       (let ((types (reverse (ref-get (Module-types m)))) (declared (reverse (ref-get (Module-declared m)))))
         (wat* "module"
               (concatenate
                (list (if (null? types) (Nil) (list (wat* "rec" types)))
-                     (reverse (ref-get (Module-imports m)))
+                     (Cons (wat "import" (wat-string "snail.library") (wat-string "memory") (wat "memory" (int 0)))
+                           (reverse (ref-get (Module-imports m))))
                      (reverse (ref-get (Module-globals m)))
                      (if (null? declared) (Nil) (list (wat* "elem" (Cons (Word "declare") (Cons (Word "func") (map id declared))))))
                      (reverse (ref-get (Module-exports m)))
