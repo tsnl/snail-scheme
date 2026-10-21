@@ -29,7 +29,7 @@
       ((program Program)
        (counter (Ref I64))
        (locals (Table Type))
-       (schemes (Table Scheme))
+       (schemes (Ref (Table Scheme)))
        (givens (Ref (List Constraint)))
        (pending (Ref (List Wanted)))
        (pending-count (Ref I64))
@@ -54,7 +54,7 @@
        (items (List Item))
        (schemes (Table Scheme))))
 
-    (: definition-scheme (-> Typed String Scheme ! mut))
+    (: definition-scheme (-> Typed String Scheme))
     (define (definition-scheme typed name)
       (match (table-ref (Typed-schemes typed) name)
         ((Some scheme) scheme)
@@ -249,12 +249,26 @@
 
     (: global-scheme (-> Checker String (Option Scheme) ! mut))
     (define (global-scheme ck name)
-      (match (table-ref (Checker-schemes ck) name)
+      (match (table-ref (ref-get (Checker-schemes ck)) name)
         ((Some scheme) (Some scheme))
         ((None)
          (match (program-value (program-of ck) name)
            ((Some value) (value-scheme value))
            ((None) (None))))))
+
+    ;; Names are unique, so a local's type is in scope exactly where its
+    ;; binding form passes the extended checker.
+    (: bind-local (-> Checker String Type Checker))
+    (define (bind-local ck name type)
+      (Checker-locals-set ck (table-set (Checker-locals ck) name type)))
+
+    (: bind-locals (-> Checker (List String) (List Type) Checker))
+    (define (bind-locals ck names types)
+      (fold-left (lambda (ck pair) (bind-local ck (Pair-first pair) (Pair-second pair))) ck (zip names types)))
+
+    (: set-scheme! (-> Checker String Scheme Unit ! mut))
+    (define (set-scheme! ck name scheme)
+      (ref-set! (Checker-schemes ck) (table-set (ref-get (Checker-schemes ck)) name scheme)))
 
     (: variable-type (-> Checker String Loc Instantiated ! mut))
     (define (variable-type ck name loc)
@@ -310,13 +324,9 @@
 
     (: infer-lambda (-> Checker (List String) Expr Loc Expr ! mut))
     (define (infer-lambda ck params body loc)
-      (let ((types (map (lambda (param)
-                          (let ((type (fresh-meta ck)))
-                            (table-set! (Checker-locals ck) param type)
-                            type))
-                        params))
+      (let ((types (map (lambda (param) (fresh-meta ck)) params))
             (body-row (fresh-meta ck)))
-        (let ((body (infer ck body body-row)))
+        (let ((body (infer (bind-locals ck params types) body body-row)))
           (Expr (Lambda params body) (TFun types (Expr-type body) body-row) loc))))
 
     ;; Checks an expression against a known type: a lambda's parameters and
@@ -328,11 +338,9 @@
          (match (prune type)
            ((TFun param-types result body-row)
             (if (= (length params) (length param-types))
-                (begin
-                  (for-each (lambda (pair) (table-set! (Checker-locals ck) (Pair-first pair) (Pair-second pair))) (zip params param-types))
-                  (let ((body (infer ck body body-row)))
-                    (unify ck result (Expr-type body) (Expr-loc body))
-                    (Expr (Lambda params body) type (Expr-loc expr))))
+                (let ((body (infer (bind-locals ck params param-types) body body-row)))
+                  (unify ck result (Expr-type body) (Expr-loc body))
+                  (Expr (Lambda params body) type (Expr-loc expr)))
                 (infer ck expr row)))
            (_ (infer ck expr row))))
         (_ (infer ck expr row))))
@@ -364,24 +372,21 @@
     ;; A function's own name is visible in its body, with a monomorphic type.
     (: infer-let (-> Checker String Expr Expr Type Loc Expr ! mut))
     (define (infer-let ck name value body row loc)
-      (let ((type (fresh-meta ck)))
-        (when (lambda-expr? value)
-          (table-set! (Checker-locals ck) name type))
-        (let ((value (infer ck value row)))
-          (unify ck type (Expr-type value) (Expr-loc value))
-          (table-set! (Checker-locals ck) name type)
-          (let ((body (infer ck body row)))
-            (Expr (Let name value body) (Expr-type body) loc)))))
+      (let* ((type (fresh-meta ck)) (inner (bind-local ck name type))
+             (value (infer (if (lambda-expr? value) inner ck) value row)))
+        (unify ck type (Expr-type value) (Expr-loc value))
+        (let ((body (infer inner body row)))
+          (Expr (Let name value body) (Expr-type body) loc))))
 
     (: infer-match (-> Checker Expr (List Clause) Type Loc Expr ! mut))
     (define (infer-match ck scrutinee clauses row loc)
       (let* ((scrutinee (infer ck scrutinee row)) (result (fresh-meta ck))
              (clauses (map (lambda (clause)
                              (let* ((body-loc (Expr-loc (Clause-body clause)))
-                                    (pattern (check-pattern ck (Clause-pattern clause) (Expr-type scrutinee) body-loc))
-                                    (body (infer ck (Clause-body clause) row)))
+                                    (checked (check-pattern ck (Clause-pattern clause) (Expr-type scrutinee) body-loc))
+                                    (body (infer (Pair-second checked) (Clause-body clause) row)))
                                (unify ck result (Expr-type body) body-loc)
-                               (Clause pattern body)))
+                               (Clause (Pair-first checked) body)))
                            clauses)))
         (when (null? clauses) (compile-error loc "a match needs at least one clause"))
         (check-coverage ck (map Clause-pattern clauses) loc)
@@ -417,12 +422,14 @@
 
     ;; ---- Patterns ----
 
-    (: check-pattern (-> Checker Pattern Type Loc Pattern ! mut))
+    ;; The typed pattern, and the checker its body sees: extended by the
+    ;; pattern's variables.
+    (: check-pattern (-> Checker Pattern Type Loc (Pair Pattern Checker) ! mut))
     (define (check-pattern ck pattern type loc)
       (match pattern
-        ((PWild _) (PWild type))
-        ((PVar name _) (table-set! (Checker-locals ck) name type) (PVar name type))
-        ((PLit value _) (unify ck type (literal-type ck value loc) loc) (PLit value type))
+        ((PWild _) (Pair (PWild type) ck))
+        ((PVar name _) (Pair (PVar name type) (bind-local ck name type)))
+        ((PLit value _) (begin (unify ck type (literal-type ck value loc) loc) (Pair (PLit value type) ck)))
         ((PCon constructor args _)
          (match (program-value (program-of ck) constructor)
            ((Some (Constructor case scheme))
@@ -431,8 +438,11 @@
                (unless (= (length fields) (length args))
                  (compile-error loc (string-append (short-name constructor) " has " (i64->string (length fields)) " fields")))
                (unify ck type result loc)
-               (PCon constructor (map (lambda (pair) (check-pattern ck (Pair-first pair) (Pair-second pair) loc)) (zip args fields))
-                     type))
+               (let ((checked (fold-left (lambda (done pair)
+                                           (let ((field (check-pattern (Pair-second done) (Pair-first pair) (Pair-second pair) loc)))
+                                             (Pair (Cons (Pair-first field) (Pair-first done)) (Pair-second field))))
+                                         (Pair (Nil) ck) (zip args fields))))
+                 (Pair (PCon constructor (reverse (Pair-first checked)) type) (Pair-second checked))))
               (_ (panic "internal error: a constructor is a function"))))
            (_ (compile-error loc (string-append "not a constructor: " (short-name constructor))))))))
 
@@ -441,7 +451,7 @@
     ;; Maranget's usefulness test. A clause is redundant if it is not useful
     ;; after the clauses before it; a match is exhaustive if a wildcard is not
     ;; useful after all of them.
-    (: check-coverage (-> Checker (List Pattern) Loc Unit ! mut))
+    (: check-coverage (-> Checker (List Pattern) Loc Unit))
     (define (check-coverage ck patterns loc)
       (let loop ((rows (Nil)) (patterns patterns))
         (match patterns
@@ -521,7 +531,7 @@
                 ((Nil) (Nil))))
             rows)))
 
-    (: useful? (-> Checker (List (List Pattern)) (List Pattern) Bool ! mut))
+    (: useful? (-> Checker (List (List Pattern)) (List Pattern) Bool))
     (define (useful? ck rows vector)
       (match vector
         ((Nil) (null? rows))
@@ -535,7 +545,7 @@
               ((None) (useful? ck (default-rows rows) rest))))))))
 
     ;; All heads of the matched type, if `seen` includes every one of them.
-    (: complete-signature (-> Checker (List Head) (Option (List Head)) ! mut))
+    (: complete-signature (-> Checker (List Head) (Option (List Head))))
     (define (complete-signature ck seen)
       (let ((all (match seen
                    ((Cons (HLit (DBool _)) _) (list (HLit (DBool #t)) (HLit (DBool #f))))
@@ -545,7 +555,7 @@
             (Some all)
             (None))))
 
-    (: constructor-heads (-> Checker String (List Head) ! mut))
+    (: constructor-heads (-> Checker String (List Head)))
     (define (constructor-heads ck constructor)
       (match (program-value (program-of ck) constructor)
         ((Some (Constructor case _))
@@ -777,7 +787,7 @@
     (: check-group (-> Checker (List Item) (List Item) ! mut))
     (define (check-group ck definitions)
       (let ((before (ref-get (Checker-pending-count ck))))
-        (for-each (lambda (definition) (table-set! (Checker-schemes ck) (Define-name definition) (mono-scheme (fresh-meta ck))))
+        (for-each (lambda (definition) (set-scheme! ck (Define-name definition) (mono-scheme (fresh-meta ck))))
                   definitions)
         (let ((results (map (lambda (definition) (infer-definition ck definition)) definitions)))
           (for-each (lambda (result) (check-host-effects ck (Pair-second result) (Expr-loc (Pair-first result)))) results)
@@ -795,7 +805,7 @@
 
     (: scheme-type (-> Checker String Type ! mut))
     (define (scheme-type ck name)
-      (match (table-ref (Checker-schemes ck) name)
+      (match (table-ref (ref-get (Checker-schemes ck)) name)
         ((Some scheme) (Scheme-type scheme))
         ((None) (panic (string-append "internal error: no scheme for " name)))))
 
@@ -813,7 +823,7 @@
         (for-each (lambda (pair) (ref-set! (TVar-cell (Pair-first pair)) (Some (TRigid (Pair-second pair))))) (zip metas names))
         (for-each (lambda (definition)
                     (let ((name (Define-name definition)))
-                      (table-set! (Checker-schemes ck) name (Scheme names (Nil) (resolve-type (scheme-type ck name))))))
+                      (set-scheme! ck name (Scheme names (Nil) (resolve-type (scheme-type ck name))))))
                   definitions)))
 
     (: meta-id (-> Type I64))
@@ -893,7 +903,7 @@
     ;; every constraint is solved and every type zonked.
     (: check-program (-> Program Typed ! mut))
     (define (check-program program)
-      (let* ((ck (Checker program (ref 0) (make-table) (make-table) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil))))
+      (let* ((ck (Checker program (ref 0) empty-table (ref empty-table) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil))))
              (items (program-items program)) (inferred (check-inferred ck items))
              (typed (map (lambda (item) (check-item ck inferred item)) items)))
         (solve-pending! ck)
@@ -908,15 +918,14 @@
     ;; dependency order, and returns them by name.
     (: check-inferred (-> Checker (List Item) (Table Item) ! mut))
     (define (check-inferred ck items)
-      (let ((results (make-table)))
-        (for-each (lambda (group)
-                    (for-each (lambda (result) (table-set! results (Define-name result) result)) (check-group ck group)))
-                  (definition-groups (filter (lambda (item)
-                                               (match item
-                                                 ((Define name _) (match (annotated-scheme (program-of ck) name) ((None) #t) ((Some _) #f)))
-                                                 (_ #f)))
-                                             items)))
-        results))
+      (fold-left (lambda (results group)
+                   (fold-left (lambda (results result) (table-set results (Define-name result) result)) results (check-group ck group)))
+                 empty-table
+                 (definition-groups (filter (lambda (item)
+                                              (match item
+                                                ((Define name _) (match (annotated-scheme (program-of ck) name) ((None) #t) ((Some _) #f)))
+                                                (_ #f)))
+                                            items))))
 
     (: check-item (-> Checker (Table Item) Item Item ! mut))
     (define (check-item ck results item)
@@ -943,23 +952,22 @@
     (: final-schemes (-> Checker (List Item) (Table Scheme) ! mut))
     (define (final-schemes ck items)
       (for-each (lambda (name)
-                  (match (table-ref (Checker-schemes ck) name)
+                  (match (table-ref (ref-get (Checker-schemes ck)) name)
                     ((Some scheme)
-                     (table-set! (Checker-schemes ck) name
-                                 (Scheme (Scheme-vars scheme) (Scheme-constraints scheme) (zonk (Scheme-type scheme)))))
+                     (set-scheme! ck name (Scheme (Scheme-vars scheme) (Scheme-constraints scheme) (zonk (Scheme-type scheme)))))
                     ((None) (unit))))
                 (ref-get (Checker-open ck)))
       (for-each (lambda (item)
                   (match item
                     ((Define name _)
                      (match (annotated-scheme (program-of ck) name)
-                       ((Some scheme) (table-set! (Checker-schemes ck) name scheme))
+                       ((Some scheme) (set-scheme! ck name scheme))
                        ((None) (unit))))
                     (_ (unit))))
                 items)
-      (Checker-schemes ck))
+      (ref-get (Checker-schemes ck)))
 
-    (: annotated-scheme (-> Program String (Option Scheme) ! mut))
+    (: annotated-scheme (-> Program String (Option Scheme)))
     (define (annotated-scheme program name)
       (match (program-value program name)
         ((Some (Defined scheme)) scheme)
@@ -968,70 +976,87 @@
     ;; ---- Dependency order ----
 
     ;; Tarjan's algorithm returns strongly connected components with each
-    ;; component after the components it depends on.
+    ;; component after the components it depends on. The search state is a
+    ;; value, and each step returns the next one.
     (struct Tarjan
       ((by-name (Table Item))
        (index (Table I64))
        (low (Table I64))
-       (stack (Ref (List String)))
+       (stack (List String))
        (on-stack (Table Bool))
-       (counter (Ref I64))
-       (groups (Ref (List (List Item))))))
+       (counter I64)
+       (groups (List (List Item)))))
 
-    (: definition-groups (-> (List Item) (List (List Item)) ! mut))
+    (: definition-groups (-> (List Item) (List (List Item))))
     (define (definition-groups definitions)
-      (let ((tarjan (Tarjan (make-table) (make-table) (make-table) (ref (Nil)) (make-table) (ref 0) (ref (Nil)))))
-        (for-each (lambda (definition) (table-set! (Tarjan-by-name tarjan) (Define-name definition) definition)) definitions)
-        (for-each (lambda (definition)
-                    (unless (table-contains? (Tarjan-index tarjan) (Define-name definition))
-                      (visit! tarjan (Define-name definition))))
-                  definitions)
-        (reverse (ref-get (Tarjan-groups tarjan)))))
+      (let* ((by-name (fold-left (lambda (table definition) (table-set table (Define-name definition) definition)) empty-table definitions))
+             (start (Tarjan by-name empty-table empty-table (Nil) empty-table 0 (Nil)))
+             (done (fold-left (lambda (tarjan definition)
+                                (if (table-contains? (Tarjan-index tarjan) (Define-name definition))
+                                    tarjan
+                                    (visit tarjan (Define-name definition))))
+                              start definitions)))
+        (reverse (Tarjan-groups done))))
 
-    (: table-number (-> (Table I64) String I64 ! mut))
+    (: table-number (-> (Table I64) String I64))
     (define (table-number table key)
       (match (table-ref table key)
         ((Some number) number)
         ((None) 0)))
 
-    (: visit! (-> Tarjan String Unit ! mut))
-    (define (visit! tarjan name)
-      (let ((index (Tarjan-index tarjan)) (low (Tarjan-low tarjan)) (number (ref-get (Tarjan-counter tarjan))))
-        (table-set! index name number)
-        (table-set! low name number)
-        (ref-set! (Tarjan-counter tarjan) (+ number 1))
-        (ref-set! (Tarjan-stack tarjan) (Cons name (ref-get (Tarjan-stack tarjan))))
-        (table-set! (Tarjan-on-stack tarjan) name #t)
-        (for-each (lambda (next)
-                    (cond ((not (table-contains? index next))
-                           (visit! tarjan next)
-                           (table-set! low name (min (table-number low name) (table-number low next))))
-                          ((match (table-ref (Tarjan-on-stack tarjan) next) ((Some on) on) ((None) #f))
-                           (table-set! low name (min (table-number low name) (table-number index next))))
-                          (else (unit))))
-                  (filter (lambda (reference) (table-contains? (Tarjan-by-name tarjan) reference))
-                          (match (table-ref (Tarjan-by-name tarjan) name)
-                            ((Some (Define _ value)) (expr-references value))
-                            (_ (Nil)))))
-        (when (= (table-number low name) (table-number index name))
-          (pop-group! tarjan name))))
+    (: visit (-> Tarjan String Tarjan))
+    (define (visit tarjan name)
+      (let* ((number (Tarjan-counter tarjan))
+             (entered (Tarjan (Tarjan-by-name tarjan)
+                              (table-set (Tarjan-index tarjan) name number)
+                              (table-set (Tarjan-low tarjan) name number)
+                              (Cons name (Tarjan-stack tarjan))
+                              (table-set (Tarjan-on-stack tarjan) name #t)
+                              (+ number 1)
+                              (Tarjan-groups tarjan)))
+             (explored (fold-left (lambda (tarjan next) (follow tarjan name next)) entered (dependencies tarjan name))))
+        (if (= (table-number (Tarjan-low explored) name) (table-number (Tarjan-index explored) name))
+            (pop-group explored name)
+            explored)))
 
-    (: pop-group! (-> Tarjan String Unit ! mut))
-    (define (pop-group! tarjan name)
-      (let loop ((group (Nil)))
-        (match (ref-get (Tarjan-stack tarjan))
+    ;; Lowers `name`'s link through its edge to `next`, visiting `next`
+    ;; first if the search has not reached it.
+    (: follow (-> Tarjan String String Tarjan))
+    (define (follow tarjan name next)
+      (cond ((not (table-contains? (Tarjan-index tarjan) next))
+             (let ((visited (visit tarjan next)))
+               (lower visited name (table-number (Tarjan-low visited) next))))
+            ((match (table-ref (Tarjan-on-stack tarjan) next) ((Some on) on) ((None) #f))
+             (lower tarjan name (table-number (Tarjan-index tarjan) next)))
+            (else tarjan)))
+
+    (: lower (-> Tarjan String I64 Tarjan))
+    (define (lower tarjan name number)
+      (Tarjan-low-set tarjan (table-set (Tarjan-low tarjan) name (min (table-number (Tarjan-low tarjan) name) number))))
+
+    (: dependencies (-> Tarjan String (List String)))
+    (define (dependencies tarjan name)
+      (filter (lambda (reference) (table-contains? (Tarjan-by-name tarjan) reference))
+              (match (table-ref (Tarjan-by-name tarjan) name)
+                ((Some (Define _ value)) (expr-references value))
+                (_ (Nil)))))
+
+    (: pop-group (-> Tarjan String Tarjan))
+    (define (pop-group tarjan name)
+      (let loop ((tarjan tarjan) (group (Nil)))
+        (match (Tarjan-stack tarjan)
           ((Cons top rest)
-           (ref-set! (Tarjan-stack tarjan) rest)
-           (table-set! (Tarjan-on-stack tarjan) top #f)
-           (if (string=? top name)
-               (ref-set! (Tarjan-groups tarjan)
-                         (Cons (map (lambda (member)
-                                      (match (table-ref (Tarjan-by-name tarjan) member)
-                                        ((Some item) item)
-                                        ((None) (panic "internal error: lost definition"))))
-                                    (Cons top group))
-                               (ref-get (Tarjan-groups tarjan))))
-               (loop (Cons top group))))
+           (let ((popped (Tarjan-on-stack-set (Tarjan-stack-set tarjan rest) (table-set (Tarjan-on-stack tarjan) top #f))))
+             (if (string=? top name)
+                 (Tarjan-groups-set popped (Cons (map (lambda (member) (named-definition popped member)) (Cons top group))
+                                                 (Tarjan-groups popped)))
+                 (loop popped (Cons top group)))))
           ((Nil) (panic "internal error: empty Tarjan stack")))))
+
+    (: named-definition (-> Tarjan String Item))
+    (define (named-definition tarjan name)
+      (match (table-ref (Tarjan-by-name tarjan) name)
+        ((Some item) item)
+        ((None) (panic "internal error: lost definition"))))
 
     ))
