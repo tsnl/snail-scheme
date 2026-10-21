@@ -52,11 +52,13 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 /* Construction: four buttons whose captions need room beneath them. */
 .panel[data-key="construction"] { gap: 16px; padding-bottom: 16px; }
 .label[data-key="divider"] { width: 60%; height: 0; padding: 0; margin: -4px 0; border-top: 2px solid var(--edge); border-radius: 0; }
-.panel[data-key="message"] { max-width: 120px; border-radius: 14px; }
+/* A toast under the nests: a notice that takes no input. */
+.panel[data-key="message"] { max-width: 220px; border-radius: 14px; padding: 8px 14px; border-color: #e3a595; }
 /* The opening banner: the title, what to do before the game begins, and
    a link to the guide. */
 .panel[data-key="opening"] { max-width: none; border-radius: 22px; padding: 14px 36px 18px; gap: 6px; }
-.label[data-key="opening-title"] { color: var(--accent); font-size: 92px; font-weight: 800; letter-spacing: 2px; line-height: 1; }
+.label[data-key="opening-title"] { color: var(--accent); font-size: min(184px, 11vw); font-weight: 800; letter-spacing: 2px; line-height: 1;
+  text-transform: uppercase; }
 .label[data-key="opening"] { font-size: 22px; font-weight: 700; }
 .link[data-key="how-to-play"] { margin-top: 6px; padding: 6px 16px; border-radius: 16px; color: #fff9e9; background: var(--accent);
   font-weight: 700; text-decoration: none; }
@@ -138,6 +140,6 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 }
 
 @media (max-width: 760px), (max-height: 640px) {
-  .label[data-key="opening-title"] { font-size: 56px; }
+  .label[data-key="opening-title"] { font-size: min(112px, 11vw); }
   .label[data-key="opening"] { font-size: 16px; }
 }

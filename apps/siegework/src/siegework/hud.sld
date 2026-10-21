@@ -2,8 +2,9 @@
 ;; edge column holds the readouts and, while a cell is selected, the build
 ;; menu; the column beside it holds the menu and turning buttons, up to two
 ;; attack alerts and the build queue. The nests and the clock sit in the
-;; opposite corner, a title banner across the top says how to begin, and
-;; dialogs cover the menu, its confirmations and the results.
+;; opposite corner, with notices that take no input beneath them as toasts;
+;; a title banner across the top says how to begin, and dialogs cover the
+;; menu, its confirmations and the results.
 ;;
 ;; Only related controls share a panel. Every button names the command it
 ;; gives; one the world would reject is greyed out and explains why in its
@@ -100,13 +101,11 @@
     ;; The build menu is the same for every selected cell: a pylon, a
     ;; turret, an extractor, an upgrade, a rush and closing, then below a
     ;; divider cancelling work and scavenging, or at the hub repair. Each is
-    ;; greyed out where it does not apply. The last rejection sits beneath.
+    ;; greyed out where it does not apply.
     (: construction (-> Game (List Panel)))
     (define (construction game)
       (match (Game-selected game)
-        ((Some cell) (Cons (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (Label (look "divider") "") (care game cell))))
-                           (if (string=? (Game-message game) "") (Nil)
-                               (list (Panel "message" (At (side game) 0) (list (Label (Look "message" "" "" (Danger) "") (Game-message game))))))))
+        ((Some cell) (list (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (Label (look "divider") "") (care game cell))))))
         ((None) (Nil))))
 
     (: build-menu (-> Game Cell (List Widget)))
@@ -288,6 +287,18 @@
                (list (text "nests" (list->string (map (lambda (nest) (if (= (Nest-health nest) 0) #\★ #\☆)) (World-nests world))))
                      (text "elapsed" (clock-text (World-tick world)))))))
 
+    ;; ---- Toasts ----
+
+    ;; While a cell is selected, why the last order on it was refused sits
+    ;; under the nests, away from the dock, so it never moves the controls.
+    (: toasts (-> Game (List Panel)))
+    (define (toasts game)
+      (match (Game-selected game)
+        ((Some _) (if (string=? (Game-message game) "")
+                      (Nil)
+                      (list (Panel "message" (At (far-side game) 0) (list (Label (Look "message" "" "" (Danger) "") (Game-message game)))))))
+        ((None) (Nil))))
+
     ;; ---- Dialogs ----
 
     (: dialogs (-> Game (List Panel)))
@@ -337,7 +348,7 @@
 
     (: game-hud (-> Game (List Panel)))
     (define (game-hud game)
-      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (alerts game) (queue game) (list (objective game)) (opening game)
+      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (alerts game) (queue game) (list (objective game)) (toasts game) (opening game)
                          (dialogs game))))
 
     ))
