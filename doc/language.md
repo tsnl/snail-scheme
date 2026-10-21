@@ -180,7 +180,9 @@ handle `fs` to serve files from memory.
 
 `extern` declares a total foreign function; the declaration is the boundary's
 unsafe assumption. `unsafe-total` runs a thunk and discards its effects. The
-standard library uses it where a function mutates only storage it allocates.
+standard library uses it where a function mutates only storage it allocates
+and lets none of it escape; the checker takes that on trust, so each use says
+why in a comment.
 
 Traps and non-termination are not tracked.
 

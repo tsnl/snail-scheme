@@ -58,6 +58,7 @@
         (ref-set! (Decoder-position decoder) (+ position 1))
         (vector-ref (Decoder-bytes decoder) position)))
 
+    ;; The encoder and its buffer are local to this call.
     (: serialize (All (T) (requires (Serialize T)) (-> T Bytes)))
     (define (serialize value)
       (unsafe-total
@@ -66,7 +67,8 @@
            (encode value encoder)
            (subvector (array->vector (ref-get (Encoder-bytes encoder))) 0 (ref-get (Encoder-size encoder)))))))
 
-    ;; Panics if the bytes were not written for this type.
+    ;; Panics if the bytes were not written for this type. The decoder's
+    ;; position is local to this call.
     (: deserialize (All (T) (requires (Deserialize T)) (-> Bytes T)))
     (define (deserialize bytes)
       (unsafe-total
