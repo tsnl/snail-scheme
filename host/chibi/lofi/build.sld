@@ -12,7 +12,8 @@
    link-wat
    bootstrap!
    run-tool
-   path-join)
+   path-join
+   report-failure)
   (import
    (scheme base)
    (scheme char)
@@ -245,5 +246,20 @@
 
     (define (build-program root directories source output release?)
       (link-wat root (program->wat root directories source) output release?))
+
+    ;; ---- Failures ----
+
+    ;; Prints a failure as one diagnostic after the command's name, without
+    ;; Chibi's trace, and returns the status the command exits with.
+    (define (report-failure command failure)
+      (let ((port (current-error-port)))
+        (display command port)
+        (display ": " port)
+        (if (error-object? failure)
+            (begin (display (error-object-message failure) port)
+                   (for-each (lambda (irritant) (display " " port) (write irritant port)) (error-object-irritants failure)))
+            (write failure port))
+        (newline port)
+        1))
 
     ))
