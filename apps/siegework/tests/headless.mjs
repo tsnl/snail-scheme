@@ -13,7 +13,7 @@ const SUGGESTED = 5;
 function screen() {
   const host = {frames: [], widgets: [], target: null, imports: null};
   let frame = null, widget = null, field = null, widgets = null;
-  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
+  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption', 'url'];
   host.imports = {
     'frame-begin'() { frame = {batches: []}; },
     camera(ex, ey, ez, tx, ty, tz) { host.target = [tx, tz]; },
@@ -24,7 +24,7 @@ function screen() {
     'hud-begin'() { widgets = []; },
     'panel-begin'() { widget = {key: ''}; },
     'widget-begin'(kind, tone, action, argument, control) {
-      widget = {kind, tone, action, argument, control, key: '', icon: '', help: '', badge: '', text: '', caption: ''};
+      widget = {kind, tone, action, argument, control, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: ''};
       widgets.push(widget);
     },
     field(which) { field = fields[which]; },
@@ -71,7 +71,9 @@ const first = host.frames.at(-1);
 assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 10, 7],
                  'terrain, structures, motion, bars, links, cursor, shimmer, beacons and preview');
 assert.ok(first.batches[7].items > 0, 'the crystals in sight pulse before the game begins');
-assert.equal(widget(host, 'opening').text, 'Build an extractor to continue');
+assert.equal(widget(host, 'opening-title').text, 'Siegework');
+assert.equal(widget(host, 'opening').text, 'Build an extractor to start');
+assert.match(widget(host, 'how-to-play').url, /games\/siegework\.html$/);
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
 assert.equal(widget(host, 'nests').text, '☆☆☆');
@@ -110,6 +112,7 @@ for (let y = 10; y < 640 && !crystal; y += 20)
   }
 assert.ok(crystal, 'a crystal is in view');
 assert.equal(crystal.tone, SUGGESTED, 'the opening suggests the extractor');
+assert.equal(widget(host, 'opening').text, 'Click the build button to continue');
 game.app_input(PRESS, crystal.action, crystal.argument, 0, 0);
 assert.equal(widget(host, 'energy').text, '135');
 assert.ok(widget(host, 'scavenge'), 'the first extractor is ready at once');

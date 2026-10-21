@@ -2,8 +2,8 @@
 ;; edge column holds the readouts and, while a cell is selected, the build
 ;; menu; the column beside it holds the menu and turning buttons, up to two
 ;; attack alerts and the build queue. The nests and the clock sit in the
-;; opposite corner, a banner across the top says how to begin, and dialogs
-;; cover the menu, its confirmations and the results.
+;; opposite corner, a title banner across the top says how to begin, and
+;; dialogs cover the menu, its confirmations and the results.
 ;;
 ;; Only related controls share a panel. Every button names the command it
 ;; gives; one the world would reject is greyed out and explains why in its
@@ -248,13 +248,27 @@
 
     ;; ---- Opening ----
 
-    ;; Until the first extractor is built, the world waits: a banner asks
-    ;; for one, and the build menu suggests it.
+    ;; Until the first extractor is built, the world waits under a title
+    ;; banner that asks for one, then, once a crystal is selected, for the
+    ;; build button the menu suggests. It links to the guide.
     (: opening (-> Game (List Panel)))
     (define (opening game)
       (if (opening? (Game-world game))
-          (list (Panel "opening" (Banner) (list (text "opening" "Build an extractor to continue"))))
+          (list (Panel "opening" (Banner)
+                       (list (text "opening-title" "Siegework")
+                             (text "opening" (if (extractor-offered? game) "Click the build button to continue" "Build an extractor to start"))
+                             (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
           (Nil)))
+
+    (: guide-url String)
+    (define guide-url "https://tsnl.github.io/snail-scheme/games/siegework.html")
+
+    ;; Whether the selected cell would take an extractor now.
+    (: extractor-offered? (-> Game Bool))
+    (define (extractor-offered? game)
+      (match (Game-selected game)
+        ((Some cell) (match (check (Game-world game) (Build (Extractor) cell (Game-rush game))) ((Some _) #f) ((None) #t)))
+        ((None) #f)))
 
     (: opening? (-> World Bool))
     (define (opening? world)

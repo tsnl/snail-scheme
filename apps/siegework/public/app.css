@@ -20,9 +20,12 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .button:disabled[data-tone="warning"] { color: #3d78a8; border-color: transparent; box-shadow: none;
   background: repeating-linear-gradient(135deg, #dcebf7 0 6px, #c9def0 6px 8px); }
 .button:disabled[data-tone="warning"] .icon { filter: saturate(0.6); }
-/* The control to use next pulses with a white glow. */
-.button:enabled[data-tone="suggested"] { animation: suggest 1.2s ease-in-out infinite; }
-@keyframes suggest { 50% { box-shadow: inset 0 1px 0 #ffffffd9, 0 0 0 4px #ffffffd9, 0 0 20px 8px #ffffff; } }
+/* The control to use next swells and pulses with a turquoise ring. */
+.button:enabled[data-tone="suggested"] { z-index: 1; animation: suggest 0.9s ease-in-out infinite; }
+@keyframes suggest {
+  50% { transform: scale(1.18); color: #fff9e9; background: #12a189; border-color: #0a7a68;
+        box-shadow: 0 0 0 5px #23f2c3cc, 0 0 26px 12px #23f2c3; }
+}
 /* Disabled because it cannot apply here: faded. */
 .button:disabled[data-tone="muted"] { color: #9aa5a3; background: #ecece4; border-color: #cfd5cf; opacity: 0.55; }
 .button:disabled[data-tone="muted"] .caption { display: none; }
@@ -50,9 +53,14 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .panel[data-key="construction"] { gap: 16px; padding-bottom: 16px; }
 .label[data-key="divider"] { width: 60%; height: 0; padding: 0; margin: -4px 0; border-top: 2px solid var(--edge); border-radius: 0; }
 .panel[data-key="message"] { max-width: 120px; border-radius: 14px; }
-/* The opening banner: what to do before the game begins. */
-.panel[data-key="opening"] { border-radius: 18px; padding: 10px 24px; }
-.label[data-key="opening"] { font-size: 26px; font-weight: 750; }
+/* The opening banner: the title, what to do before the game begins, and
+   a link to the guide. */
+.panel[data-key="opening"] { border-radius: 22px; padding: 14px 32px 18px; gap: 6px; }
+.label[data-key="opening-title"] { color: var(--accent); font-size: 48px; font-weight: 800; letter-spacing: 1px; line-height: 1.1; }
+.label[data-key="opening"] { font-size: 22px; font-weight: 700; }
+.link[data-key="how-to-play"] { margin-top: 6px; padding: 6px 16px; border-radius: 16px; color: #fff9e9; background: var(--accent);
+  font-weight: 700; text-decoration: none; }
+.link[data-key="how-to-play"]:hover { background: #0a7f85; }
 .label[data-key="message"] { color: var(--danger); font-weight: 700; font-size: 11px; line-height: 14px; text-align: center; }
 .button[data-key="close"] .text { font-size: 9px; }
 
@@ -127,5 +135,6 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 }
 
 @media (max-width: 760px), (max-height: 640px) {
-  .label[data-key="opening"] { font-size: 18px; }
+  .label[data-key="opening-title"] { font-size: 32px; }
+  .label[data-key="opening"] { font-size: 16px; }
 }

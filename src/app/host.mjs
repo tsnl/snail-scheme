@@ -62,7 +62,7 @@ function wasiImports(memory) {
 function screenImports(renderer, hud) {
   let frame = null, batch = null, panels = null, target = null, fieldName = null;
   const styles = [(a, b, c, d) => [1, 0, 0, -1], (a, b, c, d) => [a, 0, 0, -1], (a, b, c, d) => [1, b, c, d]];
-  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
+  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption', 'url'];
   return {
     'frame-begin'(background, motion) {
       frame = {background, motion, batches: []};
@@ -93,7 +93,7 @@ function screenImports(renderer, hud) {
       panels.push(target);
     },
     'widget-begin'(kind, tone, action, argument, control, value) {
-      target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: ''};
+      target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: ''};
       panels.at(-1).widgets.push(target);
     },
     field(which) {

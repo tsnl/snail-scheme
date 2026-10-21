@@ -1,4 +1,4 @@
-// The HUD: panels of labels, buttons and dials, stacked in columns in the
+// The HUD: panels of labels, buttons, dials and links, stacked in columns in the
 // screen's corners, shown as dialogs over a backdrop, or as banners across
 // the top that never take input. Elements are kept by
 // key and changed only where the description changed, so hover and focus
@@ -7,7 +7,7 @@
 const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 const tones = ['plain', 'good', 'warning', 'danger', 'muted', 'suggested'];
 const DIALOG = 1, BANNER = 2;
-const LABEL = 0, BUTTON = 1, DIAL = 2;
+const LABEL = 0, BUTTON = 1, DIAL = 2, LINK = 3;
 const DISABLED = 1, SELECTED = 2;
 
 // The button under the pointer. One removed while hovered never reports
@@ -29,6 +29,13 @@ function createWidget(widget, press, hover) {
     node.addEventListener('click', () => press(node.action, node.argument));
     node.addEventListener('pointerenter', () => { hovered = node; hover(node.action, node.argument); });
     node.addEventListener('pointerleave', () => { hovered = null; hover(0, 0); });
+    return node;
+  }
+  if (widget.kind === LINK) {
+    const node = element('a', 'link');
+    node.target = '_blank';
+    node.rel = 'noopener';
+    node.append(element('span', 'icon'), element('span', 'text'));
     return node;
   }
   const node = element('div', widget.kind === DIAL ? 'dial' : 'label');
@@ -56,6 +63,7 @@ function updateWidget(node, widget) {
   setAttribute(node, 'aria-label', widget.help ? `${widget.text} ${widget.help}`.trim() : '');
   setText(node, '.text', widget.text);
   setText(node, '.caption', widget.caption);
+  if (widget.kind === LINK) setAttribute(node, 'href', widget.url);
   if (widget.kind === BUTTON) {
     node.action = widget.action;
     node.argument = widget.argument;

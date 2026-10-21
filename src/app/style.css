@@ -22,13 +22,15 @@ canvas { display: block; width: 100vw; height: 100vh; outline: none; touch-actio
 .banner { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column;
   align-items: center; gap: 10px; }
 .banner .panel { pointer-events: none; }
+.banner .link { pointer-events: auto; }
 
 .dialogs { position: fixed; inset: 0; display: none; place-items: center; pointer-events: auto; }
 .dialogs.open { display: grid; }
 .backdrop { position: absolute; inset: 0; background: rgba(8, 16, 24, 0.55); }
 .dialogs .panel { position: relative; flex-direction: column; min-width: 220px; }
 
-.label, .dial, .button { position: relative; display: flex; align-items: center; gap: 6px; }
+.label, .dial, .button, .link { position: relative; display: flex; align-items: center; gap: 6px; }
+.link { color: #8fc7ff; }
 .label, .dial { padding: 4px 10px; border-radius: 6px; background: rgba(16, 20, 28, 0.78); }
 .button { padding: 8px 12px; border: 1px solid #3a4658; border-radius: 6px; background: #1c2433; color: inherit;
   font: inherit; cursor: pointer; }

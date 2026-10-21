@@ -105,6 +105,7 @@
    Label
    Button
    Dial
+   Link
    Corner
    TopLeft
    TopRight
@@ -400,11 +401,13 @@
 
     ;; A button reports its action and argument through `Press`, with a
     ;; caption beneath its text and a ring around it filled to a fraction,
-    ;; when the fraction is not negative. A dial is a round readout.
+    ;; when the fraction is not negative. A dial is a round readout. A link
+    ;; opens `url` in a new page and reports nothing.
     (enum Widget
       (Label ((look Look) (text String)))
       (Button ((look Look) (text String) (caption String) (action I32) (argument I32) (control Control) (ring F32)))
-      (Dial ((look Look) (text String) (fraction F32))))
+      (Dial ((look Look) (text String) (fraction F32)))
+      (Link ((look Look) (text String) (url String))))
 
     (enum Corner
       (TopLeft)
@@ -542,7 +545,7 @@
         ((BottomRight) 3)))
 
     ;; A widget's kind and numbers, then its strings, each named by a field:
-    ;; 0 key, 1 icon, 2 help, 3 badge, 4 text, 5 caption.
+    ;; 0 key, 1 icon, 2 help, 3 badge, 4 text, 5 caption, 6 url.
     (: render-widget (-> Widget Unit ! screen))
     (define (render-widget widget)
       (match widget
@@ -550,7 +553,8 @@
         ((Button face text caption action argument control ring)
          (widget-begin 1 (tone-index (Look-tone face)) action argument (control-index control) ring)
          (render-look face) (render-field 4 text) (render-field 5 caption))
-        ((Dial face text fraction) (widget-begin 2 (tone-index (Look-tone face)) 0 0 0 fraction) (render-look face) (render-field 4 text))))
+        ((Dial face text fraction) (widget-begin 2 (tone-index (Look-tone face)) 0 0 0 fraction) (render-look face) (render-field 4 text))
+        ((Link face text url) (widget-begin 3 (tone-index (Look-tone face)) 0 0 0 0.0) (render-look face) (render-field 4 text) (render-field 6 url))))
 
     (: render-look (-> Look Unit ! screen))
     (define (render-look face)
