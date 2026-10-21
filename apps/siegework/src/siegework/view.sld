@@ -26,12 +26,13 @@
     (define (item mesh position width height depth color)
       (Item mesh position (Vec3 width height depth) 0.0 color))
 
-    ;; A unit steps on multiples of its period, so between steps it is drawn
-    ;; partway from its previous cell.
-    (: mover-point (-> Mover I64 I64 F32 F32 Vec3))
-    (define (mover-point mover period tick alpha height)
-      (let* ((progress (min 1.0 (/ (+ (i64->f32 (remainder tick period)) alpha) (i64->f32 period))))
-             (from (cell-point (Mover-previous mover) height)) (to (cell-point (Mover-cell mover) height)))
+    ;; An enemy steps on multiples of its period, so between steps it is
+    ;; drawn partway from its previous cell.
+    (: enemy-point (-> Enemy I64 F32 F32 Vec3))
+    (define (enemy-point enemy tick alpha height)
+      (let* ((period (enemy-period (Enemy-behavior enemy)))
+             (progress (min 1.0 (/ (+ (i64->f32 (remainder (+ tick (Enemy-id enemy)) period)) alpha) (i64->f32 period))))
+             (from (cell-point (Enemy-previous enemy) height)) (to (cell-point (Enemy-cell enemy) height)))
         (Vec3 (+ (Vec3-x from) (* progress (- (Vec3-x to) (Vec3-x from))))
               height
               (+ (Vec3-z from) (* progress (- (Vec3-z to) (Vec3-z from)))))))
@@ -112,8 +113,8 @@
     (: unit-items (-> Game F32 (List Item)))
     (define (unit-items game alpha)
       (let ((world (Game-world game)))
-        (append (map (lambda (enemy) (item (Pyramid) (mover-point (Enemy-mover enemy) enemy-period (World-tick world) alpha 0.1) 0.5 0.6 0.5 (rgb 220 50 50)))
-                     (filter (lambda (enemy) (visible? world (Mover-cell (Enemy-mover enemy)))) (World-enemies world)))
+        (append (map (lambda (enemy) (item (Pyramid) (enemy-point enemy (World-tick world) alpha 0.1) 0.5 0.6 0.5 (rgb 220 50 50)))
+                     (filter (lambda (enemy) (visible? world (Enemy-cell enemy))) (World-enemies world)))
                 (append (map (lambda (shot) (beam (cell-point (Shot-from shot) 0.7) (cell-point (Shot-to shot) 0.4) 0.08 (rgb 255 230 120))) (World-shots world))
                         (cursor-items game)))))
 
@@ -134,8 +135,9 @@
              (list (Label (string-append "Energy " (show (World-energy world))))
                    (Label (string-append "Hub " (show (Hub-health (World-hub world))) " · slots " (show (Hub-slots (World-hub world)))))
                    (Label (string-append "Nests " (show (length (filter (lambda (n) (> (Nest-health n) 0)) (World-nests world))))))
-                   (Meter (string-append "Next wave in " (show (quotient (ticks-until-wave world) 10)) "s")
-                          (- 1.0 (/ (i64->f32 (ticks-until-wave world)) 600.0))))))
+                   (Meter (string-append "Attack " (show (attack-number (World-tick world))) " in "
+                                         (show (quotient (- (next-attack-tick (World-tick world)) (World-tick world)) 10)) "s")
+                          (- 1.0 (/ (i64->f32 (- (next-attack-tick (World-tick world)) (World-tick world))) 450.0))))))
 
     (: tool-panel (-> Game Panel))
     (define (tool-panel game)
