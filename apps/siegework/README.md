@@ -47,7 +47,9 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
   from 1:45, and a boss leads an attack every nine minutes. Enemies grow
   stronger every 90 seconds, less for each nest destroyed, and some burrow
   through rock. Turrets shoot the strongest enemy in sight and range, harder
-  up close; a wounded enemy turns on the turret that hit it.
+  up close. A wounded enemy turns on the first turret that hit it and
+  hunts that one until it falls, whatever else shoots it; a raider then
+  goes back to its outpost.
 - **Winning.** Destroy all three nests to win. Lose the hub and you lose.
 
 ## Controls

@@ -85,6 +85,8 @@
    Enemy-maximum
    Enemy-target
    Enemy-target-set
+   Enemy-aggro
+   Enemy-aggro-set
    Dig
    Dig-cell
    Dig-remaining
@@ -357,7 +359,9 @@
     ;; An enemy steps from `previous` to `cell` on multiples of its period.
     ;; Its rank, from 0 to 6, sets its health and the damage it strikes for;
     ;; `maximum` is its health when it spawned. `target` is the building it
-    ;; heads for, or None for the hub. A burrower digs through rock.
+    ;; heads for, or None for the hub. `aggro` is the turret it turned on,
+    ;; which it heads for instead while that stands. A burrower digs through
+    ;; rock.
     (struct Enemy
       ((id I64)
        (behavior Behavior)
@@ -367,7 +371,8 @@
        (previous Cell)
        (health I64)
        (maximum I64)
-       (target (Option I64))))
+       (target (Option I64))
+       (aggro (Option I64))))
 
     ;; Rock being dug, with what remains of it.
     (struct Dig

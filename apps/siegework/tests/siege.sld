@@ -1,6 +1,6 @@
 ;; The nests' schedule, then two colonies on seed 1: one leaves its hub
 ;; undefended, the other keeps adding turrets around it and widens its
-;; build slots.
+;; build slots. Last, an enemy between two turrets holds to one of them.
 (import
  (lofi base)
  (lofi io)
@@ -71,3 +71,30 @@
 (define defended (defend (started (new-world 1)) 1000))
 (report "defended" defended)
 (report "defended" (defend defended 2000))
+
+;; Turrets three cells west and east of the hub flank a sturdy enemy to
+;; the north. Both hit it, but it turns only on the first and keeps after
+;; that one.
+(: flanked (-> World World))
+(define (flanked world)
+  (let ((world (run (try (try world (Build (Turret) (offset world -3 0) #f)) (Build (Turret) (offset world 3 0) #f)) 100)))
+    (World-enemies-set world (list (Enemy 999 (Minion) 0 #f (offset world 0 4) (offset world 0 4) 2000 2000 (None) (None))))))
+
+(: aggro-text (-> World String))
+(define (aggro-text world)
+  (match (find (lambda (e) (= (Enemy-id e) 999)) (World-enemies world))
+    ((Some enemy) (match (Enemy-aggro enemy) ((Some id) (string-append "building " (show id))) ((None) "nothing")))
+    ((None) "gone")))
+
+(: watch (-> World I64 Unit ! console))
+(define (watch world ticks)
+  (if (> ticks 0)
+      (let ((next (advance world)))
+        (for-each (lambda (shot)
+                    (write-line (string-append "tick " (show (World-tick next)) ": the turret at x " (show (Cell-x (Shot-from shot)))
+                                               " fires; the enemy has turned on " (aggro-text next))))
+                  (filter (lambda (shot) (= (Shot-tick shot) (World-tick next))) (World-shots next)))
+        (watch next (- ticks 1)))
+      (write-line (string-append "at tick " (show (World-tick world)) " the enemy has turned on " (aggro-text world)))))
+
+(watch (flanked (started (new-world 1))) 40)
