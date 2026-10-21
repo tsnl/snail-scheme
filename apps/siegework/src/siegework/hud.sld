@@ -295,7 +295,7 @@
                                               (string-append "Energy produced " (show (Ledger-produced ledger)) ", spent " (show (Ledger-spent ledger)))
                                               (string-append "Buildings standing " (show (length (filter built? (World-buildings world)))) ", lost " (show (Ledger-lost ledger)))
                                               (string-append "Nests destroyed " (show (- 3 (length (living-nests world)))) " of 3")
-                                              (string-append "Map " (show (World-seed world))))
+                                              (string-append "Map " (show (World-seed world)) ", " (biome-name (Land-biome (World-land world)))))
                                         "\n"))
                      (plain-button (face "inspect" "" "Look over the map") "Map" (InspectMap))
                      (plain-button (face "new-map" "" "Start a new map") "New map" (NewMap))))))

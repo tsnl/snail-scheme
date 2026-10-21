@@ -59,7 +59,7 @@
       (NotStarted)
       (OutsideMap)
       (Unseen)
-      (NotGrass)
+      (NotOpen)
       (Occupied)
       (NeedsCrystal)
       (CrystalSite)
@@ -81,7 +81,7 @@
         ((NotStarted) "Start with an extractor on a crystal.")
         ((OutsideMap) "That is outside the map.")
         ((Unseen) "Nothing powered can see there.")
-        ((NotGrass) "Only grass can be built on.")
+        ((NotOpen) "Only open ground can be built on.")
         ((Occupied) "Something is already there.")
         ((NeedsCrystal) "Extractors go on crystals.")
         ((CrystalSite) "Crystals take only extractors.")
@@ -145,14 +145,14 @@
 
     ;; ---- Building ----
 
-    ;; A site needs visible grass that nothing occupies, a crystal exactly
+    ;; A site needs visible open ground that nothing occupies, a crystal exactly
     ;; when it is an extractor, and a powered building that can wire to it.
     (: build (-> World Kind Cell Bool (Result World Rejection)))
     (define (build world kind cell rush)
       (let ((extractor? (match kind ((Extractor) #t) (_ #f))) (crystal (crystal-at world cell)))
         (cond ((not (in-bounds? cell)) (Err (OutsideMap)))
               ((not (visible? world cell)) (Err (Unseen)))
-              ((match (ground-at (World-land world) cell) ((Grass) #f) (_ #t)) (Err (NotGrass)))
+              ((match (ground-at (World-land world) cell) ((Open) #f) (_ #t)) (Err (NotOpen)))
               ((occupied? world cell) (Err (Occupied)))
               ((and extractor? (null-option? crystal)) (Err (NeedsCrystal)))
               ((and (not extractor?) (not (null-option? crystal))) (Err (CrystalSite)))
