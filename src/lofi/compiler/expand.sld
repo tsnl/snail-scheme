@@ -829,7 +829,8 @@
         (_ (panic "internal error: not a method"))))
 
     ;; Instance selection matches heads, so two heads may never both match
-    ;; the same types. A type variable in either head matches anything.
+    ;; the same types. A type variable in either head matches anything, and
+    ;; function types overlap only at the same arity.
     (: check-overlap (-> Program Instance Loc Unit ! mut))
     (define (check-overlap program instance loc)
       (for-each (lambda (other)
@@ -839,17 +840,23 @@
 
     (: heads-overlap? (-> (List Type) (List Type) Bool))
     (define (heads-overlap? as bs)
-      (every? (lambda (pair) (head-overlaps? (Pair-first pair) (Pair-second pair))) (zip as bs)))
+      (and (= (length as) (length bs))
+           (every? (lambda (pair) (head-overlaps? (Pair-first pair) (Pair-second pair))) (zip as bs))))
 
     (: head-overlaps? (-> Type Type Bool))
     (define (head-overlaps? a b)
-      (match a
-        ((TCon name args)
-         (match b
-           ((TCon other others) (and (string=? name other) (heads-overlap? args others)))
-           ((TRigid _) #t)
-           (_ #f)))
-        (_ #t)))
+      (match b
+        ((TRigid _) #t)
+        (_ (match a
+             ((TCon name args)
+              (match b
+                ((TCon other others) (and (string=? name other) (heads-overlap? args others)))
+                (_ #f)))
+             ((TFun params result _)
+              (match b
+                ((TFun others other _) (heads-overlap? (Cons result params) (Cons other others)))
+                (_ #f)))
+             (_ #t)))))
 
     (: check-instance-methods (-> Class (List MethodDefinition) Loc Unit))
     (define (check-instance-methods class methods loc)
