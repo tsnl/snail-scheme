@@ -1,0 +1,8 @@
+pointing: point 10,10; point 12,11
+tap: tap 13,12 button 0
+right tap: tap 10,10 button 2
+drag: drag 10,0; drag 4,3
+pinch: pinch 2.0; pinch 0.5
+cancel: point 11,11
+lifting a finger from a pinch: 
+a press that never released: tap 51,50 button 0

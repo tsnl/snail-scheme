@@ -6,4 +6,4 @@
  (siegework game)
  (siegework view))
 
-(define-application Game new-game update-game view-game game-save game-restore)
+(define-application Game new-game update-game view-game game-hud game-save game-restore)

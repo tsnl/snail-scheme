@@ -1,27 +1,31 @@
-;; Interactive applications. An application is three total functions over
+;; Interactive applications. An application is four total functions over
 ;; its state, and two that convert the state to and from what it saves:
 ;;
 ;;   init    : seed width height -> State
 ;;   update  : State Input -> State
 ;;   view    : State alpha -> Frame
+;;   hud     : State -> (List Panel)
 ;;   save    : State -> Save
 ;;   restore : Save -> State
 ;;
 ;; `define-application` keeps the current state in one cell and exposes the
-;; host entry points. The host forwards raw input and clock ticks, draws each
-;; Frame through the `screen` effect, and stores the serialized Save. The
-;; Save may be much smaller than the state: a record of how to rebuild it.
+;; host entry points. The host forwards raw input and clock ticks, draws a
+;; Frame through the `screen` effect for each display frame, shows the HUD
+;; again after each update, and stores the serialized Save. The Save may be
+;; much smaller than the state: a record of how to rebuild it.
 (define-library (lofi app)
   (export
    Input
    KeyDown
    KeyUp
-   PointerMove
    PointerDown
+   PointerMove
    PointerUp
+   PointerCancel
    Wheel
    Resize
    Press
+   Hover
    Tick
    key-left
    key-right
@@ -69,15 +73,38 @@
    Translucent
    Revealed
    Batch
-   Anchor
+   Gesture
+   Point
+   Tap
+   Drag
+   Pinch
+   Gestures
+   no-gestures
+   recognize
+   Tone
+   Plain
+   Good
+   Warning
+   Danger
+   Muted
+   Control
+   Enabled
+   Disabled
+   Selected
+   Look
+   look
+   Widget
+   Label
+   Button
+   Dial
+   Corner
    TopLeft
    TopRight
    BottomLeft
    BottomRight
-   Widget
-   Label
-   Button
-   Meter
+   Place
+   At
+   Dialog
    Panel
    Frame
    rgb
@@ -97,17 +124,21 @@
 
     ;; ---- Input ----
 
-    ;; Keys are lower-case code points, or the named codes below. A press
-    ;; reports the action number of a HUD button.
+    ;; Keys are lower-case code points, or the named codes below. Pointer
+    ;; events name the pointer, so several fingers can be told apart; the
+    ;; wheel reports pixels. A press or hover reports the action and
+    ;; argument of a HUD button; hovering off a button reports action 0.
     (enum Input
       (KeyDown ((key I32)))
       (KeyUp ((key I32)))
-      (PointerMove ((x I32) (y I32)))
-      (PointerDown ((x I32) (y I32) (button I32)))
-      (PointerUp ((x I32) (y I32) (button I32)))
-      (Wheel ((delta I32)))
+      (PointerDown ((pointer I32) (x I32) (y I32) (button I32)))
+      (PointerMove ((pointer I32) (x I32) (y I32)))
+      (PointerUp ((pointer I32) (x I32) (y I32)))
+      (PointerCancel ((pointer I32)))
+      (Wheel ((pixels I32)))
       (Resize ((width I32) (height I32)))
-      (Press ((action I32)))
+      (Press ((action I32) (argument I32)))
+      (Hover ((action I32) (argument I32)))
       (Tick))
 
     (define key-left 1)
@@ -118,18 +149,138 @@
     (define key-enter 13)
     (define key-space 32)
 
-    (: decode-input (-> I32 I32 I32 I32 Input))
-    (define (decode-input kind a b c)
+    (: decode-input (-> I32 I32 I32 I32 I32 Input))
+    (define (decode-input kind a b c d)
       (case kind
         ((1) (KeyDown a))
         ((2) (KeyUp a))
-        ((3) (PointerMove a b))
-        ((4) (PointerDown a b c))
+        ((3) (PointerDown a b c d))
+        ((4) (PointerMove a b c))
         ((5) (PointerUp a b c))
-        ((6) (Wheel a))
-        ((7) (Resize a b))
-        ((8) (Press a))
+        ((6) (PointerCancel a))
+        ((7) (Wheel a))
+        ((8) (Resize a b))
+        ((9) (Press a b))
+        ((10) (Hover a b))
         (else (Tick))))
+
+    ;; ---- Gestures ----
+
+    ;; What pointers mean, the same for a mouse, a pen and fingers: a press
+    ;; released within eight pixels is a tap, one that moves farther drags,
+    ;; two fingers pinch, and a pointer moving with nothing pressed points.
+    ;; A pinch reports how much the fingers' distance shrank, as a ratio.
+    (enum Gesture
+      (Point ((x I32) (y I32)))
+      (Tap ((x I32) (y I32) (button I32)))
+      (Drag ((dx I32) (dy I32)))
+      (Pinch ((ratio F32))))
+
+    ;; A pressed pointer is held until it moves eight pixels from where it
+    ;; went down, and then drags. One that shared the screen with another is
+    ;; part of a pinch for good: it never taps or drags, so lifting one
+    ;; finger of a pinch does not pan.
+    (enum Mode
+      (Holding)
+      (Dragging)
+      (Pinched))
+
+    ;; A pressed pointer: where it went down, and where it was last.
+    (struct Contact
+      ((pointer I32)
+       (button I32)
+       (start-x I32)
+       (start-y I32)
+       (x I32)
+       (y I32)
+       (mode Mode)))
+
+    ;; The pressed pointers, in the order they went down.
+    (struct Gestures
+      ((contacts (List Contact))))
+
+    (: no-gestures Gestures)
+    (define no-gestures (Gestures (Nil)))
+
+    ;; Reads one input, returning the pointers still pressed and what the
+    ;; input meant. Inputs other than pointers mean nothing here.
+    (: recognize (-> Gestures Input (Pair Gestures (List Gesture))))
+    (define (recognize gestures input)
+      (let ((contacts (Gestures-contacts gestures)))
+        (match input
+          ((PointerDown pointer x y button) (Pair (Gestures (press-contact contacts (Contact pointer button x y x y (Holding)))) (Nil)))
+          ((PointerMove pointer x y) (move-contact contacts pointer x y))
+          ((PointerUp pointer x y) (release-contact contacts pointer x y))
+          ((PointerCancel pointer) (Pair (Gestures (without-contact contacts pointer)) (Nil)))
+          (_ (Pair gestures (Nil))))))
+
+    ;; A pointer that goes down again replaces its old press, which also
+    ;; recovers from a release that never arrived.
+    (: press-contact (-> (List Contact) Contact (List Contact)))
+    (define (press-contact contacts contact)
+      (let ((pressed (append (without-contact contacts (Contact-pointer contact)) (list contact))))
+        (if (null? (cdr-list pressed)) pressed (map (lambda (c) (Contact-mode-set c (Pinched))) pressed))))
+
+    (: cdr-list (All (T) (-> (List T) (List T))))
+    (define (cdr-list items)
+      (match items
+        ((Cons _ rest) rest)
+        ((Nil) (Nil))))
+
+    (: without-contact (-> (List Contact) I32 (List Contact)))
+    (define (without-contact contacts pointer)
+      (filter (lambda (c) (not (= (Contact-pointer c) pointer))) contacts))
+
+    ;; A pointer pressed alone may drag; among others, moves pinch. A moving
+    ;; pointer that is not pressed points.
+    (: move-contact (-> (List Contact) I32 I32 I32 (Pair Gestures (List Gesture))))
+    (define (move-contact contacts pointer x y)
+      (match (find (lambda (c) (= (Contact-pointer c) pointer)) contacts)
+        ((Some contact) (if (null? (cdr-list contacts))
+                            (lone-move contact x y)
+                            (let ((moved (map (lambda (c) (if (= (Contact-pointer c) pointer) (Contact-y-set (Contact-x-set c x) y) c)) contacts)))
+                              (Pair (Gestures moved) (pinch contacts moved)))))
+        ((None) (Pair (Gestures contacts) (list (Point x y))))))
+
+    ;; A held pointer drags once it is eight pixels from where it went down,
+    ;; and its first drag covers the whole way from there.
+    (: lone-move (-> Contact I32 I32 (Pair Gestures (List Gesture))))
+    (define (lone-move contact x y)
+      (let ((moved (Contact-y-set (Contact-x-set contact x) y)))
+        (match (Contact-mode contact)
+          ((Dragging) (Pair (Gestures (list moved)) (list (Drag (- x (Contact-x contact)) (- y (Contact-y contact))))))
+          ((Holding) (if (far? contact x y)
+                         (Pair (Gestures (list (Contact-mode-set moved (Dragging)))) (list (Drag (- x (Contact-start-x contact)) (- y (Contact-start-y contact)))))
+                         (Pair (Gestures (list moved)) (Nil))))
+          ((Pinched) (Pair (Gestures (list moved)) (Nil))))))
+
+    (: far? (-> Contact I32 I32 Bool))
+    (define (far? contact x y)
+      (let ((dx (- x (Contact-start-x contact))) (dy (- y (Contact-start-y contact))))
+        (> (+ (* dx dx) (* dy dy)) 64)))
+
+    (: pinch (-> (List Contact) (List Contact) (List Gesture)))
+    (define (pinch before after)
+      (let ((old (spread before)) (new (spread after)))
+        (if (and (> old 0.0) (> new 0.0) (not (= old new))) (list (Pinch (/ old new))) (Nil))))
+
+    ;; The distance between the first two pointers.
+    (: spread (-> (List Contact) F32))
+    (define (spread contacts)
+      (match contacts
+        ((Cons a (Cons b _)) (let ((dx (i32->f32 (- (Contact-x a) (Contact-x b)))) (dy (i32->f32 (- (Contact-y a) (Contact-y b)))))
+                               (sqrt (+ (* dx dx) (* dy dy)))))
+        (_ 0.0)))
+
+    ;; Only a pointer still held, near where it went down, taps.
+    (: release-contact (-> (List Contact) I32 I32 I32 (Pair Gestures (List Gesture))))
+    (define (release-contact contacts pointer x y)
+      (match (find (lambda (c) (= (Contact-pointer c) pointer)) contacts)
+        ((Some contact) (Pair (Gestures (without-contact contacts pointer))
+                              (match (Contact-mode contact)
+                                ((Holding) (if (far? contact x y) (Nil) (list (Tap x y (Contact-button contact)))))
+                                (_ (Nil)))))
+        ((None) (Pair (Gestures contacts) (Nil)))))
 
     ;; ---- Frames ----
 
@@ -204,20 +355,60 @@
        (style Style)
        (items (-> (List Item)))))
 
-    (enum Anchor
+    ;; ---- HUD ----
+
+    (enum Tone
+      (Plain)
+      (Good)
+      (Warning)
+      (Danger)
+      (Muted))
+
+    (enum Control
+      (Enabled)
+      (Disabled)
+      (Selected))
+
+    ;; How a widget appears: `key` identifies it from one update to the next
+    ;; and names it for the page's style, `icon` names a symbol the style
+    ;; draws, `help` is its tooltip and accessible description, and `badge`
+    ;; marks a corner of it.
+    (struct Look
+      ((key String)
+       (icon String)
+       (help String)
+       (tone Tone)
+       (badge String)))
+
+    (: look (-> String Look))
+    (define (look key)
+      (Look key "" "" (Plain) ""))
+
+    ;; A button reports its action and argument through `Press`, with a
+    ;; caption beneath its text and a ring around it filled to a fraction,
+    ;; when the fraction is not negative. A dial is a round readout.
+    (enum Widget
+      (Label ((look Look) (text String)))
+      (Button ((look Look) (text String) (caption String) (action I32) (argument I32) (control Control) (ring F32)))
+      (Dial ((look Look) (text String) (fraction F32))))
+
+    (enum Corner
       (TopLeft)
       (TopRight)
       (BottomLeft)
       (BottomRight))
 
-    ;; A button reports its action through `Press`; a meter shows a fraction.
-    (enum Widget
-      (Label ((text String)))
-      (Button ((text String) (action I32) (selected Bool)))
-      (Meter ((text String) (fraction F32))))
+    ;; Panels in a corner stack in columns: column 0 against the side of the
+    ;; screen, later ones farther in, each running from the corner in the
+    ;; order given. A dialog sits in the middle over a backdrop that presses
+    ;; `dismiss` when touched.
+    (enum Place
+      (At ((corner Corner) (column I32)))
+      (Dialog ((dismiss I32))))
 
     (struct Panel
-      ((anchor Anchor)
+      ((key String)
+       (place Place)
        (widgets (List Widget))))
 
     ;; `motion` moves every item from where it was toward where it is.
@@ -226,8 +417,7 @@
        (light Light)
        (background I32)
        (motion F32)
-       (batches (List Batch))
-       (panels (List Panel))))
+       (batches (List Batch))))
 
     (: rgb (-> I32 I32 I32 I32))
     (define (rgb red green blue)
@@ -241,20 +431,26 @@
        (light (-> F32 F32 F32 F32 F32 Unit))
        (batch-begin (-> I32 I32 I32 F32 F32 F32 F32 Bool))
        (instance (-> I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 Unit))
-       (panel-begin (-> I32 Unit))
-       (widget-begin (-> I32 I32 F32 Unit))
+       (frame-end (-> Unit))
+       (hud-begin (-> Unit))
+       (panel-begin (-> I32 I32 I32 I32 Unit))
+       (widget-begin (-> I32 I32 I32 I32 I32 F32 Unit))
+       (field (-> I32 Unit))
        (text-character (-> Char Unit))
-       (frame-end (-> Unit)))
+       (hud-end (-> Unit)))
       (host "snail.screen"
             ((frame-begin "frame-begin")
              (camera "camera")
              (light "light")
              (batch-begin "batch-begin")
              (instance "instance")
+             (frame-end "frame-end")
+             (hud-begin "hud-begin")
              (panel-begin "panel-begin")
              (widget-begin "widget-begin")
+             (field "field")
              (text-character "text-character")
-             (frame-end "frame-end"))))
+             (hud-end "hud-end"))))
 
     (: render (-> Frame Unit ! screen))
     (define (render frame)
@@ -262,7 +458,6 @@
       (render-camera (Frame-camera frame))
       (render-light (Frame-light frame))
       (for-each render-batch (Frame-batches frame))
-      (for-each render-panel (Frame-panels frame))
       (frame-end))
 
     (: render-camera (-> Camera Unit ! screen))
@@ -306,24 +501,72 @@
         ((Tetrahedron) 5)
         ((Octahedron) 6)))
 
+    ;; The HUD is sent apart from frames, only when it may have changed.
+    (: render-hud (-> (List Panel) Unit ! screen))
+    (define (render-hud panels)
+      (hud-begin)
+      (for-each render-panel panels)
+      (hud-end))
+
     (: render-panel (-> Panel Unit ! screen))
     (define (render-panel panel)
-      (panel-begin (match (Panel-anchor panel) ((TopLeft) 0) ((TopRight) 1) ((BottomLeft) 2) ((BottomRight) 3)))
+      (match (Panel-place panel)
+        ((At corner column) (panel-begin 0 (corner-index corner) column 0))
+        ((Dialog dismiss) (panel-begin 1 0 0 dismiss)))
+      (render-field 0 (Panel-key panel))
       (for-each render-widget (Panel-widgets panel)))
 
+    (: corner-index (-> Corner I32))
+    (define (corner-index corner)
+      (match corner
+        ((TopLeft) 0)
+        ((TopRight) 1)
+        ((BottomLeft) 2)
+        ((BottomRight) 3)))
+
+    ;; A widget's kind and numbers, then its strings, each named by a field:
+    ;; 0 key, 1 icon, 2 help, 3 badge, 4 text, 5 caption.
     (: render-widget (-> Widget Unit ! screen))
     (define (render-widget widget)
       (match widget
-        ((Label text) (widget-begin 0 0 0.0) (render-text text))
-        ((Button text action selected) (widget-begin (if selected 2 1) action 0.0) (render-text text))
-        ((Meter text fraction) (widget-begin 3 0 fraction) (render-text text))))
+        ((Label face text) (widget-begin 0 (tone-index (Look-tone face)) 0 0 0 0.0) (render-look face) (render-field 4 text))
+        ((Button face text caption action argument control ring)
+         (widget-begin 1 (tone-index (Look-tone face)) action argument (control-index control) ring)
+         (render-look face) (render-field 4 text) (render-field 5 caption))
+        ((Dial face text fraction) (widget-begin 2 (tone-index (Look-tone face)) 0 0 0 fraction) (render-look face) (render-field 4 text))))
 
-    (: render-text (-> String Unit ! screen))
-    (define (render-text text)
-      (let loop ((index 0))
-        (when (< index (string-length text))
-          (text-character (string-ref text index))
-          (loop (+ index 1)))))
+    (: render-look (-> Look Unit ! screen))
+    (define (render-look face)
+      (render-field 0 (Look-key face))
+      (render-field 1 (Look-icon face))
+      (render-field 2 (Look-help face))
+      (render-field 3 (Look-badge face)))
+
+    (: tone-index (-> Tone I32))
+    (define (tone-index tone)
+      (match tone
+        ((Plain) 0)
+        ((Good) 1)
+        ((Warning) 2)
+        ((Danger) 3)
+        ((Muted) 4)))
+
+    (: control-index (-> Control I32))
+    (define (control-index control)
+      (match control
+        ((Enabled) 0)
+        ((Disabled) 1)
+        ((Selected) 2)))
+
+    ;; Empty strings are not sent.
+    (: render-field (-> I32 String Unit ! screen))
+    (define (render-field which text)
+      (when (> (string-length text) 0)
+        (field which)
+        (let loop ((index 0))
+          (when (< index (string-length text))
+            (text-character (string-ref text index))
+            (loop (+ index 1))))))
 
     ;; ---- Picking ----
 
@@ -386,20 +629,26 @@
     ;; must derive Serialize and Deserialize.
     (define-syntax define-application
       (syntax-rules ()
-        ((_ State init update view save restore)
+        ((_ State init update view hud save restore)
          (begin
            (define current (ref (ann (None) (Option State))))
            (define saved (ref (vector-generate 0 (lambda (index) (ann 0 U8)))))
            (define loading (ref (make-array 0 (ann 0 U8))))
 
-           (: app-init (-> I32 I32 I32 Unit ! mut))
-           (define (app-init seed width height)
-             (ref-set! current (Some (init seed width height))))
+           ;; Replaces the state and shows its HUD.
+           (: settle (-> State Unit ! mut screen))
+           (define (settle state)
+             (ref-set! current (Some state))
+             (render-hud (hud state)))
 
-           (: app-input (-> I32 I32 I32 I32 Unit ! mut))
-           (define (app-input kind a b c)
+           (: app-init (-> I32 I32 I32 Unit ! mut screen))
+           (define (app-init seed width height)
+             (settle (init seed width height)))
+
+           (: app-input (-> I32 I32 I32 I32 I32 Unit ! mut screen))
+           (define (app-input kind a b c d)
              (match (ref-get current)
-               ((Some state) (ref-set! current (Some (update state (decode-input kind a b c)))))
+               ((Some state) (settle (update state (decode-input kind a b c d))))
                ((None) (unit))))
 
            (: app-frame (-> F32 Unit ! mut screen))
@@ -428,9 +677,9 @@
 
            ;; Panics if the save was written for another schema; the host
            ;; then starts a new state instead.
-           (: app-load-end (-> Unit ! mut))
+           (: app-load-end (-> Unit ! mut screen))
            (define (app-load-end)
-             (ref-set! current (Some (ann (restore (deserialize (array->vector (ref-get loading)))) State))))
+             (settle (ann (restore (deserialize (array->vector (ref-get loading)))) State)))
 
            (expose app-init "app_init")
            (expose app-input "app_input")
