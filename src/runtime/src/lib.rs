@@ -6,16 +6,12 @@
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+mod datum;
 mod host;
-mod strict_datum;
-mod strict_io;
-mod strict_math;
-mod strict_number;
-mod strict_text;
-mod symbols;
+mod io;
+mod math;
+mod text;
 mod unicode;
-
-pub use strict_io::close_all;
 
 // ---- Module initialization ----
 
@@ -46,7 +42,7 @@ fn fail_message(message: &str) -> ! {
     #[cfg(all(not(target_arch = "wasm32"), not(test)))]
     {
         eprintln!("lofi: {message}");
-        close_all();
+        io::close_all();
         std::process::exit(1)
     }
     #[cfg(all(not(target_arch = "wasm32"), test))]
@@ -62,6 +58,27 @@ pub unsafe extern "C" fn report_error(pointer: *const u8, length: usize) {
     let bytes = unsafe { std::slice::from_raw_parts(pointer, length) };
     eprintln!("lofi: {}", String::from_utf8_lossy(bytes));
     std::process::exit(1)
+}
+
+// ---- Guest panics ----
+
+thread_local! {
+    static PANIC_MESSAGE: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+}
+
+/// Append one Unicode scalar to the pending panic message.
+#[unsafe(export_name = "snail:panic/character")]
+pub extern "C" fn panic_character(code: u32) {
+    let character = char::from_u32(code).unwrap_or(char::REPLACEMENT_CHARACTER);
+    PANIC_MESSAGE.with_borrow_mut(|message| message.push(character));
+}
+
+/// Release files, flushing buffered output, then report the message and stop.
+#[unsafe(export_name = "snail:panic/raise")]
+pub extern "C" fn panic_raise() {
+    let message = PANIC_MESSAGE.with_borrow_mut(std::mem::take);
+    io::close_all();
+    fail_message(&message)
 }
 
 // ---- Floating-point text shared by scalar token services ----

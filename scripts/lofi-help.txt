@@ -1,16 +1,19 @@
 Usage: lofi run [OPTIONS] SOURCE.sld [ARGUMENT ...]
        lofi compile [OPTIONS] -o OUTPUT SOURCE.sld
+       lofi wat [OPTIONS] SOURCE.sld
+       lofi bootstrap
 
-Compile .sld source using imported Lofi or Scheme forms.
-Chibi hosts the compiler; Binaryen is required.
+Compile a Lofi program to WasmGC, linked with the Rust runtime. The
+compiler runs as Wasm, rebuilt from its own source when that changes;
+Chibi starts the first bootstrap. Binaryen, Cargo and Node are required.
 
-  --debug                   Build with basic optimization (default).
-  --release                 Enable full guest and linked-runtime optimization.
-  -I DIR, --library DIR      Add a Lofi library search directory; may repeat.
-  --generation-provider FILE
-                            Select the JavaScript provider for generated libraries.
-  -o FILE, --output FILE     Publish a completed compile artifact to FILE.
-  -h, --help                Show this help without checking installed tools.
+  --release        Optimize fully (the default is basic optimization).
+  -I DIR           Add a library search directory; may repeat. lib/ is
+                   always searched last.
+  -o FILE          Where compile writes the program.
+  -h, --help       Show this help.
 
-Arguments after SOURCE in run are passed literally to the program.
-The compiler produces WasmGC. Run it with the Wasm host or package it for a browser.
+run passes the arguments after SOURCE to the program. wat prints the
+generated WebAssembly text without assembling it. bootstrap rebuilds the
+compiler until it reproduces itself. LOFI_STAGE0=chibi compiles with the
+compiler's source running on Chibi instead.

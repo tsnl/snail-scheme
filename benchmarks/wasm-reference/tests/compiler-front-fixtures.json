@@ -1,6 +1,0 @@
-{
-  "closed-loop": "(lambda (x) (letrec ((loop (lambda (n) (if (= n 0) x (loop (- n 1)))))) (loop 2)))",
-  "mutable-captured-parameter": "(lambda (x) (let ((f (lambda () x))) (set! x (+ x 1)) (f)))",
-  "mutual-procedures": "(lambda (x) (letrec ((f (lambda (n) (if (= n 0) x (g (- n 1))))) (g (lambda (n) (if (= n 0) 1 (f (- n 1)))))) (f 3)))",
-  "constant-let-and-global-definition": "(begin (define x 3) (define (f n) (let ((k 2)) (+ n k x))) (f 4))"
-}

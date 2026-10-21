@@ -1,0 +1,33 @@
+(import
+ (lofi base)
+ (lofi io))
+
+(: adder (-> I64 (-> I64 I64)))
+(define (adder n)
+  (lambda (x) (+ x n)))
+
+(: compose (All (A B C) (-> (-> B C) (-> A B) (-> A C))))
+(define (compose f g)
+  (lambda (x) (f (g x))))
+
+(: count-down (-> I64 I64))
+(define (count-down n)
+  (let loop ((i n) (total 0))
+    (if (= i 0) total (loop (- i 1) (+ total i)))))
+
+(define add5 (adder 5))
+(display (add5 10))
+(newline)
+(display ((compose add5 (adder 100)) 1))
+(newline)
+(display (count-down 1000000))
+(newline)
+(let ((base 7))
+  (define (scale x) (* x base))
+  (define (twice f x) (f (f x)))
+  (display (twice scale 2))
+  (newline))
+(display (fold-left + 0 (map (lambda (x) (* x x)) (list 1 2 3 4))))
+(newline)
+(display (length (filter (lambda (x) (> x 2)) (iota 10))))
+(newline)

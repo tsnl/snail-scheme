@@ -1,75 +1,77 @@
-;; The public command compiles privately before publishing or invoking an artifact.
+;; The lofi command: compile, run, or print the WebAssembly text of a program.
 (import
  (scheme base)
- (scheme cxr)
- (scheme file)
  (scheme process-context)
  (scheme write)
  (chibi filesystem)
- (chibi string)
- (srfi 1)
- (lofi host process)
- (only (lofi host build-host) process-status))
+ (chibi pathname)
+ (chibi process)
+ (lofi build))
 
-;; ---- Command requests ----
+;; ---- Requests ----
 
+(define usage "usage: lofi compile|run|wat|schema [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | lofi bootstrap")
+
+
+
+(define (absolute path)
+  (if (path-absolute? path) path (path-join (current-directory) path)))
+
+;; Returns an association list of the options, the source and its arguments.
 (define (request arguments)
-  (unless (and (pair? arguments) (member (car arguments) '("compile" "run")))
-    (error "usage: lofi compile|run [--debug|--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENTS]"))
-  (let loop ((arguments (cdr arguments)) (options (list (cons 'action (car arguments)))))
-    (unless (pair? arguments) (error "a source file is required"))
-    (let ((flag (car arguments)))
-      (cond ((member flag '("--debug" "--release"))
-             (loop (cdr arguments) (cons (cons 'profile flag) options)))
-            ((member flag '("-I" "--library" "--generation-provider" "-o" "--output"))
-             (unless (pair? (cdr arguments)) (error "missing command option value" flag))
-             (loop (cddr arguments)
-                   (cons (cons (cond ((member flag '("-I" "--library")) 'library)
-                                     ((string=? flag "--generation-provider") 'provider) (else 'output))
-                               (absolute-path (cadr arguments))) options)))
-            ((string-prefix? "-" flag) (error "unknown command option" flag))
-            (else (append options (list (cons 'source (absolute-path flag)) (cons 'arguments (cdr arguments)))))))))
-(define (libraries options)
-  (reverse (map cdr (filter (lambda (item) (eq? (car item) 'library)) options))))
-(define (compiler-inputs root options)
-  (append (map (lambda (name) (path-join root name))
-               '("lofi" "src/runtime/Cargo.toml" "src/runtime/Cargo.lock" "rust-toolchain.toml"))
-          (append-map directory-source-files
-                      (append (map (lambda (name) (path-join root name))
-                                   '("src" "bootstrap" "scripts"))
-                              (libraries options)))))
-(define (check-request root options)
-  (when (string=? (option-ref options 'action "") "compile")
-    (let ((output (option-ref options 'output #f)))
-      (unless output (error "compile requires -o OUTPUT"))
-      (when (or (any (lambda (input) (paths-alias? output input))
-                     (append (list (option-ref options 'source #f) (option-ref options 'provider #f))
-                             (compiler-inputs root options)))
-                (any (lambda (directory) (string-prefix? (string-append directory "/") output))
-                     (append (map (lambda (name) (path-join root name)) '("src" "bootstrap" "scripts")) (libraries options))))
-        (error "compile output must not replace compiler or library inputs"))
-      (unless (null? (option-ref options 'arguments '())) (error "compile accepts one source")))))
+  (unless (and (pair? arguments) (member (car arguments) '("compile" "run" "wat" "schema"))) (error usage))
+  (let loop ((rest (cdr arguments)) (options (list (cons 'action (car arguments)))))
+    (cond ((null? rest) (error usage))
+          ((string=? (car rest) "--release") (loop (cdr rest) (cons '(release . #t) options)))
+          ((member (car rest) '("-I" "-o"))
+           (when (null? (cdr rest)) (error usage))
+           (loop (cddr rest) (cons (cons (if (string=? (car rest) "-I") 'library 'output) (absolute (cadr rest))) options)))
+          (else (append options (list (cons 'source (absolute (car rest))) (cons 'arguments (cdr rest))))))))
 
-;; ---- Private builds, publication and execution ----
+(define (option options name default)
+  (let ((entry (assq name options))) (if entry (cdr entry) default)))
 
-(define (build root options directory)
-  (let* ((flags (append-map (lambda (path) (list "-I" path)) (libraries options)))
-         (provider (option-ref options 'provider #f))
-         (flags (if provider (append flags (list "--generation-provider" provider)) flags))
-         (source (option-ref options 'source #f)) (profile (option-ref options 'profile "--debug")))
-    (let ((artifact (path-join directory "program.wasm")) (module (path-join directory "module.wasm")))
-      (run-command! (append (list (path-join root "scripts/build-lofi") profile "--command") flags (list source module)))
-      (run-command! (list (path-join root "scripts/link-lofi-runtime") profile module artifact)) artifact)))
-(define (execute-artifact root options artifact)
-  (let ((command (list (tool-name "NODE" "node") (path-join root "scripts/run-lofi.mjs") artifact)))
-    (process-status (append command (option-ref options 'arguments '())) "." #t (car command))))
+(define (directories root options)
+  (append (reverse (map cdr (filter-library options))) (list (path-join root "lib"))))
+
+(define (filter-library options)
+  (let loop ((options options) (out '()))
+    (cond ((null? options) out)
+          ((eq? (caar options) 'library) (loop (cdr options) (cons (car options) out)))
+          (else (loop (cdr options) out)))))
+
+;; ---- Actions ----
+
 (define (perform root options)
-  (check-request root options)
-  (let* ((output (option-ref options 'output #f))
-         (directory (make-build-directory (if output (path-directory output) (path-join root "build/lofi-runs")) ".sld-")))
-    (guard (failure (else (display (string-append "build evidence retained at " directory "\n") (current-error-port)) (raise failure)))
-      (let* ((artifact (build root options directory))
-             (status (if (string=? (option-ref options 'action "") "compile")
-                         (begin (rename-file artifact output) 0) (execute-artifact root options artifact))))
-        (delete-file-hierarchy directory) status))))
-(command-line-main (lambda (arguments) (perform (car arguments) (request (cdr arguments)))) "lofi")
+  (let ((source (option options 'source #f)) (action (option options 'action "run")))
+    (cond
+     ((string=? action "wat") (write-string (program->wat root (directories root options) source)) 0)
+     ((string=? action "schema") (write-string (program->schemas root (directories root options) source)) 0)
+     (else
+      (let ((output (or (option options 'output #f) (path-join root "build/lofi-run/program.wasm"))))
+        (build-program root (directories root options) source output (option options 'release #f))
+        (if (string=? action "compile")
+            0
+            (run-program root output (option options 'arguments '()))))))))
+
+;; The program inherits standard input and output; its status is returned.
+(define (run-program root program arguments)
+  (let ((status (cadr (apply system (or (get-environment-variable "NODE") "node") "--no-warnings"
+                             (path-join root "scripts/run-lofi.mjs") program arguments))))
+    (quotient status 256)))
+
+(define (report failure)
+  (let ((port (current-error-port)))
+    (display "lofi: " port)
+    (if (error-object? failure)
+        (begin (display (error-object-message failure) port)
+               (for-each (lambda (irritant) (display " " port) (write irritant port)) (error-object-irritants failure)))
+        (write failure port))
+    (newline port)
+    1))
+
+(let ((arguments (command-line)))
+  (exit (guard (failure (#t (report failure)))
+          (if (equal? (cddr arguments) '("bootstrap"))
+              (begin (bootstrap! (cadr arguments)) 0)
+              (perform (cadr arguments) (request (cddr arguments)))))))

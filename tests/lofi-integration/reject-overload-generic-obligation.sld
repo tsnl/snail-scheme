@@ -1,5 +1,0 @@
-(import
- (lofi base))
-(define-overload build (All (T) (-> I64 (Vector T)))
-  (lambda (count) (make-vector count)))
-(ann 42 I64)

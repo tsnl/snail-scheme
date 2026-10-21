@@ -1,0 +1,5 @@
+tick 0, ore 60, buildings 1, workers 3, enemies 0
+Extractor ordered.
+tick 300, ore 58, buildings 2, workers 3, enemies 0
+ore conserved: #t
+tick 700, ore 94, buildings 2, workers 3, enemies 3

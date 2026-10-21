@@ -1,0 +1,42 @@
+;; A small R7RS program: the six queens, list utilities and closures.
+(define (attacks? q1 q2 distance)
+  (or (= q1 q2) (= (abs (- q1 q2)) distance)))
+
+(define (safe? queen placed)
+  (let loop ((rest placed) (distance 1))
+    (cond ((null? rest) #t)
+          ((attacks? queen (car rest) distance) #f)
+          (else (loop (cdr rest) (+ distance 1))))))
+
+(define (queens board-size)
+  (define (place k)
+    (if (= k 0)
+        '(())
+        (let ((smaller (place (- k 1))))
+          (apply append
+                 (map (lambda (placed)
+                        (let collect ((column 1) (found '()))
+                          (if (> column board-size)
+                              (reverse found)
+                              (collect (+ column 1)
+                                       (if (safe? column placed) (cons (cons column placed) found) found)))))
+                      smaller)))))
+  (place board-size))
+
+(define solutions (queens 6))
+(display "6 queens: ") (display (length solutions)) (display " solutions, first ")
+(write (car solutions)) (newline)
+
+(define counter
+  (let ((count 0))
+    (lambda () (set! count (+ count 1)) count)))
+(counter) (counter)
+(display (list 'counter (counter) (/ 1 3) (* 1.5 2) "text" #\a)) (newline)
+(display (case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8 9) 'composite) (else 'other))) (newline)
+(for-each (lambda (x) (display (* x x)) (display " ")) '(1 2 3))
+(newline)
+(define (small? n) (and (< n 3) (* n 10)))
+(display (let* ((a 1) (b (+ a 1)))
+           (list (cond ((small? b) => (lambda (x) (+ x 1))) (else 'none))
+                 (cond ((small? 5)) ((small? a)) (else 'none)))))
+(newline)

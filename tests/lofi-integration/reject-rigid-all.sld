@@ -1,6 +1,0 @@
-(import
- (lofi base))
-
-(def identity (All (T) (-> T T))
-     (lambda (x) (+ x (ann 1 I64))))
-(identity (ann 41 I64))

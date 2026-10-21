@@ -1,9 +1,0 @@
-{
-  "name": "diviter",
-  "count": 1000000,
-  "inputs": [
-    1000
-  ],
-  "expected": 500,
-  "barriers_per_iteration": 0
-}

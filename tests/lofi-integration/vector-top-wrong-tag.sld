@@ -1,5 +1,0 @@
-(import
- (lofi base))
-(def hidden
-     (ann (make-vector (ann 1 I64) #t) Any))
-(vector-ref (ann hidden (Vector I32)) (ann 0 I64))

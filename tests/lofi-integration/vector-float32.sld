@@ -1,6 +1,0 @@
-(import
- (lofi base))
-(def values
-     (make-vector (ann 2 I64) (ann 1.25 F32)))
-(vector-set! values (ann 1 I64) (ann 2.5 F32))
-(f32-add (vector-ref values (ann 0 I64)) (vector-ref values (ann 1 I64)))
