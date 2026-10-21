@@ -238,13 +238,14 @@
     (define (held-axis game more more-key less less-key)
       (- (if (or (held? game more) (held? game more-key)) 1.0 0.0) (if (or (held? game less) (held? game less-key)) 1.0 0.0)))
 
-    ;; Held keys pan in screen directions, 3.5 cells a second at the closest
-    ;; zoom and faster farther out, so the map moves at a steady rate on
-    ;; screen.
+    ;; Held keys pan in screen directions at the original's nine cells a
+    ;; second at the starting zoom, faster farther out, so the map moves at
+    ;; a steady rate on screen. Up the screen covers twice the ground, seen
+    ;; at 30 degrees, as dragging does.
     (: move-camera (-> Game I64 Game))
     (define (move-camera game milliseconds)
-      (let ((speed (* (* 0.0035 (View-scale (Game-view game))) (i64->f32 milliseconds))))
-        (Game-view-set game (shifted game (* speed (held-axis game key-right 100 key-left 97)) (* speed (held-axis game key-up 119 key-down 115))))))
+      (let ((speed (* (* 0.009 (View-scale (Game-view game))) (i64->f32 milliseconds))))
+        (Game-view-set game (shifted game (* speed (held-axis game key-right 100 key-left 97)) (* (* 2.0 speed) (held-axis game key-up 119 key-down 115))))))
 
     ;; Dragging moves the ground with the pointer: a pixel is 18 times the
     ;; zoom over the screen's height across, and twice that up the screen,
