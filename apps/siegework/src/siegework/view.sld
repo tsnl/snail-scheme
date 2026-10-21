@@ -11,8 +11,7 @@
 ;; moves them between ticks.
 (define-library (siegework view)
   (export
-   view-game
-   game-hud)
+   view-game)
   (import
    (lofi base)
    (lofi app)
@@ -516,32 +515,29 @@
 
     ;; ---- Cursor and previews ----
 
-    ;; The hovered cell, the selected one, and a ghost of the building the
-    ;; current tool would place.
+    ;; The hovered cell, the selected one, and on it a ghost of the building
+    ;; whose button the pointer is over.
     (: cursor-items (-> Game (List Item)))
     (define (cursor-items game)
       (append (match (Game-hover game)
-                ((Some cell) (Cons (flat (Paint (rgb 255 255 255) 0.6) (i64->f32 (Cell-x cell)) (negate (i64->f32 (Cell-y cell))) 0.06 0.98 0.98)
-                                   (match (Game-tool game)
-                                     ((Placing kind) (at-cell cell (building-parts kind 1)))
-                                     ((Select) (Nil)))))
+                ((Some cell) (at-cell cell (list (flat (Paint (rgb 255 255 255) 0.6) 0.0 0.0 0.06 0.98 0.98))))
                 ((None) (Nil)))
               (match (Game-selected game)
-                ((Some cell) (list (flat (Paint (rgb 255 220 90) 0.8) (i64->f32 (Cell-x cell)) (negate (i64->f32 (Cell-y cell))) 0.08 0.7 0.7)))
+                ((Some cell) (at-cell cell (Cons (flat (Paint (rgb 255 220 90) 0.8) 0.0 0.0 0.08 0.9 0.9)
+                                                 (match (Game-preview game) ((Some kind) (building-parts kind 1)) ((None) (Nil))))))
                 ((None) (Nil)))))
 
     (: cursor-version (-> Game I64))
     (define (cursor-version game)
       (let ((code (lambda (option) (match option ((Some cell) (+ 1 (cell-index cell))) ((None) 0)))))
-        (+ (* (code (Game-hover game)) 26244) (+ (* 4 (code (Game-selected game))) (tool-code (Game-tool game))))))
+        (+ (* (code (Game-hover game)) 26244) (+ (* 4 (code (Game-selected game))) (match (Game-preview game) ((Some kind) (+ 1 (kind-code kind))) ((None) 0))))))
 
-    (: tool-code (-> Tool I64))
-    (define (tool-code tool)
-      (match tool
-        ((Select) 0)
-        ((Placing (Extractor)) 1)
-        ((Placing (Pylon)) 2)
-        ((Placing (Turret)) 3)))
+    (: kind-code (-> Kind I64))
+    (define (kind-code kind)
+      (match kind
+        ((Extractor) 0)
+        ((Pylon) 1)
+        ((Turret) 2)))
 
     ;; ---- Light ----
 
@@ -564,81 +560,6 @@
     (define (unit v)
       (let ((length (sqrt (+ (* (Vec3-x v) (Vec3-x v)) (+ (* (Vec3-y v) (Vec3-y v)) (* (Vec3-z v) (Vec3-z v)))))))
         (Vec3 (/ (Vec3-x v) length) (/ (Vec3-y v) length) (/ (Vec3-z v) length))))
-
-    ;; ---- HUD ----
-
-    (: label (-> String String Widget))
-    (define (label key text)
-      (Label (look key) text))
-
-    (: button (-> String String I32 Bool Widget))
-    (define (button key text action selected)
-      (Button (look key) text "" action 0 (if selected (Selected) (Enabled)) -1.0))
-
-    (: status-panel (-> World Panel))
-    (define (status-panel world)
-      (let ((until (- (next-attack-tick (World-tick world)) (World-tick world))))
-        (Panel "status" (At (TopLeft) 0)
-               (list (label "energy" (string-append "Energy " (show (World-energy world))))
-                     (label "hub" (string-append "Hub " (show (Hub-health (World-hub world))) " · slots " (show (Hub-slots (World-hub world)))))
-                     (label "nests" (string-append "Nests " (show (length (living-nests world)))))
-                     (Dial (look "attack") (string-append "Attack " (show (attack-number (World-tick world))) " in " (show (quotient until 10)) "s")
-                           (- 1.0 (/ (i64->f32 until) 450.0)))))))
-
-    (: tool-panel (-> Game Panel))
-    (define (tool-panel game)
-      (let ((tool-button (lambda (kind)
-                           (button (kind-name kind) (string-append (kind-name kind) " " (show (raise-cost kind 0))) (action-tool kind)
-                                   (match (Game-tool game) ((Placing selected) (= (action-tool selected) (action-tool kind))) ((Select) #f))))))
-        (Panel "tools" (At (BottomLeft) 0)
-               (list (tool-button (Extractor)) (tool-button (Pylon)) (tool-button (Turret))
-                     (button "upgrade" "Upgrade" action-upgrade #f) (button "rush" "Rush" action-rush #f) (button "cancel" "Cancel" action-cancel #f)
-                     (button "scavenge" "Scavenge" action-scavenge #f) (button "repair" "Repair" action-repair #f)
-                     (button "pause" (if (Game-paused game) "Resume" "Pause") action-pause (Game-paused game))
-                     (button "new-map" "New map" action-new-map #f)))))
-
-    (: work-text (-> Work String))
-    (define (work-text work)
-      (string-append " · working " (show (quotient (* 100 (Work-progress work)) (Work-duration work))) "%"
-                     (if (Work-rushed work) " (rushed)" "")))
-
-    (: inspect-panel (-> Game Panel))
-    (define (inspect-panel game)
-      (let ((world (Game-world game)))
-        (Panel "inspect" (At (TopRight) 0)
-               (match (focus-cell game)
-                 ((Some cell)
-                  (Cons (label "cell" (string-append "Cell " (show (Cell-x cell)) ", " (show (Cell-y cell))))
-                        (append (if (hub-cell? (World-hub world) cell) (list (label "hub" (hub-text (World-hub world)))) (Nil))
-                                (append (map (lambda (b) (label "building" (building-text world b))) (filter (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world)))
-                                        (map (lambda (c) (label "crystal" (string-append "Crystal · " (show (Crystal-reserve c)) " left")))
-                                             (filter (lambda (c) (and (cell=? (Crystal-cell c) cell) (explored? world cell))) (World-crystals world)))))))
-                 ((None) (Nil))))))
-
-    (: hub-text (-> Hub String))
-    (define (hub-text hub)
-      (string-append "Hub · health " (show (Hub-health hub)) " · slots " (show (Hub-slots hub))
-                     (match (Hub-work hub) ((Some work) (work-text work)) ((None) ""))))
-
-    (: building-text (-> World Building String))
-    (define (building-text world b)
-      (string-append (kind-name (Building-kind b)) " " (show (Building-level b)) " · health " (show (Building-health b))
-                     (if (powered? world (Building-id b)) "" (if (built? b) " · unpowered" ""))
-                     (match (Building-work b) ((Some work) (work-text work)) ((None) ""))))
-
-    (: help-panel (-> Game Panel))
-    (define (help-panel game)
-      (Panel "help" (At (BottomRight) 0)
-             (list (label "message" (Game-message game))
-                   (label "hint" (match (World-outcome (Game-world game))
-                                   ((Won) "Victory! Start a new map to play again.")
-                                   ((Lost) "Defeat. Start a new map to play again.")
-                                   ((Resigned) "Resigned. Start a new map to play again.")
-                                   ((Playing) "WASD pans · Q/E turn · wheel zooms · H home · 1-3 build · U upgrade · R rush · C cancel · X scavenge"))))))
-
-    (: game-hud (-> Game (List Panel)))
-    (define (game-hud game)
-      (list (status-panel (Game-world game)) (tool-panel game) (inspect-panel game) (help-panel game)))
 
     ;; ---- Frames ----
 
@@ -687,7 +608,7 @@
     (: view-game (-> Game F32 Frame))
     (define (view-game game alpha)
       (let* ((world (Game-world game)) (camera (game-camera game alpha)))
-        (Frame camera (camera-light camera) sky (if (Game-paused game) 1.0 alpha)
+        (Frame camera (camera-light camera) sky (if (paused? game) 1.0 alpha)
                (append (terrain-batches game alpha)
                        (list (Batch 3 (stamp game (World-structure-version world)) (Solid) (lambda () (structure-items world)))
                              (Batch 5 (stamp game (+ (* 4 (World-tick world)) (modulo (View-heading (Game-view game)) 4))) (Solid)
