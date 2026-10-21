@@ -37,9 +37,9 @@ the source changes.
 
 ## Siegework
 
-[Siegework](apps/siegework) is a small colony game written in Lofi: explore a
-seeded map, mine ore, and destroy three nests before their waves destroy
-your hub. It runs in the browser with WebGPU.
+[Siegework](apps/siegework) is a colony game written in Lofi: explore a
+seeded map, wire an energy network across it, and destroy three nests
+before their attacks destroy your hub. It runs in the browser with WebGPU.
 
 ```sh
 make site

@@ -77,9 +77,9 @@ forms.
 | `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
 | `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI, in a worker with room for deep recursion. |
-| `src/app/` | The browser host for `(lofi app)`: input, ticks, a WebGPU renderer, the HUD and saves. |
-| `scripts/build-app.scm` | Packages an application as a static site. |
-| `apps/siegework/` | The example game: `grid`, `world` (all rules), `game` (input and camera) and `view`. |
+| `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (perspective or orthographic, glow, motion between ticks, translucent and revealed batches), the keyed HUD and saves. |
+| `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
+| `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `colony` (orders and work), `siege` (attacks and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
 | `examples/` | Small programs; the test suite runs them. |
 | `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios and a headless game. |
 
