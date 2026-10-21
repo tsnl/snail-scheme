@@ -445,7 +445,6 @@
            ((52) (Some (rush-key game cell)))
            ((53) (Some (CloseCard)))
            ((117) (Some (UpgradeAt cell)))
-           ((114) (Some (rush-key game cell)))
            ((99) (Some (CancelAt cell)))
            ((120) (Some (ScavengeAt cell)))
            (else (view-command key))))

@@ -81,7 +81,6 @@ tap one to go to it.
 | 4 | Rush the selected work, or make new buildings rushed |
 | 5 | Close the selection |
 | U | Upgrade the selected building, or add a build slot at the hub |
-| R | Rush, as 4 does |
 | C, X | Cancel the selected work, scavenge the selected building |
 | F | Repair the hub to full health |
 | WASD, arrows | Pan |
@@ -89,6 +88,9 @@ tap one to go to it.
 | H | Return to the hub |
 | P | Open or close the menu |
 | Escape | Back out of a dialog, then clear the selection |
+
+Keys held with ⌘, Ctrl or Alt go to the browser, so its shortcuts, such as
+reloading, keep working.
 
 The menu also restarts on a new map, resigns, and moves the dock to the
 left or right edge.
