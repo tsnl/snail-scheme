@@ -1,5 +1,6 @@
 /* Layout for (lofi app) pages: a full-window canvas, HUD panels stacked in
-   columns from the screen's corners, and dialogs over a backdrop. An
+   columns from the screen's corners, banners across the top that let
+   input through, and dialogs over a backdrop. An
    application's own stylesheet colors widgets by their data-key, data-icon,
    data-tone and data-badge. */
 html, body { margin: 0; height: 100%; overflow: hidden; background: #10141c; color: #e8ecf2;
@@ -17,6 +18,10 @@ canvas { display: block; width: 100vw; height: 100vh; outline: none; touch-actio
 .corner.bottom-left .column, .corner.bottom-right .column { flex-direction: column-reverse; }
 .panel { display: flex; flex-wrap: wrap; gap: 6px; max-width: 360px; pointer-events: auto; }
 .panel:empty { display: none; }
+
+.banner { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column;
+  align-items: center; gap: 10px; }
+.banner .panel { pointer-events: none; }
 
 .dialogs { position: fixed; inset: 0; display: none; place-items: center; pointer-events: auto; }
 .dialogs.open { display: grid; }

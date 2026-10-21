@@ -90,6 +90,7 @@
    Warning
    Danger
    Muted
+   Suggested
    Control
    Enabled
    Disabled
@@ -112,6 +113,7 @@
    Place
    At
    Dialog
+   Banner
    Panel
    Frame
    rgb
@@ -367,12 +369,14 @@
 
     ;; ---- HUD ----
 
+    ;; `Suggested` marks the control to use next.
     (enum Tone
       (Plain)
       (Good)
       (Warning)
       (Danger)
-      (Muted))
+      (Muted)
+      (Suggested))
 
     (enum Control
       (Enabled)
@@ -411,10 +415,12 @@
     ;; Panels in a corner stack in columns: column 0 against the side of the
     ;; screen, later ones farther in, each running from the corner in the
     ;; order given. A dialog sits in the middle over a backdrop that presses
-    ;; `dismiss` when touched.
+    ;; `dismiss` when touched. A banner sits across the top and is never
+    ;; touched, so the game stays in play beneath it.
     (enum Place
       (At ((corner Corner) (column I32)))
-      (Dialog ((dismiss I32))))
+      (Dialog ((dismiss I32)))
+      (Banner))
 
     (struct Panel
       ((key String)
@@ -522,7 +528,8 @@
     (define (render-panel panel)
       (match (Panel-place panel)
         ((At corner column) (panel-begin 0 (corner-index corner) column 0))
-        ((Dialog dismiss) (panel-begin 1 0 0 dismiss)))
+        ((Dialog dismiss) (panel-begin 1 0 0 dismiss))
+        ((Banner) (panel-begin 2 0 0 0)))
       (render-field 0 (Panel-key panel))
       (for-each render-widget (Panel-widgets panel)))
 
@@ -559,7 +566,8 @@
         ((Good) 1)
         ((Warning) 2)
         ((Danger) 3)
-        ((Muted) 4)))
+        ((Muted) 4)
+        ((Suggested) 5)))
 
     (: control-index (-> Control I32))
     (define (control-index control)

@@ -15,8 +15,14 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .button:active { background: #cce7de; }
 .button[aria-pressed="true"] { color: #fff9e9; background: var(--accent); border-color: #07545d; }
 .button:disabled { color: #6c7a78; background: #e8e8dc; border-color: #b2beb3; opacity: 1; }
-/* Disabled for now, waiting on energy, work or the network: warm. */
-.button:disabled[data-tone="warning"] { color: #94621f; background: #fbeed4; border-color: #d9b46e; border-style: dashed; }
+/* Disabled for now, waiting on energy, work, the network or the first
+   extractor: flat blue with faint diagonal lines and a quieter symbol. */
+.button:disabled[data-tone="warning"] { color: #3d78a8; border-color: transparent; box-shadow: none;
+  background: repeating-linear-gradient(135deg, #dcebf7 0 6px, #c9def0 6px 8px); }
+.button:disabled[data-tone="warning"] .icon { filter: saturate(0.6); }
+/* The control to use next pulses with a white glow. */
+.button:enabled[data-tone="suggested"] { animation: suggest 1.2s ease-in-out infinite; }
+@keyframes suggest { 50% { box-shadow: inset 0 1px 0 #ffffffd9, 0 0 0 4px #ffffffd9, 0 0 20px 8px #ffffff; } }
 /* Disabled because it cannot apply here: faded. */
 .button:disabled[data-tone="muted"] { color: #9aa5a3; background: #ecece4; border-color: #cfd5cf; opacity: 0.55; }
 .button:disabled[data-tone="muted"] .caption { display: none; }
@@ -44,6 +50,9 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .panel[data-key="construction"] { gap: 16px; padding-bottom: 16px; }
 .label[data-key="divider"] { width: 60%; height: 0; padding: 0; margin: -4px 0; border-top: 2px solid var(--edge); border-radius: 0; }
 .panel[data-key="message"] { max-width: 120px; border-radius: 14px; }
+/* The opening banner: what to do before the game begins. */
+.panel[data-key="opening"] { border-radius: 18px; padding: 10px 24px; }
+.label[data-key="opening"] { font-size: 26px; font-weight: 750; }
 .label[data-key="message"] { color: var(--danger); font-weight: 700; font-size: 11px; line-height: 14px; text-align: center; }
 .button[data-key="close"] .text { font-size: 9px; }
 
@@ -115,4 +124,8 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
   .button .text { font-size: 10px; line-height: 12px; }
   .button[data-icon] .icon { width: 16px; height: 16px; }
   .panel[data-key="construction"] { gap: 12px; padding-bottom: 12px; }
+}
+
+@media (max-width: 760px), (max-height: 640px) {
+  .label[data-key="opening"] { font-size: 18px; }
 }

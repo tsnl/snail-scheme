@@ -25,7 +25,9 @@ is as the frame's motion goes from 0 to 1. Batches may be solid,
 translucent, or revealed within a growing disc. The camera is perspective
 or orthographic.
 
-HUD panels stack in columns from the screen's corners or appear as dialogs.
+HUD panels stack in columns from the screen's corners, appear as dialogs,
+or sit in a banner across the top that lets input through. A widget's tone
+can mark it suggested, the control to use next.
 The host keeps elements by key, so hover and focus survive updates, and
 reports presses and hovering back as input. `recognize` turns raw pointer
 events into points, taps, drags and pinches.

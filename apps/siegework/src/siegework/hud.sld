@@ -2,8 +2,8 @@
 ;; edge column holds the readouts and, while a cell is selected, the build
 ;; menu; the column beside it holds the menu and turning buttons, up to two
 ;; attack alerts and the build queue. The nests and the clock sit in the
-;; opposite corner, and dialogs cover the menu, its confirmations and the
-;; results.
+;; opposite corner, a banner across the top says how to begin, and dialogs
+;; cover the menu, its confirmations and the results.
 ;;
 ;; Only related controls share a panel. Every button names the command it
 ;; gives; one the world would reject is greyed out and explains why in its
@@ -131,8 +131,9 @@
     (: build-button (-> Game Cell Kind Widget))
     (define (build-button game cell kind)
       (let ((price (* (raise-cost kind 0) (if (Game-rush game) 5 1))))
-        (command-button (face (string-append "build-" (kind-icon kind)) (kind-icon kind)
-                              (string-append (kind-name kind) ": " (show (quotient (raise-duration kind 0) 10)) "s to build"))
+        (command-button (Look (string-append "build-" (kind-icon kind)) (kind-icon kind)
+                              (string-append (kind-name kind) ": " (show (quotient (raise-duration kind 0) 10)) "s to build")
+                              (if (opening-move? (Game-world game) kind) (Suggested) (Plain)) "")
                         (kind-key kind) (show price) (BuildAt kind cell) (check (Game-world game) (Build kind cell (Game-rush game))))))
 
     ;; What the next level of the selected building, or the hub's next build
@@ -245,6 +246,24 @@
                (list (plain-button (Look "attack" "danger" "Go to the attack" (Danger) "") "" (Locate (Alert-cell alert)))
                      (plain-button (Look "silence" "close" "Silence alerts here for eight seconds" (Danger) "") "" (Silence (Alert-cell alert)))))))
 
+    ;; ---- Opening ----
+
+    ;; Until the first extractor is built, the world waits: a banner asks
+    ;; for one, and the build menu suggests it.
+    (: opening (-> Game (List Panel)))
+    (define (opening game)
+      (if (opening? (Game-world game))
+          (list (Panel "opening" (Banner) (list (text "opening" "Build an extractor to continue"))))
+          (Nil)))
+
+    (: opening? (-> World Bool))
+    (define (opening? world)
+      (and (not (World-started world)) (playing? world)))
+
+    (: opening-move? (-> World Kind Bool))
+    (define (opening-move? world kind)
+      (and (opening? world) (match kind ((Extractor) #t) (_ #f))))
+
     ;; ---- Objective ----
 
     ;; A star for each nest, filled once destroyed, and the time in play.
@@ -304,6 +323,7 @@
 
     (: game-hud (-> Game (List Panel)))
     (define (game-hud game)
-      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (alerts game) (queue game) (list (objective game)) (dialogs game))))
+      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (alerts game) (queue game) (list (objective game)) (opening game)
+                         (dialogs game))))
 
     ))

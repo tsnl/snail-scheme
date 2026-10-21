@@ -1,10 +1,12 @@
 // The HUD: panels of labels, buttons and dials, stacked in columns in the
-// screen's corners or shown as dialogs over a backdrop. Elements are kept by
+// screen's corners, shown as dialogs over a backdrop, or as banners across
+// the top that never take input. Elements are kept by
 // key and changed only where the description changed, so hover and focus
 // survive the updates that arrive several times a second.
 
 const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
-const tones = ['plain', 'good', 'warning', 'danger', 'muted'];
+const tones = ['plain', 'good', 'warning', 'danger', 'muted', 'suggested'];
+const DIALOG = 1, BANNER = 2;
 const LABEL = 0, BUTTON = 1, DIAL = 2;
 const DISABLED = 1, SELECTED = 2;
 
@@ -97,6 +99,8 @@ export function createHud(overlay, press, hover) {
     overlay.append(node);
     return node;
   });
+  const banner = element('div', 'banner');
+  overlay.append(banner);
   const dialogs = element('div', 'dialogs');
   const backdrop = element('div', 'backdrop');
   dialogs.append(backdrop);
@@ -122,13 +126,14 @@ export function createHud(overlay, press, hover) {
         const state = panels.get(panel.key) ?? {node: element('div', 'panel'), widgets: new Map()};
         updatePanel(state, panel, press, hover);
         next.set(panel.key, state);
-        const parent = panel.place === 1 ? dialogs : column(panel.corner, panel.column);
+        const parent = panel.place === DIALOG ? dialogs : panel.place === BANNER ? banner : column(panel.corner, panel.column);
         if (!placed.has(parent)) placed.set(parent, parent === dialogs ? [backdrop] : []);
         placed.get(parent).push(state.node);
-        if (panel.place === 1) dismiss = panel.dismiss;
+        if (panel.place === DIALOG) dismiss = panel.dismiss;
       }
       for (const node of cornerNodes) for (const child of node.children) if (!placed.has(child)) placed.set(child, []);
       if (!placed.has(dialogs)) placed.set(dialogs, [backdrop]);
+      if (!placed.has(banner)) placed.set(banner, []);
       for (const [parent, nodes] of placed) arrange(parent, nodes);
       dialogs.classList.toggle('open', placed.get(dialogs).length > 1);
       panels = next;
