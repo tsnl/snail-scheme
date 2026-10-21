@@ -80,7 +80,8 @@ forms.
 | `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (perspective or orthographic, glow, motion between ticks, translucent and revealed batches), the keyed HUD and saves. |
 | `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
 | `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `colony` (orders and work), `siege` (attacks and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
-| `examples/` | Small programs; the test suite runs them. |
+| `examples/` | Small programs; the test suite runs them, and the book's tutorials show them. |
+| `doc/book/`, `book.toml` | The book published on GitHub Pages; its chapters include the language guide, the redesign and Siegework's guide. |
 | `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios and a headless game. |
 
 ## Checks
@@ -90,6 +91,7 @@ make test       # unit tests, programs, examples and Siegework
 make check      # formatting
 cargo test --manifest-path src/runtime/Cargo.toml --offline
 make site       # Siegework in build/siegework
+make pages      # the book, with Siegework at play/siegework/, in build/pages
 ```
 
 `node tests/browser/page.mjs URL SCREENSHOT` opens a page in headless
