@@ -22,7 +22,9 @@ All compiler modules live in `src/lofi/compiler/` and are written in typed
 Lofi: they import only `(lofi base)`, `(lofi table)` and `(lofi io)`, so the
 compiler can compile itself. Chibi Scheme runs the same source through
 `host/chibi/`, which implements those three libraries and erases the typed
-forms.
+forms. `(lofi table)` is an immutable table, so a pass threads its tables
+as values where their scope is clear, such as the checker's local types,
+and keeps state that grows over a whole pass in a `Ref`.
 
 - **[`read.sld`](src/lofi/compiler/read.sld)** turns text into `Syntax`:
   atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
@@ -31,8 +33,9 @@ forms.
 - **[`core.sld`](src/lofi/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
-  `Instance`, `Effect`), the `Program` tables, the primitive table, and
-  TypeId hashing for wire types.
+  `Instance`, `Effect`), the `Program`, the primitive table, and TypeId
+  hashing for wire types. A `Program` is a value: the expander builds it in
+  one cell, and the later passes read it without effects.
 - **[`expand.sld`](src/lofi/compiler/expand.sld)** is the only pass that
   knows binding forms. It loads libraries, resolves every identifier through
   environments, and runs `syntax-rules`. Hygiene is renaming: each identifier

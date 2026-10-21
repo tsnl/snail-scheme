@@ -29,8 +29,8 @@
       ((typed Typed)
        (instances (Table Instance))
        (definitions (Table Expr))
-       (done (Table String))
-       (specialized (Table (List Item)))
+       (done (Ref (Table String)))
+       (specialized (Ref (Table (List Item))))
        (pending (Ref (List Request)))))
 
     (struct Request
@@ -49,7 +49,7 @@
     (define (program-of state)
       (Typed-program (State-typed state)))
 
-    (: definition (-> State String Expr ! mut))
+    (: definition (-> State String Expr))
     (define (definition state name)
       (match (table-ref (State-definitions state) name)
         ((Some value) value)
@@ -62,8 +62,8 @@
     (: request! (-> State String (List Type) (List Evidence) String ! mut))
     (define (request! state name types evidence)
       (let ((spec (if (null? types) name (string-append name "<" (string-join (map type-key types) ",") ">"))))
-        (unless (table-contains? (State-done state) spec)
-          (table-set! (State-done state) spec spec)
+        (unless (table-contains? (ref-get (State-done state)) spec)
+          (ref-set! (State-done state) (table-set (ref-get (State-done state)) spec spec))
           (ref-set! (State-pending state) (Cons (Request name spec types evidence) (ref-get (State-pending state)))))
         spec))
 
@@ -82,8 +82,15 @@
              (scheme (definition-scheme (State-typed state) name))
              (inst (Instantiation (zip (Scheme-vars scheme) (Request-types request)) (Request-evidence request)))
              (value (copy-expr state inst (definition state name)))
-             (copies (match (table-ref (State-specialized state) name) ((Some copies) copies) ((None) (Nil)))))
-        (table-set! (State-specialized state) name (append copies (list (Define (Request-spec request) value))))))
+             (copies (copies-of state name)))
+        (ref-set! (State-specialized state)
+                  (table-set (ref-get (State-specialized state)) name (append copies (list (Define (Request-spec request) value)))))))
+
+    (: copies-of (-> State String (List Item) ! mut))
+    (define (copies-of state name)
+      (match (table-ref (ref-get (State-specialized state)) name)
+        ((Some copies) copies)
+        ((None) (Nil))))
 
     ;; ---- Copying ----
 
@@ -160,7 +167,7 @@
            (_ (panic "internal error: a method needs instance evidence"))))
         (_ (Expr (Var name (Nil) (Nil)) type loc))))
 
-    (: instance-method (-> State String String String ! mut))
+    (: instance-method (-> State String String String))
     (define (instance-method state instance method)
       (match (table-ref (State-instances state) instance)
         ((Some found)
@@ -187,15 +194,15 @@
     ;; copied only when reached.
     (: monomorphize (-> Typed Mono ! mut))
     (define (monomorphize typed)
-      (let ((state (State typed (make-table) (make-table) (make-table) (make-table) (ref (Nil)))) (items (Typed-items typed)))
-        (for-each (lambda (instances)
-                    (for-each (lambda (instance) (table-set! (State-instances state) (Instance-name instance) instance)) instances))
-                  (table-values (Program-instances (Typed-program typed))))
-        (for-each (lambda (item)
-                    (match item
-                      ((Define name value) (table-set! (State-definitions state) name value))
-                      (_ (unit))))
-                  items)
+      (let* ((items (Typed-items typed))
+             (instances (fold-left (lambda (table instance) (table-set table (Instance-name instance) instance))
+                                   empty-table (concatenate (table-values (Program-instances (Typed-program typed))))))
+             (definitions (fold-left (lambda (table item)
+                                       (match item
+                                         ((Define name value) (table-set table name value))
+                                         (_ table)))
+                                     empty-table items))
+             (state (State typed instances definitions (ref empty-table) (ref empty-table) (ref (Nil)))))
         (let ((statements (map (lambda (item) (root-item state item)) items)))
           (run-requests! state)
           (Mono (Typed-program typed) (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair)))
@@ -217,7 +224,7 @@
     (: output-items (-> State Item (Option Item) (List Item) ! mut))
     (define (output-items state item statement)
       (match item
-        ((Define name _) (match (table-ref (State-specialized state) name) ((Some copies) copies) ((None) (Nil))))
+        ((Define name _) (copies-of state name))
         ((Do _) (match statement ((Some statement) (list statement)) ((None) (Nil))))
         ((Expose _ _ _) (list item))))
 
