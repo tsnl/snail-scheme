@@ -455,9 +455,7 @@
     ;; On a crystal a turret's place is taken by an extractor.
     (: turret-kind (-> World Cell Kind))
     (define (turret-kind world cell)
-      (match (crystal-at world cell)
-        ((Some _) (Extractor))
-        ((None) (Turret))))
+      (if (and (explored? world cell) (match (crystal-at world cell) ((Some _) #t) ((None) #f))) (Extractor) (Turret)))
 
     (: working? (-> World Cell Bool))
     (define (working? world cell)

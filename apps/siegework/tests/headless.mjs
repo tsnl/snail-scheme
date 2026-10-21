@@ -71,26 +71,28 @@ assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
 assert.equal(widget(host, 'nests').text, '☆☆☆');
 
-// The camera looks at the hub, so a tap in the middle selects it.
+// The camera looks at the hub, so a tap in the middle selects it and the
+// construction panel offers the hub's buttons.
 tap(game, 480, 320);
-assert.ok(widget(host, 'title').text.startsWith('Hub'), widget(host, 'title').text);
+assert.ok(widget(host, 'repair'), 'the hub can be repaired');
 
-// Tap around until the card shows a crystal, then build an extractor there
-// through the card's button.
+// Tap around until the construction panel offers an extractor, then build
+// it through that button.
 let crystal = null;
 for (let y = 10; y < 640 && !crystal; y += 20)
   for (let x = 10; x < 960 && !crystal; x += 20) {
     tap(game, x, y);
-    if (widget(host, 'title')?.text.startsWith('Crystal')) crystal = widget(host, 'build-extractor');
+    const button = widget(host, 'build-extractor');
+    if (button && button.control === 0) crystal = button;
   }
 assert.ok(crystal, 'a crystal is in view');
 game.app_input(PRESS, crystal.action, crystal.argument, 0, 0);
 assert.equal(widget(host, 'energy').text, '135');
-assert.ok(widget(host, 'title').text.startsWith('Extractor 1'), 'the first extractor is ready at once');
+assert.ok(widget(host, 'scavenge'), 'the first extractor is ready at once');
 // Each tenth of a second advances the world a tick.
 for (let i = 0; i < 3000; i++) game.app_input(ELAPSED, 100, 0, 0, 0);
 game.app_frame();
-const readouts = h => ['energy', 'health', 'slots', 'threat', 'elapsed'].map(key => widget(h, key)?.text);
+const readouts = h => ['health', 'energy', 'threat', 'elapsed'].map(key => widget(h, key)?.text);
 console.log(readouts(host).join(' | '));
 
 // Save, restore into a fresh instance, and compare what each shows.
