@@ -11,4 +11,4 @@ chibi-scheme -I host/chibi -I src scripts/build-app.scm "$PWD" apps/siegework bu
 | Application | Purpose |
 | --- | --- |
 | [Siegework](siegework/README.md) | A colony game: explore, mine ore and destroy three nests before their waves arrive. |
-| [Hearsay](hearsay/README.md) | A design, not yet a program: a role-playing game that generates stories from what a city believes. |
+| [Hearsay](hearsay/README.md) | A design for a role-playing game that generates stories from what a city believes, with two terminal prototypes. |
