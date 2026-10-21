@@ -524,7 +524,8 @@
     (define (list->string chars)
       (vector->string (list->vector chars)))
 
-    ;; Copies each string once into one array of the total length.
+    ;; Copies each string once into one array of the total length. The array
+    ;; is local to this call.
     (: string-concatenate (-> (List String) String))
     (define (string-concatenate texts)
       (unsafe-total
