@@ -53,7 +53,10 @@ and keeps state that grows over a whole pass in a `Ref`.
   the metavariables nothing else still mentions. When the whole program is
   checked, literals default, and each class constraint is solved once,
   filling its hole. Rows unify as sets with open tails. Matches are checked
-  with Maranget's usefulness algorithm.
+  with Maranget's usefulness algorithm. A function whose type forbids `mut`
+  may mutate storage it allocates; once types are final, nothing it can
+  reach from outside, its parameters, result or names it reads, may hold
+  mutable storage.
 - **[`mono.sld`](src/lofi/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence

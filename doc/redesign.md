@@ -364,13 +364,22 @@ fail to terminate. Tracking them as labels would make most arithmetic and
 indexing effectful. The optimizer knows which primitives can trap.
 
 Mutation of storage that a call allocates and never lets escape cannot be
-observed by its caller, so such a function may be total. `unsafe-total` says
-so: it runs a thunk and drops the thunk's effects. The checker does not verify
-the claim, so each use is an unsafe assumption, made where the storage is
-created, with a comment saying why none of it escapes. Builders such as
-`string-concatenate` and `serialize` use it. A function that touches storage
-it did not allocate, such as a library's top-level `Ref`, still declares
-`mut`.
+observed by its caller, so such a function may be total. A function whose
+type has no `mut` may therefore perform `mut` in its body, and the checker
+confirms afterwards that it is confined: nothing the function can reach from
+outside, its parameters, its result or a name it reads, can hold mutable
+storage. Then the only storage it can mutate is storage it allocates, and
+none of it outlives the call. Primitives, constructors and field operations
+act only on their arguments, so they are always allowed. Builders such as
+`string-concatenate` rely on this.
+
+The check needs no region types, so it cannot see that a helper defined
+outside a function only mutates the storage passed to it. Where that matters,
+`unsafe-total` runs a thunk and drops all its effects unchecked; each use is
+an unsafe assumption with a comment saying why none of the storage escapes.
+`serialize` uses it, because its encoder's methods declare `mut`. A function
+that touches storage it did not allocate, such as a library's top-level `Ref`,
+still declares `mut`.
 
 #### Uses
 
