@@ -9,6 +9,7 @@
    program->wat
    program->schemas
    build-program
+   link-wat
    bootstrap!
    run-tool
    path-join)
