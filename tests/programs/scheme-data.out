@@ -1,0 +1,15 @@
+(define (f x) (+ x 1/2))
+(quote quoted)
+(quasiquote (a (unquote b) (unquote-splicing c)))
+(1 . 2)
+(a b . c)
+#(1 "two" #\x)
+#u8(0 255)
+#t
+#f
+100.0
+"line\nbreak"
+error: unclosed list
+error: a bytevector holds exact integers from 0 to 255
+(display hi)
+#t

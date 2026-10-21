@@ -1,7 +1,0 @@
-(import
- (lofi base))
-(def alias
-     later)
-(def later
-     (lambda (x) x))
-(ann 42 I64)

@@ -1,35 +1,21 @@
-name: Book and Pages
+name: Pages
 
 on:
   pull_request:
     paths:
-      - doc/book/**
       - apps/siegework/**
+      - lib/**
       - src/**
-      - bootstrap/**
-      - book.toml
-      - scripts/book
-      - scripts/build-pages.mjs
-      - scripts/check-pages.mjs
-      - scripts/run-lofi-generator.mjs
-      - tests/pages.mjs
-      - tests/pages-browser.mjs
+      - scripts/build-app.scm
       - shell.nix
       - .github/workflows/pages.yml
   push:
     branches: [main]
     paths:
-      - doc/book/**
       - apps/siegework/**
+      - lib/**
       - src/**
-      - bootstrap/**
-      - book.toml
-      - scripts/book
-      - scripts/build-pages.mjs
-      - scripts/check-pages.mjs
-      - scripts/run-lofi-generator.mjs
-      - tests/pages.mjs
-      - tests/pages-browser.mjs
+      - scripts/build-app.scm
       - shell.nix
       - .github/workflows/pages.yml
   workflow_dispatch:
@@ -57,13 +43,15 @@ jobs:
       - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012 # v31
         with:
           nix_path: nixpkgs=https://github.com/NixOS/nixpkgs/archive/dc5d91f840324650bac8c379428c7037a416959a.tar.gz
-      - name: Build and check the book and Siegework
-        run: nix-shell -p chibi binaryen nodejs mdbook --run 'node scripts/build-pages.mjs && node tests/pages.mjs build/pages'
+      - name: Install pinned Rust
+        run: nix-shell --run 'rustup toolchain install 1.95.0 --profile minimal --target wasm32-wasip1'
+      - name: Build Siegework
+        run: nix-shell --run 'make site'
       - name: Upload Pages artifact
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
-          path: build/pages
+          path: build/siegework
 
   deploy:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
@@ -79,6 +67,6 @@ jobs:
     steps:
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-      - name: Deploy the book and games
+      - name: Deploy Siegework
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

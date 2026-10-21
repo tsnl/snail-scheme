@@ -1,0 +1,1037 @@
+;; Hindley-Milner checking with effect rows and typeclass evidence. Each
+;; expression is rebuilt with its type; each variable records the type
+;; arguments and the evidence of its instantiation, so later passes never
+;; repeat inference or instance selection.
+(define-library (lofi compiler check)
+  (export
+   Typed
+   Typed-program
+   Typed-items
+   definition-scheme
+   check-program)
+  (import
+   (lofi base)
+   (lofi table)
+   (lofi compiler read)
+   (lofi compiler core))
+  (begin
+
+    ;; ---- Checker state ----
+
+    ;; `locals` maps unique local names to monomorphic types. `schemes` holds
+    ;; inferred schemes, and the provisional types of the group being inferred.
+    ;; While items are checked, constraints are only recorded in `pending`,
+    ;; newest first, with their number in `pending-count`; they are decided
+    ;; once, when the whole program has been checked. `open` names the
+    ;; definitions whose types may still contain metavariables, and `givens`
+    ;; the requirements of the annotated definition being checked.
+    (struct Checker
+      ((program Program)
+       (counter (Ref I64))
+       (locals (Table Type))
+       (schemes (Table Scheme))
+       (givens (Ref (List Constraint)))
+       (pending (Ref (List Wanted)))
+       (pending-count (Ref I64))
+       (open (Ref (List String)))))
+
+    ;; A class constraint keeps the givens in scope where it arose.
+    (enum Wanted
+      (WantClass
+       ((constraint Constraint)
+        (cell (Ref (Option Evidence)))
+        (givens (List Constraint))
+        (loc Loc)))
+      (WantLiteral
+       ((value Datum)
+        (type Type)
+        (loc Loc))))
+
+    ;; The checker's output: typed items in program order and every
+    ;; definition's scheme.
+    (struct Typed
+      ((program Program)
+       (items (List Item))
+       (schemes (Table Scheme))))
+
+    (: definition-scheme (-> Typed String Scheme ! mut))
+    (define (definition-scheme typed name)
+      (match (table-ref (Typed-schemes typed) name)
+        ((Some scheme) scheme)
+        ((None) (panic (string-append "internal error: no scheme for " name)))))
+
+    (: program-of (-> Checker Program))
+    (define (program-of ck)
+      (Checker-program ck))
+
+    ;; ---- Metavariables and unification ----
+
+    (: fresh-meta (-> Checker Type ! mut))
+    (define (fresh-meta ck)
+      (let ((id (+ (ref-get (Checker-counter ck)) 1)))
+        (ref-set! (Checker-counter ck) id)
+        (TVar id (ref (None)))))
+
+    (: meta? (-> Type Bool))
+    (define (meta? type)
+      (match type
+        ((TVar _ _) #t)
+        (_ #f)))
+
+    (: same-meta? (-> Type Type Bool))
+    (define (same-meta? a b)
+      (match a
+        ((TVar id _) (match b ((TVar other _) (= id other)) (_ #f)))
+        (_ #f)))
+
+    ;; Follows bound metavariables, compressing the chain.
+    (: prune (-> Type Type ! mut))
+    (define (prune type)
+      (match type
+        ((TVar _ cell)
+         (match (ref-get cell)
+           ((Some bound)
+            (let ((target (prune bound)))
+              (ref-set! cell (Some target))
+              target))
+           ((None) type)))
+        (_ type)))
+
+    (: unify (-> Checker Type Type Loc Unit ! mut))
+    (define (unify ck expected actual loc)
+      (unless (unify? ck expected actual)
+        (compile-error loc (string-append "type mismatch: expected " (type->string expected) ", found " (type->string actual)))))
+
+    (: unify? (-> Checker Type Type Bool ! mut))
+    (define (unify? ck a b)
+      (let ((a (prune a)) (b (prune b)))
+        (cond ((same-meta? a b) #t)
+              ((meta? a) (bind? a b))
+              ((meta? b) (bind? b a))
+              (else (unify-structure? ck a b)))))
+
+    (: unify-all? (-> Checker (List Type) (List Type) Bool ! mut))
+    (define (unify-all? ck as bs)
+      (and (= (length as) (length bs)) (every? (lambda (pair) (unify? ck (Pair-first pair) (Pair-second pair))) (zip as bs))))
+
+    (: unify-structure? (-> Checker Type Type Bool ! mut))
+    (define (unify-structure? ck a b)
+      (match a
+        ((TCon name args)
+         (match b
+           ((TCon other others) (and (string=? name other) (unify-all? ck args others)))
+           (_ #f)))
+        ((TFun params result row)
+         (match b
+           ((TFun others other-result other-row)
+            (and (unify-all? ck params others) (unify? ck result other-result) (unify-rows? ck row other-row)))
+           (_ #f)))
+        ((TRow _ _) (unify-rows? ck a b))
+        ((TRigid name)
+         (match b
+           ((TRigid other) (string=? name other))
+           (_ #f)))
+        (_ #f)))
+
+    (: bind? (-> Type Type Bool ! mut))
+    (define (bind? meta type)
+      (and (not (occurs? meta type))
+           (begin (ref-set! (TVar-cell meta) (Some type)) #t)))
+
+    (: occurs? (-> Type Type Bool ! mut))
+    (define (occurs? meta type)
+      (let ((type (prune type)))
+        (match type
+          ((TVar _ _) (same-meta? type meta))
+          ((TCon _ args) (any? (lambda (arg) (occurs? meta arg)) args))
+          ((TFun params result row)
+           (or (any? (lambda (param) (occurs? meta param)) params) (occurs? meta result) (occurs? meta row)))
+          ((TRow _ (Some tail)) (occurs? meta tail))
+          (_ #f))))
+
+    ;; ---- Effect rows ----
+
+    ;; A row flattens to its labels and a tail: none when closed, otherwise a
+    ;; rigid variable or an unbound metavariable.
+    (: flatten-row (-> Type (Pair (List String) (Option Type)) ! mut))
+    (define (flatten-row row)
+      (let ((row (prune row)))
+        (match row
+          ((TRow labels (None)) (Pair labels (None)))
+          ((TRow labels (Some tail))
+           (let ((rest (flatten-row tail)))
+             (Pair (label-union labels (Pair-first rest)) (Pair-second rest))))
+          (_ (Pair (Nil) (Some row))))))
+
+    (: meta-tail? (-> (Option Type) Bool))
+    (define (meta-tail? tail)
+      (match tail
+        ((Some type) (meta? type))
+        ((None) #f)))
+
+    (: same-tail? (-> (Option Type) (Option Type) Bool))
+    (define (same-tail? a b)
+      (match a
+        ((None) (match b ((None) #t) ((Some _) #f)))
+        ((Some (TRigid name)) (match b ((Some (TRigid other)) (string=? name other)) (_ #f)))
+        ((Some x) (match b ((Some y) (same-meta? x y)) ((None) #f)))))
+
+    ;; Rows unify as sets: shared labels match, and each open tail absorbs the
+    ;; labels only the other side has.
+    (: unify-rows? (-> Checker Type Type Bool ! mut))
+    (define (unify-rows? ck a b)
+      (let* ((left (flatten-row a)) (right (flatten-row b))
+             (only-left (label-difference (Pair-first left) (Pair-first right)))
+             (only-right (label-difference (Pair-first right) (Pair-first left)))
+             (left-tail (Pair-second left)) (right-tail (Pair-second right)))
+        (cond ((same-tail? left-tail right-tail) (and (null? only-left) (null? only-right)))
+              ((and (meta-tail? left-tail) (meta-tail? right-tail))
+               (let ((tail (Some (fresh-meta ck))))
+                 (and (bind? (tail-type left-tail) (TRow only-right tail)) (bind? (tail-type right-tail) (TRow only-left tail)))))
+              ((meta-tail? left-tail) (and (null? only-left) (bind? (tail-type left-tail) (TRow only-right right-tail))))
+              ((meta-tail? right-tail) (and (null? only-right) (bind? (tail-type right-tail) (TRow only-left left-tail))))
+              (else #f))))
+
+    (: tail-type (-> (Option Type) Type))
+    (define (tail-type tail)
+      (match tail
+        ((Some type) type)
+        ((None) (panic "internal error: closed row"))))
+
+    ;; Adds the effects of `latent` to the current row. A closed latent row is
+    ;; opened first: performing at most those effects fits any larger row.
+    (: perform! (-> Checker Type Type Loc Unit ! mut))
+    (define (perform! ck latent row loc)
+      (let* ((flat (flatten-row latent))
+             (tail (match (Pair-second flat) ((Some tail) tail) ((None) (fresh-meta ck)))))
+        (unless (unify? ck (TRow (Pair-first flat) (Some tail)) row)
+          (compile-error loc (string-append "this performs effects its context does not allow:" (labels->string (Pair-first flat)))))))
+
+    (: total? (-> Type Bool ! mut))
+    (define (total? row)
+      (null? (Pair-first (flatten-row row))))
+
+    ;; ---- Instantiation ----
+
+    (: want! (-> Checker Wanted Unit ! mut))
+    (define (want! ck wanted)
+      (ref-set! (Checker-pending ck) (Cons wanted (ref-get (Checker-pending ck))))
+      (ref-set! (Checker-pending-count ck) (+ (ref-get (Checker-pending-count ck)) 1)))
+
+    (: want-class! (-> Checker Constraint Loc Evidence ! mut))
+    (define (want-class! ck constraint loc)
+      (let ((cell (ref (None))))
+        (want! ck (WantClass constraint cell (ref-get (Checker-givens ck)) loc))
+        (EvHole cell)))
+
+    ;; A use of a variable: its type, the types its quantified variables
+    ;; took, and the evidence for its constraints.
+    (struct Instantiated
+      ((type Type)
+       (types (List Type))
+       (evidence (List Evidence))))
+
+    ;; Fresh metavariables for the quantified variables, a hole for each
+    ;; constraint, and a fresh tail on a closed outermost row.
+    (: instantiate (-> Checker Scheme Loc Instantiated ! mut))
+    (define (instantiate ck scheme loc)
+      (let* ((metas (map (lambda (var) (Pair var (fresh-meta ck))) (Scheme-vars scheme)))
+             (type (open-row ck (substitute metas (Scheme-type scheme))))
+             (evidence (map (lambda (constraint) (want-class! ck (substitute-constraint metas constraint) loc))
+                            (Scheme-constraints scheme))))
+        (Instantiated type (map Pair-second metas) evidence)))
+
+    (: open-row (-> Checker Type Type ! mut))
+    (define (open-row ck type)
+      (match (prune type)
+        ((TFun params result (TRow labels (None))) (TFun params result (TRow labels (Some (fresh-meta ck)))))
+        (_ type)))
+
+    (: global-scheme (-> Checker String (Option Scheme) ! mut))
+    (define (global-scheme ck name)
+      (match (table-ref (Checker-schemes ck) name)
+        ((Some scheme) (Some scheme))
+        ((None)
+         (match (program-value (program-of ck) name)
+           ((Some value) (value-scheme value))
+           ((None) (None))))))
+
+    (: variable-type (-> Checker String Loc Instantiated ! mut))
+    (define (variable-type ck name loc)
+      (match (table-ref (Checker-locals ck) name)
+        ((Some local) (Instantiated local (Nil) (Nil)))
+        ((None)
+         (match (global-scheme ck name)
+           ((Some scheme) (instantiate ck scheme loc))
+           ((None) (compile-error loc (string-append "internal error: no type for " name)))))))
+
+    ;; ---- Expressions ----
+
+    (: literal-type (-> Checker Datum Loc Type ! mut))
+    (define (literal-type ck value loc)
+      (match value
+        ((DBool _) (TCon "Bool" (Nil)))
+        ((DChar _) (TCon "Char" (Nil)))
+        ((DString _) (TCon "String" (Nil)))
+        ((DUnit) (TCon "Unit" (Nil)))
+        (_ (let ((type (fresh-meta ck)))
+             (want! ck (WantLiteral value type loc))
+             type))))
+
+    ;; `row` is the effect row of the enclosing function body.
+    (: infer (-> Checker Expr Type Expr ! mut))
+    (define (infer ck expr row)
+      (let ((loc (Expr-loc expr)))
+        (match (Expr-term expr)
+          ((Lit value) (Expr (Lit value) (literal-type ck value loc) loc))
+          ((Var name _ _)
+           (let ((use (variable-type ck name loc)))
+             (Expr (Var name (Instantiated-types use) (Instantiated-evidence use)) (Instantiated-type use) loc)))
+          ((Lambda params body) (infer-lambda ck params body loc))
+          ((App callee args) (infer-app ck callee args row loc))
+          ((If test then otherwise)
+           (let* ((test (infer ck test row)) (then (infer ck then row)) (otherwise (infer ck otherwise row)))
+             (unify ck (TCon "Bool" (Nil)) (Expr-type test) (Expr-loc test))
+             (unify ck (Expr-type then) (Expr-type otherwise) (Expr-loc otherwise))
+             (Expr (If test then otherwise) (Expr-type then) loc)))
+          ((Let name value body) (infer-let ck name value body row loc))
+          ((Seq first rest)
+           (let* ((first (infer ck first row)) (rest (infer ck rest row)))
+             (Expr (Seq first rest) (Expr-type rest) loc)))
+          ((Match scrutinee clauses) (infer-match ck scrutinee clauses row loc))
+          ((Ann inner type)
+           (let ((inner (infer ck inner row)))
+             (unify ck type (Expr-type inner) loc)
+             inner))
+          ((Handle effect implementations body) (infer-handle ck effect implementations body row loc))
+          ;; The direction is decided once types are ground: to Any, from
+          ;; Any, or nothing when the types already agree.
+          ((Convert inner target) (Expr (Convert (infer ck inner row) target) target loc)))))
+
+    (: infer-lambda (-> Checker (List String) Expr Loc Expr ! mut))
+    (define (infer-lambda ck params body loc)
+      (let ((types (map (lambda (param)
+                          (let ((type (fresh-meta ck)))
+                            (table-set! (Checker-locals ck) param type)
+                            type))
+                        params))
+            (body-row (fresh-meta ck)))
+        (let ((body (infer ck body body-row)))
+          (Expr (Lambda params body) (TFun types (Expr-type body) body-row) loc))))
+
+    ;; Checks an expression against a known type: a lambda's parameters and
+    ;; body row come from the type; anything else is inferred.
+    (: check-value (-> Checker Expr Type Type Expr ! mut))
+    (define (check-value ck expr type row)
+      (match (Expr-term expr)
+        ((Lambda params body)
+         (match (prune type)
+           ((TFun param-types result body-row)
+            (if (= (length params) (length param-types))
+                (begin
+                  (for-each (lambda (pair) (table-set! (Checker-locals ck) (Pair-first pair) (Pair-second pair))) (zip params param-types))
+                  (let ((body (infer ck body body-row)))
+                    (unify ck result (Expr-type body) (Expr-loc body))
+                    (Expr (Lambda params body) type (Expr-loc expr))))
+                (infer ck expr row)))
+           (_ (infer ck expr row))))
+        (_ (infer ck expr row))))
+
+    (: infer-app (-> Checker Expr (List Expr) Type Loc Expr ! mut))
+    (define (infer-app ck callee args row loc)
+      (let* ((callee (infer ck callee row))
+             (args (map (lambda (arg) (infer ck arg row)) args))
+             (result (fresh-meta ck)) (latent (fresh-meta ck)))
+        (unify-call ck (Expr-type callee) args result latent loc)
+        (perform! ck latent row loc)
+        (Expr (App callee args) result loc)))
+
+    ;; Arguments are compared one by one, so a mismatch names its argument.
+    (: unify-call (-> Checker Type (List Expr) Type Type Loc Unit ! mut))
+    (define (unify-call ck callee-type args result latent loc)
+      (match (prune callee-type)
+        ((TFun params callee-result row)
+         (unless (= (length params) (length args))
+           (compile-error loc (string-append "expected " (i64->string (length params)) " arguments, found "
+                                             (i64->string (length args)))))
+         (for-each (lambda (pair) (unify ck (Pair-first pair) (Expr-type (Pair-second pair)) (Expr-loc (Pair-second pair))))
+                   (zip params args))
+         (unify ck callee-result result loc)
+         (unify ck row latent loc))
+        ((TVar _ _) (unify ck callee-type (TFun (map Expr-type args) result latent) loc))
+        (other (compile-error loc (string-append "not a function: " (type->string other))))))
+
+    ;; A function's own name is visible in its body, with a monomorphic type.
+    (: infer-let (-> Checker String Expr Expr Type Loc Expr ! mut))
+    (define (infer-let ck name value body row loc)
+      (let ((type (fresh-meta ck)))
+        (when (lambda-expr? value)
+          (table-set! (Checker-locals ck) name type))
+        (let ((value (infer ck value row)))
+          (unify ck type (Expr-type value) (Expr-loc value))
+          (table-set! (Checker-locals ck) name type)
+          (let ((body (infer ck body row)))
+            (Expr (Let name value body) (Expr-type body) loc)))))
+
+    (: infer-match (-> Checker Expr (List Clause) Type Loc Expr ! mut))
+    (define (infer-match ck scrutinee clauses row loc)
+      (let* ((scrutinee (infer ck scrutinee row)) (result (fresh-meta ck))
+             (clauses (map (lambda (clause)
+                             (let* ((body-loc (Expr-loc (Clause-body clause)))
+                                    (pattern (check-pattern ck (Clause-pattern clause) (Expr-type scrutinee) body-loc))
+                                    (body (infer ck (Clause-body clause) row)))
+                               (unify ck result (Expr-type body) body-loc)
+                               (Clause pattern body)))
+                           clauses)))
+        (when (null? clauses) (compile-error loc "a match needs at least one clause"))
+        (check-coverage ck (map Clause-pattern clauses) loc)
+        (Expr (Match scrutinee clauses) result loc)))
+
+    ;; Implementations run in the handler's outer context. The body may
+    ;; perform the handled effect plus whatever the context allows: its row
+    ;; is `{effect | rest}`, and `rest` flows to the outer row.
+    (: infer-handle (-> Checker String (List (Pair String Expr)) Expr Type Loc Expr ! mut))
+    (define (infer-handle ck effect implementations body row loc)
+      (let ((operations (Effect-operations (program-effect (program-of ck) effect))))
+        (unless (and (= (length operations) (length implementations))
+                     (every? (lambda (operation) (any? (lambda (entry) (string=? (Pair-first entry) operation)) implementations))
+                             operations))
+          (compile-error loc "a handler implements each operation of its effect exactly once"))
+        (let* ((implementations (map (lambda (entry) (infer-implementation ck entry row loc)) implementations))
+               (rest (fresh-meta ck)) (body (infer ck body (TRow (list effect) (Some rest)))))
+          (perform! ck rest row loc)
+          (Expr (Handle effect implementations body) (Expr-type body) loc))))
+
+    (: infer-implementation (-> Checker (Pair String Expr) Type Loc (Pair String Expr) ! mut))
+    (define (infer-implementation ck entry row loc)
+      (match (global-scheme ck (Pair-first entry))
+        ((Some scheme)
+         (match (Instantiated-type (instantiate ck scheme loc))
+           ((TFun params result _)
+            (let ((value (infer ck (Pair-second entry) row)) (latent (fresh-meta ck)))
+              (unify ck (TFun params result latent) (Expr-type value) (Expr-loc value))
+              (perform! ck latent row (Expr-loc value))
+              (Pair (Pair-first entry) value)))
+           (_ (panic "internal error: an operation is a function"))))
+        ((None) (panic "internal error: unknown operation"))))
+
+    ;; ---- Patterns ----
+
+    (: check-pattern (-> Checker Pattern Type Loc Pattern ! mut))
+    (define (check-pattern ck pattern type loc)
+      (match pattern
+        ((PWild _) (PWild type))
+        ((PVar name _) (table-set! (Checker-locals ck) name type) (PVar name type))
+        ((PLit value _) (unify ck type (literal-type ck value loc) loc) (PLit value type))
+        ((PCon constructor args _)
+         (match (program-value (program-of ck) constructor)
+           ((Some (Constructor case scheme))
+            (match (Instantiated-type (instantiate ck scheme loc))
+              ((TFun fields result _)
+               (unless (= (length fields) (length args))
+                 (compile-error loc (string-append (short-name constructor) " has " (i64->string (length fields)) " fields")))
+               (unify ck type result loc)
+               (PCon constructor (map (lambda (pair) (check-pattern ck (Pair-first pair) (Pair-second pair) loc)) (zip args fields))
+                     type))
+              (_ (panic "internal error: a constructor is a function"))))
+           (_ (compile-error loc (string-append "not a constructor: " (short-name constructor))))))))
+
+    ;; ---- Coverage ----
+
+    ;; Maranget's usefulness test. A clause is redundant if it is not useful
+    ;; after the clauses before it; a match is exhaustive if a wildcard is not
+    ;; useful after all of them.
+    (: check-coverage (-> Checker (List Pattern) Loc Unit ! mut))
+    (define (check-coverage ck patterns loc)
+      (let loop ((rows (Nil)) (patterns patterns))
+        (match patterns
+          ((Cons pattern rest)
+           (unless (useful? ck (reverse rows) (list pattern))
+             (compile-error loc "unreachable match clause"))
+           (loop (Cons (list pattern) rows) rest))
+          ((Nil) (unit))))
+      (when (useful? ck (map (lambda (pattern) (list pattern)) patterns) (list (PWild unchecked)))
+        (compile-error loc "match is not exhaustive")))
+
+    ;; A pattern's head is a constructor and its arity, or a literal, which
+    ;; is a constructor without fields. Wildcards and variables have none.
+    (enum Head
+      (HCon
+       ((name String)
+        (arity I64)))
+      (HLit
+       ((value Datum))))
+
+    (: head-of (-> Pattern (Option Head)))
+    (define (head-of pattern)
+      (match pattern
+        ((PCon constructor args _) (Some (HCon constructor (length args))))
+        ((PLit value _) (Some (HLit value)))
+        (_ (None))))
+
+    (: head=? (-> Head Head Bool))
+    (define (head=? a b)
+      (match a
+        ((HCon name _) (match b ((HCon other _) (string=? name other)) (_ #f)))
+        ((HLit value) (match b ((HLit other) (datum=? value other)) (_ #f)))))
+
+    (: head-arity (-> Head I64))
+    (define (head-arity head)
+      (match head
+        ((HCon _ arity) arity)
+        ((HLit _) 0)))
+
+    (: pattern-args (-> Pattern (List Pattern)))
+    (define (pattern-args pattern)
+      (match pattern
+        ((PCon _ args _) args)
+        (_ (Nil))))
+
+    (: wildcards (-> I64 (List Pattern)))
+    (define (wildcards count)
+      (map (lambda (index) (PWild unchecked)) (iota count)))
+
+    (: specialize (-> (List (List Pattern)) Head (List (List Pattern))))
+    (define (specialize rows head)
+      (concatenate
+       (map (lambda (row)
+              (match row
+                ((Cons first rest)
+                 (match (head-of first)
+                   ((None) (list (append (wildcards (head-arity head)) rest)))
+                   ((Some other) (if (head=? other head) (list (append (pattern-args first) rest)) (Nil)))))
+                ((Nil) (Nil))))
+            rows)))
+
+    (: default-rows (-> (List (List Pattern)) (List (List Pattern))))
+    (define (default-rows rows)
+      (concatenate
+       (map (lambda (row)
+              (match row
+                ((Cons first rest) (match (head-of first) ((None) (list rest)) ((Some _) (Nil))))
+                ((Nil) (Nil))))
+            rows)))
+
+    (: row-heads (-> (List (List Pattern)) (List Head)))
+    (define (row-heads rows)
+      (concatenate
+       (map (lambda (row)
+              (match row
+                ((Cons first _) (match (head-of first) ((Some head) (list head)) ((None) (Nil))))
+                ((Nil) (Nil))))
+            rows)))
+
+    (: useful? (-> Checker (List (List Pattern)) (List Pattern) Bool ! mut))
+    (define (useful? ck rows vector)
+      (match vector
+        ((Nil) (null? rows))
+        ((Cons first rest)
+         (match (head-of first)
+           ((Some head) (useful? ck (specialize rows head) (append (pattern-args first) rest)))
+           ((None)
+            (match (complete-signature ck (delete-duplicates head=? (row-heads rows)))
+              ((Some all)
+               (any? (lambda (head) (useful? ck (specialize rows head) (append (wildcards (head-arity head)) rest))) all))
+              ((None) (useful? ck (default-rows rows) rest))))))))
+
+    ;; All heads of the matched type, if `seen` includes every one of them.
+    (: complete-signature (-> Checker (List Head) (Option (List Head)) ! mut))
+    (define (complete-signature ck seen)
+      (let ((all (match seen
+                   ((Cons (HLit (DBool _)) _) (list (HLit (DBool #t)) (HLit (DBool #f))))
+                   ((Cons (HCon constructor _) _) (constructor-heads ck constructor))
+                   (_ (Nil)))))
+        (if (and (not (null? all)) (every? (lambda (head) (any? (lambda (other) (head=? head other)) seen)) all))
+            (Some all)
+            (None))))
+
+    (: constructor-heads (-> Checker String (List Head) ! mut))
+    (define (constructor-heads ck constructor)
+      (match (program-value (program-of ck) constructor)
+        ((Some (Constructor case _))
+         (map (lambda (case) (HCon (Case-name case) (length (Case-fields case))))
+              (DataType-cases (program-type (program-of ck) (Case-type case)))))
+        (_ (Nil))))
+
+    ;; ---- Solving ----
+
+    ;; Runs once, after every item is checked: literals whose type nothing
+    ;; determined default to F64 or I64, every literal is range-checked, and
+    ;; every class constraint is solved with the givens it arose under. Solving
+    ;; binds no metavariables, so waiting until now loses nothing.
+    (: solve-pending! (-> Checker Unit ! mut))
+    (define (solve-pending! ck)
+      (let ((pending (reverse (ref-get (Checker-pending ck)))))
+        (for-each (lambda (want) (default-literal! ck want #t)) pending)
+        (for-each (lambda (want) (default-literal! ck want #f)) pending)
+        (for-each (lambda (want)
+                    (match want
+                      ((WantLiteral value type loc) (check-literal value type loc))
+                      (_ (unit))))
+                  pending)
+        (for-each (lambda (want)
+                    (match want
+                      ((WantClass constraint cell givens loc) (solve-class! ck constraint cell givens loc))
+                      (_ (unit))))
+                  pending)))
+
+    (: default-literal! (-> Checker Wanted Bool Unit ! mut))
+    (define (default-literal! ck want float?)
+      (match want
+        ((WantLiteral value type loc)
+         (when (and (float-literal? value float?) (meta? (prune type)))
+           (unify ck (TCon (if float? "F64" "I64") (Nil)) type loc)))
+        (_ (unit))))
+
+    (: float-literal? (-> Datum Bool Bool))
+    (define (float-literal? value float?)
+      (match value
+        ((DFloat _) float?)
+        (_ (not float?))))
+
+    (: check-literal (-> Datum Type Loc Unit ! mut))
+    (define (check-literal value type loc)
+      (match (prune type)
+        ((TCon name (Nil))
+         (unless (literal-fits? value name)
+           (compile-error loc (string-append "the literal " (datum->string value) " does not fit " name))))
+        (other (compile-error loc (string-append "a numeric literal cannot have type " (type->string other))))))
+
+    (: literal-fits? (-> Datum String Bool))
+    (define (literal-fits? value type)
+      (match value
+        ((DInt n)
+         (case type
+           (("U8") (and (<= 0 n) (<= n 255)))
+           (("I32") (and (<= -2147483648 n) (<= n 2147483647)))
+           (("I64" "F32" "F64") #t)
+           (else #f)))
+        ((DFloat _) (or (string=? type "F32") (string=? type "F64")))
+        (_ #f)))
+
+    (: solve-class! (-> Checker Constraint (Ref (Option Evidence)) (List Constraint) Loc Unit ! mut))
+    (define (solve-class! ck constraint cell givens loc)
+      (match (find-evidence ck constraint givens loc)
+        ((Some evidence) (ref-set! cell (Some evidence)))
+        ((None)
+         (compile-error loc (string-append "ambiguous constraint "
+                                           (constraint->string (Constraint-class constraint)
+                                                               (map resolve-type (Constraint-types constraint)))
+                                           "; add a signature or an annotation")))))
+
+    ;; Evidence from the enclosing definition's requirements, or from the
+    ;; unique instance whose head matches. None while the types are ambiguous.
+    (: find-evidence (-> Checker Constraint (List Constraint) Loc (Option Evidence) ! mut))
+    (define (find-evidence ck constraint givens loc)
+      (let ((types (map resolve-type (Constraint-types constraint))))
+        (if (any? has-meta? types)
+            (None)
+            (match (given-evidence (Constraint-class constraint) types givens)
+              ((Some evidence) (Some evidence))
+              ((None) (Some (instance-evidence ck (Constraint-class constraint) types givens loc)))))))
+
+    (: given-evidence (-> String (List Type) (List Constraint) (Option Evidence)))
+    (define (given-evidence class types givens)
+      (match (list-index (lambda (given) (and (string=? class (Constraint-class given)) (types=? types (Constraint-types given))))
+                         givens)
+        ((Some index) (Some (EvParam index)))
+        ((None) (None))))
+
+    (: instance-evidence (-> Checker String (List Type) (List Constraint) Loc Evidence ! mut))
+    (define (instance-evidence ck class types givens loc)
+      (let loop ((instances (class-instances (program-of ck) class)))
+        (match instances
+          ((Nil) (compile-error loc (string-append "no instance for " (constraint->string class types))))
+          ((Cons instance rest)
+           (match (match-types (Instance-vars instance) (Instance-types instance) types (Nil))
+             ((Some bindings)
+              (EvInstance (Instance-name instance)
+                          (map (lambda (var) (match (assoc-ref bindings var) ((Some type) type) ((None) (TCon "Unit" (Nil)))))
+                               (Instance-vars instance))
+                          (map (lambda (requirement) (requirement-evidence ck (substitute-constraint bindings requirement) givens loc))
+                               (Instance-requires instance))))
+             ((None) (loop rest)))))))
+
+    (: requirement-evidence (-> Checker Constraint (List Constraint) Loc Evidence ! mut))
+    (define (requirement-evidence ck requirement givens loc)
+      (match (find-evidence ck requirement givens loc)
+        ((Some evidence) evidence)
+        ((None)
+         (compile-error loc (string-append "ambiguous requirement "
+                                           (constraint->string (Constraint-class requirement) (Constraint-types requirement)))))))
+
+    ;; One-way matching of an instance head; only its own variables bind.
+    (: match-types (-> (List String) (List Type) (List Type) Substitution (Option Substitution)))
+    (define (match-types vars patterns types bindings)
+      (if (= (length patterns) (length types))
+          (fold-left (lambda (result pair)
+                       (match result
+                         ((Some bindings) (match-type vars (Pair-first pair) (Pair-second pair) bindings))
+                         ((None) (None))))
+                     (Some bindings) (zip patterns types))
+          (None)))
+
+    (: match-type (-> (List String) Type Type Substitution (Option Substitution)))
+    (define (match-type vars pattern type bindings)
+      (match pattern
+        ((TRigid name)
+         (if (member? name vars)
+             (match (assoc-ref bindings name)
+               ((None) (Some (Cons (Pair name type) bindings)))
+               ((Some bound) (if (type=? bound type) (Some bindings) (None))))
+             (if (type=? pattern type) (Some bindings) (None))))
+        ((TCon name args)
+         (match type
+           ((TCon other others) (if (string=? name other) (match-types vars args others bindings) (None)))
+           (_ (None))))
+        ((TFun params result _)
+         (match type
+           ((TFun others other-result _) (match-types vars (Cons result params) (Cons other-result others) bindings))
+           (_ (None))))
+        (_ (None))))
+
+    (: constraint->string (-> String (List Type) String ! mut))
+    (define (constraint->string class types)
+      (type->string (TCon class types)))
+
+    (: has-meta? (-> Type Bool ! mut))
+    (define (has-meta? type)
+      (match (prune type)
+        ((TVar _ _) #t)
+        ((TCon _ args) (any? has-meta? args))
+        ((TFun params result _) (or (any? has-meta? params) (has-meta? result)))
+        (_ #f)))
+
+    ;; ---- Zonking ----
+
+    ;; Replaces solved metavariables and keeps unsolved ones.
+    (: resolve-type (-> Type Type ! mut))
+    (define (resolve-type type)
+      (let ((type (prune type)))
+        (match type
+          ((TCon name args) (TCon name (map resolve-type args)))
+          ((TFun params result row) (TFun (map resolve-type params) (resolve-type result) (resolve-type row)))
+          ((TRow _ _) (let ((flat (flatten-row type))) (TRow (Pair-first flat) (Pair-second flat))))
+          (_ type))))
+
+    ;; Replaces solved metavariables. An unsolved type defaults to Unit and an
+    ;; unsolved row tail closes; nothing observable depends on either.
+    (: zonk (-> Type Type ! mut))
+    (define (zonk type)
+      (let ((type (prune type)))
+        (match type
+          ((TVar _ _) (TCon "Unit" (Nil)))
+          ((TCon name args) (TCon name (map zonk args)))
+          ((TFun params result row) (TFun (map zonk params) (zonk result) (zonk-row row)))
+          ((TRow _ _) (zonk-row type))
+          (_ type))))
+
+    (: zonk-row (-> Type Type ! mut))
+    (define (zonk-row row)
+      (let ((flat (flatten-row row)))
+        (TRow (Pair-first flat) (if (meta-tail? (Pair-second flat)) (None) (Pair-second flat)))))
+
+    (: zonk-evidence (-> Evidence Evidence ! mut))
+    (define (zonk-evidence evidence)
+      (match evidence
+        ((EvHole cell)
+         (match (ref-get cell)
+           ((Some solved) (zonk-evidence solved))
+           ((None) (panic "internal error: unsolved evidence"))))
+        ((EvInstance instance types subs) (EvInstance instance (map zonk types) (map zonk-evidence subs)))
+        (_ evidence)))
+
+    (: zonk-expr (-> Expr Expr ! mut))
+    (define (zonk-expr expr)
+      (Expr (match (Expr-term expr)
+              ((Lit value) (Lit value))
+              ((Var name types evidence) (Var name (map zonk types) (map zonk-evidence evidence)))
+              ((Lambda params body) (Lambda params (zonk-expr body)))
+              ((App callee args) (App (zonk-expr callee) (map zonk-expr args)))
+              ((If test then otherwise) (If (zonk-expr test) (zonk-expr then) (zonk-expr otherwise)))
+              ((Let name value body) (Let name (zonk-expr value) (zonk-expr body)))
+              ((Seq first rest) (Seq (zonk-expr first) (zonk-expr rest)))
+              ((Match scrutinee clauses)
+               (Match (zonk-expr scrutinee)
+                      (map (lambda (clause) (Clause (zonk-pattern (Clause-pattern clause)) (zonk-expr (Clause-body clause)))) clauses)))
+              ((Ann inner type) (Ann (zonk-expr inner) (zonk type)))
+              ((Convert inner target) (Convert (zonk-expr inner) (zonk target)))
+              ((Handle effect implementations body)
+               (Handle effect (map (lambda (entry) (Pair (Pair-first entry) (zonk-expr (Pair-second entry)))) implementations)
+                       (zonk-expr body))))
+            (zonk (Expr-type expr)) (Expr-loc expr)))
+
+    (: zonk-pattern (-> Pattern Pattern ! mut))
+    (define (zonk-pattern pattern)
+      (match pattern
+        ((PWild type) (PWild (zonk type)))
+        ((PVar name type) (PVar name (zonk type)))
+        ((PLit value type) (PLit value (zonk type)))
+        ((PCon constructor args type) (PCon constructor (map zonk-pattern args) (zonk type)))))
+
+    ;; ---- Definitions ----
+
+    ;; An unannotated group of mutually recursive definitions is inferred
+    ;; together. A group of functions is generalized; any other group stays
+    ;; monomorphic, so later uses can still decide its types.
+    (: check-group (-> Checker (List Item) (List Item) ! mut))
+    (define (check-group ck definitions)
+      (let ((before (ref-get (Checker-pending-count ck))))
+        (for-each (lambda (definition) (table-set! (Checker-schemes ck) (Define-name definition) (mono-scheme (fresh-meta ck))))
+                  definitions)
+        (let ((results (map (lambda (definition) (infer-definition ck definition)) definitions)))
+          (for-each (lambda (result) (check-host-effects ck (Pair-second result) (Expr-loc (Pair-first result)))) results)
+          (when (every? (lambda (definition) (lambda-expr? (Define-value definition))) definitions)
+            (generalize! ck definitions (take (ref-get (Checker-pending ck)) (- (ref-get (Checker-pending-count ck)) before))))
+          (ref-set! (Checker-open ck) (append (map Define-name definitions) (ref-get (Checker-open ck))))
+          (map (lambda (pair) (Define (Define-name (Pair-first pair)) (Pair-first (Pair-second pair)))) (zip definitions results)))))
+
+    ;; The checked value and the effect row of its initializer.
+    (: infer-definition (-> Checker Item (Pair Expr Type) ! mut))
+    (define (infer-definition ck definition)
+      (let* ((row (fresh-meta ck)) (value (infer ck (Define-value definition) row)))
+        (unify ck (scheme-type ck (Define-name definition)) (Expr-type value) (Expr-loc value))
+        (Pair value row)))
+
+    (: scheme-type (-> Checker String Type ! mut))
+    (define (scheme-type ck name)
+      (match (table-ref (Checker-schemes ck) name)
+        ((Some scheme) (Scheme-type scheme))
+        ((None) (panic (string-append "internal error: no scheme for " name)))))
+
+    ;; A metavariable becomes a quantified variable (`t1`, `t2`, ...) unless
+    ;; something that outlives the group still mentions it: another
+    ;; definition's type, or a constraint of this group.
+    (: generalize! (-> Checker (List Item) (List Wanted) Unit ! mut))
+    (define (generalize! ck definitions wanted)
+      (let* ((fixed (map meta-id (append (concatenate (map (lambda (name) (free-metas (scheme-type ck name))) (ref-get (Checker-open ck))))
+                                         (concatenate (map wanted-metas wanted)))))
+             (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
+                            (delete-duplicates same-meta?
+                                               (concatenate (map (lambda (d) (free-metas (scheme-type ck (Define-name d)))) definitions)))))
+             (names (map (lambda (index) (string-append "t" (i64->string (+ index 1)))) (iota (length metas)))))
+        (for-each (lambda (pair) (ref-set! (TVar-cell (Pair-first pair)) (Some (TRigid (Pair-second pair))))) (zip metas names))
+        (for-each (lambda (definition)
+                    (let ((name (Define-name definition)))
+                      (table-set! (Checker-schemes ck) name (Scheme names (Nil) (resolve-type (scheme-type ck name))))))
+                  definitions)))
+
+    (: meta-id (-> Type I64))
+    (define (meta-id meta)
+      (match meta
+        ((TVar id _) id)
+        (_ -1)))
+
+    (: wanted-metas (-> Wanted (List Type) ! mut))
+    (define (wanted-metas want)
+      (match want
+        ((WantClass constraint _ _ _) (concatenate (map free-metas (Constraint-types constraint))))
+        ((WantLiteral _ type _) (free-metas type))))
+
+    (: free-metas (-> Type (List Type) ! mut))
+    (define (free-metas type)
+      (let ((type (prune type)))
+        (match type
+          ((TVar _ _) (list type))
+          ((TCon _ args) (concatenate (map free-metas args)))
+          ((TFun params result row) (append (concatenate (map free-metas params)) (append (free-metas result) (free-metas row))))
+          ((TRow _ (Some tail)) (free-metas tail))
+          (_ (Nil)))))
+
+    ;; A signature's variables are rigid and its constraints are given. A
+    ;; function is checked against it directly, so a mismatch is reported
+    ;; where it occurs.
+    (: check-annotated (-> Checker Item Scheme Item ! mut))
+    (define (check-annotated ck definition scheme)
+      (ref-set! (Checker-givens ck) (Scheme-constraints scheme))
+      (let* ((row (fresh-meta ck)) (value (check-value ck (Define-value definition) (Scheme-type scheme) row))
+             (loc (Expr-loc value)))
+        (unify ck (Scheme-type scheme) (Expr-type value) loc)
+        (when (and (not (null? (Scheme-vars scheme))) (not (total? row)))
+          (compile-error loc "a polymorphic definition must have a total initializer"))
+        (check-host-effects ck row loc)
+        (ref-set! (Checker-givens ck) (Nil))
+        (Define (Define-name definition) value)))
+
+    (: check-statement (-> Checker Expr Item ! mut))
+    (define (check-statement ck expr)
+      (let* ((row (fresh-meta ck)) (value (infer ck expr row)))
+        (check-host-effects ck row (Expr-loc value))
+        (Do value)))
+
+    ;; The host passes and receives scalars only, and implements every effect
+    ;; an exposed function performs.
+    (: check-exposed (-> Checker String Loc Unit ! mut))
+    (define (check-exposed ck name loc)
+      (match (global-scheme ck name)
+        ((Some (Scheme (Nil) (Nil) (TFun params result row)))
+         (unless (every? host-scalar? (Cons result params))
+           (compile-error loc "an exposed function takes and returns scalars only"))
+         (check-host-effects ck row loc))
+        (_ (compile-error loc "an exposed function must be a monomorphic function"))))
+
+    (: host-scalar? (-> Type Bool))
+    (define (host-scalar? type)
+      (match type
+        ((TCon name (Nil)) (member? name (list "I32" "I64" "F32" "F64" "Bool" "Char" "Unit")))
+        (_ #f)))
+
+    ;; Effects performed at program start need host implementations.
+    (: check-host-effects (-> Checker Type Loc Unit ! mut))
+    (define (check-host-effects ck row loc)
+      (for-each (lambda (label)
+                  (unless (or (string=? label "mut")
+                              (let ((effect (program-effect (program-of ck) label)))
+                                (= (length (Effect-host effect)) (length (Effect-operations effect)))))
+                    (compile-error loc (string-append "the effect " (short-name label) " has no host implementation here"))))
+                (Pair-first (flatten-row row))))
+
+    ;; ---- Programs ----
+
+    ;; Unannotated definitions are checked first, in dependency order; then
+    ;; annotated definitions and statements, which only need schemes. Then
+    ;; every constraint is solved and every type zonked.
+    (: check-program (-> Program Typed ! mut))
+    (define (check-program program)
+      (let* ((ck (Checker program (ref 0) (make-table) (make-table) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil))))
+             (items (program-items program)) (inferred (check-inferred ck items))
+             (typed (map (lambda (item) (check-item ck inferred item)) items)))
+        (solve-pending! ck)
+        (for-each (lambda (item)
+                    (match item
+                      ((Expose name _ loc) (check-exposed ck name loc))
+                      (_ (unit))))
+                  items)
+        (Typed program (map zonk-item typed) (final-schemes ck items))))
+
+    ;; Checks the definitions without signatures, a group at a time in
+    ;; dependency order, and returns them by name.
+    (: check-inferred (-> Checker (List Item) (Table Item) ! mut))
+    (define (check-inferred ck items)
+      (let ((results (make-table)))
+        (for-each (lambda (group)
+                    (for-each (lambda (result) (table-set! results (Define-name result) result)) (check-group ck group)))
+                  (definition-groups (filter (lambda (item)
+                                               (match item
+                                                 ((Define name _) (match (annotated-scheme (program-of ck) name) ((None) #t) ((Some _) #f)))
+                                                 (_ #f)))
+                                             items)))
+        results))
+
+    (: check-item (-> Checker (Table Item) Item Item ! mut))
+    (define (check-item ck results item)
+      (match item
+        ((Define name _)
+         (match (table-ref results name)
+           ((Some result) result)
+           ((None)
+            (match (annotated-scheme (program-of ck) name)
+              ((Some scheme) (check-annotated ck item scheme))
+              ((None) (panic "internal error: unchecked definition"))))))
+        ((Do expr) (check-statement ck expr))
+        ((Expose _ _ _) item)))
+
+    (: zonk-item (-> Item Item ! mut))
+    (define (zonk-item item)
+      (match item
+        ((Define name value) (Define name (zonk-expr value)))
+        ((Do value) (Do (zonk-expr value)))
+        (_ item)))
+
+    ;; Inferred schemes with their remaining metavariables defaulted, and the
+    ;; signatures of annotated definitions.
+    (: final-schemes (-> Checker (List Item) (Table Scheme) ! mut))
+    (define (final-schemes ck items)
+      (for-each (lambda (name)
+                  (match (table-ref (Checker-schemes ck) name)
+                    ((Some scheme)
+                     (table-set! (Checker-schemes ck) name
+                                 (Scheme (Scheme-vars scheme) (Scheme-constraints scheme) (zonk (Scheme-type scheme)))))
+                    ((None) (unit))))
+                (ref-get (Checker-open ck)))
+      (for-each (lambda (item)
+                  (match item
+                    ((Define name _)
+                     (match (annotated-scheme (program-of ck) name)
+                       ((Some scheme) (table-set! (Checker-schemes ck) name scheme))
+                       ((None) (unit))))
+                    (_ (unit))))
+                items)
+      (Checker-schemes ck))
+
+    (: annotated-scheme (-> Program String (Option Scheme) ! mut))
+    (define (annotated-scheme program name)
+      (match (program-value program name)
+        ((Some (Defined scheme)) scheme)
+        (_ (None))))
+
+    ;; ---- Dependency order ----
+
+    ;; Tarjan's algorithm returns strongly connected components with each
+    ;; component after the components it depends on.
+    (struct Tarjan
+      ((by-name (Table Item))
+       (index (Table I64))
+       (low (Table I64))
+       (stack (Ref (List String)))
+       (on-stack (Table Bool))
+       (counter (Ref I64))
+       (groups (Ref (List (List Item))))))
+
+    (: definition-groups (-> (List Item) (List (List Item)) ! mut))
+    (define (definition-groups definitions)
+      (let ((tarjan (Tarjan (make-table) (make-table) (make-table) (ref (Nil)) (make-table) (ref 0) (ref (Nil)))))
+        (for-each (lambda (definition) (table-set! (Tarjan-by-name tarjan) (Define-name definition) definition)) definitions)
+        (for-each (lambda (definition)
+                    (unless (table-contains? (Tarjan-index tarjan) (Define-name definition))
+                      (visit! tarjan (Define-name definition))))
+                  definitions)
+        (reverse (ref-get (Tarjan-groups tarjan)))))
+
+    (: table-number (-> (Table I64) String I64 ! mut))
+    (define (table-number table key)
+      (match (table-ref table key)
+        ((Some number) number)
+        ((None) 0)))
+
+    (: visit! (-> Tarjan String Unit ! mut))
+    (define (visit! tarjan name)
+      (let ((index (Tarjan-index tarjan)) (low (Tarjan-low tarjan)) (number (ref-get (Tarjan-counter tarjan))))
+        (table-set! index name number)
+        (table-set! low name number)
+        (ref-set! (Tarjan-counter tarjan) (+ number 1))
+        (ref-set! (Tarjan-stack tarjan) (Cons name (ref-get (Tarjan-stack tarjan))))
+        (table-set! (Tarjan-on-stack tarjan) name #t)
+        (for-each (lambda (next)
+                    (cond ((not (table-contains? index next))
+                           (visit! tarjan next)
+                           (table-set! low name (min (table-number low name) (table-number low next))))
+                          ((match (table-ref (Tarjan-on-stack tarjan) next) ((Some on) on) ((None) #f))
+                           (table-set! low name (min (table-number low name) (table-number index next))))
+                          (else (unit))))
+                  (filter (lambda (reference) (table-contains? (Tarjan-by-name tarjan) reference))
+                          (match (table-ref (Tarjan-by-name tarjan) name)
+                            ((Some (Define _ value)) (expr-references value))
+                            (_ (Nil)))))
+        (when (= (table-number low name) (table-number index name))
+          (pop-group! tarjan name))))
+
+    (: pop-group! (-> Tarjan String Unit ! mut))
+    (define (pop-group! tarjan name)
+      (let loop ((group (Nil)))
+        (match (ref-get (Tarjan-stack tarjan))
+          ((Cons top rest)
+           (ref-set! (Tarjan-stack tarjan) rest)
+           (table-set! (Tarjan-on-stack tarjan) top #f)
+           (if (string=? top name)
+               (ref-set! (Tarjan-groups tarjan)
+                         (Cons (map (lambda (member)
+                                      (match (table-ref (Tarjan-by-name tarjan) member)
+                                        ((Some item) item)
+                                        ((None) (panic "internal error: lost definition"))))
+                                    (Cons top group))
+                               (ref-get (Tarjan-groups tarjan))))
+               (loop (Cons top group))))
+          ((Nil) (panic "internal error: empty Tarjan stack")))))
+
+    ))

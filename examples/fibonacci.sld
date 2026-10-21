@@ -1,12 +1,11 @@
+;; The smallest complete program: a typed recursive function and output.
 (import
- (lofi core)
  (lofi base)
  (lofi io))
 
-(def fibonacci (-> I64 I64)
-     (lambda (n)
-       (if (< n (ann 2 I64)) n (+ (fibonacci (- n (ann 1 I64))) (fibonacci (- n (ann 2 I64)))))))
+(: fibonacci (-> I64 I64))
+(define (fibonacci n)
+  (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
-(write-i64 (fibonacci (ann 30 I64)) (current-output-port))
+(display (fibonacci 30))
 (newline)
-(ann 0 I64)

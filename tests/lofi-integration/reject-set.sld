@@ -1,6 +1,0 @@
-(import
- (lofi base))
-(def x
-     0)
-(set! x 42)
-x

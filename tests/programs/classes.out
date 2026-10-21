@@ -1,0 +1,7 @@
+[int 1, int 2, int 3]
+[just true, nothing]
+[[int 1], []] / [[int 1], []]
+6
+4.0
+9
+#t

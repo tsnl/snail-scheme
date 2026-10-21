@@ -1,6 +1,0 @@
-(import
- (lofi base))
-(def sum
-     (lambda (n result)
-       (if (= n (ann 0 I64)) result (sum (- n (ann 1 I64)) (+ result n)))))
-(sum (ann 100000 I64) (ann 0 I64))

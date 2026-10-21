@@ -1,9 +1,0 @@
-(import
- (lofi base))
-(def First (datatype ()
-             (first
-              (value I64))))
-(def Second (datatype ()
-              (second
-               (value I64))))
-(match (ann (ann (second (ann 1 I64)) Any) First) ((first value) value))

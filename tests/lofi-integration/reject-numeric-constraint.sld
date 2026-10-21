@@ -1,6 +1,0 @@
-(import
- (lofi base))
-
-(def square (All (T) (-> T T))
-     (lambda (x) (* x x)))
-(square (ann 2 I64))

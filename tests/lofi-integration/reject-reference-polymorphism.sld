@@ -1,6 +1,0 @@
-(import
- (lofi base))
-(def cell
-     (ref (lambda (x) x)))
-(ref-set! cell (lambda (x) (+ x (ann 1 I64))))
-((ref-get cell) #t)

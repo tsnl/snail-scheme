@@ -31,6 +31,7 @@ try {
   if (!filename) throw new Error('usage: run-lofi.mjs MODULE.wasm [ARGUMENT ...]');
   process.exitCode = await run(filename, arguments_);
 } catch (error) {
-  console.error(`lofi: ${error.message}`);
+  // A WASI exit unwinds as a non-Error value after its message is printed.
+  if (error instanceof Error) console.error(`lofi: ${error.message}`);
   process.exitCode = 1;
 }

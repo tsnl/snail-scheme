@@ -1,5 +1,0 @@
-(import
- (lofi base))
-(def choose
-     (lambda (flag) (if flag (ann 42 I64) #t)))
-(choose #t)

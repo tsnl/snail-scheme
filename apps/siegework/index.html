@@ -1,19 +1,18 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Siegework · Colony</title>
-<link rel="stylesheet" href="./lib/ui/style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Siegework</title>
 <link rel="stylesheet" href="./style.css">
 <body>
-  <main aria-label="Siegework colony">
-    <canvas tabindex="0" aria-label="Colony world. Tap a deposit to build an extractor, or tap empty ground to choose a structure. Tap the selected tile again to build the preview. Select existing structures or the hub for upgrades and repair."></canvas>
-    <section data-ui aria-label="Colony controls"></section>
-    <div class="world-caption" aria-hidden="true"><span>SIEGEWORK</span>colony field</div>
-  </main>
-  <a class="player-help" href="https://tsnl.github.io/snail-scheme/games/siegework.html" target="_blank" rel="noopener" aria-label="Siegework help (opens in a new tab)">Help ↗</a>
-  <p class="screen-reader" data-status role="status" aria-live="off"></p>
-  <p class="connection" data-connection role="status" aria-live="polite"></p>
-  <script type="module" data-application-entry></script>
+  <canvas id="view" tabindex="0" aria-label="Colony map"></canvas>
+  <div id="overlay"></div>
+  <script type="module">
+    import {startApplication} from './host.mjs';
+    const overlay = document.getElementById('overlay');
+    startApplication({url: './app.wasm', canvas: document.getElementById('view'), overlay, storageKey: 'siegework'})
+      .then(() => { document.body.dataset.ready = 'true'; })
+      .catch(error => { document.body.dataset.error = error.message; overlay.textContent = error.message; });
+  </script>
 </body>
 </html>

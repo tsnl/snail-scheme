@@ -1,6 +1,0 @@
-:root { color-scheme: dark; font-family: system-ui, sans-serif; }
-body { margin: 2rem auto; padding: 0 1rem; max-width: 36rem; background: #101a25; color: #eef2f6; }
-canvas { display: block; width: 320px; max-width: 100%; border: 1px solid #8092a5; }
-canvas:focus { outline: 2px solid #ffa500; }
-button { padding: .6rem 1rem; font: inherit; cursor: pointer; }
-[data-connection] { color: #b0c9dc; }
