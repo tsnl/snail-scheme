@@ -1,8 +1,8 @@
 ;; The test suite: the compiler's unit tests, then every program suite. A
 ;; program NAME.sld must print NAME.out exactly, or fail to compile with the
 ;; text of NAME.err in its diagnostic. Finally the Siegework package is
-;; built and driven headlessly. Programs compile one at a time, then link
-;; and run in parallel.
+;; built and driven headlessly, and so is the notebook's kernel. Programs
+;; compile one at a time, then link and run in parallel.
 ;;
 ;;   chibi-scheme -D snail-tests -I host/chibi -I src -I tests tests/run.scm ROOT [NAME ...]
 (import
@@ -108,6 +108,20 @@
       (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs") program))))
         (or (zero? (caddr result)) (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))))
 
+;; The notebook's default kernel, driven as the REPL and the notebook drive
+;; it.
+(define (compile-kernel root)
+  (guard (failure (#t (report "kernel" "compile failed" (error-text failure))))
+    (let ((text (program->wat root (list (path-join root "lib")) (path-join root "src/notebook/kernel.sld"))))
+      (lambda () (check-kernel root text)))))
+
+(define (check-kernel root text)
+  (guard (failure (#t (report "kernel" "test failed" (error-text failure))))
+    (let ((program (path-join root "build/tests/kernel/kernel.wasm")))
+      (link-wat root text program #f)
+      (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/kernel.mjs") program))))
+        (or (zero? (caddr result)) (report "kernel" "test failed" (string-append (car result) (cadr result))))))))
+
 ;; The command line itself: printing text and running a program.
 (define (run-command-line root)
   (let ((wat (process->output+error+status (list (path-join root "lofi") "wat" (path-join root "examples/fibonacci.sld"))))
@@ -159,7 +173,7 @@
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root) (compile-kernel root)) '())))
          (results (run-checks cases))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))

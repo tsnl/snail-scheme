@@ -1,0 +1,27 @@
+/* The notebook page: a toolbar over a column of cells, each a prompt, its
+   source, its tools and its output. Colors follow the application host's. */
+html, body { margin: 0; background: #10141c; color: #e8ecf2; font: 14px/1.45 system-ui, sans-serif; }
+.toolbar { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 10px 16px; background: #161c27; border-bottom: 1px solid #2a3446; }
+.title { margin-right: 8px; }
+.status { margin-left: auto; color: #9aa6b8; }
+button { padding: 5px 10px; border: 1px solid #3a4658; border-radius: 6px; background: #1c2433; color: inherit;
+  font: inherit; cursor: pointer; }
+button:hover { background: #26324a; }
+.cells { max-width: 960px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.cell { display: grid; grid-template-columns: 48px 1fr auto; grid-template-areas: "prompt source tools" ". output output"; gap: 4px 8px; }
+.prompt { grid-area: prompt; padding-top: 7px; color: #6f7c90; font: 12px/1.45 ui-monospace, monospace; text-align: right; }
+.cell.queued .prompt { color: #e0b050; }
+.source { grid-area: source; box-sizing: border-box; width: 100%; min-height: 2.2em; resize: none; overflow: hidden;
+  padding: 6px 8px; border: 1px solid #2a3446; border-radius: 6px; background: #0b0f16; color: inherit;
+  font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; }
+.source:focus { outline: none; border-color: #5a7fb8; }
+.tools { grid-area: tools; align-self: start; display: flex; gap: 2px; opacity: 0.35; }
+.cell:hover .tools, .cell:focus-within .tools { opacity: 1; }
+.tools button { padding: 2px 7px; }
+.output { grid-area: output; }
+.output pre { margin: 2px 0; padding: 0 8px; white-space: pre-wrap; word-break: break-word;
+  font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.printed { color: #c8d0dc; }
+.value { color: #8fd18f; }
+.error { color: #ff8a80; }
