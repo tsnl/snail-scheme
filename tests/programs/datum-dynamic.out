@@ -1,0 +1,20 @@
+42
+7
+2.5
+#\x
+"text"
+#<unspecified>
+(1 2 3)
+#("a" "b")
+(1 #t #f)
+5
+#f
+#<random>
+42
+2
+243
+5
+hello, notebook
+#<unspecified>
+300
+lofi: expected an I64, got a string

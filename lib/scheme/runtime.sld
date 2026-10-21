@@ -107,7 +107,7 @@
 
     ;; The value of expressions whose value Scheme leaves unspecified.
     (: unspecified Datum)
-    (define unspecified (BooleanDatum #f))
+    (define unspecified (UnspecifiedDatum))
 
     (: member-datum? (-> Datum Datum Bool))
     (define (member-datum? item items)
