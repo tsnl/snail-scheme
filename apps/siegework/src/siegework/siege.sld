@@ -196,7 +196,7 @@
                 (health (spawn-health world behavior rank))
                 (burrower (= (remainder (+ (remainder (World-seed world) 10) (remainder id 10)) 10) 0)))
            (World-enemies-set world (append (World-enemies world)
-                                            (list (Enemy id behavior rank burrower cell cell health health (raid-target world nest behavior)))))))))
+                                            (list (Enemy id behavior rank burrower cell cell health health (raid-target world nest behavior) (None)))))))))
 
     ;; A raider picks the nearest exposed outpost on its own approach: a
     ;; finished extractor or pylon more than nine cells from the hub and
@@ -267,10 +267,17 @@
         ((Some b) (Building-cell b))
         ((None) (Hub-cell (World-hub world)))))
 
-    ;; An enemy's target while it stands; a destroyed target means the hub.
+    ;; The turret an enemy turned on while it stands, else its target while
+    ;; that stands; with neither it heads for the hub.
     (: target-building (-> World Enemy (Option Building)))
     (define (target-building world enemy)
-      (match (Enemy-target enemy)
+      (match (standing world (Enemy-aggro enemy))
+        ((Some b) (Some b))
+        ((None) (standing world (Enemy-target enemy)))))
+
+    (: standing (-> World (Option I64) (Option Building)))
+    (define (standing world id)
+      (match id
         ((Some id) (match (building world id) ((Some b) (if (built? b) (Some b) (None))) ((None) (None))))
         ((None) (None))))
 
@@ -396,7 +403,7 @@
 
     ;; A powered turret fires every eight ticks at the strongest visible
     ;; enemy in range and in line of sight, nearest the hub first; without
-    ;; one it fires at a nest in range. The enemy it hits turns on it.
+    ;; one it fires at a nest in range. The enemy it hits may turn on it.
     (: fire (-> World World))
     (define (fire world)
       (fold-left fire-one world (filter (lambda (b) (and (turret? b) (built? b) (powered? world (Building-id b))
@@ -440,8 +447,17 @@
     (: hit-enemy (-> World Building Enemy World))
     (define (hit-enemy world turret enemy)
       (let ((wounded (Enemy-health-set enemy (- (Enemy-health enemy) (damage turret (Enemy-cell enemy))))))
-        (shoot (put-enemy world (if (> (Enemy-health wounded) 0) (Enemy-target-set wounded (Some (Building-id turret))) wounded))
+        (shoot (put-enemy world (if (> (Enemy-health wounded) 0) (provoke world wounded turret) wounded))
                turret (Enemy-cell enemy))))
+
+    ;; A wounded enemy turns on the turret that hit it unless the one it
+    ;; already turned on still stands, so turrets on both sides of it cannot
+    ;; pull it back and forth.
+    (: provoke (-> World Enemy Building Enemy))
+    (define (provoke world enemy turret)
+      (match (standing world (Enemy-aggro enemy))
+        ((Some _) enemy)
+        ((None) (Enemy-aggro-set enemy (Some (Building-id turret))))))
 
     ;; A destroyed nest changes the structures: its crystal shows instead.
     (: hit-nest (-> World Building Nest World))
