@@ -37,9 +37,11 @@ the source changes.
 
 ## Siegework
 
-[Siegework](apps/siegework) is a small colony game written in Lofi: explore a
-seeded map, mine ore, and destroy three nests before their waves destroy
-your hub. It runs in the browser with WebGPU.
+[Siegework](apps/siegework) is a colony game written in Lofi: explore a
+seeded map, wire an energy network across it, and destroy three nests
+before their attacks destroy your hub. It runs in the browser with WebGPU.
+**[Play it online](https://tsnl.github.io/snail-scheme/play/siegework/)**,
+or build it:
 
 ```sh
 make site
@@ -48,6 +50,9 @@ python3 -m http.server 4191 --directory build/siegework
 
 ## Reading on
 
+- [The book](https://tsnl.github.io/snail-scheme/) gathers the guides below
+  with the player's guide and tutorials; `make pages` builds it with the
+  game into `build/pages`.
 - [The language guide](doc/language.md) describes the language as implemented.
 - [The compiler tour](TOUR.md) follows a program through the passes.
 - [The redesign](doc/redesign.md) records the design and what remains.

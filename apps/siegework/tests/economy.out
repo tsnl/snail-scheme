@@ -1,5 +1,11 @@
-tick 0, ore 60, buildings 1, workers 3, enemies 0
-Extractor ordered.
-tick 300, ore 58, buildings 2, workers 3, enemies 0
-ore conserved: #t
-tick 700, ore 94, buildings 2, workers 3, enemies 3
+tick 0, energy 160, produced 0, spent 0, balanced #t
+advancing before the first order changes nothing: #t
+the first extractor is ready at once: #t
+tick 100, energy 155, produced 20, spent 25, balanced #t
+starter reserve 580
+tick 200, energy 147, produced 52, spent 65, balanced #t
+tick 300, energy 187, produced 92, spent 65, balanced #t
+tick 360, energy 186, produced 116, spent 90, balanced #t
+tick 360, energy 191, produced 116, spent 85, balanced #t
+buildings 1
+repair restores the hub from 421 to 600 for 90 energy

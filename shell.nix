@@ -12,5 +12,6 @@ pkgs.mkShell {
     rustup
     binaryen
     nodejs
+    mdbook
   ];
 }

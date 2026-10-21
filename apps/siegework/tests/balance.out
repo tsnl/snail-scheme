@@ -1,0 +1,3 @@
+an extractor and a turret are ready before the first attack: #t
+an undefended hub falls before tick 1000: #t
+a hub ringed with turrets holds through tick 3000: #t
