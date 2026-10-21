@@ -76,7 +76,7 @@ forms.
 | `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
 | `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
-| `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI. |
+| `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI, in a worker with room for deep recursion. |
 | `src/app/` | The browser host for `(lofi app)`: input, ticks, a WebGPU renderer, the HUD and saves. |
 | `scripts/build-app.scm` | Packages an application as a static site. |
 | `apps/siegework/` | The example game: `grid`, `world` (all rules), `game` (input and camera) and `view`. |
