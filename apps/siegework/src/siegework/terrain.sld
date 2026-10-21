@@ -71,7 +71,7 @@
     ;; Seeds are 1 to 65535; any integer maps into that range.
     (: land-seed (-> I64 I64))
     (define (land-seed seed)
-      (+ 1 (modulo seed 65535)))
+      (+ 1 (modulo (- seed 1) 65535)))
 
     (: new-land (-> I64 Land))
     (define (new-land seed)
