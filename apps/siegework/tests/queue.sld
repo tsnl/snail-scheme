@@ -1,7 +1,6 @@
 ;; The hub works on as many orders as it has build slots, in the order
-;; they were given. Rushing doubles the rate of what remains for four times
-;; its share of the cost, and cancelling returns the cost and the unused
-;; part of a rush.
+;; they were given. Rushing finishes work at once for four times the share
+;; of its cost that remains, and cancelling returns the cost.
 (import
  (lofi base)
  (lofi io)
@@ -30,7 +29,7 @@
 (define (task-text world task)
   (let ((work (Task-work task)))
     (string-append (owner-text world (Task-owner task)) " " (show (Work-progress work)) "/" (show (Work-duration work))
-                   (if (Work-rushed work) " rushed" "") (if (Task-active task) " active" ""))))
+                   (if (Task-active task) " active" ""))))
 
 (: report (-> World Unit ! console))
 (define (report world)
@@ -46,20 +45,19 @@
   (define world (order world (Build (Pylon) (Cell 38 46) #f)))
   (define world (order world (Build (Pylon) (Cell 34 40) #f)))
   (report world)
-  (define world (run world 200))
+  (define world (run world 25))
+  (define world (order world (Rush (Cell 38 40))))
   (report world)
+  (define world (run world 25))
+  (report world)
+  (define world (run world 450))
   (define world (order world (Build (Pylon) (Cell 34 40) #f)))
+  (define world (order world (Build (Pylon) (Cell 38 34) #f)))
   (report world)
-  (define world (run world 30))
+  (define world (run world 10))
   (define world (order world (Rush (Cell 34 40))))
   (report world)
-  (define world (run world 20))
-  (define world (order world (Rush (Cell 34 40))))
+  (define world (order world (Cancel (Cell 38 34))))
   (report world)
-  (define world (run world 5))
-  (report world)
-  (define world (order world (Cancel (Cell 38 46))))
-  (report world)
-  (define world (order world (Build (Pylon) (Cell 38 46) #t)))
-  (define world (order world (Cancel (Cell 34 40))))
+  (define world (order world (Build (Pylon) (Cell 38 34) #t)))
   (report world))

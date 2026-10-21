@@ -69,7 +69,6 @@
       (Unfinished)
       (Busy)
       (Idle)
-      (AlreadyRushed)
       (MaximumLevel)
       (FullHealth))
 
@@ -92,7 +91,6 @@
         ((Unfinished) "Finish building it first.")
         ((Busy) "It is already working.")
         ((Idle) "There is no work to change.")
-        ((AlreadyRushed) "It is already rushed.")
         ((MaximumLevel) "It is fully upgraded.")
         ((FullHealth) "The hub is undamaged.")))
 
@@ -144,8 +142,15 @@
               ((and (not extractor?) (not (null-option? crystal))) (Err (CrystalSite)))
               ((and extractor? (exhausted? crystal)) (Err (Depleted)))
               ((not (in-reach? world kind cell)) (Err (OutOfReach)))
-              (else (let ((work (new-work world (raise-cost kind 0) (raise-duration kind 0) (and rush (World-started world)))))
-                      (pay world (work-refund work) (lambda (world) (place-site world kind cell work))))))))
+              (else (place world kind cell (and rush (World-started world)))))))
+
+    ;; The colony's first extractor is ready at once, so a new game starts
+    ;; producing; a rushed order is ready at once for five times its cost;
+    ;; any other joins the queue.
+    (: place (-> World Kind Cell Bool (Result World Rejection)))
+    (define (place world kind cell rush)
+      (let* ((work (new-work world (raise-cost kind 0) (raise-duration kind 0))) (ready (or rush (not (World-started world)))))
+        (pay world (+ (Work-cost work) (if rush (rush-price work) 0)) (lambda (world) (place-site world kind cell work ready)))))
 
     (: occupied? (-> World Cell Bool))
     (define (occupied? world cell)
@@ -173,23 +178,19 @@
       (any? (lambda (node) (wire-reaches? world (Node-cell node) (Node-reach node) cell (kind-reach kind 1)))
             (Network-powered (World-network world))))
 
-    ;; New work joins the end of the queue. Ordering it pays exactly what
-    ;; cancelling it at once would return: its cost, five times over if it
-    ;; is rushed from the start.
-    (: new-work (-> World I64 I64 Bool Work))
-    (define (new-work world cost duration rush)
-      (Work (World-next-order world) cost duration 0 rush))
+    ;; New work joins the end of the queue.
+    (: new-work (-> World I64 I64 Work))
+    (define (new-work world cost duration)
+      (Work (World-next-order world) cost duration 0))
 
-    ;; A new site joins the queue, except the colony's first extractor,
-    ;; which is ready at once so a new game starts producing.
-    (: place-site (-> World Kind Cell Work World))
-    (define (place-site world kind cell work)
+    (: place-site (-> World Kind Cell Work Bool World))
+    (define (place-site world kind cell work ready)
       (match (fresh-id world)
         ((Pair id world)
-         (if (World-started world)
+         (if ready
+             (rewire (World-started-set (add-building world (Building id kind cell 1 (kind-health kind) (None))) #t))
              (structures-changed (World-next-order-set (add-building world (Building id kind cell 0 (kind-health kind) (Some work)))
-                                                       (+ (World-next-order world) 1)))
-             (rewire (World-started-set (add-building world (Building id kind cell 1 (kind-health kind) (None))) #t))))))
+                                                       (+ (World-next-order world) 1)))))))
 
     (: add-building (-> World Building World))
     (define (add-building world building)
@@ -238,21 +239,19 @@
         ((OfHub) (let ((slots (Hub-slots (World-hub world))))
                    (cond ((not (null-option? (Hub-work (World-hub world)))) (Err (Busy)))
                          ((>= slots maximum-slots) (Err (MaximumLevel)))
-                         (else (Ok (new-work world (slot-cost slots) (slot-duration slots) #f))))))
+                         (else (Ok (new-work world (slot-cost slots) (slot-duration slots)))))))
         ((OfBuilding b) (let ((level (Building-level b)) (kind (Building-kind b)))
                           (cond ((not (built? b)) (Err (Unfinished)))
                                 ((not (null-option? (Building-work b))) (Err (Busy)))
                                 ((>= level maximum-level) (Err (MaximumLevel)))
-                                (else (Ok (new-work world (raise-cost kind level) (raise-duration kind level) #f))))))))
+                                (else (Ok (new-work world (raise-cost kind level) (raise-duration kind level)))))))))
 
     ;; ---- Rushing and cancelling ----
 
     (: rush (-> World Owner (Result World Rejection)))
     (define (rush world owner)
       (match (owner-work world owner)
-        ((Some work) (if (Work-rushed work)
-                         (Err (AlreadyRushed))
-                         (pay world (rush-price work) (lambda (world) (set-owner-work world owner (Some (Work-rushed-set work #t)))))))
+        ((Some work) (pay world (rush-price work) (lambda (world) (finish world owner))))
         ((None) (Err (Idle)))))
 
     ;; Cancelling a site removes it; cancelling an upgrade leaves the building
@@ -333,25 +332,17 @@
 
     (: progress (-> World Task World))
     (define (progress world task)
-      (let* ((work (Task-work task)) (work (Work-progress-set work (+ (Work-progress work) (if (Work-rushed work) 2 1)))))
-        (match (Task-owner task)
-          ((OfHub) (raise-hub world work))
-          ((OfBuilding b) (raise-building world b work)))))
+      (let ((work (Work-progress-set (Task-work task) (+ (Work-progress (Task-work task)) 1))))
+        (if (> (remaining-work work) 0) (set-owner-work world (Task-owner task) (Some work)) (finish world (Task-owner task)))))
 
-    (: raise-hub (-> World Work World))
-    (define (raise-hub world work)
-      (let ((hub (World-hub world)))
-        (World-hub-set world (if (> (remaining-work work) 0)
-                                 (Hub-work-set hub (Some work))
-                                 (Hub-work-set (Hub-slots-set hub (+ (Hub-slots hub) 1)) (None))))))
-
-    ;; A finished level also restores the building to full health.
-    (: raise-building (-> World Building Work World))
-    (define (raise-building world building work)
-      (if (> (remaining-work work) 0)
-          (put-building world (Building-work-set building (Some work)))
-          (rewire (put-building world (Building-health-set (Building-work-set (Building-level-set building (+ (Building-level building) 1)) (None))
-                                                           (kind-health (Building-kind building)))))))
+    ;; Finished work raises its owner: the hub gains a build slot, and a
+    ;; building a level and its full health.
+    (: finish (-> World Owner World))
+    (define (finish world owner)
+      (match owner
+        ((OfHub) (let ((hub (World-hub world))) (World-hub-set world (Hub-work-set (Hub-slots-set hub (+ (Hub-slots hub) 1)) (None)))))
+        ((OfBuilding b) (rewire (put-building world (Building-health-set (Building-work-set (Building-level-set b (+ (Building-level b) 1)) (None))
+                                                                         (kind-health (Building-kind b))))))))
 
     ;; ---- Production ----
 
