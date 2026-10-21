@@ -5,6 +5,7 @@
  (lofi base)
  (lofi io)
  (siegework grid)
+ (only (siegework terrain) Land-starter)
  (siegework world)
  (siegework colony)
  (siegework siege)
@@ -45,10 +46,9 @@
   (let ((hub (Hub-cell (World-hub world))))
     (Cell (+ (Cell-x hub) dx) (+ (Cell-y hub) dy))))
 
-;; The starter crystal sits four cells east and two north of the hub.
 (: started (-> World World))
 (define (started world)
-  (try world (Build (Extractor) (offset world 4 -2) #f)))
+  (try world (Build (Extractor) (Land-starter (World-land world)) #f)))
 
 (: reinforce (-> World World))
 (define (reinforce world)

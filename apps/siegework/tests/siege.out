@@ -1,14 +1,17 @@
 attacks: 450 wave of 8, 750 wave of 8, 1050 raid of 11, 1350 wave of 8, 1650 raid of 12, 1950 wave of 8, 2250 raid of 13, 2550 wave of 8, 2850 raid of 14, 3150 wave of 9, 3450 raid of 15, 3750 wave of 9
 next attack after tick 5000: 5250 raid of 18
-undefended: tick 790, buildings 1, hub 0, enemies 16, kills 0, lost 0, opened rock 0, lost
+undefended: tick 860, buildings 1, hub 0, enemies 16, kills 0, lost 0, opened rock 1, lost
 the lost colony's whole map is uncovered: #t
-defended: tick 1000, buildings 7, hub 600, enemies 3, kills 13, lost 0, opened rock 1, playing
-defended: tick 3000, buildings 9, hub 600, enemies 9, kills 81, lost 0, opened rock 1, playing
+defended: tick 1000, buildings 7, hub 600, enemies 6, kills 10, lost 0, opened rock 1, playing
+defended: tick 3000, buildings 9, hub 600, enemies 12, kills 78, lost 0, opened rock 4, playing
 tick 101: the turret at x 41 fires; the enemy has turned on building 3
 tick 102: the turret at x 35 fires; the enemy has turned on building 3
 tick 109: the turret at x 41 fires; the enemy has turned on building 3
 tick 110: the turret at x 35 fires; the enemy has turned on building 3
 tick 117: the turret at x 41 fires; the enemy has turned on building 3
+tick 118: the turret at x 35 fires; the enemy has turned on building 3
 tick 125: the turret at x 41 fires; the enemy has turned on building 3
+tick 126: the turret at x 35 fires; the enemy has turned on building 3
 tick 133: the turret at x 41 fires; the enemy has turned on building 3
+tick 134: the turret at x 35 fires; the enemy has turned on building 3
 at tick 140 the enemy has turned on building 3

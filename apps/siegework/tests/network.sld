@@ -1,5 +1,6 @@
-;; Power on seed 1. The northern crystal is out of the hub's reach, so its
-;; extractor is wired through a pylon. Scavenging that pylon cuts the
+;; Power on seed 3, a meadow. The crystal west across the lake is out of
+;; the hub's reach, so its extractor is wired through a pylon; wires cross
+;; water. Scavenging that pylon cuts the
 ;; extractor off: it stops yielding and stops lighting the map. Building the
 ;; pylon again restores both. Wires run along the shortest links that
 ;; connect everything, so a second pylon nearer the extractor takes over
@@ -9,6 +10,7 @@
  (lofi base)
  (lofi io)
  (siegework grid)
+ (only (siegework terrain) Land-starter)
  (siegework world)
  (siegework colony)
  (siegework simulation))
@@ -50,14 +52,14 @@
                                           "; "))))
 
 (let ()
-  (define north (Cell 39 31))
-  (define relay (Cell 38 36))
-  (define world (new-world 1))
-  (define world (order world (Build (Extractor) north #f)))
-  (define world (order world (Build (Extractor) (Cell 42 38) #f)))
+  (define west (Cell 30 35))
+  (define relay (Cell 30 39))
+  (define world (new-world 3))
+  (define world (order world (Build (Extractor) west #f)))
+  (define world (order world (Build (Extractor) (Land-starter (World-land world)) #f)))
   (define world (order world (Build (Pylon) relay #f)))
   (define world (run world 250))
-  (define world (order world (Build (Extractor) north #f)))
+  (define world (order world (Build (Extractor) west #f)))
   (define world (run world 150))
   (report world)
   (define world (run world 50))
@@ -72,8 +74,8 @@
   (define world (run world 50))
   (report world)
   (report-wires world)
-  (define world (run (order world (Build (Pylon) (Cell 42 33) #f)) 30))
+  (define world (run (order world (Build (Pylon) (Cell 29 36) #f)) 30))
   (report-wires world)
-  (define world (order world (Scavenge (Cell 42 33))))
+  (define world (order world (Scavenge (Cell 29 36))))
   (report world)
   (report-wires world))
