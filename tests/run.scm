@@ -1,8 +1,9 @@
 ;; The test suite: the compiler's unit tests, then every program suite. A
 ;; program NAME.sld must print NAME.out exactly, or fail to compile with the
-;; text of NAME.err in its diagnostic. Finally the Siegework package is
-;; built and driven headlessly. Programs compile one at a time, then link
-;; and run in parallel.
+;; text of NAME.err in its diagnostic. Then the Siegework package is built
+;; and driven headlessly. Programs compile one at a time, then link and run
+;; in parallel. Finally the development server serves and rebuilds an
+;; application.
 ;;
 ;;   chibi-scheme -D snail-tests -I host/chibi -I src -I tests tests/run.scm ROOT [NAME ...]
 (import
@@ -116,6 +117,15 @@
           ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
           (else #t))))
 
+;; ---- Development loop ----
+
+;; `lofi serve` and `lofi watch` build while they run, and every compiler
+;; run shares the driver's files, so this check runs alone, after the
+;; others.
+(define (run-develop root)
+  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/develop.mjs") root))))
+    (or (zero? (caddr result)) (report "develop" "the development loop failed" (string-append (car result) (cadr result))))))
+
 ;; ---- Checks in parallel ----
 
 ;; Every compiler run shares build/generated and the compiler's output file,
@@ -160,7 +170,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root)) '())))
-         (results (run-checks cases))
+         (results (append (run-checks cases) (if (null? selected) (list (run-develop root)) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
     (if (zero? failures) 0 1)))

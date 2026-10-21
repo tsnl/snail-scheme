@@ -15,7 +15,9 @@
 ;; draws a Frame through the `screen` effect, shows the HUD again after
 ;; each input (after time, at most ten times a second), and stores the
 ;; serialized Save. The Save may be much smaller than the state: a record
-;; of how to rebuild it.
+;; of how to rebuild it. A development server (`lofi serve`) replaces the
+;; module of a running page the same way a reload restores it: the old
+;; module's save is restored into the new one.
 (define-library (lofi app)
   (export
    Input

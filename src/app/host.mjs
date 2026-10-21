@@ -21,8 +21,9 @@ function keyCode(event) {
 
 // ---- WASI ----
 
-// The linked Rust runtime needs only standard output and exit.
-function wasiImports(memory) {
+// The linked Rust runtime needs only standard output and exit. Each line it
+// writes goes to `print` with its file descriptor.
+function wasiImports(memory, print) {
   const decoder = new TextDecoder();
   let line = '';
   return {
@@ -36,7 +37,7 @@ function wasiImports(memory) {
       }
       const lines = line.split('\n');
       line = lines.pop();
-      for (const text of lines) (fd === 2 ? console.error : console.log)(text);
+      for (const text of lines) print(fd, text);
       view.setUint32(written, total, true);
       return 0;
     },
@@ -110,40 +111,113 @@ function screenImports(renderer, hud) {
 
 // ---- Application ----
 
+// The applications running on this page. A development server replaces
+// their modules (src/app/reload.mjs).
+export const running = [];
+
+// An application is the module it runs, which `replaceModule` may swap,
+// with the last lines that module wrote to standard error, and the page's
+// renderer, HUD and canvas, which outlive any one module.
 export async function startApplication({url, canvas, overlay, storageKey}) {
-  const renderer = await createRenderer(canvas);
+  const application = {url, canvas, storageKey, exports: null, errors: [], renderer: await createRenderer(canvas), hud: null, clock: null};
+  application.hud = createHud(overlay, (action, argument) => application.exports.app_input(PRESS, action, argument, 0, 0),
+                              (action, argument) => application.exports.app_input(HOVER, action, argument, 0, 0));
+  application.exports = await instantiate(application, url, application.errors);
+  await restore(application);
+  attachInput(application);
+  addEventListener('visibilitychange', () => { if (document.hidden) saveQuietly(application); });
+  runClock(application);
+  running.push(application);
+  return application.exports;
+}
+
+// Every instance has its own WASI imports, which read its own memory, so a
+// new module can start while the old one still runs. The last lines it
+// writes to standard error are also kept in `errors`, since they explain a
+// trap: a panic prints its message before trapping.
+async function instantiate(application, url, errors) {
   let exports;
-  const hud = createHud(overlay, (action, argument) => exports.app_input(PRESS, action, argument, 0, 0),
-                        (action, argument) => exports.app_input(HOVER, action, argument, 0, 0));
-  const imports = {
-    wasi_snapshot_preview1: wasiImports(() => exports.memory),
-    'snail.screen': screenImports(renderer, hud),
+  const print = (fd, text) => {
+    if (fd !== 2) { console.log(text); return; }
+    console.error(text);
+    errors.push(text);
+    errors.splice(0, errors.length - 20);
   };
-  const {instance} = await WebAssembly.instantiateStreaming(fetch(url), imports);
-  exports = instance.exports;
+  const imports = {
+    wasi_snapshot_preview1: wasiImports(() => exports.memory, print),
+    'snail.screen': screenImports(application.renderer, application.hud),
+  };
+  ({instance: {exports}} = await WebAssembly.instantiateStreaming(fetch(url), imports));
   exports._initialize();
   exports.main();
-  await restore(exports, storageKey, canvas);
-  attachInput(exports, canvas);
-  runClock(exports, storageKey);
   return exports;
 }
 
+// ---- Saves ----
+
+function saveBytes(exports) {
+  const length = exports.app_save();
+  return Uint8Array.from({length}, (_, index) => exports.app_save_byte(index));
+}
+
+// Restores a save into a module, then reports the screen's size, which
+// saves leave out. A save written for another schema traps.
+function loadBytes(exports, bytes, canvas) {
+  exports.app_load_begin(bytes.length);
+  bytes.forEach((byte, index) => exports.app_load_byte(index, byte));
+  exports.app_load_end();
+  exports.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0, 0);
+}
+
+function startFresh(exports, canvas) {
+  exports.app_init((Math.random() * 65536) | 0, canvas.clientWidth, canvas.clientHeight);
+}
+
+// Stores the running module's save, resolving once it is stored.
+export function saveApplication(application) {
+  return storeSave(application.storageKey, saveBytes(application.exports));
+}
+
+function saveQuietly(application) {
+  saveApplication(application).catch(error => console.warn('save failed:', error.message));
+}
+
 // A save written for another schema traps while loading; start fresh then.
-async function restore(exports, storageKey, canvas) {
-  const bytes = await loadSave(storageKey);
+async function restore(application) {
+  const bytes = await loadSave(application.storageKey);
   if (bytes) {
     try {
-      exports.app_load_begin(bytes.length);
-      bytes.forEach((byte, index) => exports.app_load_byte(index, byte));
-      exports.app_load_end();
-      exports.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0, 0);
+      loadBytes(application.exports, bytes, application.canvas);
       return;
     } catch (error) {
       console.warn('discarding an incompatible save:', error.message);
     }
   }
-  exports.app_init((Math.random() * 65536) | 0, canvas.clientWidth, canvas.clientHeight);
+  startFresh(application.exports, application.canvas);
+}
+
+// ---- Replacing the module ----
+
+// Swaps in a rebuilt module while the page keeps running: the old module's
+// save restores into the new one, so the state survives while every
+// function changes. The renderer's batches were drawn by the old module, so
+// it forgets them. If the new module cannot take over the save, because
+// its Save type changed or restoring it panics, the old module keeps
+// running and the error carries what the new one printed; `fresh` starts
+// the new module over instead. A clock that stopped when the old module
+// trapped starts again.
+export async function replaceModule(application, url, {fresh = false} = {}) {
+  const errors = [];
+  try {
+    const next = await instantiate(application, url, errors);
+    if (fresh) startFresh(next, application.canvas);
+    else loadBytes(next, saveBytes(application.exports), application.canvas);
+    application.renderer.forget();
+    Object.assign(application, {exports: next, errors});
+  } catch (error) {
+    throw new Error(errors.join('\n') || error.message);
+  }
+  if (!application.clock) runClock(application);
 }
 
 // Wheel deltas arrive in pixels, lines or pages; the application gets pixels.
@@ -151,8 +225,9 @@ function wheelPixels(event) {
   return Math.round(event.deltaY * [1, 16, innerHeight][event.deltaMode]);
 }
 
-function attachInput(exports, canvas) {
-  const send = (kind, a = 0, b = 0, c = 0, d = 0) => exports.app_input(kind, a | 0, b | 0, c | 0, d | 0);
+function attachInput(application) {
+  const {canvas} = application;
+  const send = (kind, a = 0, b = 0, c = 0, d = 0) => application.exports.app_input(kind, a | 0, b | 0, c | 0, d | 0);
   addEventListener('keydown', event => {
     if (event.target instanceof HTMLInputElement || (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' '))) return;
     const code = keyCode(event);
@@ -173,22 +248,22 @@ function attachInput(exports, canvas) {
 
 // Each display frame first reports the time since the last, up to a quarter
 // of a second, then draws. Hidden pages draw no frames, so no time passes
-// for them. The state is saved every five seconds and when hidden.
-function runClock(exports, storageKey) {
+// for them. The state is saved every five seconds. A module that traps
+// stops the clock, keeping the state from before the update that trapped,
+// until a replacement module starts it again.
+function runClock(application) {
   let last = performance.now(), lastSave = last;
-  const save = () => {
-    const length = exports.app_save();
-    const bytes = new Uint8Array(length);
-    for (let i = 0; i < length; i++) bytes[i] = exports.app_save_byte(i);
-    storeSave(storageKey, bytes).catch(error => console.warn('save failed:', error.message));
-  };
-  addEventListener('visibilitychange', () => { if (document.hidden) save(); });
   const frame = now => {
-    exports.app_input(ELAPSED, Math.round(Math.min(250, Math.max(0, now - last))), 0, 0, 0);
-    last = now;
-    exports.app_frame();
-    if (now - lastSave > 5000) { lastSave = now; save(); }
-    requestAnimationFrame(frame);
+    try {
+      application.exports.app_input(ELAPSED, Math.round(Math.min(250, Math.max(0, now - last))), 0, 0, 0);
+      last = now;
+      application.exports.app_frame();
+    } catch (error) {
+      application.clock = null;
+      throw error;
+    }
+    if (now - lastSave > 5000) { lastSave = now; saveQuietly(application); }
+    application.clock = requestAnimationFrame(frame);
   };
-  requestAnimationFrame(now => { last = now; frame(now); });
+  application.clock = requestAnimationFrame(now => { last = now; frame(now); });
 }
