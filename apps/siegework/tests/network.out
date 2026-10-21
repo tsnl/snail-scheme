@@ -1,7 +1,11 @@
 rejected: Nothing powered can see there.
-tick 400, produced 116, wires 4, visible 287: Extractor 42,38 powered; Pylon 38,36 powered; Extractor 39,31 powered
-tick 450, produced 141, wires 4, visible 287: Extractor 42,38 powered; Pylon 38,36 powered; Extractor 39,31 powered
+tick 400, produced 116, wires 3, visible 287: Extractor 42,38 powered; Pylon 38,36 powered; Extractor 39,31 powered
+tick 450, produced 141, wires 3, visible 287: Extractor 42,38 powered; Pylon 38,36 powered; Extractor 39,31 powered
 tick 450, produced 141, wires 1, visible 253: Extractor 42,38 powered; Extractor 39,31 unpowered
 tick 500, produced 151, wires 1, visible 253: Extractor 42,38 powered; Extractor 39,31 unpowered
-tick 550, produced 176, wires 4, visible 287: Extractor 42,38 powered; Extractor 39,31 powered; Pylon 38,36 powered
-tick 600, produced 201, wires 4, visible 287: Extractor 42,38 powered; Extractor 39,31 powered; Pylon 38,36 powered
+tick 550, produced 176, wires 3, visible 287: Extractor 42,38 powered; Extractor 39,31 powered; Pylon 38,36 powered
+tick 600, produced 201, wires 3, visible 287: Extractor 42,38 powered; Extractor 39,31 powered; Pylon 38,36 powered
+wires 38,40-38,36 38,40-42,38 38,36-39,31
+wires 38,40-38,36 38,40-42,38 42,38-42,33 42,33-39,31
+tick 630, produced 216, wires 3, visible 287: Extractor 42,38 powered; Extractor 39,31 powered; Pylon 38,36 powered
+wires 38,40-38,36 38,40-42,38 38,36-39,31

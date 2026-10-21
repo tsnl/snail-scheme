@@ -423,7 +423,8 @@
       ((from Node)
        (to Node)))
 
-    ;; The nodes the hub reaches through wires, in the order found.
+    ;; The wires, each from the node it was reached from to the next, and
+    ;; the nodes the hub reaches through them, in the order reached.
     (struct Network
       ((wires (List Wire))
        (powered (List Node))))
@@ -582,37 +583,68 @@
     (define (building-nodes world)
       (map (lambda (b) (Node (Building-id b) (Building-cell b) (building-reach b))) (filter built? (World-buildings world))))
 
-    ;; Every pair of nodes a wire reaches, each pair once.
-    (: wires (-> World (List Node) (List Wire)))
-    (define (wires world nodes)
-      (let loop ((nodes nodes) (found (Nil)))
-        (match nodes
-          ((Nil) (reverse found))
-          ((Cons node rest)
-           (loop rest (fold-left (lambda (found other)
-                                   (if (wire-reaches? world (Node-cell node) (Node-reach node) (Node-cell other) (Node-reach other))
-                                       (Cons (Wire node other) found)
-                                       found))
-                                 found rest))))))
+    ;; A pair of nodes a wire could join, by their places in the list of
+    ;; nodes, with the squared length that ranks it.
+    (struct Link
+      ((a I64)
+       (b I64)
+       (cost I64)))
 
-    ;; The nodes reachable from the hub, found breadth first.
-    (: power (-> Node (List Wire) (List Node)))
-    (define (power hub wires)
-      (let loop ((frontier (list hub)) (powered (list hub)))
-        (match frontier
-          ((Nil) powered)
-          ((Cons node rest)
-           (let ((fresh (filter (lambda (other) (not (any? (lambda (p) (= (Node-id p) (Node-id other))) powered)))
-                                (wired-to wires node))))
-             (loop (append rest fresh) (append powered fresh)))))))
+    ;; Every pair of nodes a wire reaches, each pair once, in node order.
+    (: links (-> World (Vector Node) (List Link)))
+    (define (links world nodes)
+      (concatenate (map (lambda (i)
+                          (filter-map (lambda (k) (link world nodes i (+ k (+ i 1)))) (iota (- (vector-length nodes) (+ i 1)))))
+                        (iota (vector-length nodes)))))
 
-    (: wired-to (-> (List Wire) Node (List Node)))
-    (define (wired-to wires node)
-      (fold-right (lambda (wire found)
-                    (cond ((= (Node-id (Wire-from wire)) (Node-id node)) (Cons (Wire-to wire) found))
-                          ((= (Node-id (Wire-to wire)) (Node-id node)) (Cons (Wire-from wire) found))
-                          (else found)))
-                  (Nil) wires))
+    (: link (-> World (Vector Node) I64 I64 (Option Link)))
+    (define (link world nodes i j)
+      (let ((a (vector-ref nodes i)) (b (vector-ref nodes j)))
+        (if (wire-reaches? world (Node-cell a) (Node-reach a) (Node-cell b) (Node-reach b))
+            (Some (Link i j (distance-squared (Node-cell a) (Node-cell b))))
+            (None))))
+
+    ;; The wires run along a minimum spanning forest of the links: a tree
+    ;; grown from the hub, always by the shortest link that reaches a new
+    ;; node, then a tree for each group of nodes it could not reach. The
+    ;; hub's tree is the powered network, so it reaches exactly what the
+    ;; links do, and losing a node may rewire it along links not drawn
+    ;; before. Each wire runs from the node it was reached from.
+    (: span (-> (Vector Node) (List Link) (Pair (List Node) (List Wire))))
+    (define (span nodes links)
+      (let loop ((inside (make-vector (vector-length nodes) #f)) (wires (Nil)) (powered (None)))
+        (match (find (lambda (i) (not (vector-ref inside i))) (iota (vector-length nodes)))
+          ((Some root)
+           (match (grow nodes links (vector-set inside root #t) wires (list (vector-ref nodes root)))
+             ((Pair (Pair inside wires) tree) (loop inside wires (match powered ((None) (Some (reverse tree))) (_ powered))))))
+          ((None) (Pair (match powered ((Some tree) tree) ((None) (Nil))) (reverse wires))))))
+
+    ;; Adds the shortest link from the tree to a new node until none is left.
+    (: grow (-> (Vector Node) (List Link) (Vector Bool) (List Wire) (List Node) (Pair (Pair (Vector Bool) (List Wire)) (List Node))))
+    (define (grow nodes links inside wires tree)
+      (match (shortest-crossing links inside)
+        ((Some l) (let* ((outward (vector-ref inside (Link-a l))) (from (if outward (Link-a l) (Link-b l))) (to (if outward (Link-b l) (Link-a l))))
+                    (grow nodes links (vector-set inside to #t) (Cons (Wire (vector-ref nodes from) (vector-ref nodes to)) wires) (Cons (vector-ref nodes to) tree))))
+        ((None) (Pair (Pair inside wires) tree))))
+
+    ;; The first of the shortest links with one end inside, so ties go to
+    ;; the older pair.
+    (: shortest-crossing (-> (List Link) (Vector Bool) (Option Link)))
+    (define (shortest-crossing links inside)
+      (fold-left (lambda (best l)
+                   (if (and (not (eq-bool? (vector-ref inside (Link-a l)) (vector-ref inside (Link-b l))))
+                            (match best ((Some b) (< (Link-cost l) (Link-cost b))) ((None) #t)))
+                       (Some l)
+                       best))
+                 (None) links))
+
+    (: eq-bool? (-> Bool Bool Bool))
+    (define (eq-bool? a b)
+      (if a b (not b)))
+
+    (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
+    (define (filter-map f items)
+      (fold-right (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept))) (Nil) items))
 
     (: powered? (-> World I64 Bool))
     (define (powered? world id)
@@ -654,8 +686,9 @@
     ;; cell once visible stays explored.
     (: rewire (-> World World))
     (define (rewire world)
-      (let* ((hub (hub-node world)) (wires (wires world (Cons hub (building-nodes world)))) (powered (power hub wires)))
-        (explore (structures-changed (World-visible-set (World-network-set world (Network wires powered)) (lit-cells powered))))))
+      (let* ((nodes (list->vector (Cons (hub-node world) (building-nodes world)))) (spanned (span nodes (links world nodes))))
+        (explore (structures-changed (World-visible-set (World-network-set world (Network (Pair-second spanned) (Pair-first spanned)))
+                                                        (lit-cells (Pair-first spanned)))))))
 
     (: explore (-> World World))
     (define (explore world)
@@ -675,8 +708,8 @@
              (center (Cell (quotient (fold-left + 0 (map Cell-x cells)) count) (quotient (fold-left + 0 (map Cell-y cells)) count))))
         (Reveal before center (+ 1 (integer-sqrt (fold-left max 0 (map (lambda (cell) (distance-squared cell center)) cells)))) tick)))
 
-    ;; A lost or resigned colony shows the whole map for inspection, at
-    ;; once: the world is still, so nothing could unveil.
+    ;; A decided game shows the whole map for inspection, at once: the world
+    ;; is still, so nothing could unveil.
     (: uncover (-> World World))
     (define (uncover world)
       (let ((everything (make-vector (* map-size map-size) #t)) (reveal (World-reveal world)))
