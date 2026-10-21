@@ -4,8 +4,12 @@ on:
   pull_request:
     paths:
       - apps/siegework/**
+      - doc/**
+      - examples/**
       - lib/**
       - src/**
+      - book.toml
+      - Makefile
       - scripts/build-app.scm
       - shell.nix
       - .github/workflows/pages.yml
@@ -13,8 +17,12 @@ on:
     branches: [main]
     paths:
       - apps/siegework/**
+      - doc/**
+      - examples/**
       - lib/**
       - src/**
+      - book.toml
+      - Makefile
       - scripts/build-app.scm
       - shell.nix
       - .github/workflows/pages.yml
@@ -45,13 +53,13 @@ jobs:
           nix_path: nixpkgs=https://github.com/NixOS/nixpkgs/archive/dc5d91f840324650bac8c379428c7037a416959a.tar.gz
       - name: Install pinned Rust
         run: nix-shell --run 'rustup toolchain install 1.95.0 --profile minimal --target wasm32-wasip1'
-      - name: Build Siegework
-        run: nix-shell --run 'make site'
+      - name: Build the book and Siegework
+        run: nix-shell --run 'make pages'
       - name: Upload Pages artifact
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
-          path: build/siegework
+          path: build/pages
 
   deploy:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
@@ -67,6 +75,6 @@ jobs:
     steps:
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-      - name: Deploy Siegework
+      - name: Deploy the book and Siegework
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

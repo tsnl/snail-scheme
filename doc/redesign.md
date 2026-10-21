@@ -529,6 +529,7 @@ Siegework is rewritten as an ordinary functional program in this model: enums
 for building kinds and job states, `match`, `Option`, and a world value with no
 integer codes.
 
+<!-- ANCHOR: bootstrap -->
 ## 6. Bootstrap, self-hosting and Scheme
 
 **Scheme compatibility.** Lofi's Scheme-shaped core is designed with an
@@ -606,6 +607,7 @@ runs the translator:
                    (scheme compiler))
                   (scheme->lofi-text (read-source "program.scm")))
 ```
+<!-- ANCHOR_END: bootstrap -->
 
 ## 7. Migration
 
@@ -650,6 +652,7 @@ Scheme subset, beside the old one, which was then deleted.
   procedure case, rather than `Any`: pattern matching on one enum replaces
   run-time type tests, and Scheme code calls no typed Lofi code yet.
 
+<!-- ANCHOR: omissions -->
 ### Cut from the plan
 
 These parts of sections 3 to 5 were dropped because they would cost more
@@ -681,6 +684,7 @@ needs it.
 - Classes have no superclasses and no higher-kinded parameters.
 - Wire TypeIds are 32 bits, and every struct and enum value carries its
   case's TypeId.
+<!-- ANCHOR_END: omissions -->
 
 ### Risks
 
