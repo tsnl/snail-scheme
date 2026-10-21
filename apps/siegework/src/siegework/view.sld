@@ -331,23 +331,13 @@
 
     ;; ---- Energy ----
 
-    ;; The node a powered node was reached from, toward the hub.
+    ;; The node a powered node was reached from, toward the hub: each wire
+    ;; runs from the node it was reached from.
     (: parent (-> World Node (Option Node)))
     (define (parent world node)
-      (let ((earlier (take-while (lambda (n) (not (= (Node-id n) (Node-id node)))) (Network-powered (World-network world)))))
-        (find (lambda (n) (any? (lambda (wire) (joins? wire n node)) (Network-wires (World-network world)))) earlier)))
-
-    (: joins? (-> Wire Node Node Bool))
-    (define (joins? wire a b)
-      (or (and (= (Node-id (Wire-from wire)) (Node-id a)) (= (Node-id (Wire-to wire)) (Node-id b)))
-          (and (= (Node-id (Wire-from wire)) (Node-id b)) (= (Node-id (Wire-to wire)) (Node-id a)))))
-
-    (: take-while (All (T) (-> (-> T Bool) (List T) (List T))))
-    (define (take-while keep? items)
-      (let loop ((items items) (kept (Nil)))
-        (match items
-          ((Cons item rest) (if (keep? item) (loop rest (Cons item kept)) (reverse kept)))
-          ((Nil) (reverse kept)))))
+      (match (find (lambda (wire) (= (Node-id (Wire-to wire)) (Node-id node))) (Network-wires (World-network world)))
+        ((Some wire) (Some (Wire-from wire)))
+        ((None) (None))))
 
     ;; Every wire energy crosses on its way from a working extractor to the
     ;; hub, as (from, toward) pairs.
