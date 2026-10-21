@@ -1,85 +1,164 @@
-;; The Siegework simulation: a seeded map, a hub, ore deposits, buildings,
-;; workers, nests and their waves. Every rule is a total function on World,
-;; and `advance` runs one tick.
+;; The colony's state: the land, the hub, buildings and their work, crystals,
+;; nests and enemies, and what derives from them: the wires between
+;; buildings, which buildings are powered and which cells they light.
 ;;
-;; Time is the world's tick: periodic rules fire on multiples of their
-;; period, and a duration is a deadline tick, so no unit keeps a countdown.
-;; Ids only increase, so the oldest thing has the smallest id.
+;; Recorded state changes only through `act` and `advance`. Derived state
+;; (the network and sight) is recomputed by `rewire` from the recorded state
+;; whenever a building is finished or removed, so it is never stale.
+;;
+;; Ids only increase, so the oldest thing has the smallest id. The hub is
+;; node 0 of the network; buildings count from 1.
 (define-library (siegework world)
   (export
-   Deposit
-   Deposit-cell
-   Deposit-reserve
    Kind
-   Hub
    Extractor
-   Tower
-   Gun
-   kind-cost
+   Pylon
+   Turret
    kind-name
-   Stage
-   Site
-   Built
+   kind-health
+   kind-reach
+   maximum-level
+   raise-cost
+   raise-duration
+   Work
+   Work-order
+   Work-cost
+   Work-duration
+   Work-progress
+   Work-progress-set
+   Work-rushed
+   Work-rushed-set
+   remaining-work
+   rush-price
+   work-refund
    Building
    Building-id
    Building-kind
-   Building-stage
    Building-cell
+   Building-level
+   Building-level-set
    Building-health
-   Building-stock
+   Building-health-set
+   Building-work
+   Building-work-set
+   built?
+   building-reach
+   invested
+   Hub
+   Hub-cell
+   Hub-health
+   Hub-health-set
+   Hub-slots
+   Hub-slots-set
+   Hub-work
+   Hub-work-set
+   hub-health
+   hub-reach
+   maximum-slots
+   slot-cost
+   slot-duration
+   hub-cell?
+   Crystal
+   Crystal-cell
+   Crystal-rate
+   Crystal-reserve
+   Crystal-reserve-set
+   Nest
+   Nest-front
+   Nest-cell
+   Nest-health
+   Nest-health-set
+   nest-health
    Mover
    Mover-cell
    Mover-previous
-   Job
-   Idle
-   Deliver
-   FetchKit
-   CarryKit
-   Construct
-   Collect
-   Worker
-   Worker-mover
-   Worker-ore
-   Worker-job
+   Mover-previous-set
+   Mover-path
+   Mover-path-set
    Enemy
+   Enemy-id
    Enemy-mover
+   Enemy-mover-set
    Enemy-health
-   Nest
-   Nest-cell
-   Nest-health
+   Enemy-health-set
+   Enemy-target
+   Enemy-target-set
    Shot
    Shot-from
    Shot-to
+   Shot-tick
    Outcome
    Playing
    Won
    Lost
+   Resigned
+   Ledger
+   Ledger-produced
+   Ledger-spent
+   Ledger-kills
+   Ledger-kills-set
+   Ledger-lost
+   Ledger-lost-set
+   Node
+   Node-id
+   Node-cell
+   Node-reach
+   Wire
+   Wire-from
+   Wire-to
+   Network
+   Network-wires
+   Network-powered
    World
    World-seed
-   World-tick
    World-land
-   world-hub
-   World-explored
-   World-deposits
-   World-buildings
-   World-workers
-   World-enemies
-   World-nests
-   World-shots
-   World-ore
-   World-ore-set
+   World-tick
+   World-tick-set
+   World-started
+   World-started-set
    World-outcome
-   World-message
-   World-message-set
-   World-explored-version
+   World-outcome-set
+   World-energy
+   World-hub
+   World-hub-set
+   World-buildings
+   World-buildings-set
+   World-crystals
+   World-nests
+   World-nests-set
+   World-enemies
+   World-enemies-set
+   World-shots
+   World-shots-set
+   World-ledger
+   World-ledger-set
+   World-next-order
+   World-next-order-set
+   World-network
+   World-visible
+   World-explored
    World-structure-version
+   World-explored-version
+   starting-energy
    new-world
-   advance
-   place
-   recruit
-   ticks-until-wave
-   worker-period
-   enemy-period)
+   playing?
+   fresh-id
+   building
+   building-at
+   put-building
+   remove-building
+   crystal-at
+   put-crystal
+   nest-at
+   spend
+   earn
+   structures-changed
+   powered?
+   wire-reaches?
+   clear-line?
+   rewire
+   visible?
+   explored?)
   (import
    (lofi base)
    (lofi wire)
@@ -87,74 +166,162 @@
    (siegework terrain))
   (begin
 
-    ;; ---- Map ----
-
-    ;; At most one deposit sits on a cell.
-    (struct Deposit
-      ((cell Cell)
-       (reserve I64))
-      (deriving Serialize Deserialize))
-
     ;; ---- Buildings ----
 
+    ;; Extractors drain crystals into the network's energy, pylons extend it
+    ;; and see far, and turrets shoot enemies and nests.
     (enum Kind
-      (Hub)
       (Extractor)
-      (Tower)
-      (Gun)
+      (Pylon)
+      (Turret)
       (deriving Serialize Deserialize))
 
-    ;; An ordered building is a site until a worker builds it; only built
-    ;; buildings mine, shoot or reveal, but enemies attack both.
-    (enum Stage
-      (Site)
-      (Built)
+    ;; Work raises its owner one level: a site at level 0 becomes a building,
+    ;; a building gains a level and the hub gains a build slot. Its cost and
+    ;; duration are fixed when it is ordered. Progress grows by one each tick
+    ;; the work holds a hub slot and its owner is powered, by two if rushed.
+    (struct Work
+      ((order I64)
+       (cost I64)
+       (duration I64)
+       (progress I64)
+       (rushed Bool))
       (deriving Serialize Deserialize))
 
-    ;; `stock` is the ore an extractor has mined; it is zero for others.
+    ;; A building at level 0 is an unfinished site: it neither carries wires
+    ;; nor works, but enemies may still destroy it.
     (struct Building
       ((id I64)
        (kind Kind)
-       (stage Stage)
        (cell Cell)
+       (level I64)
        (health I64)
-       (stock I64))
+       (work (Option Work)))
       (deriving Serialize Deserialize))
-
-    (: kind-cost (-> Kind I64))
-    (define (kind-cost kind)
-      (match kind
-        ((Hub) 0)
-        ((Extractor) 25)
-        ((Tower) 25)
-        ((Gun) 50)))
-
-    (: kind-health (-> Kind I64))
-    (define (kind-health kind)
-      (match kind
-        ((Hub) 600)
-        ((Extractor) 100)
-        ((Tower) 120)
-        ((Gun) 150)))
-
-    ;; How far a built building reveals the map.
-    (: kind-sight (-> Kind I64))
-    (define (kind-sight kind)
-      (match kind
-        ((Hub) 6)
-        ((Extractor) 3)
-        ((Tower) 9)
-        ((Gun) 4)))
 
     (: kind-name (-> Kind String))
     (define (kind-name kind)
       (match kind
-        ((Hub) "Hub")
         ((Extractor) "Extractor")
-        ((Tower) "Tower")
-        ((Gun) "Gun")))
+        ((Pylon) "Pylon")
+        ((Turret) "Turret")))
 
-    ;; ---- Units ----
+    (: kind-health (-> Kind I64))
+    (define (kind-health kind)
+      (match kind
+        ((Extractor) 140)
+        ((Pylon) 90)
+        ((Turret) 100)))
+
+    ;; How far a powered building of `kind` at `level` sees, and the longest
+    ;; wire it can hold.
+    (: kind-reach (-> Kind I64 I64))
+    (define (kind-reach kind level)
+      (match kind
+        ((Extractor) 4)
+        ((Pylon) (case level ((1) 7) ((2) 10) (else 12)))
+        ((Turret) 6)))
+
+    (: maximum-level I64)
+    (define maximum-level 3)
+
+    ;; The energy and ticks of work that raise a `kind` from `level`.
+    (: raise-cost (-> Kind I64 I64))
+    (define (raise-cost kind level)
+      (match kind
+        ((Extractor) (case level ((0) 25) ((1) 40) (else 160)))
+        ((Pylon) (case level ((0) 25) ((1) 25) (else 50)))
+        ((Turret) (case level ((0) 50) (else 25)))))
+
+    (: raise-duration (-> Kind I64 I64))
+    (define (raise-duration kind level)
+      (match kind
+        ((Extractor) (case level ((0) 200) ((1) 200) (else 400)))
+        ((Pylon) (case level ((0) 150) ((1) 200) (else 300)))
+        ((Turret) (case level ((0) 300) ((1) 250) (else 350)))))
+
+    (: built? (-> Building Bool))
+    (define (built? building)
+      (> (Building-level building) 0))
+
+    (: building-reach (-> Building I64))
+    (define (building-reach building)
+      (kind-reach (Building-kind building) (max 1 (Building-level building))))
+
+    ;; Everything paid for the levels a building has reached.
+    (: invested (-> Building I64))
+    (define (invested building)
+      (fold-left + 0 (map (lambda (level) (raise-cost (Building-kind building) level)) (iota (Building-level building)))))
+
+    ;; ---- Work ----
+
+    (: remaining-work (-> Work I64))
+    (define (remaining-work work)
+      (max 0 (- (Work-duration work) (Work-progress work))))
+
+    ;; Rushing doubles the rate of the remaining work for four times its
+    ;; share of the cost, so rushing as it is ordered costs five times the
+    ;; price in all, and rushing later costs less.
+    (: rush-price (-> Work I64))
+    (define (rush-price work)
+      (quotient (* 4 (* (Work-cost work) (remaining-work work))) (Work-duration work)))
+
+    ;; Cancelling returns the cost and the part of a rush not yet used.
+    (: work-refund (-> Work I64))
+    (define (work-refund work)
+      (+ (Work-cost work) (if (Work-rushed work) (rush-price work) 0)))
+
+    ;; ---- The hub ----
+
+    ;; The hub covers the three by three cells around its center. Its work
+    ;; adds a build slot: the number of works that progress at once.
+    (struct Hub
+      ((cell Cell)
+       (health I64)
+       (slots I64)
+       (work (Option Work)))
+      (deriving Serialize Deserialize))
+
+    (: hub-health I64)
+    (define hub-health 300)
+
+    (: hub-reach I64)
+    (define hub-reach 9)
+
+    (: maximum-slots I64)
+    (define maximum-slots 3)
+
+    (: slot-cost (-> I64 I64))
+    (define (slot-cost slots)
+      (* 100 slots))
+
+    (: slot-duration (-> I64 I64))
+    (define (slot-duration slots)
+      (+ 200 (* 100 slots)))
+
+    (: hub-cell? (-> Hub Cell Bool))
+    (define (hub-cell? hub cell)
+      (and (<= (abs (- (Cell-x cell) (Cell-x (Hub-cell hub)))) 1) (<= (abs (- (Cell-y cell) (Cell-y (Hub-cell hub)))) 1)))
+
+    ;; ---- Crystals and nests ----
+
+    (struct Crystal
+      ((cell Cell)
+       (rate I64)
+       (reserve I64))
+      (deriving Serialize Deserialize))
+
+    ;; Each nest covers a rich crystal, exposed when the nest is destroyed.
+    (struct Nest
+      ((front I64)
+       (cell Cell)
+       (health I64))
+      (deriving Serialize Deserialize))
+
+    (: nest-health I64)
+    (define nest-health 900)
+
+    ;; ---- Enemies ----
 
     ;; A unit steps to the next cell of its path on each multiple of its
     ;; period; `previous` is where it stepped from, for drawing it between.
@@ -164,25 +331,7 @@
        (path (List Cell)))
       (deriving Serialize Deserialize))
 
-    ;; A worker's job names the building it works toward. A site is claimed
-    ;; exactly when some worker's job names it, so a claim cannot outlive its
-    ;; job. Every job ends in Idle, and the worker then decides again.
-    (enum Job
-      (Idle)
-      (Deliver)
-      (FetchKit ((site I64)))
-      (CarryKit ((site I64)))
-      (Construct ((site I64) (until I64)))
-      (Collect ((extractor I64)))
-      (deriving Serialize Deserialize))
-
-    (struct Worker
-      ((id I64)
-       (mover Mover)
-       (ore I64)
-       (job Job))
-      (deriving Serialize Deserialize))
-
+    ;; `target` is the building an enemy heads for, or None for the hub.
     (struct Enemy
       ((id I64)
        (mover Mover)
@@ -190,108 +339,108 @@
        (target (Option I64)))
       (deriving Serialize Deserialize))
 
-    (struct Nest
-      ((id I64)
-       (cell Cell)
-       (health I64))
-      (deriving Serialize Deserialize))
-
-    ;; A shot is drawn until its deadline after a gun fires.
+    ;; A shot is drawn for a few ticks after a turret fires.
     (struct Shot
       ((from Cell)
        (to Cell)
-       (until I64))
+       (tick I64))
       (deriving Serialize Deserialize))
+
+    ;; ---- Outcome and ledger ----
 
     (enum Outcome
       (Playing)
       (Won)
       (Lost)
+      (Resigned)
+      (deriving Serialize Deserialize))
+
+    ;; Energy produced and spent, net of refunds, so energy is always
+    ;; starting-energy + produced - spent; and the colony's losses.
+    (struct Ledger
+      ((produced I64)
+       (spent I64)
+       (kills I64)
+       (lost I64))
+      (deriving Serialize Deserialize))
+
+    ;; ---- Network ----
+
+    ;; A node is the hub (id 0) or a finished building, with its reach.
+    (struct Node
+      ((id I64)
+       (cell Cell)
+       (reach I64))
+      (deriving Serialize Deserialize))
+
+    (struct Wire
+      ((from Node)
+       (to Node))
+      (deriving Serialize Deserialize))
+
+    ;; The nodes the hub reaches through wires, in the order found.
+    (struct Network
+      ((wires (List Wire))
+       (powered (List Node)))
       (deriving Serialize Deserialize))
 
     ;; ---- World ----
 
-    ;; The two versions change whenever the explored area, or the buildings,
-    ;; deposits and nests, change, so a view can reuse what it drew.
+    ;; The versions change whenever the buildings or the explored cells do,
+    ;; so a view can reuse what it drew.
     (struct World
       ((seed I64)
-       (tick I64)
        (land Land)
-       (explored (Vector Bool))
-       (deposits (List Deposit))
-       (buildings (List Building))
-       (workers (List Worker))
-       (enemies (List Enemy))
-       (nests (List Nest))
-       (shots (List Shot))
-       (ore I64)
-       (next-id I64)
+       (tick I64)
+       (started Bool)
        (outcome Outcome)
-       (message String)
-       (explored-version I64)
-       (structure-version I64))
+       (energy I64)
+       (hub Hub)
+       (buildings (List Building))
+       (crystals (List Crystal))
+       (nests (List Nest))
+       (enemies (List Enemy))
+       (shots (List Shot))
+       (ledger Ledger)
+       (next-id I64)
+       (next-order I64)
+       (network Network)
+       (visible (Vector Bool))
+       (explored (Vector Bool))
+       (structure-version I64)
+       (explored-version I64))
       (deriving Serialize Deserialize))
 
-    (: worker-period I64)
-    (define worker-period 3)
+    (: starting-energy I64)
+    (define starting-energy 160)
 
-    (: enemy-period I64)
-    (define enemy-period 5)
+    ;; Each crystal site holds its full reserve, the nests cover theirs, and
+    ;; each front holds a nest. The colony starts with its hub alone.
+    (: new-world (-> I64 World))
+    (define (new-world seed)
+      (let ((land (new-land (land-seed seed))) (cells (* map-size map-size)))
+        (rewire (World seed land 0 #f (Playing) starting-energy (Hub (Land-hub land) hub-health 1 (None)) (Nil)
+                       (append (map site-crystal (Land-sites land)) (map nest-crystal (Land-fronts land)))
+                       (map-indexed (lambda (front cell) (Nest front cell nest-health)) (Land-fronts land))
+                       (Nil) (Nil) (Ledger 0 0 0 0) 1 1 (Network (Nil) (Nil)) (make-vector cells #f) (make-vector cells #f) 0 0))))
 
-    (: first-wave I64)
-    (define first-wave 600)
+    (: site-crystal (-> Site Crystal))
+    (define (site-crystal site)
+      (Crystal (Site-cell site) (Site-rate site) (* reserve-per-rate (Site-rate site))))
 
-    (: wave-interval I64)
-    (define wave-interval 300)
+    (: nest-crystal (-> Cell Crystal))
+    (define (nest-crystal cell)
+      (Crystal cell nest-rate (* reserve-per-rate nest-rate)))
 
-    (: world-hub (-> World Cell))
-    (define (world-hub world)
-      (Land-hub (World-land world)))
-
-    (: on-period? (-> World I64 Bool))
-    (define (on-period? world period)
-      (= (remainder (World-tick world) period) 0))
-
-    (: structures-changed (-> World World))
-    (define (structures-changed world)
-      (World-structure-version-set world (+ (World-structure-version world) 1)))
+    (: playing? (-> World Bool))
+    (define (playing? world)
+      (match (World-outcome world)
+        ((Playing) #t)
+        (_ #f)))
 
     (: fresh-id (-> World (Pair I64 World)))
     (define (fresh-id world)
       (Pair (World-next-id world) (World-next-id-set world (+ (World-next-id world) 1))))
-
-    (: route (-> World Cell (-> Cell Bool) (Option (List Cell))))
-    (define (route world start goal?)
-      (find-path (vector-map (lambda (ground) (match ground ((Grass) #t) (_ #f))) (Land-ground (World-land world))) start goal?))
-
-    ;; ---- Generation ----
-
-    ;; The land comes from the seed; each crystal site becomes a deposit
-    ;; holding its full reserve, and each front a nest.
-    (: new-world (-> I64 World))
-    (define (new-world seed)
-      (let* ((land (new-land (land-seed seed))) (hub (Land-hub land))
-             (world (World seed 0 land
-                           (vector-generate (* map-size map-size) (lambda (index) #f))
-                           (map (lambda (site) (Deposit (Site-cell site) (* reserve-per-rate (Site-rate site)))) (Land-sites land))
-                           (list (Building 1 (Hub) (Built) hub (kind-health (Hub)) 0))
-                           (map (lambda (id) (Worker id (Mover hub hub (Nil)) 0 (Idle))) (list 2 3 4))
-                           (Nil) (map-indexed (lambda (index cell) (Nest (+ 1000 index) cell 900)) (Land-fronts land))
-                           (Nil) 60 100 (Playing) "Place an extractor on the nearby ore." 0 0)))
-        (reveal world)))
-
-    ;; Marks every cell within sight of a built building as explored.
-    (: reveal (-> World World))
-    (define (reveal world)
-      (let* ((sights (filter (lambda (b) (match (Building-stage b) ((Built) #t) ((Site) #f))) (World-buildings world)))
-             (explored (vector-generate (* map-size map-size)
-                                        (lambda (index)
-                                          (or (vector-ref (World-explored world) index)
-                                              (any? (lambda (b)
-                                                      (<= (distance-squared (index-cell index) (Building-cell b))
-                                                          (* (kind-sight (Building-kind b)) (kind-sight (Building-kind b)))))
-                                                    sights))))))
-        (World-explored-version-set (World-explored-set world explored) (+ (World-explored-version world) 1))))
 
     ;; ---- Lookups and replacements ----
 
@@ -299,354 +448,148 @@
     (define (building world id)
       (find (lambda (b) (= (Building-id b) id)) (World-buildings world)))
 
+    (: building-at (-> World Cell (Option Building)))
+    (define (building-at world cell)
+      (find (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world)))
+
     (: put-building (-> World Building World))
     (define (put-building world building)
-      (structures-changed
-       (World-buildings-set world (map (lambda (b) (if (= (Building-id b) (Building-id building)) building b))
-                                       (World-buildings world)))))
+      (World-buildings-set world (map (lambda (b) (if (= (Building-id b) (Building-id building)) building b)) (World-buildings world))))
 
-    (: put-worker (-> World Worker World))
-    (define (put-worker world worker)
-      (World-workers-set world (map (lambda (w) (if (= (Worker-id w) (Worker-id worker)) worker w)) (World-workers world))))
+    (: remove-building (-> World I64 World))
+    (define (remove-building world id)
+      (rewire (World-buildings-set world (filter (lambda (b) (not (= (Building-id b) id))) (World-buildings world)))))
 
-    (: put-enemy (-> World Enemy World))
-    (define (put-enemy world enemy)
-      (World-enemies-set world (map (lambda (e) (if (= (Enemy-id e) (Enemy-id enemy)) enemy e)) (World-enemies world))))
+    (: crystal-at (-> World Cell (Option Crystal)))
+    (define (crystal-at world cell)
+      (find (lambda (crystal) (cell=? (Crystal-cell crystal) cell)) (World-crystals world)))
 
-    (: deposit-at (-> World Cell (Option Deposit)))
-    (define (deposit-at world cell)
-      (find (lambda (deposit) (cell=? (Deposit-cell deposit) cell)) (World-deposits world)))
+    (: put-crystal (-> World Crystal World))
+    (define (put-crystal world crystal)
+      (World-crystals-set world (map (lambda (c) (if (cell=? (Crystal-cell c) (Crystal-cell crystal)) crystal c)) (World-crystals world))))
 
-    (: is-site? (-> World I64 Bool))
-    (define (is-site? world id)
-      (match (building world id)
-        ((Some b) (match (Building-stage b) ((Site) #t) ((Built) #f)))
-        ((None) #f)))
+    (: nest-at (-> World Cell (Option Nest)))
+    (define (nest-at world cell)
+      (find (lambda (nest) (cell=? (Nest-cell nest) cell)) (World-nests world)))
 
-    (: built-extractor? (-> Building Bool))
-    (define (built-extractor? b)
-      (and (match (Building-kind b) ((Extractor) #t) (_ #f)) (match (Building-stage b) ((Built) #t) ((Site) #f))))
+    ;; Spending and earning keep energy and the ledger in step; a refund is
+    ;; negative spending.
+    (: spend (-> World I64 World))
+    (define (spend world amount)
+      (World-ledger-set (World-energy-set world (- (World-energy world) amount))
+                        (Ledger-spent-set (World-ledger world) (+ (Ledger-spent (World-ledger world)) amount))))
 
-    ;; ---- Movement ----
+    (: earn (-> World I64 World))
+    (define (earn world amount)
+      (World-ledger-set (World-energy-set world (+ (World-energy world) amount))
+                        (Ledger-produced-set (World-ledger world) (+ (Ledger-produced (World-ledger world)) amount))))
 
-    ;; Steps along the path on a multiple of the unit's period; a unit with no
-    ;; path stays, and is then drawn standing still.
-    (: walk (-> World Mover I64 Mover))
-    (define (walk world mover period)
-      (cond ((not (on-period? world period)) mover)
-            (else (match (Mover-path mover)
-                    ((Nil) (Mover-previous-set mover (Mover-cell mover)))
-                    ((Cons next rest) (Mover next (Mover-cell mover) rest))))))
+    (: structures-changed (-> World World))
+    (define (structures-changed world)
+      (World-structure-version-set world (+ (World-structure-version world) 1)))
 
-    (: arrived? (-> Mover Bool))
-    (define (arrived? mover)
-      (null? (Mover-path mover)))
+    ;; ---- Wires and power ----
 
-    ;; ---- Mining ----
+    ;; Wires and sight lines cross grass and water but not rock.
+    (: clear-line? (-> World Cell Cell Bool))
+    (define (clear-line? world from to)
+      (every? (lambda (cell) (match (ground-at (World-land world) cell) ((Rock) #f) (_ #t))) (line-cells from to)))
 
-    ;; Every ten ticks each built extractor moves one ore from its deposit
-    ;; into its stock, which holds at most twenty.
-    (: mine (-> World World))
-    (define (mine world)
-      (if (on-period? world 10)
-          (fold-left mine-at world (filter built-extractor? (World-buildings world)))
-          world))
+    ;; A wire reaches as far as the longer reach of its two ends.
+    (: wire-reaches? (-> World Cell I64 Cell I64 Bool))
+    (define (wire-reaches? world a reach-a b reach-b)
+      (and (within? a b (max reach-a reach-b)) (clear-line? world a b)))
 
-    (: mine-at (-> World Building World))
-    (define (mine-at world extractor)
-      (match (deposit-at world (Building-cell extractor))
-        ((Some deposit)
-         (if (and (> (Deposit-reserve deposit) 0) (< (Building-stock extractor) 20))
-             (put-building (World-deposits-set world (map (lambda (d) (if (cell=? (Deposit-cell d) (Deposit-cell deposit))
-                                                                          (Deposit-reserve-set d (- (Deposit-reserve d) 1))
-                                                                          d))
-                                                          (World-deposits world)))
-                           (Building-stock-set extractor (+ (Building-stock extractor) 1)))
-             world))
-        ((None) world)))
+    (: hub-node (-> World Node))
+    (define (hub-node world)
+      (Node 0 (Hub-cell (World-hub world)) hub-reach))
 
-    ;; ---- Workers ----
+    (: building-nodes (-> World (List Node)))
+    (define (building-nodes world)
+      (map (lambda (b) (Node (Building-id b) (Building-cell b) (building-reach b))) (filter built? (World-buildings world))))
 
-    ;; Workers act one at a time, each seeing the world the previous left, so
-    ;; two workers never claim the same site or extractor.
-    (: update-workers (-> World World))
-    (define (update-workers world)
-      (fold-left (lambda (world id)
-                   (match (find (lambda (w) (= (Worker-id w) id)) (World-workers world))
-                     ((Some worker) (update-worker world worker))
-                     ((None) world)))
-                 world (map Worker-id (World-workers world))))
+    ;; Every pair of nodes a wire reaches, each pair once.
+    (: wires (-> World (List Node) (List Wire)))
+    (define (wires world nodes)
+      (let loop ((nodes nodes) (found (Nil)))
+        (match nodes
+          ((Nil) (reverse found))
+          ((Cons node rest)
+           (loop rest (fold-left (lambda (found other)
+                                   (if (wire-reaches? world (Node-cell node) (Node-reach node) (Node-cell other) (Node-reach other))
+                                       (Cons (Wire node other) found)
+                                       found))
+                                 found rest))))))
 
-    ;; A job whose building is gone is abandoned; the worker keeps its ore.
-    (: update-worker (-> World Worker World))
-    (define (update-worker world worker)
-      (let ((worker (if (target-exists? world (Worker-job worker))
-                        worker
-                        (Worker-job-set (Worker-mover-set worker (Mover-path-set (Worker-mover worker) (Nil))) (Idle)))))
-        (match (Worker-job worker)
-          ((Idle) (put-worker world (decide world worker)))
-          (_ (let ((worker (Worker-mover-set worker (walk world (Worker-mover worker) worker-period))))
-               (if (arrived? (Worker-mover worker)) (arrive world worker) (put-worker world worker)))))))
+    ;; The nodes reachable from the hub, found breadth first.
+    (: power (-> Node (List Wire) (List Node)))
+    (define (power hub wires)
+      (let loop ((frontier (list hub)) (powered (list hub)))
+        (match frontier
+          ((Nil) powered)
+          ((Cons node rest)
+           (let ((fresh (filter (lambda (other) (not (any? (lambda (p) (= (Node-id p) (Node-id other))) powered)))
+                                (wired-to wires node))))
+             (loop (append rest fresh) (append powered fresh)))))))
 
-    (: target-exists? (-> World Job Bool))
-    (define (target-exists? world job)
-      (match job
-        ((FetchKit site) (is-site? world site))
-        ((CarryKit site) (is-site? world site))
-        ((Construct site _) (is-site? world site))
-        ((Collect extractor) (match (building world extractor) ((Some _) #t) ((None) #f)))
-        (_ #t)))
+    (: wired-to (-> (List Wire) Node (List Node)))
+    (define (wired-to wires node)
+      (fold-right (lambda (wire found)
+                    (cond ((= (Node-id (Wire-from wire)) (Node-id node)) (Cons (Wire-to wire) found))
+                          ((= (Node-id (Wire-to wire)) (Node-id node)) (Cons (Wire-from wire) found))
+                          (else found)))
+                  (Nil) wires))
 
-    ;; An idle worker returns any ore it carries, then fetches the kit for the
-    ;; oldest unclaimed site, then collects from the fullest extractor that
-    ;; no other worker is collecting from.
-    (: decide (-> World Worker Worker))
-    (define (decide world worker)
-      (cond ((> (Worker-ore worker) 0) (start-job world worker (Deliver) (world-hub world)))
-            (else (match (oldest-unclaimed-site world)
-                    ((Some site) (start-job world worker (FetchKit (Building-id site)) (world-hub world)))
-                    ((None) (match (fullest-free-extractor world)
-                              ((Some extractor) (start-job world worker (Collect (Building-id extractor)) (Building-cell extractor)))
-                              ((None) worker)))))))
+    (: powered? (-> World I64 Bool))
+    (define (powered? world id)
+      (any? (lambda (node) (= (Node-id node) id)) (Network-powered (World-network world))))
 
-    (: start-job (-> World Worker Job Cell Worker))
-    (define (start-job world worker job destination)
-      (match (route world (Mover-cell (Worker-mover worker)) (lambda (cell) (cell=? cell destination)))
-        ((Some path) (Worker-job-set (Worker-mover-set worker (Mover-path-set (Worker-mover worker) path)) job))
-        ((None) worker)))
+    ;; ---- Sight ----
 
-    (: claimed (-> World (List I64)))
-    (define (claimed world)
-      (filter-map (lambda (w)
-                    (match (Worker-job w)
-                      ((FetchKit site) (Some site))
-                      ((CarryKit site) (Some site))
-                      ((Construct site _) (Some site))
-                      ((Collect extractor) (Some extractor))
-                      (_ (None))))
-                  (World-workers world)))
+    ;; Every cell within reach of a powered node is visible.
+    (: sight (-> (List Node) (Vector Bool)))
+    (define (sight nodes)
+      (unsafe-total
+       (lambda ()
+         (let ((seen (make-array (* map-size map-size) #f)))
+           (for-each (lambda (node) (light! seen (Node-cell node) (Node-reach node))) nodes)
+           (array->vector seen)))))
 
-    (: oldest-unclaimed-site (-> World (Option Building)))
-    (define (oldest-unclaimed-site world)
-      (let ((claimed (claimed world)))
-        (find (lambda (b) (and (is-site? world (Building-id b)) (not (member? (Building-id b) claimed))))
-              (World-buildings world))))
+    (: light! (-> (Array Bool) Cell I64 Unit ! mut))
+    (define (light! seen center radius)
+      (let ((offsets (map (lambda (i) (- i radius)) (iota (+ 1 (* 2 radius))))))
+        (for-each (lambda (dy)
+                    (for-each (lambda (dx)
+                                (let ((cell (Cell (+ (Cell-x center) dx) (+ (Cell-y center) dy))))
+                                  (when (and (in-bounds? cell) (within? cell center radius))
+                                    (array-set! seen (cell-index cell) #t))))
+                              offsets))
+                  offsets)))
 
-    (: fullest-free-extractor (-> World (Option Building)))
-    (define (fullest-free-extractor world)
-      (let ((claimed (claimed world)))
-        (fold-left (lambda (best b)
-                     (if (and (built-extractor? b) (>= (Building-stock b) 5) (not (member? (Building-id b) claimed))
-                              (match best ((Some other) (> (Building-stock b) (Building-stock other))) ((None) #t)))
-                         (Some b) best))
-                   (None) (World-buildings world))))
+    (: visible? (-> World Cell Bool))
+    (define (visible? world cell)
+      (vector-ref (World-visible world) (cell-index cell)))
 
-    (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
-    (define (filter-map f items)
-      (fold-right (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept))) (Nil) items))
+    (: explored? (-> World Cell Bool))
+    (define (explored? world cell)
+      (vector-ref (World-explored world) (cell-index cell)))
 
-    ;; What a worker does at the end of its path.
-    (: arrive (-> World Worker World))
-    (define (arrive world worker)
-      (match (Worker-job worker)
-        ((Deliver) (put-worker (World-ore-set world (+ (World-ore world) (Worker-ore worker)))
-                               (Worker-job-set (Worker-ore-set worker 0) (Idle))))
-        ((FetchKit site)
-         (match (building world site)
-           ((Some b) (put-worker world (start-job world worker (CarryKit site) (Building-cell b))))
-           ((None) (put-worker world (Worker-job-set worker (Idle))))))
-        ((CarryKit site) (put-worker world (Worker-job-set worker (Construct site (+ (World-tick world) 20)))))
-        ((Construct site until)
-         (if (< (World-tick world) until)
-             (put-worker world worker)
-             (put-worker (complete world site) (Worker-job-set worker (Idle)))))
-        ((Collect extractor) (collect world worker extractor))
-        ((Idle) (put-worker world worker))))
+    ;; ---- Rewiring ----
 
-    (: complete (-> World I64 World))
-    (define (complete world site)
-      (match (building world site)
-        ((Some b) (reveal (put-building world (Building-stage-set b (Built)))))
-        ((None) world)))
+    ;; Recomputes the wires, power and sight after the buildings change. A
+    ;; cell once visible stays explored.
+    (: rewire (-> World World))
+    (define (rewire world)
+      (let* ((hub (hub-node world)) (wires (wires world (Cons hub (building-nodes world)))) (powered (power hub wires)))
+        (explore (structures-changed (World-visible-set (World-network-set world (Network wires powered)) (sight powered))))))
 
-    (: collect (-> World Worker I64 World))
-    (define (collect world worker extractor)
-      (match (building world extractor)
-        ((Some b)
-         (let ((taken (min (Building-stock b) 10)))
-           (put-worker (put-building world (Building-stock-set b (- (Building-stock b) taken)))
-                       (Worker-job-set (Worker-ore-set worker (+ (Worker-ore worker) taken)) (Idle)))))
-        ((None) (put-worker world (Worker-job-set worker (Idle))))))
-
-    ;; ---- Waves ----
-
-    (: ticks-until-wave (-> World I64))
-    (define (ticks-until-wave world)
-      (let ((tick (World-tick world)))
-        (if (< tick first-wave)
-            (- first-wave tick)
-            (- wave-interval (remainder (- tick first-wave) wave-interval)))))
-
-    ;; Wave n sends min(8, n) enemies from each surviving nest, each with
-    ;; 30 + 10n health.
-    (: spawn-waves (-> World World))
-    (define (spawn-waves world)
-      (let ((tick (World-tick world)))
-        (if (and (>= tick first-wave) (= (remainder (- tick first-wave) wave-interval) 0))
-            (let ((wave (+ 1 (quotient (- tick first-wave) wave-interval))))
-              (fold-left (lambda (world nest)
-                           (fold-left (lambda (world index) (spawn world (Nest-cell nest) (+ 30 (* 10 wave))))
-                                      world (iota (min 8 wave))))
-                         world (World-nests world)))
-            world)))
-
-    (: spawn (-> World Cell I64 World))
-    (define (spawn world cell health)
-      (match (fresh-id world)
-        ((Pair id world)
-         (World-enemies-set world (Cons (Enemy id (Mover cell cell (Nil)) health (None)) (World-enemies world))))))
-
-    ;; ---- Enemies ----
-
-    ;; An enemy walks to the nearest building by path and strikes it every
-    ;; ten ticks once it stands on it; a lost target is replaced.
-    (: update-enemies (-> World World))
-    (define (update-enemies world)
-      (fold-left update-enemy world (World-enemies world)))
-
-    (: update-enemy (-> World Enemy World))
-    (define (update-enemy world enemy)
-      (let* ((enemy (match (target-building world enemy) ((Some _) enemy) ((None) (retarget world enemy))))
-             (enemy (Enemy-mover-set enemy (walk world (Enemy-mover enemy) enemy-period))))
-        (match (target-building world enemy)
-          ((Some target)
-           (if (and (arrived? (Enemy-mover enemy)) (cell=? (Mover-cell (Enemy-mover enemy)) (Building-cell target)) (on-period? world 10))
-               (put-building (put-enemy world enemy) (Building-health-set target (- (Building-health target) 6)))
-               (put-enemy world enemy)))
-          ((None) (put-enemy world enemy)))))
-
-    (: target-building (-> World Enemy (Option Building)))
-    (define (target-building world enemy)
-      (match (Enemy-target enemy)
-        ((Some id) (building world id))
-        ((None) (None))))
-
-    ;; One search finds both the nearest building and the way to it.
-    (: retarget (-> World Enemy Enemy))
-    (define (retarget world enemy)
-      (let ((start (Mover-cell (Enemy-mover enemy))))
-        (match (route world start (lambda (cell) (any? (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world))))
-          ((Some path)
-           (let ((goal (match (reverse path) ((Cons last _) last) ((Nil) start))))
-             (Enemy-target-set (Enemy-mover-set enemy (Mover-path-set (Enemy-mover enemy) path))
-                               (match (find (lambda (b) (cell=? (Building-cell b) goal)) (World-buildings world))
-                                 ((Some b) (Some (Building-id b)))
-                                 ((None) (None))))))
-          ((None) (Enemy-target-set enemy (None))))))
-
-    ;; ---- Guns ----
-
-    ;; Every eight ticks a built gun hits the nearest enemy within six cells
-    ;; for 25, or else a nest within six cells.
-    (: fire-guns (-> World World))
-    (define (fire-guns world)
-      (if (on-period? world 8)
-          (fold-left fire world (filter (lambda (b) (and (match (Building-kind b) ((Gun) #t) (_ #f))
-                                                         (match (Building-stage b) ((Built) #t) ((Site) #f))))
-                                        (World-buildings world)))
-          world))
-
-    (: fire (-> World Building World))
-    (define (fire world gun)
-      (let ((cell (Building-cell gun)) (in-range? (lambda (target) (<= (distance-squared (Building-cell gun) target) 36))))
-        (match (nearest (filter (lambda (e) (in-range? (Mover-cell (Enemy-mover e)))) (World-enemies world))
-                        (lambda (e) (distance-squared cell (Mover-cell (Enemy-mover e)))))
-          ((Some enemy)
-           (shoot (put-enemy world (Enemy-health-set enemy (- (Enemy-health enemy) 25))) cell (Mover-cell (Enemy-mover enemy))))
-          ((None)
-           (match (find (lambda (n) (in-range? (Nest-cell n))) (World-nests world))
-             ((Some nest)
-              (shoot (structures-changed
-                      (World-nests-set world (map (lambda (n) (if (= (Nest-id n) (Nest-id nest)) (Nest-health-set n (- (Nest-health n) 25)) n))
-                                                  (World-nests world))))
-                     cell (Nest-cell nest)))
-             ((None) world))))))
-
-    (: shoot (-> World Cell Cell World))
-    (define (shoot world from to)
-      (World-shots-set world (Cons (Shot from to (+ (World-tick world) 4)) (World-shots world))))
-
-    (: nearest (All (A) (-> (List A) (-> A I64) (Option A))))
-    (define (nearest items distance)
-      (fold-left (lambda (best item)
-                   (match best
-                     ((Some other) (if (< (distance item) (distance other)) (Some item) best))
-                     ((None) (Some item))))
-                 (None) items))
-
-    ;; ---- Ticks ----
-
-    ;; Removes what was destroyed and expired.
-    (: clean-up (-> World World))
-    (define (clean-up world)
-      (let* ((buildings (filter (lambda (b) (> (Building-health b) 0)) (World-buildings world)))
-             (nests (filter (lambda (n) (> (Nest-health n) 0)) (World-nests world)))
-             (world (World-shots-set (World-enemies-set world (filter (lambda (e) (> (Enemy-health e) 0)) (World-enemies world)))
-                                     (filter (lambda (s) (> (Shot-until s) (World-tick world))) (World-shots world)))))
-        (if (and (= (length buildings) (length (World-buildings world))) (= (length nests) (length (World-nests world))))
+    (: explore (-> World World))
+    (define (explore world)
+      (let ((explored (World-explored world)) (visible (World-visible world)))
+        (if (every? (lambda (index) (or (vector-ref explored index) (not (vector-ref visible index)))) (iota (vector-length visible)))
             world
-            (structures-changed (World-nests-set (World-buildings-set world buildings) nests)))))
-
-    ;; Losing the hub loses, even on the tick the last nest falls.
-    (: judge (-> World World))
-    (define (judge world)
-      (cond ((not (any? (lambda (b) (match (Building-kind b) ((Hub) #t) (_ #f))) (World-buildings world)))
-             (World-message-set (World-outcome-set world (Lost)) "The hub has fallen."))
-            ((null? (World-nests world)) (World-message-set (World-outcome-set world (Won)) "Every nest is destroyed. Victory!"))
-            (else world)))
-
-    ;; Mining comes first so workers see this tick's stock; damage is removed
-    ;; only at the end, so everything alive at the start of a tick acts.
-    (: advance (-> World World))
-    (define (advance world)
-      (match (World-outcome world)
-        ((Playing)
-         (judge (clean-up (fire-guns (update-enemies (spawn-waves (update-workers (mine (World-tick-set world (+ (World-tick world) 1))))))))))
-        (_ world)))
-
-    ;; ---- Orders ----
-
-    ;; Places a site for `kind` at `cell`, paying its cost now.
-    (: place (-> World Kind Cell (Result World String)))
-    (define (place world kind cell)
-      (cond ((not (in-bounds? cell)) (Err "Outside the map."))
-            ((not (vector-ref (World-explored world) (cell-index cell))) (Err "That ground is unexplored."))
-            ((match (ground-at (World-land world) cell) ((Grass) #f) (_ #t)) (Err "Only grass can be built on."))
-            ((any? (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world)) (Err "Something is already built there."))
-            ((match kind ((Extractor) (match (deposit-at world cell) ((None) #t) (_ #f))) (_ #f))
-             (Err "Extractors go on ore deposits."))
-            ((< (World-ore world) (kind-cost kind)) (Err "Not enough ore."))
-            (else (Ok (order-site world kind cell)))))
-
-    (: order-site (-> World Kind Cell World))
-    (define (order-site world kind cell)
-      (match (fresh-id world)
-        ((Pair id world)
-         (structures-changed
-          (World-message-set
-           (World-ore-set (World-buildings-set world (append (World-buildings world) (list (Building id kind (Site) cell (kind-health kind) 0))))
-                          (- (World-ore world) (kind-cost kind)))
-           (string-append (kind-name kind) " ordered."))))))
-
-    (: recruit (-> World (Result World String)))
-    (define (recruit world)
-      (if (< (World-ore world) 40)
-          (Err "A worker costs 40 ore.")
-          (match (fresh-id world)
-            ((Pair id world)
-             (Ok (World-message-set
-                  (World-ore-set (World-workers-set world (append (World-workers world) (list (Worker id (Mover (world-hub world) (world-hub world) (Nil)) 0 (Idle)))))
-                                 (- (World-ore world) 40))
-                  "A new worker joins the colony."))))))
+            (World-explored-version-set
+             (World-explored-set world (vector-generate (vector-length visible) (lambda (index) (or (vector-ref explored index) (vector-ref visible index)))))
+             (+ (World-explored-version world) 1)))))
 
     ))

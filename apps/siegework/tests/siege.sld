@@ -1,39 +1,47 @@
-;; Waves against two colonies from the same seed: one defended by guns
-;; beside the hub, one not.
+;; Waves against two colonies on seed 11, both started with an extractor:
+;; one leaves its hub undefended, the other adds two turrets beside it.
 (import
  (lofi base)
  (lofi io)
  (siegework grid)
- (siegework world))
+ (siegework world)
+ (siegework colony)
+ (siegework simulation))
 
 (: run (-> World I64 World))
 (define (run world ticks)
-  (if (or (= ticks 0) (not (match (World-outcome world) ((Playing) #t) (_ #f))))
-      world
-      (run (advance world) (- ticks 1))))
+  (if (or (= ticks 0) (not (playing? world))) world (run (advance world) (- ticks 1))))
 
-(: order (-> World Kind Cell World))
-(define (order world kind cell)
-  (match (place world kind cell)
+(: order (-> World Action World))
+(define (order world action)
+  (match (act world action)
     ((Ok world) world)
-    ((Err message) (panic message))))
+    ((Err rejection) (panic (rejection-text rejection)))))
+
+(: outcome-text (-> Outcome String))
+(define (outcome-text outcome)
+  (match outcome
+    ((Playing) "playing")
+    ((Won) "won")
+    ((Lost) "lost")
+    ((Resigned) "resigned")))
 
 (: report (-> String World Unit ! console))
 (define (report name world)
-  (write-line (string-append name ": tick " (show (World-tick world))
-                             ", buildings " (show (length (World-buildings world)))
-                             ", nests " (show (length (World-nests world)))
-                             ", " (match (World-outcome world) ((Playing) "playing") ((Won) "won") ((Lost) "lost")))))
+  (write-line (string-append name ": tick " (show (World-tick world)) ", buildings " (show (length (World-buildings world)))
+                             ", hub " (show (Hub-health (World-hub world))) ", kills " (show (Ledger-kills (World-ledger world)))
+                             ", " (outcome-text (World-outcome world)))))
 
-;; Guns on the open cells beside the hub, with ore to pay for them.
+;; The starter crystal sits four cells east and two north of the hub.
+(: started (-> World World))
+(define (started world)
+  (let ((hub (Hub-cell (World-hub world))))
+    (order world (Build (Extractor) (Cell (+ (Cell-x hub) 4) (- (Cell-y hub) 2)) #f))))
+
 (: defended (-> World World))
 (define (defended world)
-  (let loop ((cells (neighbors (world-hub world))) (world (World-ore-set world 200)))
-    (match cells
-      ((Nil) world)
-      ((Cons cell rest) (match (place world (Gun) cell)
-                          ((Ok next) (loop rest next))
-                          ((Err _) (loop rest world)))))))
+  (let ((hub (Hub-cell (World-hub world))))
+    (order (order world (Build (Turret) (Cell (- (Cell-x hub) 2) (Cell-y hub)) #f)) (Build (Turret) (Cell (Cell-x hub) (+ (Cell-y hub) 2)) #f))))
 
-(report "undefended" (run (new-world 11) 6000))
-(report "defended" (run (defended (new-world 11)) 2000))
+(report "undefended" (run (started (new-world 11)) 6000))
+(report "defended" (run (defended (started (new-world 11))) 2000))

@@ -52,7 +52,7 @@ game.app_frame(0);
 const first = host.frames.at(-1);
 assert.equal(first.batches.length, 3);
 assert.equal(first.batches[0].items, 6400, 'one item per map cell');
-assert.ok(first.text.some(text => text.startsWith('Ore 60')), first.text.join(' | '));
+assert.ok(first.text.some(text => text.startsWith('Energy 160')), first.text.join(' | '));
 
 // The camera looks at the hub, so the middle pixel picks the hub's cell.
 game.app_input(POINTER_MOVE, 480, 320, 0);
