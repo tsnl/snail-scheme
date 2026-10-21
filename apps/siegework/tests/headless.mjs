@@ -4,22 +4,28 @@
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-const TICK = 9, PRESS = 8, RESIZE = 7, POINTER_DOWN = 4, POINTER_MOVE = 3;
+const TICK = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3;
 
+// Records each frame's batches and the latest HUD's texts.
 function screen() {
   const frames = [];
-  let frame = null, widget = null;
-  return {frames, imports: {
-    'frame-begin'() { frame = {batches: [], text: []}; },
+  const host = {frames, text: [], imports: null};
+  let frame = null, widget = null, field = null, texts = null;
+  host.imports = {
+    'frame-begin'() { frame = {batches: []}; },
     camera(...camera) { frame.camera = camera; },
     light() {},
     'batch-begin'(key, version) { frame.batches.push({key, version, items: 0}); return 0; },
     instance() { frame.batches.at(-1).items++; },
-    'panel-begin'() {},
-    'widget-begin'() { widget = ''; frame.text.push(widget); },
-    'text-character'(code) { frame.text[frame.text.length - 1] += String.fromCodePoint(code); },
     'frame-end'() { frames.push(frame); },
-  }};
+    'hud-begin'() { texts = []; },
+    'panel-begin'() {},
+    'widget-begin'() { widget = {text: ''}; texts.push(widget); },
+    field(which) { field = which; },
+    'text-character'(code) { if (field === 4) widget.text += String.fromCodePoint(code); },
+    'hud-end'() { host.text = texts.map(entry => entry.text); },
+  };
+  return host;
 }
 
 async function instantiate(path, host) {
@@ -55,27 +61,26 @@ game.app_frame(0);
 const first = host.frames.at(-1);
 assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 4, 6], 'terrain, structures, motion, shimmer and cursor');
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
-assert.ok(first.text.some(text => text.startsWith('Energy 160')), first.text.join(' | '));
+assert.ok(host.text.some(text => text.startsWith('Energy 160')), host.text.join(' | '));
 
 // The camera looks at the hub, so the middle pixel picks the hub's cell.
-game.app_input(POINTER_MOVE, 480, 320, 0);
-game.app_frame(0);
-assert.ok(host.frames.at(-1).text.some(text => text.startsWith('Hub')), host.frames.at(-1).text.join(' | '));
+game.app_input(POINTER_MOVE, 1, 480, 320, 0);
+assert.ok(host.text.some(text => text.startsWith('Hub')), host.text.join(' | '));
 
 // Find the starter crystal by hovering until the inspector names it, then
 // order an extractor there and let the colony run for five minutes.
-const text = () => host.frames.at(-1).text;
+const text = () => host.text;
 let crystal = null;
 for (let y = 10; y < 640 && !crystal; y += 20)
   for (let x = 10; x < 960 && !crystal; x += 20) {
-    game.app_input(POINTER_MOVE, x, y, 0);
-    game.app_frame(0);
+    game.app_input(POINTER_MOVE, 1, x, y, 0);
     if (text().some(line => line.startsWith('Crystal'))) crystal = [x, y];
   }
 assert.ok(crystal, 'a crystal is in view');
-game.app_input(PRESS, 1, 0, 0);
-game.app_input(POINTER_DOWN, crystal[0], crystal[1], 0);
-for (let i = 0; i < 3000; i++) game.app_input(TICK, 0, 0, 0);
+game.app_input(PRESS, 1, 0, 0, 0);
+game.app_input(POINTER_DOWN, 1, crystal[0], crystal[1], 0);
+game.app_input(POINTER_UP, 1, crystal[0], crystal[1], 0);
+for (let i = 0; i < 3000; i++) game.app_input(TICK, 0, 0, 0, 0);
 game.app_frame(0.5);
 console.log(text().slice(0, 5).join(' | '));
 
@@ -89,9 +94,9 @@ restored.app_load_begin(bytes.length);
 bytes.forEach((byte, index) => restored.app_load_byte(index, byte));
 restored.app_load_end();
 const elapsed = performance.now() - started;
-restored.app_input(RESIZE, 960, 640, 0);
+restored.app_input(RESIZE, 960, 640, 0, 0);
 restored.app_frame(0.5);
 // The world is the same; selection and messages start afresh.
-const world = frame => [...frame.text.slice(0, 4), frame.text.at(-1)];
-assert.deepEqual(world(other.frames.at(-1)), world(host.frames.at(-1)));
+const world = texts => [...texts.slice(0, 4), texts.at(-1)];
+assert.deepEqual(world(other.text), world(host.text));
 console.log(`a journal of ${length} bytes replays the same frame in ${elapsed.toFixed(0)} ms`);

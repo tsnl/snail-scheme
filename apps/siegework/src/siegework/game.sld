@@ -4,7 +4,7 @@
   (export
    Tool
    Select
-   Place
+   Placing
    View
    View-heading
    Game
@@ -48,7 +48,7 @@
 
     (enum Tool
       (Select)
-      (Place ((kind Kind))))
+      (Placing ((kind Kind))))
 
     ;; The camera looks down at 30 degrees on the point (x, z) of the ground,
     ;; from one of four quarter-turn headings, showing `scale` times 18
@@ -78,6 +78,7 @@
        (clock I64)
        (view View)
        (held (List I32))
+       (gestures Gestures)
        (tool Tool)
        (hover (Option Cell))
        (selected (Option Cell))
@@ -103,7 +104,7 @@
     (: game-around (-> World (List Entry) I64 Bool I32 I32 Game))
     (define (game-around world orders epoch paused width height)
       (let ((hub (Hub-cell (World-hub world))))
-        (Game world orders epoch 0 (View (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 0.0 0.0 1.0 0 0 -3) (Nil) (Select) (None) (None) paused
+        (Game world orders epoch 0 (View (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 0.0 0.0 1.0 0 0 -3) (Nil) no-gestures (Select) (None) (None) paused
               "Place an extractor on the crystal near the hub." width height)))
 
     (: game-save (-> Game Save))
@@ -196,6 +197,18 @@
       (let ((view (Game-view game)))
         (Game-view-set game (View-scale-set view (clamp (* (View-scale view) factor) 0.4 6.0)))))
 
+    ;; Dragging moves the ground with the pointer: one pixel is 18 times the
+    ;; zoom over the screen's height in cells across, twice that up the
+    ;; screen, where the ground is seen at 30 degrees.
+    (: pan (-> Game I32 I32 Game))
+    (define (pan game dx dy)
+      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game 0.0)))
+             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle)))
+             (unit (/ (* 18.0 (View-scale view)) (i32->f32 (max 1 (Game-height game)))))
+             (right (* (negate unit) (i32->f32 dx))) (up (* (* 2.0 unit) (i32->f32 dy))) (limit (i64->f32 map-size)))
+        (Game-view-set game (View-z-set (View-x-set view (clamp (+ (View-x view) (* 0.70710677 (- (* right (- c s)) (* up (+ c s))))) 0.0 limit))
+                                        (clamp (+ (View-z view) (* 0.70710677 (- (* (negate right) (+ c s)) (* up (- c s))))) 0.0 limit)))))
+
     (: home (-> Game Game))
     (define (home game)
       (let ((hub (Hub-cell (World-hub (Game-world game)))) (view (Game-view game)))
@@ -229,7 +242,7 @@
     (: click (-> Game Game))
     (define (click game)
       (match (Game-tool game)
-        ((Place kind)
+        ((Placing kind)
          (match (Game-hover game)
            ((Some cell) (order game (Build kind cell #f)))
            ((None) game)))
@@ -238,9 +251,9 @@
     (: press (-> Game I32 Game))
     (define (press game action)
       (case action
-        ((1) (Game-tool-set game (Place (Extractor))))
-        ((2) (Game-tool-set game (Place (Pylon))))
-        ((3) (Game-tool-set game (Place (Turret))))
+        ((1) (Game-tool-set game (Placing (Extractor))))
+        ((2) (Game-tool-set game (Placing (Pylon))))
+        ((3) (Game-tool-set game (Placing (Turret))))
         ((4) (order-at game (lambda (cell) (Upgrade cell))))
         ((5) (Game-paused-set game (not (Game-paused game))))
         ((6) (game-around (new-world (+ (remainder (* (World-seed (Game-world game)) 48271) 65521) 1)) (Nil) (+ (Game-epoch game) 1) #f
@@ -277,13 +290,22 @@
                   (if (Game-paused game) game (Game-world-set game (advance (Game-world game))))))
         ((KeyDown key) (key-press game key))
         ((KeyUp key) (Game-held-set game (filter (lambda (k) (not (= k key))) (Game-held game))))
-        ((PointerMove x y) (Game-hover-set game (pick game x y)))
-        ((PointerDown x y button)
-         (let ((game (Game-hover-set game (pick game x y))))
-           (if (= button 0) (click game) (Game-selected-set (Game-tool-set game (Select)) (None)))))
-        ((PointerUp x y button) game)
-        ((Wheel delta) (zoom game (+ 1.0 (* 0.1 (i32->f32 delta)))))
+        ((Wheel pixels) (zoom game (+ 1.0 (* 0.001 (i32->f32 pixels)))))
         ((Resize width height) (Game-height-set (Game-width-set game width) height))
-        ((Press action) (press game action))))
+        ((Press action argument) (press game action))
+        ((Hover action argument) game)
+        (_ (match (recognize (Game-gestures game) input)
+             ((Pair gestures meanings) (fold-left gesture (Game-gestures-set game gestures) meanings))))))
+
+    ;; Pointing hovers, a tap acts on the cell beneath it, dragging pans and
+    ;; pinching zooms.
+    (: gesture (-> Game Gesture Game))
+    (define (gesture game meaning)
+      (match meaning
+        ((Point x y) (Game-hover-set game (pick game x y)))
+        ((Tap x y button) (let ((game (Game-hover-set game (pick game x y))))
+                            (if (= button 0) (click game) (Game-selected-set (Game-tool-set game (Select)) (None)))))
+        ((Drag dx dy) (pan game dx dy))
+        ((Pinch ratio) (zoom game ratio))))
 
     ))

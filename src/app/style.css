@@ -1,17 +1,40 @@
-/* Layout for (lofi app) pages: a full-window canvas and four HUD corners. */
+/* Layout for (lofi app) pages: a full-window canvas, HUD panels stacked in
+   columns from the screen's corners, and dialogs over a backdrop. An
+   application's own stylesheet colors widgets by their data-key, data-icon,
+   data-tone and data-badge. */
 html, body { margin: 0; height: 100%; overflow: hidden; background: #10141c; color: #e8ecf2;
   font: 14px/1.4 system-ui, sans-serif; }
-canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+canvas { display: block; width: 100vw; height: 100vh; outline: none; touch-action: none; }
 #overlay { position: fixed; inset: 0; pointer-events: none; }
-.panel { position: absolute; display: flex; flex-direction: column; gap: 6px; max-width: 360px; }
+
+.corner { position: absolute; display: flex; gap: 10px; max-height: calc(100vh - 24px); }
+.corner.top-left { top: 12px; left: 12px; align-items: flex-start; }
+.corner.top-right { top: 12px; right: 12px; flex-direction: row-reverse; align-items: flex-start; }
+.corner.bottom-left { bottom: 12px; left: 12px; align-items: flex-end; }
+.corner.bottom-right { bottom: 12px; right: 12px; flex-direction: row-reverse; align-items: flex-end; }
+.column { display: flex; flex-direction: column; gap: 10px; }
+.corner.top-right .column, .corner.bottom-right .column { align-items: flex-end; }
+.corner.bottom-left .column, .corner.bottom-right .column { flex-direction: column-reverse; }
+.panel { display: flex; flex-wrap: wrap; gap: 6px; max-width: 360px; pointer-events: auto; }
 .panel:empty { display: none; }
-.top-left { top: 12px; left: 12px; }
-.top-right { top: 12px; right: 12px; align-items: flex-end; }
-.bottom-left { bottom: 12px; left: 12px; flex-direction: row; flex-wrap: wrap; }
-.bottom-right { bottom: 12px; right: 12px; align-items: flex-end; }
-.label, .meter { padding: 4px 10px; border-radius: 6px; background: rgba(16, 20, 28, 0.78); }
-.meter { background: linear-gradient(90deg, rgba(220, 80, 70, 0.55) var(--fill), rgba(16, 20, 28, 0.78) var(--fill)); }
-button { pointer-events: auto; padding: 8px 12px; border: 1px solid #3a4658; border-radius: 6px;
-  background: #1c2433; color: inherit; font: inherit; cursor: pointer; }
-button:hover { background: #26324a; }
-button.selected { border-color: #8fd18f; background: #23402a; }
+
+.dialogs { position: fixed; inset: 0; display: none; place-items: center; pointer-events: auto; }
+.dialogs.open { display: grid; }
+.backdrop { position: absolute; inset: 0; background: rgba(8, 16, 24, 0.55); }
+.dialogs .panel { position: relative; flex-direction: column; min-width: 220px; }
+
+.label, .dial, .button { position: relative; display: flex; align-items: center; gap: 6px; }
+.label, .dial { padding: 4px 10px; border-radius: 6px; background: rgba(16, 20, 28, 0.78); }
+.button { padding: 8px 12px; border: 1px solid #3a4658; border-radius: 6px; background: #1c2433; color: inherit;
+  font: inherit; cursor: pointer; }
+.button:hover { background: #26324a; }
+.button[aria-pressed="true"] { border-color: #8fd18f; background: #23402a; }
+.button:disabled { opacity: 0.55; cursor: default; }
+.caption:empty, .text:empty { display: none; }
+.icon { display: none; }
+[data-icon] > .icon { display: block; width: 22px; height: 22px; background: currentColor;
+  mask: var(--icon) center / contain no-repeat; -webkit-mask: var(--icon) center / contain no-repeat; }
+.dial { background: conic-gradient(#8fd18f var(--fraction), rgba(16, 20, 28, 0.78) 0); }
+.button[data-ring] { background: conic-gradient(#8fd18f var(--fraction), #1c2433 0); }
+[data-badge]::after { content: attr(data-badge); position: absolute; top: -4px; right: -4px; min-width: 14px;
+  padding: 0 3px; border-radius: 7px; font-size: 10px; line-height: 14px; text-align: center; background: #e8ecf2; color: #10141c; }
