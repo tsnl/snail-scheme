@@ -53,8 +53,8 @@ const game = await instantiate(path, host);
 game.app_init(7, 960, 640);
 game.app_frame(0);
 const first = host.frames.at(-1);
-assert.equal(first.batches.length, 3);
-assert.equal(first.batches[0].items, 6400, 'one item per map cell');
+assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 4, 6], 'terrain, structures, motion, shimmer and cursor');
+assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.ok(first.text.some(text => text.startsWith('Energy 160')), first.text.join(' | '));
 
 // The camera looks at the hub, so the middle pixel picks the hub's cell.
