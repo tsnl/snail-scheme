@@ -48,11 +48,14 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
 ## Controls
 
 The same controls work with a mouse, a pen and fingers. Drag to pan, pinch
-or use the wheel to zoom, and tap a cell to select it: the card beside the
-dock offers what can be done there, and the selection alone never orders
-anything. The queue beside the dock shows each work, with a ring while it
-builds and ! when unpowered; tap one to go to it. Attack
-alerts take you to the attack or silence that area for eight seconds.
+or use the wheel to zoom, and tap a cell to select it; the selection alone
+never orders anything. The dock on the side of your hand shows hub health,
+energy and the nests' strength with the time to the next attack, then the
+turning buttons, then four construction buttons for the selected cell,
+greyed out where they do not apply. Beside it come the menu button, up to
+two attack alerts, which go to the attack or silence it for eight seconds,
+and the build queue, with a ring while a work builds and ! while it is
+unpowered; tap one to go to it.
 
 | Key | Action |
 | --- | --- |
