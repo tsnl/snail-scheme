@@ -19,7 +19,8 @@ env:
 
 jobs:
   tests:
-    name: Tests
+    # The name is the status check that the ruleset for main requires.
+    name: Complete correctness checks
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
