@@ -25,15 +25,14 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
   nothing: no energy, no shots, no sight. Rebuild the link and it wakes up.
 - **Building takes time.** A new building needs visible grass and a
   powered building that can wire to it. Its cost is paid at once and it is
-  built while it holds one of the hub's build slots: pylons take 6 s,
-  extractors 10 s and turrets 12 s, but the colony's first extractor is
+  built while it holds one of the hub's build slots: pylons take 2 s,
+  extractors 3 s and turrets 4 s, and the colony's first extractor is
   ready at once. The hub starts with one slot; upgrading it adds a second
   and a third. Further orders wait in the queue, and an unpowered site
   waits without blocking the others.
-- **Rush.** Rushing doubles the rate of the remaining work for four times
-  its share of the cost: five times the price when rushed as it is
-  ordered, less later. Cancelling refunds the cost and the unused part of a
-  rush.
+- **Rush.** Rushing finishes work at once for four times the share of its
+  cost that remains: five times the price when rushed as it is ordered,
+  less later. Cancelling refunds the cost.
 - **Upgrades, repair and scavenging.** Upgrades raise pylon reach,
   extractor yield and turret damage, and restore full health. The hub can
   be repaired at two health per energy. Scavenging returns a fifth of what
@@ -52,7 +51,7 @@ The same controls work with a mouse, a pen and fingers. Drag to pan, pinch
 or use the wheel to zoom, and tap a cell to select it: the card beside the
 dock offers what can be done there, and the selection alone never orders
 anything. The queue beside the dock shows each work, with a ring while it
-builds, » when rushed and ! when unpowered; tap one to go to it. Attack
+builds and ! when unpowered; tap one to go to it. Attack
 alerts take you to the attack or silence that area for eight seconds.
 
 | Key | Action |

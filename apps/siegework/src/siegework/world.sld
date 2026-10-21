@@ -26,8 +26,6 @@
    Work-duration
    Work-progress
    Work-progress-set
-   Work-rushed
-   Work-rushed-set
    remaining-work
    rush-price
    work-refund
@@ -210,13 +208,12 @@
     ;; Work raises its owner one level: a site at level 0 becomes a building,
     ;; a building gains a level and the hub gains a build slot. Its cost and
     ;; duration are fixed when it is ordered. Progress grows by one each tick
-    ;; the work holds a hub slot and its owner is powered, by two if rushed.
+    ;; the work holds a hub slot and its owner is powered.
     (struct Work
       ((order I64)
        (cost I64)
        (duration I64)
-       (progress I64)
-       (rushed Bool)))
+       (progress I64)))
 
     ;; A building at level 0 is an unfinished site: it neither carries wires
     ;; nor works, but enemies may still destroy it.
@@ -265,9 +262,9 @@
     (: raise-duration (-> Kind I64 I64))
     (define (raise-duration kind level)
       (match kind
-        ((Extractor) (case level ((0) 100) ((1) 100) (else 200)))
-        ((Pylon) (case level ((0) 60) ((1) 100) (else 150)))
-        ((Turret) (case level ((0) 120) ((1) 150) (else 200)))))
+        ((Extractor) (case level ((0) 30) ((1) 40) (else 60)))
+        ((Pylon) (case level ((0) 20) ((1) 30) (else 50)))
+        ((Turret) (case level ((0) 40) ((1) 40) (else 60)))))
 
     (: built? (-> Building Bool))
     (define (built? building)
@@ -288,17 +285,17 @@
     (define (remaining-work work)
       (max 0 (- (Work-duration work) (Work-progress work))))
 
-    ;; Rushing doubles the rate of the remaining work for four times its
-    ;; share of the cost, so rushing as it is ordered costs five times the
-    ;; price in all, and rushing later costs less.
+    ;; Rushing finishes the work at once for four times the share of its
+    ;; cost that remains, rounded up, so rushing as it is ordered costs five
+    ;; times the price in all, and rushing later costs less.
     (: rush-price (-> Work I64))
     (define (rush-price work)
-      (quotient (* 4 (* (Work-cost work) (remaining-work work))) (Work-duration work)))
+      (quotient (+ (* 4 (* (Work-cost work) (remaining-work work))) (- (Work-duration work) 1)) (Work-duration work)))
 
-    ;; Cancelling returns the cost and the part of a rush not yet used.
+    ;; Cancelling returns the whole cost.
     (: work-refund (-> Work I64))
     (define (work-refund work)
-      (+ (Work-cost work) (if (Work-rushed work) (rush-price work) 0)))
+      (Work-cost work))
 
     ;; ---- The hub ----
 
@@ -325,7 +322,7 @@
 
     (: slot-duration (-> I64 I64))
     (define (slot-duration slots)
-      (+ 100 (* 100 slots)))
+      (+ 20 (* 30 slots)))
 
     (: hub-cell? (-> Hub Cell Bool))
     (define (hub-cell? hub cell)
