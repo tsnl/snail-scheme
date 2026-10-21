@@ -22,6 +22,7 @@
    Task
    Task-owner
    Task-work
+   Task-supplied
    Task-active
    Owner
    OfHub
@@ -285,10 +286,12 @@
 
     ;; ---- Work ----
 
-    ;; Each queued work with its owner; it is active while it holds a slot.
+    ;; Each queued work with its owner, whether the owner is powered, and
+    ;; whether the work holds a slot.
     (struct Task
       ((owner Owner)
        (work Work)
+       (supplied Bool)
        (active Bool)))
 
     ;; Works in the order they were given. The first ones whose owner is
@@ -302,8 +305,8 @@
         (match pending
           ((Nil) (reverse listed))
           ((Cons (Pair owner work) rest)
-           (let ((active (and (> free 0) (supplied? world owner))))
-             (loop rest (if active (- free 1) free) (Cons (Task owner work active) listed)))))))
+           (let* ((supplied (supplied? world owner)) (active (and (> free 0) supplied)))
+             (loop rest (if active (- free 1) free) (Cons (Task owner work supplied active) listed)))))))
 
     (: queued (-> World (List (Pair Owner Work))))
     (define (queued world)

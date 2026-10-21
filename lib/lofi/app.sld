@@ -92,6 +92,9 @@
    Disabled
    Selected
    Look
+   Look-key
+   Look-help
+   Look-help-set
    look
    Widget
    Label
