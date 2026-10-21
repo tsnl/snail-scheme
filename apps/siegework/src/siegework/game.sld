@@ -56,7 +56,8 @@
 
     (: new-game (-> I32 I32 I32 Game))
     (define (new-game seed width height)
-      (Game (new-world (i32->i64 seed)) (Viewpoint 20.0 20.0 26.0 0.0 0.0) (Nil) (Select) (None) #f width height))
+      (let* ((world (new-world (i32->i64 seed))) (hub (world-hub world)))
+        (Game world (Viewpoint (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 26.0 0.0 0.0) (Nil) (Select) (None) #f width height)))
 
     ;; HUD buttons report these actions; 1-3 choose a building tool.
     (: action-tool (-> Kind I32))

@@ -9,6 +9,7 @@
    (lofi app)
    (lofi math)
    (siegework grid)
+   (only (siegework terrain) ground-at Grass Rock Water)
    (siegework world)
    (siegework game))
   (begin
@@ -40,8 +41,10 @@
       (map (lambda (index)
              (let ((cell (index-cell index)))
                (cond ((not (vector-ref (World-explored world) index)) (item (Tile) (cell-point cell 0.0) 1.0 0.05 1.0 (rgb 28 32 40)))
-                     ((match (vector-ref (World-terrain world) index) ((Rock) #t) ((Open) #f))
+                     ((match (ground-at (World-land world) cell) ((Rock) #t) (_ #f))
                       (item (Box) (cell-point cell 0.0) 0.95 0.7 0.95 (rgb 105 100 96)))
+                     ((match (ground-at (World-land world) cell) ((Water) #t) (_ #f))
+                      (item (Tile) (cell-point cell 0.0) 1.0 0.05 1.0 (rgb 54 126 238)))
                      (else (item (Tile) (cell-point cell 0.0) 1.0 0.1 1.0
                                  (if (= (remainder (+ (Cell-x cell) (Cell-y cell)) 2) 0) (rgb 74 104 66) (rgb 70 98 62)))))))
            (iota (* map-size map-size))))
