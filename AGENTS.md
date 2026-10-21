@@ -4,14 +4,15 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- Languages are libraries: keep language definitions and compiler libraries
-  under `src/`, with paths matching their library names and `.sld` sources.
-  Lofi's typed kernel and the initial `(scheme base)` share hygienic
-  `syntax-rules` expansion, library resolution and the backend. Surface macros
-  expand away before ordinary checking; procedural transformers and self-hosting
-  remain deferred. Chibi hosts `(lofi compiler bootstrap)` through `bootstrap/`;
-  product sources import the public `(lofi compiler)`. See [the language
-  contract](doc/lofi.md).
+- Languages are libraries. The compiler lives in `src/lofi/compiler/` and is
+  written in typed Lofi importing only `(lofi base)`, `(lofi table)` and
+  `(lofi io)`, so it compiles itself. Chibi runs the same source with
+  `-I host/chibi -I src`; `host/chibi/` implements those libraries and erases
+  the typed forms, and is the only place host-specific code may live. The
+  standard library lives in `lib/`, a search root Chibi never loads, with
+  paths matching library names and `.sld` sources. Surface macros expand away
+  before checking. See [the language guide](doc/language.md) and
+  [the redesign](doc/redesign.md).
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries
@@ -23,17 +24,17 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
-- Put each Scheme import specification and record field on its own line.
+- Put each Scheme import specification and struct field on its own line.
   Name pure field replacements `<accessor>-set`, without a trailing `!`;
   reserve `!` for mutation.
 - Write section headers as `;; ---- Title ----` in Scheme,
   `// ---- Title ----` in Rust, with sentence
   case and a blank line on each side.
   Keep unit tests in a final `Tests` section of their implementation module.
-  Each tested Scheme module exports one `test-<module>` entry point under the
-  `snail-tests` feature; test cases and helpers stay private. Keep integration
+  Each tested compiler module exports one `test-<module>` entry point under
+  the `snail-tests` feature; test cases and helpers stay private. Test Lofi
+  libraries with programs and their expected output. Keep integration
   fixtures, runners, and shared assertion support in `tests/`.
-  Inactive test sections must remain readable by the Chibi compiler host.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
   atomic VM transitions, and tests may be longer when keeping them together
@@ -51,19 +52,18 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
   Wasm engines trace managed references. Rust scalar providers own external resources
   behind explicit handles. Resource cleanup must not retain its managed wrapper.
-- Keep the compiler hosted by Chibi until a separate self-hosting milestone.
-  Type inference follows the working, measured backend baseline.
+- Chibi is stage 0 of the bootstrap: it must keep running the compiler's
+  source, so the compiler avoids behavior the two hosts would disagree on,
+  such as integer overflow and the order of table keys.
 - Update [TOUR.md](TOUR.md) when module responsibilities change. Keep proposed
   APIs distinct from implemented behavior in documentation and TODOs.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path src/runtime/Cargo.toml --offline`,
-`cargo test --manifest-path tools/host/Cargo.toml --offline`,
-`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`,
-`cargo fmt --manifest-path tools/host/Cargo.toml --all -- --check`,
-`scripts/test-backend`, and `scripts/test-build`.
-Backend changes should execute linked Wasm; compilation alone does not test target
-behavior. Keep the
-57-workload comparison complete and distinguish source presence, correctness,
-clean measurements and instrumented diagnostics. See [doc/backend.md](doc/backend.md) for tools
-and [benchmarks/README.md](benchmarks/README.md) for reproducible measurements.
+`cargo test --manifest-path src/runtime/Cargo.toml --offline`, and
+`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`. The
+driver rebuilds the compiled compiler whenever the compiler's source
+changes; compiler changes must also pass `make test-chibi`, which runs the
+source on Chibi, and `make bootstrap`, which rebuilds from Chibi alone.
+Backend changes should execute linked Wasm; compilation alone does not test
+target behavior. Browser changes should be seen running:
+`node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.

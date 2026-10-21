@@ -1,7 +1,0 @@
-{
-  "terminal": true,
-  "exit_code": 0,
-  "actual_tool_chunk": "c68ec9",
-  "record_directory": "/tmp/snail-boyer-measurement-20261014/build/boyer-archive-tests-a707974",
-  "scope": "Six synthetic archive integrity/path/corruption checks; source cases and summary retained. No guest execution."
-}

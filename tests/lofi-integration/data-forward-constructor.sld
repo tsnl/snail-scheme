@@ -1,8 +1,0 @@
-(import
- (lofi base))
-(def value
-     (box (ann 13 I64)))
-(def Box (datatype ()
-           (box
-            (value I64 unbox))))
-(unbox value)

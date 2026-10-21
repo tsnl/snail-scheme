@@ -1,4 +1,0 @@
-(import
- (lofi base))
-(def convert (-> F32 I32) (lambda (value) (f32->i32 value)))
-42

@@ -1,7 +1,0 @@
-{
-  "passed": true,
-  "cases": 2884,
-  "diagnostic_only": true,
-  "library_sha256": "e5f08db0140df8e0930423eb9455343b11015cb53171087bbafcb18dfb9a6cf0",
-  "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [GCC 15.3.0]"
-}

@@ -1,6 +1,0 @@
-{
-  "duplicate-branch-blocks": "(define (f x) (if (zero? x) (+ x 1) (+ x 1))) (f 3)",
-  "shared-branch-tail": "(define (f x y) (if (zero? x) (+ (+ x 1) y) (+ (+ x 2) y))) (f 1 2)",
-  "empty-branch-cascades": "(define (f x y z) (if (if x y z) (if y x z) (if z y x))) (f #t #f 8)",
-  "stack-context-and-live-aliases": "(define (f a b c d e) (let ((x (if (zero? a) (f 1 2 3 4 5) (+ b c))) (y (if (< d e) (+ d e) (f 2 3 4 5 6)))) (+ a b c d e x y))) (f 3 4 5 6 7)"
-}

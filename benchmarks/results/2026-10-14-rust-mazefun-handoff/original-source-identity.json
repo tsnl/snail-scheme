@@ -1,8 +1,0 @@
-{
-  "unchanged_upstream_body_and_common": true,
-  "generated_complete_chez_source_equals_historical": true,
-  "complete_source_sha256": "1e5d67cc3b518968f22c321ba45375e64a8a7afe818a33c789511a337ec6b7e8",
-  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
-  "normal_source_entrypoint": "(run-benchmark)",
-  "oracle_only_change": "Replace final (run-benchmark) entrypoint with read dimensions / complete write(make-maze). Maze definitions and original common harness stay byte-identical."
-}

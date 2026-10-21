@@ -1,8 +1,0 @@
-{
-  "terminal": true,
-  "exit_code": 0,
-  "actual_tool_chunk": "bf3f68",
-  "complete_frames": 14,
-  "corruptions_rejected": 86,
-  "scope": "Independent parser/schedule replay of retained diagnostic bytes only; no runner import and no guest started."
-}

@@ -1,8 +1,0 @@
-{
-  "archive_sha256": "7b118d53dcb6626ac626e07187cc7f19541ba46592ab5dd83aa6a50cf5b7404d",
-  "archive_bytes": 705264,
-  "archive_base": "5c277ab",
-  "immix_revision": "7f698687b9e7c6af4272a6a19c35ca9e1a9f9d11",
-  "clean_measurements": "clean.json: 40 passing executions, 32 retained; four workloads and two executors",
-  "experiment_revision": "b419cc607e6cc13e854671fb9796f894a9d1faa6"
-}

@@ -1,0 +1,28 @@
+(import
+ (lofi base)
+ (lofi io)
+ (lofi integer))
+
+(: parse (-> String Integer))
+(define (parse text)
+  (match (string->integer text)
+    ((Some n) n)
+    ((None) (panic "not an integer"))))
+
+(: factorial (-> I64 Integer))
+(define (factorial n)
+  (if (= n 0) (integer-from-i64 1) (* (integer-from-i64 n) (factorial (- n 1)))))
+
+(define big (parse "123456789012345678901234567890"))
+(write-line (show (factorial 30)))
+(write-line (show (+ big (parse "-123456789012345678901234567891"))))
+(write-line (show (* big big)))
+(write-line (show (quotient (* big big) (parse "987654321"))))
+(write-line (show (remainder (* big big) (parse "987654321"))))
+(write-line (show (modulo (parse "-7") (parse "2"))))
+(write-line (show (integer-gcd (factorial 20) (parse "1000000007000000049"))))
+(write-line (show (integer-expt (integer-from-i64 2) 100)))
+(display (integer->i64 (parse "-9223372036854775808")))
+(newline)
+(display (< (parse "99999999999999999999") (parse "100000000000000000000")))
+(newline)

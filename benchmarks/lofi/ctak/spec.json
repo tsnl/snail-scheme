@@ -1,7 +1,0 @@
-{
-  "name": "ctak",
-  "count": 1,
-  "inputs": [32, 16, 8],
-  "expected": 9,
-  "barriers_per_iteration": 3
-}

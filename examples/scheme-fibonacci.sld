@@ -1,9 +1,13 @@
-;; Same library system and backend; imported forms select the Scheme surface.
+;; The same program through (scheme base): Scheme names, Lofi types.
 (import
- (scheme base)
- (only (lofi primitive) i32->i64)
- (lofi io))
+ (scheme base))
+
 (define (fibonacci n)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
-(write-i64 (i32->i64 (fibonacci 30)) (current-output-port))
+
+(display (fibonacci 25))
+(newline)
+(display (map (lambda (x) (* x x)) (cons 1 (list 2 3))))
+(newline)
+(display (car (cdr (list 10 20 30))))
 (newline)

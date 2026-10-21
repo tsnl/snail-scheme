@@ -1,3 +1,0 @@
-passed shared-datum types, control, tail ABI, 13 traps, and forced GC
-passed native Rust roots and reentrant Scheme callbacks
-passed native Rust resource cleanup outside active Wasm calls

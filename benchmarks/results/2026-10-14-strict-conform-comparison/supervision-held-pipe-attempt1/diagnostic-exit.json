@@ -1,9 +1,0 @@
-{
-  "phase": "supplementary-supervision-diagnostic",
-  "clean_sample": false,
-  "tool_exit_code": 1,
-  "tool_chunk_id": "8235d1",
-  "error": "NameError: name 'ORIGINAL_POPEN' is not defined",
-  "cause": "Supplementary direct harness omitted the test helper global initialization. Frozen runner/plan are unchanged.",
-  "original_started_record_preserved": true
-}

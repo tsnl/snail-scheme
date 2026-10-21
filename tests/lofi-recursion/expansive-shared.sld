@@ -1,6 +1,0 @@
-(import
- (lofi primitive))
-(def cell (ref (lambda (value) (invoke value))))
-(def invoke (lambda (value) ((ref-get cell) value)))
-(invoke (ann 42 I64))
-(invoke #t)

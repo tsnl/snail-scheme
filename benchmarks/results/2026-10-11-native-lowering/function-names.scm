@@ -1,7 +1,0 @@
-(import (scheme base) (scheme file) (scheme read) (scheme write)
-        (scheme process-context) (snail-scheme wasm-resolve))
-(define input (call-with-input-file (cadr (command-line)) read))
-(for-each (lambda (node)
-            (when (eq? (car node) 'function-name)
-              (write (cdr node)) (newline)))
-          (cdr (resolve-wasm input)))

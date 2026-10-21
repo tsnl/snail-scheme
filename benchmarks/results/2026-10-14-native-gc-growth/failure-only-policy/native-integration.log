@@ -1,9 +1,0 @@
-PASS native scalar/control semantics, array storage, subtype identity, 19 traps and tail/root bounds
-PASS optimized active element segment bounds, including empty and unsigned offsets
-PASS exact tracing, weak cleanup, Immix reuse, automatic growth, capped/failing growth and size bounds
-PASS real mixed C ABI, mismatched-signature rejection, rounding, variants and string blocks
-PASS native bytevector permissions, byte/range checks and strict UTF-8 traps
-PASS shared Rust Unicode/I64 I/O and explicit normal/trap/I/O-error/exhaustion cleanup
-PASS native strict line input, Unicode, buffer growth, aliases and terminal cleanup
-PASS shared Rust ABI roots, reentrant callbacks, deferred finalizers and literal graphs
-PASS native input protection, failure preservation and relocated artifact generations

@@ -1,9 +1,0 @@
-{
-  "archive_members": 82,
-  "every_member_sha256_pass": true,
-  "archive_sha256_pass": true,
-  "diagnostic_processes": 8,
-  "all_eight_predicates_pass": true,
-  "clean_timing": false,
-  "production_edits": false
-}

@@ -1,6 +1,0 @@
-{
-  "archive_sha256": "094e86939c05f34429ac4a052913836172e430fb25f9acd4b9fa8282f2786bdd",
-  "archive_bytes": 4404672,
-  "verified_files": 431,
-  "scope": "full canonical Compiler, independent complete assembly/word/GVM/slot diagnostics, exact optimized binary, retained-work disassembly and focused simplify review; no performance claims"
-}

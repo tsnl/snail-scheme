@@ -1,6 +1,0 @@
-(import
- (lofi base))
-
-(def add (All (T) (-> T T))
-     (lambda (value) (+ value value)))
-(ann 0 I64)

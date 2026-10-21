@@ -1,7 +1,0 @@
-{
-  "first_attempt": "/tmp/snail-strict-mbrot-z-preparation-20261013",
-  "outcome": "All canonical and supplementary checks passed.",
-  "fresh_explainer": "Sol6.1 max, no history, tools or files. Local draft preceded slot availability; independent explanation/debate preceded acceptance and source commit.",
-  "review_boundary": "Behavioral explanation and parent-owned source checks, not an independent code/observer audit.",
-  "coordinated_hold": "CPU work stopped before the parent timing window. Archive compression and restored-artifact execution deferred until release."
-}
