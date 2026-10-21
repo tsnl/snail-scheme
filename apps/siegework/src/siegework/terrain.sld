@@ -299,8 +299,8 @@
 
     ;; ---- Crystal sites ----
 
-    ;; The starter is one of the twelve cells four cells from the hub, all
-    ;; in its clearing.
+    ;; The starter is one of the twenty cells more than three and at most
+    ;; four cells from the hub, all in its clearing.
     (: starter-cell (-> I64 Cell Cell))
     (define (starter-cell seed hub)
       (let ((cells (ring hub 3 4)))

@@ -467,7 +467,10 @@ share the same `struct` definitions, so layouts are never synchronized by hand.
 
 ## 4. Compiler architecture
 
-Every pass is a pure function on immutable data. The driver composes them.
+Every pass reads immutable data and produces it; the driver composes them.
+Inside a pass, state that grows as the pass runs, such as fresh-name
+counters, type-variable solutions and worklists, lives in `Ref` cells, and
+tables are immutable `(lofi table)` values.
 
 ```text
 text ──read──▶ located S-expressions

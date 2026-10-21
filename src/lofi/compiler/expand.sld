@@ -75,7 +75,7 @@
         (binding Binding)
         (rest Env)))
       (Top
-       ((table (Table Binding))
+       ((table (Ref (Table Binding)))
         (parent (Option Env)))))
 
     (: extend (-> Env Syntax Binding Env))
@@ -100,7 +100,7 @@
           (match env
             ((Frame other binding rest) (if (string=? other key) (Some binding) (lookup rest)))
             ((Top table parent)
-             (match (table-ref table key)
+             (match (table-ref (ref-get table) key)
                ((Some binding) (Some binding))
                ((None)
                 (match parent
@@ -147,18 +147,20 @@
 
     ;; ---- Expansion context ----
 
-    ;; Shared by every library of one compilation. `prefix` names the library
-    ;; being expanded, so its globals are `prefix:name`. `libraries` holds
-    ;; each library's exports, or None while it loads. `scopes` numbers the
-    ;; environments that marks refer to. `generate` runs a producer program
-    ;; for `generate-library` and returns what it prints; the driver supplies
-    ;; it, because running a program means compiling one.
+    ;; Shared by every library of one compilation. `program` is the program
+    ;; built so far. `prefix` names the library being expanded, so its globals
+    ;; are `prefix:name`. `libraries` holds each library's exports, or None
+    ;; while it loads. `scopes` numbers the environments that marks refer to.
+    ;; `generate` runs a producer program for `generate-library` and returns
+    ;; what it prints; the driver supplies it, because running a program means
+    ;; compiling one.
     (struct Context
-      ((program Program)
+      ((program (Ref Program))
        (directories (List String))
-       (libraries (Table (Option Exports)))
+       (libraries (Ref (Table (Option Exports))))
        (counter (Ref I64))
-       (scopes (Table Env))
+       (scopes (Ref (Table Env)))
+       (scope-count (Ref I64))
        (deriving (Ref (Option I64)))
        (generate (-> (List Syntax) String String ! mut fs))
        (prefix String)))
@@ -167,14 +169,19 @@
 
     (: make-context (-> (List String) (-> (List Syntax) String String ! mut fs) Context ! mut))
     (define (make-context directories generate)
-      (let ((cx (Context (make-program) directories (make-table) (ref 0) (make-table) (ref (None)) generate "")))
-        (table-set! (Context-libraries cx) "lofi.core" (Some (core-library)))
-        (table-set! (Context-libraries cx) "lofi.primitive" (Some (primitive-library cx)))
+      (let ((cx (Context (ref empty-program) directories (ref empty-table) (ref 0) (ref empty-table) (ref 0) (ref (None)) generate "")))
+        (set-library! cx "lofi.core" (Some (core-library)))
+        (set-library! cx "lofi.primitive" (Some (primitive-library cx)))
         cx))
 
-    (: program (-> Context Program))
+    (: set-library! (-> Context String (Option Exports) Unit ! mut))
+    (define (set-library! cx key exports)
+      (ref-set! (Context-libraries cx) (table-set (ref-get (Context-libraries cx)) key exports)))
+
+    ;; The program as expanded so far.
+    (: program (-> Context Program ! mut))
     (define (program cx)
-      (Context-program cx))
+      (ref-get (Context-program cx)))
 
     (: fresh (-> Context String String ! mut))
     (define (fresh cx base)
@@ -188,13 +195,18 @@
 
     (: register-scope! (-> Context Env I64 ! mut))
     (define (register-scope! cx env)
-      (let ((number (table-count (Context-scopes cx))))
-        (table-set! (Context-scopes cx) (i64->string number) env)
+      (let ((number (ref-get (Context-scope-count cx))))
+        (ref-set! (Context-scope-count cx) (+ number 1))
+        (set-scope! cx number env)
         number))
+
+    (: set-scope! (-> Context I64 Env Unit ! mut))
+    (define (set-scope! cx number env)
+      (ref-set! (Context-scopes cx) (table-set (ref-get (Context-scopes cx)) (i64->string number) env)))
 
     (: scope-env (-> Context I64 Env ! mut))
     (define (scope-env cx number)
-      (match (table-ref (Context-scopes cx) (i64->string number))
+      (match (table-ref (ref-get (Context-scopes cx)) (i64->string number))
         ((Some env) env)
         ((None) (panic "internal error: unknown scope"))))
 
@@ -216,7 +228,7 @@
     (define (primitive-library cx)
       (map (lambda (entry)
              (let ((name (string-append "prim:" (Pair-first entry))))
-               (add-value! (program cx) name (Primitive (Pair-second entry)))
+               (add-value! (Context-program cx) name (Primitive (Pair-second entry)))
                (Pair (Pair-first entry) (Global name))))
            (primitives)))
 
@@ -243,13 +255,13 @@
     (: load-library (-> Context (List String) Loc Exports ! mut fs))
     (define (load-library cx name loc)
       (let ((key (string-join name ".")))
-        (match (table-ref (Context-libraries cx) key)
+        (match (table-ref (ref-get (Context-libraries cx)) key)
           ((Some (Some exports)) exports)
           ((Some (None)) (compile-error loc (string-append "library import cycle through " key)))
           ((None)
-           (table-set! (Context-libraries cx) key (None))
+           (set-library! cx key (None))
            (let ((exports (read-library cx name loc)))
-             (table-set! (Context-libraries cx) key (Some exports))
+             (set-library! cx key (Some exports))
              exports)))))
 
     (: read-library (-> Context (List String) Loc Exports ! mut fs))
@@ -349,19 +361,20 @@
 
     (: import-env (-> Context (List Syntax) Env ! mut fs))
     (define (import-env cx specs)
-      (let ((imports (make-table)))
-        (for-each (lambda (spec)
-                    (for-each (lambda (entry) (import-binding! imports entry (syntax-loc spec))) (import-set cx spec)))
-                  specs)
-        (Top (make-table) (Some (Top imports (None))))))
+      (let ((imports (fold-left (lambda (imports spec)
+                                  (fold-left (lambda (imports entry) (import-binding imports entry (syntax-loc spec)))
+                                             imports (import-set cx spec)))
+                                empty-table specs)))
+        (Top (ref empty-table) (Some (Top (ref imports) (None))))))
 
-    (: import-binding! (-> (Table Binding) (Pair String Binding) Loc Unit ! mut))
-    (define (import-binding! imports entry loc)
+    (: import-binding (-> (Table Binding) (Pair String Binding) Loc (Table Binding)))
+    (define (import-binding imports entry loc)
       (match (table-ref imports (Pair-first entry))
         ((Some existing)
-         (unless (string=? (binding-identity existing) (binding-identity (Pair-second entry)))
-           (compile-error loc (string-append "conflicting imports of " (Pair-first entry)))))
-        ((None) (table-set! imports (Pair-first entry) (Pair-second entry)))))
+         (if (string=? (binding-identity existing) (binding-identity (Pair-second entry)))
+             imports
+             (compile-error loc (string-append "conflicting imports of " (Pair-first entry)))))
+        ((None) (table-set imports (Pair-first entry) (Pair-second entry)))))
 
     ;; The (name . binding) entries an import set provides.
     (: import-set (-> Context Syntax Exports ! mut fs))
@@ -445,7 +458,7 @@
     (: expand-top-level (-> Context Env (List Syntax) Unit ! mut fs))
     (define (expand-top-level cx env forms)
       (let* ((pending (concatenate (map (lambda (form) (scan-top-level cx env form)) forms)))
-             (signatures (make-table))
+             (signatures (ref empty-table))
              (definitions (concatenate (map (lambda (entry) (declare! cx signatures entry)) pending))))
         (for-each (lambda (expand!) (expand!)) definitions)))
 
@@ -474,9 +487,9 @@
     (define (bind-top! env ident binding)
       (match env
         ((Top table _)
-         (when (table-contains? table (ident-key ident))
+         (when (table-contains? (ref-get table) (ident-key ident))
            (compile-error (syntax-loc ident) (string-append "duplicate top-level definition " (Ident-name ident))))
-         (table-set! table (ident-key ident) binding))
+         (ref-set! table (table-set (ref-get table) (ident-key ident) binding)))
         (_ (panic "internal error: not a top level"))))
 
     (: definition-name (-> Syntax Syntax))
@@ -486,7 +499,7 @@
         ((Form (Cons _ (Cons name (Cons _ (Nil)))) _) (expect-ident name "a definition name"))
         (_ (compile-error (syntax-loc form) "expected (define name value) or (define (name parameter ...) body ...)"))))
 
-    (: declare! (-> Context (Table Scheme) Pending (List (-> Unit ! mut)) ! mut fs))
+    (: declare! (-> Context (Ref (Table Scheme)) Pending (List (-> Unit ! mut)) ! mut fs))
     (define (declare! cx signatures pending)
       (let ((form (Pending-form pending)) (env (Pending-env pending)))
         (case (Pending-keyword pending)
@@ -498,8 +511,8 @@
           (("extern") (declare-extern! cx env form) (Nil))
           (("effect") (declare-effect! cx env form) (Nil))
           (("define") (list (lambda () (define-top-level! cx signatures env form))))
-          (("expose") (list (lambda () (add-item! (program cx) (expose-item cx env form)))))
-          (("expression") (list (lambda () (add-item! (program cx) (Do (expand-expr cx env form))))))
+          (("expose") (list (lambda () (add-item! (Context-program cx) (expose-item cx env form)))))
+          (("expression") (list (lambda () (add-item! (Context-program cx) (Do (expand-expr cx env form))))))
           (else (Nil)))))
 
     ;; `(expose name "symbol")` exports a top-level function to the host.
@@ -512,11 +525,11 @@
            (_ (compile-error (syntax-loc name) (string-append "only a top-level function can be exposed: " (Ident-name name))))))
         (_ (compile-error (syntax-loc form) "expected (expose name \"symbol\")"))))
 
-    (: define-top-level! (-> Context (Table Scheme) Env Syntax Unit ! mut))
+    (: define-top-level! (-> Context (Ref (Table Scheme)) Env Syntax Unit ! mut))
     (define (define-top-level! cx signatures env form)
       (let ((name (global-binding cx env (definition-name form))))
-        (add-value! (program cx) name (Defined (table-ref signatures name)))
-        (add-item! (program cx) (Define name (definition-value cx env form)))))
+        (add-value! (Context-program cx) name (Defined (table-ref (ref-get signatures) name)))
+        (add-item! (Context-program cx) (Define name (definition-value cx env form)))))
 
     (: definition-value (-> Context Env Syntax Expr ! mut))
     (define (definition-value cx env form)
@@ -689,7 +702,7 @@
                         (list (Cons (declared-name head) (declaration-body form)))))
              (data (DataType id (map Ident-name params) (map-indexed (lambda (tag case) (resolve-case cx scope case id tag)) cases)
                              enum?)))
-        (add-type! (program cx) data)
+        (add-type! (Context-program cx) data)
         (for-each (lambda (case) (declare-case-values! cx data case (not enum?))) (DataType-cases data))))
 
     (: resolve-case (-> Context Env (List Syntax) String I64 Case ! mut))
@@ -718,23 +731,23 @@
     (define (declare-case-values! cx data case setters?)
       (let* ((params (DataType-params data)) (self (TCon (DataType-name data) (map TRigid params)))
              (name (Case-name case)))
-        (add-value! (program cx) name (Constructor case (Scheme params (Nil) (TFun (map Field-type (Case-fields case)) self empty-row))))
+        (add-value! (Context-program cx) name (Constructor case (Scheme params (Nil) (TFun (map Field-type (Case-fields case)) self empty-row))))
         (for-each (lambda (indexed)
                     (let* ((index (Pair-first indexed)) (field (Pair-second indexed)) (type (Field-type field))
                            (accessor (string-append name "-" (Field-name field))))
-                      (add-value! (program cx) accessor (Accessor case index (Scheme params (Nil) (TFun (list self) type empty-row))))
+                      (add-value! (Context-program cx) accessor (Accessor case index (Scheme params (Nil) (TFun (list self) type empty-row))))
                       (when setters?
-                        (add-value! (program cx) (string-append accessor "-set")
+                        (add-value! (Context-program cx) (string-append accessor "-set")
                                     (Replacer case index (Scheme params (Nil) (TFun (list self type) self empty-row)))))))
                   (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
     ;; `(: name type)` records a scheme for the following definition.
-    (: declare-signature! (-> Context (Table Scheme) Env Syntax Unit ! mut))
+    (: declare-signature! (-> Context (Ref (Table Scheme)) Env Syntax Unit ! mut))
     (define (declare-signature! cx signatures env form)
       (match form
         ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
          (match (resolve cx env (expect-ident name "a name"))
-           ((Some (Global global)) (table-set! signatures global (resolve-scheme cx env type)))
+           ((Some (Global global)) (ref-set! signatures (table-set (ref-get signatures) global (resolve-scheme cx env type))))
            (_ (compile-error (syntax-loc name) (string-append "signature names an undefined top-level definition: "
                                                               (Ident-name name))))))
         (_ (compile-error (syntax-loc form) "expected (: name type)"))))
@@ -745,7 +758,7 @@
              (id (match (resolve cx env (declared-name head)) ((Some (ClassName id)) id) (_ (panic "internal error: class"))))
              (scope (type-scope env params))
              (self (Constraint id (map (lambda (param) (TRigid (Ident-name param))) params))))
-        (add-class! (program cx)
+        (add-class! (Context-program cx)
                     (Class id (map Ident-name params)
                            (map (lambda (signature) (declare-method! cx env scope id params self signature))
                                 (match (form-tail form) ((Cons _ signatures) signatures) ((Nil) (Nil))))))))
@@ -755,7 +768,7 @@
       (match signature
         ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
          (let ((own (resolve-scheme cx scope type)) (global (global-binding cx env name)))
-           (add-value! (program cx) global
+           (add-value! (Context-program cx) global
                        (Method class (Scheme (append (map Ident-name params) (Scheme-vars own)) (Cons self (Scheme-constraints own))
                                              (Scheme-type own))))
            global))
@@ -773,7 +786,7 @@
                 (methods (map (lambda (definition) (instance-method cx env class instance definition)) (Pair-second parts))))
            (check-instance-methods class methods loc)
            (check-overlap (program cx) instance loc)
-           (add-instance! (program cx)
+           (add-instance! (Context-program cx)
                           (Instance-methods-set instance
                                                 (map (lambda (method) (Pair (MethodDefinition-method method) (MethodDefinition-global method)))
                                                      methods)))
@@ -815,10 +828,10 @@
                        ((Some method) method)
                        ((None) (compile-error (syntax-loc ident) (string-append "not a method of this class: " (Ident-name ident))))))
              (global (fresh-global cx (short-name method))))
-        (add-value! (program cx) global (Defined (Some (instance-method-scheme (program cx) class method instance))))
-        (MethodDefinition method global (lambda () (add-item! (program cx) (Define global (definition-value cx env definition)))))))
+        (add-value! (Context-program cx) global (Defined (Some (instance-method-scheme (program cx) class method instance))))
+        (MethodDefinition method global (lambda () (add-item! (Context-program cx) (Define global (definition-value cx env definition)))))))
 
-    (: instance-method-scheme (-> Program Class String Instance Scheme ! mut))
+    (: instance-method-scheme (-> Program Class String Instance Scheme))
     (define (instance-method-scheme program class method instance)
       (match (program-value program method)
         ((Some (Method _ (Scheme method-vars (Cons _ own) type)))
@@ -830,7 +843,7 @@
 
     ;; Instance selection matches heads, so two heads may never both match
     ;; the same types. A type variable in either head matches anything.
-    (: check-overlap (-> Program Instance Loc Unit ! mut))
+    (: check-overlap (-> Program Instance Loc Unit))
     (define (check-overlap program instance loc)
       (for-each (lambda (other)
                   (when (heads-overlap? (Instance-types instance) (Instance-types other))
@@ -872,7 +885,7 @@
     (define (declare-extern! cx env form)
       (match form
         ((Form (Cons _ (Cons name (Cons (Atom (DString module) _) (Cons (Atom (DString symbol) _) (Cons type (Nil)))))) _)
-         (add-value! (program cx) (global-binding cx env name)
+         (add-value! (Context-program cx) (global-binding cx env name)
                      (Foreign (Import module symbol) (mono-scheme (resolve-type cx env type)))))
         (_ (compile-error (syntax-loc form) "expected (extern name \"module\" \"symbol\" type)"))))
 
@@ -882,7 +895,7 @@
       (match form
         ((Form (Cons _ (Cons name (Cons operations host))) _)
          (let ((id (match (resolve cx env name) ((Some (EffectName id)) id) (_ (panic "internal error: effect")))))
-           (add-effect! (program cx)
+           (add-effect! (Context-program cx)
                         (Effect id
                                 (map (lambda (operation) (declare-operation! cx env id operation))
                                      (form-items operations "a list of operations"))
@@ -898,7 +911,7 @@
          (match (resolve-scheme cx env type)
            ((Scheme vars constraints (TFun params result (TRow (Nil) (None))))
             (let ((global (global-binding cx env name)))
-              (add-value! (program cx) global
+              (add-value! (Context-program cx) global
                           (Operation effect (Scheme vars constraints (TFun params result (TRow (list effect) (None))))))
               global))
            (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
@@ -1218,10 +1231,10 @@
       (match (ref-get (Context-deriving cx))
         ((Some scope) scope)
         ((None)
-         (let* ((table (make-table)) (env (Top table (None))))
-           (for-each (lambda (entry) (table-set! table (Pair-first entry) (Pair-second entry)))
-                     (concatenate (map (lambda (name) (load-library cx name loc))
-                                       (list (list "lofi" "core") (list "lofi" "primitive") (list "lofi" "wire")))))
+         (let* ((exports (concatenate (map (lambda (name) (load-library cx name loc))
+                                           (list (list "lofi" "core") (list "lofi" "primitive") (list "lofi" "wire")))))
+                (table (fold-left (lambda (table entry) (table-set table (Pair-first entry) (Pair-second entry))) empty-table exports))
+                (env (Top (ref table) (None))))
            (let ((scope (register-scope! cx env)))
              (ref-set! (Context-deriving cx) (Some scope))
              scope)))))
@@ -1371,7 +1384,7 @@
     (define (define-local-macro cx env form)
       (let* ((parts (macro-form form)) (scope (register-scope! cx env))
              (inner (extend env (MacroForm-name parts) (Macro (fresh cx "%macro") (MacroForm-literals parts) (MacroForm-rules parts) scope))))
-        (table-set! (Context-scopes cx) (i64->string scope) inner)
+        (set-scope! cx scope inner)
         inner))
 
     (: apply-macro (-> Context Env Syntax (List Syntax) (List Syntax) I64 Syntax ! mut))
@@ -1383,7 +1396,7 @@
            (match rule
              ((Form (Cons (Form (Cons _ pattern) _) (Cons template (Nil))) _)
               (match (match-pattern cx (Form pattern loc) (Form (form-tail form) loc) literals env (scope-env cx scope))
-                ((Some bindings) (transcribe template bindings (Expansion (make-table) (fresh cx "m") scope loc)))
+                ((Some bindings) (transcribe template bindings (Expansion (ref empty-table) (fresh cx "m") scope loc)))
                 ((None) (apply-macro cx env form literals more scope))))
              (_ (compile-error (syntax-loc rule) "expected ((_ pattern ...) template)")))))))
 
@@ -1492,7 +1505,7 @@
     ;; One expansion: identifiers the template introduces share one mark per
     ;; name, and every introduced form is located at the macro use.
     (struct Expansion
-      ((renames (Table Syntax))
+      ((renames (Ref (Table Syntax)))
        (stamp String)
        (scope I64)
        (loc Loc)))
@@ -1548,13 +1561,13 @@
     (: rename-ident (-> Syntax Expansion Syntax ! mut))
     (define (rename-ident ident expansion)
       (let ((key (ident-key ident)))
-        (match (table-ref (Expansion-renames expansion) key)
+        (match (table-ref (ref-get (Expansion-renames expansion)) key)
           ((Some renamed) renamed)
           ((None)
            (let ((renamed (Ident (Ident-name ident)
                                  (Some (Mark (string-append key "%" (Expansion-stamp expansion)) ident (Expansion-scope expansion)))
                                  (Expansion-loc expansion))))
-             (table-set! (Expansion-renames expansion) key renamed)
+             (ref-set! (Expansion-renames expansion) (table-set (ref-get (Expansion-renames expansion)) key renamed))
              renamed)))))
 
     ))

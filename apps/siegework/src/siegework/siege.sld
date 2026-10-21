@@ -269,13 +269,13 @@
         ((Some b) (Building-cell b))
         ((None) (Hub-cell (World-hub world)))))
 
-    ;; The turret an enemy turned on while it stands, else its target while
-    ;; that stands; with neither it heads for the hub.
+    ;; The turret an enemy turned on while it stands, else the outpost it
+    ;; raids while that stands; with neither it heads for the hub.
     (: target-building (-> World Enemy (Option Building)))
     (define (target-building world enemy)
       (match (standing world (Enemy-aggro enemy))
         ((Some b) (Some b))
-        ((None) (standing world (Enemy-target enemy)))))
+        ((None) (standing world (Enemy-raid enemy)))))
 
     (: standing (-> World (Option I64) (Option Building)))
     (define (standing world id)

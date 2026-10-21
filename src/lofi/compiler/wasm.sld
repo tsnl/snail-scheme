@@ -48,6 +48,10 @@
           (reverse (Cons ")\n" (fold-left (lambda (pieces field) (write-field field (Cons "\n  " pieces))) (list "(module") fields)))))
         (_ (panic "internal error: not a module"))))
 
+    (: field->string (-> Wat String))
+    (define (field->string field)
+      (string-concatenate (reverse (write-field field (Nil)))))
+
     (: write-field (-> Wat (List String) (List String)))
     (define (write-field field pieces)
       (match field
@@ -123,25 +127,38 @@
     ;; ---- Module state ----
 
     ;; Every GC type lives in one recursion group, registered on first use.
-    ;; `memo` caches closures for global functions, singletons and string
-    ;; literals; `helpers` caches imports and helper functions by key.
+    ;; Functions are kept as text, other fields as trees. `memo` caches
+    ;; closures for global functions, singletons and string literals;
+    ;; `helpers` caches imports and helper functions by key.
     (struct Module
       ((program Program)
        (definitions (Table Expr))
-       (type-ids (Table String))
+       (type-ids (Ref (Table String)))
        (types (Ref (List Wat)))
        (imports (Ref (List Wat)))
        (globals (Ref (List Wat)))
-       (functions (Ref (List Wat)))
+       (functions (Ref (List String)))
        (declared (Ref (List String)))
        (exports (Ref (List Wat)))
-       (memo (Table Wat))
-       (helpers (Table String))
+       (memo (Ref (Table Wat)))
+       (helpers (Ref (Table String)))
        (counter (Ref I64))))
 
     (: push! (All (T) (-> (Ref (List T)) T Unit ! mut)))
     (define (push! cell value)
       (ref-set! cell (Cons value (ref-get cell))))
+
+    ;; Replaces a cell's table with one that maps `key` to `value`.
+    (: put! (All (V) (-> (Ref (Table V)) String V Unit ! mut)))
+    (define (put! cell key value)
+      (ref-set! cell (table-set (ref-get cell) key value)))
+
+    ;; A function is written out as soon as it is emitted. The module's
+    ;; functions are most of its text, and holding their trees until the end
+    ;; made every collection copy them.
+    (: push-function! (-> Module Wat Unit ! mut))
+    (define (push-function! m function)
+      (push! (Module-functions m) (field->string function)))
 
     (: next-number! (-> Module I64 ! mut))
     (define (next-number! m)
@@ -151,11 +168,11 @@
 
     (: memoize! (-> Module String (-> Wat ! mut) Wat ! mut))
     (define (memoize! m key make)
-      (match (table-ref (Module-memo m) key)
+      (match (table-ref (ref-get (Module-memo m)) key)
         ((Some value) value)
         ((None)
          (let ((value (make)))
-           (table-set! (Module-memo m) key value)
+           (put! (Module-memo m) key value)
            value))))
 
     (: program-of (-> Module Program))
@@ -271,13 +288,13 @@
 
     (: register-type! (-> Module String String Wat String ! mut))
     (define (register-type! m key type definition)
-      (table-set! (Module-type-ids m) key type)
+      (put! (Module-type-ids m) key type)
       (push! (Module-types m) definition)
       type)
 
     (: known-type (-> Module String (Option String) ! mut))
     (define (known-type m key)
-      (table-ref (Module-type-ids m) key))
+      (table-ref (ref-get (Module-type-ids m)) key))
 
     (: array-type (-> Module Rep String ! mut))
     (define (array-type m element)
@@ -304,8 +321,8 @@
           ((Some type) type)
           ((None)
            (let ((closure (wasm-id key)) (code (wasm-id (string-append "fn." signature))))
-             (table-set! (Module-type-ids m) key closure)
-             (table-set! (Module-type-ids m) (string-append "code:" closure) code)
+             (put! (Module-type-ids m) key closure)
+             (put! (Module-type-ids m) (string-append "code:" closure) code)
              (register-type! m (string-append "fn." signature) code
                              (wat "type" (id code)
                                   (wat* "func" (append (Cons (wat "param" (wat "ref" (id closure)))
@@ -326,16 +343,16 @@
         ((TFun params result _) (Pair (map (lambda (param) (rep m param)) params) (rep m result)))
         (_ (panic "internal error: not a function type"))))
 
-    (: data-type-of (-> Module String DataType ! mut))
+    (: data-type-of (-> Module String DataType))
     (define (data-type-of m name)
       (program-type (program-of m) name))
 
-    (: tag-enum? (-> Module String Bool ! mut))
+    (: tag-enum? (-> Module String Bool))
     (define (tag-enum? m name)
       (let ((data (data-type-of m name)))
         (and (DataType-enum? data) (every? (lambda (case) (null? (Case-fields case))) (DataType-cases data)))))
 
-    (: case-field-types (-> Module Type Case (List Type) ! mut))
+    (: case-field-types (-> Module Type Case (List Type)))
     (define (case-field-types m type case)
       (match type
         ((TCon name args)
@@ -364,7 +381,7 @@
           ((Some found) found)
           ((None)
            (let ((type-id (wasm-id key)) (data (data-type-of m (type-name type))))
-             (table-set! (Module-type-ids m) key type-id)
+             (put! (Module-type-ids m) key type-id)
              (if (DataType-enum? data)
                  (begin (push! (Module-types m) (wat "type" (id type-id) (wat "sub" (wat "struct" (wat "field" (Word "i32"))))))
                         (for-each (lambda (case) (case-type m type case) (unit))
@@ -393,18 +410,18 @@
     (struct Fn
       ((module Module)
        (locals (Ref (List Wat)))
-       (access (Table Wat))
-       (reps (Table Rep))
+       (access (Ref (Table Wat)))
+       (reps (Ref (Table Rep)))
        (self (Option (Pair String String)))))
 
     (: new-fn (-> Module Fn ! mut))
     (define (new-fn m)
-      (Fn m (ref (Nil)) (make-table) (make-table) (None)))
+      (Fn m (ref (Nil)) (ref empty-table) (ref empty-table) (None)))
 
     (: bind-local! (-> Fn String Wat Rep Unit ! mut))
     (define (bind-local! fn name read rep)
-      (table-set! (Fn-access fn) name read)
-      (table-set! (Fn-reps fn) name rep))
+      (put! (Fn-access fn) name read)
+      (put! (Fn-reps fn) name rep))
 
     (: declare-local! (-> Fn String Rep String ! mut))
     (define (declare-local! fn name rep)
@@ -422,11 +439,11 @@
 
     (: local-access (-> Fn String (Option Wat) ! mut))
     (define (local-access fn name)
-      (table-ref (Fn-access fn) name))
+      (table-ref (ref-get (Fn-access fn)) name))
 
     (: local? (-> Fn String Bool ! mut))
     (define (local? fn name)
-      (table-contains? (Fn-access fn) name))
+      (table-contains? (ref-get (Fn-access fn)) name))
 
     (: fn-rep (-> Fn Type Rep ! mut))
     (define (fn-rep fn type)
@@ -454,7 +471,7 @@
          (let* ((fn (new-fn m)) (signature (function-signature m (Expr-type function))) (reps (Pair-first signature)))
            (bind-params! fn params reps)
            (let ((code (emit fn body #t)))
-             (push! (Module-functions m) (function-wat fn (wasm-id name) (param-wats params reps) (Pair-second signature) code)))))
+             (push-function! m (function-wat fn (wasm-id name) (param-wats params reps) (Pair-second signature) code)))))
         (_ (panic "internal error: not a function"))))
 
     ;; ---- Expressions ----
@@ -617,7 +634,7 @@
 
     (: capture-rep (-> Fn String Rep ! mut))
     (define (capture-rep fn name)
-      (match (table-ref (Fn-reps fn) name)
+      (match (table-ref (ref-get (Fn-reps fn)) name)
         ((Some rep) rep)
         ((None) (panic (string-append "internal error: no representation for " name)))))
 
@@ -633,11 +650,11 @@
            (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t)))
              ;; The function's type must be the closure's code type itself,
              ;; not a structurally equal one, for `ref.func` to fit the field.
-             (push! (Module-functions m)
-                    (function-wat fn function-id
-                                  (Cons (wat "type" (id (code-type m base)))
-                                        (Cons (wat "param" (Word "$closure") (wat "ref" (id base))) (param-wats params reps)))
-                                  (Pair-second signature) (append loads code)))
+             (push-function! m
+                             (function-wat fn function-id
+                                           (Cons (wat "type" (id (code-type m base)))
+                                                 (Cons (wat "param" (Word "$closure") (wat "ref" (id base))) (param-wats params reps)))
+                                           (Pair-second signature) (append loads code)))
              function-id)))
         (_ (panic "internal error: not a lambda"))))
 
@@ -784,11 +801,11 @@
     (: import! (-> Module Import (List Rep) (Option Rep) String ! mut))
     (define (import! m import params result)
       (let ((key (string-append "import:" (Import-module import) ":" (Import-symbol import))))
-        (match (table-ref (Module-helpers m) key)
+        (match (table-ref (ref-get (Module-helpers m)) key)
           ((Some function-id) function-id)
           ((None)
            (let ((function-id (wasm-id (string-append "import." (Import-symbol import)))))
-             (table-set! (Module-helpers m) key function-id)
+             (put! (Module-helpers m) key function-id)
              (push! (Module-imports m)
                     (wat "import" (wat-string (Import-module import)) (wat-string (Import-symbol import))
                          (wat* "func" (Cons (id function-id)
@@ -947,7 +964,7 @@
           ((Some type) type)
           ((None)
            (let ((type-id (wasm-id key)))
-             (table-set! (Module-type-ids m) key type-id)
+             (put! (Module-type-ids m) key type-id)
              (let ((fields (map (lambda (operation) (wat "field" (rep->wat (rep m (operation-type m operation)))))
                                 (Effect-operations (program-effect (program-of m) effect)))))
                (push! (Module-types m) (wat "type" (id type-id) (wat* "struct" (append fields (list (wat "field" (wat "ref" (Word "null") (id type-id))))))))
@@ -955,7 +972,7 @@
                       (wat "global" (id (handler-global effect)) (wat "mut" (wat "ref" (Word "null") (id type-id))) (wat "ref.null" (id type-id))))
                type-id))))))
 
-    (: operation-type (-> Module String Type ! mut))
+    (: operation-type (-> Module String Type))
     (define (operation-type m operation)
       (match (program-value (program-of m) operation)
         ((Some (Operation _ (Scheme _ _ (TFun params result _)))) (TFun params result empty-row))
@@ -1122,12 +1139,12 @@
     (: helper! (-> Module String String (-> String Wat ! mut) String ! mut))
     (define (helper! m prefix key make)
       (let ((full-key (string-append prefix ":" key)))
-        (match (table-ref (Module-helpers m) full-key)
+        (match (table-ref (ref-get (Module-helpers m)) full-key)
           ((Some function-id) function-id)
           ((None)
            (let ((function-id (fresh-id m prefix)))
-             (table-set! (Module-helpers m) full-key function-id)
-             (push! (Module-functions m) (make function-id))
+             (put! (Module-helpers m) full-key function-id)
+             (push-function! m (make function-id))
              function-id)))))
 
     (: template-helper! (-> Module String String String (List (Pair String String)) String ! mut))
@@ -1261,14 +1278,14 @@
     ;; `main` initializes the globals and runs the statements in program order.
     (: emit-module (-> Mono Wat ! mut))
     (define (emit-module mono)
-      (let ((m (Module (Mono-program mono) (make-table) (make-table) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil))
-                       (make-table) (make-table) (ref 0)))
-            (items (Mono-items mono)))
-        (for-each (lambda (item)
-                    (match item
-                      ((Define name value) (table-set! (Module-definitions m) name value))
-                      (_ (unit))))
-                  items)
+      (let* ((items (Mono-items mono))
+             (definitions (fold-left (lambda (table item)
+                                       (match item
+                                         ((Define name value) (table-set table name value))
+                                         (_ table)))
+                                     empty-table items))
+             (m (Module (Mono-program mono) definitions (ref empty-table) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil))
+                        (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0))))
         (for-each (lambda (item)
                     (match item
                       ((Define name value) (when (lambda-expr? value) (emit-function! m name value)))
@@ -1289,16 +1306,16 @@
                      (reverse (ref-get (Module-globals m)))
                      (if (null? declared) (Nil) (list (wat* "elem" (Cons (Word "declare") (Cons (Word "func") (map id declared))))))
                      (reverse (ref-get (Module-exports m)))
-                     (reverse (ref-get (Module-functions m))))))))
+                     (map Word (reverse (ref-get (Module-functions m)))))))))
 
     (: emit-main! (-> Module (List Item) Unit ! mut))
     (define (emit-main! m items)
       (let* ((fn (new-fn m)) (code (concatenate (map (lambda (item) (main-item-code m fn item)) items))))
-        (push! (Module-functions m)
-               (wat* "func" (Cons (Word "$main")
-                                  (Cons (wat "export" (wat-string "main"))
-                                        (Cons (wat "result" (Word "i32"))
-                                              (append (reverse (ref-get (Fn-locals fn))) (append code (list (wat "i32.const" (int 0))))))))))))
+        (push-function! m
+                        (wat* "func" (Cons (Word "$main")
+                                           (Cons (wat "export" (wat-string "main"))
+                                                 (Cons (wat "result" (Word "i32"))
+                                                       (append (reverse (ref-get (Fn-locals fn))) (append code (list (wat "i32.const" (int 0))))))))))))
 
     ;; A value becomes a mutable global set at startup; a statement runs and
     ;; its value is dropped; an exposed function is exported.

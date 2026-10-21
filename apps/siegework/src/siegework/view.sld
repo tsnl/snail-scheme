@@ -112,13 +112,13 @@
 
     ;; A biome's ground colors: open ground in three sunny tones where
     ;; powered buildings see and a fourth where they no longer do, sand for
-    ;; shores, then water, ice, dug rock and rock.
+    ;; shores where the biome has them, then water, ice, dug rock and rock.
     (struct Tileset
       ((light I32)
        (middle I32)
        (deep I32)
        (unseen I32)
-       (shore I32)
+       (shore (Option I32))
        (water I32)
        (ice I32)
        (dug I32)
@@ -127,31 +127,38 @@
     (: tileset (-> Biome Tileset))
     (define (tileset biome)
       (match biome
-        ((Meadow) (Tileset (rgb 154 224 74) (rgb 121 211 78) (rgb 95 190 70) (rgb 67 144 113) (rgb 236 212 140)
+        ((Meadow) (Tileset (rgb 154 224 74) (rgb 121 211 78) (rgb 95 190 70) (rgb 67 144 113) (None)
                            (rgb 54 126 238) (rgb 190 232 246) (rgb 174 139 95) (rgb 196 204 179)))
-        ((Desert) (Tileset (rgb 250 222 160) (rgb 241 206 136) (rgb 230 190 116) (rgb 168 150 110) (rgb 250 222 160)
+        ((Desert) (Tileset (rgb 250 222 160) (rgb 241 206 136) (rgb 230 190 116) (rgb 168 150 110) (None)
                            (rgb 54 126 238) (rgb 190 232 246) (rgb 196 150 104) (rgb 212 120 78)))
-        ((Tundra) (Tileset (rgb 250 252 255) (rgb 234 242 248) (rgb 220 232 242) (rgb 138 168 186) (rgb 220 232 242)
+        ((Tundra) (Tileset (rgb 250 252 255) (rgb 234 242 248) (rgb 220 232 242) (rgb 138 168 186) (None)
                            (rgb 54 126 238) (rgb 160 220 242) (rgb 150 142 134) (rgb 122 136 154)))
-        ((Archipelago) (Tileset (rgb 142 224 98) (rgb 114 208 92) (rgb 90 188 86) (rgb 67 144 113) (rgb 244 222 158)
+        ((Archipelago) (Tileset (rgb 142 224 98) (rgb 114 208 92) (rgb 90 188 86) (rgb 67 144 113) (Some (rgb 244 222 158))
                                 (rgb 36 128 214) (rgb 190 232 246) (rgb 174 139 95) (rgb 116 110 112)))))
 
-    ;; Open ground in its biome's tone: shaded in a fixed pattern where it is
-    ;; seen, and a shore beside an archipelago's water.
+    ;; Open ground out of sight is faded. In sight it is a shore beside
+    ;; explored water where the biome has shores, and otherwise shaded in a
+    ;; fixed pattern.
     (: open-paint (-> World Tileset Cell Paint))
     (define (open-paint world tiles cell)
-      (let ((x (Cell-x cell)) (y (Cell-y cell)))
-        (Paint (cond ((not (visible? world cell)) (Tileset-unseen tiles))
-                     ((shore? world cell) (Tileset-shore tiles))
-                     ((= (remainder (+ (* x 13) (* y 7)) 5) 0) (Tileset-light tiles))
-                     ((= (remainder (+ x (* y 3)) 3) 0) (Tileset-deep tiles))
-                     (else (Tileset-middle tiles)))
-               0.0)))
+      (Paint (if (visible? world cell)
+                 (match (Tileset-shore tiles)
+                   ((Some shore) (if (beside-water? world cell) shore (open-tone tiles cell)))
+                   ((None) (open-tone tiles cell)))
+                 (Tileset-unseen tiles))
+             0.0))
 
-    (: shore? (-> World Cell Bool))
-    (define (shore? world cell)
-      (and (match (Land-biome (World-land world)) ((Archipelago) #t) (_ #f))
-           (any? (lambda (n) (match (ground-at (World-land world) n) ((Water) #t) (_ #f))) (neighbors cell))))
+    (: open-tone (-> Tileset Cell I32))
+    (define (open-tone tiles cell)
+      (let ((x (Cell-x cell)) (y (Cell-y cell)))
+        (cond ((= (remainder (+ (* x 13) (* y 7)) 5) 0) (Tileset-light tiles))
+              ((= (remainder (+ x (* y 3)) 3) 0) (Tileset-deep tiles))
+              (else (Tileset-middle tiles)))))
+
+    ;; Unexplored water does not count, so a shore never gives it away.
+    (: beside-water? (-> World Cell Bool))
+    (define (beside-water? world cell)
+      (any? (lambda (n) (and (explored? world n) (match (ground-at (World-land world) n) ((Water) #t) (_ #f)))) (neighbors cell)))
 
     ;; Rock is a grey peak in meadows and on islands, a flat-topped mesa in
     ;; the desert, and a snow-capped peak in the tundra. Dug rock is a floor.
@@ -454,7 +461,7 @@
     (: enemy-bar (-> F32 World Enemy (List Item)))
     (define (enemy-bar yaw world enemy)
       (let ((span (enemy-span world enemy)))
-        (bar-items yaw (Pair-first span) (Pair-second span) (+ 0.9 (* 0.25 (i64->f32 (Enemy-rank enemy)))) (Enemy-health enemy) (Enemy-maximum enemy)
+        (bar-items yaw (Pair-first span) (Pair-second span) 1.0 (+ 0.9 (* 0.25 (i64->f32 (Enemy-rank enemy)))) (Enemy-health enemy) (Enemy-maximum enemy)
                    health-paint)))
 
     ;; ---- Bars ----
@@ -470,46 +477,50 @@
       (let ((turn (+ 0.7853982 angle)) (full 6.2831855))
         (- turn (* full (floor (/ turn full))))))
 
-    ;; A dark frame a cell wide with a fill for `amount` of `capacity`,
+    ;; A dark frame `width` wide with a fill for `amount` of `capacity`,
     ;; `height` above a point moving from `from` to `to`, turned by `yaw` to
-    ;; face the camera.
-    (: bar-items (-> F32 Vec3 Vec3 F32 I64 I64 Paint (List Item)))
-    (define (bar-items yaw from to height amount capacity paint)
-      (travel (bar-parts 1.0 height amount capacity paint) from to yaw))
-
-    (: bar-parts (-> F32 F32 I64 I64 Paint (List Item)))
-    (define (bar-parts width height amount capacity paint)
+    ;; face the camera. A still bar moves from its cell to the same cell.
+    (: bar-items (-> F32 Vec3 Vec3 F32 F32 I64 I64 Paint (List Item)))
+    (define (bar-items yaw from to width height amount capacity paint)
       (let ((fill (* (* 0.9 width) (/ (i64->f32 (max 0 amount)) (i64->f32 (max 1 capacity))))))
-        (list (block (Paint (rgb 13 20 32) 1.0) 0.0 0.0 height width 0.03 0.18)
-              (block paint (- (/ fill 2.0) (* 0.45 width)) -0.02 height fill 0.03 0.1))))
+        (travel (list (block (Paint (rgb 13 20 32) 1.0) 0.0 0.0 height width 0.03 0.18)
+                      (block paint (- (/ fill 2.0) (* 0.45 width)) -0.02 height fill 0.03 0.1))
+                from to yaw)))
 
-    (: still-bar (-> F32 Cell F32 I64 I64 Paint (List Item)))
-    (define (still-bar yaw cell height amount capacity paint)
-      (bar-items yaw (cell-point cell 0.0) (cell-point cell 0.0) height amount capacity paint))
+    (: still-bar (-> F32 Cell F32 F32 I64 I64 Paint (List Item)))
+    (define (still-bar yaw cell width height amount capacity paint)
+      (bar-items yaw (cell-point cell 0.0) (cell-point cell 0.0) width height amount capacity paint))
 
     ;; Damaged buildings show their health, unfinished work its progress, and
     ;; mined crystals what they have left.
     (: building-bars (-> F32 World Building (List Item)))
     (define (building-bars yaw world b)
       (append (if (< (Building-health b) (kind-health (Building-kind b)))
-                  (still-bar yaw (Building-cell b) 1.2 (Building-health b) (kind-health (Building-kind b)) health-paint)
+                  (still-bar yaw (Building-cell b) 1.0 1.2 (Building-health b) (kind-health (Building-kind b)) health-paint)
                   (Nil))
               (match (Building-work b)
-                ((Some work) (still-bar yaw (Building-cell b) 1.0 (Work-progress work) (Work-duration work) progress-paint))
+                ((Some work) (still-bar yaw (Building-cell b) 1.0 1.0 (Work-progress work) (Work-duration work) progress-paint))
                 ((None) (Nil)))))
 
     (: crystal-bars (-> F32 World (List Item)))
     (define (crystal-bars yaw world)
-      (concatenate (map (lambda (c) (still-bar yaw (Crystal-cell c) 0.75 (Crystal-reserve c) (* reserve-per-rate (Crystal-rate c)) reserve-paint))
+      (concatenate (map (lambda (c) (still-bar yaw (Crystal-cell c) 1.0 0.75 (Crystal-reserve c) (* reserve-per-rate (Crystal-rate c)) reserve-paint))
                         (filter (lambda (c) (match (building-at world (Crystal-cell c)) ((Some _) #t) ((None) #f))) (World-crystals world)))))
 
     (: hub-bars (-> F32 World (List Item)))
     (define (hub-bars yaw world)
       (let ((hub (World-hub world)))
-        (append (still-bar yaw (Hub-cell hub) 1.25 (Hub-health hub) hub-health health-paint)
+        (append (still-bar yaw (Hub-cell hub) 1.0 1.25 (Hub-health hub) hub-health health-paint)
                 (match (Hub-work hub)
-                  ((Some work) (still-bar yaw (Hub-cell hub) 1.05 (Work-progress work) (Work-duration work) progress-paint))
+                  ((Some work) (still-bar yaw (Hub-cell hub) 1.0 1.05 (Work-progress work) (Work-duration work) progress-paint))
                   ((None) (Nil))))))
+
+    ;; Each living nest that has been found shows its health in a wide bar
+    ;; above its spire.
+    (: nest-bars (-> F32 World (List Item)))
+    (define (nest-bars yaw world)
+      (concatenate (map (lambda (nest) (still-bar yaw (Nest-cell nest) 2.4 3.2 (Nest-health nest) nest-health health-paint))
+                        (filter (lambda (nest) (and (> (Nest-health nest) 0) (explored? world (Nest-cell nest)))) (World-nests world)))))
 
     ;; ---- Combat ----
 
@@ -571,13 +582,6 @@
     (define (bar-batch-items world yaw)
       (concatenate (list (concatenate (map (lambda (e) (enemy-bar yaw world e)) (seen-enemies world))) (hub-bars yaw world) (crystal-bars yaw world)
                          (concatenate (map (lambda (b) (building-bars yaw world b)) (World-buildings world))) (nest-bars yaw world))))
-
-    ;; Each living nest that has been found shows its health in a wide bar
-    ;; above its spire.
-    (: nest-bars (-> F32 World (List Item)))
-    (define (nest-bars yaw world)
-      (concatenate (map (lambda (nest) (place (bar-parts 2.4 3.2 (Nest-health nest) nest-health health-paint) (cell-point (Nest-cell nest) 0.0) yaw))
-                        (filter (lambda (nest) (and (> (Nest-health nest) 0) (explored? world (Nest-cell nest)))) (World-nests world)))))
 
     ;; ---- Cursor and previews ----
 
