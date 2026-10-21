@@ -56,7 +56,8 @@ alerts take you to the attack or silence that area for eight seconds.
 
 | Key | Action |
 | --- | --- |
-| 1, 2, 3 | Build an extractor, pylon or turret on the selected cell |
+| 1 | Build a pylon on the selected cell |
+| 2 | Build a turret on the selected cell, or an extractor on a crystal |
 | U | Upgrade the selection, or add a build slot at the hub |
 | R | Rush the selected work, or make new buildings rushed |
 | C, X | Cancel the selected work, scavenge the selected building |

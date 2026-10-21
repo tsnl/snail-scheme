@@ -121,12 +121,13 @@
         ((Pylon) "pylon")
         ((Turret) "turret")))
 
+    ;; An extractor takes the turret's key on a crystal.
     (: kind-key (-> Kind String))
     (define (kind-key kind)
       (match kind
-        ((Extractor) "1")
-        ((Pylon) "2")
-        ((Turret) "3")))
+        ((Pylon) "1")
+        ((Turret) "2")
+        ((Extractor) "2")))
 
     ;; Building choices: an extractor on a crystal, a pylon or turret
     ;; elsewhere. The rush toggle shows what rushing adds.
