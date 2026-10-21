@@ -41,4 +41,5 @@
        (release? (and (pair? rest) (string=? (car rest) "--release")))
        (paths (if release? (cdr rest) rest)))
   (unless (= (length paths) 2) (error "usage: build-app [--release] APP-DIRECTORY OUTPUT-DIRECTORY"))
-  (exit (package root release? (absolute (car paths)) (absolute (cadr paths)))))
+  (exit (guard (failure (#t (report-failure "build-app" failure)))
+          (package root release? (absolute (car paths)) (absolute (cadr paths))))))
