@@ -85,7 +85,7 @@ for (let y = 10; y < 640 && !crystal; y += 20)
 assert.ok(crystal, 'a crystal is in view');
 game.app_input(PRESS, crystal.action, crystal.argument, 0, 0);
 assert.equal(widget(host, 'energy').text, '135');
-assert.ok(widget(host, 'queue-0'), 'the extractor is queued');
+assert.ok(widget(host, 'title').text.startsWith('Extractor 1'), 'the first extractor is ready at once');
 for (let i = 0; i < 3000; i++) game.app_input(TICK, 0, 0, 0, 0);
 game.app_frame(0.5);
 const readouts = h => ['energy', 'health', 'slots', 'threat', 'elapsed'].map(key => widget(h, key)?.text);

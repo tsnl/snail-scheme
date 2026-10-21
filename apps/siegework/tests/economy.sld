@@ -1,5 +1,6 @@
-;; A scripted colony on seed 1: an extractor on the starter crystal, then
-;; its upgrade and a scavenged pylon. Energy always equals the starting
+;; A scripted colony on seed 1: an extractor on the starter crystal, ready
+;; at once as every colony's first is, then its upgrade and a scavenged
+;; pylon. Energy always equals the starting
 ;; energy plus what was produced minus what was spent, net of refunds.
 (import
  (lofi base)
@@ -41,18 +42,17 @@
   (report world)
   (write-line (string-append "advancing before the first order changes nothing: " (show (= (World-tick (run world 50)) 0))))
   (define world (order world (Build (Extractor) starter #f)))
-  (define world (run world 200))
-  (report world)
+  (write-line (string-append "the first extractor is ready at once: " (show (match (building-at world starter) ((Some b) (built? b)) ((None) #f)))))
   (define world (run world 100))
   (report world)
   (write-line (string-append "starter reserve " (show (reserve world starter))))
   (define world (order world (Upgrade starter)))
-  (define world (run world 200))
+  (define world (run world 100))
   (report world)
   (define world (run world 100))
   (report world)
   (define world (order world (Build (Pylon) (Cell 38 46) #f)))
-  (define world (run world 150))
+  (define world (run world 60))
   (report world)
   (define world (order world (Scavenge (Cell 38 46))))
   (report world)
