@@ -501,10 +501,11 @@
       (let ((ledger (World-ledger world)))
         (World-ledger-set world (Ledger-lost-set (Ledger-kills-set ledger (+ (Ledger-kills ledger) kills)) (+ (Ledger-lost ledger) lost)))))
 
-    ;; Destroying every nest wins, even on the tick the hub falls.
+    ;; Destroying every nest wins, even on the tick the hub falls. Either way
+    ;; the whole map is uncovered for inspection.
     (: judge (-> World World))
     (define (judge world)
-      (cond ((null? (living-nests world)) (World-outcome-set world (Won)))
+      (cond ((null? (living-nests world)) (uncover (World-outcome-set world (Won))))
             ((= (Hub-health (World-hub world)) 0) (uncover (World-outcome-set world (Lost))))
             (else world)))
 
