@@ -1,19 +1,20 @@
 // Runs the compiled game without a browser: a recording screen host, taps
 // that select cells, an order given through the HUD's card, five minutes of
-// play, and a save replayed through the application entry points.
+// play, a drag of the camera, and a save replayed through the application
+// entry points.
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-const ELAPSED = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_DOWN = 3;
+const ELAPSED = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3;
 
-// Records each frame's batches and the latest HUD's widgets.
+// Records each frame's camera and batches, and the latest HUD's widgets.
 function screen() {
   const host = {frames: [], widgets: [], imports: null};
   let frame = null, widget = null, field = null, widgets = null;
   const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
   host.imports = {
     'frame-begin'() { frame = {batches: []}; },
-    camera() {},
+    camera(...values) { frame.camera = values; },
     light() {},
     'batch-begin'(key, version) { frame.batches.push({key, version, items: 0}); return 0; },
     instance() { frame.batches.at(-1).items++; },
@@ -95,6 +96,14 @@ game.app_frame();
 const readouts = h => ['health', 'energy', 'threat', 'elapsed'].map(key => widget(h, key)?.text);
 console.log(readouts(host).join(' | '));
 
+// A drag pans the camera away from the hub.
+const resting = host.frames.at(-1).camera;
+game.app_input(POINTER_DOWN, 1, 480, 320, 0);
+game.app_input(POINTER_MOVE, 1, 380, 260, 0);
+game.app_input(POINTER_UP, 1, 380, 260, 0);
+game.app_frame();
+assert.notDeepEqual(host.frames.at(-1).camera, resting, 'the drag moves the camera');
+
 // Save, restore into a fresh instance, and compare what each shows.
 const length = game.app_save();
 const bytes = Uint8Array.from({length}, (_, i) => game.app_save_byte(i));
@@ -108,4 +117,5 @@ const elapsed = performance.now() - started;
 restored.app_input(RESIZE, 960, 640, 0, 0);
 restored.app_frame();
 assert.deepEqual(readouts(other), readouts(host));
+assert.deepEqual(other.frames.at(-1).camera, host.frames.at(-1).camera, 'the restored game looks where the saved one did');
 console.log(`a journal of ${length} bytes replays the same colony in ${elapsed.toFixed(0)} ms`);
