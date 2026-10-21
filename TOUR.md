@@ -70,18 +70,20 @@ forms.
 
 | Path | Responsibility |
 | --- | --- |
-| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile` and `wat`. |
+| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile` and `wat`; `repl` and `notebook` build a kernel and start a host for it. |
 | `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program. |
 | `bootstrap/compile.sld` | The compiler's entry program when it runs as Wasm. |
 | `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
-| `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
+| `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries; `(scheme eval)`, which interprets Scheme data in an environment whose definitions persist; and `(scheme runtime)`, the standard procedures of both. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
 | `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI, in a worker with room for deep recursion. |
 | `src/app/` | The browser host for `(lofi app)`: input, ticks, a WebGPU renderer, the HUD and saves. |
 | `scripts/build-app.scm` | Packages an application as a static site. |
+| `src/notebook/` | Hosts for `(lofi kernel)`: `kernel.sld`, the default kernel; `kernel.mjs`, the driver that sends text and collects output, values and errors; `worker.mjs`, a kernel in a worker; and the browser notebook in `index.html`, `notebook.mjs` and `notebook.css`. |
+| `scripts/repl.mjs` | The terminal REPL over a kernel in a Node worker. |
 | `apps/siegework/` | The example game: `grid`, `world` (all rules), `game` (input and camera) and `view`. |
 | `examples/` | Small programs; the test suite runs them. |
-| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios and a headless game. |
+| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios, a headless game, and `kernel.mjs`, which drives the default kernel. |
 
 ## Checks
 

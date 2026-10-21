@@ -35,6 +35,22 @@ first run bootstraps the compiler, which takes about a minute: Chibi runs
 its source once, and the compiled compiler then rebuilds itself whenever
 the source changes.
 
+## Interactive Scheme
+
+A kernel is a Lofi program that evaluates Scheme with typed Lofi functions
+bound as procedures. `./lofi repl` talks to one at the terminal, and
+`./lofi notebook` builds a browser notebook of cells around it:
+
+```sh
+./lofi repl
+./lofi notebook
+python3 -m http.server 4192 --directory build/notebook
+```
+
+Both use [`src/notebook/kernel.sld`](src/notebook/kernel.sld) unless given
+another kernel; the [language guide](doc/language.md#kernels) shows how to
+write one.
+
 ## Siegework
 
 [Siegework](apps/siegework) is a small colony game written in Lofi: explore a

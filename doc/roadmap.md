@@ -20,6 +20,9 @@ milestones are implemented; open items are tracked in [TODO.md](../TODO.md).
   programs into Lofi libraries.
 - Wire schema export (`lofi schema`) and bounded model checking of total
   state machines (`(lofi explore)`).
+- `(scheme eval)`, an interpreter for Scheme data; `Dynamic`, which converts
+  typed values to Scheme data and back; and kernels, which bind typed
+  functions for Scheme to call, with a terminal REPL and a browser notebook.
 
 ## Next
 
