@@ -55,8 +55,8 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .panel[data-key="message"] { max-width: 120px; border-radius: 14px; }
 /* The opening banner: the title, what to do before the game begins, and
    a link to the guide. */
-.panel[data-key="opening"] { border-radius: 22px; padding: 14px 32px 18px; gap: 6px; }
-.label[data-key="opening-title"] { color: var(--accent); font-size: 48px; font-weight: 800; letter-spacing: 1px; line-height: 1.1; }
+.panel[data-key="opening"] { max-width: none; border-radius: 22px; padding: 14px 36px 18px; gap: 6px; }
+.label[data-key="opening-title"] { color: var(--accent); font-size: 92px; font-weight: 800; letter-spacing: 2px; line-height: 1; }
 .label[data-key="opening"] { font-size: 22px; font-weight: 700; }
 .link[data-key="how-to-play"] { margin-top: 6px; padding: 6px 16px; border-radius: 16px; color: #fff9e9; background: var(--accent);
   font-weight: 700; text-decoration: none; }
@@ -64,8 +64,9 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .label[data-key="message"] { color: var(--danger); font-weight: 700; font-size: 11px; line-height: 14px; text-align: center; }
 .button[data-key="close"] .text { font-size: 9px; }
 
-/* The queue: small chips, a ring while building, dimmed when unpowered. */
-.panel[data-key="queue"] { padding: 6px; }
+/* The queue: small chips, a ring while building, dimmed when unpowered.
+   Wider padding centers them under the full-size buttons above. */
+.panel[data-key="queue"] { padding: 6px 16px; }
 .panel[data-key="queue"] .button { width: 40px; height: 40px; }
 .panel[data-key="queue"] .button .icon { width: 18px; height: 18px; }
 .button[data-tone="muted"] { color: #6c7a78; background: #e8e8dc; border-style: dashed; }
@@ -124,6 +125,7 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
   .button[data-icon] .icon { width: 18px; height: 18px; }
   .dial { font-size: 12px; }
   .panel[data-key="construction"] { gap: 14px; padding-bottom: 14px; }
+  .panel[data-key="queue"] { padding: 6px 11px; }
   .panel[data-key="queue"] .button { width: 34px; height: 34px; }
 }
 
@@ -132,9 +134,10 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
   .button .text { font-size: 10px; line-height: 12px; }
   .button[data-icon] .icon { width: 16px; height: 16px; }
   .panel[data-key="construction"] { gap: 12px; padding-bottom: 12px; }
+  .panel[data-key="queue"] { padding: 6px 8px; }
 }
 
 @media (max-width: 760px), (max-height: 640px) {
-  .label[data-key="opening-title"] { font-size: 32px; }
+  .label[data-key="opening-title"] { font-size: 56px; }
   .label[data-key="opening"] { font-size: 16px; }
 }
