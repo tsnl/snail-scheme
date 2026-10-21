@@ -4,6 +4,9 @@ Explore a seeded map, wire an energy network across it, and destroy three
 nests before their attacks destroy your hub. The whole game is Lofi; the
 browser only forwards input, draws frames and the HUD, and stores the save.
 
+**[Play online](https://tsnl.github.io/snail-scheme/play/siegework/)** ·
+[Player guide](https://tsnl.github.io/snail-scheme/games/siegework.html)
+
 ```sh
 make site
 python3 -m http.server 4191 --directory build/siegework
@@ -11,6 +14,7 @@ python3 -m http.server 4191 --directory build/siegework
 
 Open `http://127.0.0.1:4191` in a browser with WebGPU.
 
+<!-- ANCHOR: guide -->
 ## Playing
 
 - **Energy.** The colony runs on one store of energy, starting at 160.
@@ -82,6 +86,7 @@ with its tick, plus whether the game was paused and for which hand. Loading
 replays the journal. Under rules that have changed since it was written,
 an order that is now rejected is dropped and the colony grows differently;
 there are no save versions.
+<!-- ANCHOR_END: guide -->
 
 ## How it is built
 
