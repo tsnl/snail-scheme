@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lofi notebook</title>
+<link rel="stylesheet" href="./notebook.css">
+<body>
+  <div id="notebook"></div>
+  <script type="module">
+    import {startNotebook} from './notebook.mjs';
+    startNotebook({root: document.getElementById('notebook'), url: './kernel.wasm'})
+      .then(() => { document.body.dataset.ready = 'true'; })
+      .catch(error => { document.body.dataset.error = error.message; document.getElementById('notebook').textContent = error.message; });
+  </script>
+</body>
+</html>
