@@ -33,6 +33,23 @@ implemented.
   `(scheme compiler)`.
 - [ ] Save notebook files through a development server, not only by export.
 
+## Editing
+
+Lofi is edited as Scheme today: editors highlight it with their Scheme
+modes, `scripts/format-scheme` formats it, and notebook cells are plain
+text areas. None of the following is implemented. It could grow into a
+browser-based IDE around the notebook, which is not planned yet.
+
+- [ ] Syntax highlighting of Lofi's own forms (`struct`, `enum`, `match`,
+  `:`, signatures and effect rows) in notebook cells, from the reader's
+  tokens, so the page and the compiler agree on what a form is.
+- [ ] Editor plugins: a language server over the compiler's passes, with
+  located diagnostics, types on hover from the checker, definitions through
+  the expander's resolution, and completion of library exports; then thin
+  plugins for Zed, VS Code and Emacs.
+- [ ] The notebook as a client of the same server: diagnostics and types in
+  cells, and completion beyond the REPL's names.
+
 ## Compiler
 
 - [ ] Decision trees for `match` with many cases, and nullable references for

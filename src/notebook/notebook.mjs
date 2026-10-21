@@ -164,7 +164,7 @@ function button(label, title, action) {
 
 function cellView(cell) {
   const root = element('section', 'cell'), prompt = element('div', 'prompt'), source = element('textarea', 'source');
-  const tools = element('div', 'tools'), output = element('div', 'output');
+  const editor = element('div', 'editor'), tools = element('div', 'tools'), output = element('div', 'output');
   source.value = cell.source;
   source.spellcheck = false;
   source.addEventListener('input', () => { fit(source); save(); });
@@ -175,7 +175,8 @@ function cellView(cell) {
     button('↓', 'Move down', () => moveCell(cell, 1)),
     button('+', 'Add a cell below', () => addCell('', state.cells.indexOf(cell)).view.source.focus()),
     button('✕', 'Delete', () => removeCell(cell)));
-  root.append(prompt, source, tools, output);
+  editor.append(source, tools);
+  root.append(prompt, editor, output);
   requestAnimationFrame(() => fit(source));
   const view = {root, prompt, source, output};
   cell.view = view;
