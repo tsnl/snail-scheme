@@ -4,7 +4,7 @@
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-const TICK = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_DOWN = 3;
+const ELAPSED = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_DOWN = 3;
 
 // Records each frame's batches and the latest HUD's widgets.
 function screen() {
@@ -63,9 +63,10 @@ const path = process.argv[2];
 const host = screen();
 const game = await instantiate(path, host);
 game.app_init(7, 960, 640);
-game.app_frame(0);
+game.app_frame();
 const first = host.frames.at(-1);
-assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 6, 4, 7], 'terrain, structures, motion, cursor, shimmer and preview');
+assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 7],
+                 'terrain, structures, motion, bars, links, cursor, shimmer and preview');
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
 assert.equal(widget(host, 'nests').text, '☆☆☆');
@@ -86,8 +87,9 @@ assert.ok(crystal, 'a crystal is in view');
 game.app_input(PRESS, crystal.action, crystal.argument, 0, 0);
 assert.equal(widget(host, 'energy').text, '135');
 assert.ok(widget(host, 'title').text.startsWith('Extractor 1'), 'the first extractor is ready at once');
-for (let i = 0; i < 3000; i++) game.app_input(TICK, 0, 0, 0, 0);
-game.app_frame(0.5);
+// Each tenth of a second advances the world a tick.
+for (let i = 0; i < 3000; i++) game.app_input(ELAPSED, 100, 0, 0, 0);
+game.app_frame();
 const readouts = h => ['energy', 'health', 'slots', 'threat', 'elapsed'].map(key => widget(h, key)?.text);
 console.log(readouts(host).join(' | '));
 
@@ -102,6 +104,6 @@ bytes.forEach((byte, index) => restored.app_load_byte(index, byte));
 restored.app_load_end();
 const elapsed = performance.now() - started;
 restored.app_input(RESIZE, 960, 640, 0, 0);
-restored.app_frame(0.5);
+restored.app_frame();
 assert.deepEqual(readouts(other), readouts(host));
 console.log(`a journal of ${length} bytes replays the same colony in ${elapsed.toFixed(0)} ms`);
