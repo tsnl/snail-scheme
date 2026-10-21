@@ -13,7 +13,10 @@
    Game-selected
    Game-paused
    Game-message
+   Save
    new-game
+   game-save
+   game-restore
    update-game
    game-camera
    focus-cell
@@ -39,8 +42,7 @@
 
     (enum Tool
       (Select)
-      (Place ((kind Kind)))
-      (deriving Serialize Deserialize))
+      (Place ((kind Kind))))
 
     ;; The camera looks at (x, z) from `distance` away; `vx` and `vz` are its
     ;; motion per tick, used to draw smoothly between ticks.
@@ -49,13 +51,13 @@
        (z F32)
        (distance F32)
        (vx F32)
-       (vz F32))
-      (deriving Serialize Deserialize))
+       (vz F32)))
 
-    ;; `selected` is the cell orders apply to; `message` explains the last
-    ;; rejected order.
+    ;; `orders` is the journal of accepted orders, newest first; `selected`
+    ;; is the cell orders apply to; `message` explains the last rejection.
     (struct Game
       ((world World)
+       (orders (List Entry))
        (viewpoint Viewpoint)
        (held (List I32))
        (tool Tool)
@@ -64,14 +66,38 @@
        (paused Bool)
        (message String)
        (width I32)
-       (height I32))
+       (height I32)))
+
+    ;; A save is the colony's seed, the tick it reached and its journal,
+    ;; oldest entry first, so restoring replays the game. Whether it was
+    ;; paused is kept too; the view and selection start afresh.
+    (struct Save
+      ((seed I64)
+       (tick I64)
+       (orders (List Entry))
+       (paused Bool))
       (deriving Serialize Deserialize))
 
     (: new-game (-> I32 I32 I32 Game))
     (define (new-game seed width height)
-      (let* ((world (new-world (i32->i64 seed))) (hub (Hub-cell (World-hub world))))
-        (Game world (Viewpoint (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 26.0 0.0 0.0) (Nil) (Select) (None) (None) #f
+      (game-around (new-world (i32->i64 seed)) (Nil) #f width height))
+
+    (: game-around (-> World (List Entry) Bool I32 I32 Game))
+    (define (game-around world orders paused width height)
+      (let ((hub (Hub-cell (World-hub world))))
+        (Game world orders (Viewpoint (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 26.0 0.0 0.0) (Nil) (Select) (None) (None) paused
               "Place an extractor on the crystal near the hub." width height)))
+
+    (: game-save (-> Game Save))
+    (define (game-save game)
+      (let ((world (Game-world game)))
+        (Save (World-seed world) (World-tick world) (reverse (Game-orders game)) (Game-paused game))))
+
+    ;; The host reports the screen's size after restoring.
+    (: game-restore (-> Save Game))
+    (define (game-restore save)
+      (match (replay (Save-seed save) (Save-orders save) (Save-tick save))
+        ((Pair world orders) (game-around world (reverse orders) (Save-paused save) 0 0))))
 
     ;; HUD buttons report these actions; 1-3 choose a building tool.
     (: action-tool (-> Kind I32))
@@ -137,11 +163,12 @@
 
     ;; ---- Commands ----
 
-    ;; Gives an order to the world; a rejection is shown instead.
+    ;; Gives an order to the world and journals it; a rejection is shown
+    ;; instead.
     (: order (-> Game Action Game))
     (define (order game action)
-      (match (act (Game-world game) action)
-        ((Ok world) (Game-message-set (Game-world-set game world) ""))
+      (match (command (Game-world game) action)
+        ((Ok (Pair world entry)) (Game-message-set (Game-orders-set (Game-world-set game world) (Cons entry (Game-orders game))) ""))
         ((Err rejection) (Game-message-set game (rejection-text rejection)))))
 
     (: order-at (-> Game (-> Cell Action) Game))
