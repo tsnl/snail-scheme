@@ -11,7 +11,8 @@
 ;; moves them between ticks.
 (define-library (siegework view)
   (export
-   view-game)
+   view-game
+   game-hud)
   (import
    (lofi base)
    (lofi app)
@@ -522,7 +523,7 @@
       (append (match (Game-hover game)
                 ((Some cell) (Cons (flat (Paint (rgb 255 255 255) 0.6) (i64->f32 (Cell-x cell)) (negate (i64->f32 (Cell-y cell))) 0.06 0.98 0.98)
                                    (match (Game-tool game)
-                                     ((Place kind) (at-cell cell (building-parts kind 1)))
+                                     ((Placing kind) (at-cell cell (building-parts kind 1)))
                                      ((Select) (Nil)))))
                 ((None) (Nil)))
               (match (Game-selected game)
@@ -538,9 +539,9 @@
     (define (tool-code tool)
       (match tool
         ((Select) 0)
-        ((Place (Extractor)) 1)
-        ((Place (Pylon)) 2)
-        ((Place (Turret)) 3)))
+        ((Placing (Extractor)) 1)
+        ((Placing (Pylon)) 2)
+        ((Placing (Turret)) 3)))
 
     ;; ---- Light ----
 
@@ -566,27 +567,35 @@
 
     ;; ---- HUD ----
 
+    (: label (-> String String Widget))
+    (define (label key text)
+      (Label (look key) text))
+
+    (: button (-> String String I32 Bool Widget))
+    (define (button key text action selected)
+      (Button (look key) text "" action 0 (if selected (Selected) (Enabled)) -1.0))
+
     (: status-panel (-> World Panel))
     (define (status-panel world)
       (let ((until (- (next-attack-tick (World-tick world)) (World-tick world))))
-        (Panel (TopLeft)
-               (list (Label (string-append "Energy " (show (World-energy world))))
-                     (Label (string-append "Hub " (show (Hub-health (World-hub world))) " · slots " (show (Hub-slots (World-hub world)))))
-                     (Label (string-append "Nests " (show (length (living-nests world)))))
-                     (Meter (string-append "Attack " (show (attack-number (World-tick world))) " in " (show (quotient until 10)) "s")
-                            (- 1.0 (/ (i64->f32 until) 450.0)))))))
+        (Panel "status" (At (TopLeft) 0)
+               (list (label "energy" (string-append "Energy " (show (World-energy world))))
+                     (label "hub" (string-append "Hub " (show (Hub-health (World-hub world))) " · slots " (show (Hub-slots (World-hub world)))))
+                     (label "nests" (string-append "Nests " (show (length (living-nests world)))))
+                     (Dial (look "attack") (string-append "Attack " (show (attack-number (World-tick world))) " in " (show (quotient until 10)) "s")
+                           (- 1.0 (/ (i64->f32 until) 450.0)))))))
 
     (: tool-panel (-> Game Panel))
     (define (tool-panel game)
       (let ((tool-button (lambda (kind)
-                           (Button (string-append (kind-name kind) " " (show (raise-cost kind 0))) (action-tool kind)
-                                   (match (Game-tool game) ((Place selected) (= (action-tool selected) (action-tool kind))) ((Select) #f))))))
-        (Panel (BottomLeft)
+                           (button (kind-name kind) (string-append (kind-name kind) " " (show (raise-cost kind 0))) (action-tool kind)
+                                   (match (Game-tool game) ((Placing selected) (= (action-tool selected) (action-tool kind))) ((Select) #f))))))
+        (Panel "tools" (At (BottomLeft) 0)
                (list (tool-button (Extractor)) (tool-button (Pylon)) (tool-button (Turret))
-                     (Button "Upgrade" action-upgrade #f) (Button "Rush" action-rush #f) (Button "Cancel" action-cancel #f)
-                     (Button "Scavenge" action-scavenge #f) (Button "Repair" action-repair #f)
-                     (Button (if (Game-paused game) "Resume" "Pause") action-pause (Game-paused game))
-                     (Button "New map" action-new-map #f)))))
+                     (button "upgrade" "Upgrade" action-upgrade #f) (button "rush" "Rush" action-rush #f) (button "cancel" "Cancel" action-cancel #f)
+                     (button "scavenge" "Scavenge" action-scavenge #f) (button "repair" "Repair" action-repair #f)
+                     (button "pause" (if (Game-paused game) "Resume" "Pause") action-pause (Game-paused game))
+                     (button "new-map" "New map" action-new-map #f)))))
 
     (: work-text (-> Work String))
     (define (work-text work)
@@ -596,13 +605,13 @@
     (: inspect-panel (-> Game Panel))
     (define (inspect-panel game)
       (let ((world (Game-world game)))
-        (Panel (TopRight)
+        (Panel "inspect" (At (TopRight) 0)
                (match (focus-cell game)
                  ((Some cell)
-                  (Cons (Label (string-append "Cell " (show (Cell-x cell)) ", " (show (Cell-y cell))))
-                        (append (if (hub-cell? (World-hub world) cell) (list (Label (hub-text (World-hub world)))) (Nil))
-                                (append (map (lambda (b) (Label (building-text world b))) (filter (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world)))
-                                        (map (lambda (c) (Label (string-append "Crystal · " (show (Crystal-reserve c)) " left")))
+                  (Cons (label "cell" (string-append "Cell " (show (Cell-x cell)) ", " (show (Cell-y cell))))
+                        (append (if (hub-cell? (World-hub world) cell) (list (label "hub" (hub-text (World-hub world)))) (Nil))
+                                (append (map (lambda (b) (label "building" (building-text world b))) (filter (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world)))
+                                        (map (lambda (c) (label "crystal" (string-append "Crystal · " (show (Crystal-reserve c)) " left")))
                                              (filter (lambda (c) (and (cell=? (Crystal-cell c) cell) (explored? world cell))) (World-crystals world)))))))
                  ((None) (Nil))))))
 
@@ -619,13 +628,17 @@
 
     (: help-panel (-> Game Panel))
     (define (help-panel game)
-      (Panel (BottomRight)
-             (list (Label (Game-message game))
-                   (Label (match (World-outcome (Game-world game))
-                            ((Won) "Victory! Start a new map to play again.")
-                            ((Lost) "Defeat. Start a new map to play again.")
-                            ((Resigned) "Resigned. Start a new map to play again.")
-                            ((Playing) "WASD pans · Q/E turn · wheel zooms · H home · 1-3 build · U upgrade · R rush · C cancel · X scavenge"))))))
+      (Panel "help" (At (BottomRight) 0)
+             (list (label "message" (Game-message game))
+                   (label "hint" (match (World-outcome (Game-world game))
+                                   ((Won) "Victory! Start a new map to play again.")
+                                   ((Lost) "Defeat. Start a new map to play again.")
+                                   ((Resigned) "Resigned. Start a new map to play again.")
+                                   ((Playing) "WASD pans · Q/E turn · wheel zooms · H home · 1-3 build · U upgrade · R rush · C cancel · X scavenge"))))))
+
+    (: game-hud (-> Game (List Panel)))
+    (define (game-hud game)
+      (list (status-panel (Game-world game)) (tool-panel game) (inspect-panel game) (help-panel game)))
 
     ;; ---- Frames ----
 
@@ -679,8 +692,7 @@
                        (list (Batch 3 (stamp game (World-structure-version world)) (Solid) (lambda () (structure-items world)))
                              (Batch 5 (stamp game (+ (* 4 (World-tick world)) (modulo (View-heading (Game-view game)) 4))) (Solid)
                                     (lambda () (moving-items world (View-heading (Game-view game)))))
-                             (shimmer-batch game alpha) (cursor-batch game alpha)))
-               (list (status-panel world) (tool-panel game) (inspect-panel game) (help-panel game)))))
+                             (shimmer-batch game alpha) (cursor-batch game alpha))))))
 
     (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
     (define (filter-map f items)

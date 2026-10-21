@@ -220,12 +220,15 @@ the first changed type instead of misreading it.
 
 ## Applications
 
-`(lofi app)` defines interactive applications as three total functions:
-`init` makes the state from a seed and the screen size, `update` applies one
-`Input`, and `view` describes a `Frame` of mesh instances and HUD panels.
+`(lofi app)` defines interactive applications as total functions over a
+state: `init` makes it from a seed and the screen size, `update` applies one
+`Input`, `view` describes a `Frame` of mesh instances under a camera and a
+light, and `hud` describes the HUD's panels, shown again after each update.
 Two more convert the state to and from a `Save` with a wire encoding, which
 may be a record of how to rebuild the state rather than the state itself.
-`define-application` exposes them to the browser host in `src/app`.
+`define-application` exposes them to the browser host in `src/app`. Items
+carry where they were, so the host moves them between updates; `recognize`
+turns raw pointer events into points, taps, drags and pinches.
 [Siegework](../apps/siegework) is the complete example.
 
 ## Standard library
