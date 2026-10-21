@@ -4,10 +4,11 @@
 //
 // `lofi serve` builds a copy of tests/apps/counter and serves it with the
 // live reload client. The test plays the page's part: it adds to the
-// counter in one module, edits the greeting, takes the rebuilt module that
-// the events announce, and restores the first module's save into it, as
-// replaceModule in src/app/host.mjs does. A broken edit reports a failed
-// build. Then `lofi watch` runs a program again after an edit.
+// counter in one module, edits the greeting, learns from the manifests in
+// the events that only the module changed, and restores the first module's
+// save into the rebuilt one, as replaceModule in src/app/host.mjs does. A
+// broken edit reports a failed build that keeps the last good manifest.
+// Then `lofi watch` runs a program again after an edit.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {cp, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
@@ -40,7 +41,7 @@ async function waitFor(test, what, seconds = 120) {
 
 // ---- Events ----
 
-// Reads the server-sent events into a list, parsing each one's data.
+// Reads the server-sent events into a list of their parsed data.
 async function listen(url) {
   const events = [];
   const response = await fetch(url);
@@ -52,17 +53,21 @@ async function listen(url) {
       const blocks = buffer.split('\n\n');
       buffer = blocks.pop();
       for (const block of blocks) {
-        const kind = block.match(/^event: (.*)$/m)?.[1], data = block.match(/^data: (.*)$/m)?.[1];
-        if (kind) events.push({kind, data: JSON.parse(data)});
+        const data = block.match(/^data: (.*)$/m)?.[1];
+        if (data) events.push(JSON.parse(data));
       }
     }
   })().catch(() => {});
   return events;
 }
 
-function nextEvent(events, kinds) {
+function nextEvent(events, states) {
   const from = events.length;
-  return waitFor(() => events.slice(from).find(event => kinds.includes(event.kind)), kinds.join(' or '));
+  return waitFor(() => events.slice(from).find(event => states.includes(event.state)), states.join(' or '));
+}
+
+function changedFiles(before, after) {
+  return Object.keys(after).filter(name => before[name] !== after[name]);
 }
 
 // ---- Applications ----
@@ -122,7 +127,10 @@ async function testServe(directory) {
   try {
     const base = await waitFor(() => server.text.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server', 300);
     const events = await listen(new URL('.lofi/events', base));
-    assert.match(await (await fetch(base)).text(), /<script type="module" src="\/\.lofi\/reload\.mjs"><\/script><\/body>/);
+    const page = await (await fetch(base)).text();
+    assert.match(page, /<script type="module" src="\/\.lofi\/reload\.mjs"><\/script><\/body>/);
+    const served = JSON.parse(page.match(/<script type="application\/json" id="lofi-manifest">(.*?)<\/script>/)[1]);
+    assert.ok(served['app.wasm'] && served['index.html'], 'the page carries the manifest of its build');
     assert.equal((await fetch(new URL('.lofi/reload.mjs', base))).headers.get('content-type'), 'text/javascript');
     assert.equal((await fetch(new URL('app.wasm', base))).headers.get('content-type'), 'application/wasm');
 
@@ -134,19 +142,20 @@ async function testServe(directory) {
 
     await writeFile(source, (await readFile(source, 'utf8')).replace('"hello"', '"hello again"'));
     const built = await nextEvent(events, ['built', 'failed']);
-    assert.equal(built.kind, 'built', built.data.message);
-    assert.deepEqual(built.data.changed, ['app.wasm']);
+    assert.equal(built.state, 'built', built.message);
+    assert.deepEqual(changedFiles(served, built.manifest), ['app.wasm']);
     const second = await fetchModule(base);
     loadBytes(second, saveBytes(first));
     assert.deepEqual([second.text('greeting'), second.text('count')], ['hello again', '2'], 'the new module keeps the count');
 
     await writeFile(source, (await readFile(source, 'utf8')).replace('"hello again"', '5'));
     const failed = await nextEvent(events, ['built', 'failed']);
-    assert.equal(failed.kind, 'failed');
-    assert.match(failed.data.message, /main\.sld:\d+:\d+: /);
+    assert.equal(failed.state, 'failed');
+    assert.match(failed.message, /main\.sld:\d+:\d+: /);
+    assert.deepEqual(failed.manifest, built.manifest, 'a failed build keeps the last good manifest');
     const late = await listen(new URL('.lofi/events', base));
-    await waitFor(() => late.find(event => event.kind === 'status'), 'the status');
-    assert.equal(late[0].data.state, 'failed', 'a page that connects later sees the failure');
+    await waitFor(() => late.length, 'the latest event');
+    assert.equal(late[0].state, 'failed', 'a page that connects later sees the failure');
   } finally {
     server.child.kill();
   }

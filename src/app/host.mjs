@@ -132,25 +132,29 @@ export async function startApplication({url, canvas, overlay, storageKey}) {
 }
 
 // Every instance has its own WASI imports, which read its own memory, so a
-// new module can start while the old one still runs. The last lines it
-// writes to standard error are also kept in `errors`, since they explain a
-// trap: a panic prints its message before trapping.
+// new module can start while the old one still runs.
 async function instantiate(application, url, errors) {
   let exports;
-  const print = (fd, text) => {
-    if (fd !== 2) { console.log(text); return; }
-    console.error(text);
-    errors.push(text);
-    errors.splice(0, errors.length - 20);
-  };
   const imports = {
-    wasi_snapshot_preview1: wasiImports(() => exports.memory, print),
+    wasi_snapshot_preview1: wasiImports(() => exports.memory, printer(errors)),
     'snail.screen': screenImports(application.renderer, application.hud),
   };
   ({instance: {exports}} = await WebAssembly.instantiateStreaming(fetch(url), imports));
   exports._initialize();
   exports.main();
   return exports;
+}
+
+// Lines a module writes go to the console. The last twenty it writes to
+// standard error are also kept in `errors`, since they explain a trap: a
+// panic prints its message before trapping.
+function printer(errors) {
+  return (fd, text) => {
+    if (fd !== 2) { console.log(text); return; }
+    console.error(text);
+    errors.push(text);
+    errors.splice(0, errors.length - 20);
+  };
 }
 
 // ---- Saves ----
@@ -254,16 +258,21 @@ function attachInput(application) {
 function runClock(application) {
   let last = performance.now(), lastSave = last;
   const frame = now => {
-    try {
-      application.exports.app_input(ELAPSED, Math.round(Math.min(250, Math.max(0, now - last))), 0, 0, 0);
-      last = now;
-      application.exports.app_frame();
-    } catch (error) {
-      application.clock = null;
-      throw error;
-    }
+    advance(application, Math.round(Math.min(250, Math.max(0, now - last))));
+    last = now;
     if (now - lastSave > 5000) { lastSave = now; saveQuietly(application); }
     application.clock = requestAnimationFrame(frame);
   };
   application.clock = requestAnimationFrame(now => { last = now; frame(now); });
+}
+
+// One display frame: time passes, then the module draws.
+function advance(application, milliseconds) {
+  try {
+    application.exports.app_input(ELAPSED, milliseconds, 0, 0, 0);
+    application.exports.app_frame();
+  } catch (error) {
+    application.clock = null;
+    throw error;
+  }
 }
