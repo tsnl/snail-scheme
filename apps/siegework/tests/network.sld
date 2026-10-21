@@ -1,7 +1,10 @@
 ;; Power on seed 1. The northern crystal is out of the hub's reach, so its
 ;; extractor is wired through a pylon. Scavenging that pylon cuts the
 ;; extractor off: it stops yielding and stops lighting the map. Building the
-;; pylon again restores both.
+;; pylon again restores both. Wires run along the shortest links that
+;; connect everything, so a second pylon nearer the extractor takes over
+;; its wire, and scavenging that one rewires the extractor through the
+;; first.
 (import
  (lofi base)
  (lofi io)
@@ -23,6 +26,18 @@
 (: visible-count (-> World I64))
 (define (visible-count world)
   (vector-fold (lambda (n seen) (if seen (+ n 1) n)) 0 (World-visible world)))
+
+(: wire-text (-> Wire String))
+(define (wire-text wire)
+  (string-append (cell-text (Node-cell (Wire-from wire))) "-" (cell-text (Node-cell (Wire-to wire)))))
+
+(: cell-text (-> Cell String))
+(define (cell-text cell)
+  (string-append (show (Cell-x cell)) "," (show (Cell-y cell))))
+
+(: report-wires (-> World Unit ! console))
+(define (report-wires world)
+  (write-line (string-append "wires " (string-join (map wire-text (Network-wires (World-network world))) " "))))
 
 (: report (-> World Unit ! console))
 (define (report world)
@@ -55,4 +70,10 @@
   (define world (run world 50))
   (report world)
   (define world (run world 50))
-  (report world))
+  (report world)
+  (report-wires world)
+  (define world (run (order world (Build (Pylon) (Cell 42 33) #f)) 30))
+  (report-wires world)
+  (define world (order world (Scavenge (Cell 42 33))))
+  (report world)
+  (report-wires world))
