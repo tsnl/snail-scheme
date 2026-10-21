@@ -260,20 +260,21 @@
     (: wire-height F32)
     (define wire-height 0.9)
 
-    ;; A flat glowing strip at wire height from one cell to another.
-    (: strip (-> Cell Cell F32 Paint Item))
-    (define (strip from to width paint)
-      (let* ((a (cell-point from wire-height)) (b (cell-point to wire-height))
+    ;; A thin beam at wire height from one cell to another.
+    (: beam (-> Cell Cell F32 Paint Item))
+    (define (beam from to thickness paint)
+      (let* ((a (cell-point from (- wire-height (/ thickness 2.0)))) (b (cell-point to (- wire-height (/ thickness 2.0))))
              (dx (- (Vec3-x b) (Vec3-x a))) (dz (- (Vec3-z b) (Vec3-z a))))
-        (Item-glow-set (item (Tile) (between a b 0.5) (Vec3 (sqrt (+ (* dx dx) (* dz dz))) 1.0 width) (atan2-f32 (negate dz) dx) (Paint-color paint))
+        (Item-glow-set (item (Box) (between a b 0.5) (Vec3 (sqrt (+ (* dx dx) (* dz dz))) thickness thickness) (atan2-f32 (negate dz) dx) (Paint-color paint))
                        (Paint-glow paint))))
 
-    ;; Powered wires glow warm yellow; wires among unpowered buildings are dark.
-    (: wire-items (-> World (List Item)))
-    (define (wire-items world)
+    ;; Wires are thin glassy turquoise beams between powered buildings, and
+    ;; grey among unpowered ones.
+    (: link-items (-> World (List Item)))
+    (define (link-items world)
       (map (lambda (wire)
-             (strip (Node-cell (Wire-from wire)) (Node-cell (Wire-to wire)) 0.25
-                    (if (powered? world (Node-id (Wire-from wire))) (Paint (rgb 255 244 142) 1.0) (Paint (rgb 90 96 110) 0.3))))
+             (beam (Node-cell (Wire-from wire)) (Node-cell (Wire-to wire)) 0.07
+                   (if (powered? world (Node-id (Wire-from wire))) (Paint (rgb 35 242 195) 0.7) (Paint (rgb 120 128 140) 0.2))))
            (Network-wires (World-network world))))
 
     ;; Thin strokes along the edges of a set of cells, shifted by `lane` so
@@ -322,7 +323,7 @@
       (concatenate (list (base-items) (place (hub-parts) (cell-point (Hub-cell (World-hub world)) 0.0) 0.0)
                          (concatenate (map (lambda (b) (building-items world b)) (World-buildings world)))
                          (concatenate (map (lambda (c) (at-cell (Crystal-cell c) (crystal-parts))) (open-crystals world)))
-                         (nest-items world) (wire-items world) (coverage-items world))))
+                         (nest-items world) (coverage-items world))))
 
     ;; ---- Energy ----
 
@@ -374,10 +375,10 @@
 
     (: flow-pulses (-> I64 Cell Cell (List Item)))
     (define (flow-pulses tick from to)
-      (let* ((length (sqrt (i64->f32 (distance-squared from to)))) (a (cell-point from wire-height)) (b (cell-point to wire-height)))
+      (let* ((length (sqrt (i64->f32 (distance-squared from to)))) (a (cell-point from (- wire-height 0.08))) (b (cell-point to (- wire-height 0.08))))
         (map (lambda (index)
                (let ((now (pulse-fraction tick index length)) (next (pulse-fraction (+ tick 1) index length)))
-                 (Item-from-set (Item-glow-set (item (Octahedron) (between a b next) (Vec3 0.22 0.22 0.22) 0.0 (rgb 255 250 200)) 1.0)
+                 (Item-from-set (Item-glow-set (item (Octahedron) (between a b next) (Vec3 0.16 0.16 0.16) 0.0 (rgb 210 255 244)) 1.0)
                                 (between a b (if (< next now) next now)))))
              (iota (max 1 (f32->i64 (/ length 2.0)))))))
 
@@ -402,14 +403,23 @@
 
     ;; An enemy steps from its previous cell on multiples of its period; over
     ;; this tick it covers one period's share of the step.
-    (: enemy-items (-> F32 World Enemy (List Item)))
-    (define (enemy-items yaw world enemy)
+    (: enemy-span (-> World Enemy (Pair Vec3 Vec3)))
+    (define (enemy-span world enemy)
       (let* ((period (i64->f32 (enemy-period (Enemy-behavior enemy))))
              (phase (i64->f32 (remainder (+ (World-tick world) (Enemy-id enemy)) (enemy-period (Enemy-behavior enemy)))))
-             (a (cell-point (Enemy-previous enemy) 0.0)) (b (cell-point (Enemy-cell enemy) 0.0))
-             (from (between a b (/ phase period))) (to (between a b (/ (+ phase 1.0) period))))
-        (append (travel (enemy-parts enemy) from to 0.0)
-                (bar-items yaw from to (+ 0.9 (* 0.25 (i64->f32 (Enemy-rank enemy)))) (Enemy-health enemy) (Enemy-maximum enemy) health-paint))))
+             (a (cell-point (Enemy-previous enemy) 0.0)) (b (cell-point (Enemy-cell enemy) 0.0)))
+        (Pair (between a b (/ phase period)) (between a b (/ (+ phase 1.0) period)))))
+
+    (: enemy-items (-> World Enemy (List Item)))
+    (define (enemy-items world enemy)
+      (let ((span (enemy-span world enemy)))
+        (travel (enemy-parts enemy) (Pair-first span) (Pair-second span) 0.0)))
+
+    (: enemy-bar (-> F32 World Enemy (List Item)))
+    (define (enemy-bar yaw world enemy)
+      (let ((span (enemy-span world enemy)))
+        (bar-items yaw (Pair-first span) (Pair-second span) (+ 0.9 (* 0.25 (i64->f32 (Enemy-rank enemy)))) (Enemy-health enemy) (Enemy-maximum enemy)
+                   health-paint)))
 
     ;; ---- Bars ----
 
@@ -417,11 +427,12 @@
     (define reserve-paint (Paint (rgb 214 151 255) 1.0))
     (define progress-paint (Paint (rgb 120 210 255) 1.0))
 
-    ;; How a bar turns to face a camera at `heading` quarter turns: its long
-    ;; side along the screen.
-    (: bar-yaw (-> I64 F32))
-    (define (bar-yaw heading)
-      (+ 0.7853982 (* 1.5707964 (i64->f32 heading))))
+    ;; How a bar turns to face a camera at `angle`: its long side along the
+    ;; screen, as an angle within one turn.
+    (: bar-yaw (-> F32 F32))
+    (define (bar-yaw angle)
+      (let ((turn (+ 0.7853982 angle)) (full 6.2831855))
+        (- turn (* full (floor (/ turn full))))))
 
     ;; A dark frame with a fill for `amount` of `capacity`, `height` above a
     ;; point moving from `from` to `to`, turned by `yaw` to face the camera.
@@ -502,16 +513,24 @@
         (at-cell (Dig-cell dig) (list (block cream -0.35 0.1 (+ 0.4 phase) 0.22 0.22 0.22) (block brass 0.2 -0.1 (- 0.8 phase) 0.16 0.16 0.16)
                                       (block lamp 0.0 -0.2 0.12 0.45 0.08 0.08)))))
 
-    ;; Bars turn to face the camera's heading.
-    (: moving-items (-> World I64 (List Item)))
-    (define (moving-items world heading)
-      (concatenate (list (concatenate (map (lambda (e) (enemy-items (bar-yaw heading) world e)) (filter (lambda (e) (visible? world (Enemy-cell e))) (World-enemies world))))
+    (: moving-items (-> World (List Item)))
+    (define (moving-items world)
+      (concatenate (list (concatenate (map (lambda (e) (enemy-items world e)) (seen-enemies world)))
                          (concatenate (map (lambda (b) (cannon-items world b)) (filter (lambda (b) (and (built? b) (turret? b))) (World-buildings world))))
                          (concatenate (map (lambda (s) (shot-items world s)) (World-shots world)))
                          (concatenate (map (lambda (a) (smoke-items world a)) (World-alerts world)))
                          (concatenate (map (lambda (d) (dig-items world d)) (filter (lambda (d) (explored? world (Dig-cell d))) (World-digs world))))
-                         (pulse-items world) (hub-bars (bar-yaw heading) world) (crystal-bars (bar-yaw heading) world)
-                         (concatenate (map (lambda (b) (building-bars (bar-yaw heading) world b)) (World-buildings world))))))
+                         (pulse-items world))))
+
+    (: seen-enemies (-> World (List Enemy)))
+    (define (seen-enemies world)
+      (filter (lambda (e) (visible? world (Enemy-cell e))) (World-enemies world)))
+
+    ;; Every bar, turned by `yaw` to face the camera.
+    (: bar-batch-items (-> World F32 (List Item)))
+    (define (bar-batch-items world yaw)
+      (concatenate (list (concatenate (map (lambda (e) (enemy-bar yaw world e)) (seen-enemies world))) (hub-bars yaw world) (crystal-bars yaw world)
+                         (concatenate (map (lambda (b) (building-bars yaw world b)) (World-buildings world))))))
 
     ;; ---- Cursor and previews ----
 
@@ -594,10 +613,10 @@
     (define (fresh? world index)
       (not (vector-ref (Reveal-before (World-reveal world)) index)))
 
-    (: terrain-batches (-> Game F32 (List Batch)))
-    (define (terrain-batches game alpha)
+    (: terrain-batches (-> Game (List Batch)))
+    (define (terrain-batches game)
       (let* ((world (Game-world game)) (reveal (World-reveal world)) (unveiling (unveiling? world))
-             (progress (min 1.0 (/ (+ (i64->f32 (- (World-tick world) (Reveal-tick reveal))) alpha) 30.0))))
+             (progress (min 1.0 (/ (+ (i64->f32 (- (World-tick world) (Reveal-tick reveal))) (world-motion game)) 30.0))))
         (Cons (Batch 1 (stamp game (+ (* 2 (World-structure-version world)) (if unveiling 0 1))) (Solid)
                      (lambda () (terrain-items world (lambda (index) (or (not unveiling) (not (fresh? world index)))))))
               (if unveiling
@@ -607,32 +626,43 @@
                   (Nil)))))
 
     ;; Crystals shimmer, pulsing in strength.
-    (: shimmer-batch (-> Game F32 Batch))
-    (define (shimmer-batch game alpha)
-      (let ((world (Game-world game)) (time (/ (+ (i64->f32 (Game-clock game)) alpha) 10.0)))
+    (: shimmer-batch (-> Game Batch))
+    (define (shimmer-batch game)
+      (let* ((world (Game-world game)) (time (/ (+ (i64->f32 (World-tick world)) (world-motion game)) 10.0)))
         (Batch 4 (stamp game (World-structure-version world))
                (Translucent (+ 0.45 (* 0.25 (f64->f32 (sin (f32->f64 (* 2.5 time)))))))
                (lambda () (concatenate (map (lambda (c) (at-cell (Crystal-cell c) (shimmer-parts))) (open-crystals world)))))))
+
+    ;; Bars follow the camera through every turn: their batch changes with
+    ;; the eased heading, in steps too small to see.
+    (: bar-batch (-> Game Batch))
+    (define (bar-batch game)
+      (let* ((yaw (bar-yaw (heading-angle game))) (step (f32->i64 (round (* yaw 256.0)))))
+        (Batch 8 (stamp game (+ (* 2048 (World-tick (Game-world game))) step)) (Solid) (lambda () (bar-batch-items (Game-world game) yaw)))))
+
+    (: link-batch (-> Game Batch))
+    (define (link-batch game)
+      (Batch 9 (stamp game (World-structure-version (Game-world game))) (Translucent 0.8) (lambda () (link-items (Game-world game)))))
 
     (: cursor-batch (-> Game Batch))
     (define (cursor-batch game)
       (Batch 6 (stamp game (cursor-version game)) (Solid) (lambda () (cursor-items game))))
 
-    (: preview-batch (-> Game F32 Batch))
-    (define (preview-batch game alpha)
-      (let ((time (/ (+ (i64->f32 (Game-clock game)) alpha) 10.0)))
+    (: preview-batch (-> Game Batch))
+    (define (preview-batch game)
+      (let ((time (/ (i64->f32 (Game-clock game)) 1000.0)))
         (Batch 7 (stamp game (preview-version game)) (Translucent (+ 0.45 (* 0.15 (f64->f32 (sin (f32->f64 (* 4.0 time)))))))
                (lambda () (preview-items game)))))
 
-    (: view-game (-> Game F32 Frame))
-    (define (view-game game alpha)
-      (let* ((world (Game-world game)) (camera (game-camera game alpha)))
-        (Frame camera (camera-light camera) sky (if (paused? game) 1.0 alpha)
-               (append (terrain-batches game alpha)
+    (: view-game (-> Game Frame))
+    (define (view-game game)
+      (let* ((world (Game-world game)) (camera (game-camera game)))
+        (Frame camera (camera-light camera) sky (world-motion game)
+               (append (terrain-batches game)
                        (list (Batch 3 (stamp game (World-structure-version world)) (Solid) (lambda () (structure-items world)))
-                             (Batch 5 (stamp game (+ (* 4 (World-tick world)) (modulo (View-heading (Game-view game)) 4))) (Solid)
-                                    (lambda () (moving-items world (View-heading (Game-view game)))))
-                             (cursor-batch game) (shimmer-batch game alpha) (preview-batch game alpha))))))
+                             (Batch 5 (stamp game (World-tick world)) (Solid) (lambda () (moving-items world)))
+                             (bar-batch game) (link-batch game)
+                             (cursor-batch game) (shimmer-batch game) (preview-batch game))))))
 
     (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
     (define (filter-map f items)

@@ -3,16 +3,19 @@
 ;;
 ;;   init    : seed width height -> State
 ;;   update  : State Input -> State
-;;   view    : State alpha -> Frame
+;;   view    : State -> Frame
 ;;   hud     : State -> (List Panel)
 ;;   save    : State -> Save
 ;;   restore : Save -> State
 ;;
 ;; `define-application` keeps the current state in one cell and exposes the
-;; host entry points. The host forwards raw input and clock ticks, draws a
-;; Frame through the `screen` effect for each display frame, shows the HUD
-;; again after each update, and stores the serialized Save. The Save may be
-;; much smaller than the state: a record of how to rebuild it.
+;; host entry points. Time reaches the state as input: before drawing each
+;; display frame, the host reports the milliseconds since the last, so the
+;; state decides how time passes, and can stop it at any frame. The host
+;; draws a Frame through the `screen` effect, shows the HUD again after
+;; each input (after time, at most ten times a second), and stores the
+;; serialized Save. The Save may be much smaller than the state: a record
+;; of how to rebuild it.
 (define-library (lofi app)
   (export
    Input
@@ -26,7 +29,7 @@
    Resize
    Press
    Hover
-   Tick
+   Elapsed
    key-left
    key-right
    key-up
@@ -131,6 +134,7 @@
     ;; events name the pointer, so several fingers can be told apart; the
     ;; wheel reports pixels. A press or hover reports the action and
     ;; argument of a HUD button; hovering off a button reports action 0.
+    ;; Elapsed reports the milliseconds since the last display frame.
     (enum Input
       (KeyDown ((key I32)))
       (KeyUp ((key I32)))
@@ -142,7 +146,7 @@
       (Resize ((width I32) (height I32)))
       (Press ((action I32) (argument I32)))
       (Hover ((action I32) (argument I32)))
-      (Tick))
+      (Elapsed ((milliseconds I32))))
 
     (define key-left 1)
     (define key-right 2)
@@ -165,7 +169,7 @@
         ((8) (Resize a b))
         ((9) (Press a b))
         ((10) (Hover a b))
-        (else (Tick))))
+        (else (Elapsed a))))
 
     ;; ---- Gestures ----
 
@@ -637,12 +641,20 @@
            (define current (ref (ann (None) (Option State))))
            (define saved (ref (vector-generate 0 (lambda (index) (ann 0 U8)))))
            (define loading (ref (make-array 0 (ann 0 U8))))
+           (define since-hud (ref (ann 0 I32)))
 
            ;; Replaces the state and shows its HUD.
            (: settle (-> State Unit ! mut screen))
            (define (settle state)
              (ref-set! current (Some state))
+             (ref-set! since-hud 0)
              (render-hud (hud state)))
+
+           ;; Time alone shows the HUD again only every tenth of a second.
+           (: pass-time (-> State I32 Unit ! mut screen))
+           (define (pass-time state milliseconds)
+             (ref-set! since-hud (+ (ref-get since-hud) milliseconds))
+             (if (>= (ref-get since-hud) 100) (settle state) (ref-set! current (Some state))))
 
            (: app-init (-> I32 I32 I32 Unit ! mut screen))
            (define (app-init seed width height)
@@ -651,13 +663,16 @@
            (: app-input (-> I32 I32 I32 I32 I32 Unit ! mut screen))
            (define (app-input kind a b c d)
              (match (ref-get current)
-               ((Some state) (settle (update state (decode-input kind a b c d))))
+               ((Some state) (let ((input (decode-input kind a b c d)))
+                               (match input
+                                 ((Elapsed milliseconds) (pass-time (update state input) milliseconds))
+                                 (_ (settle (update state input))))))
                ((None) (unit))))
 
-           (: app-frame (-> F32 Unit ! mut screen))
-           (define (app-frame alpha)
+           (: app-frame (-> Unit ! mut screen))
+           (define (app-frame)
              (match (ref-get current)
-               ((Some state) (render (view state alpha)))
+               ((Some state) (render (view state)))
                ((None) (unit))))
 
            (: app-save (-> I32 ! mut))

@@ -24,6 +24,7 @@
    Game-epoch
    Game-view
    Game-clock
+   Game-phase
    Game-hover
    Game-selected
    Game-preview
@@ -40,6 +41,8 @@
    game-restore
    update-game
    paused?
+   tick-milliseconds
+   world-motion
    game-camera
    heading-angle
    Command
@@ -81,15 +84,12 @@
 
     ;; The camera looks down at 30 degrees on the point (x, z) of the ground,
     ;; from one of four quarter-turn headings, showing `scale` times 18
-    ;; cells from the bottom of the screen to the top. `vx` and `vz` are its
-    ;; motion per tick, used to draw smoothly between ticks. A turn eases
-    ;; from `turned-from` over the three ticks of the game's clock after
+    ;; cells from the bottom of the screen to the top. A turn eases from
+    ;; `turned-from` over the 300 milliseconds of the game's clock after
     ;; `turned-at`.
     (struct View
       ((x F32)
        (z F32)
-       (vx F32)
-       (vz F32)
        (scale F32)
        (heading I64)
        (turned-from I64)
@@ -111,8 +111,10 @@
 
     ;; `orders` is the journal of accepted orders, newest first. `epoch`
     ;; counts the games played since the page loaded, so a view of a new game
-    ;; never reuses what was drawn for the last; `clock` counts ticks of
-    ;; input, paused or not, for animating the view. `preview` is the
+    ;; never reuses what was drawn for the last. Time arrives with each
+    ;; display frame: `clock` counts every millisecond, for animating the
+    ;; view, and `phase` the milliseconds the world is into its current
+    ;; tick, held while the world is paused or decided. `preview` is the
     ;; building whose button the pointer is over; `rush` makes new buildings
     ;; rushed; `message` explains the last rejected order.
     (struct Game
@@ -120,6 +122,7 @@
        (orders (List Entry))
        (epoch I64)
        (clock I64)
+       (phase I64)
        (view View)
        (held (List I32))
        (gestures Gestures)
@@ -152,8 +155,25 @@
     (: game-around (-> World (List Entry) I64 Menu Bool I32 I32 Game))
     (define (game-around world orders epoch menu left-handed width height)
       (let ((hub (Hub-cell (World-hub world))))
-        (Game world orders epoch 0 (View (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 0.0 0.0 1.0 0 0 -3) (Nil) no-gestures (None) (None) (None) #f
+        (Game world orders epoch 0 0 (View (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 1.0 0 0 -300) (Nil) no-gestures (None) (None) (None) #f
               menu left-handed (Nil) "" width height)))
+
+    ;; ---- Time ----
+
+    ;; The world advances once for each tenth of a second that passes.
+    (: tick-milliseconds I64)
+    (define tick-milliseconds 100)
+
+    ;; The world is still while a dialog pauses it or once it is decided.
+    (: still? (-> Game Bool))
+    (define (still? game)
+      (or (paused? game) (not (playing? (Game-world game)))))
+
+    ;; How far the world's things have moved through the current tick; a
+    ;; still world holds the frame it stopped at.
+    (: world-motion (-> Game F32))
+    (define (world-motion game)
+      (/ (i64->f32 (Game-phase game)) (i64->f32 tick-milliseconds)))
 
     (: paused? (-> Game Bool))
     (define (paused? game)
@@ -177,19 +197,18 @@
     ;; ---- Camera ----
 
     ;; The heading in quarter turns, eased between the last two.
-    (: heading-angle (-> Game F32 F32))
-    (define (heading-angle game alpha)
+    (: heading-angle (-> Game F32))
+    (define (heading-angle game)
       (let* ((view (Game-view game)) (from (i64->f32 (View-turned-from view))) (to (i64->f32 (View-heading view)))
-             (t (clamp (/ (+ (i64->f32 (- (Game-clock game) (View-turned-at view))) alpha) 3.0) 0.0 1.0)))
+             (t (clamp (/ (i64->f32 (- (Game-clock game) (View-turned-at view))) 300.0) 0.0 1.0)))
         (* 1.5707964 (+ from (* (- to from) (* t (* t (- 3.0 (* 2.0 t)))))))))
 
     ;; Equal horizontal offsets give a 2:1 diamond for each resting quarter
     ;; turn; the height, sqrt((18^2 + 18^2) / 3), gives 30 degrees.
-    (: game-camera (-> Game F32 Camera))
-    (define (game-camera game alpha)
-      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game alpha)))
-             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (k (View-scale view))
-             (target (Vec3 (+ (View-x view) (* alpha (View-vx view))) 0.0 (+ (View-z view) (* alpha (View-vz view))))))
+    (: game-camera (-> Game Camera))
+    (define (game-camera game)
+      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game)))
+             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (k (View-scale view)) (target (Vec3 (View-x view) 0.0 (View-z view))))
         (Camera (Vec3 (+ (Vec3-x target) (* 18.0 (* k (+ c s)))) (* k 14.696938) (+ (Vec3-z target) (* 18.0 (* k (- c s)))))
                 target (Orthographic (* 18.0 k)))))
 
@@ -201,7 +220,7 @@
     ;; ground and `up` away from the viewer, within the map.
     (: shifted (-> Game F32 F32 View))
     (define (shifted game right up)
-      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game 0.0)))
+      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game)))
              (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (limit (i64->f32 map-size)))
         (View-z-set (View-x-set view (clamp (+ (View-x view) (* 0.70710677 (- (* right (- c s)) (* up (+ c s))))) 0.0 limit))
                     (clamp (+ (View-z view) (* 0.70710677 (- (* (negate right) (+ c s)) (* up (- c s))))) 0.0 limit))))
@@ -214,16 +233,13 @@
     (define (held-axis game more more-key less less-key)
       (- (if (or (held? game more) (held? game more-key)) 1.0 0.0) (if (or (held? game less) (held? game less-key)) 1.0 0.0)))
 
-    ;; Held keys pan in screen directions at a speed that grows with zoom,
-    ;; so the map moves at a steady rate on screen. The motion of the coming
-    ;; tick is kept, to draw it smoothly.
-    (: move-camera (-> Game Game))
-    (define (move-camera game)
-      (let* ((view (Game-view game)) (speed (* 0.35 (View-scale view)))
-             (moved (shifted game (* speed (held-axis game key-right 100 key-left 97)) (* speed (held-axis game key-up 119 key-down 115)))))
-        (Game-view-set game (View-vz-set (View-vx-set (View-z-set (View-x-set view (+ (View-x view) (View-vx view))) (+ (View-z view) (View-vz view)))
-                                                      (- (View-x moved) (View-x view)))
-                                         (- (View-z moved) (View-z view))))))
+    ;; Held keys pan in screen directions, 3.5 cells a second at the closest
+    ;; zoom and faster farther out, so the map moves at a steady rate on
+    ;; screen.
+    (: move-camera (-> Game I64 Game))
+    (define (move-camera game milliseconds)
+      (let ((speed (* (* 0.0035 (View-scale (Game-view game))) (i64->f32 milliseconds))))
+        (Game-view-set game (shifted game (* speed (held-axis game key-right 100 key-left 97)) (* speed (held-axis game key-up 119 key-down 115))))))
 
     ;; Dragging moves the ground with the pointer: a pixel is 18 times the
     ;; zoom over the screen's height across, and twice that up the screen,
@@ -253,7 +269,7 @@
     ;; The cell under a pixel, if the pointer is over the map.
     (: pick (-> Game I32 I32 (Option Cell)))
     (define (pick game x y)
-      (match (ground-point (game-camera game 0.0) x y (Game-width game) (Game-height game))
+      (match (ground-point (game-camera game) x y (Game-width game) (Game-height game))
         ((Some point)
          (let ((cell (Cell (f32->i64 (round (Vec3-x point))) (f32->i64 (round (Vec3-z point))))))
            (if (in-bounds? cell) (Some cell) (None))))
@@ -471,15 +487,25 @@
 
     ;; ---- Updates ----
 
-    ;; Each tick moves the camera and, unless paused, the world; the results
-    ;; open once when the game is decided.
-    (: tick (-> Game Game))
-    (define (tick game)
-      (let ((game (move-camera (Game-clock-set game (+ (Game-clock game) 1)))))
-        (if (paused? game)
-            game
-            (let ((world (advance (Game-world game))))
-              (Game-world-set (if (and (playing? (Game-world game)) (not (playing? world))) (Game-menu-set game (Results)) game) world)))))
+    ;; Time moves the clock and the camera, and unless the world is still,
+    ;; its phase: each whole tick of it advances the world, at most a few at
+    ;; once after a long frame. The results open once when the game is
+    ;; decided.
+    (: pass (-> Game I64 Game))
+    (define (pass game milliseconds)
+      (let ((game (move-camera (Game-clock-set game (+ (Game-clock game) milliseconds)) milliseconds)))
+        (if (still? game) game (catch-up (Game-phase-set game (+ (Game-phase game) milliseconds)) 3))))
+
+    (: catch-up (-> Game I64 Game))
+    (define (catch-up game allowed)
+      (cond ((< (Game-phase game) tick-milliseconds) game)
+            ((or (= allowed 0) (still? game)) (Game-phase-set game (min (Game-phase game) (- tick-milliseconds 1))))
+            (else (catch-up (advance-world (Game-phase-set game (- (Game-phase game) tick-milliseconds))) (- allowed 1)))))
+
+    (: advance-world (-> Game Game))
+    (define (advance-world game)
+      (let ((world (advance (Game-world game))))
+        (Game-world-set (if (and (playing? (Game-world game)) (not (playing? world))) (Game-menu-set game (Results)) game) world)))
 
     ;; Hovering over a building's button previews it on the selected cell.
     (: hover (-> Game I32 I32 Game))
@@ -489,7 +515,7 @@
     (: update-game (-> Game Input Game))
     (define (update-game game input)
       (match input
-        ((Tick) (tick game))
+        ((Elapsed milliseconds) (pass game (i32->i64 milliseconds)))
         ((KeyDown key) (key-press game key))
         ((KeyUp key) (Game-held-set game (filter (lambda (k) (not (= k key))) (Game-held game))))
         ((Wheel pixels) (zoom game (+ 1.0 (* 0.001 (i32->f32 pixels)))))

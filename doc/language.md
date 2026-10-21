@@ -224,6 +224,8 @@ the first changed type instead of misreading it.
 state: `init` makes it from a seed and the screen size, `update` applies one
 `Input`, `view` describes a `Frame` of mesh instances under a camera and a
 light, and `hud` describes the HUD's panels, shown again after each update.
+Time is input too: each display frame reports the milliseconds since the
+last, so the application decides how time passes and can stop it.
 Two more convert the state to and from a `Save` with a wire encoding, which
 may be a record of how to rebuild the state rather than the state itself.
 `define-application` exposes them to the browser host in `src/app`. Items

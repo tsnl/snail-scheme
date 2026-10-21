@@ -11,7 +11,7 @@ import {loadSave, storeSave} from './storage.mjs';
 // Input kinds and named keys match `decode-input` and the key constants in
 // lib/lofi/app.sld.
 const KEY_DOWN = 1, KEY_UP = 2, POINTER_DOWN = 3, POINTER_MOVE = 4, POINTER_UP = 5, POINTER_CANCEL = 6;
-const WHEEL = 7, RESIZE = 8, PRESS = 9, HOVER = 10, TICK = 11;
+const WHEEL = 7, RESIZE = 8, PRESS = 9, HOVER = 10, ELAPSED = 11;
 const namedKeys = {ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3, ArrowDown: 4, Escape: 27, Enter: 13, ' ': 32};
 
 function keyCode(event) {
@@ -110,7 +110,7 @@ function screenImports(renderer, hud) {
 
 // ---- Application ----
 
-export async function startApplication({url, canvas, overlay, storageKey, tickMilliseconds = 100}) {
+export async function startApplication({url, canvas, overlay, storageKey}) {
   const renderer = await createRenderer(canvas);
   let exports;
   const hud = createHud(overlay, (action, argument) => exports.app_input(PRESS, action, argument, 0, 0),
@@ -125,7 +125,7 @@ export async function startApplication({url, canvas, overlay, storageKey, tickMi
   exports.main();
   await restore(exports, storageKey, canvas);
   attachInput(exports, canvas);
-  runClock(exports, storageKey, tickMilliseconds);
+  runClock(exports, storageKey);
   return exports;
 }
 
@@ -171,26 +171,24 @@ function attachInput(exports, canvas) {
   new ResizeObserver(() => send(RESIZE, canvas.clientWidth, canvas.clientHeight)).observe(canvas);
 }
 
-// Ticks run at a fixed rate while the page is visible; frames interpolate
-// between ticks. The state is saved every few seconds and when hidden.
-function runClock(exports, storageKey, tickMilliseconds) {
-  let lastTick = performance.now(), ticks = 0;
+// Each display frame first reports the time since the last, up to a quarter
+// of a second, then draws. Hidden pages draw no frames, so no time passes
+// for them. The state is saved every five seconds and when hidden.
+function runClock(exports, storageKey) {
+  let last = performance.now(), lastSave = last;
   const save = () => {
     const length = exports.app_save();
     const bytes = new Uint8Array(length);
     for (let i = 0; i < length; i++) bytes[i] = exports.app_save_byte(i);
     storeSave(storageKey, bytes).catch(error => console.warn('save failed:', error.message));
   };
-  setInterval(() => {
-    if (document.hidden) return;
-    exports.app_input(TICK, 0, 0, 0, 0);
-    lastTick = performance.now();
-    if (++ticks % 50 === 0) save();
-  }, tickMilliseconds);
   addEventListener('visibilitychange', () => { if (document.hidden) save(); });
   const frame = now => {
-    exports.app_frame(Math.min(1, (now - lastTick) / tickMilliseconds));
+    exports.app_input(ELAPSED, Math.round(Math.min(250, Math.max(0, now - last))), 0, 0, 0);
+    last = now;
+    exports.app_frame();
+    if (now - lastSave > 5000) { lastSave = now; save(); }
     requestAnimationFrame(frame);
   };
-  requestAnimationFrame(frame);
+  requestAnimationFrame(now => { last = now; frame(now); });
 }
