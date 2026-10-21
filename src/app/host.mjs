@@ -10,8 +10,8 @@ import {loadSave, storeSave} from './storage.mjs';
 
 // Input kinds and named keys match `decode-input` and the key constants in
 // lib/lofi/app.sld.
-const KEY_DOWN = 1, KEY_UP = 2, POINTER_MOVE = 3, POINTER_DOWN = 4, POINTER_UP = 5;
-const WHEEL = 6, RESIZE = 7, PRESS = 8, TICK = 9;
+const KEY_DOWN = 1, KEY_UP = 2, POINTER_DOWN = 3, POINTER_MOVE = 4, POINTER_UP = 5, POINTER_CANCEL = 6;
+const WHEEL = 7, RESIZE = 8, PRESS = 9, HOVER = 10, ELAPSED = 11;
 const namedKeys = {ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3, ArrowDown: 4, Escape: 27, Enter: 13, ' ': 32};
 
 function keyCode(event) {
@@ -55,47 +55,66 @@ function wasiImports(memory) {
 
 // ---- Screen effect ----
 
-// Collects one frame from the screen operations, then hands it to the
-// renderer and the HUD.
+// Collects one frame from the screen operations and hands it to the
+// renderer; collects the HUD, sent only after updates, and hands it to the
+// HUD. A batch's style is [opacity, x, z, radius], with a negative radius
+// when nothing is hidden.
 function screenImports(renderer, hud) {
-  let frame = null, batch = null, panel = null, widget = null;
+  let frame = null, batch = null, panels = null, target = null, fieldName = null;
+  const styles = [(a, b, c, d) => [1, 0, 0, -1], (a, b, c, d) => [a, 0, 0, -1], (a, b, c, d) => [1, b, c, d]];
+  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
   return {
-    'frame-begin'(ex, ey, ez, tx, ty, tz, background) {
-      frame = {eye: [ex, ey, ez], target: [tx, ty, tz], background, batches: [], panels: []};
+    'frame-begin'(background, motion) {
+      frame = {background, motion, batches: []};
     },
-    'batch-begin'(key, version) {
+    camera(ex, ey, ez, tx, ty, tz, kind, value) {
+      frame.camera = {eye: [ex, ey, ez], target: [tx, ty, tz], kind, value};
+    },
+    light(dx, dy, dz, sun, ambient) {
+      frame.light = {direction: [dx, dy, dz], sun, ambient};
+    },
+    'batch-begin'(key, version, style, a, b, c, d) {
       const cached = renderer.hasBatch(key, version);
-      batch = cached ? null : {key, version, items: []};
-      frame.batches.push(cached ? {key, version} : batch);
+      batch = {key, version, style: styles[style](a, b, c, d), items: cached ? null : []};
+      frame.batches.push(batch);
       return cached ? 1 : 0;
     },
-    instance(mesh, x, y, z, sx, sy, sz, yaw, color) {
-      batch.items.push(mesh, x, y, z, sx, sy, sz, yaw, color);
-    },
-    'panel-begin'(anchor) {
-      panel = {anchor, widgets: []};
-      frame.panels.push(panel);
-    },
-    'widget-begin'(kind, action, value) {
-      widget = {kind, action, value, text: ''};
-      panel.widgets.push(widget);
-    },
-    'text-character'(code) {
-      widget.text += String.fromCodePoint(code);
+    instance(...values) {
+      batch.items.push(values);
     },
     'frame-end'() {
       renderer.draw(frame);
-      hud.update(frame.panels);
+    },
+    'hud-begin'() {
+      panels = [];
+    },
+    'panel-begin'(place, corner, column, dismiss) {
+      target = {place, corner, column, dismiss, key: '', widgets: []};
+      panels.push(target);
+    },
+    'widget-begin'(kind, tone, action, argument, control, value) {
+      target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: ''};
+      panels.at(-1).widgets.push(target);
+    },
+    field(which) {
+      fieldName = fields[which];
+    },
+    'text-character'(code) {
+      target[fieldName] += String.fromCodePoint(code);
+    },
+    'hud-end'() {
+      hud.update(panels);
     },
   };
 }
 
 // ---- Application ----
 
-export async function startApplication({url, canvas, overlay, storageKey, tickMilliseconds = 100}) {
+export async function startApplication({url, canvas, overlay, storageKey}) {
   const renderer = await createRenderer(canvas);
   let exports;
-  const hud = createHud(overlay, action => exports.app_input(PRESS, action, 0, 0));
+  const hud = createHud(overlay, (action, argument) => exports.app_input(PRESS, action, argument, 0, 0),
+                        (action, argument) => exports.app_input(HOVER, action, argument, 0, 0));
   const imports = {
     wasi_snapshot_preview1: wasiImports(() => exports.memory),
     'snail.screen': screenImports(renderer, hud),
@@ -106,7 +125,7 @@ export async function startApplication({url, canvas, overlay, storageKey, tickMi
   exports.main();
   await restore(exports, storageKey, canvas);
   attachInput(exports, canvas);
-  runClock(exports, storageKey, tickMilliseconds);
+  runClock(exports, storageKey);
   return exports;
 }
 
@@ -118,7 +137,7 @@ async function restore(exports, storageKey, canvas) {
       exports.app_load_begin(bytes.length);
       bytes.forEach((byte, index) => exports.app_load_byte(index, byte));
       exports.app_load_end();
-      exports.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0);
+      exports.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0, 0);
       return;
     } catch (error) {
       console.warn('discarding an incompatible save:', error.message);
@@ -127,42 +146,49 @@ async function restore(exports, storageKey, canvas) {
   exports.app_init((Math.random() * 65536) | 0, canvas.clientWidth, canvas.clientHeight);
 }
 
+// Wheel deltas arrive in pixels, lines or pages; the application gets pixels.
+function wheelPixels(event) {
+  return Math.round(event.deltaY * [1, 16, innerHeight][event.deltaMode]);
+}
+
 function attachInput(exports, canvas) {
-  const send = (kind, a = 0, b = 0, c = 0) => exports.app_input(kind, a | 0, b | 0, c | 0);
+  const send = (kind, a = 0, b = 0, c = 0, d = 0) => exports.app_input(kind, a | 0, b | 0, c | 0, d | 0);
   addEventListener('keydown', event => {
-    if (event.target instanceof HTMLInputElement) return;
+    if (event.target instanceof HTMLInputElement || (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' '))) return;
     const code = keyCode(event);
     if (code) { send(KEY_DOWN, code); event.preventDefault(); }
   });
   addEventListener('keyup', event => { const code = keyCode(event); if (code) send(KEY_UP, code); });
-  canvas.addEventListener('pointermove', event => send(POINTER_MOVE, event.offsetX, event.offsetY));
-  canvas.addEventListener('pointerdown', event => send(POINTER_DOWN, event.offsetX, event.offsetY, event.button));
-  canvas.addEventListener('pointerup', event => send(POINTER_UP, event.offsetX, event.offsetY, event.button));
-  canvas.addEventListener('wheel', event => { send(WHEEL, Math.sign(event.deltaY)); event.preventDefault(); }, {passive: false});
+  canvas.addEventListener('pointerdown', event => {
+    canvas.setPointerCapture?.(event.pointerId);
+    send(POINTER_DOWN, event.pointerId, event.offsetX, event.offsetY, event.button);
+  });
+  canvas.addEventListener('pointermove', event => send(POINTER_MOVE, event.pointerId, event.offsetX, event.offsetY));
+  canvas.addEventListener('pointerup', event => send(POINTER_UP, event.pointerId, event.offsetX, event.offsetY));
+  canvas.addEventListener('pointercancel', event => send(POINTER_CANCEL, event.pointerId));
+  canvas.addEventListener('wheel', event => { send(WHEEL, wheelPixels(event)); event.preventDefault(); }, {passive: false});
   canvas.addEventListener('contextmenu', event => event.preventDefault());
   new ResizeObserver(() => send(RESIZE, canvas.clientWidth, canvas.clientHeight)).observe(canvas);
 }
 
-// Ticks run at a fixed rate while the page is visible; frames interpolate
-// between ticks. The state is saved every few seconds and when hidden.
-function runClock(exports, storageKey, tickMilliseconds) {
-  let lastTick = performance.now(), ticks = 0;
+// Each display frame first reports the time since the last, up to a quarter
+// of a second, then draws. Hidden pages draw no frames, so no time passes
+// for them. The state is saved every five seconds and when hidden.
+function runClock(exports, storageKey) {
+  let last = performance.now(), lastSave = last;
   const save = () => {
     const length = exports.app_save();
     const bytes = new Uint8Array(length);
     for (let i = 0; i < length; i++) bytes[i] = exports.app_save_byte(i);
     storeSave(storageKey, bytes).catch(error => console.warn('save failed:', error.message));
   };
-  setInterval(() => {
-    if (document.hidden) return;
-    exports.app_input(TICK, 0, 0, 0);
-    lastTick = performance.now();
-    if (++ticks % 50 === 0) save();
-  }, tickMilliseconds);
   addEventListener('visibilitychange', () => { if (document.hidden) save(); });
   const frame = now => {
-    exports.app_frame(Math.min(1, (now - lastTick) / tickMilliseconds));
+    exports.app_input(ELAPSED, Math.round(Math.min(250, Math.max(0, now - last))), 0, 0, 0);
+    last = now;
+    exports.app_frame();
+    if (now - lastSave > 5000) { lastSave = now; save(); }
     requestAnimationFrame(frame);
   };
-  requestAnimationFrame(frame);
+  requestAnimationFrame(now => { last = now; frame(now); });
 }

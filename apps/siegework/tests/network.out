@@ -1,0 +1,11 @@
+rejected: Nothing powered can see there.
+tick 400, produced 116, wires 3, visible 345: Extractor 39,43 powered; Pylon 30,39 powered; Extractor 30,35 powered
+tick 450, produced 141, wires 3, visible 345: Extractor 39,43 powered; Pylon 30,39 powered; Extractor 30,35 powered
+tick 450, produced 141, wires 1, visible 253: Extractor 39,43 powered; Extractor 30,35 unpowered
+tick 500, produced 151, wires 1, visible 253: Extractor 39,43 powered; Extractor 30,35 unpowered
+tick 550, produced 176, wires 3, visible 345: Extractor 39,43 powered; Extractor 30,35 powered; Pylon 30,39 powered
+tick 600, produced 201, wires 3, visible 345: Extractor 39,43 powered; Extractor 30,35 powered; Pylon 30,39 powered
+wires 39,39-39,43 39,39-30,39 30,39-30,35
+wires 39,39-39,43 39,39-30,39 30,39-29,36 29,36-30,35
+tick 630, produced 216, wires 3, visible 345: Extractor 39,43 powered; Extractor 30,35 powered; Pylon 30,39 powered
+wires 39,39-39,43 39,39-30,39 30,39-30,35

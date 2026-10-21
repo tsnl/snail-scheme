@@ -1,11 +1,12 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test test-chibi bootstrap site
+.PHONY: format check test test-chibi bootstrap site pages
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
 HEAP ?= 2G
 EMACS ?= emacs
 NIXFMT ?= nixfmt
+MDBOOK ?= mdbook
 SCHEME_SOURCES = '*.scm' '*.sld'
 
 # The compiler's unit tests, every test program, and Siegework headless.
@@ -33,3 +34,13 @@ check:
 # Siegework as a static site in build/siegework.
 site:
 	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-app.scm "$(CURDIR)" --release apps/siegework build/siegework
+
+# The GitHub Pages site in build/pages: the book, with Siegework at
+# play/siegework/.
+pages: site
+	"$(MDBOOK)" build --dest-dir build/pages
+	mkdir -p build/pages/play
+	cp -R build/siegework build/pages/play/siegework
+	test -f build/pages/index.html
+	test -f build/pages/games/siegework.html
+	test -f build/pages/play/siegework/app.wasm

@@ -1,4 +1,6 @@
-;; The map grid: cells, distances and shortest walking paths.
+;; The map grid: cells, distances, the cells a straight line crosses, the
+;; fewest closed cells joining two places, and breadth-first distance
+;; fields.
 (define-library (siegework grid)
   (export
    map-size
@@ -10,10 +12,13 @@
    index-cell
    in-bounds?
    distance-squared
-   adjacent?
+   manhattan
+   within?
+   integer-sqrt
    neighbors
-   find-path
-   reachable)
+   line-cells
+   crossing-path
+   distance-field)
   (import
    (lofi base)
    (lofi wire))
@@ -22,7 +27,7 @@
     ;; ---- Cells ----
 
     (: map-size I64)
-    (define map-size 40)
+    (define map-size 80)
 
     (struct Cell
       ((x I64)
@@ -50,58 +55,101 @@
       (let ((dx (- (Cell-x a) (Cell-x b))) (dy (- (Cell-y a) (Cell-y b))))
         (+ (* dx dx) (* dy dy))))
 
-    ;; Touching, including diagonally.
-    (: adjacent? (-> Cell Cell Bool))
-    (define (adjacent? a b)
-      (<= (distance-squared a b) 2))
+    (: manhattan (-> Cell Cell I64))
+    (define (manhattan a b)
+      (+ (abs (- (Cell-x a) (Cell-x b))) (abs (- (Cell-y a) (Cell-y b)))))
 
+    ;; Within a circle of `radius` cells around `center`.
+    (: within? (-> Cell Cell I64 Bool))
+    (define (within? cell center radius)
+      (<= (distance-squared cell center) (* radius radius)))
+
+    ;; The largest integer whose square is at most `square`, by Newton's
+    ;; iteration from above.
+    (: integer-sqrt (-> I64 I64))
+    (define (integer-sqrt square)
+      (if (= square 0)
+          0
+          (let loop ((guess square))
+            (let ((next (quotient (+ guess (quotient square guess)) 2)))
+              (if (>= next guess) guess (loop next))))))
+
+    ;; East, west, south, north: a fixed order, so ties break the same way.
     (: neighbors (-> Cell (List Cell)))
     (define (neighbors cell)
       (let ((x (Cell-x cell)) (y (Cell-y cell)))
         (filter in-bounds? (list (Cell (+ x 1) y) (Cell (- x 1) y) (Cell x (+ y 1)) (Cell x (- y 1))))))
 
-    ;; ---- Breadth-first search ----
+    ;; ---- Straight lines ----
 
-    ;; Visits open cells from `start` in order of distance. `parent` records
-    ;; each visited cell's predecessor; the search stops when `goal?` holds.
-    ;; The arrays are local to the search, so it is total.
-    (: search (-> (Vector Bool) Cell (-> Cell Bool) (Pair (Vector I64) (Option Cell))))
-    (define (search open start goal?)
+    ;; Every cell the segment between two cell centers touches, from `a` to
+    ;; `b`. In half-cell units the next vertical grid line is `nx` away along
+    ;; x and the next horizontal one `ny` along y, so the segment meets the
+    ;; horizontal line first exactly when `ny * dx < nx * dy`. A segment
+    ;; along an axis never meets the other kind of line, and one through a
+    ;; corner touches both side cells, so nothing is seen or wired diagonally
+    ;; between two rocks.
+    (: line-cells (-> Cell Cell (List Cell)))
+    (define (line-cells a b)
+      (let ((dx (abs (- (Cell-x b) (Cell-x a)))) (dy (abs (- (Cell-y b) (Cell-y a))))
+            (sx (if (< (Cell-x a) (Cell-x b)) 1 -1)) (sy (if (< (Cell-y a) (Cell-y b)) 1 -1)))
+        (let walk ((x (Cell-x a)) (y (Cell-y a)) (nx 1) (ny 1) (cells (Nil)))
+          (let ((cells (Cons (Cell x y) cells)) (order (- (* ny dx) (* nx dy))))
+            (cond ((and (= x (Cell-x b)) (= y (Cell-y b))) (reverse cells))
+                  ((< order 0) (walk x (+ y sy) nx (+ ny 2) cells))
+                  ((> order 0) (walk (+ x sx) y (+ nx 2) ny cells))
+                  (else (walk (+ x sx) (+ y sy) (+ nx 2) (+ ny 2) (Cons (Cell x (+ y sy)) (Cons (Cell (+ x sx) y) cells)))))))))
+
+    ;; ---- Passes ----
+
+    ;; The closed cells on a way from `start` to the nearest goal that
+    ;; crosses as few of them as possible: opening them joins the two. The
+    ;; search grows from the goals in rounds. Round k reaches every cell
+    ;; whose best way crosses k closed cells, spreading through open cells
+    ;; within the round and into closed ones for the next. Each cell keeps
+    ;; the neighbor it was reached from, so the way is read back from
+    ;; `start`. The array is local to the search, so it is total.
+    (: crossing-path (-> (Vector Bool) (List Cell) Cell (List Cell)))
+    (define (crossing-path open goals start)
       (unsafe-total
        (lambda ()
-         (let ((parent (make-array (* map-size map-size) -1)))
-           (array-set! parent (cell-index start) (cell-index start))
-           (let loop ((frontier (list start)) (next (Nil)))
-             (match frontier
+         (let ((from (make-array (* map-size map-size) -1)))
+           (for-each (lambda (goal) (array-set! from (cell-index goal) (cell-index goal))) goals)
+           (let round ((current goals) (next (Nil)))
+             (match current
                ((Nil) (if (null? next)
-                          (Pair (array->vector parent) (None))
-                          (loop (reverse next) (Nil))))
+                          (let back ((index (cell-index start)) (closed (Nil)))
+                            (let ((closed (if (vector-ref open index) closed (Cons (index-cell index) closed))))
+                              (if (= (array-ref from index) index) closed (back (array-ref from index) closed))))
+                          (round next (Nil))))
                ((Cons cell rest)
-                (if (goal? cell)
-                    (Pair (array->vector parent) (Some cell))
-                    (loop rest (fold-left (lambda (queued neighbor)
-                                            (let ((index (cell-index neighbor)))
-                                              (if (and (vector-ref open index) (= (array-ref parent index) -1))
-                                                  (begin (array-set! parent index (cell-index cell)) (Cons neighbor queued))
-                                                  queued)))
-                                          next (neighbors cell)))))))))))
+                (let ((reached (filter (lambda (n) (= (array-ref from (cell-index n)) -1)) (neighbors cell))))
+                  (for-each (lambda (n) (array-set! from (cell-index n) (cell-index cell))) reached)
+                  (round (append (filter (lambda (n) (vector-ref open (cell-index n))) reached) rest)
+                         (append (filter (lambda (n) (not (vector-ref open (cell-index n)))) reached) next))))))))))
 
-    ;; The cells to walk from `start` to a cell satisfying `goal?`,
-    ;; excluding `start`. Only open cells are entered.
-    (: find-path (-> (Vector Bool) Cell (-> Cell Bool) (Option (List Cell))))
-    (define (find-path open start goal?)
-      (match (search open start goal?)
-        ((Pair parent (Some goal))
-         (Some (let walk ((index (cell-index goal)) (path (Nil)))
-                 (if (= index (cell-index start))
-                     path
-                     (walk (vector-ref parent index) (Cons (index-cell index) path))))))
-        ((Pair _ (None)) (None))))
+    ;; ---- Distance fields ----
 
-    ;; Whether each cell can be reached from `start`.
-    (: reachable (-> (Vector Bool) Cell (Vector Bool)))
-    (define (reachable open start)
-      (match (search open start (lambda (cell) #f))
-        ((Pair parent _) (vector-map (lambda (index) (>= index 0)) parent))))
+    ;; The number of steps from each cell to the nearest goal, moving through
+    ;; open cells, or -1 where no goal can be reached. A walker heads for a
+    ;; goal by stepping to any neighbor one step closer. The array is local
+    ;; to the search, so it is total.
+    (: distance-field (-> (Vector Bool) (List Cell) (Vector I64)))
+    (define (distance-field open goals)
+      (unsafe-total
+       (lambda ()
+         (let ((distance (make-array (* map-size map-size) -1)))
+           (for-each (lambda (goal) (array-set! distance (cell-index goal) 0)) goals)
+           (let loop ((frontier goals) (next (Nil)))
+             (match frontier
+               ((Nil) (if (null? next) (array->vector distance) (loop (reverse next) (Nil))))
+               ((Cons cell rest)
+                (let ((steps (+ (array-ref distance (cell-index cell)) 1)))
+                  (loop rest (fold-left (lambda (queued neighbor)
+                                          (let ((index (cell-index neighbor)))
+                                            (if (and (vector-ref open index) (= (array-ref distance index) -1))
+                                                (begin (array-set! distance index steps) (Cons neighbor queued))
+                                                queued)))
+                                        next (neighbors cell)))))))))))
 
     ))

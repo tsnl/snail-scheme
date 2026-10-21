@@ -1,22 +1,34 @@
-// Runs the compiled game without a browser: a recording screen host, ticks,
-// a click, and a save and restore through the application entry points.
+// Runs the compiled game without a browser: a recording screen host, taps
+// that select cells, an order given through the HUD's card, five minutes of
+// play, and a save replayed through the application entry points.
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-const TICK = 9, PRESS = 8, POINTER_DOWN = 4, POINTER_MOVE = 3;
+const ELAPSED = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_DOWN = 3;
 
+// Records each frame's batches and the latest HUD's widgets.
 function screen() {
-  const frames = [];
-  let frame = null, widget = null;
-  return {frames, imports: {
-    'frame-begin'(...camera) { frame = {camera, batches: [], text: []}; },
+  const host = {frames: [], widgets: [], imports: null};
+  let frame = null, widget = null, field = null, widgets = null;
+  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
+  host.imports = {
+    'frame-begin'() { frame = {batches: []}; },
+    camera() {},
+    light() {},
     'batch-begin'(key, version) { frame.batches.push({key, version, items: 0}); return 0; },
     instance() { frame.batches.at(-1).items++; },
-    'panel-begin'() {},
-    'widget-begin'() { widget = ''; frame.text.push(widget); },
-    'text-character'(code) { frame.text[frame.text.length - 1] += String.fromCodePoint(code); },
-    'frame-end'() { frames.push(frame); },
-  }};
+    'frame-end'() { host.frames.push(frame); },
+    'hud-begin'() { widgets = []; },
+    'panel-begin'() { widget = {key: ''}; },
+    'widget-begin'(kind, tone, action, argument, control) {
+      widget = {kind, action, argument, control, key: '', icon: '', help: '', badge: '', text: '', caption: ''};
+      widgets.push(widget);
+    },
+    field(which) { field = fields[which]; },
+    'text-character'(code) { widget[field] += String.fromCodePoint(code); },
+    'hud-end'() { host.widgets = widgets; },
+  };
+  return host;
 }
 
 async function instantiate(path, host) {
@@ -44,37 +56,56 @@ async function instantiate(path, host) {
   return exports;
 }
 
+const widget = (host, key) => host.widgets.find(entry => entry.key === key);
+const tap = (game, x, y) => { game.app_input(POINTER_DOWN, 1, x, y, 0); game.app_input(POINTER_UP, 1, x, y, 0); };
+
 const path = process.argv[2];
 const host = screen();
 const game = await instantiate(path, host);
 game.app_init(7, 960, 640);
-game.app_frame(0);
+game.app_frame();
 const first = host.frames.at(-1);
-assert.equal(first.batches.length, 3);
-assert.equal(first.batches[0].items, 1600, 'one item per map cell');
-assert.ok(first.text.some(text => text.startsWith('Ore 60')), first.text.join(' | '));
+assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 7],
+                 'terrain, structures, motion, bars, links, cursor, shimmer and preview');
+assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
+assert.equal(widget(host, 'energy').text, '160');
+assert.equal(widget(host, 'nests').text, '☆☆☆');
 
-// The camera looks at the hub, so the middle pixel picks the hub's cell.
-game.app_input(POINTER_MOVE, 480, 320, 0);
-game.app_frame(0);
-assert.ok(host.frames.at(-1).text.includes('Cell 20, 20'), host.frames.at(-1).text.join(' | '));
+// The camera looks at the hub, so a tap in the middle selects it and the
+// construction panel offers the hub's buttons.
+tap(game, 480, 320);
+assert.ok(widget(host, 'repair'), 'the hub can be repaired');
 
-// Choose the extractor tool and click the middle of the screen.
-game.app_input(PRESS, 1, 0, 0);
-game.app_input(POINTER_MOVE, 480, 320, 0);
-game.app_input(POINTER_DOWN, 480, 320, 0);
-for (let i = 0; i < 200; i++) game.app_input(TICK, 0, 0, 0);
-game.app_frame(0.5);
-console.log(host.frames.at(-1).text.slice(0, 5).join(' | '));
+// Tap around until the construction panel offers an extractor, then build
+// it through that button.
+let crystal = null;
+for (let y = 10; y < 640 && !crystal; y += 20)
+  for (let x = 10; x < 960 && !crystal; x += 20) {
+    tap(game, x, y);
+    const button = widget(host, 'build-extractor');
+    if (button && button.control === 0) crystal = button;
+  }
+assert.ok(crystal, 'a crystal is in view');
+game.app_input(PRESS, crystal.action, crystal.argument, 0, 0);
+assert.equal(widget(host, 'energy').text, '135');
+assert.ok(widget(host, 'scavenge'), 'the first extractor is ready at once');
+// Each tenth of a second advances the world a tick.
+for (let i = 0; i < 3000; i++) game.app_input(ELAPSED, 100, 0, 0, 0);
+game.app_frame();
+const readouts = h => ['health', 'energy', 'threat', 'elapsed'].map(key => widget(h, key)?.text);
+console.log(readouts(host).join(' | '));
 
-// Save, restore into a fresh instance, and compare what each draws.
+// Save, restore into a fresh instance, and compare what each shows.
 const length = game.app_save();
 const bytes = Uint8Array.from({length}, (_, i) => game.app_save_byte(i));
 const other = screen();
 const restored = await instantiate(path, other);
+const started = performance.now();
 restored.app_load_begin(bytes.length);
 bytes.forEach((byte, index) => restored.app_load_byte(index, byte));
 restored.app_load_end();
-restored.app_frame(0.5);
-assert.deepEqual(other.frames.at(-1).text, host.frames.at(-1).text);
-console.log(`save of ${length} bytes restores the same frame`);
+const elapsed = performance.now() - started;
+restored.app_input(RESIZE, 960, 640, 0, 0);
+restored.app_frame();
+assert.deepEqual(readouts(other), readouts(host));
+console.log(`a journal of ${length} bytes replays the same colony in ${elapsed.toFixed(0)} ms`);
