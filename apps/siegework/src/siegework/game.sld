@@ -130,7 +130,7 @@
              (x (+ (Viewpoint-x view) (* alpha (Viewpoint-vx view))))
              (z (+ (Viewpoint-z view) (* alpha (Viewpoint-vz view))))
              (distance (Viewpoint-distance view)))
-        (Camera (Vec3 x (* 0.85 distance) (+ z (* 0.55 distance))) (Vec3 x 0.0 z))))
+        (Camera (Vec3 x (* 0.85 distance) (+ z (* 0.55 distance))) (Vec3 x 0.0 z) (Perspective 0.8))))
 
     (: held? (-> Game I32 Bool))
     (define (held? game key)

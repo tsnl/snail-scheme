@@ -34,17 +34,36 @@
    Vec3-x
    Vec3-y
    Vec3-z
+   Projection
+   Perspective
+   Orthographic
    Camera
    Camera-eye
    Camera-target
-   camera-fov
+   Camera-projection
+   Light
    Mesh
    Box
    Pyramid
    Prism
    Sphere
    Tile
+   Tetrahedron
+   Octahedron
    Item
+   Item-position
+   Item-position-set
+   Item-scale
+   Item-yaw
+   Item-yaw-set
+   Item-glow-set
+   Item-from
+   Item-from-set
+   item
+   Style
+   Solid
+   Translucent
+   Revealed
    Batch
    Anchor
    TopLeft
@@ -60,6 +79,10 @@
    rgb
    screen
    render
+   Ray
+   Ray-origin
+   Ray-direction
+   pointer-ray
    ground-point
    define-application)
   (import
@@ -112,34 +135,69 @@
        (z F32))
       (deriving Serialize Deserialize))
 
-    ;; The host uses a perspective projection with this vertical field of view.
+    ;; A perspective projection with a vertical field of view, or an
+    ;; orthographic one showing `height` world units from the bottom of the
+    ;; screen to the top.
+    (enum Projection
+      (Perspective ((fov F32)))
+      (Orthographic ((height F32))))
+
+    ;; Up is +y.
     (struct Camera
       ((eye Vec3)
-       (target Vec3)))
+       (target Vec3)
+       (projection Projection)))
 
-    (define camera-fov 0.8)
+    ;; Sunlight shining from `direction` with strength `sun`, and the light
+    ;; every surface receives whichever way it faces.
+    (struct Light
+      ((direction Vec3)
+       (sun F32)
+       (ambient F32)))
 
+    ;; Every mesh stands on y = 0 within the unit cell around the origin; a
+    ;; tile is a flat unit square at y = 0.
     (enum Mesh
       (Box)
       (Pyramid)
       (Prism)
       (Sphere)
-      (Tile))
+      (Tile)
+      (Tetrahedron)
+      (Octahedron))
 
-    ;; A mesh instance: position, scale, rotation about the vertical axis, and
-    ;; a 0xRRGGBB color.
+    ;; A mesh instance: position, scale, rotation about the vertical axis, a
+    ;; 0xRRGGBB color, and a glow from 0, lit by the light, to 1, its own
+    ;; color. It moves from `from` to `position` as the frame's motion goes
+    ;; from 0 to 1, so the host animates it without asking for new items.
     (struct Item
       ((mesh Mesh)
        (position Vec3)
        (scale Vec3)
        (yaw F32)
-       (color I32)))
+       (color I32)
+       (glow F32)
+       (from Vec3)))
+
+    ;; An unlit item standing still.
+    (: item (-> Mesh Vec3 Vec3 F32 I32 Item))
+    (define (item mesh position scale yaw color)
+      (Item mesh position scale yaw color 0.0 position))
+
+    ;; Solid batches hide what is behind them. Translucent ones are drawn
+    ;; after, over them. A revealed batch shows only within `radius` of a
+    ;; point on the ground. Styles cost nothing to change between frames.
+    (enum Style
+      (Solid)
+      (Translucent ((opacity F32)))
+      (Revealed ((center Vec3) (radius F32))))
 
     ;; The host keeps each batch's instances until its version changes, so
     ;; `items` runs only when the host does not already have them.
     (struct Batch
       ((key I32)
        (version I32)
+       (style Style)
        (items (-> (List Item)))))
 
     (enum Anchor
@@ -158,9 +216,12 @@
       ((anchor Anchor)
        (widgets (List Widget))))
 
+    ;; `motion` moves every item from where it was toward where it is.
     (struct Frame
       ((camera Camera)
+       (light Light)
        (background I32)
+       (motion F32)
        (batches (List Batch))
        (panels (List Panel))))
 
@@ -171,15 +232,19 @@
     ;; ---- Drawing ----
 
     (effect screen
-      ((frame-begin (-> F32 F32 F32 F32 F32 F32 I32 Unit))
-       (batch-begin (-> I32 I32 Bool))
-       (instance (-> I32 F32 F32 F32 F32 F32 F32 F32 I32 Unit))
+      ((frame-begin (-> I32 F32 Unit))
+       (camera (-> F32 F32 F32 F32 F32 F32 I32 F32 Unit))
+       (light (-> F32 F32 F32 F32 F32 Unit))
+       (batch-begin (-> I32 I32 I32 F32 F32 F32 F32 Bool))
+       (instance (-> I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 Unit))
        (panel-begin (-> I32 Unit))
        (widget-begin (-> I32 I32 F32 Unit))
        (text-character (-> Char Unit))
        (frame-end (-> Unit)))
       (host "snail.screen"
             ((frame-begin "frame-begin")
+             (camera "camera")
+             (light "light")
              (batch-begin "batch-begin")
              (instance "instance")
              (panel-begin "panel-begin")
@@ -189,24 +254,43 @@
 
     (: render (-> Frame Unit ! screen))
     (define (render frame)
-      (let ((eye (Camera-eye (Frame-camera frame))) (target (Camera-target (Frame-camera frame))))
-        (frame-begin (Vec3-x eye) (Vec3-y eye) (Vec3-z eye) (Vec3-x target) (Vec3-y target) (Vec3-z target)
-                     (Frame-background frame)))
+      (frame-begin (Frame-background frame) (Frame-motion frame))
+      (render-camera (Frame-camera frame))
+      (render-light (Frame-light frame))
       (for-each render-batch (Frame-batches frame))
       (for-each render-panel (Frame-panels frame))
       (frame-end))
 
+    (: render-camera (-> Camera Unit ! screen))
+    (define (render-camera view)
+      (let ((eye (Camera-eye view)) (target (Camera-target view)))
+        (match (Camera-projection view)
+          ((Perspective fov) (camera (Vec3-x eye) (Vec3-y eye) (Vec3-z eye) (Vec3-x target) (Vec3-y target) (Vec3-z target) 0 fov))
+          ((Orthographic height) (camera (Vec3-x eye) (Vec3-y eye) (Vec3-z eye) (Vec3-x target) (Vec3-y target) (Vec3-z target) 1 height)))))
+
+    (: render-light (-> Light Unit ! screen))
+    (define (render-light sunlight)
+      (let ((direction (Light-direction sunlight)))
+        (light (Vec3-x direction) (Vec3-y direction) (Vec3-z direction) (Light-sun sunlight) (Light-ambient sunlight))))
+
+    ;; The style travels with every frame; the items only when the host lacks
+    ;; this version.
     (: render-batch (-> Batch Unit ! screen))
     (define (render-batch batch)
-      (unless (batch-begin (Batch-key batch) (Batch-version batch))
+      (unless (match (Batch-style batch)
+                ((Solid) (batch-begin (Batch-key batch) (Batch-version batch) 0 1.0 0.0 0.0 0.0))
+                ((Translucent opacity) (batch-begin (Batch-key batch) (Batch-version batch) 1 opacity 0.0 0.0 0.0))
+                ((Revealed center radius) (batch-begin (Batch-key batch) (Batch-version batch) 2 1.0 (Vec3-x center) (Vec3-z center) radius)))
         (for-each render-item ((Batch-items batch)))))
 
     (: render-item (-> Item Unit ! screen))
     (define (render-item item)
-      (let ((position (Item-position item)) (scale (Item-scale item)))
+      (let ((position (Item-position item)) (scale (Item-scale item)) (from (Item-from item)))
         (instance (mesh-index (Item-mesh item)) (Vec3-x position) (Vec3-y position) (Vec3-z position)
-                  (Vec3-x scale) (Vec3-y scale) (Vec3-z scale) (Item-yaw item) (Item-color item))))
+                  (Vec3-x scale) (Vec3-y scale) (Vec3-z scale) (Item-yaw item) (Item-color item) (Item-glow item)
+                  (Vec3-x from) (Vec3-y from) (Vec3-z from))))
 
+    ;; The order matches the meshes in src/app/renderer.mjs.
     (: mesh-index (-> Mesh I32))
     (define (mesh-index mesh)
       (match mesh
@@ -214,7 +298,9 @@
         ((Pyramid) 1)
         ((Prism) 2)
         ((Sphere) 3)
-        ((Tile) 4)))
+        ((Tile) 4)
+        ((Tetrahedron) 5)
+        ((Octahedron) 6)))
 
     (: render-panel (-> Panel Unit ! screen))
     (define (render-panel panel)
@@ -237,21 +323,36 @@
 
     ;; ---- Picking ----
 
-    ;; The point where the ray through pixel (x, y) meets the plane y = 0,
-    ;; using the same projection as the host.
-    (: ground-point (-> Camera I32 I32 I32 I32 (Option Vec3)))
-    (define (ground-point camera x y width height)
-      (let* ((eye (Camera-eye camera)) (forward (normalize (subtract (Camera-target camera) eye)))
+    ;; A ray from `origin` along the unit vector `direction`.
+    (struct Ray
+      ((origin Vec3)
+       (direction Vec3)))
+
+    ;; The ray through the center of pixel (x, y), using the same projection
+    ;; as the host. A perspective ray leaves the eye; an orthographic one
+    ;; leaves the pixel's point on the plane through the eye.
+    (: pointer-ray (-> Camera I32 I32 I32 I32 Ray))
+    (define (pointer-ray view x y width height)
+      (let* ((eye (Camera-eye view)) (forward (normalize (subtract (Camera-target view) eye)))
              (right (normalize (cross forward (Vec3 0.0 1.0 0.0)))) (up (cross right forward))
-             (half (f64->f32 (tan (/ (f32->f64 camera-fov) 2.0))))
              (aspect (/ (i32->f32 width) (i32->f32 (max height 1))))
-             (px (* (- (* 2.0 (/ (+ (i32->f32 x) 0.5) (i32->f32 (max width 1)))) 1.0) (* half aspect)))
-             (py (* (- 1.0 (* 2.0 (/ (+ (i32->f32 y) 0.5) (i32->f32 (max height 1))))) half))
-             (direction (normalize (add forward (add (scale right px) (scale up py))))))
+             (px (- (* 2.0 (/ (+ (i32->f32 x) 0.5) (i32->f32 (max width 1)))) 1.0))
+             (py (- 1.0 (* 2.0 (/ (+ (i32->f32 y) 0.5) (i32->f32 (max height 1)))))))
+        (match (Camera-projection view)
+          ((Perspective fov)
+           (let ((half (f64->f32 (tan (/ (f32->f64 fov) 2.0)))))
+             (Ray eye (normalize (add forward (add (scale right (* px (* half aspect))) (scale up (* py half))))))))
+          ((Orthographic height)
+           (let ((half (/ height 2.0)))
+             (Ray (add eye (add (scale right (* px (* half aspect))) (scale up (* py half)))) forward))))))
+
+    ;; Where the ray through pixel (x, y) meets the ground plane y = 0.
+    (: ground-point (-> Camera I32 I32 I32 I32 (Option Vec3)))
+    (define (ground-point view x y width height)
+      (let* ((ray (pointer-ray view x y width height)) (origin (Ray-origin ray)) (direction (Ray-direction ray)))
         (if (>= (Vec3-y direction) 0.0)
             (None)
-            (let ((distance (/ (negate (Vec3-y eye)) (Vec3-y direction))))
-              (Some (add eye (scale direction distance)))))))
+            (Some (add origin (scale direction (/ (negate (Vec3-y origin)) (Vec3-y direction))))))))
 
     (: add (-> Vec3 Vec3 Vec3))
     (define (add a b)
