@@ -98,6 +98,7 @@
    Look-key
    Look-help
    Look-help-set
+   Look-tone-set
    look
    Widget
    Label
