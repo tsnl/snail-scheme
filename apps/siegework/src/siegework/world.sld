@@ -7,9 +7,6 @@
 ;; Ids only increase, so the oldest thing has the smallest id.
 (define-library (siegework world)
   (export
-   Terrain
-   Open
-   Rock
    Deposit
    Deposit-cell
    Deposit-reserve
@@ -60,7 +57,8 @@
    World
    World-seed
    World-tick
-   World-terrain
+   World-land
+   world-hub
    World-explored
    World-deposits
    World-buildings
@@ -85,16 +83,11 @@
   (import
    (lofi base)
    (lofi wire)
-   (lofi random)
-   (siegework grid))
+   (siegework grid)
+   (siegework terrain))
   (begin
 
     ;; ---- Map ----
-
-    (enum Terrain
-      (Open)
-      (Rock)
-      (deriving Serialize Deserialize))
 
     ;; At most one deposit sits on a cell.
     (struct Deposit
@@ -223,7 +216,7 @@
     (struct World
       ((seed I64)
        (tick I64)
-       (terrain (Vector Terrain))
+       (land Land)
        (explored (Vector Bool))
        (deposits (List Deposit))
        (buildings (List Building))
@@ -251,8 +244,9 @@
     (: wave-interval I64)
     (define wave-interval 300)
 
-    (: hub-cell Cell)
-    (define hub-cell (Cell 20 20))
+    (: world-hub (-> World Cell))
+    (define (world-hub world)
+      (Land-hub (World-land world)))
 
     (: on-period? (-> World I64 Bool))
     (define (on-period? world period)
@@ -266,77 +260,25 @@
     (define (fresh-id world)
       (Pair (World-next-id world) (World-next-id-set world (+ (World-next-id world) 1))))
 
-    ;; Generation leaves every open cell reachable from the hub, so a route
-    ;; between open cells always exists.
     (: route (-> World Cell (-> Cell Bool) (Option (List Cell))))
     (define (route world start goal?)
-      (find-path (vector-map (lambda (terrain) (match terrain ((Open) #t) ((Rock) #f))) (World-terrain world)) start goal?))
+      (find-path (vector-map (lambda (ground) (match ground ((Grass) #t) (_ #f))) (Land-ground (World-land world))) start goal?))
 
     ;; ---- Generation ----
 
-    ;; Each cell has its own pseudo-random value derived from the seed, so
-    ;; generation needs no generator threaded through it.
-    (: noise (-> I64 I64 I64 I64))
-    (define (noise seed salt bound)
-      (random-below (make-random (+ (* seed 1000003) salt)) bound))
-
-    ;; Rock is scattered, then any open cell the hub cannot reach becomes rock.
+    ;; The land comes from the seed; each crystal site becomes a deposit
+    ;; holding its full reserve, and each front a nest.
     (: new-world (-> I64 World))
     (define (new-world seed)
-      (let* ((rough (vector-generate (* map-size map-size)
-                                     (lambda (index)
-                                       (or (< (distance-squared (index-cell index) hub-cell) 10) (>= (noise seed index 100) 20)))))
-             (open (reachable rough hub-cell))
-             (world (World seed 0 (vector-map (lambda (open?) (if open? (Open) (Rock))) open)
+      (let* ((land (new-land (land-seed seed))) (hub (Land-hub land))
+             (world (World seed 0 land
                            (vector-generate (* map-size map-size) (lambda (index) #f))
-                           (place-deposits seed open)
-                           (list (Building 1 (Hub) (Built) hub-cell (kind-health (Hub)) 0))
-                           (map (lambda (id) (Worker id (Mover hub-cell hub-cell (Nil)) 0 (Idle))) (list 2 3 4))
-                           (Nil) (place-nests seed open) (Nil) 60 100 (Playing)
-                           "Place an extractor on the nearby ore." 0 0)))
+                           (map (lambda (site) (Deposit (Site-cell site) (* reserve-per-rate (Site-rate site)))) (Land-sites land))
+                           (list (Building 1 (Hub) (Built) hub (kind-health (Hub)) 0))
+                           (map (lambda (id) (Worker id (Mover hub hub (Nil)) 0 (Idle))) (list 2 3 4))
+                           (Nil) (map-indexed (lambda (index cell) (Nest (+ 1000 index) cell 900)) (Land-fronts land))
+                           (Nil) 60 100 (Playing) "Place an extractor on the nearby ore." 0 0)))
         (reveal world)))
-
-    ;; Picks cells from a seeded sequence of candidates, accepting each one
-    ;; that `accept?` allows given the cells already chosen.
-    (: choose-cells (-> I64 I64 I64 (-> Cell (List Cell) Bool) (List Cell)))
-    (define (choose-cells seed salt count accept?)
-      (let loop ((attempt 0) (chosen (Nil)))
-        (if (or (= (length chosen) count) (= attempt 5000))
-            (reverse chosen)
-            (let ((cell (Cell (noise seed (+ salt (* 2 attempt)) map-size) (noise seed (+ salt (+ 1 (* 2 attempt))) map-size))))
-              (loop (+ attempt 1) (if (accept? cell chosen) (Cons cell chosen) chosen))))))
-
-    (: between? (-> I64 I64 I64 Bool))
-    (define (between? low value high)
-      (and (<= low value) (<= value high)))
-
-    (: far-from-all? (-> Cell (List Cell) I64 Bool))
-    (define (far-from-all? cell others distance)
-      (every? (lambda (other) (>= (distance-squared cell other) (* distance distance))) others))
-
-    ;; One starter deposit near the hub, and three richer ones farther out.
-    (: place-deposits (-> I64 (Vector Bool) (List Deposit)))
-    (define (place-deposits seed open)
-      (let ((starter (choose-cells seed 100000 1
-                                   (lambda (cell chosen)
-                                     (and (vector-ref open (cell-index cell))
-                                          (between? 16 (distance-squared cell hub-cell) 36)))))
-            (outer (choose-cells seed 200000 3
-                                 (lambda (cell chosen)
-                                   (and (vector-ref open (cell-index cell))
-                                        (between? 100 (distance-squared cell hub-cell) 300)
-                                        (far-from-all? cell chosen 8))))))
-        (append (map (lambda (cell) (Deposit cell 400)) starter)
-                (map (lambda (cell) (Deposit cell (+ 600 (* 200 (noise seed (cell-index cell) 4))))) outer))))
-
-    (: place-nests (-> I64 (Vector Bool) (List Nest)))
-    (define (place-nests seed open)
-      (map-indexed (lambda (index cell) (Nest (+ 1000 index) cell 600))
-                   (choose-cells seed 300000 3
-                                 (lambda (cell chosen)
-                                   (and (vector-ref open (cell-index cell))
-                                        (>= (distance-squared cell hub-cell) 225)
-                                        (far-from-all? cell chosen 12))))))
 
     ;; Marks every cell within sight of a built building as explored.
     (: reveal (-> World World))
@@ -460,9 +402,9 @@
     ;; no other worker is collecting from.
     (: decide (-> World Worker Worker))
     (define (decide world worker)
-      (cond ((> (Worker-ore worker) 0) (start-job world worker (Deliver) hub-cell))
+      (cond ((> (Worker-ore worker) 0) (start-job world worker (Deliver) (world-hub world)))
             (else (match (oldest-unclaimed-site world)
-                    ((Some site) (start-job world worker (FetchKit (Building-id site)) hub-cell))
+                    ((Some site) (start-job world worker (FetchKit (Building-id site)) (world-hub world)))
                     ((None) (match (fullest-free-extractor world)
                               ((Some extractor) (start-job world worker (Collect (Building-id extractor)) (Building-cell extractor)))
                               ((None) worker)))))))
@@ -679,7 +621,7 @@
     (define (place world kind cell)
       (cond ((not (in-bounds? cell)) (Err "Outside the map."))
             ((not (vector-ref (World-explored world) (cell-index cell))) (Err "That ground is unexplored."))
-            ((match (vector-ref (World-terrain world) (cell-index cell)) ((Rock) #t) ((Open) #f)) (Err "Rock is in the way."))
+            ((match (ground-at (World-land world) cell) ((Grass) #f) (_ #t)) (Err "Only grass can be built on."))
             ((any? (lambda (b) (cell=? (Building-cell b) cell)) (World-buildings world)) (Err "Something is already built there."))
             ((match kind ((Extractor) (match (deposit-at world cell) ((None) #t) (_ #f))) (_ #f))
              (Err "Extractors go on ore deposits."))
@@ -703,7 +645,7 @@
           (match (fresh-id world)
             ((Pair id world)
              (Ok (World-message-set
-                  (World-ore-set (World-workers-set world (append (World-workers world) (list (Worker id (Mover hub-cell hub-cell (Nil)) 0 (Idle)))))
+                  (World-ore-set (World-workers-set world (append (World-workers world) (list (Worker id (Mover (world-hub world) (world-hub world) (Nil)) 0 (Idle)))))
                                  (- (World-ore world) 40))
                   "A new worker joins the colony."))))))
 

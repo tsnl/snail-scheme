@@ -25,10 +25,10 @@
                              ", nests " (show (length (World-nests world)))
                              ", " (match (World-outcome world) ((Playing) "playing") ((Won) "won") ((Lost) "lost")))))
 
-;; A gun on the first open cell next to the hub, with ore to pay for it.
+;; Guns on the open cells beside the hub, with ore to pay for them.
 (: defended (-> World World))
 (define (defended world)
-  (let loop ((cells (list (Cell 21 20) (Cell 19 20) (Cell 20 21) (Cell 20 19))) (world (World-ore-set world 200)))
+  (let loop ((cells (neighbors (world-hub world))) (world (World-ore-set world 200)))
     (match cells
       ((Nil) world)
       ((Cons cell rest) (match (place world (Gun) cell)
