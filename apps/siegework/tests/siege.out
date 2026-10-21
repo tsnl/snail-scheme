@@ -1,5 +1,6 @@
 attacks: 450 wave of 8, 750 wave of 8, 1050 raid of 11, 1350 wave of 8, 1650 raid of 12, 1950 wave of 8, 2250 raid of 13, 2550 wave of 8, 2850 raid of 14, 3150 wave of 9, 3450 raid of 15, 3750 wave of 9
 next attack after tick 5000: 5250 raid of 18
 undefended: tick 790, buildings 1, hub 0, enemies 16, kills 0, lost 0, opened rock 0, lost
+the lost colony's whole map is uncovered: #t
 defended: tick 1000, buildings 7, hub 600, enemies 3, kills 13, lost 0, opened rock 1, playing
 defended: tick 3000, buildings 9, hub 600, enemies 9, kills 81, lost 0, opened rock 1, playing
