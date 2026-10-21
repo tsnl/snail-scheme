@@ -1,12 +1,16 @@
-;; Interactive applications. An application is three total functions:
+;; Interactive applications. An application is three total functions over
+;; its state, and two that convert the state to and from what it saves:
 ;;
-;;   init   : seed width height -> State
-;;   update : State Input -> State
-;;   view   : State alpha -> Frame
+;;   init    : seed width height -> State
+;;   update  : State Input -> State
+;;   view    : State alpha -> Frame
+;;   save    : State -> Save
+;;   restore : Save -> State
 ;;
 ;; `define-application` keeps the current state in one cell and exposes the
 ;; host entry points. The host forwards raw input and clock ticks, draws each
-;; Frame through the `screen` effect, and stores saves made by `serialize`.
+;; Frame through the `screen` effect, and stores the serialized Save. The
+;; Save may be much smaller than the state: a record of how to rebuild it.
 (define-library (lofi app)
   (export
    Input
@@ -273,11 +277,11 @@
 
     ;; ---- Applications ----
 
-    ;; Generates the host entry points for `init`, `update` and `view`. The
-    ;; state type must derive Serialize and Deserialize, for saves.
+    ;; Generates the host entry points for an application. Its Save type
+    ;; must derive Serialize and Deserialize.
     (define-syntax define-application
       (syntax-rules ()
-        ((_ State init update view)
+        ((_ State init update view save restore)
          (begin
            (define current (ref (ann (None) (Option State))))
            (define saved (ref (vector-generate 0 (lambda (index) (ann 0 U8)))))
@@ -302,7 +306,7 @@
            (: app-save (-> I32 ! mut))
            (define (app-save)
              (match (ref-get current)
-               ((Some state) (ref-set! saved (serialize state)) (i64->i32 (vector-length (ref-get saved))))
+               ((Some state) (ref-set! saved (serialize (save state))) (i64->i32 (vector-length (ref-get saved))))
                ((None) 0)))
 
            (: app-save-byte (-> I32 I32 ! mut))
@@ -321,7 +325,7 @@
            ;; then starts a new state instead.
            (: app-load-end (-> Unit ! mut))
            (define (app-load-end)
-             (ref-set! current (Some (ann (deserialize (array->vector (ref-get loading))) State))))
+             (ref-set! current (Some (ann (restore (deserialize (array->vector (ref-get loading)))) State))))
 
            (expose app-init "app_init")
            (expose app-input "app_input")

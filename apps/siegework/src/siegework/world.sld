@@ -209,8 +209,7 @@
        (cost I64)
        (duration I64)
        (progress I64)
-       (rushed Bool))
-      (deriving Serialize Deserialize))
+       (rushed Bool)))
 
     ;; A building at level 0 is an unfinished site: it neither carries wires
     ;; nor works, but enemies may still destroy it.
@@ -220,8 +219,7 @@
        (cell Cell)
        (level I64)
        (health I64)
-       (work (Option Work)))
-      (deriving Serialize Deserialize))
+       (work (Option Work))))
 
     (: kind-name (-> Kind String))
     (define (kind-name kind)
@@ -303,8 +301,7 @@
       ((cell Cell)
        (health I64)
        (slots I64)
-       (work (Option Work)))
-      (deriving Serialize Deserialize))
+       (work (Option Work))))
 
     (: hub-health I64)
     (define hub-health 600)
@@ -332,15 +329,13 @@
     (struct Crystal
       ((cell Cell)
        (rate I64)
-       (reserve I64))
-      (deriving Serialize Deserialize))
+       (reserve I64)))
 
     ;; Each nest covers a rich crystal, exposed when the nest is destroyed.
     (struct Nest
       ((front I64)
        (cell Cell)
-       (health I64))
-      (deriving Serialize Deserialize))
+       (health I64)))
 
     (: nest-health I64)
     (define nest-health 900)
@@ -352,8 +347,7 @@
     (enum Behavior
       (Minion)
       (Raider)
-      (Beast)
-      (deriving Serialize Deserialize))
+      (Beast))
 
     ;; An enemy steps from `previous` to `cell` on multiples of its period.
     ;; Its rank, from 0 to 6, sets its health and the damage it strikes for;
@@ -368,14 +362,12 @@
        (previous Cell)
        (health I64)
        (maximum I64)
-       (target (Option I64)))
-      (deriving Serialize Deserialize))
+       (target (Option I64))))
 
     ;; Rock being dug, with what remains of it.
     (struct Dig
       ((cell Cell)
-       (remaining I64))
-      (deriving Serialize Deserialize))
+       (remaining I64)))
 
     (: rock-health I64)
     (define rock-health 80)
@@ -384,22 +376,19 @@
     (struct Shot
       ((from Cell)
        (to Cell)
-       (tick I64))
-      (deriving Serialize Deserialize))
+       (tick I64)))
 
     ;; Where the colony was last struck, and when.
     (struct Alert
       ((cell Cell)
-       (tick I64))
-      (deriving Serialize Deserialize))
+       (tick I64)))
 
     ;; A distance field toward a goal for walkers or burrowers, kept until
     ;; rock is opened.
     (struct Route
       ((goal Cell)
        (burrower Bool)
-       (field (Vector I64)))
-      (deriving Serialize Deserialize))
+       (field (Vector I64))))
 
     ;; ---- Outcome and ledger ----
 
@@ -407,8 +396,7 @@
       (Playing)
       (Won)
       (Lost)
-      (Resigned)
-      (deriving Serialize Deserialize))
+      (Resigned))
 
     ;; Energy produced and spent, net of refunds, so energy is always
     ;; starting-energy + produced - spent; and the colony's losses.
@@ -416,8 +404,7 @@
       ((produced I64)
        (spent I64)
        (kills I64)
-       (lost I64))
-      (deriving Serialize Deserialize))
+       (lost I64)))
 
     ;; ---- Network ----
 
@@ -425,19 +412,16 @@
     (struct Node
       ((id I64)
        (cell Cell)
-       (reach I64))
-      (deriving Serialize Deserialize))
+       (reach I64)))
 
     (struct Wire
       ((from Node)
-       (to Node))
-      (deriving Serialize Deserialize))
+       (to Node)))
 
     ;; The nodes the hub reaches through wires, in the order found.
     (struct Network
       ((wires (List Wire))
-       (powered (List Node)))
-      (deriving Serialize Deserialize))
+       (powered (List Node))))
 
     ;; ---- World ----
 
@@ -467,8 +451,7 @@
        (visible (Vector Bool))
        (explored (Vector Bool))
        (structure-version I64)
-       (explored-version I64))
-      (deriving Serialize Deserialize))
+       (explored-version I64)))
 
     (: starting-energy I64)
     (define starting-energy 160)
