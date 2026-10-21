@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test test-chibi bootstrap site pages
+.PHONY: format check test test-chibi test-browser bootstrap site pages
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
@@ -17,6 +17,11 @@ test:
 # The suite with the compiler's source running on Chibi instead of as Wasm.
 test-chibi:
 	LOFI_STAGE0=chibi "$(CHIBI)" -h $(HEAP) -D snail-tests -I host/chibi -I src -I tests tests/run.scm "$(CURDIR)"
+
+# Live reload in headless Chromium, which CI does not have; CHROMIUM names
+# the browser.
+test-browser:
+	node tests/browser/reload.mjs "$(CURDIR)"
 
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.
 bootstrap:

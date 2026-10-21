@@ -20,6 +20,21 @@ proposed language changes separate from implemented behavior.
   `Option`-shaped enums.
 - [ ] Source locations in emitted Wasm.
 
+## Development loop
+
+`lofi serve` swaps a rebuilt module into a running page by restoring the
+old module's save into it, and `lofi watch` runs a program again after
+each edit. Not implemented:
+
+- [ ] Migrations between Save types, so a reload survives a schema change:
+  an application would name a function from its old Save to its new one,
+  as the redesign's section 5 proposes.
+- [ ] Reloading long-running programs other than pages, such as servers once
+  a `net` effect exists, with the same save and restore contract instead
+  of a restart.
+- [ ] Building only what changed; each build compiles the whole program,
+  about a second and a half for Siegework.
+
 ## Siegework
 
 The pre-rewrite siege, look and HUD are restored on `(lofi app)`, with an
@@ -27,8 +42,6 @@ energy network in place of worker drones, journal saves, and seeded land
 in four biomes. What
 remains, none of it implemented:
 
-- [ ] Hot reload: load a changed module in place and replay the journal
-  into it, keeping the camera, rather than reloading the page.
 - [ ] Export and import a journal, and a viewer that plays one back.
 - [ ] The original's keyboard cell cursor on the arrow keys; they pan now.
 - [ ] Picking tall buildings by their shape; a tap picks the ground cell.
