@@ -4,6 +4,7 @@ Lofi is a typed, pure-by-default functional language with Scheme syntax. It
 compiles to WasmGC. This guide describes what the compiler implements today;
 [the redesign](redesign.md) describes where the language is going.
 
+<!-- ANCHOR: terms -->
 ## Programs and libraries
 
 A program is a file of `import` forms followed by definitions and expressions,
@@ -76,7 +77,9 @@ itself. Write mutually recursive helpers at the top level.
 
 Functions have fixed arity. Where Scheme uses variadic procedures, Lofi
 uses macros (`list`, `string-append`) or lists.
+<!-- ANCHOR_END: terms -->
 
+<!-- ANCHOR: types -->
 ## Types
 
 Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
@@ -197,7 +200,9 @@ dynamic code.
 (define items (list (type-convert 42 Any) (type-convert "text" Any)))
 (+ 1 (type-convert (car items) I64))
 ```
+<!-- ANCHOR_END: types -->
 
+<!-- ANCHOR: wire -->
 ## Wire types
 
 `(deriving Serialize Deserialize)` at the end of a struct or enum generates
@@ -217,6 +222,7 @@ Each struct and enum case has a 32-bit TypeId hashed from its library, name
 and field schema. Every struct or enum value is written as its case's TypeId
 followed by its fields, so reading data written for another schema fails at
 the first changed type instead of misreading it.
+<!-- ANCHOR_END: wire -->
 
 ## Applications
 
@@ -233,6 +239,7 @@ carry where they were, so the host moves them between updates; `recognize`
 turns raw pointer events into points, taps, drags and pinches.
 [Siegework](../apps/siegework) is the complete example.
 
+<!-- ANCHOR: libraries -->
 ## Standard library
 
 | Library | Contents |
@@ -247,3 +254,4 @@ turns raw pointer events into points, taps, drags and pinches.
 | `(lofi integer)`, `(lofi rational)`, `(lofi number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data and its external representation. |
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
+<!-- ANCHOR_END: libraries -->
