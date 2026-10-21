@@ -36,7 +36,7 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .dial[data-key="threat"]::after { top: auto; bottom: -6px; right: auto; background: #f7dfb1; color: #795321; }
 
 /* Construction: four buttons whose captions need room beneath them. */
-.panel[data-key="construction"] { gap: 16px; padding-bottom: 16px; }
+.panel[data-key="construction"], .panel[data-key="care"] { gap: 16px; padding-bottom: 16px; }
 .panel[data-key="message"] { max-width: 120px; border-radius: 14px; }
 .label[data-key="message"] { color: var(--danger); font-weight: 700; font-size: 11px; line-height: 14px; text-align: center; }
 .button[data-key="close"] .text { font-size: 9px; }
@@ -100,6 +100,13 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
   .button, .dial { width: 44px; height: 44px; }
   .button[data-icon] .icon { width: 18px; height: 18px; }
   .dial { font-size: 12px; }
-  .panel[data-key="construction"] { gap: 14px; padding-bottom: 14px; }
+  .panel[data-key="construction"], .panel[data-key="care"] { gap: 14px; padding-bottom: 14px; }
   .panel[data-key="queue"] .button { width: 34px; height: 34px; }
+}
+
+@media (max-height: 640px) {
+  .button, .dial { width: 38px; height: 38px; }
+  .button .text { font-size: 10px; line-height: 12px; }
+  .button[data-icon] .icon { width: 16px; height: 16px; }
+  .panel[data-key="construction"], .panel[data-key="care"] { gap: 12px; padding-bottom: 12px; }
 }
