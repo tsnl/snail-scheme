@@ -37,10 +37,11 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
 - **Rush.** Rushing finishes work at once for four times the share of its
   cost that remains: five times the price when rushed as it is ordered,
   less later. Cancelling refunds the cost.
-- **Upgrades, repair and scavenging.** Upgrades raise pylon reach,
-  extractor yield and turret damage, and restore full health. The hub can
-  be repaired at two health per energy. Scavenging returns a fifth of what
-  a building cost.
+- **Upgrades, repair and scavenging.** Each building has three levels.
+  Upgrades raise pylon reach, extractor yield, and turret damage (one and a
+  half, then two times, with a gun more each level), and restore full
+  health. Repair restores the hub to full health at one energy for each two
+  health it lacks. Scavenging returns a fifth of what a building cost.
 - **The siege.** The first attack leaves the nests at 0:45, then one every
   30 seconds; raids aimed at exposed outposts replace every other attack
   from 1:45, and a boss leads an attack every nine minutes. Enemies grow
@@ -55,20 +56,24 @@ The same controls work with a mouse, a pen and fingers. Drag to pan, pinch
 or use the wheel to zoom, and tap a cell to select it; the selection alone
 never orders anything. The dock on the side of your hand shows hub health,
 energy and the nests' strength with the time to the next attack, then the
-turning buttons, then four construction buttons for the selected cell,
-greyed out where they do not apply. Beside it come the menu button, up to
+turning buttons, then five construction buttons for the selected cell,
+greyed out where they do not apply: on open ground a pylon, a turret, an
+extractor, the rush toggle and closing; on a building its upgrade, rushing
+and cancelling its work, scavenging and closing, with repair in place of
+scavenging at the hub. Beside it come the menu button, up to
 two attack alerts, which go to the attack or silence it for eight seconds,
 and the build queue, with a ring while a work builds and ! while it is
 unpowered; tap one to go to it.
 
 | Key | Action |
 | --- | --- |
-| 1 | Build a pylon on the selected cell |
-| 2 | Build a turret on the selected cell, or an extractor on a crystal |
-| U | Upgrade the selection, or add a build slot at the hub |
-| R | Rush the selected work, or make new buildings rushed |
+| 1, 2, 3 | Build a pylon, a turret or an extractor on the selected cell |
+| 4 | Rush the selected work, or make new buildings rushed |
+| 5 | Close the selection |
+| U | Upgrade the selected building, or add a build slot at the hub |
+| R | Rush, as 4 does |
 | C, X | Cancel the selected work, scavenge the selected building |
-| F | Repair the hub |
+| F | Repair the hub to full health |
 | WASD, arrows | Pan |
 | Q, E | Turn a quarter |
 | H | Return to the hub |

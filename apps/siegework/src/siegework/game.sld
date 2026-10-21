@@ -25,6 +25,7 @@
    Game-view
    Game-clock
    Game-phase
+   Game-shown
    Game-hover
    Game-selected
    Game-preview
@@ -113,8 +114,11 @@
     ;; counts the games played since the page loaded, so a view of a new game
     ;; never reuses what was drawn for the last. Time arrives with each
     ;; display frame: `clock` counts every millisecond, for animating the
-    ;; view, and `phase` the milliseconds the world is into its current
-    ;; tick, held while the world is paused or decided. `preview` is the
+    ;; controls; `shown` counts the milliseconds the world has been shown
+    ;; running, for its decorations, however long it waits for its first
+    ;; order; and `phase` counts those since the world's last tick, for
+    ;; moving its things. Both stop while the world is paused or decided.
+    ;; `preview` is the
     ;; building whose button the pointer is over; `rush` makes new buildings
     ;; rushed; `message` explains the last rejected order.
     (struct Game
@@ -122,6 +126,7 @@
        (orders (List Entry))
        (epoch I64)
        (clock I64)
+       (shown I64)
        (phase I64)
        (view View)
        (held (List I32))
@@ -155,7 +160,7 @@
     (: game-around (-> World (List Entry) I64 Menu Bool I32 I32 Game))
     (define (game-around world orders epoch menu left-handed width height)
       (let ((hub (Hub-cell (World-hub world))))
-        (Game world orders epoch 0 0 (View (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 1.0 0 0 -300) (Nil) no-gestures (None) (None) (None) #f
+        (Game world orders epoch 0 0 0 (View (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 1.0 0 0 -300) (Nil) no-gestures (None) (None) (None) #f
               menu left-handed (Nil) "" width height)))
 
     ;; ---- Time ----
@@ -173,7 +178,7 @@
     ;; still world holds the frame it stopped at.
     (: world-motion (-> Game F32))
     (define (world-motion game)
-      (/ (i64->f32 (Game-phase game)) (i64->f32 tick-milliseconds)))
+      (min 1.0 (/ (i64->f32 (Game-phase game)) (i64->f32 tick-milliseconds))))
 
     (: paused? (-> Game Bool))
     (define (paused? game)
@@ -425,22 +430,30 @@
 
     ;; ---- Keys ----
 
-    ;; 1 builds a pylon and 2 a turret on the selected cell, or an
-    ;; extractor when the cell is a crystal; letters act on the selection.
-    ;; R rushes the selected work, or else makes new buildings rushed.
+    ;; On a selected cell, 1, 2 and 3 build a pylon, a turret and an
+    ;; extractor, 4 rushes (the selected work, or else new buildings) and 5
+    ;; closes; letters act on the selection too.
     (: key-command (-> Game I32 (Option Command)))
     (define (key-command game key)
       (match (Game-selected game)
         ((Some cell)
          (case key
            ((49) (Some (BuildAt (Pylon) cell)))
-           ((50) (Some (BuildAt (turret-kind (Game-world game) cell) cell)))
+           ((50) (Some (BuildAt (Turret) cell)))
+           ((51) (Some (BuildAt (Extractor) cell)))
+           ((52) (Some (rush-key game cell)))
+           ((53) (Some (CloseCard)))
            ((117) (Some (UpgradeAt cell)))
-           ((114) (Some (if (working? (Game-world game) cell) (RushAt cell) (ToggleRush))))
+           ((114) (Some (rush-key game cell)))
            ((99) (Some (CancelAt cell)))
            ((120) (Some (ScavengeAt cell)))
            (else (view-command key))))
         ((None) (view-command key))))
+
+    ;; Rushing acts on the selected work, or else makes new buildings rushed.
+    (: rush-key (-> Game Cell Command))
+    (define (rush-key game cell)
+      (if (working? (Game-world game) cell) (RushAt cell) (ToggleRush)))
 
     (: view-command (-> I32 (Option Command)))
     (define (view-command key)
@@ -451,11 +464,6 @@
         ((101) (Some (Turn 1)))
         ((112) (Some (OpenMenu)))
         (else (None))))
-
-    ;; On a crystal a turret's place is taken by an extractor.
-    (: turret-kind (-> World Cell Kind))
-    (define (turret-kind world cell)
-      (if (and (explored? world cell) (match (crystal-at world cell) ((Some _) #t) ((None) #f))) (Extractor) (Turret)))
 
     (: working? (-> World Cell Bool))
     (define (working? world cell)
@@ -485,14 +493,17 @@
 
     ;; ---- Updates ----
 
-    ;; Time moves the clock and the camera, and unless the world is still,
-    ;; its phase: each whole tick of it advances the world, at most a few at
-    ;; once after a long frame. The results open once when the game is
-    ;; decided.
+    ;; Time moves the clock and the camera and, unless the world is still,
+    ;; what is shown of it. Once the world has started, its phase grows too,
+    ;; and each whole tick of it advances the world, at most a few at once
+    ;; after a long frame. The results open once when the game is decided.
     (: pass (-> Game I64 Game))
     (define (pass game milliseconds)
       (let ((game (move-camera (Game-clock-set game (+ (Game-clock game) milliseconds)) milliseconds)))
-        (if (still? game) game (catch-up (Game-phase-set game (+ (Game-phase game) milliseconds)) 3))))
+        (cond ((still? game) game)
+              ((World-started (Game-world game))
+               (catch-up (Game-phase-set (Game-shown-set game (+ (Game-shown game) milliseconds)) (+ (Game-phase game) milliseconds)) 3))
+              (else (Game-shown-set game (+ (Game-shown game) milliseconds))))))
 
     (: catch-up (-> Game I64 Game))
     (define (catch-up game allowed)

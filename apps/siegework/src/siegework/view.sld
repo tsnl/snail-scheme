@@ -180,22 +180,26 @@
                          (Nil))))
               1.0 0.55 1.0))
 
+    ;; A mast at the back holds the turret's wire junction over its middle,
+    ;; above the guns, at the height every wire meets.
     (: turret-parts (-> I64 (List Item)))
     (define (turret-parts level)
-      (resize (list (block steel 0.0 0.0 0.1 0.94 0.94 0.2) (block steel -0.36 0.0 0.26 0.18 0.86 0.32)
-                    (block steel 0.36 0.0 0.26 0.18 0.86 0.32) (block rust 0.0 0.0 0.3 0.56 0.66 0.3)
-                    (block cream 0.0 0.0 0.5 0.68 0.58 0.12) (block (if (>= level 2) brass steel) -0.4 -0.26 0.46 0.18 0.26 0.2)
-                    (block (if (>= level 3) brass steel) 0.4 -0.26 0.46 0.18 0.26 0.2))
-              1.0 0.55 1.0))
+      (append (resize (list (block steel 0.0 0.0 0.1 0.94 0.94 0.2) (block steel -0.36 0.0 0.26 0.18 0.86 0.32)
+                            (block steel 0.36 0.0 0.26 0.18 0.86 0.32) (block rust 0.0 0.0 0.3 0.56 0.66 0.3)
+                            (block cream 0.0 0.0 0.5 0.68 0.58 0.12) (block (if (>= level 2) brass steel) -0.4 -0.26 0.46 0.18 0.26 0.2)
+                            (block (if (>= level 3) brass steel) 0.4 -0.26 0.46 0.18 0.26 0.2))
+                      1.0 0.55 1.0)
+              (list (block steel 0.0 -0.42 0.56 0.08 0.08 0.72) (block steel 0.0 -0.21 0.9 0.06 0.42 0.06) (block cyan 0.0 0.0 0.9 0.2 0.2 0.12))))
 
-    ;; One gun per level, stacked; each points north until it is aimed.
+    ;; One gun per level, stacked below the junction; each points north
+    ;; until it is aimed.
     (: cannon-parts (-> I64 (List Item)))
     (define (cannon-parts level)
       (concatenate (map (lambda (index)
                           (place (resize (list (block rust 0.0 -0.1 0.0 0.58 0.5 0.32) (block cream 0.0 0.35 0.09 0.22 0.72 0.22)
                                                (block steel 0.0 0.75 0.09 0.15 0.42 0.15) (block brass 0.0 0.97 0.09 0.27 0.12 0.27))
                                          1.0 0.55 1.0)
-                                 (Vec3 0.0 (* 0.55 (+ 0.68 (* 0.52 (i64->f32 index)))) 0.0) 0.0))
+                                 (Vec3 0.0 (+ 0.3 (* 0.22 (i64->f32 index))) 0.0) 0.0))
                         (iota level))))
 
     (: construction-parts (-> (List Item)))
@@ -542,7 +546,16 @@
                        (match option
                          ((Some cell) (at-cell cell (list (flat paint 0.0 0.0 0.015 0.99 0.99))))
                          ((None) (Nil))))))
-        (append (glowing (Game-hover game) (Paint (rgb 214 250 190) 0.55)) (glowing (Game-selected game) (Paint (rgb 255 236 140) 0.85)))))
+        (append (glowing (if (same-cell? (Game-hover game) (Game-selected game)) (None) (Game-hover game)) (Paint (rgb 214 250 190) 0.55))
+                (glowing (Game-selected game) (Paint (rgb 255 236 140) 0.85)))))
+
+    ;; The selection's glow covers the hover's on the same cell, rather than
+    ;; fighting it at the same height.
+    (: same-cell? (-> (Option Cell) (Option Cell) Bool))
+    (define (same-cell? a b)
+      (match a
+        ((Some x) (match b ((Some y) (cell=? x y)) ((None) #f)))
+        ((None) #f)))
 
     (: cursor-version (-> Game I64))
     (define (cursor-version game)
@@ -628,7 +641,7 @@
     ;; Crystals shimmer, pulsing in strength.
     (: shimmer-batch (-> Game Batch))
     (define (shimmer-batch game)
-      (let* ((world (Game-world game)) (time (/ (+ (i64->f32 (World-tick world)) (world-motion game)) 10.0)))
+      (let* ((world (Game-world game)) (time (/ (i64->f32 (Game-shown game)) 1000.0)))
         (Batch 4 (stamp game (World-structure-version world))
                (Translucent (+ 0.45 (* 0.25 (f64->f32 (sin (f32->f64 (* 2.5 time)))))))
                (lambda () (concatenate (map (lambda (c) (at-cell (Crystal-cell c) (shimmer-parts))) (open-crystals world)))))))

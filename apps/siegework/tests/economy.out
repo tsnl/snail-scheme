@@ -8,3 +8,4 @@ tick 300, energy 187, produced 92, spent 65, balanced #t
 tick 360, energy 186, produced 116, spent 90, balanced #t
 tick 360, energy 191, produced 116, spent 85, balanced #t
 buildings 1
+repair restores the hub from 421 to 600 for 90 energy

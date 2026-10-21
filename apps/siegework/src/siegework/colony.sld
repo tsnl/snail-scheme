@@ -17,6 +17,7 @@
    Resign
    Rejection
    rejection-text
+   repair-price
    act
    check
    Task
@@ -280,13 +281,18 @@
                               ((not (null-option? (Building-work b))) (Err (Busy)))
                               (else (Ok (remove-building (spend world (- 0 (quotient (invested b) 5))) (Building-id b))))))))
 
-    ;; Each energy restores two health, up to what the hub lacks.
+    ;; Repair restores the hub to full health, at one energy for each two
+    ;; health it lacks.
     (: repair (-> World (Result World Rejection)))
     (define (repair world)
-      (let* ((hub (World-hub world)) (missing (- hub-health (Hub-health hub))) (healed (min missing (* 2 (World-energy world)))))
-        (cond ((= missing 0) (Err (FullHealth)))
-              ((= healed 0) (Err (CannotAfford)))
-              (else (Ok (World-hub-set (spend world (quotient (+ healed 1) 2)) (Hub-health-set hub (+ (Hub-health hub) healed))))))))
+      (let* ((hub (World-hub world)) (missing (- hub-health (Hub-health hub))))
+        (if (= missing 0)
+            (Err (FullHealth))
+            (pay world (repair-price hub) (lambda (world) (World-hub-set world (Hub-health-set hub hub-health)))))))
+
+    (: repair-price (-> Hub I64))
+    (define (repair-price hub)
+      (quotient (+ (- hub-health (Hub-health hub)) 1) 2))
 
     ;; ---- Work ----
 
