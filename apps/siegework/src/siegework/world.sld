@@ -265,9 +265,9 @@
     (: raise-duration (-> Kind I64 I64))
     (define (raise-duration kind level)
       (match kind
-        ((Extractor) (case level ((0) 150) ((1) 150) (else 300)))
-        ((Pylon) (case level ((0) 100) ((1) 150) (else 250)))
-        ((Turret) (case level ((0) 200) ((1) 200) (else 300)))))
+        ((Extractor) (case level ((0) 100) ((1) 100) (else 200)))
+        ((Pylon) (case level ((0) 60) ((1) 100) (else 150)))
+        ((Turret) (case level ((0) 120) ((1) 150) (else 200)))))
 
     (: built? (-> Building Bool))
     (define (built? building)
@@ -325,7 +325,7 @@
 
     (: slot-duration (-> I64 I64))
     (define (slot-duration slots)
-      (+ 200 (* 100 slots)))
+      (+ 100 (* 100 slots)))
 
     (: hub-cell? (-> Hub Cell Bool))
     (define (hub-cell? hub cell)

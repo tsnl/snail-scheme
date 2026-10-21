@@ -25,10 +25,11 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
   nothing: no energy, no shots, no sight. Rebuild the link and it wakes up.
 - **Building takes time.** A new building needs visible grass and a
   powered building that can wire to it. Its cost is paid at once and it is
-  built while it holds one of the hub's build slots: pylons take 10 s,
-  extractors 15 s and turrets 20 s. The hub starts with one slot; upgrading
-  it adds a second and a third. Further orders wait in the queue, and an
-  unpowered site waits without blocking the others.
+  built while it holds one of the hub's build slots: pylons take 6 s,
+  extractors 10 s and turrets 12 s, but the colony's first extractor is
+  ready at once. The hub starts with one slot; upgrading it adds a second
+  and a third. Further orders wait in the queue, and an unpowered site
+  waits without blocking the others.
 - **Rush.** Rushing doubles the rate of the remaining work for four times
   its share of the cost: five times the price when rushed as it is
   ordered, less later. Cancelling refunds the cost and the unused part of a

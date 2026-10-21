@@ -1,10 +1,10 @@
 tick 0, energy 160, produced 0, spent 0, balanced #t
 advancing before the first order changes nothing: #t
-tick 200, energy 145, produced 10, spent 25, balanced #t
-tick 300, energy 165, produced 30, spent 25, balanced #t
-starter reserve 570
-tick 500, energy 175, produced 80, spent 65, balanced #t
-tick 600, energy 215, produced 120, spent 65, balanced #t
-tick 750, energy 250, produced 180, spent 90, balanced #t
-tick 750, energy 255, produced 180, spent 85, balanced #t
+the first extractor is ready at once: #t
+tick 100, energy 155, produced 20, spent 25, balanced #t
+starter reserve 580
+tick 200, energy 135, produced 40, spent 65, balanced #t
+tick 300, energy 175, produced 80, spent 65, balanced #t
+tick 360, energy 174, produced 104, spent 90, balanced #t
+tick 360, energy 179, produced 104, spent 85, balanced #t
 buildings 1

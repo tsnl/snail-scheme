@@ -144,7 +144,7 @@
               ((and (not extractor?) (not (null-option? crystal))) (Err (CrystalSite)))
               ((and extractor? (exhausted? crystal)) (Err (Depleted)))
               ((not (in-reach? world kind cell)) (Err (OutOfReach)))
-              (else (let ((work (new-work world (raise-cost kind 0) (raise-duration kind 0) rush)))
+              (else (let ((work (new-work world (raise-cost kind 0) (raise-duration kind 0) (and rush (World-started world)))))
                       (pay world (work-refund work) (lambda (world) (place-site world kind cell work))))))))
 
     (: occupied? (-> World Cell Bool))
@@ -180,15 +180,20 @@
     (define (new-work world cost duration rush)
       (Work (World-next-order world) cost duration 0 rush))
 
+    ;; A new site joins the queue, except the colony's first extractor,
+    ;; which is ready at once so a new game starts producing.
     (: place-site (-> World Kind Cell Work World))
     (define (place-site world kind cell work)
       (match (fresh-id world)
         ((Pair id world)
-         (structures-changed
-          (World-next-order-set
-           (World-started-set (World-buildings-set world (append (World-buildings world) (list (Building id kind cell 0 (kind-health kind) (Some work)))))
-                              (or (World-started world) (match kind ((Extractor) #t) (_ #f))))
-           (+ (World-next-order world) 1))))))
+         (if (World-started world)
+             (structures-changed (World-next-order-set (add-building world (Building id kind cell 0 (kind-health kind) (Some work)))
+                                                       (+ (World-next-order world) 1)))
+             (rewire (World-started-set (add-building world (Building id kind cell 1 (kind-health kind) (None))) #t))))))
+
+    (: add-building (-> World Building World))
+    (define (add-building world building)
+      (World-buildings-set world (append (World-buildings world) (list building))))
 
     ;; ---- Owners ----
 
