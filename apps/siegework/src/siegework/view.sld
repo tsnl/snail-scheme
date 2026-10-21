@@ -428,14 +428,18 @@
       (let ((turn (+ 0.7853982 angle)) (full 6.2831855))
         (- turn (* full (floor (/ turn full))))))
 
-    ;; A dark frame with a fill for `amount` of `capacity`, `height` above a
-    ;; point moving from `from` to `to`, turned by `yaw` to face the camera.
+    ;; A dark frame a cell wide with a fill for `amount` of `capacity`,
+    ;; `height` above a point moving from `from` to `to`, turned by `yaw` to
+    ;; face the camera.
     (: bar-items (-> F32 Vec3 Vec3 F32 I64 I64 Paint (List Item)))
     (define (bar-items yaw from to height amount capacity paint)
-      (let ((fill (* 0.9 (/ (i64->f32 (max 0 amount)) (i64->f32 (max 1 capacity))))))
-        (travel (list (block (Paint (rgb 13 20 32) 1.0) 0.0 0.0 height 1.0 0.03 0.18)
-                      (block paint (- (/ fill 2.0) 0.45) -0.02 height fill 0.03 0.1))
-                from to yaw)))
+      (travel (bar-parts 1.0 height amount capacity paint) from to yaw))
+
+    (: bar-parts (-> F32 F32 I64 I64 Paint (List Item)))
+    (define (bar-parts width height amount capacity paint)
+      (let ((fill (* (* 0.9 width) (/ (i64->f32 (max 0 amount)) (i64->f32 (max 1 capacity))))))
+        (list (block (Paint (rgb 13 20 32) 1.0) 0.0 0.0 height width 0.03 0.18)
+              (block paint (- (/ fill 2.0) (* 0.45 width)) -0.02 height fill 0.03 0.1))))
 
     (: still-bar (-> F32 Cell F32 I64 I64 Paint (List Item)))
     (define (still-bar yaw cell height amount capacity paint)
@@ -524,7 +528,14 @@
     (: bar-batch-items (-> World F32 (List Item)))
     (define (bar-batch-items world yaw)
       (concatenate (list (concatenate (map (lambda (e) (enemy-bar yaw world e)) (seen-enemies world))) (hub-bars yaw world) (crystal-bars yaw world)
-                         (concatenate (map (lambda (b) (building-bars yaw world b)) (World-buildings world))))))
+                         (concatenate (map (lambda (b) (building-bars yaw world b)) (World-buildings world))) (nest-bars yaw world))))
+
+    ;; Each living nest that has been found shows its health in a wide bar
+    ;; above its spire.
+    (: nest-bars (-> F32 World (List Item)))
+    (define (nest-bars yaw world)
+      (concatenate (map (lambda (nest) (place (bar-parts 2.4 3.2 (Nest-health nest) nest-health health-paint) (cell-point (Nest-cell nest) 0.0) yaw))
+                        (filter (lambda (nest) (and (> (Nest-health nest) 0) (explored? world (Nest-cell nest)))) (World-nests world)))))
 
     ;; ---- Cursor and previews ----
 
@@ -637,11 +648,13 @@
                (lambda () (concatenate (map (lambda (c) (at-cell (Crystal-cell c) (shimmer-parts))) (open-crystals world)))))))
 
     ;; Bars follow the camera through every turn: their batch changes with
-    ;; the eased heading, in steps too small to see.
+    ;; the eased heading, in steps too small to see. The tick and the
+    ;; explored version only grow, so their sum changes whenever either
+    ;; does, and a nest uncovered at the end shows its bar.
     (: bar-batch (-> Game Batch))
     (define (bar-batch game)
-      (let* ((yaw (bar-yaw (heading-angle game))) (step (f32->i64 (round (* yaw 256.0)))))
-        (Batch 8 (stamp game (+ (* 2048 (World-tick (Game-world game))) step)) (Solid) (lambda () (bar-batch-items (Game-world game) yaw)))))
+      (let* ((world (Game-world game)) (yaw (bar-yaw (heading-angle game))) (step (f32->i64 (round (* yaw 256.0)))))
+        (Batch 8 (stamp game (+ (* 2048 (+ (World-tick world) (World-explored-version world))) step)) (Solid) (lambda () (bar-batch-items world yaw)))))
 
     (: link-batch (-> Game Batch))
     (define (link-batch game)
