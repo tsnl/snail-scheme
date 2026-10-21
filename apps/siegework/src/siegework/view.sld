@@ -515,22 +515,37 @@
 
     ;; ---- Cursor and previews ----
 
-    ;; The hovered cell, the selected one, and on it a ghost of the building
-    ;; whose button the pointer is over.
+    ;; The hovered and selected cells glow in place of their ground, just
+    ;; above water, which lies highest.
     (: cursor-items (-> Game (List Item)))
     (define (cursor-items game)
-      (append (match (Game-hover game)
-                ((Some cell) (at-cell cell (list (flat (Paint (rgb 255 255 255) 0.6) 0.0 0.0 0.06 0.98 0.98))))
-                ((None) (Nil)))
-              (match (Game-selected game)
-                ((Some cell) (at-cell cell (Cons (flat (Paint (rgb 255 220 90) 0.8) 0.0 0.0 0.08 0.9 0.9)
-                                                 (match (Game-preview game) ((Some kind) (building-parts kind 1)) ((None) (Nil))))))
-                ((None) (Nil)))))
+      (let ((glowing (lambda (option paint)
+                       (match option
+                         ((Some cell) (at-cell cell (list (flat paint 0.0 0.0 0.015 0.99 0.99))))
+                         ((None) (Nil))))))
+        (append (glowing (Game-hover game) (Paint (rgb 214 250 190) 0.55)) (glowing (Game-selected game) (Paint (rgb 255 236 140) 0.85)))))
 
     (: cursor-version (-> Game I64))
     (define (cursor-version game)
-      (let ((code (lambda (option) (match option ((Some cell) (+ 1 (cell-index cell))) ((None) 0)))))
-        (+ (* (code (Game-hover game)) 26244) (+ (* 4 (code (Game-selected game))) (match (Game-preview game) ((Some kind) (+ 1 (kind-code kind))) ((None) 0))))))
+      (+ (* (cell-code (Game-hover game)) 6401) (cell-code (Game-selected game))))
+
+    (: cell-code (-> (Option Cell) I64))
+    (define (cell-code option)
+      (match option
+        ((Some cell) (+ 1 (cell-index cell)))
+        ((None) 0)))
+
+    ;; On the selected cell, a ghost of the building whose button the
+    ;; pointer is over.
+    (: preview-items (-> Game (List Item)))
+    (define (preview-items game)
+      (match (Game-selected game)
+        ((Some cell) (match (Game-preview game) ((Some kind) (at-cell cell (building-parts kind 1))) ((None) (Nil))))
+        ((None) (Nil))))
+
+    (: preview-version (-> Game I64))
+    (define (preview-version game)
+      (+ (* 4 (cell-code (Game-selected game))) (match (Game-preview game) ((Some kind) (+ 1 (kind-code kind))) ((None) 0))))
 
     (: kind-code (-> Kind I64))
     (define (kind-code kind)
@@ -599,11 +614,15 @@
                (Translucent (+ 0.45 (* 0.25 (f64->f32 (sin (f32->f64 (* 2.5 time)))))))
                (lambda () (concatenate (map (lambda (c) (at-cell (Crystal-cell c) (shimmer-parts))) (open-crystals world)))))))
 
-    (: cursor-batch (-> Game F32 Batch))
-    (define (cursor-batch game alpha)
+    (: cursor-batch (-> Game Batch))
+    (define (cursor-batch game)
+      (Batch 6 (stamp game (cursor-version game)) (Solid) (lambda () (cursor-items game))))
+
+    (: preview-batch (-> Game F32 Batch))
+    (define (preview-batch game alpha)
       (let ((time (/ (+ (i64->f32 (Game-clock game)) alpha) 10.0)))
-        (Batch 6 (stamp game (cursor-version game)) (Translucent (+ 0.45 (* 0.15 (f64->f32 (sin (f32->f64 (* 4.0 time)))))))
-               (lambda () (cursor-items game)))))
+        (Batch 7 (stamp game (preview-version game)) (Translucent (+ 0.45 (* 0.15 (f64->f32 (sin (f32->f64 (* 4.0 time)))))))
+               (lambda () (preview-items game)))))
 
     (: view-game (-> Game F32 Frame))
     (define (view-game game alpha)
@@ -613,7 +632,7 @@
                        (list (Batch 3 (stamp game (World-structure-version world)) (Solid) (lambda () (structure-items world)))
                              (Batch 5 (stamp game (+ (* 4 (World-tick world)) (modulo (View-heading (Game-view game)) 4))) (Solid)
                                     (lambda () (moving-items world (View-heading (Game-view game)))))
-                             (shimmer-batch game alpha) (cursor-batch game alpha))))))
+                             (cursor-batch game) (shimmer-batch game alpha) (preview-batch game alpha))))))
 
     (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
     (define (filter-map f items)
