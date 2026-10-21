@@ -98,11 +98,11 @@
 
     ;; ---- Construction ----
 
-    ;; Four buttons for the selected cell, always in the same places: on
-    ;; open ground a pylon, a turret (an extractor on a crystal), the rush
-    ;; toggle and closing; on a building or the hub its upgrade, rushing and
-    ;; cancelling its work, then scavenging or, at the hub, repair. The last
-    ;; rejection sits beneath.
+    ;; Five buttons for the selected cell, always in the same places: on
+    ;; open ground a pylon, a turret, an extractor, the rush toggle and
+    ;; closing; on a building or the hub its upgrade, rushing and
+    ;; cancelling its work, scavenging or, at the hub, repair, and closing.
+    ;; The last rejection sits beneath.
     (: construction (-> Game (List Panel)))
     (define (construction game)
       (match (Game-selected game)
@@ -126,25 +126,22 @@
         ((Pylon) "pylon")
         ((Turret) "turret")))
 
-    ;; An extractor takes the turret's key on a crystal.
     (: kind-key (-> Kind String))
     (define (kind-key kind)
       (match kind
         ((Pylon) "1")
         ((Turret) "2")
-        ((Extractor) "2")))
+        ((Extractor) "3")))
 
     (: ground-buttons (-> Game Cell (List Widget)))
     (define (ground-buttons game cell)
-      (let ((second (if (known-crystal? (Game-world game) cell) (Extractor) (Turret))))
-        (list (build-button game cell (Pylon)) (build-button game cell second)
-              (toggle-button (face "rush-orders" "rush" "Rush new buildings: ready at once for five times the price") "R" "×5" (ToggleRush) (Game-rush game))
-              (plain-button (face "close" "close" "Close") "Esc" (CloseCard)))))
+      (list (build-button game cell (Pylon)) (build-button game cell (Turret)) (build-button game cell (Extractor))
+            (toggle-button (face "rush-orders" "rush" "Rush new buildings: ready at once for five times the price") "4" "×5" (ToggleRush) (Game-rush game))
+            (close-button)))
 
-    ;; Unexplored ground keeps its crystals hidden.
-    (: known-crystal? (-> World Cell Bool))
-    (define (known-crystal? world cell)
-      (and (explored? world cell) (match (crystal-at world cell) ((Some _) #t) ((None) #f))))
+    (: close-button (-> Widget))
+    (define (close-button)
+      (plain-button (face "close" "close" "Close") "5" (CloseCard)))
 
     (: build-button (-> Game Cell Kind Widget))
     (define (build-button game cell kind)
@@ -159,7 +156,8 @@
         (append (list (upgrade-button game cell (if (< (Building-level b) maximum-level) (raise-cost (Building-kind b) (Building-level b)) 0)))
                 (append (work-buttons game cell (Building-work b))
                         (list (command-button (face "scavenge" "scavenge" "Scavenge: remove it for a fifth of its cost") "X"
-                                              (string-append "+" (show (quotient (invested b) 5))) (ScavengeAt cell) (check (Game-world game) (Scavenge cell))))))))
+                                              (string-append "+" (show (quotient (invested b) 5))) (ScavengeAt cell) (check (Game-world game) (Scavenge cell)))
+                              (close-button))))))
 
     (: upgrade-button (-> Game Cell I64 Widget))
     (define (upgrade-button game cell cost)
@@ -175,11 +173,12 @@
 
     (: hub-buttons (-> Game Cell (List Widget)))
     (define (hub-buttons game cell)
-      (let* ((world (Game-world game)) (hub (World-hub world)) (missing (- hub-health (Hub-health hub))))
+      (let* ((world (Game-world game)) (hub (World-hub world)))
         (append (list (upgrade-button game cell (if (< (Hub-slots hub) maximum-slots) (slot-cost (Hub-slots hub)) 0)))
                 (append (work-buttons game cell (Hub-work hub))
-                        (list (command-button (face "repair" "repair" "Repair: two health per energy") "F" (show (quotient (+ missing 1) 2))
-                                              (RepairHub) (check world (Repair))))))))
+                        (list (command-button (face "repair" "repair" "Repair the hub to full health") "F" (show (repair-price hub))
+                                              (RepairHub) (check world (Repair)))
+                              (close-button))))))
 
     ;; ---- Queue and alerts ----
 
