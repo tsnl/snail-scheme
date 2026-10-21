@@ -113,7 +113,7 @@
    Do
    Expose
    Program
-   make-program
+   empty-program
    Program-instances
    program-value
    program-type
@@ -431,20 +431,20 @@
 
     ;; Every name an expression refers to, once each, in order of first
     ;; occurrence. Locals are included, since names are unique.
-    (: expr-references (-> Expr (List String) ! mut))
+    (: expr-references (-> Expr (List String)))
     (define (expr-references expr)
-      (reverse (collect-references expr (make-table) (Nil))))
+      (reverse (Pair-second (collect-references (Pair empty-table (Nil)) expr))))
 
-    ;; Adds the names not yet seen to `found`, newest first.
-    (: collect-references (-> Expr (Table Bool) (List String) (List String) ! mut))
-    (define (collect-references expr seen found)
-      (let ((collect (lambda (found expr) (collect-references expr seen found))))
+    ;; Adds the names not yet seen to the found list, newest first, and to
+    ;; the seen table.
+    (: collect-references (-> (Pair (Table Bool) (List String)) Expr (Pair (Table Bool) (List String))))
+    (define (collect-references found expr)
+      (let ((collect collect-references))
         (match (Expr-term expr)
           ((Lit _) found)
           ((Var name _ _)
-           (if (table-contains? seen name)
-               found
-               (begin (table-set! seen name #t) (Cons name found))))
+           (match found
+             ((Pair seen names) (if (table-contains? seen name) found (Pair (table-set seen name #t) (Cons name names))))))
           ((Lambda _ body) (collect found body))
           ((App callee args) (fold-left collect found (Cons callee args)))
           ((If test then otherwise) (fold-left collect found (list test then otherwise)))
@@ -556,76 +556,85 @@
 
     ;; ---- Programs ----
 
+    ;; A program is a value: the expander builds it up in one cell, and the
+    ;; later passes only read it. Items are kept newest first.
     (struct Program
       ((values (Table Value))
        (types (Table DataType))
        (classes (Table Class))
        (instances (Table (List Instance)))
        (effects (Table Effect))
-       (items (Ref (List Item)))))
+       (items (List Item))))
 
-    (: make-program (-> Program ! mut))
-    (define (make-program)
-      (Program (make-table) (make-table) (make-table) (make-table) (make-table) (ref (Nil))))
+    (: empty-program Program)
+    (define empty-program
+      (Program empty-table empty-table empty-table empty-table empty-table (Nil)))
 
-    (: program-value (-> Program String (Option Value) ! mut))
+    (: program-value (-> Program String (Option Value)))
     (define (program-value program name)
       (table-ref (Program-values program) name))
 
     ;; Types, classes and effects are looked up by names the expander
     ;; resolved, so each lookup succeeds.
-    (: program-type (-> Program String DataType ! mut))
+    (: program-type (-> Program String DataType))
     (define (program-type program name)
       (match (table-ref (Program-types program) name)
         ((Some data) data)
         ((None) (panic (string-append "internal error: no type " name)))))
 
-    (: program-class (-> Program String Class ! mut))
+    (: program-class (-> Program String Class))
     (define (program-class program name)
       (match (table-ref (Program-classes program) name)
         ((Some class) class)
         ((None) (panic (string-append "internal error: no class " name)))))
 
-    (: program-effect (-> Program String Effect ! mut))
+    (: program-effect (-> Program String Effect))
     (define (program-effect program name)
       (match (table-ref (Program-effects program) name)
         ((Some effect) effect)
         ((None) (panic (string-append "internal error: no effect " name)))))
 
-    (: class-instances (-> Program String (List Instance) ! mut))
+    (: class-instances (-> Program String (List Instance)))
     (define (class-instances program class)
       (match (table-ref (Program-instances program) class)
         ((Some instances) instances)
         ((None) (Nil))))
 
-    (: add-value! (-> Program String Value Unit ! mut))
-    (define (add-value! program name value)
-      (table-set! (Program-values program) name value))
+    ;; Each addition replaces the expander's program with a larger one.
+    (: add-value! (-> (Ref Program) String Value Unit ! mut))
+    (define (add-value! cell name value)
+      (let ((program (ref-get cell)))
+        (ref-set! cell (Program-values-set program (table-set (Program-values program) name value)))))
 
-    (: add-type! (-> Program DataType Unit ! mut))
-    (define (add-type! program data)
-      (table-set! (Program-types program) (DataType-name data) data))
+    (: add-type! (-> (Ref Program) DataType Unit ! mut))
+    (define (add-type! cell data)
+      (let ((program (ref-get cell)))
+        (ref-set! cell (Program-types-set program (table-set (Program-types program) (DataType-name data) data)))))
 
-    (: add-class! (-> Program Class Unit ! mut))
-    (define (add-class! program class)
-      (table-set! (Program-classes program) (Class-name class) class))
+    (: add-class! (-> (Ref Program) Class Unit ! mut))
+    (define (add-class! cell class)
+      (let ((program (ref-get cell)))
+        (ref-set! cell (Program-classes-set program (table-set (Program-classes program) (Class-name class) class)))))
 
-    (: add-instance! (-> Program Instance Unit ! mut))
-    (define (add-instance! program instance)
-      (let ((class (Instance-class instance)))
-        (table-set! (Program-instances program) class (append (class-instances program class) (list instance)))))
+    (: add-instance! (-> (Ref Program) Instance Unit ! mut))
+    (define (add-instance! cell instance)
+      (let* ((program (ref-get cell)) (class (Instance-class instance)))
+        (ref-set! cell (Program-instances-set program (table-set (Program-instances program) class
+                                                                 (append (class-instances program class) (list instance)))))))
 
-    (: add-effect! (-> Program Effect Unit ! mut))
-    (define (add-effect! program effect)
-      (table-set! (Program-effects program) (Effect-name effect) effect))
+    (: add-effect! (-> (Ref Program) Effect Unit ! mut))
+    (define (add-effect! cell effect)
+      (let ((program (ref-get cell)))
+        (ref-set! cell (Program-effects-set program (table-set (Program-effects program) (Effect-name effect) effect)))))
 
-    (: add-item! (-> Program Item Unit ! mut))
-    (define (add-item! program item)
-      (ref-set! (Program-items program) (Cons item (ref-get (Program-items program)))))
+    (: add-item! (-> (Ref Program) Item Unit ! mut))
+    (define (add-item! cell item)
+      (let ((program (ref-get cell)))
+        (ref-set! cell (Program-items-set program (Cons item (Program-items program))))))
 
-    (: program-items (-> Program (List Item) ! mut))
+    (: program-items (-> Program (List Item)))
     (define (program-items program)
-      (reverse (ref-get (Program-items program))))
+      (reverse (Program-items program)))
 
     ;; ---- Wire identities ----
 
@@ -639,12 +648,12 @@
     ;; as a signed 32-bit value. Field types contribute their own schemas,
     ;; cut at recursive references, so the identity changes exactly when the
     ;; encoded shape can change.
-    (: case-type-id (-> Program Case I64 ! mut))
+    (: case-type-id (-> Program Case I64))
     (define (case-type-id program case)
       (let ((hash (fnv-1a (case-schema program case (Nil)))))
         (if (>= hash 2147483648) (- hash 4294967296) hash)))
 
-    (: case-schema (-> Program Case (List String) String ! mut))
+    (: case-schema (-> Program Case (List String) String))
     (define (case-schema program case visiting)
       (let* ((data (program-type program (Case-type case))) (visiting (Cons (DataType-name data) visiting)))
         (string-append (Case-name case) "("
@@ -657,7 +666,7 @@
 
     ;; A type parameter is written by its position, so renaming it keeps the
     ;; identity.
-    (: type-schema (-> Program Type (List String) (List String) String ! mut))
+    (: type-schema (-> Program Type (List String) (List String) String))
     (define (type-schema program type params visiting)
       (match type
         ((TRigid name)
@@ -679,7 +688,7 @@
     ;; Every data type with a Serialize instance, as text: `(Type (Case
     ;; type-id (field type) ...) ...)` with full names. Programs that agree on
     ;; a case's line agree on its encoding.
-    (: wire-schemas (-> Program String ! mut))
+    (: wire-schemas (-> Program String))
     (define (wire-schemas program)
       (string-concatenate
        (map (lambda (instance)
@@ -689,7 +698,7 @@
                 (_ "")))
             (class-instances program "lofi.wire:Serialize"))))
 
-    (: data-schema (-> Program DataType String ! mut))
+    (: data-schema (-> Program DataType String))
     (define (data-schema program data)
       (string-append
        "(" (DataType-name data)

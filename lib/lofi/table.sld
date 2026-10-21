@@ -1,11 +1,14 @@
-;; Mutable hash tables from strings to values: open hashing over an array of
-;; association lists that doubles when it averages two entries per bucket.
+;; Immutable tables from strings to values: a Patricia trie on each key's
+;; 64-bit FNV-1a hash, after Okasaki and Gill's "Fast Mergeable Integer Maps".
+;; A branch splits its keys on the lowest bit where their hashes differ; keys
+;; whose hashes collide share a leaf. An update copies the path to one leaf
+;; and shares every other node with the table it came from.
 (define-library (lofi table)
   (export
    Table
-   make-table
+   empty-table
    table-ref
-   table-set!
+   table-set
    table-contains?
    table-count
    table-keys
@@ -14,13 +17,21 @@
    (lofi base))
   (begin
 
-    (struct (Table V)
-      ((buckets (Ref (Array (List (Pair String V)))))
-       (count (Ref I64))))
+    ;; A branch's `prefix` is the hash bits below `bit` that all its keys
+    ;; share; `zero` holds the keys whose hash has `bit` clear.
+    (enum (Table V)
+      (Empty)
+      (Leaf
+       ((hash I64)
+        (entries (List (Pair String V)))))
+      (Branch
+       ((prefix I64)
+        (bit I64)
+        (zero (Table V))
+        (one (Table V)))))
 
-    (: make-table (All (V) (-> (Table V) ! mut)))
-    (define (make-table)
-      (Table (ref (make-array 16 (Nil))) (ref 0)))
+    (: empty-table (All (V) (Table V)))
+    (define empty-table (Empty))
 
     ;; FNV-1a over the code points, wrapping in 64 bits.
     (: string-hash (-> String I64))
@@ -30,61 +41,67 @@
             hash
             (loop (+ index 1) (* (i64-xor hash (char->integer (string-ref key index))) 1099511628211)))))
 
-    (: bucket-index (All (V) (-> (Table V) String I64 ! mut)))
-    (define (bucket-index table key)
-      (i64-and (string-hash key) (- (array-length (ref-get (Table-buckets table))) 1)))
+    (: below (-> I64 I64 I64))
+    (define (below hash bit)
+      (i64-and hash (- bit 1)))
 
-    (: table-ref (All (V) (-> (Table V) String (Option V) ! mut)))
+    (: table-ref (All (V) (-> (Table V) String (Option V))))
     (define (table-ref table key)
-      (match (find (lambda (entry) (string=? (Pair-first entry) key))
-                   (array-ref (ref-get (Table-buckets table)) (bucket-index table key)))
-        ((Some entry) (Some (Pair-second entry)))
-        ((None) (None))))
+      (let ((hash (string-hash key)))
+        (let loop ((table table))
+          (match table
+            ((Empty) (None))
+            ((Leaf leaf-hash entries) (if (= leaf-hash hash) (assoc-ref entries key) (None)))
+            ((Branch _ bit zero one) (loop (if (= (i64-and hash bit) 0) zero one)))))))
 
-    (: table-contains? (All (V) (-> (Table V) String Bool ! mut)))
+    (: table-contains? (All (V) (-> (Table V) String Bool)))
     (define (table-contains? table key)
       (match (table-ref table key)
         ((Some _) #t)
         ((None) #f)))
 
-    (: table-set! (All (V) (-> (Table V) String V Unit ! mut)))
-    (define (table-set! table key value)
-      (let* ((buckets (ref-get (Table-buckets table))) (index (bucket-index table key))
-             (bucket (array-ref buckets index)))
-        (if (any? (lambda (entry) (string=? (Pair-first entry) key)) bucket)
-            (array-set! buckets index (map (lambda (entry) (if (string=? (Pair-first entry) key) (Pair key value) entry)) bucket))
-            (begin (array-set! buckets index (Cons (Pair key value) bucket))
-                   (ref-set! (Table-count table) (+ (ref-get (Table-count table)) 1))
-                   (when (> (ref-get (Table-count table)) (* 2 (array-length buckets)))
-                     (grow! table))))))
+    (: table-set (All (V) (-> (Table V) String V (Table V))))
+    (define (table-set table key value)
+      (let ((hash (string-hash key)))
+        (let insert ((table table))
+          (match table
+            ((Empty) (Leaf hash (list (Pair key value))))
+            ((Leaf leaf-hash entries)
+             (if (= leaf-hash hash)
+                 (Leaf hash (Cons (Pair key value) (filter (lambda (entry) (not (string=? (Pair-first entry) key))) entries)))
+                 (join hash (Leaf hash (list (Pair key value))) leaf-hash table)))
+            ((Branch prefix bit zero one)
+             (cond ((not (= (below hash bit) prefix)) (join hash (Leaf hash (list (Pair key value))) prefix table))
+                   ((= (i64-and hash bit) 0) (Branch prefix bit (insert zero) one))
+                   (else (Branch prefix bit zero (insert one)))))))))
 
-    ;; Rehashes every entry into twice as many buckets.
-    (: grow! (All (V) (-> (Table V) Unit ! mut)))
-    (define (grow! table)
-      (let ((entries (table-entries table)))
-        (ref-set! (Table-buckets table) (make-array (* 2 (array-length (ref-get (Table-buckets table)))) (Nil)))
-        (for-each (lambda (entry)
-                    (let ((index (bucket-index table (Pair-first entry))))
-                      (array-set! (ref-get (Table-buckets table)) index (Cons entry (array-ref (ref-get (Table-buckets table)) index)))))
-                  entries)))
+    ;; A branch over two tries whose hashes, `a` and `b`, differ. It splits
+    ;; on their lowest differing bit.
+    (: join (All (V) (-> I64 (Table V) I64 (Table V) (Table V))))
+    (define (join a a-table b b-table)
+      (let* ((difference (i64-xor a b)) (bit (i64-and difference (negate difference))))
+        (if (= (i64-and a bit) 0)
+            (Branch (below a bit) bit a-table b-table)
+            (Branch (below a bit) bit b-table a-table))))
 
-    (: table-count (All (V) (-> (Table V) I64 ! mut)))
+    ;; Entries in trie order, which depends only on the keys.
+    (: table-fold (All (V A) (-> (-> A (Pair String V) A) A (Table V) A)))
+    (define (table-fold f initial table)
+      (match table
+        ((Empty) initial)
+        ((Leaf _ entries) (fold-left f initial entries))
+        ((Branch _ _ zero one) (table-fold f (table-fold f initial zero) one))))
+
+    (: table-count (All (V) (-> (Table V) I64)))
     (define (table-count table)
-      (ref-get (Table-count table)))
+      (table-fold (lambda (count entry) (+ count 1)) 0 table))
 
-    ;; Entries in bucket order, which depends only on the keys.
-    (: table-entries (All (V) (-> (Table V) (List (Pair String V)) ! mut)))
-    (define (table-entries table)
-      (let ((buckets (ref-get (Table-buckets table))))
-        (let loop ((index (- (array-length buckets) 1)) (entries (Nil)))
-          (if (< index 0) entries (loop (- index 1) (append (array-ref buckets index) entries))))))
-
-    (: table-keys (All (V) (-> (Table V) (List String) ! mut)))
+    (: table-keys (All (V) (-> (Table V) (List String))))
     (define (table-keys table)
-      (map Pair-first (table-entries table)))
+      (reverse (table-fold (lambda (keys entry) (Cons (Pair-first entry) keys)) (Nil) table)))
 
-    (: table-values (All (V) (-> (Table V) (List V) ! mut)))
+    (: table-values (All (V) (-> (Table V) (List V))))
     (define (table-values table)
-      (map Pair-second (table-entries table)))
+      (reverse (table-fold (lambda (values entry) (Cons (Pair-second entry) values)) (Nil) table)))
 
     ))
