@@ -49,6 +49,9 @@ journal under the new code.
   update that trapped, and the next build resumes from that state.
 - A changed style sheet is fetched again; a changed page or host script
   reloads the page after saving.
+- Each event carries the manifest of the build being served, so a page that
+  missed events, even across a restart of the server, catches up from the
+  next one.
 
 `lofi watch SOURCE` is the same loop for a program: it builds and runs the
 program again whenever its sources change, stopping a run still in
