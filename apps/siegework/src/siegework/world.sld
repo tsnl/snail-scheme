@@ -69,20 +69,35 @@
    Nest-health
    Nest-health-set
    nest-health
-   Mover
-   Mover-cell
-   Mover-previous
-   Mover-previous-set
-   Mover-path
-   Mover-path-set
+   Behavior
+   Minion
+   Raider
+   Beast
    Enemy
    Enemy-id
-   Enemy-mover
-   Enemy-mover-set
+   Enemy-behavior
+   Enemy-rank
+   Enemy-burrower
+   Enemy-cell
+   Enemy-cell-set
+   Enemy-previous
+   Enemy-previous-set
    Enemy-health
    Enemy-health-set
+   Enemy-maximum
    Enemy-target
    Enemy-target-set
+   Dig
+   Dig-cell
+   Dig-remaining
+   rock-health
+   Alert
+   Alert-cell
+   Alert-tick
+   Route
+   Route-goal
+   Route-burrower
+   Route-field
    Shot
    Shot-from
    Shot-to
@@ -130,6 +145,13 @@
    World-enemies-set
    World-shots
    World-shots-set
+   World-digs
+   World-opened
+   World-digs-set
+   World-alerts
+   World-alerts-set
+   World-routes
+   World-routes-set
    World-ledger
    World-ledger-set
    World-next-order
@@ -150,6 +172,8 @@
    crystal-at
    put-crystal
    nest-at
+   opened?
+   open-rock
    spend
    earn
    structures-changed
@@ -236,9 +260,9 @@
     (: raise-duration (-> Kind I64 I64))
     (define (raise-duration kind level)
       (match kind
-        ((Extractor) (case level ((0) 200) ((1) 200) (else 400)))
-        ((Pylon) (case level ((0) 150) ((1) 200) (else 300)))
-        ((Turret) (case level ((0) 300) ((1) 250) (else 350)))))
+        ((Extractor) (case level ((0) 150) ((1) 150) (else 300)))
+        ((Pylon) (case level ((0) 100) ((1) 150) (else 250)))
+        ((Turret) (case level ((0) 200) ((1) 200) (else 300)))))
 
     (: built? (-> Building Bool))
     (define (built? building)
@@ -283,7 +307,7 @@
       (deriving Serialize Deserialize))
 
     (: hub-health I64)
-    (define hub-health 300)
+    (define hub-health 600)
 
     (: hub-reach I64)
     (define hub-reach 9)
@@ -323,27 +347,58 @@
 
     ;; ---- Enemies ----
 
-    ;; A unit steps to the next cell of its path on each multiple of its
-    ;; period; `previous` is where it stepped from, for drawing it between.
-    (struct Mover
-      ((cell Cell)
-       (previous Cell)
-       (path (List Cell)))
+    ;; Minions head for the hub, raiders for an exposed outpost, and a beast
+    ;; leads each heavy attack.
+    (enum Behavior
+      (Minion)
+      (Raider)
+      (Beast)
       (deriving Serialize Deserialize))
 
-    ;; `target` is the building an enemy heads for, or None for the hub.
+    ;; An enemy steps from `previous` to `cell` on multiples of its period.
+    ;; Its rank, from 0 to 6, sets its health and the damage it strikes for;
+    ;; `maximum` is its health when it spawned. `target` is the building it
+    ;; heads for, or None for the hub. A burrower digs through rock.
     (struct Enemy
       ((id I64)
-       (mover Mover)
+       (behavior Behavior)
+       (rank I64)
+       (burrower Bool)
+       (cell Cell)
+       (previous Cell)
        (health I64)
+       (maximum I64)
        (target (Option I64)))
       (deriving Serialize Deserialize))
+
+    ;; Rock being dug, with what remains of it.
+    (struct Dig
+      ((cell Cell)
+       (remaining I64))
+      (deriving Serialize Deserialize))
+
+    (: rock-health I64)
+    (define rock-health 80)
 
     ;; A shot is drawn for a few ticks after a turret fires.
     (struct Shot
       ((from Cell)
        (to Cell)
        (tick I64))
+      (deriving Serialize Deserialize))
+
+    ;; Where the colony was last struck, and when.
+    (struct Alert
+      ((cell Cell)
+       (tick I64))
+      (deriving Serialize Deserialize))
+
+    ;; A distance field toward a goal for walkers or burrowers, kept until
+    ;; rock is opened.
+    (struct Route
+      ((goal Cell)
+       (burrower Bool)
+       (field (Vector I64)))
       (deriving Serialize Deserialize))
 
     ;; ---- Outcome and ledger ----
@@ -400,7 +455,11 @@
        (crystals (List Crystal))
        (nests (List Nest))
        (enemies (List Enemy))
+       (digs (List Dig))
+       (opened (Vector Bool))
        (shots (List Shot))
+       (alerts (List Alert))
+       (routes (List Route))
        (ledger Ledger)
        (next-id I64)
        (next-order I64)
@@ -422,7 +481,8 @@
         (rewire (World seed land 0 #f (Playing) starting-energy (Hub (Land-hub land) hub-health 1 (None)) (Nil)
                        (append (map site-crystal (Land-sites land)) (map nest-crystal (Land-fronts land)))
                        (map-indexed (lambda (front cell) (Nest front cell nest-health)) (Land-fronts land))
-                       (Nil) (Nil) (Ledger 0 0 0 0) 1 1 (Network (Nil) (Nil)) (make-vector cells #f) (make-vector cells #f) 0 0))))
+                       (Nil) (Nil) (make-vector cells #f) (Nil) (Nil) (Nil) (Ledger 0 0 0 0) 1 1 (Network (Nil) (Nil))
+                       (make-vector cells #f) (make-vector cells #f) 0 0))))
 
     (: site-crystal (-> Site Crystal))
     (define (site-crystal site)
@@ -472,6 +532,16 @@
     (define (nest-at world cell)
       (find (lambda (nest) (cell=? (Nest-cell nest) cell)) (World-nests world)))
 
+    ;; Rock that enemies have dug through for good.
+    (: opened? (-> World Cell Bool))
+    (define (opened? world cell)
+      (vector-ref (World-opened world) (cell-index cell)))
+
+    ;; Opening rock changes every route and may clear wires and shots.
+    (: open-rock (-> World Cell World))
+    (define (open-rock world cell)
+      (rewire (World-routes-set (World-opened-set world (vector-set (World-opened world) (cell-index cell) #t)) (Nil))))
+
     ;; Spending and earning keep energy and the ledger in step; a refund is
     ;; negative spending.
     (: spend (-> World I64 World))
@@ -490,10 +560,10 @@
 
     ;; ---- Wires and power ----
 
-    ;; Wires and sight lines cross grass and water but not rock.
+    ;; Wires, shots and sight lines cross grass, water and opened rock.
     (: clear-line? (-> World Cell Cell Bool))
     (define (clear-line? world from to)
-      (every? (lambda (cell) (match (ground-at (World-land world) cell) ((Rock) #f) (_ #t))) (line-cells from to)))
+      (every? (lambda (cell) (match (ground-at (World-land world) cell) ((Rock) (opened? world cell)) (_ #t))) (line-cells from to)))
 
     ;; A wire reaches as far as the longer reach of its two ends.
     (: wire-reaches? (-> World Cell I64 Cell I64 Bool))

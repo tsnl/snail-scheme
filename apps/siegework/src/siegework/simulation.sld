@@ -15,13 +15,14 @@
     ;; ---- Ticks ----
 
     ;; Nothing happens until the first extractor is ordered, or once the
-    ;; game is decided. Production and work come first, so new buildings
-    ;; act this tick; damage is removed only at the end, so everything alive
-    ;; at the start of a tick acts.
+    ;; game is decided. Production and work come first, so new buildings act
+    ;; this tick. Then the nests spawn, burrowers dig, enemies step and
+    ;; turrets fire; the dead are removed before the colony is struck, and
+    ;; the destroyed before the game is judged.
     (: advance (-> World World))
     (define (advance world)
       (if (and (World-started world) (playing? world))
-          (judge (clean-up (fire-turrets (update-enemies (spawn-waves (work (produce (World-tick-set world (+ (World-tick world) 1)))))))))
+          (judge (settle (strike (settle (fire (march (excavate (spawn (work (produce (World-tick-set world (+ (World-tick world) 1))))))))))))
           world))
 
     ))
