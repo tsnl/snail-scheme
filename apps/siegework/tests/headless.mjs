@@ -1,20 +1,21 @@
-// Runs the compiled game without a browser: a recording screen host, taps
-// that select cells, an order given through the HUD's card, five minutes of
-// play, a drag of the camera, and a save replayed through the application
-// entry points.
+// Runs the compiled game without a browser: a recording screen host, keys
+// that pan, taps that select cells, an order given through the HUD's card,
+// five minutes of play, a drag of the camera, and a save replayed through
+// the application entry points.
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-const ELAPSED = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3;
+const ELAPSED = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 
-// Records each frame's camera and batches, and the latest HUD's widgets.
+// Records each frame's camera and batches, the camera's latest target, and
+// the latest HUD's widgets.
 function screen() {
-  const host = {frames: [], widgets: [], imports: null};
+  const host = {frames: [], widgets: [], target: null, imports: null};
   let frame = null, widget = null, field = null, widgets = null;
   const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
   host.imports = {
     'frame-begin'() { frame = {batches: []}; },
-    camera(...values) { frame.camera = values; },
+    camera(...values) { frame.camera = values; host.target = [values[3], values[5]]; },
     light() {},
     'batch-begin'(key, version) { frame.batches.push({key, version, items: 0}); return 0; },
     instance() { frame.batches.at(-1).items++; },
@@ -71,6 +72,23 @@ assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 7]
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
 assert.equal(widget(host, 'nests').text, '☆☆☆');
+
+// Holding D for a second pans nine cells along the ground; holding W for a
+// second pans eighteen, the ground being seen at 30 degrees.
+const panned = (key, milliseconds) => {
+  const [x, z] = host.target;
+  game.app_input(KEY_DOWN, key, 0, 0, 0);
+  for (let i = 0; i < milliseconds / 50; i++) game.app_input(ELAPSED, 50, 0, 0, 0);
+  game.app_input(KEY_UP, key, 0, 0, 0);
+  game.app_frame();
+  const [x2, z2] = host.target;
+  return Math.hypot(x2 - x, z2 - z);
+};
+assert.ok(Math.abs(panned(100, 1000) - 9) < 0.01, 'D pans nine cells a second');
+assert.ok(Math.abs(panned(119, 1000) - 18) < 0.01, 'W pans eighteen cells of ground a second');
+game.app_input(KEY_DOWN, 104, 0, 0, 0);
+game.app_input(KEY_UP, 104, 0, 0, 0);
+game.app_frame();
 
 // The camera looks at the hub, so a tap in the middle selects it and the
 // construction panel offers the hub's buttons.

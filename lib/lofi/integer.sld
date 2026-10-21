@@ -168,7 +168,8 @@
     (define (subtract-magnitudes a b)
       (carry-limbs (vector-generate (vector-length a) (lambda (index) (- (limb a index) (limb b index))))))
 
-    ;; Moves each limb's excess, positive or negative, into the next limb.
+    ;; Moves each limb's excess, positive or negative, into the next limb, in
+    ;; a copy local to this call.
     (: carry-limbs (-> (Vector I64) (Vector I64)))
     (define (carry-limbs sums)
       (unsafe-total
@@ -199,8 +200,8 @@
 
     ;; ---- Multiplication ----
 
-    ;; Schoolbook multiplication; each partial product is carried at once so
-    ;; sums stay far below 2^63.
+    ;; Schoolbook multiplication into an array local to this call; each partial
+    ;; product is carried at once so sums stay far below 2^63.
     (: multiply-magnitudes (-> (Vector I64) (Vector I64) (Vector I64)))
     (define (multiply-magnitudes a b)
       (unsafe-total
