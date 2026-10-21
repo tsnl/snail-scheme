@@ -22,39 +22,16 @@ proposed language changes separate from implemented behavior.
 
 ## Siegework
 
-### Restoring removed functionality
+The pre-rewrite world, siege, look and HUD are restored on `(lofi app)`,
+with an energy network in place of worker drones and journal saves. What
+remains, none of it implemented:
 
-Use the rewritten implementation as the base and keep its simplifications.
-This is a roadmap for manual implementation, not a description of current
-support. The renderer, UI and asset items also include capabilities to grow.
-The pre-rewrite visual reference is commit `92f38fd1`, particularly Siegework's
-`view.sld`, `hud.sld` and `style.css` at that revision.
-
-- [ ] Restore the bright grass, teal surroundings, violet ore, golden roofs
-  and warm cream HUD palette. Keep the current meshes; recolor them rather
-  than replacing the models.
-- [ ] Restore the 30-degree orthographic camera and 2:1 dimetric ground grid.
-  Keep projection, picking and screen-direction panning consistent, and make
-  the projection explicit in the shared rendering API.
-- [ ] Restore the compact edge dock, circular readouts/buttons and contextual
-  actions below the main controls, using the same touch-friendly arrangement
-  on desktop and mobile. Preserve the old visual character with a simpler UI.
-- [ ] Grow a reusable Elm-style UI library: immutable view descriptions and
-  typed events around `init`, `update` and `view`. The client should describe
-  a DOM root containing a dedicated 3D canvas and ordinary DOM HUD elements.
-- [ ] Grow a small, typed Three.js-style rendering library with composable
-  geometry, materials, meshes, transforms, cameras and scenes. Preserve
-  instancing and retained batches; keep game-specific rules out of the host.
-- [ ] Evaluate reusable asset packaging/embedding and optional GLB loading
-  as separate capabilities. Keep the present procedural models until authored
-  assets justify a loader, with resource ownership explicit at the host boundary.
-- [ ] Add state-preserving hot reload. A stable host/runtime should own the
-  state lifetime across replaceable modules, with an explicit snapshot and
-  compatibility/migration boundary. Restore and test the candidate before
-  replacing working code; rebuild presentation caches and retain the previous
-  code/state on failure. Do not serialize the model on every display frame.
-- [ ] Review and restore desired gameplay functionality after hands-on
-  playtesting; decide the feature list separately from this visual/API work.
-- [ ] Retire or supersede PR #359: it fixes a terrain-list builder removed by
-  the rewrite and must not be merged unchanged. Carry forward its full-map
-  reveal stack-safety regression intent where relevant to the replacement.
+- [ ] Hot reload: load a changed module in place and replay the journal
+  into it, keeping the camera, rather than reloading the page.
+- [ ] Export and import a journal, and a viewer that plays one back.
+- [ ] The original's keyboard cell cursor on the arrow keys; they pan now.
+- [ ] Picking tall buildings by their shape; a tap picks the ground cell.
+- [ ] Playtest the balance: costs, build times, yields, reach and the
+  pressure of the attacks. The balance program guards the extremes.
+- [ ] Check the HUD at phone sizes in a browser.
+- [ ] Loading authored models, if hand-made assets replace the procedural ones.
