@@ -409,16 +409,16 @@
 
     ;; ---- Keys ----
 
-    ;; Number keys build on the selected cell; letters act on it. R rushes
-    ;; the selected work, or else makes new buildings rushed.
+    ;; 1 builds a pylon and 2 a turret on the selected cell, or an
+    ;; extractor when the cell is a crystal; letters act on the selection.
+    ;; R rushes the selected work, or else makes new buildings rushed.
     (: key-command (-> Game I32 (Option Command)))
     (define (key-command game key)
       (match (Game-selected game)
         ((Some cell)
          (case key
-           ((49) (Some (BuildAt (Extractor) cell)))
-           ((50) (Some (BuildAt (Pylon) cell)))
-           ((51) (Some (BuildAt (Turret) cell)))
+           ((49) (Some (BuildAt (Pylon) cell)))
+           ((50) (Some (BuildAt (turret-kind (Game-world game) cell) cell)))
            ((117) (Some (UpgradeAt cell)))
            ((114) (Some (if (working? (Game-world game) cell) (RushAt cell) (ToggleRush))))
            ((99) (Some (CancelAt cell)))
@@ -435,6 +435,13 @@
         ((101) (Some (Turn 1)))
         ((112) (Some (OpenMenu)))
         (else (None))))
+
+    ;; On a crystal a turret's place is taken by an extractor.
+    (: turret-kind (-> World Cell Kind))
+    (define (turret-kind world cell)
+      (match (crystal-at world cell)
+        ((Some _) (Extractor))
+        ((None) (Turret))))
 
     (: working? (-> World Cell Bool))
     (define (working? world cell)
