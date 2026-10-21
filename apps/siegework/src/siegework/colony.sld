@@ -107,7 +107,7 @@
                     ((Cancel cell) (with-owner world cell cancel))
                     ((Scavenge cell) (with-owner world cell scavenge))
                     ((Repair) (repair world))
-                    ((Resign) (Ok (World-outcome-set world (Resigned))))))))
+                    ((Resign) (Ok (uncover (World-outcome-set world (Resigned)))))))))
 
     (: opening? (-> Action Bool))
     (define (opening? action)

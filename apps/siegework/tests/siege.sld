@@ -64,7 +64,10 @@
                                                                        (if (= (length found) 12) (reverse found) (let ((next (next-attack-tick tick))) (loop next (Cons next found))))))
                                                     ", ")))
 (write-line (string-append "next attack after tick 5000: " (attack-text (next-attack-tick 5000))))
-(report "undefended" (run (started (new-world 1)) 6000))
+(define lost (run (started (new-world 1)) 6000))
+(report "undefended" lost)
+(write-line (string-append "the lost colony's whole map is uncovered: "
+                           (show (vector-fold (lambda (all seen) (and all seen)) #t (World-explored lost)))))
 (define defended (defend (started (new-world 1)) 1000))
 (report "defended" defended)
 (report "defended" (defend defended 2000))

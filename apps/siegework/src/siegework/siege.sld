@@ -505,7 +505,7 @@
     (: judge (-> World World))
     (define (judge world)
       (cond ((null? (living-nests world)) (World-outcome-set world (Won)))
-            ((= (Hub-health (World-hub world)) 0) (World-outcome-set world (Lost)))
+            ((= (Hub-health (World-hub world)) 0) (uncover (World-outcome-set world (Lost))))
             (else world)))
 
     ))

@@ -185,6 +185,7 @@
    wire-reaches?
    clear-line?
    rewire
+   uncover
    lit-cells
    visible?
    explored?)
@@ -673,5 +674,14 @@
       (let* ((count (length cells))
              (center (Cell (quotient (fold-left + 0 (map Cell-x cells)) count) (quotient (fold-left + 0 (map Cell-y cells)) count))))
         (Reveal before center (+ 1 (integer-sqrt (fold-left max 0 (map (lambda (cell) (distance-squared cell center)) cells)))) tick)))
+
+    ;; A lost or resigned colony shows the whole map for inspection, at
+    ;; once: the world is still, so nothing could unveil.
+    (: uncover (-> World World))
+    (define (uncover world)
+      (let ((everything (make-vector (* map-size map-size) #t)) (reveal (World-reveal world)))
+        (structures-changed (World-explored-version-set (World-reveal-set (World-visible-set (World-explored-set world everything) everything)
+                                                                          (Reveal-tick-set reveal -1000))
+                                                        (+ (World-explored-version world) 1)))))
 
     ))
