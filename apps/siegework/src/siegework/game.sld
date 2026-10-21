@@ -10,12 +10,19 @@
    Game-world
    Game-tool
    Game-hover
+   Game-selected
    Game-paused
+   Game-message
    new-game
    update-game
    game-camera
+   focus-cell
    action-tool
-   action-recruit
+   action-upgrade
+   action-rush
+   action-cancel
+   action-scavenge
+   action-repair
    action-pause
    action-new-map)
   (import
@@ -23,7 +30,9 @@
    (lofi wire)
    (lofi app)
    (siegework grid)
-   (siegework world))
+   (siegework world)
+   (siegework colony)
+   (siegework simulation))
   (begin
 
     ;; ---- State ----
@@ -43,34 +52,49 @@
        (vz F32))
       (deriving Serialize Deserialize))
 
+    ;; `selected` is the cell orders apply to; `message` explains the last
+    ;; rejected order.
     (struct Game
       ((world World)
        (viewpoint Viewpoint)
        (held (List I32))
        (tool Tool)
        (hover (Option Cell))
+       (selected (Option Cell))
        (paused Bool)
+       (message String)
        (width I32)
        (height I32))
       (deriving Serialize Deserialize))
 
     (: new-game (-> I32 I32 I32 Game))
     (define (new-game seed width height)
-      (let* ((world (new-world (i32->i64 seed))) (hub (world-hub world)))
-        (Game world (Viewpoint (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 26.0 0.0 0.0) (Nil) (Select) (None) #f width height)))
+      (let* ((world (new-world (i32->i64 seed))) (hub (Hub-cell (World-hub world))))
+        (Game world (Viewpoint (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 26.0 0.0 0.0) (Nil) (Select) (None) (None) #f
+              "Place an extractor on the crystal near the hub." width height)))
 
     ;; HUD buttons report these actions; 1-3 choose a building tool.
     (: action-tool (-> Kind I32))
     (define (action-tool kind)
       (match kind
         ((Extractor) 1)
-        ((Tower) 2)
-        ((Gun) 3)
-        ((Hub) 0)))
+        ((Pylon) 2)
+        ((Turret) 3)))
 
-    (define action-recruit 4)
+    (define action-upgrade 4)
     (define action-pause 5)
     (define action-new-map 6)
+    (define action-rush 7)
+    (define action-cancel 8)
+    (define action-scavenge 9)
+    (define action-repair 10)
+
+    ;; The cell orders apply to: the selected one, else the one hovered.
+    (: focus-cell (-> Game (Option Cell)))
+    (define (focus-cell game)
+      (match (Game-selected game)
+        ((Some cell) (Some cell))
+        ((None) (Game-hover game))))
 
     ;; ---- Camera ----
 
@@ -113,30 +137,41 @@
 
     ;; ---- Commands ----
 
-    (: order (-> Game (Result World String) Game))
-    (define (order game result)
-      (match result
-        ((Ok world) (Game-world-set game world))
-        ((Err message) (Game-world-set game (World-message-set (Game-world game) message)))))
+    ;; Gives an order to the world; a rejection is shown instead.
+    (: order (-> Game Action Game))
+    (define (order game action)
+      (match (act (Game-world game) action)
+        ((Ok world) (Game-message-set (Game-world-set game world) ""))
+        ((Err rejection) (Game-message-set game (rejection-text rejection)))))
+
+    (: order-at (-> Game (-> Cell Action) Game))
+    (define (order-at game action)
+      (match (focus-cell game)
+        ((Some cell) (order game (action cell)))
+        ((None) game)))
 
     (: click (-> Game Game))
     (define (click game)
       (match (Game-tool game)
         ((Place kind)
          (match (Game-hover game)
-           ((Some cell) (order game (place (Game-world game) kind cell)))
+           ((Some cell) (order game (Build kind cell #f)))
            ((None) game)))
-        ((Select) game)))
+        ((Select) (Game-selected-set game (Game-hover game)))))
 
     (: press (-> Game I32 Game))
     (define (press game action)
       (case action
         ((1) (Game-tool-set game (Place (Extractor))))
-        ((2) (Game-tool-set game (Place (Tower))))
-        ((3) (Game-tool-set game (Place (Gun))))
-        ((4) (order game (recruit (Game-world game))))
+        ((2) (Game-tool-set game (Place (Pylon))))
+        ((3) (Game-tool-set game (Place (Turret))))
+        ((4) (order-at game (lambda (cell) (Upgrade cell))))
         ((5) (Game-paused-set game (not (Game-paused game))))
         ((6) (new-game (i64->i32 (+ (remainder (* (World-seed (Game-world game)) 48271) 65521) 1)) (Game-width game) (Game-height game)))
+        ((7) (order-at game (lambda (cell) (Rush cell))))
+        ((8) (order-at game (lambda (cell) (Cancel cell))))
+        ((9) (order-at game (lambda (cell) (Scavenge cell))))
+        ((10) (order game (Repair)))
         (else game)))
 
     (: key-press (-> Game I32 Game))
@@ -145,8 +180,12 @@
         (cond ((= key 49) (press game 1))
               ((= key 50) (press game 2))
               ((= key 51) (press game 3))
+              ((= key 117) (press game action-upgrade))
+              ((= key 114) (press game action-rush))
+              ((= key 99) (press game action-cancel))
+              ((= key 120) (press game action-scavenge))
               ((= key 112) (press game action-pause))
-              ((= key key-escape) (Game-tool-set game (Select)))
+              ((= key key-escape) (Game-selected-set (Game-tool-set game (Select)) (None)))
               (else game))))
 
     ;; ---- Updates ----
@@ -161,11 +200,11 @@
         ((PointerMove x y) (Game-hover-set game (pick game x y)))
         ((PointerDown x y button)
          (let ((game (Game-hover-set game (pick game x y))))
-           (if (= button 0) (click game) (Game-tool-set game (Select)))))
+           (if (= button 0) (click game) (Game-selected-set (Game-tool-set game (Select)) (None)))))
         ((PointerUp x y button) game)
         ((Wheel delta)
          (let ((view (Game-viewpoint game)))
-           (Game-viewpoint-set game (Viewpoint-distance-set view (clamp (* (Viewpoint-distance view) (+ 1.0 (* 0.1 (i32->f32 delta)))) 8.0 60.0)))))
+           (Game-viewpoint-set game (Viewpoint-distance-set view (clamp (* (Viewpoint-distance view) (+ 1.0 (* 0.1 (i32->f32 delta)))) 8.0 90.0)))))
         ((Resize width height) (Game-height-set (Game-width-set game width) height))
         ((Press action) (press game action))))
 
