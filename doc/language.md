@@ -223,8 +223,9 @@ the first changed type instead of misreading it.
 `(lofi app)` defines interactive applications as three total functions:
 `init` makes the state from a seed and the screen size, `update` applies one
 `Input`, and `view` describes a `Frame` of mesh instances and HUD panels.
-`define-application` exposes them to the browser host in `src/app`, along
-with saving and restoring the state through its wire encoding.
+Two more convert the state to and from a `Save` with a wire encoding, which
+may be a record of how to rebuild the state rather than the state itself.
+`define-application` exposes them to the browser host in `src/app`.
 [Siegework](../apps/siegework) is the complete example.
 
 ## Standard library

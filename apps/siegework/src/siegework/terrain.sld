@@ -30,7 +30,6 @@
    reserve-per-rate)
   (import
    (lofi base)
-   (lofi wire)
    (siegework grid))
   (begin
 
@@ -39,23 +38,20 @@
     (enum Ground
       (Grass)
       (Rock)
-      (Water)
-      (deriving Serialize Deserialize))
+      (Water))
 
     ;; A crystal site yields `rate` energy per second for each extractor
     ;; level until its reserve of `reserve-per-rate` times `rate` runs out.
     (struct Site
       ((cell Cell)
-       (rate I64))
-      (deriving Serialize Deserialize))
+       (rate I64)))
 
     (struct Land
       ((seed I64)
        (hub Cell)
        (ground (Vector Ground))
        (sites (List Site))
-       (fronts (List Cell)))
-      (deriving Serialize Deserialize))
+       (fronts (List Cell))))
 
     (: reserve-per-rate I64)
     (define reserve-per-rate 300)
