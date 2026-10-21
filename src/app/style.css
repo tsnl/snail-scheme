@@ -12,7 +12,7 @@ canvas { display: block; width: 100vw; height: 100vh; outline: none; touch-actio
 .corner.top-right { top: 12px; right: 12px; flex-direction: row-reverse; align-items: flex-start; }
 .corner.bottom-left { bottom: 12px; left: 12px; align-items: flex-end; }
 .corner.bottom-right { bottom: 12px; right: 12px; flex-direction: row-reverse; align-items: flex-end; }
-.column { display: flex; flex-direction: column; gap: 10px; }
+.column { display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 24px); overflow-y: auto; scrollbar-width: none; }
 .corner.top-right .column, .corner.bottom-right .column { align-items: flex-end; }
 .corner.bottom-left .column, .corner.bottom-right .column { flex-direction: column-reverse; }
 .panel { display: flex; flex-wrap: wrap; gap: 6px; max-width: 360px; pointer-events: auto; }
