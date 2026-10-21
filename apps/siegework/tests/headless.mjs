@@ -65,7 +65,7 @@ const game = await instantiate(path, host);
 game.app_init(7, 960, 640);
 game.app_frame(0);
 const first = host.frames.at(-1);
-assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 4, 6], 'terrain, structures, motion, shimmer and cursor');
+assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 6, 4, 7], 'terrain, structures, motion, cursor, shimmer and preview');
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
 assert.equal(widget(host, 'nests').text, '☆☆☆');
