@@ -1,7 +1,8 @@
 ;; What the player sees, in the original Siegework's style: sunny ground in
 ;; its biome's colors on a teal world under a blue sky, warm cream and
-;; brass buildings with deep blue trim, violet crystals and crystalline
-;; enemies, and glowing wires carrying pulses of energy home.
+;; brass buildings with deep blue trim, little cream workers, violet
+;; crystals and crystalline enemies, and glowing wires carrying pulses of
+;; energy home.
 ;;
 ;; Models are lists of parts given as in the original, with z up and y
 ;; north, each shape centered on its offset; `part` turns them into items
@@ -251,6 +252,28 @@
                                  (Vec3 0.0 (+ 0.3 (* 0.22 (i64->f32 index))) 0.0) 0.0))
                         (iota level))))
 
+    ;; A wall stands taller and sturdier with each level: a blue band at
+    ;; the second, battlements at the third.
+    (: wall-parts (-> I64 (List Item)))
+    (define (wall-parts level)
+      (let* ((height (+ 0.35 (* 0.15 (i64->f32 level)))) (top (+ 0.12 height)))
+        (concatenate
+         (list (list (block steel 0.0 0.0 0.06 1.0 1.0 0.12) (block cream 0.0 0.0 (+ 0.12 (/ height 2.0)) 0.92 0.92 height)
+                     (block brass 0.0 0.0 (+ top 0.03) 0.96 0.96 0.06))
+               (if (>= level 2) (list (block blue 0.0 0.0 (* 0.6 top) 0.94 0.94 0.08)) (Nil))
+               (if (>= level 3)
+                   (map (lambda (corner) (block cream (* 0.3 (i64->f32 (- (* 2 (remainder corner 2)) 1))) (* 0.3 (i64->f32 (- (* 2 (quotient corner 2)) 1)))
+                                                (+ top 0.15) 0.24 0.24 0.18))
+                        (iota 4))
+                   (Nil))))))
+
+    ;; A portal glows violet at the pylon's foot, with a crystal floating
+    ;; over its lamp.
+    (: portal-parts (-> (List Item)))
+    (define (portal-parts)
+      (list (flat (Paint (rgb 188 139 255) 0.8) 0.0 0.0 0.02 0.96 0.96) (block violet 0.0 0.0 0.05 0.7 0.7 0.06)
+            (part (Octahedron) gem-light 0.0 0.0 1.95 0.3 0.3 0.42)))
+
     (: construction-parts (-> (List Item)))
     (define (construction-parts)
       (list (block steel 0.0 0.0 0.06 0.9 0.9 0.12) (block brass 0.0 0.0 0.22 0.43 0.43 0.32)
@@ -263,17 +286,18 @@
           (match kind
             ((Extractor) (extractor-parts level))
             ((Pylon) (pylon-parts level))
-            ((Turret) (turret-parts level)))))
+            ((Turret) (turret-parts level))
+            ((Wall) (wall-parts level)))))
 
-    ;; An unpowered building loses its color and glow.
+    ;; An unpowered building loses its color and glow; walls need no power.
     (: unpowered (-> (List Item) (List Item)))
     (define (unpowered parts)
       (map (lambda (it) (Item-glow-set (Item-color-set it (Paint-color shadow)) 0.0)) parts))
 
     (: building-items (-> World Building (List Item)))
     (define (building-items world building)
-      (let ((parts (building-parts (Building-kind building) (Building-level building))))
-        (at-cell (Building-cell building) (if (or (not (built? building)) (powered? world (Building-id building))) parts (unpowered parts)))))
+      (let ((parts (append (building-parts (Building-kind building) (Building-level building)) (if (portal? building) (portal-parts) (Nil)))))
+        (at-cell (Building-cell building) (if (or (not (built? building)) (wall? building) (powered? world (Building-id building))) parts (unpowered parts)))))
 
     ;; ---- Crystals and nests ----
 
@@ -464,6 +488,37 @@
         (bar-items yaw (Pair-first span) (Pair-second span) 1.0 (+ 0.9 (* 0.25 (i64->f32 (Enemy-rank enemy)))) (Enemy-health enemy) (Enemy-maximum enemy)
                    health-paint)))
 
+    ;; ---- Workers ----
+
+    ;; A little cream worker on a steel wheel with a cyan visor and a brass
+    ;; aerial. Workers on one cell stand apart by their ids.
+    (: worker-parts (-> Worker (List Item)))
+    (define (worker-parts w)
+      (let ((dx (* 0.22 (i64->f32 (- (remainder (Worker-id w) 3) 1)))) (dy (* 0.22 (i64->f32 (- (remainder (quotient (Worker-id w) 3) 3) 1)))))
+        (list (block steel dx dy 0.05 0.34 0.34 0.1) (block cream dx dy 0.24 0.3 0.26 0.28)
+              (block cyan dx (- dy 0.14) 0.3 0.22 0.04 0.08) (block brass (+ dx 0.08) dy 0.46 0.04 0.04 0.16))))
+
+    ;; A worker steps from its previous cell on multiples of its period, as
+    ;; an enemy does; a jump leaves no previous cell to come from.
+    (: worker-span (-> World Worker (Pair Vec3 Vec3)))
+    (define (worker-span world w)
+      (let* ((phase (i64->f32 (remainder (+ (World-tick world) (Worker-id w)) worker-period))) (period (i64->f32 worker-period))
+             (a (cell-point (Worker-previous w) 0.0)) (b (cell-point (Worker-cell w) 0.0)))
+        (Pair (between a b (/ phase period)) (between a b (/ (+ phase 1.0) period)))))
+
+    (: worker-items (-> World Worker (List Item)))
+    (define (worker-items world w)
+      (let ((span (worker-span world w)))
+        (travel (worker-parts w) (Pair-first span) (Pair-second span) 0.0)))
+
+    ;; A wounded worker shows its health.
+    (: worker-bar (-> F32 World Worker (List Item)))
+    (define (worker-bar yaw world w)
+      (if (< (Worker-health w) worker-health)
+          (let ((span (worker-span world w)))
+            (bar-items yaw (Pair-first span) (Pair-second span) 0.6 0.75 (Worker-health w) worker-health health-paint))
+          (Nil)))
+
     ;; ---- Bars ----
 
     (define health-paint (Paint (rgb 118 249 143) 1.0))
@@ -495,8 +550,8 @@
     ;; mined crystals what they have left.
     (: building-bars (-> F32 World Building (List Item)))
     (define (building-bars yaw world b)
-      (append (if (< (Building-health b) (kind-health (Building-kind b)))
-                  (still-bar yaw (Building-cell b) 1.0 1.2 (Building-health b) (kind-health (Building-kind b)) health-paint)
+      (append (if (< (Building-health b) (full-health b))
+                  (still-bar yaw (Building-cell b) 1.0 1.2 (Building-health b) (full-health b) health-paint)
                   (Nil))
               (match (Building-work b)
                 ((Some work) (still-bar yaw (Building-cell b) 1.0 1.0 (Work-progress work) (Work-duration work) progress-paint))
@@ -511,9 +566,9 @@
     (define (hub-bars yaw world)
       (let ((hub (World-hub world)))
         (append (still-bar yaw (Hub-cell hub) 1.0 1.25 (Hub-health hub) hub-health health-paint)
-                (match (Hub-work hub)
-                  ((Some work) (still-bar yaw (Hub-cell hub) 1.0 1.05 (Work-progress work) (Work-duration work) progress-paint))
-                  ((None) (Nil))))))
+                (match (hub-works world)
+                  ((Cons (Pair owner work) _) (still-bar yaw (Hub-cell hub) 1.0 1.05 (Work-progress work) (Work-duration work) progress-paint))
+                  ((Nil) (Nil))))))
 
     ;; Each living nest that has been found shows its health in a wide bar
     ;; above its spire.
@@ -567,6 +622,7 @@
     (: moving-items (-> World (List Item)))
     (define (moving-items world)
       (concatenate (list (concatenate (map (lambda (e) (enemy-items world e)) (seen-enemies world)))
+                         (concatenate (map (lambda (w) (worker-items world w)) (World-workers world)))
                          (concatenate (map (lambda (b) (cannon-items world b)) (filter (lambda (b) (and (built? b) (turret? b))) (World-buildings world))))
                          (concatenate (map (lambda (s) (shot-items world s)) (World-shots world)))
                          (concatenate (map (lambda (a) (smoke-items world a)) (World-alerts world)))
@@ -580,7 +636,8 @@
     ;; Every bar, turned by `yaw` to face the camera.
     (: bar-batch-items (-> World F32 (List Item)))
     (define (bar-batch-items world yaw)
-      (concatenate (list (concatenate (map (lambda (e) (enemy-bar yaw world e)) (seen-enemies world))) (hub-bars yaw world) (crystal-bars yaw world)
+      (concatenate (list (concatenate (map (lambda (e) (enemy-bar yaw world e)) (seen-enemies world)))
+                         (concatenate (map (lambda (w) (worker-bar yaw world w)) (World-workers world))) (hub-bars yaw world) (crystal-bars yaw world)
                          (concatenate (map (lambda (b) (building-bars yaw world b)) (World-buildings world))) (nest-bars yaw world))))
 
     ;; ---- Cursor and previews ----
@@ -624,14 +681,15 @@
 
     (: preview-version (-> Game I64))
     (define (preview-version game)
-      (+ (* 4 (cell-code (Game-selected game))) (match (Game-preview game) ((Some kind) (+ 1 (kind-code kind))) ((None) 0))))
+      (+ (* 5 (cell-code (Game-selected game))) (match (Game-preview game) ((Some kind) (+ 1 (kind-code kind))) ((None) 0))))
 
     (: kind-code (-> Kind I64))
     (define (kind-code kind)
       (match kind
         ((Extractor) 0)
         ((Pylon) 1)
-        ((Turret) 2)))
+        ((Turret) 2)
+        ((Wall) 3)))
 
     ;; ---- Light ----
 

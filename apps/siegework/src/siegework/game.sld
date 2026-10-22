@@ -45,10 +45,12 @@
    Command
    BuildAt
    UpgradeAt
+   PortalAt
    RushAt
    CancelAt
    ScavengeAt
    RepairHub
+   TrainWorker
    ToggleRush
    CloseCard
    Locate
@@ -279,10 +281,12 @@
     (enum Command
       (BuildAt ((kind Kind) (cell Cell)))
       (UpgradeAt ((cell Cell)))
+      (PortalAt ((cell Cell)))
       (RushAt ((cell Cell)))
       (CancelAt ((cell Cell)))
       (ScavengeAt ((cell Cell)))
       (RepairHub)
+      (TrainWorker)
       (ToggleRush)
       (CloseCard)
       (Locate ((cell Cell)))
@@ -299,7 +303,7 @@
       (InspectMap))
 
     ;; A command as a button's action and argument: a cell travels as its
-    ;; index.
+    ;; index, with actions 1 to 19.
     (: press-code (-> Command (Pair I32 I32)))
     (define (press-code command)
       (let ((at (lambda (action cell) (Pair action (i64->i32 (cell-index cell))))))
@@ -307,14 +311,16 @@
           ((BuildAt (Extractor) cell) (at 1 cell))
           ((BuildAt (Pylon) cell) (at 2 cell))
           ((BuildAt (Turret) cell) (at 3 cell))
-          ((UpgradeAt cell) (at 4 cell))
-          ((RushAt cell) (at 5 cell))
-          ((CancelAt cell) (at 6 cell))
-          ((ScavengeAt cell) (at 7 cell))
-          ((Locate cell) (at 8 cell))
-          ((Turn quarters) (Pair 10 (i64->i32 quarters)))
-          ((Hand left) (Pair 11 (if left 1 0)))
-          (_ (Pair (+ 20 (plain-code command)) 0)))))
+          ((BuildAt (Wall) cell) (at 4 cell))
+          ((UpgradeAt cell) (at 5 cell))
+          ((PortalAt cell) (at 6 cell))
+          ((RushAt cell) (at 7 cell))
+          ((CancelAt cell) (at 8 cell))
+          ((ScavengeAt cell) (at 9 cell))
+          ((Locate cell) (at 10 cell))
+          ((Turn quarters) (Pair 20 (i64->i32 quarters)))
+          ((Hand left) (Pair 21 (if left 1 0)))
+          (_ (Pair (+ 30 (plain-code command)) 0)))))
 
     (: plain-code (-> Command I32))
     (define (plain-code command)
@@ -331,13 +337,14 @@
         ((NewMap) 9)
         ((ShowResults) 10)
         ((InspectMap) 11)
-        (_ 12)))
+        ((TrainWorker) 12)
+        (_ 13)))
 
     ;; The command a button reported, if it names one. A cell must lie on
     ;; the map, so numbers from the host cannot name another place.
     (: parse-press (-> I32 I32 (Option Command)))
     (define (parse-press action argument)
-      (if (and (< 0 action) (< action 10) (not (on-map? argument))) (None) (parse-code action argument)))
+      (if (and (< 0 action) (< action 20) (not (on-map? argument))) (None) (parse-code action argument)))
 
     (: on-map? (-> I32 Bool))
     (define (on-map? index)
@@ -350,15 +357,18 @@
           ((1) (Some (BuildAt (Extractor) cell)))
           ((2) (Some (BuildAt (Pylon) cell)))
           ((3) (Some (BuildAt (Turret) cell)))
-          ((4) (Some (UpgradeAt cell)))
-          ((5) (Some (RushAt cell)))
-          ((6) (Some (CancelAt cell)))
-          ((7) (Some (ScavengeAt cell)))
-          ((8) (Some (Locate cell)))
-          ((10) (Some (Turn (i32->i64 argument))))
-          ((11) (Some (Hand (= argument 1))))
-          (else (find (lambda (command) (= (plain-code command) (- action 20)))
-                      (list (RepairHub) (ToggleRush) (CloseCard) (Home) (OpenMenu) (Resume) (AskRestart) (AskResign) (ConfirmResign) (NewMap) (ShowResults) (InspectMap)))))))
+          ((4) (Some (BuildAt (Wall) cell)))
+          ((5) (Some (UpgradeAt cell)))
+          ((6) (Some (PortalAt cell)))
+          ((7) (Some (RushAt cell)))
+          ((8) (Some (CancelAt cell)))
+          ((9) (Some (ScavengeAt cell)))
+          ((10) (Some (Locate cell)))
+          ((20) (Some (Turn (i32->i64 argument))))
+          ((21) (Some (Hand (= argument 1))))
+          (else (find (lambda (command) (= (plain-code command) (- action 30)))
+                      (list (RepairHub) (ToggleRush) (CloseCard) (Home) (OpenMenu) (Resume) (AskRestart) (AskResign) (ConfirmResign) (NewMap) (ShowResults) (InspectMap)
+                            (TrainWorker)))))))
 
     ;; Gives an order to the world and journals it; a rejection is shown
     ;; instead.
@@ -373,10 +383,12 @@
       (match command
         ((BuildAt kind cell) (order game (Build kind cell (Game-rush game))))
         ((UpgradeAt cell) (order game (Upgrade cell)))
+        ((PortalAt cell) (order game (MakePortal cell)))
         ((RushAt cell) (order game (Rush cell)))
         ((CancelAt cell) (order game (Cancel cell)))
         ((ScavengeAt cell) (order game (Scavenge cell)))
         ((RepairHub) (order game (Repair)))
+        ((TrainWorker) (order game (Train)))
         ((ToggleRush) (Game-rush-set game (not (Game-rush game))))
         ((CloseCard) (Game-message-set (Game-selected-set game (None)) ""))
         ((Locate cell) (Game-selected-set (look-at game cell) (Some cell)))
@@ -406,9 +418,10 @@
 
     ;; ---- Keys ----
 
-    ;; On a selected cell, 1, 2 and 3 build a pylon, a turret and an
-    ;; extractor, 4 rushes (the selected work, or else new buildings) and 5
-    ;; closes; letters act on the selection too.
+    ;; On a selected cell, 1, 2, 3 and 4 build a pylon, a turret, an
+    ;; extractor and a wall, 5 makes a pylon a portal, and letters act on
+    ;; the selection too: R rushes the selected work, or else makes new
+    ;; buildings rushed.
     (: key-command (-> Game I32 (Option Command)))
     (define (key-command game key)
       (match (Game-selected game)
@@ -417,8 +430,8 @@
            ((49) (Some (BuildAt (Pylon) cell)))
            ((50) (Some (BuildAt (Turret) cell)))
            ((51) (Some (BuildAt (Extractor) cell)))
-           ((52) (Some (rush-key game cell)))
-           ((53) (Some (CloseCard)))
+           ((52) (Some (BuildAt (Wall) cell)))
+           ((53) (Some (PortalAt cell)))
            ((117) (Some (UpgradeAt cell)))
            ((114) (Some (rush-key game cell)))
            ((99) (Some (CancelAt cell)))
@@ -435,6 +448,7 @@
     (define (view-command key)
       (case key
         ((102) (Some (RepairHub)))
+        ((98) (Some (TrainWorker)))
         ((104) (Some (Home)))
         ((113) (Some (Turn -1)))
         ((101) (Some (Turn 1)))
@@ -444,7 +458,7 @@
     (: working? (-> World Cell Bool))
     (define (working? world cell)
       (if (hub-cell? (World-hub world) cell)
-          (match (Hub-work (World-hub world)) ((Some _) #t) ((None) #f))
+          (not (null? (hub-works world)))
           (match (building-at world cell) ((Some b) (match (Building-work b) ((Some _) #t) ((None) #f))) ((None) #f))))
 
     ;; Escape backs out one step: a confirmation to the menu, the menu or
