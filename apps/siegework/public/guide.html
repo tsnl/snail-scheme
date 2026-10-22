@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to play Siegework</title>
+<!-- The player guide from README.md, between its guide anchors, as a page
+     shipped with the game so "How to play" matches the rules it runs. -->
+<style>
+  :root { --panel: #fff7e5; --accent: #086b70; --ink: #244550; --edge: #d6bb83; }
+  body { margin: 0; padding: 24px 16px; background: #167ba0; color: var(--ink); font: 15px/1.55 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 32px; background: var(--panel); border: 1px solid var(--edge); border-radius: 22px;
+         box-shadow: 0 3px 0 #b3935666, 0 7px 14px #123d5c2b; }
+  h1 { margin: 0 0 4px; color: var(--accent); font-size: 40px; letter-spacing: 2px; text-transform: uppercase; }
+  h2 { color: var(--accent); margin-top: 28px; }
+  li { margin: 8px 0; }
+  strong { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--edge); vertical-align: top; }
+</style>
+<body>
+<main>
+<h1>Siegework</h1>
+<h2>Playing</h2>
+<ul>
+  <li><strong>The land.</strong> Each map's seed picks one of four biomes. Meadows have lakes and mountains; deserts have no water, only mesas and winding canyon walls; tundra has frozen lakes, mountains and scattered boulders; an archipelago is sea but for its islands. Open ground is walked and built on. Rock stops walkers, sight lines and wires until enemies dig it out. Water stops only walkers, so wires reach islands enemies cannot. Ice is walked but not built on. Every nest has a way in to the hub, though it may wind through a pass or over a causeway.</li>
+  <li><strong>Energy.</strong> The colony runs on one store of energy, starting at 160. Extractors draw it from violet crystals until they run dry: the starter, four cells from the hub in a direction the seed picks, yields 2 a second, richer crystals more, and each extractor level multiplies its yield. A destroyed nest exposes a rich crystal of its own.</li>
+  <li><strong>The network.</strong> Every finished building is wired to every other within reach whose line to it crosses no rock (water is fine). The hub reaches 9 cells, pylons 7, 10 and 12 by level, and extractors 4. Turrets draw power only from a pylon within the pylon's reach. A building the hub cannot reach through wires is unpowered and does nothing: no energy, no shots, no sight. Rebuild the link and it wakes up.</li>
+  <li><strong>Workers.</strong> Building, upgrading and repairing need a worker at the site. The colony starts with three; the hub's "Build worker" button trains another for 20 energy in 3 s, up to twenty. Workers take the oldest work first, each going to the nearest free worker, and walk there; they cannot dig. A worker with an enemy beside it stops to fight for 6 damage a second, and one that falls leaves its work's progress for the next. Idle workers return to the hub.</li>
+  <li><strong>Building takes time.</strong> A new building needs visible open ground and a powered building that can wire to it. Its cost is paid at once and it is built once a worker has labored there: pylons take 2 s, extractors 3 s, turrets 4 s and walls 2 s, and the colony's first extractor is ready at once. Nothing happens until it is ordered: the crystals in sight pulse white under a title banner that points to them and links to this guide; the camera opens on the starter crystal. Once a crystal is selected, the banner points to the build button, which pulses. Orders wait in the queue for workers, and an unpowered site waits without blocking the others.</li>
+  <li><strong>Portals.</strong> Any built pylon can become a portal for 60 energy in 4 s, keeping its reach and wires. Workers jump at once between the hub and powered portals, then walk from whichever is nearest their work.</li>
+  <li><strong>Walls.</strong> Walls go on open ground for 10 energy, and upgrade for 10 and 15 more, to 200, 250 and 300 health. Enemies and workers cannot walk through them and turrets cannot shoot past them, but enemies see past them and may dig through. Touching walls pass power along to any pylon or the hub that can see one. Removing a wall returns half its cost.</li>
+  <li><strong>Rush.</strong> Rushing finishes work at once for four times the share of its cost that remains: five times the price when rushed as it is ordered, less later. Cancelling refunds the cost.</li>
+  <li><strong>Upgrades, repair and scavenging.</strong> Each building has three levels. Upgrades raise pylon reach, extractor yield, and turret damage (one and a half, then two times, with a gun more each level), and restore full health. Repair restores the hub to full health at one energy for each two health it lacks, once a worker has labored there for 2 s. Scavenging returns a fifth of what a building cost.</li>
+  <li><strong>The siege.</strong> The first attack leaves the nests at 0:45, then one every 60 seconds; raids of fast, light raiders replace every other attack from 1:45, and a boss leads an attack every nine minutes. Enemies grow stronger every 90 seconds, less for each nest destroyed. They know the land and where the hub is and make for it, but see buildings and workers only within four cells. Each thing that comes into sight may provoke an enemy, raiders most often; a provoked enemy attacks the nearest building or worker in sight until none is left, then heads on. Enemies may dig through rock and walls, likelier the more time it saves, and always when there is no other way; one in twenty is a burrower that digs three times as fast. Turrets shoot the nearest enemy in sight and range, harder up close, and their guns stay where they last fired. Shooting an enemy does not draw it to the turret.</li>
+  <li><strong>Winning.</strong> Destroy all three nests to win. Lose the hub and you lose.</li>
+</ul>
+<h2>Controls</h2>
+<p>The same controls work with a mouse, a pen and fingers. Drag to pan, pinch or use the wheel to zoom, and tap a cell to select it; the selection alone never orders anything. The dock on the side of your hand shows hub health, energy, the workers and the nests' strength with the time to the next attack, then the build menu for the selected cell: a pylon, a turret, an extractor, a wall, a portal, an upgrade, a rush and closing. A button that may work later, waiting on energy, work, the network or the first extractor, turns flat blue with faint lines; one that cannot apply to the selection fades. Rush finishes the selected work, or else makes new buildings rushed. Beside it come the menu and turning buttons, then for a selected building cancelling its work and scavenging it, or at the hub cancelling, repair and building a worker, then the build queue, with a ring while a work builds and ! while it is unpowered; tap one to go to it. Under the nests in the opposite corner, a red alert throbs while the colony is under attack and goes to the latest attack, and a notice says why an order was refused.</p>
+<table>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td>1, 2, 3, 4</td><td>Build a pylon, a turret, an extractor or a wall on the selected cell</td></tr>
+  <tr><td>5</td><td>Make the selected pylon a portal</td></tr>
+  <tr><td>U</td><td>Upgrade the selected building</td></tr>
+  <tr><td>R</td><td>Rush the selected work, or make new buildings rushed</td></tr>
+  <tr><td>C, X</td><td>Cancel the selected work, scavenge the selected building</td></tr>
+  <tr><td>B</td><td>Build a worker at the hub</td></tr>
+  <tr><td>F</td><td>Repair the hub to full health</td></tr>
+  <tr><td>WASD, arrows</td><td>Pan</td></tr>
+  <tr><td>Q, E</td><td>Turn a quarter</td></tr>
+  <tr><td>H</td><td>Return to the hub</td></tr>
+  <tr><td>P</td><td>Open or close the menu</td></tr>
+  <tr><td>Escape</td><td>Back out of a dialog, then close the selection</td></tr>
+</table>
+<p>Keys held with ⌘, Ctrl or Alt go to the browser, so its shortcuts, such as reloading, keep working. With Shift, WASD and the arrows pan as they do alone, and other keys do nothing.</p>
+<p>The menu also restarts on a new map, resigns, and moves the dock to the left or right edge.</p>
+<h2>Saves</h2>
+<p>The colony depends only on its seed and the orders given at each tick, so the save is a journal: the seed, the tick reached and each accepted order with its tick, plus whether the game was paused and for which hand. Loading replays the journal. Under rules that have changed since it was written, an order that is now rejected is dropped and the colony grows differently; there are no save versions.</p>
+</main>
+</body>
+</html>

@@ -72,8 +72,8 @@
 
     ;; ---- Dock ----
 
-    ;; Hub health, energy, and the strength of the nests with the time to
-    ;; the next attack.
+    ;; Hub health, energy, the workers, and the strength of the nests with
+    ;; the time to the next attack.
     (: readouts (-> Game Panel))
     (define (readouts game)
       (let* ((world (Game-world game)) (hub (World-hub world))
@@ -83,9 +83,18 @@
                            (show (Hub-health hub)) (/ (i64->f32 (Hub-health hub)) (i64->f32 hub-health)))
                      (Dial (face "energy" "energy" "Energy stored in the network") (show (World-energy world))
                            (min 1.0 (/ (i64->f32 (World-energy world)) 400.0)))
+                     (workers-dial world)
                      (Dial (Look "threat" "threat" (string-append "Strength " (show tier) "; next attack in " (seconds until))
                                  (if (< until 100) (Warning) (Plain)) (seconds until))
                            (string-append "T" (show tier)) (/ (i64->f32 (remainder (threat-tick world) difficulty-step)) (i64->f32 difficulty-step)))))))
+
+    ;; The workers standing, ringed by their share of the most the colony
+    ;; may have.
+    (: workers-dial (-> World Widget))
+    (define (workers-dial world)
+      (let ((count (length (World-workers world))) (idle (length (filter (lambda (w) (match (Worker-job w) ((Some _) #f) ((None) #t))) (World-workers world)))))
+        (Dial (face "workers" "worker" (string-append "Workers: " (show idle) " idle of " (show count) "; the hub trains up to " (show maximum-workers)))
+              (show count) (/ (i64->f32 count) (i64->f32 maximum-workers)))))
 
     ;; The menu, or the results once the game is decided, then turning.
     (: controls (-> Game Panel))
@@ -99,33 +108,43 @@
     ;; ---- Construction ----
 
     ;; The build menu is the same for every selected cell: a pylon, a
-    ;; turret, an extractor, an upgrade, a rush and closing, then below a
-    ;; divider cancelling work and scavenging, or at the hub repair. Each is
-    ;; greyed out where it does not apply.
+    ;; turret, an extractor, a wall, a portal, an upgrade, a rush and
+    ;; closing. In the next column, under the menu and turning buttons,
+    ;; come cancelling work and scavenging, or at the hub repair and a new
+    ;; worker, so the dock fits short screens. Each is greyed out where it
+    ;; does not apply.
     (: construction (-> Game (List Panel)))
     (define (construction game)
       (match (Game-selected game)
-        ((Some cell) (list (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (Label (look "divider") "") (care game cell))))))
+        ((Some cell) (list (Panel "construction" (At (side game) 0) (build-menu game cell))))
+        ((None) (Nil))))
+
+    (: upkeep (-> Game (List Panel)))
+    (define (upkeep game)
+      (match (Game-selected game)
+        ((Some cell) (list (Panel "care" (At (side game) 1) (care game cell))))
         ((None) (Nil))))
 
     (: build-menu (-> Game Cell (List Widget)))
     (define (build-menu game cell)
-      (list (build-button game cell (Pylon)) (build-button game cell (Turret)) (build-button game cell (Extractor))
-            (upgrade-button game cell) (rush-button game cell) (plain-button (face "close" "close" "Close") "5" (CloseCard))))
+      (list (build-button game cell (Pylon)) (build-button game cell (Turret)) (build-button game cell (Extractor)) (build-button game cell (Wall))
+            (portal-button game cell) (upgrade-button game cell) (rush-button game cell) (plain-button (face "close" "close" "Close") "Esc" (CloseCard))))
 
     (: kind-icon (-> Kind String))
     (define (kind-icon kind)
       (match kind
         ((Extractor) "extractor")
         ((Pylon) "pylon")
-        ((Turret) "turret")))
+        ((Turret) "turret")
+        ((Wall) "wall")))
 
     (: kind-key (-> Kind String))
     (define (kind-key kind)
       (match kind
         ((Pylon) "1")
         ((Turret) "2")
-        ((Extractor) "3")))
+        ((Extractor) "3")
+        ((Wall) "4")))
 
     (: build-button (-> Game Cell Kind Widget))
     (define (build-button game cell kind)
@@ -135,8 +154,14 @@
                               (if (opening-move? (Game-world game) kind) (Suggested) (Plain)) "")
                         (kind-key kind) (show price) (BuildAt kind cell) (check (Game-world game) (Build kind cell (Game-rush game))))))
 
-    ;; What the next level of the selected building, or the hub's next build
-    ;; slot, costs.
+    ;; Making the selected pylon a portal.
+    (: portal-button (-> Game Cell Widget))
+    (define (portal-button game cell)
+      (command-button (face "portal" "portal" (string-append "Portal: workers jump between powered portals and the hub; "
+                                                             (show (quotient portal-duration 10)) "s to build"))
+                      "5" (show portal-cost) (PortalAt cell) (check (Game-world game) (MakePortal cell))))
+
+    ;; What the next level of the selected building costs.
     (: upgrade-button (-> Game Cell Widget))
     (define (upgrade-button game cell)
       (command-button (face "upgrade" "upgrade" "Upgrade") "U" (match (upgrade-cost (Game-world game) cell) ((Some cost) (show cost)) ((None) ""))
@@ -144,55 +169,64 @@
 
     (: upgrade-cost (-> World Cell (Option I64)))
     (define (upgrade-cost world cell)
-      (cond ((hub-cell? (World-hub world) cell)
-             (let ((slots (Hub-slots (World-hub world)))) (if (< slots maximum-slots) (Some (slot-cost slots)) (None))))
-            (else (match (building-at world cell)
-                    ((Some b) (if (and (built? b) (< (Building-level b) maximum-level)) (Some (raise-cost (Building-kind b) (Building-level b))) (None)))
-                    ((None) (None))))))
+      (if (hub-cell? (World-hub world) cell)
+          (None)
+          (match (building-at world cell)
+            ((Some b) (if (and (built? b) (< (Building-level b) maximum-level)) (Some (raise-cost (Building-kind b) (Building-level b))) (None)))
+            ((None) (None)))))
 
     ;; Work on the selected cell is rushed to its end; otherwise the button
     ;; makes new buildings rushed.
     (: rush-button (-> Game Cell Widget))
     (define (rush-button game cell)
-      (match (cell-work (Game-world game) cell)
-        ((Some work) (command-button (face "rush" "rush" "Rush: finish the work now") "4" (show (rush-price work)) (RushAt cell) (check (Game-world game) (Rush cell))))
-        ((None) (toggle-button (face "rush-orders" "rush" "Rush new buildings: ready at once for five times the price") "4" "×5" (ToggleRush) (Game-rush game)))))
+      (match (cell-work (Game-world game) cell #f)
+        ((Some work) (command-button (face "rush" "rush" "Rush: finish the work now") "R" (show (rush-price work)) (RushAt cell) (check (Game-world game) (Rush cell))))
+        ((None) (toggle-button (face "rush-orders" "rush" "Rush new buildings: ready at once for five times the price") "R" "×5" (ToggleRush) (Game-rush game)))))
 
-    (: cell-work (-> World Cell (Option Work)))
-    (define (cell-work world cell)
-      (if (hub-cell? (World-hub world) cell)
-          (Hub-work (World-hub world))
-          (match (building-at world cell)
-            ((Some b) (Building-work b))
-            ((None) (None)))))
+    ;; The work an order on the cell changes: a building's, or at the hub
+    ;; its newest work for cancelling and its oldest for rushing.
+    (: cell-work (-> World Cell Bool (Option Work)))
+    (define (cell-work world cell newest)
+      (match (if (hub-cell? (World-hub world) cell)
+                 (owner-work world (OfHub) newest)
+                 (match (building-at world cell)
+                   ((Some b) (owner-work world (OfBuilding b) newest))
+                   ((None) (None))))
+        ((Some (Pair owner work)) (Some work))
+        ((None) (None))))
 
     ;; Cancelling, greyed out while nothing is being built, then scavenging,
-    ;; or at the hub repair.
+    ;; or at the hub repair and training a worker.
     (: care (-> Game Cell (List Widget)))
     (define (care game cell)
-      (list (cancel-button game cell)
-            (if (hub-cell? (World-hub (Game-world game)) cell) (repair-button game) (scavenge-button game cell))))
+      (Cons (cancel-button game cell)
+            (if (hub-cell? (World-hub (Game-world game)) cell) (list (repair-button game) (worker-button game)) (list (scavenge-button game cell)))))
 
     (: cancel-button (-> Game Cell Widget))
     (define (cancel-button game cell)
       (command-button (face "cancel" "cancel" "Cancel the work and refund it") "C"
-                      (match (cell-work (Game-world game) cell) ((Some w) (string-append "+" (show (work-refund w)))) ((None) ""))
+                      (match (cell-work (Game-world game) cell #t) ((Some w) (string-append "+" (show (work-refund w)))) ((None) ""))
                       (CancelAt cell) (check (Game-world game) (Cancel cell))))
 
     (: scavenge-button (-> Game Cell Widget))
     (define (scavenge-button game cell)
-      (command-button (face "scavenge" "scavenge" "Scavenge: remove it for a fifth of its cost") "X"
-                      (match (building-at (Game-world game) cell) ((Some b) (string-append "+" (show (quotient (invested b) 5)))) ((None) ""))
+      (command-button (face "scavenge" "scavenge" "Scavenge: remove it for a fifth of its cost, or half for a wall") "X"
+                      (match (building-at (Game-world game) cell) ((Some b) (string-append "+" (show (scavenge-refund b)))) ((None) ""))
                       (ScavengeAt cell) (check (Game-world game) (Scavenge cell))))
 
     (: repair-button (-> Game Widget))
     (define (repair-button game)
       (let ((world (Game-world game)))
-        (command-button (face "repair" "repair" "Repair the hub to full health") "F" (show (repair-price (World-hub world))) (RepairHub) (check world (Repair)))))
+        (command-button (face "repair" "repair" "Repair the hub to full health; a worker takes 2s") "F" (show (repair-price (World-hub world))) (RepairHub) (check world (Repair)))))
+
+    (: worker-button (-> Game Widget))
+    (define (worker-button game)
+      (command-button (face "build-worker" "worker" (string-append "Build worker: " (show (quotient worker-duration 10)) "s at the hub"))
+                      "B" (show worker-cost) (TrainWorker) (check (Game-world game) (Train))))
 
     ;; ---- Queue ----
 
-    ;; The works in order: a ring for each holding a slot, and ! and dimmed
+    ;; The works in order: a ring for each in progress, and ! and dimmed
     ;; when unpowered. Tapping one goes to it.
     (: queue (-> Game (List Panel)))
     (define (queue game)
@@ -213,21 +247,32 @@
     (: task-cell (-> World Task Cell))
     (define (task-cell world task)
       (match (Task-owner task)
-        ((OfHub) (Hub-cell (World-hub world)))
-        ((OfBuilding b) (Building-cell b))))
+        ((OfBuilding b) (Building-cell b))
+        (_ (Hub-cell (World-hub world)))))
 
     (: task-icon (-> Task String))
     (define (task-icon task)
       (match (Task-owner task)
-        ((OfHub) "slots")
-        ((OfBuilding b) (if (built? b) "upgrade" (kind-icon (Building-kind b))))))
+        ((OfHub) "repair")
+        ((OfTraining _) "worker")
+        ((OfBuilding b) (cond ((linking? task) "portal") ((built? b) "upgrade") (else (kind-icon (Building-kind b)))))))
+
+    (: linking? (-> Task Bool))
+    (define (linking? task)
+      (match (Work-labor (Task-work task))
+        ((Linking) #t)
+        (_ #f)))
 
     (: task-help (-> Task String))
     (define (task-help task)
       (string-append (match (Task-owner task)
-                       ((OfHub) "Build slot")
-                       ((OfBuilding b) (string-append (kind-name (Building-kind b)) (if (built? b) " upgrade" ""))))
-                     (cond ((not (Task-supplied task)) ", unpowered") ((Task-active task) ", building") (else ", waiting"))))
+                       ((OfHub) "Hub repair")
+                       ((OfTraining _) "Worker")
+                       ((OfBuilding b) (string-append (kind-name (Building-kind b)) (cond ((linking? task) " portal") ((built? b) " upgrade") (else "")))))
+                     (cond ((not (Task-supplied task)) ", unpowered")
+                           ((Task-active task) ", building")
+                           ((needs-worker? (Work-labor (Task-work task))) ", waiting for a worker")
+                           (else ", waiting"))))
 
     ;; ---- Opening ----
 
@@ -241,7 +286,7 @@
           (list (Panel "opening" (Banner)
                        (list (text "opening-title" "Siegework")
                              (opening-step game)
-                             (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
+                             (Link (face "how-to-play" "" "The rules and controls") "How to play" guide-url))))
           (Nil)))
 
     ;; The step points to the glowing crystals, then to the build button;
@@ -252,8 +297,10 @@
           (Text (look "opening-build") (list (Normal "Click the ") (Strong "build button") (Normal " to continue")))
           (Text (look "opening-crystal") (list (Normal "Click the ") (Strong "glowing crystal")))))
 
+    ;; The guide ships beside the game, so it always describes the rules
+    ;; this build plays by.
     (: guide-url String)
-    (define guide-url "https://tsnl.github.io/snail-scheme/games/siegework.html")
+    (define guide-url "./guide.html")
 
     ;; Whether the selected cell would take an extractor now.
     (: extractor-offered? (-> Game Bool))
@@ -345,6 +392,7 @@
                                               (string-append "Enemies destroyed " (show (Ledger-kills ledger)))
                                               (string-append "Energy produced " (show (Ledger-produced ledger)) ", spent " (show (Ledger-spent ledger)))
                                               (string-append "Buildings standing " (show (length (filter built? (World-buildings world)))) ", lost " (show (Ledger-lost ledger)))
+                                              (string-append "Workers " (show (length (World-workers world))))
                                               (string-append "Nests destroyed " (show (- 3 (length (living-nests world)))) " of 3")
                                               (string-append "Map " (show (World-seed world)) ", " (biome-name (Land-biome (World-land world)))))
                                         "\n"))
@@ -355,7 +403,7 @@
 
     (: game-hud (-> Game (List Panel)))
     (define (game-hud game)
-      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (queue game) (list (objective game)) (notices game) (opening game)
+      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (upkeep game) (queue game) (list (objective game)) (notices game) (opening game)
                          (dialogs game))))
 
     ))
