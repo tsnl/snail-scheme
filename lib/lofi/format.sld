@@ -196,7 +196,9 @@
       (Special ((distinguished I64)))
       (LetRule))
 
-    ;; Emacs 29's scheme-mode rules, then this repository's own.
+    ;; The rules of Emacs 29's scheme-mode, as scheme.el gives them, then
+    ;; those scripts/format-scheme.el adds for Lofi's forms, with `guard` as
+    ;; Emacs 31 indents it.
     (: rules (List (Pair String Rule)))
     (define rules
       (concatenate
@@ -215,11 +217,12 @@
                         "procedure-components" "root" "sequence-components" "style" "unassigned?-components"
                         "unbound?-components" "unless" "using-syntax" "variable-components" "when" "with-input-from-file"
                         "with-input-from-port" "with-input-from-string" "with-mode" "with-output-to-file"
-                        "with-output-to-port" "with-syntax" "with-values" "λ"
-                        "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
-             (map (lambda (name) (Pair name (Special 2))) (list "do" "receive" "syntax-case" "syntax-table-define" "handle"))
+                        "with-output-to-port" "with-syntax" "with-values" "λ"))
+             (map (lambda (name) (Pair name (Special 2))) (list "do" "receive" "syntax-case" "syntax-table-define"))
              (list (Pair "dynamic-wind" (Special 3)) (Pair "let" (LetRule)) (Pair "match-let" (LetRule))
-                   (Pair "syntax-rules" (Definition))))))
+                   (Pair "syntax-rules" (Definition)))
+             (map (lambda (name) (Pair name (Special 1))) (list "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
+             (list (Pair "handle" (Special 2))))))
 
     ;; A name without a rule that starts with `def` and is longer than
     ;; three characters is a definition. Emacs ignores case here, so

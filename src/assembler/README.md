@@ -22,5 +22,4 @@ its linear memory:
 ```sh
 cargo test --manifest-path src/assembler/Cargo.toml --offline
 cargo fmt --manifest-path src/assembler/Cargo.toml --all -- --check
-node scripts/assemble.mjs build/wasm-assembler/wasm32-wasip1/release/snail_assembler.wasm IN.wat OUT.wasm
 ```
