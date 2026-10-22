@@ -286,7 +286,7 @@
           (list (Panel "opening" (Banner)
                        (list (text "opening-title" "Siegework")
                              (opening-step game)
-                             (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
+                             (Link (face "how-to-play" "" "The rules and controls") "How to play" guide-url))))
           (Nil)))
 
     ;; The step points to the glowing crystals, then to the build button;
@@ -297,8 +297,10 @@
           (Text (look "opening-build") (list (Normal "Click the ") (Strong "build button") (Normal " to continue")))
           (Text (look "opening-crystal") (list (Normal "Click the ") (Strong "glowing crystal")))))
 
+    ;; The guide ships beside the game, so it always describes the rules
+    ;; this build plays by.
     (: guide-url String)
-    (define guide-url "https://tsnl.github.io/snail-scheme/games/siegework.html")
+    (define guide-url "./guide.html")
 
     ;; Whether the selected cell would take an extractor now.
     (: extractor-offered? (-> Game Bool))

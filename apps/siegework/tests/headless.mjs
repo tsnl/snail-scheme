@@ -80,7 +80,7 @@ assert.ok(first.batches[7].items > 0, 'the crystals in sight pulse before the ga
 assert.equal(widget(host, 'opening-title').text, 'Siegework');
 const spoken = key => widget(host, key).spans.map(span => span.strong ? `*${span.words}*` : span.words).join('');
 assert.equal(spoken('opening-crystal'), 'Click the *glowing crystal*');
-assert.match(widget(host, 'how-to-play').url, /games\/siegework\.html$/);
+assert.match(widget(host, 'how-to-play').url, /guide\.html$/);
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
 assert.equal(widget(host, 'nests').text, '☆☆☆');

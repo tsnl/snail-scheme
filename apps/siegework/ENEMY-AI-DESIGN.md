@@ -233,6 +233,11 @@ or open to reading. Each is small and easy to change.
   which after the 600-tick waves skipped every wave and showed only
   bosses; it now steps by 15 s. Raids every 600 ticks would have replaced
   every wave; the raid interval is now 1200 so they replace every other.
+- **How to play.** The opening banner's link pointed at the published
+  online book, which still has the old rules until this branch ships. It
+  now opens `public/guide.html`, shipped with the game: the README's
+  guide section converted to HTML. It is a copy, so it must be updated
+  whenever the README guide changes.
 - **Saves** are stored under `siegework-v2`; the changed order schema
   would also refuse old journals.
 - **Balance** (tests/balance.out): undefended hubs fall at ticks
