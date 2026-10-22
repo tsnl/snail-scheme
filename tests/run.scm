@@ -21,8 +21,7 @@
  (only (lofi compiler read) test-read)
  (only (lofi compiler core) test-core)
  (only (lofi compiler wasm) test-wasm)
- (only (lofi base) Pair-first Pair-second)
- (lofi compiler session))
+ (only (lofi compiler session) test-session))
 
 ;; ---- Cases ----
 
@@ -177,47 +176,6 @@
           ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
           (else #t))))
 
-;; ---- Sessions ----
-
-;; A session rebuilds only what an edit changed: a body edit under a
-;; signature recompiles its library alone, and an edit to what importers
-;; see recompiles them too. The libraries use only primitives, so the
-;; session runs quickly on Chibi.
-(define (sample-library body more)
-  (string-append "(define-library (sample a) (export twice) (import (lofi core) (lofi primitive)) (begin "
-                 "(: twice (-> I64 I64)) (define (twice x) " body ") " more "))"))
-
-(define sample-b
-  "(define-library (sample b) (export four) (import (lofi core) (lofi primitive) (sample a)) (begin (: four (-> I64)) (define (four) (twice 2))))")
-
-(define (compiled-names builds)
-  (map Built-name (filter Built-compiled? builds)))
-
-(define (test-session root)
-  (let* ((directory (path-join root "build/tests/session")) (main (path-join directory "main.sld"))
-         (write-a (lambda (body more) (write-file (path-join directory "sample/a.sld") (sample-library body more)))))
-    (create-directory* (path-join directory "sample"))
-    (write-a "(i64-add x x)" "")
-    (write-file (path-join directory "sample/b.sld") sample-b)
-    (write-file main "(import (lofi core) (lofi primitive) (sample b)) (four)")
-    (let* ((first (build-session (make-session (list directory) (lambda (forms path) (error "no generated libraries"))) main))
-           (unchanged (build-session (Pair-second first) main))
-           (body (begin (write-a "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main)))
-           (interface (begin (write-a "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main))))
-      (and (expect-session "first build" (compiled-names (Pair-first first)) '("sample.a" "sample.b" "main"))
-           (expect-session "unchanged" (compiled-names (Pair-first unchanged)) '())
-           (expect-session "body edit" (compiled-names (Pair-first body)) '("sample.a"))
-           (expect-session "interface edit" (compiled-names (Pair-first interface)) '("sample.a" "sample.b" "main"))))))
-
-(define (expect-session what actual expected)
-  (or (equal? actual expected) (report "session" what (string-append "recompiled " (format-names actual) ", expected " (format-names expected)))))
-
-(define (format-names names)
-  (let ((port (open-output-string))) (write names port) (get-output-string port)))
-
-(define (write-file path text)
-  (call-with-output-file path (lambda (port) (write-string text port))))
-
 ;; ---- Linked modules ----
 
 ;; Programs compiled one library at a time and linked when they run, by
@@ -256,20 +214,21 @@
 
 ;; ---- Development loop ----
 
-;; `lofi serve` and `lofi watch` build while they run, and every compiler
-;; run shares the driver's files, so this check runs alone, after the
-;; others.
+;; `lofi serve` and `lofi watch` build while they run, and the check waits
+;; for their builds with a timeout, so it runs alone, after the others,
+;; rather than competing with them.
 (define (run-develop root)
   (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/develop.mjs") root))))
     (or (zero? (caddr result)) (report "develop" "the development loop failed" (string-append (car result) (cadr result))))))
 
 ;; ---- Checks in parallel ----
 
-;; Every compiler run shares build/generated and the compiler's output file,
-;; so cases compile one at a time before any check starts. A check links and
-;; runs a program in its own files, and only the command-line check runs the
-;; compiler again, so checks run in child processes, `jobs` at a time. A
-;; child reports its own failure and exits with its result.
+;; Cases compile one at a time, in this process, before any check starts:
+;; the compiler's source on Chibi, as `make test-chibi` runs it, takes a
+;; heap too large to run many at once. A check links and runs a program in
+;; its own files, and each compile works in a directory of its own, so
+;; checks, some of which compile, run in child processes, `jobs` at a time.
+;; A child reports its own failure and exits with its result.
 (define jobs 8)
 
 (define (run-checks cases)
@@ -303,7 +262,7 @@
   (test-read)
   (test-core)
   (test-wasm)
-  (unless (test-session root) (exit 1))
+  (test-session (path-join root "build/tests/session"))
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)

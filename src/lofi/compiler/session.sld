@@ -138,4 +138,46 @@
                      ((None) result)))
                  table (table-keys additions)))
 
-    ))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-session)
+    (import
+     (only (chibi filesystem) create-directory*)
+     (lofi testing))
+    (begin
+
+      ;; A session rebuilds only what an edit changed: a body edit under a
+      ;; signature recompiles its library alone, and an edit to what
+      ;; importers see recompiles them too. The libraries use only
+      ;; primitives, so the session runs quickly on Chibi. The sources are
+      ;; written into `directory`.
+      (define (test-session directory)
+        (let ((main (string-append directory "/main.sld")))
+          (create-directory* (string-append directory "/sample"))
+          (write-sample-a directory "(i64-add x x)" "")
+          (write-file (string-append directory "/sample/b.sld") sample-b)
+          (write-file main "(import (lofi core) (lofi primitive) (sample b)) (four)")
+          (let* ((first (build-session (make-session (list directory) (lambda (forms) (panic "no generated libraries"))) main))
+                 (unchanged (build-session (Pair-second first) main))
+                 (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main)))
+                 (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main))))
+            (expect (compiled-names first) (list "sample.a" "sample.b" "main"))
+            (expect (compiled-names unchanged) (list))
+            (expect (compiled-names body) (list "sample.a"))
+            (expect (compiled-names interface) (list "sample.a" "sample.b" "main")))))
+
+      (define (write-sample-a directory body more)
+        (write-file (string-append directory "/sample/a.sld")
+                    (string-append "(define-library (sample a) (export twice) (import (lofi core) (lofi primitive)) (begin "
+                                   "(: twice (-> I64 I64)) (define (twice x) " body ") " more "))")))
+
+      (define sample-b
+        "(define-library (sample b) (export four) (import (lofi core) (lofi primitive) (sample a)) (begin (: four (-> I64)) (define (four) (twice 2))))")
+
+      (define (compiled-names build)
+        (map Built-name (filter Built-compiled? (Pair-first build))))))
+   (else)))
