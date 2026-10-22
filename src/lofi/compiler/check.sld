@@ -344,7 +344,12 @@
           ((Handle effect implementations body) (infer-handle ck effect implementations body row loc))
           ;; The direction is decided once types are ground: to Any, from
           ;; Any, or nothing when the types already agree.
-          ((Convert inner target) (Expr (Convert (infer ck inner row) target) target loc)))))
+          ((Convert inner target) (Expr (Convert (infer ck inner row) target) target loc))
+          ;; Whether an Any holds a value of the target type.
+          ((TypeTest inner target)
+           (let ((inner (infer ck inner row)))
+             (unify ck (TCon "Any" (Nil)) (Expr-type inner) (Expr-loc inner))
+             (Expr (TypeTest inner target) (TCon "Bool" (Nil)) loc))))))
 
     (: infer-lambda (-> Checker (List String) Expr Loc Expr ! mut))
     (define (infer-lambda ck params body loc)
@@ -821,6 +826,7 @@
                       (map (lambda (clause) (Clause (zonk-pattern (Clause-pattern clause)) (zonk-expr (Clause-body clause)))) clauses)))
               ((Ann inner type) (Ann (zonk-expr inner) (zonk type)))
               ((Convert inner target) (Convert (zonk-expr inner) (zonk target)))
+              ((TypeTest inner target) (TypeTest (zonk-expr inner) (zonk target)))
               ((Handle effect implementations body)
                (Handle effect (map (lambda (entry) (Pair (Pair-first entry) (zonk-expr (Pair-second entry)))) implementations)
                        (zonk-expr body))))
@@ -992,6 +998,7 @@
         ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
         ((Ann inner _) (list inner))
         ((Convert inner _) (list inner))
+        ((TypeTest inner _) (list inner))
         ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
 
     ;; ---- Definitions ----

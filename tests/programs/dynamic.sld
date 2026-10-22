@@ -21,5 +21,12 @@
 (newline)
 (display (type-convert (type-convert 8 Any) I64))
 (newline)
+;; type-test asks what an Any holds, without trapping.
+(display (type-test (list-ref values 0) I64))
+(newline)
+(display (type-test (list-ref values 1) I64))
+(newline)
+(display (type-test (list-ref values 2) Point))
+(newline)
 (display (type-convert (list-ref values 3) I64))
 (newline)
