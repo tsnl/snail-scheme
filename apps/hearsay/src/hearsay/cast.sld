@@ -69,19 +69,17 @@
         ((Female) (list (Pants) (Skirt) (Leggings)))
         (_ (list (Pants)))))
 
-    ;; Male pants come only in green; teens go barefoot, as no pack draws
-    ;; their shoes.
+    ;; Male pants come only in green.
     (: bottom-dye (-> Build Dye Dye))
     (define (bottom-dye build dye)
       (match build
         ((Male) (Dye "green"))
         (_ dye)))
 
-    (: footwear (-> Build (List Garment)))
-    (define (footwear build)
-      (match build
-        ((Teen) (Nil))
-        (_ (list (Shoes) (Boots)))))
+    (define footwear (list (Shoes) (Boots)))
+
+    ;; Dark enough to tell from skin and floor at sprite size.
+    (define shoe-dyes (map Dye (list "black" "charcoal" "walnut")))
 
     ;; ---- People ----
 
@@ -99,11 +97,10 @@
     (define (outfitted build head skin hair palette r)
       (let* ((top (deal r (tops build))) (top-dye (deal (Pair-second top) palette))
              (bottom (deal (Pair-second top-dye) (bottoms build))) (bottom-dye-drawn (deal (Pair-second bottom) palette))
-             (shoes (match (footwear build)
-                      ((Nil) (None))
-                      (choices (Some (Worn (Pair-first (deal (Pair-second bottom-dye-drawn) choices)) (Dye "brown"))))))
+             (shoe (deal (Pair-second bottom-dye-drawn) footwear)) (shoe-dye (deal (Pair-second shoe) shoe-dyes))
              (outfit (Outfit (Some hair) (Some (Worn (Pair-first top) (Pair-first top-dye)))
-                             (Some (Worn (Pair-first bottom) (bottom-dye build (Pair-first bottom-dye-drawn)))) shoes)))
+                             (Some (Worn (Pair-first bottom) (bottom-dye build (Pair-first bottom-dye-drawn))))
+                             (Some (Worn (Pair-first shoe) (Pair-first shoe-dye))))))
         (match (dress build head skin outfit)
           ((Some character) character)
           ((None) (Character build head skin bare)))))

@@ -103,14 +103,15 @@ Everyone starts with 10 coins.
 
 ### In the browser
 
-The town is drawn as its graph: each person an LPC character standing on a
-base in their audience's color, hubs on larger bases, ties as lines.
-Everyone always looks the same, and dresses in their audience's colors:
-warm in the Market, workwear in the Docks, dark in the Tower. Pillars over a
-person show what they believe, colored by trait and as tall as the
-intensity: dangerous or harmless on the left, reliable or unreliable on the
-right. Those who heard something new in the last shift stroll in place on
-a yellow ring; those keeping quiet stand on a dark one.
+The town is drawn as a 2D map seen from above, scaled to fit between the
+HUD's columns: each person an LPC character on a hexagonal base in their
+audience's color, hubs on larger bases, ties as lines. Everyone always looks
+the same, and dresses in their audience's colors: warm in the Market,
+workwear in the Docks, dark in the Tower. Pips over a person's head show
+what they believe, one per point of intensity: red dangerous or blue
+harmless on the left, green reliable or orange unreliable on the right.
+Those who heard something new in the last shift stroll in place on a yellow
+ring; those keeping quiet stand on a dark one.
 
 Point at a person to see their portrait and read their ties and stories,
 with the path each story took to reach them; click to choose them, or
