@@ -10,8 +10,8 @@ listed below and in the files named.
 The Lofi libraries beside these folders, such as `(lpc catalog)`, read
 the packs. Programs embed what they draw by compiling a `generate-library`
 that reads the image files, so a built program carries those images, and
-any picture it composes from them is a derivative of the art. Ship this
-file and the credits files of the packs used with any build that does.
+any picture it composes from them is a derivative of the art. Whoever
+distributes such a build must credit the art as these licenses require.
 
 | Folder | Pack | License | Credits |
 | --- | --- | --- | --- |

@@ -5,22 +5,22 @@
 <title>Hearsay prototypes</title>
 <link rel="stylesheet" href="./style.css">
 <style>
-  /* The prototypes are mostly text: smaller type, labels that keep their
-     line breaks, and buttons that read like list items. */
-  body { font-size: 13px; }
-  .panel { max-width: 420px; gap: 4px; flex-direction: column; align-items: stretch; }
-  .panel[data-key="actions"], .panel[data-key="contacts"] { max-width: 760px; flex-direction: row; }
+  /* The prototypes are mostly text: small type, narrow columns that leave
+     the middle of the screen to the map, labels that keep their line
+     breaks, and buttons that read like list items. */
+  body { font-size: 12px; }
+  .panel { max-width: 300px; gap: 3px; flex-direction: column; align-items: stretch; }
+  .panel[data-key="contacts"] { max-width: 620px; flex-direction: row; }
+  .panel[data-key="person"] { flex-direction: row; flex-wrap: wrap; }
+  .panel[data-key="person"] .label { width: 100%; }
   .panel .image { align-self: flex-start; }
   .panel[data-key="rivals"] { display: grid; grid-template-columns: auto auto; align-items: center; }
-  .panel[data-key="offers"] .button, .panel[data-key="person"] .button { width: 100%; }
-  .label { white-space: pre-line; }
-  .button { padding: 5px 9px; text-align: left; }
-  #credits { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #8a94a6; }
+  .label { white-space: pre-line; padding: 3px 8px; }
+  .button { padding: 4px 8px; text-align: left; }
 </style>
 <body>
   <canvas id="view" tabindex="0" aria-label="Prototype board"></canvas>
   <div id="overlay"></div>
-  <a id="credits" href="./LPC-ATTRIBUTION.md">Character art: Liberated Pixel Cup, CC-BY-SA 3.0 (credits)</a>
   <script type="module">
     import {startApplication} from './host.mjs';
     const overlay = document.getElementById('overlay');

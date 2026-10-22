@@ -8,7 +8,7 @@ Each one asks one question about whether the design is fun.
 [Rumor mill: Sandbox]
 [Favor ledger]
 ==== two faces after delivering a job for Mo
-batches: 30 55 1
+batches: 30 60 1
 -- back, top right 0
 [Menu]
 -- status, top left 0
@@ -46,7 +46,7 @@ If you lie low:
   After shift 4: the Market believes you reliable 3 (now 0).
 Liabilities:
   none.
-Pillars over a person show belief: red dangerous or blue harmless, green reliable or orange unreliable; taller is stronger. A yellow ring: just heard something. A dark ring: keeping quiet. A big base: a hub.
+Pips over a head, one per point: red dangerous, blue harmless, green reliable, orange unreliable. Yellow ring: just heard something. Dark ring: quiet. Big base: hub.
 ==== ledger
 batches: 
 -- back, top right 0
@@ -59,15 +59,16 @@ Vee: 4 coins, 0 standing, promises kept 0 and refused 0, targets job 1
     markers: Vik (eyes, through round 3), Wes (doors, through round 3)
 Kit: 4 coins, 0 standing, promises kept 0 and refused 0, targets job 1
     markers: Ivo (medicine, through round 3), Ren (doors, through round 3)
-Jobs
--[Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2]
-[Job 2: fencing + eyes, for 4 coins and 1 standing, open through round 2]
--[Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2]
 -- rivals, top left 1
 <picture 200>
 Vee
 <picture 201>
 Kit
+-- jobs, top left 1
+Jobs
+-[Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2]
+[Job 2: fencing + eyes, for 4 coins and 1 standing, open through round 2]
+-[Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2]
 -- offers, top right 0
 Offers
 [Vee buys your oldest fencing marker for 3 coins.]
@@ -106,15 +107,16 @@ Vee: 4 coins, 0 standing, promises kept 0 and refused 0, targets job 1
     markers: Ivo (medicine, through round 3), Vik (eyes, through round 3), Wes (doors, through round 3)
 Kit: 4 coins, 0 standing, promises kept 0 and refused 0, targets job 1
     markers: Ivo (medicine, through round 3), Ren (doors, through round 3), Vik (eyes, through round 3)
-Jobs
--[Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2]
--[Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2]
--[Job 4: fencing + paperwork, for 4 coins and 1 standing, open through round 3]
 -- rivals, top left 1
 <picture 200>
 Vee
 <picture 201>
 Kit
+-- jobs, top left 1
+Jobs
+-[Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2]
+-[Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2]
+-[Job 4: fencing + paperwork, for 4 coins and 1 standing, open through round 3]
 -- offers, top right 0
 Offers
 -[Vee buys your oldest fencing marker for 3 coins.]

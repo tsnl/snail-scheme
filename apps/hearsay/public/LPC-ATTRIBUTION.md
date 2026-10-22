@@ -1,1 +1,0 @@
-../../../lib/lpc/ATTRIBUTION.md
