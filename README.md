@@ -23,25 +23,18 @@ Scheme runs its source to start the first bootstrap.
 
 ```sh
 nix-shell
-rustup target add wasm32-wasip1
+make fetch
 ./lofi run examples/fibonacci.sld
 ./lofi compile -o fibonacci.wasm examples/fibonacci.sld
 ./lofi wat examples/effects.sld
 ./lofi watch examples/fibonacci.sld   # runs it again after each edit
 ```
 
-Chibi Scheme, Binaryen, Cargo and Node 26 are required; `shell.nix` provides
-them from the nixpkgs revision pinned in `npins/sources.json`, the same one
-CI uses. The devcontainer in `.devcontainer/` packages that environment with
-Chromium for rootless podman:
-
-```sh
-podman build -t snail-scheme -f .devcontainer/Containerfile .
-podman run --rm -it -v "$PWD":/workspace:Z -w /workspace snail-scheme
-```
-
-In a new checkout or container, `make fetch` downloads the Rust crates
-once; builds and tests then run offline.
+Chibi Scheme, Binaryen, Rust and Node 26 are required. `shell.nix` provides
+them from the nixpkgs revision CI uses, and `.devcontainer/` packages the
+same tools for podman. [Getting started](doc/getting-started.md) covers
+both, other package managers and Windows, and the checks. `make fetch`
+downloads the Rust crates once; builds and tests then run offline.
 
 Programs are linked with a small Rust runtime and run under WASI. The
 first run bootstraps the compiler, which takes about a minute: Chibi runs
