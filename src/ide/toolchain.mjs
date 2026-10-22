@@ -13,9 +13,10 @@ const encoder = new TextEncoder(), decoder = new TextDecoder();
 // ---- Files ----
 
 // The `files` effect: (lofi io)'s file operations over `files`, a map from
-// path to bytes. A path arrives a character at a time. An input port holds
-// the characters of the file as it was opened; an output port stores its
-// text when it closes.
+// path to bytes. A path arrives a character at a time. An input port reads
+// the file as it was opened, a UTF-8 character or a byte at a time; an
+// output port gathers text and bytes in order and stores them when it
+// closes.
 function filesImports(files) {
   const ports = new Map();
   let path = '', next = 1;
@@ -26,13 +27,38 @@ function filesImports(files) {
     exists: () => (files.has(path) ? 1 : 0),
     'open-input': () => {
       if (!files.has(path)) throw new Error(`${path}: no such file`);
-      return open({codes: Array.from(decoder.decode(files.get(path)), c => c.codePointAt(0)), index: 0});
+      return open({bytes: files.get(path), at: 0});
     },
-    'open-output': () => open({path, text: ''}),
-    read: port => { const input = ports.get(port); return input.index < input.codes.length ? input.codes[input.index++] : -1; },
+    'open-output': () => open({path, chunks: [], text: ''}),
+    read: port => readCharacter(ports.get(port)),
+    'read-byte': port => { const input = ports.get(port); return input.at < input.bytes.length ? input.bytes[input.at++] : -1; },
     write: (port, code) => { ports.get(port).text += String.fromCodePoint(code); },
-    close: port => { const output = ports.get(port); if ('text' in output) files.set(output.path, encoder.encode(output.text)); ports.delete(port); },
+    'write-byte': (port, byte) => { const output = ports.get(port); keepText(output); output.chunks.push(Uint8Array.of(byte)); },
+    close: port => { const output = ports.get(port); if ('chunks' in output) files.set(output.path, joined(output)); ports.delete(port); },
   };
+}
+
+// The next character of UTF-8 input, or -1 at its end.
+function readCharacter(input) {
+  const {bytes} = input;
+  if (input.at >= bytes.length) return -1;
+  const first = bytes[input.at], length = first < 0x80 ? 1 : first < 0xe0 ? 2 : first < 0xf0 ? 3 : 4;
+  let code = first & [0, 0x7f, 0x1f, 0x0f, 0x07][length];
+  for (let i = 1; i < length; i++) code = (code << 6) | (bytes[input.at + i] & 0x3f);
+  input.at += length;
+  return code;
+}
+
+function keepText(output) {
+  if (output.text) output.chunks.push(encoder.encode(output.text));
+  output.text = '';
+}
+
+function joined(output) {
+  keepText(output);
+  const bytes = new Uint8Array(output.chunks.reduce((total, chunk) => total + chunk.length, 0));
+  output.chunks.reduce((at, chunk) => { bytes.set(chunk, at); return at + chunk.length; }, 0);
+  return bytes;
 }
 
 // The names in a directory, as the desktop host lists them: files and

@@ -15,7 +15,8 @@
 ;; ---- Files ----
 
 ;; (lofi io)'s file operations, except that text is written a character at
-;; a time, since the worker cannot read a Lofi string.
+;; a time, since the worker cannot read a Lofi string. Bytes are read and
+;; written one at a time, as (lofi io) does.
 (effect files
   ((file-path-begin (-> Unit))
    (file-path-character (-> Char Unit))
@@ -23,7 +24,9 @@
    (file-open-input (-> I32))
    (file-open-output (-> I32))
    (file-read (-> I32 I32))
+   (file-read-byte (-> I32 I32))
    (file-write (-> I32 Char Unit))
+   (file-write-byte (-> I32 I32 Unit))
    (file-close (-> I32 Unit)))
   (host "snail.files"
         ((file-path-begin "path-begin")
@@ -32,7 +35,9 @@
          (file-open-input "open-input")
          (file-open-output "open-output")
          (file-read "read")
+         (file-read-byte "read-byte")
          (file-write "write")
+         (file-write-byte "write-byte")
          (file-close "close"))))
 
 (: with-files (-> (-> Unit ! mut fs console develop) Unit ! mut files console develop))
@@ -44,7 +49,9 @@
        (open-input (lambda () (file-open-input)))
        (open-output (lambda () (file-open-output)))
        (port-read (lambda (port) (file-read port)))
+       (port-read-byte (lambda (port) (file-read-byte port)))
        (port-write (lambda (port text) (write-text port text)))
+       (port-write-byte (lambda (port byte) (file-write-byte port byte)))
        (port-close (lambda (port) (file-close port))))
     (body)))
 
