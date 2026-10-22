@@ -1099,7 +1099,7 @@
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) (TFun params result row)))
          (unless (every? host-value? (Cons result params))
-           (compile-error loc "an exposed function takes and returns only scalars and Any"))
+           (compile-error loc "an exposed function takes and returns only scalars, Any and (Option Any)"))
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
@@ -1107,7 +1107,7 @@
     (define (host-value? type)
       (match type
         ((TCon name (Nil)) (member? name (list "I32" "I64" "F32" "F64" "Bool" "Char" "Unit" "Any")))
-        (_ #f)))
+        (_ (optional-any-type? type))))
 
     ;; Effects performed at program start need host implementations.
     (: check-host-effects (-> Checker Type Loc Unit ! mut))
