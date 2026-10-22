@@ -15,7 +15,8 @@ fetch:
 	cargo fetch --locked --manifest-path src/runtime/Cargo.toml
 	cargo fetch --locked --manifest-path src/assembler/Cargo.toml
 
-# The compiler's unit tests, every test program, and Siegework headless.
+# The formatter's tests, the compiler's unit tests, the examples and test
+# programs, both games' tests, Siegework headless, and the development loop.
 test:
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
 	"$(CHIBI)" -h $(HEAP) -D snail-tests -I host/chibi -I src -I tests tests/run.scm "$(CURDIR)"
