@@ -46,6 +46,7 @@
    land-seed
    ground-at
    mainland?
+   hash
    nest-rate
    reserve-per-rate)
   (import
