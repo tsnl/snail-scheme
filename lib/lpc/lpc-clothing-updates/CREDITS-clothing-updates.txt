@@ -1,0 +1,33 @@
+"[LPC] Clothing Updates" by bluecarrot16, David Conway Jr. (JaidynReiman), ElizaWy, Evert, Joe White, Johannes Sjölund (wulax), laetissima, Lanea Zimmerman (Sharm), Luke Mehl, Mandi Paugh, Marcel van de Steeg (MadMarcel), Matthew Krohn (makrohn), Michael Whitlock (bigbeargames), Nila122, Pierre Vigier (pvigier), Stephen Challener (Redshrike), Thane Brimhall (pennomi), William.Thompsonj
+CC-BY-SA 3.0
+http://opengameart.org/content/lpc-clothing-updates . See CREDITS-clothing-updates.csv for details.
+
+
+
+This submission collects assets that were modified to support the version 3.0 LPC character bases https://opengameart.org/content/lpc-character-bases. In the process many assets were significantly re-drawn to fix problems. All assets were edited to a standard palette to facilitate automatic recoloring. 
+
+The version 3.0 bodies mostly change the female base to be more similar to the male base (same hand positions, same head positions, more similar feet positions), hence most of the assets included here are for the female base. In some cases, I also recolored the matching male asset so that the same palettes are available for both male and female bodies. In a few cases, previously male- or female-only assets were adapted to the other body type.
+
+Rather than using this submission directly, I highly encourage you to use the Universal LPC Spritesheet Generator https://sanderfrenken.github.io/Universal-LPC-Spritesheet-Character-Generator/ or browse its source repository https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Generator/, which collects and organizes all available LPC spritesheet assets into one place.
+
+
+
+Here are some examples of what is possible with the updated bodies and clothing:
+
+https://sanderfrenken.github.io/Universal-LPC-Spritesheet-Character-Generator/#?body=Body_color_light&head=Human_male_light&sex=female&vest=Corset_maroon&legs=Straight_skirt_maroon&apron=Apron_half_white&clothes=Longsleeve_walnut&hair=Princess_ginger
+
+https://sanderfrenken.github.io/Universal-LPC-Spritesheet-Character-Generator/#?body=Body_color_olive&head=Human_female_olive&sex=female&arms=Armour_steel&armour=Legion_steel&legs=Armour_steel&shoes=Armour_steel&hat=Norman_helm_steel&hair=Plain_dark_brown
+
+https://sanderfrenken.github.io/Universal-LPC-Spritesheet-Character-Generator/#?body=Body_color_green&head=Orc_female_green&sex=female&dress=Sash_dress_walnut&shoes=Ghillies_brown&hat=none&hair=Bob_side_part_black
+
+https://sanderfrenken.github.io/Universal-LPC-Spritesheet-Character-Generator/#?body=Body_color_fur_brown&head=Wolf_female_fur_brown&sex=female&vest=Bodice_navy&apron=Overskirt_navy&legs=Belle_skirt_white&shoes=Slippers_navy
+
+https://sanderfrenken.github.io/Universal-LPC-Spritesheet-Character-Generator/#?body=Body_color_black&head=Human_female_black&chainmail=Chainmail_gray&jacket=Tabard_lavender&sex=female&hair=Dreadlocks_short_black&legs=Legion_skirt_lavender
+
+
+In addition to art from this submission, the preview images also contain art from:
+- thecilekli https://opengameart.org/content/lpc-pink-short-hair (CC0)
+- ElizaWy https://opengameart.org/content/lpc-realistic-helmet-pack (OGA-BY 3.0)
+
+
+Thank you to chadmandu, castelonia/Herodom, MedicineStorm, and pvigier for supporting this work. Thanks to BenCreating and Evert for comments and feedback.
