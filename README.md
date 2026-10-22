@@ -40,6 +40,9 @@ podman build -t snail-scheme -f .devcontainer/Containerfile .
 podman run --rm -it -v "$PWD":/workspace:Z -w /workspace snail-scheme
 ```
 
+In a new checkout or container, `make fetch` downloads the Rust crates
+once; builds and tests then run offline.
+
 Programs are linked with a small Rust runtime and run under WASI. The
 first run bootstraps the compiler, which takes about a minute: Chibi runs
 its source once, and the compiled compiler then rebuilds itself whenever

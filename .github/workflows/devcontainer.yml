@@ -1,0 +1,43 @@
+name: Devcontainer
+
+# Builds the devcontainer with podman and checks that it works, whenever
+# something it is built from or depends on changes.
+on:
+  pull_request:
+    paths: &inputs
+      - .devcontainer/**
+      - .dockerignore
+      - shell.nix
+      - npins/**
+      - Makefile
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - tests/browser/**
+      - .github/workflows/devcontainer.yml
+  push:
+    branches: [main]
+    paths: *inputs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devcontainer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  devcontainer:
+    name: Devcontainer builds and runs with podman
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build the image
+        run: podman build -t snail-scheme -f .devcontainer/Containerfile .
+      # Rootless podman maps the container's root to the runner's user, as
+      # it maps it to yours.
+      - name: Check the container
+        run: podman run --rm -v "$PWD":/workspace:Z -w /workspace snail-scheme bash --login .devcontainer/check.sh

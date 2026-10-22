@@ -5,6 +5,10 @@
 #
 #   podman build -t snail-scheme -f .devcontainer/Containerfile .
 #   podman run --rm -it -v "$PWD":/workspace:Z -w /workspace snail-scheme
+#
+# The Rust crates are fetched into the container, not the image, since they
+# follow the checkout's Cargo.lock: run `make fetch` once inside, as the
+# devcontainer does when it is created.
 FROM docker.io/nixos/nix:2.35.3
 
 # Only what the environment depends on, so editing source never rebuilds it.
