@@ -1,0 +1,30 @@
+tick 0, energy 65: Pylon 46,39 0/20; Pylon 39,33 0/20; Wall 39,35 0/20; Wall 40,35 0/20
+  worker 1 at 39,39 idle
+  worker 2 at 39,39 idle
+  worker 3 at 39,39 idle
+tick 20, energy 69: Pylon 46,39 0/20; Pylon 39,33 0/20; Wall 39,35 8/20 active; Wall 40,35 0/20
+  worker 1 at 43,39 on the Pylon at 46,39
+  worker 2 at 40,36 on the Pylon at 39,33
+  worker 3 at 39,36 on the Wall at 39,35
+tick 40, energy 73: Pylon 46,39 11/20 active; Pylon 39,33 7/20 active; Wall 40,35 8/20 active
+  worker 1 at 45,39 on the Pylon at 46,39
+  worker 2 at 40,33 on the Pylon at 39,33
+  worker 3 at 40,36 on the Wall at 40,35
+the worker on the eastern pylon falls:
+tick 41, energy 73: Pylon 46,39 12/20; Pylon 39,33 8/20 active; Wall 40,35 9/20 active
+  worker 2 at 40,33 on the Pylon at 39,33
+  worker 3 at 40,36 on the Wall at 40,35
+tick 61, energy 77: Pylon 46,39 12/20
+  worker 2 at 41,34 idle
+  worker 3 at 40,38 on the Pylon at 46,39
+tick 121, energy 89: 
+  worker 2 at 40,38 idle
+  worker 3 at 41,38 idle
+workers ordered up to 20, training 18
+rejected: The colony has all twenty workers.
+tick 421: workers 12, training 8
+the pylon at 46,39 is a portal: #t
+a worker's moves to the turret at 51,39: 4:46,39 9:47,39 14:48,39 19:49,39 24:50,39
+with the other pylons gone, the pylon at 59,40 is powered
+removing the wall at 50,39 refunds 5, and the pylon is unpowered
+the wall at 49,39 upgraded by a worker: level 2, health 250

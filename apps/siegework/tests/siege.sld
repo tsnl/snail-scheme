@@ -1,7 +1,13 @@
 ;; The nests' schedule, then two colonies on seed 1: one leaves its hub
-;; undefended, the other keeps adding turrets around it and widens its
-;; build slots. Last, an enemy between two turrets holds to one of them,
-;; and each turret's guns stay on its last shot.
+;; undefended, the other keeps a ring of turrets around it. Then staged
+;; enemies on seed 3, a meadow with open ground east of the hub:
+;;
+;; - an aggressive enemy attacks the nearest structure in sight, then the
+;;   next, then makes for the hub;
+;; - a calm one shot by a turret keeps on for the hub, with no revenge;
+;; - with the hub walled in, an enemy has no walking route, so it digs
+;;   through the wall;
+;; - workers beside an enemy strike back.
 (import
  (lofi base)
  (lofi io)
@@ -33,7 +39,8 @@
 (: report (-> String World Unit ! console))
 (define (report name world)
   (write-line (string-append name ": tick " (show (World-tick world)) ", buildings " (show (length (World-buildings world)))
-                             ", hub " (show (Hub-health (World-hub world))) ", enemies " (show (length (World-enemies world)))
+                             ", hub " (show (Hub-health (World-hub world))) ", workers " (show (length (World-workers world)))
+                             ", enemies " (show (length (World-enemies world)))
                              ", kills " (show (Ledger-kills (World-ledger world))) ", lost " (show (Ledger-lost (World-ledger world)))
                              ", opened rock " (show (vector-fold (lambda (n open) (if open (+ n 1) n)) 0 (World-opened world)))
                              ", " (outcome-text (World-outcome world)))))
@@ -51,11 +58,21 @@
 (define (started world)
   (try world (Build (Extractor) (Land-starter (World-land world)) #f)))
 
+(: first-pylon (-> World (List (Pair I64 I64)) World))
+(define (first-pylon world places)
+  (match places
+    ((Cons d rest) (match (act world (Build (Pylon) (offset world (Pair-first d) (Pair-second d)) #f))
+                     ((Ok world) world)
+                     ((Err _) (first-pylon world rest))))
+    ((Nil) world)))
+
 (: reinforce (-> World World))
 (define (reinforce world)
-  (try (fold-left (lambda (world d) (try world (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
-                  world (list (Pair -2 0) (Pair 0 2) (Pair 2 0) (Pair 0 -2) (Pair -2 2) (Pair 2 -2) (Pair 2 2) (Pair -2 -2)))
-       (Upgrade (offset world 0 0))))
+  (let ((world (if (any? (lambda (b) (has-kind? (Some (Building-kind b)) (Pylon))) (World-buildings world))
+                   world
+                   (first-pylon world (list (Pair 3 0) (Pair -3 0) (Pair 0 3) (Pair 0 -3))))))
+    (fold-left (lambda (world d) (try world (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
+               world (list (Pair -2 0) (Pair 0 2) (Pair 2 0) (Pair 0 -2) (Pair -2 2) (Pair 2 -2) (Pair 2 2) (Pair -2 -2)))))
 
 (: defend (-> World I64 World))
 (define (defend world ticks)
@@ -73,35 +90,107 @@
 (report "defended" defended)
 (report "defended" (defend defended 2000))
 
-;; Turrets three cells west and east of the hub flank a sturdy enemy to
-;; the north. Both hit it, but it turns only on the first and keeps after
-;; that one.
-(: flanked (-> World World))
-(define (flanked world)
-  (let ((world (run (try (try world (Build (Turret) (offset world -3 0) #f)) (Build (Turret) (offset world 3 0) #f)) 100)))
-    (World-enemies-set world (list (Enemy 999 (Minion) 0 #f (offset world 0 4) (offset world 0 4) 2000 2000 (None) (None))))))
+;; ---- Staged enemies ----
 
-(: aggro-text (-> World String))
-(define (aggro-text world)
-  (match (find (lambda (e) (= (Enemy-id e) 999)) (World-enemies world))
-    ((Some enemy) (match (Enemy-aggro enemy) ((Some id) (string-append "building " (show id))) ((None) "nothing")))
-    ((None) "gone")))
+;; Seed 3 with energy to spare, so rushed buildings are ready at once.
+(: stage (-> World))
+(define (stage)
+  (earn (started (new-world 3)) 5000))
 
-(: watch (-> World I64 Unit ! console))
-(define (watch world ticks)
-  (if (> ticks 0)
-      (let ((next (advance world)))
-        (for-each (lambda (shot)
-                    (write-line (string-append "tick " (show (World-tick next)) ": the turret at x " (show (Cell-x (Shot-from shot)))
-                                               " fires; the enemy has turned on " (aggro-text next))))
-                  (filter (lambda (shot) (= (Shot-tick shot) (World-tick next))) (World-shots next)))
-        (watch next (- ticks 1)))
-      (begin (write-line (string-append "at tick " (show (World-tick world)) " the enemy has turned on " (aggro-text world)))
-             (write-line (string-append "the guns stay on each turret's last shot: " (string-join (map aim-text (World-buildings world)) ", "))))))
+;; A sturdy enemy at `cell` that attacks whatever comes into sight with
+;; the given percent chance.
+(: staged-enemy (-> World Cell I64 I64 World))
+(define (staged-enemy world cell rank aggression)
+  (World-enemies-set world (list (Enemy 999 (Minion) rank #f aggression cell cell 2000 2000 (Nil) (None) (Plan -1 -1 #f)))))
 
-(: aim-text (-> Building String))
-(define (aim-text b)
-  (string-append (kind-name (Building-kind b)) " at x " (show (Cell-x (Building-cell b))) " "
-                 (match (Building-aim b) ((Some cell) (string-append "aims at " (show (Cell-x cell)) "," (show (Cell-y cell)))) ((None) "has not fired"))))
+(: the-enemy (-> World (Option Enemy)))
+(define (the-enemy world)
+  (find (lambda (e) (= (Enemy-id e) 999)) (World-enemies world)))
 
-(watch (flanked (started (new-world 1))) 40)
+(: cell-text (-> Cell String))
+(define (cell-text cell)
+  (string-append (show (Cell-x cell)) "," (show (Cell-y cell))))
+
+(: target-text (-> World Enemy String))
+(define (target-text world enemy)
+  (match (Enemy-target enemy)
+    ((Some id) (match (building world id)
+                 ((Some b) (string-append (kind-name (Building-kind b)) " at " (cell-text (Building-cell b))))
+                 ((None) (match (worker world id) ((Some w) (string-append "worker " (show id))) ((None) "nothing")))))
+    ((None) "the hub")))
+
+;; What the enemy is doing whenever it changes its target, until `ticks`
+;; have passed.
+(: watch-targets (-> World I64 String Unit ! console))
+(define (watch-targets world ticks last)
+  (match (the-enemy world)
+    ((Some enemy)
+     (let ((now (target-text world enemy)))
+       (unless (string=? now last)
+         (write-line (string-append "  tick " (show (World-tick world)) ": at " (cell-text (Enemy-cell enemy)) ", going for " now)))
+       (if (> ticks 0) (watch-targets (advance world) (- ticks 1) now) (unit))))
+    ((None) (write-line (string-append "  tick " (show (World-tick world)) ": the enemy is gone")))))
+
+;; Two pylons east of the hub, both in sight of an enemy that always
+;; attacks. It takes the nearer first.
+(let ()
+  (define world (stage))
+  (define world (try (try world (Build (Pylon) (Cell 45 39) #t)) (Build (Pylon) (Cell 47 41) #t)))
+  (write-line "an aggressive enemy east of two pylons:")
+  (watch-targets (staged-enemy world (Cell 50 40) 3 100) 400 ""))
+
+;; A turret beside a pylon shoots a calm enemy from beyond its sight. The
+;; enemy never rolls to attack it, so it keeps on for the hub.
+(let ()
+  (define world (stage))
+  (define world (try (try world (Build (Pylon) (Cell 44 39) #t)) (Build (Turret) (Cell 45 39) #t)))
+  (define world (staged-enemy world (Cell 51 39) 3 0))
+  (write-line "a calm enemy shot by a turret:")
+  (watch-targets world 100 "")
+  (write-line (string-append "  by tick 100 it is at " (match (the-enemy (run world 100)) ((Some e) (string-append (cell-text (Enemy-cell e)) " with health " (show (Enemy-health e)))) ((None) "gone"))
+                             ", the turret standing: " (show (match (building-at (run world 100) (Cell 45 39)) ((Some b) (= (Building-health b) 100)) ((None) #f))))))
+
+;; Walls ring the hub two cells out. The enemy cannot walk in, so it plans
+;; to dig, breaks a wall and strikes the hub.
+(: ring (List (Pair I64 I64)))
+(define ring
+  (concatenate (list (map (lambda (i) (Pair (- i 2) -2)) (iota 5)) (map (lambda (i) (Pair (- i 2) 2)) (iota 5))
+                     (map (lambda (i) (Pair -2 (- i 1))) (iota 3)) (map (lambda (i) (Pair 2 (- i 1))) (iota 3)))))
+
+(: wall-health (-> World I64))
+(define (wall-health world)
+  (fold-left + 0 (map Building-health (filter wall? (World-buildings world)))))
+
+(: watch-dig (-> World I64 Bool Unit ! console))
+(define (watch-dig world ticks struck)
+  (let ((hub (Hub-health (World-hub world))))
+    (cond ((and (not struck) (< hub hub-health))
+           (write-line (string-append "  tick " (show (World-tick world)) ": the hub is struck; walls standing " (show (length (filter wall? (World-buildings world))))))
+           (watch-dig world ticks #t))
+          ((> ticks 0) (watch-dig (advance world) (- ticks 1) struck))
+          (else (unit)))))
+
+(let ()
+  (define world (stage))
+  (define world (fold-left (lambda (world d) (try world (Build (Wall) (offset world (Pair-first d) (Pair-second d)) #t))) world ring))
+  (write-line (string-append "walls around the hub: " (show (length (filter wall? (World-buildings world)))) ", their health " (show (wall-health world))))
+  (define world (staged-enemy world (Cell 47 39) 0 0))
+  (define world (run world 8))
+  (write-line (string-append "  the enemy chose to dig: " (match (the-enemy world) ((Some e) (show (Plan-digging (Enemy-plan e)))) ((None) "gone"))))
+  (define world (run world 60))
+  (write-line (string-append "  tick " (show (World-tick world)) ": wall health " (show (wall-health world))))
+  (watch-dig world 600 #f))
+
+;; Workers beside an aggressive enemy strike back once a second.
+(: watch-fight (-> World I64 Unit ! console))
+(define (watch-fight world ticks)
+  (when (= (remainder (World-tick world) 10) 0)
+    (write-line (string-append "  tick " (show (World-tick world)) ": enemy " (match (the-enemy world) ((Some e) (show (Enemy-health e))) ((None) "gone"))
+                               ", workers " (string-join (map (lambda (w) (show (Worker-health w))) (World-workers world)) " "))))
+  (if (and (> ticks 0) (not (null? (World-enemies world)))) (watch-fight (advance world) (- ticks 1)) (unit)))
+
+(let ()
+  (define world (stage))
+  (define world (World-enemies-set world (list (Enemy 999 (Minion) 0 #f 100 (Cell 42 38) (Cell 42 38) 65 65 (Nil) (None) (Plan -1 -1 #f)))))
+  (write-line "workers beside an enemy:")
+  (watch-fight world 120))
