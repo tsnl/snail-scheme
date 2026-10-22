@@ -131,13 +131,15 @@
 
     ;; ---- Input ----
 
-    ;; Keys are lower-case code points, or the named codes below. Pointer
+    ;; Keys are lower-case code points, or the named codes below, and a key
+    ;; pressed with Shift says so; keys pressed with Ctrl, Alt or Meta stay
+    ;; with the browser and never arrive. Pointer
     ;; events name the pointer, so several fingers can be told apart; the
     ;; wheel reports pixels. A press or hover reports the action and
     ;; argument of a HUD button; hovering off a button reports action 0.
     ;; Elapsed reports the milliseconds since the last display frame.
     (enum Input
-      (KeyDown ((key I32)))
+      (KeyDown ((key I32) (shift Bool)))
       (KeyUp ((key I32)))
       (PointerDown ((pointer I32) (x I32) (y I32) (button I32)))
       (PointerMove ((pointer I32) (x I32) (y I32)))
@@ -160,7 +162,7 @@
     (: decode-input (-> I32 I32 I32 I32 I32 Input))
     (define (decode-input kind a b c d)
       (case kind
-        ((1) (KeyDown a))
+        ((1) (KeyDown a (= b 1)))
         ((2) (KeyUp a))
         ((3) (PointerDown a b c d))
         ((4) (PointerMove a b c))
