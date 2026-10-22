@@ -15,8 +15,9 @@ import {spawn} from 'node:child_process';
 import {cp, mkdtemp, readFile, readdir, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
-import {screenImports, takeState} from '../src/app/host.mjs';
-import {createWasi, linkProgram, programExports, readEvent, readManifest, relinkProgram, runProgram} from '../src/app/load.mjs';
+import {screenImports} from '../src/app/host.mjs';
+import {createRuntime, applicationEntry} from '../src/app/runtime.mjs';
+import {createWasi, linkProgram, readEvent, readManifest, relinkProgram, runProgram} from '../src/app/load.mjs';
 import {until} from './browser/chromium.mjs';
 
 const PRESS = 9;
@@ -68,12 +69,13 @@ function nextBuild(events) {
 // browser host's screen: a renderer and a picture store that draw nothing,
 // and a HUD that keeps the latest widgets. `manifest` is the page's.
 async function linkPage(base, manifest) {
-  const page = {manifest, program: null, widgets: []};
+  const page = {manifest, program: null, widgets: [], runtime: createRuntime()};
   const screen = screenImports({hasBatch: () => false, draw() {}}, {has: () => true},
                                {update: panels => { page.widgets = panels.flatMap(panel => panel.widgets); }});
   const read = async file => new Uint8Array(await (await fetch(new URL(file, base))).arrayBuffer());
-  page.program = await linkProgram(read, '/modules.json', createWasi({print: (fd, line) => console.log(line)}), {'snail.screen': screen});
+  page.program = await linkProgram(read, '/modules.json', createWasi({print: (fd, line) => console.log(line)}), {...page.runtime.imports, 'snail.screen': screen});
   runProgram(page.program);
+  await page.runtime.start(applicationEntry(page.program)).ready.promise;
   return page;
 }
 
@@ -84,8 +86,10 @@ const text = (page, key) => page.widgets.find(entry => entry.key === key)?.text;
 // Returns the module and how the state passed.
 async function relink(page, manifest) {
   const [from] = manifest.modules.find((entry, index) => entry.join(' ') !== page.manifest.modules[index]?.join(' '));
+  const {state, saved} = await page.runtime.stop();
   const program = await relinkProgram(page.program, from);
-  const passed = takeState(programExports(program), programExports(page.program), {clientWidth: 960, clientHeight: 640}, false);
+  const boot = await page.runtime.start(applicationEntry(program), state, {restore: saved}).ready.promise;
+  const passed = ['adopted', 'saved', 'fresh'][boot];
   Object.assign(page, {manifest, program});
   return {from, passed};
 }
@@ -107,9 +111,9 @@ async function testServe(directory) {
     assert.equal((await fetch(new URL('.lofi/reload.wasm', base))).headers.get('content-type'), 'application/wasm');
 
     const page = await linkPage(base, manifest);
-    programExports(page.program).app_init(1, 960, 640);
-    programExports(page.program).app_input(PRESS, 1, 0, 0, 0);
-    programExports(page.program).app_input(PRESS, 1, 0, 0, 0);
+    page.runtime.send(PRESS, 1);
+    page.runtime.send(PRESS, 1);
+    await new Promise(setImmediate);
     assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['hello', '2']);
 
     await writeFile(source, (await readFile(source, 'utf8')).replace('"hello"', '"hello again"'));
@@ -129,6 +133,7 @@ async function testServe(directory) {
     const late = await listen(new URL('.lofi/events', base));
     await until(() => late.length, 'the latest event');
     assert.equal(readEvent(late[0]).kind, 'failed', 'a page that connects later sees the failure');
+    await page.runtime.stop();
   } finally {
     server.child.kill();
   }

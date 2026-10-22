@@ -8,9 +8,9 @@
 ;;   save    : State -> Save
 ;;   restore : Save -> State
 ;;
-;; `define-application` keeps the current state in one cell and exposes the
-;; host entry points. Time reaches the state as input: before drawing each
-;; display frame, the host reports the milliseconds since the last, so the
+;; `define-application` runs one loop inside the binder returned by reset.
+;; The loop suspends on events and storage through JSPI. It checkpoints
+;; complete events in one cell. Time reaches the state as input, so the
 ;; state decides how time passes, and can stop it at any frame. The host
 ;; draws a Frame through the `screen` effect, shows the HUD again after
 ;; each input (after time, at most ten times a second), and stores the
@@ -171,6 +171,17 @@
    pointer-ray
    screen-axes
    ground-point
+   Event
+   FrameEvent
+   InputEvent
+   Hidden
+   Reload
+   events
+   next-event
+   storage
+   load-save
+   store-save
+   default-reset
    define-application)
   (import
    (lofi base)
@@ -897,101 +908,149 @@
     (define (normalize v)
       (scale v (/ 1.0 (sqrt (+ (* (Vec3-x v) (Vec3-x v)) (+ (* (Vec3-y v) (Vec3-y v)) (* (Vec3-z v) (Vec3-z v))))))))
 
+    ;; ---- Application events ----
+
+    ;; Frame already names the drawing data above; FrameEvent names a tick.
+    (enum Event
+      (FrameEvent ((elapsed I32)))
+      (InputEvent ((input Input)))
+      (Hidden)
+      (Reload))
+
+    (effect events
+      ((poll-event (-> I32))
+       (wait-event (-> Unit))
+       (event-field (-> I32 I32))
+       (random-seed (-> I32))
+       (canvas-width (-> I32))
+       (canvas-height (-> I32))
+       (report-boot (-> I32 Unit)))
+      (host "snail.events"
+            ((poll-event "poll")
+             (wait-event "wait")
+             (event-field "field")
+             (random-seed "seed")
+             (canvas-width "width")
+             (canvas-height "height")
+             (report-boot "boot"))))
+
+    (: next-event (-> Event ! events))
+    (define (next-event)
+      (match (poll-event)
+        (0 (wait-event) (next-event))
+        (11 (FrameEvent (event-field 0)))
+        (12 (Hidden))
+        (13 (Reload))
+        (kind (InputEvent (decode-input kind (event-field 0) (event-field 1) (event-field 2) (event-field 3))))))
+
+    (effect storage
+      ((load-count (-> I32))
+       (loaded-byte (-> I32 U8))
+       (store-save (-> Bytes Unit)))
+      (host "snail.storage"
+            ((load-count "load")
+             (loaded-byte "byte")
+             (store-save "store"))))
+
+    (: load-save (-> (Option Bytes) ! storage))
+    (define (load-save)
+      (let ((count (load-count)))
+        (if (< count 0)
+            (None)
+            (Some (vector-generate (i32->i64 count) (lambda (index) (loaded-byte (i64->i32 index))))))))
+
+    ;; Instantiate the result and row on reset, not on the returned binder.
+    ;; An application can replace this binder to install handlers for the run.
+    (: default-reset (All (T e) (-> (-> (-> T ! e) T ! e))))
+    (define (default-reset)
+      (lambda (run) (run)))
+
     ;; ---- Applications ----
 
-    ;; Generates the host entry points for an application. Its Save type
-    ;; must derive Serialize and Deserialize.
+    ;; Only the loop calls application messages. The cell is the last state
+    ;; whose entire event succeeded; a trap never publishes its candidate.
+    ;; States must be immutable data, so a handed-over checkpoint stays reusable.
     (define-syntax define-application
-      (syntax-rules ()
-        ((_ State init update view hud save restore)
+      (syntax-rules (reset: init: update: view: hud: save: restore:)
+        ((_ State (reset: reset-run) (init: initialize) (update: step) (view: draw)
+            (hud: panels) (save: save-state) (restore: restore-state))
          (begin
            (define current (ref (ann (None) (Option State))))
-           (define saved (ref (vector-generate 0 (lambda (index) (ann 0 U8)))))
-           (define loading (ref (make-array 0 (ann 0 U8))))
-           (define since-hud (ref (ann 0 I32)))
 
-           ;; Replaces the state and shows its HUD.
-           (: settle (-> State Unit ! mut screen))
-           (define (settle state)
+           ;; A live migration must refuse an absent or incompatible save.
+           ;; Cold startup alone may initialize when there is no saved game.
+           (: app-restore (-> Bool (Option (Pair State I32)) ! events storage))
+           (define (app-restore cold?)
+             (match (load-save)
+               ((Some bytes) (Some (Pair (app-restore-bytes bytes) 1)))
+               ((None) (if cold?
+                           (Some (Pair ((ann initialize (-> I32 I32 I32 State)) (random-seed) (canvas-width) (canvas-height)) 2))
+                           (None)))))
+
+           (: app-boot (-> (Option Any) (Option (Pair State I32)) ! events storage))
+           (define (app-boot handover)
+             (match handover
+               ((Some state) (if (type-test state State)
+                                 (Some (Pair (ann (type-convert state State) State) 0))
+                                 (app-restore #f)))
+               ((None) (app-restore #t))))
+
+           (: app-save-bytes (-> State Bytes))
+           (define (app-save-bytes state)
+             (serialize (save-state state)))
+
+           (: app-restore-bytes (-> Bytes State))
+           (define (app-restore-bytes bytes)
+             (restore-state (deserialize bytes)))
+
+           ;; Counters are loop variables, committed with the state. Build
+           ;; pure frame/HUD values before their presentation can have effects.
+           (: app-frame (-> State I32 I32 I32 (Option Any) ! mut screen events storage))
+           (define (app-frame state elapsed since-hud since-save)
+             (let* ((next ((ann step (-> State Input State)) state (Elapsed elapsed)))
+                    (frame ((ann draw (-> State Frame)) next))
+                    (hud-time (+ since-hud elapsed))
+                    (save-time (+ since-save elapsed))
+                    (show-hud? (>= hud-time 100))
+                    (widgets (if show-hud? ((ann panels (-> State (List Panel))) next) (Nil))))
+               (render frame)
+               (when show-hud? (render-hud widgets))
+               (when (>= save-time 5000) (store-save (app-save-bytes next)))
+               (app-run next (if show-hud? 0 hud-time) (if (>= save-time 5000) 0 save-time))))
+
+           (: app-run (-> State I32 I32 (Option Any) ! mut screen events storage))
+           (define (app-run state since-hud since-save)
              (ref-set! current (Some state))
-             (ref-set! since-hud 0)
-             (render-hud (hud state)))
+             (match (next-event)
+               ((FrameEvent elapsed) (app-frame state elapsed since-hud since-save))
+               ((InputEvent input)
+                (let* ((next ((ann step (-> State Input State)) state input)) (widgets ((ann panels (-> State (List Panel))) next)))
+                  (render-hud widgets)
+                  (app-run next 0 since-save)))
+               ((Hidden) (store-save (app-save-bytes state)) (app-run state since-hud 0))
+               ((Reload) (store-save (app-save-bytes state)) (Some (type-convert state Any)))))
 
-           ;; Time alone shows the HUD again only every tenth of a second.
-           (: pass-time (-> State I32 Unit ! mut screen))
-           (define (pass-time state milliseconds)
-             (ref-set! since-hud (+ (ref-get since-hud) milliseconds))
-             (if (>= (ref-get since-hud) 100) (settle state) (ref-set! current (Some state))))
+           ;; The host's first Resize and Frame(0) own initial presentation.
+           ;; reset installs its handlers around this monomorphic run.
+           (: app-main (-> (Option Any) (Option Any) ! mut screen events storage))
+           (define (app-main handover)
+             ((reset-run)
+              (lambda ()
+                (match (app-boot handover)
+                  ((Some boot)
+                   (let ((state (Pair-first boot)))
+                     (ref-set! current (Some state))
+                     (report-boot (Pair-second boot))
+                     (app-run state 0 0)))
+                  ((None) (None))))))
 
-           (: app-init (-> I32 I32 I32 Unit ! mut screen))
-           (define (app-init seed width height)
-             (settle (init seed width height)))
-
-           (: app-input (-> I32 I32 I32 I32 I32 Unit ! mut screen))
-           (define (app-input kind a b c d)
-             (match (ref-get current)
-               ((Some state) (let ((input (decode-input kind a b c d)))
-                               (match input
-                                 ((Elapsed milliseconds) (pass-time (update state input) milliseconds))
-                                 (_ (settle (update state input))))))
-               ((None) (unit))))
-
-           (: app-frame (-> Unit ! mut screen))
-           (define (app-frame)
-             (match (ref-get current)
-               ((Some state) (render (view state)))
-               ((None) (unit))))
-
-           (: app-save (-> I32 ! mut))
-           (define (app-save)
-             (match (ref-get current)
-               ((Some state) (ref-set! saved (serialize (save state))) (i64->i32 (vector-length (ref-get saved))))
-               ((None) 0)))
-
-           (: app-save-byte (-> I32 I32 ! mut))
-           (define (app-save-byte index)
-             (u8->i32 (vector-ref (ref-get saved) (i32->i64 index))))
-
-           (: app-load-begin (-> I32 Unit ! mut))
-           (define (app-load-begin count)
-             (ref-set! loading (make-array (i32->i64 count) (ann 0 U8))))
-
-           (: app-load-byte (-> I32 I32 Unit ! mut))
-           (define (app-load-byte index byte)
-             (array-set! (ref-get loading) (i32->i64 index) (i32->u8 byte)))
-
-           ;; Panics if the save was written for another schema; the host
-           ;; then starts a new state instead.
-           (: app-load-end (-> Unit ! mut screen))
-           (define (app-load-end)
-             (settle (ann (restore (deserialize (array->vector (ref-get loading)))) State)))
-
-           ;; A rebuilt program takes over the state as it is when no type
-           ;; in it changed. The state's TypeId describes its structure, and
-           ;; `type-test` checks it and the state's layout without trapping;
-           ;; adopting answers 1 when the state is of another type, and the
-           ;; host falls back to the save.
            (: app-state (-> Any ! mut))
            (define (app-state)
              (match (ref-get current)
                ((Some state) (type-convert state Any))
                ((None) (panic "the application has no state yet"))))
 
-           (: app-adopt (-> Any I32 ! mut screen))
-           (define (app-adopt state)
-             (if (type-test state State)
-                 (begin (settle (ann (type-convert state State) State)) 0)
-                 1))
-
-           (expose app-init "app_init")
-           (expose app-input "app_input")
-           (expose app-frame "app_frame")
-           (expose app-save "app_save")
-           (expose app-save-byte "app_save_byte")
-           (expose app-load-begin "app_load_begin")
-           (expose app-load-byte "app_load_byte")
-           (expose app-load-end "app_load_end")
-           (expose app-state "app_state")
-           (expose app-adopt "app_adopt")))))
+           (expose app-main "app_main")
+           (expose app-state "app_state")))))
 
     ))

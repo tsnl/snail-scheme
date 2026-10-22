@@ -299,11 +299,39 @@ state:
 | `save : State -> Save` | What to store, with a wire encoding; it may be a record of how to rebuild the state. |
 | `restore : Save -> State` | The state again. |
 
-`define-application` exposes these to the browser host in `src/app`. The
-host forwards raw input, reports elapsed time before each display frame,
-draws each frame with WebGPU and stores the serialized save in the browser.
-Because time is input, an application decides how time passes, and can stop
-it at any frame.
+The messages are pure functions over immutable state. `define-application`
+runs them inside one loop and the binder returned by `reset`:
+
+```scheme
+(define-application Game
+  (reset: default-reset)
+  (init: new-game)
+  (update: step)
+  (view: draw)
+  (hud: panels)
+  (save: save-game)
+  (restore: restore-game))
+```
+
+`default-reset` simply runs its argument. A custom reset returns a binder
+that installs effect handlers around startup and the whole loop; its result
+and effect row are quantified on the reset function, so the returned binder
+is monomorphic. The loop exports `app_main : (Option Any) -> (Option Any)`.
+The JavaScript host calls it through `WebAssembly.promising`; `next-event`
+drains the host queue and suspends through `WebAssembly.Suspending` when it
+is empty. `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
+`Input`, `Hidden` saves without stopping, and `Reload` saves and returns the
+state. The `Frame` type continues to describe drawing data.
+
+DOM listeners enqueue input. The host keeps at most one pending display
+frame and coalesces consecutive pointer moves and resizes without crossing
+other input. Storage suspends for a whole load or store, copying save bytes
+before awaiting the browser. The loop saves every five seconds and when the
+page becomes hidden. Only a complete successful event commits its state;
+a trap leaves the preceding checkpoint available through `app_state`.
+Because time is input, an application decides how time passes and can stop
+it at any frame. Browser applications and headless tests need JSPI; the
+pinned Node 26 runs both packaging modes.
 
 Frames are built from batches of items. The host keeps a batch until its
 version changes, so a still scene costs nothing to send; each item also

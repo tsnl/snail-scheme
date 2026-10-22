@@ -55,4 +55,11 @@
 (define (restore saved)
   (Counter (Save-count saved) 0 0))
 
-(define-application Counter start step draw panels save restore)
+(define-application Counter
+  (reset: default-reset)
+  (init: start)
+  (update: step)
+  (view: draw)
+  (hud: panels)
+  (save: save)
+  (restore: restore))

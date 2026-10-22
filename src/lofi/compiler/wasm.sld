@@ -413,11 +413,14 @@
 
     (: case-type (-> Module Type Case String ! mut))
     (define (case-type m type case)
-      (let ((key (string-append (type-key type) "." (short-name (Case-name case)))))
+      ;; Registering the base also registers its cases. Look up the case
+      ;; afterwards, including when it was the first representation requested.
+      (let* ((base (data-type m type))
+             (key (string-append (type-key type) "." (short-name (Case-name case)))))
         (match (known-type m key)
           ((Some found) found)
           ((None)
-           (let* ((base (data-type m type)) (case-id (wasm-id key)))
+           (let ((case-id (wasm-id key)))
              (register-type! m key case-id
                              (wat "type" (id case-id)
                                   (wat "sub" (Word "final") (id base) (wat* "struct" (Cons (wat "field" (Word "i32")) (case-fields m type case)))))))))))
@@ -919,7 +922,7 @@
     (: import! (-> Module Import (List Rep) (Option Rep) String ! mut))
     (define (import! m import params result)
       (import-once! m (string-append "import:" (Import-module import) ":" (Import-symbol import))
-                    (wasm-id (string-append "import." (Import-symbol import)))
+                    (fresh-id m "import")
                     (lambda (function-id)
                       (wat "import" (wat-string (Import-module import)) (wat-string (Import-symbol import))
                            (wat* "func" (Cons (id function-id)
