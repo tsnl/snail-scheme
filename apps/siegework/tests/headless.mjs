@@ -126,15 +126,21 @@ for (let y = 10; y < 640 && !crystal; y += 20)
   }
 assert.ok(crystal, 'a crystal is in view');
 assert.equal(crystal.tone, SUGGESTED, 'the opening suggests the extractor');
-assert.equal(spoken('opening'), 'Click the build button to continue');
+assert.equal(spoken('opening'), 'Click the *build button* to continue');
 game.app_input(PRESS, crystal.action, crystal.argument, 0, 0);
 assert.equal(widget(host, 'energy').text, '135');
 assert.ok(widget(host, 'scavenge'), 'the first extractor is ready at once');
 assert.ok(!widget(host, 'opening'), 'the banner leaves once the game begins');
 game.app_frame();
 assert.ok(!host.frames.at(-1).batches.some(batch => batch.key === 10), 'and so do the pulsing crystals');
-// Each tenth of a second advances the world a tick.
-for (let i = 0; i < 3000; i++) game.app_input(ELAPSED, 100, 0, 0, 0);
+// Each tenth of a second advances the world a tick. The first attack
+// raises the alert under the nests.
+let alarm = null;
+for (let i = 0; i < 3000; i++) {
+  game.app_input(ELAPSED, 100, 0, 0, 0);
+  alarm ??= widget(host, 'attack');
+}
+assert.ok(alarm, 'an attack raises the alert');
 game.app_frame();
 const readouts = h => ['health', 'energy', 'threat', 'elapsed'].map(key => widget(h, key)?.text);
 console.log(readouts(host).join(' | '));

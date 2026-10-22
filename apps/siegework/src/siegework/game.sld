@@ -1,6 +1,6 @@
 ;; The playable game around the simulation: the camera, the selected cell
-;; and the orders given there, dialogs, muted alerts and the journal of
-;; orders that saves the game. `update-game` maps each input to a new Game.
+;; and the orders given there, dialogs, and the journal of orders that saves
+;; the game. `update-game` maps each input to a new Game.
 ;;
 ;; As in the original, selection alone never orders anything: tapping a
 ;; cell selects it and the HUD offers what can be done there, and each
@@ -16,9 +16,6 @@
    Restarting
    Resigning
    Results
-   Mute
-   Mute-cell
-   Mute-until
    Game
    Game-world
    Game-epoch
@@ -32,7 +29,6 @@
    Game-rush
    Game-menu
    Game-left-handed
-   Game-mutes
    Game-message
    Game-width
    Game-height
@@ -56,7 +52,6 @@
    ToggleRush
    CloseCard
    Locate
-   Silence
    Home
    Turn
    OpenMenu
@@ -68,8 +63,7 @@
    Hand
    ShowResults
    InspectMap
-   press-code
-   alert-muted?)
+   press-code)
   (import
    (lofi base)
    (lofi wire)
@@ -106,11 +100,6 @@
       (Resigning)
       (Results))
 
-    ;; Alerts near `cell` stay hidden until the world reaches `until`.
-    (struct Mute
-      ((cell Cell)
-       (until I64)))
-
     ;; `orders` is the journal of accepted orders, newest first. `epoch`
     ;; counts the games played since the page loaded, so a view of a new game
     ;; never reuses what was drawn for the last. Time arrives with each
@@ -138,7 +127,6 @@
        (rush Bool)
        (menu Menu)
        (left-handed Bool)
-       (mutes (List Mute))
        (message String)
        (width I32)
        (height I32)))
@@ -164,7 +152,7 @@
     (define (game-around world orders epoch menu left-handed width height)
       (let ((start (Land-starter (World-land world))))
         (Game world orders epoch 0 0 0 (View (i64->f32 (Cell-x start)) (i64->f32 (Cell-y start)) 1.0 0 0 -300) (Nil) no-gestures (None) (None) (None) #f
-              menu left-handed (Nil) "" width height)))
+              menu left-handed "" width height)))
 
     ;; ---- Time ----
 
@@ -298,7 +286,6 @@
       (ToggleRush)
       (CloseCard)
       (Locate ((cell Cell)))
-      (Silence ((cell Cell)))
       (Home)
       (Turn ((quarters I64)))
       (OpenMenu)
@@ -325,7 +312,6 @@
           ((CancelAt cell) (at 6 cell))
           ((ScavengeAt cell) (at 7 cell))
           ((Locate cell) (at 8 cell))
-          ((Silence cell) (at 9 cell))
           ((Turn quarters) (Pair 10 (i64->i32 quarters)))
           ((Hand left) (Pair 11 (if left 1 0)))
           (_ (Pair (+ 20 (plain-code command)) 0)))))
@@ -369,7 +355,6 @@
           ((6) (Some (CancelAt cell)))
           ((7) (Some (ScavengeAt cell)))
           ((8) (Some (Locate cell)))
-          ((9) (Some (Silence cell)))
           ((10) (Some (Turn (i32->i64 argument))))
           ((11) (Some (Hand (= argument 1))))
           (else (find (lambda (command) (= (plain-code command) (- action 20)))
@@ -395,7 +380,6 @@
         ((ToggleRush) (Game-rush-set game (not (Game-rush game))))
         ((CloseCard) (Game-message-set (Game-selected-set game (None)) ""))
         ((Locate cell) (Game-selected-set (look-at game cell) (Some cell)))
-        ((Silence cell) (silence game cell))
         ((Home) (look-at game (Hub-cell (World-hub (Game-world game)))))
         ((Turn quarters) (turn game quarters))
         (_ (perform-menu game command))))
@@ -419,18 +403,6 @@
     (define (restart game)
       (game-around (new-world (+ (remainder (* (World-seed (Game-world game)) 48271) 65521) 1)) (Nil) (+ (Game-epoch game) 1) (Closed)
                    (Game-left-handed game) (Game-width game) (Game-height game)))
-
-    ;; ---- Alerts ----
-
-    ;; Silencing an area hides its alerts for eight seconds; the four most
-    ;; recent silences are kept.
-    (: silence (-> Game Cell Game))
-    (define (silence game cell)
-      (Game-mutes-set game (take (Cons (Mute cell (+ (World-tick (Game-world game)) 80)) (Game-mutes game)) 4)))
-
-    (: alert-muted? (-> Game Alert Bool))
-    (define (alert-muted? game alert)
-      (any? (lambda (mute) (and (within? (Alert-cell alert) (Mute-cell mute) 4) (< (World-tick (Game-world game)) (Mute-until mute)))) (Game-mutes game)))
 
     ;; ---- Keys ----
 

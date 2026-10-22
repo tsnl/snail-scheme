@@ -75,10 +75,11 @@ energy, work, the network or the first extractor, turns flat blue with
 faint lines; one that cannot apply to the selection fades. Rush
 finishes the selected work, or else makes new buildings rushed. A selected
 building or hub adds cancelling its work and scavenging it, or at the hub
-repair. Beside it come the menu and turning buttons, up to two attack
-alerts, which go to the attack or silence it for eight seconds, and the
-build queue, with a ring while a work builds and ! while it is unpowered;
-tap one to go to it.
+repair. Beside it come the menu and turning buttons and the build queue,
+with a ring while a work builds and ! while it is unpowered; tap one to go
+to it. Under the nests in the opposite corner, a red alert throbs while the
+colony is under attack and goes to the latest attack, and a notice says why
+an order was refused.
 
 | Key | Action |
 | --- | --- |
@@ -124,7 +125,7 @@ there are no save versions.
 | [`simulation.sld`](src/siegework/simulation.sld) | `act` and `advance`, the only ways the world changes, and the journal that replays them. |
 | [`game.sld`](src/siegework/game.sld) | The camera, selection, commands, keys, gestures, dialogs and saves. |
 | [`view.sld`](src/siegework/view.sld) | The scene in the original's palette and models. |
-| [`hud.sld`](src/siegework/hud.sld) | The dock, card, queue, alerts and dialogs. |
+| [`hud.sld`](src/siegework/hud.sld) | The dock, build menu, queue, opening banner, notices and dialogs. |
 | [`public/app.css`](public/app.css) | The HUD's palette and symbols. |
 
 Time is the world's tick: periodic rules fire on multiples of their period,

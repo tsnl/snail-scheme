@@ -52,7 +52,7 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 /* Construction: four buttons whose captions need room beneath them. */
 .panel[data-key="construction"] { gap: 16px; padding-bottom: 16px; }
 .label[data-key="divider"] { width: 60%; height: 0; padding: 0; margin: -4px 0; border-top: 2px solid var(--edge); border-radius: 0; }
-/* A toast under the nests: a notice that takes no input. */
+/* A refusal under the nests: a notice that takes no input. */
 .panel[data-key="message"] { max-width: 220px; border-radius: 14px; padding: 8px 14px; border-color: #e3a595; }
 /* The opening banner: the title, what to do before the game begins, and
    a link to the guide. */
@@ -61,6 +61,7 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
   text-transform: uppercase; }
 .label[data-key="opening"] { font-size: 22px; font-weight: 700; }
 .label[data-key="opening"] strong { color: #7b3fd6; font-weight: 800; }
+.label[data-key="opening"][data-tone="suggested"] strong { color: #12a189; }
 .link[data-key="how-to-play"] { margin-top: 6px; padding: 6px 16px; border-radius: 16px; color: #fff9e9; background: var(--accent);
   font-weight: 700; text-decoration: none; }
 .link[data-key="how-to-play"]:hover { background: #0a7f85; }
@@ -75,12 +76,12 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .button[data-tone="muted"] { color: #6c7a78; background: #e8e8dc; border-style: dashed; }
 .button[data-badge="!"]::after { background: var(--danger); }
 
-/* Each alert: go to the attack, or silence it. */
-.panel[data-key^="alert-"] { background: #ad4636; border-color: #dd8d75; }
-.panel[data-key^="alert-"] .button { color: #fff; background: #c05545; border-color: #dd8d75; }
-.panel[data-key^="alert-"] .button:hover { background: #cf6451; }
-.panel[data-key^="alert-"] .button[data-key="silence"] { width: 32px; height: 32px; }
-.panel[data-key^="alert-"] .button[data-key="silence"] .icon { width: 14px; height: 14px; }
+/* The attack alert under the nests: a red button that throbs while the
+   colony is under attack and goes to the latest attack. */
+.panel[data-key="alert"] { padding: 6px; border-color: #dd8d75; }
+.button[data-key="attack"] { color: #fff; background: #c05545; border-color: #a03f31; animation: alarm 1s ease-in-out infinite; }
+.button[data-key="attack"]:hover { background: #cf6451; }
+@keyframes alarm { 50% { box-shadow: 0 0 0 4px #c0554555, 0 0 16px 4px #e0775f; } }
 
 /* The nests and the clock. */
 .panel[data-key="objective"] { border-radius: 14px; }
