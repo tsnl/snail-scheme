@@ -502,6 +502,7 @@
           ((Match scrutinee clauses) (emit-match fn expr scrutinee clauses tail?))
           ((Handle effect implementations body) (emit-handle fn expr effect implementations body))
           ((Convert inner target) (emit-convert fn inner target (Expr-loc expr)))
+          ((TypeTest inner target) (list (type-test fn inner target)))
           ((Ann inner _) (emit fn inner tail?)))))
 
     ;; One instruction, wrapping a sequence in a block when needed.
@@ -1010,9 +1011,13 @@
           ((Some type) type)
           ((None) (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat "struct" (wat "field" (rep->wat r)))))))))
 
-    (: any-type-id (-> Type I64))
-    (define (any-type-id type)
-      (let ((hash (fnv-1a (type-key type))))
+    ;; The TypeId hashes the type with its structure as the wire schema
+    ;; writes it: fields and cases, recursively. A type whose fields or cases
+    ;; change gets a new one even when its name stays, so a program relinked
+    ;; with such a change cannot take an old value for a new one.
+    (: any-type-id (-> Module Type I64))
+    (define (any-type-id m type)
+      (let ((hash (fnv-1a (string-append (type-key type) "\n" (type-schema (program-of m) type (Nil) (Nil))))))
         (if (>= hash 2147483648) (- hash 4294967296) hash)))
 
     (: any-type? (-> Type Bool))
@@ -1038,7 +1043,7 @@
 
     (: to-any (-> Module Type Wat Wat ! mut))
     (define (to-any m type value)
-      (wat "struct.new" (id (any-type m)) (wat "i32.const" (int (any-type-id type)))
+      (wat "struct.new" (id (any-type m)) (wat "i32.const" (int (any-type-id m type)))
            (match (rep m type)
              ((Scalar _) (wat "struct.new" (id (box-type m (rep m type))) value))
              ((Reference _) value))))
@@ -1049,7 +1054,7 @@
              (payload (wat "struct.get" (Word "$any") (int 1) (wat "local.get" (id any)))))
         (wat "block" (wat "result" (rep->wat r))
              (wat "local.set" (id any) value)
-             (wat "if" (wat "i32.ne" (wat "struct.get" (Word "$any") (int 0) (wat "local.get" (id any))) (wat "i32.const" (int (any-type-id type))))
+             (wat "if" (wat "i32.ne" (wat "struct.get" (Word "$any") (int 0) (wat "local.get" (id any))) (wat "i32.const" (int (any-type-id m type))))
                   (wat "then" (wat "call" (id (panic-helper m)) (string-literal m (string-append "type-convert: the value is not a " (type->string type))))
                        (wat "unreachable")))
              (match r
@@ -1110,6 +1115,27 @@
            (register-type! m key (wasm-id key)
                            (wat "type" (id (wasm-id key))
                                 (wat* "func" (append (map (lambda (param) (wat "param" (rep->wat param))) params) (list (wat "result" (rep->wat result)))))))))))
+
+    ;; An Any holds a value of `type` when its TypeId is the type's and its
+    ;; value has the type's representation, which `ref.test` checks without
+    ;; trapping.
+    (: type-test (-> Fn Expr Type Wat ! mut))
+    (define (type-test fn inner type)
+      (let* ((m (Fn-module fn)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
+             (field (lambda (index) (wat "struct.get" (Word "$any") (int index) (wat "local.get" (id any))))))
+        (wat "block" (wat "result" (Word "i32"))
+             (wat "local.set" (id any) (emit1 fn inner))
+             (wat "if" (wat "result" (Word "i32")) (wat "i32.eq" (field 0) (wat "i32.const" (int (any-type-id m type))))
+                  (wat "then" (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 1)))
+                  (wat "else" (wat "i32.const" (int 0)))))))
+
+    ;; What an Any holds for a value of representation `r`: the value, or a
+    ;; box around a scalar.
+    (: held-type (-> Module Rep String ! mut))
+    (define (held-type m r)
+      (match r
+        ((Scalar _) (box-type m r))
+        ((Reference type) type)))
 
     ;; ---- Effect handlers ----
 
