@@ -1,5 +1,5 @@
 // One JSPI invocation owns its queue and waits; its application owns resources.
-import {programExports} from './load.mjs';
+import {programEntry, runEntry, byteSnapshot} from './actors.mjs';
 
 export const FRAME = 11, HIDDEN = 12, RELOAD = 13;
 const MOVE = 4, RESIZE = 8;
@@ -62,18 +62,7 @@ export function createEventQueue(frames = null) {
 
 // Both packaging modes describe the same entry, memory, and dynamic handlers.
 export function applicationEntry(program) {
-  const modules = program.linked ? [...program.linked.values()].map(instance => instance.exports) : [program.exports];
-  return {exports: program.linked ? programExports(program) : program.exports,
-          memory: program.linked ? program.runtime.exports.memory : program.exports.memory,
-          handlers: modules.flatMap(exports => Object.entries(exports).filter(([name]) => name.startsWith('handler.')).map(([, value]) => value))};
-}
-
-// A byte argument is a borrowed little-endian length and packed payload.
-// Copy before any await: staging may overwrite or grow this memory later.
-function byteSnapshot(memory, address) {
-  const pointer = address >>> 0, buffer = memory.buffer;
-  const length = new DataView(buffer).getUint32(pointer, true);
-  return new Uint8Array(buffer, pointer + 4, length).slice();
+  return programEntry(program, 'app_main');
 }
 
 // Imports stay attached to the application: kept library instances retain
@@ -125,7 +114,6 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
   function finish(run, state, error) {
     const unread = run.queue.close();
     if (run.accepted) pending.unshift(...unread);
-    run.handlers.forEach(([global, value]) => { global.value = value; });
     if (error) {
       run.ready.reject(error);
       if (run.accepted) reportError(error);
@@ -136,14 +124,13 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
   function start(entry, handover = null, {restore, transfer = false} = {}) {
     if (current && !current.queue.closed) throw new Error('application entries must not overlap');
     const ready = Promise.withResolvers(), queue = createEventQueue(transfer ? null : frames);
-    const run = {entry, ready, queue, restore, accepted: false, saved: null, loaded: null, event: null, boot: null,
-                 handlers: entry.handlers.map(global => [global, global.value]), done: null};
+    const run = {entry, ready, queue, restore, accepted: false, saved: null, loaded: null, event: null, boot: null, done: null};
     ready.promise.catch(() => {});
     current = run;
     if (transfer) queue.push(RELOAD);
     else { queue.push(RESIZE, ...size()); queue.push(FRAME, 0); }
     // Deferring the call also turns a synchronous ABI error into settlement.
-    run.done = Promise.resolve().then(() => WebAssembly.promising(entry.exports.app_main)(handover)).then(
+    run.done = Promise.resolve().then(() => runEntry(entry, handover)).then(
       state => finish(run, state, null),
       error => finish(run, run.boot === null ? handover : entry.exports.app_state(), error));
     return run;

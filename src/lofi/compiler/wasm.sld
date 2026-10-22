@@ -1106,6 +1106,38 @@
                ((Scalar _) (wat "struct.new" (id (held-type m r)) value))
                ((Reference _) value)))))
 
+    ;; A shared message has no reachable mutable storage, opaque value or
+    ;; closure. Check ground arguments and declared fields; cutting recursive
+    ;; declarations by name terminates even a polymorphically recursive type.
+    (: shareable? (-> Module Type (List String) Bool))
+    (define (shareable? m type visiting)
+      (match type
+        ((TCon name args)
+         (and (not (member? name (list "Ref" "Array" "Any" "Funcref")))
+              (every? (lambda (arg) (shareable? m arg visiting)) args)
+              (or (member? name visiting)
+                  (any? (lambda (entry) (string=? (Pair-first entry) name)) builtin-types)
+                  (shareable-fields? m type (Cons name visiting)))))
+        (_ #f)))
+
+    (: shareable-fields? (-> Module Type (List String) Bool))
+    (define (shareable-fields? m type visiting)
+      (every? (lambda (case)
+                (every? (lambda (field) (shareable? m field visiting)) (case-field-types m type case)))
+              (DataType-cases (data-type-of m (type-name type)))))
+
+    (: share-value (-> Module Expr Wat Wat ! mut))
+    (define (share-value m expr code)
+      (unless (shareable? m (Expr-type expr) (Nil))
+        (compile-error (Expr-loc expr) "a shared message cannot contain mutable storage, Any or functions"))
+      (to-any m (Expr-type expr) code))
+
+    (: shared-value (-> Fn Type Loc Wat Wat ! mut))
+    (define (shared-value fn type loc code)
+      (unless (shareable? (Fn-module fn) type (Nil))
+        (compile-error loc "a shared message cannot contain mutable storage, Any or functions"))
+      (from-any fn type code))
+
     (: from-any (-> Fn Type Wat Wat ! mut))
     (define (from-any fn type value)
       (let* ((m (Fn-module fn)) (r (fn-rep fn type)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
@@ -1361,6 +1393,8 @@
           (("unit") (list (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
+          (("share-value") (list (share-value m (first-arg args) (arg 0))))
+          (("shared-value") (list (shared-value fn type (Expr-loc (first-arg args)) (arg 0))))
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
           (("bool->i32" "char->i32" "i32->char" "string->vector" "vector->string" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))

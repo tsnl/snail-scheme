@@ -16,6 +16,10 @@ describe proposed behavior, kept apart from what is implemented.
   once, during checking.
 - Effect rows with tail-resumptive handlers and host defaults.
 - Wire types: derived `Serialize` and `Deserialize` with per-case TypeIds.
+- A general JSPI host with independent actors, dynamic spawning, queued
+  typed request/response and run-to-empty lifetimes. `(lofi actor)` uses
+  immutable local references or derived binary codecs. Node and browser
+  examples run the same client and server; see [actors](lofi/actors.md).
 - `(lofi app)` applications own a JSPI loop with queued events, suspending
   storage, a reset binder and checkpoint handovers on reload. Their browser
   host retains meshes and sprites drawn by
@@ -80,6 +84,12 @@ The [runtime and graphics plan](graphics/plan.md) lists the milestones of the
 rewrite. Pinned tools and the application main loop on JSPI are done;
 `ctl` operations, WebGPU through an effect, and the 2D and 3D `graphics`
 libraries remain proposed. Beyond them:
+
+- [ ] Actor worker pools for physical parallelism, with transfer between
+  distinct memory domains; the current host uses one JS execution agent.
+- [ ] Network actor transport, cancellation, supervision and backpressure.
+  The existing binary path runs inside one host and proves the codec
+  boundary; it does not yet connect separate hosts.
 
 - [ ] Move `ctl` operations, such as the proposed `wait-event` and
   `read-buffer`, from JSPI to native stack switching. Chrome 156 implements
