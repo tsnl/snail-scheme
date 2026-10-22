@@ -9,6 +9,7 @@
    program->wat
    program->schemas
    build-program
+   build-modules
    link-wat
    bootstrap!
    run-tool
@@ -52,18 +53,22 @@
     (define (program->schemas root directories source)
       (run-compiler root (selected-compiler root) "schema" directories source))
 
+    (define (run-compiler root command mode directories source)
+      (create-directory* (path-join root "build/lofi-run"))
+      (let ((output (path-join root "build/lofi-run/compiler-output.wat")))
+        (run-compiler-into root command mode directories source output)
+        (read-file output)))
+
     ;; The compiler stops with `generate KEY` when it needs a generated
     ;; library that has not been produced; producing it and compiling again
     ;; then finds its text.
-    (define (run-compiler root command mode directories source)
+    (define (run-compiler-into root command mode directories source output)
       (forget-generated! root)
-      (create-directory* (path-join root "build/lofi-run"))
-      (let* ((output (path-join root "build/lofi-run/compiler-output.wat"))
-             (result (process->output+error+status
-                      (append command (list mode source output (generated-directory root)) directories))))
-        (cond ((zero? (caddr result)) (read-file output))
+      (let ((result (process->output+error+status
+                     (append command (list mode source output (generated-directory root)) directories))))
+        (cond ((zero? (caddr result)) output)
               ((generate-request (cadr result))
-               => (lambda (key) (produce! root directories key) (run-compiler root command mode directories source)))
+               => (lambda (key) (produce! root directories key) (run-compiler-into root command mode directories source output)))
               (else (error (diagnostic (cadr result)))))))
 
     ;; The digits after `generate `, if the compiler asked for a library.
@@ -246,6 +251,44 @@
 
     (define (build-program root directories source output release?)
       (link-wat root (program->wat root directories source) output release?))
+
+    ;; ---- Linked modules ----
+
+    ;; A program linked when it runs: each library's module, assembled but
+    ;; not optimized, the runtime beside them, and modules.json naming the
+    ;; modules in program order for the loader in src/app/load.mjs.
+    (define (build-modules root directories source output)
+      (create-directory* output)
+      (run-compiler-into root (selected-compiler root) "modules" directories source output)
+      (let ((names (read-lines (path-join output "modules"))))
+        (for-each (lambda (name) (assemble (path-join output name))) names)
+        (copy-file! (build-runtime root) (path-join output "runtime.wasm"))
+        (write-file (path-join output "modules.json") (modules-json names))
+        output))
+
+    ;; PATH.wat to PATH.wasm.
+    (define (assemble path)
+      (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list (string-append path ".wat") "-o" (string-append path ".wasm")))))
+
+    (define (read-lines path)
+      (let loop ((lines '()) (rest (read-file path)))
+        (let ((cursor (string-contains rest "\n")))
+          (if cursor
+              (let ((end (string-cursor->index rest cursor)))
+                (loop (cons (substring rest 0 end) lines) (substring rest (+ end 1) (string-length rest))))
+              (reverse lines)))))
+
+    (define (modules-json names)
+      (string-append "{\"runtime\": \"runtime.wasm\", \"modules\": ["
+                     (let loop ((names names) (out ""))
+                       (if (null? names)
+                           out
+                           (loop (cdr names) (string-append out (if (string=? out "") "" ", ") "\"" (car names) "\""))))
+                     "]}\n"))
+
+    (define (copy-file! from to)
+      (let ((bytes (call-with-port (open-binary-input-file from) (lambda (port) (read-bytevector (file-size from) port)))))
+        (call-with-port (open-binary-output-file to) (lambda (port) (write-bytevector bytes port)))))
 
     ;; ---- Failures ----
 

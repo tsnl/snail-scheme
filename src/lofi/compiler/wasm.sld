@@ -2,10 +2,13 @@
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
 ;; other data are GC structs (enum cases are subtypes of a tagged base),
 ;; sequences are GC arrays, and functions are closures holding a typed
-;; function reference. Calls in tail position become `return_call`.
+;; function reference. Calls in tail position become `return_call`. A whole
+;; program becomes one module; one library becomes a module that imports
+;; what it uses from the modules of other libraries.
 (define-library (lofi compiler wasm)
   (export
    emit-module
+   emit-unit
    wat->string)
   (import
    (lofi base)
@@ -126,13 +129,16 @@
 
     ;; ---- Module state ----
 
-    ;; Every GC type lives in one recursion group, registered on first use.
-    ;; Functions are kept as text, other fields as trees. `memo` caches
-    ;; closures for global functions, singletons and string literals;
-    ;; `helpers` caches imports and helper functions by key.
+    ;; GC types are registered on first use. Functions are kept as text,
+    ;; other fields as trees. `memo` caches closures for global functions, singletons and
+    ;; string literals; `helpers` caches imports and helper functions by key.
+    ;; A library's module names its `owner`, and `externals` holds the other
+    ;; libraries' definitions it imports.
     (struct Module
       ((program Program)
        (definitions (Table Expr))
+       (owner (Option String))
+       (externals (Table Expr))
        (type-ids (Ref (Table String)))
        (types (Ref (List Wat)))
        (imports (Ref (List Wat)))
@@ -558,16 +564,53 @@
         (match (local-access fn name)
           ((Some access) access)
           ((None)
-           (match (table-ref (Module-definitions m) name)
+           (match (definition-of m name)
              ((Some definition)
               (cond ((lambda-expr? definition) (function-value m name type))
-                    ((scalar? (fn-rep fn type)) (wat "global.get" (id (wasm-id name))))
-                    (else (wat "ref.as_non_null" (wat "global.get" (id (wasm-id name)))))))
+                    ((scalar? (fn-rep fn type)) (wat "global.get" (id (global-id m name type))))
+                    (else (wat "ref.as_non_null" (wat "global.get" (id (global-id m name type)))))))
              ((None)
               (match (program-value (program-of m) name)
                 ((Some (Constructor case _)) (if (null? (Case-fields case)) (construct fn case type (Nil)) (function-value m name type)))
                 ((Some _) (function-value m name type))
                 ((None) (panic (string-append "internal error: unknown variable " name))))))))))
+
+    ;; A definition of this module, or one it imports from another library's.
+    (: definition-of (-> Module String (Option Expr)))
+    (define (definition-of m name)
+      (match (table-ref (Module-definitions m) name)
+        ((Some definition) (Some definition))
+        ((None) (table-ref (Module-externals m) name))))
+
+    ;; Another library's function is imported from its module, by its global
+    ;; name.
+    (: function-id (-> Module String String ! mut))
+    (define (function-id m name)
+      (match (table-ref (Module-externals m) name)
+        ((Some definition)
+         (let ((signature (function-signature m (Expr-type definition))))
+           (import! m (Import (name-owner name) name) (Pair-first signature) (Some (Pair-second signature)))))
+        ((None) (wasm-id name))))
+
+    ;; Another library's value is a mutable global of its module, imported.
+    (: global-id (-> Module String Type String ! mut))
+    (define (global-id m name type)
+      (if (table-contains? (Module-externals m) name)
+          (helper-import! m (string-append "global:" name)
+                          (lambda (global) (wat "import" (wat-string (name-owner name)) (wat-string name)
+                                                (wat "global" (id global) (wat "mut" (nullable (rep m type)))))))
+          (wasm-id name)))
+
+    ;; An import declared once, under a name its key decides.
+    (: helper-import! (-> Module String (-> String Wat ! mut) String ! mut))
+    (define (helper-import! m key declaration)
+      (match (table-ref (ref-get (Module-helpers m)) key)
+        ((Some found) found)
+        ((None)
+         (let ((name (wasm-id key)))
+           (put! (Module-helpers m) key name)
+           (push! (Module-imports m) (declaration name))
+           name))))
 
     (: scalar? (-> Rep Bool))
     (define (scalar? rep)
@@ -699,10 +742,10 @@
     (define (named-call fn expr callee name args tail?)
       (if (local? fn name)
           (closure-call fn callee args tail?)
-          (match (table-ref (Module-definitions (Fn-module fn)) name)
+          (match (definition-of (Fn-module fn) name)
             ((Some definition)
              (if (lambda-expr? definition)
-                 (list (wat* (call-op tail?) (Cons (id (wasm-id name)) (emit-args fn args))))
+                 (list (wat* (call-op tail?) (Cons (id (function-id (Fn-module fn) name)) (emit-args fn args))))
                  (closure-call fn callee args tail?)))
             ((None) (builtin-call fn expr name args)))))
 
@@ -886,11 +929,13 @@
         (cond ((tag-enum? m name) (list (wat "br_if" (id fail) (wat "i32.ne" value (wat "i32.const" (int (Case-tag case)))))))
               ((not (DataType-enum? (data-type-of m name))) (fields-code fn (data-type m type) 0 args types value fail))
               (else
-               (let ((base (data-type m type)) (case-id (case-type m type case)))
+               ;; A case's own type is registered only when its fields are
+               ;; read, so a field-less case never declares one.
+               (let ((base (data-type m type)))
                  (Cons (wat "br_if" (id fail) (wat "i32.ne" (wat "struct.get" (id base) (int 0) value) (wat "i32.const" (int (Case-tag case)))))
                        (if (every? wild? args)
                            (Nil)
-                           (let ((cast (declare-temp! fn (rep->wat (Reference case-id)))))
+                           (let* ((case-id (case-type m type case)) (cast (declare-temp! fn (rep->wat (Reference case-id)))))
                              (Cons (wat "local.set" (id cast) (wat "ref.cast" (wat "ref" (id case-id)) value))
                                    (fields-code fn case-id 1 args types (wat "local.get" (id cast)) fail))))))))))
 
@@ -994,9 +1039,22 @@
              (let ((fields (map (lambda (operation) (wat "field" (rep->wat (rep m (operation-type m operation)))))
                                 (Effect-operations (program-effect (program-of m) effect)))))
                (push! (Module-types m) (wat "type" (id type-id) (wat* "struct" (append fields (list (wat "field" (wat "ref" (Word "null") (id type-id))))))))
-               (push! (Module-globals m)
-                      (wat "global" (id (handler-global effect)) (wat "mut" (wat "ref" (Word "null") (id type-id))) (wat "ref.null" (id type-id))))
+               (declare-handler-global! m effect type-id)
                type-id))))))
+
+    ;; In a program linked from library modules, the module of the library
+    ;; that declares an effect holds its handler stack and exports it, and
+    ;; the others import it.
+    (: declare-handler-global! (-> Module String String Unit ! mut))
+    (define (declare-handler-global! m effect type-id)
+      (let ((type (wat "mut" (wat "ref" (Word "null") (id type-id)))) (symbol (string-append "handler." effect)))
+        (match (Module-owner m)
+          ((Some owner)
+           (if (string=? owner (name-owner effect))
+               (begin (push! (Module-globals m) (wat "global" (id (handler-global effect)) type (wat "ref.null" (id type-id))))
+                      (push! (Module-exports m) (wat "export" (wat-string symbol) (wat "global" (id (handler-global effect))))))
+               (push! (Module-imports m) (wat "import" (wat-string (name-owner effect)) (wat-string symbol) (wat "global" (id (handler-global effect)) type)))))
+          ((None) (push! (Module-globals m) (wat "global" (id (handler-global effect)) type (wat "ref.null" (id type-id))))))))
 
     (: operation-type (-> Module String Type))
     (define (operation-type m operation)
@@ -1313,38 +1371,187 @@
     (define (wat->text wat)
       (string-concatenate (reverse (write-wat wat (Nil)))))
 
+    ;; ---- Type groups ----
+
+    ;; Two modules share a GC type only when both declare it in identical
+    ;; recursion groups, so a module puts each type in the smallest group it
+    ;; can: the types that refer to one another. That group is closed under
+    ;; references, so every module that uses one of its types declares all
+    ;; of them; listed by name, and after the groups they refer to, they are
+    ;; declared the same way everywhere. Cases of one enum with the same
+    ;; fields may share a type, since a match tests the tag before it casts.
+    (: type-groups (-> (List Wat) (List Wat) ! mut))
+    (define (type-groups definitions)
+      (let ((named (fold-left (lambda (table definition) (table-set table (type-definition-name definition) definition))
+                              empty-table definitions)))
+        (map (lambda (group) (group-wat named group))
+             (strong-components (sort-strings (map type-definition-name definitions)) (lambda (name) (type-edges named name))))))
+
+    (: type-definition-name (-> Wat String))
+    (define (type-definition-name definition)
+      (match definition
+        ((Node (Cons _ (Cons (Word name) _))) name)
+        (_ (panic "internal error: not a type definition"))))
+
+    ;; The types a definition refers to: its fields, parameters, results and
+    ;; supertype.
+    (: type-edges (-> (Table Wat) String (List String)))
+    (define (type-edges named name)
+      (sort-strings (delete-duplicates string=? (filter (lambda (word) (and (not (string=? word name)) (table-contains? named word)))
+                                                        (wat-words (table-ref-or-wat named name))))))
+
+    (: table-ref-or-wat (-> (Table Wat) String Wat))
+    (define (table-ref-or-wat table key)
+      (match (table-ref table key)
+        ((Some value) value)
+        ((None) (panic "internal error: unknown type"))))
+
+    (: wat-words (-> Wat (List String)))
+    (define (wat-words wat)
+      (match wat
+        ((Word text) (list text))
+        ((Node items) (concatenate (map wat-words items)))))
+
+    (: group-wat (-> (Table Wat) (List String) Wat))
+    (define (group-wat named group)
+      (match group
+        ((Cons name (Nil)) (table-ref-or-wat named name))
+        (_ (wat* "rec" (map (lambda (name) (table-ref-or-wat named name)) (sort-strings group))))))
+
+    ;; Tarjan's algorithm: each component comes after every component it can
+    ;; reach.
+    (struct Search
+      ((edges (-> String (List String)))
+       (index (Ref (Table I64)))
+       (low (Ref (Table I64)))
+       (stack (Ref (List String)))
+       (open (Ref (Table Bool)))
+       (components (Ref (List (List String))))))
+
+    (: strong-components (-> (List String) (-> String (List String)) (List (List String)) ! mut))
+    (define (strong-components names edges)
+      (let ((search (Search edges (ref empty-table) (ref empty-table) (ref (Nil)) (ref empty-table) (ref (Nil)))))
+        (for-each (lambda (name) (unless (visited? search name) (visit! search name))) names)
+        (reverse (ref-get (Search-components search)))))
+
+    (: visited? (-> Search String Bool ! mut))
+    (define (visited? search name)
+      (table-contains? (ref-get (Search-index search)) name))
+
+    (: search-number (-> (Ref (Table I64)) String I64 ! mut))
+    (define (search-number cell name)
+      (match (table-ref (ref-get cell) name)
+        ((Some number) number)
+        ((None) 0)))
+
+    (: visit! (-> Search String Unit ! mut))
+    (define (visit! search name)
+      (let ((number (table-count (ref-get (Search-index search)))))
+        (put! (Search-index search) name number)
+        (put! (Search-low search) name number)
+        (push! (Search-stack search) name)
+        (put! (Search-open search) name #t)
+        (for-each (lambda (next) (follow! search name next)) ((Search-edges search) name))
+        (when (= (search-number (Search-low search) name) number)
+          (pop-component! search name))))
+
+    (: follow! (-> Search String String Unit ! mut))
+    (define (follow! search name next)
+      (cond ((not (visited? search next)) (visit! search next) (lower! search name (search-number (Search-low search) next)))
+            ((match (table-ref (ref-get (Search-open search)) next) ((Some open) open) ((None) #f))
+             (lower! search name (search-number (Search-index search) next)))
+            (else (unit))))
+
+    (: lower! (-> Search String I64 Unit ! mut))
+    (define (lower! search name number)
+      (put! (Search-low search) name (min (search-number (Search-low search) name) number)))
+
+    (: pop-component! (-> Search String Unit ! mut))
+    (define (pop-component! search name)
+      (let loop ((component (Nil)))
+        (match (ref-get (Search-stack search))
+          ((Cons top rest)
+           (ref-set! (Search-stack search) rest)
+           (put! (Search-open search) top #f)
+           (if (string=? top name)
+               (push! (Search-components search) (Cons top component))
+               (loop (Cons top component))))
+          ((Nil) (panic "internal error: empty search stack")))))
+
+    (: sort-strings (-> (List String) (List String)))
+    (define (sort-strings strings)
+      (let ((count (length strings)))
+        (if (< count 2)
+            strings
+            (merge-strings (sort-strings (take strings (quotient count 2))) (sort-strings (drop strings (quotient count 2)))))))
+
+    (: merge-strings (-> (List String) (List String) (List String)))
+    (define (merge-strings a b)
+      (match (Pair a b)
+        ((Pair (Nil) _) b)
+        ((Pair _ (Nil)) a)
+        ((Pair (Cons x xs) (Cons y ys)) (if (string<? y x) (Cons y (merge-strings a ys)) (Cons x (merge-strings xs b))))))
+
     ;; ---- Modules ----
 
     ;; Functions become Wasm functions and other definitions become globals.
     ;; `main` initializes the globals and runs the statements in program order.
     (: emit-module (-> Mono Wat ! mut))
     (define (emit-module mono)
-      (let* ((items (Mono-items mono))
-             (definitions (fold-left (lambda (table item)
-                                       (match item
-                                         ((Define name value) (table-set table name value))
-                                         (_ table)))
-                                     empty-table items))
-             (m (Module (Mono-program mono) definitions (ref empty-table) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil))
-                        (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0))))
-        (for-each (lambda (item)
-                    (match item
-                      ((Define name value) (when (lambda-expr? value) (emit-function! m name value)))
-                      (_ (unit))))
-                  items)
-        (emit-main! m items)
+      (let ((m (new-module mono (None))))
+        (emit-items! m (Mono-items mono))
         (module-wat m)))
 
-    ;; The fields in the order Wasm requires: one recursion group of types,
-    ;; then imports, globals, declared function references, exports and code.
-    ;; Every module imports the runtime's linear memory, where staged text
-    ;; goes; once linked, the two share it.
+    ;; A library's module also holds the handler stacks of the effects its
+    ;; library declares, and exports its monomorphic definitions under their
+    ;; global names, for the modules that import them. Its `main` initializes
+    ;; it; the loader runs each module's in program order.
+    (: emit-unit (-> Mono String Wat ! mut))
+    (define (emit-unit mono owner)
+      (let ((m (new-module mono (Some owner))))
+        (for-each (lambda (effect) (handler-type m effect) (unit))
+                  (sort-strings (filter (lambda (effect) (string=? (name-owner effect) owner))
+                                        (table-keys (Program-effects (Mono-program mono))))))
+        (emit-items! m (Mono-items mono))
+        (for-each (lambda (name) (export-definition! m name)) (Mono-exported mono))
+        (module-wat m)))
+
+    (: new-module (-> Mono (Option String) Module ! mut))
+    (define (new-module mono owner)
+      (let ((definitions (fold-left (lambda (table item)
+                                      (match item
+                                        ((Define name value) (table-set table name value))
+                                        (_ table)))
+                                    empty-table (Mono-items mono))))
+        (Module (Mono-program mono) definitions owner (Mono-externals mono) (ref empty-table) (ref (Nil)) (ref (Nil)) (ref (Nil))
+                (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0))))
+
+    (: emit-items! (-> Module (List Item) Unit ! mut))
+    (define (emit-items! m items)
+      (for-each (lambda (item)
+                  (match item
+                    ((Define name value) (when (lambda-expr? value) (emit-function! m name value)))
+                    (_ (unit))))
+                items)
+      (emit-main! m items))
+
+    (: export-definition! (-> Module String Unit ! mut))
+    (define (export-definition! m name)
+      (match (table-ref (Module-definitions m) name)
+        ((Some definition)
+         (push! (Module-exports m) (wat "export" (wat-string name) (wat (if (lambda-expr? definition) "func" "global") (id (wasm-id name))))))
+        ((None) (panic (string-append "internal error: nothing to export for " name)))))
+
+    ;; The fields in the order Wasm requires: types in their recursion
+    ;; groups, then imports, globals, declared function references, exports
+    ;; and code. Every module imports the runtime's linear memory, where
+    ;; staged text goes; once linked, the two share it.
     (: module-wat (-> Module Wat ! mut))
     (define (module-wat m)
-      (let ((types (reverse (ref-get (Module-types m)))) (declared (reverse (ref-get (Module-declared m)))))
+      (let ((declared (reverse (ref-get (Module-declared m)))))
         (wat* "module"
               (concatenate
-               (list (if (null? types) (Nil) (list (wat* "rec" types)))
+               (list (type-groups (reverse (ref-get (Module-types m))))
                      (Cons (wat "import" (wat-string "snail.library") (wat-string "memory") (wat "memory" (int 0)))
                            (reverse (ref-get (Module-imports m))))
                      (reverse (ref-get (Module-globals m)))

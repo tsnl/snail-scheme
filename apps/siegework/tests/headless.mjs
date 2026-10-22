@@ -3,7 +3,9 @@
 // cells, an order given through the HUD's card, five minutes of play, a drag
 // of the camera, and a save replayed through the application entry points.
 import {readFile} from 'node:fs/promises';
+import {dirname, join} from 'node:path';
 import assert from 'node:assert/strict';
+import {instantiateRuntime, linkModules, loadManifest, runModules} from '../../../src/app/load.mjs';
 
 const ELAPSED = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 const SUGGESTED = 5;
@@ -40,15 +42,17 @@ function screen() {
   return host;
 }
 
+// A linked module, or a modules.json naming the game's library modules,
+// which link to a runtime instance of their own (src/app/load.mjs).
 async function instantiate(path, host) {
-  let exports;
-  const view = () => new DataView(exports.memory.buffer);
+  let memory;
+  const view = () => new DataView(memory.buffer);
   const wasi = {
     fd_write(fd, iovs, count, written) {
       let total = 0;
       for (let i = 0; i < count; i++) {
         const pointer = view().getUint32(iovs + 8 * i, true), length = view().getUint32(iovs + 8 * i + 4, true);
-        process.stdout.write(Buffer.from(exports.memory.buffer, pointer, length));
+        process.stdout.write(Buffer.from(memory.buffer, pointer, length));
         total += length;
       }
       view().setUint32(written, total, true);
@@ -58,11 +62,22 @@ async function instantiate(path, host) {
     environ_get: () => 0, environ_sizes_get(a, b) { view().setUint32(a, 0, true); view().setUint32(b, 0, true); return 0; },
     fd_close: () => 0, fd_prestat_get: () => 8, fd_prestat_dir_name: () => 8,
   };
+  if (path.endsWith('.json')) return instantiateLinked(path, host, wasi, runtimeMemory => { memory = runtimeMemory; });
   const {instance} = await WebAssembly.instantiate(await readFile(path), {wasi_snapshot_preview1: wasi, 'snail.screen': host.imports});
-  exports = instance.exports;
-  exports._initialize();
-  exports.main();
-  return exports;
+  memory = instance.exports.memory;
+  instance.exports._initialize();
+  instance.exports.main();
+  return instance.exports;
+}
+
+async function instantiateLinked(path, host, wasi, useMemory) {
+  const {runtime, modules} = await loadManifest(file => readFile(join(dirname(path), file)));
+  const instance = await instantiateRuntime(runtime, {wasi_snapshot_preview1: wasi});
+  useMemory(instance.exports.memory);
+  instance.exports._initialize();
+  const linked = await linkModules(instance, modules, {'snail.screen': host.imports});
+  runModules(linked, modules.map(entry => entry.name));
+  return linked.get(modules.at(-1).name).exports;
 }
 
 const widget = (host, key) => host.widgets.find(entry => entry.key === key);

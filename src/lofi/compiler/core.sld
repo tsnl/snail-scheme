@@ -115,6 +115,7 @@
    Program
    empty-program
    Program-instances
+   Program-effects
    program-value
    program-type
    program-class
@@ -126,7 +127,10 @@
    add-instance!
    add-effect!
    add-item!
+   add-unit!
    program-items
+   unit-items
+   name-owner
    primitives
    fnv-1a
    case-type-id
@@ -557,18 +561,22 @@
     ;; ---- Programs ----
 
     ;; A program is a value: the expander builds it up in one cell, and the
-    ;; later passes only read it. Items are kept newest first.
+    ;; later passes only read it. Items are kept newest first. `units` names
+    ;; each library, newest first, with the number of items it added: a
+    ;; library's items are contiguous, after those of the libraries it
+    ;; imports, so the program's items divide into one run per library.
     (struct Program
       ((values (Table Value))
        (types (Table DataType))
        (classes (Table Class))
        (instances (Table (List Instance)))
        (effects (Table Effect))
-       (items (List Item))))
+       (items (List Item))
+       (units (List (Pair String I64)))))
 
     (: empty-program Program)
     (define empty-program
-      (Program empty-table empty-table empty-table empty-table empty-table (Nil)))
+      (Program empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
 
     (: program-value (-> Program String (Option Value)))
     (define (program-value program name)
@@ -635,6 +643,29 @@
     (: program-items (-> Program (List Item)))
     (define (program-items program)
       (reverse (Program-items program)))
+
+    (: add-unit! (-> (Ref Program) String I64 Unit ! mut))
+    (define (add-unit! cell name count)
+      (let ((program (ref-get cell)))
+        (ref-set! cell (Program-units-set program (Cons (Pair name count) (Program-units program))))))
+
+    ;; Divides items in program order, such as the program's own or their
+    ;; checked copies, into each library's run.
+    (: unit-items (-> Program (List Item) (List (Pair String (List Item)))))
+    (define (unit-items program items)
+      (let loop ((units (reverse (Program-units program))) (items items) (out (Nil)))
+        (match units
+          ((Cons (Pair name count) rest) (loop rest (list-tail items count) (Cons (Pair name (take items count)) out)))
+          ((Nil) (reverse out)))))
+
+    ;; The library that defines a global: its name up to the first colon.
+    (: name-owner (-> String String))
+    (define (name-owner name)
+      (let ((chars (string->vector name)))
+        (let loop ((index 0))
+          (cond ((= index (vector-length chars)) "")
+                ((char=? (vector-ref chars index) #\:) (substring name 0 index))
+                (else (loop (+ index 1)))))))
 
     ;; ---- Wire identities ----
 

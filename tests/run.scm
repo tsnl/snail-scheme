@@ -2,7 +2,8 @@
 ;; program NAME.sld must print NAME.out exactly, or fail to compile with the
 ;; text of NAME.err in its diagnostic. Then the Siegework package is built
 ;; and driven headlessly. Programs compile one at a time, then link and run
-;; in parallel. Finally the development server serves and rebuilds an
+;; in parallel. Finally some programs and Siegework run again as modules
+;; linked when they run, and the development server serves and rebuilds an
 ;; application.
 ;;
 ;;   chibi-scheme -D snail-tests -I host/chibi -I src -I tests tests/run.scm ROOT [NAME ...]
@@ -117,6 +118,42 @@
           ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
           (else #t))))
 
+;; ---- Linked modules ----
+
+;; Programs compiled one library at a time and linked when they run, by
+;; scripts/run-lofi.mjs and the loader in src/app/load.mjs, must print what
+;; their statically linked builds print. A sample of the suites covers each
+;; kind of definition crossing a module boundary, and Siegework covers an
+;; application. Building runs the compiler, so these run after the others.
+(define linked-cases
+  '(("examples" "fibonacci") ("examples" "effects") ("examples" "colors") ("examples" "scheme-fibonacci")
+    ("tests/programs" "closures") ("tests/programs" "classes-advanced") ("tests/programs" "data") ("tests/programs" "dynamic")
+    ("tests/programs" "wire") ("tests/programs" "tables") ("tests/programs" "libraries") ("tests/programs" "generated")))
+
+(define (suite-libraries suite)
+  (if (string=? suite "examples") '("examples") '("tests/programs" "tests/programs/lib")))
+
+(define (run-linked root suite name)
+  (guard (failure (#t (report name "linked build failed" (error-text failure))))
+    (let ((output (path-join root "build/tests/linked" name)))
+      (build-modules root (append (map (lambda (library) (path-join root library)) (suite-libraries suite)) (list (path-join root "lib")))
+                     (path-join root suite (string-append name ".sld")) output)
+      (let ((printed (run-wasm root (path-join output "modules.json")))
+            (expected (read-text (path-join root suite (string-append name ".out")))))
+        (or (equal? printed expected) (report name "wrong output when linked" (string-append printed "\nexpected:\n" expected)))))))
+
+(define (run-linked-siegework root)
+  (guard (failure (#t (report "siegework" "linked build failed" (error-text failure))))
+    (let ((output (path-join root "build/tests/linked/siegework")))
+      (build-modules root (list (path-join root "apps/siegework/src") (path-join root "lib")) (path-join root "apps/siegework/main.sld") output)
+      (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs")
+                                                        (path-join output "modules.json")))))
+        (or (zero? (caddr result)) (report "siegework" "linked headless run failed" (string-append (car result) (cadr result))))))))
+
+(define (run-linked-cases root)
+  (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
+          (list (run-linked-siegework root))))
+
 ;; ---- Development loop ----
 
 ;; `lofi serve` and `lofi watch` build while they run, and every compiler
@@ -170,7 +207,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root)) '())))
-         (results (append (run-checks cases) (if (null? selected) (list (run-develop root)) '())))
+         (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
     (if (zero? failures) 0 1)))

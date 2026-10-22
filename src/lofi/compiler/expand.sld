@@ -307,8 +307,16 @@
       (let* ((sections (concatenate (map library-sections declarations)))
              (cx (Context-prefix-set cx (string-join name ".")))
              (env (import-env cx (section-items sections "import"))))
-        (expand-top-level cx env (section-items sections "begin"))
+        (expand-unit cx env (section-items sections "begin"))
         (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export"))))
+
+    ;; Expands the body of a library or of the program after its imports, so
+    ;; its items follow theirs, and records how many it added.
+    (: expand-unit (-> Context Env (List Syntax) Unit ! mut fs))
+    (define (expand-unit cx env forms)
+      (let ((before (length (program-items (program cx)))))
+        (expand-top-level cx env forms)
+        (add-unit! (Context-program cx) (Context-prefix cx) (- (length (program-items (program cx))) before))))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -354,7 +362,7 @@
         (match forms
           ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
           (_ (let* ((cx (Context-prefix-set cx "main")) (env (import-env cx specs)))
-               (expand-top-level cx env forms)
+               (expand-unit cx env forms)
                (program cx))))))
 
     ;; ---- Imports and exports ----

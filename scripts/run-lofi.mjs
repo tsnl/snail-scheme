@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 import {readFile} from 'node:fs/promises';
+import {dirname, join} from 'node:path';
 import {WASI} from 'node:wasi';
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
+import {instantiateRuntime, linkModules, loadManifest, runModules} from '../src/app/load.mjs';
 
 // ---- One reactor initialization and one program invocation ----
+//
+// A program is one linked module, or a modules.json naming the modules of a
+// program compiled one library at a time (src/app/load.mjs).
 
 function resultStatus(value) {
   if (value === undefined) return 0;
@@ -16,6 +21,7 @@ function resultStatus(value) {
 async function run(filename, arguments_) {
   const wasi = new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
+  if (filename.endsWith('.json')) return runLinked(filename, wasi);
   const {instance} = await WebAssembly.instantiate(await readFile(filename), wasi.getImportObject());
   let status = 1;
   try {
@@ -23,6 +29,21 @@ async function run(filename, arguments_) {
     status = resultStatus(instance.exports.main());
   } finally {
     if (instance.exports['close-resources']() !== 0 && status === 0) status = 1;
+  }
+  return status;
+}
+
+// A modules.json names a program compiled one library at a time; the
+// runtime is its own instance, which the modules import from.
+async function runLinked(manifest, wasi) {
+  const {runtime, modules} = await loadManifest(file => readFile(join(dirname(manifest), file)));
+  const instance = await instantiateRuntime(runtime, wasi.getImportObject());
+  wasi.initialize(instance);
+  let status = 1;
+  try {
+    status = resultStatus(runModules(await linkModules(instance, modules, {}), modules.map(entry => entry.name)));
+  } finally {
+    if (instance.exports['snail:io/close-all']() !== 0 && status === 0) status = 1;
   }
   return status;
 }
