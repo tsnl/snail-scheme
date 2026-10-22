@@ -206,6 +206,7 @@ async function startCold(application) {
 }
 
 function reportApplicationError(error) {
+  console.error(error);
   dispatchEvent(new ErrorEvent('error', {message: error.message, error}));
 }
 

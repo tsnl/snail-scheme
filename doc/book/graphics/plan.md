@@ -1,124 +1,116 @@
 # Runtime and graphics plan
 
-**Status: proposed,** except milestone 1, the pinned tools, which is done.
-Today an application is a `(lofi app)` program whose host calls into it for
-every input and frame, and whose frames are drawn by a fixed WebGPU renderer
-in `src/app/renderer.mjs`. This plan replaces both: the application runs its
-own main loop, suspended between events by JavaScript Promise Integration
-(JSPI), and draws through an effect that exposes WebGPU itself, with a
-`graphics` library of pipelines and packers on top.
+**Status:** milestones 1 (tools) and 2 (the application runtime) are
+implemented. The `ctl`, GPU and graphics-library work below remains
+proposed. Applications run their own loop on JavaScript Promise Integration
+(JSPI), while `src/app/renderer.mjs` still draws their `Frame` values. The
+later milestones replace that renderer with a WebGPU effect and `graphics`
+libraries of pipelines and packers.
 
 ## The application runs its own loop
 
-An application is a set of messages, each with the effects it may perform:
+An application's messages are pure functions over immutable state:
 
 ```scheme
 (define-application Game
-  (reset reset)       ; returns the binder the runtime runs inside
-  (init  new-game)    ; seed width height -> Game                 total
-  (update step)       ; Game Input -> Game                        total
-  (view  draw)        ; Game -> Unit ! gpu                        one frame
-  (hud   panels)      ; Game -> (List Panel)                      the HTML HUD
-  (save save) (restore restore))
-
-;; The binder installs handlers around whatever the runtime runs inside it.
-(: reset (All (e) (-> (-> (-> Unit ! gpu e) Unit ! e webgpu))))
-(define (reset)
-  (lambda (run) (with-webgpu config (lambda () (with-gpu-trace run)))))
+  (reset: default-reset) ; returns the binder the runtime runs inside
+  (init: new-game)       ; seed width height -> Game
+  (update: step)         ; Game Input -> Game
+  (view: draw)           ; Game -> Frame
+  (hud: panels)          ; Game -> (List Panel)
+  (save: save-game)      ; Game -> Save
+  (restore: restore-game)) ; Save -> Game
 ```
 
-Message handlers never call one another; only the runtime does. `reset`
-returns a binder rather than running the loop itself, so it stays a leaf
-like `update` and `view`, and the runtime decides what runs inside the
-handlers: the main loop, a test, or the next run after a reload. Its effect
-row is quantified on `reset` itself, so the binder needs no higher-rank
-type: the runtime instantiates it once, at the loop's own row.
+Only the loop calls the messages. `reset` returns a binder that surrounds
+startup and the entire run with handlers. Its result and effect row are
+quantified on the factory, rather than on the returned binder, so the
+binder is monomorphic. `default-reset` just calls its argument. A later GPU
+binder will install WebGPU handlers at this same boundary.
 
-The game's state is a loop variable, never a GPU object, and `update` stays
-total so simulation stays deterministic and saves stay trivial.
-`define-application` generates the loop, exported as `app_main`:
+The generated loop exports `app_main : (Option Any) -> (Option Any)` with
+`mut`, `screen`, `events` and `storage` effects. It first adopts a compatible
+handover by structural TypeId, restores saved bytes if the type changed, or
+initializes a cold start without a save. A live migration refuses an absent
+or incompatible save; it never silently initializes fresh state. Only cold
+startup may retry without an incompatible saved value.
 
-```scheme
-(: app-main (-> (Option Any) (Option Any) ! events storage webgpu))
-(define (app-main handover)
-  ((reset) (lambda () (run (boot handover)))))
+`next-event` drains the queue through a plain `poll-event` import and
+suspends through `wait-event` when it is empty:
 
-;; A state handed over by a reload is adopted when its type is unchanged;
-;; otherwise the last save is restored, or a new game begins. The host is
-;; told which, so a reload can say whether the game survived it.
-(define (boot handover)
-  (match (adopt handover)
-    ((Some state) (report-boot (Adopted)) state)
-    ((None) (match (load-save)                         ; suspends on IndexedDB
-              ((Some bytes) (report-boot (Restored)) (restore-or-init bytes))
-              ((None) (report-boot (Fresh)) (init (random-seed) (canvas-size)))))))
+- `FrameEvent` updates elapsed time, constructs a `Frame`, and renders it.
+  HUD values are computed at most every 100 milliseconds; saves are made
+  every five seconds.
+- `InputEvent` updates state and the HTML HUD.
+- `Hidden` saves and continues.
+- `Reload` saves and returns the state as an opaque `Any`.
 
-;; The loop keeps its latest state in a cell, and returns the state a reload
-;; hands to the next run.
-(define (run state)
-  (remember! state)
-  (match (next-event)
-    ((Frame elapsed) (let ((next (update state (Elapsed elapsed)))) (view next) (run next)))
-    ((Input input) (run (update state input)))
-    ((Hidden) (store-save (save state)) (run state))
-    ((Reload) (store-save (save state)) (Some (type-convert state Any)))))
-```
-
-`app_main` takes and returns an `(Option Any)`. `adopt` is a type test, not a
-cast: it returns None when the `Any` holds another type, comparing TypeIds
-that hash each type's fields and cases, so a reordered enum is a different
-type. `app_state`, a plain export, returns the state cell as an `Any`.
-
-`next-event` drains queued events through `poll-event`, a plain import, and
-suspends through `wait-event` only when the queue is empty.
+The state is a loop variable. One cell records the last state whose entire
+event succeeded, after presentation and any save. A trap cannot commit its
+partially processed candidate. States must be immutable; the message types
+reject ordinary mutation, and explicit unsafe operations remain the caller's
+responsibility. `app_state` returns the committed checkpoint as `Any` after
+a trap. The `Frame` name remains drawing data, so the tick is named
+`FrameEvent`.
 
 ### The host
 
-The host stops calling the application; the application calls the host.
-The host calls one export, `app_main`, and reads the module's memory:
+The host starts one entry through JSPI:
 
 ```js
 const main = WebAssembly.promising(instance.exports.app_main);
-const handover = await main(previous);   // the state a reload hands on, or null when the application quits
+const handover = await main(previous); // null or an opaque managed value
 ```
 
-- DOM listeners push events into a queue that coalesces pointer moves and
-  resizes, holds at most one pending frame, and requests the next animation
-  frame only after the loop takes the last one.
-- Asynchronous browser APIs are imports wrapped in `WebAssembly.Suspending`:
-  `wait-event`, `load-save`, `store-save`, `request-device`, `map-read`,
-  `create-render-pipeline-async`, `on-submitted-work-done` and
-  `decode-image`. Synchronous WebGPU calls stay plain imports.
-- Hot reload: the host pushes `Reload`; the loop saves and returns its state
-  as an `Any`; with no frames left on the stack, the host relinks the changed
-  modules, as `relinkProgram` does between events today, and calls
-  the new `app_main` with that state. Its `boot` adopts the state when the
-  `Any`'s type is unchanged, so an edit to a function body keeps the game
-  exactly as it was, and falls back to the save otherwise. Its `reset`
-  rebinds the handlers around the new run. No suspended stack is abandoned.
-  GPU objects and their path index live in the host, so they survive the
-  swap.
-- A trap rejects `app_main`'s promise, and the host shows the error. The
-  instance survives a trap, so the host reads the state from before the
-  event that trapped through `app_state`, and hands it to the program the
-  fix builds.
+`src/app/runtime.mjs` owns that invocation, its event queue and storage
+imports. `host.mjs` owns the page's canvas, renderer, pictures and HUD across
+invocations. DOM listeners enqueue events; they never call back into Wasm.
+Consecutive moves for the same pointer and consecutive resizes coalesce
+without crossing other input. Only consuming the pending frame requests
+another animation frame, so slow work cannot accumulate ticks.
 
-The invariants the runtime keeps beside its code:
+Event waits and whole storage operations use `WebAssembly.Suspending`.
+Save imports copy a borrowed byte record before awaiting IndexedDB; even
+failed persistence retains an owned snapshot for migration. GPU calls still
+use the existing synchronous `screen` binding. Suspending device requests,
+readbacks, image decoding and pipeline creation belong to the proposed GPU
+milestone.
 
-1. The host calls only `app_main`, and `app_state` once `app_main` has
-   trapped; while `app_main` is suspended, everything else arrives as an
-   event.
-2. Only Lofi code calls suspending imports, never a Rust service: the Rust
-   runtime keeps a stack in linear memory that JSPI does not switch.
-3. Host imports are leaves. No Wasm function is handed to a JavaScript API
-   that calls back, since a JavaScript frame between the entry and a
-   suspending import makes suspension fail.
+Reload fences the old queue with `Reload`. Its accepted prefix finishes,
+the loop saves and returns, and the host waits for the entry to settle
+before relinking any modules. New input waits for the next invocation. The
+candidate starts with Resize and Frame(0); only successful initial
+presentation accepts it and delivers the waiting input. Until then the old
+program and its handover remain available for rollback. Cold startup,
+including a retry, finishes before a relink may stop it.
 
-Headless runs use Node 26 or later, whose V8 enables JSPI, or handle the
-`events` and `gpu` effects in Lofi with scripted events and a recording
-GPU handler.
+After a trap the host reads `app_state`. When it needs to serialize that
+checkpoint, it runs the old entry with `Reload` as its first event, avoiding
+the failing update or view. A rejected candidate restarts the old program;
+a cold first-frame failure also retains its owner so a source fix can resume
+it. The consumed failing event is dropped; unread actions survive.
+
+The invariants beside the runtime code are:
+
+1. One entry per application is active at a time. The host calls only
+   `app_main`, and `app_state` after a trap; all other work arrives as events.
+2. Handler globals stay installed across suspension and return to their
+   entry values after normal settlement or a trap. Entries never overlap
+   within one runtime instance, so restoration cannot alter another run.
+3. Only Lofi calls suspending imports. Rust scalar services keep a stack in
+   linear memory that JSPI does not switch.
+4. Host imports are leaves. No Wasm function is handed to a JavaScript
+   callback API; an intervening JavaScript frame would prevent suspension.
+
+The pinned Node 26 runs static and independently linked Wasm in headless
+tests. Browser tests cover queued input, migration refusal, traps and cold
+startup recovery. The [application model](../lofi/applications.md) and
+[toolchain](../lofi/toolchain.md) describe the implemented API and reload
+contract.
 
 ## Effects: `fun` and `ctl`
+
+**Proposed, from milestone 3 onward.**
 
 An operation declared `fun`, the default, always returns to its caller at
 once; it compiles to a direct call, as every operation does today. An
@@ -246,11 +238,11 @@ G-buffer fills the default 32. Texture heaps start uncompressed; a later
 
 ## Milestones
 
-Each is its own pull request:
+Each milestone is a focused series of pull requests:
 
 1. **Tools.** *Done.* `shell.nix` takes nixpkgs from an npins pin, Node is
    at 26, and a podman devcontainer that CI builds packages the same tools.
-2. **Runtime.** The JSPI main loop, `reset`, the `events` and storage effects,
+2. **Runtime.** *Done.* The JSPI main loop, `reset`, the `events` and storage effects,
    and the HTML HUD driven from the loop, still drawing with today's
    renderer.
 3. **`ctl`.** `ctl` operations and their handlers on JSPI.

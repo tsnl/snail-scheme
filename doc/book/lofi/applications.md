@@ -20,8 +20,12 @@ the new program:
   keeps running, and the page offers to start the new one over.
 
 A failed build is shown over the page, and the old program keeps running.
-A program that traps stops its clock with the state from before the update
-that trapped, and the next build resumes from that state. A changed style
+A program that traps keeps the last state whose whole event succeeded,
+including presentation. The next good build resumes from that checkpoint
+without repeating the failing event; unread actions wait for it. A cold
+first-frame failure also stays available for a source fix. Reload waits for
+the old JSPI entry to save and settle before relinking, and accepts a new
+entry only after its first frame succeeds. A changed style
 sheet is fetched again; a changed page or host script reloads the page
 after saving. Each event carries the manifest of the build being served,
 so a page that missed events, even across a restart of the server,

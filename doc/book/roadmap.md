@@ -16,7 +16,9 @@ describe proposed behavior, kept apart from what is implemented.
   once, during checking.
 - Effect rows with tail-resumptive handlers and host defaults.
 - Wire types: derived `Serialize` and `Deserialize` with per-case TypeIds.
-- `(lofi app)` applications with a browser host: meshes and sprites drawn by
+- `(lofi app)` applications own a JSPI loop with queued events, suspending
+  storage, a reset binder and checkpoint handovers on reload. Their browser
+  host retains meshes and sprites drawn by
   one metallic-roughness shader, textures composed from embedded image
   files, and 2D scenes seen straight down. Siegework and Hearsay's
   prototypes run on it; Hearsay's people are dressed from the checked-in
@@ -39,9 +41,9 @@ describe proposed behavior, kept apart from what is implemented.
 
 ## Next
 
-1. The runtime and graphics rewrite, from milestone 2 of its
-   [plan](graphics/plan.md): an application loop on JavaScript Promise
-   Integration (JSPI), then `ctl` operations and WebGPU through an effect.
+1. The runtime and graphics rewrite, from milestone 3 of its
+   [plan](graphics/plan.md): `ctl` operations, then WebGPU through an effect
+   and the 2D and 3D graphics libraries.
 2. Previews inlaid in the IDE's editor panes (below).
 3. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
@@ -75,9 +77,9 @@ describe proposed behavior, kept apart from what is implemented.
 ### Runtime and graphics
 
 The [runtime and graphics plan](graphics/plan.md) lists the milestones of the
-rewrite. The first, pinned tools, is done; the rest are proposed: a main
-loop on JSPI, `ctl` operations, WebGPU through an effect, and the 2D and 3D
-`graphics` libraries. Beyond them:
+rewrite. Pinned tools and the application main loop on JSPI are done;
+`ctl` operations, WebGPU through an effect, and the 2D and 3D `graphics`
+libraries remain proposed. Beyond them:
 
 - [ ] Move `ctl` operations, such as the proposed `wait-event` and
   `read-buffer`, from JSPI to native stack switching. Chrome 156 implements
