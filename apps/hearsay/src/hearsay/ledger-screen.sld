@@ -1,6 +1,8 @@
 ;; The favor ledger in the browser: no scene, only panels. Every offer,
-;; contact, job and promise you owe is a button, enabled when it would
-;; succeed now and otherwise greyed out with the reason in its help.
+;; contact, job and promise you owe is a button with its terms beneath it,
+;; enabled when it would succeed now and otherwise greyed out with the
+;; reason in its help. A line under the standings says what needs doing
+;; now, and a guide explains the game the first time.
 (define-library (hearsay ledger-screen)
   (export
    LedgerScreen
@@ -12,50 +14,58 @@
    (lofi base)
    (lofi wire)
    (lofi app)
-   (hearsay ledger))
+   (lpc wardrobe)
+   (hearsay ledger)
+   (hearsay cast)
+   (hearsay hud))
   (begin
 
     ;; ---- State ----
 
     ;; The choices are worked out after every command rather than every
-    ;; frame, because judging one means trying it.
+    ;; frame, because judging one means trying it. `guide` is the guide's
+    ;; open page, if any.
     (struct LedgerScreen
       ((seed I64)
        (ledger Ledger)
        (message String)
-       (offers (List Choice))
+       (vee-offers (List Choice))
+       (kit-offers (List Choice))
        (contacts (List Choice))
        (jobs (List Choice))
-       (promises (List Choice)))
+       (promises (List Choice))
+       (guide (Option I64)))
       (deriving Serialize Deserialize))
 
     (: new-ledger-screen (-> I64 LedgerScreen))
     (define (new-ledger-screen seed)
-      (refresh (LedgerScreen seed (new-ledger seed) (ledger-intro) (Nil) (Nil) (Nil) (Nil))))
+      (refresh (LedgerScreen seed (new-ledger seed) "" (Nil) (Nil) (Nil) (Nil) (Nil) (None))))
 
     (: refresh (-> LedgerScreen LedgerScreen))
     (define (refresh screen)
       (let* ((ledger (LedgerScreen-ledger screen))
-             (screen (LedgerScreen-offers-set screen (offer-choices ledger)))
+             (screen (LedgerScreen-vee-offers-set screen (offer-choices ledger 1)))
+             (screen (LedgerScreen-kit-offers-set screen (offer-choices ledger 2)))
              (screen (LedgerScreen-contacts-set screen (contact-choices ledger)))
              (screen (LedgerScreen-jobs-set screen (job-choices ledger))))
         (LedgerScreen-promises-set screen (promise-choices ledger))))
 
     ;; ---- Actions ----
 
-    ;; Choice i of group g (offers 1, contacts 2, jobs 3, promises 4) is
-    ;; action g with argument i. Action 5 ends the round and 6 deals a new
-    ;; game.
+    ;; Choice i of group g (Vee's offers 1, contacts 2, jobs 3, promises 4,
+    ;; Kit's offers 7) is action g with argument i. Action 5 ends the round
+    ;; and 6 deals a new game.
     (define action-end 5)
     (define action-new 6)
 
     (: group-choices (-> LedgerScreen I32 (List Choice)))
     (define (group-choices screen group)
       (case group
-        ((1) (LedgerScreen-offers screen))
+        ((1) (LedgerScreen-vee-offers screen))
         ((2) (LedgerScreen-contacts screen))
         ((3) (LedgerScreen-jobs screen))
         ((4) (LedgerScreen-promises screen))
+        ((7) (LedgerScreen-kit-offers screen))
         (else (Nil))))
 
     (: command-at (-> LedgerScreen I32 I32 (Option Command)))
@@ -78,7 +88,9 @@
 
     (: press (-> LedgerScreen I32 I32 LedgerScreen))
     (define (press screen action argument)
-      (cond ((= action action-end) (run screen (EndRound)))
+      (cond ((guide-action? action)
+             (LedgerScreen-guide-set screen (turn-guide (LedgerScreen-guide screen) (length guide-pages) action)))
+            ((= action action-end) (run screen (EndRound)))
             ((= action action-new) (new-ledger-screen (+ (LedgerScreen-seed screen) 1)))
             (else (match (command-at screen action argument)
                     ((Some command) (run screen command))
@@ -90,78 +102,142 @@
         ((Press action argument) (press screen action argument))
         (_ screen)))
 
-    (: view-ledger-screen (-> LedgerScreen Frame))
-    (define (view-ledger-screen screen)
+    ;; The scene is empty; its pictures are the rivals' portraits for the
+    ;; HUD, from the sheets `art` gives.
+    (: view-ledger-screen (-> LedgerScreen (-> String (Option Source)) Frame))
+    (define (view-ledger-screen screen art)
       (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             (rgb 16 20 28) 1.0 (Nil) (Nil)))
+             (rgb 16 20 28) 1.0 (Nil) (map (lambda (index) (walk-picture art (rival-key index) (rival index))) (list 0 1))))
+
+    ;; Vee's picture is 200 and Kit's 201.
+    (: rival-key (-> I64 I32))
+    (define (rival-key index)
+      (i64->i32 (+ 200 index)))
 
     ;; ---- Panels ----
-
-    (: label (-> String String Widget))
-    (define (label key text)
-      (Label (look key) text))
 
     (: button (-> String String I32 Widget))
     (define (button key text action)
       (Button (look key) text "" action 0 (Enabled) -1.0))
 
-    ;; A choice is enabled when it would succeed, and otherwise disabled
-    ;; with the reason as its help.
+    ;; Choice i of a group is a button pressing the group's action with
+    ;; argument i.
     (: choice-buttons (-> (List Choice) I32 String (List Widget)))
     (define (choice-buttons choices group prefix)
       (map-indexed (lambda (index choice)
-                     (let ((key (string-append prefix "-" (show index))))
-                       (match (Choice-refusal choice)
-                         ((None) (Button (look key) (Choice-text choice) "" group (i64->i32 index) (Enabled) -1.0))
-                         ((Some why) (Button (Look-help-set (look key) why) (Choice-text choice) "" group (i64->i32 index) (Disabled) -1.0)))))
+                     (choice-button (string-append prefix "-" (show index)) (Choice-text choice) (Choice-caption choice) group
+                                    (i64->i32 index) (Choice-refusal choice) ""))
                    choices))
 
-    ;; A title over its widgets, or over "none".
-    (: titled (-> String (List Widget) (List Widget)))
-    (define (titled title widgets)
-      (Cons (label (string-append "title-" title) title) (if (null? widgets) (list (label (string-append "none-" title) "none")) widgets)))
+    ;; ---- Standings ----
 
-    (: lines (-> (List String) String))
-    (define (lines texts)
-      (string-join texts "\n"))
+    ;; Your coins, standing, record and markers. The dial fills as rounds
+    ;; end.
+    (: standings-panel (-> Ledger Panel))
+    (define (standings-panel ledger)
+      (Panel "standings" (At (TopLeft) 0)
+             (list (label "title" "Favor ledger")
+                   (Dial (look "round") (ledger-header ledger) (/ (i64->f32 (- (Ledger-round ledger) 1)) (i64->f32 round-count)))
+                   (section-heading "you" "You") (label "you-stats" (fixer-stats ledger 0)) (label "you-markers" (fixer-holdings ledger 0)))))
 
-    (: promise-widgets (-> LedgerScreen (List Widget)))
-    (define (promise-widgets screen)
-      (titled "Promises"
-              (append (choice-buttons (LedgerScreen-promises screen) 4 "promise")
-                      (map-indexed (lambda (index line) (label (string-append "owed-" (show index)) line))
-                                   (owed-lines (LedgerScreen-ledger screen))))))
+    ;; A rival beside their portrait: their coins, standing, record, markers
+    ;; and the job they are after, then their offers while the game is on.
+    ;; Vee is fixer 1 and Kit fixer 2; Vee's column is left of Kit's.
+    (: rival-panel (-> LedgerScreen I64 Panel))
+    (define (rival-panel screen index)
+      (let ((ledger (LedgerScreen-ledger screen)) (vee? (= index 0)))
+        (Panel (if vee? "vee" "kit") (At (TopRight) (i64->i32 (- 1 index)))
+               (append (list (portrait "portrait" (rival-key index) 2) (section-heading "name" (if vee? "Vee" "Kit"))
+                             (label "stats" (fixer-stats ledger (+ index 1))) (label "markers" (fixer-holdings ledger (+ index 1))))
+                       (if (ledger-over? ledger)
+                           (Nil)
+                           (section "offers" "Offers" "Nothing this round."
+                                    (if vee?
+                                        (choice-buttons (LedgerScreen-vee-offers screen) 1 "offer")
+                                        (choice-buttons (LedgerScreen-kit-offers screen) 7 "offer"))))))))
 
-    (: last-round-label (-> Ledger Widget))
-    (define (last-round-label ledger)
-      (label "last-round" (lines (Cons "Last round:" (last-round-lines ledger)))))
+    ;; What needs doing now: the result once the game is over, a promise
+    ;; falling due, a job you can do, or else how to work toward one.
+    (: hint (-> LedgerScreen Widget))
+    (define (hint screen)
+      (let ((ledger (LedgerScreen-ledger screen)))
+        (cond ((ledger-over? ledger) (toned "hint" (Good) (string-append (ledger-result ledger) " Deal a new game, or go back to the menu.")))
+              ((not (null? (due-now ledger)))
+               (toned "hint" (Warning)
+                      (string-append "You owe " (string-join (due-now ledger) " and ")
+                                     " a marker by the end of this round. Honor it under Promises, or refusing costs 1 standing.")))
+              ((any? (lambda (choice) (match (Choice-refusal choice) ((None) #t) (_ #f))) (LedgerScreen-jobs screen))
+               (toned "hint" (Good) "You hold the markers for a job: do it under Jobs for standing."))
+              (else (toned "hint" (Plain)
+                           "Gather the markers a job needs: meet a contact's want, or trade with Vee and Kit. End the round when you are done.")))))
 
+    ;; ---- Board ----
+
+    ;; Your standing, what to do, the jobs and your promises down the left;
+    ;; the contacts and the news beside them; each rival on the right.
     (: playing-panels (-> LedgerScreen (List Panel)))
     (define (playing-panels screen)
       (let ((ledger (LedgerScreen-ledger screen)))
-        (list (Panel "fixers" (At (TopLeft) 0)
-                     (append (list (label "round" (ledger-header ledger)) (label "fixers" (lines (fixer-lines ledger))))
-                             (titled "Jobs" (choice-buttons (LedgerScreen-jobs screen) 3 "job"))))
-              (Panel "offers" (At (TopRight) 0)
-                     (append (titled "Offers" (choice-buttons (LedgerScreen-offers screen) 1 "offer")) (promise-widgets screen)))
-              (Panel "contacts" (At (BottomLeft) 0)
-                     (append (choice-buttons (LedgerScreen-contacts screen) 2 "contact")
+        (list (standings-panel ledger)
+              (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
+              (Panel "jobs" (At (TopLeft) 0)
+                     (section "jobs" "Jobs: one marker per ability" "No jobs open." (choice-buttons (LedgerScreen-jobs screen) 3 "job")))
+              (Panel "promises" (At (TopLeft) 0)
+                     (section "promises" "Promises" "None yet."
+                              (append (choice-buttons (LedgerScreen-promises screen) 4 "promise") (line-labels "owed" (owed-lines ledger)))))
+              (Panel "contacts" (At (TopLeft) 1)
+                     (append (section "contacts" "Contacts: meet a want, get a marker" "No contacts."
+                                      (choice-buttons (LedgerScreen-contacts screen) 2 "contact"))
                              (list (button "end" "End the round" action-end) (button "new" "New game" action-new))))
-              (Panel "news" (At (BottomRight) 0)
-                     (append (if (string=? (LedgerScreen-message screen) "") (Nil) (list (label "message" (LedgerScreen-message screen))))
-                             (list (last-round-label ledger)))))))
+              (news-panel screen) (rival-panel screen 0) (rival-panel screen 1))))
+
+    ;; What the last command said, and what the last end of round did.
+    (: news-panel (-> LedgerScreen Panel))
+    (define (news-panel screen)
+      (Panel "news" (At (TopLeft) 1)
+             (append (if (string=? (LedgerScreen-message screen) "") (Nil) (list (label "message" (LedgerScreen-message screen))))
+                     (section "last-round" "Last end of round" "Nothing yet." (line-labels "last-round" (last-round-lines (LedgerScreen-ledger screen)))))))
 
     (: final-panels (-> LedgerScreen (List Panel)))
     (define (final-panels screen)
-      (let ((ledger (LedgerScreen-ledger screen)))
-        (list (Panel "standings" (At (TopLeft) 0)
-                     (list (label "round" (ledger-header ledger)) (label "fixers" (lines (fixer-lines ledger)))
-                           (label "result" (ledger-result ledger)) (last-round-label ledger)))
-              (Panel "contacts" (At (BottomLeft) 0) (list (button "new" "New game" action-new))))))
+      (list (standings-panel (LedgerScreen-ledger screen)) (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
+            (Panel "contacts" (At (TopLeft) 1) (list (button "new" "New game" action-new))) (news-panel screen)
+            (rival-panel screen 0) (rival-panel screen 1)))
+
+    ;; ---- Guide ----
+
+    (: guide-pages (List Page))
+    (define guide-pages
+      (list (Page "What this experiment tests"
+                  (list "The favor ledger asks one question: does an economy of favors produce interesting trades, or collapse into hoarding?"
+                        "While you play, notice: do you broker, buying a marker from one rival to sell to the other? Do you accept promises, and does refusing one change what Vee and Kit offer you? Does lapsing keep markers moving, or does hoarding still win?")
+                  (Nil))
+            (Page "Markers"
+                  (list "A marker is a favor a contact owes you. It lends you that contact's ability once: doors, muscle, medicine, fencing, paperwork or eyes."
+                        "A marker can be spent, given or traded, but never copied, and it lapses at the end of the second round after it was granted. Yours are listed under You at the top left.")
+                  (Nil))
+            (Page "Jobs"
+                  (list "The most standing after eight rounds wins, and coins break ties. Jobs pay standing: a job takes one marker for each ability it lists."
+                        "A job needing two abilities pays 4 coins and 1 standing; one needing three pays 6 coins and 2. Vee and Kit chase jobs too, and each shows the job it is after.")
+                  (list (portrait "guide-vee" (rival-key 0) 2) (portrait "guide-kit" (rival-key 1) 2)))
+            (Page "Getting markers"
+                  (list "Each contact wants one thing: coins, or a marker with another ability. Meet the want and they grant you one of their markers, once a round."
+                        "Vee and Kit, on the right, offer to buy and sell markers, and to trade promises for coins. Each offer can be taken once a round."
+                        "A greyed-out button says why when you point at it.")
+                  (Nil))
+            (Page "Promises and the end of a round"
+                  (list "A promise is a debt of one marker with an ability, due at the end of a round. Honor yours under Promises in time: one still owed when it falls due is refused, and refusing costs 1 standing."
+                        "Once you refuse, Vee and Kit pay less, charge more, and stop asking for your promises. Vee keeps every promise she can; Kit keeps one only if he can spare the marker."
+                        "When you are done, end the round: rivals do their jobs and gain a marker, markers lapse, and promises fall due.")
+                  (Nil))))
 
     ;; `first` are panels to show before the screen's own.
     (: ledger-screen-hud (-> LedgerScreen (List Panel) (List Panel)))
     (define (ledger-screen-hud screen first)
-      (append first (if (ledger-over? (LedgerScreen-ledger screen)) (final-panels screen) (playing-panels screen))))
+      (concatenate
+       (list first (if (ledger-over? (LedgerScreen-ledger screen)) (final-panels screen) (playing-panels screen))
+             (match (LedgerScreen-guide screen)
+               ((Some page) (list (guide-panel "Favor ledger" guide-pages page)))
+               ((None) (Nil))))))
 
     ))
