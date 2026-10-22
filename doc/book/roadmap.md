@@ -57,16 +57,23 @@ describe proposed behavior, kept apart from what is implemented.
   `Option`-shaped enums.
 - [ ] Source locations in emitted Wasm.
 
-### Runtime
+### Runtime and graphics
 
-- [ ] Suspend on native stack switching. The planned renderer work runs an
-  application's main loop inside its `reset` handlers and suspends it under
-  JavaScript Promise Integration (JSPI) at host operations such as the
-  proposed `next-event` and `read-buffer`. Chrome 156 implements core stack
-  switching (`cont.new`, `resume` and `suspend`) only behind `--wasm-wasmfx`.
-  Once it is on by default, make those `ctl` operations on one-shot
-  continuations, so Lofi handlers can capture and resume them, and drop
-  JSPI. Tests that use it need a Node release with stack switching.
+The [runtime and graphics plan](graphics/plan.md) lists the milestones of the
+rewrite: tools, a main loop on JavaScript Promise Integration (JSPI), `ctl`
+operations, WebGPU through an effect, and the 2D and 3D `graphics`
+libraries. Beyond them:
+
+- [ ] Move `ctl` operations, such as the proposed `wait-event` and
+  `read-buffer`, from JSPI to native stack switching. Chrome 156 implements
+  core stack switching (`cont.new`, `resume` and `suspend`) only behind
+  `--wasm-wasmfx`; once it is on by default, compile `ctl` handlers to
+  one-shot continuations and drop the JSPI scheduler. Measured, a perform
+  and resume costs about 300 ns on JSPI and 45 ns natively. Tests that use it
+  need a Node release with stack switching.
+- [ ] Path-traced lighting over the rasterized G-buffer: a BVH built on the
+  CPU first, compute-shader ray queries, and SVGF denoising, as the
+  [path tracing primer](graphics/path-tracing.md) describes.
 
 ### Development loop
 

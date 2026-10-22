@@ -22,4 +22,7 @@
 
 - [Games](games/index.md)
   - [Siegework](games/siegework.md)
+- [Graphics](graphics/index.md)
+  - [Runtime and graphics plan](graphics/plan.md)
+  - [Path tracing primer](graphics/path-tracing.md)
 - [Roadmap](roadmap.md)
