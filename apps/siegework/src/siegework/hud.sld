@@ -1,9 +1,10 @@
 ;; The HUD: a dock one control wide on the side of the playing hand. Its
 ;; edge column holds the readouts and, while a cell is selected, the build
-;; menu; the column beside it holds the menu and turning buttons, up to two
-;; attack alerts and the build queue. The nests and the clock sit in the
-;; opposite corner, and dialogs cover the menu, its confirmations and the
-;; results.
+;; menu; the column beside it holds the menu and turning buttons and the
+;; build queue. The nests and the clock sit in the opposite corner, with
+;; notices beneath them: an alert while the colony is under attack, and why
+;; the last order was refused. A title banner across the top says how to
+;; begin, and dialogs cover the menu, its confirmations and the results.
 ;;
 ;; Only related controls share a panel. Every button names the command it
 ;; gives; one the world would reject is greyed out and explains why in its
@@ -100,13 +101,11 @@
     ;; The build menu is the same for every selected cell: a pylon, a
     ;; turret, an extractor, an upgrade, a rush and closing, then below a
     ;; divider cancelling work and scavenging, or at the hub repair. Each is
-    ;; greyed out where it does not apply. The last rejection sits beneath.
+    ;; greyed out where it does not apply.
     (: construction (-> Game (List Panel)))
     (define (construction game)
       (match (Game-selected game)
-        ((Some cell) (Cons (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (Label (look "divider") "") (care game cell))))
-                           (if (string=? (Game-message game) "") (Nil)
-                               (list (Panel "message" (At (side game) 0) (list (Label (Look "message" "" "" (Danger) "") (Game-message game))))))))
+        ((Some cell) (list (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (Label (look "divider") "") (care game cell))))))
         ((None) (Nil))))
 
     (: build-menu (-> Game Cell (List Widget)))
@@ -131,8 +130,9 @@
     (: build-button (-> Game Cell Kind Widget))
     (define (build-button game cell kind)
       (let ((price (* (raise-cost kind 0) (if (Game-rush game) 5 1))))
-        (command-button (face (string-append "build-" (kind-icon kind)) (kind-icon kind)
-                              (string-append (kind-name kind) ": " (show (quotient (raise-duration kind 0) 10)) "s to build"))
+        (command-button (Look (string-append "build-" (kind-icon kind)) (kind-icon kind)
+                              (string-append (kind-name kind) ": " (show (quotient (raise-duration kind 0) 10)) "s to build")
+                              (if (opening-move? (Game-world game) kind) (Suggested) (Plain)) "")
                         (kind-key kind) (show price) (BuildAt kind cell) (check (Game-world game) (Build kind cell (Game-rush game))))))
 
     ;; What the next level of the selected building, or the hub's next build
@@ -190,7 +190,7 @@
       (let ((world (Game-world game)))
         (command-button (face "repair" "repair" "Repair the hub to full health") "F" (show (repair-price (World-hub world))) (RepairHub) (check world (Repair)))))
 
-    ;; ---- Queue and alerts ----
+    ;; ---- Queue ----
 
     ;; The works in order: a ring for each holding a slot, and ! and dimmed
     ;; when unpowered. Tapping one goes to it.
@@ -229,21 +229,46 @@
                        ((OfBuilding b) (string-append (kind-name (Building-kind b)) (if (built? b) " upgrade" ""))))
                      (cond ((not (Task-supplied task)) ", unpowered") ((Task-active task) ", building") (else ", waiting"))))
 
-    ;; The two latest places the colony was struck, each a panel of its own:
-    ;; tap to go there, or silence it for eight seconds. The queue moves up
-    ;; as they go.
-    (: alerts (-> Game (List Panel)))
-    (define (alerts game)
-      (let ((world (Game-world game)))
-        (map (lambda (alert) (alert-panel game alert))
-             (take (filter (lambda (a) (and (< (- (World-tick world) (Alert-tick a)) 80) (not (alert-muted? game a)))) (World-alerts world)) 2))))
+    ;; ---- Opening ----
 
-    (: alert-panel (-> Game Alert Panel))
-    (define (alert-panel game alert)
-      (let ((index (show (cell-index (Alert-cell alert)))))
-        (Panel (string-append "alert-" index) (At (side game) 1)
-               (list (plain-button (Look "attack" "danger" "Go to the attack" (Danger) "") "" (Locate (Alert-cell alert)))
-                     (plain-button (Look "silence" "close" "Silence alerts here for eight seconds" (Danger) "") "" (Silence (Alert-cell alert)))))))
+    ;; Until the first extractor is built, the world waits under a title
+    ;; banner that points to the glowing crystals, then, once one is
+    ;; selected, to the build button the menu suggests. It links to the
+    ;; guide.
+    (: opening (-> Game (List Panel)))
+    (define (opening game)
+      (if (opening? (Game-world game))
+          (list (Panel "opening" (Banner)
+                       (list (text "opening-title" "Siegework")
+                             (opening-step game)
+                             (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
+          (Nil)))
+
+    ;; The step points to the glowing crystals, then to the build button;
+    ;; each step's key lets the page color its strong words.
+    (: opening-step (-> Game Widget))
+    (define (opening-step game)
+      (if (extractor-offered? game)
+          (Text (look "opening-build") (list (Normal "Click the ") (Strong "build button") (Normal " to continue")))
+          (Text (look "opening-crystal") (list (Normal "Click the ") (Strong "glowing crystal")))))
+
+    (: guide-url String)
+    (define guide-url "https://tsnl.github.io/snail-scheme/games/siegework.html")
+
+    ;; Whether the selected cell would take an extractor now.
+    (: extractor-offered? (-> Game Bool))
+    (define (extractor-offered? game)
+      (match (Game-selected game)
+        ((Some cell) (match (check (Game-world game) (Build (Extractor) cell (Game-rush game))) ((Some _) #f) ((None) #t)))
+        ((None) #f)))
+
+    (: opening? (-> World Bool))
+    (define (opening? world)
+      (and (not (World-started world)) (playing? world)))
+
+    (: opening-move? (-> World Kind Bool))
+    (define (opening-move? world kind)
+      (and (opening? world) (match kind ((Extractor) #t) (_ #f))))
 
     ;; ---- Objective ----
 
@@ -254,6 +279,32 @@
         (Panel "objective" (At (far-side game) 0)
                (list (text "nests" (list->string (map (lambda (nest) (if (= (Nest-health nest) 0) #\★ #\☆)) (World-nests world))))
                      (text "elapsed" (clock-text (World-tick world)))))))
+
+    ;; ---- Notices ----
+
+    ;; Under the nests, away from the dock so they never move the controls:
+    ;; an alert while the colony was struck in the last eight seconds, which
+    ;; goes to the latest attack, then, while a cell is selected, why the
+    ;; last order on it was refused.
+    (: notices (-> Game (List Panel)))
+    (define (notices game)
+      (append (attack-alert game) (refusal game)))
+
+    (: attack-alert (-> Game (List Panel)))
+    (define (attack-alert game)
+      (let ((world (Game-world game)))
+        (match (find (lambda (a) (< (- (World-tick world) (Alert-tick a)) 80)) (World-alerts world))
+          ((Some alert) (list (Panel "alert" (At (far-side game) 0)
+                                     (list (plain-button (Look "attack" "danger" "Under attack: go there" (Danger) "") "" (Locate (Alert-cell alert)))))))
+          ((None) (Nil)))))
+
+    (: refusal (-> Game (List Panel)))
+    (define (refusal game)
+      (match (Game-selected game)
+        ((Some _) (if (string=? (Game-message game) "")
+                      (Nil)
+                      (list (Panel "message" (At (far-side game) 0) (list (Label (Look "message" "" "" (Danger) "") (Game-message game)))))))
+        ((None) (Nil))))
 
     ;; ---- Dialogs ----
 
@@ -304,6 +355,7 @@
 
     (: game-hud (-> Game (List Panel)))
     (define (game-hud game)
-      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (alerts game) (queue game) (list (objective game)) (dialogs game))))
+      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (queue game) (list (objective game)) (notices game) (opening game)
+                         (dialogs game))))
 
     ))
