@@ -117,6 +117,8 @@ section 7). Not implemented:
 - [ ] More than one diagnostic per build, and warnings: the compiler stops
   at its first error and has no warnings yet.
 - [ ] Creating, renaming and deleting files in the file browser.
+- [ ] One undo history per buffer: each pane keeps the browser's own, so in
+  a split, undoing in one pane does not reach an edit made in the other.
 - [ ] `lofi format` through `(lofi format)`, so `make format` and `make
   check` need no Emacs.
 - [ ] A row-polymorphic handler of a host-bound effect, such as

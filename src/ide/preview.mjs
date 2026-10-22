@@ -19,10 +19,20 @@ const client = await createReloadClient(new Uint8Array(await (await fetch('./rel
     location.reload();
   },
 });
-// Events that arrive while the application starts wait for the client.
-const early = [];
-let deliver = text => early.push(text);
+// While the application starts, only the newest event waits for the client:
+// each one carries the whole manifest of its build.
+let waiting = null;
+let deliver = text => { waiting = text; };
 addEventListener('message', ({data}) => { if (data.type === 'event') deliver(data.text); });
+
+// The IDE's shortcuts work while the application has the keys, unless the
+// application takes the chord itself.
+addEventListener('keydown', event => {
+  if ((event.ctrlKey || event.metaKey) && !event.defaultPrevented) {
+    parent.postMessage({type: 'chord', code: event.code, shiftKey: event.shiftKey, altKey: event.altKey, ctrlKey: true}, '*');
+    if (['KeyS', 'KeyB', 'Backslash'].includes(event.code) || (event.code === 'KeyF' && event.shiftKey)) event.preventDefault();
+  }
+});
 
 // Before any build succeeds, the client has nothing to compare and shows
 // the loop's progress; the first build that succeeds reloads the frame,
@@ -36,7 +46,7 @@ if (built) {
   document.body.dataset.ready = 'true';
 } else client.start('(files) (modules)');
 deliver = text => client.event(text);
-early.forEach(deliver);
+if (waiting) deliver(waiting);
 
 // ---- The IDE ----
 

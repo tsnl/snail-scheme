@@ -78,13 +78,21 @@ try {
   await press('document.querySelector(".pane textarea")', {key: 'Tab'});
   assert.match(await editorText(), /\(define add-action\n  1\)/, 'Tab indents the body of a definition');
 
-  assert.ok(await type('(define add-action\n  1)', '(define add-action\n                1)'));
+  await browser.evaluate(`(() => { const t = document.querySelector('.pane textarea'), at = t.value.indexOf('(define add-action\\n  1)') + 18;
+    t.setSelectionRange(at, at); document.execCommand('insertText', false, '   '); })()`);
+  await press('document.querySelector(".pane textarea")', {key: 'Enter'});
+  assert.match(await editorText(), /\(define add-action\n  \n  1\)/, 'Enter drops the spaces it leaves behind and indents the new line');
+  assert.ok(await type('(define add-action\n  \n  1)', '(define add-action\n                1)'));
   await press('document', {code: 'KeyS', key: 's', ctrlKey: true});
   assert.match(await editorText(), /\(define add-action\n  1\)/, 'saving formats the file');
   assert.equal(await browser.evaluate('document.querySelector(".pane-title").textContent'), 'main.sld');
   await browser.navigate(`http://127.0.0.1:${server.address().port}/`);
   await until(() => browser.evaluate(`${frame}?.body?.dataset.ready`), 'the reload');
   assert.match(await editorText(), /\(define greeting "fixed"\)/, 'the saved file survives a reload');
+
+  await press(`${frame}.getElementById("view")`, {code: 'KeyB', key: 'b', ctrlKey: true});
+  assert.ok(await browser.evaluate('document.querySelector(".workspace").classList.contains("no-files")'), 'a chord in the preview reaches the IDE');
+  await browser.evaluate('document.getElementById("toggle-files").click()');
 
   await browser.evaluate('document.getElementById("split-right").click()');
   assert.equal(await browser.evaluate('document.querySelectorAll(".pane textarea").length'), 2);
@@ -95,12 +103,13 @@ try {
   // Saved first, since unsaved changes would ask before they are dropped.
   await press('document', {code: 'KeyS', key: 's', ctrlKey: true});
   await cp(join(root, 'tests/apps/counter'), folder, {recursive: true});
-  await writeFile(join(folder, 'main.sld'), (await readFile(join(folder, 'main.sld'), 'utf8')).replace('"hello"', '"from a folder"'));
+  await writeFile(join(folder, 'main.sld'), (await readFile(join(folder, 'main.sld'), 'utf8')).replace('"hello"', '"from a folder"').replace(/\n/g, '\r\n'));
   await browser.evaluate('delete window.showDirectoryPicker; document.getElementById("open-folder").click()');
   const {result: {root: {nodeId}}} = await browser.send('DOM.getDocument');
   const {result: input} = await browser.send('DOM.querySelector', {nodeId, selector: '#folder-input'});
   await browser.send('DOM.setFileInputFiles', {nodeId: input.nodeId, files: [folder]});
   await until(async () => await text('greeting') === 'from a folder', 'the folder\'s project');
+  assert.equal(await browser.evaluate('document.querySelector(".pane-title").textContent'), 'main.sld', 'a file with CRLF lines opens unchanged');
   console.log('ide: the page built, relinked, indented, saved and opened a folder');
 } finally {
   browser.close();

@@ -251,12 +251,16 @@ for (const [id, action] of Object.entries(toolbar)) {
 
 // Shortcuts take Ctrl, or Command on a Mac: S saves, Shift+F formats, B
 // toggles the files and Alt+B the preview, \ splits right and Shift+\ down.
+// The preview sends the chords pressed while it has the keys.
+function shortcut({code, shiftKey, altKey}) {
+  return code === 'KeyS' ? save
+    : code === 'KeyF' && shiftKey ? toolbar.format
+      : code === 'KeyB' ? (altKey ? toolbar['toggle-preview'] : toolbar['toggle-files'])
+        : code === 'Backslash' ? (shiftKey ? toolbar['split-down'] : toolbar['split-right']) : null;
+}
+
 addEventListener('keydown', event => {
-  if (!(event.ctrlKey || event.metaKey)) return;
-  const action = event.code === 'KeyS' ? save
-    : event.code === 'KeyF' && event.shiftKey ? toolbar.format
-      : event.code === 'KeyB' ? (event.altKey ? toolbar['toggle-preview'] : toolbar['toggle-files'])
-        : event.code === 'Backslash' ? (event.shiftKey ? toolbar['split-down'] : toolbar['split-right']) : null;
+  const action = (event.ctrlKey || event.metaKey) && shortcut(event);
   if (!action) return;
   event.preventDefault();
   action();
@@ -267,7 +271,9 @@ addEventListener('keydown', event => {
 // The preview asks to connect whenever it loads: it gets a port to the
 // worker and the latest build that succeeded.
 addEventListener('message', ({data, source}) => {
-  if (data.type !== 'preview-ready' || source !== preview.contentWindow) return;
+  if (source !== preview.contentWindow) return;
+  if (data.type === 'chord') return shortcut(data)?.();
+  if (data.type !== 'preview-ready') return;
   const channel = new MessageChannel();
   worker.postMessage({type: 'connect'}, [channel.port1]);
   preview.contentWindow.postMessage({type: 'connect', built: latestBuilt, storageKey: `lofi-ide:${project.name}`}, '*', [channel.port2]);

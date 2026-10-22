@@ -24,7 +24,8 @@ export function storeProject(project) {
 
 // ---- Folders ----
 
-// The files a project keeps: sources and the text files a page loads.
+// The files a project keeps: sources and the text files a page loads, with
+// their lines ending in a newline alone, as a text area keeps them.
 const textFile = /\.(sld|scm|html|css|js|mjs|json|svg|txt|md)$/;
 const skipped = name => name.startsWith('.') || name === 'build' || name === 'node_modules';
 
@@ -41,7 +42,7 @@ async function readDirectory(handle, prefix) {
   for await (const [name, entry] of handle.entries()) {
     if (skipped(name)) continue;
     if (entry.kind === 'directory') Object.assign(files, await readDirectory(entry, `${prefix}${name}/`));
-    else if (textFile.test(name)) files[`${prefix}${name}`] = await (await entry.getFile()).text();
+    else if (textFile.test(name)) files[`${prefix}${name}`] = withNewlines(await (await entry.getFile()).text());
   }
   return files;
 }
@@ -52,13 +53,15 @@ function readInput(input) {
       const files = {}, chosen = [...input.files];
       for (const file of chosen) {
         const [, ...parts] = file.webkitRelativePath.split('/');
-        if (!parts.some(skipped) && textFile.test(file.name)) files[parts.join('/')] = await file.text();
+        if (!parts.some(skipped) && textFile.test(file.name)) files[parts.join('/')] = withNewlines(await file.text());
       }
       resolve({name: chosen[0]?.webkitRelativePath.split('/')[0] ?? 'project', files, handle: null});
     };
     input.click();
   });
 }
+
+const withNewlines = text => text.replace(/\r\n?/g, '\n');
 
 // Writes a file back to the folder, making its directories as needed.
 export async function writeToFolder(handle, path, text) {

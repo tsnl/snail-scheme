@@ -208,17 +208,20 @@ const countLines = (text, from, to) => text.slice(from, to).split('\n').length -
 
 // ---- Indentation ----
 
+// Keys that finish an input method's composition belong to it.
 function keyDown(event, textarea, formatter) {
-  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
   if (event.key === 'Tab') { event.preventDefault(); indentSelection(textarea, formatter); }
   else if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); newlineAndIndent(textarea, formatter); }
 }
 
-// Tab indents the caret's line, or every line the selection touches. As in
-// Emacs, a caret in the indentation moves to the line's first character,
-// and a caret in the text stays with it.
+// Tab indents the caret's line, or every line the selection touches but a
+// last one it only reaches the start of. As in Emacs, a caret in the
+// indentation moves to the line's first character, and a caret in the text
+// stays with it.
 function indentSelection(textarea, formatter) {
-  const {value, selectionStart, selectionEnd} = textarea;
+  const {value, selectionStart} = textarea;
+  const selectionEnd = textarea.selectionEnd > selectionStart && value[textarea.selectionEnd - 1] === '\n' ? textarea.selectionEnd - 1 : textarea.selectionEnd;
   const change = reindent(value, formatter, selectionStart, selectionEnd);
   if (!change) return;
   const {start, end, replacement} = change, caret = selectionStart === selectionEnd;
@@ -262,9 +265,12 @@ function formStart(text, start) {
   return start > 0 ? topLevelStart(text, text.lastIndexOf('\n', start - 2) + 1) : 0;
 }
 
-// Enter starts a new line indented for what follows the caret.
+// Enter starts a new line indented for what follows the caret, and, as
+// Emacs's electric indentation does, drops the spaces it leaves at the end
+// of the line before.
 function newlineAndIndent(textarea, formatter) {
-  const {value, selectionStart: start, selectionEnd: end} = textarea;
+  const {value, selectionStart, selectionEnd: end} = textarea;
+  const start = selectionStart - /[ \t]*$/.exec(value.slice(0, selectionStart))[0].length;
   const skip = indentationOf(value.slice(end)), text = `${value.slice(0, start)}\n${value.slice(end + skip)}`;
   replaceRange(textarea, start, end + skip, `\n${' '.repeat(lineIndentation(text, formatter, start + 1))}`);
 }
