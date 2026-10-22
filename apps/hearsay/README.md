@@ -4,7 +4,7 @@
 social simulation: a city where the scarcest resource is what people
 believe.
 
-**Status: a design and two terminal prototypes.** This file records the
+**Status: a design and two browser prototypes.** This file records the
 design; [prototypes](prototypes.md) describes the experiments that test
 whether it is fun, and how to play the two that run: the rumor mill and the
 favor ledger.
