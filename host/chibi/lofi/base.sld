@@ -18,7 +18,7 @@
    string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
    string->vector vector->string
-   vector-length vector-ref make-vector vector-generate vector-set vector-append subvector
+   vector-length vector-ref make-vector vector-generate vector-set vector-append vector-concatenate subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array
    ref ref-get ref-set!)
@@ -178,6 +178,12 @@
         copy))
 
     (define (subvector items start end) (vector-copy items start end))
+
+    ;; Without `apply`, as `string-concatenate`.
+    (define (vector-concatenate vectors)
+      (let ((all (make-vector (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors))))
+        (fold-left (lambda (offset items) (vector-copy! all offset items) (+ offset (vector-length items))) 0 vectors)
+        all))
 
     (define (vector-fold f initial items)
       (fold-left f initial (vector->list items)))

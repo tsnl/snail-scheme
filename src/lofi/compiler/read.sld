@@ -267,7 +267,7 @@
     (define (read-bytes source index loc chunks)
       (let* ((chunk (read-byte-chunk source index loc)) (bytes (Pair-first chunk)) (next (Pair-second chunk)))
         (if (< (vector-length bytes) byte-chunk)
-            (Pair (Atom (DBytes (joined-bytes (reverse (Cons bytes chunks)))) loc) next)
+            (Pair (Atom (DBytes (vector-concatenate (reverse (Cons bytes chunks)))) loc) next)
             (read-bytes source next loc (Cons bytes chunks)))))
 
     (define byte-chunk 4096)
@@ -278,18 +278,11 @@
     (define (read-byte-chunk source index loc)
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
-          (cond ((= count byte-chunk) (Pair (bytes-vector (reverse bytes)) start))
+          (cond ((= count byte-chunk) (Pair (list->vector (reverse bytes)) start))
                 ((at-end? source start) (compile-error loc "unclosed byte vector"))
-                ((char-is? source start #\)) (Pair (bytes-vector (reverse bytes)) (+ start 1)))
+                ((char-is? source start #\)) (Pair (list->vector (reverse bytes)) (+ start 1)))
                 (else (let ((end (token-end source start)))
                         (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
-
-    ;; Every chunk but the last is full, so byte i lies in chunk i / size.
-    (: joined-bytes (-> (List Bytes) Bytes))
-    (define (joined-bytes chunks)
-      (let* ((all (list->vector chunks)) (last-chunk (vector-ref all (- (vector-length all) 1)))
-             (count (+ (* byte-chunk (- (vector-length all) 1)) (vector-length last-chunk))))
-        (vector-generate count (lambda (index) (vector-ref (vector-ref all (quotient index byte-chunk)) (remainder index byte-chunk))))))
 
     (: byte-token (-> Source I64 I64 U8))
     (define (byte-token source start end)
@@ -298,10 +291,6 @@
               ((or (= index end) (> value 255) (not (char-numeric? (vector-ref (Source-chars source) index))))
                (compile-error (source-loc source start) "a byte is an integer from 0 to 255"))
               (else (loop (+ index 1) (+ (* value 10) (digit-value (vector-ref (Source-chars source) index))))))))
-
-    (: bytes-vector (-> (List U8) Bytes))
-    (define (bytes-vector bytes)
-      (if (null? bytes) (vector-generate 0 (lambda (index) (ann 0 U8))) (list->vector bytes)))
 
     (: read-quote (-> Source I64 Loc (Pair Syntax I64)))
     (define (read-quote source index loc)
