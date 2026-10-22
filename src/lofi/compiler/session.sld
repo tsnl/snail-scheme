@@ -100,16 +100,17 @@
     ;; checked, a new one, which this build compiled.
     (: emit-libraries (-> (Table Compiled) Typed (List (Pair String (List Item))) (Pair (List Built) (Table Compiled)) ! mut))
     (define (emit-libraries compiled typed libraries)
-      (let loop ((libraries libraries) (compiled compiled) (built (Nil)))
-        (match libraries
-          ((Cons (Pair name _) rest)
-           (let ((before (compiled-of compiled name)))
-             (match (Compiled-text before)
-               ((Some text) (loop rest compiled (Cons (Built name text #f) built)))
-               ((None)
-                (let ((text (wat->string (emit-library (monomorphize-library typed name (Compiled-items before)) name))))
-                  (loop rest (table-set compiled name (Compiled-text-set before (Some text))) (Cons (Built name text #t) built)))))))
-          ((Nil) (Pair (reverse built) compiled)))))
+      (let ((input (prepare-specialization typed)))
+        (let loop ((libraries libraries) (compiled compiled) (built (Nil)))
+          (match libraries
+            ((Cons (Pair name _) rest)
+             (let ((before (compiled-of compiled name)))
+               (match (Compiled-text before)
+                 ((Some text) (loop rest compiled (Cons (Built name text #f) built)))
+                 ((None)
+                  (let ((text (wat->string (emit-library (monomorphize-library input name (Compiled-items before)) name))))
+                    (loop rest (table-set compiled name (Compiled-text-set before (Some text))) (Cons (Built name text #t) built)))))))
+            ((Nil) (Pair (reverse built) compiled))))))
 
     ;; ---- Records ----
 
