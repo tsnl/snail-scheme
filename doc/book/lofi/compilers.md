@@ -11,6 +11,10 @@ text ──read──▶ located syntax
      ──wasm───▶ WasmGC text ──Binaryen──▶ module, linked with the Rust runtime
 ```
 
+A release build compiles the whole program at once. A debug build runs
+the same passes one library at a time and keeps the results in memory, as
+[the development toolchain](toolchain.md) describes.
+
 The passes import only `(lofi base)`, `(lofi table)` and `(lofi io)`, so the
 compiler compiles itself. Chibi Scheme runs the same source as the first
 stage of the bootstrap, through a host that implements those three

@@ -35,29 +35,33 @@ events into points, taps, drags and pinches.
 
 ## Live reload
 
-`lofi serve APP-DIRECTORY` builds an application, serves it at
-`http://127.0.0.1:8000/`, and builds it again whenever the application's
-directory, the standard library or the browser host changes. Each page it
-serves swaps in the new module without reloading: the running module's
-save is restored into the new one, so the state survives while every
-function changes. That is the contract a page reload already relies on, so
-an application whose save is a journal, as Siegework's is, replays the
-journal under the new code.
+`lofi serve APP-DIRECTORY` builds an application one library at a time,
+serves it at `http://127.0.0.1:8000/`, and builds it again whenever the
+application's directory, the standard library or the browser host
+changes, compiling only the libraries the change reaches. Each page it
+serves relinks the modules that changed, and those after them, without
+reloading. Their globals start over; the application's state crosses to
+the new program:
 
-- A failed build is shown over the page, and the old module keeps running.
-- A module that cannot restore the save, because the Save type changed or
-  restoring panics, leaves the old module running and offers to start
-  over.
-- A module that traps stops its clock with the state from before the
-  update that trapped, and the next build resumes from that state.
-- A changed style sheet is fetched again; a changed page or host script
-  reloads the page after saving.
-- Each event carries the manifest of the build being served, so a page that
-  missed events, even across a restart of the server, catches up from the
-  next one.
+- as it is, when the types it holds are unchanged;
+- through `save` and `restore` when its layout changed. That is the
+  contract a page reload already relies on, so an application whose save
+  is a journal, as Siegework's is, replays the journal under the new code;
+- not at all when the save cannot be restored either: the old program
+  keeps running, and the page offers to start the new one over.
+
+A failed build is shown over the page, and the old program keeps running.
+A program that traps stops its clock with the state from before the update
+that trapped, and the next build resumes from that state. A changed style
+sheet is fetched again; a changed page or host script reloads the page
+after saving. Each event carries the manifest of the build being served,
+so a page that missed events, even across a restart of the server,
+catches up from the next one.
 
 `lofi watch SOURCE` is the same loop for a program: it builds and runs the
 program again whenever its sources change, stopping a run still in
-progress once a new build succeeds.
+progress once a new build succeeds. [The development
+toolchain](toolchain.md) describes how builds stay this fast, and the
+browser IDE that runs the same loop without a server.
 
 [Siegework](../games/siegework.md) is the complete example.
