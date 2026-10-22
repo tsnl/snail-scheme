@@ -13,6 +13,7 @@
    link-wat
    build-runtime
    build-assembler
+   build-tools
    bootstrap!
    run-tool
    path-join
@@ -27,7 +28,7 @@
    (chibi filesystem)
    (chibi pathname)
    (chibi process)
-   (only (chibi string) string-contains string-cursor->index))
+   (only (chibi string) string-contains string-cursor->index string-suffix?))
   (begin
 
     ;; ---- Compiling ----
@@ -282,6 +283,42 @@
     (define (assemble path)
       (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list (string-append path ".wat") "-o" (string-append path ".wasm")))))
 
+    ;; ---- Development tools ----
+
+    ;; What `lofi serve` and `lofi watch` run: the development loop, a
+    ;; program that includes the compiler; the reload client pages load; the
+    ;; runtime; and the assembler. Each is built again only when its sources
+    ;; are newer. Returns their paths by name.
+    (define (build-tools root)
+      (let ((directory (path-join root "build/develop")))
+        (create-directory* directory)
+        (list (cons "develop" (build-tool root (path-join root "bootstrap/develop.sld") (path-join directory "develop.wasm")
+                                          (list (path-join root "src") (path-join root "lib")) (list "bootstrap/develop.sld")))
+              (cons "client" (build-tool root (path-join root "src/app/reload.sld") (path-join directory "reload.wasm")
+                                         (list (path-join root "lib")) (list "src/app/reload.sld")))
+              (cons "runtime" (build-runtime root))
+              (cons "assembler" (build-assembler root)))))
+
+    (define (build-tool root source output directories files)
+      (unless (and (file-exists? output)
+                   (> (file-modification-time output)
+                      (apply max (append (map (lambda (file) (file-modification-time (path-join root file))) files)
+                                         (map newest-sld-time directories)))))
+        (build-program root directories source output #f))
+      output)
+
+    ;; The newest .sld file under a directory, at any depth.
+    (define (newest-sld-time directory)
+      (let loop ((entries (directory-files directory)) (newest 0))
+        (cond ((null? entries) newest)
+              ((member (car entries) '("." "..")) (loop (cdr entries) newest))
+              (else
+               (let ((path (path-join directory (car entries))))
+                 (loop (cdr entries)
+                       (max newest (cond ((file-directory? path) (newest-sld-time path))
+                                         ((string-suffix? ".sld" path) (file-modification-time path))
+                                         (else 0)))))))))
+
     (define (read-lines path)
       (let loop ((lines '()) (rest (read-file path)))
         (let ((cursor (string-contains rest "\n")))
@@ -295,7 +332,8 @@
                      (let loop ((names names) (out ""))
                        (if (null? names)
                            out
-                           (loop (cdr names) (string-append out (if (string=? out "") "" ", ") "\"" (car names) "\""))))
+                           (loop (cdr names) (string-append out (if (string=? out "") "" ", ") "{\"name\": \"" (car names)
+                                                            "\", \"file\": \"" (car names) ".wasm\"}"))))
                      "]}\n"))
 
     (define (copy-file! from to)

@@ -1,15 +1,8 @@
-// Live reload for the pages that `lofi serve` serves. scripts/develop.mjs
-// adds this module to each page with the manifest of the build the page
-// came from, and every event at /.lofi/events carries the manifest of the
-// build being served, so comparing the two tells what changed, however many
-// events the page missed.
-//
-// - A changed module replaces the one each application runs, keeping the
-//   application's state (`replaceModule` in host.mjs).
-// - A changed style sheet is fetched again.
-// - Any other change reloads the page, after saving.
-// - A failed build, a module that cannot take over the state, or an
-//   uncaught error is shown over the page; the old module keeps its state.
+// The page side of `lofi serve`, which the server adds to every page it
+// serves. The reload client, src/app/reload.sld, runs as WebAssembly and
+// decides what the page does about each build; this file binds it to the
+// server's event stream, a notice over the page, and the application host,
+// which relinks programs (`relinkModules` in host.mjs).
 
 // ---- Notice ----
 
@@ -45,36 +38,62 @@ function button(caption, handler) {
   return node;
 }
 
-// ---- Builds ----
+// ---- The client ----
 
-// The manifest of what this page runs. It changes only as builds are
-// applied, so it never claims more than the page has.
-const loaded = JSON.parse(document.getElementById('lofi-manifest')?.textContent ?? '{}');
-
-function changesFrom(manifest) {
-  return [...new Set([...Object.keys(loaded), ...Object.keys(manifest)])].filter(name => loaded[name] !== manifest[name]);
+// The client is one linked module with its own runtime; it needs only
+// standard output, and answers the rest of WASI with ENOSYS.
+async function startClient(page) {
+  let exports = null;
+  const memory = () => new DataView(exports.memory.buffer);
+  const wasi = {
+    fd_write(fd, iovs, count, written) {
+      let total = 0, text = '';
+      for (let i = 0; i < count; i++) {
+        const pointer = memory().getUint32(iovs + 8 * i, true), length = memory().getUint32(iovs + 8 * i + 4, true);
+        text += new TextDecoder().decode(new Uint8Array(exports.memory.buffer, pointer, length));
+        total += length;
+      }
+      (fd === 2 ? console.error : console.log)(text.trimEnd());
+      memory().setUint32(written, total, true);
+      return 0;
+    },
+    proc_exit(code) { throw new Error(`the reload client exited with status ${code}`); },
+  };
+  const module = await WebAssembly.compileStreaming(fetch('/.lofi/reload.wasm', {cache: 'no-store'}));
+  for (const {module: from, name} of WebAssembly.Module.imports(module)) if (from === 'wasi_snapshot_preview1' && !wasi[name]) wasi[name] = () => 52;
+  ({exports} = await WebAssembly.instantiate(module, {wasi_snapshot_preview1: wasi, 'snail.page': pageImports(page)}));
+  exports._initialize();
+  exports.main();
+  return exports;
 }
 
-// The host is imported only when needed: before the first build succeeds,
-// the page is a placeholder without one.
-function loadHost() {
-  return import('/host.mjs').catch(() => null);
+// Sends text a character at a time, then calls the entry point.
+function enter(client, entry, text, ...numbers) {
+  for (const character of text) client.reload_character(character.codePointAt(0));
+  client[entry](...numbers);
 }
 
-// Brings the page up to the build in `manifest`, returning the files it
-// changed, or null when the page reloads or a module could not take over.
-// A page without a running application has nothing to keep.
-async function applyBuild(manifest, notice) {
-  const changed = changesFrom(manifest);
-  if (!changed.length) return changed;
-  const host = await loadHost();
-  if (!host?.running.length || changed.some(file => !(file in manifest) || !(file.endsWith('.css') || file === 'app.wasm'))) {
-    await Promise.all((host?.running ?? []).map(application => host.saveApplication(application)));
-    location.reload();
-    return null;
-  }
-  changed.filter(file => file.endsWith('.css')).forEach(file => restyle(file, manifest[file]));
-  return !changed.includes('app.wasm') || await replaceModules(host, manifest['app.wasm'], notice) ? changed : null;
+// ---- Page commands ----
+
+// Numbered as the `page` effect's commands in src/app/reload.sld. A relink
+// waits for the one before it.
+function pageImports(page) {
+  let staged = [], current = '';
+  const commands = [
+    null,
+    ([text], kind) => page.notice.show(text, {failed: kind === 1, seconds: kind === 2 ? 2 : 0}),
+    () => page.notice.hide(),
+    ([file, digest]) => restyle(file, digest),
+    ([module]) => { page.relinking = page.relinking.then(() => relink(page, module, false)); },
+    () => reloadPage(),
+    ([text]) => page.notice.show(text, {failed: true, actions: [['Start over with the new program', () => startOver(page)],
+                                                                ['Dismiss', () => page.notice.hide()]]}),
+  ];
+  return {
+    'argument-character': code => { current += String.fromCodePoint(code); },
+    'argument-end': () => { staged.push(current); current = ''; },
+    command: (code, number) => { const args = staged; staged = []; commands[code](args, number); return 0; },
+  };
 }
 
 function restyle(file, digest) {
@@ -82,77 +101,43 @@ function restyle(file, digest) {
     const url = new URL(link.href);
     if (url.pathname.endsWith(`/${file}`)) { url.searchParams.set('v', digest); link.href = url.href; }
   }
-  loaded[file] = digest;
 }
 
-// The module counts as loaded even if it fails, so it is not tried again
-// until a build changes it.
-async function replaceModules(host, digest, notice) {
-  loaded['app.wasm'] = digest;
-  for (const application of host.running)
-    if (!await replace(host, application, digest, notice)) return false;
-  return true;
-}
-
-function moduleUrl(application, digest) {
-  const url = new URL(application.url, location.href);
-  url.searchParams.set('v', digest);
-  return url.href;
-}
-
-// When the new module cannot take over the state, the old one keeps it,
-// and starting over is the developer's choice.
-async function replace(host, application, digest, notice) {
+async function relink(page, module, fresh) {
+  const host = await import('/host.mjs');
   try {
-    await host.replaceModule(application, moduleUrl(application, digest));
-    return true;
+    for (const application of host.running) await host.relinkModules(application, module, {fresh});
+    enter(page.client, 'reload_relinked', '', 0);
   } catch (error) {
-    notice.show(`The new module could not restore the running state; the old module is still running.\n\n${error.message}`, {
-      failed: true,
-      actions: [['Start over with the new module', () => startOver(host, application, digest, notice)], ['Dismiss', notice.hide]],
-    });
-    return false;
+    enter(page.client, 'reload_relinked', error.message, 1);
   }
 }
 
-async function startOver(host, application, digest, notice) {
-  try {
-    await host.replaceModule(application, moduleUrl(application, digest), {fresh: true});
-    notice.hide();
-  } catch (error) {
-    notice.show(`The new module could not start.\n\n${error.message}`, {failed: true});
-  }
+function startOver(page) {
+  page.relinking = page.relinking.then(async () => {
+    const host = await import('/host.mjs');
+    const first = JSON.parse(await (await fetch('/modules.json', {cache: 'no-store'})).text()).modules[0].name;
+    for (const application of host.running) await host.relinkModules(application, first, {fresh: true});
+    page.notice.hide();
+  }).catch(error => page.notice.show(error.message, {failed: true}));
 }
 
-// An uncaught error, such as a trap or the exit a panic calls, comes with
-// the lines the modules last wrote to standard error. A trap during a
-// display frame stops the clock with the state as it was before the update
-// that trapped; the next build that replaces the module resumes it.
-async function explainError(event, notice) {
-  const running = (await loadHost())?.running ?? [];
-  const stopped = running.some(application => !application.clock);
-  notice.show([event.message, ...running.flatMap(application => application.errors),
-               ...(stopped ? ['', 'The application stopped. Fix it and save: the next build resumes from the state before the trap.'] : [])]
-    .join('\n'), {failed: true});
+// The page loads again after every application's save is stored. Before
+// the first build, the page is a placeholder without a host.
+async function reloadPage() {
+  const host = await import('/host.mjs').catch(() => null);
+  await Promise.all((host?.running ?? []).map(application => host.saveApplication(application)));
+  location.reload();
 }
 
 // ---- Events ----
 
-// Applies the build an event describes, then shows the event's state.
-async function receive(event, notice) {
-  const changed = await applyBuild(event.manifest, notice);
-  if (changed === null) return;
-  if (event.state === 'building') notice.show('Building...');
-  else if (event.state === 'failed') notice.show(event.message, {failed: true});
-  else if (changed.length) notice.show(`Reloaded ${changed.join(', ')}, built in ${event.milliseconds} ms`, {seconds: 2});
-  else notice.hide();
-}
-
-// Events are received one at a time, in order, so a later build never
-// lands before an earlier one.
-const notice = createNotice();
-let receiving = Promise.resolve();
-new EventSource('/.lofi/events').addEventListener('message', message => {
-  receiving = receiving.then(() => receive(JSON.parse(message.data), notice));
+const page = {notice: createNotice(), relinking: Promise.resolve(), client: null};
+page.client = await startClient(page);
+enter(page.client, 'reload_start', document.getElementById('lofi-manifest')?.textContent ?? '(files) (modules)');
+new EventSource('/.lofi/events').addEventListener('message', message => enter(page.client, 'reload_event', message.data));
+addEventListener('error', async event => {
+  const running = (await import('/host.mjs').catch(() => null))?.running ?? [];
+  const lines = [event.message, ...running.flatMap(application => application.errors)].join('\n');
+  enter(page.client, 'reload_page_error', lines, running.some(application => !application.clock) ? 1 : 0);
 });
-addEventListener('error', event => explainError(event, notice));

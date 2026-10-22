@@ -59,13 +59,15 @@ export function runModules(linked, names) {
   return status;
 }
 
-// Reads modules.json and compiles every module it names. `read` fetches a
-// file's bytes by its name relative to the manifest.
-export async function loadManifest(read) {
-  const manifest = JSON.parse(new TextDecoder().decode(await read('modules.json')));
+// Reads a modules.json and compiles the runtime and every module it names:
+// {"runtime": FILE, "modules": [{"name": LIBRARY, "file": FILE}, ...]}, in
+// program order. `read` fetches a file's bytes by its path, which may be
+// relative to the manifest's.
+export async function loadManifest(read, manifest = 'modules.json') {
+  const {runtime, modules} = JSON.parse(new TextDecoder().decode(await read(manifest)));
   const compile = async file => WebAssembly.compile(await read(file));
   return {
-    runtime: await compile(manifest.runtime),
-    modules: await Promise.all(manifest.modules.map(async name => ({name, module: await compile(`${name}.wasm`)}))),
+    runtime: await compile(runtime),
+    modules: await Promise.all(modules.map(async ({name, file}) => ({name, file, module: await compile(file)}))),
   };
 }

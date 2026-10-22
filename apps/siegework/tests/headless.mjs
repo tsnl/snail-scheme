@@ -3,7 +3,7 @@
 // cells, an order given through the HUD's card, five minutes of play, a drag
 // of the camera, and a save replayed through the application entry points.
 import {readFile} from 'node:fs/promises';
-import {dirname, join} from 'node:path';
+import {dirname, isAbsolute, join} from 'node:path';
 import assert from 'node:assert/strict';
 import {instantiateRuntime, linkModules, loadManifest, runModules} from '../../../src/app/load.mjs';
 
@@ -71,7 +71,7 @@ async function instantiate(path, host) {
 }
 
 async function instantiateLinked(path, host, wasi, useMemory) {
-  const {runtime, modules} = await loadManifest(file => readFile(join(dirname(path), file)));
+  const {runtime, modules} = await loadManifest(file => readFile(isAbsolute(file) ? file : join(dirname(path), file)), path);
   const instance = await instantiateRuntime(runtime, {wasi_snapshot_preview1: wasi});
   useMemory(instance.exports.memory);
   instance.exports._initialize();

@@ -5,6 +5,7 @@
 import {createRenderer} from './renderer.mjs';
 import {createHud} from './hud.mjs';
 import {loadSave, storeSave} from './storage.mjs';
+import {instantiateRuntime, linkModules, loadManifest, runModules} from './load.mjs';
 
 // ---- Input encoding ----
 
@@ -114,18 +115,22 @@ function screenImports(renderer, hud) {
 
 // ---- Application ----
 
-// The applications running on this page. A development server replaces
-// their modules (src/app/reload.mjs).
+// The applications running on this page. A development server relinks
+// their programs (src/app/reload.mjs).
 export const running = [];
 
-// An application is the module it runs, which `replaceModule` may swap,
-// with the last lines that module wrote to standard error, and the page's
-// renderer, HUD and canvas, which outlive any one module.
+// An application is the program it runs, which a development server may
+// relink, with the last lines the program wrote to standard error, and the
+// page's renderer, HUD and canvas, which outlive any one program. A page
+// that `lofi serve` serves names its program's modules.json in a meta tag;
+// a published page loads one linked module.
 export async function startApplication({url, canvas, overlay, storageKey}) {
-  const application = {url, canvas, storageKey, exports: null, errors: [], renderer: await createRenderer(canvas), hud: null, clock: null};
+  const application = {url, canvas, storageKey, exports: null, errors: [], capture: null, renderer: await createRenderer(canvas),
+                       hud: null, clock: null, program: null};
   application.hud = createHud(overlay, (action, argument) => application.exports.app_input(PRESS, action, argument, 0, 0),
                               (action, argument) => application.exports.app_input(HOVER, action, argument, 0, 0));
-  application.exports = await instantiate(application, url, application.errors);
+  const manifest = document.querySelector('meta[name="lofi-modules"]')?.content;
+  application.exports = manifest ? await linkProgram(application, manifest) : await instantiate(application, url);
   await restore(application);
   attachInput(application);
   addEventListener('visibilitychange', () => { if (document.hidden) saveQuietly(application); });
@@ -134,12 +139,10 @@ export async function startApplication({url, canvas, overlay, storageKey}) {
   return application.exports;
 }
 
-// Every instance has its own WASI imports, which read its own memory, so a
-// new module can start while the old one still runs.
-async function instantiate(application, url, errors) {
+async function instantiate(application, url) {
   let exports;
   const imports = {
-    wasi_snapshot_preview1: wasiImports(() => exports.memory, printer(errors)),
+    wasi_snapshot_preview1: wasiImports(() => exports.memory, printer(application)),
     'snail.screen': screenImports(application.renderer, application.hud),
   };
   ({instance: {exports}} = await WebAssembly.instantiateStreaming(fetch(url), imports));
@@ -148,15 +151,33 @@ async function instantiate(application, url, errors) {
   return exports;
 }
 
-// Lines a module writes go to the console. The last twenty it writes to
-// standard error are also kept in `errors`, since they explain a trap: a
-// panic prints its message before trapping.
-function printer(errors) {
+// A program compiled one library at a time: the runtime, then each module
+// in program order (load.mjs). The application keeps the instances, so a
+// rebuilt module and those after it can be relinked.
+async function linkProgram(application, manifest) {
+  const read = async file => new Uint8Array(await (await fetch(new URL(file, new URL(manifest, location.href)), {cache: 'no-store'})).arrayBuffer());
+  const loaded = await loadManifest(read, manifest);
+  let runtime = null;
+  runtime = await instantiateRuntime(loaded.runtime, {wasi_snapshot_preview1: wasiImports(() => runtime.exports.memory, printer(application))});
+  runtime.exports._initialize();
+  const host = {'snail.screen': screenImports(application.renderer, application.hud)};
+  const linked = await linkModules(runtime, loaded.modules, host);
+  runModules(linked, loaded.modules.map(entry => entry.name));
+  application.program = {manifest, read, runtime, host, linked};
+  return linked.get(loaded.modules.at(-1).name).exports;
+}
+
+// Lines the program writes go to the console. The last twenty it writes to
+// standard error are kept in `errors`, since they explain a trap: a panic
+// prints its message before trapping. While a relink runs, they are also
+// captured for its error.
+function printer(application) {
   return (fd, text) => {
     if (fd !== 2) { console.log(text); return; }
     console.error(text);
-    errors.push(text);
-    errors.splice(0, errors.length - 20);
+    application.errors.push(text);
+    application.errors.splice(0, application.errors.length - 20);
+    application.capture?.push(text);
   };
 }
 
@@ -167,7 +188,7 @@ function saveBytes(exports) {
   return Uint8Array.from({length}, (_, index) => exports.app_save_byte(index));
 }
 
-// Restores a save into a module, then reports the screen's size, which
+// Restores a save into a program, then reports the screen's size, which
 // saves leave out. A save written for another schema traps.
 function loadBytes(exports, bytes, canvas) {
   exports.app_load_begin(bytes.length);
@@ -180,7 +201,7 @@ function startFresh(exports, canvas) {
   exports.app_init((Math.random() * 65536) | 0, canvas.clientWidth, canvas.clientHeight);
 }
 
-// Stores the running module's save, resolving once it is stored.
+// Stores the running program's save, resolving once it is stored.
 export function saveApplication(application) {
   return storeSave(application.storageKey, saveBytes(application.exports));
 }
@@ -203,28 +224,55 @@ async function restore(application) {
   startFresh(application.exports, application.canvas);
 }
 
-// ---- Replacing the module ----
+// ---- Relinking ----
 
-// Swaps in a rebuilt module while the page keeps running: the old module's
-// save restores into the new one, so the state survives while every
-// function changes. The renderer's batches were drawn by the old module, so
-// it forgets them. If the new module cannot take over the save, because
-// its Save type changed or restoring it panics, the old module keeps
-// running and the error carries what the new one printed; `fresh` starts
-// the new module over instead. A clock that stopped when the old module
-// trapped starts again.
-export async function replaceModule(application, url, {fresh = false} = {}) {
-  const errors = [];
+// After a build changed the module of library `from`, that module and every
+// module after it, which may import from it, are linked again from the new
+// modules.json, in program order, and initialized: their globals start
+// over. The state passes to the new program (`takeState`), and the renderer
+// forgets the batches the old one drew. If the new program cannot take the
+// state, the old one keeps running and the error carries what was printed;
+// `fresh` starts the new program over instead. A clock that stopped when the
+// old program trapped starts again.
+export async function relinkModules(application, from, {fresh = false} = {}) {
+  application.capture = [];
   try {
-    const next = await instantiate(application, url, errors);
-    if (fresh) startFresh(next, application.canvas);
-    else loadBytes(next, saveBytes(application.exports), application.canvas);
+    const next = await linkFrom(application.program, from);
+    takeState(next.exports, application, fresh);
     application.renderer.forget();
-    Object.assign(application, {exports: next, errors});
+    Object.assign(application, {exports: next.exports});
+    application.program.linked = next.linked;
   } catch (error) {
-    throw new Error(errors.join('\n') || error.message);
+    throw new Error(application.capture.join('\n') || error.message);
+  } finally {
+    application.capture = null;
   }
   if (!application.clock) runClock(application);
+}
+
+// Keeps the instances of the modules before `from`, which cannot import
+// from it, and links the rest anew.
+async function linkFrom(program, from) {
+  const {modules: entries} = JSON.parse(new TextDecoder().decode(await program.read(program.manifest)));
+  const start = Math.max(0, entries.findIndex(entry => entry.name === from));
+  const kept = new Map(entries.slice(0, start).map(entry => [entry.name, program.linked.get(entry.name)]));
+  const modules = await Promise.all(entries.slice(start).map(async entry => ({...entry, module: await WebAssembly.compile(await program.read(entry.file))})));
+  const linked = await linkModules(program.runtime, modules, program.host, kept);
+  runModules(linked, modules.map(entry => entry.name));
+  return {linked, exports: linked.get(entries.at(-1).name).exports};
+}
+
+// The state passes as it is while its types are unchanged; adopting a state
+// of another shape traps, and it passes through the save instead.
+function takeState(next, application, fresh) {
+  const {canvas} = application;
+  if (fresh) { startFresh(next, canvas); return; }
+  try {
+    next.app_adopt(application.exports.app_state());
+    next.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0, 0);
+  } catch {
+    loadBytes(next, saveBytes(application.exports), canvas);
+  }
 }
 
 // Wheel deltas arrive in pixels, lines or pages; the application gets pixels.

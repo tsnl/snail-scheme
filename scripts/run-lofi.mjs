@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {readFile} from 'node:fs/promises';
-import {dirname, join} from 'node:path';
+import {dirname, isAbsolute, join} from 'node:path';
 import {WASI} from 'node:wasi';
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {instantiateRuntime, linkModules, loadManifest, runModules} from '../src/app/load.mjs';
@@ -36,7 +36,7 @@ async function run(filename, arguments_) {
 // A modules.json names a program compiled one library at a time; the
 // runtime is its own instance, which the modules import from.
 async function runLinked(manifest, wasi) {
-  const {runtime, modules} = await loadManifest(file => readFile(join(dirname(manifest), file)));
+  const {runtime, modules} = await loadManifest(file => readFile(isAbsolute(file) ? file : join(dirname(manifest), file)), manifest);
   const instance = await instantiateRuntime(runtime, wasi.getImportObject());
   wasi.initialize(instance);
   let status = 1;
