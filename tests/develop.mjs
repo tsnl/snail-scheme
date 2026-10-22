@@ -83,7 +83,7 @@ const text = (page, key) => page.widgets.find(entry => entry.key === key)?.text;
 // build changed, as the reload client finds it, and hands the state over.
 // Returns the module and how the state passed.
 async function relink(page, manifest) {
-  const [from] = manifest.modules.find(([name, file], index) => String(page.manifest.modules[index]) !== String([name, file]));
+  const [from] = manifest.modules.find((entry, index) => entry.join(' ') !== page.manifest.modules[index]?.join(' '));
   const program = await relinkProgram(page.program, from);
   const passed = takeState(programExports(program), programExports(page.program), {clientWidth: 960, clientHeight: 640}, false);
   Object.assign(page, {manifest, program});

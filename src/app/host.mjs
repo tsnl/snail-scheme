@@ -224,13 +224,17 @@ function startFresh(exports, canvas) {
   exports.app_init((Math.random() * 65536) | 0, canvas.clientWidth, canvas.clientHeight);
 }
 
+function save(application) {
+  return storeSave(application.storageKey, saveBytes(application.exports));
+}
+
 // Stores every application's save, resolving once all are stored.
 export function saveAll() {
-  return Promise.all(running.map(application => storeSave(application.storageKey, saveBytes(application.exports))));
+  return Promise.all(running.map(save));
 }
 
 function saveQuietly(application) {
-  storeSave(application.storageKey, saveBytes(application.exports)).catch(error => console.warn('save failed:', error.message));
+  save(application).catch(error => console.warn('save failed:', error.message));
 }
 
 // A save written for another schema traps while loading; start fresh then.

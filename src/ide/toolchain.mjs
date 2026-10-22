@@ -126,28 +126,34 @@ function commands(loop) {
   };
 }
 
+const toolchain = new URL('toolchain/', import.meta.url);
+const fetchBytes = async url => new Uint8Array(await (await fetch(url)).arrayBuffer());
+
 // The library's and the project's files go in before the loop starts,
-// which builds first. The loop's arguments are those `lofi serve` passes
-// (bootstrap/develop.sld): the root is '', so the standard library is under
-// /lib and builds write under /build; the runtime is the one fetched here;
-// and the reload client is the preview's own, from the IDE's site, so the
-// loop's route to /reload.wasm is never asked for.
+// which builds first.
 async function startLoop({library, project}) {
-  const fetchBytes = async url => new Uint8Array(await (await fetch(url)).arrayBuffer());
-  const toolchain = new URL('toolchain/', import.meta.url);
   const loop = {errors: '', files: new Map()};
   for (const [path, text] of Object.entries(library)) loop.files.set(path, encoder.encode(text));
   for (const [path, text] of Object.entries(project)) loop.files.set(`/project/${path}`, encoder.encode(text));
   loop.files.set('/runtime.wasm', await fetchBytes(new URL('runtime.wasm', toolchain)));
   loop.assemble = await createAssembler(await fetchBytes(new URL('assembler.wasm', import.meta.url)));
-  const wasi = createWasi({args: ['develop', '', '/runtime.wasm', '/reload.wasm', 'serve', '0', '/project'], print: (fd, line) => {
+  const host = {'snail.develop': commandImports(commands(loop)), 'snail.files': filesImports(loop.files)};
+  loop.program = await linkProgram(file => fetchBytes(new URL(file, toolchain)), 'modules.json', loopWasi(loop), host);
+  enter(loop, () => runProgram(loop.program));
+  return loop;
+}
+
+// The loop's arguments are those `lofi serve` passes (bootstrap/develop.sld):
+// the root is '', so the standard library is under /lib and builds write
+// under /build; the runtime is the one fetched here; and the reload client
+// is the preview's own, from the IDE's site, so the loop's route to
+// /reload.wasm is never asked for. What the loop prints goes to the page,
+// and its standard error is kept for a panic's message.
+function loopWasi(loop) {
+  return createWasi({args: ['develop', '', '/runtime.wasm', '/reload.wasm', 'serve', '0', '/project'], print: (fd, line) => {
     if (fd === 2) loop.errors += `${line}\n`;
     postMessage({type: 'log', text: line, error: fd === 2});
   }});
-  const host = {'snail.develop': commandImports(commands(loop)), 'snail.files': filesImports(loop.files)};
-  loop.program = await linkProgram(file => fetchBytes(new URL(file, toolchain)), 'modules.json', wasi, host);
-  enter(loop, () => runProgram(loop.program));
-  return loop;
 }
 
 // ---- Messages ----
