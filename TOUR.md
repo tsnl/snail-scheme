@@ -82,7 +82,10 @@ and keeps state that grows over a whole pass in a `Ref`.
   recursion group it can, ordered by name, so modules that declare the same
   type declare the same group. Compiled one library at a time, a module
   exports its monomorphic definitions under their global names and imports
-  other libraries' (doc/toolchain.md, section 3).
+  other libraries' (doc/toolchain.md, section 3). At the host boundary it
+  stages final String and Bytes arguments and wraps exposed `(Option Any)`
+  as a nullable opaque handover. Dynamic handler globals are exported so
+  the host can restore an entry's context after it settles.
 - **[`session.sld`](src/lofi/compiler/session.sld)** keeps the compiler
   running between builds: the expander replays libraries whose declarations
   and imports' interfaces are unchanged, and only libraries whose expansion

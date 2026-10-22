@@ -27,6 +27,7 @@
    labels->string
    type=?
    types=?
+   optional-any-type?
    short-name
    name-owner
    substitute
@@ -220,6 +221,14 @@
           (cond ((= index (vector-length chars)) "")
                 ((char=? (vector-ref chars index) #\:) (substring name 0 index))
                 (else (loop (+ index 1)))))))
+
+    ;; The host can hold an opaque Any or null, without constructing a GC
+    ;; enum. This is a boundary convention, not Option's internal layout.
+    (: optional-any-type? (-> Type Bool))
+    (define (optional-any-type? type)
+      (match type
+        ((TCon "lofi.base:Option" (Cons (TCon "Any" (Nil)) (Nil))) #t)
+        (_ #f)))
 
     (: type->string (-> Type String ! mut))
     (define (type->string type)

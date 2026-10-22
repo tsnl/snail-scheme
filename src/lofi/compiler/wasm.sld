@@ -865,9 +865,10 @@
 
     ;; ---- Host calls ----
 
-    ;; The runtime reads only scalars. A String argument, which must come
+    ;; The runtime reads only scalars. A String or Bytes argument, which must come
     ;; last, is copied into the runtime's staging buffer just before the call,
-    ;; and the host receives its length. A Unit result is no result.
+    ;; and the host receives its scalar count or byte-record address.
+    ;; A Unit result is no result.
     (: host-call (-> Module Import Type (List Wat) Loc (List Wat) ! mut))
     (define (host-call m import type args loc)
       (match type
@@ -883,17 +884,29 @@
         ((TCon "String" (Nil)) #t)
         (_ #f)))
 
+    (: bytes-type? (-> Type Bool))
+    (define (bytes-type? type)
+      (match type
+        ((TCon "Vector" (Cons (TCon "U8" (Nil)) (Nil))) #t)
+        (_ #f)))
+
+    (: buffer-type? (-> Type Bool))
+    (define (buffer-type? type)
+      (or (string-type? type) (bytes-type? type)))
+
     (: host-params (-> Module (List Type) Loc (List Rep) ! mut))
     (define (host-params m params loc)
       (map-indexed (lambda (index param)
-                     (cond ((not (string-type? param)) (rep m param))
+                     (cond ((not (buffer-type? param)) (rep m param))
                            ((= index (- (length params) 1)) (Scalar "i32"))
-                           (else (compile-error loc "a host function can take a String only as its last argument"))))
+                           (else (compile-error loc "a host function can take a String or Bytes only as its last argument"))))
                    params))
 
     (: host-args (-> Module (List Type) (List Wat) (List Wat) ! mut))
     (define (host-args m params args)
-      (map (lambda (pair) (if (string-type? (Pair-first pair)) (wat "call" (id (stage-helper m)) (Pair-second pair)) (Pair-second pair)))
+      (map (lambda (pair) (if (buffer-type? (Pair-first pair))
+                              (wat "call" (id (stage-helper m (bytes-type? (Pair-first pair)))) (Pair-second pair))
+                              (Pair-second pair)))
            (zip params args)))
 
     (: unit-type? (-> Type Bool))
@@ -912,6 +925,60 @@
                            (wat* "func" (Cons (id function-id)
                                               (append (map (lambda (param) (wat "param" (rep->wat param))) params)
                                                       (match result ((Some r) (list (wat "result" (rep->wat r)))) ((None) (Nil))))))))))
+
+    ;; ---- Exposed handovers ----
+
+    ;; Inside Lofi, Option keeps its normal enum representation. Only the
+    ;; exported wrapper maps None to null and Some Any to its opaque payload.
+    (: exposed-value-type (-> Module Type Wat ! mut))
+    (define (exposed-value-type m type)
+      (if (optional-any-type? type) (nullable (Reference (any-type m))) (rep->wat (rep m type))))
+
+    (: option-case (-> Module Bool Case))
+    (define (option-case m some?)
+      (match (find (lambda (case) (= (length (Case-fields case)) (if some? 1 0)))
+                   (DataType-cases (data-type-of m "lofi.base:Option")))
+        ((Some case) case)
+        ((None) (panic "internal error: missing Option case"))))
+
+    (: import-handover (-> Fn Type Wat Wat ! mut))
+    (define (import-handover fn type value)
+      (if (optional-any-type? type)
+          (let ((m (Fn-module fn)))
+            (wat "if" (wat "result" (rep->wat (rep m type))) (wat "ref.is_null" value)
+                 (wat "then" (construct fn (option-case m #f) type (Nil)))
+                 (wat "else" (construct fn (option-case m #t) type (list (wat "ref.as_non_null" value))))))
+          value))
+
+    (: export-handover (-> Fn Type Wat Wat ! mut))
+    (define (export-handover fn type value)
+      (if (optional-any-type? type)
+          (let* ((m (Fn-module fn)) (temp (declare-temp! fn (rep->wat (rep m type))))
+                 (read (wat "local.get" (id temp))) (some (case-type m type (option-case m #t))))
+            (wat "block" (wat "result" (exposed-value-type m type)) (wat "local.set" (id temp) value)
+                 (wat "if" (wat "result" (exposed-value-type m type))
+                      (wat "i32.eq" (wat "struct.get" (id (data-type m type)) (int 0) read) (wat "i32.const" (int (Case-tag (option-case m #f)))))
+                      (wat "then" (wat "ref.null" (id (any-type m))))
+                      (wat "else" (wat "struct.get" (id some) (int 1) (wat "ref.cast" (wat "ref" (id some)) read))))))
+          value))
+
+    (: exposed-function (-> Module String Type String ! mut))
+    (define (exposed-function m name type)
+      (match type
+        ((TFun params result _)
+         (if (any? optional-any-type? (Cons result params)) (handover-wrapper! m name params result) (wasm-id name)))
+        (_ (panic "internal error: exposed value is not a function"))))
+
+    (: handover-wrapper! (-> Module String (List Type) Type String ! mut))
+    (define (handover-wrapper! m name params result)
+      (let* ((fn (new-fn m)) (wrapper (fresh-id m "exposed")) (names (map (lambda (i) (string-append "$arg." (i64->string i))) (iota (length params))))
+             (args (map (lambda (pair) (import-handover fn (Pair-first pair) (wat "local.get" (id (Pair-second pair))))) (zip params names)))
+             (value (export-handover fn result (wat* "call" (Cons (id (wasm-id name)) args)))))
+        (push-function! m (wat* "func" (Cons (id wrapper)
+                                             (append (map (lambda (pair) (wat "param" (id (Pair-second pair)) (exposed-value-type m (Pair-first pair)))) (zip params names))
+                                                     (Cons (wat "result" (exposed-value-type m result))
+                                                           (append (reverse (ref-get (Fn-locals fn))) (list value)))))))
+        wrapper))
 
     ;; ---- Pattern matching ----
 
@@ -1159,7 +1226,9 @@
                (begin (push! (Module-globals m) (wat "global" (id (handler-global effect)) type (wat "ref.null" (id type-id))))
                       (push! (Module-exports m) (wat "export" (wat-string symbol) (wat "global" (id (handler-global effect))))))
                (push! (Module-imports m) (wat "import" (wat-string (name-owner effect)) (wat-string symbol) (wat "global" (id (handler-global effect)) type)))))
-          ((None) (push! (Module-globals m) (wat "global" (id (handler-global effect)) type (wat "ref.null" (id type-id))))))))
+          ((None)
+           (push! (Module-globals m) (wat "global" (id (handler-global effect)) type (wat "ref.null" (id type-id))))
+           (push! (Module-exports m) (wat "export" (wat-string symbol) (wat "global" (id (handler-global effect)))))))))
 
     (: operation-type (-> Module String Type))
     (define (operation-type m operation)
@@ -1436,24 +1505,34 @@
              (i32.lt_u (array.len (local.get $a)) (array.len (local.get $b)))))"
                         (list (Pair "array" (array-type m (Scalar "i32"))))))
 
-    ;; Copies a string's scalars into the runtime's staging buffer, four bytes
-    ;; each, and returns how many there are.
-    (: stage-helper (-> Module String ! mut))
-    (define (stage-helper m)
+    ;; Strings transfer UTF32 scalars and return their count. Bytes transfer
+    ;; a little-endian u32 length followed by packed bytes and return its
+    ;; address, so a leaf host import reads memory without reentering Wasm.
+    ;; stage reserves four bytes per slot: count+1 safely holds either layout.
+    (: stage-helper (-> Module Bool String ! mut))
+    (define (stage-helper m bytes?)
       (let ((stage (import! m (Import "snail.library" "snail:io/stage") (list (Scalar "i32")) (Some (Scalar "i32")))))
-        (template-helper! m "stage" ""
+        (template-helper! m (if bytes? "stage.bytes" "stage.text") ""
                           "(func {id} (param $text (ref {array})) (result i32)
     (local $address i32) (local $index i32)
-    (local.set $address (call {stage} (array.len (local.get $text))))
+    {guard}
+    (local.set $address (call {stage} {capacity}))
+    {header}
     (block $done
       (loop $next
         (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $text))))
-        (i32.store (i32.add (local.get $address) (i32.shl (local.get $index) (i32.const 2)))
-                   (array.get {array} (local.get $text) (local.get $index)))
+        ({store} (i32.add (i32.add (local.get $address) (i32.const {offset})) (i32.shl (local.get $index) (i32.const {shift})))
+                 ({get} {array} (local.get $text) (local.get $index)))
         (local.set $index (i32.add (local.get $index) (i32.const 1)))
         (br $next)))
-    (array.len (local.get $text)))"
-                          (list (Pair "array" (array-type m (Scalar "i32"))) (Pair "stage" stage)))))
+    {result})"
+                          (list (Pair "array" (array-type m (Scalar (if bytes? "i8" "i32")))) (Pair "stage" stage)
+                                (Pair "guard" (if bytes? "(if (i32.eq (array.len (local.get $text)) (i32.const -1)) (then (unreachable)))" ""))
+                                (Pair "capacity" (if bytes? "(i32.add (array.len (local.get $text)) (i32.const 1))" "(array.len (local.get $text))"))
+                                (Pair "header" (if bytes? "(i32.store (local.get $address) (array.len (local.get $text)))" ""))
+                                (Pair "store" (if bytes? "i32.store8" "i32.store")) (Pair "get" (if bytes? "array.get_u" "array.get"))
+                                (Pair "offset" (if bytes? "4" "0")) (Pair "shift" (if bytes? "0" "2"))
+                                (Pair "result" (if bytes? "(local.get $address)" "(array.len (local.get $text))"))))))
 
     ;; Sends the message to the runtime one scalar at a time, then stops.
     (: panic-helper (-> Module String ! mut))
@@ -1634,10 +1713,12 @@
                (list (wat "global.set" (id (wasm-id name)) (emit1 fn value))))))
         ((Do expr) (list (wat "drop" (emit1 fn expr))))
         ((Expose name symbol loc)
-         (match (table-ref (Module-definitions m) name)
-           ((Some definition) (unless (lambda-expr? definition) (compile-error loc "an exposed function must be defined with lambda")))
+         (match (definition-of m name)
+           ((Some definition)
+            (unless (lambda-expr? definition) (compile-error loc "an exposed function must be defined with lambda"))
+            (push! (Module-exports m)
+                   (wat "export" (wat-string symbol) (wat "func" (id (exposed-function m name (Expr-type definition)))))))
            ((None) (compile-error loc "an exposed function must be defined")))
-         (push! (Module-exports m) (wat "export" (wat-string symbol) (wat "func" (id (wasm-id name)))))
          (Nil))))
 
     )
