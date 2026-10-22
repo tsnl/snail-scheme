@@ -142,13 +142,50 @@ fn write_character(port: &mut Port, code: u32) -> Result<(), String> {
     port.write(character.encode_utf8(&mut bytes))
 }
 
-#[unsafe(export_name = "snail:io/write-character")]
-pub extern "C" fn write_code(id: u32, code: u32) {
-    let result = if id == STANDARD_OUTPUT {
-        write_character(&mut Port::Stdout, code)
-    } else {
-        FILES.with_borrow_mut(|files| write_character(files.get(id)?, code))
-    };
+// ---- Staged text ----
+
+// Rust cannot read Lofi's managed strings, so a call that takes text is
+// preceded by `stage`: Lofi copies the scalars, four bytes each, to the address
+// it returns, and the call receives their count. The address is valid until
+// the next `stage`, and Lofi stages just before the call that reads it. The
+// buffer only grows, so zeroing it costs no more than the longest text.
+thread_local! {
+    static STAGED: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+}
+
+#[unsafe(export_name = "snail:io/stage")]
+pub extern "C" fn stage(count: u32) -> u32 {
+    STAGED.with_borrow_mut(|staged| {
+        if staged.len() < count as usize {
+            staged.resize(count as usize, 0);
+        }
+        staged.as_mut_ptr() as u32
+    })
+}
+
+fn staged_text(count: u32) -> Result<String, String> {
+    STAGED.with_borrow(|staged| {
+        let scalars = staged
+            .get(..count as usize)
+            .ok_or("more text than was staged")?;
+        let mut text = String::with_capacity(scalars.len());
+        for &code in scalars {
+            text.push(char::from_u32(code).ok_or("invalid Unicode scalar")?);
+        }
+        Ok(text)
+    })
+}
+
+/// The staged text to a port, all at once.
+#[unsafe(export_name = "snail:io/write-string")]
+pub extern "C" fn write_string(id: u32, count: u32) {
+    let result = staged_text(count).and_then(|text| {
+        if id == STANDARD_OUTPUT {
+            Port::Stdout.write(&text)
+        } else {
+            FILES.with_borrow_mut(|files| files.get(id)?.write(&text))
+        }
+    });
     checked(result);
 }
 

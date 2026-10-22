@@ -471,11 +471,9 @@
       (match items
         ((Nil) (vector-generate 0 (lambda (index) (panic "list->vector: empty"))))
         ((Cons first _)
-         (unsafe-total
-          (lambda ()
-            (let ((array (make-array (length items) first)))
-              (fold-left (lambda (index item) (array-set! array index item) (+ index 1)) 0 items)
-              (array->vector array)))))))
+         (let ((array (make-array (length items) first)))
+           (fold-left (lambda (index item) (array-set! array index item) (+ index 1)) 0 items)
+           (array->vector array)))))
 
     ;; ---- Characters and text ----
 
@@ -528,14 +526,12 @@
     ;; is local to this call.
     (: string-concatenate (-> (List String) String))
     (define (string-concatenate texts)
-      (unsafe-total
-       (lambda ()
-         (let ((chars (make-array (fold-left (lambda (total text) (+ total (string-length text))) 0 texts) #\space)))
-           (fold-left (lambda (offset text)
-                        (vector-copy! chars offset (string->vector text) 0 (string-length text))
-                        (+ offset (string-length text)))
-                      0 texts)
-           (vector->string (array->vector chars))))))
+      (let ((chars (make-array (fold-left (lambda (total text) (+ total (string-length text))) 0 texts) #\space)))
+        (fold-left (lambda (offset text)
+                     (vector-copy! chars offset (string->vector text) 0 (string-length text))
+                     (+ offset (string-length text)))
+                   0 texts)
+        (vector->string (array->vector chars))))
 
     (: string-join (-> (List String) String String))
     (define (string-join texts separator)

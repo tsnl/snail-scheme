@@ -79,7 +79,7 @@
        (open-input (-> I32))
        (open-output (-> I32))
        (port-read (-> I32 I32))
-       (port-write (-> I32 Char Unit))
+       (port-write (-> I32 String Unit))
        (port-close (-> I32 Unit)))
       (host "snail.library"
             ((path-begin "snail:io/path-begin")
@@ -88,7 +88,7 @@
              (open-input "snail:io/open-input-file")
              (open-output "snail:io/open-output-file")
              (port-read "snail:io/read-character")
-             (port-write "snail:io/write-character")
+             (port-write "snail:io/write-string")
              (port-close "snail:io/close"))))
 
     (: send-path (-> String Unit ! fs))
@@ -120,10 +120,7 @@
     (define (write-file path text)
       (send-path path)
       (let ((port (open-output)))
-        (let loop ((index 0))
-          (when (< index (string-length text))
-            (port-write port (string-ref text index))
-            (loop (+ index 1))))
+        (port-write port text)
         (port-close port)))
 
     ;; ---- Command line ----

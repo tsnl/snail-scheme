@@ -182,10 +182,28 @@ not be imported. Effects with host defaults, such as `console` and `fs` from
 handle `fs` to serve files from memory.
 
 `extern` declares a total foreign function; the declaration is the boundary's
-unsafe assumption. `unsafe-total` runs a thunk and discards its effects. The
-standard library uses it where a function mutates only storage it allocates
-and lets none of it escape; the checker takes that on trust, so each use says
-why in a comment.
+unsafe assumption.
+
+A function whose signature has no `mut` may still mutate storage that it
+allocates and that nothing keeps after it returns:
+
+```scheme
+(: sum (-> (List I64) I64))
+(define (sum items)
+  (let ((total (ref 0)))
+    (for-each (lambda (item) (ref-set! total (+ (ref-get total) item))) items)
+    (ref-get total)))
+```
+
+The checker accepts such a body when nothing the function can reach from
+outside can hold mutable storage: not its parameters, not its result, and
+not any name it reads, including effect operations. Holding storage means
+being a `Ref`, an `Array` or an `Any`, data with such a field, or a function
+that performs `mut`. Primitives, constructors and field operations are always
+allowed. A helper defined elsewhere that mutates its argument is therefore
+rejected even when the argument is local; define it inside the function.
+`unsafe-total` runs a thunk and discards all its effects without a check, for
+the cases this rule rejects; each use says in a comment why nothing escapes.
 
 Traps and non-termination are not tracked.
 
