@@ -161,10 +161,11 @@ reloads the page.
 
 **Module globals are ephemeral.** A relinked module runs its top level
 again, and whatever its globals held is rebuilt from nothing. The one value
-that survives is the application's state. `define-application` exposes
-`app_state`, which gives the state to the host as an `Any`, and
-`app_adopt`, which takes it back, so it crosses even when the module that
-defines its type is relinked:
+that survives is the application's immutable state. The host queues
+`Reload`; the application loop saves and returns an opaque state from
+`app_main`. Only after that JSPI entry settles does the host relink modules
+and start the new `app_main` with the handover. The state crosses even when
+the module that defines its type is relinked:
 
 - as it is, when `type-test` finds its type unchanged: an `Any` carries a
   structural TypeId, a hash of its type's name, fields and cases, so the
@@ -192,11 +193,19 @@ Three hazards remain:
 - A closure stored in the state keeps running the code it was made from
   until the state is rebuilt. An application that stores functions in its
   state should relink through `save` and `restore`.
-- A relink happens only between events. Effect handlers are installed only
-  while a call runs, so between events no handler is active and no frame of
-  the old code is on the stack.
-- A module that traps stops the clock with the state from before the trap,
-  and the next good relink resumes it.
+- A relink waits for the old loop to save and leave its suspended stack.
+  Input arriving during the transition waits for the new run. No two entry
+  invocations overlap. Handlers surround the whole loop, survive suspension,
+  and are restored to their entry values after settlement, including a trap.
+- A trap leaves the state from the last complete event. The host reads
+  `app_state` only after the entry rejects. If saving that checkpoint is
+  needed, the old entry runs with `Reload` as its first event, so a failing
+  update or view is not repeated. A rejected candidate restarts the old
+  program; a cold first-frame trap also remains available for a source fix.
+- Startup is accepted after Resize and the first display frame succeed.
+  Until then the old program and its state remain available for rollback.
+  A live migration never silently starts fresh; only cold startup may
+  discard an incompatible saved value and retry without it.
 
 ### 4.2 Builds as events
 

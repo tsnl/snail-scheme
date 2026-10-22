@@ -11,4 +11,11 @@
 (define (view shell)
   (view-shell shell art))
 
-(define-application Shell new-shell update-shell view shell-hud shell-save shell-restore)
+(define-application Shell
+  (reset: default-reset)
+  (init: new-shell)
+  (update: update-shell)
+  (view: view)
+  (hud: shell-hud)
+  (save: shell-save)
+  (restore: shell-restore))
