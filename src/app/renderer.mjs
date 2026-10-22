@@ -178,7 +178,10 @@ function lookAt(eye, target) {
   const norm = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
   const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  const f = norm(sub(target, eye)), r = norm(cross(f, [0, 1, 0])), u = cross(r, f);
+  // Looking straight down, the top of the screen is -z, as `screen-axes`
+  // in lib/lofi/app.sld says.
+  const f = norm(sub(target, eye)), sky = Math.abs(f[1]) > 0.999 ? [0, 0, -1] : [0, 1, 0];
+  const r = norm(cross(f, sky)), u = cross(r, f);
   return [r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, r[2], u[2], -f[2], 0, -dot(r, eye), -dot(u, eye), dot(f, eye), 1];
 }
 
