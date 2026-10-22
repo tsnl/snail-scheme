@@ -75,7 +75,10 @@ export function createPictures() {
       sources.clear();
       for (const picture of pictures.values()) picture.version = null;
     },
-    // Calls `listener` whenever the picture under `key` is composed.
+    // Calls `listener` whenever the picture under `key` is composed, until
+    // the function this returns is called. Until then the store keeps the
+    // listener and whatever it draws on, so a watcher that goes away must
+    // call it, as the HUD does for an image that leaves.
     watch(key, listener) {
       if (!listeners.has(key)) listeners.set(key, new Set());
       listeners.get(key).add(listener);

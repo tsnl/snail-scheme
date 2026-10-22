@@ -203,15 +203,17 @@ function multiply(a, b) {
   return out;
 }
 
-// An orthographic camera sees everything between a plane behind the eye
-// and one well past the target, so zooming never clips the ground.
+// A camera's kind is 0 for perspective and 1 for orthographic, as
+// `render-camera` in lib/lofi/app.sld numbers them. An orthographic camera
+// sees everything between a plane behind the eye and one well past the
+// target, so zooming never clips the ground.
 function projection(camera, aspect) {
   if (camera.kind === 0) return perspective(camera.value, aspect, 0.1, 500);
   const distance = Math.hypot(...camera.eye.map((v, i) => v - camera.target[i]));
   return orthographic(camera.value, aspect, -distance, distance * 4);
 }
 
-// ---- Renderer ----
+// ---- Instances ----
 
 // An instance is six vectors: position and yaw, scale and glow, color, where
 // it was and whether it is upright, its texture region in texels, and its
@@ -226,21 +228,21 @@ function instanceValues([mesh, x, y, z, sx, sy, sz, yaw, color, glow, fx, fy, fz
           fx, fy, fz, upright, ...region, metalness, roughness, frames, period];
 }
 
-export async function createRenderer(canvas, pictures) {
-  if (!navigator.gpu) throw new Error('this browser does not support WebGPU');
-  const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
-  device.addEventListener('uncapturederror', event => console.error('WebGPU:', event.error.message));
-  const context = canvas.getContext('webgpu');
-  const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({device, format, alphaMode: 'opaque'});
+// ---- Pipelines ----
+
+// One shader draws every batch through bind groups for the frame's globals,
+// a batch's style, and a texture with its sampler. Solid batches write
+// depth; translucent ones blend over them and leave depth alone.
+function createPipelines(device, format) {
   const module = device.createShaderModule({code: shaderSource});
-  const globalLayout = device.createBindGroupLayout({entries: [{binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {}}]});
-  const styleLayout = device.createBindGroupLayout({entries: [{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {}}]});
-  const textureLayout = device.createBindGroupLayout({entries: [
-    {binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {}},
-    {binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {}}]});
-  const layout = device.createPipelineLayout({bindGroupLayouts: [globalLayout, styleLayout, textureLayout]});
+  const layouts = {
+    globals: device.createBindGroupLayout({entries: [{binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {}}]}),
+    style: device.createBindGroupLayout({entries: [{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {}}]}),
+    texture: device.createBindGroupLayout({entries: [
+      {binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {}},
+      {binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {}}]}),
+  };
+  const layout = device.createPipelineLayout({bindGroupLayouts: [layouts.globals, layouts.style, layouts.texture]});
   const pipeline = translucent => device.createRenderPipeline({
     layout,
     vertex: {module, entryPoint: 'vertex_main', buffers: [
@@ -255,10 +257,13 @@ export async function createRenderer(canvas, pictures) {
     primitive: {topology: 'triangle-list', cullMode: 'none'},
     depthStencil: {format: 'depth24plus', depthWriteEnabled: !translucent, depthCompare: 'less'},
   });
-  const pipelines = [pipeline(false), pipeline(true)];
-  const globals = device.createBuffer({size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-  const globalGroup = device.createBindGroup({layout: globalLayout, entries: [{binding: 0, resource: {buffer: globals}}]});
-  const geometry = meshes.map(({vertices, indices}) => {
+  return {layouts, solid: pipeline(false), translucent: pipeline(true)};
+}
+
+// Each mesh's vertices and indices, in buffers of their own. The indices
+// are padded to a whole number of four-byte words, as writeBuffer needs.
+function uploadMeshes(device) {
+  return meshes.map(({vertices, indices}) => {
     const vertexBuffer = device.createBuffer({size: vertices.length * 4, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST});
     device.queue.writeBuffer(vertexBuffer, 0, new Float32Array(vertices));
     const indexData = new Uint16Array(Math.ceil(indices.length / 2) * 2);
@@ -267,6 +272,40 @@ export async function createRenderer(canvas, pictures) {
     device.queue.writeBuffer(indexBuffer, 0, indexData);
     return {vertexBuffer, indexBuffer, count: indices.length};
   });
+}
+
+// ---- Frames ----
+
+// The globals uniform: the view-projection, the light's direction and the
+// sun, then ambient light, motion, the clock and the camera's kind, then
+// the eye and the direction it looks.
+function frameGlobals(frame, aspect, clock) {
+  const {eye, target} = frame.camera;
+  const matrix = multiply(projection(frame.camera, aspect), lookAt(eye, target));
+  const length = Math.hypot(...target.map((v, i) => v - eye[i]));
+  const forward = target.map((v, i) => (v - eye[i]) / length);
+  const {direction, sun, ambient} = frame.light;
+  return new Float32Array([...matrix, ...direction, sun, ambient, frame.motion, clock, frame.camera.kind, ...eye, 0, ...forward, 0]);
+}
+
+// A 0xRRGGBB color as WebGPU clears to it.
+function clearColor(color) {
+  return {r: ((color >> 16) & 255) / 255, g: ((color >> 8) & 255) / 255, b: (color & 255) / 255, a: 1};
+}
+
+// ---- Renderer ----
+
+export async function createRenderer(canvas, pictures) {
+  if (!navigator.gpu) throw new Error('this browser does not support WebGPU');
+  const adapter = await navigator.gpu.requestAdapter();
+  const device = await adapter.requestDevice();
+  device.addEventListener('uncapturederror', event => console.error('WebGPU:', event.error.message));
+  const context = canvas.getContext('webgpu');
+  const format = navigator.gpu.getPreferredCanvasFormat();
+  context.configure({device, format, alphaMode: 'opaque'});
+  const pipelines = createPipelines(device, format), geometry = uploadMeshes(device);
+  const globals = device.createBuffer({size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+  const globalGroup = device.createBindGroup({layout: pipelines.layouts.globals, entries: [{binding: 0, resource: {buffer: globals}}]});
   const batches = new Map();
   let depth = null;
 
@@ -274,7 +313,7 @@ export async function createRenderer(canvas, pictures) {
 
   // Pixel art stays sharp: textures are sampled at the nearest texel.
   const nearest = device.createSampler({magFilter: 'nearest', minFilter: 'nearest'});
-  const textureGroup = texture => device.createBindGroup({layout: textureLayout, entries: [
+  const textureGroup = texture => device.createBindGroup({layout: pipelines.layouts.texture, entries: [
     {binding: 0, resource: texture.createView()}, {binding: 1, resource: nearest}]});
   const white = device.createTexture({size: [1, 1], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST});
   device.queue.writeTexture({texture: white}, new Uint8Array([255, 255, 255, 255]), {bytesPerRow: 4}, [1, 1]);
@@ -307,7 +346,7 @@ export async function createRenderer(canvas, pictures) {
     let state = batches.get(key);
     if (!state) {
       const style = device.createBuffer({size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-      state = {version: null, style, group: device.createBindGroup({layout: styleLayout, entries: [{binding: 0, resource: {buffer: style}}]}),
+      state = {version: null, style, group: device.createBindGroup({layout: pipelines.layouts.style, entries: [{binding: 0, resource: {buffer: style}}]}),
                parts: new Map()};
       batches.set(key, state);
     }
@@ -365,6 +404,22 @@ export async function createRenderer(canvas, pictures) {
     }
   }
 
+  // Solid batches first, then translucent ones over them.
+  function encodePass(frame) {
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({
+      colorAttachments: [{view: context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store', clearValue: clearColor(frame.background)}],
+      depthStencilAttachment: {view: depth.createView(), depthLoadOp: 'clear', depthStoreOp: 'store', depthClearValue: 1},
+    });
+    pass.setBindGroup(0, globalGroup);
+    pass.setPipeline(pipelines.solid);
+    drawBatches(pass, frame.batches.filter(batch => batch.style[0] >= 1));
+    pass.setPipeline(pipelines.translucent);
+    drawBatches(pass, frame.batches.filter(batch => batch.style[0] < 1));
+    pass.end();
+    return encoder.finish();
+  }
+
   const started = performance.now();
 
   return {
@@ -378,28 +433,8 @@ export async function createRenderer(canvas, pictures) {
         device.queue.writeBuffer(batchState(batch.key).style, 0, new Float32Array(batch.style));
       }
       resize();
-      const {eye, target} = frame.camera;
-      const matrix = multiply(projection(frame.camera, canvas.width / canvas.height), lookAt(eye, target));
-      const length = Math.hypot(...target.map((v, i) => v - eye[i]));
-      const forward = target.map((v, i) => (v - eye[i]) / length);
-      const {direction, sun, ambient} = frame.light;
-      const clock = (performance.now() - started) % 3600000;
-      device.queue.writeBuffer(globals, 0, new Float32Array([...matrix, ...direction, sun, ambient, frame.motion, clock, frame.camera.kind,
-                                                             ...eye, 0, ...forward, 0]));
-      const background = frame.background;
-      const encoder = device.createCommandEncoder();
-      const pass = encoder.beginRenderPass({
-        colorAttachments: [{view: context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store',
-                            clearValue: {r: ((background >> 16) & 255) / 255, g: ((background >> 8) & 255) / 255, b: (background & 255) / 255, a: 1}}],
-        depthStencilAttachment: {view: depth.createView(), depthLoadOp: 'clear', depthStoreOp: 'store', depthClearValue: 1},
-      });
-      pass.setBindGroup(0, globalGroup);
-      pass.setPipeline(pipelines[0]);
-      drawBatches(pass, frame.batches.filter(batch => batch.style[0] >= 1));
-      pass.setPipeline(pipelines[1]);
-      drawBatches(pass, frame.batches.filter(batch => batch.style[0] < 1));
-      pass.end();
-      device.queue.submit([encoder.finish()]);
+      device.queue.writeBuffer(globals, 0, frameGlobals(frame, canvas.width / canvas.height, (performance.now() - started) % 3600000));
+      device.queue.submit([encodePass(frame)]);
     },
   };
 }

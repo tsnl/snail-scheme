@@ -18,7 +18,7 @@
    string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
    string->vector vector->string
-   vector-length vector-ref make-vector vector-generate vector-set vector-append subvector
+   vector-length vector-ref make-vector vector-generate vector-set vector-append vector-concatenate subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array
    ref ref-get ref-set!)
@@ -68,8 +68,6 @@
     (define (i32->u8 n) (modulo n 256))
     (define (i32->i64 n) n)
     (define (i64->i32 n) (let ((low (modulo n 4294967296))) (if (>= low 2147483648) (- low 4294967296) low)))
-
-    (define (digit-value char) (- (char->integer char) 48))
 
     ;; None unless the whole text is an optionally signed decimal integer.
     (define (string->i64 text)
@@ -178,6 +176,12 @@
         copy))
 
     (define (subvector items start end) (vector-copy items start end))
+
+    ;; Without `apply`, as `string-concatenate`.
+    (define (vector-concatenate vectors)
+      (let ((all (make-vector (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors))))
+        (fold-left (lambda (offset items) (vector-copy! all offset items) (+ offset (vector-length items))) 0 vectors)
+        all))
 
     (define (vector-fold f initial items)
       (fold-left f initial (vector->list items)))

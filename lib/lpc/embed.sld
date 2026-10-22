@@ -14,10 +14,20 @@
    (lofi syntax))
   (begin
 
-    ;; `(: name (-> String result))`.
-    (: lookup-signature (-> String Syntax Syntax))
-    (define (lookup-signature name result)
-      (form ":" (list (SymbolSyntax name) (form "->" (list (SymbolSyntax "String") result)))))
+    ;; `(: name (-> String result))` and `(define (name key) (cond ...))`,
+    ;; a function giving each entry's value for its string and `fallback`
+    ;; for any other.
+    (: lookup-definitions (-> String Syntax (List (Pair String Syntax)) Syntax (List Syntax)))
+    (define (lookup-definitions name result entries fallback)
+      (list (form ":" (list (SymbolSyntax name) (form "->" (list (SymbolSyntax "String") result))))
+            (form "define"
+                  (list (form name (list (SymbolSyntax "key")))
+                        (form "cond" (append (map lookup-clause entries) (list (form "else" (list fallback)))))))))
+
+    ;; `((string=? key "K") VALUE)`.
+    (: lookup-clause (-> (Pair String Syntax) Syntax))
+    (define (lookup-clause entry)
+      (ListSyntax (list (form "string=?" (list (SymbolSyntax "key") (StringSyntax (Pair-first entry)))) (Pair-second entry))))
 
     ;; ---- Images ----
 
@@ -27,21 +37,14 @@
     (: embed-library (-> (List String) I32 (List String) Syntax ! fs))
     (define (embed-library name first-key paths)
       (library-syntax name (list "art") (list (list "lofi" "base") (list "lofi" "app"))
-                      (Cons (lookup-signature "art" (form "Option" (list (SymbolSyntax "Source"))))
-                            (Cons (art-definition first-key paths) (concatenate (map-indexed image-definitions paths))))))
+                      (append (lookup-definitions "art" (form "Option" (list (SymbolSyntax "Source")))
+                                                  (map-indexed (lambda (index path) (art-entry first-key index path)) paths) (form "None" (Nil)))
+                              (concatenate (map-indexed image-definitions paths)))))
 
-    (: art-definition (-> I32 (List String) Syntax))
-    (define (art-definition first-key paths)
-      (form "define"
-            (list (form "art" (list (SymbolSyntax "path")))
-                  (form "cond" (append (map-indexed (lambda (index path) (art-clause first-key index path)) paths)
-                                       (list (form "else" (list (form "None" (Nil))))))))))
-
-    ;; `((string=? path "P") (Some (Source KEY image-I)))`.
-    (: art-clause (-> I32 I64 String Syntax))
-    (define (art-clause first-key index path)
-      (ListSyntax (list (form "string=?" (list (SymbolSyntax "path") (StringSyntax path)))
-                        (form "Some" (list (form "Source" (list (IntegerSyntax (+ (i32->i64 first-key) index)) (image-name index))))))))
+    ;; Path P gives `(Some (Source KEY image-I))`.
+    (: art-entry (-> I32 I64 String (Pair String Syntax)))
+    (define (art-entry first-key index path)
+      (Pair path (form "Some" (list (form "Source" (list (IntegerSyntax (+ (i32->i64 first-key) index)) (image-name index)))))))
 
     (: image-name (-> I64 Syntax))
     (define (image-name index)
@@ -63,20 +66,13 @@
     (: ramps-library (-> (List String) String Syntax ! fs))
     (define (ramps-library name path)
       (library-syntax name (list "ramp") (list (list "lofi" "base"))
-                      (list (lookup-signature "ramp" (form "List" (list (SymbolSyntax "I32"))))
-                            (ramp-definition (json-ramps (read-file path))))))
+                      (lookup-definitions "ramp" (form "List" (list (SymbolSyntax "I32"))) (map ramp-entry (json-ramps (read-file path)))
+                                          (form "Nil" (Nil)))))
 
-    (: ramp-definition (-> (List (Pair String (List I32))) Syntax))
-    (define (ramp-definition ramps)
-      (form "define"
-            (list (form "ramp" (list (SymbolSyntax "name")))
-                  (form "cond" (append (map ramp-clause ramps) (list (form "else" (list (form "Nil" (Nil))))))))))
-
-    ;; `((string=? name "K") (list C ...))`.
-    (: ramp-clause (-> (Pair String (List I32)) Syntax))
-    (define (ramp-clause entry)
-      (ListSyntax (list (form "string=?" (list (SymbolSyntax "name") (StringSyntax (Pair-first entry))))
-                        (form "list" (map (lambda (color) (IntegerSyntax (i32->i64 color))) (Pair-second entry))))))
+    ;; Ramp K gives `(list C ...)`.
+    (: ramp-entry (-> (Pair String (List I32)) (Pair String Syntax)))
+    (define (ramp-entry ramp)
+      (Pair (Pair-first ramp) (form "list" (map (lambda (color) (IntegerSyntax (i32->i64 color))) (Pair-second ramp)))))
 
     ;; The quoted strings of the file in order: each key is followed by its
     ;; colors, so a string that is not a color starts the next ramp.

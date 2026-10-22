@@ -169,8 +169,8 @@ pub(crate) fn flush_standard_output() -> Result<(), String> {
 }
 
 // A host may hand over standard output as a non-blocking pipe, which
-// refuses writes while it is full, as when a program prints a large
-// generated library. Waiting a moment and writing the rest keeps the output
+// refuses writes while it is full, as when a program prints faster than
+// its reader reads. Waiting a moment and writing the rest keeps the output
 // whole; other failures end the program.
 fn write_patiently(output: &mut impl Write, mut bytes: &[u8]) -> std::io::Result<()> {
     let wait = || std::thread::sleep(std::time::Duration::from_millis(1));
@@ -286,8 +286,8 @@ mod tests {
             written: Vec::new(),
             ready: false,
         };
-        write_patiently(&mut pipe, b"generated library").unwrap();
-        assert_eq!(pipe.written, b"generated library");
+        write_patiently(&mut pipe, b"a long line of output").unwrap();
+        assert_eq!(pipe.written, b"a long line of output");
     }
 
     #[test]

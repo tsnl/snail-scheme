@@ -182,6 +182,17 @@
            (put! (Module-memo m) key value)
            value))))
 
+    ;; An import declared once: the first request for `key` declares it
+    ;; under `name`, and later ones find that name.
+    (: import-once! (-> Module String String (-> String Wat ! mut) String ! mut))
+    (define (import-once! m key name declaration)
+      (match (table-ref (ref-get (Module-helpers m)) key)
+        ((Some found) found)
+        ((None)
+         (put! (Module-helpers m) key name)
+         (push! (Module-imports m) (declaration name))
+         name)))
+
     (: program-of (-> Module Program))
     (define (program-of m)
       (Module-program m))
@@ -631,21 +642,10 @@
     (: global-id (-> Module String Type String ! mut))
     (define (global-id m name type)
       (if (table-contains? (Module-externals m) name)
-          (helper-import! m (string-append "global:" name)
-                          (lambda (global) (wat "import" (wat-string (name-owner name)) (wat-string name)
-                                                (wat "global" (id global) (wat "mut" (nullable (rep m type)))))))
+          (import-once! m (string-append "global:" name) (wasm-id (string-append "global:" name))
+                        (lambda (global) (wat "import" (wat-string (name-owner name)) (wat-string name)
+                                              (wat "global" (id global) (wat "mut" (nullable (rep m type)))))))
           (wasm-id name)))
-
-    ;; An import declared once, under a name its key decides.
-    (: helper-import! (-> Module String (-> String Wat ! mut) String ! mut))
-    (define (helper-import! m key declaration)
-      (match (table-ref (ref-get (Module-helpers m)) key)
-        ((Some found) found)
-        ((None)
-         (let ((name (wasm-id key)))
-           (put! (Module-helpers m) key name)
-           (push! (Module-imports m) (declaration name))
-           name))))
 
     (: scalar? (-> Rep Bool))
     (define (scalar? rep)
@@ -902,20 +902,16 @@
         ((TFun _ (TCon "Unit" (Nil)) _) #t)
         (_ #f)))
 
+    ;; A function the module imports from the host or another module.
     (: import! (-> Module Import (List Rep) (Option Rep) String ! mut))
     (define (import! m import params result)
-      (let ((key (string-append "import:" (Import-module import) ":" (Import-symbol import))))
-        (match (table-ref (ref-get (Module-helpers m)) key)
-          ((Some function-id) function-id)
-          ((None)
-           (let ((function-id (wasm-id (string-append "import." (Import-symbol import)))))
-             (put! (Module-helpers m) key function-id)
-             (push! (Module-imports m)
-                    (wat "import" (wat-string (Import-module import)) (wat-string (Import-symbol import))
-                         (wat* "func" (Cons (id function-id)
-                                            (append (map (lambda (param) (wat "param" (rep->wat param))) params)
-                                                    (match result ((Some r) (list (wat "result" (rep->wat r)))) ((None) (Nil))))))))
-             function-id)))))
+      (import-once! m (string-append "import:" (Import-module import) ":" (Import-symbol import))
+                    (wasm-id (string-append "import." (Import-symbol import)))
+                    (lambda (function-id)
+                      (wat "import" (wat-string (Import-module import)) (wat-string (Import-symbol import))
+                           (wat* "func" (Cons (id function-id)
+                                              (append (map (lambda (param) (wat "param" (rep->wat param))) params)
+                                                      (match result ((Some r) (list (wat "result" (rep->wat r)))) ((None) (Nil))))))))))
 
     ;; ---- Pattern matching ----
 
@@ -1011,15 +1007,6 @@
           ((Some type) type)
           ((None) (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat "struct" (wat "field" (rep->wat r)))))))))
 
-    ;; The TypeId hashes the type with its structure as the wire schema
-    ;; writes it: fields and cases, recursively. A type whose fields or cases
-    ;; change gets a new one even when its name stays, so a program relinked
-    ;; with such a change cannot take an old value for a new one.
-    (: any-type-id (-> Module Type I64))
-    (define (any-type-id m type)
-      (let ((hash (fnv-1a (string-append (type-key type) "\n" (type-schema (program-of m) type (Nil) (Nil))))))
-        (if (>= hash 2147483648) (- hash 4294967296) hash)))
-
     (: any-type? (-> Type Bool))
     (define (any-type? type)
       (match type
@@ -1043,25 +1030,47 @@
 
     (: to-any (-> Module Type Wat Wat ! mut))
     (define (to-any m type value)
-      (wat "struct.new" (id (any-type m)) (wat "i32.const" (int (any-type-id m type)))
-           (match (rep m type)
-             ((Scalar _) (wat "struct.new" (id (box-type m (rep m type))) value))
-             ((Reference _) value))))
+      (let ((r (rep m type)))
+        (wat "struct.new" (id (any-type m)) (wat "i32.const" (int (any-type-id (program-of m) type)))
+             (match r
+               ((Scalar _) (wat "struct.new" (id (held-type m r)) value))
+               ((Reference _) value)))))
 
     (: from-any (-> Fn Type Wat Wat ! mut))
     (define (from-any fn type value)
       (let* ((m (Fn-module fn)) (r (fn-rep fn type)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
-             (payload (wat "struct.get" (Word "$any") (int 1) (wat "local.get" (id any)))))
+             (held (wat "ref.cast" (wat "ref" (id (held-type m r))) (wat "struct.get" (Word "$any") (int 1) (wat "local.get" (id any))))))
         (wat "block" (wat "result" (rep->wat r))
              (wat "local.set" (id any) value)
-             (wat "if" (wat "i32.ne" (wat "struct.get" (Word "$any") (int 0) (wat "local.get" (id any))) (wat "i32.const" (int (any-type-id m type))))
+             (wat "if" (wat "i32.ne" (wat "struct.get" (Word "$any") (int 0) (wat "local.get" (id any))) (wat "i32.const" (int (any-type-id (program-of m) type))))
                   (wat "then" (wat "call" (id (panic-helper m)) (string-literal m (string-append "type-convert: the value is not a " (type->string type))))
                        (wat "unreachable")))
              (match r
-               ((Scalar _) (wat "struct.get" (id (box-type m r)) (int 0) (wat "ref.cast" (wat "ref" (id (box-type m r))) payload)))
-               ((Reference _) (wat "ref.cast" (rep->wat r) payload))))))
+               ((Scalar _) (wat "struct.get" (id (held-type m r)) (int 0) held))
+               ((Reference _) held)))))
 
-    ;; ---- Exported functions ----
+    ;; An Any holds a value of `type` when its TypeId is the type's and its
+    ;; value has the type's representation, which `ref.test` checks without
+    ;; trapping.
+    (: type-test (-> Fn Expr Type Wat ! mut))
+    (define (type-test fn inner type)
+      (let* ((m (Fn-module fn)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
+             (field (lambda (index) (wat "struct.get" (Word "$any") (int index) (wat "local.get" (id any))))))
+        (wat "block" (wat "result" (Word "i32"))
+             (wat "local.set" (id any) (emit1 fn inner))
+             (wat "if" (wat "result" (Word "i32")) (wat "i32.eq" (field 0) (wat "i32.const" (int (any-type-id (program-of m) type))))
+                  (wat "then" (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 1)))
+                  (wat "else" (wat "i32.const" (int 0)))))))
+
+    ;; What an Any holds for a value of representation `r`: the value, or a
+    ;; box around a scalar.
+    (: held-type (-> Module Rep String ! mut))
+    (define (held-type m r)
+      (match r
+        ((Scalar _) (box-type m r))
+        ((Reference type) type)))
+
+    ;; ---- Funcref closures ----
 
     ;; A Funcref becomes a closure that holds it, whose code casts it to the
     ;; Wasm type of a function of the expected type and calls it. The cast is
@@ -1101,41 +1110,22 @@
 
     (: held-call (-> Module (List Rep) Rep String Wat ! mut))
     (define (held-call m params result holder)
-      (let ((own (register-function-type! m params result))
+      (let ((own (funcref-type m params result))
             (held (wat "struct.get" (id holder) (int 1) (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0))))))
         (wat* "call_ref" (append (Cons (id own) (map (lambda (index) (wat "local.get" (int (+ index 1)))) (iota (length params))))
                                  (list (wat "ref.cast" (wat "ref" (id own)) held))))))
 
-    (: register-function-type! (-> Module (List Rep) Rep String ! mut))
-    (define (register-function-type! m params result)
-      (let ((key (string-append "export." (string-join (map rep-key params) ",") "->" (rep-key result))))
+    ;; The Wasm type of the function a Funcref refers to, which takes no
+    ;; closure.
+    (: funcref-type (-> Module (List Rep) Rep String ! mut))
+    (define (funcref-type m params result)
+      (let ((key (string-append "funcref." (string-join (map rep-key params) ",") "->" (rep-key result))))
         (match (known-type m key)
           ((Some type) type)
           ((None)
            (register-type! m key (wasm-id key)
                            (wat "type" (id (wasm-id key))
                                 (wat* "func" (append (map (lambda (param) (wat "param" (rep->wat param))) params) (list (wat "result" (rep->wat result)))))))))))
-
-    ;; An Any holds a value of `type` when its TypeId is the type's and its
-    ;; value has the type's representation, which `ref.test` checks without
-    ;; trapping.
-    (: type-test (-> Fn Expr Type Wat ! mut))
-    (define (type-test fn inner type)
-      (let* ((m (Fn-module fn)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
-             (field (lambda (index) (wat "struct.get" (Word "$any") (int index) (wat "local.get" (id any))))))
-        (wat "block" (wat "result" (Word "i32"))
-             (wat "local.set" (id any) (emit1 fn inner))
-             (wat "if" (wat "result" (Word "i32")) (wat "i32.eq" (field 0) (wat "i32.const" (int (any-type-id m type))))
-                  (wat "then" (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 1)))
-                  (wat "else" (wat "i32.const" (int 0)))))))
-
-    ;; What an Any holds for a value of representation `r`: the value, or a
-    ;; box around a scalar.
-    (: held-type (-> Module Rep String ! mut))
-    (define (held-type m r)
-      (match r
-        ((Scalar _) (box-type m r))
-        ((Reference type) type)))
 
     ;; ---- Effect handlers ----
 
@@ -1496,12 +1486,15 @@
     ;; of them; listed by name, and after the groups they refer to, they are
     ;; declared the same way everywhere. Cases of one enum with the same
     ;; fields may share a type, since a match tests the tag before it casts.
+    ;; Types are numbered in the order of their names.
     (: type-groups (-> (List Wat) (List Wat) ! mut))
     (define (type-groups definitions)
-      (let ((named (fold-left (lambda (table definition) (table-set table (type-definition-name definition) definition))
-                              empty-table definitions)))
-        (map (lambda (group) (group-wat named group))
-             (strong-components (sort-strings (map type-definition-name definitions)) (lambda (name) (type-edges named name))))))
+      (let* ((named (fold-left (lambda (table definition) (table-set table (type-definition-name definition) definition))
+                               empty-table definitions))
+             (names (list->vector (sort-strings (map type-definition-name definitions))))
+             (numbers (fold-left (lambda (table index) (table-set table (vector-ref names index) index)) empty-table (iota (vector-length names)))))
+        (map (lambda (component) (group-wat named (map (lambda (index) (vector-ref names index)) component)))
+             (strong-components (vector-map (lambda (name) (type-edges named numbers name)) names)))))
 
     (: type-definition-name (-> Wat String))
     (define (type-definition-name definition)
@@ -1509,12 +1502,19 @@
         ((Node (Cons _ (Cons (Word name) _))) name)
         (_ (panic "internal error: not a type definition"))))
 
-    ;; The types a definition refers to: its fields, parameters, results and
-    ;; supertype.
-    (: type-edges (-> (Table Wat) String (List String)))
-    (define (type-edges named name)
-      (sort-strings (delete-duplicates string=? (filter (lambda (word) (and (not (string=? word name)) (table-contains? named word)))
-                                                        (wat-words (table-ref-or-wat named name))))))
+    ;; The numbers of the types a definition refers to, in the order of
+    ;; their names: its fields, parameters, results and supertype.
+    (: type-edges (-> (Table Wat) (Table I64) String (List I64)))
+    (define (type-edges named numbers name)
+      (map (lambda (word) (table-number numbers word))
+           (sort-strings (delete-duplicates string=? (filter (lambda (word) (and (not (string=? word name)) (table-contains? numbers word)))
+                                                             (wat-words (table-ref-or-wat named name)))))))
+
+    (: table-number (-> (Table I64) String I64))
+    (define (table-number table key)
+      (match (table-ref table key)
+        ((Some number) number)
+        ((None) (panic "internal error: unknown type"))))
 
     (: table-ref-or-wat (-> (Table Wat) String Wat))
     (define (table-ref-or-wat table key)
@@ -1533,66 +1533,6 @@
       (match group
         ((Cons name (Nil)) (table-ref-or-wat named name))
         (_ (wat* "rec" (map (lambda (name) (table-ref-or-wat named name)) (sort-strings group))))))
-
-    ;; Tarjan's algorithm: each component comes after every component it can
-    ;; reach.
-    (struct Search
-      ((edges (-> String (List String)))
-       (index (Ref (Table I64)))
-       (low (Ref (Table I64)))
-       (stack (Ref (List String)))
-       (open (Ref (Table Bool)))
-       (components (Ref (List (List String))))))
-
-    (: strong-components (-> (List String) (-> String (List String)) (List (List String)) ! mut))
-    (define (strong-components names edges)
-      (let ((search (Search edges (ref empty-table) (ref empty-table) (ref (Nil)) (ref empty-table) (ref (Nil)))))
-        (for-each (lambda (name) (unless (visited? search name) (visit! search name))) names)
-        (reverse (ref-get (Search-components search)))))
-
-    (: visited? (-> Search String Bool ! mut))
-    (define (visited? search name)
-      (table-contains? (ref-get (Search-index search)) name))
-
-    (: search-number (-> (Ref (Table I64)) String I64 ! mut))
-    (define (search-number cell name)
-      (match (table-ref (ref-get cell) name)
-        ((Some number) number)
-        ((None) 0)))
-
-    (: visit! (-> Search String Unit ! mut))
-    (define (visit! search name)
-      (let ((number (table-count (ref-get (Search-index search)))))
-        (put! (Search-index search) name number)
-        (put! (Search-low search) name number)
-        (push! (Search-stack search) name)
-        (put! (Search-open search) name #t)
-        (for-each (lambda (next) (follow! search name next)) ((Search-edges search) name))
-        (when (= (search-number (Search-low search) name) number)
-          (pop-component! search name))))
-
-    (: follow! (-> Search String String Unit ! mut))
-    (define (follow! search name next)
-      (cond ((not (visited? search next)) (visit! search next) (lower! search name (search-number (Search-low search) next)))
-            ((match (table-ref (ref-get (Search-open search)) next) ((Some open) open) ((None) #f))
-             (lower! search name (search-number (Search-index search) next)))
-            (else (unit))))
-
-    (: lower! (-> Search String I64 Unit ! mut))
-    (define (lower! search name number)
-      (put! (Search-low search) name (min (search-number (Search-low search) name) number)))
-
-    (: pop-component! (-> Search String Unit ! mut))
-    (define (pop-component! search name)
-      (let loop ((component (Nil)))
-        (match (ref-get (Search-stack search))
-          ((Cons top rest)
-           (ref-set! (Search-stack search) rest)
-           (put! (Search-open search) top #f)
-           (if (string=? top name)
-               (push! (Search-components search) (Cons top component))
-               (loop (Cons top component))))
-          ((Nil) (panic "internal error: empty search stack")))))
 
     (: sort-strings (-> (List String) (List String)))
     (define (sort-strings strings)
@@ -1634,13 +1574,8 @@
 
     (: new-module (-> Mono (Option String) Module ! mut))
     (define (new-module mono owner)
-      (let ((definitions (fold-left (lambda (table item)
-                                      (match item
-                                        ((Define name value) (table-set table name value))
-                                        (_ table)))
-                                    empty-table (Mono-items mono))))
-        (Module (Mono-program mono) definitions owner (Mono-externals mono) (ref empty-table) (ref (Nil)) (ref (Nil)) (ref (Nil))
-                (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0))))
+      (Module (Mono-program mono) (item-definitions (Mono-items mono)) owner (Mono-externals mono) (ref empty-table) (ref (Nil))
+              (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0)))
 
     (: emit-items! (-> Module (List Item) Unit ! mut))
     (define (emit-items! m items)

@@ -8,7 +8,6 @@
 ;; files.
 (import
  (scheme base)
- (scheme char)
  (scheme cxr)
  (scheme file)
  (scheme process-context)
@@ -18,49 +17,50 @@
  (only (srfi 1) any filter)
  (lofi build))
 
-(define host-files
-  '("host.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css" "reload-client.mjs"))
-
 (define ide-files
   '("index.html" "ide.mjs" "ide.css" "editor.mjs" "panes.mjs" "project.mjs" "formatter.mjs" "preview.html" "preview.mjs"
     "toolchain.mjs"))
-
-(define (copy-file! from to)
-  (let ((bytes (call-with-port (open-binary-input-file from) (lambda (port) (read-bytevector (file-size from) port)))))
-    (call-with-port (open-binary-output-file to) (lambda (port) (write-bytevector bytes port)))))
-
-(define (read-text path)
-  (call-with-input-file path
-    (lambda (port)
-      (let loop ((chunks '()))
-        (let ((chunk (read-string 65536 port)))
-          (if (eof-object? chunk) (apply string-append (reverse chunks)) (loop (cons chunk chunks))))))))
-
-(define (absolute path)
-  (if (path-absolute? path) path (path-join (current-directory) path)))
 
 ;; ---- Packaging ----
 
 (define (package root app output)
   (create-directory* output)
+  (copy-programs! root output)
+  (copy-pages! root output)
+  (write-json (path-join output "files.json") (library-json root))
+  (write-json (path-join output "sample.json") (sample-json app))
+  0)
+
+;; The development loop, one module per library, and the programs it runs
+;; beside the runtime: the reload client, the assembler and the formatter.
+;; The formatter is built, as the development tools are, when it is stale.
+(define (copy-programs! root output)
   (build-modules root (list (path-join root "src") (path-join root "lib")) (path-join root "src/ide/develop.sld") (path-join output "toolchain"))
-  (let ((tools (build-tools root)) (formatter (path-join root "build/ide-tools/format.wasm")))
-    (create-directory* (path-join root "build/ide-tools"))
-    (build-program root (list (path-join root "lib")) (path-join root "src/ide/format.sld") formatter #f)
+  (let ((tools (build-tools root))
+        (formatter (build-tool root (path-join root "src/ide/format.sld") (path-join root "build/ide-tools/format.wasm")
+                               (list (path-join root "lib")))))
     (copy-file! formatter (path-join output "format.wasm"))
     (copy-file! (cdr (assoc "client" tools)) (path-join output "reload.wasm"))
-    (copy-file! (cdr (assoc "assembler" tools)) (path-join output "assembler.wasm")))
+    (copy-file! (cdr (assoc "assembler" tools)) (path-join output "assembler.wasm"))))
+
+;; The browser host with its reload client, the assembler's driver, and
+;; the IDE's own pages.
+(define (copy-pages! root output)
   (copy-file! (path-join root "scripts/assemble.mjs") (path-join output "assemble.mjs"))
-  (for-each (lambda (file) (copy-file! (path-join root "src/app" file) (path-join output file))) host-files)
-  (for-each (lambda (file) (copy-file! (path-join root "src/ide" file) (path-join output file))) ide-files)
-  (write-json (path-join output "files.json")
-              (files-json (map (lambda (file) (cons (string-append "/lib/" file) (path-join root "lib" file)))
-                               (filter (lambda (file) (string-suffix? ".sld" file)) (tree-files (path-join root "lib") "")))))
-  (write-json (path-join output "sample.json")
-              (string-append "{\"name\": " (json-string (path-strip-directory app)) ", \"files\": "
-                             (files-json (map (lambda (file) (cons file (path-join app file))) (filter text-file? (tree-files app ""))))
-                             "}"))
-  0)
+  (for-each (lambda (file) (copy-file! (path-join root "src/app" file) (path-join output file)))
+            (append app-host-files '("reload-client.mjs")))
+  (for-each (lambda (file) (copy-file! (path-join root "src/ide" file) (path-join output file))) ide-files))
+
+;; The text of every library in lib/, under its path in the IDE.
+(define (library-json root)
+  (files-json (map (lambda (file) (cons (string-append "/lib/" file) (path-join root "lib" file)))
+                   (filter (lambda (file) (string-suffix? ".sld" file)) (tree-files (path-join root "lib") "")))))
+
+;; The application's name and its text files.
+(define (sample-json app)
+  (string-append "{\"name\": " (json-string (path-strip-directory app)) ", \"files\": "
+                 (files-json (map (lambda (file) (cons file (path-join app file))) (filter text-file? (tree-files app ""))))
+                 "}"))
 
 (define (write-json path text)
   (call-with-output-file path (lambda (port) (write-string text port) (newline port))))
@@ -72,24 +72,28 @@
                    (if (null? entries)
                        out
                        (loop (cdr entries) (string-append out (if (string=? out "") "" ",\n") (json-string (caar entries)) ": "
-                                                          (json-string (read-text (cdar entries)))))))
+                                                          (json-string (read-file (cdar entries)))))))
                  "}"))
 
-;; The files a project keeps, as the IDE reads a folder.
+;; The files a project keeps, as the IDE reads a folder (src/ide/project.mjs).
 (define (text-file? path)
   (any (lambda (suffix) (string-suffix? suffix path)) '(".sld" ".scm" ".html" ".css" ".js" ".mjs" ".json" ".svg" ".txt" ".md")))
 
 ;; The files under `directory`/`relative`, as paths relative to
-;; `directory`, leaving out hidden ones and build output.
+;; `directory`, leaving out what the IDE leaves out of a folder.
 (define (tree-files directory relative)
   (let loop ((names (directory-names (path-join directory relative))) (out '()))
     (if (null? names)
         out
         (let ((path (if (string=? relative "") (car names) (string-append relative "/" (car names)))))
           (loop (cdr names)
-                (cond ((or (char=? (string-ref (car names) 0) #\.) (string=? (car names) "build")) out)
+                (cond ((skipped? (car names)) out)
                       ((file-directory? (path-join directory path)) (append out (tree-files directory path)))
                       (else (append out (list path)))))))))
+
+;; Hidden files, build output and installed packages.
+(define (skipped? name)
+  (or (char=? (string-ref name 0) #\.) (member name '("build" "node_modules"))))
 
 (define (directory-names directory)
   (if (file-directory? directory)

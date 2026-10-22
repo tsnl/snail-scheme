@@ -131,8 +131,8 @@
 
     ;; Everything `next` gives until it gives None. Items gather a chunk at a
     ;; time, and the chunks are joined at the end, so a file of millions of
-    ;; characters, such as a generated library, costs a few bytes for each
-    ;; rather than a list cell.
+    ;; characters or bytes costs a few bytes for each rather than a list
+    ;; cell.
     (define chunk-size 4096)
 
     (: drain (All (T e) (-> (-> (Option T) ! e) (Vector T) ! e)))
@@ -140,7 +140,7 @@
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
           (if (< (vector-length chunk) chunk-size)
-              (joined (vector-from (reverse (Cons chunk chunks))))
+              (vector-concatenate (reverse (Cons chunk chunks)))
               (loop (Cons chunk chunks))))))
 
     ;; Up to `chunk-size` items, fewer only at the end.
@@ -148,21 +148,10 @@
     (define (next-chunk next)
       (let loop ((items (Nil)) (count 0))
         (if (= count chunk-size)
-            (vector-from (reverse items))
+            (list->vector (reverse items))
             (match (next)
               ((Some item) (loop (Cons item items) (+ count 1)))
-              ((None) (vector-from (reverse items)))))))
-
-    ;; Every chunk but the last is full, so item i lies in chunk i / size.
-    (: joined (All (T) (-> (Vector (Vector T)) (Vector T))))
-    (define (joined chunks)
-      (let* ((last-chunk (vector-ref chunks (- (vector-length chunks) 1)))
-             (count (+ (* chunk-size (- (vector-length chunks) 1)) (vector-length last-chunk))))
-        (vector-generate count (lambda (index) (vector-ref (vector-ref chunks (quotient index chunk-size)) (remainder index chunk-size))))))
-
-    (: vector-from (All (T) (-> (List T) (Vector T))))
-    (define (vector-from items)
-      (if (null? items) (vector-generate 0 (lambda (index) (panic "empty"))) (list->vector items)))
+              ((None) (list->vector (reverse items)))))))
 
     (: write-file (-> String String Unit ! fs))
     (define (write-file path text)

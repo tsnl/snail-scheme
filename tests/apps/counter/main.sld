@@ -45,9 +45,7 @@
 (: panels (-> Counter (List Panel)))
 (define (panels counter)
   (list (Panel "counter" (At (TopLeft) 0)
-               (list (Label (look "greeting") greeting)
-                     (Label (look "count") (i64->string (Counter-count counter)))
-                     (Button (look "add") "Add" "" add-action 0 (Enabled) -1.0)))))
+               (list (label "greeting" greeting) (label "count" (i64->string (Counter-count counter))) (button "add" "Add" add-action)))))
 
 (: save (-> Counter Save))
 (define (save counter)

@@ -118,7 +118,7 @@
     (define (act world action)
       (if (playing? world)
           (match (apply-order world action)
-            ((Ok next) (if (or (World-started world) (opening? action)) (Ok next) (Err (NotStarted))))
+            ((Ok next) (if (or (World-started world) (opening-order? action)) (Ok next) (Err (NotStarted))))
             ((Err rejection) (Err rejection)))
           (Err (Finished))))
 
@@ -133,8 +133,8 @@
         ((Repair) (repair world))
         ((Resign) (Ok (uncover (World-outcome-set world (Resigned)))))))
 
-    (: opening? (-> Action Bool))
-    (define (opening? action)
+    (: opening-order? (-> Action Bool))
+    (define (opening-order? action)
       (match action
         ((Build (Extractor) _ _) #t)
         ((Resign) #t)

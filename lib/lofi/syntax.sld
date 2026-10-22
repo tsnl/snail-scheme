@@ -70,7 +70,7 @@
     ;; decodes this.
     (: syntax->bytes (-> Syntax Bytes))
     (define (syntax->bytes syntax)
-      (join-bytes (reverse (encode syntax (Nil)))))
+      (vector-concatenate (reverse (encode syntax (Nil)))))
 
     ;; The pieces of `syntax` before `pieces`, last first. A byte vector is
     ;; its own piece, so its bytes are copied only when the pieces join.
@@ -102,16 +102,6 @@
       (if (< count 128)
           (list (i32->u8 (i64->i32 count)))
           (Cons (i32->u8 (i64->i32 (+ 128 (remainder count 128)))) (count-bytes (quotient count 128)))))
-
-    (: join-bytes (-> (List Bytes) Bytes))
-    (define (join-bytes pieces)
-      (let ((joined (make-array (fold-left (lambda (total piece) (+ total (vector-length piece))) 0 pieces) (i32->u8 0))))
-        (fold-left (lambda (offset piece)
-                     (vector-copy! joined offset piece 0 (vector-length piece))
-                     (+ offset (vector-length piece)))
-                   0
-                   pieces)
-        (array->vector joined)))
 
     ;; ---- Producers ----
 

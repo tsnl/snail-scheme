@@ -1,7 +1,8 @@
 # Toolchain: linking, live reload and the browser
 
 > **Status: implemented in #377,** on top of the live reload of #367,
-> except where a section says *proposed*. Section 8 lists what is left.
+> except where a section says *proposed*. The book's
+> [roadmap](book/roadmap.md) tracks what is left.
 
 This document describes how Lofi programs are built, linked, reloaded and
 loaded during development, so that a rebuild costs as much as the edit
@@ -40,8 +41,8 @@ without Binaryen:
 
 | Build | Desktop | Browser worker |
 | --- | --- | --- |
-| Siegework, first build, 14 modules | about 450 ms | about 440 ms |
-| Siegework, an edit to one function body, 1 or 2 modules | 70 to 110 ms | 70 to 120 ms |
+| Siegework, first build, 14 modules | about 450 ms | about 550 ms |
+| Siegework, an edit to one function body, 1 or 2 modules | 70 to 110 ms | 50 to 100 ms |
 | The counter of `tests/apps/counter`, an edit | 25 to 50 ms | about 30 ms |
 
 ## 3. Linking, after C
@@ -115,7 +116,8 @@ type of every import, and a value that crosses as `Any` keeps its own
 check at `type-convert`.
 
 Replacing a library's module means linking it and every module after it
-in program order again; the modules before it cannot import from it. That
+in program order again (`relinkProgram` in `load.mjs`); the modules before
+it cannot import from it. That
 costs the instantiation of a few modules, and keeps debug code free of the
 indirection that a table of mutable globals, like ELF's global offset
 table, would add to every call across libraries.
@@ -164,10 +166,11 @@ that survives is the application's state. `define-application` exposes
 `app_adopt`, which takes it back, so it crosses even when the module that
 defines its type is relinked:
 
-- as it is, when its type is unchanged, because the type's recursion
-  groups are identical and the new code accepts the old values;
-- through `save` and `restore`, the contract a page reload uses, when
-  adopting traps because the state's layout changed;
+- as it is, when `type-test` finds its type unchanged: an `Any` carries a
+  structural TypeId, a hash of its type's name, fields and cases, so the
+  new code accepts the old value;
+- through `save` and `restore`, the contract a page reload uses, when the
+  type differs;
 - not at all, when the save cannot be restored either. The old program
   keeps running and the page offers to start the new one over.
 
@@ -207,13 +210,17 @@ starts over.
 ## 5. The development loop in Lofi
 
 The loop is a Lofi program: `(lofi develop)` in `src/lofi/develop.sld`,
-started by `bootstrap/develop.sld`. It keeps a session, debounces changes,
-builds, writes modules and manifests, and broadcasts events. It reaches
-its host only through a `develop` effect of numbered commands: watch a
-path, schedule a timer, assemble a module, serve routes, broadcast an
-event, run a program, digest a file, read the clock, list and make
-directories. Hosts deliver three events back: a file changed, the timer
-fired, and a call into the loop panicked, with the panic's message.
+exposed and started by `bootstrap/develop.sld`, or by `src/ide/develop.sld`
+in the IDE. It keeps a session, debounces changes, builds, writes modules
+and manifests, broadcasts events, and decides which module files stay: the
+latest build's and the one before, which pages may still be relinking
+from. It reaches its host only through a `develop` effect of named
+commands: watch a path, schedule a timer, assemble a module, serve routes,
+broadcast an event, run a program, digest a file, read the clock, list
+and make directories, and remove a file. Hosts deliver three events back: a file changed, the timer
+fired, and a call into the loop panicked, with the panic's message. The
+loop cannot build a `generate-library` recipe yet, so an application with
+one, such as Hearsay, is built with `make site`.
 
 | Host | Where |
 | --- | --- |
@@ -247,7 +254,7 @@ panes, and the running application docked on the right.
 | Piece | In a browser |
 | --- | --- |
 | Compiler and loop | `src/ide/develop.sld`, the loop of `bootstrap/develop.sld` compiled one library at a time and linked in a worker. |
-| Files | The worker holds them: the standard library, the project as the editor has it, unsaved edits included, and what builds write. The program handles `(lofi io)`'s `fs` effect with a `files` effect that the worker implements, so the compiler opens files as it does from a disk. Once a build is served, only the modules of it and the build before stay. |
+| Files | The worker holds them: the standard library, the project as the editor has it, unsaved edits included, and what builds write. The program handles `(lofi io)`'s `fs` effect with a `files` effect that the worker implements, so the compiler opens files as it does from a disk. The loop keeps only the modules of the latest build and the one before. |
 | Projects | Text files by relative path in local storage, from a folder opened from disk. Where the browser offers the File System Access API, saving writes back to the folder, whose handle survives a reload in IndexedDB. |
 | Assembler | The `wat` crate compiled to WebAssembly (`src/assembler`), which the desktop loop uses too, instead of `wasm-as`. |
 | Formatter | `(lofi format)`, which reproduces `scripts/format-scheme` on every file in the repository, compiled to its own module (`src/ide/format.sld`) and run on the page's thread. Tab and Enter indent as Emacs does; saving formats the file. Its lexer also classes each character for highlighting, of the lines in view only, read from the start of their top-level form. |
@@ -257,30 +264,15 @@ panes, and the running application docked on the right.
 | Runtime | The prebuilt `snail_runtime.wasm`, one instance for the loop and one for the application. |
 | Optimizer | None. |
 
-The first build of Siegework takes about 550 ms in the worker, a little
-more than with the runtime keeping files, since text crosses to the worker
-a character at a time; an edit to one library rebuilds in 50 to 100 ms.
+Section 2 gives the worker's build times; text crosses to the worker a
+character at a time, which makes its first build slower than the desktop's.
 `tests/browser/ide.mjs` packages `tests/apps/counter` and, in headless
 Chromium, relinks an edit with the count kept, checks a squiggle, Tab and
 format-on-save, splits a pane, and opens a folder.
 
 ## 8. What is left
 
-- **The cache on disk.** Entries keyed by content hashes and written
-  atomically, so parallel builds cannot collide. A cold start would validate
-  them by hashing sources, as Bazel and Nix do.
-- **Interfaces as generated headers.** C++ avoids re-parsing headers through
-  a binary module interface private to the compiler; OCaml, GHC and Rust
-  keep similar files. A Lisp can instead print each interface as a
-  declaration-only library of S-expressions, whose text hash is the
-  interface hash.
-- **`(lofi wasm)` in browsers,** and with imports given by the caller.
-- **Previews inlaid in the IDE's panes,** which replace the notebooks of
-  #368: each preview compiled as its own module and loaded through
-  `(lofi wasm)`, rerun when what it depends on changes.
-- **The server's host:** Node with thin bindings, or a native Rust host
-  embedding wasmtime, whose support for WebAssembly GC is younger.
-- **Closures in the state:** whether to detect them from the state's type
-  and relink through `save` and `restore` automatically.
-- **Release builds in a browser,** with Binaryen compiled to WebAssembly if
-  its threads and exceptions can be tamed.
+The book's [roadmap](book/roadmap.md) lists the open work: the build cache
+on disk, interfaces as generated headers, `(lofi wasm)` in browsers,
+previews inlaid in the IDE, a native host for the loop, closures in the
+state, and release builds in a browser.

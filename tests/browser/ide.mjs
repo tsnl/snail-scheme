@@ -14,19 +14,10 @@ import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {extname, join} from 'node:path';
 import {promisify} from 'node:util';
-import {openBrowser, sleep} from './chromium.mjs';
+import {openBrowser, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
 const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm'};
-
-async function until(test, what) {
-  for (let i = 0; i < 300; i++) {
-    const value = await test();
-    if (value) return value;
-    await sleep(100);
-  }
-  throw new Error(`timed out waiting for ${what}`);
-}
 
 // Serves the site's files, nothing more.
 function serve(site) {

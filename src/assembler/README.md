@@ -8,7 +8,7 @@ compiler emits, including recursion groups of GC types, casts and tail
 calls.
 
 The crate is built for `wasm32-wasip1` as a reactor, apart from the runtime,
-so programs never carry it. `build-assembler` in `host/chibi/lofi/build.sld`
+so programs never carry it. `build-crate` in `host/chibi/lofi/build.sld`
 builds it, and `scripts/assemble.mjs` drives it through four exports over
 its linear memory:
 
@@ -22,5 +22,4 @@ its linear memory:
 ```sh
 cargo test --manifest-path src/assembler/Cargo.toml --offline
 cargo fmt --manifest-path src/assembler/Cargo.toml --all -- --check
-node scripts/assemble.mjs build/wasm-assembler/wasm32-wasip1/release/snail_assembler.wasm IN.wat OUT.wasm
 ```

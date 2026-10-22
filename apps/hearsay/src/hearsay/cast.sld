@@ -1,5 +1,5 @@
 ;; How the people of the prototypes look: an LPC character for each of the
-;; rumor mill's 24 residents and for the favor ledger's rivals. Looks are
+;; rumor mill's residents and for the favor ledger's rivals. Looks are
 ;; dealt from a fixed seed per person, so everyone looks the same in every
 ;; game and can be recognized across them. Each audience dresses in its own
 ;; colors: warm in the Market, workwear in the Docks, dark in the Tower.
@@ -7,12 +7,16 @@
   (export
    resident
    rival
-   everyone)
+   everyone
+   person-picture
+   rival-picture)
   (import
    (lofi base)
    (lofi random)
    (lpc catalog)
-   (lpc wardrobe))
+   (lpc wardrobe)
+   (only (hearsay mill) person-count audience-of)
+   (only (hearsay ledger) vee kit))
   (begin
 
     ;; ---- Dealing ----
@@ -69,17 +73,32 @@
         ((Female) (list (Pants) (Skirt) (Leggings)))
         (_ (list (Pants)))))
 
-    ;; Male pants come only in green.
-    (: bottom-dye (-> Build Dye Dye))
-    (define (bottom-dye build dye)
-      (match build
-        ((Male) (Dye "green"))
-        (_ dye)))
-
     (define footwear (list (Shoes) (Boots)))
 
     ;; Dark enough to tell from skin and floor at sprite size.
     (define shoe-dyes (map Dye (list "black" "charcoal" "walnut")))
+
+    ;; A garment in the dye dealt, if the catalog draws it in that for the
+    ;; build, and otherwise in the first dye it does: male pants come only
+    ;; in green.
+    (: worn-in (-> Build Garment Dye Worn))
+    (define (worn-in build garment dye)
+      (let ((drawn (garment-dyes build garment)))
+        (Worn garment
+              (if (any? (lambda (other) (string=? (Dye-name other) (Dye-name dye))) drawn)
+                  dye
+                  (match drawn
+                    ((Cons first _) first)
+                    ((Nil) dye))))))
+
+    ;; Every look dealt here is one the catalog draws, so dressing never
+    ;; fails. Were the tables to drift from the catalog, building (hearsay
+    ;; art), which dresses everyone, would stop here.
+    (: dressed (-> Build Head Skin Outfit Character))
+    (define (dressed build head skin outfit)
+      (match (dress build head skin outfit)
+        ((Some character) character)
+        ((None) (panic "the cast wears something the catalog does not draw"))))
 
     ;; ---- People ----
 
@@ -96,35 +115,45 @@
     (: outfitted (-> Build Head Skin Hair (List Dye) Random Character))
     (define (outfitted build head skin hair palette r)
       (let* ((top (deal r (tops build))) (top-dye (deal (Pair-second top) palette))
-             (bottom (deal (Pair-second top-dye) (bottoms build))) (bottom-dye-drawn (deal (Pair-second bottom) palette))
-             (shoe (deal (Pair-second bottom-dye-drawn) footwear)) (shoe-dye (deal (Pair-second shoe) shoe-dyes))
-             (outfit (Outfit (Some hair) (Some (Worn (Pair-first top) (Pair-first top-dye)))
-                             (Some (Worn (Pair-first bottom) (bottom-dye build (Pair-first bottom-dye-drawn))))
-                             (Some (Worn (Pair-first shoe) (Pair-first shoe-dye))))))
-        (match (dress build head skin outfit)
-          ((Some character) character)
-          ((None) (Character build head skin bare)))))
+             (bottom (deal (Pair-second top-dye) (bottoms build))) (bottom-dye (deal (Pair-second bottom) palette))
+             (shoe (deal (Pair-second bottom-dye) footwear)) (shoe-dye (deal (Pair-second shoe) shoe-dyes)))
+        (dressed build head skin
+                 (Outfit (Some hair) (Some (worn-in build (Pair-first top) (Pair-first top-dye)))
+                         (Some (worn-in build (Pair-first bottom) (Pair-first bottom-dye)))
+                         (Some (worn-in build (Pair-first shoe) (Pair-first shoe-dye)))))))
 
     ;; Resident `person` of the rumor mill, dressed in their audience's
     ;; colors.
     (: resident (-> I64 Character))
     (define (resident person)
-      (dealt (+ 1000 (* 7919 person)) (audience-dyes (quotient person 8))))
+      (dealt (+ 1000 (* 7919 person)) (audience-dyes (audience-of person))))
 
-    ;; The favor ledger's rivals: Vee (0) and Kit (1).
+    ;; The favor ledger's rivals, by fixer: Vee, and otherwise Kit.
     (: rival (-> I64 Character))
-    (define (rival index)
-      (match index
-        (0 (Character (Female) (HumanFemale) (Skin "bronze")
-                      (Outfit (Some (Hair (HairStyle "high_ponytail") (HairColor "raven"))) (Some (Worn (Tunic) (Dye "purple")))
-                              (Some (Worn (Leggings) (Dye "black"))) (Some (Worn (Boots) (Dye "black"))))))
-        (_ (Character (Male) (HumanMale) (Skin "light")
-                      (Outfit (Some (Hair (HairStyle "spiked") (HairColor "carrot"))) (Some (Worn (Tabard) (Dye "red")))
-                              (Some (Worn (Pants) (Dye "green"))) (Some (Worn (Shoes) (Dye "black"))))))))
+    (define (rival who)
+      (if (= who vee)
+          (dressed (Female) (HumanFemale) (Skin "bronze")
+                   (Outfit (Some (Hair (HairStyle "high_ponytail") (HairColor "raven"))) (Some (Worn (Tunic) (Dye "purple")))
+                           (Some (Worn (Leggings) (Dye "black"))) (Some (Worn (Boots) (Dye "black")))))
+          (dressed (Male) (HumanMale) (Skin "light")
+                   (Outfit (Some (Hair (HairStyle "spiked") (HairColor "carrot"))) (Some (Worn (Tabard) (Dye "red")))
+                           (Some (Worn (Pants) (Dye "green"))) (Some (Worn (Shoes) (Dye "black")))))))
 
     ;; Everyone drawn, for embedding their art.
     (: everyone (List Character))
     (define everyone
-      (append (map resident (iota 24)) (list (rival 0) (rival 1))))
+      (append (map resident (iota person-count)) (list (rival vee) (rival kit))))
+
+    ;; ---- Pictures ----
+
+    ;; The screens key the pictures they compose of the cast: 100 + p for
+    ;; resident p, and 200 + f for the rival who is fixer f.
+    (: person-picture (-> I64 I32))
+    (define (person-picture person)
+      (i64->i32 (+ 100 person)))
+
+    (: rival-picture (-> I64 I32))
+    (define (rival-picture who)
+      (i64->i32 (+ 200 who)))
 
     ))

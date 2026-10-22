@@ -171,6 +171,7 @@
    starting-energy
    new-world
    playing?
+   opening?
    fresh-id
    building
    building-at
@@ -510,6 +511,12 @@
       (match (World-outcome world)
         ((Playing) #t)
         (_ #f)))
+
+    ;; The opening: the game is in play, and its first extractor is still
+    ;; to be ordered.
+    (: opening? (-> World Bool))
+    (define (opening? world)
+      (and (not (World-started world)) (playing? world)))
 
     (: fresh-id (-> World (Pair I64 World)))
     (define (fresh-id world)

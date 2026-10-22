@@ -81,7 +81,7 @@
     ;; The camera looks down at 30 degrees on the point (x, z) of the ground,
     ;; from one of four quarter-turn headings, showing `scale` times 18
     ;; cells from the bottom of the screen to the top. A turn eases from
-    ;; `turned-from` over the 300 milliseconds of the game's clock after
+    ;; `turned-from` over the `turn-milliseconds` of the game's clock after
     ;; `turned-at`.
     (struct View
       ((x F32)
@@ -154,7 +154,7 @@
     (: game-around (-> World (List Entry) I64 Menu Bool I32 I32 Game))
     (define (game-around world orders epoch menu left-handed width height)
       (let ((start (Land-starter (World-land world))))
-        (Game world orders epoch 0 0 0 (View (i64->f32 (Cell-x start)) (i64->f32 (Cell-y start)) 1.0 0 0 -300) (Nil) no-gestures (None) (None) (None) #f
+        (Game world orders epoch 0 0 0 (View (i64->f32 (Cell-x start)) (i64->f32 (Cell-y start)) 1.0 0 0 (negate turn-milliseconds)) (Nil) no-gestures (None) (None) (None) #f
               menu left-handed "" width height)))
 
     ;; ---- Time ----
@@ -162,6 +162,10 @@
     ;; The world advances once for each tenth of a second that passes.
     (: tick-milliseconds I64)
     (define tick-milliseconds 100)
+
+    ;; The camera takes this long to turn a quarter.
+    (: turn-milliseconds I64)
+    (define turn-milliseconds 300)
 
     ;; The world is still while a dialog pauses it or once it is decided.
     (: still? (-> Game Bool))
@@ -188,7 +192,7 @@
     (define (game-save game)
       (let ((world (Game-world game)) (view (Game-view game)))
         (Save (World-seed world) (World-tick world) (reverse (Game-orders game)) (paused? game) (Game-left-handed game)
-              (View-turned-at-set (View-turned-from-set view (View-heading view)) -300))))
+              (View-turned-at-set (View-turned-from-set view (View-heading view)) (negate turn-milliseconds)))))
 
     ;; The host reports the screen's size after restoring.
     (: game-restore (-> Save Game))
@@ -204,7 +208,7 @@
     (: heading-angle (-> Game F32))
     (define (heading-angle game)
       (let* ((view (Game-view game)) (from (i64->f32 (View-turned-from view))) (to (i64->f32 (View-heading view)))
-             (t (clamp (/ (i64->f32 (- (Game-clock game) (View-turned-at view))) 300.0) 0.0 1.0)))
+             (t (clamp (/ (i64->f32 (- (Game-clock game) (View-turned-at view))) (i64->f32 turn-milliseconds)) 0.0 1.0)))
         (* 1.5707964 (+ from (* (- to from) (* t (* t (- 3.0 (* 2.0 t)))))))))
 
     ;; Equal horizontal offsets give a 2:1 diamond for each resting quarter
@@ -465,11 +469,11 @@
         ((Resigning) (Game-menu-set game (Paused)))
         (_ (Game-menu-set game (Closed)))))
 
-    ;; While a dialog is open only it and the pause key answer.
-    (: key-press (-> Game I32 Bool Game))
     ;; A key is held until released, so held keys pan. One pressed with
     ;; Shift is only held: Shift with WASD or the arrows pans as the key
-    ;; alone does, and Shift with any other key does nothing.
+    ;; alone does, and Shift with any other key does nothing. While a
+    ;; dialog is open only it and the pause key answer.
+    (: key-press (-> Game I32 Bool Game))
     (define (key-press game key shift)
       (let ((game (Game-held-set game (if (held? game key) (Game-held game) (Cons key (Game-held game))))))
         (cond (shift game)

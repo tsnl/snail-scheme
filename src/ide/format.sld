@@ -1,16 +1,14 @@
 ;; The IDE's formatter, (lofi format) as a program. In a page, the source
-;; arrives a character at a time through `format_character`; `format_source`
+;; arrives a character at a time through `format_character`; `format_whole`
 ;; formats it, `format_indent` reindents some of its lines and
 ;; `format_highlight` classes each character for coloring, and each returns
 ;; the length of the result, which `format_result` gives back a character at
 ;; a time. On the command line,
 ;;
 ;;   format --check FILE ...
-;;   format --write FILE ...
 ;;
 ;; prints the first line that formatting would change in each file, which is
-;; how the tests hold the formatter to the repository's Emacs formatting, or
-;; formats each file in place.
+;; how the tests hold the formatter to the repository's Emacs formatting.
 (import
  (lofi base)
  (lofi io)
@@ -57,7 +55,7 @@
   (char->i32 (string-ref (ref-get result) (i32->i64 index))))
 
 (expose format-character "format_character")
-(expose format-whole "format_source")
+(expose format-whole "format_whole")
 (expose format-indent "format_indent")
 (expose format-highlight "format_highlight")
 (expose format-result "format_result")
@@ -90,11 +88,6 @@
          (Some (string-append (i64->string number) ": needs formatting\n  was: " a "\n  now: " b))))
     (_ (Some (string-append (i64->string number) ": needs formatting: the line count changes")))))
 
-(: write-formatted (-> String Unit ! fs))
-(define (write-formatted path)
-  (write-file path (format-source (read-file path))))
-
 (match (command-line)
   ((Cons _ (Cons "--check" paths)) (for-each check-file paths))
-  ((Cons _ (Cons "--write" paths)) (for-each write-formatted paths))
   (_ (unit)))

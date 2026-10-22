@@ -11,34 +11,21 @@ import {spawnSync} from 'node:child_process';
 import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {WASI} from 'node:wasi';
 import {fileURLToPath} from 'node:url';
 import {createAssembler} from '../scripts/assemble.mjs';
 
-// ---- Running a module unlinked ----
+const runner = fileURLToPath(new URL('../scripts/run-lofi.mjs', import.meta.url));
 
-// Runs in a child process, so the program's standard output can be compared.
-async function runUnlinked(runtimePath, modulePath) {
-  const wasi = new WASI({version: 'preview1', args: [modulePath], env: {}, preopens: {'/': '/'}, returnOnExit: true});
-  let runtime;
-  const platform = {'diagnostics/report-error': (pointer, length) => runtime.exports['snail:report-error'](pointer, length)};
-  ({instance: runtime} = await WebAssembly.instantiate(await readFile(runtimePath), {...wasi.getImportObject(), 'snail.platform': platform}));
-  wasi.initialize(runtime);
-  const {instance} = await WebAssembly.instantiate(await readFile(modulePath), {'snail.library': runtime.exports});
-  instance.exports.main();
-  runtime.exports['snail:io/close-all']();
-}
-
-// ---- Test ----
-
+// The module runs as the one library of a modules.json, in a child process,
+// so its standard output can be compared.
 async function test([assemblerPath, runtimePath, programPath, expectedPath]) {
   const assemble = await createAssembler(await readFile(assemblerPath));
   assert.throws(() => assemble('(module\n  (func (result i32) (i32.bogus)))'), /:2:23/, 'broken text names its line and column');
   const directory = await mkdtemp(join(tmpdir(), 'lofi-assembler-'));
   try {
-    const modulePath = join(directory, 'program.wasm');
-    await writeFile(modulePath, assemble(await readFile(programPath, 'utf8')));
-    const run = spawnSync(process.execPath, ['--no-warnings', fileURLToPath(import.meta.url), '--run', runtimePath, modulePath], {encoding: 'utf8'});
+    await writeFile(join(directory, 'program.wasm'), assemble(await readFile(programPath, 'utf8')));
+    await writeFile(join(directory, 'modules.json'), JSON.stringify({runtime: runtimePath, modules: [{name: 'program', file: 'program.wasm'}]}));
+    const run = spawnSync(process.execPath, ['--no-warnings', runner, join(directory, 'modules.json')], {encoding: 'utf8'});
     assert.equal(run.stdout + run.stderr, await readFile(expectedPath, 'utf8'));
   } finally {
     await rm(directory, {recursive: true, force: true});
@@ -46,5 +33,4 @@ async function test([assemblerPath, runtimePath, programPath, expectedPath]) {
   console.log('assembler: the module it assembled runs');
 }
 
-const [mode, ...rest] = process.argv.slice(2);
-await (mode === '--run' ? runUnlinked(...rest) : test([mode, ...rest]));
+await test(process.argv.slice(2));

@@ -10,10 +10,11 @@
 //   develop.mjs ROOT watch [-I DIRECTORY] SOURCE [ARGUMENT ...]
 import {spawn, spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, watch, writeFileSync} from 'node:fs';
+import {closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, rmSync, statSync, watch, writeFileSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {extname, join, relative, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
+import {commandImports} from '../src/app/load.mjs';
 import {createAssembler} from './assemble.mjs';
 
 const usage = 'usage: lofi serve [--port PORT] APP-DIRECTORY | lofi watch [-I DIRECTORY] SOURCE [ARGUMENT ...]';
@@ -53,21 +54,19 @@ async function startLoop(root, tools, request) {
   const errors = openSync(join(root, 'build/develop/errors.txt'), 'w+');
   const wasi = new WASI({version: 'preview1', args: ['develop', root, tools.runtime, tools.client, ...request], env: process.env,
                          preopens: {'/': '/'}, returnOnExit: true, stderr: errors});
-  const loop = {exports: null, staged: [], current: '', errors, read: 0, root};
-  const develop = {
-    'argument-character': code => { loop.current += String.fromCodePoint(code); },
-    'argument-end': () => { loop.staged.push(loop.current); loop.current = ''; },
-    command: (code, number) => commands[code](loop.staged.splice(0), number, loop) ?? 0,
-  };
-  const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), {...wasi.getImportObject(), 'snail.develop': develop});
+  const loop = {exports: null, errors, read: 0, root};
+  const imports = {...wasi.getImportObject(), 'snail.develop': commandImports(commands(loop))};
+  const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), imports);
   Object.assign(loop, {exports: instance.exports, assemble: await createAssembler(readFileSync(tools.assembler))});
   wasi.initialize(instance);
   enter(loop, () => instance.exports.main());
   return loop;
 }
 
-// Event 1 is a changed file, 2 the timer, 3 a build that panicked; the
-// event's text goes first, a character at a time.
+// The loop's events, numbered as `deliver-event!` in src/lofi/develop.sld
+// numbers them. An event's text goes first, a character at a time.
+const CHANGED = 1, TIMER = 2, FAILED = 3;
+
 function send(loop, kind, text) {
   enter(loop, () => {
     for (const character of text) loop.exports.develop_character(character.codePointAt(0));
@@ -81,7 +80,7 @@ function enter(loop, call) {
     printErrors(loop);
   } catch {
     const message = printErrors(loop).trim().replace(/^lofi: /, '');
-    send(loop, 3, message || 'the build failed');
+    send(loop, FAILED, message || 'the build failed');
   }
 }
 
@@ -97,41 +96,50 @@ function printErrors(loop) {
 
 // ---- Commands ----
 
-// Numbered as the `develop` effect's commands in src/lofi/develop.sld.
-const commands = [
-  null,
-  ([directory], _, loop) => {
-    watch(directory, {recursive: true}, (event, name) => { if (name) send(loop, 1, join(directory, name)); });
-  },
-  (_, milliseconds, loop) => {
-    clearTimeout(loop.timer);
-    loop.timer = setTimeout(() => send(loop, 2, ''), milliseconds);
-  },
-  ([text, module], _, loop) => {
-    try { writeFileSync(module, loop.assemble(readFileSync(text, 'utf8'))); return 0; }
-    catch (error) { console.error(error.message); return 1; }
-  },
-  ([routes, name], port, loop) => serve(loop, JSON.parse(readFileSync(routes, 'utf8')), name, port),
-  ([event], _, loop) => broadcast(loop, event),
-  ([manifest, ...args], _, loop) => runProgram(loop, manifest, args),
-  ([path]) => { try { return createHash('sha256').update(readFileSync(path)).digest().readInt32LE(0); } catch { return 0; } },
-  () => Math.round(performance.now()) | 0,
-  ([directory, output]) => { let names = []; try { names = readdirSync(directory); } catch {} writeFileSync(output, names.join('\n')); },
-  ([directory]) => { mkdirSync(directory, {recursive: true}); },
-];
+// The `develop` effect's commands, by the names src/lofi/develop.sld gives
+// them.
+function commands(loop) {
+  return {
+    watch([directory]) {
+      watch(directory, {recursive: true}, (event, name) => { if (name) send(loop, CHANGED, join(directory, name)); });
+    },
+    schedule(_, milliseconds) {
+      clearTimeout(loop.timer);
+      loop.timer = setTimeout(() => send(loop, TIMER, ''), milliseconds);
+    },
+    assemble([text, module]) {
+      try { writeFileSync(module, loop.assemble(readFileSync(text, 'utf8'))); return 0; }
+      catch (error) { console.error(error.message); return 1; }
+    },
+    serve([routes, name], port) { serve(loop, JSON.parse(readFileSync(routes, 'utf8')), name, port); },
+    broadcast([event]) { broadcast(loop, event); },
+    run([manifest, ...args]) { runProgram(loop, manifest, args); },
+    digest([path]) {
+      try { return createHash('sha256').update(readFileSync(path)).digest().readInt32LE(0); } catch { return 0; }
+    },
+    now: () => Math.round(performance.now()) | 0,
+    'list-directory'([directory, output]) {
+      let names = [];
+      try { names = readdirSync(directory); } catch {}
+      writeFileSync(output, names.join('\n'));
+    },
+    'make-directory'([directory]) { mkdirSync(directory, {recursive: true}); },
+    'remove-file'([path]) { rmSync(path, {force: true}); },
+  };
+}
 
 // ---- Serving ----
 
-// Files come from the routes the loop wrote: exact paths, then directories
-// by their prefix. Nothing is cached. A page that opens the event stream
+// Files come from the routes the loop wrote: a path's exact route, then
+// each directory whose prefix the path starts with, in order, the first
+// that has the file. Nothing is cached. A page that opens the event stream
 // gets the latest event first.
 function serve(loop, routes, name, port) {
   loop.clients = new Set();
   const server = createServer((incoming, response) => {
     const path = decodeURIComponent(new URL(incoming.url, 'http://localhost').pathname);
     if (path === routes.events) return openEvents(loop, response);
-    const file = routes.files[path] ?? directoryFile(routes.directories, path);
-    if (!file) return response.writeHead(404, {'Cache-Control': 'no-store'}).end();
+    const file = routeFile(routes, path);
     try {
       const bytes = readFileSync(file);
       response.writeHead(200, {'Content-Type': routes.types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store'}).end(bytes);
@@ -140,11 +148,14 @@ function serve(loop, routes, name, port) {
   server.listen(port, '127.0.0.1', () => console.log(`serving ${name} at http://127.0.0.1:${server.address().port}/`));
 }
 
-function directoryFile(directories, path) {
-  const prefix = Object.keys(directories).sort((a, b) => b.length - a.length).find(entry => path.startsWith(entry));
-  if (!prefix) return null;
-  const file = join(directories[prefix], path.slice(prefix.length));
-  return relative(directories[prefix], file).startsWith('..') ? null : file;
+function routeFile(routes, path) {
+  const exact = routes.files.find(([route]) => route === path);
+  if (exact) return exact[1];
+  for (const [prefix, directory] of routes.directories) {
+    const file = join(directory, path.slice(prefix.length));
+    if (path.startsWith(prefix) && !relative(directory, file).startsWith('..') && statSync(file, {throwIfNoEntry: false})?.isFile()) return file;
+  }
+  return null;
 }
 
 function openEvents(loop, response) {
@@ -166,17 +177,18 @@ function writeEvent(response, event) {
 
 // ---- Running programs ----
 
-// A program still running is stopped, and the new run starts once it has
-// exited, so a server can bind its port again.
+// A program still running is stopped, and the newest run starts once it has
+// exited, so a server can bind its port again. Runs asked for while it stops
+// replace one another: only the latest starts.
 function runProgram(loop, manifest, args) {
   const previous = loop.child;
-  const start = () => {
+  loop.next = () => {
     const child = spawn(process.env.NODE ?? 'node', ['--no-warnings', join(loop.root, 'scripts/run-lofi.mjs'), manifest, ...args], {stdio: 'inherit'});
     child.on('exit', (code, signal) => { if (!signal) console.error(`\x1b[2m-- exited with status ${code}\x1b[0m`); });
     loop.child = child;
   };
-  if (previous && previous.exitCode === null && previous.signalCode === null) { previous.once('exit', start); previous.kill(); }
-  else start();
+  if (!previous || previous.exitCode !== null || previous.signalCode !== null) loop.next();
+  else if (!previous.killed) { previous.once('exit', () => loop.next()); previous.kill(); }
 }
 
 try {

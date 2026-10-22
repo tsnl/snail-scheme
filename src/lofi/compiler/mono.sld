@@ -214,13 +214,9 @@
     (: new-state (-> Typed (Option String) State ! mut))
     (define (new-state typed owner)
       (let ((instances (fold-left (lambda (table instance) (table-set table (Instance-name instance) instance))
-                                  empty-table (concatenate (table-values (Program-instances (Typed-program typed))))))
-            (definitions (fold-left (lambda (table item)
-                                      (match item
-                                        ((Define name value) (table-set table name value))
-                                        (_ table)))
-                                    empty-table (Typed-items typed))))
-        (State typed instances definitions (ref empty-table) (ref empty-table) (ref (Nil)) owner (ref empty-table))))
+                                  empty-table (concatenate (table-values (Program-instances (Typed-program typed)))))))
+        (State typed instances (item-definitions (Typed-items typed)) (ref empty-table) (ref empty-table) (ref (Nil)) owner
+               (ref empty-table))))
 
     ;; Statements and monomorphic top-level values are roots, so their
     ;; initializers run even when nothing refers to them. Functions are

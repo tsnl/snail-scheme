@@ -2,8 +2,9 @@
 // (reload.mjs) and the browser IDE's preview. The client, src/app/reload.sld,
 // runs as WebAssembly and decides what the page does about each build; this
 // file performs its commands with a notice over the page and what the page
-// gives it: how to fetch a style sheet again, relink its programs and
-// reload.
+// gives it: how to fetch a style sheet again, relink its programs and save
+// them before it reloads.
+import {commandImports, createWasi, instantiate} from './load.mjs';
 
 // ---- Notice ----
 
@@ -16,7 +17,7 @@ const buttonStyle = {display: 'block', marginTop: '8px', padding: '4px 8px', bor
   font: 'inherit', color: 'inherit', background: '#26324a', cursor: 'pointer'};
 
 // Each action is a button's caption and its handler.
-export function createNotice() {
+function createNotice() {
   const panel = document.createElement('div');
   panel.setAttribute('role', 'status');
   Object.assign(panel.style, panelStyle, {display: 'none'});
@@ -41,41 +42,22 @@ function button(caption, handler) {
 
 // ---- The client ----
 
-// `page` gives the notice, `restyle(file, digest)`, `relink(module, fresh)`,
-// which resolves once every program on the page is relinked, and
-// `reloadPage()`. The client is
-// one linked module with its own runtime; it needs only standard output,
-// and the rest of WASI answers ENOSYS.
+// `page` gives `restyle(file, digest)`, `relink(module, fresh)`, which
+// resolves once every program on the page is relinked, and `save()`, which
+// resolves once every program's save is stored. The client is one linked
+// module with its own runtime.
 export async function createReloadClient(bytes, page) {
-  const module = await WebAssembly.compile(bytes);
-  const client = {exports: null};
-  const wasi = clientWasi(client);
-  for (const {module: from, name} of WebAssembly.Module.imports(module)) if (from === 'wasi_snapshot_preview1' && !wasi[name]) wasi[name] = () => 52;
-  ({exports: client.exports} = await WebAssembly.instantiate(module, {wasi_snapshot_preview1: wasi, 'snail.page': pageImports(client, page)}));
-  client.exports._initialize();
+  const client = {exports: null, page, notice: createNotice()};
+  const wasi = createWasi({print: (fd, line) => (fd === 2 ? console.error : console.log)(line)});
+  const imports = {...wasi.getImportObject(), 'snail.page': commandImports(pageCommands(client))};
+  const instance = await instantiate(await WebAssembly.compile(bytes), imports);
+  wasi.initialize(instance);
+  client.exports = instance.exports;
   client.exports.main();
   return {
     start: manifest => enter(client, 'reload_start', manifest),
     event: text => enter(client, 'reload_event', text),
     pageError: (text, stopped) => enter(client, 'reload_page_error', text, stopped ? 1 : 0),
-  };
-}
-
-function clientWasi(client) {
-  const memory = () => new DataView(client.exports.memory.buffer);
-  return {
-    fd_write(fd, iovs, count, written) {
-      let total = 0, text = '';
-      for (let i = 0; i < count; i++) {
-        const pointer = memory().getUint32(iovs + 8 * i, true), length = memory().getUint32(iovs + 8 * i + 4, true);
-        text += new TextDecoder().decode(new Uint8Array(client.exports.memory.buffer, pointer, length));
-        total += length;
-      }
-      (fd === 2 ? console.error : console.log)(text.trimEnd());
-      memory().setUint32(written, total, true);
-      return 0;
-    },
-    proc_exit(code) { throw new Error(`the reload client exited with status ${code}`); },
   };
 }
 
@@ -87,25 +69,23 @@ function enter(client, entry, text, ...numbers) {
 
 // ---- Page commands ----
 
-// Numbered as the `page` effect's commands in src/app/reload.sld. The
-// client asks for one relink at a time.
-function pageImports(client, page) {
-  let staged = [], current = '';
-  const commands = [
-    null,
-    ([text], kind) => page.notice.show(text, {failed: kind === 1, seconds: kind === 2 ? 2 : 0}),
-    () => page.notice.hide(),
-    ([file, digest]) => page.restyle(file, digest),
-    ([module], fresh) => page.relink(module, fresh === 1)
-      .then(() => enter(client, 'reload_relinked', '', 0), error => enter(client, 'reload_relinked', error.message, 1)),
-    () => page.reloadPage(),
-    ([text]) => page.notice.show(text, {failed: true, actions: [['Start over with the new program', () => enter(client, 'reload_start_over', '')],
-                                                                ['Dismiss', () => page.notice.hide()]]}),
-  ];
+// The `page` effect's commands, by the names src/app/reload.sld gives them.
+// A notice is lasting (0), a failure (1) or brief (2). The client asks for
+// one relink at a time.
+function pageCommands(client) {
+  const {page, notice} = client;
   return {
-    'argument-character': code => { current += String.fromCodePoint(code); },
-    'argument-end': () => { staged.push(current); current = ''; },
-    command: (code, number) => { const args = staged; staged = []; commands[code](args, number); return 0; },
+    notice([text], kind) { notice.show(text, {failed: kind === 1, seconds: kind === 2 ? 2 : 0}); },
+    hide() { notice.hide(); },
+    restyle([file, digest]) { page.restyle(file, digest); },
+    relink([module], fresh) {
+      page.relink(module, fresh === 1).then(() => enter(client, 'reload_relinked', '', 0), error => enter(client, 'reload_relinked', error.message, 1));
+    },
+    reload() { page.save().then(() => location.reload()); },
+    'offer-fresh-start'([text]) {
+      notice.show(text, {failed: true, actions: [['Start over with the new program', () => enter(client, 'reload_start_over', '')],
+                                                 ['Dismiss', () => notice.hide()]]});
+    },
   };
 }
 

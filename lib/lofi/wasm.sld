@@ -1,13 +1,14 @@
 ;; Loading WebAssembly while a program runs, as C loads a shared library
 ;; with dlopen and finds a function in it with dlsym. A module is loaded
 ;; from a file and linked against the program's own modules, the runtime,
-;; and the modules loaded before it, by name, so a notebook's cell can
-;; import an earlier cell. Its exported functions come out as Funcref
-;; values, untyped; `unsafe-cast` makes one a function of the type the
-;; program expects. Nothing checks that type: the engine traps only if the
-;; function's WebAssembly type differs from the one Lofi gives the expected
-;; type. A program compiled one library at a time exports each function
-;; under its library's name and its own, as in `cell:run`.
+;; and the modules loaded before it, by name, so a module can import one
+;; loaded earlier, as the IDE's planned previews would. Its exported
+;; functions come out as Funcref values, untyped; `unsafe-cast` makes one a
+;; function of the type the program expects. Nothing checks that type: the
+;; engine traps only if the function's WebAssembly type differs from the one
+;; Lofi gives the expected type. A program compiled one library at a time
+;; exports each function under its library's name and its own, as in
+;; `cell:run`.
 (define-library (lofi wasm)
   (export
    Funcref

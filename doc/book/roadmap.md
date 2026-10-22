@@ -16,27 +16,35 @@ describe proposed behavior, kept apart from what is implemented.
   once, during checking.
 - Effect rows with tail-resumptive handlers and host defaults.
 - Wire types: derived `Serialize` and `Deserialize` with per-case TypeIds.
-- `(lofi app)` applications with a browser host, and Siegework on top of it.
-- Exact integers and rationals, Scheme data with `read` and `write`,
-  `generate-library`, and `(scheme compiler)`, which translates R7RS
-  programs into Lofi libraries.
+- `(lofi app)` applications with a browser host: meshes and sprites drawn by
+  one metallic-roughness shader, textures composed from embedded image
+  files, and 2D scenes seen straight down. Siegework and Hearsay's
+  prototypes run on it; Hearsay's people are dressed from the checked-in
+  LPC art (`lib/lpc`).
+- Exact integers and rationals, Scheme data with `read` and `write`, and
+  `(scheme compiler)`, which translates R7RS programs into Lofi libraries.
+- Byte vector literals and `include-bytes`, and `generate-library`
+  recipes that return syntax through `(lofi syntax)`, so an embedded file
+  reaches the compiler as its bytes.
+- A structural TypeId for `Any`, and `type-test`, which asks what an `Any`
+  holds without trapping.
 - Wire schema export (`lofi schema`) and bounded model checking of total
   state machines (`(lofi explore)`).
 - A development loop: separate compilation of each library, with debug
   builds linked dynamically, so `lofi serve` relinks a running page from the
-  first changed module and `lofi watch` reruns a program after each edit.
+  first changed module and `lofi watch` reruns a program after each edit;
+  `make ide` runs the same loop in a browser IDE.
+- Pinned tools: `shell.nix` takes nixpkgs from an npins pin, and a podman
+  devcontainer that CI builds packages the same tools.
 
 ## Next
 
-1. Grow `(scheme compiler)` toward R7RS, and let Scheme code call typed Lofi
-   code through `type-convert`.
-2. Notebooks of compiled cells, on the toolchain that
-   [toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md)
-   describes: separate compilation with dynamic linking in debug builds,
-   relinking single modules, the development loop in Lofi, the toolchain in
-   a browser, and `(lofi wasm)`.
-3. The open items below. The redesign records the parts of its plan that
-   were cut, such as the dependent elaborator and the WGSL backend.
+1. The runtime and graphics rewrite, from milestone 2 of its
+   [plan](graphics/plan.md): an application loop on JavaScript Promise
+   Integration (JSPI), then `ctl` operations and WebGPU through an effect.
+2. Previews inlaid in the IDE's editor panes (below).
+3. The other open items below. The redesign records the parts of its plan
+   that were cut, such as the dependent elaborator.
 
 ## Open items
 
@@ -56,13 +64,20 @@ describe proposed behavior, kept apart from what is implemented.
 - [ ] Decision trees for `match` with many cases, and nullable references for
   `Option`-shaped enums.
 - [ ] Source locations in emitted Wasm.
+- [ ] The same text from both hosts. The backend numbers closures, strings
+  and lambdas as it emits them, some while evaluating a call's arguments,
+  which Chibi evaluates right to left; so Chibi's stage 1 text numbers them
+  differently from the Wasm compiler's. The two mean the same, and
+  `make bootstrap` compares only the Wasm stages. The character classes differ too: Chibi's
+  `char-numeric?`, `char-whitespace?` and `char-alphabetic?` accept Unicode,
+  and Lofi's only ASCII.
 
 ### Runtime and graphics
 
 The [runtime and graphics plan](graphics/plan.md) lists the milestones of the
-rewrite: tools, a main loop on JavaScript Promise Integration (JSPI), `ctl`
-operations, WebGPU through an effect, and the 2D and 3D `graphics`
-libraries. Beyond them:
+rewrite. The first, pinned tools, is done; the rest are proposed: a main
+loop on JSPI, `ctl` operations, WebGPU through an effect, and the 2D and 3D
+`graphics` libraries. Beyond them:
 
 - [ ] Move `ctl` operations, such as the proposed `wait-event` and
   `read-buffer`, from JSPI to native stack switching. Chrome 156 implements
@@ -84,6 +99,10 @@ loop in a browser
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md)).
 Not implemented:
 
+- [ ] Building `generate-library` recipes in the loop: `lofi serve`,
+  `lofi watch` and the IDE cannot run a producer program yet, so an
+  application with a generated library, such as Hearsay with its art, is
+  built with `make site` instead.
 - [ ] Migrations between Save types, so a reload survives a schema change:
   an application would name a function from its old Save to its new one,
   as the redesign's section 5 proposes.
@@ -91,8 +110,18 @@ Not implemented:
   a `net` effect exists, with the same save and restore contract instead
   of a restart.
 - [ ] Keeping the build cache on disk, so a cold start does not compile
-  everything once.
-- [ ] `(lofi wasm)` in browser hosts.
+  everything once: entries keyed by content hashes and written atomically,
+  validated on a cold start by hashing sources, as Bazel and Nix do.
+- [ ] Interfaces as generated headers: each library's interface printed as
+  a declaration-only library of S-expressions, whose text hash is the
+  interface hash, as C++ modules, OCaml, GHC and Rust keep interface files.
+- [ ] `(lofi wasm)` in browser hosts, with imports given by the caller.
+- [ ] A native host for the loop in place of Node: Rust embedding wasmtime,
+  once its support for WebAssembly GC matures.
+- [ ] Closures in the state: detecting them from the state's type, and
+  relinking through `save` and `restore` instead of handing them over.
+- [ ] Release builds in a browser, with Binaryen compiled to WebAssembly if
+  its threads and exceptions can be tamed.
 
 ### IDE
 
@@ -103,9 +132,9 @@ the application relinked beside the editor
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md),
 section 7). Not implemented:
 
-- [ ] Previews inlaid in the editor panes, in place of #368's notebooks:
-  each preview compiled as its own module and loaded through `(lofi wasm)`,
-  rerun when what it depends on changes, with no manual order.
+- [ ] Previews inlaid in the editor panes: each preview compiled as its own
+  module and loaded through `(lofi wasm)`, rerun when what it depends on
+  changes, with no manual order.
 - [ ] Semantic highlighting: the lexer colors core forms, capitalized names
   and the names definitions introduce; the expander knows what every name
   resolves to (a local, a global, a type, a constructor, a macro), and a
@@ -140,3 +169,11 @@ in four biomes. What remains, none of it implemented:
   (tick 1000, set by the archipelago's long causeways).
 - [ ] Check the HUD at phone sizes in a browser.
 - [ ] Loading authored models, if hand-made assets replace the procedural ones.
+
+### Hearsay
+
+The rumor mill and the favor ledger, the first two of
+[Hearsay's prototypes](https://github.com/tsnl/snail-scheme/blob/main/apps/hearsay/prototypes.md),
+run in a browser. Not implemented:
+
+- [ ] The third prototype, which waits until the first two hold up.

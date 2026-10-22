@@ -35,7 +35,6 @@
    datum=?
    datum->string
    syntax->string
-   syntax->key
    compile-error
    read-text
    decode-syntax)
@@ -87,22 +86,6 @@
         ((Atom value _) (datum->string value))
         ((Ident name _ _) name)
         ((Form items _) (string-append "(" (string-join (map syntax->string items) " ") ")"))))
-
-    ;; Syntax as text that keys a build. A byte vector shows only its length
-    ;; and a hash of its bytes, so a library that embeds megabytes keys on a
-    ;; few characters.
-    (: syntax->key (-> Syntax String))
-    (define (syntax->key syntax)
-      (match syntax
-        ((Atom (DBytes value) _) (string-append "#u8<" (i64->string (vector-length value)) ":" (i64->string (bytes-hash value)) ">"))
-        ((Atom value _) (datum->string value))
-        ((Ident name _ _) name)
-        ((Form items _) (string-append "(" (string-join (map syntax->key items) " ") ")"))))
-
-    ;; 32-bit FNV-1a over bytes, as `fnv-1a` hashes text.
-    (: bytes-hash (-> Bytes I64))
-    (define (bytes-hash bytes)
-      (vector-fold (lambda (hash byte) (i64-and (* (i64-xor hash (i32->i64 (u8->i32 byte))) 16777619) 4294967295)) 2166136261 bytes))
 
     (: datum->string (-> Datum String))
     (define (datum->string datum)
@@ -267,7 +250,7 @@
     (define (read-bytes source index loc chunks)
       (let* ((chunk (read-byte-chunk source index loc)) (bytes (Pair-first chunk)) (next (Pair-second chunk)))
         (if (< (vector-length bytes) byte-chunk)
-            (Pair (Atom (DBytes (joined-bytes (reverse (Cons bytes chunks)))) loc) next)
+            (Pair (Atom (DBytes (vector-concatenate (reverse (Cons bytes chunks)))) loc) next)
             (read-bytes source next loc (Cons bytes chunks)))))
 
     (define byte-chunk 4096)
@@ -278,18 +261,11 @@
     (define (read-byte-chunk source index loc)
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
-          (cond ((= count byte-chunk) (Pair (bytes-vector (reverse bytes)) start))
+          (cond ((= count byte-chunk) (Pair (list->vector (reverse bytes)) start))
                 ((at-end? source start) (compile-error loc "unclosed byte vector"))
-                ((char-is? source start #\)) (Pair (bytes-vector (reverse bytes)) (+ start 1)))
+                ((char-is? source start #\)) (Pair (list->vector (reverse bytes)) (+ start 1)))
                 (else (let ((end (token-end source start)))
                         (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
-
-    ;; Every chunk but the last is full, so byte i lies in chunk i / size.
-    (: joined-bytes (-> (List Bytes) Bytes))
-    (define (joined-bytes chunks)
-      (let* ((all (list->vector chunks)) (last-chunk (vector-ref all (- (vector-length all) 1)))
-             (count (+ (* byte-chunk (- (vector-length all) 1)) (vector-length last-chunk))))
-        (vector-generate count (lambda (index) (vector-ref (vector-ref all (quotient index byte-chunk)) (remainder index byte-chunk))))))
 
     (: byte-token (-> Source I64 I64 U8))
     (define (byte-token source start end)
@@ -298,10 +274,6 @@
               ((or (= index end) (> value 255) (not (char-numeric? (vector-ref (Source-chars source) index))))
                (compile-error (source-loc source start) "a byte is an integer from 0 to 255"))
               (else (loop (+ index 1) (+ (* value 10) (digit-value (vector-ref (Source-chars source) index))))))))
-
-    (: bytes-vector (-> (List U8) Bytes))
-    (define (bytes-vector bytes)
-      (if (null? bytes) (vector-generate 0 (lambda (index) (ann 0 U8))) (list->vector bytes)))
 
     (: read-quote (-> Source I64 Loc (Pair Syntax I64)))
     (define (read-quote source index loc)
@@ -473,12 +445,10 @@
 
     (: decode-form (-> Bytes I64 Loc (Pair Syntax I64)))
     (define (decode-form bytes index loc)
-      (let ((next (+ index 1)))
-        (case (byte-at bytes index loc)
+      (let ((tag (byte-at bytes index loc)) (next (+ index 1)))
+        (case tag
           ((0) (decode-list bytes next loc))
-          ((1) (decode-text-as bytes next loc (lambda (text) (Ident text (None) loc))))
-          ((2) (decode-text-as bytes next loc (lambda (text) (Atom (generated-number text loc) loc))))
-          ((3) (decode-text-as bytes next loc (lambda (text) (Atom (DString text) loc))))
+          ((1 2 3) (let ((text (decode-text bytes next loc))) (Pair (text-syntax tag (Pair-first text) loc) (Pair-second text))))
           ((4) (let ((code (decode-count bytes next loc))) (Pair (Atom (DChar (scalar (Pair-first code) loc)) loc) (Pair-second code))))
           ((5) (Pair (Atom (DBool #f) loc) next))
           ((6) (Pair (Atom (DBool #t) loc) next))
@@ -494,14 +464,23 @@
               (let ((item (decode-form bytes index loc)))
                 (loop (- left 1) (Pair-second item) (Cons (Pair-first item) items)))))))
 
-    (: decode-text-as (-> Bytes I64 Loc (-> String Syntax) (Pair Syntax I64)))
-    (define (decode-text-as bytes index loc make)
+    ;; A text and the index after it.
+    (: decode-text (-> Bytes I64 Loc (Pair String I64)))
+    (define (decode-text bytes index loc)
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (Pair-first count)) (index (Pair-second count)) (chars (Nil)))
           (if (= left 0)
-              (Pair (make (list->string (reverse chars))) index)
+              (Pair (list->string (reverse chars)) index)
               (let ((code (decode-count bytes index loc)))
                 (loop (- left 1) (Pair-second code) (Cons (scalar (Pair-first code) loc) chars)))))))
+
+    ;; A symbol, a number or a string, as tags 1, 2 and 3 mark them.
+    (: text-syntax (-> I64 String Loc Syntax))
+    (define (text-syntax tag text loc)
+      (case tag
+        ((1) (Ident text (None) loc))
+        ((2) (Atom (generated-number text loc) loc))
+        (else (Atom (DString text) loc))))
 
     (: decode-bytes (-> Bytes I64 Loc (Pair Syntax I64)))
     (define (decode-bytes bytes index loc)

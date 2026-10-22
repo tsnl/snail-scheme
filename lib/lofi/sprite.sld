@@ -7,8 +7,6 @@
   (export
    Strip
    Spritebook
-   Spritebook-picture
-   strip-texture
    heading
    pose
    pose-flat)

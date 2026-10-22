@@ -1215,88 +1215,27 @@
 
     ;; ---- Dependency order ----
 
-    ;; Tarjan's algorithm returns strongly connected components with each
-    ;; component after the components it depends on. The search state is a
-    ;; value, and each step returns the next one.
-    (struct Tarjan
-      ((by-name (Table Item))
-       (index (Table I64))
-       (low (Table I64))
-       (stack (List String))
-       (on-stack (Table Bool))
-       (counter I64)
-       (groups (List (List Item)))))
-
-    (: definition-groups (-> (List Item) (List (List Item))))
+    ;; The definitions in groups that refer to one another, each group after
+    ;; the groups it refers to. Definitions are numbered in program order.
+    (: definition-groups (-> (List Item) (List (List Item)) ! mut))
     (define (definition-groups definitions)
-      (let* ((by-name (fold-left (lambda (table definition) (table-set table (Define-name definition) definition)) empty-table definitions))
-             (start (Tarjan by-name empty-table empty-table (Nil) empty-table 0 (Nil)))
-             (done (fold-left (lambda (tarjan definition)
-                                (if (table-contains? (Tarjan-index tarjan) (Define-name definition))
-                                    tarjan
-                                    (visit tarjan (Define-name definition))))
-                              start definitions)))
-        (reverse (Tarjan-groups done))))
+      (let* ((nodes (list->vector definitions))
+             (numbers (fold-left (lambda (table index) (table-set table (Define-name (vector-ref nodes index)) index))
+                                 empty-table (iota (vector-length nodes)))))
+        (map (lambda (component) (map (lambda (index) (vector-ref nodes index)) component))
+             (strong-components (vector-map (lambda (definition) (definition-edges numbers definition)) nodes)))))
 
-    (: table-number (-> (Table I64) String I64))
-    (define (table-number table key)
-      (match (table-ref table key)
-        ((Some number) number)
-        ((None) 0)))
-
-    (: visit (-> Tarjan String Tarjan))
-    (define (visit tarjan name)
-      (let* ((number (Tarjan-counter tarjan))
-             (entered (Tarjan (Tarjan-by-name tarjan)
-                              (table-set (Tarjan-index tarjan) name number)
-                              (table-set (Tarjan-low tarjan) name number)
-                              (Cons name (Tarjan-stack tarjan))
-                              (table-set (Tarjan-on-stack tarjan) name #t)
-                              (+ number 1)
-                              (Tarjan-groups tarjan)))
-             (explored (fold-left (lambda (tarjan next) (follow tarjan name next)) entered (dependencies tarjan name))))
-        (if (= (table-number (Tarjan-low explored) name) (table-number (Tarjan-index explored) name))
-            (pop-group explored name)
-            explored)))
-
-    ;; Lowers `name`'s link through its edge to `next`, visiting `next`
-    ;; first if the search has not reached it.
-    (: follow (-> Tarjan String String Tarjan))
-    (define (follow tarjan name next)
-      (cond ((not (table-contains? (Tarjan-index tarjan) next))
-             (let ((visited (visit tarjan next)))
-               (lower visited name (table-number (Tarjan-low visited) next))))
-            ((match (table-ref (Tarjan-on-stack tarjan) next) ((Some on) on) ((None) #f))
-             (lower tarjan name (table-number (Tarjan-index tarjan) next)))
-            (else tarjan)))
-
-    (: lower (-> Tarjan String I64 Tarjan))
-    (define (lower tarjan name number)
-      (Tarjan-low-set tarjan (table-set (Tarjan-low tarjan) name (min (table-number (Tarjan-low tarjan) name) number))))
-
-    (: dependencies (-> Tarjan String (List String)))
-    (define (dependencies tarjan name)
-      (filter (lambda (reference) (table-contains? (Tarjan-by-name tarjan) reference))
-              (match (table-ref (Tarjan-by-name tarjan) name)
-                ((Some (Define _ value)) (expr-references value))
-                (_ (Nil)))))
-
-    (: pop-group (-> Tarjan String Tarjan))
-    (define (pop-group tarjan name)
-      (let loop ((tarjan tarjan) (group (Nil)))
-        (match (Tarjan-stack tarjan)
-          ((Cons top rest)
-           (let ((popped (Tarjan-on-stack-set (Tarjan-stack-set tarjan rest) (table-set (Tarjan-on-stack tarjan) top #f))))
-             (if (string=? top name)
-                 (Tarjan-groups-set popped (Cons (map (lambda (member) (named-definition popped member)) (Cons top group))
-                                                 (Tarjan-groups popped)))
-                 (loop popped (Cons top group)))))
-          ((Nil) (panic "internal error: empty Tarjan stack")))))
-
-    (: named-definition (-> Tarjan String Item))
-    (define (named-definition tarjan name)
-      (match (table-ref (Tarjan-by-name tarjan) name)
-        ((Some item) item)
-        ((None) (panic "internal error: lost definition"))))
+    ;; The numbers of the definitions `definition` refers to, in order of
+    ;; first reference.
+    (: definition-edges (-> (Table I64) Item (List I64)))
+    (define (definition-edges numbers definition)
+      (match definition
+        ((Define _ value)
+         (fold-right (lambda (name edges)
+                       (match (table-ref numbers name)
+                         ((Some index) (Cons index edges))
+                         ((None) edges)))
+                     (Nil) (expr-references value)))
+        (_ (Nil))))
 
     ))

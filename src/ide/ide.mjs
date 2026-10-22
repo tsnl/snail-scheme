@@ -7,6 +7,7 @@
 // keeps the project in storage, and writes the file back to its folder.
 import {createEditor} from './editor.mjs';
 import {createFormatter} from './formatter.mjs';
+import {readEvent} from './load.mjs';
 import {createPanes} from './panes.mjs';
 import {chooseFolder, loadProject, recallFolder, rememberFolder, storeProject, writeToFolder} from './project.mjs';
 
@@ -123,30 +124,24 @@ function fileButton(name, path) {
 
 // ---- Builds ----
 
-// The loop's events: `(building M)`, `(built MILLISECONDS M)` and
-// `(failed "MESSAGE" M)`. The preview gets each one; a failure whose message
-// starts with a project file's place becomes that file's diagnostic.
+// The loop's events (load.mjs reads them). The preview gets each one; a
+// failure whose message starts with a project file's place becomes that
+// file's diagnostic.
 let latestBuilt = null;
 
 function received(text) {
   preview.contentWindow?.postMessage({type: 'event', text}, '*');
-  const [, kind, rest] = /^\((\w+) ?([\s\S]*)\)$/.exec(text);
-  if (kind === 'building') setStatus('Building…', 'building');
-  else if (kind === 'built') {
+  const event = readEvent(text);
+  if (event.kind === 'building') setStatus('Building…', 'building');
+  else if (event.kind === 'built') {
     latestBuilt = text;
     showDiagnostic(null);
-    setStatus(`Built in ${rest.split(' ')[0]} ms`, 'built');
-  } else if (kind === 'failed') {
-    const message = unquote(rest), found = diagnosticOf(message);
+    setStatus(`Built in ${event.milliseconds} ms`, 'built');
+  } else if (event.kind === 'failed') {
+    const found = diagnosticOf(event.message);
     showDiagnostic(found);
-    setStatus(found ? `${found.path}:${found.line}:${found.column}: ${found.message}` : message.split('\n')[0], 'failed');
+    setStatus(found ? `${found.path}:${found.line}:${found.column}: ${found.message}` : event.message.split('\n')[0], 'failed');
   }
-}
-
-// The loop quotes a message as Scheme writes a string.
-function unquote(text) {
-  const match = /^"((?:[^"\\]|\\.)*)"/.exec(text);
-  return match ? match[1].replace(/\\(.)/g, (_, c) => (c === 'n' ? '\n' : c)) : text;
 }
 
 // The compiler starts a message with the place it means:

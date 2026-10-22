@@ -1,19 +1,20 @@
 // The HUD: panels of labels, buttons, dials, links and images, stacked in
 // columns in the screen's corners, shown as dialogs over a backdrop, or as
-// banners across the top that never take input. Elements are kept by key
-// and changed only where the description changed, so hover and focus
-// survive the updates that arrive several times a second. An image draws a
-// region of a picture, crisply scaled, once the picture is ready.
+// banners across the top that take no input but for their links. Elements
+// are kept by key and changed only where the description changed, so hover
+// and focus survive the updates that arrive several times a second. An
+// image draws a region of a picture, crisply scaled, once the picture is
+// ready.
 
+// The numbers lib/lofi/app.sld sends: corners as `corner-index`, tones as
+// `tone-index` and controls as `control-index` number them; places and
+// widget kinds as `render-panel` and `render-widget` do, a corner's column
+// being place 0 and a label kind 0.
 const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 const tones = ['plain', 'good', 'warning', 'danger', 'muted', 'suggested'];
 const DIALOG = 1, BANNER = 2;
-const LABEL = 0, BUTTON = 1, DIAL = 2, LINK = 3, TEXT = 4, IMAGE = 5;
+const BUTTON = 1, DIAL = 2, LINK = 3, TEXT = 4, IMAGE = 5;
 const DISABLED = 1, SELECTED = 2;
-
-// The button under the pointer. One removed while hovered never reports
-// leaving, so the HUD reports it after the update that removed it.
-let hovered = null;
 
 function element(tag, className) {
   const node = document.createElement(tag);
@@ -23,7 +24,9 @@ function element(tag, className) {
 
 // ---- Widgets ----
 
-function createWidget(widget, press, hover) {
+// `hud` holds the HUD's press and hover handlers and the button under the
+// pointer.
+function createWidget(widget, hud) {
   if (widget.kind === IMAGE) {
     const node = element('canvas', 'image');
     node.dataset.kind = IMAGE;
@@ -32,9 +35,9 @@ function createWidget(widget, press, hover) {
   if (widget.kind === BUTTON) {
     const node = element('button', 'button');
     node.append(element('span', 'icon'), element('span', 'text'), element('span', 'caption'));
-    node.addEventListener('click', () => press(node.action, node.argument));
-    node.addEventListener('pointerenter', () => { hovered = node; hover(node.action, node.argument); });
-    node.addEventListener('pointerleave', () => { hovered = null; hover(0, 0); });
+    node.addEventListener('click', () => hud.press(node.action, node.argument));
+    node.addEventListener('pointerenter', () => { hud.hovered = node; hud.hover(node.action, node.argument); });
+    node.addEventListener('pointerleave', () => { hud.hovered = null; hud.hover(0, 0); });
     return node;
   }
   if (widget.kind === LINK) {
@@ -72,7 +75,10 @@ function setSpans(node, spans) {
 }
 
 // Draws the image's region at its scale, again whenever its picture is
-// composed anew. The canvas keeps the last description it drew.
+// composed anew. The canvas keeps the last description it drew, and how to
+// stop watching its picture: the picture store holds the drawing function,
+// and with it the canvas, until `unwatch` runs, which `release` does once
+// the image leaves the HUD.
 function updateImage(node, widget, pictures) {
   const {key, x, y, width, height, scale} = widget.image;
   const description = `${key} ${x} ${y} ${width} ${height} ${scale}`;
@@ -90,6 +96,10 @@ function updateImage(node, widget, pictures) {
   node.unwatch = pictures.watch(key, draw);
   const ready = pictures.get(key);
   if (ready) draw(ready);
+}
+
+function release(node) {
+  node.unwatch?.();
 }
 
 function updateWidget(node, widget, pictures) {
@@ -132,22 +142,29 @@ function arrange(parent, wanted) {
   while (parent.children.length > wanted.length) parent.lastElementChild.remove();
 }
 
-function updatePanel(state, panel, press, hover, pictures) {
+// A widget is kept by its key, or else its place, while its kind stays;
+// one that leaves is released.
+function updatePanel(state, panel, hud) {
   setAttribute(state.node, 'data-key', panel.key);
   const seen = new Map();
   const nodes = panel.widgets.map((widget, index) => {
     const id = widget.key || `#${index}`;
     let node = state.widgets.get(id);
-    if (!node || Number(node.dataset.kind) !== widget.kind) node = createWidget(widget, press, hover);
-    updateWidget(node, widget, pictures);
+    if (!node || Number(node.dataset.kind) !== widget.kind) node = createWidget(widget, hud);
+    updateWidget(node, widget, hud.pictures);
     seen.set(id, node);
     return node;
   });
+  for (const [id, node] of state.widgets) if (seen.get(id) !== node) release(node);
   state.widgets = seen;
   arrange(state.node, nodes);
 }
 
+// The button under the pointer is the HUD's: one removed while hovered
+// never reports leaving, so the HUD reports it after the update that
+// removed it.
 export function createHud(overlay, press, hover, pictures) {
+  const hud = {press, hover, pictures, hovered: null};
   const cornerNodes = corners.map(name => {
     const node = element('div', `corner ${name}`);
     overlay.append(node);
@@ -178,20 +195,21 @@ export function createHud(overlay, press, hover, pictures) {
       const next = new Map(), placed = new Map();
       for (const panel of descriptions) {
         const state = panels.get(panel.key) ?? {node: element('div', 'panel'), widgets: new Map()};
-        updatePanel(state, panel, press, hover, pictures);
+        updatePanel(state, panel, hud);
         next.set(panel.key, state);
         const parent = panel.place === DIALOG ? dialogs : panel.place === BANNER ? banner : column(panel.corner, panel.column);
         if (!placed.has(parent)) placed.set(parent, parent === dialogs ? [backdrop] : []);
         placed.get(parent).push(state.node);
         if (panel.place === DIALOG) dismiss = panel.dismiss;
       }
+      for (const [key, state] of panels) if (next.get(key) !== state) state.widgets.forEach(release);
       for (const node of cornerNodes) for (const child of node.children) if (!placed.has(child)) placed.set(child, []);
       if (!placed.has(dialogs)) placed.set(dialogs, [backdrop]);
       if (!placed.has(banner)) placed.set(banner, []);
       for (const [parent, nodes] of placed) arrange(parent, nodes);
       dialogs.classList.toggle('open', placed.get(dialogs).length > 1);
       panels = next;
-      if (hovered && !hovered.isConnected) { hovered = null; setTimeout(() => hover(0, 0)); }
+      if (hud.hovered && !hud.hovered.isConnected) { hud.hovered = null; setTimeout(() => hover(0, 0)); }
     },
   };
 }

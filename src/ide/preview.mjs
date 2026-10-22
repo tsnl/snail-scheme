@@ -4,20 +4,17 @@
 // with the latest build that succeeded; build events come from the IDE. As
 // on a served page, the reload client decides what each build changes, and
 // reloading reloads only this frame.
-import {relinkModules, running, saveApplication, startApplication} from './host.mjs';
-import {createNotice, createReloadClient} from './reload-client.mjs';
+import {relinkAll, saveAll, startApplication} from './host.mjs';
+import {manifestText, readEvent} from './load.mjs';
+import {createReloadClient} from './reload-client.mjs';
 
 const {port, built, storageKey} = await connect();
 const read = createReader(port);
 
 const client = await createReloadClient(new Uint8Array(await (await fetch('./reload.wasm')).arrayBuffer()), {
-  notice: createNotice(),
   restyle: file => restyle(read, file),
-  async relink(module, fresh) { for (const application of running) await relinkModules(application, module, {fresh}); },
-  async reloadPage() {
-    await Promise.all(running.map(application => saveApplication(application)));
-    location.reload();
-  },
+  relink: relinkAll,
+  save: saveAll,
 });
 // While the application starts, only the newest event waits for the client:
 // each one carries the whole manifest of its build.
@@ -38,11 +35,11 @@ addEventListener('keydown', event => {
 // the loop's progress; the first build that succeeds reloads the frame,
 // which then starts the application from it.
 if (built) {
-  const manifest = built.slice(built.indexOf('(files'), -1);
+  const {manifest} = readEvent(built);
   await Promise.all(styleSheets(manifest).map(file => restyle(read, file)));
   await startApplication({canvas: document.getElementById('view'), overlay: document.getElementById('overlay'), storageKey,
                           manifest: '/modules.json', read});
-  client.start(manifest);
+  client.start(manifestText(manifest));
   document.body.dataset.ready = 'true';
 } else client.start('(files) (modules)');
 deliver = text => client.event(text);
@@ -78,7 +75,7 @@ function createReader(port) {
 // The project's style sheets, which the manifest lists among its files;
 // the host's own is linked from the IDE's site.
 function styleSheets(manifest) {
-  return [...manifest.matchAll(/\("([^"]+\.css)" "/g)].map(match => match[1]).filter(file => file !== 'style.css');
+  return manifest.files.map(([file]) => file).filter(file => file.endsWith('.css') && file !== 'style.css');
 }
 
 async function restyle(read, file) {

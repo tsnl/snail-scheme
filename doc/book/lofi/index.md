@@ -18,5 +18,7 @@ The chapters describe what the compiler implements today:
   bootstraps from Scheme.
 - [Application model](applications.md): interactive applications in the
   browser.
+- [Development toolchain](toolchain.md): building one library at a time,
+  live reload, and the browser IDE.
 - [Notable omissions](omissions.md): what was left out, and why.
 - [References](references.md): influences and further reading.
