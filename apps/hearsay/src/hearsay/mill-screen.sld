@@ -17,7 +17,7 @@
    (lofi app)
    (lofi math)
    (lofi sprite)
-   (only (lpc layout) Stand Stroll)
+   (only (lpc layout) Stand Stroll walk-book)
    (lpc wardrobe)
    (hearsay mill)
    (hearsay cast)
@@ -239,7 +239,7 @@
              (layer (+ 0.1 (* 0.01 (- (Vec3-z at) town-top)))))
         (concatenate
          (list (list (hexagon person size 0.03 (audience-color (audience-of person)))
-                     (pose-flat (character-book (person-picture person)) (if fresh? (Stroll) (Stand))
+                     (pose-flat (walk-book (person-picture person)) (if fresh? (Stroll) (Stand))
                                 (Vec3 (Vec3-x at) layer (+ (Vec3-z at) feet-offset)) toward-viewer figure-size (camera-of screen)))
                (pips mill person (Dangerous) (Harmless) (rgb 225 70 60) (rgb 140 190 245) -1.0)
                (pips mill person (Reliable) (Unreliable) (rgb 90 205 110) (rgb 245 150 40) 1.0)

@@ -7,9 +7,7 @@
  (lofi io)
  (lofi app)
  (hearsay shell)
- (only (hearsay hud)
-       guide-next
-       guide-close))
+ (only (hearsay hud) guide-next guide-close))
 
 (: widget-text (-> Widget String))
 (define (widget-text widget)
