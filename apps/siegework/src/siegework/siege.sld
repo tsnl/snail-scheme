@@ -403,9 +403,10 @@
 
     ;; ---- Turrets ----
 
-    ;; A powered turret fires every eight ticks at the strongest visible
-    ;; enemy in range and in line of sight, nearest the hub first; without
-    ;; one it fires at a nest in range. The enemy it hits may turn on it.
+    ;; A powered turret fires every eight ticks at the nearest visible enemy
+    ;; in range and in line of sight, so it deals first with what is doing
+    ;; damage close by; without one it fires at a nest in range. The enemy
+    ;; it hits may turn on it.
     (: fire (-> World World))
     (define (fire world)
       (fold-left fire-one world (filter (lambda (b) (and (turret? b) (built? b) (powered? world (Building-id b))
@@ -428,15 +429,11 @@
     (define (can-shoot? world turret cell)
       (and (visible? world cell) (within? cell (Building-cell turret) 6) (clear-line? world (Building-cell turret) cell)))
 
+    ;; The nearest enemy the turret can shoot; ties go to the oldest.
     (: choose-enemy (-> World Building (Option Enemy)))
     (define (choose-enemy world turret)
-      (let ((hub (Hub-cell (World-hub world))))
-        (nearest (filter (lambda (e) (can-shoot? world turret (Enemy-cell e))) (World-enemies world))
-                 (lambda (e) (- (manhattan hub (Enemy-cell e)) (* 1000 (behavior-priority (Enemy-behavior e))))))))
-
-    (: behavior-priority (-> Behavior I64))
-    (define (behavior-priority behavior)
-      (match behavior ((Minion) 0) ((Raider) 1) ((Beast) 2)))
+      (nearest (filter (lambda (e) (can-shoot? world turret (Enemy-cell e))) (World-enemies world))
+               (lambda (e) (distance-squared (Enemy-cell e) (Building-cell turret)))))
 
     ;; Damage falls from 24 at point blank to 6 at the six-cell range,
     ;; measured in fortieths of a cell, and grows with the turret's level:
@@ -469,9 +466,11 @@
              (world (World-nests-set world (map (lambda (n) (if (= (Nest-front n) (Nest-front nest)) (Nest-health-set n health) n)) (World-nests world)))))
         (shoot (if (= health 0) (structures-changed world) world) turret (Nest-cell nest))))
 
+    ;; A shot leaves a tracer and turns the turret's guns to where it went.
     (: shoot (-> World Building Cell World))
     (define (shoot world turret cell)
-      (World-shots-set world (Cons (Shot (Building-cell turret) cell (World-tick world)) (World-shots world))))
+      (World-buildings-set (World-shots-set world (Cons (Shot (Building-cell turret) cell (World-tick world)) (World-shots world)))
+                           (map (lambda (b) (if (= (Building-id b) (Building-id turret)) (Building-aim-set b (Some cell)) b)) (World-buildings world))))
 
     ;; ---- Strikes ----
 

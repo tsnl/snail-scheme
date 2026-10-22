@@ -110,20 +110,28 @@
         ((Busy) #t)
         (_ #f)))
 
-    ;; Checks the order, then applies it. Every order needs a game in play,
-    ;; and until the first extractor is ordered nothing else may be.
+    ;; Checks the order, then applies it. Every order needs a game in play.
+    ;; Until the first extractor is ordered, an order that would otherwise
+    ;; be accepted waits, so its rejection still tells whether it could
+    ;; apply here at all.
     (: act (-> World Action (Result World Rejection)))
     (define (act world action)
-      (cond ((not (playing? world)) (Err (Finished)))
-            ((not (or (World-started world) (opening? action))) (Err (NotStarted)))
-            (else (match action
-                    ((Build kind cell rush) (build world kind cell rush))
-                    ((Upgrade cell) (with-owner world cell upgrade))
-                    ((Rush cell) (with-owner world cell rush))
-                    ((Cancel cell) (with-owner world cell cancel))
-                    ((Scavenge cell) (with-owner world cell scavenge))
-                    ((Repair) (repair world))
-                    ((Resign) (Ok (uncover (World-outcome-set world (Resigned)))))))))
+      (if (playing? world)
+          (match (apply-order world action)
+            ((Ok next) (if (or (World-started world) (opening? action)) (Ok next) (Err (NotStarted))))
+            ((Err rejection) (Err rejection)))
+          (Err (Finished))))
+
+    (: apply-order (-> World Action (Result World Rejection)))
+    (define (apply-order world action)
+      (match action
+        ((Build kind cell rush) (build world kind cell rush))
+        ((Upgrade cell) (with-owner world cell upgrade))
+        ((Rush cell) (with-owner world cell rush))
+        ((Cancel cell) (with-owner world cell cancel))
+        ((Scavenge cell) (with-owner world cell scavenge))
+        ((Repair) (repair world))
+        ((Resign) (Ok (uncover (World-outcome-set world (Resigned)))))))
 
     (: opening? (-> Action Bool))
     (define (opening? action)
@@ -204,8 +212,8 @@
       (match (fresh-id world)
         ((Pair id world)
          (if ready
-             (rewire (World-started-set (add-building world (Building id kind cell 1 (kind-health kind) (None))) #t))
-             (structures-changed (World-next-order-set (add-building world (Building id kind cell 0 (kind-health kind) (Some work)))
+             (rewire (World-started-set (add-building world (Building id kind cell 1 (kind-health kind) (None) (None))) #t))
+             (structures-changed (World-next-order-set (add-building world (Building id kind cell 0 (kind-health kind) (Some work) (None)))
                                                        (+ (World-next-order world) 1)))))))
 
     (: add-building (-> World Building World))

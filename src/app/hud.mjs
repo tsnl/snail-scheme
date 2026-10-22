@@ -1,11 +1,13 @@
-// The HUD: panels of labels, buttons and dials, stacked in columns in the
-// screen's corners or shown as dialogs over a backdrop. Elements are kept by
+// The HUD: panels of labels, buttons, dials and links, stacked in columns in the
+// screen's corners, shown as dialogs over a backdrop, or as banners across
+// the top that never take input. Elements are kept by
 // key and changed only where the description changed, so hover and focus
 // survive the updates that arrive several times a second.
 
 const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
-const tones = ['plain', 'good', 'warning', 'danger', 'muted'];
-const LABEL = 0, BUTTON = 1, DIAL = 2;
+const tones = ['plain', 'good', 'warning', 'danger', 'muted', 'suggested'];
+const DIALOG = 1, BANNER = 2;
+const LABEL = 0, BUTTON = 1, DIAL = 2, LINK = 3, TEXT = 4;
 const DISABLED = 1, SELECTED = 2;
 
 // The button under the pointer. One removed while hovered never reports
@@ -29,6 +31,13 @@ function createWidget(widget, press, hover) {
     node.addEventListener('pointerleave', () => { hovered = null; hover(0, 0); });
     return node;
   }
+  if (widget.kind === LINK) {
+    const node = element('a', 'link');
+    node.target = '_blank';
+    node.rel = 'noopener';
+    node.append(element('span', 'icon'), element('span', 'text'));
+    return node;
+  }
   const node = element('div', widget.kind === DIAL ? 'dial' : 'label');
   node.append(element('span', 'icon'), element('span', 'text'));
   return node;
@@ -44,6 +53,18 @@ function setText(node, selector, text) {
   if (part && part.textContent !== text) part.textContent = text;
 }
 
+// A text's spans, rebuilt only when they change.
+function setSpans(node, spans) {
+  const part = node.querySelector('.text'), shape = JSON.stringify(spans);
+  if (part.dataset.spans === shape) return;
+  part.dataset.spans = shape;
+  part.replaceChildren(...spans.map(span => {
+    const piece = document.createElement(span.strong ? 'strong' : 'span');
+    piece.textContent = span.words;
+    return piece;
+  }));
+}
+
 function updateWidget(node, widget) {
   node.dataset.kind = widget.kind;
   setAttribute(node, 'data-key', widget.key);
@@ -52,8 +73,10 @@ function updateWidget(node, widget) {
   setAttribute(node, 'data-tone', tones[widget.tone]);
   setAttribute(node, 'title', widget.help);
   setAttribute(node, 'aria-label', widget.help ? `${widget.text} ${widget.help}`.trim() : '');
-  setText(node, '.text', widget.text);
+  if (widget.kind === TEXT) setSpans(node, widget.spans);
+  else setText(node, '.text', widget.text);
   setText(node, '.caption', widget.caption);
+  if (widget.kind === LINK) setAttribute(node, 'href', widget.url);
   if (widget.kind === BUTTON) {
     node.action = widget.action;
     node.argument = widget.argument;
@@ -97,6 +120,8 @@ export function createHud(overlay, press, hover) {
     overlay.append(node);
     return node;
   });
+  const banner = element('div', 'banner');
+  overlay.append(banner);
   const dialogs = element('div', 'dialogs');
   const backdrop = element('div', 'backdrop');
   dialogs.append(backdrop);
@@ -122,13 +147,14 @@ export function createHud(overlay, press, hover) {
         const state = panels.get(panel.key) ?? {node: element('div', 'panel'), widgets: new Map()};
         updatePanel(state, panel, press, hover);
         next.set(panel.key, state);
-        const parent = panel.place === 1 ? dialogs : column(panel.corner, panel.column);
+        const parent = panel.place === DIALOG ? dialogs : panel.place === BANNER ? banner : column(panel.corner, panel.column);
         if (!placed.has(parent)) placed.set(parent, parent === dialogs ? [backdrop] : []);
         placed.get(parent).push(state.node);
-        if (panel.place === 1) dismiss = panel.dismiss;
+        if (panel.place === DIALOG) dismiss = panel.dismiss;
       }
       for (const node of cornerNodes) for (const child of node.children) if (!placed.has(child)) placed.set(child, []);
       if (!placed.has(dialogs)) placed.set(dialogs, [backdrop]);
+      if (!placed.has(banner)) placed.set(banner, []);
       for (const [parent, nodes] of placed) arrange(parent, nodes);
       dialogs.classList.toggle('open', placed.get(dialogs).length > 1);
       panels = next;

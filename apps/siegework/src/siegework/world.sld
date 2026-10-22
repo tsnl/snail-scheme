@@ -38,6 +38,8 @@
    Building-health
    Building-health-set
    Building-work
+   Building-aim
+   Building-aim-set
    Building-work-set
    built?
    building-reach
@@ -218,14 +220,16 @@
        (progress I64)))
 
     ;; A building at level 0 is an unfinished site: it neither carries wires
-    ;; nor works, but enemies may still destroy it.
+    ;; nor works, but enemies may still destroy it. `aim` is where a turret
+    ;; last fired; its guns stay there until it fires again.
     (struct Building
       ((id I64)
        (kind Kind)
        (cell Cell)
        (level I64)
        (health I64)
-       (work (Option Work))))
+       (work (Option Work))
+       (aim (Option Cell))))
 
     (: kind-name (-> Kind String))
     (define (kind-name kind)

@@ -25,6 +25,10 @@
     ;; once, when the whole program has been checked. `open` names the
     ;; definitions whose types may still contain metavariables, and `givens`
     ;; the requirements of the annotated definition being checked.
+    ;; `confining` names the row variable of a function body whose type
+    ;; forbids `mut`: calls in that body may mutate, and `discharged` records
+    ;; whether one did. `confined` holds the functions that did, to be checked
+    ;; once their types are final.
     (struct Checker
       ((program Program)
        (counter (Ref I64))
@@ -33,7 +37,10 @@
        (givens (Ref (List Constraint)))
        (pending (Ref (List Wanted)))
        (pending-count (Ref I64))
-       (open (Ref (List String)))))
+       (open (Ref (List String)))
+       (confining (Ref (Option I64)))
+       (discharged (Ref Bool))
+       (confined (Ref (List Expr)))))
 
     ;; A class constraint keeps the givens in scope where it arose.
     (enum Wanted
@@ -200,12 +207,26 @@
 
     ;; Adds the effects of `latent` to the current row. A closed latent row is
     ;; opened first: performing at most those effects fits any larger row.
+    ;; In a confining body, `mut` is discharged rather than added.
     (: perform! (-> Checker Type Type Loc Unit ! mut))
     (define (perform! ck latent row loc)
       (let* ((flat (flatten-row latent))
+             (labels (if (confining-row? ck row) (discharge-mut ck (Pair-first flat)) (Pair-first flat)))
              (tail (match (Pair-second flat) ((Some tail) tail) ((None) (fresh-meta ck)))))
-        (unless (unify? ck (TRow (Pair-first flat) (Some tail)) row)
-          (compile-error loc (string-append "this performs effects its context does not allow:" (labels->string (Pair-first flat)))))))
+        (unless (unify? ck (TRow labels (Some tail)) row)
+          (compile-error loc (string-append "this performs effects its context does not allow:" (labels->string labels))))))
+
+    (: discharge-mut (-> Checker (List String) (List String) ! mut))
+    (define (discharge-mut ck labels)
+      (when (member? "mut" labels)
+        (ref-set! (Checker-discharged ck) #t))
+      (filter (lambda (label) (not (string=? label "mut"))) labels))
+
+    (: confining-row? (-> Checker Type Bool ! mut))
+    (define (confining-row? ck row)
+      (match (Pair (ref-get (Checker-confining ck)) row)
+        ((Pair (Some number) (TVar id _)) (= number id))
+        (_ #f)))
 
     (: total? (-> Type Bool ! mut))
     (define (total? row)
@@ -330,7 +351,9 @@
           (Expr (Lambda params body) (TFun types (Expr-type body) body-row) loc))))
 
     ;; Checks an expression against a known type: a lambda's parameters and
-    ;; body row come from the type; anything else is inferred.
+    ;; body row come from the type; anything else is inferred. A body whose
+    ;; row forbids `mut` may still mutate storage it allocates; the function
+    ;; is confined once its types are final.
     (: check-value (-> Checker Expr Type Type Expr ! mut))
     (define (check-value ck expr type row)
       (match (Expr-term expr)
@@ -338,12 +361,41 @@
          (match (prune type)
            ((TFun param-types result body-row)
             (if (= (length params) (length param-types))
-                (let ((body (infer (bind-locals ck params param-types) body body-row)))
+                (let* ((inner (bind-locals ck params param-types))
+                       (body (if (forbids-mut? body-row) (check-confining-body inner body body-row (Expr-loc expr)) (infer inner body body-row)))
+                       (value (Expr (Lambda params body) type (Expr-loc expr))))
                   (unify ck result (Expr-type body) (Expr-loc body))
-                  (Expr (Lambda params body) type (Expr-loc expr)))
+                  (when (ref-get (Checker-discharged ck))
+                    (ref-set! (Checker-discharged ck) #f)
+                    (ref-set! (Checker-confined ck) (Cons value (ref-get (Checker-confined ck)))))
+                  value)
                 (infer ck expr row)))
            (_ (infer ck expr row))))
         (_ (infer ck expr row))))
+
+    ;; The body's row is a variable bound to the type's row, so `perform!` can
+    ;; recognize it and let calls in this body, but not in lambdas inside it,
+    ;; mutate.
+    (: check-confining-body (-> Checker Expr Type Loc Expr ! mut))
+    (define (check-confining-body ck body body-row loc)
+      (let ((row (fresh-meta ck)) (outer (ref-get (Checker-confining ck))))
+        (unify ck row body-row loc)
+        (ref-set! (Checker-confining ck) (Some (meta-number row)))
+        (let ((checked (infer ck body row)))
+          (ref-set! (Checker-confining ck) outer)
+          checked)))
+
+    (: meta-number (-> Type I64))
+    (define (meta-number meta)
+      (match meta
+        ((TVar id _) id)
+        (_ -1)))
+
+    ;; A row forbids `mut` unless it lists it or is open to more labels.
+    (: forbids-mut? (-> Type Bool ! mut))
+    (define (forbids-mut? row)
+      (let ((flat (flatten-row row)))
+        (not (or (member? "mut" (Pair-first flat)) (meta-tail? (Pair-second flat))))))
 
     (: infer-app (-> Checker Expr (List Expr) Type Loc Expr ! mut))
     (define (infer-app ck callee args row loc)
@@ -779,6 +831,166 @@
         ((PLit value type) (PLit value (zonk type)))
         ((PCon constructor args type) (PCon constructor (map zonk-pattern args) (zonk type)))))
 
+    ;; ---- Confined mutation ----
+
+    ;; A function whose type forbids `mut` may still mutate storage that it
+    ;; allocates, as long as none of that storage outlives the call. That holds
+    ;; when nothing the function can reach from outside, its parameters, its
+    ;; result or a name it reads, can hold mutable storage: then the only
+    ;; storage it can mutate is its own, and none of it escapes. Effect
+    ;; operations count as names it reads, so storage cannot leave through an
+    ;; operation's arguments either, and since implementations return exactly
+    ;; once, nothing resumes the function twice. Primitives, constructors and
+    ;; field operations act only on their arguments, so a function may always
+    ;; use them. Only functions whose bodies did mutate are checked.
+    (: check-confined (-> Typed Expr Unit ! mut))
+    (define (check-confined typed function)
+      (match (Pair (Expr-term function) (Expr-type function))
+        ((Pair (Lambda params _) (TFun param-types result _))
+         (let ((program (Typed-program typed)))
+           (for-each (lambda (pair)
+                       (when (holds-storage? program (Pair-second pair))
+                         (confinement-error function (string-append "its parameter " (local-name (Pair-first pair)) ", a "
+                                                                    (type->string (Pair-second pair)) ","))))
+                     (zip params param-types))
+           (when (holds-storage? program result)
+             (confinement-error function (string-append "its result, a " (type->string result) ",")))
+           (for-each (lambda (read) (check-outside-read typed read)) (outside-reads function))))
+        (_ (unit))))
+
+    (: confinement-error (-> Expr String Unit))
+    (define (confinement-error function culprit)
+      (compile-error (Expr-loc function)
+                     (string-append "this function's type does not allow mut, so it may mutate only storage it allocates, but "
+                                    culprit " could hold storage from outside")))
+
+    ;; A local's source name: its unique name without the `.N` suffix.
+    (: local-name (-> String String))
+    (define (local-name name)
+      (match (last-dot name)
+        ((Some index) (substring name 0 index))
+        ((None) name)))
+
+    (: last-dot (-> String (Option I64)))
+    (define (last-dot name)
+      (let loop ((index (- (string-length name) 1)))
+        (cond ((< index 0) (None))
+              ((char=? (string-ref name index) #\.) (Some index))
+              (else (loop (- index 1))))))
+
+    ;; A local of an enclosing definition is judged by its type; a global by
+    ;; its declared or inferred type, since instantiating a row variable can
+    ;; only bring in effects the function itself performs.
+    (: check-outside-read (-> Typed Expr Unit ! mut))
+    (define (check-outside-read typed read)
+      (match (Expr-term read)
+        ((Var name _ _)
+         (when (reaches-storage? typed name (Expr-type read))
+           (compile-error (Expr-loc read)
+                          (string-append "this function's type does not allow mut, so it may mutate only storage it allocates, but "
+                                         (short-name name) " could hold storage from outside"))))
+        (_ (unit))))
+
+    (: reaches-storage? (-> Typed String Type Bool))
+    (define (reaches-storage? typed name type)
+      (let ((program (Typed-program typed)))
+        (match (program-value program name)
+          ((Some (Primitive _)) #f)
+          ((Some (Constructor _ _)) #f)
+          ((Some (Accessor _ _ _)) #f)
+          ((Some (Replacer _ _ _)) #f)
+          ((Some value) (holds-storage? program (global-type typed name value)))
+          ((None) (holds-storage? program type)))))
+
+    (: global-type (-> Typed String Value Type))
+    (define (global-type typed name value)
+      (match (table-ref (Typed-schemes typed) name)
+        ((Some scheme) (Scheme-type scheme))
+        ((None)
+         (match (value-scheme value)
+           ((Some scheme) (Scheme-type scheme))
+           ((None) (panic (string-append "internal error: no type for " name)))))))
+
+    ;; Whether a value of the type can hold or reach mutable storage: a `Ref`,
+    ;; an `Array`, an `Any` that may hide one, data with such a field, or a
+    ;; function that may perform `mut`. Code cannot use a value of a type
+    ;; variable as storage, so type variables hold none.
+    (: holds-storage? (-> Program Type Bool))
+    (define (holds-storage? program type)
+      (holds-storage-within? program type (Nil)))
+
+    (: holds-storage-within? (-> Program Type (List String) Bool))
+    (define (holds-storage-within? program type visiting)
+      (match type
+        ((TCon name args)
+         (or (member? name (list "Ref" "Array" "Any"))
+             (any? (lambda (arg) (holds-storage-within? program arg visiting)) args)
+             (and (not (member? name visiting)) (fields-hold-storage? program name (Cons name visiting)))))
+        ((TFun params result row)
+         (or (row-mutates? row) (any? (lambda (part) (holds-storage-within? program part visiting)) (Cons result params))))
+        (_ #f)))
+
+    (: row-mutates? (-> Type Bool))
+    (define (row-mutates? row)
+      (match row
+        ((TRow labels _) (member? "mut" labels))
+        (_ #f)))
+
+    ;; Builtin types other than `Ref`, `Array` and `Any` have no fields.
+    (: fields-hold-storage? (-> Program String (List String) Bool))
+    (define (fields-hold-storage? program name visiting)
+      (and (not (any? (lambda (entry) (string=? (Pair-first entry) name)) builtin-types))
+           (any? (lambda (case) (any? (lambda (field) (holds-storage-within? program (Field-type field) visiting)) (Case-fields case)))
+                 (DataType-cases (program-type program name)))))
+
+    ;; The variable reads in `expr` of names it does not bind. Names are
+    ;; unique, so a name bound anywhere inside is bound at all its reads.
+    (: outside-reads (-> Expr (List Expr)))
+    (define (outside-reads expr)
+      (let ((bound (binders expr)))
+        (filter (lambda (read)
+                  (match (Expr-term read)
+                    ((Var name _ _) (not (member? name bound)))
+                    (_ #f)))
+                (variable-reads expr))))
+
+    (: variable-reads (-> Expr (List Expr)))
+    (define (variable-reads expr)
+      (match (Expr-term expr)
+        ((Var _ _ _) (list expr))
+        (_ (concatenate (map variable-reads (subexpressions expr))))))
+
+    (: binders (-> Expr (List String)))
+    (define (binders expr)
+      (append (match (Expr-term expr)
+                ((Lambda params _) params)
+                ((Let name _ _) (list name))
+                ((Match _ clauses) (concatenate (map (lambda (clause) (pattern-variables (Clause-pattern clause))) clauses)))
+                (_ (Nil)))
+              (concatenate (map binders (subexpressions expr)))))
+
+    (: pattern-variables (-> Pattern (List String)))
+    (define (pattern-variables pattern)
+      (match pattern
+        ((PVar name _) (list name))
+        ((PCon _ args _) (concatenate (map pattern-variables args)))
+        (_ (Nil))))
+
+    (: subexpressions (-> Expr (List Expr)))
+    (define (subexpressions expr)
+      (match (Expr-term expr)
+        ((Lit _) (Nil))
+        ((Var _ _ _) (Nil))
+        ((Lambda _ body) (list body))
+        ((App callee args) (Cons callee args))
+        ((If test then otherwise) (list test then otherwise))
+        ((Let _ value body) (list value body))
+        ((Seq first rest) (list first rest))
+        ((Match scrutinee clauses) (Cons scrutinee (map Clause-body clauses)))
+        ((Ann inner _) (list inner))
+        ((Convert inner _) (list inner))
+        ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
+
     ;; ---- Definitions ----
 
     ;; An unannotated group of mutually recursive definitions is inferred
@@ -903,7 +1115,7 @@
     ;; every constraint is solved and every type zonked.
     (: check-program (-> Program Typed ! mut))
     (define (check-program program)
-      (let* ((ck (Checker program (ref 0) empty-table (ref empty-table) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil))))
+      (let* ((ck (Checker program (ref 0) empty-table (ref empty-table) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
              (items (program-items program)) (inferred (check-inferred ck items))
              (typed (map (lambda (item) (check-item ck inferred item)) items)))
         (solve-pending! ck)
@@ -912,7 +1124,9 @@
                       ((Expose name _ loc) (check-exposed ck name loc))
                       (_ (unit))))
                   items)
-        (Typed program (map zonk-item typed) (final-schemes ck items))))
+        (let ((typed (Typed program (map zonk-item typed) (final-schemes ck items))))
+          (for-each (lambda (function) (check-confined typed (zonk-expr function))) (ref-get (Checker-confined ck)))
+          typed)))
 
     ;; Checks the definitions without signatures, a group at a time in
     ;; dependency order, and returns them by name.

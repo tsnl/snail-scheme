@@ -63,7 +63,7 @@ function wasiImports(memory, print) {
 function screenImports(renderer, hud) {
   let frame = null, batch = null, panels = null, target = null, fieldName = null;
   const styles = [(a, b, c, d) => [1, 0, 0, -1], (a, b, c, d) => [a, 0, 0, -1], (a, b, c, d) => [1, b, c, d]];
-  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
+  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption', 'url'];
   return {
     'frame-begin'(background, motion) {
       frame = {background, motion, batches: []};
@@ -94,14 +94,17 @@ function screenImports(renderer, hud) {
       panels.push(target);
     },
     'widget-begin'(kind, tone, action, argument, control, value) {
-      target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: ''};
+      target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: '', spans: []};
       panels.at(-1).widgets.push(target);
     },
+    // Fields 7 and 8 each start a span of a text, normal or strong.
     field(which) {
-      fieldName = fields[which];
+      if (which >= 7) target.spans.push({strong: which === 8, words: ''});
+      fieldName = fields[which] ?? null;
     },
     'text-character'(code) {
-      target[fieldName] += String.fromCodePoint(code);
+      if (fieldName) target[fieldName] += String.fromCodePoint(code);
+      else target.spans.at(-1).words += String.fromCodePoint(code);
     },
     'hud-end'() {
       hud.update(panels);
@@ -232,10 +235,13 @@ function wheelPixels(event) {
 function attachInput(application) {
   const {canvas} = application;
   const send = (kind, a = 0, b = 0, c = 0, d = 0) => application.exports.app_input(kind, a | 0, b | 0, c | 0, d | 0);
+  // A key held with Ctrl, Alt or Meta belongs to the browser, so shortcuts
+  // such as reloading keep working; Shift travels with the key.
   addEventListener('keydown', event => {
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
     if (event.target instanceof HTMLInputElement || (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' '))) return;
     const code = keyCode(event);
-    if (code) { send(KEY_DOWN, code); event.preventDefault(); }
+    if (code) { send(KEY_DOWN, code, event.shiftKey ? 1 : 0); event.preventDefault(); }
   });
   addEventListener('keyup', event => { const code = keyCode(event); if (code) send(KEY_UP, code); });
   canvas.addEventListener('pointerdown', event => {
