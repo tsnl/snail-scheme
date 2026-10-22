@@ -10,7 +10,7 @@
 //   develop.mjs ROOT watch [-I DIRECTORY] SOURCE [ARGUMENT ...]
 import {spawn, spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, watch, writeFileSync} from 'node:fs';
+import {closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, rmSync, statSync, watch, writeFileSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {extname, join, relative, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
@@ -124,21 +124,22 @@ function commands(loop) {
       writeFileSync(output, names.join('\n'));
     },
     'make-directory'([directory]) { mkdirSync(directory, {recursive: true}); },
+    'remove-file'([path]) { rmSync(path, {force: true}); },
   };
 }
 
 // ---- Serving ----
 
-// Files come from the routes the loop wrote: exact paths, then directories
-// by their prefix. Nothing is cached. A page that opens the event stream
+// Files come from the routes the loop wrote: a path's exact route, then
+// each directory whose prefix the path starts with, in order, the first
+// that has the file. Nothing is cached. A page that opens the event stream
 // gets the latest event first.
 function serve(loop, routes, name, port) {
   loop.clients = new Set();
   const server = createServer((incoming, response) => {
     const path = decodeURIComponent(new URL(incoming.url, 'http://localhost').pathname);
     if (path === routes.events) return openEvents(loop, response);
-    const file = routes.files[path] ?? directoryFile(routes.directories, path);
-    if (!file) return response.writeHead(404, {'Cache-Control': 'no-store'}).end();
+    const file = routeFile(routes, path);
     try {
       const bytes = readFileSync(file);
       response.writeHead(200, {'Content-Type': routes.types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store'}).end(bytes);
@@ -147,11 +148,14 @@ function serve(loop, routes, name, port) {
   server.listen(port, '127.0.0.1', () => console.log(`serving ${name} at http://127.0.0.1:${server.address().port}/`));
 }
 
-function directoryFile(directories, path) {
-  const prefix = Object.keys(directories).sort((a, b) => b.length - a.length).find(entry => path.startsWith(entry));
-  if (!prefix) return null;
-  const file = join(directories[prefix], path.slice(prefix.length));
-  return relative(directories[prefix], file).startsWith('..') ? null : file;
+function routeFile(routes, path) {
+  const exact = routes.files.find(([route]) => route === path);
+  if (exact) return exact[1];
+  for (const [prefix, directory] of routes.directories) {
+    const file = join(directory, path.slice(prefix.length));
+    if (path.startsWith(prefix) && !relative(directory, file).startsWith('..') && statSync(file, {throwIfNoEntry: false})?.isFile()) return file;
+  }
+  return null;
 }
 
 function openEvents(loop, response) {

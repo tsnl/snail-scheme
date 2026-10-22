@@ -117,27 +117,13 @@ function commands(loop) {
       catch (error) { postMessage({type: 'log', text: error.message, error: true}); return 1; }
     },
     serve([routes]) { loop.routes = JSON.parse(decoder.decode(files.get(routes))); },
-    broadcast([event]) { broadcast(loop, event); },
+    broadcast([event]) { postMessage({type: 'event', text: event}); },
     digest: ([path]) => digest(files.get(path)),
     now: () => Math.round(performance.now()) | 0,
     'list-directory'([directory, output]) { files.set(output, encoder.encode(listing(files, directory))); },
     'make-directory'() {},
+    'remove-file'([path]) { files.delete(path); },
   };
-}
-
-// Each build names a module's file after its text, so the files of earlier
-// builds pile up. Once a build is served, the modules of it and the build
-// before stay, the latter for a relink that is still reading them.
-function broadcast(loop, event) {
-  postMessage({type: 'event', text: event});
-  if (!event.startsWith('(built')) return;
-  const manifest = JSON.parse(decoder.decode(loop.files.get(routeFile(loop.routes, '/modules.json'))));
-  const current = new Set(manifest.modules.map(entry => routeFile(loop.routes, entry.file)));
-  const directory = loop.routes.directories['/modules/'];
-  for (const path of loop.files.keys()) {
-    if (path.startsWith(directory) && !current.has(path) && !loop.previous.has(path)) loop.files.delete(path);
-  }
-  loop.previous = current;
 }
 
 // The library's and the project's files go in before the loop starts,
@@ -149,7 +135,7 @@ function broadcast(loop, event) {
 async function startLoop({library, project}) {
   const fetchBytes = async url => new Uint8Array(await (await fetch(url)).arrayBuffer());
   const toolchain = new URL('toolchain/', import.meta.url);
-  const loop = {errors: '', files: new Map(), previous: new Set()};
+  const loop = {errors: '', files: new Map()};
   for (const [path, text] of Object.entries(library)) loop.files.set(path, encoder.encode(text));
   for (const [path, text] of Object.entries(project)) loop.files.set(`/project/${path}`, encoder.encode(text));
   loop.files.set('/runtime.wasm', await fetchBytes(new URL('runtime.wasm', toolchain)));
@@ -167,11 +153,16 @@ async function startLoop({library, project}) {
 // ---- Messages ----
 
 // The routes the loop served map a page's request to a file, as a server's
-// would.
-function routeFile(routes, path) {
-  if (routes.files[path]) return routes.files[path];
-  const prefix = Object.keys(routes.directories).sort((a, b) => b.length - a.length).find(entry => path.startsWith(entry));
-  return prefix ? routes.directories[prefix] + path.slice(prefix.length) : null;
+// would: the path's exact route, then each directory whose prefix it
+// starts with, in order, the first that has the file.
+function routeFile(loop, path) {
+  const exact = loop.routes.files.find(([route]) => route === path);
+  if (exact) return exact[1];
+  for (const [prefix, directory] of loop.routes.directories) {
+    const file = directory + path.slice(prefix.length);
+    if (path.startsWith(prefix) && loop.files.has(file)) return file;
+  }
+  return null;
 }
 
 // The IDE starts the loop and sends each change to a project file, saved or
@@ -186,7 +177,7 @@ onmessage = async ({data, ports}) => {
     send(loop, CHANGED, `/project/${data.path}`);
   } else if (data.type === 'connect') {
     ports[0].onmessage = ({data: request}) => {
-      const file = routeFile(loop.routes, request.path), bytes = file ? loop.files.get(file) : null;
+      const file = routeFile(loop, request.path), bytes = file ? loop.files.get(file) : null;
       ports[0].postMessage({id: request.id, bytes: bytes ?? null});
     };
   }

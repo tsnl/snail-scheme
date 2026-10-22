@@ -2,7 +2,7 @@
 ;;
 ;;   develop ROOT RUNTIME CLIENT serve PORT APP-DIRECTORY
 ;;
-;; the loop of bootstrap/develop.sld, with its files in the worker. A browser
+;; the loop of (lofi develop), with its files in the worker. A browser
 ;; has no file system, so every file the loop and its compiler open goes
 ;; through a handler of (lofi io)'s `fs` effect to the `files` effect, which
 ;; the worker implements over the files it holds: the standard library, the
@@ -62,32 +62,14 @@
       (file-write port (string-ref text index))
       (next (+ index 1)))))
 
-;; ---- Events ----
+;; ---- Entry points ----
 
-(: loop (Ref (Option Loop)))
-(define loop (ref (None)))
-
-(: input (Ref (List Char)))
-(define input (ref (Nil)))
-
-(: develop-character (-> I32 Unit ! mut))
-(define (develop-character code)
-  (ref-set! input (Cons (i32->char code) (ref-get input))))
-
-(: develop-event (-> I32 Unit ! mut files console develop))
-(define (develop-event kind)
-  (let ((text (list->string (reverse (ref-get input)))))
-    (ref-set! input (Nil))
-    (match (ref-get loop)
-      ((Some current) (with-files (lambda () (deliver-event! current kind text))))
-      ((None) (unit)))))
+;; The loop's own, with every file it opens in the worker.
+(: develop-event-with-files (-> I32 Unit ! mut files console develop))
+(define (develop-event-with-files kind)
+  (with-files (lambda () (develop-event kind))))
 
 (expose develop-character "develop_character")
-(expose develop-event "develop_event")
+(expose develop-event-with-files "develop_event")
 
-(match (command-line)
-  ((Cons _ arguments)
-   (let ((started (new-loop arguments)))
-     (ref-set! loop (Some started))
-     (with-files (lambda () (start-loop! started)))))
-  ((Nil) (panic "usage: develop ROOT RUNTIME CLIENT REQUEST ...")))
+(with-files start-development!)

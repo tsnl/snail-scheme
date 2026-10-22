@@ -7,14 +7,14 @@
 // the browser host's own code: it links the modules (src/app/load.mjs),
 // adds to the counter, edits the greeting, sees from the event that only
 // the program's own module was compiled again, relinks from it and hands
-// over the state as a page does (src/app/host.mjs). A broken edit reports a
-// failed build that keeps the last good manifest. Then `lofi watch` runs a
-// program again after an edit.
+// over the state as a page does (src/app/host.mjs). Only the modules of the
+// last two builds stay. A broken edit reports a failed build that keeps the
+// last good manifest. Then `lofi watch` runs a program again after an edit.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {cp, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {cp, mkdtemp, readFile, readdir, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {basename, join} from 'node:path';
 import {screenImports, takeState} from '../src/app/host.mjs';
 import {createWasi, linkProgram, programExports, readEvent, readManifest, relinkProgram, runProgram} from '../src/app/load.mjs';
 import {until} from './browser/chromium.mjs';
@@ -118,6 +118,8 @@ async function testServe(directory) {
     assert.match(server.text, /1 of 5 modules compiled/, 'only the program\'s module is compiled again');
     assert.deepEqual(await relink(page, built.manifest), {from: 'main', passed: 'adopted'}, 'the libraries\' modules stay linked');
     assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['hello again', '2'], 'the new program keeps the state');
+    const kept = new Set([...manifest.modules, ...built.manifest.modules].map(([, file]) => basename(file)));
+    assert.deepEqual((await readdir(join(root, 'build/serve/counter/modules'))).sort(), [...kept].sort(), 'the last two builds\' modules stay');
 
     await writeFile(source, (await readFile(source, 'utf8')).replace('"hello again"', '5'));
     const failed = await nextBuild(events);
