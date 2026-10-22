@@ -90,6 +90,10 @@ tap one to go to it.
 | P | Open or close the menu |
 | Escape | Back out of a dialog, then clear the selection |
 
+Keys held with ⌘, Ctrl or Alt go to the browser, so its shortcuts, such as
+reloading, keep working. With Shift, WASD and the arrows pan as they do
+alone, and other keys do nothing.
+
 The menu also restarts on a new map, resigns, and moves the dock to the
 left or right edge.
 

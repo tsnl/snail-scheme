@@ -483,10 +483,14 @@
         (_ (Game-menu-set game (Closed)))))
 
     ;; While a dialog is open only it and the pause key answer.
-    (: key-press (-> Game I32 Game))
-    (define (key-press game key)
+    (: key-press (-> Game I32 Bool Game))
+    ;; A key is held until released, so held keys pan. One pressed with
+    ;; Shift is only held: Shift with WASD or the arrows pans as the key
+    ;; alone does, and Shift with any other key does nothing.
+    (define (key-press game key shift)
       (let ((game (Game-held-set game (if (held? game key) (Game-held game) (Cons key (Game-held game))))))
-        (cond ((= key key-escape) (escape game))
+        (cond (shift game)
+              ((= key key-escape) (escape game))
               ((= key 112) (if (paused? game) (Game-menu-set game (Closed)) (perform game (OpenMenu))))
               ((match (Game-menu game) ((Closed) #f) (_ #t)) game)
               ((or (= key key-enter) (= key key-space)) (Game-selected-set game (Game-hover game)))
@@ -526,7 +530,7 @@
     (define (update-game game input)
       (match input
         ((Elapsed milliseconds) (pass game (i32->i64 milliseconds)))
-        ((KeyDown key) (key-press game key))
+        ((KeyDown key shift) (key-press game key shift))
         ((KeyUp key) (Game-held-set game (filter (lambda (k) (not (= k key))) (Game-held game))))
         ((Wheel pixels) (zoom game (+ 1.0 (* 0.001 (i32->f32 pixels)))))
         ((Resize width height) (Game-height-set (Game-width-set game width) height))

@@ -75,9 +75,9 @@ assert.equal(widget(host, 'nests').text, '☆☆☆');
 
 // Holding D for a second pans nine cells along the ground; holding W for a
 // second pans eighteen, the ground being seen at 30 degrees.
-const panned = (key, milliseconds) => {
+const panned = (key, milliseconds, shift = 0) => {
   const [x, z] = host.target;
-  game.app_input(KEY_DOWN, key, 0, 0, 0);
+  game.app_input(KEY_DOWN, key, shift, 0, 0);
   for (let i = 0; i < milliseconds / 50; i++) game.app_input(ELAPSED, 50, 0, 0, 0);
   game.app_input(KEY_UP, key, 0, 0, 0);
   game.app_frame();
@@ -86,6 +86,7 @@ const panned = (key, milliseconds) => {
 };
 assert.ok(Math.abs(panned(100, 1000) - 9) < 0.01, 'D pans nine cells a second');
 assert.ok(Math.abs(panned(119, 1000) - 18) < 0.01, 'W pans eighteen cells of ground a second');
+assert.ok(Math.abs(panned(100, 1000, 1) - 9) < 0.01, 'Shift+D pans as D does');
 game.app_input(KEY_DOWN, 104, 0, 0, 0);
 game.app_input(KEY_UP, 104, 0, 0, 0);
 game.app_frame();
