@@ -136,6 +136,14 @@ pub extern "C" fn read_code(id: u32) -> i32 {
     checked(result).map_or(-1, |character| character as i32)
 }
 
+// A byte of a binary file, from 0 to 255, or -1 at EOF. Standard input is
+// text only.
+#[unsafe(export_name = "snail:io/read-byte")]
+pub extern "C" fn read_byte(id: u32) -> i32 {
+    let result = FILES.with_borrow_mut(|files| files.get(id)?.read_byte());
+    checked(result).map_or(-1, i32::from)
+}
+
 fn write_character(port: &mut Port, code: u32) -> Result<(), String> {
     let character = char::from_u32(code).ok_or("invalid Unicode scalar")?;
     let mut bytes = [0; 4];

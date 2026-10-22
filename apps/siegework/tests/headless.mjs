@@ -49,7 +49,7 @@ async function instantiate(path, host) {
     },
     proc_exit(code) { throw new Error(`exit ${code}`); },
     environ_get: () => 0, environ_sizes_get(a, b) { view().setUint32(a, 0, true); view().setUint32(b, 0, true); return 0; },
-    fd_close: () => 0, fd_prestat_get: () => 8, fd_prestat_dir_name: () => 8,
+    fd_close: () => 0, fd_prestat_get: () => 8, fd_prestat_dir_name: () => 8, poll_oneoff: () => 0,
   };
   const {instance} = await WebAssembly.instantiate(await readFile(path), {wasi_snapshot_preview1: wasi, 'snail.screen': host.imports});
   exports = instance.exports;
