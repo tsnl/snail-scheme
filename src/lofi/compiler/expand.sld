@@ -457,6 +457,8 @@
     (define (record! cx entry)
       (ref-set! (Context-expanded cx) (table-set (ref-get (Context-expanded cx)) (Context-prefix cx) entry)))
 
+    ;; ---- Build keys ----
+
     ;; A library's build key: the canonical text of its declarations, with
     ;; the interfaces of its imports.
     (: sections-key (-> Context (List (Pair String (List Syntax))) String ! mut))
@@ -469,6 +471,22 @@
     (: forms-text (-> (List Syntax) String))
     (define (forms-text forms)
       (string-join (map syntax->key forms) "\n"))
+
+    ;; Syntax as text that keys a build. A byte vector shows only its length
+    ;; and a hash of its bytes, so a library that embeds megabytes keys on a
+    ;; few characters.
+    (: syntax->key (-> Syntax String))
+    (define (syntax->key syntax)
+      (match syntax
+        ((Atom (DBytes value) _) (string-append "#u8<" (i64->string (vector-length value)) ":" (i64->string (bytes-hash value)) ">"))
+        ((Atom value _) (datum->string value))
+        ((Ident name _ _) name)
+        ((Form items _) (string-append "(" (string-join (map syntax->key items) " ") ")"))))
+
+    ;; FNV-1a over bytes, as `fnv-1a` hashes text.
+    (: bytes-hash (-> Bytes I64))
+    (define (bytes-hash bytes)
+      (vector-fold (lambda (hash byte) (fnv-step hash (i32->i64 (u8->i32 byte)))) fnv-offset bytes))
 
     ;; Each imported library's interface, as this build expanded it; the
     ;; compiler's own libraries never change.

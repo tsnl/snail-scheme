@@ -24,7 +24,6 @@
    Substitution
    type->string
    type-key
-   type-schema
    labels->string
    type=?
    types=?
@@ -139,8 +138,11 @@
    program-items
    library-items
    primitives
+   fnv-offset
+   fnv-step
    fnv-1a
    case-type-id
+   any-type-id
    wire-schemas)
   (import
    (lofi base)
@@ -747,20 +749,42 @@
 
     ;; ---- Wire identities ----
 
-    ;; FNV-1a over the code points, as an unsigned 32-bit value. The product
-    ;; stays below 2^56, so it never overflows I64.
+    ;; FNV-1a, as an unsigned 32-bit value: starting from `fnv-offset`,
+    ;; `fnv-step` mixes in each code, a code point or a byte, in turn. The
+    ;; product stays below 2^56, so it never overflows I64.
+    (: fnv-offset I64)
+    (define fnv-offset 2166136261)
+
+    (: fnv-step (-> I64 I64 I64))
+    (define (fnv-step hash code)
+      (i64-and (* (i64-xor hash code) 16777619) 4294967295))
+
+    ;; FNV-1a over the code points.
     (: fnv-1a (-> String I64))
     (define (fnv-1a text)
-      (vector-fold (lambda (hash c) (i64-and (* (i64-xor hash (char->integer c)) 16777619) 4294967295)) 2166136261 (string->vector text)))
+      (vector-fold (lambda (hash c) (fnv-step hash (char->integer c))) fnv-offset (string->vector text)))
 
-    ;; A case's TypeId hashes its declaring library, type, name and fields,
-    ;; as a signed 32-bit value. Field types contribute their own schemas,
-    ;; cut at recursive references, so the identity changes exactly when the
-    ;; encoded shape can change.
+    ;; A TypeId is a hash as a signed 32-bit value, which Wasm's i32 holds.
+    (: type-id (-> String I64))
+    (define (type-id text)
+      (let ((hash (fnv-1a text)))
+        (if (>= hash 2147483648) (- hash 4294967296) hash)))
+
+    ;; A case's TypeId hashes its declaring library, type, name and fields.
+    ;; Field types contribute their own schemas, cut at recursive
+    ;; references, so the identity changes exactly when the encoded shape
+    ;; can change.
     (: case-type-id (-> Program Case I64))
     (define (case-type-id program case)
-      (let ((hash (fnv-1a (case-schema program case (Nil)))))
-        (if (>= hash 2147483648) (- hash 4294967296) hash)))
+      (type-id (case-schema program case (Nil))))
+
+    ;; An Any's TypeId hashes the type with its structure as the wire schema
+    ;; writes it: fields and cases, recursively. A type whose fields or cases
+    ;; change gets a new one even when its name stays, so a program relinked
+    ;; with such a change cannot take an old value for a new one.
+    (: any-type-id (-> Program Type I64))
+    (define (any-type-id program type)
+      (type-id (string-append (type-key type) "\n" (type-schema program type (Nil) (Nil)))))
 
     (: case-schema (-> Program Case (List String) String))
     (define (case-schema program case visiting)

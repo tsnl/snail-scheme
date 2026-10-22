@@ -35,7 +35,6 @@
    datum=?
    datum->string
    syntax->string
-   syntax->key
    compile-error
    read-text
    decode-syntax)
@@ -87,22 +86,6 @@
         ((Atom value _) (datum->string value))
         ((Ident name _ _) name)
         ((Form items _) (string-append "(" (string-join (map syntax->string items) " ") ")"))))
-
-    ;; Syntax as text that keys a build. A byte vector shows only its length
-    ;; and a hash of its bytes, so a library that embeds megabytes keys on a
-    ;; few characters.
-    (: syntax->key (-> Syntax String))
-    (define (syntax->key syntax)
-      (match syntax
-        ((Atom (DBytes value) _) (string-append "#u8<" (i64->string (vector-length value)) ":" (i64->string (bytes-hash value)) ">"))
-        ((Atom value _) (datum->string value))
-        ((Ident name _ _) name)
-        ((Form items _) (string-append "(" (string-join (map syntax->key items) " ") ")"))))
-
-    ;; 32-bit FNV-1a over bytes, as `fnv-1a` hashes text.
-    (: bytes-hash (-> Bytes I64))
-    (define (bytes-hash bytes)
-      (vector-fold (lambda (hash byte) (i64-and (* (i64-xor hash (i32->i64 (u8->i32 byte))) 16777619) 4294967295)) 2166136261 bytes))
 
     (: datum->string (-> Datum String))
     (define (datum->string datum)
