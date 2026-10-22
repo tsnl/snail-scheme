@@ -68,6 +68,16 @@ the hash changed, as GHC avoids recompilation. Two modules may instantiate
 the same generic definition at the same types; in a debug build each keeps
 its own copy.
 
+The cache lives in memory, for as long as the compiler runs. For each
+library it holds the assembled binary module, the interface and the
+interface's hash, keyed by a hash of the library's source, the interface
+hashes of its imports, and the compiler's identity. Imported macros and
+generic bodies end up inside a module, so their interfaces are part of the
+key. A body edit misses for one library: it is compiled, assembled and
+swapped, and every other module is reused, along with the engine's
+compiled form of it. A cold start builds everything once. Keeping the cache
+on disk is left for later (section 9).
+
 ### 3.2 Dynamic linking
 
 A module reaches each export of another library through a mutable global
@@ -225,10 +235,20 @@ Each step is useful alone.
 
 - **The server's host:** Node with thin bindings, or a native Rust host
   embedding wasmtime, whose support for WebAssembly GC is younger.
-- **Interfaces:** in memory only, or serialized, which shipping a compiled
-  `lib/` to a browser would need. The compiler cannot derive `Serialize`
-  for its own types while Chibi, which dispatches no instances, runs it.
 - **Load-time checks:** made by the loader, from hashes each module records,
   or by code each module runs when it starts.
 - **Closures in the state:** whether to detect them from the state's type
   and fall back to `save` and `restore` automatically.
+
+Left for later, if a cold start or one-shot commands become too slow:
+
+- **The cache on disk.** Entries keyed by content hashes and written
+  atomically, so parallel builds cannot collide. A cold start would validate
+  them by hashing sources, as Bazel and Nix do, and re-check only the
+  dependencies of a library it recompiles.
+- **Interfaces as generated headers.** C++ avoids re-parsing headers through
+  a binary module interface (Clang's `.pcm`, GCC's `.gcm`) private to the
+  compiler; OCaml, GHC and Rust keep similar files. A Lisp can instead print
+  each interface as a declaration-only library of S-expressions, whose text
+  hash is the interface hash and whose reading needs no format of its own.
+  A macro that refers to private helpers would export them as hidden names.
