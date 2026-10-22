@@ -59,7 +59,9 @@ function withStubs(module, imports, stubbed, stub) {
 // The `wasm` effect of (lofi wasm). A program loads a module from a file,
 // linked as its own modules are, after them and the modules it loaded
 // before, and takes the functions the module exports. The program waits
-// for both, so they are synchronous. `read` gives a file's bytes.
+// for both, so they are synchronous. `read` gives a file's bytes. A name
+// already linked is refused: the modules that import it keep the instance
+// they have, so replacing it would only mislead.
 export function wasmImports(runtime, host, linked, read) {
   const loaded = [];
   let staged = [], current = '';
@@ -68,7 +70,9 @@ export function wasmImports(runtime, host, linked, read) {
     'argument-character': code => { current += String.fromCodePoint(code); },
     'argument-end': () => { staged.push(current); current = ''; },
     load() {
-      const [name, file] = take(), module = new WebAssembly.Module(read(file));
+      const [name, file] = take();
+      if (linked.has(name)) throw new Error(`a module named ${name} is already linked`);
+      const module = new WebAssembly.Module(read(file));
       const libraries = new Set(['snail.library', ...linked.keys()]);
       linked.set(name, new WebAssembly.Instance(module, moduleImports(runtime, host, linked, libraries, module)));
       return loaded.push(linked.get(name)) - 1;
