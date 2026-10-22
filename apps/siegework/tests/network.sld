@@ -15,9 +15,10 @@
  (siegework colony)
  (siegework simulation))
 
+;; Enemies are swept away each tick, so only the network changes.
 (: run (-> World I64 World))
 (define (run world ticks)
-  (if (= ticks 0) world (run (advance world) (- ticks 1))))
+  (if (= ticks 0) world (run (World-enemies-set (advance world) (Nil)) (- ticks 1))))
 
 (: order (-> World Action World ! console))
 (define (order world action)
@@ -74,7 +75,7 @@
   (define world (run world 50))
   (report world)
   (report-wires world)
-  (define world (run (order world (Build (Pylon) (Cell 29 36) #f)) 30))
+  (define world (run (order world (Build (Pylon) (Cell 29 36) #f)) 200))
   (report-wires world)
   (define world (order world (Scavenge (Cell 29 36))))
   (report world)

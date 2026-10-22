@@ -3,9 +3,9 @@ advancing before the first order changes nothing: #t
 the first extractor is ready at once: #t
 tick 100, energy 155, produced 20, spent 25, balanced #t
 starter reserve 580
-tick 200, energy 147, produced 52, spent 65, balanced #t
-tick 300, energy 187, produced 92, spent 65, balanced #t
-tick 360, energy 186, produced 116, spent 90, balanced #t
-tick 360, energy 191, produced 116, spent 85, balanced #t
+tick 200, energy 145, produced 50, spent 65, balanced #t
+tick 300, energy 185, produced 90, spent 65, balanced #t
+tick 360, energy 184, produced 114, spent 90, balanced #t
+tick 360, energy 189, produced 114, spent 85, balanced #t
 buildings 1
-repair restores the hub from 421 to 600 for 90 energy
+repair costs 90 energy; the hub has 421 until a worker has labored there, then 600
