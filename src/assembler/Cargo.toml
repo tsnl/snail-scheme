@@ -1,0 +1,16 @@
+[package]
+name = "snail-assembler"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+wat = { version = "1.262.0", default-features = false }
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1

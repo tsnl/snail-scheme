@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lofi IDE</title>
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./app.css">
+<link rel="stylesheet" href="./ide.css">
+<body>
+  <section class="editor">
+    <select id="file" aria-label="Library"></select>
+    <textarea id="source" spellcheck="false" aria-label="Source"></textarea>
+  </section>
+  <section class="stage">
+    <canvas id="view" tabindex="0" aria-label="Application"></canvas>
+    <div id="overlay"></div>
+  </section>
+  <script type="module" src="./ide.mjs"></script>
+</body>
+</html>

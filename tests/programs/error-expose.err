@@ -1,1 +1,1 @@
-an exposed function takes and returns scalars only
+an exposed function takes and returns only scalars and Any

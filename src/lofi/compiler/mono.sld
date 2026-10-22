@@ -1,13 +1,17 @@
 ;; Typed program to monomorphic program. Starting from the statements and
 ;; top-level values, each reachable definition is copied once per ground type
 ;; instantiation. Method references become references to the instance method
-;; their evidence names, so no instance is selected twice.
+;; their evidence names, so no instance is selected twice. A library can also
+;; be specialized alone, as one module of a program linked when it runs.
 (define-library (lofi compiler mono)
   (export
    Mono
    Mono-program
    Mono-items
-   monomorphize)
+   Mono-externals
+   Mono-exported
+   monomorphize
+   monomorphize-library)
   (import
    (lofi base)
    (lofi table)
@@ -18,20 +22,27 @@
 
     ;; ---- Specialization state ----
 
-    ;; `definitions` maps each name to its typed value. `done` maps a request
-    ;; key to its specialized name; `specialized` collects the copies of each
-    ;; definition in creation order.
+    ;; A library's module also lists the definitions of other libraries it
+    ;; refers to, which it imports, and the names it exports.
     (struct Mono
       ((program Program)
-       (items (List Item))))
+       (items (List Item))
+       (externals (Table Expr))
+       (exported (List String))))
 
+    ;; `definitions` maps each name to its typed value. `done` maps a request
+    ;; key to its specialized name; `specialized` collects the copies of each
+    ;; definition in creation order. `owner` names the library being
+    ;; specialized alone, and `externals` collects what it imports.
     (struct State
       ((typed Typed)
        (instances (Table Instance))
        (definitions (Table Expr))
        (done (Ref (Table String)))
        (specialized (Ref (Table (List Item))))
-       (pending (Ref (List Request)))))
+       (pending (Ref (List Request)))
+       (owner (Option String))
+       (externals (Ref (Table Expr)))))
 
     (struct Request
       ((name String)
@@ -177,7 +188,8 @@
         ((None) (panic "internal error: unknown instance"))))
 
     ;; A definition whose value is just another reference, such as
-    ;; `(define + i64-add)`, is replaced by its target.
+    ;; `(define + i64-add)`, is replaced by its target. Another library's
+    ;; monomorphic definition stays a reference, which its module imports.
     (: definition-reference (-> State String (List Type) (List Evidence) Type Loc Expr ! mut))
     (define (definition-reference state name types evidence type loc)
       (let ((value (definition state name)))
@@ -185,28 +197,74 @@
           ((Var _ _ _)
            (let ((scheme (definition-scheme (State-typed state) name)))
              (copy-expr state (Instantiation (zip (Scheme-vars scheme) types) evidence) value)))
-          (_ (Expr (Var (request! state name types evidence) (Nil) (Nil)) type loc)))))
+          (_ (if (external? state name types)
+                 (begin (ref-set! (State-externals state) (table-set (ref-get (State-externals state)) name value))
+                        (Expr (Var name (Nil) (Nil)) type loc))
+                 (Expr (Var (request! state name types evidence) (Nil) (Nil)) type loc))))))
+
+    (: external? (-> State String (List Type) Bool))
+    (define (external? state name types)
+      (match (State-owner state)
+        ((Some owner) (and (null? types) (not (string=? (name-owner name) owner))))
+        ((None) #f)))
 
     ;; ---- Programs ----
+
+    (: new-state (-> Typed (Option String) State ! mut))
+    (define (new-state typed owner)
+      (let ((instances (fold-left (lambda (table instance) (table-set table (Instance-name instance) instance))
+                                  empty-table (concatenate (table-values (Program-instances (Typed-program typed))))))
+            (definitions (fold-left (lambda (table item)
+                                      (match item
+                                        ((Define name value) (table-set table name value))
+                                        (_ table)))
+                                    empty-table (Typed-items typed))))
+        (State typed instances definitions (ref empty-table) (ref empty-table) (ref (Nil)) owner (ref empty-table))))
 
     ;; Statements and monomorphic top-level values are roots, so their
     ;; initializers run even when nothing refers to them. Functions are
     ;; copied only when reached.
     (: monomorphize (-> Typed Mono ! mut))
     (define (monomorphize typed)
-      (let* ((items (Typed-items typed))
-             (instances (fold-left (lambda (table instance) (table-set table (Instance-name instance) instance))
-                                   empty-table (concatenate (table-values (Program-instances (Typed-program typed))))))
-             (definitions (fold-left (lambda (table item)
-                                       (match item
-                                         ((Define name value) (table-set table name value))
-                                         (_ table)))
-                                     empty-table items))
-             (state (State typed instances definitions (ref empty-table) (ref empty-table) (ref (Nil)))))
-        (let ((statements (map (lambda (item) (root-item state item)) items)))
-          (run-requests! state)
-          (Mono (Typed-program typed) (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair)))
-                                                        (zip items statements)))))))
+      (let* ((items (Typed-items typed)) (state (new-state typed (None)))
+             (statements (map (lambda (item) (root-item state item)) items)))
+        (run-requests! state)
+        (Mono (Typed-program typed) (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair)))
+                                                      (zip items statements)))
+              empty-table (Nil))))
+
+    ;; One library's items, `items` among the program's. Every monomorphic
+    ;; definition is a root, since any module may import it. Copies of other
+    ;; libraries' definitions, the generic ones this library uses, come first,
+    ;; in program order, as those libraries come before it.
+    (: monomorphize-library (-> Typed String (List Item) Mono ! mut))
+    (define (monomorphize-library typed owner items)
+      (let* ((state (new-state typed (Some owner))) (exported (library-roots state items))
+             (statements (map (lambda (item) (root-item state item)) items)))
+        (run-requests! state)
+        (Mono (Typed-program typed)
+              (append (concatenate (map (lambda (item) (foreign-copies state owner item)) (Typed-items typed)))
+                      (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair))) (zip items statements))))
+              (ref-get (State-externals state)) exported)))
+
+    ;; Requests the library's monomorphic functions, which `root-item` leaves
+    ;; until something reaches them, and returns every name it exports.
+    (: library-roots (-> State (List Item) (List String) ! mut))
+    (define (library-roots state items)
+      (concatenate (map (lambda (item)
+                          (match item
+                            ((Define name value)
+                             (if (and (null? (Scheme-vars (definition-scheme (State-typed state) name))) (not (alias-expr? value)))
+                                 (begin (request! state name (Nil) (Nil)) (list name))
+                                 (Nil)))
+                            (_ (Nil))))
+                        items)))
+
+    (: foreign-copies (-> State String Item (List Item) ! mut))
+    (define (foreign-copies state owner item)
+      (match item
+        ((Define name _) (if (string=? (name-owner name) owner) (Nil) (copies-of state name)))
+        (_ (Nil))))
 
     ;; A statement is copied now; a monomorphic value is requested.
     (: root-item (-> State Item (Option Item) ! mut))

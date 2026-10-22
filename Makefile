@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test test-chibi test-browser bootstrap site pages
+.PHONY: format check test test-chibi test-browser bootstrap ide site pages
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
@@ -18,10 +18,11 @@ test:
 test-chibi:
 	LOFI_STAGE0=chibi "$(CHIBI)" -h $(HEAP) -D snail-tests -I host/chibi -I src -I tests tests/run.scm "$(CURDIR)"
 
-# Live reload in headless Chromium, which CI does not have; CHROMIUM names
-# the browser.
+# Live reload and the browser IDE in headless Chromium, which CI does not
+# have; CHROMIUM names the browser.
 test-browser:
 	node tests/browser/reload.mjs "$(CURDIR)"
+	node tests/browser/ide.mjs "$(CURDIR)"
 
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.
 bootstrap:
@@ -35,6 +36,10 @@ format:
 check:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
+
+# The browser IDE around Siegework as a static site in build/ide.
+ide:
+	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-ide.scm "$(CURDIR)" apps/siegework build/ide
 
 # Siegework as a static site in build/siegework.
 site:

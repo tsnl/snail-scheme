@@ -1,9 +1,12 @@
 ;; The self-hosted compiler's entry program:
 ;;
-;;   compile wat|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]
+;;   compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]
 ;;
 ;; writes the WebAssembly text of the program SOURCE, or the schemas of its
 ;; wire types, to OUTPUT, finding its libraries in the DIRECTORY arguments.
+;; `modules` writes one module per library into the directory OUTPUT, as
+;; NAME.wat, and their names in program order, one to a line, to
+;; OUTPUT/modules.
 ;; A compiled program cannot run another, so the driver produces generated
 ;; libraries: their text is GENERATED/KEY.out, where KEY hashes the producer
 ;; program; when it is missing, the compiler writes the producer to
@@ -23,10 +26,16 @@
         (begin (write-file (string-append directory "/" key ".sld") text)
                (panic (string-append "generate " key))))))
 
+(define (write-modules directory modules)
+  (for-each (lambda (module) (write-file (string-append directory "/" (Pair-first module) ".wat") (Pair-second module))) modules)
+  (write-file (string-append directory "/modules") (string-concatenate (map (lambda (module) (string-append (Pair-first module) "\n")) modules))))
+
+(define (compile-source mode source output generate directories)
+  (cond ((string=? mode "schema") (write-file output (compile->schemas directories source generate)))
+        ((string=? mode "modules") (write-modules output (compile->modules directories source generate)))
+        (else (write-file output (compile->wat directories source generate)))))
+
 (match (command-line)
   ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
-   (let ((generate (lambda (forms path) (generated-text generated forms))))
-     (write-file output (if (string=? mode "schema")
-                            (compile->schemas directories source generate)
-                            (compile->wat directories source generate)))))
-  (_ (panic "usage: compile wat|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]")))
+   (compile-source mode source output (lambda (forms path) (generated-text generated forms)) directories))
+  (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]")))

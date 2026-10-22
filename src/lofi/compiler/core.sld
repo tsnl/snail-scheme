@@ -114,7 +114,10 @@
    Expose
    Program
    empty-program
+   base-program
+   primitive-global
    Program-instances
+   Program-effects
    program-value
    program-type
    program-class
@@ -126,7 +129,12 @@
    add-instance!
    add-effect!
    add-item!
+   add-library!
+   program-delta
+   program-with
    program-items
+   library-items
+   name-owner
    primitives
    fnv-1a
    case-type-id
@@ -184,7 +192,7 @@
 
     (: builtin-types (List (Pair String I64)))
     (define builtin-types
-      (list (Pair "Any" 0) (Pair "U8" 0) (Pair "I32" 0) (Pair "I64" 0) (Pair "F32" 0) (Pair "F64" 0) (Pair "Bool" 0)
+      (list (Pair "Any" 0) (Pair "Funcref" 0) (Pair "U8" 0) (Pair "I32" 0) (Pair "I64" 0) (Pair "F32" 0) (Pair "F64" 0) (Pair "Bool" 0)
             (Pair "Char" 0) (Pair "Unit" 0) (Pair "String" 0) (Pair "Array" 1) (Pair "Vector" 1) (Pair "Ref" 1)))
 
     ;; Unique names look like `lofi.base:map`; diagnostics show the source
@@ -557,18 +565,23 @@
     ;; ---- Programs ----
 
     ;; A program is a value: the expander builds it up in one cell, and the
-    ;; later passes only read it. Items are kept newest first.
+    ;; later passes only read it. Items are kept newest first. `libraries`
+    ;; names each library, newest first, with the number of items it added;
+    ;; the program's own body counts as a library named `main`. A library's
+    ;; items are contiguous, after those of the libraries it imports, so the
+    ;; program's items divide into one run per library.
     (struct Program
       ((values (Table Value))
        (types (Table DataType))
        (classes (Table Class))
        (instances (Table (List Instance)))
        (effects (Table Effect))
-       (items (List Item))))
+       (items (List Item))
+       (libraries (List (Pair String I64)))))
 
     (: empty-program Program)
     (define empty-program
-      (Program empty-table empty-table empty-table empty-table empty-table (Nil)))
+      (Program empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
 
     (: program-value (-> Program String (Option Value)))
     (define (program-value program name)
@@ -635,6 +648,83 @@
     (: program-items (-> Program (List Item)))
     (define (program-items program)
       (reverse (Program-items program)))
+
+    (: add-library! (-> (Ref Program) String I64 Unit ! mut))
+    (define (add-library! cell name count)
+      (let ((program (ref-get cell)))
+        (ref-set! cell (Program-libraries-set program (Cons (Pair name count) (Program-libraries program))))))
+
+    ;; What the newest library added: the globals named for it, and its run
+    ;; of items, which are the newest. A later build replays it with
+    ;; `program-with` instead of expanding the library again.
+    (: program-delta (-> Program String Program))
+    (define (program-delta program owner)
+      (let ((count (match (Program-libraries program)
+                     ((Cons (Pair _ count) _) count)
+                     ((Nil) 0))))
+        (Program (owned (Program-values program) owner) (owned (Program-types program) owner) (owned (Program-classes program) owner)
+                 (owned-instances (Program-instances program) owner) (owned (Program-effects program) owner)
+                 (take (Program-items program) count) (take (Program-libraries program) 1))))
+
+    (: owned (All (V) (-> (Table V) String (Table V))))
+    (define (owned table owner)
+      (fold-left (lambda (result key)
+                   (match (table-ref table key)
+                     ((Some value) (if (string=? (name-owner key) owner) (table-set result key value) result))
+                     ((None) result)))
+                 empty-table (table-keys table)))
+
+    (: owned-instances (-> (Table (List Instance)) String (Table (List Instance))))
+    (define (owned-instances table owner)
+      (fold-left (lambda (result class)
+                   (match (filter (lambda (instance) (string=? (name-owner (Instance-name instance)) owner)) (class-list table class))
+                     ((Nil) result)
+                     (instances (table-set result class instances))))
+                 empty-table (table-keys table)))
+
+    (: class-list (-> (Table (List Instance)) String (List Instance)))
+    (define (class-list table class)
+      (match (table-ref table class)
+        ((Some instances) instances)
+        ((None) (Nil))))
+
+    ;; The program with a library's additions from an earlier build. Its
+    ;; globals are its own, so it replaces nothing; the order of instances
+    ;; within a class does not matter, since no two of them overlap.
+    (: program-with (-> Program Program Program))
+    (define (program-with program delta)
+      (Program (merged (Program-values program) (Program-values delta)) (merged (Program-types program) (Program-types delta))
+               (merged (Program-classes program) (Program-classes delta))
+               (fold-left (lambda (table class) (table-set table class (append (class-list table class) (class-list (Program-instances delta) class))))
+                          (Program-instances program) (table-keys (Program-instances delta)))
+               (merged (Program-effects program) (Program-effects delta))
+               (append (Program-items delta) (Program-items program)) (append (Program-libraries delta) (Program-libraries program))))
+
+    (: merged (All (V) (-> (Table V) (Table V) (Table V))))
+    (define (merged table additions)
+      (fold-left (lambda (result key)
+                   (match (table-ref additions key)
+                     ((Some value) (table-set result key value))
+                     ((None) result)))
+                 table (table-keys additions)))
+
+    ;; Divides items in program order, such as the program's own or their
+    ;; checked copies, into each library's run.
+    (: library-items (-> Program (List Item) (List (Pair String (List Item)))))
+    (define (library-items program items)
+      (let loop ((libraries (reverse (Program-libraries program))) (items items) (out (Nil)))
+        (match libraries
+          ((Cons (Pair name count) rest) (loop rest (list-tail items count) (Cons (Pair name (take items count)) out)))
+          ((Nil) (reverse out)))))
+
+    ;; The library that defines a global: its name up to the first colon.
+    (: name-owner (-> String String))
+    (define (name-owner name)
+      (let ((chars (string->vector name)))
+        (let loop ((index 0))
+          (cond ((= index (vector-length chars)) "")
+                ((char=? (vector-ref chars index) #\:) (substring name 0 index))
+                (else (loop (+ index 1)))))))
 
     ;; ---- Wire identities ----
 
@@ -720,10 +810,13 @@
     ;; though some can trap. `unsafe-total` calls a thunk and discards its
     ;; effects, unchecked: the standard library uses it where the checker
     ;; cannot confirm that mutation stays in storage the function allocates.
+    ;; `unsafe-cast` makes a function of whatever type is expected from a
+    ;; Funcref, a function another module exports (`(lofi wasm)`), checking
+    ;; only its Wasm type.
     (: primitive-signatures (List String))
     (define primitive-signatures
       (list
-       "(unit (-> Unit)) (panic (-> String A)) (unsafe-total (-> (-> A ! e) A))"
+       "(unit (-> Unit)) (panic (-> String A)) (unsafe-total (-> (-> A ! e) A)) (unsafe-cast (-> Funcref A))"
        "(i32-add (-> I32 I32 I32)) (i32-sub (-> I32 I32 I32)) (i32-mul (-> I32 I32 I32))"
        "(i32-quotient (-> I32 I32 I32)) (i32-remainder (-> I32 I32 I32))"
        "(i32-and (-> I32 I32 I32)) (i32-or (-> I32 I32 I32)) (i32-xor (-> I32 I32 I32))"
@@ -816,6 +909,18 @@
         ((TFun params result row) (append (concatenate (map rigid-names params)) (append (rigid-names result) (rigid-names row))))
         ((TRow _ (Some tail)) (rigid-names tail))
         (_ (Nil))))
+
+    (: primitive-global (-> String String))
+    (define (primitive-global name)
+      (string-append "prim:" name))
+
+    ;; The program every expansion starts from: each primitive's value, under
+    ;; the global name (lofi primitive) exports it as.
+    (: base-program Program)
+    (define base-program
+      (Program-values-set empty-program
+                          (fold-left (lambda (values entry) (table-set values (primitive-global (Pair-first entry)) (Primitive (Pair-second entry))))
+                                     empty-table (primitives))))
 
     )
 

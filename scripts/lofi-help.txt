@@ -1,7 +1,7 @@
 Usage: lofi run [OPTIONS] SOURCE.sld [ARGUMENT ...]
        lofi compile [OPTIONS] -o OUTPUT SOURCE.sld
        lofi wat [OPTIONS] SOURCE.sld
-       lofi serve [--port PORT] [--release] APP-DIRECTORY
+       lofi serve [--port PORT] APP-DIRECTORY
        lofi watch [OPTIONS] SOURCE.sld [ARGUMENT ...]
        lofi bootstrap
 
@@ -17,9 +17,9 @@ Chibi starts the first bootstrap. Binaryen, Cargo and Node are required.
 
 run passes the arguments after SOURCE to the program. wat prints the
 generated WebAssembly text without assembling it. serve builds a
-(lofi app) application, serves it at http://127.0.0.1:PORT/ (8000 by
-default) and builds it again when its sources change; open pages swap in
-the new module and keep their state. watch builds and runs a program
-again whenever its sources change. bootstrap rebuilds the compiler until
+(lofi app) application one library at a time, serves it at
+http://127.0.0.1:PORT/ (8000 by default) and rebuilds the libraries its
+edits reach; open pages relink the changed modules and keep their state.
+watch builds and runs a program again whenever its sources change. bootstrap rebuilds the compiler until
 it reproduces itself. LOFI_STAGE0=chibi compiles with the compiler's
 source running on Chibi instead.

@@ -9,7 +9,11 @@
    program->wat
    program->schemas
    build-program
+   build-modules
    link-wat
+   build-runtime
+   build-assembler
+   build-tools
    bootstrap!
    run-tool
    path-join
@@ -24,7 +28,7 @@
    (chibi filesystem)
    (chibi pathname)
    (chibi process)
-   (only (chibi string) string-contains string-cursor->index))
+   (only (chibi string) string-contains string-cursor->index string-suffix?))
   (begin
 
     ;; ---- Compiling ----
@@ -52,18 +56,22 @@
     (define (program->schemas root directories source)
       (run-compiler root (selected-compiler root) "schema" directories source))
 
+    (define (run-compiler root command mode directories source)
+      (create-directory* (path-join root "build/lofi-run"))
+      (let ((output (path-join root "build/lofi-run/compiler-output.wat")))
+        (run-compiler-into root command mode directories source output)
+        (read-file output)))
+
     ;; The compiler stops with `generate KEY` when it needs a generated
     ;; library that has not been produced; producing it and compiling again
     ;; then finds its text.
-    (define (run-compiler root command mode directories source)
+    (define (run-compiler-into root command mode directories source output)
       (forget-generated! root)
-      (create-directory* (path-join root "build/lofi-run"))
-      (let* ((output (path-join root "build/lofi-run/compiler-output.wat"))
-             (result (process->output+error+status
-                      (append command (list mode source output (generated-directory root)) directories))))
-        (cond ((zero? (caddr result)) (read-file output))
+      (let ((result (process->output+error+status
+                     (append command (list mode source output (generated-directory root)) directories))))
+        (cond ((zero? (caddr result)) output)
               ((generate-request (cadr result))
-               => (lambda (key) (produce! root directories key) (run-compiler root command mode directories source)))
+               => (lambda (key) (produce! root directories key) (run-compiler-into root command mode directories source output)))
               (else (error (diagnostic (cadr result)))))))
 
     ;; The digits after `generate `, if the compiler asked for a library.
@@ -221,6 +229,16 @@
                   "--target-dir" target)
         (path-join target "wasm32-wasip1/release/snail_runtime.wasm")))
 
+    ;; The in-process assembler (src/assembler) is a reactor too: text in, a
+    ;; binary module out, for a toolchain that runs as Wasm without Binaryen.
+    ;; scripts/assemble.mjs drives it.
+    (define (build-assembler root)
+      (let ((target (path-join root "build/wasm-assembler")))
+        (run-tool "CARGO" "cargo" "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
+                  "--target" "wasm32-wasip1" "--manifest-path" (path-join root "src/assembler/Cargo.toml")
+                  "--target-dir" target)
+        (path-join target "wasm32-wasip1/release/snail_assembler.wasm")))
+
     (define (link module output runtime release?)
       (let ((adapter (string-append output ".adapter.wasm")) (linked (string-append output ".linked.wasm"))
             (adapter-wat (string-append output ".adapter.wat")))
@@ -246,6 +264,81 @@
 
     (define (build-program root directories source output release?)
       (link-wat root (program->wat root directories source) output release?))
+
+    ;; ---- Linked modules ----
+
+    ;; A program linked when it runs: each library's module, assembled but
+    ;; not optimized, the runtime beside them, and modules.json naming the
+    ;; modules in program order for the loader in src/app/load.mjs.
+    (define (build-modules root directories source output)
+      (create-directory* output)
+      (run-compiler-into root (selected-compiler root) "modules" directories source output)
+      (let ((names (read-lines (path-join output "modules"))))
+        (for-each (lambda (name) (assemble (path-join output name))) names)
+        (copy-file! (build-runtime root) (path-join output "runtime.wasm"))
+        (write-file (path-join output "modules.json") (modules-json names))
+        output))
+
+    ;; PATH.wat to PATH.wasm.
+    (define (assemble path)
+      (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list (string-append path ".wat") "-o" (string-append path ".wasm")))))
+
+    ;; ---- Development tools ----
+
+    ;; What `lofi serve` and `lofi watch` run: the development loop, a
+    ;; program that includes the compiler; the reload client pages load; the
+    ;; runtime; and the assembler. Each is built again only when its sources
+    ;; are newer. Returns their paths by name.
+    (define (build-tools root)
+      (let ((directory (path-join root "build/develop")))
+        (create-directory* directory)
+        (list (cons "develop" (build-tool root (path-join root "bootstrap/develop.sld") (path-join directory "develop.wasm")
+                                          (list (path-join root "src") (path-join root "lib")) (list "bootstrap/develop.sld")))
+              (cons "client" (build-tool root (path-join root "src/app/reload.sld") (path-join directory "reload.wasm")
+                                         (list (path-join root "lib")) (list "src/app/reload.sld")))
+              (cons "runtime" (build-runtime root))
+              (cons "assembler" (build-assembler root)))))
+
+    (define (build-tool root source output directories files)
+      (unless (and (file-exists? output)
+                   (> (file-modification-time output)
+                      (apply max (append (map (lambda (file) (file-modification-time (path-join root file))) files)
+                                         (map newest-sld-time directories)))))
+        (build-program root directories source output #f))
+      output)
+
+    ;; The newest .sld file under a directory, at any depth.
+    (define (newest-sld-time directory)
+      (let loop ((entries (directory-files directory)) (newest 0))
+        (cond ((null? entries) newest)
+              ((member (car entries) '("." "..")) (loop (cdr entries) newest))
+              (else
+               (let ((path (path-join directory (car entries))))
+                 (loop (cdr entries)
+                       (max newest (cond ((file-directory? path) (newest-sld-time path))
+                                         ((string-suffix? ".sld" path) (file-modification-time path))
+                                         (else 0)))))))))
+
+    (define (read-lines path)
+      (let loop ((lines '()) (rest (read-file path)))
+        (let ((cursor (string-contains rest "\n")))
+          (if cursor
+              (let ((end (string-cursor->index rest cursor)))
+                (loop (cons (substring rest 0 end) lines) (substring rest (+ end 1) (string-length rest))))
+              (reverse lines)))))
+
+    (define (modules-json names)
+      (string-append "{\"runtime\": \"runtime.wasm\", \"modules\": ["
+                     (let loop ((names names) (out ""))
+                       (if (null? names)
+                           out
+                           (loop (cdr names) (string-append out (if (string=? out "") "" ", ") "{\"name\": \"" (car names)
+                                                            "\", \"file\": \"" (car names) ".wasm\"}"))))
+                     "]}\n"))
+
+    (define (copy-file! from to)
+      (let ((bytes (call-with-port (open-binary-input-file from) (lambda (port) (read-bytevector (file-size from) port)))))
+        (call-with-port (open-binary-output-file to) (lambda (port) (write-bytevector bytes port)))))
 
     ;; ---- Failures ----
 

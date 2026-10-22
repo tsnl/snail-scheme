@@ -1,246 +1,188 @@
 #!/usr/bin/env node
-// The development loop. `serve` builds a (lofi app) application, serves it
-// and builds it again whenever its sources change; each page it serves swaps
-// in the new module without losing its state (src/app/reload.mjs). `watch`
-// builds a program whenever its sources change and runs it again.
+// The host of the development loop. The loop, (lofi develop), runs as
+// WebAssembly (bootstrap/develop.sld) and decides everything: what to watch,
+// when to build, what each build writes and what pages are told. This file
+// binds what WebAssembly cannot reach in Node: file watching, timers, an HTTP
+// server with an event stream, the in-process assembler and child
+// processes. It performs the loop's commands and reports events back.
 //
-//   develop.mjs ROOT serve [--port PORT] [--release] APP-DIRECTORY
-//   develop.mjs ROOT watch [--release] [-I DIRECTORY] SOURCE [ARGUMENT ...]
-//
-// Building stays with the driver that `make site` and `lofi compile` use;
-// this script only decides when to build and tells pages what was built.
-import {spawn} from 'node:child_process';
+//   develop.mjs ROOT serve [--port PORT] APP-DIRECTORY
+//   develop.mjs ROOT watch [-I DIRECTORY] SOURCE [ARGUMENT ...]
+import {spawn, spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {once} from 'node:events';
-import {watch} from 'node:fs';
-import {readFile, readdir} from 'node:fs/promises';
+import {closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, watch, writeFileSync} from 'node:fs';
 import {createServer} from 'node:http';
-import {basename, dirname, extname, join, relative, resolve, sep} from 'node:path';
+import {extname, join, relative, resolve} from 'node:path';
+import {WASI} from 'node:wasi';
+import {createAssembler} from './assemble.mjs';
 
-const usage = 'usage: lofi serve [--port PORT] [--release] APP-DIRECTORY | lofi watch [--release] [-I DIRECTORY] SOURCE [ARGUMENT ...]';
+const usage = 'usage: lofi serve [--port PORT] APP-DIRECTORY | lofi watch [-I DIRECTORY] SOURCE [ARGUMENT ...]';
 
 // ---- Requests ----
 
-function parseRequest([root, command, ...rest]) {
-  if (!['serve', 'watch'].includes(command)) throw new Error(usage);
-  const request = {root, command, port: 8000, release: false, libraries: [], target: null, arguments: []};
-  while (rest.length && !request.target) takeWord(request, rest);
-  if (!request.target || (command === 'serve' && request.arguments.length)) throw new Error(usage);
-  return request;
+// The loop's request, with every path made absolute: `serve PORT APP` or
+// `watch SOURCE DIRECTORY ... -- ARGUMENT ...`.
+function loopRequest([command, ...rest]) {
+  if (command === 'serve') {
+    const port = rest[0] === '--port' ? rest.splice(0, 2)[1] : '8000';
+    if (rest.length !== 1) throw new Error(usage);
+    return ['serve', port, resolve(rest[0])];
+  }
+  if (command !== 'watch') throw new Error(usage);
+  const directories = [];
+  while (rest[0] === '-I' && rest.length > 1) directories.push(resolve(rest.splice(0, 2)[1]));
+  if (!rest.length) throw new Error(usage);
+  return ['watch', resolve(rest[0]), ...directories, '--', ...rest.slice(1)];
 }
 
-// Takes one option, or the application or program, which ends the options;
-// a program's arguments follow it.
-function takeWord(request, rest) {
-  const word = rest.shift();
-  if (word === '--release') request.release = true;
-  else if (word === '--port' && request.command === 'serve' && rest.length) request.port = Number(rest.shift());
-  else if (word === '-I' && request.command === 'watch' && rest.length) request.libraries.push(resolve(rest.shift()));
-  else Object.assign(request, {target: resolve(word), arguments: rest});
+// The loop, the reload client, the runtime and the assembler, which the
+// driver builds when their sources change.
+function buildTools(root) {
+  const result = spawnSync(join(root, 'lofi'), ['tools'], {encoding: 'utf8'});
+  if (result.status !== 0) throw new Error(result.stderr.trim());
+  return JSON.parse(result.stdout);
 }
 
-// ---- Watching sources ----
+// ---- The loop ----
 
-// Editors save in steps, through temporary files, renames and backups, so a
-// build starts once changes have been quiet for 100 milliseconds. Their
-// temporary files never start one, and neither does anything under build/,
-// where the builds write.
-function ignored(root, path) {
-  const name = basename(path);
-  return path.startsWith(join(root, 'build') + sep) || path.split(sep).includes('.git')
-    || name.startsWith('.') || name.startsWith('#') || name.endsWith('~') || /^\d+$/.test(name);
+// The loop's standard error goes to a file, so the message of a panic,
+// which ends the call that raised it, can be read back and reported to the
+// loop as a failed build. The loop keeps its state between calls.
+async function startLoop(root, tools, request) {
+  mkdirSync(join(root, 'build/develop'), {recursive: true});
+  const errors = openSync(join(root, 'build/develop/errors.txt'), 'w+');
+  const wasi = new WASI({version: 'preview1', args: ['develop', root, tools.runtime, tools.client, ...request], env: process.env,
+                         preopens: {'/': '/'}, returnOnExit: true, stderr: errors});
+  const loop = {exports: null, staged: [], current: '', errors, read: 0, root};
+  const develop = {
+    'argument-character': code => { loop.current += String.fromCodePoint(code); },
+    'argument-end': () => { loop.staged.push(loop.current); loop.current = ''; },
+    command: (code, number) => commands[code](loop.staged.splice(0), number, loop) ?? 0,
+  };
+  const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), {...wasi.getImportObject(), 'snail.develop': develop});
+  Object.assign(loop, {exports: instance.exports, assemble: await createAssembler(readFileSync(tools.assembler))});
+  wasi.initialize(instance);
+  enter(loop, () => instance.exports.main());
+  return loop;
 }
 
-function watchSources(root, directories, changed) {
-  let timer = null;
-  for (const directory of directories)
-    watch(directory, {recursive: true}, (event, name) => {
-      if (!name || ignored(root, join(directory, name))) return;
-      clearTimeout(timer);
-      timer = setTimeout(changed, 100);
-    });
-}
-
-// ---- Building ----
-
-// Runs a command to completion, resolving to its status and everything it
-// printed.
-function capture(command, args) {
-  return new Promise(done => {
-    const child = spawn(command, args, {stdio: ['ignore', 'pipe', 'pipe']});
-    let output = '';
-    child.stdout.on('data', chunk => { output += chunk; });
-    child.stderr.on('data', chunk => { output += chunk; });
-    child.on('error', error => done({status: 1, output: error.message}));
-    child.on('close', status => done({status, output}));
+// Event 1 is a changed file, 2 the timer, 3 a build that panicked; the
+// event's text goes first, a character at a time.
+function send(loop, kind, text) {
+  enter(loop, () => {
+    for (const character of text) loop.exports.develop_character(character.codePointAt(0));
+    loop.exports.develop_event(kind);
   });
 }
 
-// One build at a time: changes during a build queue one more build after it.
-function serialize(build) {
-  let running = null, again = false;
-  return function rebuild() {
-    if (running) { again = true; return running; }
-    running = (async () => {
-      do { again = false; await build(); } while (again);
-      running = null;
-    })();
-    return running;
-  };
+function enter(loop, call) {
+  try {
+    call();
+    printErrors(loop);
+  } catch {
+    const message = printErrors(loop).trim().replace(/^lofi: /, '');
+    send(loop, 3, message || 'the build failed');
+  }
 }
 
-// The driver that `make site` runs: Chibi with the compiler's host
-// libraries, running scripts/build-app.scm.
-function buildApplication({root, release, target}, output) {
-  const chibi = process.env.CHIBI ?? 'chibi-scheme';
-  return capture(chibi, ['-h', process.env.LOFI_HEAP ?? '2G', '-I', join(root, 'host/chibi'), '-I', join(root, 'src'),
-                         join(root, 'scripts/build-app.scm'), root, ...(release ? ['--release'] : []), target, output]);
+function printErrors(loop) {
+  const size = fstatSync(loop.errors).size;
+  if (size <= loop.read) return '';
+  const bytes = Buffer.alloc(size - loop.read);
+  readSync(loop.errors, bytes, 0, bytes.length, loop.read);
+  loop.read = size;
+  process.stderr.write(bytes);
+  return bytes.toString();
 }
 
-// A build's manifest: each file it wrote, with a digest of its bytes. A page
-// compares the manifest it loaded with the latest one to learn what changed.
-async function manifestOf(directory) {
-  const manifest = {};
-  for (const name of await readdir(directory).catch(() => []))
-    manifest[name] = createHash('sha256').update(await readFile(join(directory, name))).digest('hex').slice(0, 16);
-  return manifest;
-}
+// ---- Commands ----
 
-function changedFiles(before, after) {
-  return Object.keys(after).filter(name => before[name] !== after[name]);
-}
-
-// ---- Events ----
-
-// Pages listen at /.lofi/events. Every event names the build's state,
-// `building`, `built` or `failed`, and carries the manifest of the build
-// being served; a page that connects first receives the latest event. So
-// any one event tells a page all it missed, whether it connected late or
-// the server restarted.
-function createEvents() {
-  const listeners = new Set();
-  let latest = null;
-  const write = (response, event) => response.write(`data: ${JSON.stringify(event)}\n\n`);
-  return {
-    listen(response) {
-      response.writeHead(200, {'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive'});
-      response.write('retry: 1000\n\n');
-      if (latest) write(response, latest);
-      listeners.add(response);
-      response.on('close', () => listeners.delete(response));
-    },
-    send(event) {
-      latest = event;
-      for (const response of listeners) write(response, event);
-    },
-  };
-}
+// Numbered as the `develop` effect's commands in src/lofi/develop.sld.
+const commands = [
+  null,
+  ([directory], _, loop) => {
+    watch(directory, {recursive: true}, (event, name) => { if (name) send(loop, 1, join(directory, name)); });
+  },
+  (_, milliseconds, loop) => {
+    clearTimeout(loop.timer);
+    loop.timer = setTimeout(() => send(loop, 2, ''), milliseconds);
+  },
+  ([text, module], _, loop) => {
+    try { writeFileSync(module, loop.assemble(readFileSync(text, 'utf8'))); return 0; }
+    catch (error) { console.error(error.message); return 1; }
+  },
+  ([routes, name], port, loop) => serve(loop, JSON.parse(readFileSync(routes, 'utf8')), name, port),
+  ([event], _, loop) => broadcast(loop, event),
+  ([manifest, ...args], _, loop) => runProgram(loop, manifest, args),
+  ([path]) => { try { return createHash('sha256').update(readFileSync(path)).digest().readInt32LE(0); } catch { return 0; } },
+  () => Math.round(performance.now()) | 0,
+  ([directory, output]) => { let names = []; try { names = readdirSync(directory); } catch {} writeFileSync(output, names.join('\n')); },
+  ([directory]) => { mkdirSync(directory, {recursive: true}); },
+];
 
 // ---- Serving ----
 
-const contentTypes = {
-  '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript', '.js': 'text/javascript', '.css': 'text/css',
-  '.wasm': 'application/wasm', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
-  '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8',
-};
-
-// Every page gets the live reload client and the manifest of the build it
-// came from. Before the first build succeeds there is no index.html, so a
-// placeholder page with an empty manifest waits for one.
-const placeholder = '<!doctype html>\n<meta charset="utf-8">\n<title>Building</title>\n<body></body>\n';
-
-function withClient(html, manifest) {
-  const tags = `<script type="application/json" id="lofi-manifest">${JSON.stringify(manifest)}</script>`
-    + '<script type="module" src="/.lofi/reload.mjs"></script>';
-  return html.includes('</body>') ? html.replace('</body>', `${tags}</body>`) : html + tags;
-}
-
-// Files come only from `directory`, and nothing is cached, so a page always
-// fetches what the latest build wrote.
-async function serveFile(response, directory, pathname, manifest) {
-  const path = join(directory, pathname === '/' ? 'index.html' : decodeURIComponent(pathname));
-  if (relative(directory, path).startsWith('..')) { response.writeHead(403).end(); return; }
-  const headers = {'Content-Type': contentTypes[extname(path)] ?? 'application/octet-stream', 'Cache-Control': 'no-store'};
-  const bytes = await readFile(path).catch(() => null);
-  if (extname(path) === '.html') response.writeHead(200, headers).end(withClient(bytes?.toString() ?? placeholder, bytes ? manifest : {}));
-  else if (bytes) response.writeHead(200, headers).end(bytes);
-  else response.writeHead(404, {'Cache-Control': 'no-store'}).end();
-}
-
-// Serves an application from build/serve/NAME and builds it again whenever
-// its directory, the standard library or the browser host changes. The
-// site starts from what an earlier server left there.
-async function serve(request) {
-  const output = join(request.root, 'build/serve', basename(request.target));
-  const site = {events: createEvents(), manifest: await manifestOf(output)};
-  const rebuild = serialize(() => buildSite(request, output, site));
-  await rebuild();
-  listen(request, output, site);
-  watchSources(request.root, [request.target, join(request.root, 'lib'), join(request.root, 'src/app')], rebuild);
-}
-
-// A failed build leaves the manifest of the last one that succeeded.
-async function buildSite(request, output, site) {
-  const started = performance.now(), previous = site.manifest;
-  site.events.send({state: 'building', manifest: previous});
-  const {status, output: printed} = await buildApplication(request, output);
-  const milliseconds = Math.round(performance.now() - started);
-  if (status !== 0) { console.error(printed.trimEnd()); site.events.send({state: 'failed', manifest: previous, message: printed.trimEnd()}); return; }
-  site.manifest = await manifestOf(output);
-  const changed = changedFiles(previous, site.manifest);
-  console.log(`built ${basename(request.target)} in ${milliseconds} ms${changed.length ? `: ${changed.join(', ')}` : ', unchanged'}`);
-  site.events.send({state: 'built', manifest: site.manifest, milliseconds});
-}
-
-function listen({root, target, port}, output, site) {
+// Files come from the routes the loop wrote: exact paths, then directories
+// by their prefix. Nothing is cached. A page that opens the event stream
+// gets the latest event first.
+function serve(loop, routes, name, port) {
+  loop.clients = new Set();
   const server = createServer((incoming, response) => {
-    const {pathname} = new URL(incoming.url, 'http://localhost');
-    if (pathname === '/.lofi/events') site.events.listen(response);
-    else if (pathname === '/.lofi/reload.mjs') serveFile(response, join(root, 'src/app'), '/reload.mjs', {});
-    else serveFile(response, output, pathname, site.manifest);
+    const path = decodeURIComponent(new URL(incoming.url, 'http://localhost').pathname);
+    if (path === routes.events) return openEvents(loop, response);
+    const file = routes.files[path] ?? directoryFile(routes.directories, path);
+    if (!file) return response.writeHead(404, {'Cache-Control': 'no-store'}).end();
+    try {
+      const bytes = readFileSync(file);
+      response.writeHead(200, {'Content-Type': routes.types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store'}).end(bytes);
+    } catch { response.writeHead(404, {'Cache-Control': 'no-store'}).end(); }
   });
-  server.listen(port, '127.0.0.1', () => console.log(`serving ${basename(target)} at http://127.0.0.1:${server.address().port}/`));
+  server.listen(port, '127.0.0.1', () => console.log(`serving ${name} at http://127.0.0.1:${server.address().port}/`));
+}
+
+function directoryFile(directories, path) {
+  const prefix = Object.keys(directories).sort((a, b) => b.length - a.length).find(entry => path.startsWith(entry));
+  if (!prefix) return null;
+  const file = join(directories[prefix], path.slice(prefix.length));
+  return relative(directories[prefix], file).startsWith('..') ? null : file;
+}
+
+function openEvents(loop, response) {
+  response.writeHead(200, {'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive'});
+  response.write('retry: 1000\n\n');
+  if (loop.latest) writeEvent(response, loop.latest);
+  loop.clients.add(response);
+  response.on('close', () => loop.clients.delete(response));
+}
+
+function broadcast(loop, event) {
+  loop.latest = event;
+  for (const response of loop.clients ?? []) writeEvent(response, event);
+}
+
+function writeEvent(response, event) {
+  response.write(`${event.split('\n').map(line => `data: ${line}`).join('\n')}\n\n`);
 }
 
 // ---- Running programs ----
 
-// Builds the program with `lofi compile` and runs it as `lofi run` would.
-// When a new build succeeds, a program still running is stopped, and the
-// new one starts once it has exited, so a server can bind its port again;
-// a failed build leaves it running.
-function watchProgram(request) {
-  const program = join(request.root, 'build/lofi-watch/program.wasm');
-  const running = {child: null};
-  const rebuild = serialize(async () => {
-    if (await compileProgram(request, program)) await restartProgram(request, program, running);
-  });
-  rebuild();
-  watchSources(request.root, [dirname(request.target), ...request.libraries, join(request.root, 'lib')], rebuild);
-}
-
-async function compileProgram({root, release, libraries, target}, program) {
-  console.error(`\x1b[2m-- building ${relative(process.cwd(), target)}\x1b[0m`);
-  const flags = [...(release ? ['--release'] : []), ...libraries.flatMap(directory => ['-I', directory])];
-  const {status, output} = await capture(join(root, 'lofi'), ['compile', ...flags, '-o', program, target]);
-  if (status !== 0) process.stderr.write(output);
-  return status === 0;
-}
-
-// A running program's child is cleared when it exits, so one that is set
-// has an exit still to come.
-async function restartProgram({root, arguments: args}, program, running) {
-  if (running.child) { const exited = once(running.child, 'exit'); running.child.kill(); await exited; }
-  running.child = spawn(process.env.NODE ?? 'node', ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), program, ...args],
-                        {stdio: 'inherit'});
-  running.child.on('exit', (code, signal) => {
-    running.child = null;
-    if (!signal) console.error(`\x1b[2m-- exited with status ${code}\x1b[0m`);
-  });
+// A program still running is stopped, and the new run starts once it has
+// exited, so a server can bind its port again.
+function runProgram(loop, manifest, args) {
+  const previous = loop.child;
+  const start = () => {
+    const child = spawn(process.env.NODE ?? 'node', ['--no-warnings', join(loop.root, 'scripts/run-lofi.mjs'), manifest, ...args], {stdio: 'inherit'});
+    child.on('exit', (code, signal) => { if (!signal) console.error(`\x1b[2m-- exited with status ${code}\x1b[0m`); });
+    loop.child = child;
+  };
+  if (previous && previous.exitCode === null && previous.signalCode === null) { previous.once('exit', start); previous.kill(); }
+  else start();
 }
 
 try {
-  const request = parseRequest(process.argv.slice(2));
-  await (request.command === 'serve' ? serve(request) : watchProgram(request));
+  const [root, ...request] = process.argv.slice(2);
+  const loop = await startLoop(root, buildTools(root), loopRequest(request));
+  process.on('exit', () => closeSync(loop.errors));
 } catch (error) {
   console.error(`lofi: ${error.message}`);
   process.exitCode = 1;

@@ -50,8 +50,9 @@ python3 -m http.server 4191 --directory build/siegework
 ```
 
 While you change it, `./lofi serve apps/siegework` serves it at
-<http://127.0.0.1:8000/> and swaps each rebuilt module into the open page,
-which keeps the game and the camera.
+<http://127.0.0.1:8000/>, rebuilds only the libraries you edit, and relinks
+them into the open page, which keeps the game and the camera. `make ide`
+builds the same loop into a page with an editor, in `build/ide`.
 
 ## Reading on
 

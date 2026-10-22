@@ -22,9 +22,10 @@ proposed language changes separate from implemented behavior.
 
 ## Development loop
 
-`lofi serve` swaps a rebuilt module into a running page by restoring the
-old module's save into it, and `lofi watch` runs a program again after
-each edit. Not implemented:
+`lofi serve` compiles only the libraries an edit reaches and relinks a
+running page from the first changed module, handing over its state, and
+`lofi watch` runs a program again after each edit; `make ide` runs the same
+loop in a browser (doc/toolchain.md). Not implemented:
 
 - [ ] Migrations between Save types, so a reload survives a schema change:
   an application would name a function from its old Save to its new one,
@@ -32,8 +33,9 @@ each edit. Not implemented:
 - [ ] Reloading long-running programs other than pages, such as servers once
   a `net` effect exists, with the same save and restore contract instead
   of a restart.
-- [ ] Building only what changed; each build compiles the whole program,
-  about a second and a half for Siegework.
+- [ ] Keeping the build cache on disk, so a cold start does not compile
+  everything once.
+- [ ] `(lofi wasm)` in browser hosts, and notebooks of compiled cells on it.
 
 ## Siegework
 
