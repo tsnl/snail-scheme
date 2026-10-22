@@ -1,33 +1,79 @@
-// The development loop in a browser worker: the same program `lofi serve`
-// runs (bootstrap/develop.sld), linked from its modules, with the runtime
-// keeping files in memory (src/runtime/src/files.rs). The page sends edits
-// and asks for the files builds write; the loop's events go back to it. This
-// file binds the loop's commands to the worker: timers, memory files, the
-// assembler and messages. It decides nothing.
+// The development loop in a browser worker: src/ide/develop.sld, linked
+// from its modules, which is the loop `lofi serve` runs with its files here.
+// The worker holds every file the loop can open: the standard library under
+// /lib, the project under /project as the editor has it, and what builds
+// write. This file binds the loop's `files` effect and `develop` commands to
+// those files, timers, the assembler and messages to the page. It decides
+// nothing.
 import {instantiateRuntime, linkModules, loadManifest, runModules} from './load.mjs';
 import {createAssembler} from './assemble.mjs';
 
-// ---- Memory files ----
+const encoder = new TextEncoder(), decoder = new TextDecoder();
 
-// Paths and contents cross through the runtime's transfer buffer.
-function memoryFiles(runtime) {
-  const encoder = new TextEncoder();
-  const exports = runtime.exports;
+// ---- Files ----
+
+// The `files` effect: (lofi io)'s file operations over `files`, a map from
+// path to bytes. A path arrives a character at a time. An input port reads
+// the file as it was opened, a UTF-8 character or a byte at a time; an
+// output port gathers text and bytes in order and stores them when it
+// closes.
+function filesImports(files) {
+  const ports = new Map();
+  let path = '', next = 1;
+  const open = port => { ports.set(next, port); return next++; };
   return {
-    put(path, bytes) {
-      const name = encoder.encode(path);
-      const address = exports['snail:files/buffer'](name.length + bytes.length);
-      new Uint8Array(exports.memory.buffer, address, name.length + bytes.length).set([...name, ...bytes]);
-      exports['snail:files/put'](name.length, bytes.length);
+    'path-begin': () => { path = ''; },
+    'path-character': code => { path += String.fromCodePoint(code); },
+    exists: () => (files.has(path) ? 1 : 0),
+    'open-input': () => {
+      if (!files.has(path)) throw new Error(`${path}: no such file`);
+      return open({bytes: files.get(path), at: 0});
     },
-    get(path) {
-      const name = encoder.encode(path);
-      new Uint8Array(exports.memory.buffer, exports['snail:files/buffer'](name.length), name.length).set(name);
-      const length = exports['snail:files/get'](name.length);
-      if (length < 0) return null;
-      return new Uint8Array(exports.memory.buffer, exports['snail:files/buffer'](length), length).slice();
-    },
+    'open-output': () => open({path, chunks: [], text: ''}),
+    read: port => readCharacter(ports.get(port)),
+    'read-byte': port => { const input = ports.get(port); return input.at < input.bytes.length ? input.bytes[input.at++] : -1; },
+    write: (port, code) => { ports.get(port).text += String.fromCodePoint(code); },
+    'write-byte': (port, byte) => { const output = ports.get(port); keepText(output); output.chunks.push(Uint8Array.of(byte)); },
+    close: port => { const output = ports.get(port); if ('chunks' in output) files.set(output.path, joined(output)); ports.delete(port); },
   };
+}
+
+// The next character of UTF-8 input, or -1 at its end.
+function readCharacter(input) {
+  const {bytes} = input;
+  if (input.at >= bytes.length) return -1;
+  const first = bytes[input.at], length = first < 0x80 ? 1 : first < 0xe0 ? 2 : first < 0xf0 ? 3 : 4;
+  let code = first & [0, 0x7f, 0x1f, 0x0f, 0x07][length];
+  for (let i = 1; i < length; i++) code = (code << 6) | (bytes[input.at + i] & 0x3f);
+  input.at += length;
+  return code;
+}
+
+function keepText(output) {
+  if (output.text) output.chunks.push(encoder.encode(output.text));
+  output.text = '';
+}
+
+function joined(output) {
+  keepText(output);
+  const bytes = new Uint8Array(output.chunks.reduce((total, chunk) => total + chunk.length, 0));
+  output.chunks.reduce((at, chunk) => { bytes.set(chunk, at); return at + chunk.length; }, 0);
+  return bytes;
+}
+
+// The names in a directory, as the desktop host lists them: files and
+// subdirectories, one level down.
+function listing(files, directory) {
+  const prefix = `${directory}/`, names = new Set();
+  for (const path of files.keys()) if (path.startsWith(prefix)) names.add(path.slice(prefix.length).split('/')[0]);
+  return [...names].join('\n');
+}
+
+// FNV-1a over the bytes, which change when the file does.
+function digest(bytes) {
+  let hash = 0x811c9dc5;
+  for (const byte of bytes ?? []) hash = Math.imul(hash ^ byte, 0x01000193);
+  return hash | 0;
 }
 
 // ---- WASI ----
@@ -36,30 +82,31 @@ function memoryFiles(runtime) {
 // which become messages; the runtime answers the rest with ENOSYS.
 function wasiImports(loop) {
   const memory = () => new DataView(loop.runtime.exports.memory.buffer);
-  const encoded = loop.arguments.map(argument => new TextEncoder().encode(`${argument}\0`));
+  const bytes = (pointer, length) => new Uint8Array(loop.runtime.exports.memory.buffer, pointer, length);
+  const encoded = loop.arguments.map(argument => encoder.encode(`${argument}\0`));
   return {
     args_sizes_get(count, size) {
       memory().setUint32(count, encoded.length, true);
-      memory().setUint32(size, encoded.reduce((total, bytes) => total + bytes.length, 0), true);
+      memory().setUint32(size, encoded.reduce((total, argument) => total + argument.length, 0), true);
       return 0;
     },
     args_get(pointers, buffer) {
-      for (const bytes of encoded) {
+      for (const argument of encoded) {
         memory().setUint32(pointers, buffer, true);
-        new Uint8Array(loop.runtime.exports.memory.buffer, buffer, bytes.length).set(bytes);
+        bytes(buffer, argument.length).set(argument);
         pointers += 4;
-        buffer += bytes.length;
+        buffer += argument.length;
       }
       return 0;
     },
     environ_sizes_get(count, size) { memory().setUint32(count, 0, true); memory().setUint32(size, 0, true); return 0; },
     environ_get() { return 0; },
-    random_get(pointer, length) { crypto.getRandomValues(new Uint8Array(loop.runtime.exports.memory.buffer, pointer, length)); return 0; },
+    random_get(pointer, length) { crypto.getRandomValues(bytes(pointer, length)); return 0; },
     fd_write(fd, iovs, count, written) {
       let total = 0, text = '';
       for (let i = 0; i < count; i++) {
-        const pointer = memory().getUint32(iovs + 8 * i, true), length = memory().getUint32(iovs + 8 * i + 4, true);
-        text += new TextDecoder().decode(new Uint8Array(loop.runtime.exports.memory.buffer, pointer, length));
+        const length = memory().getUint32(iovs + 8 * i + 4, true);
+        text += decoder.decode(bytes(memory().getUint32(iovs + 8 * i, true), length));
         total += length;
       }
       if (fd === 2) loop.errors += text;
@@ -82,93 +129,110 @@ function send(loop, kind, text) {
   });
 }
 
+// A panic prints its message before it exits; a file the loop cannot open
+// throws from here, with its own.
 function enter(loop, call) {
   loop.errors = '';
   try {
     call();
-  } catch {
-    send(loop, 3, loop.errors.trim().replace(/^lofi: /, '') || 'the build failed');
+  } catch (error) {
+    send(loop, 3, loop.errors.trim().replace(/^lofi: /, '') || error.message);
   }
 }
 
-// Numbered as the `develop` effect's commands in src/lofi/develop.sld; a
-// browser watches nothing and runs no programs, and its directories need
-// no making.
+// Numbered as the `develop` effect's commands in src/lofi/develop.sld. Edits
+// arrive as messages, so nothing is watched; a browser runs no programs and
+// its directories need no making.
 function commands(loop) {
+  const {files} = loop;
   return [
     null,
     () => {},
     (_, milliseconds) => { clearTimeout(loop.timer); loop.timer = setTimeout(() => send(loop, 2, ''), milliseconds); },
     ([text, module]) => {
-      try { loop.files.put(module, loop.assemble(new TextDecoder().decode(loop.files.get(text)))); return 0; }
+      try { files.set(module, loop.assemble(decoder.decode(files.get(text)))); return 0; }
       catch (error) { postMessage({type: 'log', text: error.message, error: true}); return 1; }
     },
-    ([routes]) => { loop.routes = JSON.parse(new TextDecoder().decode(loop.files.get(routes))); },
-    ([event]) => postMessage({type: 'event', text: event}),
-    () => {},
-    ([path]) => digest(loop.files.get(path)),
+    ([routes]) => { loop.routes = JSON.parse(decoder.decode(files.get(routes))); },
+    ([event]) => broadcast(loop, event),
+    () => 1,
+    ([path]) => digest(files.get(path)),
     () => Math.round(performance.now()) | 0,
-    ([directory, output]) => loop.files.put(output, new TextEncoder().encode(listing(loop, directory))),
+    ([directory, output]) => { files.set(output, encoder.encode(listing(files, directory))); },
     () => {},
   ];
 }
 
-// FNV-1a over the bytes, which change when the file does.
-function digest(bytes) {
-  let hash = 0x811c9dc5;
-  for (const byte of bytes ?? []) hash = Math.imul(hash ^ byte, 0x01000193);
-  return hash | 0;
+// Each build names a module's file after its text, so the files of earlier
+// builds pile up. Once a build is served, the modules of it and the build
+// before stay, the latter for a relink that is still reading them.
+function broadcast(loop, event) {
+  postMessage({type: 'event', text: event});
+  if (!event.startsWith('(built')) return;
+  const manifest = JSON.parse(decoder.decode(loop.files.get(routeFile(loop.routes, '/modules.json'))));
+  const current = new Set(manifest.modules.map(entry => routeFile(loop.routes, entry.file)));
+  const directory = loop.routes.directories['/modules/'];
+  for (const path of loop.files.keys()) {
+    if (path.startsWith(directory) && !current.has(path) && !loop.previous.has(path)) loop.files.delete(path);
+  }
+  loop.previous = current;
 }
 
-function listing(loop, directory) {
-  const prefix = `${directory}/`;
-  return [...loop.paths].filter(path => path.startsWith(prefix) && !path.slice(prefix.length).includes('/'))
-    .map(path => path.slice(prefix.length)).join('\n');
-}
-
-async function startLoop({files, application}) {
+// The library's and the project's files go in before the loop starts,
+// which builds first.
+async function startLoop({library, project}) {
   const fetchBytes = async url => new Uint8Array(await (await fetch(url)).arrayBuffer());
   const toolchain = new URL('toolchain/', import.meta.url);
-  // The repository's root is empty, so the library is at /lib.
-  const loop = {arguments: ['develop', '', '/runtime.wasm', '/reload.wasm', 'serve', '0', application], errors: '', paths: new Set()};
-  const loaded = await loadManifest(file => fetchBytes(new URL(file, toolchain)), 'modules.json');
+  const loop = {arguments: ['develop', '', '/runtime.wasm', '/reload.wasm', 'serve', '0', '/project'], errors: '', files: new Map(),
+                previous: new Set(), staged: [], current: ''};
+  for (const [path, text] of Object.entries(library)) loop.files.set(path, encoder.encode(text));
+  for (const [path, text] of Object.entries(project)) loop.files.set(`/project/${path}`, encoder.encode(text));
+  loop.files.set('/runtime.wasm', await fetchBytes(new URL('runtime.wasm', toolchain)));
+  loop.assemble = await createAssembler(await fetchBytes(new URL('assembler.wasm', import.meta.url)));
+  await linkLoop(loop, await loadManifest(file => fetchBytes(new URL(file, toolchain)), 'modules.json'));
+  return loop;
+}
+
+// The loop's modules, linked with the runtime and the worker's bindings,
+// then run, which starts the loop.
+async function linkLoop(loop, loaded) {
   loop.runtime = await instantiateRuntime(loaded.runtime, {wasi_snapshot_preview1: wasiImports(loop)});
   loop.runtime.exports._initialize();
-  loop.runtime.exports['snail:files/use-memory']();
-  loop.files = memoryFiles(loop.runtime);
-  for (const [path, text] of Object.entries(files)) { loop.files.put(path, new TextEncoder().encode(text)); loop.paths.add(path); }
-  loop.files.put('/runtime.wasm', await fetchBytes(new URL('runtime.wasm', toolchain)));
-  loop.assemble = await createAssembler(await fetchBytes(new URL('assembler.wasm', import.meta.url)));
+  loop.commands = commands(loop);
   const develop = {
     'argument-character': code => { loop.current += String.fromCodePoint(code); },
     'argument-end': () => { loop.staged.push(loop.current); loop.current = ''; },
     command: (code, number) => loop.commands[code](loop.staged.splice(0), number) ?? 0,
   };
-  Object.assign(loop, {staged: [], current: '', commands: commands(loop)});
-  const linked = await linkModules(loop.runtime, loaded.modules, {'snail.develop': develop});
+  const linked = await linkModules(loop.runtime, loaded.modules, {'snail.develop': develop, 'snail.files': filesImports(loop.files)});
   loop.main = linked.get('main').exports;
   enter(loop, () => runModules(linked, loaded.modules.map(entry => entry.name)));
-  return loop;
 }
 
 // ---- Messages ----
 
-// The routes the loop served map a page's request to a memory file, as a
-// server's would.
+// The routes the loop served map a page's request to a file, as a server's
+// would.
 function routeFile(routes, path) {
   if (routes.files[path]) return routes.files[path];
   const prefix = Object.keys(routes.directories).sort((a, b) => b.length - a.length).find(entry => path.startsWith(entry));
   return prefix ? routes.directories[prefix] + path.slice(prefix.length) : null;
 }
 
-let loop = null;
-onmessage = async ({data}) => {
-  if (data.type === 'start') loop = await startLoop(data);
-  else if (data.type === 'edit') {
-    loop.files.put(data.path, new TextEncoder().encode(data.text));
-    send(loop, 1, data.path);
-  } else if (data.type === 'read') {
-    const file = routeFile(loop.routes, data.path);
-    postMessage({type: 'read', id: data.id, bytes: file ? loop.files.get(file) : null});
+// The IDE starts the loop and sends each change to a project file, saved or
+// not; its preview connects a port, through which it reads the files builds
+// write. Messages that arrive while the loop starts wait for it, in order.
+let started = null;
+onmessage = async ({data, ports}) => {
+  if (data.type === 'start') { started = startLoop(data); return; }
+  const loop = await started;
+  if (data.type === 'write') {
+    loop.files.set(`/project/${data.path}`, encoder.encode(data.text));
+    send(loop, 1, `/project/${data.path}`);
+  } else if (data.type === 'connect') {
+    ports[0].onmessage = ({data: request}) => {
+      const file = routeFile(loop.routes, request.path), bytes = file ? loop.files.get(file) : null;
+      ports[0].postMessage({id: request.id, bytes: bytes ?? null});
+    };
   }
 };

@@ -3,18 +3,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lofi IDE</title>
-<link rel="stylesheet" href="./style.css">
-<link rel="stylesheet" href="./app.css">
 <link rel="stylesheet" href="./ide.css">
 <body>
-  <section class="editor">
-    <select id="file" aria-label="Library"></select>
-    <textarea id="source" spellcheck="false" aria-label="Source"></textarea>
-  </section>
-  <section class="stage">
-    <canvas id="view" tabindex="0" aria-label="Application"></canvas>
-    <div id="overlay"></div>
-  </section>
+  <header class="toolbar">
+    <button id="toggle-files" class="tool" aria-pressed="true" title="Files (Ctrl+B)">☰</button>
+    <span id="project" class="project"></span>
+    <button id="open-folder" class="tool" title="Open a project folder">Open folder…</button>
+    <input id="folder-input" type="file" webkitdirectory hidden>
+    <span id="status" class="status" role="status"></span>
+    <button id="format" class="tool" title="Format (Ctrl+Shift+F)">Format</button>
+    <button id="split-right" class="tool" title="Split right (Ctrl+\)">⇥</button>
+    <button id="split-down" class="tool" title="Split down (Ctrl+Shift+\)">⤓</button>
+    <button id="toggle-preview" class="tool" aria-pressed="true" title="Preview (Ctrl+Alt+B)">▶</button>
+  </header>
+  <main class="workspace">
+    <nav id="files" class="dock files" aria-label="Files"></nav>
+    <div class="resizer" data-dock="files"></div>
+    <section id="panes" class="panes" aria-label="Editors"></section>
+    <div class="resizer" data-dock="preview"></div>
+    <aside class="dock preview"><iframe id="preview" title="Preview"></iframe></aside>
+  </main>
   <script type="module" src="./ide.mjs"></script>
 </body>
 </html>

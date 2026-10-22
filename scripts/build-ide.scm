@@ -1,10 +1,11 @@
-;; Packages the browser IDE around an application, as a static site:
+;; Packages the browser IDE as a static site, with an application as the
+;; project it opens until another is chosen:
 ;;   build-ide ROOT APP-DIRECTORY OUTPUT-DIRECTORY
-;; The site holds the development loop compiled one library at a time, with
-;; the runtime, the reload client and the assembler; the browser host and
-;; the IDE's page; the application's public files; and files.json, the text
-;; of the standard library and of the application, which the toolchain
-;; keeps in memory.
+;; The site holds the IDE's development loop (src/ide/develop.sld) compiled
+;; one library at a time, with the runtime, the reload client, the assembler
+;; and the formatter; the browser host and the IDE's pages; files.json, the
+;; text of the standard library; and sample.json, the application's text
+;; files.
 (import
  (scheme base)
  (scheme char)
@@ -14,13 +15,15 @@
  (chibi filesystem)
  (chibi pathname)
  (only (chibi string) string-suffix?)
+ (only (srfi 1) any filter)
  (lofi build))
 
 (define host-files
   '("host.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css" "reload-client.mjs"))
 
 (define ide-files
-  '("index.html" "ide.mjs" "ide.css" "toolchain.mjs"))
+  '("index.html" "ide.mjs" "ide.css" "editor.mjs" "panes.mjs" "project.mjs" "formatter.mjs" "preview.html" "preview.mjs"
+    "toolchain.mjs"))
 
 (define (copy-file! from to)
   (let ((bytes (call-with-port (open-binary-input-file from) (lambda (port) (read-bytevector (file-size from) port)))))
@@ -40,53 +43,58 @@
 
 (define (package root app output)
   (create-directory* output)
-  (build-modules root (list (path-join root "src") (path-join root "lib")) (path-join root "bootstrap/develop.sld") (path-join output "toolchain"))
-  (let ((tools (build-tools root)))
+  (build-modules root (list (path-join root "src") (path-join root "lib")) (path-join root "src/ide/develop.sld") (path-join output "toolchain"))
+  (let ((tools (build-tools root)) (formatter (path-join root "build/ide-tools/format.wasm")))
+    (create-directory* (path-join root "build/ide-tools"))
+    (build-program root (list (path-join root "lib")) (path-join root "src/ide/format.sld") formatter #f)
+    (copy-file! formatter (path-join output "format.wasm"))
     (copy-file! (cdr (assoc "client" tools)) (path-join output "reload.wasm"))
     (copy-file! (cdr (assoc "assembler" tools)) (path-join output "assembler.wasm")))
   (copy-file! (path-join root "scripts/assemble.mjs") (path-join output "assemble.mjs"))
   (for-each (lambda (file) (copy-file! (path-join root "src/app" file) (path-join output file))) host-files)
   (for-each (lambda (file) (copy-file! (path-join root "src/ide" file) (path-join output file))) ide-files)
-  (for-each (lambda (file) (copy-file! (path-join app "public" file) (path-join output file))) (directory-names (path-join app "public")))
-  (call-with-output-file (path-join output "files.json") (lambda (port) (write-string (files-json root app) port)))
+  (write-json (path-join output "files.json")
+              (files-json (map (lambda (file) (cons (string-append "/lib/" file) (path-join root "lib" file)))
+                               (filter (lambda (file) (string-suffix? ".sld" file)) (tree-files (path-join root "lib") "")))))
+  (write-json (path-join output "sample.json")
+              (string-append "{\"name\": " (json-string (path-strip-directory app)) ", \"files\": "
+                             (files-json (map (lambda (file) (cons file (path-join app file))) (filter text-file? (tree-files app ""))))
+                             "}"))
   0)
 
-;; The library's and the application's text by the path the toolchain reads
-;; them at: /lib/... and /app/....
-(define (files-json root app)
-  (let ((entries (append (map (lambda (file) (cons (string-append "/lib/" file) (path-join root "lib" file))) (sld-files (path-join root "lib") ""))
-                         (map (lambda (file) (cons (string-append "/app/" file) (path-join app file)))
-                              (append '("main.sld" "index.html") (sld-files app "src")
-                                      (map (lambda (name) (string-append "public/" name)) (directory-names (path-join app "public"))))))))
-    (string-append "{"
-                   (let loop ((entries entries) (out ""))
-                     (if (null? entries)
-                         out
-                         (loop (cdr entries) (string-append out (if (string=? out "") "" ",\n") (json-string (caar entries)) ": "
-                                                            (json-string (read-text (cdar entries)))))))
-                   "}\n")))
+(define (write-json path text)
+  (call-with-output-file path (lambda (port) (write-string text port) (newline port))))
 
-;; The .sld files under `directory`/`relative`, as paths relative to
-;; `directory`.
-(define (sld-files directory relative)
+;; Each entry's name with the text of the file it names.
+(define (files-json entries)
+  (string-append "{"
+                 (let loop ((entries entries) (out ""))
+                   (if (null? entries)
+                       out
+                       (loop (cdr entries) (string-append out (if (string=? out "") "" ",\n") (json-string (caar entries)) ": "
+                                                          (json-string (read-text (cdar entries)))))))
+                 "}"))
+
+;; The files a project keeps, as the IDE reads a folder.
+(define (text-file? path)
+  (any (lambda (suffix) (string-suffix? suffix path)) '(".sld" ".scm" ".html" ".css" ".js" ".mjs" ".json" ".svg" ".txt" ".md")))
+
+;; The files under `directory`/`relative`, as paths relative to
+;; `directory`, leaving out hidden ones and build output.
+(define (tree-files directory relative)
   (let loop ((names (directory-names (path-join directory relative))) (out '()))
     (if (null? names)
         out
         (let ((path (if (string=? relative "") (car names) (string-append relative "/" (car names)))))
           (loop (cdr names)
-                (cond ((file-directory? (path-join directory path)) (append out (sld-files directory path)))
-                      ((string-suffix? ".sld" path) (append out (list path)))
-                      (else out)))))))
+                (cond ((or (char=? (string-ref (car names) 0) #\.) (string=? (car names) "build")) out)
+                      ((file-directory? (path-join directory path)) (append out (tree-files directory path)))
+                      (else (append out (list path)))))))))
 
 (define (directory-names directory)
   (if (file-directory? directory)
-      (filter-names (directory-files directory))
+      (filter (lambda (name) (not (member name '("." "..")))) (directory-files directory))
       '()))
-
-(define (filter-names names)
-  (cond ((null? names) '())
-        ((member (car names) '("." "..")) (filter-names (cdr names)))
-        (else (cons (car names) (filter-names (cdr names))))))
 
 (define (json-string text)
   (let ((port (open-output-string)))

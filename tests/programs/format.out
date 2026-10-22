@@ -1,0 +1,37 @@
+(define (f x)
+  (let loop ((i 0) (acc (Nil)))
+    (if (< i x)
+        (loop (+ i 1)
+              (Cons i acc))
+        acc)))
+(import
+ (lofi base)
+ (lofi io)
+ (only (lofi table) empty-table))
+(struct Point
+  ((x F64)
+   (y F64)) (deriving Show))
+(match value
+  ((Some x) (display x))
+  (_ (unit)))
+(handle console
+    ((console-write (lambda (c) (unit))))
+  (display "a
+b")
+  (display #\())
+(foo bar
+     baz
+     qux)
+(foo
+ bar
+ baz)
+;;; three semicolons stay
+   ;;; even indented
+(let* ((a 1)
+       (b 2))
+  (+ a b))
+(foo bar
+     baz
+  qux)
+pkkkkkk.pddddd..p.ccccccccc...p..n..pp
+pk.ddddd.pkk.ttt.ttttttpp.ssssss
