@@ -14,6 +14,7 @@
    read-line
    fs
    read-file
+   read-bytes
    write-file
    file-exists?
    command-line)
@@ -79,6 +80,7 @@
        (open-input (-> I32))
        (open-output (-> I32))
        (port-read (-> I32 I32))
+       (port-read-byte (-> I32 I32))
        (port-write (-> I32 String Unit))
        (port-close (-> I32 Unit)))
       (host "snail.library"
@@ -88,6 +90,7 @@
              (open-input "snail:io/open-input-file")
              (open-output "snail:io/open-output-file")
              (port-read "snail:io/read-character")
+             (port-read-byte "snail:io/read-byte")
              (port-write "snail:io/write-string")
              (port-close "snail:io/close"))))
 
@@ -110,11 +113,53 @@
     (define (read-file path)
       (send-path path)
       (let ((port (open-input)))
-        (let loop ((chars (Nil)))
-          (let ((code (port-read port)))
-            (if (= code -1)
-                (begin (port-close port) (list->string (reverse chars)))
-                (loop (Cons (i32->char code) chars)))))))
+        (let ((chars (drain (lambda () (let ((code (port-read port))) (if (= code -1) (None) (Some (i32->char code))))))))
+          (port-close port)
+          (vector->string chars))))
+
+    ;; The whole file as bytes, for binary files such as images.
+    (: read-bytes (-> String Bytes ! fs))
+    (define (read-bytes path)
+      (send-path path)
+      (let ((port (open-input)))
+        (let ((bytes (drain (lambda () (let ((byte (port-read-byte port))) (if (= byte -1) (None) (Some (i32->u8 byte))))))))
+          (port-close port)
+          bytes)))
+
+    ;; Everything `next` gives until it gives None. Items gather a chunk at a
+    ;; time, and the chunks are joined at the end, so a file of millions of
+    ;; characters, such as a generated library, costs a few bytes for each
+    ;; rather than a list cell.
+    (define chunk-size 4096)
+
+    (: drain (All (T e) (-> (-> (Option T) ! e) (Vector T) ! e)))
+    (define (drain next)
+      (let loop ((chunks (Nil)))
+        (let ((chunk (next-chunk next)))
+          (if (< (vector-length chunk) chunk-size)
+              (joined (vector-from (reverse (Cons chunk chunks))))
+              (loop (Cons chunk chunks))))))
+
+    ;; Up to `chunk-size` items, fewer only at the end.
+    (: next-chunk (All (T e) (-> (-> (Option T) ! e) (Vector T) ! e)))
+    (define (next-chunk next)
+      (let loop ((items (Nil)) (count 0))
+        (if (= count chunk-size)
+            (vector-from (reverse items))
+            (match (next)
+              ((Some item) (loop (Cons item items) (+ count 1)))
+              ((None) (vector-from (reverse items)))))))
+
+    ;; Every chunk but the last is full, so item i lies in chunk i / size.
+    (: joined (All (T) (-> (Vector (Vector T)) (Vector T))))
+    (define (joined chunks)
+      (let* ((last-chunk (vector-ref chunks (- (vector-length chunks) 1)))
+             (count (+ (* chunk-size (- (vector-length chunks) 1)) (vector-length last-chunk))))
+        (vector-generate count (lambda (index) (vector-ref (vector-ref chunks (quotient index chunk-size)) (remainder index chunk-size))))))
+
+    (: vector-from (All (T) (-> (List T) (Vector T))))
+    (define (vector-from items)
+      (if (null? items) (vector-generate 0 (lambda (index) (panic "empty"))) (list->vector items)))
 
     (: write-file (-> String String Unit ! fs))
     (define (write-file path text)
