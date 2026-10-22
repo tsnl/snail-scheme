@@ -17,9 +17,9 @@ client.start(document.getElementById('lofi-manifest')?.textContent ?? '(files) (
 new EventSource('/.lofi/events').addEventListener('message', message => client.event(message.data));
 
 // An uncaught error comes with the lines the programs last wrote to standard
-// error, and whether a trap stopped a clock.
+// error, and whether a trap ended an application entry.
 addEventListener('error', async event => {
   const running = (await loadHost())?.running ?? [];
   client.pageError([event.message, ...running.flatMap(application => application.errors)].join('\n'),
-                   running.some(application => !application.clock));
+                   running.some(application => application.runtime.execution.queue.closed));
 });

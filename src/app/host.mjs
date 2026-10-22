@@ -1,19 +1,20 @@
 // The browser host for a Lofi application built with (lofi app). It owns no
-// game rules: it forwards input and clock ticks to the module, draws the
-// frames the module emits through the `screen` effect, and stores saves.
+// game rules: DOM listeners queue events; one JSPI entry runs the loop,
+// presents through the `screen` effect, and awaits storage.
 
 import {createRenderer} from './renderer.mjs';
 import {createHud} from './hud.mjs';
 import {createPictures} from './pictures.mjs';
 import {loadSave, storeSave} from './storage.mjs';
-import {createWasi, instantiate, linkProgram, programExports, relinkProgram, runProgram} from './load.mjs';
+import {createWasi, instantiate, linkProgram, relinkProgram, runProgram} from './load.mjs';
+import {createRuntime, applicationEntry, HIDDEN} from './runtime.mjs';
 
 // ---- Input encoding ----
 
 // Input kinds and named keys match `decode-input` and the key constants in
 // lib/lofi/app.sld.
 const KEY_DOWN = 1, KEY_UP = 2, POINTER_DOWN = 3, POINTER_MOVE = 4, POINTER_UP = 5, POINTER_CANCEL = 6;
-const WHEEL = 7, RESIZE = 8, PRESS = 9, HOVER = 10, ELAPSED = 11;
+const WHEEL = 7, RESIZE = 8, PRESS = 9, HOVER = 10;
 const namedKeys = {ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3, ArrowDown: 4, Escape: 27, Enter: 13, ' ': 32};
 
 function keyCode(event) {
@@ -150,39 +151,62 @@ export const running = [];
 // `url`, which a manifest makes the page ignore.
 export async function startApplication({url, canvas, overlay, storageKey, manifest, read}) {
   const pictures = createPictures();
-  const application = {canvas, storageKey, program: null, exports: null, errors: [], capture: null, pictures,
-                       renderer: await createRenderer(canvas, pictures), hud: null, clock: null};
-  application.hud = createHud(overlay, (action, argument) => application.exports.app_input(PRESS, action, argument, 0, 0),
-                              (action, argument) => application.exports.app_input(HOVER, action, argument, 0, 0), pictures);
+  const application = {canvas, program: null, errors: [], capture: null, pictures,
+                       renderer: await createRenderer(canvas, pictures), hud: null, runtime: null};
+  application.runtime = createRuntime({size: () => [canvas.clientWidth, canvas.clientHeight], seed: (Math.random() * 65536) | 0,
+    load: () => loadSave(storageKey), store: bytes => storeSave(storageKey, bytes),
+    frames: {request: requestAnimationFrame.bind(globalThis), cancel: cancelAnimationFrame.bind(globalThis)},
+    reportError: reportApplicationError});
+  const send = (...event) => application.runtime.send(...event);
+  application.hud = createHud(overlay, (action, argument) => send(PRESS, action, argument),
+                              (action, argument) => send(HOVER, action, argument), pictures);
   const modules = manifest ?? document.querySelector('meta[name="lofi-modules"]')?.content;
   if (modules) await linkApplication(application, modules, read ?? fetchRead(modules));
   else await instantiateApplication(application, url);
-  await restore(application);
-  attachInput(application);
-  addEventListener('visibilitychange', () => { if (document.hidden) saveQuietly(application); });
-  runClock(application);
+  application.startup = startCold(application);
   running.push(application);
+  attachInput(application);
+  addEventListener('visibilitychange', () => { if (document.hidden) send(HIDDEN); });
+  await application.startup;
+  return application;
 }
 
-function applicationScreen(application) {
-  return {'snail.screen': screenImports(application.renderer, application.pictures, application.hud)};
+function applicationImports(application) {
+  return {...application.runtime.imports, 'snail.screen': screenImports(application.renderer, application.pictures, application.hud)};
 }
 
 async function instantiateApplication(application, url) {
   const wasi = createWasi({print: printer(application)});
-  const instance = await instantiate(await WebAssembly.compileStreaming(fetch(url)), {...wasi.getImportObject(), ...applicationScreen(application)});
+  const instance = await instantiate(await WebAssembly.compileStreaming(fetch(url)), {...wasi.getImportObject(), ...applicationImports(application)});
   wasi.initialize(instance);
   instance.exports.main();
-  application.exports = instance.exports;
+  application.program = instance;
 }
 
-// The application keeps the linked program (load.mjs), so a rebuilt module
-// and those after it can be relinked.
 async function linkApplication(application, manifest, read) {
   const wasi = createWasi({print: printer(application)});
-  application.program = await linkProgram(read, manifest, wasi, applicationScreen(application));
+  application.program = await linkProgram(read, manifest, wasi, applicationImports(application));
   runProgram(application.program);
-  application.exports = programExports(application.program);
+}
+
+// Only a cold restoration failure before boot may discard saved bytes.
+// A first-frame trap already has a committed state and must stay recoverable.
+async function startCold(application) {
+  const {runtime, program} = application, entry = applicationEntry(program);
+  const run = runtime.start(entry);
+  try { await run.ready.promise; }
+  catch (error) {
+    await run.done;
+    if (run.boot !== null || run.loaded == null) { reportApplicationError(error); return; }
+    console.warn('discarding an incompatible save:', error.message);
+    const retry = runtime.start(entry, null, {restore: null});
+    try { await retry.ready.promise; }
+    catch (error) { await retry.done; reportApplicationError(error); }
+  }
+}
+
+function reportApplicationError(error) {
+  dispatchEvent(new ErrorEvent('error', {message: error.message, error}));
 }
 
 // A file's bytes, by its path relative to the manifest's, uncached.
@@ -204,97 +228,45 @@ function printer(application) {
   };
 }
 
-// ---- Saves ----
-
-function saveBytes(exports) {
-  const length = exports.app_save();
-  return Uint8Array.from({length}, (_, index) => exports.app_save_byte(index));
-}
-
-// Restores a save into a program, then reports the screen's size, which
-// saves leave out. A save written for another schema traps.
-function loadBytes(exports, bytes, canvas) {
-  exports.app_load_begin(bytes.length);
-  bytes.forEach((byte, index) => exports.app_load_byte(index, byte));
-  exports.app_load_end();
-  exports.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0, 0);
-}
-
-function startFresh(exports, canvas) {
-  exports.app_init((Math.random() * 65536) | 0, canvas.clientWidth, canvas.clientHeight);
-}
-
-function save(application) {
-  return storeSave(application.storageKey, saveBytes(application.exports));
-}
-
-// Stores every application's save, resolving once all are stored.
-export function saveAll() {
-  return Promise.all(running.map(save));
-}
-
-function saveQuietly(application) {
-  save(application).catch(error => console.warn('save failed:', error.message));
-}
-
-// A save written for another schema traps while loading; start fresh then.
-async function restore(application) {
-  const bytes = await loadSave(application.storageKey);
-  if (bytes) {
-    try {
-      loadBytes(application.exports, bytes, application.canvas);
-      return;
-    } catch (error) {
-      console.warn('discarding an incompatible save:', error.message);
-    }
-  }
-  startFresh(application.exports, application.canvas);
-}
-
 // ---- Relinking ----
 
-// After a build changed the module of library `from`, each application's
-// program is relinked from it (load.mjs), one application at a time.
+// A full page reload first lets every loop save and leave its JSPI stack.
+export function saveAll() {
+  return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
+}
+
 export async function relinkAll(from, fresh) {
   for (const application of running) await relinkApplication(application, from, fresh);
 }
 
-// The state passes to the new program (`takeState`); the renderer forgets
-// the batches the old one drew, and the picture store its pictures and
-// sources. If the new program cannot take the state, the old one keeps
-// running and the error carries what was printed; `fresh` starts the new
-// program over instead. A clock that stopped when the old program trapped
-// starts again.
+function forgetPresentation(application) {
+  application.renderer.forget();
+  application.pictures.forget();
+}
+
+// No Lofi stack remains while modules relink. Keep the old program and its
+// immutable handover until the candidate finishes its initial presentation.
+// Rejected migration restarts the old entry; host resources outlive both.
 async function relinkApplication(application, from, fresh) {
+  await application.startup;
+  const {runtime, program: previous} = application;
   application.capture = [];
+  const {state, saved} = await runtime.stop();
   try {
-    const program = await relinkProgram(application.program, from);
-    takeState(programExports(program), application.exports, application.canvas, fresh);
-    application.renderer.forget();
-    application.pictures.forget();
-    Object.assign(application, {program, exports: programExports(program)});
+    const program = await relinkProgram(previous, from);
+    forgetPresentation(application);
+    const run = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
+    await run.ready.promise;
+    application.program = program;
   } catch (error) {
+    await runtime.execution.done;
+    forgetPresentation(application);
+    const rollback = runtime.start(applicationEntry(previous), state, {restore: saved});
+    try { await rollback.ready.promise; } catch { await rollback.done; }
     throw new Error(application.capture.join('\n') || error.message);
   } finally {
     application.capture = null;
   }
-  if (!application.clock) runClock(application);
-}
-
-// The state passes as it is while its type is unchanged, which adopting
-// tests structurally; a state of another type passes through the save,
-// which traps when its schema changed too. Returns how the state passed.
-export function takeState(next, previous, canvas, fresh) {
-  if (fresh) {
-    startFresh(next, canvas);
-    return 'fresh';
-  }
-  if (next.app_adopt(previous.app_state()) === 0) {
-    next.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0, 0);
-    return 'adopted';
-  }
-  loadBytes(next, saveBytes(previous), canvas);
-  return 'saved';
 }
 
 // Wheel deltas arrive in pixels, lines or pages; the application gets pixels.
@@ -304,7 +276,7 @@ function wheelPixels(event) {
 
 function attachInput(application) {
   const {canvas} = application;
-  const send = (kind, a = 0, b = 0, c = 0, d = 0) => application.exports.app_input(kind, a | 0, b | 0, c | 0, d | 0);
+  const send = (kind, a = 0, b = 0, c = 0, d = 0) => application.runtime.send(kind, a | 0, b | 0, c | 0, d | 0);
   // A key held with Ctrl, Alt or Meta belongs to the browser, so shortcuts
   // such as reloading keep working; Shift travels with the key. Keys typed
   // into a field, such as the IDE's editor, stay there.
@@ -326,31 +298,4 @@ function attachInput(application) {
   canvas.addEventListener('contextmenu', event => event.preventDefault());
   // A hidden canvas, as in a closed dock, keeps its last size.
   new ResizeObserver(() => { if (canvas.clientWidth && canvas.clientHeight) send(RESIZE, canvas.clientWidth, canvas.clientHeight); }).observe(canvas);
-}
-
-// Each display frame first reports the time since the last, up to a quarter
-// of a second, then draws. Hidden pages draw no frames, so no time passes
-// for them. The state is saved every five seconds. A module that traps
-// stops the clock, keeping the state from before the update that trapped,
-// until a replacement module starts it again.
-function runClock(application) {
-  let last = performance.now(), lastSave = last;
-  const frame = now => {
-    advance(application, Math.round(Math.min(250, Math.max(0, now - last))));
-    last = now;
-    if (now - lastSave > 5000) { lastSave = now; saveQuietly(application); }
-    application.clock = requestAnimationFrame(frame);
-  };
-  application.clock = requestAnimationFrame(now => { last = now; frame(now); });
-}
-
-// One display frame: time passes, then the module draws.
-function advance(application, milliseconds) {
-  try {
-    application.exports.app_input(ELAPSED, milliseconds, 0, 0, 0);
-    application.exports.app_frame();
-  } catch (error) {
-    application.clock = null;
-    throw error;
-  }
 }

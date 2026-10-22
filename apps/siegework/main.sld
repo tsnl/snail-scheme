@@ -7,4 +7,11 @@
  (siegework view)
  (siegework hud))
 
-(define-application Game new-game update-game view-game game-hud game-save game-restore)
+(define-application Game
+  (reset: default-reset)
+  (init: new-game)
+  (update: update-game)
+  (view: view-game)
+  (hud: game-hud)
+  (save: game-save)
+  (restore: game-restore))
