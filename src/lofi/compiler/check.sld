@@ -10,7 +10,7 @@
    definition-scheme
    Typed-schemes
    check-program
-   check-unit)
+   check-library)
   (import
    (lofi base)
    (lofi table)
@@ -1119,10 +1119,10 @@
     ;; library, never from a library that imports it.
     (: check-program (-> Program Typed ! mut))
     (define (check-program program)
-      (let loop ((units (unit-items program (program-items program))) (items (Nil)) (schemes empty-table))
-        (match units
-          ((Cons unit rest)
-           (let ((typed (check-unit program schemes (Pair-second unit))))
+      (let loop ((libraries (library-items program (program-items program))) (items (Nil)) (schemes empty-table))
+        (match libraries
+          ((Cons library rest)
+           (let ((typed (check-library program schemes (Pair-second library))))
              (loop rest (append items (Typed-items typed)) (Typed-schemes typed))))
           ((Nil) (Typed program items schemes)))))
 
@@ -1131,8 +1131,8 @@
     ;; new ones. Unannotated definitions are checked first, in dependency
     ;; order; then annotated definitions and statements, which only need
     ;; schemes. Then every constraint is solved and every type zonked.
-    (: check-unit (-> Program (Table Scheme) (List Item) Typed ! mut))
-    (define (check-unit program schemes items)
+    (: check-library (-> Program (Table Scheme) (List Item) Typed ! mut))
+    (define (check-library program schemes items)
       (let* ((ck (Checker program (ref 0) empty-table (ref schemes) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
              (inferred (check-inferred ck items))
              (typed (map (lambda (item) (check-item ck inferred item)) items)))

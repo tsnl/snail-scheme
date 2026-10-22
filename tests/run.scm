@@ -21,6 +21,7 @@
  (only (lofi compiler read) test-read)
  (only (lofi compiler core) test-core)
  (only (lofi compiler wasm) test-wasm)
+ (only (lofi base) Pair-first Pair-second)
  (lofi compiler session))
 
 ;; ---- Cases ----
@@ -159,12 +160,14 @@
     (write-a "(i64-add x x)" "")
     (write-file (path-join directory "sample/b.sld") sample-b)
     (write-file main "(import (lofi core) (lofi primitive) (sample b)) (four)")
-    (let ((session (make-session (list directory) (lambda (forms path) (error "no generated libraries")))))
-      (and (expect-session "first build" (compiled-names (build-session session main)) '("sample.a" "sample.b" "main"))
-           (expect-session "unchanged" (compiled-names (build-session session main)) '())
-           (begin (write-a "(i64-mul x 2)" "") (expect-session "body edit" (compiled-names (build-session session main)) '("sample.a")))
-           (begin (write-a "(i64-mul x 2)" "(define zero 0)")
-                  (expect-session "interface edit" (compiled-names (build-session session main)) '("sample.a" "sample.b" "main")))))))
+    (let* ((first (build-session (make-session (list directory) (lambda (forms path) (error "no generated libraries"))) main))
+           (unchanged (build-session (Pair-second first) main))
+           (body (begin (write-a "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main)))
+           (interface (begin (write-a "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main))))
+      (and (expect-session "first build" (compiled-names (Pair-first first)) '("sample.a" "sample.b" "main"))
+           (expect-session "unchanged" (compiled-names (Pair-first unchanged)) '())
+           (expect-session "body edit" (compiled-names (Pair-first body)) '("sample.a"))
+           (expect-session "interface edit" (compiled-names (Pair-first interface)) '("sample.a" "sample.b" "main"))))))
 
 (define (expect-session what actual expected)
   (or (equal? actual expected) (report "session" what (string-append "recompiled " (format-names actual) ", expected " (format-names expected)))))

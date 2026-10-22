@@ -11,7 +11,7 @@
    Mono-externals
    Mono-exported
    monomorphize
-   monomorphize-unit)
+   monomorphize-library)
   (import
    (lofi base)
    (lofi table)
@@ -233,24 +233,24 @@
                                                       (zip items statements)))
               empty-table (Nil))))
 
-    ;; One library's items, `unit` among the program's. Every monomorphic
+    ;; One library's items, `items` among the program's. Every monomorphic
     ;; definition is a root, since any module may import it. Copies of other
     ;; libraries' definitions, the generic ones this library uses, come first,
     ;; in program order, as those libraries come before it.
-    (: monomorphize-unit (-> Typed String (List Item) Mono ! mut))
-    (define (monomorphize-unit typed owner unit)
-      (let* ((state (new-state typed (Some owner))) (exported (unit-roots state unit))
-             (statements (map (lambda (item) (root-item state item)) unit)))
+    (: monomorphize-library (-> Typed String (List Item) Mono ! mut))
+    (define (monomorphize-library typed owner items)
+      (let* ((state (new-state typed (Some owner))) (exported (library-roots state items))
+             (statements (map (lambda (item) (root-item state item)) items)))
         (run-requests! state)
         (Mono (Typed-program typed)
               (append (concatenate (map (lambda (item) (foreign-copies state owner item)) (Typed-items typed)))
-                      (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair))) (zip unit statements))))
+                      (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair))) (zip items statements))))
               (ref-get (State-externals state)) exported)))
 
     ;; Requests the library's monomorphic functions, which `root-item` leaves
     ;; until something reaches them, and returns every name it exports.
-    (: unit-roots (-> State (List Item) (List String) ! mut))
-    (define (unit-roots state unit)
+    (: library-roots (-> State (List Item) (List String) ! mut))
+    (define (library-roots state items)
       (concatenate (map (lambda (item)
                           (match item
                             ((Define name value)
@@ -258,7 +258,7 @@
                                  (begin (request! state name (Nil) (Nil)) (list name))
                                  (Nil)))
                             (_ (Nil))))
-                        unit)))
+                        items)))
 
     (: foreign-copies (-> State String Item (List Item) ! mut))
     (define (foreign-copies state owner item)

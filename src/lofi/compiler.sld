@@ -23,17 +23,17 @@
     ;; returns what it prints.
     (: compile->wat (-> (List String) String (-> (List Syntax) String String ! mut fs) String ! mut fs))
     (define (compile->wat directories source generate)
-      (wat->string (emit-module (monomorphize (check-program (expand-program (make-context directories generate) source))))))
+      (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate source (None))))))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from. This is a
     ;; session's build with nothing kept from before.
     (: compile->modules (-> (List String) String (-> (List Syntax) String String ! mut fs) (List (Pair String String)) ! mut fs))
     (define (compile->modules directories source generate)
-      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (build-session (make-session directories generate) source)))
+      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories generate) source))))
 
     (: compile->schemas (-> (List String) String (-> (List Syntax) String String ! mut fs) String ! mut fs))
     (define (compile->schemas directories source generate)
-      (wire-schemas (Typed-program (check-program (expand-program (make-context directories generate) source)))))
+      (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate source (None)))))))
 
     ))

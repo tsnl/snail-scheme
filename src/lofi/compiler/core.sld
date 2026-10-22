@@ -114,6 +114,8 @@
    Expose
    Program
    empty-program
+   base-program
+   primitive-global
    Program-instances
    Program-effects
    program-value
@@ -127,11 +129,11 @@
    add-instance!
    add-effect!
    add-item!
-   add-unit!
+   add-library!
    program-delta
    program-with
    program-items
-   unit-items
+   library-items
    name-owner
    primitives
    fnv-1a
@@ -563,10 +565,11 @@
     ;; ---- Programs ----
 
     ;; A program is a value: the expander builds it up in one cell, and the
-    ;; later passes only read it. Items are kept newest first. `units` names
-    ;; each library, newest first, with the number of items it added: a
-    ;; library's items are contiguous, after those of the libraries it
-    ;; imports, so the program's items divide into one run per library.
+    ;; later passes only read it. Items are kept newest first. `libraries`
+    ;; names each library, newest first, with the number of items it added;
+    ;; the program's own body counts as a library named `main`. A library's
+    ;; items are contiguous, after those of the libraries it imports, so the
+    ;; program's items divide into one run per library.
     (struct Program
       ((values (Table Value))
        (types (Table DataType))
@@ -574,7 +577,7 @@
        (instances (Table (List Instance)))
        (effects (Table Effect))
        (items (List Item))
-       (units (List (Pair String I64)))))
+       (libraries (List (Pair String I64)))))
 
     (: empty-program Program)
     (define empty-program
@@ -646,22 +649,22 @@
     (define (program-items program)
       (reverse (Program-items program)))
 
-    (: add-unit! (-> (Ref Program) String I64 Unit ! mut))
-    (define (add-unit! cell name count)
+    (: add-library! (-> (Ref Program) String I64 Unit ! mut))
+    (define (add-library! cell name count)
       (let ((program (ref-get cell)))
-        (ref-set! cell (Program-units-set program (Cons (Pair name count) (Program-units program))))))
+        (ref-set! cell (Program-libraries-set program (Cons (Pair name count) (Program-libraries program))))))
 
     ;; What the newest library added: the globals named for it, and its run
     ;; of items, which are the newest. A later build replays it with
     ;; `program-with` instead of expanding the library again.
     (: program-delta (-> Program String Program))
     (define (program-delta program owner)
-      (let ((count (match (Program-units program)
+      (let ((count (match (Program-libraries program)
                      ((Cons (Pair _ count) _) count)
                      ((Nil) 0))))
         (Program (owned (Program-values program) owner) (owned (Program-types program) owner) (owned (Program-classes program) owner)
                  (owned-instances (Program-instances program) owner) (owned (Program-effects program) owner)
-                 (take (Program-items program) count) (take (Program-units program) 1))))
+                 (take (Program-items program) count) (take (Program-libraries program) 1))))
 
     (: owned (All (V) (-> (Table V) String (Table V))))
     (define (owned table owner)
@@ -695,7 +698,7 @@
                (fold-left (lambda (table class) (table-set table class (append (class-list table class) (class-list (Program-instances delta) class))))
                           (Program-instances program) (table-keys (Program-instances delta)))
                (merged (Program-effects program) (Program-effects delta))
-               (append (Program-items delta) (Program-items program)) (append (Program-units delta) (Program-units program))))
+               (append (Program-items delta) (Program-items program)) (append (Program-libraries delta) (Program-libraries program))))
 
     (: merged (All (V) (-> (Table V) (Table V) (Table V))))
     (define (merged table additions)
@@ -707,10 +710,10 @@
 
     ;; Divides items in program order, such as the program's own or their
     ;; checked copies, into each library's run.
-    (: unit-items (-> Program (List Item) (List (Pair String (List Item)))))
-    (define (unit-items program items)
-      (let loop ((units (reverse (Program-units program))) (items items) (out (Nil)))
-        (match units
+    (: library-items (-> Program (List Item) (List (Pair String (List Item)))))
+    (define (library-items program items)
+      (let loop ((libraries (reverse (Program-libraries program))) (items items) (out (Nil)))
+        (match libraries
           ((Cons (Pair name count) rest) (loop rest (list-tail items count) (Cons (Pair name (take items count)) out)))
           ((Nil) (reverse out)))))
 
@@ -906,6 +909,18 @@
         ((TFun params result row) (append (concatenate (map rigid-names params)) (append (rigid-names result) (rigid-names row))))
         ((TRow _ (Some tail)) (rigid-names tail))
         (_ (Nil))))
+
+    (: primitive-global (-> String String))
+    (define (primitive-global name)
+      (string-append "prim:" name))
+
+    ;; The program every expansion starts from: each primitive's value, under
+    ;; the global name (lofi primitive) exports it as.
+    (: base-program Program)
+    (define base-program
+      (Program-values-set empty-program
+                          (fold-left (lambda (values entry) (table-set values (primitive-global (Pair-first entry)) (Primitive (Pair-second entry))))
+                                     empty-table (primitives))))
 
     )
 

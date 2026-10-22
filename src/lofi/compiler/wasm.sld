@@ -8,7 +8,7 @@
 (define-library (lofi compiler wasm)
   (export
    emit-module
-   emit-unit
+   emit-library
    wat->string)
   (import
    (lofi base)
@@ -1564,8 +1564,8 @@
     ;; library declares, and exports its monomorphic definitions under their
     ;; global names, for the modules that import them. Its `main` initializes
     ;; it; the loader runs each module's in program order.
-    (: emit-unit (-> Mono String Wat ! mut))
-    (define (emit-unit mono owner)
+    (: emit-library (-> Mono String Wat ! mut))
+    (define (emit-library mono owner)
       (let ((m (new-module mono (Some owner))))
         (for-each (lambda (effect) (handler-type m effect) (unit))
                   (sort-strings (filter (lambda (effect) (string=? (name-owner effect) owner))

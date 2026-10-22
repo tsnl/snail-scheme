@@ -150,7 +150,7 @@
        (runtime String)
        (client String)
        (request Request)
-       (session Session)
+       (session (Ref Session))
        (output String)
        (manifest (Ref String))))
 
@@ -161,7 +161,7 @@
       (match arguments
         ((Cons root (Cons runtime (Cons client words)))
          (let ((request (parse-request words)))
-           (Loop root runtime client request (new-session root request) (output root request) (ref "(files) (modules)"))))
+           (Loop root runtime client request (ref (new-session root request)) (output root request) (ref "(files) (modules)"))))
         (_ (panic "usage: develop ROOT RUNTIME CLIENT REQUEST ..."))))
 
     ;; Pages are served before the first build, from a placeholder that
@@ -233,7 +233,14 @@
         (broadcast! (string-append "(building " (ref-get (Loop-manifest loop)) ")"))
         (match (Loop-request loop)
           ((Serve _ app) (build-pages! loop app started))
-          ((Watch source _ arguments) (run! (write-modules! loop (build-session (Loop-session loop) source)) arguments)))))
+          ((Watch source _ arguments) (run! (write-modules! loop (next-build! loop source)) arguments)))))
+
+    ;; Builds through the loop's session, which the build replaces with the
+    ;; session the next build starts from.
+    (: next-build! (-> Loop String (List Built) ! mut fs))
+    (define (next-build! loop source)
+      (match (build-session (ref-get (Loop-session loop)) source)
+        ((Pair builds session) (ref-set! (Loop-session loop) session) builds)))
 
     ;; Writes each module that changed, assembled, and modules.json, which
     ;; names them in program order. A module's file is named for its text,
@@ -268,7 +275,7 @@
 
     (: build-pages! (-> Loop String I32 Unit ! mut fs console develop))
     (define (build-pages! loop app started)
-      (let* ((builds (build-session (Loop-session loop) (string-append app "/main.sld")))
+      (let* ((builds (next-build! loop (string-append app "/main.sld")))
              (modules (map (lambda (built) (Pair (Built-name built) (module-file! loop built))) builds)))
         (write-file (string-append (Loop-output loop) "/modules.json") (modules-json (runtime-path loop) modules))
         (let ((manifest (page-manifest loop app modules)))

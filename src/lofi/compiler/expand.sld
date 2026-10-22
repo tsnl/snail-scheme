@@ -4,11 +4,8 @@
 ;; program tables, and emits core expressions with unique names.
 (define-library (lofi compiler expand)
   (export
-   Context
-   make-context
-   make-caching-context
-   start-build!
-   Context-program
+   ExpandedProgram
+   ExpandedProgram-program
    library-version
    library-interface
    expand-program)
@@ -151,30 +148,30 @@
 
     ;; ---- Expansion context ----
 
-    ;; Shared by every library of one compilation. `program` is the program
-    ;; built so far. `prefix` names the library being expanded, so its globals
-    ;; are `prefix:name`. `libraries` holds each library's exports, or None
-    ;; while it loads. `scopes` numbers the environments that marks refer to.
-    ;; `generate` runs a producer program for `generate-library` and returns
-    ;; what it prints; the driver supplies it, because running a program means
-    ;; compiling one.
-    ;;
-    ;; A context that serves many builds, as a development server's does,
-    ;; keeps a `cache` of each library as it was last expanded. Its counters
-    ;; and scopes only grow, so a replayed library's names and marks stay
-    ;; unique. `base` is the program and libraries every build starts from.
+    ;; One build's expansion, made fresh for each build. `program` is the
+    ;; program built so far, and `expanded` holds each library this build has
+    ;; expanded, with what a later build needs to replay it. `predecessor`
+    ;; holds the libraries of the build before, which this one replays where
+    ;; their declarations and their imports' interfaces are unchanged; a
+    ;; one-off compile has none. `prefix` names the library being expanded,
+    ;; so its globals are `prefix:name`, and `loading` the libraries whose
+    ;; imports are being loaded, innermost first, so a library requested while
+    ;; it loads is part of an import cycle. `scopes` numbers the environments
+    ;; that marks refer to. `generate` runs a producer program for
+    ;; `generate-library` and returns what it prints; the driver supplies it,
+    ;; because running a program means compiling one.
     (struct Context
       ((program (Ref Program))
+       (expanded (Ref (Table Expanded)))
+       (predecessor (Table Expanded))
        (directories (List String))
-       (libraries (Ref (Table (Option Exports))))
+       (generate (-> (List Syntax) String String ! mut fs))
+       (prefix String)
+       (loading (List String))
        (counter (Ref I64))
        (scopes (Ref (Table Env)))
        (scope-count (Ref I64))
-       (deriving (Ref (Option I64)))
-       (generate (-> (List Syntax) String String ! mut fs))
-       (prefix String)
-       (cache (Option (Ref (Table Expanded))))
-       (base (Ref (Pair Program (Table (Option Exports)))))))
+       (deriving (Ref (Option I64)))))
 
     (type Exports (List (Pair String Binding)))
 
@@ -188,33 +185,23 @@
        (exports Exports)
        (delta Program)))
 
-    (: make-context (-> (List String) (-> (List Syntax) String String ! mut fs) Context ! mut))
-    (define (make-context directories generate)
-      (new-context directories generate (None)))
+    ;; What a build expanded: the program, its libraries, and the counters
+    ;; and scopes a later build continues from, so that the names and marks
+    ;; of the libraries it replays stay unique.
+    (struct ExpandedProgram
+      ((program Program)
+       (libraries (Table Expanded))
+       (counter I64)
+       (scope-count I64)
+       (scopes (Table Env))))
 
-    (: make-caching-context (-> (List String) (-> (List Syntax) String String ! mut fs) Context ! mut))
-    (define (make-caching-context directories generate)
-      (new-context directories generate (Some (ref empty-table))))
-
-    (: new-context (-> (List String) (-> (List Syntax) String String ! mut fs) (Option (Ref (Table Expanded))) Context ! mut))
-    (define (new-context directories generate cache)
-      (let ((cx (Context (ref empty-program) directories (ref empty-table) (ref 0) (ref empty-table) (ref 0) (ref (None)) generate ""
-                         cache (ref (Pair empty-program empty-table)))))
-        (set-library! cx "lofi.core" (Some (core-library)))
-        (set-library! cx "lofi.primitive" (Some (primitive-library cx)))
-        (ref-set! (Context-base cx) (Pair (program cx) (ref-get (Context-libraries cx))))
-        cx))
-
-    ;; Returns the context to where every build starts.
-    (: start-build! (-> Context Unit ! mut))
-    (define (start-build! cx)
-      (let ((base (ref-get (Context-base cx))))
-        (ref-set! (Context-program cx) (Pair-first base))
-        (ref-set! (Context-libraries cx) (Pair-second base))))
-
-    (: set-library! (-> Context String (Option Exports) Unit ! mut))
-    (define (set-library! cx key exports)
-      (ref-set! (Context-libraries cx) (table-set (ref-get (Context-libraries cx)) key exports)))
+    (: new-context (-> (List String) (-> (List Syntax) String String ! mut fs) (Option ExpandedProgram) Context ! mut))
+    (define (new-context directories generate predecessor)
+      (match predecessor
+        ((Some last)
+         (Context (ref base-program) (ref empty-table) (ExpandedProgram-libraries last) directories generate "" (Nil) (ref (ExpandedProgram-counter last))
+                  (ref (ExpandedProgram-scopes last)) (ref (ExpandedProgram-scope-count last)) (ref (None))))
+        ((None) (Context (ref base-program) (ref empty-table) empty-table directories generate "" (Nil) (ref 0) (ref empty-table) (ref 0) (ref (None))))))
 
     ;; The program as expanded so far.
     (: program (-> Context Program ! mut))
@@ -262,13 +249,11 @@
                            builtin-types)
                       (list (Pair "mut" (EffectName "mut"))))))
 
-    (: primitive-library (-> Context Exports ! mut))
-    (define (primitive-library cx)
-      (map (lambda (entry)
-             (let ((name (string-append "prim:" (Pair-first entry))))
-               (add-value! (Context-program cx) name (Primitive (Pair-second entry)))
-               (Pair (Pair-first entry) (Global name))))
-           (primitives)))
+    ;; (lofi primitive) exports each primitive under its own name; their
+    ;; values are in the program every build starts from.
+    (: primitive-library Exports)
+    (define primitive-library
+      (map (lambda (entry) (Pair (Pair-first entry) (Global (primitive-global (Pair-first entry))))) (primitives)))
 
     ;; ---- Libraries ----
 
@@ -288,19 +273,18 @@
       (unless (string=? (string-join (library-name declared) ".") (string-join name "."))
         (compile-error loc "library name does not match its path")))
 
-    ;; Loads each library once. A library that is still loading when it is
-    ;; requested again is part of an import cycle.
+    ;; A library's exports, resolved when an import asks: the compiler's own
+    ;; for (lofi core) and (lofi primitive), else the library as this build
+    ;; expanded it, which happens once.
     (: load-library (-> Context (List String) Loc Exports ! mut fs))
     (define (load-library cx name loc)
       (let ((key (string-join name ".")))
-        (match (table-ref (ref-get (Context-libraries cx)) key)
-          ((Some (Some exports)) exports)
-          ((Some (None)) (compile-error loc (string-append "library import cycle through " key)))
-          ((None)
-           (set-library! cx key (None))
-           (let ((exports (read-library cx name loc)))
-             (set-library! cx key (Some exports))
-             exports)))))
+        (cond ((string=? key "lofi.core") (core-library))
+              ((string=? key "lofi.primitive") primitive-library)
+              ((member? key (Context-loading cx)) (compile-error loc (string-append "library import cycle through " key)))
+              (else (match (table-ref (ref-get (Context-expanded cx)) key)
+                      ((Some entry) (Expanded-exports entry))
+                      ((None) (read-library (Context-loading-set cx (Cons key (Context-loading cx))) name loc)))))))
 
     (: read-library (-> Context (List String) Loc Exports ! mut fs))
     (define (read-library cx name loc)
@@ -344,27 +328,25 @@
     (define (expand-library cx name declarations)
       (expand-sections (Context-prefix-set cx (string-join name ".")) (concatenate (map library-sections declarations))))
 
-    ;; Loads the imports, then expands the body, unless a caching context can
-    ;; replay the library from the last build.
+    ;; Loads the imports, then replays the library from the build before if
+    ;; its declarations and its imports' interfaces are unchanged, or expands
+    ;; it; either way the library is recorded for the next build.
     (: expand-sections (-> Context (List (Pair String (List Syntax))) Exports ! mut fs))
     (define (expand-sections cx sections)
-      (let ((env (import-env cx (section-items sections "import"))))
-        (match (Context-cache cx)
-          ((Some cache) (expand-cached cx cache sections env))
-          ((None) (expand-library-body cx sections env)))))
+      (let* ((env (import-env cx (section-items sections "import"))) (key (library-key cx sections)))
+        (match (table-ref (Context-predecessor cx) (Context-prefix cx))
+          ((Some entry) (if (string=? (Expanded-key entry) key) (replay! cx entry) (expand-recorded cx sections env key)))
+          ((None) (expand-recorded cx sections env key)))))
 
+    ;; The body's items follow those of the library's imports, and the
+    ;; program records how many it added, so its items divide back into
+    ;; libraries.
     (: expand-library-body (-> Context (List (Pair String (List Syntax))) Env Exports ! mut fs))
     (define (expand-library-body cx sections env)
-      (expand-unit cx env (section-items sections "begin"))
-      (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export")))
-
-    ;; Expands the body of a library or of the program after its imports, so
-    ;; its items follow theirs, and records how many it added.
-    (: expand-unit (-> Context Env (List Syntax) Unit ! mut fs))
-    (define (expand-unit cx env forms)
       (let ((before (length (program-items (program cx)))))
-        (expand-top-level cx env forms)
-        (add-unit! (Context-program cx) (Context-prefix cx) (- (length (program-items (program cx))) before))))
+        (expand-top-level cx env (section-items sections "begin"))
+        (add-library! (Context-program cx) (Context-prefix cx) (- (length (program-items (program cx))) before))
+        (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export"))))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -403,37 +385,37 @@
     (define (section-items sections kind)
       (concatenate (map Pair-second (filter (lambda (section) (string=? (Pair-first section) kind)) sections))))
 
-    ;; A program is a sequence of imports followed by a body; it exports
-    ;; nothing.
-    (: expand-program (-> Context String Program ! mut fs))
-    (define (expand-program cx path)
-      (let loop ((forms (read-text (read-file path) path)) (specs (Nil)))
-        (match forms
-          ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
-          (_ (expand-sections (Context-prefix-set cx "main") (list (Pair "import" specs) (Pair "begin" forms)))
-             (program cx)))))
+    ;; A program is a sequence of imports followed by a body, which counts as
+    ;; a library named `main` that exports nothing. A build replays what it
+    ;; can of `predecessor`, the build before.
+    (: expand-program (-> (List String) (-> (List Syntax) String String ! mut fs) String (Option ExpandedProgram) ExpandedProgram ! mut fs))
+    (define (expand-program directories generate path predecessor)
+      (let ((cx (Context-prefix-set (new-context directories generate predecessor) "main")))
+        (let loop ((forms (read-text (read-file path) path)) (specs (Nil)))
+          (match forms
+            ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
+            (_ (expand-sections cx (list (Pair "import" specs) (Pair "begin" forms)))
+               (ExpandedProgram (program cx) (ref-get (Context-expanded cx)) (ref-get (Context-counter cx)) (ref-get (Context-scope-count cx))
+                                (ref-get (Context-scopes cx))))))))
 
     ;; ---- Replaying libraries ----
 
-    ;; A library whose declarations read the same as in the last build, and
-    ;; whose imports show the same interfaces, adds what it added then.
-    (: expand-cached (-> Context (Ref (Table Expanded)) (List (Pair String (List Syntax))) Env Exports ! mut fs))
-    (define (expand-cached cx cache sections env)
-      (let ((key (library-key cx sections)))
-        (match (table-ref (ref-get cache) (Context-prefix cx))
-          ((Some entry)
-           (if (string=? (Expanded-key entry) key)
-               (begin (ref-set! (Context-program cx) (program-with (program cx) (Expanded-delta entry)))
-                      (Expanded-exports entry))
-               (expand-recorded cx cache sections env key)))
-          ((None) (expand-recorded cx cache sections env key)))))
+    ;; A library replayed adds what it added in the build before.
+    (: replay! (-> Context Expanded Exports ! mut))
+    (define (replay! cx entry)
+      (ref-set! (Context-program cx) (program-with (program cx) (Expanded-delta entry)))
+      (record! cx entry)
+      (Expanded-exports entry))
 
-    (: expand-recorded (-> Context (Ref (Table Expanded)) (List (Pair String (List Syntax))) Env String Exports ! mut fs))
-    (define (expand-recorded cx cache sections env key)
-      (let* ((exports (expand-library-body cx sections env)) (name (Context-prefix cx))
-             (entry (Expanded key (interface-hash cx sections) exports (program-delta (program cx) name))))
-        (ref-set! cache (table-set (ref-get cache) name entry))
+    (: expand-recorded (-> Context (List (Pair String (List Syntax))) Env String Exports ! mut fs))
+    (define (expand-recorded cx sections env key)
+      (let ((exports (expand-library-body cx sections env)))
+        (record! cx (Expanded key (interface-hash cx sections) exports (program-delta (program cx) (Context-prefix cx))))
         exports))
+
+    (: record! (-> Context Expanded Unit ! mut))
+    (define (record! cx entry)
+      (ref-set! (Context-expanded cx) (table-set (ref-get (Context-expanded cx)) (Context-prefix cx) entry)))
 
     (: library-key (-> Context (List (Pair String (List Syntax))) String ! mut))
     (define (library-key cx sections)
@@ -446,34 +428,30 @@
     (define (forms-text forms)
       (string-join (map syntax->string forms) "\n"))
 
-    ;; Each imported library's interface, as the last build recorded it.
+    ;; Each imported library's interface, as this build expanded it; the
+    ;; compiler's own libraries never change.
     (: imports-interfaces (-> Context (List (Pair String (List Syntax))) String ! mut))
     (define (imports-interfaces cx sections)
-      (string-join (map (lambda (spec) (library-interface cx (string-join (library-name (spec-library spec)) ".")))
+      (string-join (map (lambda (spec)
+                          (match (table-ref (ref-get (Context-expanded cx)) (string-join (library-name (spec-library spec)) "."))
+                            ((Some entry) (Expanded-interface entry))
+                            ((None) "builtin")))
                         (section-items sections "import"))
                    " "))
 
-    ;; The interface of a library loaded by a caching context.
-    (: library-interface (-> Context String String ! mut))
-    (define (library-interface cx name)
-      (match (cached-library cx name)
+    (: library-interface (-> ExpandedProgram String String))
+    (define (library-interface expansion name)
+      (match (table-ref (ExpandedProgram-libraries expansion) name)
         ((Some entry) (Expanded-interface entry))
         ((None) "builtin")))
 
-    ;; What a caching context last expanded a library from. Anything made
-    ;; from the library's expansion, such as its checked items, stays valid
-    ;; while this does.
-    (: library-version (-> Context String String ! mut))
-    (define (library-version cx name)
-      (match (cached-library cx name)
+    ;; What a build expanded a library from. Anything made from the library's
+    ;; expansion, such as its checked items, stays valid while this does.
+    (: library-version (-> ExpandedProgram String String))
+    (define (library-version expansion name)
+      (match (table-ref (ExpandedProgram-libraries expansion) name)
         ((Some entry) (Expanded-key entry))
         ((None) "")))
-
-    (: cached-library (-> Context String (Option Expanded) ! mut))
-    (define (cached-library cx name)
-      (match (Context-cache cx)
-        ((Some cache) (table-ref (ref-get cache) name))
-        ((None) (None))))
 
     (: spec-library (-> Syntax Syntax))
     (define (spec-library spec)
