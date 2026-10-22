@@ -1,0 +1,937 @@
+"LPC Character Bases" by Benjamin K. Smith (BenCreating), Stephen Challener (Redshrike), dalonedrau, Durrani, Eliza Wyatt (ElizaWy), Johannes Sjölund (wulax), kheftel, madmarcel, Matthew Krohn (makrohn), MuffinElZangano, Nila122, bluecarrot16, castelonia, Pierre Vigier (pvigier), Evert, William.Thompsonj, and Zi Ye
+https://opengameart.org/content/lpc-character-bases
+
+License:
+CC-BY-SA 3.0 / GPL 3.0
+
+Please see the attributions section below for a more detailed list of contributors and licenses.
+
+
+This is a collection of cleaned up LPC character bases. Many fixes and corrections have been made, and the color counts of each sprite have been reduced to reasonable numbers. Additionally, as of version 3.0, there are headless versions of each body type which can each be mixed and matched with several different heads. Finally, head and hand positions are the same between all body types (except child), meaning that most hats, hair, tools/weapons, etc. can be used with both male and female sprites.
+
+
+Animations/bases unique to this submission:
+- Child slash
+- Child hurt
+- Child sit
+- Child minotaur and boarman heads
+- Pregnant cast
+- Pregnant thrust
+- Pregnant slash
+- Pregnant shoot
+- Pregnant hurt
+- Pregnant sit
+- Muscular cast
+- Muscular thrust
+- Muscular sit
+- Male sit (original base)
+- Pregnant and muscular orc base
+- Re-designed lizardman base
+
+
+
+# Changelog
+(Frame numbers start at zero)
+
+Version 1 - LPC Contest-era character bases. We are retroactively referring to the bodies developed circa 2012--2013, during and shortly after the original Liberated Pixel Cup contest, e.g. https://opengameart.org/content/lpc-ladies and https://opengameart.org/content/lpc-male-sheets as the "version 1.0" bodies.
+
+Version 2 - Corrections and fixes to original bases:
+- Applied Pierre Vigier's corrections to all female and teen bases
+- Fixed incorrect thrust and shoot leg positions in all female and teen bases to match male base
+- Fixed female and teen bases suddenly crouching in frame 4 of the shoot animation
+- Adjusted vertical/horizontal positioning for many frames in female and teen bases to remove sliding and to better match the male base
+- Various minor adjustments to shading on female and teen bases
+- Fixed many stray pixels on male orc
+- Fixed positioning issues on male orc
+- Fixed many male orc head connection issues
+- Fixed foot position shift in male skeleton thrust animation
+- Various minor fixes to male skeleton
+- Reduced jittering lines in the muscular base
+
+Version 3 - modular heads version:
+- Separated heads from bodies (modular heads)
+- tweaks to lizard and wolf heads to accommodate applying heads to different body shapes
+- added adult minotaur and boarman heads, child minotaur, boarman, and lizard heads
+- added 2-frame idle animation
+- added run animation
+- added sitting poses
+- cast animation, south-facing: made eyes close for lizard head
+- shoot animation, south-facing (male, female): re-drew left arm
+- slash animation, north-facing (male): slight shading changes to leg in last frame
+- slash animation, south-facing (female): shifted head in frame 2 down 1px, frames 3--5 right 1px to match position of male head; re-drew left arm to match hand position of male base
+- shoot animation, east/west-facing (male, female): changes to shading of foreground arm
+- thrust animation, east/west-facing (female): shifted heads 1px left in frames 4--7 to match male head
+- slash animation, east/west-facing (female): shifted heads 1px left in frames 1--3, 2px left in frames 4--5 to match position of male head
+- {thrust, shoot} animation, north-facing (female): frame 1 redrawn to match male base
+- shoot animation, south-facing (female): added breasts, which added 1px to the silhouette under the character's right arm
+- all changes to female sprites also applied to teen and pregnant sprites
+- numerous additional shading fixes
+
+
+# Usage
+
+Heads and bodies are separated so that you can mix-and-match. This has a few benefits:
+
+- It is easier to create humanoid creatures (orc, lizard, minotaur, etc.) by swapping different heads to recolored bodies; if you create a new head, you can apply it to all of the (adult) body shapes easily. 
+- You can animate the heads separately from the body if you wish, for example to add facial expressions
+- The head is on a separate layer, so you can draw clothing that appears over the body but under the head; this is useful for creatures like the wolfman, where the snout extends below jaw of the human head. 
+
+To assemble a spritesheet, simply layer the head animations over the body animations. Some clothing items (e.g. shirts) should go underneath the head, while others (e.g. hats) should go over top. 
+
+To create a new head, use the template in `_build/heads/human_male.png`, then run `build.sh` to generate a full set of spritesheets. 
+
+
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+# Attributions
+
+## Heads
+
+### Boarman Head
+CC-BY-SA 3.0 / GPL 3.0
+
+- Daniel Eddeland (daneeklu)
+  - LPC style farm animals
+    - CC-BY 3.0 / GPL 2.0+
+    - https://opengameart.org/content/lpc-style-farm-animals
+    - (original pig)
+- Benjamin K. Smith (BenCreating)
+  - LPC Wild Boar
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-wild-boar
+    - (wild boar)
+  - LPC Boarman
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-boarman
+    - (Boarman head)
+
+### Boarman Child Head
+CC-BY-SA 3.0 / GPL 3.0
+
+- Daniel Eddeland (daneeklu)
+  - LPC style farm animals
+    - CC-BY 3.0 / GPL 2.0
+    - https://opengameart.org/content/lpc-style-farm-animals
+    - (original pig)
+- Benjamin K. Smith (BenCreating)
+  - LPC Wild Boar
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-wild-boar
+    - (wild boar)
+  - LPC Boarman
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-boarman
+    - (boarman head)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (child version of boarman head)
+
+
+### Minotaur Head
+CC-BY-SA 3.0 / GPL 3.0
+
+- Daniel Eddeland (daneeklu)
+  - LPC style farm animals
+    - CC-BY 3.0 / GPL 2.0
+    - https://opengameart.org/content/lpc-style-farm-animals
+    - (original cow)
+- Nila122
+  - LPC Lizard Headgear
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-lizard-headgear
+    - (horns)
+- Evert
+  - LPC Faun and Minotaur
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-faun-and-minotaur
+    - (minotaur head)
+
+
+### Minotaur Child Head
+CC-BY-SA 3.0 / GPL 3.0
+
+- Daniel Eddeland (daneeklu)
+  - LPC style farm animals
+    - CC-BY 3.0 / GPL 2.0
+    - https://opengameart.org/content/lpc-style-farm-animals
+    - (original cow)
+- Nila122
+  - LPC Lizard Headgear
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-lizard-headgear
+    - (horns)
+- Evert
+  - LPC Faun and Minotaur
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-faun-and-minotaur
+    - (minotaur head)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (child version of minotaur head)
+
+
+### Lizardman Male/Female Head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Nila122
+  - [LPC] Medieval fantasy character sprites
+    - CC-BY-SA 3.0 / GPL 3.0 / GPL 2.0
+    - https://opengameart.org/content/drakes-and-lizardfolk
+    - (original lizard head)
+- Benjamin K. Smith (BenCreating)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (re-worked lizard head)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (re-shaded lizard head, edited for headless bases)
+
+### Lizardman child Head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Nila122
+  - Drakes and lizardfolk
+    - CC-BY-SA 3.0 / GPL 3.0 / GPL 2.0
+    - https://opengameart.org/content/drakes-and-lizardfolk
+    - (original lizard head)
+- Benjamin K. Smith (BenCreating)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (re-worked lizard head)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (created child version)
+
+### Wolfman head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - [LPC] Wolf Animation
+    - CC-BY-SA 3.0 / CC-BY-SA 4.0 / GPL 3.0 / GPL 2.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-wolf-animation
+    - (wolf head)
+- William.Thompsonj
+  - [LPC] Wolf Animation
+    - CC-BY-SA 3.0 / CC-BY-SA 4.0 / GPL 3.0 / GPL 2.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-wolf-animation
+    - (wolf head)
+- Benjamin K. Smith (BenCreating)
+  - LPC Wolfman
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-wolfman
+    - (wolfman base)
+- castelonia
+  - LPC Wolfman
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-wolfman
+    - (wolfman base)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (edited for headless bases)
+
+
+### Wolfman child head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - [LPC] Wolf Animation
+    - CC-BY-SA 3.0 / CC-BY-SA 4.0 / GPL 3.0 / GPL 2.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-wolf-animation
+    - (wolf head)
+- William.Thompsonj
+  - [LPC] Wolf Animation
+    - CC-BY-SA 3.0 / CC-BY-SA 4.0 / GPL 3.0 / GPL 2.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-wolf-animation
+    - (wolf head)
+- Benjamin K. Smith (BenCreating)
+  - LPC Wolfman
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-wolfman
+    - (wolfman base)
+- castelonia
+  - LPC Wolfman
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-wolfman
+    - (wolfman base)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (created child version of wolfman head)
+
+### Orc female head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (original female haead)
+- madmarcel
+  - [LPC] Female Orc/Ogre/Goblin/Troll (base walkcycle)
+    - CC-BY-SA 3.0
+    - https://opengameart.org/content/lpc-female-orcogregoblintroll-base-walkcycle
+    - (orc female walk and idle)
+- Matthew Krohn (makrohn)
+  - LPC ladies
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-ladies
+    - (orc female cast, thrust, slash, shoot, and hurt animations)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (edited for headless bases)
+
+### Orc male head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Zi Ye
+  - Sinbad the Ogre
+    - CC-BY-SA 3.0
+    - https://opengameart.org/content/sinbad-the-ogre
+    - (original "Sinbad" design)
+- Stephen Challener (Redshrike)
+  - Four characters: My LPC entries
+    - CC-BY 3.0 / CC-BY-SA 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/four-characters-my-lpc-entries
+    - (LPC orc "Sinbad")
+- Matthew Krohn (makrohn)
+  - LPC Male Sheets
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-sheets
+    - (orc head cast and hurt animations)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (edited for headless bases, minor shading changes)
+
+### Orc child head
+OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (adult human head)
+- kheftel
+  - LPC Child Standing Template
+    - CC-BY 3.0 / OGA-BY 3.0 / CC0
+    - https://opengameart.org/content/lpc-child-standing-template
+    - (child head)
+- Nila122
+  - LPC children walk animation
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 / GPL 2.0
+    - https://opengameart.org/content/lpc-children-walk-animation
+    - (child orc head)
+    - (Nila122 has agreed to license their contributions as OGA-BY 3.0 wherever possible)
+
+### Human female head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - OGA-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (base idle, cast, walk, slash, and hurt animations)
+- Benjamin K. Smith (BenCreating)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (fixes to shading)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (modular heads version)
+
+### Human male head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (idle, cast, walk, slash, and hurt animations)
+- Benjamin K. Smith (BenCreating)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (fixes to shading)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (modular heads version)
+
+
+### Human male/female elderly heads
+OGA-BY 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (original male/female heads)
+- Eliza Wyatt (ElizaWy)
+  - [LPC Revised] Elders
+    - OGA-BY 3.0 / CC-BY 3.0
+    - https://opengameart.org/content/lpc-revised-elders
+    - (created elder heads at smaller, "LPC revised" scale)
+- Benjamin K. Smith (BenCreating)
+  - LPC Character Bases
+    - OGA-BY 3.0 / CC-BY 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (adapted heads full-size)
+
+### Human child head
+OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (adult animations)
+- kheftel
+  - LPC Child Standing Template
+    - CC-BY 3.0 / OGA-BY 3.0 / CC0
+    - https://opengameart.org/content/lpc-child-standing-template
+    - (child body)
+- bluecarrot16
+  - LPC Character Bases
+    - OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (modular heads version)
+
+
+### Skeleton head
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (base idle, cast, walk, slash, and hurt animations)
+- Johannes Sjölund (wulax)
+  - [LPC] Medieval fantasy character sprites
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+    - (idle, cast, walk, slash, shoot, and hurt animations)
+  - [LPC] Skeleton
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-skeleton
+    - (thrust animation)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (edited for headless bases)
+
+
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+## Bodies
+
+### Child body
+OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (adult idle, cast, walk, slash, and hurt animations)
+- kheftel
+  - LPC Child Standing Template
+    - CC-BY 3.0 / OGA-BY 3.0 / CC0
+    - https://opengameart.org/content/lpc-child-standing-template
+    - (child idle)
+- Nila122
+  - LPC children walk animation
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 / GPL 2.0
+    - https://opengameart.org/content/lpc-children-walk-animation
+    - (child walk)
+    - (Nila122 has agreed to license their contributions as OGA-BY 3.0 wherever possible)
+- Durrani
+  - [LPC] Male Jumping Animation
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- MuffinElZangano
+  - [LPC] Male Jumping Animation
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- Benjamin K. Smith (BenCreating)
+  - LPC Character Bases
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (child slash and hurt)
+  - [LPC] Jump! (Expanded)
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+- Eliza Wyatt (ElizaWy)
+  - [LPC] Jump! (Expanded)
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+- bluecarrot16
+  - LPC Character Bases
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (headless version)
+
+### Female (adult) body
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (base idle, cast, walk, slash, and hurt animations)
+- Johannes Sjölund (wulax)
+  - [LPC] Medieval fantasy character sprites
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+    - (base thrust and shoot animations)
+- Matthew Krohn (makrohn)
+  - LPC ladies
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-ladies
+    - (female thrust and shoot animations)
+- Eliza Wyatt (ElizaWy)
+  - [LPC] 7 Women's Shirts
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-7-womens-shirts
+    - (corrections to jawline in female thrust animation)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+  - [LPC] Be Seated!
+    - OGA-BY 3.0 / CC-BY 3.0
+    - https://opengameart.org/content/lpc-be-seated
+    - (sitting pose)
+  - [LPC Revised] Character Basics!
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-revised-character-basics
+    - (legs for run cycle)
+    - (3-frame idle animation)
+- Pierre Vigier (pvigier)
+  - LPC Characters
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://gitlab.com/vagabondgame/lpc-characters
+    - (corrections to frame 12 of the shoot animation, and frame 2 of the thrust animation)
+- Durrani
+  - [LPC] Male Jumping Animation
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- MuffinElZangano
+  - [LPC] Male Jumping Animation
+    - OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- TheraHedwig
+  - LPC runcycle and diagonal walkcycle.
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-and-diagonal-walkcycle
+    - (arms for run cycle)
+- Evert
+  - [LPC] Runcycle for male, muscular and pregnant character bases with modular heads
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-for-male-muscular-and-pregnant-character-bases-with-modular-heads
+    - (combined run cycle)
+- Benjamin K. Smith (BenCreating)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (2-frame idle animation)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (headless version)
+
+### Pregnant body
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - OGA-BY 3.0 / CC-BY 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (base idle, cast, walk, slash, and hurt animations)
+- Johannes Sjölund (wulax)
+  - [LPC] Medieval fantasy character sprites
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+    - (base thrust and shoot animations)
+- Matthew Krohn (makrohn)
+  - LPC ladies
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-ladies
+    - (base female thrust and shoot animations)
+- Eliza Wyatt (ElizaWy)
+  - [LPC] Pregnancy Bases & Maternity Wear
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-pregnancy-bases-maternity-wear
+    - (female pregnant idle and walk animations)
+  - [LPC] 7 Women's Shirts
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-7-womens-shirts
+    - (corrections to the jawline in the base female thrust animation)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+  - [LPC Revised] Character Basics!
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-revised-character-basics
+    - (legs for run cycle)
+    - (3-frame idle animation)
+  - [LPC] Be Seated!
+    - OGA-BY 3.0 / CC-BY 3.0
+    - https://opengameart.org/content/lpc-be-seated
+    - (sitting pose)
+- Pierre Vigier (pvigier)
+  - LPC Characters
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://gitlab.com/vagabondgame/lpc-characters
+    - (corrections to the base female in frame 12 of the shoot animation, and frame 2 of the thrust animation)
+- Benjamin K. Smith (BenCreating)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (cast, thrust, slash, shoot, and hurt animations)
+    - (2-frame idle animation)
+    - (sitting pose for pregnant base)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+- Durrani
+  - [LPC] Male Jumping Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- MuffinElZangano
+  - [LPC] Male Jumping Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- TheraHedwig
+  - LPC runcycle and diagonal walkcycle.
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-and-diagonal-walkcycle
+    - (arms for run cycle)
+- Evert
+  - [LPC] Runcycle for male, muscular and pregnant character bases with modular heads
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-for-male-muscular-and-pregnant-character-bases-with-modular-heads
+    - (combined run cycle)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (headless version)
+
+### Male (adult) body
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (idle, cast, walk, slash, and hurt animations)
+- Johannes Sjölund (wulax)
+  - [LPC] Medieval fantasy character sprites
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+    - (thrust and shoot animations)
+- Durrani
+  - [LPC] Male Jumping Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- MuffinElZangano
+  - [LPC] Male Jumping Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- TheraHedwig
+  - LPC runcycle and diagonal walkcycle.
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-and-diagonal-walkcycle
+    - (arms for run cycle)
+- Eliza Wyatt (ElizaWy)
+  - [LPC Revised] Character Basics!
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-revised-character-basics
+    - (legs for run cycle)
+    - (3-frame idle animation for androgynous base)
+  - [LPC] Be Seated!
+    - OGA-BY 3.0 / CC-BY 3.0
+    - https://opengameart.org/content/lpc-be-seated
+    - (original sitting pose)
+- Evert
+  - [LPC] Runcycle for male, muscular and pregnant character bases with modular heads
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-for-male-muscular-and-pregnant-character-bases-with-modular-heads
+    - (combined run cycle)
+- Benjamin K. Smith (BenCreating)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (2-frame idle animation)
+    - (male sitting pose)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (headless version)
+
+### Muscular body
+CC-BY-SA-3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (base idle, cast, walk, slash, and hurt animations)
+- dalonedrau
+  - LPC Barbarian Sprite Base
+    - CC-BY-SA 3.0
+    - https://opengameart.org/content/lpc-barbarian-sprite-base
+    - (idle and walk animations)
+- Eliza Wyatt (ElizaWy)
+  - [LPC] Muscular Swing Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-muscular-swing-animation
+    - (slash animation)
+  - [LPC] Muscular Hurt Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-muscular-hurt-animation
+    - (hurt animation)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+  - [LPC Revised] Character Basics!
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-revised-character-basics
+    - (legs for run cycle)
+    - (3-frame idle animation for androgynous base)
+  - [LPC] Be Seated!
+    - OGA-BY 3.0 / CC-BY 3.0
+    - https://opengameart.org/content/lpc-be-seated
+    - (original sitting pose)
+- Benjamin K. Smith (BenCreating)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (cast and thrust animations)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+    - (2-frame idle animation)
+    - (muscular sitting pose)
+- castelonia
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (thrust animations)
+- Durrani
+  - [LPC] Male Jumping Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- MuffinElZangano
+  - [LPC] Male Jumping Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- TheraHedwig
+  - LPC runcycle and diagonal walkcycle.
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-and-diagonal-walkcycle
+    - (arms for run cycle)
+- Evert
+  - [LPC] Runcycle for male, muscular and pregnant character bases with modular heads
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-for-male-muscular-and-pregnant-character-bases-with-modular-heads
+    - (combined run cycle)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (headless version)
+
+### Teen body
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (base idle, cast, walk, slash, and hurt animations)
+- Johannes Sjölund (wulax)
+  - [LPC] Medieval fantasy character sprites
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+    - (base thrust and shoot animations)
+- Matthew Krohn (makrohn)
+  - LPC ladies
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-ladies
+    - (base female thrust and shoot animations)
+- Eliza Wyatt (ElizaWy)
+  - [LPC] Teen / Unisex Base & Clothes
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-teen-unisex-base-clothes
+    - (idle, cast, thrust, walk, slash, shoot, and hurt animations)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+  - [LPC Revised] Character Basics!
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-revised-character-basics
+    - (legs for run cycle)
+    - (3-frame idle animation for androgynous base)
+  - [LPC] Be Seated!
+    - OGA-BY 3.0 / CC-BY 3.0
+    - https://opengameart.org/content/lpc-be-seated
+    - (sitting pose)
+- Pierre Vigier (pvigier)
+  - LPC Characters
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://gitlab.com/vagabondgame/lpc-characters
+    - (corrections to the base female in frame 12 of the shoot animation, and frame 2 of the thrust animation)
+- Durrani
+  - [LPC] Male Jumping Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- MuffinElZangano
+  - [LPC] Male Jumping Animation
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-male-jumping-animation-by-durrani
+    - (original base jump animation)
+- Benjamin K. Smith (BenCreating)
+  - [LPC] Jump! (Expanded)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-jump-expanded
+    - (jump animation)
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (sitting pose)
+    - (2-frame idle animation)
+- TheraHedwig
+  - LPC runcycle and diagonal walkcycle.
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-and-diagonal-walkcycle
+    - (arms for run cycle)
+- Evert
+  - [LPC] Runcycle for male, muscular and pregnant character bases with modular heads
+    - CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0
+    - https://opengameart.org/content/lpc-runcycle-for-male-muscular-and-pregnant-character-bases-with-modular-heads
+    - (combined run cycle)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (headless version)
+
+### Zombie male body
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (base idle, cast, walk, slash, and hurt animations)
+- Johannes Sjölund (wulax)
+  - [LPC] Medieval fantasy character sprites
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+    - (base thrust and shoot animations)
+- Benjamin K. Smith (BenCreating)
+  - [LPC] Zombie
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-zombie
+    - (idle, cast, thrust, walk, slash, shoot, and hurt animations)
+- castelonia
+  - [LPC] Zombie
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-zombie
+    - (idle, cast, thrust, walk, slash, shoot, and hurt animations)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (headless version)
+
+### Skeleton Male
+CC-BY-SA 3.0 / GPL 3.0
+
+Created by:
+- Stephen Challener (Redshrike)
+  - Liberated Pixel Cup (LPC) Base Assets (sprites & map tiles)
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+    - (base idle, cast, walk, slash, and hurt animations)
+- Johannes Sjölund (wulax)
+  - [LPC] Medieval fantasy character sprites
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+    - (idle, cast, walk, slash, shoot, and hurt animations)
+  - [LPC] Skeleton
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-skeleton
+    - (thrust animation)
+- bluecarrot16
+  - LPC Character Bases
+    - CC-BY-SA 3.0 / GPL 3.0
+    - https://opengameart.org/content/lpc-character-bases
+    - (headless version, misc cleanup)
