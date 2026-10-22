@@ -13,29 +13,39 @@ const encoder = new TextEncoder(), decoder = new TextDecoder();
 // ---- Files ----
 
 // The `files` effect: (lofi io)'s file operations over `files`, a map from
-// path to bytes. A path arrives a character at a time. An input port reads
+// path to bytes. Each call receives a complete staged path. An input port reads
 // the file as it was opened, a UTF-8 character or a byte at a time; an
 // output port gathers text and bytes in order and stores them when it
 // closes.
-function filesImports(files) {
-  const ports = new Map();
-  let path = '', next = 1;
+function filesImports(loop) {
+  const {files} = loop, ports = new Map();
+  const path = count => stagedPath(loop.program.runtime, count);
+  let next = 1;
   const open = port => { ports.set(next, port); return next++; };
   return {
-    'path-begin': () => { path = ''; },
-    'path-character': code => { path += String.fromCodePoint(code); },
-    exists: () => (files.has(path) ? 1 : 0),
-    'open-input': () => {
-      if (!files.has(path)) throw new Error(`${path}: no such file`);
-      return open({bytes: files.get(path), at: 0});
+    exists: count => (files.has(path(count)) ? 1 : 0),
+    'open-input': count => {
+      const name = path(count);
+      if (!files.has(name)) throw new Error(`${name}: no such file`);
+      return open({bytes: files.get(name), at: 0});
     },
-    'open-output': () => open({path, chunks: [], text: ''}),
+    'open-output': count => open({path: path(count), chunks: [], text: ''}),
     read: port => readCharacter(ports.get(port)),
     'read-byte': port => { const input = ports.get(port); return input.at < input.bytes.length ? input.bytes[input.at++] : -1; },
     write: (port, code) => { ports.get(port).text += String.fromCodePoint(code); },
     'write-byte': (port, byte) => { const output = ports.get(port); keepText(output); output.chunks.push(Uint8Array.of(byte)); },
     close: port => { const output = ports.get(port); if ('chunks' in output) files.set(output.path, joined(output)); ports.delete(port); },
   };
+}
+
+// Lowering has already staged the path. Reacquire the memory view after
+// stage and copy synchronously, before another operation can reuse the buffer.
+function stagedPath(runtime, count) {
+  const pointer = runtime.exports['snail:io/stage'](count);
+  const scalars = new Uint32Array(runtime.exports.memory.buffer, pointer, count);
+  let text = '';
+  for (const scalar of scalars) text += String.fromCodePoint(scalar);
+  return text;
 }
 
 // The next character of UTF-8 input, or -1 at its end.
@@ -137,7 +147,7 @@ async function startLoop({library, project}) {
   for (const [path, text] of Object.entries(project)) loop.files.set(`/project/${path}`, encoder.encode(text));
   loop.files.set('/runtime.wasm', await fetchBytes(new URL('runtime.wasm', toolchain)));
   loop.assemble = await createAssembler(await fetchBytes(new URL('assembler.wasm', import.meta.url)));
-  const host = {'snail.develop': commandImports(commands(loop)), 'snail.files': filesImports(loop.files)};
+  const host = {'snail.develop': commandImports(commands(loop)), 'snail.files': filesImports(loop)};
   loop.program = await linkProgram(file => fetchBytes(new URL(file, toolchain)), 'modules.json', loopWasi(loop), host);
   enter(loop, () => runProgram(loop.program));
   return loop;
