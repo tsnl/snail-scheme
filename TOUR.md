@@ -68,28 +68,39 @@ and keeps state that grows over a whole pass in a `Ref`.
   subtypes of a base holding the tag. Sequences are GC arrays. Functions are
   closures: a struct whose first field is a typed function reference, with
   captured variables in a subtype. Tail calls become `return_call`. Each
-  effect has a global handler stack. All GC types share one recursion group.
+  effect has a global handler stack. Each GC type sits in the smallest
+  recursion group it can, ordered by name, so modules that declare the same
+  type declare the same group. Compiled one library at a time, a module
+  exports its monomorphic definitions under their global names and imports
+  other libraries' (doc/toolchain.md, section 3).
+- **[`session.sld`](src/lofi/compiler/session.sld)** keeps the compiler
+  running between builds: the expander replays libraries whose declarations
+  and imports' interfaces are unchanged, and only libraries whose expansion
+  changed are checked, specialized and emitted again.
 - **[`compiler.sld`](src/lofi/compiler.sld)** composes the passes, from a
-  program's path to WebAssembly text.
+  program's path to WebAssembly text, or to one module's text per library.
 
 ## Around the compiler
 
 | Path | Responsibility |
 | --- | --- |
 | `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `serve` and `watch`. |
-| `scripts/develop.mjs` | The development loop behind `lofi serve` and `lofi watch`: it watches the sources, builds through the driver, and either serves an application with live reload events or runs a program again. |
+| `src/lofi/develop.sld`, `bootstrap/develop.sld` | The development loop behind `lofi serve`, `lofi watch` and the IDE, as a Lofi program: it keeps a session, debounces changes, writes each changed module and a manifest, and broadcasts build events, reaching its host only through the `develop` effect's commands. |
+| `scripts/develop.mjs` | The loop's Node host: file watching, timers, HTTP with server-sent events, and running programs. |
 | `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program. |
 | `bootstrap/compile.sld` | The compiler's entry program when it runs as Wasm. |
 | `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
 | `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
-| `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
-| `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI, in a worker with room for deep recursion. |
-| `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (perspective or orthographic, glow, motion between ticks, translucent and revealed batches), the keyed HUD and saves; `reload.mjs`, which `lofi serve` adds to its pages, swaps a rebuilt module into a running page by restoring the old module's save into it. |
+| `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics; `files.rs` keeps files in memory for a host without a file system. |
+| `src/assembler/`, `scripts/assemble.mjs` | The in-process assembler: the `wat` crate built for `wasm32-wasip1`, turning WebAssembly text into a module without Binaryen, under Node or in a browser. `scripts/assemble.mjs` drives it; programs never carry it. |
+| `scripts/run-lofi.mjs` | Runs a compiled program, or a `modules.json` of linked modules, under Node's WASI, in a worker with room for deep recursion; it provides `(lofi wasm)`'s loading. |
+| `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (perspective or orthographic, glow, motion between ticks, translucent and revealed batches), the keyed HUD and saves. `load.mjs` links a program compiled one library at a time; `host.mjs` relinks it from a changed module, handing over the state. `reload.sld` is the reload client, a Lofi program that compares build manifests and decides what a page does; `reload-client.mjs` binds it, and `reload.mjs` adds it to the pages `lofi serve` serves. |
+| `src/ide/`, `scripts/build-ide.scm` | The browser IDE: an editor and the application on one page, and the development loop in a worker with the runtime's memory files. `build-ide.scm` packages it as a static site. |
 | `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
 | `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `colony` (orders and work), `siege` (attacks and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
 | `examples/` | Small programs; the test suite runs them, and the book's tutorials show them. |
 | `doc/book/`, `book.toml` | The book published on GitHub Pages; its chapters include the language guide, the redesign and Siegework's guide. |
-| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios, a headless game and `develop.mjs`, which drives `lofi serve` and `lofi watch` over the `tests/apps/counter` fixture; `browser/reload.mjs` checks live reload in Chromium. |
+| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios, a headless game and `develop.mjs`, which drives `lofi serve` and `lofi watch` over the `tests/apps/counter` fixture, and programs linked one library at a time; `browser/reload.mjs` and `browser/ide.mjs` check live reload and the IDE in Chromium. |
 
 ## Checks
 
@@ -97,8 +108,10 @@ and keeps state that grows over a whole pass in a `Ref`.
 make test       # unit tests, programs, examples and Siegework
 make check      # formatting
 cargo test --manifest-path src/runtime/Cargo.toml --offline
+cargo test --manifest-path src/assembler/Cargo.toml --offline
 make site       # Siegework in build/siegework
-make test-browser  # live reload in headless Chromium; CHROMIUM names it
+make ide        # the browser IDE around Siegework in build/ide
+make test-browser  # live reload and the IDE in headless Chromium; CHROMIUM names it
 make pages      # the book, with Siegework at play/siegework/, in build/pages
 ```
 

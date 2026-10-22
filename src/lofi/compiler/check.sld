@@ -8,7 +8,9 @@
    Typed-program
    Typed-items
    definition-scheme
-   check-program)
+   Typed-schemes
+   check-program
+   check-library)
   (import
    (lofi base)
    (lofi table)
@@ -1081,21 +1083,22 @@
         (check-host-effects ck row (Expr-loc value))
         (Do value)))
 
-    ;; The host passes and receives scalars only, and implements every effect
-    ;; an exposed function performs.
+    ;; The host passes and receives scalars, and `Any`, which it holds without
+    ;; looking inside and may hand to another module; it implements every
+    ;; effect an exposed function performs.
     (: check-exposed (-> Checker String Loc Unit ! mut))
     (define (check-exposed ck name loc)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) (TFun params result row)))
-         (unless (every? host-scalar? (Cons result params))
-           (compile-error loc "an exposed function takes and returns scalars only"))
+         (unless (every? host-value? (Cons result params))
+           (compile-error loc "an exposed function takes and returns only scalars and Any"))
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
-    (: host-scalar? (-> Type Bool))
-    (define (host-scalar? type)
+    (: host-value? (-> Type Bool))
+    (define (host-value? type)
       (match type
-        ((TCon name (Nil)) (member? name (list "I32" "I64" "F32" "F64" "Bool" "Char" "Unit")))
+        ((TCon name (Nil)) (member? name (list "I32" "I64" "F32" "F64" "Bool" "Char" "Unit" "Any")))
         (_ #f)))
 
     ;; Effects performed at program start need host implementations.
@@ -1110,13 +1113,28 @@
 
     ;; ---- Programs ----
 
-    ;; Unannotated definitions are checked first, in dependency order; then
-    ;; annotated definitions and statements, which only need schemes. Then
-    ;; every constraint is solved and every type zonked.
+    ;; A program is checked a library at a time, in program order, so each
+    ;; library's types are settled within it, as they must be when libraries
+    ;; are compiled apart: an unannotated value takes its type from its own
+    ;; library, never from a library that imports it.
     (: check-program (-> Program Typed ! mut))
     (define (check-program program)
-      (let* ((ck (Checker program (ref 0) empty-table (ref empty-table) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
-             (items (program-items program)) (inferred (check-inferred ck items))
+      (let loop ((libraries (library-items program (program-items program))) (items (Nil)) (schemes empty-table))
+        (match libraries
+          ((Cons library rest)
+           (let ((typed (check-library program schemes (Pair-second library))))
+             (loop rest (append items (Typed-items typed)) (Typed-schemes typed))))
+          ((Nil) (Typed program items schemes)))))
+
+    ;; One library's items, checked after the libraries before it: `schemes`
+    ;; holds their definitions' schemes, and the result holds those and the
+    ;; new ones. Unannotated definitions are checked first, in dependency
+    ;; order; then annotated definitions and statements, which only need
+    ;; schemes. Then every constraint is solved and every type zonked.
+    (: check-library (-> Program (Table Scheme) (List Item) Typed ! mut))
+    (define (check-library program schemes items)
+      (let* ((ck (Checker program (ref 0) empty-table (ref schemes) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
+             (inferred (check-inferred ck items))
              (typed (map (lambda (item) (check-item ck inferred item)) items)))
         (solve-pending! ck)
         (for-each (lambda (item)

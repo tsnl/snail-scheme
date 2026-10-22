@@ -15,9 +15,9 @@
 ;; draws a Frame through the `screen` effect, shows the HUD again after
 ;; each input (after time, at most ten times a second), and stores the
 ;; serialized Save. The Save may be much smaller than the state: a record
-;; of how to rebuild it. A development server (`lofi serve`) replaces the
-;; module of a running page the same way a reload restores it: the old
-;; module's save is restored into the new one.
+;; of how to rebuild it. A development server (`lofi serve`) relinks a
+;; running page's rebuilt modules and hands the state to the new program
+;; as it is, or through the save when its types changed.
 (define-library (lofi app)
   (export
    Input
@@ -160,12 +160,19 @@
       (Hover ((action I32) (argument I32)))
       (Elapsed ((milliseconds I32))))
 
+    (: key-left I32)
     (define key-left 1)
+    (: key-right I32)
     (define key-right 2)
+    (: key-up I32)
     (define key-up 3)
+    (: key-down I32)
     (define key-down 4)
+    (: key-escape I32)
     (define key-escape 27)
+    (: key-enter I32)
     (define key-enter 13)
+    (: key-space I32)
     (define key-space 32)
 
     (: decode-input (-> I32 I32 I32 I32 I32 Input))
@@ -734,6 +741,20 @@
            (define (app-load-end)
              (settle (ann (restore (deserialize (array->vector (ref-get loading)))) State)))
 
+           ;; A rebuilt program takes over the state as it is when no type
+           ;; in it changed: the conversion from Any checks the state's type,
+           ;; and WebAssembly its layout, so adopting a state of another shape
+           ;; traps, and the host falls back to the save.
+           (: app-state (-> Any ! mut))
+           (define (app-state)
+             (match (ref-get current)
+               ((Some state) (type-convert state Any))
+               ((None) (panic "the application has no state yet"))))
+
+           (: app-adopt (-> Any Unit ! mut screen))
+           (define (app-adopt state)
+             (settle (ann (type-convert state State) State)))
+
            (expose app-init "app_init")
            (expose app-input "app_input")
            (expose app-frame "app_frame")
@@ -741,6 +762,8 @@
            (expose app-save-byte "app_save_byte")
            (expose app-load-begin "app_load_begin")
            (expose app-load-byte "app_load_byte")
-           (expose app-load-end "app_load_end")))))
+           (expose app-load-end "app_load_end")
+           (expose app-state "app_state")
+           (expose app-adopt "app_adopt")))))
 
     ))

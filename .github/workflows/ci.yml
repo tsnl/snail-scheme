@@ -45,12 +45,15 @@ jobs:
         run: |
           rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt --target wasm32-wasip1
           cargo fetch --locked --manifest-path src/runtime/Cargo.toml
+          cargo fetch --locked --manifest-path src/assembler/Cargo.toml
       - name: Run checks
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
           make check
           cargo test --manifest-path src/runtime/Cargo.toml --offline
           cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check
+          cargo test --manifest-path src/assembler/Cargo.toml --offline
+          cargo fmt --manifest-path src/assembler/Cargo.toml --all -- --check
           make test
       - name: Retain build evidence
         if: failure()

@@ -6,3 +6,4 @@
 # Intermediate build files
 /build/
 /src/runtime/target/
+/src/assembler/target/

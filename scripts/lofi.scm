@@ -60,8 +60,19 @@
                              (path-join root "scripts/run-lofi.mjs") program arguments))))
     (quotient status 256)))
 
+;; The tools the development server runs, built if needed, as JSON for
+;; scripts/develop.mjs.
+(define (print-tools root)
+  (write-string "{")
+  (let loop ((tools (build-tools root)) (first? #t))
+    (unless (null? tools)
+      (write-string (string-append (if first? "" ", ") "\"" (caar tools) "\": \"" (cdar tools) "\""))
+      (loop (cdr tools) #f)))
+  (write-string "}\n")
+  0)
+
 (let ((arguments (command-line)))
   (exit (guard (failure (#t (report-failure "lofi" failure)))
-          (if (equal? (cddr arguments) '("bootstrap"))
-              (begin (bootstrap! (cadr arguments)) 0)
-              (perform (cadr arguments) (request (cddr arguments)))))))
+          (cond ((equal? (cddr arguments) '("bootstrap")) (bootstrap! (cadr arguments)) 0)
+                ((equal? (cddr arguments) '("tools")) (print-tools (cadr arguments)))
+                (else (perform (cadr arguments) (request (cddr arguments))))))))

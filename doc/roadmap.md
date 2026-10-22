@@ -25,6 +25,10 @@ milestones are implemented; open items are tracked in [TODO.md](../TODO.md).
 
 1. Grow `(scheme compiler)` toward R7RS, and let Scheme code call typed Lofi
    code through `type-convert`.
-2. Open items in [TODO.md](../TODO.md). The redesign records the parts of
+2. Notebooks of compiled cells, on the toolchain that
+   [toolchain.md](toolchain.md) describes: separate compilation with dynamic
+   linking in debug builds, relinking single modules, the development loop
+   in Lofi, the toolchain in a browser, and `(lofi wasm)`.
+3. Open items in [TODO.md](../TODO.md). The redesign records the parts of
    its plan that were cut, such as the dependent elaborator and the WGSL
    backend.
