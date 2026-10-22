@@ -240,7 +240,7 @@
     (: core-keywords (List String))
     (define core-keywords
       (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type"
-            "typeclass" "instance" "match" "ann" "extern" "effect" "handle" "expose" "case-id" "type-convert"))
+            "typeclass" "instance" "match" "ann" "extern" "effect" "handle" "expose" "case-id" "type-convert" "type-test"))
 
     (: core-library (-> Exports))
     (define (core-library)
@@ -1227,6 +1227,10 @@
          (match items
            ((Cons _ (Cons value (Cons type (Nil)))) (expr (Convert (expand-expr cx env value) (resolve-type cx env type)) loc))
            (_ (compile-error loc "expected (type-convert expression type)"))))
+        (("type-test")
+         (match items
+           ((Cons _ (Cons value (Cons type (Nil)))) (expr (TypeTest (expand-expr cx env value) (resolve-type cx env type)) loc))
+           (_ (compile-error loc "expected (type-test expression type)"))))
         (("case-id")
          (match items
            ((Cons _ (Cons constructor (Nil)))

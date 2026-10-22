@@ -151,7 +151,8 @@
           ((Ann inner type) (Ann (copy inner) (ground inst type)))
           ((Handle effect implementations body)
            (Handle effect (map (lambda (entry) (Pair (Pair-first entry) (copy (Pair-second entry)))) implementations) (copy body)))
-          ((Convert inner target) (Convert (copy inner) (ground inst target))))))
+          ((Convert inner target) (Convert (copy inner) (ground inst target)))
+          ((TypeTest inner target) (TypeTest (copy inner) (ground inst target))))))
 
     (: copy-pattern (-> Instantiation Pattern Pattern))
     (define (copy-pattern inst pattern)
