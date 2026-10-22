@@ -45,29 +45,32 @@
     (: refresh (-> LedgerScreen LedgerScreen))
     (define (refresh screen)
       (let* ((ledger (LedgerScreen-ledger screen))
-             (screen (LedgerScreen-vee-offers-set screen (offer-choices ledger 1)))
-             (screen (LedgerScreen-kit-offers-set screen (offer-choices ledger 2)))
+             (screen (LedgerScreen-vee-offers-set screen (offer-choices ledger vee)))
+             (screen (LedgerScreen-kit-offers-set screen (offer-choices ledger kit)))
              (screen (LedgerScreen-contacts-set screen (contact-choices ledger)))
              (screen (LedgerScreen-jobs-set screen (job-choices ledger))))
         (LedgerScreen-promises-set screen (promise-choices ledger))))
 
     ;; ---- Actions ----
 
-    ;; Choice i of group g (Vee's offers 1, contacts 2, jobs 3, promises 4,
-    ;; Kit's offers 7) is action g with argument i. Action 5 ends the round
-    ;; and 6 deals a new game.
+    ;; Choice i of a group is the group's action with argument i. Action 5
+    ;; ends the round and 6 deals a new game.
+    (define action-vee-offers 1)
+    (define action-contacts 2)
+    (define action-jobs 3)
+    (define action-promises 4)
     (define action-end 5)
     (define action-new 6)
+    (define action-kit-offers 7)
 
     (: group-choices (-> LedgerScreen I32 (List Choice)))
     (define (group-choices screen group)
-      (case group
-        ((1) (LedgerScreen-vee-offers screen))
-        ((2) (LedgerScreen-contacts screen))
-        ((3) (LedgerScreen-jobs screen))
-        ((4) (LedgerScreen-promises screen))
-        ((7) (LedgerScreen-kit-offers screen))
-        (else (Nil))))
+      (cond ((= group action-vee-offers) (LedgerScreen-vee-offers screen))
+            ((= group action-contacts) (LedgerScreen-contacts screen))
+            ((= group action-jobs) (LedgerScreen-jobs screen))
+            ((= group action-promises) (LedgerScreen-promises screen))
+            ((= group action-kit-offers) (LedgerScreen-kit-offers screen))
+            (else (Nil))))
 
     (: command-at (-> LedgerScreen I32 I32 (Option Command)))
     (define (command-at screen group index)
@@ -108,12 +111,7 @@
     (: view-ledger-screen (-> LedgerScreen (-> String (Option Source)) Frame))
     (define (view-ledger-screen screen art)
       (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             (rgb 16 20 28) 1.0 (Nil) (map (lambda (index) (walk-picture art (rival-key index) (rival index))) (list 0 1))))
-
-    ;; Vee's picture is 200 and Kit's 201.
-    (: rival-key (-> I64 I32))
-    (define (rival-key index)
-      (i64->i32 (+ 200 index)))
+             (rgb 16 20 28) 1.0 (Nil) (map (lambda (who) (walk-picture art (rival-picture who) (rival who))) (list vee kit))))
 
     ;; ---- Panels ----
 
@@ -139,23 +137,24 @@
       (Panel "standings" (At (TopLeft) 0)
              (list (label "title" "Favor ledger")
                    (Dial (look "round") (ledger-header ledger) (/ (i64->f32 (- (Ledger-round ledger) 1)) (i64->f32 round-count)))
-                   (section-heading "you" "You") (label "you-stats" (fixer-stats ledger 0)) (label "you-markers" (string-join (fixer-holdings ledger 0) "\n")))))
+                   (section-heading "you" "You") (label "you-stats" (fixer-stats ledger you))
+                   (label "you-markers" (string-join (fixer-holdings ledger you) "\n")))))
 
     ;; A rival beside their portrait: their coins, standing, record, markers
     ;; and the job they are after, then their offers while the game is on.
-    ;; Vee is fixer 1 and Kit fixer 2; Vee's column is left of Kit's.
+    ;; Vee's column is left of Kit's.
     (: rival-panel (-> LedgerScreen I64 Panel))
-    (define (rival-panel screen index)
-      (let ((ledger (LedgerScreen-ledger screen)) (vee? (= index 0)))
-        (Panel (if vee? "vee" "kit") (At (TopRight) (i64->i32 (- 1 index)))
-               (append (list (portrait "portrait" (rival-key index) 2) (section-heading "name" (if vee? "Vee" "Kit"))
-                             (label "stats" (fixer-stats ledger (+ index 1))) (label "markers" (string-join (fixer-holdings ledger (+ index 1)) "\n")))
+    (define (rival-panel screen who)
+      (let ((ledger (LedgerScreen-ledger screen)) (vee? (= who vee)))
+        (Panel (if vee? "vee" "kit") (At (TopRight) (if vee? 1 0))
+               (append (list (portrait "portrait" (rival-picture who) 2) (section-heading "name" (fixer-name who))
+                             (label "stats" (fixer-stats ledger who)) (label "markers" (string-join (fixer-holdings ledger who) "\n")))
                        (if (ledger-over? ledger)
                            (Nil)
                            (section "offers" "Offers" "Nothing this round."
                                     (if vee?
-                                        (choice-buttons (LedgerScreen-vee-offers screen) 1 "offer")
-                                        (choice-buttons (LedgerScreen-kit-offers screen) 7 "offer"))))))))
+                                        (choice-buttons (LedgerScreen-vee-offers screen) action-vee-offers "offer")
+                                        (choice-buttons (LedgerScreen-kit-offers screen) action-kit-offers "offer"))))))))
 
     ;; What needs doing now: the result once the game is over, a promise
     ;; falling due, a job you can do, or else how to work toward one.
@@ -182,15 +181,15 @@
         (list (standings-panel ledger)
               (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
               (Panel "jobs" (At (TopLeft) 0)
-                     (section "jobs" "Jobs: one marker per ability" "No jobs open." (choice-buttons (LedgerScreen-jobs screen) 3 "job")))
+                     (section "jobs" "Jobs: one marker per ability" "No jobs open." (choice-buttons (LedgerScreen-jobs screen) action-jobs "job")))
               (Panel "promises" (At (TopLeft) 0)
                      (section "promises" "Promises" "None yet."
-                              (append (choice-buttons (LedgerScreen-promises screen) 4 "promise") (line-labels "owed" (owed-lines ledger)))))
+                              (append (choice-buttons (LedgerScreen-promises screen) action-promises "promise") (line-labels "owed" (owed-lines ledger)))))
               (Panel "contacts" (At (TopLeft) 1)
                      (append (section "contacts" "Contacts: meet a want, get a marker" "No contacts."
-                                      (choice-buttons (LedgerScreen-contacts screen) 2 "contact"))
+                                      (choice-buttons (LedgerScreen-contacts screen) action-contacts "contact"))
                              (list (button "end" "End the round" action-end) (button "new" "New game" action-new))))
-              (news-panel screen) (rival-panel screen 0) (rival-panel screen 1))))
+              (news-panel screen) (rival-panel screen vee) (rival-panel screen kit))))
 
     ;; What the last command said, and what the last end of round did.
     (: news-panel (-> LedgerScreen Panel))
@@ -203,7 +202,7 @@
     (define (final-panels screen)
       (list (standings-panel (LedgerScreen-ledger screen)) (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
             (Panel "contacts" (At (TopLeft) 1) (list (button "new" "New game" action-new))) (news-panel screen)
-            (rival-panel screen 0) (rival-panel screen 1)))
+            (rival-panel screen vee) (rival-panel screen kit)))
 
     ;; ---- Guide ----
 
@@ -220,7 +219,7 @@
             (Page "Jobs"
                   (list "The most standing after eight rounds wins, and coins break ties. Jobs pay standing: a job takes one marker for each ability it lists."
                         "A job needing two abilities pays 4 coins and 1 standing; one needing three pays 6 coins and 2. Vee and Kit chase jobs too, and each shows the job it is after.")
-                  (list (portrait "guide-vee" (rival-key 0) 2) (portrait "guide-kit" (rival-key 1) 2)))
+                  (list (portrait "guide-vee" (rival-picture vee) 2) (portrait "guide-kit" (rival-picture kit) 2)))
             (Page "Getting markers"
                   (list "Each contact wants one thing: coins, or a marker with another ability. Meet the want and they grant you one of their markers, once a round."
                         "Vee and Kit, on the right, offer to buy and sell markers, and to trade promises for coins. Each offer can be taken once a round."

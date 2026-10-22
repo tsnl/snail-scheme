@@ -32,8 +32,7 @@
     ;; per shift rather than every frame. `version` changes with every shift, so the host redraws
     ;; the town only then. `guide` is the guide's open page, if any.
     (struct MillScreen
-      ((scenario I64)
-       (mill Mill)
+      ((mill Mill)
        (forecast (List String))
        (selected (Option I64))
        (hover (Option I64))
@@ -46,10 +45,10 @@
       (deriving Serialize Deserialize))
 
     ;; `version` must differ from any town the host has drawn before.
-    (: new-mill-screen (-> I64 I64 I32 I32 MillScreen))
+    (: new-mill-screen (-> Scenario I64 I32 I32 MillScreen))
     (define (new-mill-screen scenario version width height)
       (let ((mill (new-mill scenario)))
-        (MillScreen scenario mill (forecast mill) (None) (None) (Nil) (Nil) version (None) width height)))
+        (MillScreen mill (forecast mill) (None) (None) (Nil) (Nil) version (None) width height)))
 
     ;; ---- Layout ----
 
@@ -97,11 +96,6 @@
     ;; Everyone faces the viewer, down the map.
     (define toward-viewer (Vec3 0.0 0.0 1.0))
 
-    ;; Each person's picture.
-    (: picture-key (-> I64 I32))
-    (define (picture-key person)
-      (i64->i32 (+ 100 person)))
-
     ;; The person whose figure or base is under the pointer, the one nearest
     ;; the bottom of the map when figures overlap.
     (: pick (-> MillScreen I32 I32 (Option I64)))
@@ -123,8 +117,9 @@
 
     ;; ---- Actions ----
 
-    ;; Buttons 1-5 are the deeds, 6 pays, 7 and 8 lie, 9 lies low, 10
-    ;; restarts, and 100 + p chooses person p.
+    ;; Buttons 1 to 5 are the deeds in order, 6 pays, 7 and 8 lie, 9 lies
+    ;; low, 10 restarts, and 100 + p chooses person p.
+    (define action-deed 1)
     (define action-pay 6)
     (define action-lie-reliable 7)
     (define action-lie-harmless 8)
@@ -134,7 +129,7 @@
 
     (: person-action (-> I32 I64 Action))
     (define (person-action action person)
-      (cond ((<= action 5) (Do (list-ref deeds (i32->i64 (- action 1))) person))
+      (cond ((< action action-pay) (Do (list-ref deeds (i32->i64 (- action action-deed))) person))
             ((= action action-pay) (Pay person))
             ((= action action-lie-reliable) (Mislead (Reliable) person))
             (else (Mislead (Harmless) person))))
@@ -162,7 +157,7 @@
              (MillScreen-guide-set screen (turn-guide (MillScreen-guide screen) (length guide-pages) action)))
             ((>= action action-choose) (MillScreen-selected-set screen (Some (i32->i64 (- action action-choose)))))
             ((= action action-restart)
-             (new-mill-screen (MillScreen-scenario screen) (+ (MillScreen-version screen) 1) (MillScreen-width screen)
+             (new-mill-screen (Mill-scenario (MillScreen-mill screen)) (+ (MillScreen-version screen) 1) (MillScreen-width screen)
                               (MillScreen-height screen)))
             ((= action action-wait) (act screen (Wait)))
             (else (match (MillScreen-selected screen)
@@ -244,7 +239,7 @@
              (layer (+ 0.1 (* 0.01 (- (Vec3-z at) town-top)))))
         (concatenate
          (list (list (hexagon person size 0.03 (audience-color (audience-of person)))
-                     (pose-flat (character-book (picture-key person)) (if fresh? (Stroll) (Stand))
+                     (pose-flat (character-book (person-picture person)) (if fresh? (Stroll) (Stand))
                                 (Vec3 (Vec3-x at) layer (+ (Vec3-z at) feet-offset)) toward-viewer figure-size (camera-of screen)))
                (pips mill person (Dangerous) (Harmless) (rgb 225 70 60) (rgb 140 190 245) -1.0)
                (pips mill person (Reliable) (Unreliable) (rgb 90 205 110) (rgb 245 150 40) 1.0)
@@ -276,7 +271,7 @@
                    (Batch 1 (i64->i32 (MillScreen-version screen)) (Solid)
                           (lambda () (concatenate (map (lambda (person) (person-items screen person)) (iota person-count)))))
                    (Batch 2 (marker-version screen) (Solid) (lambda () (marker-items screen))))
-             (map (lambda (person) (walk-picture art (picture-key person) (resident person))) (iota person-count))))
+             (map (lambda (person) (walk-picture art (person-picture person) (resident person))) (iota person-count))))
 
     ;; ---- Status ----
 
@@ -285,7 +280,7 @@
     (define (status-panel screen)
       (let* ((mill (MillScreen-mill screen)) (shift (Mill-shift mill)) (last (last-shift mill)))
         (Panel "status" (At (TopLeft) 0)
-               (list (label "title" (mill-scenario-name (MillScreen-scenario screen)))
+               (list (label "title" (Rules-name (scenario-rules (Mill-scenario mill))))
                      (Dial (look "shift") (string-append "Shift " (show (min shift last)) " of " (show last))
                            (/ (i64->f32 (- shift 1)) (i64->f32 last)))
                      (Dial (look "coins") (string-append (show (Mill-coins mill)) " coins") (/ (i64->f32 (Mill-coins mill)) 10.0))))))
@@ -294,7 +289,9 @@
     (: goal-panel (-> Mill Panel))
     (define (goal-panel mill)
       (Panel "goal" (At (TopLeft) 0)
-             (Cons (section-heading "goal" "Goal") (append (map-indexed goal-label (mill-goals mill)) (list (toned "deadline" (Muted) (mill-deadline mill)))))))
+             (Cons (section-heading "goal" "Goal")
+                   (append (map-indexed goal-label (mill-goals mill))
+                           (list (toned "deadline" (Muted) (Rules-deadline (scenario-rules (Mill-scenario mill)))))))))
 
     (: goal-label (-> I64 Goal Widget))
     (define (goal-label index goal)
@@ -320,7 +317,7 @@
     (: duty-text (-> (Option I64) String))
     (define (duty-text chosen)
       (match chosen
-        ((Some person) (if (= (audience-of person) 1)
+        ((Some person) (if (= (audience-of person) docks)
                            (string-append "Rough up or threaten " (first-name person) ": this shift you must.")
                            (duty-text (None))))
         ((None) "This shift you must rough someone up or make a threat in the Docks: choose someone on a teal base.")))
@@ -369,7 +366,7 @@
     (: move-buttons (-> MillScreen (List Widget)))
     (define (move-buttons screen)
       (append (map-indexed (lambda (index deed)
-                             (let ((number (i64->i32 (+ index 1))))
+                             (let ((number (+ action-deed (i64->i32 index))))
                                (move-button screen (string-append "deed-" (show index)) (deed-name deed) (deed-effect deed) number
                                             (toward-chosen screen number))))
                            deeds)
@@ -400,7 +397,7 @@
     (: person-widgets (-> Mill I64 (List Widget)))
     (define (person-widgets mill person)
       (concatenate
-       (list (list (portrait "portrait" (picture-key person) 2)
+       (list (list (portrait "portrait" (person-picture person) 2)
                    (label (string-append "audience-" (show (audience-of person)))
                           (string-append (person-name person) "\n" (audience-name (audience-of person))
                                          (if (hub? person) "\nA hub: passes stories two steps" ""))))
@@ -415,7 +412,7 @@
                                               (Enabled) -1.0))
                         (neighbors person))))))
 
-    ;; ---- The town ----
+    ;; ---- Beliefs and outlook ----
 
     ;; "reliable 2".
     (: belief-text (-> (Pair Trait I64) String))
@@ -433,7 +430,7 @@
                                                 (match (audience-beliefs (MillScreen-mill screen) audience)
                                                   ((Nil) "nothing yet")
                                                   (beliefs (string-join (map belief-text beliefs) ", "))))))
-                        (list 0 1 2)))))
+                        audiences))))
 
     ;; What would change if you lay low, and what could come back to bite.
     (: outlook-panel (-> MillScreen Panel))
@@ -462,7 +459,7 @@
             (Page "The town"
                   (list "Each figure is a person. Their base is their audience: amber for the Market, teal for the Docks, violet for the Tower."
                         "Lines are ties: people pass stories only to those they are tied to. Big bases are hubs, who pass a story two steps at once.")
-                  (list (portrait "guide-portrait" (picture-key 13) 2) (label "guide-caption" "Nia, the dock foreman, is a hub.")))
+                  (list (portrait "guide-portrait" (person-picture 13) 2) (label "guide-caption" "Nia, the dock foreman, is a hub.")))
             (Page "Stories"
                   (list "Everything you do becomes a story about you: a trait and a strength from 1 to 3."
                         "The witness keeps it to themselves for a shift, then tells their ties at the end of the next one. A story grows by 1 each time it crosses into another audience."
