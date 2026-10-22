@@ -12,18 +12,9 @@ import {spawn} from 'node:child_process';
 import {cp, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {openBrowser, sleep} from './chromium.mjs';
+import {openBrowser, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
-
-async function until(test, what) {
-  for (let i = 0; i < 300; i++) {
-    const value = await test();
-    if (value) return value;
-    await sleep(100);
-  }
-  throw new Error(`timed out waiting for ${what}`);
-}
 
 async function edit(path, ...replacements) {
   let text = await readFile(path, 'utf8');
@@ -49,7 +40,7 @@ const text = key => browser.evaluate(`document.querySelector('[data-key="${key}"
 const notice = () => browser.evaluate(`document.querySelector('[role="status"]')?.style.display === 'block'
   ? document.querySelector('[role="status"]').textContent : ''`);
 try {
-  const base = await until(() => printed.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server');
+  const base = await until(() => printed.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server and its tools', 300);
   await browser.navigate(base);
   await until(() => browser.evaluate('document.body.dataset.ready'), 'the application');
   await browser.evaluate(`document.querySelector('[data-key="add"]').click(), document.querySelector('[data-key="add"]').click()`);

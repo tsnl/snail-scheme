@@ -167,7 +167,7 @@ Contacts: meet a want, get a marker
 Last end of round
 (muted) Nothing yet.
 -- vee, top right 1
-<picture 200>
+<picture 201>
 Vee
 4 coins · 0 standing · kept 0, refused 0
 Markers: Vik (eyes, through round 3), Wes (doors, through round 3)
@@ -178,7 +178,7 @@ Offers
 [Wants your promise of fencing | pays 2 coins now, due at the end of round 3]
 [Promises you doors | for 1 coin, due at the end of round 3]
 -- kit, top right 0
-<picture 201>
+<picture 202>
 Kit
 4 coins · 0 standing · kept 0, refused 0
 Markers: Ivo (medicine, through round 3), Ren (doors, through round 3)
@@ -234,7 +234,7 @@ Last end of round
 Vee gains Ivo (medicine, through round 3).
 Kit gains Vik (eyes, through round 3).
 -- vee, top right 1
-<picture 200>
+<picture 201>
 Vee
 4 coins · 0 standing · kept 0, refused 0
 Markers: Ivo (medicine, through round 3), Vik (eyes, through round 3), Wes (doors, through round 3)
@@ -245,7 +245,7 @@ Offers
 [Wants your promise of fencing | pays 2 coins now, due at the end of round 4]
 [Promises you fencing | for 1 coin, due at the end of round 4]
 -- kit, top right 0
-<picture 201>
+<picture 202>
 Kit
 4 coins · 0 standing · kept 0, refused 0
 Markers: Ivo (medicine, through round 3), Ren (doors, through round 3), Vik (eyes, through round 3)

@@ -9,6 +9,7 @@ on:
       - .dockerignore
       - shell.nix
       - npins/**
+      - rust-toolchain.toml
       - Makefile
       - '**/Cargo.toml'
       - '**/Cargo.lock'

@@ -149,6 +149,8 @@
    Normal
    Strong
    Image
+   label
+   button
    Corner
    TopLeft
    TopRight
@@ -213,6 +215,7 @@
     (: key-space I32)
     (define key-space 32)
 
+    ;; The kinds match the input encoding in src/app/host.mjs.
     (: decode-input (-> I32 I32 I32 I32 I32 Input))
     (define (decode-input kind a b c d)
       (case kind
@@ -348,6 +351,18 @@
 
     ;; ---- Frames ----
 
+    ;; What the host draws: a camera, the light, a 0xRRGGBB background,
+    ;; how far from 0 to 1 every item has moved from where it was toward
+    ;; where it is, the batches of items, and the pictures the batches and
+    ;; the HUD may use as textures.
+    (struct Frame
+      ((camera Camera)
+       (light Light)
+       (background I32)
+       (motion F32)
+       (batches (List Batch))
+       (pictures (List Picture))))
+
     (struct Vec3
       ((x F32)
        (y F32)
@@ -471,6 +486,11 @@
        (material Material)
        (facing Facing)))
 
+    ;; A 0xRRGGBB color.
+    (: rgb (-> I32 I32 I32 I32))
+    (define (rgb red green blue)
+      (+ (* red 65536) (+ (* green 256) blue)))
+
     ;; An unlit, plain item standing still.
     (: item (-> Mesh Vec3 Vec3 F32 I32 Item))
     (define (item mesh position scale yaw color)
@@ -558,6 +578,17 @@
       (Normal ((words String)))
       (Strong ((words String))))
 
+    ;; The widgets most panels are made of: a plain label, and an enabled
+    ;; button without caption or ring that presses `action` with argument
+    ;; 0.
+    (: label (-> String String Widget))
+    (define (label key text)
+      (Label (look key) text))
+
+    (: button (-> String String I32 Widget))
+    (define (button key text action)
+      (Button (look key) text "" action 0 (Enabled) -1.0))
+
     (enum Corner
       (TopLeft)
       (TopRight)
@@ -567,8 +598,8 @@
     ;; Panels in a corner stack in columns: column 0 against the side of the
     ;; screen, later ones farther in, each running from the corner in the
     ;; order given. A dialog sits in the middle over a backdrop that presses
-    ;; `dismiss` when touched. A banner sits across the top and is never
-    ;; touched, so the game stays in play beneath it.
+    ;; `dismiss` when touched. A banner sits across the top and lets input
+    ;; through to the game beneath it, except on its links.
     (enum Place
       (At ((corner Corner) (column I32)))
       (Dialog ((dismiss I32)))
@@ -578,20 +609,6 @@
       ((key String)
        (place Place)
        (widgets (List Widget))))
-
-    ;; `motion` moves every item from where it was toward where it is.
-    ;; `pictures` are the textures the batches and the HUD may use.
-    (struct Frame
-      ((camera Camera)
-       (light Light)
-       (background I32)
-       (motion F32)
-       (batches (List Batch))
-       (pictures (List Picture))))
-
-    (: rgb (-> I32 I32 I32 I32))
-    (define (rgb red green blue)
-      (+ (* red 65536) (+ (* green 256) blue)))
 
     ;; ---- Drawing ----
 
@@ -647,6 +664,7 @@
       (for-each render-batch (Frame-batches frame))
       (frame-end))
 
+    ;; Kind 0 is perspective and 1 orthographic, as in src/app/renderer.mjs.
     (: render-camera (-> Camera Unit ! screen))
     (define (render-camera view)
       (let ((eye (Camera-eye view)) (target (Camera-target view)))
@@ -687,7 +705,7 @@
             (loop (+ index 4))))))
 
     ;; The style travels with every frame; the items only when the host lacks
-    ;; this version.
+    ;; this version. Styles 0 to 2 match the `styles` of src/app/host.mjs.
     (: render-batch (-> Batch Unit ! screen))
     (define (render-batch batch)
       (unless (match (Batch-style batch)
@@ -736,6 +754,7 @@
       (for-each render-panel panels)
       (hud-end))
 
+    ;; Places and corners match src/app/hud.mjs.
     (: render-panel (-> Panel Unit ! screen))
     (define (render-panel panel)
       (match (Panel-place panel)
@@ -755,7 +774,8 @@
 
     ;; A widget's kind and numbers, then its strings, each named by a field:
     ;; 0 key, 1 icon, 2 help, 3 badge, 4 text, 5 caption, 6 url, then each
-    ;; span of a text, 7 normal or 8 strong.
+    ;; span of a text, 7 normal or 8 strong. Kinds, tones and controls match
+    ;; src/app/hud.mjs, and fields src/app/host.mjs.
     (: render-widget (-> Widget Unit ! screen))
     (define (render-widget widget)
       (match widget

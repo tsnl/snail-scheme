@@ -1,12 +1,9 @@
-#!/usr/bin/env node
 // Drives the in-process assembler (src/assembler) built for wasm32-wasip1:
-// WebAssembly text in, a binary module out, without Binaryen.
-//
-//   node scripts/assemble.mjs ASSEMBLER.wasm INPUT.wat OUTPUT.wasm
-//
-// `createAssembler` uses only the WebAssembly API, so a browser imports this
-// module the same way and passes the assembler's bytes, fetched; the command
-// line below is the only part that needs Node.
+// WebAssembly text in, a binary module out, without Binaryen. It uses only
+// the WebAssembly API, so the development loop's hosts, in Node and in the
+// IDE's worker, import it alike. It keeps its own few WASI functions: the
+// IDE's site copies it beside src/app/load.mjs, but here it lives in
+// scripts/, and no one relative import finds load.mjs from both places.
 
 // ---- Platform ----
 
@@ -42,8 +39,8 @@ function platformImports(memory) {
 
 // ---- Assembling ----
 
-// Returns `assemble(text)`, which resolves to the module's bytes or throws
-// the parser's message, naming the line and column.
+// Returns `assemble(text)`, which returns the module's bytes or throws the
+// parser's message, naming the line and column.
 export async function createAssembler(bytes) {
   let exports;
   const {instance} = await WebAssembly.instantiate(bytes, {wasi_snapshot_preview1: platformImports(() => exports.memory)});
@@ -60,18 +57,4 @@ export async function createAssembler(bytes) {
     if (status !== 0) throw new Error(new TextDecoder().decode(output));
     return output.slice();
   };
-}
-
-// ---- Command line ----
-
-if (typeof process !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
-  const {readFile, writeFile} = await import('node:fs/promises');
-  const [assemblerPath, input, output] = process.argv.slice(2);
-  try {
-    const assemble = await createAssembler(await readFile(assemblerPath));
-    await writeFile(output, assemble(await readFile(input, 'utf8')));
-  } catch (error) {
-    console.error(`assemble: ${error.message}`);
-    process.exitCode = 1;
-  }
 }

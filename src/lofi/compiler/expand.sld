@@ -6,8 +6,8 @@
   (export
    ExpandedProgram
    ExpandedProgram-program
-   library-version
-   library-interface
+   empty-expansion
+   library-key
    expand-program)
   (import
    (lofi base)
@@ -177,10 +177,10 @@
 
     (type Exports (List (Pair String Binding)))
 
-    ;; A library as a build expanded it: the canonical text of its
-    ;; declarations with the interfaces of its imports, which decide whether
-    ;; a later build may replay it; its own interface; its exports; and
-    ;; everything it added to the program.
+    ;; A library as a build expanded it: its build key, the canonical text
+    ;; of its declarations with the interfaces of its imports, which decides
+    ;; whether a later build may replay it; its own interface; its exports;
+    ;; and everything it added to the program.
     (struct Expanded
       ((key String)
        (interface String)
@@ -197,13 +197,17 @@
        (scope-count I64)
        (scopes (Table Env))))
 
-    (: new-context (-> (List String) (-> (List Syntax) Bytes ! mut fs) (Option ExpandedProgram) Context ! mut))
+    ;; The build before the first, or before a one-off compile: it expanded
+    ;; nothing, so nothing is replayed.
+    (: empty-expansion ExpandedProgram)
+    (define empty-expansion
+      (ExpandedProgram base-program empty-table 0 0 empty-table))
+
+    (: new-context (-> (List String) (-> (List Syntax) Bytes ! mut fs) ExpandedProgram Context ! mut))
     (define (new-context directories generate predecessor)
-      (match predecessor
-        ((Some last)
-         (Context (ref base-program) (ref empty-table) (ExpandedProgram-libraries last) directories generate "" (Nil) (Nil) (ref (ExpandedProgram-counter last))
-                  (ref (ExpandedProgram-scopes last)) (ref (ExpandedProgram-scope-count last)) (ref (None))))
-        ((None) (Context (ref base-program) (ref empty-table) empty-table directories generate "" (Nil) (Nil) (ref 0) (ref empty-table) (ref 0) (ref (None))))))
+      (Context (ref base-program) (ref empty-table) (ExpandedProgram-libraries predecessor) directories generate "" (Nil) (Nil)
+               (ref (ExpandedProgram-counter predecessor)) (ref (ExpandedProgram-scopes predecessor))
+               (ref (ExpandedProgram-scope-count predecessor)) (ref (None))))
 
     ;; The program as expanded so far.
     (: program (-> Context Program ! mut))
@@ -369,7 +373,7 @@
     ;; it; either way the library is recorded for the next build.
     (: expand-sections (-> Context (List (Pair String (List Syntax))) Exports ! mut fs))
     (define (expand-sections cx sections)
-      (let* ((env (import-env cx (section-items sections "import"))) (key (library-key cx sections)))
+      (let* ((env (import-env cx (section-items sections "import"))) (key (sections-key cx sections)))
         (match (table-ref (Context-predecessor cx) (Context-prefix cx))
           ((Some entry) (if (string=? (Expanded-key entry) key) (replay! cx entry) (expand-recorded cx sections env key)))
           ((None) (expand-recorded cx sections env key)))))
@@ -424,7 +428,7 @@
     ;; A program is a sequence of imports followed by a body, which counts as
     ;; a library named `main` that exports nothing. A build replays what it
     ;; can of `predecessor`, the build before.
-    (: expand-program (-> (List String) (-> (List Syntax) Bytes ! mut fs) String (Option ExpandedProgram) ExpandedProgram ! mut fs))
+    (: expand-program (-> (List String) (-> (List Syntax) Bytes ! mut fs) String ExpandedProgram ExpandedProgram ! mut fs))
     (define (expand-program directories generate path predecessor)
       (let ((cx (Context-prefix-set (new-context directories generate predecessor) "main")))
         (let loop ((forms (read-source path)) (specs (Nil)))
@@ -453,8 +457,12 @@
     (define (record! cx entry)
       (ref-set! (Context-expanded cx) (table-set (ref-get (Context-expanded cx)) (Context-prefix cx) entry)))
 
-    (: library-key (-> Context (List (Pair String (List Syntax))) String ! mut))
-    (define (library-key cx sections)
+    ;; ---- Build keys ----
+
+    ;; A library's build key: the canonical text of its declarations, with
+    ;; the interfaces of its imports.
+    (: sections-key (-> Context (List (Pair String (List Syntax))) String ! mut))
+    (define (sections-key cx sections)
       (string-append (string-join (map (lambda (section) (string-append (Pair-first section) " " (forms-text (Pair-second section))))
                                        sections)
                                   "\n")
@@ -463,6 +471,22 @@
     (: forms-text (-> (List Syntax) String))
     (define (forms-text forms)
       (string-join (map syntax->key forms) "\n"))
+
+    ;; Syntax as text that keys a build. A byte vector shows only its length
+    ;; and a hash of its bytes, so a library that embeds megabytes keys on a
+    ;; few characters.
+    (: syntax->key (-> Syntax String))
+    (define (syntax->key syntax)
+      (match syntax
+        ((Atom (DBytes value) _) (string-append "#u8<" (i64->string (vector-length value)) ":" (i64->string (bytes-hash value)) ">"))
+        ((Atom value _) (datum->string value))
+        ((Ident name _ _) name)
+        ((Form items _) (string-append "(" (string-join (map syntax->key items) " ") ")"))))
+
+    ;; FNV-1a over bytes, as `fnv-1a` hashes text.
+    (: bytes-hash (-> Bytes I64))
+    (define (bytes-hash bytes)
+      (vector-fold (lambda (hash byte) (fnv-step hash (i32->i64 (u8->i32 byte)))) fnv-offset bytes))
 
     ;; Each imported library's interface, as this build expanded it; the
     ;; compiler's own libraries never change.
@@ -475,16 +499,11 @@
                         (section-items sections "import"))
                    " "))
 
-    (: library-interface (-> ExpandedProgram String String))
-    (define (library-interface expansion name)
-      (match (table-ref (ExpandedProgram-libraries expansion) name)
-        ((Some entry) (Expanded-interface entry))
-        ((None) "builtin")))
-
-    ;; What a build expanded a library from. Anything made from the library's
-    ;; expansion, such as its checked items, stays valid while this does.
-    (: library-version (-> ExpandedProgram String String))
-    (define (library-version expansion name)
+    ;; The key a build expanded a library under. Anything made from the
+    ;; library's expansion, such as its checked items, stays valid while its
+    ;; key is unchanged.
+    (: library-key (-> ExpandedProgram String String))
+    (define (library-key expansion name)
       (match (table-ref (ExpandedProgram-libraries expansion) name)
         ((Some entry) (Expanded-key entry))
         ((None) "")))
@@ -510,10 +529,9 @@
     (: interface-form (-> Syntax (List String) String))
     (define (interface-form form signed)
       (match form
-        ((Form (Cons (Ident "define" _ _) (Cons (Form (Cons (Ident name _ _) _) _) _)) _)
-         (if (member? name signed) (string-append "(define " name ")") (syntax->key form)))
-        ((Form (Cons (Ident "define" _ _) (Cons (Ident name _ _) _)) _)
-         (if (member? name signed) (string-append "(define " name ")") (syntax->key form)))
+        ((Form (Cons (Ident "define" _ _) _) _)
+         (let ((name (Ident-name (definition-name form))))
+           (if (member? name signed) (string-append "(define " name ")") (syntax->key form))))
         (_ (syntax->key form))))
 
     (: monomorphic-signatures (-> (List Syntax) (List String)))
@@ -910,7 +928,6 @@
                                     (Replacer case index (Scheme params (Nil) (TFun (list self type) self empty-row)))))))
                   (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
-    ;; `(: name type)` records a scheme for the following definition.
     ;; The signatures with the one a `(: name type)` declares.
     (: with-signature (-> Context (Table Scheme) Pending (Table Scheme) ! mut))
     (define (with-signature cx signatures pending)

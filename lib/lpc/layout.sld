@@ -16,8 +16,6 @@
    Gait
    Stand
    Stroll
-   cell
-   universal-region
    walk-region
    universal-book
    walk-book
@@ -30,9 +28,8 @@
 
     ;; ---- Cells ----
 
+    (: cell I32)
     (define cell 64)
-
-    (define universal-region (Rect 0 0 832 1344))
 
     ;; The four walking rows alone. Their first frame is the figure standing
     ;; still; the other eight are its stride.

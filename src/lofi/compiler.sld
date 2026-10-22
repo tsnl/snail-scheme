@@ -1,7 +1,10 @@
-;; The compiler's passes in order, from a program's source path to WebAssembly
-;; text, or to the schemas of its wire types. Each pass's output is the next pass's only input. Both hosts run it:
-;; Chibi through (lofi build), and the compiled compiler through
-;; bootstrap/compile.sld.
+;; The compiler's passes in order, from a program's source path to
+;; WebAssembly text, or to the schemas of its wire types. In a one-off
+;; compile each pass's output is the next pass's only input; a session,
+;; (lofi compiler session), also keeps what each library became in the
+;; build before. Both hosts run it through bootstrap/compile.sld: Chibi
+;; runs the source, as stage 0 of the bootstrap, and Node runs the compiler
+;; compiled to Wasm.
 (define-library (lofi compiler)
   (export
    compile->wat
@@ -23,7 +26,7 @@
     ;; returns the bytes of the syntax it writes.
     (: compile->wat (-> (List String) String (-> (List Syntax) Bytes ! mut fs) String ! mut fs))
     (define (compile->wat directories source generate)
-      (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate source (None))))))))
+      (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate source empty-expansion)))))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from. This is a
@@ -34,6 +37,6 @@
 
     (: compile->schemas (-> (List String) String (-> (List Syntax) Bytes ! mut fs) String ! mut fs))
     (define (compile->schemas directories source generate)
-      (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate source (None)))))))
+      (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate source empty-expansion))))))
 
     ))

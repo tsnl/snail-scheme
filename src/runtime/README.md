@@ -5,10 +5,14 @@ and file I/O, and panic reporting. Lofi's managed values stay in WasmGC; Rust
 retains external resources behind scalar handles and never stores guest GC
 roots.
 
-The compiler driver (`src/lofi/compiler/build.sld`) builds this crate for
-`wasm32-wasip1`, merges it with each program, and connects terminal
-diagnostics and resource cleanup. Node's WASI and the browser host in
-`src/app/host.mjs` supply the platform operations.
+The command-line driver (`host/chibi/lofi/build.sld`) builds this crate for
+`wasm32-wasip1`. It merges the runtime into each statically linked program,
+as `lofi compile` and `lofi run` build them, and connects terminal
+diagnostics and resource cleanup. A program linked when it runs, as
+`lofi serve`, `lofi watch` and the IDE build it, instead loads the runtime
+as its own instance beside the library modules (`src/app/load.mjs`). Node's
+WASI and the browser host in `src/app/host.mjs` supply the platform
+operations.
 
 ```sh
 cargo test --manifest-path src/runtime/Cargo.toml --offline

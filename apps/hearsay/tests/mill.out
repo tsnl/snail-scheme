@@ -40,36 +40,37 @@ The game is over.
 Believes: reliable 3.
   reliable 3: you delivered a job for Mo. Heard on shift 4 from Fen, who heard it from Bix, who heard it from Ana, who heard it from Mo.
 Two faces: after shift 8, 8 coins.
-
-The Market believes you reliable 3.
-0   Ana, courier                  dangerous 2, reliable 3
-1   Bix, bartender (hub)          dangerous 2, reliable 3
-2   Cal, noodle cook              reliable 3
-3   Dee, tailor                   reliable 3
-4   Eli, pawnbroker               reliable 3
-5   Fen, street medic             reliable 3
-6   Gus, vendor                   reliable 3
-7   Hana, rickshaw driver         dangerous 2, reliable 3
-The Docks believes you dangerous 1, reliable 2.
-8   Ike, crane operator           dangerous 1, reliable 2
-9   Jun, stevedore                dangerous 1, reliable 2
-10  Kas, union steward (hub)      dangerous 1, reliable 2
-11  Lia, net mender               dangerous 1, reliable 2
-12  Mo, smuggler                  dangerous 1, reliable 2
-13  Nia, dock foreman (hub)       dangerous 1, reliable 3
-14  Oda, welder                   dangerous 1, reliable 2
-15  Pim, night guard              dangerous 1, reliable 2
-The Tower believes you reliable 3.
-16  Quin, analyst                 reliable 3
-17  Rhea, concierge (hub)         reliable 3
-18  Sol, lawyer                   reliable 3
-19  Tam, driver                   reliable 3
-20  Uma, executive                reliable 3
-21  Vic, security chief           reliable 3
-22  Wen, architect                reliable 3
-23  Yara, assistant               reliable 3
-Liabilities:
-  Paid Nia on shift 5.
+Market: reliable 3
+  Ana, courier: dangerous 2, reliable 3
+  Bix, bartender (hub): dangerous 2, reliable 3
+  Cal, noodle cook: reliable 3
+  Dee, tailor: reliable 3
+  Eli, pawnbroker: reliable 3
+  Fen, street medic: reliable 3
+  Gus, vendor: reliable 3
+  Hana, rickshaw driver: dangerous 2, reliable 3
+Docks: dangerous 1, reliable 2
+  Ike, crane operator: dangerous 1, reliable 2
+  Jun, stevedore: dangerous 1, reliable 2
+  Kas, union steward (hub): dangerous 1, reliable 2
+  Lia, net mender: dangerous 1, reliable 2
+  Mo, smuggler: dangerous 1, reliable 2
+  Nia, dock foreman (hub): dangerous 1, reliable 3
+  Oda, welder: dangerous 1, reliable 2
+  Pim, night guard: dangerous 1, reliable 2
+Tower: reliable 3
+  Quin, analyst: reliable 3
+  Rhea, concierge (hub): reliable 3
+  Sol, lawyer: reliable 3
+  Tam, driver: reliable 3
+  Uma, executive: reliable 3
+  Vic, security chief: reliable 3
+  Wen, architect: reliable 3
+  Yara, assistant: reliable 3
+Liability: Paid Nia on shift 5.
+Goal: The Market believes you reliable at 3 (met)
+Goal: The Tower does not believe you dangerous (met)
+Goal: On shift 3, rough someone up or threaten someone in the Docks (done)
 You win. The Market trusts you, and the Tower never heard you were dangerous.
 
 ==== The smear
@@ -82,36 +83,34 @@ You lie low.
 End of shift 2: new stories reached 1 in the Market, 2 in the Docks, 4 in the Tower.
 The Tower now believes you unreliable 3 (was 0).
 The smear: after shift 10, 10 coins.
-
-The Market believes nothing about you.
-0   Ana, courier                  unreliable 3
-1   Bix, bartender (hub)          -
-2   Cal, noodle cook              -
-3   Dee, tailor                   -
-4   Eli, pawnbroker               -
-5   Fen, street medic             -
-6   Gus, vendor                   -
-7   Hana, rickshaw driver         -
-The Docks believes you unreliable 2.
-8   Ike, crane operator           unreliable 2
-9   Jun, stevedore                unreliable 2
-10  Kas, union steward (hub)      unreliable 2
-11  Lia, net mender               unreliable 2
-12  Mo, smuggler                  unreliable 2
-13  Nia, dock foreman (hub)       unreliable 2
-14  Oda, welder                   unreliable 2
-15  Pim, night guard              unreliable 2
-The Tower believes you unreliable 3.
-16  Quin, analyst                 unreliable 3
-17  Rhea, concierge (hub)         unreliable 3
-18  Sol, lawyer                   unreliable 3
-19  Tam, driver                   -
-20  Uma, executive                -
-21  Vic, security chief           unreliable 3
-22  Wen, architect                -
-23  Yara, assistant               -
-Liabilities:
-  none.
+Market: -
+  Ana, courier: unreliable 3
+  Bix, bartender (hub): -
+  Cal, noodle cook: -
+  Dee, tailor: -
+  Eli, pawnbroker: -
+  Fen, street medic: -
+  Gus, vendor: -
+  Hana, rickshaw driver: -
+Docks: unreliable 2
+  Ike, crane operator: unreliable 2
+  Jun, stevedore: unreliable 2
+  Kas, union steward (hub): unreliable 2
+  Lia, net mender: unreliable 2
+  Mo, smuggler: unreliable 2
+  Nia, dock foreman (hub): unreliable 2
+  Oda, welder: unreliable 2
+  Pim, night guard: unreliable 2
+Tower: unreliable 3
+  Quin, analyst: unreliable 3
+  Rhea, concierge (hub): unreliable 3
+  Sol, lawyer: unreliable 3
+  Tam, driver: -
+  Uma, executive: -
+  Vic, security chief: unreliable 3
+  Wen, architect: -
+  Yara, assistant: -
+Goal: The Tower never believes you unreliable (unmet)
 You lose. The Tower believes you unreliable.
 
 ==== The smear
@@ -155,37 +154,36 @@ End of shift 9: no story moved.
 You lie low.
 End of shift 10: no story moved.
 The smear: after shift 10, 6 coins.
-
-The Market believes you unreliable 3.
-0   Ana, courier                  unreliable 3
-1   Bix, bartender (hub)          unreliable 3
-2   Cal, noodle cook              unreliable 3
-3   Dee, tailor                   unreliable 3
-4   Eli, pawnbroker               unreliable 3
-5   Fen, street medic             unreliable 3
-6   Gus, vendor                   unreliable 3
-7   Hana, rickshaw driver         unreliable 3
-The Docks believes you reliable 3.
-8   Ike, crane operator           reliable 3
-9   Jun, stevedore                reliable 3
-10  Kas, union steward (hub)      reliable 3
-11  Lia, net mender               reliable 3
-12  Mo, smuggler                  reliable 3
-13  Nia, dock foreman (hub)       reliable 3
-14  Oda, welder                   reliable 3
-15  Pim, night guard              reliable 3
-The Tower believes you reliable 3.
-16  Quin, analyst                 reliable 3
-17  Rhea, concierge (hub)         reliable 3
-18  Sol, lawyer                   reliable 3
-19  Tam, driver                   reliable 3
-20  Uma, executive                reliable 3
-21  Vic, security chief           reliable 3
-22  Wen, architect                reliable 3
-23  Yara, assistant               reliable 3
-Liabilities:
-  Paid Oda on shift 1.
-  Paid Nia on shift 3.
+Market: unreliable 3
+  Ana, courier: unreliable 3
+  Bix, bartender (hub): unreliable 3
+  Cal, noodle cook: unreliable 3
+  Dee, tailor: unreliable 3
+  Eli, pawnbroker: unreliable 3
+  Fen, street medic: unreliable 3
+  Gus, vendor: unreliable 3
+  Hana, rickshaw driver: unreliable 3
+Docks: reliable 3
+  Ike, crane operator: reliable 3
+  Jun, stevedore: reliable 3
+  Kas, union steward (hub): reliable 3
+  Lia, net mender: reliable 3
+  Mo, smuggler: reliable 3
+  Nia, dock foreman (hub): reliable 3
+  Oda, welder: reliable 3
+  Pim, night guard: reliable 3
+Tower: reliable 3
+  Quin, analyst: reliable 3
+  Rhea, concierge (hub): reliable 3
+  Sol, lawyer: reliable 3
+  Tam, driver: reliable 3
+  Uma, executive: reliable 3
+  Vic, security chief: reliable 3
+  Wen, architect: reliable 3
+  Yara, assistant: reliable 3
+Liability: Paid Oda on shift 1.
+Liability: Paid Nia on shift 3.
+Goal: The Tower never believes you unreliable (met)
 You win. The Tower never believed the smear.
 
 ==== Sandbox
@@ -207,39 +205,36 @@ End of shift 3: new stories reached 2 in the Market, 7 in the Docks, 4 in the To
 The Tower now believes you dangerous 3 (was 0).
 The Tower now believes you unreliable 1 (was 0).
 Sandbox: shift 4 of 12, 10 coins.
-
-The Market believes nothing about you.
-0   Ana, courier                  harmless 3
-1   Bix, bartender (hub)          -
-2   Cal, noodle cook              -
-3   Dee, tailor                   -
-4   Eli, pawnbroker               -
-5   Fen, street medic             -
-6   Gus, vendor                   -
-7   Hana, rickshaw driver         harmless 2
-The Docks believes you harmless 2.
-8   Ike, crane operator           harmless 2
-9   Jun, stevedore                harmless 2
-10  Kas, union steward (hub)      harmless 2
-11  Lia, net mender               harmless 2
-12  Mo, smuggler                  harmless 2
-13  Nia, dock foreman (hub)       harmless 2
-14  Oda, welder                   harmless 2
-15  Pim, night guard              harmless 2
-The Tower believes you dangerous 3, harmless 1, unreliable 1.
-16  Quin, analyst                 dangerous 3
-17  Rhea, concierge (hub)         dangerous 3
-18  Sol, lawyer                   dangerous 3
-19  Tam, driver                   harmless 1
-20  Uma, executive                harmless 1
-21  Vic, security chief           dangerous 3
-22  Wen, architect                harmless 1
-23  Yara, assistant               harmless 1
-Liabilities:
-  Lied to Rhea: harmless 1 (exposed).
-If you lie low:
-  After shift 4: the Tower believes you harmless 0 (now 1).
-  After shift 5: the Market believes you harmless 3 (now 0).
+Market: -
+  Ana, courier: harmless 3
+  Bix, bartender (hub): -
+  Cal, noodle cook: -
+  Dee, tailor: -
+  Eli, pawnbroker: -
+  Fen, street medic: -
+  Gus, vendor: -
+  Hana, rickshaw driver: harmless 2
+Docks: harmless 2
+  Ike, crane operator: harmless 2
+  Jun, stevedore: harmless 2
+  Kas, union steward (hub): harmless 2
+  Lia, net mender: harmless 2
+  Mo, smuggler: harmless 2
+  Nia, dock foreman (hub): harmless 2
+  Oda, welder: harmless 2
+  Pim, night guard: harmless 2
+Tower: dangerous 3, harmless 1, unreliable 1
+  Quin, analyst: dangerous 3
+  Rhea, concierge (hub): dangerous 3
+  Sol, lawyer: dangerous 3
+  Tam, driver: harmless 1
+  Uma, executive: harmless 1
+  Vic, security chief: dangerous 3
+  Wen, architect: harmless 1
+  Yara, assistant: harmless 1
+Liability: Lied to Rhea: harmless 1 (exposed).
+If you lie low: After shift 4: the Tower believes you harmless 0 (now 1).
+If you lie low: After shift 5: the Market believes you harmless 3 (now 0).
 
 ==== Sandbox
 > rough ana
@@ -257,37 +252,34 @@ The Market now believes you dangerous 2 (was 0).
 Believes: dangerous 3.
   dangerous 3: you roughed someone up in front of Ana. Heard on shift 3 from Mo, who heard it from Ana.
 Sandbox: shift 4 of 12, 8 coins.
-
-The Market believes you dangerous 2.
-0   Ana, courier                  dangerous 3  [quiet through shift 6]
-1   Bix, bartender (hub)          dangerous 2
-2   Cal, noodle cook              dangerous 2
-3   Dee, tailor                   dangerous 2
-4   Eli, pawnbroker               dangerous 2
-5   Fen, street medic             dangerous 2
-6   Gus, vendor                   dangerous 2
-7   Hana, rickshaw driver         dangerous 2
-The Docks believes nothing about you.
-8   Ike, crane operator           -
-9   Jun, stevedore                -
-10  Kas, union steward (hub)      -
-11  Lia, net mender               dangerous 3
-12  Mo, smuggler                  dangerous 3
-13  Nia, dock foreman (hub)       dangerous 3
-14  Oda, welder                   -
-15  Pim, night guard              -
-The Tower believes nothing about you.
-16  Quin, analyst                 -
-17  Rhea, concierge (hub)         -
-18  Sol, lawyer                   -
-19  Tam, driver                   dangerous 3
-20  Uma, executive                -
-21  Vic, security chief           -
-22  Wen, architect                -
-23  Yara, assistant               -
-Liabilities:
-  Paid Ana on shift 3.
-If you lie low:
-  After shift 4: the Docks believes you dangerous 3 (now 0).
-  After shift 4: the Tower believes you dangerous 3 (now 0).
+Market: dangerous 2
+  Ana, courier: dangerous 3 [quiet]
+  Bix, bartender (hub): dangerous 2
+  Cal, noodle cook: dangerous 2
+  Dee, tailor: dangerous 2
+  Eli, pawnbroker: dangerous 2
+  Fen, street medic: dangerous 2
+  Gus, vendor: dangerous 2
+  Hana, rickshaw driver: dangerous 2
+Docks: -
+  Ike, crane operator: -
+  Jun, stevedore: -
+  Kas, union steward (hub): -
+  Lia, net mender: dangerous 3
+  Mo, smuggler: dangerous 3
+  Nia, dock foreman (hub): dangerous 3
+  Oda, welder: -
+  Pim, night guard: -
+Tower: -
+  Quin, analyst: -
+  Rhea, concierge (hub): -
+  Sol, lawyer: -
+  Tam, driver: dangerous 3
+  Uma, executive: -
+  Vic, security chief: -
+  Wen, architect: -
+  Yara, assistant: -
+Liability: Paid Ana on shift 3.
+If you lie low: After shift 4: the Docks believes you dangerous 3 (now 0).
+If you lie low: After shift 4: the Tower believes you dangerous 3 (now 0).
 
