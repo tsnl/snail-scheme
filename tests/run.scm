@@ -267,6 +267,7 @@
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
+                        (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
                         (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root) (compile-assembler root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))

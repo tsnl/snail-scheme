@@ -101,6 +101,7 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `src/ide/`, `scripts/build-ide.scm` | The browser IDE: an editor and the application on one page, and the development loop in a worker with the runtime's memory files. `build-ide.scm` packages it as a static site. |
 | `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
 | `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `colony` (orders and work), `siege` (attacks and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
+| `apps/hearsay/` | A design for a social simulation game, and browser prototypes that test it: `mill` (stories spreading through a town) and `ledger` (an economy of favors), each with a `-screen` that draws and plays it, and `shell`, the menu. |
 | `examples/` | Small programs; the test suite runs them, and the book's tutorials show them. |
 | `doc/book/`, `book.toml` | The book published on GitHub Pages; its chapters include the language guide, the redesign and Siegework's guide. |
 | `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios, a headless game and `develop.mjs`, which drives `lofi serve` and `lofi watch` over the `tests/apps/counter` fixture, and programs linked one library at a time; `browser/reload.mjs` and `browser/ide.mjs` check live reload and the IDE in Chromium. |
@@ -112,7 +113,7 @@ make test       # unit tests, programs, examples and Siegework
 make check      # formatting
 cargo test --manifest-path src/runtime/Cargo.toml --offline
 cargo test --manifest-path src/assembler/Cargo.toml --offline
-make site       # Siegework in build/siegework
+make site       # Siegework and Hearsay in build/siegework and build/hearsay
 make ide        # the browser IDE around Siegework in build/ide
 make test-browser  # live reload and the IDE in headless Chromium; CHROMIUM names it
 make pages      # the book, with Siegework at play/siegework/, in build/pages
