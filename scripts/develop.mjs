@@ -177,17 +177,18 @@ function writeEvent(response, event) {
 
 // ---- Running programs ----
 
-// A program still running is stopped, and the new run starts once it has
-// exited, so a server can bind its port again.
+// A program still running is stopped, and the newest run starts once it has
+// exited, so a server can bind its port again. Runs asked for while it stops
+// replace one another: only the latest starts.
 function runProgram(loop, manifest, args) {
   const previous = loop.child;
-  const start = () => {
+  loop.next = () => {
     const child = spawn(process.env.NODE ?? 'node', ['--no-warnings', join(loop.root, 'scripts/run-lofi.mjs'), manifest, ...args], {stdio: 'inherit'});
     child.on('exit', (code, signal) => { if (!signal) console.error(`\x1b[2m-- exited with status ${code}\x1b[0m`); });
     loop.child = child;
   };
-  if (previous && previous.exitCode === null && previous.signalCode === null) { previous.once('exit', start); previous.kill(); }
-  else start();
+  if (!previous || previous.exitCode !== null || previous.signalCode !== null) loop.next();
+  else if (!previous.killed) { previous.once('exit', () => loop.next()); previous.kill(); }
 }
 
 try {

@@ -38,9 +38,11 @@ and keeps state that grows over a whole pass in a `Ref`.
 - **[`core.sld`](src/lofi/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
-  `Instance`, `Effect`), the `Program`, the primitive table, and TypeId
-  hashing for wire types. A `Program` is a value: the expander builds it in
-  one cell, and the later passes read it without effects.
+  `Instance`, `Effect`), the `Program`, the primitive table, TypeIds for
+  wire cases and `Any` values from one FNV-1a hash, and the strongly
+  connected components that the checker and the backend share. A `Program`
+  is a value: the expander builds it in one cell, and the later passes read
+  it without effects.
 - **[`expand.sld`](src/lofi/compiler/expand.sld)** is the only pass that
   knows binding forms. It loads libraries, replacing each `include-bytes`
   with the byte vector literal of its file, resolves every identifier through
@@ -50,10 +52,12 @@ and keeps state that grows over a whole pass in a `Ref`.
   passes so definitions may refer to later ones; local bodies are
   sequential. Declarations become entities in the program tables, derived
   wire instances are generated as ordinary instance syntax, and expressions
-  become core `Expr`s with unique names.
+  become core `Expr`s with unique names. Each library's build key, the text
+  of its declarations with its imports' interfaces, lets a session replay
+  it.
 - **[`check.sld`](src/lofi/compiler/check.sld)** is Hindley-Milner inference
   with effect rows. Unannotated top-level definitions are checked in
-  dependency order (Tarjan's algorithm). Each instantiation records its type
+  dependency order (core's `strong-components`). Each instantiation records its type
   arguments and an evidence hole per class constraint. While items are
   checked, constraints are only recorded; a group of functions quantifies
   the metavariables nothing else still mentions. Libraries are checked one
@@ -93,8 +97,8 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `schema` and `bootstrap`; `lofi` hands `serve` and `watch` to `scripts/develop.mjs`. |
 | `src/lofi/develop.sld`, `bootstrap/develop.sld` | The development loop behind `lofi serve`, `lofi watch` and the IDE, as a Lofi program: it keeps a session, debounces changes, writes each changed module and a manifest, broadcasts build events, keeps only the latest build's and the previous build's modules, and serves every file in `src/app`, reaching its host only through the `develop` effect's named commands. `bootstrap/develop.sld` exposes its entry points for Node. |
 | `scripts/develop.mjs` | The loop's Node host, performing its commands: file watching, timers, HTTP with server-sent events, files, and running programs. |
-| `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program. |
-| `bootstrap/compile.sld` | The compiler's entry program when it runs as Wasm. |
+| `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program, gives each compile a private directory, rebuilds the compiled compiler and the development tools under `build/lock` when they are stale, and lends the scripts its file helpers and the list of host files. |
+| `bootstrap/compile.sld` | The compiler's entry program, which both hosts run: Chibi as stage 0, and Node once it is compiled. |
 | `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. `(lofi syntax)` is the syntax a `generate-library` recipe returns and the bytes its producer writes. `(lofi sprite)` poses figures from spritebooks. `format.sld` reproduces `scripts/format-scheme`, which the tests check on every Scheme file in the repository, and highlights by the same lexical rules. |
 | `lib/lpc/` | Liberated Pixel Cup character art, four packs checked in as they were published (see `ATTRIBUTION.md`), and libraries over them: `layout` (the sheets' grid), `catalog` (bodies, heads, hair and garments, where each is drawn, and which builds wear each garment in which dyes), `wardrobe` (characters dressed from the catalog into the sheets of their layers, composed into pictures and portraits), `skins` (the skin ramps, generated from the pack's palette) and `embed` (helpers for recipes that compile images in as byte literals). |
 | `lib/scheme/` | `(scheme base)`, R7RS names over the typed language; `(scheme compiler)`, which translates R7RS programs to Lofi libraries; and `(scheme runtime)`, the standard procedures their code calls. |

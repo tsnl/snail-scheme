@@ -11,10 +11,12 @@
  (lofi build))
 
 (define (package root release? app output)
-  (let ((intermediate (path-join root "build/app-intermediates" (path-strip-directory app) "app.wasm")))
-    (create-directory* output)
-    (build-program root (list (path-join app "src") (path-join root "lib")) (path-join app "main.sld") intermediate release?)
-    (copy-file! intermediate (path-join output "app.wasm")))
+  (create-directory* output)
+  (with-private-directory root
+                          (lambda (directory)
+                            (let ((program (path-join directory "app.wasm")))
+                              (build-program root (list (path-join app "src") (path-join root "lib")) (path-join app "main.sld") program release?)
+                              (copy-file! program (path-join output "app.wasm")))))
   (for-each (lambda (file) (copy-file! (path-join root "src/app" file) (path-join output file))) app-host-files)
   (copy-file! (path-join app "index.html") (path-join output "index.html"))
   (for-each (lambda (file) (copy-file! (path-join app "public" file) (path-join output file))) (public-files app))

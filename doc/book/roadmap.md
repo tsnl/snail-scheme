@@ -64,6 +64,13 @@ describe proposed behavior, kept apart from what is implemented.
 - [ ] Decision trees for `match` with many cases, and nullable references for
   `Option`-shaped enums.
 - [ ] Source locations in emitted Wasm.
+- [ ] The same text from both hosts. The backend numbers closures, strings
+  and lambdas as it emits them, some while evaluating a call's arguments,
+  which Chibi evaluates right to left; so Chibi's stage 1 text numbers them
+  differently from the Wasm compiler's. The two mean the same, and
+  `make bootstrap` compares only the Wasm stages. The character classes differ too: Chibi's
+  `char-numeric?`, `char-whitespace?` and `char-alphabetic?` accept Unicode,
+  and Lofi's only ASCII.
 
 ### Runtime and graphics
 
