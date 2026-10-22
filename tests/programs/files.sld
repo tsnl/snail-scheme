@@ -4,7 +4,7 @@
  (lofi text))
 
 ;; Files through the host, then through a handler that keeps them in memory.
-(define path "build/tests/files-test.txt")
+(define path "build/tests/files-λ😀.txt")
 (write-file path "first line\nsecond λ line\n")
 (display (file-exists? path))
 (newline)
@@ -14,11 +14,9 @@
 (define store (ref ""))
 (write-line
  (handle fs
-     ((path-begin (lambda () (unit)))
-      (path-character (lambda (char) (unit)))
-      (path-exists (lambda () 1))
-      (open-input (lambda () 7))
-      (open-output (lambda () 8))
+     ((path-exists (lambda (path) (if (string=? path "anywhere") 1 0)))
+      (open-input (lambda (path) (if (string=? path "anywhere") 7 (panic "wrong input path"))))
+      (open-output (lambda (path) (if (string=? path "anywhere") 8 (panic "wrong output path"))))
       (port-read (lambda (port) (let ((text (ref-get store)))
                                   (if (= (string-length text) 0)
                                       -1
