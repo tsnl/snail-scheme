@@ -258,10 +258,6 @@
         ((Some cell) (match (check (Game-world game) (Build (Extractor) cell (Game-rush game))) ((Some _) #f) ((None) #t)))
         ((None) #f)))
 
-    (: opening? (-> World Bool))
-    (define (opening? world)
-      (and (not (World-started world)) (playing? world)))
-
     (: opening-move? (-> World Kind Bool))
     (define (opening-move? world kind)
       (and (opening? world) (match kind ((Extractor) #t) (_ #f))))
