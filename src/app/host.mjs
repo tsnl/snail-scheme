@@ -4,6 +4,7 @@
 
 import {createRenderer} from './renderer.mjs';
 import {createHud} from './hud.mjs';
+import {createPictures} from './pictures.mjs';
 import {loadSave, storeSave} from './storage.mjs';
 import {instantiateRuntime, linkModules, loadManifest, runModules} from './load.mjs';
 
@@ -63,9 +64,10 @@ function wasiImports(memory, print) {
 // Collects one frame from the screen operations and hands it to the
 // renderer; collects the HUD, sent only after updates, and hands it to the
 // HUD. A batch's style is [opacity, x, z, radius], with a negative radius
-// when nothing is hidden.
-function screenImports(renderer, hud) {
-  let frame = null, batch = null, panels = null, target = null, fieldName = null;
+// when nothing is hidden. Pictures and the sources they need go to the
+// picture store, which both the renderer and the HUD read.
+function screenImports(renderer, hud, pictures) {
+  let frame = null, batch = null, panels = null, target = null, fieldName = null, picture = null, source = null;
   const styles = [(a, b, c, d) => [1, 0, 0, -1], (a, b, c, d) => [a, 0, 0, -1], (a, b, c, d) => [1, b, c, d]];
   const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption', 'url'];
   return {
@@ -78,6 +80,30 @@ function screenImports(renderer, hud) {
     light(dx, dy, dz, sun, ambient) {
       frame.light = {direction: [dx, dy, dz], sun, ambient};
     },
+    'picture-begin'(key, version, width, height) {
+      if (pictures.has(key, version)) return 1;
+      picture = pictures.define(key, version, width, height);
+      return 0;
+    },
+    layer(key, fx, fy, fw, fh, x, y) {
+      picture.layers.push({source: key, fx, fy, fw, fh, x, y, swaps: new Map()});
+      return pictures.hasSource(key) ? 1 : 0;
+    },
+    swap(from, to) {
+      picture.layers.at(-1).swaps.set(from, to);
+    },
+    'source-begin'(key, length) {
+      source = {key, bytes: new Uint8Array(length), at: 0};
+      if (length === 0) pictures.addSource(key, source.bytes);
+    },
+    // Four bytes per word, little-endian; the last word may be padded.
+    'source-word'(word) {
+      for (let shift = 0; shift < 32 && source.at < source.bytes.length; shift += 8) source.bytes[source.at++] = (word >>> shift) & 255;
+      if (source.at === source.bytes.length) pictures.addSource(source.key, source.bytes);
+    },
+    'picture-end'() {
+      pictures.finish(picture);
+    },
     'batch-begin'(key, version, style, a, b, c, d) {
       const cached = renderer.hasBatch(key, version);
       batch = {key, version, style: styles[style](a, b, c, d), items: cached ? null : []};
@@ -86,6 +112,9 @@ function screenImports(renderer, hud) {
     },
     instance(...values) {
       batch.items.push(values);
+    },
+    surface(...values) {
+      batch.items.at(-1).push(...values);
     },
     'frame-end'() {
       renderer.draw(frame);
@@ -100,6 +129,9 @@ function screenImports(renderer, hud) {
     'widget-begin'(kind, tone, action, argument, control, value) {
       target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: '', spans: []};
       panels.at(-1).widgets.push(target);
+    },
+    'widget-image'(key, x, y, width, height, scale) {
+      target.image = {key, x, y, width, height, scale};
     },
     // Fields 7 and 8 each start a span of a text, normal or strong.
     field(which) {
@@ -124,15 +156,16 @@ export const running = [];
 
 // An application is the program it runs, which a development server may
 // relink, with the last lines the program wrote to standard error, and the
-// page's renderer, HUD and canvas, which outlive any one program. A page
+// page's pictures, renderer, HUD and canvas, which outlive any one program. A page
 // that `lofi serve` serves names its program's modules.json in a meta tag,
 // and the browser IDE passes one with a `read` that fetches its files from
 // the toolchain; a published page loads one linked module from `url`.
 export async function startApplication({url, canvas, overlay, storageKey, manifest, read}) {
-  const application = {url, canvas, storageKey, exports: null, errors: [], capture: null, renderer: await createRenderer(canvas),
-                       hud: null, clock: null, program: null};
+  const pictures = createPictures();
+  const application = {url, canvas, storageKey, exports: null, errors: [], capture: null, pictures,
+                       renderer: await createRenderer(canvas, pictures), hud: null, clock: null, program: null};
   application.hud = createHud(overlay, (action, argument) => application.exports.app_input(PRESS, action, argument, 0, 0),
-                              (action, argument) => application.exports.app_input(HOVER, action, argument, 0, 0));
+                              (action, argument) => application.exports.app_input(HOVER, action, argument, 0, 0), pictures);
   const modules = manifest ?? document.querySelector('meta[name="lofi-modules"]')?.content;
   application.exports = modules ? await linkProgram(application, modules, read ?? fetchRead(modules)) : await instantiate(application, url);
   await restore(application);
@@ -147,7 +180,7 @@ async function instantiate(application, url) {
   let exports;
   const imports = {
     wasi_snapshot_preview1: wasiImports(() => exports.memory, printer(application)),
-    'snail.screen': screenImports(application.renderer, application.hud),
+    'snail.screen': screenImports(application.renderer, application.hud, application.pictures),
   };
   ({instance: {exports}} = await WebAssembly.instantiateStreaming(fetch(url), imports));
   exports._initialize();
@@ -163,7 +196,7 @@ async function linkProgram(application, manifest, read) {
   let runtime = null;
   runtime = await instantiateRuntime(loaded.runtime, {wasi_snapshot_preview1: wasiImports(() => runtime.exports.memory, printer(application))});
   runtime.exports._initialize();
-  const host = {'snail.screen': screenImports(application.renderer, application.hud)};
+  const host = {'snail.screen': screenImports(application.renderer, application.hud, application.pictures)};
   const linked = await linkModules(runtime, loaded.modules, host);
   runModules(linked, loaded.modules.map(entry => entry.name));
   application.program = {manifest, read, runtime, host, linked};
@@ -237,17 +270,19 @@ async function restore(application) {
 // After a build changed the module of library `from`, that module and every
 // module after it, which may import from it, are linked again from the new
 // modules.json, in program order, and initialized: their globals start
-// over. The state passes to the new program (`takeState`), and the renderer
-// forgets the batches the old one drew. If the new program cannot take the
-// state, the old one keeps running and the error carries what was printed;
-// `fresh` starts the new program over instead. A clock that stopped when the
-// old program trapped starts again.
+// over. The state passes to the new program (`takeState`); the renderer
+// forgets the batches the old one drew, and the picture store its pictures
+// and sources. If the new program cannot take the state, the old one keeps
+// running and the error carries what was printed; `fresh` starts the new
+// program over instead. A clock that stopped when the old program trapped
+// starts again.
 export async function relinkModules(application, from, {fresh = false} = {}) {
   application.capture = [];
   try {
     const next = await linkFrom(application.program, from);
     takeState(next.exports, application, fresh);
     application.renderer.forget();
+    application.pictures.forget();
     Object.assign(application, {exports: next.exports});
     application.program.linked = next.linked;
   } catch (error) {

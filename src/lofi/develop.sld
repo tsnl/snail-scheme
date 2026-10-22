@@ -309,7 +309,7 @@
 
     (: host-files (List String))
     (define host-files
-      (list "host.mjs" "renderer.mjs" "hud.mjs" "storage.mjs" "load.mjs" "style.css"))
+      (list "host.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css"))
 
     (: public-files (-> Loop String (List String) ! fs develop))
     (define (public-files loop app)

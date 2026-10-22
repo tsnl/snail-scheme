@@ -1,13 +1,14 @@
-// The HUD: panels of labels, buttons, dials and links, stacked in columns in the
-// screen's corners, shown as dialogs over a backdrop, or as banners across
-// the top that never take input. Elements are kept by
-// key and changed only where the description changed, so hover and focus
-// survive the updates that arrive several times a second.
+// The HUD: panels of labels, buttons, dials, links and images, stacked in
+// columns in the screen's corners, shown as dialogs over a backdrop, or as
+// banners across the top that never take input. Elements are kept by key
+// and changed only where the description changed, so hover and focus
+// survive the updates that arrive several times a second. An image draws a
+// region of a picture, crisply scaled, once the picture is ready.
 
 const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 const tones = ['plain', 'good', 'warning', 'danger', 'muted', 'suggested'];
 const DIALOG = 1, BANNER = 2;
-const LABEL = 0, BUTTON = 1, DIAL = 2, LINK = 3, TEXT = 4;
+const LABEL = 0, BUTTON = 1, DIAL = 2, LINK = 3, TEXT = 4, IMAGE = 5;
 const DISABLED = 1, SELECTED = 2;
 
 // The button under the pointer. One removed while hovered never reports
@@ -23,6 +24,11 @@ function element(tag, className) {
 // ---- Widgets ----
 
 function createWidget(widget, press, hover) {
+  if (widget.kind === IMAGE) {
+    const node = element('canvas', 'image');
+    node.dataset.kind = IMAGE;
+    return node;
+  }
   if (widget.kind === BUTTON) {
     const node = element('button', 'button');
     node.append(element('span', 'icon'), element('span', 'text'), element('span', 'caption'));
@@ -65,7 +71,34 @@ function setSpans(node, spans) {
   }));
 }
 
-function updateWidget(node, widget) {
+// Draws the image's region at its scale, again whenever its picture is
+// composed anew. The canvas keeps the last description it drew.
+function updateImage(node, widget, pictures) {
+  const {key, x, y, width, height, scale} = widget.image;
+  const description = `${key} ${x} ${y} ${width} ${height} ${scale}`;
+  if (node.description === description) return;
+  node.description = description;
+  node.width = width * scale;
+  node.height = height * scale;
+  node.unwatch?.();
+  const draw = picture => {
+    const context = node.getContext('2d');
+    context.imageSmoothingEnabled = false;
+    context.clearRect(0, 0, node.width, node.height);
+    context.drawImage(picture.canvas, x, y, width, height, 0, 0, node.width, node.height);
+  };
+  node.unwatch = pictures.watch(key, draw);
+  const ready = pictures.get(key);
+  if (ready) draw(ready);
+}
+
+function updateWidget(node, widget, pictures) {
+  if (widget.kind === IMAGE) {
+    setAttribute(node, 'data-key', widget.key);
+    setAttribute(node, 'title', widget.help);
+    updateImage(node, widget, pictures);
+    return;
+  }
   node.dataset.kind = widget.kind;
   setAttribute(node, 'data-key', widget.key);
   setAttribute(node, 'data-icon', widget.icon);
@@ -99,14 +132,14 @@ function arrange(parent, wanted) {
   while (parent.children.length > wanted.length) parent.lastElementChild.remove();
 }
 
-function updatePanel(state, panel, press, hover) {
+function updatePanel(state, panel, press, hover, pictures) {
   setAttribute(state.node, 'data-key', panel.key);
   const seen = new Map();
   const nodes = panel.widgets.map((widget, index) => {
     const id = widget.key || `#${index}`;
     let node = state.widgets.get(id);
     if (!node || Number(node.dataset.kind) !== widget.kind) node = createWidget(widget, press, hover);
-    updateWidget(node, widget);
+    updateWidget(node, widget, pictures);
     seen.set(id, node);
     return node;
   });
@@ -114,7 +147,7 @@ function updatePanel(state, panel, press, hover) {
   arrange(state.node, nodes);
 }
 
-export function createHud(overlay, press, hover) {
+export function createHud(overlay, press, hover, pictures) {
   const cornerNodes = corners.map(name => {
     const node = element('div', `corner ${name}`);
     overlay.append(node);
@@ -145,7 +178,7 @@ export function createHud(overlay, press, hover) {
       const next = new Map(), placed = new Map();
       for (const panel of descriptions) {
         const state = panels.get(panel.key) ?? {node: element('div', 'panel'), widgets: new Map()};
-        updatePanel(state, panel, press, hover);
+        updatePanel(state, panel, press, hover, pictures);
         next.set(panel.key, state);
         const parent = panel.place === DIALOG ? dialogs : panel.place === BANNER ? banner : column(panel.corner, panel.column);
         if (!placed.has(parent)) placed.set(parent, parent === dialogs ? [backdrop] : []);

@@ -738,7 +738,8 @@
                                         (bar-batch game) (link-batch game)
                                         (cursor-batch game) (shimmer-batch game))
                                   (beacon-batches game)
-                                  (list (preview-batch game)))))))
+                                  (list (preview-batch game))))
+               (Nil))))
 
     (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
     (define (filter-map f items)

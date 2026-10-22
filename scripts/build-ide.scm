@@ -17,7 +17,7 @@
  (lofi build))
 
 (define host-files
-  '("host.mjs" "renderer.mjs" "hud.mjs" "storage.mjs" "load.mjs" "style.css" "reload-client.mjs"))
+  '("host.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css" "reload-client.mjs"))
 
 (define ide-files
   '("index.html" "ide.mjs" "ide.css" "toolchain.mjs"))

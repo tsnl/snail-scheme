@@ -12,7 +12,7 @@
  (lofi build))
 
 (define host-files
-  '("host.mjs" "renderer.mjs" "hud.mjs" "storage.mjs" "load.mjs" "style.css"))
+  '("host.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css"))
 
 (define (copy-file! from to)
   (let ((bytes (call-with-port (open-binary-input-file from) (lambda (port) (read-bytevector (file-size from) port)))))
