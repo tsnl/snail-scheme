@@ -45,6 +45,7 @@
     (define indigo (Paint (rgb 68 49 178) 0.25))
     (define lamp (Paint (rgb 255 244 142) 0.9))
     (define shadow (Paint (rgb 70 78 92) 0.0))
+    (define stone (Paint (rgb 168 172 180) 0.0))
 
     (: sky I32)
     (define sky (rgb 28 151 223))
@@ -252,17 +253,19 @@
                                  (Vec3 0.0 (+ 0.3 (* 0.22 (i64->f32 index))) 0.0) 0.0))
                         (iota level))))
 
-    ;; A wall stands taller and sturdier with each level: a blue band at
-    ;; the second, battlements at the third.
+    ;; A wall of grey stone under a steel coping, lower than the hub's
+    ;; roof so a ring of walls never reads as part of the hub. It stands
+    ;; taller with each level: a blue band at the second, battlements at
+    ;; the third.
     (: wall-parts (-> I64 (List Item)))
     (define (wall-parts level)
-      (let* ((height (+ 0.35 (* 0.15 (i64->f32 level)))) (top (+ 0.12 height)))
+      (let* ((height (+ 0.25 (* 0.1 (i64->f32 level)))) (top (+ 0.08 height)))
         (concatenate
-         (list (list (block steel 0.0 0.0 0.06 1.0 1.0 0.12) (block cream 0.0 0.0 (+ 0.12 (/ height 2.0)) 0.92 0.92 height)
-                     (block brass 0.0 0.0 (+ top 0.03) 0.96 0.96 0.06))
+         (list (list (block steel 0.0 0.0 0.04 1.0 1.0 0.08) (block stone 0.0 0.0 (+ 0.08 (/ height 2.0)) 0.94 0.94 height)
+                     (block steel 0.0 0.0 (+ top 0.03) 0.98 0.98 0.06))
                (if (>= level 2) (list (block blue 0.0 0.0 (* 0.6 top) 0.94 0.94 0.08)) (Nil))
                (if (>= level 3)
-                   (map (lambda (corner) (block cream (* 0.3 (i64->f32 (- (* 2 (remainder corner 2)) 1))) (* 0.3 (i64->f32 (- (* 2 (quotient corner 2)) 1)))
+                   (map (lambda (corner) (block stone (* 0.3 (i64->f32 (- (* 2 (remainder corner 2)) 1))) (* 0.3 (i64->f32 (- (* 2 (quotient corner 2)) 1)))
                                                 (+ top 0.15) 0.24 0.24 0.18))
                         (iota 4))
                    (Nil))))))
