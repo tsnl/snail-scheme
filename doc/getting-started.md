@@ -190,13 +190,16 @@ prints `832040`. The second is the same program in Scheme, compiled through
 ## The checks
 
 ```sh
-make test          # unit tests, programs, examples and the games
-make test-chibi    # the same, with the compiler's source on Chibi
+make test          # the formatter, the compiler, the programs and the games
 make check         # formatting
 cargo test --manifest-path src/runtime/Cargo.toml --offline
 cargo test --manifest-path src/assembler/Cargo.toml --offline
+make test-chibi    # the suite with the compiler's source running on Chibi
+make bootstrap     # the compiler rebuilt from Chibi alone, to a fixpoint
 make test-browser  # live reload and the IDE in headless Chromium
 ```
 
-CI runs all of these except `make test-chibi` and `make test-browser`. The
-[tour](../TOUR.md) lists the rest, and introduces the compiler.
+CI runs the first four, and `cargo fmt --check` on both crates. A change to
+the compiler also needs `make test-chibi` and `make bootstrap`, and a change
+to the browser host or the IDE `make test-browser`. The [tour](../TOUR.md)
+introduces the compiler.

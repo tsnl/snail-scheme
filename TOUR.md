@@ -8,8 +8,11 @@ text ──read──▶ located syntax
      ──expand─▶ core program      unique names, resolved types, entity tables
      ──check──▶ typed program     every expression typed, instances chosen
      ──mono───▶ monomorphic program
-     ──wasm───▶ WasmGC text ──Binaryen──▶ module, linked with the Rust runtime
+     ──wasm───▶ WasmGC text ──assemble──▶ module, linked with the Rust runtime
 ```
+
+Release builds assemble and optimize with Binaryen; debug builds assemble
+each library's module with the `wat` crate, in process.
 
 Read [`examples/fibonacci.sld`](examples/fibonacci.sld), run
 `./lofi wat examples/fibonacci.sld` to see the WebAssembly it becomes, then
@@ -53,9 +56,9 @@ and keeps state that grows over a whole pass in a `Ref`.
   dependency order (Tarjan's algorithm). Each instantiation records its type
   arguments and an evidence hole per class constraint. While items are
   checked, constraints are only recorded; a group of functions quantifies
-  the metavariables nothing else still mentions. When the whole program is
-  checked, literals default, and each class constraint is solved once,
-  filling its hole. Rows unify as sets with open tails. Matches are checked
+  the metavariables nothing else still mentions. Libraries are checked one
+  at a time; when a library is checked, its literals default, and each
+  class constraint is solved once, filling its hole. Rows unify as sets with open tails. Matches are checked
   with Maranget's usefulness algorithm. A function whose type forbids `mut`
   may mutate storage it allocates; once types are final, nothing it can
   reach from outside, its parameters, result or names it reads, may hold
@@ -87,14 +90,14 @@ and keeps state that grows over a whole pass in a `Ref`.
 
 | Path | Responsibility |
 | --- | --- |
-| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `serve` and `watch`. |
+| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `schema` and `bootstrap`; `lofi` hands `serve` and `watch` to `scripts/develop.mjs`. |
 | `src/lofi/develop.sld`, `bootstrap/develop.sld` | The development loop behind `lofi serve`, `lofi watch` and the IDE, as a Lofi program: it keeps a session, debounces changes, writes each changed module and a manifest, and broadcasts build events, reaching its host only through the `develop` effect's commands. |
 | `scripts/develop.mjs` | The loop's Node host: file watching, timers, HTTP with server-sent events, and running programs. |
 | `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program. |
 | `bootstrap/compile.sld` | The compiler's entry program when it runs as Wasm. |
-| `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. `(lofi syntax)` is the syntax a `generate-library` recipe returns and the bytes its producer writes. `format.sld` reproduces `scripts/format-scheme`, which the tests check on every Scheme file in the repository, and highlights by the same lexical rules. |
+| `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. `(lofi syntax)` is the syntax a `generate-library` recipe returns and the bytes its producer writes. `(lofi sprite)` poses figures from spritebooks. `format.sld` reproduces `scripts/format-scheme`, which the tests check on every Scheme file in the repository, and highlights by the same lexical rules. |
 | `lib/lpc/` | Liberated Pixel Cup character art, four packs checked in as they were published (see `ATTRIBUTION.md`), and libraries over them: `layout` (the sheets' grid), `catalog` (bodies, heads, hair and garments, and where each is drawn), `wardrobe` (characters dressed from the catalog, as layered pictures, spritebooks and portraits), `skins` (the skin ramps, generated from the pack's palette) and `embed` (helpers for recipes that compile images in as byte literals). |
-| `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
+| `lib/scheme/` | `(scheme base)`, R7RS names over the typed language; `(scheme compiler)`, which translates R7RS programs to Lofi libraries; and `(scheme runtime)`, the standard procedures their code calls. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
 | `src/assembler/`, `scripts/assemble.mjs` | The in-process assembler: the `wat` crate built for `wasm32-wasip1`, turning WebAssembly text into a module without Binaryen, under Node or in a browser. `scripts/assemble.mjs` drives it; programs never carry it. |
 | `scripts/run-lofi.mjs` | Runs a compiled program, or a `modules.json` of linked modules, under Node's WASI, in a worker with room for deep recursion; it provides `(lofi wasm)`'s loading. |
@@ -104,20 +107,20 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `colony` (orders and work), `siege` (attacks and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
 | `apps/hearsay/` | A design for a social simulation game, and browser prototypes that test it: `mill` (stories spreading through a town) and `ledger` (an economy of favors), each with a `-screen` that draws and plays it; `cast` (an LPC character for each person) and `art` (the sheets they wear, embedded); `hud`, the panel pieces both screens share, with the guide that explains each prototype; and `shell`, the menu. |
 | `examples/` | Small programs; the test suite runs them, and the book's tutorials show them. |
-| `doc/book/`, `book.toml` | The book published on GitHub Pages; its chapters include the language guide, the redesign and Siegework's guide. |
+| `doc/` | The language guide (`language.md`), the redesign and its history (`redesign.md`), the toolchain design (`toolchain.md`), and how to install the tools (`getting-started.md`). |
+| `doc/book/`, `book.toml` | The book published on GitHub Pages; its chapters include the language guide, the redesign and Siegework's guide, and its roadmap tracks open work. |
+| `shell.nix`, `npins/`, `rust-toolchain.toml`, `.devcontainer/` | The pinned tools: nixpkgs from an npins pin, the Rust toolchain, and a podman devcontainer with the same tools and Chromium, which CI builds. |
+| `scripts/format-scheme`, `scripts/format-scheme.el` | The Scheme formatter, Emacs's scheme-mode with the repository's rules, which `make format` and `make check` run. |
 | `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios, a headless game and `develop.mjs`, which drives `lofi serve` and `lofi watch` over the `tests/apps/counter` fixture, and programs linked one library at a time; `browser/reload.mjs` and `browser/ide.mjs` check live reload and the IDE in Chromium. |
 
-## Checks
+## Checks and builds
+
+[Getting started](doc/getting-started.md) lists the checks and the tools
+each needs. The builds:
 
 ```sh
-make fetch      # once: the Rust crates the builds and tests use offline
-make test       # unit tests, programs, examples and Siegework
-make check      # formatting
-cargo test --manifest-path src/runtime/Cargo.toml --offline
-cargo test --manifest-path src/assembler/Cargo.toml --offline
 make site       # Siegework and Hearsay in build/siegework and build/hearsay
 make ide        # the browser IDE around Siegework in build/ide
-make test-browser  # live reload and the IDE in headless Chromium; CHROMIUM names it
 make pages      # the book, with Siegework at play/siegework/, in build/pages
 ```
 
