@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hearsay prototypes</title>
+<link rel="stylesheet" href="./style.css">
+<style>
+  /* The prototypes are mostly text: smaller type, labels that keep their
+     line breaks, and buttons that read like list items. */
+  body { font-size: 13px; }
+  .panel { max-width: 420px; gap: 4px; }
+  .panel[data-key="actions"], .panel[data-key="contacts"] { max-width: 760px; }
+  .panel[data-key="offers"] .button, .panel[data-key="person"] .button { width: 100%; }
+  .label { white-space: pre-line; }
+  .button { padding: 5px 9px; text-align: left; }
+</style>
+<body>
+  <canvas id="view" tabindex="0" aria-label="Prototype board"></canvas>
+  <div id="overlay"></div>
+  <script type="module">
+    import {startApplication} from './host.mjs';
+    const overlay = document.getElementById('overlay');
+    startApplication({url: './app.wasm', canvas: document.getElementById('view'), overlay, storageKey: 'hearsay'})
+      .then(() => { document.body.dataset.ready = 'true'; })
+      .catch(error => { document.body.dataset.error = error.message; overlay.textContent = error.message; });
+  </script>
+</body>
+</html>
