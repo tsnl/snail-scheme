@@ -15,7 +15,7 @@
  (scheme write)
  (chibi filesystem)
  (chibi process)
- (only (chibi string) string-contains string-suffix?)
+ (only (chibi string) string-contains string-split string-suffix?)
  (srfi 1)
  (lofi build)
  (only (lofi compiler read) test-read)
@@ -148,6 +148,26 @@
   (cond ((> (+ from (string-length pattern)) (string-length text)) (error "not found" pattern))
         ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
         (else (text-index text pattern (+ from 1)))))
+
+;; The IDE's formatter, (lofi format) as a program, leaves every Scheme
+;; file in the repository as the Emacs formatter that `make check` runs
+;; left it.
+(define (compile-formatter root)
+  (guard (failure (#t (report "formatter" "compile failed" (error-text failure))))
+    (let ((text (program->wat root (list (path-join root "lib")) (path-join root "src/ide/format.sld"))))
+      (lambda () (check-formatter root text)))))
+
+(define (check-formatter root text)
+  (guard (failure (#t (report "formatter" "check failed" (error-text failure))))
+    (let ((program (path-join root "build/tests/formatter/format.wasm"))
+          (files (process->output+error+status (list "git" "-C" root "ls-files" "*.scm" "*.sld"))))
+      (create-directory* (path-join root "build/tests/formatter"))
+      (link-wat root text program #f)
+      (let ((result (process->output+error+status
+                     (append (list "node" "--no-warnings" (path-join root "scripts/run-lofi.mjs") program "--check")
+                             (map (lambda (file) (path-join root file)) (delete "" (string-split (car files) #\newline)))))))
+        (or (and (zero? (caddr result)) (string=? (car result) ""))
+            (report "formatter" "formats differently from Emacs" (string-append (car result) (cadr result))))))))
 
 ;; The command line itself: printing text and running a program.
 (define (run-command-line root)
@@ -288,7 +308,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (compile-siegework root) (compile-assembler root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))

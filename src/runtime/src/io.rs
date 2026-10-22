@@ -88,9 +88,6 @@ pub extern "C" fn path_character(code: u32) {
 #[unsafe(export_name = "snail:io/file-exists")]
 pub extern "C" fn file_exists() -> i32 {
     let result = take_pathname().and_then(|path| {
-        if crate::files::enabled() {
-            return Ok(i32::from(crate::files::exists(&path)));
-        }
         Path::new(&path)
             .try_exists()
             .map(i32::from)

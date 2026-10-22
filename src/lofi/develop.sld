@@ -2,19 +2,18 @@
 ;; build it again when they change, and tell its open pages, or run it
 ;; again. A build goes through a compile session (lofi compiler session), so
 ;; it recompiles only the libraries an edit changed, each to its own module.
-;; The loop runs as WebAssembly (bootstrap/develop.sld) and decides
-;; everything; its host (scripts/develop.mjs) performs the commands of the
-;; `develop` effect, such as watching a directory or serving a page, and
-;; reports what happened as events.
+;; The loop runs as WebAssembly (bootstrap/develop.sld, or src/ide/develop.sld
+;; in the IDE) and decides everything; its host (scripts/develop.mjs, or
+;; src/ide/toolchain.mjs) performs the commands of the `develop` effect, such
+;; as watching a directory or serving a page, and reports what happened as
+;; events.
 (define-library (lofi develop)
   (export
    develop
    Loop
    new-loop
    start-loop!
-   source-changed!
-   timer-fired!
-   build-failed!)
+   deliver-event!)
   (import
    (lofi base)
    (lofi io)
@@ -225,6 +224,16 @@
     (define (build-failed! loop message)
       (broadcast! (string-append "(failed " (quoted message) " " (ref-get (Loop-manifest loop)) ")")))
 
+    ;; The host's events, numbered as its hosts number them: 1 is a changed
+    ;; file, with its path; 2 the timer the loop asked for; 3 a build that
+    ;; panicked, with the panic's message.
+    (: deliver-event! (-> Loop I32 String Unit ! mut fs console develop))
+    (define (deliver-event! loop kind text)
+      (case kind
+        ((1) (source-changed! loop text))
+        ((2) (timer-fired! loop))
+        (else (build-failed! loop text))))
+
     ;; ---- Builds ----
 
     (: build! (-> Loop Unit ! mut fs console develop))
@@ -280,7 +289,7 @@
         (write-file (string-append (Loop-output loop) "/modules.json") (modules-json (runtime-path loop) modules))
         (let ((manifest (page-manifest loop app modules)))
           (write-file (string-append (Loop-output loop) "/index.html")
-                      (string-append (read-file (string-append app "/index.html")) (page-client manifest)))
+                      (string-append (app-page app) (page-client manifest)))
           (ref-set! (Loop-manifest loop) manifest)
           (broadcast! (string-append "(built " (i32->string (- (now) started)) " " manifest ")"))
           (write-line (string-append "built " (base-name app) " in " (i32->string (- (now) started)) " ms: "
@@ -303,9 +312,16 @@
     (: page-files (-> Loop String (List (Pair String String)) ! fs develop))
     (define (page-files loop app)
       (concatenate
-       (list (list (Pair "index.html" (i64->string (fnv-1a (read-file (string-append app "/index.html"))))))
+       (list (list (Pair "index.html" (i64->string (fnv-1a (app-page app)))))
              (map (lambda (file) (Pair file (i32->string (digest (string-append (Loop-root loop) "/src/app/" file))))) host-files)
              (map (lambda (file) (Pair file (i32->string (digest (string-append app "/public/" file))))) (public-files loop app)))))
+
+    ;; The application's page, or an empty one for a project without it,
+    ;; as the IDE may open.
+    (: app-page (-> String String ! fs))
+    (define (app-page app)
+      (let ((path (string-append app "/index.html")))
+        (if (file-exists? path) (read-file path) "<!doctype html>\n<meta charset=\"utf-8\">\n")))
 
     (: host-files (List String))
     (define host-files

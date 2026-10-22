@@ -341,7 +341,8 @@ function attachInput(application) {
   canvas.addEventListener('pointercancel', event => send(POINTER_CANCEL, event.pointerId));
   canvas.addEventListener('wheel', event => { send(WHEEL, wheelPixels(event)); event.preventDefault(); }, {passive: false});
   canvas.addEventListener('contextmenu', event => event.preventDefault());
-  new ResizeObserver(() => send(RESIZE, canvas.clientWidth, canvas.clientHeight)).observe(canvas);
+  // A hidden canvas, as in a closed dock, keeps its last size.
+  new ResizeObserver(() => { if (canvas.clientWidth && canvas.clientHeight) send(RESIZE, canvas.clientWidth, canvas.clientHeight); }).observe(canvas);
 }
 
 // Each display frame first reports the time since the last, up to a quarter

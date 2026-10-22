@@ -37,18 +37,25 @@ literal could have more than one type, as `(lofi app)` gives its key codes
 
 ## The browser IDE
 
-`make ide` packages an editor and Siegework as a static site in
-`build/ide`. Serve it with any static file server:
+`make ide` packages an IDE as a static site in `build/ide`, with nothing to
+install and no server beyond one for static files:
 
 ```text
 $ make ide
 $ python3 -m http.server --directory build/ide
 ```
 
-The development loop runs in a worker, compiler included, with the Rust
-runtime keeping `lib/` and the application in memory, and the `wat` crate
-assembling modules. Typing in the editor rebuilds and relinks the running
-game, in 70 to 120 ms for an edit to one library of Siegework.
+It opens Siegework until you open a folder of your own; the project stays
+in the browser's storage, and saving writes each file back to its folder
+where the browser allows it. The toolbar along the top toggles the file
+browser on the left and the running application on the right, and splits
+the editor panes. Code is highlighted as you type; Tab and Enter indent as
+Emacs's Scheme mode does, and saving formats the file as `make check`
+expects. Each edit, saved or not,
+goes to the development loop running in a worker, compiler included: a
+build that fails puts a squiggle under what the compiler points at, and one
+that succeeds relinks the application, in 50 to 100 ms for an edit to one
+library of Siegework.
 
 ## Loading code while a program runs
 
