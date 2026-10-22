@@ -15,4 +15,4 @@ module into the open page, keeping its state.
 | Application | Purpose |
 | --- | --- |
 | [Siegework](siegework/README.md) | A colony game: explore, mine ore and destroy three nests before their waves arrive. |
-| [Hearsay](hearsay/README.md) | A design for a role-playing game that generates stories from what a city believes, with two terminal prototypes. |
+| [Hearsay](hearsay/README.md) | A design for a role-playing game that generates stories from what a city believes, with two prototypes. |

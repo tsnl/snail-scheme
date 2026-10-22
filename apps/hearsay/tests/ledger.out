@@ -1,7 +1,4 @@
-The favor ledger.
-You and two rival fixers, Vee and Kit, trade markers, promises and coins
-for eight rounds. The most standing wins, and coins break ties.
-Type help for commands.
+Trade markers, promises and coins with Vee and Kit for eight rounds; the most standing wins. Green buttons can be done now. End the round when you are done.
 Round 1 of 8
 
 Fixers
@@ -13,29 +10,29 @@ Fixers
     markers: Ivo (medicine, through round 3), Ren (doors, through round 3)
 
 Contacts
-  1. Ivo (medicine) wants 2 coins
-  2. Ren (doors) wants a marker with fencing
-  3. Sal (muscle) wants a marker with eyes
-  4. Tia (fencing) wants 4 coins
-  5. Una (paperwork) wants 2 coins
-  6. Vik (eyes) wants a marker with doors
-  7. Wes (doors) wants 4 coins
-  8. Xan (muscle) wants a marker with doors
+  Ivo (medicine) wants 2 coins
+  Ren (doors) wants a marker with fencing
+  Sal (muscle) wants a marker with eyes
+  Tia (fencing) wants 4 coins
+  Una (paperwork) wants 2 coins
+  Vik (eyes) wants a marker with doors
+  Wes (doors) wants 4 coins
+  Xan (muscle) wants a marker with doors
 
 Jobs
-  1. doors + fencing: 4 coins and 1 standing, open through round 2
-  2. fencing + eyes: 4 coins and 1 standing, open through round 2
-  3. muscle + medicine + paperwork: 6 coins and 2 standing, open through round 2
+  Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2
+  Job 2: fencing + eyes, for 4 coins and 1 standing, open through round 2
+  Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2
 
 Offers
-  1. Vee buys your oldest marker with fencing for 3 coins.
-  2. Vee sells Vik (eyes, through round 3) for 2 coins.
-  3. Vee pays 2 coins for your promise of a marker with fencing, due at the end of round 3.
-  4. Vee promises a marker with doors, due at the end of round 3, for 1 coin.
-  5. Kit buys your oldest marker with fencing for 3 coins.
-  6. Kit sells Ivo (medicine, through round 3) for 2 coins.
-  7. Kit pays 2 coins for your promise of a marker with fencing, due at the end of round 3.
-  8. Kit promises a marker with fencing, due at the end of round 3, for 1 coin.
+  Vee buys your oldest fencing marker for 3 coins.
+  Vee sells Vik (eyes, through round 3) for 2 coins.
+  Vee pays 2 coins for your promise of fencing by round 3.
+  Vee promises you doors by round 3 for 1 coin.
+  Kit buys your oldest fencing marker for 3 coins.
+  Kit sells Ivo (medicine, through round 3) for 2 coins.
+  Kit pays 2 coins for your promise of fencing by round 3.
+  Kit promises you fencing by round 3 for 1 coin.
 
 Promises
   none
@@ -48,9 +45,9 @@ You complete job 2 for 4 coins and 1 standing.
 You pay Ivo 2 coins.
 Ivo grants you a marker through round 3 and now wants a marker with fencing.
 > accept 4
-You accept: Vee promises a marker with doors, due at the end of round 3, for 1 coin.
+You accept: Vee promises you doors by round 3 for 1 coin.
 > accept 7
-You accept: Kit pays 2 coins for your promise of a marker with fencing, due at the end of round 3.
+You accept: Kit pays 2 coins for your promise of fencing by round 3.
 > end
 Vee gains Ivo (medicine, through round 3).
 Kit gains Sal (muscle, through round 3).
@@ -59,13 +56,6 @@ Round 2 begins.
 You hold no marker with fencing.
 > accept 99
 No such offer.
-> dance
-accept O   accept offer O
-meet C     meet contact C's want, naming C by number or name
-job J      do job J
-honor P    honor promise P
-end        end the round
-help, quit
 > end
 Vee gains Ren (doors, through round 4).
 Kit gains Tia (fencing, through round 4).
@@ -95,25 +85,25 @@ Fixers
     markers: Tia (fencing, through round 5)
 
 Contacts
-  1. Ivo (medicine) wants a marker with fencing
-  2. Ren (doors) wants a marker with fencing
-  3. Sal (muscle) wants a marker with eyes
-  4. Tia (fencing) wants 4 coins
-  5. Una (paperwork) wants 2 coins
-  6. Vik (eyes) wants a marker with doors
-  7. Wes (doors) wants 4 coins
-  8. Xan (muscle) wants a marker with doors
+  Ivo (medicine) wants a marker with fencing
+  Ren (doors) wants a marker with fencing
+  Sal (muscle) wants a marker with eyes
+  Tia (fencing) wants 4 coins
+  Una (paperwork) wants 2 coins
+  Vik (eyes) wants a marker with doors
+  Wes (doors) wants 4 coins
+  Xan (muscle) wants a marker with doors
 
 Jobs
-  5. doors + fencing + eyes: 6 coins and 2 standing, open through round 4
-  6. muscle + paperwork + eyes: 6 coins and 2 standing, open through round 4
-  7. muscle + medicine + fencing: 6 coins and 2 standing, open through round 5
+  Job 5: doors + fencing + eyes, for 6 coins and 2 standing, open through round 4
+  Job 6: muscle + paperwork + eyes, for 6 coins and 2 standing, open through round 4
+  Job 7: muscle + medicine + fencing, for 6 coins and 2 standing, open through round 5
 
 Offers
-  1. Vee buys your oldest marker with paperwork for 2 coins.
-  2. Vee promises a marker with eyes, due at the end of round 6, for 1 coin.
-  3. Kit buys your oldest marker with doors for 2 coins.
-  4. Kit promises a marker with doors, due at the end of round 6, for 1 coin.
+  Vee buys your oldest paperwork marker for 2 coins.
+  Vee promises you eyes by round 6 for 1 coin.
+  Kit buys your oldest doors marker for 2 coins.
+  Kit promises you doors by round 6 for 1 coin.
 
 Promises
   none
@@ -166,7 +156,18 @@ Job 12 expires.
 The game is over. Kit wins.
 > end
 The game is over.
+> end
+The game is over.
 Final standings
   You: 7 coins, 0 standing, promises kept 0 and refused 1
   Vee: 5 coins, 0 standing, promises kept 1 and refused 0
   Kit: 12 coins, 3 standing, promises kept 0 and refused 0
+
+The game is over. Kit wins.
+
+Last round
+  Vee gains Ren (doors, through round 10).
+  Kit gains Una (paperwork, through round 10).
+  Vee's Tia (fencing, through round 8) lapses.
+  Kit's Wes (doors, through round 8) lapses.
+  Job 12 expires.
