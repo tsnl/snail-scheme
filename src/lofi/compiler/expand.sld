@@ -6,7 +6,11 @@
   (export
    Context
    make-context
+   make-caching-context
+   start-build!
    Context-program
+   library-version
+   library-interface
    expand-program)
   (import
    (lofi base)
@@ -154,6 +158,11 @@
     ;; `generate` runs a producer program for `generate-library` and returns
     ;; what it prints; the driver supplies it, because running a program means
     ;; compiling one.
+    ;;
+    ;; A context that serves many builds, as a development server's does,
+    ;; keeps a `cache` of each library as it was last expanded. Its counters
+    ;; and scopes only grow, so a replayed library's names and marks stay
+    ;; unique. `base` is the program and libraries every build starts from.
     (struct Context
       ((program (Ref Program))
        (directories (List String))
@@ -163,16 +172,45 @@
        (scope-count (Ref I64))
        (deriving (Ref (Option I64)))
        (generate (-> (List Syntax) String String ! mut fs))
-       (prefix String)))
+       (prefix String)
+       (cache (Option (Ref (Table Expanded))))
+       (base (Ref (Pair Program (Table (Option Exports)))))))
 
     (type Exports (List (Pair String Binding)))
 
+    ;; A library as a build expanded it: the canonical text of its
+    ;; declarations with the interfaces of its imports, which decide whether
+    ;; a later build may replay it; its own interface; its exports; and
+    ;; everything it added to the program.
+    (struct Expanded
+      ((key String)
+       (interface String)
+       (exports Exports)
+       (delta Program)))
+
     (: make-context (-> (List String) (-> (List Syntax) String String ! mut fs) Context ! mut))
     (define (make-context directories generate)
-      (let ((cx (Context (ref empty-program) directories (ref empty-table) (ref 0) (ref empty-table) (ref 0) (ref (None)) generate "")))
+      (new-context directories generate (None)))
+
+    (: make-caching-context (-> (List String) (-> (List Syntax) String String ! mut fs) Context ! mut))
+    (define (make-caching-context directories generate)
+      (new-context directories generate (Some (ref empty-table))))
+
+    (: new-context (-> (List String) (-> (List Syntax) String String ! mut fs) (Option (Ref (Table Expanded))) Context ! mut))
+    (define (new-context directories generate cache)
+      (let ((cx (Context (ref empty-program) directories (ref empty-table) (ref 0) (ref empty-table) (ref 0) (ref (None)) generate ""
+                         cache (ref (Pair empty-program empty-table)))))
         (set-library! cx "lofi.core" (Some (core-library)))
         (set-library! cx "lofi.primitive" (Some (primitive-library cx)))
+        (ref-set! (Context-base cx) (Pair (program cx) (ref-get (Context-libraries cx))))
         cx))
+
+    ;; Returns the context to where every build starts.
+    (: start-build! (-> Context Unit ! mut))
+    (define (start-build! cx)
+      (let ((base (ref-get (Context-base cx))))
+        (ref-set! (Context-program cx) (Pair-first base))
+        (ref-set! (Context-libraries cx) (Pair-second base))))
 
     (: set-library! (-> Context String (Option Exports) Unit ! mut))
     (define (set-library! cx key exports)
@@ -304,11 +342,21 @@
 
     (: expand-library (-> Context (List String) (List Syntax) Exports ! mut fs))
     (define (expand-library cx name declarations)
-      (let* ((sections (concatenate (map library-sections declarations)))
-             (cx (Context-prefix-set cx (string-join name ".")))
-             (env (import-env cx (section-items sections "import"))))
-        (expand-unit cx env (section-items sections "begin"))
-        (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export"))))
+      (expand-sections (Context-prefix-set cx (string-join name ".")) (concatenate (map library-sections declarations))))
+
+    ;; Loads the imports, then expands the body, unless a caching context can
+    ;; replay the library from the last build.
+    (: expand-sections (-> Context (List (Pair String (List Syntax))) Exports ! mut fs))
+    (define (expand-sections cx sections)
+      (let ((env (import-env cx (section-items sections "import"))))
+        (match (Context-cache cx)
+          ((Some cache) (expand-cached cx cache sections env))
+          ((None) (expand-library-body cx sections env)))))
+
+    (: expand-library-body (-> Context (List (Pair String (List Syntax))) Env Exports ! mut fs))
+    (define (expand-library-body cx sections env)
+      (expand-unit cx env (section-items sections "begin"))
+      (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export")))
 
     ;; Expands the body of a library or of the program after its imports, so
     ;; its items follow theirs, and records how many it added.
@@ -355,15 +403,113 @@
     (define (section-items sections kind)
       (concatenate (map Pair-second (filter (lambda (section) (string=? (Pair-first section) kind)) sections))))
 
-    ;; A program is a sequence of imports followed by a body.
+    ;; A program is a sequence of imports followed by a body; it exports
+    ;; nothing.
     (: expand-program (-> Context String Program ! mut fs))
     (define (expand-program cx path)
       (let loop ((forms (read-text (read-file path) path)) (specs (Nil)))
         (match forms
           ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
-          (_ (let* ((cx (Context-prefix-set cx "main")) (env (import-env cx specs)))
-               (expand-unit cx env forms)
-               (program cx))))))
+          (_ (expand-sections (Context-prefix-set cx "main") (list (Pair "import" specs) (Pair "begin" forms)))
+             (program cx)))))
+
+    ;; ---- Replaying libraries ----
+
+    ;; A library whose declarations read the same as in the last build, and
+    ;; whose imports show the same interfaces, adds what it added then.
+    (: expand-cached (-> Context (Ref (Table Expanded)) (List (Pair String (List Syntax))) Env Exports ! mut fs))
+    (define (expand-cached cx cache sections env)
+      (let ((key (library-key cx sections)))
+        (match (table-ref (ref-get cache) (Context-prefix cx))
+          ((Some entry)
+           (if (string=? (Expanded-key entry) key)
+               (begin (ref-set! (Context-program cx) (program-with (program cx) (Expanded-delta entry)))
+                      (Expanded-exports entry))
+               (expand-recorded cx cache sections env key)))
+          ((None) (expand-recorded cx cache sections env key)))))
+
+    (: expand-recorded (-> Context (Ref (Table Expanded)) (List (Pair String (List Syntax))) Env String Exports ! mut fs))
+    (define (expand-recorded cx cache sections env key)
+      (let* ((exports (expand-library-body cx sections env)) (name (Context-prefix cx))
+             (entry (Expanded key (interface-hash cx sections) exports (program-delta (program cx) name))))
+        (ref-set! cache (table-set (ref-get cache) name entry))
+        exports))
+
+    (: library-key (-> Context (List (Pair String (List Syntax))) String ! mut))
+    (define (library-key cx sections)
+      (string-append (string-join (map (lambda (section) (string-append (Pair-first section) " " (forms-text (Pair-second section))))
+                                       sections)
+                                  "\n")
+                     "\n" (imports-interfaces cx sections)))
+
+    (: forms-text (-> (List Syntax) String))
+    (define (forms-text forms)
+      (string-join (map syntax->string forms) "\n"))
+
+    ;; Each imported library's interface, as the last build recorded it.
+    (: imports-interfaces (-> Context (List (Pair String (List Syntax))) String ! mut))
+    (define (imports-interfaces cx sections)
+      (string-join (map (lambda (spec) (library-interface cx (string-join (library-name (spec-library spec)) ".")))
+                        (section-items sections "import"))
+                   " "))
+
+    ;; The interface of a library loaded by a caching context.
+    (: library-interface (-> Context String String ! mut))
+    (define (library-interface cx name)
+      (match (cached-library cx name)
+        ((Some entry) (Expanded-interface entry))
+        ((None) "builtin")))
+
+    ;; What a caching context last expanded a library from. Anything made
+    ;; from the library's expansion, such as its checked items, stays valid
+    ;; while this does.
+    (: library-version (-> Context String String ! mut))
+    (define (library-version cx name)
+      (match (cached-library cx name)
+        ((Some entry) (Expanded-key entry))
+        ((None) "")))
+
+    (: cached-library (-> Context String (Option Expanded) ! mut))
+    (define (cached-library cx name)
+      (match (Context-cache cx)
+        ((Some cache) (table-ref (ref-get cache) name))
+        ((None) (None))))
+
+    (: spec-library (-> Syntax Syntax))
+    (define (spec-library spec)
+      (match spec
+        ((Form (Cons (Ident keyword _ _) (Cons inner _)) _)
+         (if (member? keyword (list "only" "except" "prefix" "rename")) (spec-library inner) spec))
+        (_ spec)))
+
+    ;; What importers depend on: every declaration except the bodies of
+    ;; definitions whose signatures are not generic, which only the
+    ;; library's own module uses; and its imports' interfaces, since its
+    ;; generic code carries theirs into importers.
+    (: interface-hash (-> Context (List (Pair String (List Syntax))) String ! mut))
+    (define (interface-hash cx sections)
+      (let* ((forms (section-items sections "begin")) (signed (monomorphic-signatures forms)))
+        (i64->string (fnv-1a (string-append (forms-text (section-items sections "import")) "\n" (forms-text (section-items sections "export"))
+                                            "\n" (string-join (map (lambda (form) (interface-form form signed)) forms) "\n")
+                                            "\n" (imports-interfaces cx sections))))))
+
+    (: interface-form (-> Syntax (List String) String))
+    (define (interface-form form signed)
+      (match form
+        ((Form (Cons (Ident "define" _ _) (Cons (Form (Cons (Ident name _ _) _) _) _)) _)
+         (if (member? name signed) (string-append "(define " name ")") (syntax->string form)))
+        ((Form (Cons (Ident "define" _ _) (Cons (Ident name _ _) _)) _)
+         (if (member? name signed) (string-append "(define " name ")") (syntax->string form)))
+        (_ (syntax->string form))))
+
+    (: monomorphic-signatures (-> (List Syntax) (List String)))
+    (define (monomorphic-signatures forms)
+      (concatenate (map (lambda (form)
+                          (match form
+                            ((Form (Cons (Ident ":" _ _) (Cons (Ident name _ _) (Cons (Form (Cons (Ident "All" _ _) _) _) (Nil)))) _) (Nil))
+                            ((Form (Cons (Ident ":" _ _) (Cons (Ident name _ _) (Cons _ (Nil)))) _) (list name))
+                            (_ (Nil))))
+                        forms)))
 
     ;; ---- Imports and exports ----
 

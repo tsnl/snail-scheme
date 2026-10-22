@@ -20,7 +20,8 @@
  (lofi build)
  (only (lofi compiler read) test-read)
  (only (lofi compiler core) test-core)
- (only (lofi compiler wasm) test-wasm))
+ (only (lofi compiler wasm) test-wasm)
+ (lofi compiler session))
 
 ;; ---- Cases ----
 
@@ -135,6 +136,45 @@
           ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
           (else #t))))
 
+;; ---- Sessions ----
+
+;; A session rebuilds only what an edit changed: a body edit under a
+;; signature recompiles its library alone, and an edit to what importers
+;; see recompiles them too. The libraries use only primitives, so the
+;; session runs quickly on Chibi.
+(define (sample-library body more)
+  (string-append "(define-library (sample a) (export twice) (import (lofi core) (lofi primitive)) (begin "
+                 "(: twice (-> I64 I64)) (define (twice x) " body ") " more "))"))
+
+(define sample-b
+  "(define-library (sample b) (export four) (import (lofi core) (lofi primitive) (sample a)) (begin (: four (-> I64)) (define (four) (twice 2))))")
+
+(define (compiled-names builds)
+  (map Built-name (filter Built-compiled? builds)))
+
+(define (test-session root)
+  (let* ((directory (path-join root "build/tests/session")) (main (path-join directory "main.sld"))
+         (write-a (lambda (body more) (write-file (path-join directory "sample/a.sld") (sample-library body more)))))
+    (create-directory* (path-join directory "sample"))
+    (write-a "(i64-add x x)" "")
+    (write-file (path-join directory "sample/b.sld") sample-b)
+    (write-file main "(import (lofi core) (lofi primitive) (sample b)) (four)")
+    (let ((session (make-session (list directory) (lambda (forms path) (error "no generated libraries")))))
+      (and (expect-session "first build" (compiled-names (build-session session main)) '("sample.a" "sample.b" "main"))
+           (expect-session "unchanged" (compiled-names (build-session session main)) '())
+           (begin (write-a "(i64-mul x 2)" "") (expect-session "body edit" (compiled-names (build-session session main)) '("sample.a")))
+           (begin (write-a "(i64-mul x 2)" "(define zero 0)")
+                  (expect-session "interface edit" (compiled-names (build-session session main)) '("sample.a" "sample.b" "main")))))))
+
+(define (expect-session what actual expected)
+  (or (equal? actual expected) (report "session" what (string-append "recompiled " (format-names actual) ", expected " (format-names expected)))))
+
+(define (format-names names)
+  (let ((port (open-output-string))) (write names port) (get-output-string port)))
+
+(define (write-file path text)
+  (call-with-output-file path (lambda (port) (write-string text port))))
+
 ;; ---- Linked modules ----
 
 ;; Programs compiled one library at a time and linked when they run, by
@@ -220,6 +260,7 @@
   (test-read)
   (test-core)
   (test-wasm)
+  (unless (test-session root) (exit 1))
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)

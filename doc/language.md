@@ -105,9 +105,12 @@ arithmetic wraps.
 
 Unannotated top-level functions are generalized over the type variables no
 constraint mentions. Other unannotated definitions, and functions whose
-types involve a class constraint, keep one type, which later uses may
-decide. Polymorphic definitions with constraints, and polymorphic values
-that are not functions, need signatures.
+types involve a class constraint, keep one type, which later uses in the
+same library may decide. A library is checked before the libraries that
+import it, so their uses never decide its types: `(define key-left 1)` is an
+`I64` wherever it is imported, and a value meant as an `I32` elsewhere needs
+the signature `(: key-left I32)`. Polymorphic definitions with constraints,
+and polymorphic values that are not functions, need signatures.
 
 ## Data
 

@@ -8,7 +8,9 @@
    Typed-program
    Typed-items
    definition-scheme
-   check-program)
+   Typed-schemes
+   check-program
+   check-unit)
   (import
    (lofi base)
    (lofi table)
@@ -1110,13 +1112,28 @@
 
     ;; ---- Programs ----
 
-    ;; Unannotated definitions are checked first, in dependency order; then
-    ;; annotated definitions and statements, which only need schemes. Then
-    ;; every constraint is solved and every type zonked.
+    ;; A program is checked a library at a time, in program order, so each
+    ;; library's types are settled within it, as they must be when libraries
+    ;; are compiled apart: an unannotated value takes its type from its own
+    ;; library, never from a library that imports it.
     (: check-program (-> Program Typed ! mut))
     (define (check-program program)
-      (let* ((ck (Checker program (ref 0) empty-table (ref empty-table) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
-             (items (program-items program)) (inferred (check-inferred ck items))
+      (let loop ((units (unit-items program (program-items program))) (items (Nil)) (schemes empty-table))
+        (match units
+          ((Cons unit rest)
+           (let ((typed (check-unit program schemes (Pair-second unit))))
+             (loop rest (append items (Typed-items typed)) (Typed-schemes typed))))
+          ((Nil) (Typed program items schemes)))))
+
+    ;; One library's items, checked after the libraries before it: `schemes`
+    ;; holds their definitions' schemes, and the result holds those and the
+    ;; new ones. Unannotated definitions are checked first, in dependency
+    ;; order; then annotated definitions and statements, which only need
+    ;; schemes. Then every constraint is solved and every type zonked.
+    (: check-unit (-> Program (Table Scheme) (List Item) Typed ! mut))
+    (define (check-unit program schemes items)
+      (let* ((ck (Checker program (ref 0) empty-table (ref schemes) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
+             (inferred (check-inferred ck items))
              (typed (map (lambda (item) (check-item ck inferred item)) items)))
         (solve-pending! ck)
         (for-each (lambda (item)

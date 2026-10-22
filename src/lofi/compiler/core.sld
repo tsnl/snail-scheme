@@ -128,6 +128,8 @@
    add-effect!
    add-item!
    add-unit!
+   program-delta
+   program-with
    program-items
    unit-items
    name-owner
@@ -648,6 +650,60 @@
     (define (add-unit! cell name count)
       (let ((program (ref-get cell)))
         (ref-set! cell (Program-units-set program (Cons (Pair name count) (Program-units program))))))
+
+    ;; What the newest library added: the globals named for it, and its run
+    ;; of items, which are the newest. A later build replays it with
+    ;; `program-with` instead of expanding the library again.
+    (: program-delta (-> Program String Program))
+    (define (program-delta program owner)
+      (let ((count (match (Program-units program)
+                     ((Cons (Pair _ count) _) count)
+                     ((Nil) 0))))
+        (Program (owned (Program-values program) owner) (owned (Program-types program) owner) (owned (Program-classes program) owner)
+                 (owned-instances (Program-instances program) owner) (owned (Program-effects program) owner)
+                 (take (Program-items program) count) (take (Program-units program) 1))))
+
+    (: owned (All (V) (-> (Table V) String (Table V))))
+    (define (owned table owner)
+      (fold-left (lambda (result key)
+                   (match (table-ref table key)
+                     ((Some value) (if (string=? (name-owner key) owner) (table-set result key value) result))
+                     ((None) result)))
+                 empty-table (table-keys table)))
+
+    (: owned-instances (-> (Table (List Instance)) String (Table (List Instance))))
+    (define (owned-instances table owner)
+      (fold-left (lambda (result class)
+                   (match (filter (lambda (instance) (string=? (name-owner (Instance-name instance)) owner)) (class-list table class))
+                     ((Nil) result)
+                     (instances (table-set result class instances))))
+                 empty-table (table-keys table)))
+
+    (: class-list (-> (Table (List Instance)) String (List Instance)))
+    (define (class-list table class)
+      (match (table-ref table class)
+        ((Some instances) instances)
+        ((None) (Nil))))
+
+    ;; The program with a library's additions from an earlier build. Its
+    ;; globals are its own, so it replaces nothing; the order of instances
+    ;; within a class does not matter, since no two of them overlap.
+    (: program-with (-> Program Program Program))
+    (define (program-with program delta)
+      (Program (merged (Program-values program) (Program-values delta)) (merged (Program-types program) (Program-types delta))
+               (merged (Program-classes program) (Program-classes delta))
+               (fold-left (lambda (table class) (table-set table class (append (class-list table class) (class-list (Program-instances delta) class))))
+                          (Program-instances program) (table-keys (Program-instances delta)))
+               (merged (Program-effects program) (Program-effects delta))
+               (append (Program-items delta) (Program-items program)) (append (Program-units delta) (Program-units program))))
+
+    (: merged (All (V) (-> (Table V) (Table V) (Table V))))
+    (define (merged table additions)
+      (fold-left (lambda (result key)
+                   (match (table-ref additions key)
+                     ((Some value) (table-set result key value))
+                     ((None) result)))
+                 table (table-keys additions)))
 
     ;; Divides items in program order, such as the program's own or their
     ;; checked copies, into each library's run.
