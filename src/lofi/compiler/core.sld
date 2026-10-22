@@ -718,8 +718,8 @@
     ;; Lofi type syntax: the variables are A, B and C, and the row variable e.
     ;; `mut` marks operations on mutable storage; everything else is total,
     ;; though some can trap. `unsafe-total` calls a thunk and discards its
-    ;; effects: the standard library uses it where mutation is confined to
-    ;; storage it allocates.
+    ;; effects, unchecked: the standard library uses it where the checker
+    ;; cannot confirm that mutation stays in storage the function allocates.
     (: primitive-signatures (List String))
     (define primitive-signatures
       (list
