@@ -158,14 +158,14 @@
     ;; imports are being loaded, innermost first, so a library requested while
     ;; it loads is part of an import cycle. `scopes` numbers the environments
     ;; that marks refer to. `generate` runs a producer program for
-    ;; `generate-library` and returns what it prints; the driver supplies it,
-    ;; because running a program means compiling one.
+    ;; `generate-library` and returns the bytes of the syntax it writes; the
+    ;; driver supplies it, because running a program means compiling one.
     (struct Context
       ((program (Ref Program))
        (expanded (Ref (Table Expanded)))
        (predecessor (Table Expanded))
        (directories (List String))
-       (generate (-> (List Syntax) String String ! mut fs))
+       (generate (-> (List Syntax) Bytes ! mut fs))
        (prefix String)
        (loading (List String))
        (counter (Ref I64))
@@ -195,7 +195,7 @@
        (scope-count I64)
        (scopes (Table Env))))
 
-    (: new-context (-> (List String) (-> (List Syntax) String String ! mut fs) (Option ExpandedProgram) Context ! mut))
+    (: new-context (-> (List String) (-> (List Syntax) Bytes ! mut fs) (Option ExpandedProgram) Context ! mut))
     (define (new-context directories generate predecessor)
       (match predecessor
         ((Some last)
@@ -290,11 +290,11 @@
     (define (read-library cx name loc)
       (let ((relative (string-append (string-join name "/") ".sld")))
         (match (find file-exists? (map (lambda (directory) (string-append directory "/" relative)) (Context-directories cx)))
-          ((Some path) (library-from-forms cx name (read-text (read-file path) path) path))
+          ((Some path) (library-from-forms cx name (read-source path) path))
           ((None) (compile-error loc (string-append "library not found: (" (string-join name " ") ")"))))))
 
     ;; A library file holds one `define-library`, or one `generate-library`
-    ;; whose program prints the library's source text.
+    ;; whose program writes the library's `define-library` form as syntax.
     (: library-from-forms (-> Context (List String) (List Syntax) String Exports ! mut fs))
     (define (library-from-forms cx name forms path)
       (match forms
@@ -306,23 +306,57 @@
                      loc)
                (Nil))
          (check-library-name declared name loc)
-         (let ((generated (string-append path "#generated")))
-           (library-from-forms cx name (read-text ((Context-generate cx) (producer imports expression loc) generated) generated)
-                               generated)))
+         (let ((bytes ((Context-generate cx) (producer imports expression loc))))
+           (library-from-forms cx name (list (with-included-bytes (decode-syntax bytes (syntax-loc expression)))) path)))
         (_ (compile-error (Loc path 1 1) "expected exactly one define-library or generate-library form"))))
 
-    ;; The producer imports what the recipe imports and prints its expression.
+    ;; The producer imports what the recipe imports and writes the syntax
+    ;; its expression returns, a `(lofi syntax)` Syntax.
     (: producer (-> (List Syntax) Syntax Loc (List Syntax)))
     (define (producer imports expression loc)
-      (let ((write-string (Ident "write-string" (None) loc)))
+      (let ((write-library (Ident "write-generated-library" (None) loc)))
         (list (Form (Cons (Ident "import" (None) loc)
                           (append imports
                                   (list (Form (list (Ident "only" (None) loc)
-                                                    (Form (list (Ident "lofi" (None) loc) (Ident "io" (None) loc)) loc)
-                                                    write-string)
+                                                    (Form (list (Ident "lofi" (None) loc) (Ident "syntax" (None) loc)) loc)
+                                                    write-library)
                                               loc))))
                     loc)
-              (Form (list write-string expression) loc))))
+              (Form (list write-library expression) loc))))
+
+    ;; ---- Sources ----
+
+    ;; A source file's forms. `(include-bytes "path")` is another spelling
+    ;; of a byte vector literal, which reads as `#u8(...)` holding the bytes
+    ;; of the file at `path`, relative to the file the form is written in.
+    (: read-source (-> String (List Syntax) ! fs))
+    (define (read-source path)
+      (map with-included-bytes (read-text (read-file path) path)))
+
+    (: with-included-bytes (-> Syntax Syntax ! fs))
+    (define (with-included-bytes syntax)
+      (match syntax
+        ((Form (Cons (Ident "include-bytes" _ _) args) loc) (Atom (DBytes (included-bytes args loc)) loc))
+        ((Form items loc) (Form (map with-included-bytes items) loc))
+        (_ syntax)))
+
+    (: included-bytes (-> (List Syntax) Loc Bytes ! fs))
+    (define (included-bytes args loc)
+      (match args
+        ((Cons (Atom (DString path) _) (Nil))
+         (let ((resolved (beside (Loc-file loc) path)))
+           (if (file-exists? resolved) (read-bytes resolved) (compile-error loc (string-append "no file to include at " resolved)))))
+        (_ (compile-error loc "expected (include-bytes \"path\")"))))
+
+    ;; `path` in the directory holding `file`, unless it is absolute.
+    (: beside (-> String String String))
+    (define (beside file path)
+      (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
+          path
+          (let loop ((end (string-length file)))
+            (cond ((= end 0) path)
+                  ((char=? (string-ref file (- end 1)) #\/) (string-append (substring file 0 end) path))
+                  (else (loop (- end 1)))))))
 
     (: expand-library (-> Context (List String) (List Syntax) Exports ! mut fs))
     (define (expand-library cx name declarations)
@@ -388,10 +422,10 @@
     ;; A program is a sequence of imports followed by a body, which counts as
     ;; a library named `main` that exports nothing. A build replays what it
     ;; can of `predecessor`, the build before.
-    (: expand-program (-> (List String) (-> (List Syntax) String String ! mut fs) String (Option ExpandedProgram) ExpandedProgram ! mut fs))
+    (: expand-program (-> (List String) (-> (List Syntax) Bytes ! mut fs) String (Option ExpandedProgram) ExpandedProgram ! mut fs))
     (define (expand-program directories generate path predecessor)
       (let ((cx (Context-prefix-set (new-context directories generate predecessor) "main")))
-        (let loop ((forms (read-text (read-file path) path)) (specs (Nil)))
+        (let loop ((forms (read-source path)) (specs (Nil)))
           (match forms
             ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
             (_ (expand-sections cx (list (Pair "import" specs) (Pair "begin" forms)))
@@ -426,7 +460,7 @@
 
     (: forms-text (-> (List Syntax) String))
     (define (forms-text forms)
-      (string-join (map syntax->string forms) "\n"))
+      (string-join (map syntax->key forms) "\n"))
 
     ;; Each imported library's interface, as this build expanded it; the
     ;; compiler's own libraries never change.
@@ -475,10 +509,10 @@
     (define (interface-form form signed)
       (match form
         ((Form (Cons (Ident "define" _ _) (Cons (Form (Cons (Ident name _ _) _) _) _)) _)
-         (if (member? name signed) (string-append "(define " name ")") (syntax->string form)))
+         (if (member? name signed) (string-append "(define " name ")") (syntax->key form)))
         ((Form (Cons (Ident "define" _ _) (Cons (Ident name _ _) _)) _)
-         (if (member? name signed) (string-append "(define " name ")") (syntax->string form)))
-        (_ (syntax->string form))))
+         (if (member? name signed) (string-append "(define " name ")") (syntax->key form)))
+        (_ (syntax->key form))))
 
     (: monomorphic-signatures (-> (List Syntax) (List String)))
     (define (monomorphic-signatures forms)
@@ -1481,6 +1515,7 @@
          (match (resolve cx scope syntax)
            ((Some (Local name)) (PVar name unchecked))
            (_ (panic "internal error: unbound pattern variable"))))
+        ((Atom (DBytes _) loc) (compile-error loc "a byte vector cannot be a pattern"))
         ((Atom value _) (PLit value unchecked))
         ((Form (Cons head args) _)
          (PCon (pattern-constructor cx env head) (map (lambda (arg) (expand-pattern cx env scope arg)) args) unchecked))

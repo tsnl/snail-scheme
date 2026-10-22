@@ -93,7 +93,8 @@
 
     ;; A `generate-library` recipe becomes a producer program, cached by
     ;; bootstrap/compile.sld under the hash of its text: KEY.sld is the
-    ;; producer and KEY.out what it printed, which is the library.
+    ;; producer, and KEY.syntax the library's syntax, which the producer
+    ;; writes to the path it is given.
     (define (generated-directory root)
       (path-join root "build/generated"))
 
@@ -107,16 +108,20 @@
       (unless generated-forgotten?
         (set! generated-forgotten? #t)
         (for-each (lambda (file)
-                    (when (and (> (string-length file) 4) (string=? (substring file (- (string-length file) 4) (string-length file)) ".out"))
+                    (when (syntax-file? file)
                       (delete-file (path-join (generated-directory root) file))))
                   (directory-files (generated-directory root)))))
+
+    (define (syntax-file? file)
+      (let ((length (string-length file)))
+        (and (> length 7) (string=? (substring file (- length 7) length) ".syntax"))))
 
     (define (produce! root directories key)
       (let* ((source (path-join (generated-directory root) (string-append key ".sld")))
              (program (path-join (generated-directory root) (string-append key ".wasm")))
-             (result (begin (build-program root directories source program #f) (run-wasm root program '()))))
-        (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))
-        (write-file (path-join (generated-directory root) (string-append key ".out")) (car result))))
+             (output (path-join (generated-directory root) (string-append key ".syntax")))
+             (result (begin (build-program root directories source program #f) (run-wasm root program (list output)))))
+        (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))))
 
     ;; ---- Bootstrap ----
 

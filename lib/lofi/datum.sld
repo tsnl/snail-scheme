@@ -18,11 +18,13 @@
    datum=?
    datum-list
    datum->list
-   datum-truthy?)
+   datum-truthy?
+   datum->syntax)
   (import
    (lofi base)
    (lofi io)
-   (lofi number))
+   (lofi number)
+   (lofi syntax))
   (begin
 
     (enum Datum
@@ -71,6 +73,36 @@
       (match datum
         ((BooleanDatum value) value)
         (_ #t)))
+
+    ;; ---- Syntax ----
+
+    ;; The syntax that reads as a datum, for a `generate-library` recipe: a
+    ;; proper list is a form, and a symbol, an exact integer that fits I64,
+    ;; a float, a string, a character, a boolean or a byte vector is itself.
+    ;; Nothing else has Lofi syntax.
+    (: datum->syntax (-> Datum Syntax))
+    (define (datum->syntax datum)
+      (match datum
+        ((NullDatum) (ListSyntax (Nil)))
+        ((PairDatum _ _) (match (datum->list datum)
+                           ((Some items) (ListSyntax (map datum->syntax items)))
+                           ((None) (panic "datum->syntax: an improper list has no Lofi syntax"))))
+        ((SymbolDatum name) (SymbolSyntax name))
+        ((NumberDatum n) (number-syntax n))
+        ((StringDatum text) (StringSyntax text))
+        ((CharDatum c) (CharSyntax c))
+        ((BooleanDatum value) (BooleanSyntax value))
+        ((BytesDatum bytes) (BytesSyntax bytes))
+        ((VectorDatum _) (panic "datum->syntax: a vector has no Lofi syntax"))
+        ((ProcedureDatum _) (panic "datum->syntax: a procedure has no syntax"))))
+
+    ;; A float written without a point gains one, so it reads as a float.
+    (: number-syntax (-> Number Syntax))
+    (define (number-syntax n)
+      (let ((text (number->string n)))
+        (match (string->i64 text)
+          ((Some value) (if (number-exact? n) (IntegerSyntax value) (FloatSyntax (string-append text ".0"))))
+          ((None) (if (number-exact? n) (panic (string-append "datum->syntax: no Lofi literal for " text)) (FloatSyntax text))))))
 
     (: bytes=? (-> Bytes Bytes Bool))
     (define (bytes=? a b)

@@ -24,7 +24,9 @@
                                       -1
                                       (begin (ref-set! store (substring text 1 (string-length text)))
                                              (char->i32 (string-ref text 0)))))))
+      (port-read-byte (lambda (port) -1))
       (port-write (lambda (port text) (ref-set! store (string-append (ref-get store) text))))
+      (port-write-byte (lambda (port byte) (unit)))
       (port-close (lambda (port) (unit))))
    (write-file "anywhere" "kept in memory")
    (read-file "anywhere")))

@@ -29,7 +29,9 @@ and keeps state that grows over a whole pass in a `Ref`.
 - **[`read.sld`](src/lofi/compiler/read.sld)** turns text into `Syntax`:
   atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
   over a vector of characters; a line table recovers line and column only
-  when a location is needed. `compile-error` reports every diagnostic.
+  when a location is needed. It also decodes the bytes a `generate-library`
+  producer writes, the encoding `(lofi syntax)` defines, straight into
+  `Syntax`. `compile-error` reports every diagnostic.
 - **[`core.sld`](src/lofi/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
@@ -37,7 +39,8 @@ and keeps state that grows over a whole pass in a `Ref`.
   hashing for wire types. A `Program` is a value: the expander builds it in
   one cell, and the later passes read it without effects.
 - **[`expand.sld`](src/lofi/compiler/expand.sld)** is the only pass that
-  knows binding forms. It loads libraries, resolves every identifier through
+  knows binding forms. It loads libraries, replacing each `include-bytes`
+  with the byte vector literal of its file, resolves every identifier through
   environments, and runs `syntax-rules`. Hygiene is renaming: each identifier
   a template introduces gets a mark that is unique to the expansion and, when
   unbound, resolves in the macro's own environment. Top levels expand in two
@@ -89,7 +92,7 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `scripts/develop.mjs` | The loop's Node host: file watching, timers, HTTP with server-sent events, and running programs. |
 | `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program. |
 | `bootstrap/compile.sld` | The compiler's entry program when it runs as Wasm. |
-| `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
+| `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. `(lofi syntax)` is the syntax a `generate-library` recipe returns and the bytes its producer writes. |
 | `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics; `files.rs` keeps files in memory for a host without a file system. |
 | `src/assembler/`, `scripts/assemble.mjs` | The in-process assembler: the `wat` crate built for `wasm32-wasip1`, turning WebAssembly text into a module without Binaryen, under Node or in a browser. `scripts/assemble.mjs` drives it; programs never carry it. |

@@ -178,7 +178,7 @@
       (make-session (match request
                       ((Serve _ app) (list (string-append app "/src") (string-append root "/lib")))
                       ((Watch _ directories _) (append directories (list (string-append root "/lib")))))
-                    (lambda (forms path) (panic "lofi serve and lofi watch cannot build a generate-library yet"))))
+                    (lambda (forms) (panic "lofi serve and lofi watch cannot build a generate-library yet"))))
 
     (: output (-> String Request String))
     (define (output root request)

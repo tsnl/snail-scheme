@@ -7,7 +7,8 @@ and they expand away before checking, so the checker sees only the core.
 
 A library file may hold a `generate-library` recipe instead of a
 `define-library`: the compiler builds and runs that program first, and
-compiles the library text it prints.
+compiles the library syntax it returns, which the program writes as bytes
+the compiler decodes rather than as text.
 
 Scheme is a library too. `(scheme base)` gives R7RS names (`cons`, `car`,
 `vector`, `char=?`, ...) over the typed language, and `(scheme compiler)`

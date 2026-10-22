@@ -10,7 +10,7 @@
    + - * quotient remainder modulo = < <= > >= negate abs min max not
    unit panic unsafe-total
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
-   i64->string string->i64
+   i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Pair Pair-first Pair-second
    Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
    list-ref list-tail any? every? find member? iota concatenate delete-duplicates take drop last list-index assoc-ref zip
@@ -61,6 +61,15 @@
     (define (i64-shift-right/logical a n) (arithmetic-shift a (- 0 n)))
 
     (define (i64->string n) (number->string n))
+
+    ;; Chibi's integers are unbounded, so conversions between widths only
+    ;; wrap where Lofi's would: into a byte, or into 32 bits.
+    (define (u8->i32 n) n)
+    (define (i32->u8 n) (modulo n 256))
+    (define (i32->i64 n) n)
+    (define (i64->i32 n) (let ((low (modulo n 4294967296))) (if (>= low 2147483648) (- low 4294967296) low)))
+
+    (define (digit-value char) (- (char->integer char) 48))
 
     ;; None unless the whole text is an optionally signed decimal integer.
     (define (string->i64 text)
