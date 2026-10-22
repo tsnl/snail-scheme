@@ -13,8 +13,9 @@ Open `http://127.0.0.1:4192` in a browser with WebGPU and choose a
 prototype from the menu. Each prototype's rules live in one library under
 `src/hearsay/` (`mill`, `ledger`), and its screen in another (`mill-screen`,
 `ledger-screen`); `shell` holds the menu, and `hud` what both screens'
-panels share, including the guide's pages. `tests/` replays scripted games through the rules
-and clicks through both screens.
+panels share, including the guide's dialog. `tests/` replays scripted
+games through the rules, printing what the screens' queries show, and
+clicks through both screens.
 
 The first time each prototype opens, a guide explains it in a few pages,
 starting with the question it asks and what to watch for while playing;
