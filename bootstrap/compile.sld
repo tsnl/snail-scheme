@@ -8,9 +8,9 @@
 ;; NAME.wat, and their names in program order, one to a line, to
 ;; OUTPUT/modules.
 ;; A compiled program cannot run another, so the driver produces generated
-;; libraries: their text is GENERATED/KEY.out, where KEY hashes the producer
-;; program; when it is missing, the compiler writes the producer to
-;; GENERATED/KEY.sld and stops with `generate KEY`.
+;; libraries: the syntax a producer writes is GENERATED/KEY.syntax, where KEY
+;; hashes the producer program; when it is missing, the compiler writes the
+;; producer to GENERATED/KEY.sld and stops with `generate KEY`.
 (import
  (lofi base)
  (lofi io)
@@ -18,11 +18,11 @@
  (only (lofi compiler core) fnv-1a)
  (lofi compiler))
 
-(define (generated-text directory forms)
+(define (generated-syntax directory forms)
   (let* ((text (string-join (map syntax->string forms) "\n")) (key (i64->string (fnv-1a text)))
-         (output (string-append directory "/" key ".out")))
+         (output (string-append directory "/" key ".syntax")))
     (if (file-exists? output)
-        (read-file output)
+        (read-bytes output)
         (begin (write-file (string-append directory "/" key ".sld") text)
                (panic (string-append "generate " key))))))
 
@@ -37,5 +37,5 @@
 
 (match (command-line)
   ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
-   (compile-source mode source output (lambda (forms path) (generated-text generated forms)) directories))
+   (compile-source mode source output (lambda (forms) (generated-syntax generated forms)) directories))
   (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]")))

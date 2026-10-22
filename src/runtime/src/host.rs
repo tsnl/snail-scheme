@@ -95,6 +95,14 @@ impl Port {
         }
     }
 
+    pub(crate) fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), String> {
+        match self {
+            Self::FileOutput(file) => file.write_all(bytes).map_err(|e| e.to_string()),
+            Self::Closed => Err("port is closed".into()),
+            _ => Err("expected a file output port".into()),
+        }
+    }
+
     pub(crate) fn write(&mut self, text: &str) -> Result<(), String> {
         match self {
             Self::FileOutput(file) => file.write_all(text.as_bytes()).map_err(|e| e.to_string()),
@@ -312,6 +320,17 @@ mod tests {
         assert_eq!(port.read_byte().unwrap(), None);
         port.close().unwrap();
         assert!(port.read_byte().is_err());
+    }
+
+    #[test]
+    fn writes_bytes_that_are_not_text() {
+        let path = std::env::temp_dir().join(format!("snail-write-bytes-{}", std::process::id()));
+        let mut port = Port::output_file(path.to_str().unwrap()).unwrap();
+        port.write_bytes(&[0x89, b'P', 0xff]).unwrap();
+        port.close().unwrap();
+        assert!(port.write_bytes(&[0]).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), [0x89, b'P', 0xff]);
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

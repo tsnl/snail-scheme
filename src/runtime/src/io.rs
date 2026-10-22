@@ -1,4 +1,5 @@
-//! Scalar text-file services for the Lofi library.
+//! Scalar file services for the Lofi library: text by Unicode scalar, binary
+//! files by byte.
 //!
 //! Rust owns files, never managed values. IDs are issued once and never reused.
 //! Lofi closes explicitly; the invocation host calls close-all after a trap.
@@ -124,7 +125,7 @@ pub extern "C" fn open_input_file() -> i32 {
     checked(take_pathname().and_then(open_input))
 }
 
-// ---- Scalar character reads and writes ----
+// ---- Scalar reads and writes ----
 
 // Unicode scalars are nonnegative and fit in I32. Only EOF becomes -1;
 // malformed UTF-8 and read failures take the ordinary fatal cleanup path.
@@ -145,6 +146,15 @@ pub extern "C" fn read_code(id: u32) -> i32 {
 pub extern "C" fn read_byte(id: u32) -> i32 {
     let result = FILES.with_borrow_mut(|files| files.get(id)?.read_byte());
     checked(result).map_or(-1, i32::from)
+}
+
+// A byte of a binary file, from 0 to 255. Standard output is text only.
+#[unsafe(export_name = "snail:io/write-byte")]
+pub extern "C" fn write_byte(id: u32, byte: u32) {
+    let result = u8::try_from(byte)
+        .map_err(|_| "a byte is from 0 to 255".to_string())
+        .and_then(|byte| FILES.with_borrow_mut(|files| files.get(id)?.write_bytes(&[byte])));
+    checked(result);
 }
 
 fn write_character(port: &mut Port, code: u32) -> Result<(), String> {

@@ -1,6 +1,8 @@
 ;; Text to located syntax. The reader is a recursive descent over a vector
 ;; of characters; a position is just an index, and line and column are
 ;; recovered from a table of line starts only when a location is needed.
+;; The syntax a `generate-library` producer writes arrives as bytes instead,
+;; and is decoded without passing through text.
 (define-library (lofi compiler read)
   (export
    Loc
@@ -33,8 +35,10 @@
    datum=?
    datum->string
    syntax->string
+   syntax->key
    compile-error
-   read-text)
+   read-text
+   decode-syntax)
   (import
    (lofi base))
   (begin
@@ -83,6 +87,22 @@
         ((Atom value _) (datum->string value))
         ((Ident name _ _) name)
         ((Form items _) (string-append "(" (string-join (map syntax->string items) " ") ")"))))
+
+    ;; Syntax as text that keys a build. A byte vector shows only its length
+    ;; and a hash of its bytes, so a library that embeds megabytes keys on a
+    ;; few characters.
+    (: syntax->key (-> Syntax String))
+    (define (syntax->key syntax)
+      (match syntax
+        ((Atom (DBytes value) _) (string-append "#u8<" (i64->string (vector-length value)) ":" (i64->string (bytes-hash value)) ">"))
+        ((Atom value _) (datum->string value))
+        ((Ident name _ _) name)
+        ((Form items _) (string-append "(" (string-join (map syntax->key items) " ") ")"))))
+
+    ;; 32-bit FNV-1a over bytes, as `fnv-1a` hashes text.
+    (: bytes-hash (-> Bytes I64))
+    (define (bytes-hash bytes)
+      (vector-fold (lambda (hash byte) (i64-and (* (i64-xor hash (i32->i64 (u8->i32 byte))) 16777619) 4294967295)) 2166136261 bytes))
 
     (: datum->string (-> Datum String))
     (define (datum->string datum)
@@ -438,6 +458,90 @@
     (define (read-text text file)
       (read-all (make-source file text) 0 (Nil)))
 
+    ;; ---- Generated syntax ----
+
+    ;; One form in the encoding lib/lofi/syntax.sld describes, every part
+    ;; placed at `loc`, the recipe that produced it. A byte vector is cut
+    ;; from the bytes as they are, and a number must read as it would in
+    ;; text.
+    (: decode-syntax (-> Bytes Loc Syntax))
+    (define (decode-syntax bytes loc)
+      (let ((decoded (decode-form bytes 0 loc)))
+        (if (= (Pair-second decoded) (vector-length bytes))
+            (Pair-first decoded)
+            (malformed loc "bytes follow the library"))))
+
+    (: decode-form (-> Bytes I64 Loc (Pair Syntax I64)))
+    (define (decode-form bytes index loc)
+      (let ((next (+ index 1)))
+        (case (byte-at bytes index loc)
+          ((0) (decode-list bytes next loc))
+          ((1) (decode-text-as bytes next loc (lambda (text) (Ident text (None) loc))))
+          ((2) (decode-text-as bytes next loc (lambda (text) (Atom (generated-number text loc) loc))))
+          ((3) (decode-text-as bytes next loc (lambda (text) (Atom (DString text) loc))))
+          ((4) (let ((code (decode-count bytes next loc))) (Pair (Atom (DChar (scalar (Pair-first code) loc)) loc) (Pair-second code))))
+          ((5) (Pair (Atom (DBool #f) loc) next))
+          ((6) (Pair (Atom (DBool #t) loc) next))
+          ((7) (decode-bytes bytes next loc))
+          (else (malformed loc "an unknown tag")))))
+
+    (: decode-list (-> Bytes I64 Loc (Pair Syntax I64)))
+    (define (decode-list bytes index loc)
+      (let ((count (decode-count bytes index loc)))
+        (let loop ((left (Pair-first count)) (index (Pair-second count)) (items (Nil)))
+          (if (= left 0)
+              (Pair (Form (reverse items) loc) index)
+              (let ((item (decode-form bytes index loc)))
+                (loop (- left 1) (Pair-second item) (Cons (Pair-first item) items)))))))
+
+    (: decode-text-as (-> Bytes I64 Loc (-> String Syntax) (Pair Syntax I64)))
+    (define (decode-text-as bytes index loc make)
+      (let ((count (decode-count bytes index loc)))
+        (let loop ((left (Pair-first count)) (index (Pair-second count)) (chars (Nil)))
+          (if (= left 0)
+              (Pair (make (list->string (reverse chars))) index)
+              (let ((code (decode-count bytes index loc)))
+                (loop (- left 1) (Pair-second code) (Cons (scalar (Pair-first code) loc) chars)))))))
+
+    (: decode-bytes (-> Bytes I64 Loc (Pair Syntax I64)))
+    (define (decode-bytes bytes index loc)
+      (let* ((count (decode-count bytes index loc)) (start (Pair-second count)) (end (+ start (Pair-first count))))
+        (if (<= end (vector-length bytes))
+            (Pair (Atom (DBytes (subvector bytes start end)) loc) end)
+            (malformed loc "it ends early"))))
+
+    ;; Seven bits to a byte, low bits first. Five bytes bound a count well
+    ;; inside I64 on every host.
+    (: decode-count (-> Bytes I64 Loc (Pair I64 I64)))
+    (define (decode-count bytes index loc)
+      (let loop ((index index) (value 0) (scale 1))
+        (let ((byte (byte-at bytes index loc)))
+          (cond ((< byte 128) (Pair (+ value (* byte scale)) (+ index 1)))
+                ((= scale 268435456) (malformed loc "a count is too large"))
+                (else (loop (+ index 1) (+ value (* (- byte 128) scale)) (* scale 128)))))))
+
+    (: byte-at (-> Bytes I64 Loc I64))
+    (define (byte-at bytes index loc)
+      (if (< index (vector-length bytes))
+          (i32->i64 (u8->i32 (vector-ref bytes index)))
+          (malformed loc "it ends early")))
+
+    (: scalar (-> I64 Loc Char))
+    (define (scalar code loc)
+      (if (or (< code 55296) (and (> code 57343) (< code 1114112)))
+          (integer->char code)
+          (malformed loc "a code is not a Unicode scalar")))
+
+    (: generated-number (-> String Loc Datum))
+    (define (generated-number text loc)
+      (match (if (= (string-length text) 0) (None) (number-token text loc))
+        ((Some datum) datum)
+        ((None) (malformed loc (string-append "the number " text " does not read as one")))))
+
+    (: malformed (All (A) (-> Loc String A)))
+    (define (malformed loc problem)
+      (compile-error loc (string-append "malformed generated syntax: " problem)))
+
     )
 
   ;; ---- Tests ----
@@ -459,5 +563,17 @@
                 "t:1:1: unclosed list")
         (expect (map syntax->string (read-text "#u8(0 137 255) #u8( )" "t")) (list "#u8(0 137 255)" "#u8()"))
         (expect (guard (failure (#t (error-object-message failure))) (read-text "#u8(1 256)" "t"))
-                "t:1:7: a byte is an integer from 0 to 255"))))
+                "t:1:7: a byte is an integer from 0 to 255")
+        (test-decode-syntax))
+
+      ;; (f "λ" -7 1.5 #\a #t #u8(0 200)), with a two-byte count for λ.
+      (define (test-decode-syntax)
+        (let ((loc (Loc "recipe.sld" 3 4))
+              (bytes (list->vector (list 0 7 1 1 102 3 1 187 7 2 2 45 55 2 3 49 46 53 4 97 6 7 2 0 200))))
+          (expect (syntax->string (decode-syntax bytes loc)) "(f \"λ\" -7 1.5 #\\a #t #u8(0 200))")
+          (expect (loc->string (syntax-loc (decode-syntax bytes loc))) "recipe.sld:3:4")
+          (expect (guard (failure (#t (error-object-message failure))) (decode-syntax (list->vector (list 0 2 1 1 102)) loc))
+                  "recipe.sld:3:4: malformed generated syntax: it ends early")
+          (expect (guard (failure (#t (error-object-message failure))) (decode-syntax (list->vector (list 2 1 120)) loc))
+                  "recipe.sld:3:4: malformed generated syntax: the number x does not read as one")))))
    (else)))

@@ -1,12 +1,12 @@
-;; Scheme to Lofi: R7RS source text becomes the text of a Lofi library whose
-;; top level runs the program. Every value is a Datum and every variable a
-;; cell holding one, named with a leading `%` so no Scheme name meets a Lofi
-;; one; (scheme runtime) supplies the standard procedures. A recipe runs the
-;; translator when a library is built:
+;; Scheme to Lofi: R7RS source text becomes the syntax of a Lofi library
+;; whose top level runs the program. Every value is a Datum and every
+;; variable a cell holding one, named with a leading `%` so no Scheme name
+;; meets a Lofi one; (scheme runtime) supplies the standard procedures. A
+;; recipe runs the translator when a library is built:
 ;;
 ;;   (generate-library (legacy hello)
-;;                     (import (lofi io) (scheme compiler))
-;;                     (scheme->lofi-library "(legacy hello)" (read-file "hello.scm")))
+;;                     (import (lofi base) (lofi io) (scheme compiler))
+;;                     (scheme->lofi-library (list "legacy" "hello") (read-file "hello.scm")))
 ;;
 ;; The supported forms are define, lambda (with rest parameters), if, set!,
 ;; quote, let (and named let), let*, letrec, letrec*, begin, cond (with
@@ -20,47 +20,58 @@
    (lofi number)
    (lofi datum)
    (lofi read)
-   (lofi write))
+   (lofi write)
+   (lofi syntax))
   (begin
 
     ;; ---- Programs ----
 
-    (: scheme->lofi-library (-> String String String))
+    (: scheme->lofi-library (-> (List String) String Syntax))
     (define (scheme->lofi-library name source)
       (match (read-datums source)
         ((Ok forms)
-         (string-append "(define-library " name "\n (export)\n (import\n  (lofi base)\n  (lofi datum)\n  (scheme runtime))\n (begin\n"
-                        (string-concatenate (map (lambda (form) (string-append "  " (translate-top form) "\n")) forms))
-                        "  ))\n"))
+         (form "define-library"
+               (list (ListSyntax (map SymbolSyntax name))
+                     (form "export" (Nil))
+                     (form "import" (list (form "lofi" (list (SymbolSyntax "base"))) (form "lofi" (list (SymbolSyntax "datum")))
+                                          (form "scheme" (list (SymbolSyntax "runtime")))))
+                     (form "begin" (map translate-top forms)))))
         ((Err message) (panic (string-append "scheme: " message)))))
 
     ;; A top-level definition is a cell; any other form runs at startup.
-    (: translate-top (-> Datum String))
-    (define (translate-top form)
-      (match (definition form)
-        ((Some (Pair name value)) (string-append "(define " (variable name) " (ref " (translate value) "))"))
-        ((None) (translate form))))
+    (: translate-top (-> Datum Syntax))
+    (define (translate-top top)
+      (match (definition top)
+        ((Some (Pair name value)) (form "define" (list (variable name) (form "ref" (list (translate value))))))
+        ((None) (translate top))))
 
     ;; `(define x e)` and `(define (f . params) body ...)` as a name and a value.
     (: definition (-> Datum (Option (Pair String Datum))))
-    (define (definition form)
-      (match form
+    (define (definition top)
+      (match top
         ((PairDatum (SymbolDatum "define") (PairDatum (SymbolDatum name) (PairDatum value (NullDatum))))
          (Some (Pair name value)))
         ((PairDatum (SymbolDatum "define") (PairDatum (PairDatum (SymbolDatum name) params) body))
          (Some (Pair name (PairDatum (SymbolDatum "lambda") (PairDatum params body)))))
         (_ (None))))
 
-    (: variable (-> String String))
+    (: variable (-> String Syntax))
     (define (variable name)
-      (string-append "%" name))
+      (SymbolSyntax (string-append "%" name)))
+
+    (define unspecified (SymbolSyntax "unspecified"))
+
+    ;; Scheme's truth, as a Lofi Bool.
+    (: truthy (-> Syntax Syntax))
+    (define (truthy value)
+      (form "datum-truthy?" (list value)))
 
     ;; ---- Expressions ----
 
-    (: translate (-> Datum String))
+    (: translate (-> Datum Syntax))
     (define (translate datum)
       (match datum
-        ((SymbolDatum name) (string-append "(ref-get " (variable name) ")"))
+        ((SymbolDatum name) (form "ref-get" (list (variable name))))
         ((PairDatum (SymbolDatum keyword) rest)
          (if (member? keyword special-forms) (translate-special keyword (items rest)) (translate-call datum)))
         ((PairDatum _ _) (translate-call datum))
@@ -70,60 +81,60 @@
     (define special-forms
       (list "quote" "lambda" "if" "set!" "let" "let*" "letrec" "letrec*" "begin" "cond" "case" "and" "or" "when" "unless"))
 
-    (: translate-call (-> Datum String))
+    (: translate-call (-> Datum Syntax))
     (define (translate-call datum)
       (match (items datum)
-        ((Cons f arguments) (string-append "(call " (translate f) " (list" (translate-each arguments) "))"))
+        ((Cons f arguments) (form "call" (list (translate f) (form "list" (map translate arguments)))))
         ((Nil) (panic "scheme: empty application"))))
 
-    (: translate-each (-> (List Datum) String))
-    (define (translate-each data)
-      (string-concatenate (map (lambda (datum) (string-append " " (translate datum))) data)))
-
-    (: translate-special (-> String (List Datum) String))
+    (: translate-special (-> String (List Datum) Syntax))
     (define (translate-special keyword args)
       (case keyword
         (("quote") (quoted (first args)))
         (("lambda") (translate-lambda (first args) (list-tail args 1)))
         (("if") (translate-if args))
-        (("set!") (string-append "(begin (ref-set! " (variable (symbol-name (first args))) " " (translate (second args)) ") unspecified)"))
+        (("set!") (form "begin" (list (form "ref-set!" (list (variable (symbol-name (first args))) (translate (second args)))) unspecified)))
         (("let") (translate-let args))
         (("let*") (translate-let* (items (first args)) (list-tail args 1)))
         (("letrec" "letrec*") (translate-letrec (items (first args)) (list-tail args 1)))
-        (("begin") (if (null? args) "unspecified" (string-append "(begin" (translate-each args) ")")))
+        (("begin") (if (null? args) unspecified (form "begin" (map translate args))))
         (("cond") (translate-cond args))
         (("case") (translate-case (first args) (list-tail args 1)))
         (("and") (translate-and args))
         (("or") (translate-or args))
-        (("when") (string-append "(if (datum-truthy? " (translate (first args)) ") " (translate-body (list-tail args 1)) " unspecified)"))
-        (("unless") (string-append "(if (datum-truthy? " (translate (first args)) ") unspecified " (translate-body (list-tail args 1)) ")"))
+        (("when") (form "if" (list (truthy (translate (first args))) (translate-body (list-tail args 1)) unspecified)))
+        (("unless") (form "if" (list (truthy (translate (first args))) unspecified (translate-body (list-tail args 1)))))
         (else (panic (string-append "scheme: unsupported form " keyword)))))
 
-    (: translate-if (-> (List Datum) String))
+    (: translate-if (-> (List Datum) Syntax))
     (define (translate-if args)
       (match args
-        ((Cons test (Cons then (Nil))) (string-append "(if (datum-truthy? " (translate test) ") " (translate then) " unspecified)"))
-        ((Cons test (Cons then (Cons otherwise (Nil))))
-         (string-append "(if (datum-truthy? " (translate test) ") " (translate then) " " (translate otherwise) ")"))
+        ((Cons test (Cons then (Nil))) (form "if" (list (truthy (translate test)) (translate then) unspecified)))
+        ((Cons test (Cons then (Cons otherwise (Nil)))) (form "if" (list (truthy (translate test)) (translate then) (translate otherwise))))
         (_ (panic "scheme: expected (if test then [else])"))))
 
     ;; ---- Procedures and bodies ----
 
-    ;; The arguments arrive as a list: fixed parameters take its first
-    ;; items, and a rest parameter the remainder.
-    (: translate-lambda (-> Datum (List Datum) String))
+    ;; A procedure takes its arguments as one list and checks their count.
+    (: translate-lambda (-> Datum (List Datum) Syntax))
     (define (translate-lambda params body)
-      (let* ((fixed (fixed-parameters params)) (count (length fixed)) (rest (rest-parameter params)))
-        (string-append
-         "(ProcedureDatum (lambda (arguments) (arity! arguments " (i64->string count) (match rest ((Some _) " #t") ((None) " #f"))
-         ") (let ("
-         (string-concatenate
-          (map-indexed (lambda (index name) (string-append "(" (variable name) " (ref (list-ref arguments " (i64->string index) "))) "))
-                       fixed))
-         (match rest
-           ((Some name) (string-append "(" (variable name) " (ref (rest-arguments arguments " (i64->string count) ")))"))
-           ((None) ""))
-         ") " (translate-body body) ")))")))
+      (let ((arguments (SymbolSyntax "arguments")))
+        (form "ProcedureDatum"
+              (list (form "lambda"
+                          (list (ListSyntax (list arguments))
+                                (form "arity!" (list arguments (IntegerSyntax (length (fixed-parameters params)))
+                                                     (BooleanSyntax (match (rest-parameter params) ((Some _) #t) ((None) #f)))))
+                                (form "let" (list (ListSyntax (parameter-cells params arguments)) (translate-body body)))))))))
+
+    ;; Fixed parameters take the arguments' first items, and a rest
+    ;; parameter the remainder.
+    (: parameter-cells (-> Datum Syntax (List Syntax)))
+    (define (parameter-cells params arguments)
+      (let ((fixed (fixed-parameters params)))
+        (append (map-indexed (lambda (index name) (cell name (form "list-ref" (list arguments (IntegerSyntax index))))) fixed)
+                (match (rest-parameter params)
+                  ((Some name) (list (cell name (form "rest-arguments" (list arguments (IntegerSyntax (length fixed)))))))
+                  ((None) (Nil))))))
 
     (: fixed-parameters (-> Datum (List String)))
     (define (fixed-parameters params)
@@ -138,58 +149,60 @@
         ((SymbolDatum name) (Some name))
         (_ (None))))
 
+    ;; `(%name (ref value))`, a binding of a variable's cell.
+    (: cell (-> String Syntax Syntax))
+    (define (cell name value)
+      (ListSyntax (list (variable name) (form "ref" (list value)))))
+
+    (: empty-cells (-> (List String) (List Syntax)))
+    (define (empty-cells names)
+      (map (lambda (name) (cell name unspecified)) names))
+
     ;; Internal definitions become cells that all exist before any is set,
     ;; so they may refer to each other, as with letrec*.
-    (: translate-body (-> (List Datum) String))
-    (define (translate-body forms)
-      (let ((names (concatenate (map (lambda (form) (match (definition form) ((Some (Pair name _)) (list name)) ((None) (Nil)))) forms))))
-        (string-append "(let (" (cells names) ")"
-                       (string-concatenate
-                        (map (lambda (form)
-                               (match (definition form)
-                                 ((Some (Pair name value)) (string-append " (ref-set! " (variable name) " " (translate value) ")"))
-                                 ((None) (string-append " " (translate form)))))
-                             forms))
-                       ")")))
-
-    (: cells (-> (List String) String))
-    (define (cells names)
-      (string-join (map (lambda (name) (string-append "(" (variable name) " (ref unspecified))")) names) " "))
+    (: translate-body (-> (List Datum) Syntax))
+    (define (translate-body body)
+      (let ((names (concatenate (map (lambda (item) (match (definition item) ((Some (Pair name _)) (list name)) ((None) (Nil)))) body))))
+        (form "let" (Cons (ListSyntax (empty-cells names))
+                          (map (lambda (item)
+                                 (match (definition item)
+                                   ((Some (Pair name value)) (form "ref-set!" (list (variable name) (translate value))))
+                                   ((None) (translate item))))
+                               body)))))
 
     ;; ---- Binding forms ----
 
-    (: translate-let (-> (List Datum) String))
+    (: translate-let (-> (List Datum) Syntax))
     (define (translate-let args)
       (match args
-        ((Cons (SymbolDatum name) (Cons bindings body))
-         (let ((pairs (map binding (items bindings))))
-           (string-append "(let ((" (variable name) " (ref unspecified))) (ref-set! " (variable name) " "
-                          (translate-lambda (datum-list (map (lambda (pair) (SymbolDatum (Pair-first pair))) pairs)) body)
-                          ") (call (ref-get " (variable name) ") (list" (translate-each (map Pair-second pairs)) ")))")))
+        ((Cons (SymbolDatum name) (Cons bindings body)) (translate-named-let name (map binding (items bindings)) body))
         ((Cons bindings body)
-         (string-append "(let ("
-                        (string-join (map (lambda (pair) (string-append "(" (variable (Pair-first pair)) " (ref " (translate (Pair-second pair)) "))"))
-                                          (map binding (items bindings)))
-                                     " ")
-                        ") " (translate-body body) ")"))
+         (form "let" (list (ListSyntax (map (lambda (pair) (cell (Pair-first pair) (translate (Pair-second pair)))) (map binding (items bindings))))
+                           (translate-body body))))
         (_ (panic "scheme: expected (let ((name value) ...) body ...)"))))
 
-    (: translate-let* (-> (List Datum) (List Datum) String))
+    ;; A named let is a procedure in a cell of its own, called at once.
+    (: translate-named-let (-> String (List (Pair String Datum)) (List Datum) Syntax))
+    (define (translate-named-let name pairs body)
+      (let ((procedure (translate-lambda (datum-list (map (lambda (pair) (SymbolDatum (Pair-first pair))) pairs)) body)))
+        (form "let" (list (ListSyntax (empty-cells (list name)))
+                          (form "ref-set!" (list (variable name) procedure))
+                          (form "call" (list (form "ref-get" (list (variable name))) (form "list" (map translate (map Pair-second pairs)))))))))
+
+    (: translate-let* (-> (List Datum) (List Datum) Syntax))
     (define (translate-let* bindings body)
       (match bindings
         ((Nil) (translate-body body))
         ((Cons first rest)
          (let ((pair (binding first)))
-           (string-append "(let ((" (variable (Pair-first pair)) " (ref " (translate (Pair-second pair)) "))) "
-                          (translate-let* rest body) ")")))))
+           (form "let" (list (ListSyntax (list (cell (Pair-first pair) (translate (Pair-second pair))))) (translate-let* rest body)))))))
 
-    (: translate-letrec (-> (List Datum) (List Datum) String))
+    (: translate-letrec (-> (List Datum) (List Datum) Syntax))
     (define (translate-letrec bindings body)
       (let ((pairs (map binding bindings)))
-        (string-append "(let (" (cells (map Pair-first pairs)) ")"
-                       (string-concatenate
-                        (map (lambda (pair) (string-append " (ref-set! " (variable (Pair-first pair)) " " (translate (Pair-second pair)) ")")) pairs))
-                       " " (translate-body body) ")")))
+        (form "let" (Cons (ListSyntax (empty-cells (map Pair-first pairs)))
+                          (append (map (lambda (pair) (form "ref-set!" (list (variable (Pair-first pair)) (translate (Pair-second pair))))) pairs)
+                                  (list (translate-body body)))))))
 
     (: binding (-> Datum (Pair String Datum)))
     (define (binding datum)
@@ -199,84 +212,76 @@
 
     ;; ---- Conditionals ----
 
-    ;; `and` and `or` return the deciding value, held in a variable no
+    ;; `(let ((name value)) body)`, where `body` uses the variable. `and`,
+    ;; `or`, `cond` and `case` hold the value that decides in a name no
     ;; Scheme name can produce.
-    (: translate-and (-> (List Datum) String))
+    (: holding (-> String Syntax (-> Syntax Syntax) Syntax))
+    (define (holding name value body)
+      (let ((held (SymbolSyntax name)))
+        (form "let" (list (ListSyntax (list (ListSyntax (list held value)))) (body held)))))
+
+    (: translate-and (-> (List Datum) Syntax))
     (define (translate-and args)
       (match args
-        ((Nil) "(BooleanDatum #t)")
+        ((Nil) (form "BooleanDatum" (list (BooleanSyntax #t))))
         ((Cons last (Nil)) (translate last))
-        ((Cons first rest)
-         (string-append "(let ((and.value " (translate first) ")) (if (datum-truthy? and.value) " (translate-and rest) " and.value))"))))
+        ((Cons first rest) (holding "and.value" (translate first) (lambda (value) (form "if" (list (truthy value) (translate-and rest) value)))))))
 
-    (: translate-or (-> (List Datum) String))
+    (: translate-or (-> (List Datum) Syntax))
     (define (translate-or args)
       (match args
-        ((Nil) "(BooleanDatum #f)")
+        ((Nil) (form "BooleanDatum" (list (BooleanSyntax #f))))
         ((Cons last (Nil)) (translate last))
-        ((Cons first rest)
-         (string-append "(let ((or.value " (translate first) ")) (if (datum-truthy? or.value) or.value " (translate-or rest) "))"))))
+        ((Cons first rest) (holding "or.value" (translate first) (lambda (value) (form "if" (list (truthy value) value (translate-or rest))))))))
 
-    (: translate-cond (-> (List Datum) String))
+    (: translate-cond (-> (List Datum) Syntax))
     (define (translate-cond clauses)
       (match clauses
-        ((Nil) "unspecified")
-        ((Cons clause rest)
-         (match (items clause)
-           ((Cons (SymbolDatum "else") body) (translate-body body))
-           ((Cons test (Nil))
-            (string-append "(let ((cond.value " (translate test) ")) (if (datum-truthy? cond.value) cond.value "
-                           (translate-cond rest) "))"))
-           ((Cons test (Cons (SymbolDatum "=>") (Cons receiver (Nil))))
-            (string-append "(let ((cond.value " (translate test) ")) (if (datum-truthy? cond.value) (call " (translate receiver)
-                           " (list cond.value)) " (translate-cond rest) "))"))
-           ((Cons test body)
-            (string-append "(if (datum-truthy? " (translate test) ") " (translate-body body) " " (translate-cond rest) ")"))
-           ((Nil) (panic "scheme: empty cond clause"))))))
+        ((Nil) unspecified)
+        ((Cons clause rest) (translate-clause (items clause) (translate-cond rest)))))
 
-    (: translate-case (-> Datum (List Datum) String))
+    ;; One clause of a `cond`, given what the clauses after it do.
+    (: translate-clause (-> (List Datum) Syntax Syntax))
+    (define (translate-clause clause otherwise)
+      (match clause
+        ((Cons (SymbolDatum "else") body) (translate-body body))
+        ((Cons test (Nil)) (holding "cond.value" (translate test) (lambda (value) (form "if" (list (truthy value) value otherwise)))))
+        ((Cons test (Cons (SymbolDatum "=>") (Cons receiver (Nil))))
+         (holding "cond.value" (translate test)
+                  (lambda (value) (form "if" (list (truthy value) (form "call" (list (translate receiver) (form "list" (list value)))) otherwise)))))
+        ((Cons test body) (form "if" (list (truthy (translate test)) (translate-body body) otherwise)))
+        ((Nil) (panic "scheme: empty cond clause"))))
+
+    (: translate-case (-> Datum (List Datum) Syntax))
     (define (translate-case key clauses)
-      (string-append "(let ((case.key " (translate key) ")) " (case-clauses clauses) ")"))
+      (holding "case.key" (translate key) (lambda (held) (case-clauses held clauses))))
 
-    (: case-clauses (-> (List Datum) String))
-    (define (case-clauses clauses)
+    (: case-clauses (-> Syntax (List Datum) Syntax))
+    (define (case-clauses key clauses)
       (match clauses
-        ((Nil) "unspecified")
+        ((Nil) unspecified)
         ((Cons clause rest)
          (match (items clause)
            ((Cons (SymbolDatum "else") body) (translate-body body))
-           ((Cons data body)
-            (string-append "(if (member-datum? case.key " (quoted data) ") " (translate-body body) " " (case-clauses rest) ")"))
+           ((Cons data body) (form "if" (list (form "member-datum?" (list key (quoted data))) (translate-body body) (case-clauses key rest))))
            ((Nil) (panic "scheme: empty case clause"))))))
 
     ;; ---- Data ----
 
     ;; A datum as the Lofi expression that builds it.
-    (: quoted (-> Datum String))
+    (: quoted (-> Datum Syntax))
     (define (quoted datum)
       (match datum
-        ((NullDatum) "(NullDatum)")
-        ((BooleanDatum value) (if value "(BooleanDatum #t)" "(BooleanDatum #f)"))
-        ((CharDatum char) (string-append "(CharDatum (integer->char " (i64->string (char->integer char)) "))"))
-        ((StringDatum text) (string-append "(StringDatum " (lofi-string text) ")"))
-        ((SymbolDatum name) (string-append "(SymbolDatum " (lofi-string name) ")"))
-        ((NumberDatum n) (string-append "(scheme-number " (lofi-string (number->string n)) ")"))
-        ((PairDatum head tail) (string-append "(PairDatum " (quoted head) " " (quoted tail) ")"))
-        ((VectorDatum elements) (string-append "(VectorDatum (list->vector (list" (string-concatenate (map (lambda (item) (string-append " " (quoted item))) (vector->list elements))) ")))"))
-        ((BytesDatum _) (panic "scheme: bytevector literals are not supported"))
+        ((NullDatum) (form "NullDatum" (Nil)))
+        ((BooleanDatum value) (form "BooleanDatum" (list (BooleanSyntax value))))
+        ((CharDatum char) (form "CharDatum" (list (CharSyntax char))))
+        ((StringDatum text) (form "StringDatum" (list (StringSyntax text))))
+        ((SymbolDatum name) (form "SymbolDatum" (list (StringSyntax name))))
+        ((NumberDatum n) (form "scheme-number" (list (StringSyntax (number->string n)))))
+        ((PairDatum head tail) (form "PairDatum" (list (quoted head) (quoted tail))))
+        ((VectorDatum elements) (form "VectorDatum" (list (form "list->vector" (list (form "list" (map quoted (vector->list elements))))))))
+        ((BytesDatum bytes) (form "BytesDatum" (list (BytesSyntax bytes))))
         ((ProcedureDatum _) (panic "scheme: a procedure cannot be quoted"))))
-
-    (: lofi-string (-> String String))
-    (define (lofi-string text)
-      (string-append "\""
-                     (string-concatenate
-                      (map (lambda (c)
-                             (cond ((= c #\") "\\\"")
-                                   ((= c #\\) "\\\\")
-                                   ((= c #\newline) "\\n")
-                                   (else (make-string 1 c))))
-                           (string->list text)))
-                     "\""))
 
     ;; ---- Lists of syntax ----
 

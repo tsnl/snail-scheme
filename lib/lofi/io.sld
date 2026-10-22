@@ -16,6 +16,7 @@
    read-file
    read-bytes
    write-file
+   write-bytes
    file-exists?
    command-line)
   (import
@@ -82,6 +83,7 @@
        (port-read (-> I32 I32))
        (port-read-byte (-> I32 I32))
        (port-write (-> I32 String Unit))
+       (port-write-byte (-> I32 I32 Unit))
        (port-close (-> I32 Unit)))
       (host "snail.library"
             ((path-begin "snail:io/path-begin")
@@ -92,6 +94,7 @@
              (port-read "snail:io/read-character")
              (port-read-byte "snail:io/read-byte")
              (port-write "snail:io/write-string")
+             (port-write-byte "snail:io/write-byte")
              (port-close "snail:io/close"))))
 
     (: send-path (-> String Unit ! fs))
@@ -166,6 +169,17 @@
       (send-path path)
       (let ((port (open-output)))
         (port-write port text)
+        (port-close port)))
+
+    ;; Bytes to a binary file, replacing it.
+    (: write-bytes (-> String Bytes Unit ! fs))
+    (define (write-bytes path bytes)
+      (send-path path)
+      (let ((port (open-output)))
+        (let loop ((index 0))
+          (when (< index (vector-length bytes))
+            (port-write-byte port (u8->i32 (vector-ref bytes index)))
+            (loop (+ index 1))))
         (port-close port)))
 
     ;; ---- Command line ----

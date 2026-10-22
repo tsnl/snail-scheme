@@ -621,8 +621,10 @@ runs the translator:
 ```scheme
 (generate-library (legacy program)
                   (import
+                   (lofi base)
+                   (lofi io)
                    (scheme compiler))
-                  (scheme->lofi-text (read-source "program.scm")))
+                  (scheme->lofi-library (list "legacy" "program") (read-file "program.scm")))
 ```
 <!-- ANCHOR_END: bootstrap -->
 
