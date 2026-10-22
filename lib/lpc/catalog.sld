@@ -299,22 +299,32 @@
     ;; greenish color on a sheet of walking rows alone.
     (define male-pants (Sheet "lib/lpc/lpc_entry/png/walkcycle/LEGS_pants_greenish.png" (Rect 0 0 576 256) (Nil)))
 
+    ;; No pack draws teen footwear, but a teen's feet stand close enough to
+    ;; a man's that the male sheets fit.
+    (: drawn-build (-> Garment Build Build))
+    (define (drawn-build garment build)
+      (match (Pair (garment-slot garment) build)
+        ((Pair (Feet) (Teen)) (Male))
+        (_ build)))
+
     (: garment-builds (-> Garment (List Build)))
     (define (garment-builds garment)
-      (match garment
-        ((Pants) (Cons (Male) (Pair-second (garment-folder garment))))
-        (_ (Pair-second (garment-folder garment)))))
+      (match (garment-slot garment)
+        ((Feet) (append (Pair-second (garment-folder garment)) (list (Teen))))
+        (_ (match garment
+             ((Pants) (Cons (Male) (Pair-second (garment-folder garment))))
+             (_ (Pair-second (garment-folder garment)))))))
 
     ;; The garment in `dye` on `build`, or None where no pack draws it. Male
     ;; pants come only in green.
     (: garment-sheet (-> Build Garment Dye (Option Sheet)))
     (define (garment-sheet build garment dye)
-      (let ((folder (garment-folder garment)))
+      (let ((folder (garment-folder garment)) (drawn (drawn-build garment build)))
         (cond ((and (match garment ((Pants) #t) (_ #f)) (match build ((Male) #t) (_ #f)))
                (if (string=? (Dye-name dye) "green") (Some male-pants) (None)))
-              ((any? (lambda (other) (string=? (build-name other) (build-name build))) (Pair-second folder))
+              ((any? (lambda (other) (string=? (build-name other) (build-name drawn))) (Pair-second folder))
                (Some (universal (string-append "lib/lpc/lpc-clothing-updates/spritesheets/" (Pair-first folder) "/"
-                                               (build-name build) "/" (Dye-name dye) ".png"))))
+                                               (build-name drawn) "/" (Dye-name dye) ".png"))))
               (else (None)))))
 
     ))
