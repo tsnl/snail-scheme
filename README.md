@@ -27,6 +27,7 @@ rustup target add wasm32-wasip1
 ./lofi run examples/fibonacci.sld
 ./lofi compile -o fibonacci.wasm examples/fibonacci.sld
 ./lofi wat examples/effects.sld
+./lofi watch examples/fibonacci.sld   # runs it again after each edit
 ```
 
 Chibi Scheme, Binaryen, Cargo and Node are required; `shell.nix` provides
@@ -47,6 +48,10 @@ or build it:
 make site
 python3 -m http.server 4191 --directory build/siegework
 ```
+
+While you change it, `./lofi serve apps/siegework` serves it at
+<http://127.0.0.1:8000/> and swaps each rebuilt module into the open page,
+which keeps the game and the camera.
 
 ## Reading on
 
