@@ -204,7 +204,8 @@
              (list (Batch 0 0 (Solid) tie-items)
                    (Batch 1 (i64->i32 (MillScreen-version screen)) (Solid)
                           (lambda () (concatenate (map (lambda (person) (person-items screen person)) (iota person-count)))))
-                   (Batch 2 (marker-version screen) (Solid) (lambda () (marker-items screen))))))
+                   (Batch 2 (marker-version screen) (Solid) (lambda () (marker-items screen))))
+             (Nil)))
 
     ;; ---- Panels ----
 
