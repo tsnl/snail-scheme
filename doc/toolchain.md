@@ -15,8 +15,8 @@ unchecked cast.
 1. Rebuild and reload in proportion to the edit, not to the program.
 2. Hot reload at the granularity of a module, keeping the application's
    state.
-3. Load compiled code while a program runs, for notebooks of typed cells
-   (#368), plugins and `generate-library` producers.
+3. Load compiled code while a program runs, for previews inlaid in the
+   IDE's editor panes, plugins and `generate-library` producers.
 4. The development loop written in Lofi and Rust, with hosts that only
    perform I/O.
 5. The whole debug toolchain running in a browser.
@@ -124,8 +124,8 @@ table, would add to every call across libraries.
 
 `(lofi wasm)` is `dlopen` and `dlsym`. It loads a module from a file,
 linked against the runtime, the program's own modules and the modules
-loaded before it, by name, so a notebook's cell can import an earlier
-cell. A function the module exports comes out as a `Funcref`, and
+loaded before it, by name, so one inlaid preview can import an earlier
+one. A function the module exports comes out as a `Funcref`, and
 `unsafe-cast` makes it a function of the type the context expects:
 
 ```scheme
@@ -218,7 +218,7 @@ fired, and a call into the loop panicked, with the panic's message.
 | Host | Where |
 | --- | --- |
 | Node: HTTP with server-sent events, file watching, timers, child processes | `scripts/develop.mjs`, for `lofi serve` and `lofi watch` |
-| A browser worker: memory files, timers, messages to the page | `src/ide/toolchain.mjs` |
+| A browser worker: the files it holds, timers, messages to the IDE | `src/ide/toolchain.mjs`, running `src/ide/develop.sld` |
 
 The reload client is a Lofi program too, `src/app/reload.sld`, whose
 `page` effect asks the page to show a notice, restyle, relink or reload.
@@ -238,22 +238,31 @@ redefinition, as an edit does.
 
 ## 7. The toolchain in a browser
 
-`make ide` packages the browser IDE around Siegework in `build/ide`, a
-static site (`scripts/build-ide.scm`). The page edits the application's
-libraries and runs the application; a worker runs the development loop.
+`make ide` packages the browser IDE as a static site in `build/ide`
+(`scripts/build-ide.scm`), with Siegework as the project it opens until the
+developer opens a folder. The page is laid out as Zed is: a narrow toolbar
+along the top, a file browser docked on the left, a binary tree of editor
+panes, and the running application docked on the right.
 
 | Piece | In a browser |
 | --- | --- |
-| Compiler and loop | `bootstrap/develop.sld` compiled one library at a time, linked in the worker. |
-| Files | The Rust runtime keeps files in its memory when the host asks (`src/runtime/src/files.rs`), so the compiler reads `lib/` and the application, and writes modules, as it does from a disk. |
+| Compiler and loop | `src/ide/develop.sld`, the loop of `bootstrap/develop.sld` compiled one library at a time and linked in a worker. |
+| Files | The worker holds them: the standard library, the project as the editor has it, unsaved edits included, and what builds write. The program handles `(lofi io)`'s `fs` effect with a `files` effect that the worker implements, so the compiler opens files as it does from a disk. Once a build is served, only the modules of it and the build before stay. |
+| Projects | Text files by relative path in local storage, from a folder opened from disk. Where the browser offers the File System Access API, saving writes back to the folder, whose handle survives a reload in IndexedDB. |
 | Assembler | The `wat` crate compiled to WebAssembly (`src/assembler`), which the desktop loop uses too, instead of `wasm-as`. |
+| Formatter | `(lofi format)`, which reproduces `scripts/format-scheme` on every file in the repository, compiled to its own module (`src/ide/format.sld`) and run on the page's thread. Tab and Enter indent as Emacs does; saving formats the file. Its lexer also classes each character for highlighting, of the lines in view only, read from the start of their top-level form. |
+| Diagnostics | A failed build's message starts with the place the compiler means; the IDE puts a squiggle under the expression there. |
+| Preview | The page `lofi serve` would serve, in a frame (`src/ide/preview.mjs`), so the application's styles and keys stay out of the editor. It reads files from the worker through a port, and its reload client relinks it after each build; reloading reloads only the frame. |
 | Linker | The loader of section 3.2. |
 | Runtime | The prebuilt `snail_runtime.wasm`, one instance for the loop and one for the application. |
 | Optimizer | None. |
 
-`tests/browser/ide.mjs` packages `tests/apps/counter`, types into the
-editor in headless Chromium, and checks that the count survives the
-relink.
+The first build of Siegework takes about 550 ms in the worker, a little
+more than with the runtime keeping files, since text crosses to the worker
+a character at a time; an edit to one library rebuilds in 50 to 100 ms.
+`tests/browser/ide.mjs` packages `tests/apps/counter` and, in headless
+Chromium, relinks an edit with the count kept, checks a squiggle, Tab and
+format-on-save, splits a pane, and opens a folder.
 
 ## 8. What is left
 
@@ -266,7 +275,9 @@ relink.
   declaration-only library of S-expressions, whose text hash is the
   interface hash.
 - **`(lofi wasm)` in browsers,** and with imports given by the caller.
-- **Notebooks** of compiled cells (#368) on `(lofi wasm)`.
+- **Previews inlaid in the IDE's panes,** which replace the notebooks of
+  #368: each preview compiled as its own module and loaded through
+  `(lofi wasm)`, rerun when what it depends on changes.
 - **The server's host:** Node with thin bindings, or a native Rust host
   embedding wasmtime, whose support for WebAssembly GC is younger.
 - **Closures in the state:** whether to detect them from the state's type

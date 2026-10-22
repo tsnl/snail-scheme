@@ -29,11 +29,7 @@
   (let ((text (list->string (reverse (ref-get input)))))
     (ref-set! input (Nil))
     (match (ref-get loop)
-      ((Some current)
-       (case kind
-         ((1) (source-changed! current text))
-         ((2) (timer-fired! current))
-         (else (build-failed! current text))))
+      ((Some current) (deliver-event! current kind text))
       ((None) (unit)))))
 
 (expose develop-character "develop_character")

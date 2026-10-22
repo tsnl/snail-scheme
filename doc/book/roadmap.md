@@ -92,7 +92,38 @@ Not implemented:
   of a restart.
 - [ ] Keeping the build cache on disk, so a cold start does not compile
   everything once.
-- [ ] `(lofi wasm)` in browser hosts, and notebooks of compiled cells on it.
+- [ ] `(lofi wasm)` in browser hosts.
+
+### IDE
+
+`make ide` builds a browser IDE: projects opened from disk, highlighting,
+Emacs-style indentation and format-on-save through `(lofi format)`,
+squiggles from the compiler's builds, Zed-style docks and split panes, and
+the application relinked beside the editor
+([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md),
+section 7). Not implemented:
+
+- [ ] Previews inlaid in the editor panes, in place of #368's notebooks:
+  each preview compiled as its own module and loaded through `(lofi wasm)`,
+  rerun when what it depends on changes, with no manual order.
+- [ ] Semantic highlighting: the lexer colors core forms, capitalized names
+  and the names definitions introduce; the expander knows what every name
+  resolves to (a local, a global, a type, a constructor, a macro), and a
+  build could report it for the page to color.
+- [ ] Editor plugins: a language server over the compiler's passes, with
+  located diagnostics, types on hover from the checker, definitions through
+  the expander's resolution, and completion of library exports; then thin
+  plugins for Zed, VS Code and Emacs.
+- [ ] More than one diagnostic per build, and warnings: the compiler stops
+  at its first error and has no warnings yet.
+- [ ] Creating, renaming and deleting files in the file browser.
+- [ ] One undo history per buffer: each pane keeps the browser's own, so in
+  a split, undoing in one pane does not reach an edit made in the other.
+- [ ] `lofi format` through `(lofi format)`, so `make format` and `make
+  check` need no Emacs.
+- [ ] A row-polymorphic handler of a host-bound effect, such as
+  `(All (e) (-> (-> Unit ! fs e) Unit ! files e))`, fails to check with an
+  empty list of disallowed effects; src/ide/develop.sld spells its rows out.
 
 ### Siegework
 
