@@ -39,7 +39,10 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
   powered building that can wire to it. Its cost is paid at once and it is
   built while it holds one of the hub's build slots: pylons take 2 s,
   extractors 3 s and turrets 4 s, and the colony's first extractor is
-  ready at once. The hub starts with one slot; upgrading it adds a second
+  ready at once. Nothing happens until it is ordered: the crystals in
+  sight pulse white under a title banner that points to them and links to
+  this guide; the camera opens on the starter crystal. Once a crystal is
+  selected, the banner points to the build button, which pulses. The hub starts with one slot; upgrading it adds a second
   and a third. Further orders wait in the queue, and an unpowered site
   waits without blocking the others.
 - **Rush.** Rushing finishes work at once for four times the share of its
@@ -67,13 +70,16 @@ or use the wheel to zoom, and tap a cell to select it; the selection alone
 never orders anything. The dock on the side of your hand shows hub health,
 energy and the nests' strength with the time to the next attack, then the
 build menu for the selected cell: a pylon, a turret, an extractor, an
-upgrade, a rush and closing, each greyed out where it does not apply. Rush
+upgrade, a rush and closing. A button that may work later, waiting on
+energy, work, the network or the first extractor, turns flat blue with
+faint lines; one that cannot apply to the selection fades. Rush
 finishes the selected work, or else makes new buildings rushed. A selected
 building or hub adds cancelling its work and scavenging it, or at the hub
-repair. Beside it come the menu and turning buttons, up to two attack
-alerts, which go to the attack or silence it for eight seconds, and the
-build queue, with a ring while a work builds and ! while it is unpowered;
-tap one to go to it.
+repair. Beside it come the menu and turning buttons and the build queue,
+with a ring while a work builds and ! while it is unpowered; tap one to go
+to it. Under the nests in the opposite corner, a red alert throbs while the
+colony is under attack and goes to the latest attack, and a notice says why
+an order was refused.
 
 | Key | Action |
 | --- | --- |
@@ -119,7 +125,7 @@ there are no save versions.
 | [`simulation.sld`](src/siegework/simulation.sld) | `act` and `advance`, the only ways the world changes, and the journal that replays them. |
 | [`game.sld`](src/siegework/game.sld) | The camera, selection, commands, keys, gestures, dialogs and saves. |
 | [`view.sld`](src/siegework/view.sld) | The scene in the original's palette and models. |
-| [`hud.sld`](src/siegework/hud.sld) | The dock, card, queue, alerts and dialogs. |
+| [`hud.sld`](src/siegework/hud.sld) | The dock, build menu, queue, opening banner, notices and dialogs. |
 | [`public/app.css`](public/app.css) | The HUD's palette and symbols. |
 
 Time is the world's tick: periodic rules fire on multiples of their period,
