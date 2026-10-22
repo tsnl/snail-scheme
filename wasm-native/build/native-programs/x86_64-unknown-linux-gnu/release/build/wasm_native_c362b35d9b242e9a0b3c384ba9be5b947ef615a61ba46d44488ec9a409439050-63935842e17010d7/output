@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/ci-fix-integer/native.native-1326-0/module.bc

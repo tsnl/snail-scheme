@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/build/attempt-2-0/cleanup-native.native-4738-0/module.bc

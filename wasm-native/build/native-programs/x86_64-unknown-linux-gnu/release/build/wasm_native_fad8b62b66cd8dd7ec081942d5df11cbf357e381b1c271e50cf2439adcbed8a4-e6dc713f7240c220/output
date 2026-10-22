@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/build/attempt-2-0/native-too-large-native.native-1809-0/module.bc

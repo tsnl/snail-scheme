@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/overload-prefilter-native/overload-returned-closure.native-565-0/module.bc

@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/lofi-reader/attempt-2-0/native.native-391-0/module.bc
