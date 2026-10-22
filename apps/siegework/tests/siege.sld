@@ -1,6 +1,7 @@
 ;; The nests' schedule, then two colonies on seed 1: one leaves its hub
 ;; undefended, the other keeps adding turrets around it and widens its
-;; build slots. Last, an enemy between two turrets holds to one of them.
+;; build slots. Last, an enemy between two turrets holds to one of them,
+;; and each turret's guns stay on its last shot.
 (import
  (lofi base)
  (lofi io)
@@ -95,6 +96,12 @@
                                                " fires; the enemy has turned on " (aggro-text next))))
                   (filter (lambda (shot) (= (Shot-tick shot) (World-tick next))) (World-shots next)))
         (watch next (- ticks 1)))
-      (write-line (string-append "at tick " (show (World-tick world)) " the enemy has turned on " (aggro-text world)))))
+      (begin (write-line (string-append "at tick " (show (World-tick world)) " the enemy has turned on " (aggro-text world)))
+             (write-line (string-append "the guns stay on each turret's last shot: " (string-join (map aim-text (World-buildings world)) ", "))))))
+
+(: aim-text (-> Building String))
+(define (aim-text b)
+  (string-append (kind-name (Building-kind b)) " at x " (show (Cell-x (Building-cell b))) " "
+                 (match (Building-aim b) ((Some cell) (string-append "aims at " (show (Cell-x cell)) "," (show (Cell-y cell)))) ((None) "has not fired"))))
 
 (watch (flanked (started (new-world 1))) 40)
