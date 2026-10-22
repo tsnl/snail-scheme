@@ -1566,7 +1566,7 @@
            (match rule
              ((Form (Cons (Form (Cons _ pattern) _) (Cons template (Nil))) _)
               (match (match-pattern cx (Form pattern loc) (Form (form-tail form) loc) literals env (scope-env cx scope))
-                ((Some bindings) (transcribe template bindings (Expansion (ref empty-table) (fresh cx "m") scope loc)))
+                ((Some bindings) (transcribe template bindings (Expansion (fresh cx "m") scope loc)))
                 ((None) (apply-macro cx env form literals more scope))))
              (_ (compile-error (syntax-loc rule) "expected ((_ pattern ...) template)")))))))
 
@@ -1675,12 +1675,11 @@
     ;; One expansion: identifiers the template introduces share one mark per
     ;; name, and every introduced form is located at the macro use.
     (struct Expansion
-      ((renames (Ref (Table Syntax)))
-       (stamp String)
+      ((stamp String)
        (scope I64)
        (loc Loc)))
 
-    (: transcribe (-> Syntax Bindings Expansion Syntax ! mut))
+    (: transcribe (-> Syntax Bindings Expansion Syntax))
     (define (transcribe template bindings expansion)
       (match template
         ((Ident name _ _)
@@ -1691,7 +1690,7 @@
         ((Atom _ _) template)
         ((Form items _) (Form (transcribe-items items bindings expansion) (Expansion-loc expansion)))))
 
-    (: transcribe-items (-> (List Syntax) Bindings Expansion (List Syntax) ! mut))
+    (: transcribe-items (-> (List Syntax) Bindings Expansion (List Syntax)))
     (define (transcribe-items items bindings expansion)
       (match items
         ((Nil) (Nil))
@@ -1701,7 +1700,7 @@
 
     ;; The repeated template iterates over every variable it uses that matched
     ;; under an ellipsis; such variables must have equal lengths.
-    (: transcribe-repeated (-> Syntax Bindings Expansion (List Syntax) ! mut))
+    (: transcribe-repeated (-> Syntax Bindings Expansion (List Syntax)))
     (define (transcribe-repeated template bindings expansion)
       (let ((repeated (concatenate (map (lambda (key)
                                           (match (assoc-ref bindings key)
@@ -1728,16 +1727,13 @@
         ((Form items _) (concatenate (map template-keys items)))
         (_ (Nil))))
 
-    (: rename-ident (-> Syntax Expansion Syntax ! mut))
+    ;; A template's identifier becomes the same marked identifier wherever it
+    ;; appears in one expansion: its mark is its key with the expansion's
+    ;; stamp, resolved in the macro's scope.
+    (: rename-ident (-> Syntax Expansion Syntax))
     (define (rename-ident ident expansion)
-      (let ((key (ident-key ident)))
-        (match (table-ref (ref-get (Expansion-renames expansion)) key)
-          ((Some renamed) renamed)
-          ((None)
-           (let ((renamed (Ident (Ident-name ident)
-                                 (Some (Mark (string-append key "%" (Expansion-stamp expansion)) ident (Expansion-scope expansion)))
-                                 (Expansion-loc expansion))))
-             (ref-set! (Expansion-renames expansion) (table-set (ref-get (Expansion-renames expansion)) key renamed))
-             renamed)))))
+      (Ident (Ident-name ident)
+             (Some (Mark (string-append (ident-key ident) "%" (Expansion-stamp expansion)) ident (Expansion-scope expansion)))
+             (Expansion-loc expansion)))
 
     ))
