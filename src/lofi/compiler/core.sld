@@ -115,7 +115,6 @@
    Do
    Expose
    Program
-   empty-program
    base-program
    primitive-global
    Program-instances

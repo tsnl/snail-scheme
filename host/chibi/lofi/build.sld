@@ -16,7 +16,6 @@
    build-tools
    bootstrap!
    with-private-directory
-   run-tool
    path-join
    report-failure)
   (import
