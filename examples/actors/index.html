@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Two Lofi actors</title>
+<style>
+  body { font: 18px system-ui; max-width: 40rem; margin: 4rem auto; color: #223; }
+  output { display: block; padding: 1rem; background: #edf5ed; border-radius: .5rem; }
+</style>
+<h1>Two actors, one host</h1>
+<p>The client starts a server, sends a typed Ping and displays its Pong. The host finishes when both actors return.</p>
+<output>Starting…</output>
+<script type="module">
+  import {createHost} from '../../src/app/actors.mjs';
+  const output = document.querySelector('output');
+  const programs = Object.fromEntries(['client', 'server'].map(name =>
+    [name, async () => ({module: await WebAssembly.compileStreaming(fetch(`../../build/actors/${name}.wasm`))})]));
+  const host = createHost({programs, print: (actor, fd, line) => { output.textContent = line; }});
+  const failures = await host.run(['client']);
+  document.body.dataset.result = failures.length ? 'failed' : 'passed';
+  if (failures.length) output.textContent = failures.map(({error}) => error.message).join('\n');
+</script>

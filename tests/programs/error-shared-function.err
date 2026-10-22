@@ -1,0 +1,1 @@
+a shared message cannot contain mutable storage, Any or functions

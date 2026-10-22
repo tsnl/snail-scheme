@@ -374,7 +374,7 @@
     ;; The browser host, from src/app, that every packaged application
     ;; loads beside its own files.
     (define app-host-files
-      '("host.mjs" "runtime.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css"))
+      '("host.mjs" "runtime.mjs" "actors.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css"))
 
     ;; ---- Failures ----
 
