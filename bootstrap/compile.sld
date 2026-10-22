@@ -10,7 +10,8 @@
 ;; A compiled program cannot run another, so the driver produces generated
 ;; libraries: the syntax a producer writes is GENERATED/KEY.syntax, where KEY
 ;; hashes the producer program; when it is missing, the compiler writes the
-;; producer to GENERATED/KEY.sld and stops with `generate KEY`.
+;; producer to GENERATED/KEY.sld, writes KEY to GENERATED/request, and stops.
+;; The request file, never a diagnostic's text, asks the driver to produce it.
 (import
  (lofi base)
  (lofi io)
@@ -24,7 +25,8 @@
     (if (file-exists? output)
         (read-bytes output)
         (begin (write-file (string-append directory "/" key ".sld") text)
-               (panic (string-append "generate " key))))))
+               (write-file (string-append directory "/request") key)
+               (panic "a generated library was requested")))))
 
 (define (write-modules directory modules)
   (for-each (lambda (module) (write-file (string-append directory "/" (Pair-first module) ".wat") (Pair-second module))) modules)

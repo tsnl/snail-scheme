@@ -86,26 +86,28 @@
         (create-directory* directory)
         directory))
 
-    ;; The compiler stops with `generate KEY` when it needs a generated
-    ;; library that has not been produced; producing it into `generated` and
-    ;; compiling again then finds the syntax the producer wrote, as
-    ;; KEY.syntax.
+    ;; A missing generated library writes its key to `request` before the
+    ;; compiler stops. Clear the marker before each attempt, so only that
+    ;; invocation can request a producer; diagnostics never carry commands.
     (define (run-compiler-into root command mode directories source output generated)
-      (let ((result (process->output+error+status (append command (list mode source output generated) directories))))
-        (cond ((zero? (caddr result)) output)
-              ((generate-request (cadr result))
-               => (lambda (key)
-                    (produce! root directories generated key)
-                    (run-compiler-into root command mode directories source output generated)))
-              (else (error (diagnostic (cadr result)))))))
+      (let ((request (path-join generated "request")))
+        (when (file-exists? request) (delete-file request))
+        (let ((result (process->output+error+status (append command (list mode source output generated) directories))))
+          (cond ((zero? (caddr result)) output)
+                ((take-generation-request request)
+                 => (lambda (key)
+                      (produce! root directories generated key)
+                      (run-compiler-into root command mode directories source output generated)))
+                (else (error (diagnostic (cadr result))))))))
 
-    ;; The digits after `generate `, if the compiler asked for a library.
-    (define (generate-request text)
-      (let ((cursor (string-contains text "generate ")))
-        (and cursor
-             (let* ((start (+ (string-cursor->index text cursor) 9))
-                    (end (let loop ((end start)) (if (and (< end (string-length text)) (char-numeric? (string-ref text end))) (loop (+ end 1)) end))))
-               (and (> end start) (substring text start end))))))
+    ;; Parse a canonical nonnegative integer, then consume the request.
+    (define (take-generation-request path)
+      (and (file-exists? path)
+           (let* ((text (read-file path)) (key (string->number text)))
+             (unless (and (exact-integer? key) (>= key 0) (string=? text (number->string key)))
+               (error "invalid generated-library request"))
+             (delete-file path)
+             (number->string key))))
 
     ;; The compiler's message without the host's prefix.
     (define (diagnostic text)
@@ -127,7 +129,8 @@
              (program (path-join generated (string-append key ".wasm")))
              (output (path-join generated (string-append key ".syntax")))
              (result (begin (build-program root directories source program #f) (run-wasm root program (list output)))))
-        (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))))
+        (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))
+        (unless (file-exists? output) (error (string-append "the producer did not write " output)))))
 
     ;; ---- The build lock ----
 
