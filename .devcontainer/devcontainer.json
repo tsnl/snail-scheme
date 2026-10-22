@@ -8,5 +8,6 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,Z",
   "remoteUser": "root",
   "containerUser": "root",
-  "userEnvProbe": "loginInteractiveShell"
+  "userEnvProbe": "loginInteractiveShell",
+  "postCreateCommand": "make fetch"
 }
