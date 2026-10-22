@@ -69,8 +69,6 @@
     (define (i32->i64 n) n)
     (define (i64->i32 n) (let ((low (modulo n 4294967296))) (if (>= low 2147483648) (- low 4294967296) low)))
 
-    (define (digit-value char) (- (char->integer char) 48))
-
     ;; None unless the whole text is an optionally signed decimal integer.
     (define (string->i64 text)
       (let ((n (and (> (string-length text) 0) (string->number text 10))))

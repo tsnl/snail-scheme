@@ -445,12 +445,10 @@
 
     (: decode-form (-> Bytes I64 Loc (Pair Syntax I64)))
     (define (decode-form bytes index loc)
-      (let ((next (+ index 1)))
-        (case (byte-at bytes index loc)
+      (let ((tag (byte-at bytes index loc)) (next (+ index 1)))
+        (case tag
           ((0) (decode-list bytes next loc))
-          ((1) (decode-text-as bytes next loc (lambda (text) (Ident text (None) loc))))
-          ((2) (decode-text-as bytes next loc (lambda (text) (Atom (generated-number text loc) loc))))
-          ((3) (decode-text-as bytes next loc (lambda (text) (Atom (DString text) loc))))
+          ((1 2 3) (let ((text (decode-text bytes next loc))) (Pair (text-syntax tag (Pair-first text) loc) (Pair-second text))))
           ((4) (let ((code (decode-count bytes next loc))) (Pair (Atom (DChar (scalar (Pair-first code) loc)) loc) (Pair-second code))))
           ((5) (Pair (Atom (DBool #f) loc) next))
           ((6) (Pair (Atom (DBool #t) loc) next))
@@ -466,14 +464,23 @@
               (let ((item (decode-form bytes index loc)))
                 (loop (- left 1) (Pair-second item) (Cons (Pair-first item) items)))))))
 
-    (: decode-text-as (-> Bytes I64 Loc (-> String Syntax) (Pair Syntax I64)))
-    (define (decode-text-as bytes index loc make)
+    ;; A text and the index after it.
+    (: decode-text (-> Bytes I64 Loc (Pair String I64)))
+    (define (decode-text bytes index loc)
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (Pair-first count)) (index (Pair-second count)) (chars (Nil)))
           (if (= left 0)
-              (Pair (make (list->string (reverse chars))) index)
+              (Pair (list->string (reverse chars)) index)
               (let ((code (decode-count bytes index loc)))
                 (loop (- left 1) (Pair-second code) (Cons (scalar (Pair-first code) loc) chars)))))))
+
+    ;; A symbol, a number or a string, as tags 1, 2 and 3 mark them.
+    (: text-syntax (-> I64 String Loc Syntax))
+    (define (text-syntax tag text loc)
+      (case tag
+        ((1) (Ident text (None) loc))
+        ((2) (Atom (generated-number text loc) loc))
+        (else (Atom (DString text) loc))))
 
     (: decode-bytes (-> Bytes I64 Loc (Pair Syntax I64)))
     (define (decode-bytes bytes index loc)
