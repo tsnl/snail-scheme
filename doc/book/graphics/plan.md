@@ -14,37 +14,60 @@ An application is a set of messages, each with the effects it may perform:
 
 ```scheme
 (define-application Game
-  (reset reset)       ; binds handlers once, around the whole run
+  (reset reset)       ; returns the binder the runtime runs inside
   (init  new-game)    ; seed width height -> Game                 total
   (update step)       ; Game Input -> Game                        total
   (view  draw)        ; Game -> Unit ! gpu                        one frame
   (hud   panels)      ; Game -> (List Panel)                      the HTML HUD
   (save save) (restore restore))
 
-(: reset (All (e) (-> (-> Unit ! gpu e) Unit ! e webgpu)))
-(define (reset start)
-  (with-webgpu config (lambda () (with-gpu-trace start))))
+;; The binder installs handlers around whatever the runtime runs inside it.
+(: reset (All (e) (-> (-> (-> Unit ! gpu e) Unit ! e webgpu))))
+(define (reset)
+  (lambda (run) (with-webgpu config (lambda () (with-gpu-trace run)))))
 ```
 
-`start` is the main loop `define-application` generates. The game's state
-is a loop variable, never a GPU object, and `update` stays total so
-simulation stays deterministic and saves stay trivial:
+Message handlers never call one another; only the runtime does. `reset`
+returns a binder rather than running the loop itself, so it stays a leaf
+like `update` and `view`, and the runtime decides what runs inside the
+handlers: the main loop, a test, or the next run after a reload. Its effect
+row is quantified on `reset` itself, so the binder needs no higher-rank
+type: the runtime instantiates it once, at the loop's own row.
+
+The game's state is a loop variable, never a GPU object, and `update` stays
+total so simulation stays deterministic and saves stay trivial.
+`define-application` generates the loop, exported as `app_main`:
 
 ```scheme
-(define (main) (reset (lambda () (run (boot)))))
+(: app-main (-> (Option Any) (Option Any) ! events storage webgpu))
+(define (app-main handover)
+  ((reset) (lambda () (run (boot handover)))))
 
-(define (boot)
-  (match (load-save)                                   ; suspends on IndexedDB
-    ((Some bytes) (restore-or-init bytes))
-    ((None) (init (random-seed) (canvas-size)))))
+;; A state handed over by a reload is adopted when its type is unchanged;
+;; otherwise the last save is restored, or a new game begins. The host is
+;; told which, so a reload can say whether the game survived it.
+(define (boot handover)
+  (match (adopt handover)
+    ((Some state) (report-boot (Adopted)) state)
+    ((None) (match (load-save)                         ; suspends on IndexedDB
+              ((Some bytes) (report-boot (Restored)) (restore-or-init bytes))
+              ((None) (report-boot (Fresh)) (init (random-seed) (canvas-size)))))))
 
+;; The loop keeps its latest state in a cell, and returns the state a reload
+;; hands to the next run.
 (define (run state)
+  (remember! state)
   (match (next-event)
     ((Frame elapsed) (let ((next (update state (Elapsed elapsed)))) (view next) (run next)))
     ((Input input) (run (update state input)))
     ((Hidden) (store-save (save state)) (run state))
-    ((Reload) (store-save (save state)) (unit))))
+    ((Reload) (store-save (save state)) (Some (type-convert state Any)))))
 ```
+
+`app_main` takes and returns an `(Option Any)`. `adopt` is a type test, not a
+cast: it returns None when the `Any` holds another type, comparing TypeIds
+that hash each type's fields and cases, so a reordered enum is a different
+type. `app_state`, a plain export, returns the state cell as an `Any`.
 
 `next-event` drains queued events through `poll-event`, a plain import, and
 suspends through `wait-event` only when the queue is empty.
@@ -52,12 +75,11 @@ suspends through `wait-event` only when the queue is empty.
 ### The host
 
 The host stops calling the application; the application calls the host.
-The host exports nothing but memory to the application and calls one
-export:
+The host calls one export, `app_main`, and reads the module's memory:
 
 ```js
-const main = WebAssembly.promising(instance.exports.main);
-await main();          // resolves when the application quits or hands over for a reload
+const main = WebAssembly.promising(instance.exports.app_main);
+const handover = await main(previous);   // the state a reload hands on, or null when the application quits
 ```
 
 - DOM listeners push events into a queue that coalesces pointer moves and
@@ -67,16 +89,25 @@ await main();          // resolves when the application quits or hands over for 
   `wait-event`, `load-save`, `store-save`, `request-device`, `map-read`,
   `create-render-pipeline-async`, `on-submitted-work-done` and
   `decode-image`. Synchronous WebGPU calls stay plain imports.
-- Hot reload: the host pushes `Reload`; the loop saves and returns; the host
-  instantiates the new module and calls its `main`, whose `boot` loads that
-  save. No suspended stack is abandoned. GPU objects and their path index
-  live in the host, so they survive the swap.
-- A trap rejects `main`'s promise, and the host shows the error.
+- Hot reload: the host pushes `Reload`; the loop saves and returns its state
+  as an `Any`; with no frames left on the stack, the host relinks the changed
+  modules, as #377's `relinkModules` does between events today, and calls
+  the new `app_main` with that state. Its `boot` adopts the state when the
+  `Any`'s type is unchanged, so an edit to a function body keeps the game
+  exactly as it was, and falls back to the save otherwise. Its `reset`
+  rebinds the handlers around the new run. No suspended stack is abandoned.
+  GPU objects and their path index live in the host, so they survive the
+  swap.
+- A trap rejects `app_main`'s promise, and the host shows the error. The
+  instance survives a trap, so the host reads the state from before the
+  event that trapped through `app_state`, and hands it to the program the
+  fix builds.
 
 The invariants the runtime keeps beside its code:
 
-1. The host calls only `main`; while `main` is suspended, everything else
-   arrives as an event.
+1. The host calls only `app_main`, and `app_state` once `app_main` has
+   trapped; while `app_main` is suspended, everything else arrives as an
+   event.
 2. Only Lofi code calls suspending imports, never a Rust service: the Rust
    runtime keeps a stack in linear memory that JSPI does not switch.
 3. Host imports are leaves. No Wasm function is handed to a JavaScript API
