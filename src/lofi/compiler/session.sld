@@ -43,7 +43,7 @@
     ;; build's expansion, and each library as last compiled.
     (struct Session
       ((directories (List String))
-       (generate (-> (List Syntax) String String ! mut fs))
+       (generate (-> (List Syntax) Bytes ! mut fs))
        (expansion (Option ExpandedProgram))
        (compiled (Table Compiled))))
 
@@ -55,7 +55,7 @@
        (interface String)
        (compiled? Bool)))
 
-    (: make-session (-> (List String) (-> (List Syntax) String String ! mut fs) Session))
+    (: make-session (-> (List String) (-> (List Syntax) Bytes ! mut fs) Session))
     (define (make-session directories generate)
       (Session directories generate (None) empty-table))
 

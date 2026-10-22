@@ -310,6 +310,7 @@
         ((DBool _) (TCon "Bool" (Nil)))
         ((DChar _) (TCon "Char" (Nil)))
         ((DString _) (TCon "String" (Nil)))
+        ((DBytes _) (TCon "Vector" (list (TCon "U8" (Nil)))))
         ((DUnit) (TCon "Unit" (Nil)))
         (_ (let ((type (fresh-meta ck)))
              (want! ck (WantLiteral value type loc))

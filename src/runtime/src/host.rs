@@ -1,7 +1,8 @@
-//! Buffered text streams for scalar Lofi I/O. The owning file registry closes
-//! them explicitly; borrowed stdin/stdout remain open after invocation cleanup.
-//! With memory files on (`crate::files`), files are read from and written to
-//! the runtime's memory instead of the disk.
+//! Buffered streams for scalar Lofi I/O: text by Unicode scalar, and binary
+//! files by byte. The owning file registry closes them explicitly; borrowed
+//! stdin/stdout remain open after invocation cleanup. With memory files on
+//! (`crate::files`), files are read from and written to the runtime's memory
+//! instead of the disk.
 
 use crate::files;
 use std::{
@@ -68,6 +69,10 @@ impl Port {
         self.text_input()?.read_char()
     }
 
+    pub(crate) fn read_byte(&mut self) -> Result<Option<u8>, String> {
+        self.text_input()?.read_byte()
+    }
+
     pub(crate) fn text_input(&mut self) -> Result<&mut TextInput, String> {
         match self {
             Self::Input(input) => Ok(input),
@@ -87,6 +92,14 @@ impl Port {
             #[cfg(test)]
             Self::Capture(_) => Ok(()),
             _ => Err("expected an open output port".into()),
+        }
+    }
+
+    pub(crate) fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), String> {
+        match self {
+            Self::FileOutput(file) => file.write_all(bytes).map_err(|e| e.to_string()),
+            Self::Closed => Err("port is closed".into()),
+            _ => Err("expected a file output port".into()),
         }
     }
 
@@ -128,6 +141,20 @@ impl TextInput {
     pub(crate) fn read_char(&mut self) -> Result<Option<char>, String> {
         read_utf8_char(&mut self.input)
     }
+
+    // Reading by byte shares the buffer, so a file read partly as text and
+    // partly as bytes sees one stream.
+    pub(crate) fn read_byte(&mut self) -> Result<Option<u8>, String> {
+        let mut byte = [0_u8; 1];
+        loop {
+            match self.input.read(&mut byte) {
+                Ok(0) => return Ok(None),
+                Ok(_) => return Ok(Some(byte[0])),
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+    }
 }
 
 // ---- Standard output ----
@@ -159,10 +186,31 @@ pub(crate) fn flush_standard_output() -> Result<(), String> {
         return Ok(());
     }
     let mut output = std::io::stdout().lock();
-    output
-        .write_all(&bytes)
-        .and_then(|()| output.flush())
-        .map_err(|e| e.to_string())
+    write_patiently(&mut output, &bytes).map_err(|e| e.to_string())
+}
+
+// A host may hand over standard output as a non-blocking pipe, which
+// refuses writes while it is full, as when a program prints a large
+// generated library. Waiting a moment and writing the rest keeps the output
+// whole; other failures end the program.
+fn write_patiently(output: &mut impl Write, mut bytes: &[u8]) -> std::io::Result<()> {
+    let wait = || std::thread::sleep(std::time::Duration::from_millis(1));
+    while !bytes.is_empty() {
+        match output.write(bytes) {
+            Ok(0) => return Err(std::io::ErrorKind::WriteZero.into()),
+            Ok(count) => bytes = &bytes[count..],
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => wait(),
+            Err(e) => return Err(e),
+        }
+    }
+    loop {
+        match output.flush() {
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => wait(),
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            result => return result,
+        }
+    }
 }
 
 // ---- UTF-8 input ----
@@ -229,6 +277,60 @@ mod tests {
         assert_eq!(read_utf8_char(&mut bytes).unwrap(), None);
         assert!(read_utf8_char(&mut &[0xff][..]).is_err());
         assert!(read_utf8_char(&mut &[0xf0, 0x9f][..]).is_err());
+    }
+
+    // Refuses every other write, as a full non-blocking pipe does.
+    struct Busy {
+        written: Vec<u8>,
+        ready: bool,
+    }
+
+    impl Write for Busy {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.ready = !self.ready;
+            if !self.ready {
+                return Err(std::io::ErrorKind::WouldBlock.into());
+            }
+            let count = bytes.len().min(3);
+            self.written.extend_from_slice(&bytes[..count]);
+            Ok(count)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn writes_whole_output_to_a_busy_pipe() {
+        let mut pipe = Busy {
+            written: Vec::new(),
+            ready: false,
+        };
+        write_patiently(&mut pipe, b"generated library").unwrap();
+        assert_eq!(pipe.written, b"generated library");
+    }
+
+    #[test]
+    fn reads_bytes_that_are_not_text() {
+        let mut port = Port::Input(TextInput::new(std::io::Cursor::new(vec![0x89, b'P', 0xff])));
+        for byte in [0x89, b'P', 0xff] {
+            assert_eq!(port.read_byte().unwrap(), Some(byte));
+        }
+        assert_eq!(port.read_byte().unwrap(), None);
+        port.close().unwrap();
+        assert!(port.read_byte().is_err());
+    }
+
+    #[test]
+    fn writes_bytes_that_are_not_text() {
+        let path = std::env::temp_dir().join(format!("snail-write-bytes-{}", std::process::id()));
+        let mut port = Port::output_file(path.to_str().unwrap()).unwrap();
+        port.write_bytes(&[0x89, b'P', 0xff]).unwrap();
+        port.close().unwrap();
+        assert!(port.write_bytes(&[0]).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), [0x89, b'P', 0xff]);
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

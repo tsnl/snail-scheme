@@ -29,17 +29,25 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 `lib/` is always on the search path. `./lofi run -I DIR program.sld` adds more.
 
 A library file may instead hold a `generate-library` recipe: a program whose
-output is the library's source text. The compiler builds and runs it first:
+value is the library's `define-library` form, as a `Syntax` from
+`(lofi syntax)`. The compiler builds and runs it first:
 
 ```scheme
 (generate-library (sample table)
   (import
-   (lofi base))
-  (string-append "(define-library (sample table) (export squares) (import (lofi base))"
-                 " (begin (define squares (list "
-                 (string-join (map (lambda (i) (show (* i i))) (iota 6)) " ")
-                 "))))"))
+   (lofi base)
+   (lofi syntax))
+  (library-syntax (list "sample" "table")
+                  (list "squares")
+                  (list (list "lofi" "base"))
+                  (list (form "define" (list (SymbolSyntax "squares")
+                                             (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))
 ```
+
+The program writes the syntax as bytes that the compiler decodes, so no text
+is printed or parsed in between, and a `BytesSyntax` reaches the compiler
+as the bytes it holds. `datum->syntax` from `(lofi datum)` turns a Scheme
+datum into syntax. Every generated form is located at the recipe.
 
 ## Forms
 
@@ -86,7 +94,13 @@ Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
 `Any` is a value of any type, used with `type-convert`.
 `String` is an immutable sequence of Unicode scalars. `(Vector T)` is an
 immutable sequence and `(Array T)` a mutable one; `(Ref T)` is a mutable
-cell. `Bytes` is `(Vector U8)`, stored packed.
+cell. `Bytes` is `(Vector U8)`, stored packed. A byte vector literal,
+`#u8(137 80 78 71)`, compiles to a data segment of exactly its bytes, so a
+program can carry large binary data, such as images; it cannot be a
+pattern. `(include-bytes "pixel.png")` is another spelling of the literal
+holding a file's bytes, with the path relative to the file it is written
+in. It is replaced when the source is read, so a macro cannot compute the
+path, and nothing else may be named `include-bytes`.
 
 A function type is `(-> Param ... Result)`, optionally followed by an effect
 row: `(-> String Unit ! console)`. A polymorphic signature quantifies type
@@ -271,7 +285,7 @@ turns raw pointer events into points, taps, drags and pinches.
 | Library | Contents |
 | --- | --- |
 | `(lofi base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, lists, vectors, arrays, strings, `Show`. |
-| `(lofi io)` | The `console` and `fs` effects: text output, lines of input, and files. |
+| `(lofi io)` | The `console` and `fs` effects: text output, lines of input, and files as text or bytes. |
 | `(lofi table)` | Immutable tables from strings to values. |
 | `(lofi math)` | Elementary functions on `F64`. |
 | `(lofi text)` | Unicode character properties and case mapping. |
