@@ -524,13 +524,13 @@
 
     ;; ---- Combat ----
 
-    ;; Each turret's guns point at its latest shot.
+    ;; A turret's guns stay pointed where it last fired.
     (: cannon-items (-> World Building (List Item)))
     (define (cannon-items world b)
       (let ((cell (Building-cell b)))
-        (match (find (lambda (shot) (cell=? (Shot-from shot) cell)) (World-shots world))
-          ((Some shot) (place (cannon-parts (Building-level b)) (cell-point cell 0.0)
-                              (atan2-f32 (negate (i64->f32 (- (Cell-x (Shot-to shot)) (Cell-x cell)))) (negate (i64->f32 (- (Cell-y (Shot-to shot)) (Cell-y cell)))))))
+        (match (Building-aim b)
+          ((Some to) (place (cannon-parts (Building-level b)) (cell-point cell 0.0)
+                            (atan2-f32 (negate (i64->f32 (- (Cell-x to) (Cell-x cell)))) (negate (i64->f32 (- (Cell-y to) (Cell-y cell)))))))
           ((None) (at-cell cell (cannon-parts (Building-level b)))))))
 
     ;; A tracer crosses to its target over two ticks, then flashes.

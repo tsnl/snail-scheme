@@ -15,3 +15,4 @@ tick 126: the turret at x 35 fires; the enemy has turned on building 3
 tick 133: the turret at x 41 fires; the enemy has turned on building 3
 tick 134: the turret at x 35 fires; the enemy has turned on building 3
 at tick 140 the enemy has turned on building 3
+the guns stay on each turret's last shot: Extractor at x 41 has not fired, Turret at x 35 aims at 40,42, Turret at x 41 aims at 40,42
