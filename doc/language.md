@@ -312,6 +312,7 @@ in the HUD. `(lofi sprite)` poses figures from spritebooks of any sheet, and
 | `(lofi app)` | Applications, frames, pictures, materials and sprites, and the `screen` effect. |
 | `(lofi wasm)` | Loading WebAssembly modules while a program runs, and `unsafe-cast`. |
 | `(lofi sprite)` | Spritebooks: animations on sheets of equal cells, posed as sprites facing the camera. |
+| `(lofi format)` | Indenting and formatting Lisp source as `scripts/format-scheme` does. |
 | `(lofi integer)`, `(lofi rational)`, `(lofi number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data and its external representation. |
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
