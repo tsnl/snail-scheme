@@ -129,6 +129,26 @@
                            (path-join root "examples/fibonacci.out")))))
         (or (zero? (caddr result)) (report "assembler" "test failed" (string-append (car result) (cadr result))))))))
 
+;; An Any's TypeId describes its type's structure: reordering an enum's
+;; cases keeps the enum's representation and gives it a new identity, so a
+;; relinked program cannot adopt a state that means something else.
+(define (check-type-ids root)
+  (let ((day-night (enum-type-id root "(Day) (Night)")) (night-day (enum-type-id root "(Night) (Day)")))
+    (or (not (string=? day-night night-day)) (report "type ids" "unchanged by reordering an enum's cases" day-night))))
+
+(define (enum-type-id root cases)
+  (let ((source (path-join root "build/tests/type-ids/main.sld")) (marker "(struct.new $any (i32.const "))
+    (create-directory* (path-join root "build/tests/type-ids"))
+    (call-with-output-file source
+      (lambda (port) (write-string (string-append "(import (lofi base))\n(enum Phase " cases ")\n(type-convert (Day) Any)\n") port)))
+    (let* ((text (program->wat root (list (path-join root "lib")) source)) (start (+ (text-index text marker 0) (string-length marker))))
+      (substring text start (text-index text ")" start)))))
+
+(define (text-index text pattern from)
+  (cond ((> (+ from (string-length pattern)) (string-length text)) (error "not found" pattern))
+        ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
+        (else (text-index text pattern (+ from 1)))))
+
 ;; The command line itself: printing text and running a program.
 (define (run-command-line root)
   (let ((wat (process->output+error+status (list (path-join root "lofi") "wat" (path-join root "examples/fibonacci.sld"))))
@@ -268,7 +288,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root) (compile-assembler root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (compile-siegework root) (compile-assembler root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))

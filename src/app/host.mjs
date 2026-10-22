@@ -305,17 +305,13 @@ async function linkFrom(program, from) {
   return {linked, exports: linked.get(entries.at(-1).name).exports};
 }
 
-// The state passes as it is while its types are unchanged; adopting a state
-// of another shape traps, and it passes through the save instead.
+// The state passes as it is while its types are unchanged; a state of
+// another type, which adopting reports, passes through the save instead.
 function takeState(next, application, fresh) {
   const {canvas} = application;
-  if (fresh) { startFresh(next, canvas); return; }
-  try {
-    next.app_adopt(application.exports.app_state());
-    next.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0, 0);
-  } catch {
-    loadBytes(next, saveBytes(application.exports), canvas);
-  }
+  if (fresh) startFresh(next, canvas);
+  else if (next.app_adopt(application.exports.app_state()) === 0) next.app_input(RESIZE, canvas.clientWidth, canvas.clientHeight, 0, 0);
+  else loadBytes(next, saveBytes(application.exports), canvas);
 }
 
 // Wheel deltas arrive in pixels, lines or pages; the application gets pixels.

@@ -15,6 +15,7 @@
    build-assembler
    build-tools
    bootstrap!
+   with-private-directory
    run-tool
    path-join
    report-failure)
@@ -56,22 +57,40 @@
     (define (program->schemas root directories source)
       (run-compiler root (selected-compiler root) "schema" directories source))
 
+    ;; Each compile works in a directory of its own, for its output and the
+    ;; libraries its producers generate, and removes it when done, as Cargo
+    ;; gives each unit its own output directory. Compiles running at once in
+    ;; one checkout, as the suite's do, never share a file.
     (define (run-compiler root command mode directories source)
-      (create-directory* (path-join root "build/lofi-run"))
-      (let ((output (path-join root "build/lofi-run/compiler-output.wat")))
-        (run-compiler-into root command mode directories source output)
-        (read-file output)))
+      (with-private-directory root
+                              (lambda (directory)
+                                (let ((output (path-join directory "output.wat")))
+                                  (run-compiler-into root command mode directories source output directory)
+                                  (read-file output)))))
+
+    (define (with-private-directory root use)
+      (let ((directory (private-directory root)))
+        (dynamic-wind (lambda () #f) (lambda () (use directory)) (lambda () (delete-file-hierarchy directory)))))
+
+    (define private-count 0)
+
+    (define (private-directory root)
+      (set! private-count (+ private-count 1))
+      (let ((directory (path-join root "build/lofi-run"
+                                  (string-append (number->string (current-process-id)) "-" (number->string private-count)))))
+        (create-directory* directory)
+        directory))
 
     ;; The compiler stops with `generate KEY` when it needs a generated
-    ;; library that has not been produced; producing it and compiling again
-    ;; then finds its text.
-    (define (run-compiler-into root command mode directories source output)
-      (forget-generated! root)
-      (let ((result (process->output+error+status
-                     (append command (list mode source output (generated-directory root)) directories))))
+    ;; library that has not been produced; producing it into `generated` and
+    ;; compiling again then finds its text.
+    (define (run-compiler-into root command mode directories source output generated)
+      (let ((result (process->output+error+status (append command (list mode source output generated) directories))))
         (cond ((zero? (caddr result)) output)
               ((generate-request (cadr result))
-               => (lambda (key) (produce! root directories key) (run-compiler-into root command mode directories source output)))
+               => (lambda (key)
+                    (produce! root directories generated key)
+                    (run-compiler-into root command mode directories source output generated)))
               (else (error (diagnostic (cadr result)))))))
 
     ;; The digits after `generate `, if the compiler asked for a library.
@@ -91,37 +110,37 @@
 
     ;; ---- Generated libraries ----
 
-    ;; A `generate-library` recipe becomes a producer program, cached by
-    ;; bootstrap/compile.sld under the hash of its text: KEY.sld is the
-    ;; producer, and KEY.syntax the library's syntax, which the producer
-    ;; writes to the path it is given.
-    (define (generated-directory root)
-      (path-join root "build/generated"))
-
-    ;; A producer may read files the key does not cover, so outputs from an
-    ;; earlier run are not trusted: each run of the driver produces every
-    ;; generated library it needs once.
-    (define generated-forgotten? #f)
-
-    (define (forget-generated! root)
-      (create-directory* (generated-directory root))
-      (unless generated-forgotten?
-        (set! generated-forgotten? #t)
-        (for-each (lambda (file)
-                    (when (syntax-file? file)
-                      (delete-file (path-join (generated-directory root) file))))
-                  (directory-files (generated-directory root)))))
-
-    (define (syntax-file? file)
-      (let ((length (string-length file)))
-        (and (> length 7) (string=? (substring file (- length 7) length) ".syntax"))))
-
-    (define (produce! root directories key)
-      (let* ((source (path-join (generated-directory root) (string-append key ".sld")))
-             (program (path-join (generated-directory root) (string-append key ".wasm")))
-             (output (path-join (generated-directory root) (string-append key ".syntax")))
+    ;; A `generate-library` recipe becomes a producer program, which
+    ;; bootstrap/compile.sld writes into the compile's directory under the
+    ;; hash of its text: KEY.sld is the producer, and KEY.syntax the
+    ;; library's syntax, which the producer writes to the path it is given.
+    ;; A producer may read files the key does not cover, so nothing produced
+    ;; outlives the compile that needed it.
+    (define (produce! root directories generated key)
+      (let* ((source (path-join generated (string-append key ".sld")))
+             (program (path-join generated (string-append key ".wasm")))
+             (output (path-join generated (string-append key ".syntax")))
              (result (begin (build-program root directories source program #f) (run-wasm root program (list output)))))
         (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))))
+
+    ;; ---- The build lock ----
+
+    ;; What every build in a checkout shares, the compiled compiler and the
+    ;; development tools, is rebuilt under an exclusive lock on build/lock,
+    ;; as Cargo locks its target directory, so a second process waits
+    ;; rather than building over the first. A process takes it once, however
+    ;; deep the rebuild that needs it.
+    (define build-lock-held? #f)
+
+    (define (with-build-lock root thunk)
+      (if build-lock-held?
+          (thunk)
+          (begin
+            (create-directory* (path-join root "build"))
+            (let ((port (open-output-file (path-join root "build/lock"))))
+              (dynamic-wind (lambda () (file-lock port lock/exclusive) (set! build-lock-held? #t))
+                  thunk
+                  (lambda () (set! build-lock-held? #f) (file-lock port lock/unlock) (close-port port)))))))
 
     ;; ---- Bootstrap ----
 
@@ -134,13 +153,21 @@
     (define (compiler-directories root)
       (list (path-join root "src") (path-join root "lib")))
 
+    ;; A stale compiler is rebuilt under the build lock, and only if no other
+    ;; process rebuilt it while this one waited.
     (define (current-compiler root)
+      (unless (compiler-current? root)
+        (with-build-lock root (lambda () (unless (compiler-current? root) (rebuild-compiler! root)))))
+      (compiler-path root))
+
+    (define (compiler-current? root)
       (let ((compiler (compiler-path root)))
-        (unless (and (file-exists? compiler) (> (file-modification-time compiler) (newest-source-time root)))
-          (bootstrap! root))
-        compiler))
+        (and (file-exists? compiler) (> (file-modification-time compiler) (newest-source-time root)))))
 
     (define (bootstrap! root)
+      (with-build-lock root (lambda () (rebuild-compiler! root))))
+
+    (define (rebuild-compiler! root)
       (let* ((directory (path-join root "build/compiler")) (entry (path-join root "bootstrap/compile.sld"))
              (stage1 (path-join directory "stage1.wasm")) (stage2 (path-join directory "stage2.wasm"))
              (stage3 (path-join directory "stage3.wat")) (sources (compiler-directories root)))
@@ -277,7 +304,7 @@
     ;; modules in program order for the loader in src/app/load.mjs.
     (define (build-modules root directories source output)
       (create-directory* output)
-      (run-compiler-into root (selected-compiler root) "modules" directories source output)
+      (with-private-directory root (lambda (generated) (run-compiler-into root (selected-compiler root) "modules" directories source output generated)))
       (let ((names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble (path-join output name))) names)
         (copy-file! (build-runtime root) (path-join output "runtime.wasm"))
@@ -304,13 +331,17 @@
               (cons "runtime" (build-runtime root))
               (cons "assembler" (build-assembler root)))))
 
+    ;; A stale tool is rebuilt under the build lock, unless another process
+    ;; rebuilt it while this one waited.
     (define (build-tool root source output directories files)
-      (unless (and (file-exists? output)
-                   (> (file-modification-time output)
-                      (apply max (append (map (lambda (file) (file-modification-time (path-join root file))) files)
-                                         (map newest-sld-time directories)))))
-        (build-program root directories source output #f))
+      (unless (tool-current? root output directories files)
+        (with-build-lock root (lambda () (unless (tool-current? root output directories files) (build-program root directories source output #f)))))
       output)
+
+    (define (tool-current? root output directories files)
+      (and (file-exists? output)
+           (> (file-modification-time output)
+              (apply max (append (map (lambda (file) (file-modification-time (path-join root file))) files) (map newest-sld-time directories))))))
 
     ;; The newest .sld file under a directory, at any depth.
     (define (newest-sld-time directory)

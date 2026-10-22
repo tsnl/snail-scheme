@@ -47,12 +47,16 @@
     (cond
      ((string=? action "wat") (write-string (program->wat root (directories root options) source)) 0)
      ((string=? action "schema") (write-string (program->schemas root (directories root options) source)) 0)
-     (else
-      (let ((output (or (option options 'output #f) (path-join root "build/lofi-run/program.wasm"))))
-        (build-program root (directories root options) source output (option options 'release #f))
-        (if (string=? action "compile")
-            0
-            (run-program root output (option options 'arguments '()))))))))
+     ((option options 'output #f) => (lambda (output) (build-and-run root options source output)))
+     ;; Without -o the program lives as long as its run, in a directory of
+     ;; its own, so runs at once in one checkout never share a file.
+     (else (with-private-directory root (lambda (directory) (build-and-run root options source (path-join directory "program.wasm"))))))))
+
+(define (build-and-run root options source output)
+  (build-program root (directories root options) source output (option options 'release #f))
+  (if (string=? (option options 'action "run") "compile")
+      0
+      (run-program root output (option options 'arguments '()))))
 
 ;; The program inherits standard input and output; its status is returned.
 (define (run-program root program arguments)

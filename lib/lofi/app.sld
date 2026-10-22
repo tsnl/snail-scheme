@@ -947,18 +947,21 @@
              (settle (ann (restore (deserialize (array->vector (ref-get loading)))) State)))
 
            ;; A rebuilt program takes over the state as it is when no type
-           ;; in it changed: the conversion from Any checks the state's type,
-           ;; and WebAssembly its layout, so adopting a state of another shape
-           ;; traps, and the host falls back to the save.
+           ;; in it changed. The state's TypeId describes its structure, and
+           ;; `type-test` checks it and the state's layout without trapping;
+           ;; adopting answers 1 when the state is of another type, and the
+           ;; host falls back to the save.
            (: app-state (-> Any ! mut))
            (define (app-state)
              (match (ref-get current)
                ((Some state) (type-convert state Any))
                ((None) (panic "the application has no state yet"))))
 
-           (: app-adopt (-> Any Unit ! mut screen))
+           (: app-adopt (-> Any I32 ! mut screen))
            (define (app-adopt state)
-             (settle (ann (type-convert state State) State)))
+             (if (type-test state State)
+                 (begin (settle (ann (type-convert state State) State)) 0)
+                 1))
 
            (expose app-init "app_init")
            (expose app-input "app_input")

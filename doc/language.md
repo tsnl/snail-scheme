@@ -62,6 +62,7 @@ datum into syntax. Every generated form is located at the recipe.
 | `(: name type)` | Signature for the following definition. |
 | `(ann expression type)` | Static type annotation. |
 | `(type-convert expression type)` | Converts to or from `Any`; a downcast is checked at run time. |
+| `(type-test expression type)` | Whether an `Any` holds a value of `type`, without trapping. |
 | `(struct (Name param ...) ((field type) ...))` | Record type. |
 | `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
 | `(type (Name param ...) type)` | Transparent alias. |
@@ -231,10 +232,13 @@ Traps and non-termination are not tracked.
 
 `Any` holds a value of any type together with that type's identity.
 `(type-convert e Any)` wraps a value; `(type-convert e T)` unwraps an `Any`,
-panicking if it does not hold a `T`. Converting a value to the type it already
-has does nothing, and a value converted to `Any` and straight back is never
-wrapped, so conversions can be inserted liberally where typed code meets
-dynamic code.
+panicking if it does not hold a `T`, and `(type-test e T)` asks whether it
+does. A type's identity describes its structure, its fields and cases, so a
+struct whose fields change, even under the same name, is another type: a
+program relinked with that change cannot take an old value for a new one.
+Converting a value to the type it already has does nothing, and a value
+converted to `Any` and straight back is never wrapped, so conversions can be
+inserted liberally where typed code meets dynamic code.
 
 ```scheme
 (define items (list (type-convert 42 Any) (type-convert "text" Any)))

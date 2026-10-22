@@ -24,6 +24,7 @@
    Substitution
    type->string
    type-key
+   type-schema
    labels->string
    type=?
    types=?
@@ -53,6 +54,7 @@
    Ann
    Handle
    Convert
+   TypeTest
    Clause
    Clause-pattern
    Clause-body
@@ -403,6 +405,9 @@
         (body Expr)))
       (Convert
        ((expr Expr)
+        (target Type)))
+      (TypeTest
+       ((expr Expr)
         (target Type))))
 
     (struct Clause
@@ -461,6 +466,7 @@
           ((Match scrutinee clauses) (fold-left collect (collect found scrutinee) (map Clause-body clauses)))
           ((Ann inner _) (collect found inner))
           ((Convert inner _) (collect found inner))
+          ((TypeTest inner _) (collect found inner))
           ((Handle _ implementations body) (collect (fold-left collect found (map Pair-second implementations)) body)))))
 
     ;; ---- Declared entities ----

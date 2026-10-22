@@ -97,9 +97,10 @@ edit land.
   and runs the program again after each edit.
 - `make ide` packages the browser IDE, the same loop in a worker, around
   Siegework in `build/ide`.
-- Builds in one checkout share the driver's files under `build/`, so do not
-  run `make test` there while its server is rebuilding; use another
-  worktree.
+- Builds in one checkout keep apart, as Cargo's do: each compile and each
+  `lofi run` works in a directory of its own under `build/lofi-run/`, and
+  rebuilding the compiled compiler or the development tools takes an
+  exclusive lock on `build/lock`, so `make test` may run beside a server.
 - The loop is `src/lofi/develop.sld` on a thin host, `scripts/develop.mjs` or
   `src/ide/toolchain.mjs`; the page's reload client is `src/app/reload.sld`,
   and `relinkModules` in `src/app/host.mjs` relinks. `tests/develop.mjs` (in
