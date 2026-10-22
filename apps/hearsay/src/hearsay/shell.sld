@@ -105,16 +105,12 @@
 
     ;; ---- View ----
 
-    (define menu-frame
-      (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             (rgb 16 20 28) 1.0 (Nil) (Nil)))
-
     ;; `art` gives the bytes of each sheet the cast wears; main.sld passes
     ;; the embedded ones, and tests may pass none.
     (: view-shell (-> Shell (-> String (Option Source)) Frame))
     (define (view-shell shell art)
       (match (Shell-screen shell)
-        ((Menu) menu-frame)
+        ((Menu) (empty-frame (Nil)))
         ((Rumors screen) (view-mill-screen screen art))
         ((Favors screen) (view-ledger-screen screen art))))
 
@@ -122,16 +118,16 @@
     (define menu-panels
       (list (Panel "menu" (At (TopLeft) 0)
                    (concatenate
-                    (list (list (Label (look "title") "Hearsay prototypes")
-                                (Label (look "subtitle")
+                    (list (list (label "title" "Hearsay prototypes")
+                                (label "subtitle"
                                        "Each prototype asks one question about whether a piece of the design is fun. Each opens with a short guide to its rules and to what to watch for while you play.")
-                                (Label (look "heading-rumors") "The rumor mill: is steering belief fun?"))
+                                (label "heading-rumors" "The rumor mill: is steering belief fun?"))
                           (map-indexed (lambda (index scenario)
                                          (let ((rules (scenario-rules scenario)))
                                            (Button (look (string-append "scenario-" (show index))) (Rules-name rules) (Rules-pitch rules)
                                                    action-scenario (i64->i32 index) (Enabled) -1.0)))
                                        scenarios)
-                          (list (Label (look "heading-favors") "The favor ledger: do favors trade, or get hoarded?")
+                          (list (label "heading-favors" "The favor ledger: do favors trade, or get hoarded?")
                                 (Button (look "ledger") "Favor ledger" "Trade markers and promises with two rival fixers." action-ledger 0
                                         (Enabled) -1.0)))))))
 
@@ -140,8 +136,7 @@
     (: menu-button (List Panel))
     (define menu-button
       (list (Panel "back" (At (TopRight) 0)
-                   (list (Button (look "back") "Menu" "" action-menu 0 (Enabled) -1.0)
-                         (Button (look "open-guide") "Guide" "" guide-open 0 (Enabled) -1.0)))))
+                   (list (button "back" "Menu" action-menu) (button "open-guide" "Guide" guide-open)))))
 
     (: shell-hud (-> Shell (List Panel)))
     (define (shell-hud shell)

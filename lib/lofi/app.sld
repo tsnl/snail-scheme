@@ -149,6 +149,8 @@
    Normal
    Strong
    Image
+   label
+   button
    Corner
    TopLeft
    TopRight
@@ -557,6 +559,17 @@
     (enum Span
       (Normal ((words String)))
       (Strong ((words String))))
+
+    ;; The widgets most panels are made of: a plain label, and an enabled
+    ;; button without caption or ring that presses `action` with argument
+    ;; 0.
+    (: label (-> String String Widget))
+    (define (label key text)
+      (Label (look key) text))
+
+    (: button (-> String String I32 Widget))
+    (define (button key text action)
+      (Button (look key) text "" action 0 (Enabled) -1.0))
 
     (enum Corner
       (TopLeft)

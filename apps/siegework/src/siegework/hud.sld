@@ -29,29 +29,25 @@
     (define (face key icon help)
       (Look key icon help (Plain) ""))
 
-    (: text (-> String String Widget))
-    (define (text key words)
-      (Label (look key) words))
-
     ;; A button for `command`, enabled unless `rejection` says why not: one
     ;; that may work later is marked waiting, one that cannot apply here is
     ;; muted.
     (: command-button (-> Look String String Command (Option Rejection) Widget))
-    (define (command-button look-of label caption command rejection)
+    (define (command-button look-of text caption command rejection)
       (let ((code (press-code command)))
         (match rejection
           ((Some why) (Button (Look-tone-set (Look-help-set look-of (rejection-text why)) (if (later? why) (Warning) (Muted)))
-                              label caption (Pair-first code) (Pair-second code) (Disabled) -1.0))
-          ((None) (Button look-of label caption (Pair-first code) (Pair-second code) (Enabled) -1.0)))))
+                              text caption (Pair-first code) (Pair-second code) (Disabled) -1.0))
+          ((None) (Button look-of text caption (Pair-first code) (Pair-second code) (Enabled) -1.0)))))
 
     (: plain-button (-> Look String Command Widget))
-    (define (plain-button look-of label command)
-      (command-button look-of label "" command (None)))
+    (define (plain-button look-of text command)
+      (command-button look-of text "" command (None)))
 
     (: toggle-button (-> Look String String Command Bool Widget))
-    (define (toggle-button look-of label caption command on)
+    (define (toggle-button look-of text caption command on)
       (let ((code (press-code command)))
-        (Button look-of label caption (Pair-first code) (Pair-second code) (if on (Selected) (Enabled)) -1.0)))
+        (Button look-of text caption (Pair-first code) (Pair-second code) (if on (Selected) (Enabled)) -1.0)))
 
     (: side (-> Game Corner))
     (define (side game)
@@ -105,7 +101,7 @@
     (: construction (-> Game (List Panel)))
     (define (construction game)
       (match (Game-selected game)
-        ((Some cell) (list (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (Label (look "divider") "") (care game cell))))))
+        ((Some cell) (list (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (label "divider" "") (care game cell))))))
         ((None) (Nil))))
 
     (: build-menu (-> Game Cell (List Widget)))
@@ -201,7 +197,7 @@
             (Nil)
             (list (Panel "queue" (At (side game) 1)
                          (append (map-indexed (lambda (index task) (queue-chip world index task)) shown)
-                                 (if (> (length all) 6) (list (text "queue-more" (string-append "+" (show (- (length all) 6))))) (Nil))))))))
+                                 (if (> (length all) 6) (list (label "queue-more" (string-append "+" (show (- (length all) 6))))) (Nil))))))))
 
     (: queue-chip (-> World I64 Task Widget))
     (define (queue-chip world index task)
@@ -239,7 +235,7 @@
     (define (opening game)
       (if (opening? (Game-world game))
           (list (Panel "opening" (Banner)
-                       (list (text "opening-title" "Siegework")
+                       (list (label "opening-title" "Siegework")
                              (opening-step game)
                              (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
           (Nil)))
@@ -277,8 +273,8 @@
     (define (objective game)
       (let ((world (Game-world game)))
         (Panel "objective" (At (far-side game) 0)
-               (list (text "nests" (list->string (map (lambda (nest) (if (= (Nest-health nest) 0) #\★ #\☆)) (World-nests world))))
-                     (text "elapsed" (clock-text (World-tick world)))))))
+               (list (label "nests" (list->string (map (lambda (nest) (if (= (Nest-health nest) 0) #\★ #\☆)) (World-nests world))))
+                     (label "elapsed" (clock-text (World-tick world)))))))
 
     ;; ---- Notices ----
 
@@ -320,7 +316,7 @@
     (: pause-dialog (-> Game Panel))
     (define (pause-dialog game)
       (Panel "pause" (Dialog (Pair-first (press-code (Resume))))
-             (list (text "pause-title" "Paused")
+             (list (label "pause-title" "Paused")
                    (plain-button (face "resume" "" "Resume") "Resume" (Resume))
                    (plain-button (face "restart" "" "Restart on a new map") "Restart…" (AskRestart))
                    (plain-button (face "resign" "" "Resign this colony") "Resign…" (AskResign))
@@ -328,10 +324,10 @@
                    (toggle-button (face "left-handed" "" "Controls on the left") "Left-handed" "" (Hand #t) (Game-left-handed game)))))
 
     (: confirm-dialog (-> String String String Command Panel))
-    (define (confirm-dialog key question label command)
+    (define (confirm-dialog key question answer command)
       (Panel key (Dialog (Pair-first (press-code (OpenMenu))))
-             (list (text (string-append key "-title") question)
-                   (plain-button (Look (string-append "accept-" key) "" question (Danger) "") label command)
+             (list (label (string-append key "-title") question)
+                   (plain-button (Look (string-append "accept-" key) "" question (Danger) "") answer command)
                    (plain-button (face "back" "" "Back to the menu") "Back" (OpenMenu)))))
 
     ;; Time, combat, energy, buildings, nests and the seed, from the world.
@@ -339,15 +335,15 @@
     (define (results-dialog game)
       (let* ((world (Game-world game)) (ledger (World-ledger world)))
         (Panel "results" (Dialog (Pair-first (press-code (InspectMap))))
-               (list (text "results-title" (match (World-outcome world) ((Won) "Victory") ((Lost) "Defeat") ((Resigned) "Resigned") ((Playing) "In play")))
-                     (text "results-statistics"
-                           (string-join (list (string-append "Time " (clock-text (World-tick world)))
-                                              (string-append "Enemies destroyed " (show (Ledger-kills ledger)))
-                                              (string-append "Energy produced " (show (Ledger-produced ledger)) ", spent " (show (Ledger-spent ledger)))
-                                              (string-append "Buildings standing " (show (length (filter built? (World-buildings world)))) ", lost " (show (Ledger-lost ledger)))
-                                              (string-append "Nests destroyed " (show (- 3 (length (living-nests world)))) " of 3")
-                                              (string-append "Map " (show (World-seed world)) ", " (biome-name (Land-biome (World-land world)))))
-                                        "\n"))
+               (list (label "results-title" (match (World-outcome world) ((Won) "Victory") ((Lost) "Defeat") ((Resigned) "Resigned") ((Playing) "In play")))
+                     (label "results-statistics"
+                            (string-join (list (string-append "Time " (clock-text (World-tick world)))
+                                               (string-append "Enemies destroyed " (show (Ledger-kills ledger)))
+                                               (string-append "Energy produced " (show (Ledger-produced ledger)) ", spent " (show (Ledger-spent ledger)))
+                                               (string-append "Buildings standing " (show (length (filter built? (World-buildings world)))) ", lost " (show (Ledger-lost ledger)))
+                                               (string-append "Nests destroyed " (show (- 3 (length (living-nests world)))) " of 3")
+                                               (string-append "Map " (show (World-seed world)) ", " (biome-name (Land-biome (World-land world)))))
+                                         "\n"))
                      (plain-button (face "inspect" "" "Look over the map") "Map" (InspectMap))
                      (plain-button (face "new-map" "" "Start a new map") "New map" (NewMap))))))
 

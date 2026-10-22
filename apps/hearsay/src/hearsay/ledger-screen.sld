@@ -93,7 +93,7 @@
     (: press (-> LedgerScreen I32 I32 LedgerScreen))
     (define (press screen action argument)
       (cond ((guide-action? action)
-             (LedgerScreen-guide-set screen (turn-guide (LedgerScreen-guide screen) (length guide-pages) action)))
+             (LedgerScreen-guide-set screen (turn-guide (LedgerScreen-guide screen) guide-pages action)))
             ((= action action-end) (run screen (EndRound)))
             ((= action action-new) (new-ledger-screen (+ (LedgerScreen-seed screen) 1)))
             (else (match (command-at screen action argument)
@@ -110,14 +110,9 @@
     ;; HUD, from the sheets `art` gives.
     (: view-ledger-screen (-> LedgerScreen (-> String (Option Source)) Frame))
     (define (view-ledger-screen screen art)
-      (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             (rgb 16 20 28) 1.0 (Nil) (map (lambda (who) (walk-picture art (rival-picture who) (rival who))) (list vee kit))))
+      (empty-frame (map (lambda (who) (walk-picture art (rival-picture who) (rival who))) (list vee kit))))
 
     ;; ---- Panels ----
-
-    (: button (-> String String I32 Widget))
-    (define (button key text action)
-      (Button (look key) text "" action 0 (Enabled) -1.0))
 
     ;; Choice i of a group is a button pressing the group's action with
     ;; argument i.
@@ -236,8 +231,6 @@
     (define (ledger-screen-hud screen first)
       (concatenate
        (list first (if (ledger-over? (LedgerScreen-ledger screen)) (final-panels screen) (playing-panels screen))
-             (match (LedgerScreen-guide screen)
-               ((Some page) (list (guide-panel "Favor ledger" guide-pages page)))
-               ((None) (Nil))))))
+             (guide-panels "Favor ledger" guide-pages (LedgerScreen-guide screen)))))
 
     ))

@@ -154,7 +154,7 @@
     (: press (-> MillScreen I32 MillScreen))
     (define (press screen action)
       (cond ((guide-action? action)
-             (MillScreen-guide-set screen (turn-guide (MillScreen-guide screen) (length guide-pages) action)))
+             (MillScreen-guide-set screen (turn-guide (MillScreen-guide screen) guide-pages action)))
             ((>= action action-choose) (MillScreen-selected-set screen (Some (i32->i64 (- action action-choose)))))
             ((= action action-restart)
              (new-mill-screen (Mill-scenario (MillScreen-mill screen)) (+ (MillScreen-version screen) 1) (MillScreen-width screen)
@@ -266,7 +266,7 @@
     ;; `art` gives the bytes of each sheet the cast wears.
     (: view-mill-screen (-> MillScreen (-> String (Option Source)) Frame))
     (define (view-mill-screen screen art)
-      (Frame (camera-of screen) sunlight (rgb 16 20 28) 1.0
+      (Frame (camera-of screen) sunlight backdrop 1.0
              (list (Batch 0 0 (Solid) tie-items)
                    (Batch 1 (i64->i32 (MillScreen-version screen)) (Solid)
                           (lambda () (concatenate (map (lambda (person) (person-items screen person)) (iota person-count)))))
@@ -381,7 +381,7 @@
     (define (action-panel screen)
       (Panel "actions" (At (TopLeft) 0)
              (append (Cons (section-heading "moves" "Your move: one per shift") (if (mill-over? (MillScreen-mill screen)) (Nil) (move-buttons screen)))
-                     (list (Button (look "restart") "Restart" "" action-restart 0 (Enabled) -1.0)))))
+                     (list (button "restart" "Restart" action-restart)))))
 
     ;; ---- People ----
 
@@ -408,8 +408,7 @@
                ((Nil) (Nil))
                (stories (Cons (section-heading "stories" "Stories they hold") (line-labels "story" stories))))
              (Cons (section-heading "ties" "Ties")
-                   (map (lambda (tie) (Button (look (string-append "choose-" (show tie))) (first-name tie) "" (+ action-choose (i64->i32 tie)) 0
-                                              (Enabled) -1.0))
+                   (map (lambda (tie) (button (string-append "choose-" (show tie)) (first-name tie) (+ action-choose (i64->i32 tie))))
                         (neighbors person))))))
 
     ;; ---- Beliefs and outlook ----
@@ -483,8 +482,6 @@
        (list first
              (list (status-panel screen) (goal-panel (MillScreen-mill screen)) (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
                    (action-panel screen) (last-panel screen) (audience-panel screen) key-panel (person-panel screen) (outlook-panel screen))
-             (match (MillScreen-guide screen)
-               ((Some page) (list (guide-panel "Rumor mill" guide-pages page)))
-               ((None) (Nil))))))
+             (guide-panels "Rumor mill" guide-pages (MillScreen-guide screen)))))
 
     ))
