@@ -63,11 +63,12 @@
               (else (loop (- index 1) end out)))))
 
     ;; One step of lexing: the offset after what it read, the mode after
-    ;; it, and the token it made, if any.
+    ;; it, the token it made, if any, and the class of the whole span.
     (struct Step
       ((next I64)
        (mode Mode)
-       (token (Option Token))))
+       (token (Option Token))
+       (class Char)))
 
     (: lex-line (-> String Mode (Pair (List Token) Mode)))
     (define (lex-line line mode)
@@ -90,11 +91,11 @@
     (: lex-code (-> String I64 Step))
     (define (lex-code line offset)
       (let ((c (string-ref line offset)) (after (+ offset 1)))
-        (cond ((char-whitespace? c) (Step after (Code) (None)))
-              ((= c #\;) (Step (string-length line) (Code) (None)))
+        (cond ((char-whitespace? c) (Step after (Code) (None) #\.))
+              ((= c #\;) (Step (string-length line) (Code) (None) #\c))
               ((or (= c #\() (= c #\[)) (code-token after (Open offset (spaced? line after))))
               ((or (= c #\)) (= c #\])) (code-token after (Close offset)))
-              ((= c #\") (Step after (InString) (Some (Text offset))))
+              ((= c #\") (Step-token-set (lex-string line after) (Some (Text offset))))
               ((or (= c #\') (= c #\`)) (code-token after (Prefix offset)))
               ((= c #\,) (code-token (if (at? line after "@") (+ after 1) after) (Prefix offset)))
               ((= c #\#) (lex-hash line offset))
@@ -102,7 +103,13 @@
 
     (: code-token (-> I64 Token Step))
     (define (code-token next token)
-      (Step next (Code) (Some token)))
+      (Step next (Code) (Some token)
+            (match token
+              ((Open _ _) #\p)
+              ((Close _) #\p)
+              ((Prefix _) #\q)
+              ((Text _) #\s)
+              ((Atom _ text) (atom-class text)))))
 
     ;; `#(` opens a vector, `#|` a block comment, and `#;` comments out the
     ;; next datum, which counts here as a prefix; `#\` starts a character,
@@ -111,7 +118,7 @@
     (define (lex-hash line offset)
       (let ((after (+ offset 1)))
         (cond ((at? line after "(") (code-token after (Prefix offset)))
-              ((at? line after "|") (Step (+ after 1) (InComment 1) (None)))
+              ((at? line after "|") (lex-comment line (+ after 1) 1))
               ((at? line after ";") (code-token (+ after 1) (Prefix offset)))
               ((at? line after "\\") (lex-atom line offset (min (+ after 2) (string-length line))))
               (else (lex-atom line offset after)))))
@@ -135,17 +142,17 @@
     ;; which the string continues beyond.
     (: lex-string (-> String I64 Step))
     (define (lex-string line offset)
-      (cond ((>= offset (string-length line)) (Step offset (InString) (None)))
-            ((= (string-ref line offset) #\\) (lex-string line (+ offset 2)))
-            ((= (string-ref line offset) #\") (Step (+ offset 1) (Code) (None)))
+      (cond ((>= offset (string-length line)) (Step offset (InString) (None) #\s))
+            ((= (string-ref line offset) #\\) (lex-string line (min (+ offset 2) (string-length line))))
+            ((= (string-ref line offset) #\") (Step (+ offset 1) (Code) (None) #\s))
             (else (lex-string line (+ offset 1)))))
 
     ;; Inside a block comment, which nests.
     (: lex-comment (-> String I64 I64 Step))
     (define (lex-comment line offset depth)
-      (cond ((>= offset (string-length line)) (Step offset (InComment depth) (None)))
+      (cond ((>= offset (string-length line)) (Step offset (InComment depth) (None) #\c))
             ((at? line offset "|#")
-             (if (= depth 1) (Step (+ offset 2) (Code) (None)) (lex-comment line (+ offset 2) (- depth 1))))
+             (if (= depth 1) (Step (+ offset 2) (Code) (None) #\c) (lex-comment line (+ offset 2) (- depth 1))))
             ((at? line offset "#|") (lex-comment line (+ offset 2) (+ depth 1)))
             (else (lex-comment line (+ offset 1) depth))))
 
@@ -175,14 +182,17 @@
        (line I64)
        (first I64)))
 
-    ;; An open list: its parenthesis, whether a space follows it, and its
-    ;; elements so far, the latest first. At the start of a line, every
-    ;; element of the innermost open list is complete.
+    ;; An open list retains only what indentation uses. `arguments` excludes
+    ;; the head; `last` is the head until an argument appears. Construction
+    ;; and add-element keep these positions and the count together.
     (struct Frame
       ((column I64)
        (line I64)
        (spaced Bool)
-       (elements (List Element))))
+       (head (Option Element))
+       (first (Option Element))
+       (last (Option Element))
+       (arguments I64)))
 
     ;; ---- Indentation rules ----
 
@@ -244,32 +254,23 @@
     ;; parenthesis when nothing follows it yet, else as the head's rule says.
     (: frame-indent (-> Frame I64))
     (define (frame-indent frame)
-      (match (reverse (Frame-elements frame))
-        ((Cons head rest)
-         (let ((last (first-of (Frame-elements frame))))
-           (match (Element-head head)
-             ((Named name) (named-indent frame name rest (normal-indent frame head rest last)))
-             (_ (unnamed-indent head last)))))
-        ((Nil) (+ (Frame-column frame) 1))))
+      (match (Pair (Frame-head frame) (Frame-last frame))
+        ((Pair (Some head) (Some last))
+         (match (Element-head head)
+           ((Named name) (named-indent frame name last (normal-indent frame head last)))
+           (_ (unnamed-indent head last))))
+        (_ (+ (Frame-column frame) 1))))
 
-    (: first-of (-> (List Element) Element))
-    (define (first-of elements)
-      (match elements
-        ((Cons element _) element)
-        ((Nil) (panic "format: a list without elements"))))
-
-    ;; The column `calculate-lisp-indent` finds before any rule applies.
-    ;; While the last element is on the head's line, a line goes under the
-    ;; head's first argument, or under the head if there is none or a space
-    ;; follows the parenthesis; later it goes under the first expression on
-    ;; the last element's line.
-    (: normal-indent (-> Frame Element (List Element) Element I64))
-    (define (normal-indent frame head arguments last)
+    ;; On the head's line, align under the first argument, or the head when
+    ;; there is no argument or a space follows the parenthesis. Later align
+    ;; under the first expression on the last element's line.
+    (: normal-indent (-> Frame Element Element I64))
+    (define (normal-indent frame head last)
       (cond ((not (= (Element-line last) (Element-line head))) (Element-first last))
             ((Frame-spaced frame) (Element-column head))
-            (else (match arguments
-                    ((Cons argument _) (Element-column argument))
-                    ((Nil) (Element-column head))))))
+            (else (match (Frame-first frame)
+                    ((Some argument) (Element-column argument))
+                    ((None) (Element-column head))))))
 
     ;; A list whose head is not a name lines up with its head while its
     ;; elements share the head's line.
@@ -277,14 +278,14 @@
     (define (unnamed-indent head last)
       (if (= (Element-line last) (Element-line head)) (Element-column head) (Element-first last)))
 
-    (: named-indent (-> Frame String (List Element) I64 I64))
-    (define (named-indent frame name arguments normal)
+    (: named-indent (-> Frame String Element I64 I64))
+    (define (named-indent frame name last normal)
       (match (indent-rule name)
         ((Call) normal)
         ((Definition)
-         (if (= (Element-line (first-of (Frame-elements frame))) (Frame-line frame)) (+ (Frame-column frame) 2) normal))
-        ((Special distinguished) (special-indent frame distinguished (length arguments) normal))
-        ((LetRule) (special-indent frame (if (names-loop? frame arguments) 2 1) (length arguments) normal))))
+         (if (= (Element-line last) (Frame-line frame)) (+ (Frame-column frame) 2) normal))
+        ((Special distinguished) (special-indent frame distinguished (Frame-arguments frame) normal))
+        ((LetRule) (special-indent frame (if (names-loop? frame) 2 1) (Frame-arguments frame) normal))))
 
     ;; Emacs's `lisp-indent-specform`. A distinguished argument goes in by
     ;; four columns when it is one of the first two; the first body form goes
@@ -297,10 +298,10 @@
               (else normal))))
 
     ;; A named `let`: a name follows `let` on its line.
-    (: names-loop? (-> Frame (List Element) Bool))
-    (define (names-loop? frame arguments)
-      (match (Pair (reverse (Frame-elements frame)) arguments)
-        ((Pair (Cons head _) (Cons (Element (Named name) _ line _) _))
+    (: names-loop? (-> Frame Bool))
+    (define (names-loop? frame)
+      (match (Pair (Frame-head frame) (Frame-first frame))
+        ((Pair (Some head) (Some (Element (Named name) _ line _)))
          (and (= line (Element-line head)) (member? (string-ref name 0) loop-name-starts)))
         (_ #f)))
 
@@ -371,7 +372,7 @@
       (match token
         ((Open offset spaced)
          (let ((added (add-expression scan (Listed) (+ offset shift) line)))
-           (Scan-frames-set added (Cons (Frame (+ offset shift) line spaced (Nil)) (Scan-frames added)))))
+           (Scan-frames-set added (Cons (Frame (+ offset shift) line spaced (None) (None) (None) 0) (Scan-frames added)))))
         ((Close _) (Scan-frames-set scan (drop (Scan-frames scan) 1)))
         ((Prefix offset) (Scan (Scan-frames scan) (Some (or-else (Scan-first scan) (+ offset shift)))
                                (Some (or-else (Scan-prefix scan) (+ offset shift)))))
@@ -393,7 +394,13 @@
     (: add-element (-> (List Frame) Element (List Frame)))
     (define (add-element frames element)
       (match frames
-        ((Cons frame rest) (Cons (Frame-elements-set frame (Cons element (Frame-elements frame))) rest))
+        ((Cons (Frame column line spaced head first _ arguments) rest)
+         (Cons (match head
+                 ((None) (Frame column line spaced (Some element) (None) (Some element) 0))
+                 ((Some _) (Frame column line spaced head
+                                  (match first ((None) (Some element)) (_ first))
+                                  (Some element) (+ arguments 1))))
+               rest))
         ((Nil) (Nil))))
 
     (: or-else (-> (Option I64) I64 I64))
@@ -575,51 +582,67 @@
       (Defining)
       (DefiningList))
 
-    ;; A run of characters of one class, and the naming after it.
-    (struct Run
-      ((end I64)
-       (class Char)
+    ;; Naming refines the scanner's classes without recognizing tokens again.
+    (struct Color
+      ((class Char)
        (naming Naming)))
 
-    ;; The class of each character, for an editor to color: `c` a comment,
-    ;; `s` a string, `h` a character, `n` a number, `b` a boolean, `k` a core
-    ;; form or derived syntax, `t` a type or constructor, whose names are
-    ;; capitalized, `d` the name a definition introduces, `p` a parenthesis,
-    ;; `q` a quotation prefix, and `.` anything else. Strings and block
-    ;; comments may span lines.
+    (struct Highlighted
+      ((classes String)
+       (mode Mode)
+       (naming Naming)))
+
+    ;; Each character's class: comment c, string s, character h, number n,
+    ;; boolean b, keyword k, type t, defined name d, parenthesis p, prefix q,
+    ;; or plain text. Multiline tokens include their physical newlines.
     (: highlight-classes (-> String String))
     (define (highlight-classes text)
-      (let loop ((offset 0) (naming (Plain)) (out (Nil)))
-        (if (>= offset (string-length text))
-            (string-concatenate (reverse out))
-            (let ((run (highlight-run text offset naming)))
-              (loop (Run-end run) (Run-naming run) (Cons (make-string (- (Run-end run) offset) (Run-class run)) out))))))
+      (let loop ((lines (split-lines text)) (mode (Code)) (naming (Plain)) (out (Nil)))
+        (match lines
+          ((Cons line rest)
+           (let* ((result (highlight-line line mode naming))
+                  (newline (if (null? rest) "" (make-string 1 (mode-class (Highlighted-mode result))))))
+             (loop rest (Highlighted-mode result) (Highlighted-naming result)
+                   (Cons (string-append (Highlighted-classes result) newline) out))))
+          ((Nil) (string-concatenate (reverse out))))))
 
-    (: highlight-run (-> String I64 Naming Run))
-    (define (highlight-run text offset naming)
-      (let ((c (string-ref text offset)) (after (+ offset 1)))
-        (cond ((char-whitespace? c) (Run after #\. naming))
-              ((= c #\;) (Run (text-line-end text offset) #\c naming))
-              ((at? text offset "#|") (Run (block-comment-end text (+ offset 2) 1) #\c naming))
-              ((= c #\") (Run (string-end text after) #\s (Plain)))
-              ((or (= c #\() (= c #\[)) (Run after #\p (if (defining? naming) (DefiningList) (Opened))))
-              ((or (= c #\)) (= c #\])) (Run after #\p (Plain)))
-              ((member? c (list #\' #\` #\,)) (Run after #\q naming))
-              ((at? text offset "#\\") (Run (atom-end text (min (+ offset 3) (string-length text))) #\h (Plain)))
-              ((or (at? text offset "#(") (at? text offset "#;")) (Run after #\q naming))
-              (else (atom-run text offset (atom-end text after) naming)))))
+    (: highlight-line (-> String Mode Naming Highlighted))
+    (define (highlight-line line mode naming)
+      (let loop ((offset 0) (mode mode) (naming naming) (out (Nil)))
+        (if (>= offset (string-length line))
+            (Highlighted (string-concatenate (reverse out)) mode naming)
+            (let* ((step (lex-step line offset mode)) (color (highlight-step step naming)))
+              (loop (Step-next step) (Step-mode step) (Color-naming color)
+                    (Cons (make-string (- (Step-next step) offset) (Color-class color)) out))))))
 
-    (: atom-run (-> String I64 I64 Naming Run))
-    (define (atom-run text start end naming)
-      (let ((name (substring text start end)))
-        (cond ((defining? naming) (Run end #\d (Plain)))
-              ((and (opened? naming) (member? name (list "define" "define-syntax" ":"))) (Run end #\k (Defining)))
-              (else (Run end (atom-class name) (Plain))))))
+    (: mode-class (-> Mode Char))
+    (define (mode-class mode)
+      (match mode
+        ((Code) #\.)
+        ((InString) #\s)
+        ((InComment _) #\c)))
+
+    (: highlight-step (-> Step Naming Color))
+    (define (highlight-step step naming)
+      (match (Step-token step)
+        ((Some (Atom _ name)) (atom-color name (Step-class step) naming))
+        ((Some (Open _ _)) (Color #\p (if (defining? naming) (DefiningList) (Opened))))
+        ((Some (Close _)) (Color #\p (Plain)))
+        ((Some (Text _)) (Color #\s (Plain)))
+        (_ (Color (Step-class step) naming))))
+
+    (: atom-color (-> String Char Naming Color))
+    (define (atom-color name class naming)
+      (cond ((= class #\h) (Color class (Plain)))
+            ((defining? naming) (Color #\d (Plain)))
+            ((and (opened? naming) (member? name (list "define" "define-syntax" ":"))) (Color #\k (Defining)))
+            (else (Color class (Plain)))))
 
     (: atom-class (-> String Char))
     (define (atom-class name)
       (let ((first (string-ref name 0)))
-        (cond ((member? name (list "#t" "#f" "#true" "#false")) #\b)
+        (cond ((at? name 0 "#\\") #\h)
+              ((member? name (list "#t" "#f" "#true" "#false")) #\b)
               ((or (char-numeric? first) (and (> (string-length name) 1) (member? first (list #\+ #\- #\.))
                                               (char-numeric? (string-ref name 1))))
                #\n)
@@ -648,24 +671,6 @@
       (match naming
         ((Opened) #t)
         (_ #f)))
-
-    (: text-line-end (-> String I64 I64))
-    (define (text-line-end text offset)
-      (if (or (>= offset (string-length text)) (= (string-ref text offset) #\newline)) offset (text-line-end text (+ offset 1))))
-
-    (: string-end (-> String I64 I64))
-    (define (string-end text offset)
-      (cond ((>= offset (string-length text)) offset)
-            ((= (string-ref text offset) #\\) (string-end text (min (+ offset 2) (string-length text))))
-            ((= (string-ref text offset) #\") (+ offset 1))
-            (else (string-end text (+ offset 1)))))
-
-    (: block-comment-end (-> String I64 I64 I64))
-    (define (block-comment-end text offset depth)
-      (cond ((or (= depth 0) (>= offset (string-length text))) offset)
-            ((at? text offset "|#") (block-comment-end text (+ offset 2) (- depth 1)))
-            ((at? text offset "#|") (block-comment-end text (+ offset 2) (+ depth 1)))
-            (else (block-comment-end text (+ offset 1) depth))))
 
     ;; ---- Formatting ----
 
