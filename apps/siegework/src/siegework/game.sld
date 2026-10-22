@@ -76,6 +76,7 @@
    (lofi app)
    (lofi math)
    (siegework grid)
+   (only (siegework terrain) Land-starter)
    (siegework world)
    (siegework colony)
    (siegework simulation))
@@ -157,10 +158,12 @@
     (define (new-game seed width height)
       (game-around (new-world (i32->i64 seed)) (Nil) 0 (Closed) #f width height))
 
+    ;; A game opens looking at its starter crystal, the first place to
+    ;; build, four cells from the hub.
     (: game-around (-> World (List Entry) I64 Menu Bool I32 I32 Game))
     (define (game-around world orders epoch menu left-handed width height)
-      (let ((hub (Hub-cell (World-hub world))))
-        (Game world orders epoch 0 0 0 (View (i64->f32 (Cell-x hub)) (i64->f32 (Cell-y hub)) 1.0 0 0 -300) (Nil) no-gestures (None) (None) (None) #f
+      (let ((start (Land-starter (World-land world))))
+        (Game world orders epoch 0 0 0 (View (i64->f32 (Cell-x start)) (i64->f32 (Cell-y start)) 1.0 0 0 -300) (Nil) no-gestures (None) (None) (None) #f
               menu left-handed (Nil) "" width height)))
 
     ;; ---- Time ----

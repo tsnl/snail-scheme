@@ -41,8 +41,8 @@ Open `http://127.0.0.1:4191` in a browser with WebGPU.
   extractors 3 s and turrets 4 s, and the colony's first extractor is
   ready at once. Nothing happens until it is ordered: the crystals in
   sight pulse white under a title banner that points to them and links to
-  this guide, and once a crystal is selected the banner points to the
-  build button, which pulses. The hub starts with one slot; upgrading it adds a second
+  this guide; the camera opens on the starter crystal. Once a crystal is
+  selected, the banner points to the build button, which pulses. The hub starts with one slot; upgrading it adds a second
   and a third. Further orders wait in the queue, and an unpowered site
   waits without blocking the others.
 - **Rush.** Rushing finishes work at once for four times the share of its

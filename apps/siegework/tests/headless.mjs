@@ -79,11 +79,18 @@ assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 10
 assert.ok(first.batches[7].items > 0, 'the crystals in sight pulse before the game begins');
 assert.equal(widget(host, 'opening-title').text, 'Siegework');
 const spoken = key => widget(host, key).spans.map(span => span.strong ? `*${span.words}*` : span.words).join('');
-assert.equal(spoken('opening'), 'Click the *glowing resource deposit*');
+assert.equal(spoken('opening'), 'Click the *glowing crystal*');
 assert.match(widget(host, 'how-to-play').url, /games\/siegework\.html$/);
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
 assert.equal(widget(host, 'nests').text, '☆☆☆');
+// The camera opens on the starter crystal: a tap in the middle offers the
+// suggested extractor.
+tap(game, 480, 320);
+assert.equal(widget(host, 'build-extractor').control, 0, 'the starter crystal is in the middle');
+assert.equal(widget(host, 'build-extractor').tone, SUGGESTED);
+game.app_input(KEY_DOWN, 53, 0, 0, 0);
+game.app_input(KEY_UP, 53, 0, 0, 0);
 
 // Holding D for a second pans nine cells along the ground; holding W for a
 // second pans eighteen, the ground being seen at 30 degrees.

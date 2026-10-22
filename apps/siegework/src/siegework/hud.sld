@@ -257,7 +257,7 @@
           (list (Panel "opening" (Banner)
                        (list (text "opening-title" "Siegework")
                              (Text (look "opening")
-                                   (if (extractor-offered? game) (list (Normal "Click the build button to continue")) (list (Normal "Click the ") (Strong "glowing resource deposit"))))
+                                   (if (extractor-offered? game) (list (Normal "Click the build button to continue")) (list (Normal "Click the ") (Strong "glowing crystal"))))
                              (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
           (Nil)))
 
