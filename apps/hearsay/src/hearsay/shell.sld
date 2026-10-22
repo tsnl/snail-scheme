@@ -96,12 +96,14 @@
       (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
              (rgb 16 20 28) 1.0 (Nil) (Nil)))
 
-    (: view-shell (-> Shell Frame))
-    (define (view-shell shell)
+    ;; `art` gives the bytes of each sheet the cast wears; main.sld passes
+    ;; the embedded ones, and tests may pass none.
+    (: view-shell (-> Shell (-> String (Option Source)) Frame))
+    (define (view-shell shell art)
       (match (Shell-screen shell)
         ((Menu) menu-frame)
-        ((Rumors screen) (view-mill-screen screen))
-        ((Favors screen) (view-ledger-screen screen))))
+        ((Rumors screen) (view-mill-screen screen art))
+        ((Favors screen) (view-ledger-screen screen art))))
 
     (: menu-panels (List Panel))
     (define menu-panels

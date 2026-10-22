@@ -103,16 +103,18 @@ Everyone starts with 10 coins.
 
 ### In the browser
 
-The town is drawn as its graph: each audience a ring of balls in its own
-color, hubs larger, ties as lines. Pillars over a person show what they
-believe, colored by trait and as tall as the intensity: dangerous or
-harmless on the left, reliable or unreliable on the right. A yellow square
-marks who heard something new in the last shift, a dark one who is keeping
-quiet.
+The town is drawn as its graph: each person an LPC character standing on a
+base in their audience's color, hubs on larger bases, ties as lines.
+Everyone always looks the same, and dresses in their audience's colors:
+warm in the Market, workwear in the Docks, dark in the Tower. Pillars over a
+person show what they believe, colored by trait and as tall as the
+intensity: dangerous or harmless on the left, reliable or unreliable on the
+right. Those who heard something new in the last shift stroll in place on
+a yellow ring; those keeping quiet stand on a dark one.
 
-Point at a person to read their ties and stories, with the path each story
-took to reach them; click to choose them, or choose one of their ties from
-the list. The buttons below act toward the chosen person, or lie low. The
+Point at a person to see their portrait and read their ties and stories,
+with the path each story took to reach them; click to choose them, or
+choose one of their ties from the list. The buttons below act toward the chosen person, or lie low. The
 corner panels show the audiences' levels, your liabilities, and a forecast:
 the next changes in each audience's levels if you lie low from now on.
 
@@ -203,9 +205,10 @@ Each round:
       promises kept.
    5. Expired jobs are removed.
 
-Every offer, contact, job and promise you owe is a button, green when it
-would succeed now; the board shows everyone's coins, standing, record and
-markers, and what the last end of round did. Each new game from the menu
+Every offer, contact, job and promise you owe is a button, greyed out with
+the reason in its tooltip when it would fail now; the board shows Vee's
+and Kit's portraits, everyone's coins, standing, record and markers, and
+what the last end of round did. Each new game from the menu
 deals the next seed.
 
 ### On paper
