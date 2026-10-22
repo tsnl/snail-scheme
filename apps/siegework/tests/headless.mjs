@@ -20,8 +20,15 @@ function screen() {
     'frame-begin'() { frame = {batches: []}; },
     camera(...values) { frame.camera = values; host.target = [values[3], values[5]]; },
     light() {},
+    'picture-begin'() { return 1; },
+    layer() { return 1; },
+    'source-begin'() {},
+    'source-word'() {},
+    swap() {},
+    'picture-end'() {},
     'batch-begin'(key, version) { frame.batches.push({key, version, items: 0}); return 0; },
     instance() { frame.batches.at(-1).items++; },
+    surface() {},
     'frame-end'() { host.frames.push(frame); },
     'hud-begin'() { widgets = []; },
     'panel-begin'() { widget = {key: ''}; },
@@ -29,6 +36,7 @@ function screen() {
       widget = {kind, tone, action, argument, control, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: '', spans: []};
       widgets.push(widget);
     },
+    'widget-image'() {},
     field(which) {
       if (which >= 7) widget.spans.push({strong: which === 8, words: ''});
       field = fields[which] ?? null;
