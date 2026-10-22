@@ -285,9 +285,10 @@ albedo of a dielectric or the specular color of a metal, with metalness and
 roughness defaulting to 0 and 1. Textures are regions of `Picture`s, which
 the host composes from layers of encoded image files the program carries,
 recoloring each by swapping colors, and keeps until their version changes.
-A sprite is a textured quad standing upright toward the camera, and a
-texture region can be a strip the host steps through by the clock, so 2D
-and 2.5D scenes are 3D scenes; an `Image` widget shows a region of a picture
+A sprite is a textured quad, standing upright toward the camera in a 2.5D
+scene or lying flat under an orthographic camera looking straight down in a
+2D one, and a texture region can be a strip the host steps through by the
+clock, so 2D and 2.5D scenes are 3D scenes; an `Image` widget shows a region of a picture
 in the HUD. `(lofi sprite)` poses figures from spritebooks of any sheet, and
 `lib/lpc` uses it for the Liberated Pixel Cup character art;
 [Hearsay](../apps/hearsay) dresses its residents from it.
