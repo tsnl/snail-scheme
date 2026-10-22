@@ -67,3 +67,32 @@ source on Chibi, and `make bootstrap`, which rebuilds from Chibi alone.
 Backend changes should execute linked Wasm; compilation alone does not test
 target behavior. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
+
+## Live reload
+
+Iterate on applications with `./lofi serve apps/NAME`, left running. It serves
+the application at `http://127.0.0.1:8000/` and rebuilds it whenever the
+application, `lib/` or `src/app/` changes, in about a second and a half for
+Siegework. Each open page swaps in the new module without reloading: the old
+module's save is restored into the new one, so the game, the journal and the
+camera survive while every function changes. Point `tests/browser/page.mjs`
+at the served URL to see an edit land.
+
+- A reload moves state only through `save` and `restore`. Keep what should
+  survive an edit in the application's Save; a changed Save type, or a
+  restore that panics, leaves the old module running and offers a fresh
+  start.
+- A failed build is shown over the page while the old module keeps running.
+  A module that traps stops its clock with the state from before the trap,
+  and the next good build resumes from it, so a crash can be fixed in place.
+- A changed style sheet is swapped in; a changed page or host script reloads
+  the page after saving.
+- `./lofi watch SOURCE [ARGUMENT ...]` is the loop for programs: it builds
+  and runs the program again after each edit.
+- Builds in one checkout share the driver's files under `build/`, so do not
+  run `make test` there while its server is rebuilding; use another
+  worktree.
+- `tests/develop.mjs` (in `make test`) and `tests/browser/reload.mjs`
+  (`make test-browser`, needs `CHROMIUM`) cover the loop; change them with
+  `scripts/develop.mjs`, `src/app/reload.mjs` and `replaceModule` in
+  `src/app/host.mjs`.

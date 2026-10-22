@@ -656,6 +656,11 @@ Scheme subset, beside the old one, which was then deleted.
   type's identity, a downcast checks it at run time, and a downcast of a
   value just upcast from the same type is removed.
 
+- **Section 5, reload.** `lofi serve` swaps a rebuilt module into a
+  running page by restoring the old module's serialized save into it; a
+  save written for another schema is refused and the old module keeps
+  running. Migration functions between schemas are not implemented.
+
 - **Phase 5, partly.** `lofi schema` prints the wire schema of every data
   type with a `Serialize` instance: each case's TypeId and field types.
   `(lofi explore)` checks an invariant of a total state machine by bounded

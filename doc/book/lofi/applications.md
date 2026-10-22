@@ -33,4 +33,31 @@ The host keeps elements by key, so hover and focus survive updates, and
 reports presses and hovering back as input. `recognize` turns raw pointer
 events into points, taps, drags and pinches.
 
+## Live reload
+
+`lofi serve APP-DIRECTORY` builds an application, serves it at
+`http://127.0.0.1:8000/`, and builds it again whenever the application's
+directory, the standard library or the browser host changes. Each page it
+serves swaps in the new module without reloading: the running module's
+save is restored into the new one, so the state survives while every
+function changes. That is the contract a page reload already relies on, so
+an application whose save is a journal, as Siegework's is, replays the
+journal under the new code.
+
+- A failed build is shown over the page, and the old module keeps running.
+- A module that cannot restore the save, because the Save type changed or
+  restoring panics, leaves the old module running and offers to start
+  over.
+- A module that traps stops its clock with the state from before the
+  update that trapped, and the next build resumes from that state.
+- A changed style sheet is fetched again; a changed page or host script
+  reloads the page after saving.
+- Each event carries the manifest of the build being served, so a page that
+  missed events, even across a restart of the server, catches up from the
+  next one.
+
+`lofi watch SOURCE` is the same loop for a program: it builds and runs the
+program again whenever its sources change, stopping a run still in
+progress once a new build succeeds.
+
 [Siegework](../games/siegework.md) is the complete example.

@@ -254,6 +254,9 @@ export async function createRenderer(canvas) {
 
   return {
     hasBatch(key, version) { return batches.get(key)?.version === version; },
+    // Another module may number its batches the same way, so after a module
+    // is replaced, every batch is asked for again; the buffers are kept.
+    forget() { for (const state of batches.values()) state.version = null; },
     draw(frame) {
       for (const batch of frame.batches) {
         if (batch.items) upload(batch);
