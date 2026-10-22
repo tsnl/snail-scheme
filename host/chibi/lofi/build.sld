@@ -11,12 +11,17 @@
    build-program
    build-modules
    link-wat
-   build-runtime
-   build-assembler
+   build-crate
+   build-tool
    build-tools
    bootstrap!
    with-private-directory
+   node-command
+   app-host-files
    path-join
+   absolute
+   read-file
+   copy-file!
    report-failure)
   (import
    (scheme base)
@@ -33,11 +38,9 @@
 
     ;; ---- Compiling ----
 
-    ;; The command that runs a compiler. The compiled compiler is rebuilt
-    ;; first when its source has changed; LOFI_STAGE0=chibi runs the source
-    ;; on Chibi instead.
-    (define (wasm-compiler root path)
-      (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "scripts/run-lofi.mjs") path))
+    ;; The command that runs a compiled program under Node.
+    (define (node-command root program)
+      (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "scripts/run-lofi.mjs") program))
 
     ;; Chibi sweeps its whole heap on every collection, and compiling the
     ;; compiler allocates gigabytes, so a large heap keeps collections rare.
@@ -45,10 +48,13 @@
       (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "LOFI_STAGE0_HEAP") "6G")
             "-I" (path-join root "host/chibi") "-I" (path-join root "src") (path-join root "bootstrap/compile.sld")))
 
+    ;; The command that runs a compiler. The compiled compiler is rebuilt
+    ;; first when its source has changed; LOFI_STAGE0=chibi runs the source
+    ;; on Chibi instead.
     (define (selected-compiler root)
       (if (equal? (get-environment-variable "LOFI_STAGE0") "chibi")
           (chibi-compiler root)
-          (wasm-compiler root (current-compiler root))))
+          (node-command root (current-compiler root))))
 
     (define (program->wat root directories source)
       (run-compiler root (selected-compiler root) "wat" directories source))
@@ -142,6 +148,32 @@
                   thunk
                   (lambda () (set! build-lock-held? #f) (file-lock port lock/unlock) (close-port port)))))))
 
+    ;; `output` is stale when it is missing or older than one of its
+    ;; `sources`: files, or directories whose .sld files count at any depth.
+    ;; A stale output is rebuilt under the build lock, and only if no other
+    ;; process rebuilt it while this one waited.
+    (define (rebuild-if-stale! root output sources rebuild!)
+      (unless (current? output sources)
+        (with-build-lock root (lambda () (unless (current? output sources) (rebuild!)))))
+      output)
+
+    (define (current? output sources)
+      (and (file-exists? output) (> (file-modification-time output) (apply max (map newest-time sources)))))
+
+    (define (newest-time path)
+      (if (file-directory? path) (newest-sld-time path) (file-modification-time path)))
+
+    (define (newest-sld-time directory)
+      (let loop ((entries (directory-files directory)) (newest 0))
+        (cond ((null? entries) newest)
+              ((member (car entries) '("." "..")) (loop (cdr entries) newest))
+              (else
+               (let ((path (path-join directory (car entries))))
+                 (loop (cdr entries)
+                       (max newest (cond ((file-directory? path) (newest-sld-time path))
+                                         ((string-suffix? ".sld" path) (file-modification-time path))
+                                         (else 0)))))))))
+
     ;; ---- Bootstrap ----
 
     ;; The compiler compiles itself until its output stops changing: stage 1
@@ -153,16 +185,14 @@
     (define (compiler-directories root)
       (list (path-join root "src") (path-join root "lib")))
 
-    ;; A stale compiler is rebuilt under the build lock, and only if no other
-    ;; process rebuilt it while this one waited.
+    ;; The compiled compiler, rebuilt when it is older than its own source:
+    ;; its entry program, its modules, and the three libraries it imports.
     (define (current-compiler root)
-      (unless (compiler-current? root)
-        (with-build-lock root (lambda () (unless (compiler-current? root) (rebuild-compiler! root)))))
-      (compiler-path root))
-
-    (define (compiler-current? root)
-      (let ((compiler (compiler-path root)))
-        (and (file-exists? compiler) (> (file-modification-time compiler) (newest-source-time root)))))
+      (rebuild-if-stale! root (compiler-path root)
+                         (map (lambda (path) (path-join root path))
+                              '("bootstrap/compile.sld" "src/lofi/compiler.sld" "src/lofi/compiler" "lib/lofi/base.sld"
+                                "lib/lofi/table.sld" "lib/lofi/io.sld"))
+                         (lambda () (rebuild-compiler! root))))
 
     (define (bootstrap! root)
       (with-build-lock root (lambda () (rebuild-compiler! root))))
@@ -173,8 +203,8 @@
              (stage3 (path-join directory "stage3.wat")) (sources (compiler-directories root)))
         (create-directory* directory)
         (link-wat root (stage1-text root entry) stage1 #f)
-        (link-wat root (run-compiler root (wasm-compiler root stage1) "wat" sources entry) stage2 #f)
-        (write-file stage3 (run-compiler root (wasm-compiler root stage2) "wat" sources entry))
+        (link-wat root (run-compiler root (node-command root stage1) "wat" sources entry) stage2 #f)
+        (write-file stage3 (run-compiler root (node-command root stage2) "wat" sources entry))
         (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
           (error "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
         (rename-file stage2 (compiler-path root))))
@@ -182,30 +212,17 @@
     (define (stage1-text root entry)
       (let ((previous (compiler-path root)) (sources (compiler-directories root)))
         (or (and (file-exists? previous)
-                 (guard (failure (#t #f)) (run-compiler root (wasm-compiler root previous) "wat" sources entry)))
+                 (guard (failure (#t #f)) (run-compiler root (node-command root previous) "wat" sources entry)))
             (run-compiler root (chibi-compiler root) "wat" sources entry))))
 
-    ;; The compiler's own source: its modules, its entry program, and the
-    ;; three libraries it imports.
-    (define (newest-source-time root)
-      (apply max (map file-modification-time
-                      (append (map (lambda (path) (path-join root path))
-                                   '("bootstrap/compile.sld" "src/lofi/compiler.sld" "lib/lofi/base.sld" "lib/lofi/table.sld"
-                                     "lib/lofi/io.sld"))
-                              (sld-files (path-join root "src/lofi/compiler"))))))
-
-    (define (sld-files directory)
-      (let loop ((files (directory-files directory)) (out '()))
-        (cond ((null? files) out)
-              ((and (> (string-length (car files)) 4)
-                    (string=? (substring (car files) (- (string-length (car files)) 4) (string-length (car files))) ".sld"))
-               (loop (cdr files) (cons (path-join directory (car files)) out)))
-              (else (loop (cdr files) out)))))
-
-    ;; ---- Tools ----
+    ;; ---- Files and commands ----
 
     (define (path-join . parts)
       (path-normalize (apply make-path parts)))
+
+    ;; A path the user gave, relative to the current directory.
+    (define (absolute path)
+      (if (path-absolute? path) path (path-join (current-directory) path)))
 
     (define (read-file path)
       (call-with-input-file path
@@ -218,9 +235,13 @@
       (create-directory* (path-directory path))
       (call-with-output-file path (lambda (port) (write-string text port))))
 
+    (define (copy-file! from to)
+      (let ((bytes (call-with-port (open-binary-input-file from) (lambda (port) (read-bytevector (file-size from) port)))))
+        (call-with-port (open-binary-output-file to) (lambda (port) (write-bytevector bytes port)))))
+
     ;; Runs a compiled program under Node, returning (output error status).
     (define (run-wasm root program arguments)
-      (process->output+error+status (append (wasm-compiler root program) arguments)))
+      (process->output+error+status (append (node-command root program) arguments)))
 
     ;; Runs a command, raising its standard error if it fails. Tools can be
     ;; overridden by environment variables such as WASM_OPT.
@@ -254,22 +275,17 @@
   (export \"diagnostics/report-error\" (func $report))
   (export \"close-resources\" (func $close)))\n")
 
-    (define (build-runtime root)
-      (let ((target (path-join root "build/wasm-runtime")))
+    ;; The crate src/NAME, "runtime" or "assembler", built for WASI into
+    ;; build/wasm-NAME; Cargo decides whether it is stale. The in-process
+    ;; assembler is a reactor too: text in, a binary module out, for a
+    ;; toolchain that runs as Wasm without Binaryen. scripts/assemble.mjs
+    ;; drives it.
+    (define (build-crate root name)
+      (let ((target (path-join root (string-append "build/wasm-" name))))
         (run-tool "CARGO" "cargo" "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-                  "--target" "wasm32-wasip1" "--manifest-path" (path-join root "src/runtime/Cargo.toml")
+                  "--target" "wasm32-wasip1" "--manifest-path" (path-join root "src" name "Cargo.toml")
                   "--target-dir" target)
-        (path-join target "wasm32-wasip1/release/snail_runtime.wasm")))
-
-    ;; The in-process assembler (src/assembler) is a reactor too: text in, a
-    ;; binary module out, for a toolchain that runs as Wasm without Binaryen.
-    ;; scripts/assemble.mjs drives it.
-    (define (build-assembler root)
-      (let ((target (path-join root "build/wasm-assembler")))
-        (run-tool "CARGO" "cargo" "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-                  "--target" "wasm32-wasip1" "--manifest-path" (path-join root "src/assembler/Cargo.toml")
-                  "--target-dir" target)
-        (path-join target "wasm32-wasip1/release/snail_assembler.wasm")))
+        (path-join target "wasm32-wasip1/release" (string-append "snail_" name ".wasm"))))
 
     (define (link module output runtime release?)
       (let ((adapter (string-append output ".adapter.wasm")) (linked (string-append output ".linked.wasm"))
@@ -291,7 +307,7 @@
         (write-file wat text)
         (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list wat "-o" raw)))
         (apply wasm-opt raw module (optimization release?))
-        (link module output (build-runtime root) release?)
+        (link module output (build-crate root "runtime") release?)
         output))
 
     (define (build-program root directories source output release?)
@@ -307,53 +323,13 @@
       (with-private-directory root (lambda (generated) (run-compiler-into root (selected-compiler root) "modules" directories source output generated)))
       (let ((names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble (path-join output name))) names)
-        (copy-file! (build-runtime root) (path-join output "runtime.wasm"))
+        (copy-file! (build-crate root "runtime") (path-join output "runtime.wasm"))
         (write-file (path-join output "modules.json") (modules-json names))
         output))
 
     ;; PATH.wat to PATH.wasm.
     (define (assemble path)
       (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list (string-append path ".wat") "-o" (string-append path ".wasm")))))
-
-    ;; ---- Development tools ----
-
-    ;; What `lofi serve` and `lofi watch` run: the development loop, a
-    ;; program that includes the compiler; the reload client pages load; the
-    ;; runtime; and the assembler. Each is built again only when its sources
-    ;; are newer. Returns their paths by name.
-    (define (build-tools root)
-      (let ((directory (path-join root "build/develop")))
-        (create-directory* directory)
-        (list (cons "develop" (build-tool root (path-join root "bootstrap/develop.sld") (path-join directory "develop.wasm")
-                                          (list (path-join root "src") (path-join root "lib")) (list "bootstrap/develop.sld")))
-              (cons "client" (build-tool root (path-join root "src/app/reload.sld") (path-join directory "reload.wasm")
-                                         (list (path-join root "lib")) (list "src/app/reload.sld")))
-              (cons "runtime" (build-runtime root))
-              (cons "assembler" (build-assembler root)))))
-
-    ;; A stale tool is rebuilt under the build lock, unless another process
-    ;; rebuilt it while this one waited.
-    (define (build-tool root source output directories files)
-      (unless (tool-current? root output directories files)
-        (with-build-lock root (lambda () (unless (tool-current? root output directories files) (build-program root directories source output #f)))))
-      output)
-
-    (define (tool-current? root output directories files)
-      (and (file-exists? output)
-           (> (file-modification-time output)
-              (apply max (append (map (lambda (file) (file-modification-time (path-join root file))) files) (map newest-sld-time directories))))))
-
-    ;; The newest .sld file under a directory, at any depth.
-    (define (newest-sld-time directory)
-      (let loop ((entries (directory-files directory)) (newest 0))
-        (cond ((null? entries) newest)
-              ((member (car entries) '("." "..")) (loop (cdr entries) newest))
-              (else
-               (let ((path (path-join directory (car entries))))
-                 (loop (cdr entries)
-                       (max newest (cond ((file-directory? path) (newest-sld-time path))
-                                         ((string-suffix? ".sld" path) (file-modification-time path))
-                                         (else 0)))))))))
 
     (define (read-lines path)
       (let loop ((lines '()) (rest (read-file path)))
@@ -372,9 +348,33 @@
                                                             "\", \"file\": \"" (car names) ".wasm\"}"))))
                      "]}\n"))
 
-    (define (copy-file! from to)
-      (let ((bytes (call-with-port (open-binary-input-file from) (lambda (port) (read-bytevector (file-size from) port)))))
-        (call-with-port (open-binary-output-file to) (lambda (port) (write-bytevector bytes port)))))
+    ;; ---- Development tools ----
+
+    ;; What `lofi serve` and `lofi watch` run: the development loop, a
+    ;; program that includes the compiler; the reload client pages load; the
+    ;; runtime; and the assembler. Each is built again only when its sources
+    ;; are newer. Returns their paths by name.
+    (define (build-tools root)
+      (let ((directory (path-join root "build/develop")))
+        (create-directory* directory)
+        (list (cons "develop" (build-tool root (path-join root "bootstrap/develop.sld") (path-join directory "develop.wasm")
+                                          (list (path-join root "src") (path-join root "lib"))))
+              (cons "client" (build-tool root (path-join root "src/app/reload.sld") (path-join directory "reload.wasm")
+                                         (list (path-join root "lib"))))
+              (cons "runtime" (build-crate root "runtime"))
+              (cons "assembler" (build-crate root "assembler")))))
+
+    ;; A program the tools run, built from `source` with the libraries in
+    ;; `directories` when it is stale.
+    (define (build-tool root source output directories)
+      (rebuild-if-stale! root output (cons source directories) (lambda () (build-program root directories source output #f))))
+
+    ;; ---- Applications ----
+
+    ;; The browser host, from src/app, that every packaged application
+    ;; loads beside its own files.
+    (define app-host-files
+      '("host.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css"))
 
     ;; ---- Failures ----
 

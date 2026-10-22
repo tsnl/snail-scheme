@@ -2,17 +2,12 @@
 (import
  (scheme base)
  (scheme process-context)
- (chibi filesystem)
- (chibi pathname)
  (chibi process)
  (lofi build))
 
 ;; ---- Requests ----
 
 (define usage "usage: lofi compile|run|wat|schema [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | lofi bootstrap")
-
-(define (absolute path)
-  (if (path-absolute? path) path (path-join (current-directory) path)))
 
 ;; Returns an association list of the options, the source and its arguments.
 (define (request arguments)
@@ -57,8 +52,7 @@
 
 ;; The program inherits standard input and output; its status is returned.
 (define (run-program root program arguments)
-  (let ((status (cadr (apply system (or (get-environment-variable "NODE") "node") "--no-warnings"
-                             (path-join root "scripts/run-lofi.mjs") program arguments))))
+  (let ((status (cadr (apply system (append (node-command root program) arguments)))))
     (quotient status 256)))
 
 ;; The tools the development server runs, built if needed, as JSON for

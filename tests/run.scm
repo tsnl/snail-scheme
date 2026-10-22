@@ -25,11 +25,6 @@
 
 ;; ---- Cases ----
 
-(define (read-text path)
-  (call-with-input-file path (lambda (port) (let loop ((chunks '()))
-                                              (let ((chunk (read-string 65536 port)))
-                                                (if (eof-object? chunk) (apply string-append (reverse chunks)) (loop (cons chunk chunks))))))))
-
 (define (case-names directory)
   (sort-strings (filter-map (lambda (file) (and (string-suffix? ".sld" file) (substring file 0 (- (string-length file) 4))))
                             (directory-files directory))))
@@ -61,7 +56,7 @@
 ;; ---- Programs ----
 
 (define (run-wasm root program)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "scripts/run-lofi.mjs") program))))
+  (let ((result (process->output+error+status (node-command root program))))
     (string-append (car result) (cadr result))))
 
 ;; Compiles a case. A case that expects a diagnostic is decided here; any
@@ -73,7 +68,7 @@
         (expected-error (path-join directory (string-append name ".err"))))
     (guard (failure
             ((file-exists? expected-error)
-             (let ((text (error-text failure)) (wanted (trim-newline (read-text expected-error))))
+             (let ((text (error-text failure)) (wanted (trim-newline (read-file expected-error))))
                (or (string-contains text wanted) (report name "wrong diagnostic" (string-append text "\nexpected: " wanted)))))
             (#t (report name "compile failed" (error-text failure))))
       (let ((text (program->wat root directories source)))
@@ -84,7 +79,7 @@
 (define (check-output root text program name expected-output)
   (guard (failure (#t (report name "link failed" (error-text failure))))
     (link-wat root text program #f)
-    (let ((output (run-wasm root program)) (expected (read-text expected-output)))
+    (let ((output (run-wasm root program)) (expected (read-file expected-output)))
       (or (equal? output expected) (report name "wrong output" (string-append output "\nexpected:\n" expected))))))
 
 (define (run-suite root suite libraries selected)
@@ -124,7 +119,7 @@
       (create-directory* (path-join root "build/tests/assembler"))
       (call-with-output-file wat (lambda (port) (write-string text port)))
       (let ((result (process->output+error+status
-                     (list "node" "--no-warnings" (path-join root "tests/assembler.mjs") (build-assembler root) (build-runtime root) wat
+                     (list "node" "--no-warnings" (path-join root "tests/assembler.mjs") (build-crate root "assembler") (build-crate root "runtime") wat
                            (path-join root "examples/fibonacci.out")))))
         (or (zero? (caddr result)) (report "assembler" "test failed" (string-append (car result) (cadr result))))))))
 
@@ -197,7 +192,7 @@
       (build-modules root (append (map (lambda (library) (path-join root library)) (suite-libraries suite)) (list (path-join root "lib")))
                      (path-join root suite (string-append name ".sld")) output)
       (let ((printed (run-wasm root (path-join output "modules.json")))
-            (expected (read-text (path-join root suite (string-append name ".out")))))
+            (expected (read-file (path-join root suite (string-append name ".out")))))
         (or (equal? printed expected) (report name "wrong output when linked" (string-append printed "\nexpected:\n" expected)))))))
 
 (define (run-linked-siegework root)
