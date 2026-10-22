@@ -15,7 +15,8 @@
    (lofi compiler expand)
    (lofi compiler check)
    (lofi compiler mono)
-   (lofi compiler wasm))
+   (lofi compiler wasm)
+   (lofi compiler session))
   (begin
 
     ;; `generate` runs the producer program of a `generate-library` and
@@ -25,14 +26,11 @@
       (wat->string (emit-module (monomorphize (check-program (expand-program (make-context directories generate) source))))))
 
     ;; One module of text per library, and one for the program, in program
-    ;; order: each comes after the modules it imports from.
+    ;; order: each comes after the modules it imports from. This is a
+    ;; session's build with nothing kept from before.
     (: compile->modules (-> (List String) String (-> (List Syntax) String String ! mut fs) (List (Pair String String)) ! mut fs))
     (define (compile->modules directories source generate)
-      (let ((typed (check-program (expand-program (make-context directories generate) source))))
-        (map (lambda (unit)
-               (let ((owner (Pair-first unit)))
-                 (Pair owner (wat->string (emit-unit (monomorphize-unit typed owner (Pair-second unit)) owner)))))
-             (unit-items (Typed-program typed) (Typed-items typed)))))
+      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (build-session (make-session directories generate) source)))
 
     (: compile->schemas (-> (List String) String (-> (List Syntax) String String ! mut fs) String ! mut fs))
     (define (compile->schemas directories source generate)

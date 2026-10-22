@@ -122,15 +122,16 @@ export const running = [];
 // An application is the program it runs, which a development server may
 // relink, with the last lines the program wrote to standard error, and the
 // page's renderer, HUD and canvas, which outlive any one program. A page
-// that `lofi serve` serves names its program's modules.json in a meta tag;
-// a published page loads one linked module.
-export async function startApplication({url, canvas, overlay, storageKey}) {
+// that `lofi serve` serves names its program's modules.json in a meta tag,
+// and the browser IDE passes one with a `read` that fetches its files from
+// the toolchain; a published page loads one linked module from `url`.
+export async function startApplication({url, canvas, overlay, storageKey, manifest, read}) {
   const application = {url, canvas, storageKey, exports: null, errors: [], capture: null, renderer: await createRenderer(canvas),
                        hud: null, clock: null, program: null};
   application.hud = createHud(overlay, (action, argument) => application.exports.app_input(PRESS, action, argument, 0, 0),
                               (action, argument) => application.exports.app_input(HOVER, action, argument, 0, 0));
-  const manifest = document.querySelector('meta[name="lofi-modules"]')?.content;
-  application.exports = manifest ? await linkProgram(application, manifest) : await instantiate(application, url);
+  const modules = manifest ?? document.querySelector('meta[name="lofi-modules"]')?.content;
+  application.exports = modules ? await linkProgram(application, modules, read ?? fetchRead(modules)) : await instantiate(application, url);
   await restore(application);
   attachInput(application);
   addEventListener('visibilitychange', () => { if (document.hidden) saveQuietly(application); });
@@ -154,8 +155,7 @@ async function instantiate(application, url) {
 // A program compiled one library at a time: the runtime, then each module
 // in program order (load.mjs). The application keeps the instances, so a
 // rebuilt module and those after it can be relinked.
-async function linkProgram(application, manifest) {
-  const read = async file => new Uint8Array(await (await fetch(new URL(file, new URL(manifest, location.href)), {cache: 'no-store'})).arrayBuffer());
+async function linkProgram(application, manifest, read) {
   const loaded = await loadManifest(read, manifest);
   let runtime = null;
   runtime = await instantiateRuntime(loaded.runtime, {wasi_snapshot_preview1: wasiImports(() => runtime.exports.memory, printer(application))});
@@ -165,6 +165,11 @@ async function linkProgram(application, manifest) {
   runModules(linked, loaded.modules.map(entry => entry.name));
   application.program = {manifest, read, runtime, host, linked};
   return linked.get(loaded.modules.at(-1).name).exports;
+}
+
+// A file's bytes, by its path relative to the manifest's, uncached.
+function fetchRead(manifest) {
+  return async file => new Uint8Array(await (await fetch(new URL(file, new URL(manifest, location.href)), {cache: 'no-store'})).arrayBuffer());
 }
 
 // Lines the program writes go to the console. The last twenty it writes to
