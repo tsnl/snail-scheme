@@ -1,12 +1,23 @@
 // Headless Chromium with software WebGPU, driven through the DevTools
 // protocol: one page, whose console output and exceptions are printed.
-// CHROMIUM names the browser's executable.
+// CHROMIUM names the browser's executable. The tests that drive it, and
+// tests/develop.mjs, wait for what they expect with `until`.
 import {spawn} from 'node:child_process';
 import {mkdtemp, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// The first true value `test` resolves to, asked every tenth of a second.
+export async function until(test, what, seconds = 30) {
+  for (let waited = 0; waited < seconds * 10; waited++) {
+    const value = await test();
+    if (value) return value;
+    await sleep(100);
+  }
+  throw new Error(`timed out waiting for ${what}`);
+}
 
 async function pageSocketUrl(port) {
   for (let i = 0; i < 100; i++) {

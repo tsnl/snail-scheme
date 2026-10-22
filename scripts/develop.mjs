@@ -14,6 +14,7 @@ import {closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readd
 import {createServer} from 'node:http';
 import {extname, join, relative, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
+import {commandImports} from '../src/app/load.mjs';
 import {createAssembler} from './assemble.mjs';
 
 const usage = 'usage: lofi serve [--port PORT] APP-DIRECTORY | lofi watch [-I DIRECTORY] SOURCE [ARGUMENT ...]';
@@ -53,21 +54,19 @@ async function startLoop(root, tools, request) {
   const errors = openSync(join(root, 'build/develop/errors.txt'), 'w+');
   const wasi = new WASI({version: 'preview1', args: ['develop', root, tools.runtime, tools.client, ...request], env: process.env,
                          preopens: {'/': '/'}, returnOnExit: true, stderr: errors});
-  const loop = {exports: null, staged: [], current: '', errors, read: 0, root};
-  const develop = {
-    'argument-character': code => { loop.current += String.fromCodePoint(code); },
-    'argument-end': () => { loop.staged.push(loop.current); loop.current = ''; },
-    command: (code, number) => commands[code](loop.staged.splice(0), number, loop) ?? 0,
-  };
-  const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), {...wasi.getImportObject(), 'snail.develop': develop});
+  const loop = {exports: null, errors, read: 0, root};
+  const imports = {...wasi.getImportObject(), 'snail.develop': commandImports(commands(loop))};
+  const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), imports);
   Object.assign(loop, {exports: instance.exports, assemble: await createAssembler(readFileSync(tools.assembler))});
   wasi.initialize(instance);
   enter(loop, () => instance.exports.main());
   return loop;
 }
 
-// Event 1 is a changed file, 2 the timer, 3 a build that panicked; the
-// event's text goes first, a character at a time.
+// The loop's events, numbered as `deliver-event!` in src/lofi/develop.sld
+// numbers them. An event's text goes first, a character at a time.
+const CHANGED = 1, TIMER = 2, FAILED = 3;
+
 function send(loop, kind, text) {
   enter(loop, () => {
     for (const character of text) loop.exports.develop_character(character.codePointAt(0));
@@ -81,7 +80,7 @@ function enter(loop, call) {
     printErrors(loop);
   } catch {
     const message = printErrors(loop).trim().replace(/^lofi: /, '');
-    send(loop, 3, message || 'the build failed');
+    send(loop, FAILED, message || 'the build failed');
   }
 }
 
@@ -97,28 +96,36 @@ function printErrors(loop) {
 
 // ---- Commands ----
 
-// Numbered as the `develop` effect's commands in src/lofi/develop.sld.
-const commands = [
-  null,
-  ([directory], _, loop) => {
-    watch(directory, {recursive: true}, (event, name) => { if (name) send(loop, 1, join(directory, name)); });
-  },
-  (_, milliseconds, loop) => {
-    clearTimeout(loop.timer);
-    loop.timer = setTimeout(() => send(loop, 2, ''), milliseconds);
-  },
-  ([text, module], _, loop) => {
-    try { writeFileSync(module, loop.assemble(readFileSync(text, 'utf8'))); return 0; }
-    catch (error) { console.error(error.message); return 1; }
-  },
-  ([routes, name], port, loop) => serve(loop, JSON.parse(readFileSync(routes, 'utf8')), name, port),
-  ([event], _, loop) => broadcast(loop, event),
-  ([manifest, ...args], _, loop) => runProgram(loop, manifest, args),
-  ([path]) => { try { return createHash('sha256').update(readFileSync(path)).digest().readInt32LE(0); } catch { return 0; } },
-  () => Math.round(performance.now()) | 0,
-  ([directory, output]) => { let names = []; try { names = readdirSync(directory); } catch {} writeFileSync(output, names.join('\n')); },
-  ([directory]) => { mkdirSync(directory, {recursive: true}); },
-];
+// The `develop` effect's commands, by the names src/lofi/develop.sld gives
+// them.
+function commands(loop) {
+  return {
+    watch([directory]) {
+      watch(directory, {recursive: true}, (event, name) => { if (name) send(loop, CHANGED, join(directory, name)); });
+    },
+    schedule(_, milliseconds) {
+      clearTimeout(loop.timer);
+      loop.timer = setTimeout(() => send(loop, TIMER, ''), milliseconds);
+    },
+    assemble([text, module]) {
+      try { writeFileSync(module, loop.assemble(readFileSync(text, 'utf8'))); return 0; }
+      catch (error) { console.error(error.message); return 1; }
+    },
+    serve([routes, name], port) { serve(loop, JSON.parse(readFileSync(routes, 'utf8')), name, port); },
+    broadcast([event]) { broadcast(loop, event); },
+    run([manifest, ...args]) { runProgram(loop, manifest, args); },
+    digest([path]) {
+      try { return createHash('sha256').update(readFileSync(path)).digest().readInt32LE(0); } catch { return 0; }
+    },
+    now: () => Math.round(performance.now()) | 0,
+    'list-directory'([directory, output]) {
+      let names = [];
+      try { names = readdirSync(directory); } catch {}
+      writeFileSync(output, names.join('\n'));
+    },
+    'make-directory'([directory]) { mkdirSync(directory, {recursive: true}); },
+  };
+}
 
 // ---- Serving ----
 

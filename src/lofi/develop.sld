@@ -24,22 +24,22 @@
     ;; ---- Host commands ----
 
     ;; What Lofi cannot do alone: watch files, keep time, assemble a module,
-    ;; serve pages and run a program. A command is a number with string
+    ;; serve pages and run a program. A command is a name with string
     ;; arguments, sent a character at a time, and a number; the host answers
-    ;; with a number.
+    ;; with a number. Each host names its commands as these functions do.
     (effect develop
       ((argument-character (-> Char Unit))
        (argument-end (-> Unit))
-       (command (-> I32 I32 I32)))
+       (command (-> I32 I32)))
       (host "snail.develop"
             ((argument-character "argument-character")
              (argument-end "argument-end")
              (command "command"))))
 
-    (: host-command (-> I32 (List String) I32 I32 ! develop))
-    (define (host-command code arguments number)
-      (for-each send-argument arguments)
-      (command code number))
+    (: host-command (-> String (List String) I32 I32 ! develop))
+    (define (host-command name arguments number)
+      (for-each send-argument (Cons name arguments))
+      (command number))
 
     (: send-argument (-> String Unit ! develop))
     (define (send-argument text)
@@ -49,63 +49,62 @@
           (loop (+ index 1))))
       (argument-end))
 
-    ;; The commands, numbered as scripts/develop.mjs numbers them.
     (: watch! (-> String Unit ! develop))
     (define (watch! directory)
-      (host-command 1 (list directory) 0)
+      (host-command "watch" (list directory) 0)
       (unit))
 
     ;; Asks for `timer-fired!` after `milliseconds`, replacing any earlier
     ;; request.
     (: schedule! (-> I32 Unit ! develop))
     (define (schedule! milliseconds)
-      (host-command 2 (Nil) milliseconds)
+      (host-command "schedule" (Nil) milliseconds)
       (unit))
 
     (: assemble! (-> String String Bool ! develop))
     (define (assemble! text-path module-path)
-      (= (host-command 3 (list text-path module-path) 0) 0))
+      (= (host-command "assemble" (list text-path module-path) 0) 0))
 
     ;; Serves the routes the file names, on `port`, or any free port for 0;
     ;; the host announces where, under `name`.
     (: serve! (-> String String I32 Unit ! develop))
     (define (serve! routes name port)
-      (host-command 4 (list routes name) port)
+      (host-command "serve" (list routes name) port)
       (unit))
 
     ;; Sends an event to every open page; a page that connects later gets the
     ;; latest.
     (: broadcast! (-> String Unit ! develop))
     (define (broadcast! event)
-      (host-command 5 (list event) 0)
+      (host-command "broadcast" (list event) 0)
       (unit))
 
     ;; Runs the program a modules.json names, once the run before it has
     ;; stopped.
     (: run! (-> String (List String) Unit ! develop))
     (define (run! manifest arguments)
-      (host-command 6 (Cons manifest arguments) 0)
+      (host-command "run" (Cons manifest arguments) 0)
       (unit))
 
     ;; A digest of a file's bytes, which change when the file does.
     (: digest (-> String I32 ! develop))
     (define (digest path)
-      (host-command 7 (list path) 0))
+      (host-command "digest" (list path) 0))
 
     (: now (-> I32 ! develop))
     (define (now)
-      (host-command 8 (Nil) 0))
+      (host-command "now" (Nil) 0))
 
     ;; Writes the names of a directory's files, one to a line, to `output`.
     (: list-directory! (-> String String Unit ! develop))
     (define (list-directory! directory output)
-      (host-command 9 (list directory output) 0)
+      (host-command "list-directory" (list directory output) 0)
       (unit))
 
     ;; Creates a directory and any missing parents.
     (: make-directory! (-> String Unit ! develop))
     (define (make-directory! directory)
-      (host-command 10 (list directory) 0)
+      (host-command "make-directory" (list directory) 0)
       (unit))
 
     ;; ---- Requests ----
@@ -364,7 +363,8 @@
                            (append (list (Pair "/" (string-append output "/index.html")) (Pair "/index.html" (string-append output "/index.html"))
                                          (Pair "/modules.json" (string-append output "/modules.json")) (Pair "/.lofi/runtime.wasm" (Loop-runtime loop))
                                          (Pair "/.lofi/reload.wasm" (Loop-client loop)) (Pair "/.lofi/reload.mjs" (string-append host "reload.mjs"))
-                                         (Pair "/.lofi/reload-client.mjs" (string-append host "reload-client.mjs")))
+                                         (Pair "/.lofi/reload-client.mjs" (string-append host "reload-client.mjs"))
+                                         (Pair "/.lofi/load.mjs" (string-append host "load.mjs")))
                                    (map (lambda (file) (Pair (string-append "/" file) (string-append host file))) host-files)))
                       ", ")
          "}, \"directories\": {\"/modules/\": " (json-string (string-append output "/modules/")) ", \"/\": " (json-string (string-append app "/public/"))
