@@ -1481,6 +1481,7 @@
          (match (resolve cx scope syntax)
            ((Some (Local name)) (PVar name unchecked))
            (_ (panic "internal error: unbound pattern variable"))))
+        ((Atom (DBytes _) loc) (compile-error loc "a byte vector cannot be a pattern"))
         ((Atom value _) (PLit value unchecked))
         ((Form (Cons head args) _)
          (PCon (pattern-constructor cx env head) (map (lambda (arg) (expand-pattern cx env scope arg)) args) unchecked))
