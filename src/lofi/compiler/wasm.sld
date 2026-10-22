@@ -255,6 +255,7 @@
     (: default-value (-> Rep Wat))
     (define (default-value rep)
       (match rep
+        ((Scalar "funcref") (wat "ref.null" (Word "func")))
         ((Scalar name) (wat (string-append name ".const") (Word "0")))
         ((Reference type) (wat "ref.null" (id type)))))
 
@@ -269,6 +270,7 @@
            (("F64") (Scalar "f64"))
            (("String") (Reference (array-type m (Scalar "i32"))))
            (("Any") (Reference (any-type m)))
+           (("Funcref") (Scalar "funcref"))
            (("Array" "Vector") (Reference (array-type m (element-rep m (first-type args)))))
            (("Ref") (Reference (cell-type m (rep m (first-type args)))))
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
@@ -1022,6 +1024,61 @@
                ((Scalar _) (wat "struct.get" (id (box-type m r)) (int 0) (wat "ref.cast" (wat "ref" (id (box-type m r))) payload)))
                ((Reference _) (wat "ref.cast" (rep->wat r) payload))))))
 
+    ;; ---- Exported functions ----
+
+    ;; A Funcref becomes a closure that holds it, whose code casts it to the
+    ;; Wasm type of a function of the expected type and calls it. The cast is
+    ;; the only check: the engine traps if the function's Wasm type differs,
+    ;; and nothing compares Lofi types, which is what makes the cast unsafe.
+    (: funcref-closure (-> Module Type Wat Wat ! mut))
+    (define (funcref-closure m type reference)
+      (match type
+        ((TFun _ _ _)
+         (let* ((signature (function-signature m type)) (base (closure-type m (Pair-first signature) (Pair-second signature)))
+                (holder (funcref-holder-type m base)))
+           (wat "struct.new" (id holder) (wat "ref.func" (id (funcref-code m signature base holder))) reference)))
+        (_ (panic (string-append "unsafe-cast makes a function, not a " (type->string type))))))
+
+    (: funcref-holder-type (-> Module String String ! mut))
+    (define (funcref-holder-type m base)
+      (let ((key (string-append "holder." (substring base 1 (string-length base)))))
+        (match (known-type m key)
+          ((Some type) type)
+          ((None)
+           (register-type! m key (wasm-id key)
+                           (wat "type" (id (wasm-id key))
+                                (wat "sub" (Word "final") (id base) (wat "struct" (wat "field" (wat "ref" (id (code-type m base)))) (wat "field" (Word "funcref"))))))))))
+
+    ;; The code takes the closure and the arguments, and calls the function
+    ;; the closure holds with the arguments, at that function's own type,
+    ;; which takes no closure.
+    (: funcref-code (-> Module (Pair (List Rep) Rep) String String String ! mut))
+    (define (funcref-code m signature base holder)
+      (let ((params (Pair-first signature)) (result (Pair-second signature)))
+        (helper! m "funcref" holder
+                 (lambda (function-id)
+                   (push! (Module-declared m) function-id)
+                   (wat* "func" (concatenate (list (list (id function-id) (wat "type" (id (code-type m base))) (wat "param" (wat "ref" (id base))))
+                                                   (map (lambda (param) (wat "param" (rep->wat param))) params)
+                                                   (list (wat "result" (rep->wat result)) (held-call m params result holder)))))))))
+
+    (: held-call (-> Module (List Rep) Rep String Wat ! mut))
+    (define (held-call m params result holder)
+      (let ((own (register-function-type! m params result))
+            (held (wat "struct.get" (id holder) (int 1) (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0))))))
+        (wat* "call_ref" (append (Cons (id own) (map (lambda (index) (wat "local.get" (int (+ index 1)))) (iota (length params))))
+                                 (list (wat "ref.cast" (wat "ref" (id own)) held))))))
+
+    (: register-function-type! (-> Module (List Rep) Rep String ! mut))
+    (define (register-function-type! m params result)
+      (let ((key (string-append "export." (string-join (map rep-key params) ",") "->" (rep-key result))))
+        (match (known-type m key)
+          ((Some type) type)
+          ((None)
+           (register-type! m key (wasm-id key)
+                           (wat "type" (id (wasm-id key))
+                                (wat* "func" (append (map (lambda (param) (wat "param" (rep->wat param))) params) (list (wat "result" (rep->wat result)))))))))))
+
     ;; ---- Effect handlers ----
 
     ;; Each effect has a global stack of handlers, linked through `outer`. An
@@ -1183,6 +1240,7 @@
         (case operation
           (("unit") (list (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
+          (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
           (("bool->i32" "char->i32" "i32->char" "string->vector" "vector->string" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))

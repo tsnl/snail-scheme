@@ -1,14 +1,18 @@
 #!/usr/bin/env node
+import {readFileSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {dirname, isAbsolute, join} from 'node:path';
 import {WASI} from 'node:wasi';
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
-import {instantiateRuntime, linkModules, loadManifest, runModules} from '../src/app/load.mjs';
+import {instantiateRuntime, linkModules, loadManifest, runModules, wasmImports} from '../src/app/load.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
 // A program is one linked module, or a modules.json naming the modules of a
-// program compiled one library at a time (src/app/load.mjs).
+// program compiled one library at a time (src/app/load.mjs). Either may
+// load modules while it runs, through (lofi wasm); a linked module links
+// only against what the program kept exported, which for one linked module
+// is nothing of the runtime's.
 
 function resultStatus(value) {
   if (value === undefined) return 0;
@@ -22,7 +26,10 @@ async function run(filename, arguments_) {
   const wasi = new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
   if (filename.endsWith('.json')) return runLinked(filename, wasi);
-  const {instance} = await WebAssembly.instantiate(await readFile(filename), wasi.getImportObject());
+  let instance = null;
+  const host = {};
+  host['snail.wasm'] = wasmImports({get exports() { return instance.exports; }}, host, new Map(), file => readFileSync(file));
+  ({instance} = await WebAssembly.instantiate(await readFile(filename), {...wasi.getImportObject(), ...host}));
   let status = 1;
   try {
     wasi.initialize(instance);
@@ -39,9 +46,11 @@ async function runLinked(manifest, wasi) {
   const {runtime, modules} = await loadManifest(file => readFile(isAbsolute(file) ? file : join(dirname(manifest), file)), manifest);
   const instance = await instantiateRuntime(runtime, wasi.getImportObject());
   wasi.initialize(instance);
+  const linked = new Map(), host = {};
+  host['snail.wasm'] = wasmImports(instance, host, linked, file => readFileSync(file));
   let status = 1;
   try {
-    status = resultStatus(runModules(await linkModules(instance, modules, {}), modules.map(entry => entry.name)));
+    status = resultStatus(runModules(await linkModules(instance, modules, host, linked), modules.map(entry => entry.name)));
   } finally {
     if (instance.exports['snail:io/close-all']() !== 0 && status === 0) status = 1;
   }

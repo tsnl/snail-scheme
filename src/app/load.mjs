@@ -18,24 +18,27 @@ export async function instantiateRuntime(module, wasiImports) {
 
 const ENOSYS = 52;
 
-// Instantiates the modules in order. Each sees the runtime, the modules
-// before it under their library names, and the host's modules. A module may
-// replace one already linked, as a rebuilt library does; `linked` maps
-// names to instances and is updated in place.
-// A library's module holds all of its functions, so it may import host
-// services, such as the screen, that this host lacks and the program never
-// calls. Such an import links to a function that fails if called, as a
-// statically linked program would have left it out. A missing import from
-// the runtime or a library's module still fails to link.
+// Instantiates the modules in order. A module may replace one already
+// linked, as a rebuilt library does; `linked` maps names to instances and is
+// updated in place.
 export async function linkModules(runtime, modules, host, linked = new Map()) {
   const libraries = new Set(['snail.library', ...linked.keys(), ...modules.map(entry => entry.name)]);
-  for (const {name, module} of modules) {
-    const imports = {...host, 'snail.library': runtime.exports};
-    for (const [library, instance] of linked) imports[library] = instance.exports;
-    const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(from => !libraries.has(from));
-    linked.set(name, await WebAssembly.instantiate(module, withStubs(module, imports, hosted, missingHost)));
-  }
+  for (const {name, module} of modules) linked.set(name, await WebAssembly.instantiate(module, moduleImports(runtime, host, linked, libraries, module)));
   return linked;
+}
+
+// A module sees the runtime, the modules linked before it under their
+// library names, and the host's modules. A library's module holds all of
+// its functions, so it may import host services, such as the screen, that
+// this host lacks and the program never calls. Such an import links to a
+// function that fails if called, as a statically linked program would have
+// left it out. A missing import from the runtime or a library's module
+// still fails to link.
+function moduleImports(runtime, host, linked, libraries, module) {
+  const imports = {...host, 'snail.library': runtime.exports};
+  for (const [library, instance] of linked) imports[library] = instance.exports;
+  const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(from => !libraries.has(from));
+  return withStubs(module, imports, hosted, missingHost);
 }
 
 const missingHost = (from, name) => () => { throw new Error(`this host does not provide ${from} ${name}`); };
@@ -50,6 +53,35 @@ function withStubs(module, imports, stubbed, stub) {
   }
   return complete;
 }
+
+// ---- Loading while the program runs ----
+
+// The `wasm` effect of (lofi wasm). A program loads a module from a file,
+// linked as its own modules are, after them and the modules it loaded
+// before, and takes the functions the module exports. The program waits
+// for both, so they are synchronous. `read` gives a file's bytes.
+export function wasmImports(runtime, host, linked, read) {
+  const loaded = [];
+  let staged = [], current = '';
+  const take = () => { const taken = staged; staged = []; return taken; };
+  return {
+    'argument-character': code => { current += String.fromCodePoint(code); },
+    'argument-end': () => { staged.push(current); current = ''; },
+    load() {
+      const [name, file] = take(), module = new WebAssembly.Module(read(file));
+      const libraries = new Set(['snail.library', ...linked.keys()]);
+      linked.set(name, new WebAssembly.Instance(module, moduleImports(runtime, host, linked, libraries, module)));
+      return loaded.push(linked.get(name)) - 1;
+    },
+    'export-function'(handle) {
+      const [name] = take(), value = loaded[handle].exports[name];
+      if (typeof value !== 'function') throw new Error(`the module exports no function ${name}`);
+      return value;
+    },
+  };
+}
+
+// ---- Running ----
 
 // Runs each module's initialization in program order; the program's own,
 // last, returns its status.
