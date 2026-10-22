@@ -186,6 +186,8 @@
    structures-changed
    powered?
    wire-reaches?
+   node-kind
+   joinable?
    clear-line?
    rewire
    uncover
@@ -252,7 +254,9 @@
       (match kind
         ((Extractor) 4)
         ((Pylon) (case level ((1) 7) ((2) 10) (else 12)))
-        ((Turret) 6)))
+        ;; Turrets neither see nor hold wires: they shoot only what other
+        ;; buildings reveal, and draw power only inside a pylon's reach.
+        ((Turret) 0)))
 
     (: maximum-level I64)
     (define maximum-level 3)
@@ -583,6 +587,31 @@
     (define (wire-reaches? world a reach-a b reach-b)
       (and (within? a b (max reach-a reach-b)) (clear-line? world a b)))
 
+    ;; Turrets draw power only from pylons: a wire with a turret at one end
+    ;; needs a pylon at the other. The hub has no kind.
+    (: joinable? (-> (Option Kind) (Option Kind) Bool))
+    (define (joinable? a b)
+      (and (or (not (kind-is-turret? a)) (kind-is-pylon? b))
+           (or (not (kind-is-turret? b)) (kind-is-pylon? a))))
+
+    (: kind-is-turret? (-> (Option Kind) Bool))
+    (define (kind-is-turret? kind)
+      (match kind
+        ((Some k) (match k ((Turret) #t) (_ #f)))
+        ((None) #f)))
+
+    (: kind-is-pylon? (-> (Option Kind) Bool))
+    (define (kind-is-pylon? kind)
+      (match kind
+        ((Some k) (match k ((Pylon) #t) (_ #f)))
+        ((None) #f)))
+
+    (: node-kind (-> World Node (Option Kind)))
+    (define (node-kind world node)
+      (match (building world (Node-id node))
+        ((Some b) (Some (Building-kind b)))
+        ((None) (None))))
+
     (: hub-node (-> World Node))
     (define (hub-node world)
       (Node 0 (Hub-cell (World-hub world)) hub-reach))
@@ -608,7 +637,8 @@
     (: link (-> World (Vector Node) I64 I64 (Option Link)))
     (define (link world nodes i j)
       (let ((a (vector-ref nodes i)) (b (vector-ref nodes j)))
-        (if (wire-reaches? world (Node-cell a) (Node-reach a) (Node-cell b) (Node-reach b))
+        (if (and (joinable? (node-kind world a) (node-kind world b))
+                 (wire-reaches? world (Node-cell a) (Node-reach a) (Node-cell b) (Node-reach b)))
             (Some (Link i j (distance-squared (Node-cell a) (Node-cell b))))
             (None))))
 

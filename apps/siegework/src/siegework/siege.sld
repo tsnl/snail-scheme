@@ -41,7 +41,7 @@
     ;; thirty seconds. Strength rises every ninety seconds; raids replace
     ;; every other wave from 1:45, and bosses come every nine minutes.
     (: wave-interval I64)
-    (define wave-interval 300)
+    (define wave-interval 600)
 
     (: first-wave I64)
     (define first-wave 450)

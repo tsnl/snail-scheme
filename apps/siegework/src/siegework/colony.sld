@@ -199,7 +199,8 @@
     ;; Whether a powered building could wire to a new `kind` at `cell`.
     (: in-reach? (-> World Kind Cell Bool))
     (define (in-reach? world kind cell)
-      (any? (lambda (node) (wire-reaches? world (Node-cell node) (Node-reach node) cell (kind-reach kind 1)))
+      (any? (lambda (node) (and (joinable? (node-kind world node) (Some kind))
+                                (wire-reaches? world (Node-cell node) (Node-reach node) cell (kind-reach kind 1))))
             (Network-powered (World-network world))))
 
     ;; New work joins the end of the queue.
