@@ -1,3 +1,11 @@
-an extractor and a turret are ready before the first attack: #t
-an undefended hub falls before tick 1000: #t
+a pylon and a turret are ready before the first attack: #t
+an undefended hub falls before tick 1200: #t
 a hub ringed with turrets holds through tick 3000: #t
+seed 1: undefended hub falls at tick 980; defended at tick 3000: hub 600, turrets 8, workers 5, kills 40, buildings lost 0
+seed 2: undefended hub falls at tick 1090; defended at tick 3000: hub 600, turrets 8, workers 5, kills 39, buildings lost 0
+seed 3: undefended hub falls at tick 840; defended at tick 3000: hub 572, turrets 8, workers 5, kills 39, buildings lost 1
+seed 4: undefended hub falls at tick 850; defended at tick 3000: hub 600, turrets 8, workers 5, kills 39, buildings lost 1
+seed 5: undefended hub falls at tick 890; defended at tick 3000: hub 544, turrets 8, workers 5, kills 41, buildings lost 0
+seed 6: undefended hub falls at tick 830; defended at tick 3000: hub 600, turrets 4, workers 5, kills 41, buildings lost 4
+seed 7: undefended hub falls at tick 1070; defended at tick 3000: hub 600, turrets 8, workers 5, kills 39, buildings lost 2
+seed 8: undefended hub falls at tick 850; defended at tick 3000: hub 600, turrets 8, workers 5, kills 39, buildings lost 3

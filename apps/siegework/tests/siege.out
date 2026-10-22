@@ -1,18 +1,34 @@
-attacks: 450 wave of 8, 750 wave of 8, 1050 raid of 11, 1350 wave of 8, 1650 raid of 12, 1950 wave of 8, 2250 raid of 13, 2550 wave of 8, 2850 raid of 14, 3150 wave of 9, 3450 raid of 15, 3750 wave of 9
-next attack after tick 5000: 5250 raid of 18
-undefended: tick 860, buildings 1, hub 0, enemies 16, kills 0, lost 0, opened rock 1, lost
+attacks: 450 wave of 8, 1050 raid of 11, 1650 wave of 8, 2250 raid of 12, 2850 wave of 8, 3450 raid of 13, 4050 wave of 9, 4650 raid of 14, 5250 wave of 9, 5400 boss of 12, 5850 raid of 15, 6450 wave of 10
+next attack after tick 5000: 5250 wave of 9
+undefended: tick 980, buildings 1, hub 0, workers 0, enemies 6, kills 2, lost 0, opened rock 0, lost
 the lost colony's whole map is uncovered: #t
-defended: tick 1000, buildings 7, hub 600, enemies 6, kills 10, lost 0, opened rock 1, playing
-defended: tick 3000, buildings 9, hub 600, enemies 12, kills 78, lost 0, opened rock 4, playing
-tick 101: the turret at x 41 fires; the enemy has turned on building 3
-tick 102: the turret at x 35 fires; the enemy has turned on building 3
-tick 109: the turret at x 41 fires; the enemy has turned on building 3
-tick 110: the turret at x 35 fires; the enemy has turned on building 3
-tick 117: the turret at x 41 fires; the enemy has turned on building 3
-tick 118: the turret at x 35 fires; the enemy has turned on building 3
-tick 125: the turret at x 41 fires; the enemy has turned on building 3
-tick 126: the turret at x 35 fires; the enemy has turned on building 3
-tick 133: the turret at x 41 fires; the enemy has turned on building 3
-tick 134: the turret at x 35 fires; the enemy has turned on building 3
-at tick 140 the enemy has turned on building 3
-the guns stay on each turret's last shot: Extractor at x 41 has not fired, Turret at x 35 aims at 40,42, Turret at x 41 aims at 40,42
+defended: tick 1000, buildings 7, hub 600, workers 3, enemies 0, kills 8, lost 0, opened rock 0, playing
+defended: tick 3000, buildings 10, hub 600, workers 3, enemies 7, kills 40, lost 0, opened rock 0, playing
+an aggressive enemy east of two pylons:
+  tick 0: at 50,40, going for the hub
+  tick 1: at 49,40, going for Pylon at 47,41
+  tick 90: at 47,40, going for nothing
+  tick 97: at 46,40, going for Pylon at 45,39
+  tick 180: at 46,39, going for nothing
+  tick 185: at 45,39, going for the hub
+  tick 209: at 42,39, going for worker 1
+  tick 270: at 40,39, going for nothing
+  tick 273: at 40,39, going for worker 2
+  tick 320: at 40,39, going for nothing
+  tick 321: at 40,39, going for worker 3
+  tick 370: at 40,39, going for nothing
+  tick 377: at 40,39, going for the hub
+a calm enemy shot by a turret:
+  tick 0: at 51,39, going for the hub
+  by tick 100 it is at 41,39 with health 1799, the turret standing: #t
+walls around the hub: 16, their health 3200
+  the enemy chose to dig: #t
+  tick 68: wall health 3081
+  tick 100: the hub is struck; walls standing 15
+workers beside an enemy:
+  tick 0: enemy 65, workers 60 60 60
+  tick 10: enemy 65, workers 60 60 60
+  tick 20: enemy 47, workers 53 60 60
+  tick 30: enemy 29, workers 46 60 60
+  tick 40: enemy 11, workers 39 60 60
+  tick 50: enemy gone, workers 32 60 60

@@ -1,11 +1,11 @@
 rejected: Start with an extractor on a crystal.
+tick 0, energy 20, workers 3: worker 0/30 active; worker 0/30; Pylon 39,46 0/20; Pylon 35,39 0/20; Pylon 39,33 0/20
+tick 25, energy 24, workers 3: worker 25/30 active; worker 0/30; Pylon 39,46 0/20; Pylon 35,39 12/20 active; Pylon 39,33 0/20
+tick 25, energy 30, workers 4: Pylon 39,46 0/20; Pylon 35,39 12/20 active; Pylon 39,33 0/20
+tick 65, energy 38, workers 4: 
+tick 465, energy 68, workers 4: Pylon 35,41 0/20; Pylon 39,31 0/20
 rejected: Not enough energy.
-tick 0, energy 10, slots 1: hub slot 0/50 active; Pylon 39,46 0/20
+tick 475, energy 70, workers 4: Pylon 35,41 0/20; Pylon 39,31 0/20
+tick 475, energy 95, workers 4: Pylon 35,41 0/20
 rejected: Not enough energy.
-tick 25, energy 14, slots 1: hub slot 25/50 active; Pylon 39,46 0/20
-tick 50, energy 20, slots 2: Pylon 39,46 0/20 active
-tick 500, energy 60, slots 2: Pylon 35,39 0/20 active; Pylon 39,33 0/20 active
-tick 510, energy 12, slots 2: Pylon 39,33 10/20 active
-tick 510, energy 37, slots 2: 
-rejected: Not enough energy.
-tick 510, energy 37, slots 2: 
+tick 475, energy 95, workers 4: Pylon 35,41 0/20

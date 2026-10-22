@@ -1,7 +1,8 @@
-;; A scripted colony on seed 3, a meadow: an extractor on the starter crystal, ready
-;; at once as every colony's first is, then its upgrade and a scavenged
-;; pylon. Energy always equals the starting
-;; energy plus what was produced minus what was spent, net of refunds.
+;; A scripted colony on seed 3, a meadow: an extractor on the starter
+;; crystal, ready at once as every colony's first is, then its upgrade, a
+;; scavenged pylon and a repair, each done by a worker. Energy always
+;; equals the starting energy plus what was produced minus what was spent,
+;; net of refunds.
 (import
  (lofi base)
  (lofi io)
@@ -60,5 +61,6 @@
   (write-line (string-append "buildings " (show (length (World-buildings world)))))
   (define damaged (World-hub-set world (Hub-health-set (World-hub world) 421)))
   (define repaired (order damaged (Repair)))
-  (write-line (string-append "repair restores the hub from 421 to " (show (Hub-health (World-hub repaired)))
-                             " for " (show (- (World-energy damaged) (World-energy repaired))) " energy")))
+  (write-line (string-append "repair costs " (show (- (World-energy damaged) (World-energy repaired))) " energy; the hub has "
+                             (show (Hub-health (World-hub repaired))) " until a worker has labored there, then "
+                             (show (Hub-health (World-hub (run repaired 30)))))))
