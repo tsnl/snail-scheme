@@ -1,8 +1,9 @@
 # Redesign: Lofi from a clean slate, and how to get there
 
-> **Status: partly implemented.** Section 7 records what exists. The
-> [language guide](language.md) and [tour](../TOUR.md) describe the current
-> compiler.
+> **Status: partly implemented.** The book's [roadmap](book/roadmap.md)
+> tracks what exists and what remains; section 7 records how this plan was
+> carried out. The [language guide](language.md) and [tour](../TOUR.md)
+> describe the current compiler.
 
 This document designs Lofi as if starting over, then plans the path from the
 previous compiler to that design.
@@ -602,16 +603,18 @@ Wasm build bootstraps without Chibi. Chibi remains the host of the first
 bootstrap and of `make test-chibi`.
 
 **Full Scheme.** `(scheme compiler)` is a Lofi library: a reader plus a
-translator from R7RS source text to Lofi source text. Its output represents
-every value as `Any` and uses the existing dynamic libraries (`datum`,
-`number`, `read`, `write`) for Scheme's own data. Wherever generated code meets
-typed Lofi code, the translator inserts `(type-convert e T)`, liberally and
-without proving it necessary:
+translator from R7RS source to the syntax of a Lofi library. Every Scheme
+value is a `Datum`, the type of Scheme data in the dynamic libraries
+(`datum`, `number`, `read`, `write`), so matching on one enum replaces
+run-time type tests. Scheme code calls no typed Lofi code yet. *Proposed:*
+wherever generated code meets typed Lofi code, the translator inserts
+`(type-convert e T)`, liberally and without proving it necessary:
 
 - **Upcast.** Converting a typed value to `Any` is checked statically and
   injects the value with its `TypeId`.
 - **Downcast.** Converting an `Any` to a specific type checks the `TypeId` at
-  run time and traps on a mismatch.
+  run time and traps on a mismatch; `(type-test e T)` asks first, without
+  trapping.
 - **Redundancy.** The compiler removes conversions it proves redundant, such
   as a downcast of a value just upcast from the same type.
 
@@ -658,18 +661,18 @@ Scheme subset, beside the old one, which was then deleted.
   type's identity, a downcast checks it at run time, and a downcast of a
   value just upcast from the same type is removed.
 
-- **Section 5, reload.** `lofi serve` swaps a rebuilt module into a
-  running page by restoring the old module's serialized save into it; a
-  save written for another schema is refused and the old module keeps
-  running. Migration functions between schemas are not implemented.
+- **Section 5, reload.** `lofi serve` relinks a rebuilt module into a
+  running page and hands the state over as it is when `type-test` finds its
+  type unchanged, or through its save otherwise ([toolchain.md](toolchain.md),
+  section 4.1). Migration functions between schemas are not implemented.
 
 - **Phase 5, partly.** `lofi schema` prints the wire schema of every data
   type with a `Serialize` instance: each case's TypeId and field types.
   `(lofi explore)` checks an invariant of a total state machine by bounded
   breadth-first search, identifying states by their wire encoding.
 
-- **Phase 5, `(scheme compiler)`.** A translator from R7RS text to the text
-  of a Lofi library, run by a `generate-library` recipe, with
+- **Phase 5, `(scheme compiler)`.** A translator from R7RS text to the
+  syntax of a Lofi library, run by a `generate-library` recipe, with
   `(scheme runtime)` for the standard procedures. It covers the core forms
   but not macros, quasiquote, continuations or mutable pairs. Every value
   is a `Datum`, the dynamic libraries' type for Scheme data, which gained a
@@ -688,12 +691,14 @@ needs it.
   by evaluation, implicit arguments and multiplicity slots would roughly
   double the checker for type-level computation no program uses, so the core
   has no multiplicity slot.
-- **Checked interfaces.** The compiled compiler checks Siegework, the
-  largest program, in a fraction of a second, so caching a serialized
-  interface per library would add a format and its invalidation without a
-  measurable gain. Wire schemas come from the checked program instead.
-- **The WGSL backend.** The renderer has one shader of about 25 lines, which
-  shares no structs with Lofi code beyond a fixed instance layout.
+- **Checked interfaces.** Separate compilation hashes each library's
+  interface to decide what to rebuild, but stores none: the compiled
+  compiler checks Siegework, the largest program, in a fraction of a second,
+  so an interface file would add a format and its invalidation without a
+  measurable gain. Wire schemas come from the checked program.
+- **The WGSL backend.** The renderer's shaders are WGSL text that shares no
+  structs with Lofi code beyond fixed instance and material layouts. The
+  runtime and graphics plan proposes shaders written as S-expressions.
 - **Typed destinations.** An application is one actor whose host delivers
   input and ticks; with nothing else to send to, a destination type would
   have one inhabitant.
@@ -712,7 +717,7 @@ needs it.
 
 ### Risks
 
-- **Compile time.** The compiled compiler builds itself, about 5,000 lines,
+- **Compile time.** The compiled compiler builds itself, about 6,800 lines,
   in under a second, and Siegework in about a second. Chibi needs about
   forty seconds and several gigabytes of heap for the compiler, so it only
   starts a bootstrap.

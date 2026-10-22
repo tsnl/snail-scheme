@@ -68,6 +68,9 @@ the compiler, and watch the application relink beside the editor.
   game into `build/pages`.
 - [The language guide](doc/language.md) describes the language as implemented.
 - [The compiler tour](TOUR.md) follows a program through the passes.
-- [The redesign](doc/redesign.md) records the design and what remains.
+- [The redesign](doc/redesign.md) records the design, and the book's
+  [roadmap](doc/book/roadmap.md) what is implemented and what remains.
+- [The toolchain design](doc/toolchain.md) explains separate compilation,
+  live reload and the browser IDE.
 
 [Apache-2.0](LICENSE)

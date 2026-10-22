@@ -270,32 +270,55 @@ the first changed type instead of misreading it.
 
 ## Applications
 
+<!-- ANCHOR: applications -->
 `(lofi app)` defines interactive applications as total functions over a
-state: `init` makes it from a seed and the screen size, `update` applies one
-`Input`, `view` describes a `Frame` of mesh instances under a camera and a
-light, and `hud` describes the HUD's panels, shown again after each update.
-Time is input too: each display frame reports the milliseconds since the
-last, so the application decides how time passes and can stop it.
-Two more convert the state to and from a `Save` with a wire encoding, which
-may be a record of how to rebuild the state rather than the state itself.
-`define-application` exposes them to the browser host in `src/app`. Items
-carry where they were, so the host moves them between updates; `recognize`
-turns raw pointer events into points, taps, drags and pinches.
-[Siegework](../apps/siegework) is the complete example.
+state:
+
+| Function | Meaning |
+| --- | --- |
+| `init : seed width height -> State` | The first state. |
+| `update : State Input -> State` | Applies one input: a key, a pointer, a HUD button, the screen's size, or the milliseconds since the last display frame. |
+| `view : State -> Frame` | A frame of items, meshes and sprites, under a camera and a light, with the pictures their textures use. |
+| `hud : State -> (List Panel)` | The HUD's panels of labels, texts, buttons, dials, links and images, shown again after each update. |
+| `save : State -> Save` | What to store, with a wire encoding; it may be a record of how to rebuild the state. |
+| `restore : Save -> State` | The state again. |
+
+`define-application` exposes these to the browser host in `src/app`. The
+host forwards raw input, reports elapsed time before each display frame,
+draws each frame with WebGPU and stores the serialized save in the browser.
+Because time is input, an application decides how time passes, and can stop
+it at any frame.
+
+Frames are built from batches of items. The host keeps a batch until its
+version changes, so a still scene costs nothing to send; each item also
+carries where it was, and the host moves it toward where it is as the
+frame's motion goes from 0 to 1. Batches may be solid, translucent, or
+revealed within a growing disc. The camera is perspective or orthographic.
 
 Meshes and sprites are both items, drawn by one shader in the
-metallic-roughness model: a `Material` gives an optional texture, the
-albedo of a dielectric or the specular color of a metal, with metalness and
+metallic-roughness model: a `Material` gives an optional texture, the albedo
+of a dielectric or the specular color of a metal, with metalness and
 roughness defaulting to 0 and 1. Textures are regions of `Picture`s, which
 the host composes from layers of encoded image files the program carries,
 recoloring each by swapping colors, and keeps until their version changes.
 A sprite is a textured quad, standing upright toward the camera in a 2.5D
-scene or lying flat under an orthographic camera looking straight down in a
-2D one, and a texture region can be a strip the host steps through by the
-clock, so 2D and 2.5D scenes are 3D scenes; an `Image` widget shows a region of a picture
-in the HUD. `(lofi sprite)` poses figures from spritebooks of any sheet, and
-`lib/lpc` uses it for the Liberated Pixel Cup character art;
-[Hearsay](../apps/hearsay) dresses its residents from it.
+scene or lying flat under an orthographic camera looking straight down in
+a 2D one, and a texture region can be a strip of frames the host steps
+through by the clock. `(lofi sprite)` poses figures from spritebooks of any
+sheet, and `lib/lpc` uses it for the Liberated Pixel Cup character art.
+
+HUD panels stack in columns from the screen's corners, appear as dialogs,
+or sit in a banner across the top that lets input through but for its
+links. A widget's tone can mark it suggested, the control to use next. The
+host keeps elements by key, so hover and focus survive updates, and reports
+presses and hovering back as input. `recognize` turns raw pointer events
+into points, taps, drags and pinches.
+
+[Siegework](https://github.com/tsnl/snail-scheme/tree/main/apps/siegework)
+is the complete example, and
+[Hearsay](https://github.com/tsnl/snail-scheme/tree/main/apps/hearsay)'s
+prototypes draw their residents as LPC characters on a 2D map.
+<!-- ANCHOR_END: applications -->
 
 <!-- ANCHOR: libraries -->
 ## Standard library
@@ -315,5 +338,8 @@ in the HUD. `(lofi sprite)` poses figures from spritebooks of any sheet, and
 | `(lofi format)` | Indenting and formatting Lisp source as `scripts/format-scheme` does. |
 | `(lofi integer)`, `(lofi rational)`, `(lofi number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data and its external representation. |
+| `(lofi syntax)` | The syntax a `generate-library` recipe returns, and the bytes its producer writes. |
+| `(lofi explore)` | Bounded model checking of a total state machine's invariant. |
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
+| `(scheme compiler)`, `(scheme runtime)` | The R7RS translator, and the standard procedures its output calls. |
 <!-- ANCHOR_END: libraries -->
