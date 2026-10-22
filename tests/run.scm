@@ -171,6 +171,13 @@
           ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
           (else #t))))
 
+;; A request-looking path is an ordinary diagnostic, never a producer key.
+(define (check-generation-diagnostic root)
+  (let* ((source (path-join root "build/tests/generate 123/missing.sld"))
+         (result (process->output+error+status (list (path-join root "lofi") "wat" source))))
+    (or (and (not (zero? (caddr result))) (string-contains (cadr result) source))
+        (report "generation diagnostic" "the missing source was mistaken for a producer request" (cadr result)))))
+
 ;; ---- Linked modules ----
 
 ;; Programs compiled one library at a time and linked when they run, by
@@ -262,7 +269,8 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-generation-diagnostic root))
+                                                   (lambda () (check-type-ids root)) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
