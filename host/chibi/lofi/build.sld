@@ -11,6 +11,8 @@
    build-program
    build-modules
    link-wat
+   build-runtime
+   build-assembler
    bootstrap!
    run-tool
    path-join
@@ -225,6 +227,16 @@
                   "--target" "wasm32-wasip1" "--manifest-path" (path-join root "src/runtime/Cargo.toml")
                   "--target-dir" target)
         (path-join target "wasm32-wasip1/release/snail_runtime.wasm")))
+
+    ;; The in-process assembler (src/assembler) is a reactor too: text in, a
+    ;; binary module out, for a toolchain that runs as Wasm without Binaryen.
+    ;; scripts/assemble.mjs drives it.
+    (define (build-assembler root)
+      (let ((target (path-join root "build/wasm-assembler")))
+        (run-tool "CARGO" "cargo" "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
+                  "--target" "wasm32-wasip1" "--manifest-path" (path-join root "src/assembler/Cargo.toml")
+                  "--target-dir" target)
+        (path-join target "wasm32-wasip1/release/snail_assembler.wasm")))
 
     (define (link module output runtime release?)
       (let ((adapter (string-append output ".adapter.wasm")) (linked (string-append output ".linked.wasm"))

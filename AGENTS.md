@@ -60,7 +60,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path src/runtime/Cargo.toml --offline`, and
-`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`. The
+`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`, and the
+same two for `src/assembler`. The
 driver rebuilds the compiled compiler whenever the compiler's source
 changes; compiler changes must also pass `make test-chibi`, which runs the
 source on Chibi, and `make bootstrap`, which rebuilds from Chibi alone.

@@ -83,6 +83,7 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
 | `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
+| `src/assembler/`, `scripts/assemble.mjs` | The in-process assembler: the `wat` crate built for `wasm32-wasip1`, turning WebAssembly text into a module without Binaryen, under Node or in a browser. `scripts/assemble.mjs` drives it; programs never carry it. |
 | `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI, in a worker with room for deep recursion. |
 | `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (perspective or orthographic, glow, motion between ticks, translucent and revealed batches), the keyed HUD and saves; `reload.mjs`, which `lofi serve` adds to its pages, swaps a rebuilt module into a running page by restoring the old module's save into it. |
 | `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
@@ -97,6 +98,7 @@ and keeps state that grows over a whole pass in a `Ref`.
 make test       # unit tests, programs, examples and Siegework
 make check      # formatting
 cargo test --manifest-path src/runtime/Cargo.toml --offline
+cargo test --manifest-path src/assembler/Cargo.toml --offline
 make site       # Siegework in build/siegework
 make test-browser  # live reload in headless Chromium; CHROMIUM names it
 make pages      # the book, with Siegework at play/siegework/, in build/pages

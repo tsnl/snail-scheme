@@ -1,10 +1,10 @@
 ;; The test suite: the compiler's unit tests, then every program suite. A
 ;; program NAME.sld must print NAME.out exactly, or fail to compile with the
 ;; text of NAME.err in its diagnostic. Then the Siegework package is built
-;; and driven headlessly. Programs compile one at a time, then link and run
-;; in parallel. Finally some programs and Siegework run again as modules
-;; linked when they run, and the development server serves and rebuilds an
-;; application.
+;; and driven headlessly, and the in-process assembler assembles a program.
+;; Programs compile one at a time, then link and run in parallel. Finally
+;; some programs and Siegework run again as modules linked when they run,
+;; and the development server serves and rebuilds an application.
 ;;
 ;;   chibi-scheme -D snail-tests -I host/chibi -I src -I tests tests/run.scm ROOT [NAME ...]
 (import
@@ -110,6 +110,23 @@
       (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs") program))))
         (or (zero? (caddr result)) (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))))
 
+;; The in-process assembler, itself Wasm, turns a program's text into a
+;; module that runs with the runtime as its own instance.
+(define (compile-assembler root)
+  (guard (failure (#t (report "assembler" "compile failed" (error-text failure))))
+    (let ((text (program->wat root (list (path-join root "examples") (path-join root "lib")) (path-join root "examples/fibonacci.sld"))))
+      (lambda () (check-assembler root text)))))
+
+(define (check-assembler root text)
+  (guard (failure (#t (report "assembler" "test failed" (error-text failure))))
+    (let ((wat (path-join root "build/tests/assembler/fibonacci.wat")))
+      (create-directory* (path-join root "build/tests/assembler"))
+      (call-with-output-file wat (lambda (port) (write-string text port)))
+      (let ((result (process->output+error+status
+                     (list "node" "--no-warnings" (path-join root "tests/assembler.mjs") (build-assembler root) (build-runtime root) wat
+                           (path-join root "examples/fibonacci.out")))))
+        (or (zero? (caddr result)) (report "assembler" "test failed" (string-append (car result) (cadr result))))))))
+
 ;; The command line itself: printing text and running a program.
 (define (run-command-line root)
   (let ((wat (process->output+error+status (list (path-join root "lofi") "wat" (path-join root "examples/fibonacci.sld"))))
@@ -206,7 +223,7 @@
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (compile-siegework root) (compile-assembler root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
