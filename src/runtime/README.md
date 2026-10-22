@@ -5,6 +5,11 @@ and file I/O, and panic reporting. Lofi's managed values stay in WasmGC; Rust
 retains external resources behind scalar handles and never stores guest GC
 roots.
 
+Real-number parsing and formatting use scratch results owned by each runtime
+instance. The private Lofi wrappers read a successful parse or copy all the
+formatted text synchronously before returning to user code. These temporary
+results have no handles and do not participate in file-resource cleanup.
+
 The command-line driver (`host/chibi/lofi/build.sld`) builds this crate for
 `wasm32-wasip1`. It merges the runtime into each statically linked program,
 as `lofi compile` and `lofi run` build them, and connects terminal

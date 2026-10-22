@@ -157,22 +157,12 @@
            ((Some n) (Some (number-from-integer n)))
            ((None) (runtime-real text))))))
 
-    (extern token-open "snail.library" "snail:datum/token-open" (-> I32))
-    (extern token-character "snail.library" "snail:datum/token-character" (-> I32 Char Unit))
-    (extern token-parse "snail.library" "snail:datum/token-parse" (-> I32 I32))
-    (extern token-close "snail.library" "snail:datum/token-close" (-> I32 Unit))
-    (extern number-real "snail.library" "snail:datum/number-real" (-> I32 F64))
+    (extern parse-real "snail.library" "snail:datum/parse-real" (-> String I32))
+    (extern parsed-real "snail.library" "snail:datum/parsed-real" (-> F64))
 
-    ;; The token handle is owned only within this call.
+    ;; Read the scratch result only on success, before returning to user code.
     (: runtime-real (-> String (Option Number)))
     (define (runtime-real text)
-      (let ((token (token-open)))
-        (let loop ((index 0))
-          (when (< index (string-length text))
-            (token-character token (string-ref text index))
-            (loop (+ index 1))))
-        (let ((result (if (= (token-parse token) 1) (Some (Inexact (number-real token))) (None))))
-          (token-close token)
-          result)))
+      (if (= (parse-real text) 1) (Some (Inexact (parsed-real))) (None)))
 
     ))

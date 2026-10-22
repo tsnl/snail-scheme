@@ -130,6 +130,12 @@
   (let ((day-night (enum-type-id root "(Day) (Night)")) (night-day (enum-type-id root "(Night) (Day)")))
     (or (not (string=? day-night night-day)) (report "type ids" "unchanged by reordering an enum's cases" day-night))))
 
+;; Exercise scratch isolation in separate runtime instances, as linked modules use.
+(define (check-numeric-runtime root)
+  (let ((result (process->output+error+status
+                 (list "node" "--no-warnings" (path-join root "tests/numeric.mjs") (build-crate root "runtime")))))
+    (or (zero? (caddr result)) (report "numeric runtime" "conversion failed" (string-append (car result) (cadr result))))))
+
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld")) (marker "(struct.new $any (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
@@ -262,7 +268,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
