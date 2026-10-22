@@ -106,6 +106,7 @@
    Item-facing-set
    item
    sprite
+   flat-sprite
    Style
    Solid
    Translucent
@@ -157,6 +158,7 @@
    Ray-origin
    Ray-direction
    pointer-ray
+   screen-axes
    ground-point
    define-application)
   (import
@@ -457,11 +459,21 @@
       (Item mesh position scale yaw color 0.0 position plain (Fixed)))
 
     ;; A texture on a quad `width` by `height` world units, its bottom center
-    ;; at `position`, standing upright toward the camera.
+    ;; at `position`, standing upright toward the camera: a sprite in a 2.5D
+    ;; scene.
     (: sprite (-> Texture Vec3 F32 F32 Item))
     (define (sprite texture position width height)
       (Item (Quad) position (Vec3 width height 1.0) 0.0 (rgb 255 255 255) 0.0 position (Material (Some texture) 0.0 1.0)
             (Upright)))
+
+    ;; A texture lying on the ground, `width` by `height` world units, its
+    ;; top toward -z and the middle of its bottom edge at `position`: a sprite
+    ;; in a 2D scene seen straight down, where -z is the top of the screen.
+    ;; It shows the texture's own colors, unlit.
+    (: flat-sprite (-> Texture Vec3 F32 F32 Item))
+    (define (flat-sprite texture position width height)
+      (let ((center (Vec3 (Vec3-x position) (Vec3-y position) (- (Vec3-z position) (/ height 2.0)))))
+        (Item (Tile) center (Vec3 width 1.0 height) 0.0 (rgb 255 255 255) 1.0 center (Material (Some texture) 0.0 1.0) (Fixed))))
 
     ;; Solid batches hide what is behind them. Translucent ones are drawn
     ;; after, over them. A revealed batch shows only within `radius` of a
@@ -771,7 +783,7 @@
     (: pointer-ray (-> Camera I32 I32 I32 I32 Ray))
     (define (pointer-ray view x y width height)
       (let* ((eye (Camera-eye view)) (forward (normalize (subtract (Camera-target view) eye)))
-             (right (normalize (cross forward (Vec3 0.0 1.0 0.0)))) (up (cross right forward))
+             (axes (screen-axes view)) (right (Pair-first axes)) (up (Pair-second axes))
              (aspect (/ (i32->f32 width) (i32->f32 (max height 1))))
              (px (- (* 2.0 (/ (+ (i32->f32 x) 0.5) (i32->f32 (max width 1)))) 1.0))
              (py (- 1.0 (* 2.0 (/ (+ (i32->f32 y) 0.5) (i32->f32 (max height 1)))))))
@@ -782,6 +794,17 @@
           ((Orthographic height)
            (let ((half (/ height 2.0)))
              (Ray (add eye (add (scale right (* px (* half aspect))) (scale up (* py half)))) forward))))))
+
+    ;; The directions of the screen's right and up in the world. A camera
+    ;; looking straight down has up toward -z, so it shows the ground as a
+    ;; map with the far side at the top, as a camera tilted down from +z
+    ;; would; the renderer uses the same rule.
+    (: screen-axes (-> Camera (Pair Vec3 Vec3)))
+    (define (screen-axes view)
+      (let* ((forward (normalize (subtract (Camera-target view) (Camera-eye view))))
+             (sky (if (> (abs (Vec3-y forward)) 0.999) (Vec3 0.0 0.0 -1.0) (Vec3 0.0 1.0 0.0)))
+             (right (normalize (cross forward sky))))
+        (Pair right (cross right forward))))
 
     ;; Where the ray through pixel (x, y) meets the ground plane y = 0.
     (: ground-point (-> Camera I32 I32 I32 I32 (Option Vec3)))
