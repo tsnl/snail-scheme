@@ -110,6 +110,7 @@ and keeps state that grows over a whole pass in a `Ref`.
 ## Checks
 
 ```sh
+make fetch      # once: the Rust crates the builds and tests use offline
 make test       # unit tests, programs, examples and Siegework
 make check      # formatting
 cargo test --manifest-path src/runtime/Cargo.toml --offline

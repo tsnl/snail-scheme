@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test test-chibi test-browser bootstrap ide site pages
+.PHONY: format check fetch test test-chibi test-browser bootstrap ide site pages
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
@@ -8,6 +8,12 @@ EMACS ?= emacs
 NIXFMT ?= nixfmt
 MDBOOK ?= mdbook
 SCHEME_SOURCES = '*.scm' '*.sld'
+
+# Downloads the Rust crates in each Cargo.lock, which the tests and every
+# build then use offline. Run it once in a new checkout or container.
+fetch:
+	cargo fetch --locked --manifest-path src/runtime/Cargo.toml
+	cargo fetch --locked --manifest-path src/assembler/Cargo.toml
 
 # The compiler's unit tests, every test program, and Siegework headless.
 test:
