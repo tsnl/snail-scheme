@@ -612,8 +612,9 @@
     ;; ---- Top-level bodies ----
 
     ;; Pass 1 discovers every top-level name, so definitions may refer to later
-    ;; ones. Pass 2 resolves declarations and signatures, returning one thunk
-    ;; per definition or expression; running the thunks in order expands them.
+    ;; ones. Signatures then resolve, needing only those names. Pass 2
+    ;; resolves declarations, returning one thunk per definition or
+    ;; expression; running the thunks in order expands them.
     (struct Pending
       ((keyword String)
        (form Syntax)
@@ -626,7 +627,7 @@
     (: expand-top-level (-> Context Env (List Syntax) Unit ! mut fs))
     (define (expand-top-level cx env forms)
       (let* ((pending (concatenate (map (lambda (form) (scan-top-level cx env form)) forms)))
-             (signatures (ref empty-table))
+             (signatures (fold-left (lambda (table entry) (with-signature cx table entry)) empty-table pending))
              (definitions (concatenate (map (lambda (entry) (declare! cx signatures entry)) pending))))
         (for-each (lambda (expand!) (expand!)) definitions)))
 
@@ -667,11 +668,11 @@
         ((Form (Cons _ (Cons name (Cons _ (Nil)))) _) (expect-ident name "a definition name"))
         (_ (compile-error (syntax-loc form) "expected (define name value) or (define (name parameter ...) body ...)"))))
 
-    (: declare! (-> Context (Ref (Table Scheme)) Pending (List (-> Unit ! mut)) ! mut fs))
+    (: declare! (-> Context (Table Scheme) Pending (List (-> Unit ! mut)) ! mut fs))
     (define (declare! cx signatures pending)
       (let ((form (Pending-form pending)) (env (Pending-env pending)))
         (case (Pending-keyword pending)
-          ((":") (declare-signature! cx signatures env form) (Nil))
+          ((":") (Nil))
           (("struct") (declare-data! cx env form #f) (Nil))
           (("enum") (declare-data! cx env form #t) (Nil))
           (("typeclass") (declare-class! cx env form) (Nil))
@@ -693,10 +694,10 @@
            (_ (compile-error (syntax-loc name) (string-append "only a top-level function can be exposed: " (Ident-name name))))))
         (_ (compile-error (syntax-loc form) "expected (expose name \"symbol\")"))))
 
-    (: define-top-level! (-> Context (Ref (Table Scheme)) Env Syntax Unit ! mut))
+    (: define-top-level! (-> Context (Table Scheme) Env Syntax Unit ! mut))
     (define (define-top-level! cx signatures env form)
       (let ((name (global-binding cx env (definition-name form))))
-        (add-value! (Context-program cx) name (Defined (table-ref (ref-get signatures) name)))
+        (add-value! (Context-program cx) name (Defined (table-ref signatures name)))
         (add-item! (Context-program cx) (Define name (definition-value cx env form)))))
 
     (: definition-value (-> Context Env Syntax Expr ! mut))
@@ -910,15 +911,18 @@
                   (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
     ;; `(: name type)` records a scheme for the following definition.
-    (: declare-signature! (-> Context (Ref (Table Scheme)) Env Syntax Unit ! mut))
-    (define (declare-signature! cx signatures env form)
-      (match form
-        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
-         (match (resolve cx env (expect-ident name "a name"))
-           ((Some (Global global)) (ref-set! signatures (table-set (ref-get signatures) global (resolve-scheme cx env type))))
-           (_ (compile-error (syntax-loc name) (string-append "signature names an undefined top-level definition: "
-                                                              (Ident-name name))))))
-        (_ (compile-error (syntax-loc form) "expected (: name type)"))))
+    ;; The signatures with the one a `(: name type)` declares.
+    (: with-signature (-> Context (Table Scheme) Pending (Table Scheme) ! mut))
+    (define (with-signature cx signatures pending)
+      (if (string=? (Pending-keyword pending) ":")
+          (match (Pending-form pending)
+            ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
+             (match (resolve cx (Pending-env pending) (expect-ident name "a name"))
+               ((Some (Global global)) (table-set signatures global (resolve-scheme cx (Pending-env pending) type)))
+               (_ (compile-error (syntax-loc name) (string-append "signature names an undefined top-level definition: "
+                                                                  (Ident-name name))))))
+            (form (compile-error (syntax-loc form) "expected (: name type)")))
+          signatures))
 
     (: declare-class! (-> Context Env Syntax Unit ! mut))
     (define (declare-class! cx env form)
