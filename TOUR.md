@@ -85,7 +85,7 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI, in a worker with room for deep recursion. |
 | `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (perspective or orthographic, glow, motion between ticks, translucent and revealed batches), the keyed HUD and saves. |
 | `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
-| `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `colony` (orders and work), `siege` (attacks and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
+| `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `routes` (movers' costs and cost fields), `colony` (orders, work and workers), `siege` (attacks, enemy AI and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
 | `examples/` | Small programs; the test suite runs them, and the book's tutorials show them. |
 | `doc/book/`, `book.toml` | The book published on GitHub Pages; its chapters include the language guide, the redesign and Siegework's guide. |
 | `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios and a headless game. |
