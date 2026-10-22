@@ -59,9 +59,10 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .panel[data-key="opening"] { max-width: none; border-radius: 22px; padding: 14px 36px 18px; gap: 6px; }
 .label[data-key="opening-title"] { color: var(--accent); font-size: min(184px, 11vw); font-weight: 800; letter-spacing: 2px; line-height: 1;
   text-transform: uppercase; }
-.label[data-key="opening"] { font-size: 22px; font-weight: 700; }
-.label[data-key="opening"] strong { color: #7b3fd6; font-weight: 800; }
-.label[data-key="opening"][data-tone="suggested"] strong { color: #12a189; }
+.label[data-key^="opening-"]:not([data-key="opening-title"]) { font-size: 22px; font-weight: 700; }
+.label[data-key^="opening-"] strong { font-weight: 800; }
+.label[data-key="opening-crystal"] strong { color: #7b3fd6; }
+.label[data-key="opening-build"] strong { color: #12a189; }
 .link[data-key="how-to-play"] { margin-top: 6px; padding: 6px 16px; border-radius: 16px; color: #fff9e9; background: var(--accent);
   font-weight: 700; text-decoration: none; }
 .link[data-key="how-to-play"]:hover { background: #0a7f85; }
@@ -143,5 +144,5 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 
 @media (max-width: 760px), (max-height: 640px) {
   .label[data-key="opening-title"] { font-size: min(112px, 11vw); }
-  .label[data-key="opening"] { font-size: 16px; }
+  .label[data-key^="opening-"]:not([data-key="opening-title"]) { font-size: 16px; }
 }

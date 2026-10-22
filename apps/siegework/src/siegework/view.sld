@@ -693,12 +693,12 @@
                (Translucent (+ 0.45 (* 0.25 (f64->f32 (sin (f32->f64 (* 2.5 time)))))))
                (lambda () (concatenate (map (lambda (c) (at-cell (Crystal-cell c) (shimmer-parts))) (open-crystals world)))))))
 
-    ;; Until the first extractor is built, the crystals in sight pulse white
-    ;; to show where it goes.
+    ;; Until the first extractor is built, while the game is in play, the
+    ;; crystals in sight pulse white to show where it goes.
     (: beacon-batches (-> Game (List Batch)))
     (define (beacon-batches game)
       (let* ((world (Game-world game)) (time (/ (i64->f32 (Game-shown game)) 1000.0)))
-        (if (World-started world)
+        (if (or (World-started world) (not (playing? world)))
             (Nil)
             (list (Batch 10 (stamp game (+ (World-structure-version world) (World-explored-version world)))
                          (Translucent (+ 0.5 (* 0.3 (f64->f32 (sin (f32->f64 (* 5.0 time)))))))

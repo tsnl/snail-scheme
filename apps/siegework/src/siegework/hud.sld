@@ -244,13 +244,13 @@
                              (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
           (Nil)))
 
-    ;; The step points to the glowing crystals, then, in the suggested
-    ;; button's teal, to the build button.
+    ;; The step points to the glowing crystals, then to the build button;
+    ;; each step's key lets the page color its strong words.
     (: opening-step (-> Game Widget))
     (define (opening-step game)
       (if (extractor-offered? game)
-          (Text (Look "opening" "" "" (Suggested) "") (list (Normal "Click the ") (Strong "build button") (Normal " to continue")))
-          (Text (look "opening") (list (Normal "Click the ") (Strong "glowing crystal")))))
+          (Text (look "opening-build") (list (Normal "Click the ") (Strong "build button") (Normal " to continue")))
+          (Text (look "opening-crystal") (list (Normal "Click the ") (Strong "glowing crystal")))))
 
     (: guide-url String)
     (define guide-url "https://tsnl.github.io/snail-scheme/games/siegework.html")

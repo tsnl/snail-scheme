@@ -79,7 +79,7 @@ assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 10
 assert.ok(first.batches[7].items > 0, 'the crystals in sight pulse before the game begins');
 assert.equal(widget(host, 'opening-title').text, 'Siegework');
 const spoken = key => widget(host, key).spans.map(span => span.strong ? `*${span.words}*` : span.words).join('');
-assert.equal(spoken('opening'), 'Click the *glowing crystal*');
+assert.equal(spoken('opening-crystal'), 'Click the *glowing crystal*');
 assert.match(widget(host, 'how-to-play').url, /games\/siegework\.html$/);
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
@@ -126,11 +126,11 @@ for (let y = 10; y < 640 && !crystal; y += 20)
   }
 assert.ok(crystal, 'a crystal is in view');
 assert.equal(crystal.tone, SUGGESTED, 'the opening suggests the extractor');
-assert.equal(spoken('opening'), 'Click the *build button* to continue');
+assert.equal(spoken('opening-build'), 'Click the *build button* to continue');
 game.app_input(PRESS, crystal.action, crystal.argument, 0, 0);
 assert.equal(widget(host, 'energy').text, '135');
 assert.ok(widget(host, 'scavenge'), 'the first extractor is ready at once');
-assert.ok(!widget(host, 'opening'), 'the banner leaves once the game begins');
+assert.ok(!widget(host, 'opening-title'), 'the banner leaves once the game begins');
 game.app_frame();
 assert.ok(!host.frames.at(-1).batches.some(batch => batch.key === 10), 'and so do the pulsing crystals');
 // Each tenth of a second advances the world a tick. The first attack
