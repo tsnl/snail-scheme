@@ -13,6 +13,7 @@
    DFloat
    DString
    DChar
+   DBytes
    DBool
    DUnit
    Syntax
@@ -51,6 +52,7 @@
       (DFloat ((text String)))
       (DString ((value String)))
       (DChar ((value Char)))
+      (DBytes ((value Bytes)))
       (DBool ((value Bool)))
       (DUnit))
 
@@ -89,6 +91,7 @@
         ((DFloat text) text)
         ((DString value) (string-literal value))
         ((DChar value) (string-append "#\\" (list->string (list value))))
+        ((DBytes value) (string-append "#u8(" (string-join (map (lambda (byte) (i64->string (i32->i64 (u8->i32 byte)))) (vector->list value)) " ") ")"))
         ((DBool value) (if value "#t" "#f"))
         ((DUnit) "(unit)")))
 
@@ -113,8 +116,16 @@
         ((DFloat x) (match b ((DFloat y) (string=? x y)) (_ #f)))
         ((DString x) (match b ((DString y) (string=? x y)) (_ #f)))
         ((DChar x) (match b ((DChar y) (char=? x y)) (_ #f)))
+        ((DBytes x) (match b ((DBytes y) (bytes=? x y)) (_ #f)))
         ((DBool x) (match b ((DBool y) (eq-bool? x y)) (_ #f)))
         ((DUnit) (match b ((DUnit) #t) (_ #f)))))
+
+    (: bytes=? (-> Bytes Bytes Bool))
+    (define (bytes=? a b)
+      (and (= (vector-length a) (vector-length b))
+           (let loop ((index 0))
+             (or (= index (vector-length a))
+                 (and (= (u8->i32 (vector-ref a index)) (u8->i32 (vector-ref b index))) (loop (+ index 1)))))))
 
     (: eq-bool? (-> Bool Bool Bool))
     (define (eq-bool? a b)
@@ -220,7 +231,57 @@
               ((char=? c #\") (read-string-literal source (+ start 1) loc (Nil)))
               ((char=? c #\') (read-quote source (+ start 1) loc))
               ((and (char=? c #\#) (char-is? source (+ start 1) #\\)) (read-character source (+ start 2) loc))
+              ((bytes-opening? source start) (read-bytes source (+ start 4) loc (Nil)))
               (else (read-token source start loc)))))
+
+    ;; `#u8(` opens a byte vector, as in R7RS.
+    (: bytes-opening? (-> Source I64 Bool))
+    (define (bytes-opening? source index)
+      (and (char-is? source index #\#) (char-is? source (+ index 1) #\u) (char-is? source (+ index 2) #\8)
+           (char-is? source (+ index 3) #\()))
+
+    ;; The bytes of `#u8(...)`, each an integer from 0 to 255. Images make
+    ;; literals of millions of bytes, so they gather a chunk at a time into
+    ;; packed vectors, which are joined at the closing parenthesis.
+    (: read-bytes (-> Source I64 Loc (List Bytes) (Pair Syntax I64)))
+    (define (read-bytes source index loc chunks)
+      (let* ((chunk (read-byte-chunk source index loc)) (bytes (Pair-first chunk)) (next (Pair-second chunk)))
+        (if (< (vector-length bytes) byte-chunk)
+            (Pair (Atom (DBytes (joined-bytes (reverse (Cons bytes chunks)))) loc) next)
+            (read-bytes source next loc (Cons bytes chunks)))))
+
+    (define byte-chunk 4096)
+
+    ;; Up to `byte-chunk` bytes, and the index after them: past the closing
+    ;; parenthesis when fewer remain.
+    (: read-byte-chunk (-> Source I64 Loc (Pair Bytes I64)))
+    (define (read-byte-chunk source index loc)
+      (let loop ((index index) (bytes (Nil)) (count 0))
+        (let ((start (skip-atmosphere source index)))
+          (cond ((= count byte-chunk) (Pair (bytes-vector (reverse bytes)) start))
+                ((at-end? source start) (compile-error loc "unclosed byte vector"))
+                ((char-is? source start #\)) (Pair (bytes-vector (reverse bytes)) (+ start 1)))
+                (else (let ((end (token-end source start)))
+                        (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
+
+    ;; Every chunk but the last is full, so byte i lies in chunk i / size.
+    (: joined-bytes (-> (List Bytes) Bytes))
+    (define (joined-bytes chunks)
+      (let* ((all (list->vector chunks)) (last-chunk (vector-ref all (- (vector-length all) 1)))
+             (count (+ (* byte-chunk (- (vector-length all) 1)) (vector-length last-chunk))))
+        (vector-generate count (lambda (index) (vector-ref (vector-ref all (quotient index byte-chunk)) (remainder index byte-chunk))))))
+
+    (: byte-token (-> Source I64 I64 U8))
+    (define (byte-token source start end)
+      (let loop ((index start) (value 0))
+        (cond ((and (= index end) (< start end) (<= value 255)) (i32->u8 (i64->i32 value)))
+              ((or (= index end) (> value 255) (not (char-numeric? (vector-ref (Source-chars source) index))))
+               (compile-error (source-loc source start) "a byte is an integer from 0 to 255"))
+              (else (loop (+ index 1) (+ (* value 10) (digit-value (vector-ref (Source-chars source) index))))))))
+
+    (: bytes-vector (-> (List U8) Bytes))
+    (define (bytes-vector bytes)
+      (if (null? bytes) (vector-generate 0 (lambda (index) (ann 0 U8))) (list->vector bytes)))
 
     (: read-quote (-> Source I64 Loc (Pair Syntax I64)))
     (define (read-quote source index loc)
@@ -395,5 +456,8 @@
         (let ((forms (read-text "\n  (a\n   b)" "t.sld")))
           (expect (loc->string (syntax-loc (car forms))) "t.sld:2:3"))
         (expect (guard (failure (#t (error-object-message failure))) (read-text "(a" "t"))
-                "t:1:1: unclosed list"))))
+                "t:1:1: unclosed list")
+        (expect (map syntax->string (read-text "#u8(0 137 255) #u8( )" "t")) (list "#u8(0 137 255)" "#u8()"))
+        (expect (guard (failure (#t (error-object-message failure))) (read-text "#u8(1 256)" "t"))
+                "t:1:7: a byte is an integer from 0 to 255"))))
    (else)))

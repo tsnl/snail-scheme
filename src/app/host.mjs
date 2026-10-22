@@ -21,7 +21,9 @@ function keyCode(event) {
 
 // ---- WASI ----
 
-// The linked Rust runtime needs only standard output and exit.
+// The linked Rust runtime needs only standard output and exit. It waits,
+// through poll_oneoff, only when standard output refuses a write, which
+// never happens here, so waiting returns at once.
 function wasiImports(memory) {
   const decoder = new TextDecoder();
   let line = '';
@@ -50,6 +52,7 @@ function wasiImports(memory) {
     fd_close() { return 0; },
     fd_prestat_get() { return 8; },
     fd_prestat_dir_name() { return 8; },
+    poll_oneoff() { return 0; },
   };
 }
 

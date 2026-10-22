@@ -140,6 +140,7 @@
        (functions (Ref (List String)))
        (declared (Ref (List String)))
        (exports (Ref (List Wat)))
+       (data (Ref (List Wat)))
        (memo (Ref (Table Wat)))
        (helpers (Ref (Table String)))
        (counter (Ref I64))))
@@ -516,6 +517,7 @@
         ((DBool true?) (wat "i32.const" (int (if true? 1 0))))
         ((DChar c) (wat "i32.const" (int (char->integer c))))
         ((DString text) (string-literal (Fn-module fn) text))
+        ((DBytes bytes) (bytes-literal (Fn-module fn) bytes))
         ((DUnit) (wat "i32.const" (int 0)))
         ((DInt n) (wat (string-append (rep-key (fn-rep fn type)) ".const") (int n)))
         ((DFloat text) (wat (string-append (rep-key (fn-rep fn type)) ".const") (Word (float-text text))))))
@@ -542,6 +544,36 @@
                                             (Cons (int (string-length text))
                                                   (map (lambda (c) (wat "i32.const" (int (char->integer c)))) (string->list text)))))))
                     (wat "global.get" (id global))))))
+
+    ;; A byte literal is a passive data segment, one byte per byte, so large
+    ;; data such as images costs no more than its size. `array.new_data` is
+    ;; not a constant instruction, so each evaluation copies the segment into
+    ;; a fresh array; a top-level definition evaluates once.
+    (: bytes-literal (-> Module Bytes Wat ! mut))
+    (define (bytes-literal m bytes)
+      (let ((segment (fresh-id m "bytes")))
+        (push! (Module-data m) (wat "data" (id segment) (Word (bytes-wat-string bytes))))
+        (wat "array.new_data" (id (array-type m (Scalar "i8"))) (id segment) (wat "i32.const" (int 0))
+             (wat "i32.const" (int (vector-length bytes))))))
+
+    ;; Every byte is a two-digit escape, so the text is three characters per
+    ;; byte, generated in one pass: images make literals of millions of
+    ;; bytes, too many to build from a piece of text per byte.
+    (: bytes-wat-string (-> Bytes String))
+    (define (bytes-wat-string bytes)
+      (string-append "\""
+                     (string-generate (* 3 (vector-length bytes))
+                                      (lambda (index)
+                                        (let ((byte (i32->i64 (u8->i32 (vector-ref bytes (quotient index 3))))))
+                                          (match (remainder index 3)
+                                            (0 #\\)
+                                            (1 (hex-char (quotient byte 16)))
+                                            (_ (hex-char (remainder byte 16)))))))
+                     "\""))
+
+    (: hex-char (-> I64 Char))
+    (define (hex-char value)
+      (string-ref "0123456789abcdef" value))
 
     (: emit-let (-> Fn String Expr Expr Bool (List Wat) ! mut))
     (define (emit-let fn name value body tail?)
@@ -1326,7 +1358,7 @@
                                          (_ table)))
                                      empty-table items))
              (m (Module (Mono-program mono) definitions (ref empty-table) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil))
-                        (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0))))
+                        (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0))))
         (for-each (lambda (item)
                     (match item
                       ((Define name value) (when (lambda-expr? value) (emit-function! m name value)))
@@ -1336,7 +1368,8 @@
         (module-wat m)))
 
     ;; The fields in the order Wasm requires: one recursion group of types,
-    ;; then imports, globals, declared function references, exports and code.
+    ;; then imports, globals, declared function references, exports, code
+    ;; and the data segments of byte literals.
     ;; Every module imports the runtime's linear memory, where staged text
     ;; goes; once linked, the two share it.
     (: module-wat (-> Module Wat ! mut))
@@ -1350,7 +1383,8 @@
                      (reverse (ref-get (Module-globals m)))
                      (if (null? declared) (Nil) (list (wat* "elem" (Cons (Word "declare") (Cons (Word "func") (map id declared))))))
                      (reverse (ref-get (Module-exports m)))
-                     (map Word (reverse (ref-get (Module-functions m)))))))))
+                     (map Word (reverse (ref-get (Module-functions m))))
+                     (reverse (ref-get (Module-data m))))))))
 
     (: emit-main! (-> Module (List Item) Unit ! mut))
     (define (emit-main! m items)
