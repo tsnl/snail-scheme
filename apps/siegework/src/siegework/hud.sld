@@ -109,13 +109,20 @@
 
     ;; The build menu is the same for every selected cell: a pylon, a
     ;; turret, an extractor, a wall, a portal, an upgrade, a rush and
-    ;; closing, then below a divider cancelling work and scavenging, or at
-    ;; the hub repair and a new worker. Each is greyed out where it does not
-    ;; apply.
+    ;; closing. In the next column, under the menu and turning buttons,
+    ;; come cancelling work and scavenging, or at the hub repair and a new
+    ;; worker, so the dock fits short screens. Each is greyed out where it
+    ;; does not apply.
     (: construction (-> Game (List Panel)))
     (define (construction game)
       (match (Game-selected game)
-        ((Some cell) (list (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (Label (look "divider") "") (care game cell))))))
+        ((Some cell) (list (Panel "construction" (At (side game) 0) (build-menu game cell))))
+        ((None) (Nil))))
+
+    (: upkeep (-> Game (List Panel)))
+    (define (upkeep game)
+      (match (Game-selected game)
+        ((Some cell) (list (Panel "care" (At (side game) 1) (care game cell))))
         ((None) (Nil))))
 
     (: build-menu (-> Game Cell (List Widget)))
@@ -394,7 +401,7 @@
 
     (: game-hud (-> Game (List Panel)))
     (define (game-hud game)
-      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (queue game) (list (objective game)) (notices game) (opening game)
+      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (upkeep game) (queue game) (list (objective game)) (notices game) (opening game)
                          (dialogs game))))
 
     ))

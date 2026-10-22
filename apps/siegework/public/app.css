@@ -50,8 +50,7 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
 .dial[data-key="threat"]::after { top: auto; bottom: -6px; right: auto; background: #f7dfb1; color: #795321; }
 
 /* Construction: four buttons whose captions need room beneath them. */
-.panel[data-key="construction"] { gap: 16px; padding-bottom: 16px; }
-.label[data-key="divider"] { width: 60%; height: 0; padding: 0; margin: -4px 0; border-top: 2px solid var(--edge); border-radius: 0; }
+.panel[data-key="construction"], .panel[data-key="care"] { gap: 16px; padding-bottom: 16px; }
 /* A refusal under the nests: a notice that takes no input. */
 .panel[data-key="message"] { max-width: 220px; border-radius: 14px; padding: 8px 14px; border-color: #e3a595; }
 /* The opening banner: the title, what to do before the game begins, and
@@ -131,7 +130,7 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
   .button, .dial { width: 44px; height: 44px; }
   .button[data-icon] .icon { width: 18px; height: 18px; }
   .dial { font-size: 12px; }
-  .panel[data-key="construction"] { gap: 14px; padding-bottom: 14px; }
+  .panel[data-key="construction"], .panel[data-key="care"] { gap: 14px; padding-bottom: 14px; }
   .panel[data-key="queue"] { padding: 6px 11px; }
   .panel[data-key="queue"] .button { width: 34px; height: 34px; }
 }
@@ -140,7 +139,7 @@ body { color: var(--ink); background: #167ba0; font: 13px/1.4 system-ui, sans-se
   .button, .dial { width: 38px; height: 38px; }
   .button .text { font-size: 10px; line-height: 12px; }
   .button[data-icon] .icon { width: 16px; height: 16px; }
-  .panel[data-key="construction"] { gap: 12px; padding-bottom: 12px; }
+  .panel[data-key="construction"], .panel[data-key="care"] { gap: 12px; padding-bottom: 12px; }
   .panel[data-key="queue"] { padding: 6px 8px; }
 }
 
