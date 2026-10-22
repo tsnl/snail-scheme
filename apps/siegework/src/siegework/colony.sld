@@ -204,8 +204,8 @@
       (match (fresh-id world)
         ((Pair id world)
          (if ready
-             (rewire (World-started-set (add-building world (Building id kind cell 1 (kind-health kind) (None))) #t))
-             (structures-changed (World-next-order-set (add-building world (Building id kind cell 0 (kind-health kind) (Some work)))
+             (rewire (World-started-set (add-building world (Building id kind cell 1 (kind-health kind) (None) (None))) #t))
+             (structures-changed (World-next-order-set (add-building world (Building id kind cell 0 (kind-health kind) (Some work) (None)))
                                                        (+ (World-next-order world) 1)))))))
 
     (: add-building (-> World Building World))
