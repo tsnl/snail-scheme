@@ -35,8 +35,7 @@
        ((name String)
         (params (List Syntax))
         (body Syntax)
-        (env Env)
-        (expanding (Ref Bool))))
+        (env Env)))
       (TypeVar
        ((type Type)))
       (ClassName
@@ -59,7 +58,7 @@
         ((Local name) name)
         ((Global name) name)
         ((TypeName name _ _) name)
-        ((Alias name _ _ _ _) name)
+        ((Alias name _ _ _) name)
         ((TypeVar _) "%type-variable")
         ((ClassName name) name)
         ((EffectName name) name)
@@ -157,9 +156,11 @@
     ;; so its globals are `prefix:name`, and `loading` the libraries whose
     ;; imports are being loaded, innermost first, so a library requested while
     ;; it loads is part of an import cycle. `scopes` numbers the environments
-    ;; that marks refer to. `generate` runs a producer program for
-    ;; `generate-library` and returns the bytes of the syntax it writes; the
-    ;; driver supplies it, because running a program means compiling one.
+    ;; that marks refer to. `aliases` names the type aliases whose bodies are
+    ;; being resolved, innermost first, so an alias that refers to itself is
+    ;; caught. `generate` runs a producer program for `generate-library` and
+    ;; returns the bytes of the syntax it writes; the driver supplies it,
+    ;; because running a program means compiling one.
     (struct Context
       ((program (Ref Program))
        (expanded (Ref (Table Expanded)))
@@ -168,6 +169,7 @@
        (generate (-> (List Syntax) Bytes ! mut fs))
        (prefix String)
        (loading (List String))
+       (aliases (List String))
        (counter (Ref I64))
        (scopes (Ref (Table Env)))
        (scope-count (Ref I64))
@@ -199,9 +201,9 @@
     (define (new-context directories generate predecessor)
       (match predecessor
         ((Some last)
-         (Context (ref base-program) (ref empty-table) (ExpandedProgram-libraries last) directories generate "" (Nil) (ref (ExpandedProgram-counter last))
+         (Context (ref base-program) (ref empty-table) (ExpandedProgram-libraries last) directories generate "" (Nil) (Nil) (ref (ExpandedProgram-counter last))
                   (ref (ExpandedProgram-scopes last)) (ref (ExpandedProgram-scope-count last)) (ref (None))))
-        ((None) (Context (ref base-program) (ref empty-table) empty-table directories generate "" (Nil) (ref 0) (ref empty-table) (ref 0) (ref (None))))))
+        ((None) (Context (ref base-program) (ref empty-table) empty-table directories generate "" (Nil) (Nil) (ref 0) (ref empty-table) (ref 0) (ref (None))))))
 
     ;; The program as expanded so far.
     (: program (-> Context Program ! mut))
@@ -743,7 +745,7 @@
     (define (scan-alias! cx env head rest form)
       (let ((name (declared-name head)))
         (match rest
-          ((Cons body (Nil)) (bind-top! env name (Alias (unique-name cx name) (declared-params head) body env (ref #f))))
+          ((Cons body (Nil)) (bind-top! env name (Alias (unique-name cx name) (declared-params head) body env)))
           (_ (compile-error (syntax-loc form) "expected (type Name type)")))))
 
     (: scan-class! (-> Context Env Syntax (List Syntax) Unit ! mut))
@@ -1134,16 +1136,13 @@
          (unless (= arity (length args)) (compile-error loc (string-append "wrong number of type arguments: " (Ident-name ident))))
          (TCon name (map (lambda (arg) (resolve-type cx env arg)) args)))
         ((Some (TypeVar type)) (if (null? args) type (compile-error loc "a type variable takes no arguments")))
-        ((Some (Alias _ params body alias-env expanding))
+        ((Some (Alias name params body alias-env))
          (unless (= (length params) (length args))
            (compile-error loc (string-append "wrong number of alias arguments: " (Ident-name ident))))
-         (when (ref-get expanding) (compile-error loc (string-append "type alias refers to itself: " (Ident-name ident))))
+         (when (member? name (Context-aliases cx)) (compile-error loc (string-append "type alias refers to itself: " (Ident-name ident))))
          (let ((scope (fold-left (lambda (scope pair) (extend scope (Pair-first pair) (TypeVar (resolve-type cx env (Pair-second pair)))))
                                  alias-env (zip params args))))
-           (ref-set! expanding #t)
-           (let ((type (resolve-type cx scope body)))
-             (ref-set! expanding #f)
-             type)))
+           (resolve-type (Context-aliases-set cx (Cons name (Context-aliases cx))) scope body)))
         (_ (compile-error loc (string-append "not a type: " (Ident-name ident))))))
 
     ;; `(-> A B R)` or `(-> A B R ! label ... [row-variable])`.
