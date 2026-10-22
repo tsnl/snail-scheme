@@ -1,5 +1,9 @@
+# The tools for building and testing, from the nixpkgs revision pinned in
+# npins/sources.json (`npins update nixpkgs` moves it). CI and the
+# devcontainer use this same file.
 {
-  pkgs ? import <nixpkgs> { },
+  sources ? import ./npins,
+  pkgs ? import sources.nixpkgs { },
 }:
 
 pkgs.mkShell {
@@ -8,10 +12,11 @@ pkgs.mkShell {
     chibi
     gnumake
     nixfmt
+    npins
     emacs-nox
     rustup
     binaryen
-    nodejs
+    nodejs_26
     mdbook
   ];
 }

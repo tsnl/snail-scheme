@@ -1,0 +1,12 @@
+{
+  "name": "snail-scheme",
+  "build": {
+    "dockerfile": "Containerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,Z",
+  "remoteUser": "root",
+  "containerUser": "root",
+  "userEnvProbe": "loginInteractiveShell"
+}

@@ -1,0 +1,4 @@
+# The devcontainer image needs only the files that pin its tools.
+*
+!shell.nix
+!npins

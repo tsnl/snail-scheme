@@ -30,8 +30,17 @@ rustup target add wasm32-wasip1
 ./lofi watch examples/fibonacci.sld   # runs it again after each edit
 ```
 
-Chibi Scheme, Binaryen, Cargo and Node are required; `shell.nix` provides
-them. Programs are linked with a small Rust runtime and run under WASI. The
+Chibi Scheme, Binaryen, Cargo and Node 26 are required; `shell.nix` provides
+them from the nixpkgs revision pinned in `npins/sources.json`, the same one
+CI uses. The devcontainer in `.devcontainer/` packages that environment with
+Chromium for rootless podman:
+
+```sh
+podman build -t snail-scheme -f .devcontainer/Containerfile .
+podman run --rm -it -v "$PWD":/workspace:Z -w /workspace snail-scheme
+```
+
+Programs are linked with a small Rust runtime and run under WASI. The
 first run bootstraps the compiler, which takes about a minute: Chibi runs
 its source once, and the compiled compiler then rebuilds itself whenever
 the source changes.
