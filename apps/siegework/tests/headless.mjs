@@ -17,8 +17,15 @@ function screen() {
     'frame-begin'() { frame = {batches: []}; },
     camera(ex, ey, ez, tx, ty, tz) { host.target = [tx, tz]; },
     light() {},
+    'picture-begin'() { return 1; },
+    layer() { return 1; },
+    'source-begin'() {},
+    'source-word'() {},
+    swap() {},
+    'picture-end'() {},
     'batch-begin'(key, version) { frame.batches.push({key, version, items: 0}); return 0; },
     instance() { frame.batches.at(-1).items++; },
+    surface() {},
     'frame-end'() { host.frames.push(frame); },
     'hud-begin'() { widgets = []; },
     'panel-begin'() { widget = {key: ''}; },
@@ -26,6 +33,7 @@ function screen() {
       widget = {kind, action, argument, control, key: '', icon: '', help: '', badge: '', text: '', caption: ''};
       widgets.push(widget);
     },
+    'widget-image'() {},
     field(which) { field = fields[which]; },
     'text-character'(code) { widget[field] += String.fromCodePoint(code); },
     'hud-end'() { host.widgets = widgets; },

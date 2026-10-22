@@ -94,7 +94,7 @@
 
     (define menu-frame
       (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             (rgb 16 20 28) 1.0 (Nil)))
+             (rgb 16 20 28) 1.0 (Nil) (Nil)))
 
     (: view-shell (-> Shell Frame))
     (define (view-shell shell)

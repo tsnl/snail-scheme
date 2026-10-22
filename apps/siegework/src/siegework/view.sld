@@ -724,7 +724,8 @@
                        (list (Batch 3 (stamp game (World-structure-version world)) (Solid) (lambda () (structure-items world)))
                              (Batch 5 (stamp game (World-tick world)) (Solid) (lambda () (moving-items world)))
                              (bar-batch game) (link-batch game)
-                             (cursor-batch game) (shimmer-batch game) (preview-batch game))))))
+                             (cursor-batch game) (shimmer-batch game) (preview-batch game)))
+               (Nil))))
 
     (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
     (define (filter-map f items)

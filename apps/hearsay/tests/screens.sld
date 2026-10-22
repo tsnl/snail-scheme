@@ -13,7 +13,8 @@
     ((Label face text) text)
     ((Button face text caption action argument control ring)
      (string-append (match control ((Disabled) "-[") (_ "[")) text "]"))
-    ((Dial face text fraction) text)))
+    ((Dial face text fraction) text)
+    ((Image face picture region scale) (string-append "<picture " (show picture) ">"))))
 
 (: place-name (-> Place String))
 (define (place-name place)
@@ -26,7 +27,7 @@
 (: show-batches (-> Frame Unit ! console))
 (define (show-batches frame)
   (match frame
-    ((Frame camera light background motion batches)
+    ((Frame camera light background motion batches pictures)
      (write-line (string-append "batches: "
                                 (string-join (map (lambda (batch) (match batch ((Batch key version style items) (show (length (items))))))
                                                   batches)

@@ -262,6 +262,19 @@ carry where they were, so the host moves them between updates; `recognize`
 turns raw pointer events into points, taps, drags and pinches.
 [Siegework](../apps/siegework) is the complete example.
 
+Meshes and sprites are both items, drawn by one shader in the
+metallic-roughness model: a `Material` gives an optional texture, the
+albedo of a dielectric or the specular color of a metal, with metalness and
+roughness defaulting to 0 and 1. Textures are regions of `Picture`s, which
+the host composes from layers of encoded image files the program carries,
+recoloring each by swapping colors, and keeps until their version changes.
+A sprite is a textured quad standing upright toward the camera, and a
+texture region can be a strip the host steps through by the clock, so 2D
+and 2.5D scenes are 3D scenes; an `Image` widget shows a region of a picture
+in the HUD. `(lofi sprite)` poses figures from spritebooks of any sheet, and
+`lib/lpc` uses it for the Liberated Pixel Cup character art;
+[Hearsay](../apps/hearsay) dresses its residents from it.
+
 <!-- ANCHOR: libraries -->
 ## Standard library
 
@@ -274,7 +287,8 @@ turns raw pointer events into points, taps, drags and pinches.
 | `(lofi text)` | Unicode character properties and case mapping. |
 | `(lofi random)` | A deterministic generator as a value. |
 | `(lofi wire)` | `Serialize`, `Deserialize` and the byte encoding. |
-| `(lofi app)` | Applications, frames and the `screen` effect. |
+| `(lofi app)` | Applications, frames, pictures, materials and sprites, and the `screen` effect. |
+| `(lofi sprite)` | Spritebooks: animations on sheets of equal cells, posed as sprites facing the camera. |
 | `(lofi integer)`, `(lofi rational)`, `(lofi number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data and its external representation. |
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |

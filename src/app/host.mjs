@@ -4,6 +4,7 @@
 
 import {createRenderer} from './renderer.mjs';
 import {createHud} from './hud.mjs';
+import {createPictures} from './pictures.mjs';
 import {loadSave, storeSave} from './storage.mjs';
 
 // ---- Input encoding ----
@@ -61,9 +62,10 @@ function wasiImports(memory) {
 // Collects one frame from the screen operations and hands it to the
 // renderer; collects the HUD, sent only after updates, and hands it to the
 // HUD. A batch's style is [opacity, x, z, radius], with a negative radius
-// when nothing is hidden.
-function screenImports(renderer, hud) {
-  let frame = null, batch = null, panels = null, target = null, fieldName = null;
+// when nothing is hidden. Pictures and the sources they need go to the
+// picture store, which both the renderer and the HUD read.
+function screenImports(renderer, hud, pictures) {
+  let frame = null, batch = null, panels = null, target = null, fieldName = null, picture = null, source = null;
   const styles = [(a, b, c, d) => [1, 0, 0, -1], (a, b, c, d) => [a, 0, 0, -1], (a, b, c, d) => [1, b, c, d]];
   const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
   return {
@@ -76,6 +78,30 @@ function screenImports(renderer, hud) {
     light(dx, dy, dz, sun, ambient) {
       frame.light = {direction: [dx, dy, dz], sun, ambient};
     },
+    'picture-begin'(key, version, width, height) {
+      if (pictures.has(key, version)) return 1;
+      picture = pictures.define(key, version, width, height);
+      return 0;
+    },
+    layer(key, fx, fy, fw, fh, x, y) {
+      picture.layers.push({source: key, fx, fy, fw, fh, x, y, swaps: new Map()});
+      return pictures.hasSource(key) ? 1 : 0;
+    },
+    swap(from, to) {
+      picture.layers.at(-1).swaps.set(from, to);
+    },
+    'source-begin'(key, length) {
+      source = {key, bytes: new Uint8Array(length), at: 0};
+      if (length === 0) pictures.addSource(key, source.bytes);
+    },
+    // Four bytes per word, little-endian; the last word may be padded.
+    'source-word'(word) {
+      for (let shift = 0; shift < 32 && source.at < source.bytes.length; shift += 8) source.bytes[source.at++] = (word >>> shift) & 255;
+      if (source.at === source.bytes.length) pictures.addSource(source.key, source.bytes);
+    },
+    'picture-end'() {
+      pictures.finish(picture);
+    },
     'batch-begin'(key, version, style, a, b, c, d) {
       const cached = renderer.hasBatch(key, version);
       batch = {key, version, style: styles[style](a, b, c, d), items: cached ? null : []};
@@ -84,6 +110,9 @@ function screenImports(renderer, hud) {
     },
     instance(...values) {
       batch.items.push(values);
+    },
+    surface(...values) {
+      batch.items.at(-1).push(...values);
     },
     'frame-end'() {
       renderer.draw(frame);
@@ -98,6 +127,9 @@ function screenImports(renderer, hud) {
     'widget-begin'(kind, tone, action, argument, control, value) {
       target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: ''};
       panels.at(-1).widgets.push(target);
+    },
+    'widget-image'(key, x, y, width, height, scale) {
+      target.image = {key, x, y, width, height, scale};
     },
     field(which) {
       fieldName = fields[which];
@@ -114,13 +146,14 @@ function screenImports(renderer, hud) {
 // ---- Application ----
 
 export async function startApplication({url, canvas, overlay, storageKey}) {
-  const renderer = await createRenderer(canvas);
+  const pictures = createPictures();
+  const renderer = await createRenderer(canvas, pictures);
   let exports;
   const hud = createHud(overlay, (action, argument) => exports.app_input(PRESS, action, argument, 0, 0),
-                        (action, argument) => exports.app_input(HOVER, action, argument, 0, 0));
+                        (action, argument) => exports.app_input(HOVER, action, argument, 0, 0), pictures);
   const imports = {
     wasi_snapshot_preview1: wasiImports(() => exports.memory),
-    'snail.screen': screenImports(renderer, hud),
+    'snail.screen': screenImports(renderer, hud, pictures),
   };
   const {instance} = await WebAssembly.instantiateStreaming(fetch(url), imports);
   exports = instance.exports;
