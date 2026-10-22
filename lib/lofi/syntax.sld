@@ -16,6 +16,7 @@
    BooleanSyntax
    BytesSyntax
    form
+   library-syntax
    syntax->bytes
    write-generated-library)
   (import
@@ -41,6 +42,15 @@
     (: form (-> String (List Syntax) Syntax))
     (define (form head items)
       (ListSyntax (Cons (SymbolSyntax head) items)))
+
+    ;; The form a recipe returns: `(define-library (name ...) (export ...)
+    ;; (import (library ...) ...) (begin definition ...))`.
+    (: library-syntax (-> (List String) (List String) (List (List String)) (List Syntax) Syntax))
+    (define (library-syntax name exports imports definitions)
+      (let ((library-name (lambda (parts) (ListSyntax (map SymbolSyntax parts)))))
+        (form "define-library"
+              (list (library-name name) (form "export" (map SymbolSyntax exports)) (form "import" (map library-name imports))
+                    (form "begin" definitions)))))
 
     ;; ---- Encoding ----
 

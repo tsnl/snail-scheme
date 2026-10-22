@@ -30,12 +30,8 @@
     (define (scheme->lofi-library name source)
       (match (read-datums source)
         ((Ok forms)
-         (form "define-library"
-               (list (ListSyntax (map SymbolSyntax name))
-                     (form "export" (Nil))
-                     (form "import" (list (form "lofi" (list (SymbolSyntax "base"))) (form "lofi" (list (SymbolSyntax "datum")))
-                                          (form "scheme" (list (SymbolSyntax "runtime")))))
-                     (form "begin" (map translate-top forms)))))
+         (library-syntax name (Nil) (list (list "lofi" "base") (list "lofi" "datum") (list "scheme" "runtime"))
+                         (map translate-top forms)))
         ((Err message) (panic (string-append "scheme: " message)))))
 
     ;; A top-level definition is a cell; any other form runs at startup.
@@ -61,10 +57,10 @@
 
     (define unspecified (SymbolSyntax "unspecified"))
 
-    ;; Scheme's truth, as a Lofi Bool.
-    (: truthy (-> Syntax Syntax))
-    (define (truthy value)
-      (form "datum-truthy?" (list value)))
+    ;; `(if test yes no)` where Scheme's truth decides: anything but #f.
+    (: scheme-if (-> Syntax Syntax Syntax Syntax))
+    (define (scheme-if test yes no)
+      (form "if" (list (form "datum-truthy?" (list test)) yes no)))
 
     ;; ---- Expressions ----
 
@@ -102,15 +98,15 @@
         (("case") (translate-case (first args) (list-tail args 1)))
         (("and") (translate-and args))
         (("or") (translate-or args))
-        (("when") (form "if" (list (truthy (translate (first args))) (translate-body (list-tail args 1)) unspecified)))
-        (("unless") (form "if" (list (truthy (translate (first args))) unspecified (translate-body (list-tail args 1)))))
+        (("when") (scheme-if (translate (first args)) (translate-body (list-tail args 1)) unspecified))
+        (("unless") (scheme-if (translate (first args)) unspecified (translate-body (list-tail args 1))))
         (else (panic (string-append "scheme: unsupported form " keyword)))))
 
     (: translate-if (-> (List Datum) Syntax))
     (define (translate-if args)
       (match args
-        ((Cons test (Cons then (Nil))) (form "if" (list (truthy (translate test)) (translate then) unspecified)))
-        ((Cons test (Cons then (Cons otherwise (Nil)))) (form "if" (list (truthy (translate test)) (translate then) (translate otherwise))))
+        ((Cons test (Cons then (Nil))) (scheme-if (translate test) (translate then) unspecified))
+        ((Cons test (Cons then (Cons otherwise (Nil)))) (scheme-if (translate test) (translate then) (translate otherwise)))
         (_ (panic "scheme: expected (if test then [else])"))))
 
     ;; ---- Procedures and bodies ----
@@ -225,14 +221,14 @@
       (match args
         ((Nil) (form "BooleanDatum" (list (BooleanSyntax #t))))
         ((Cons last (Nil)) (translate last))
-        ((Cons first rest) (holding "and.value" (translate first) (lambda (value) (form "if" (list (truthy value) (translate-and rest) value)))))))
+        ((Cons first rest) (holding "and.value" (translate first) (lambda (value) (scheme-if value (translate-and rest) value))))))
 
     (: translate-or (-> (List Datum) Syntax))
     (define (translate-or args)
       (match args
         ((Nil) (form "BooleanDatum" (list (BooleanSyntax #f))))
         ((Cons last (Nil)) (translate last))
-        ((Cons first rest) (holding "or.value" (translate first) (lambda (value) (form "if" (list (truthy value) value (translate-or rest))))))))
+        ((Cons first rest) (holding "or.value" (translate first) (lambda (value) (scheme-if value value (translate-or rest)))))))
 
     (: translate-cond (-> (List Datum) Syntax))
     (define (translate-cond clauses)
@@ -245,11 +241,11 @@
     (define (translate-clause clause otherwise)
       (match clause
         ((Cons (SymbolDatum "else") body) (translate-body body))
-        ((Cons test (Nil)) (holding "cond.value" (translate test) (lambda (value) (form "if" (list (truthy value) value otherwise)))))
+        ((Cons test (Nil)) (holding "cond.value" (translate test) (lambda (value) (scheme-if value value otherwise))))
         ((Cons test (Cons (SymbolDatum "=>") (Cons receiver (Nil))))
          (holding "cond.value" (translate test)
-                  (lambda (value) (form "if" (list (truthy value) (form "call" (list (translate receiver) (form "list" (list value)))) otherwise)))))
-        ((Cons test body) (form "if" (list (truthy (translate test)) (translate-body body) otherwise)))
+                  (lambda (value) (scheme-if value (form "call" (list (translate receiver) (form "list" (list value)))) otherwise))))
+        ((Cons test body) (scheme-if (translate test) (translate-body body) otherwise))
         ((Nil) (panic "scheme: empty cond clause"))))
 
     (: translate-case (-> Datum (List Datum) Syntax))

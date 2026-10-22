@@ -4,11 +4,8 @@
                   (import
                    (lofi base)
                    (lofi syntax))
-                  (form "define-library"
-                        (list (form "sample" (list (SymbolSyntax "table")))
-                              (form "export" (list (SymbolSyntax "squares")))
-                              (form "import" (list (form "lofi" (list (SymbolSyntax "base")))))
-                              (form "begin"
-                                    (list (form "define"
-                                                (list (SymbolSyntax "squares")
-                                                      (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))))
+                  (library-syntax (list "sample" "table")
+                                  (list "squares")
+                                  (list (list "lofi" "base"))
+                                  (list (form "define"
+                                              (list (SymbolSyntax "squares") (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))

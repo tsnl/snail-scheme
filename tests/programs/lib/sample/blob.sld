@@ -6,11 +6,7 @@
                    (lofi base)
                    (lofi io)
                    (lofi syntax))
-                  (form "define-library"
-                        (list (form "sample" (list (SymbolSyntax "blob")))
-                              (form "export" (list (SymbolSyntax "pixel")))
-                              (form "import" (list (form "lofi" (list (SymbolSyntax "base")))))
-                              (form "begin"
-                                    (list (form "define"
-                                                (list (SymbolSyntax "pixel")
-                                                      (BytesSyntax (read-bytes "tests/programs/data/pixel.png")))))))))
+                  (library-syntax (list "sample" "blob")
+                                  (list "pixel")
+                                  (list (list "lofi" "base"))
+                                  (list (form "define" (list (SymbolSyntax "pixel") (BytesSyntax (read-bytes "tests/programs/data/pixel.png")))))))
