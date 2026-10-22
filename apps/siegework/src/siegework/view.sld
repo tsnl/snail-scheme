@@ -693,6 +693,18 @@
                (Translucent (+ 0.45 (* 0.25 (f64->f32 (sin (f32->f64 (* 2.5 time)))))))
                (lambda () (concatenate (map (lambda (c) (at-cell (Crystal-cell c) (shimmer-parts))) (open-crystals world)))))))
 
+    ;; Until the first extractor is built, while the game is in play, the
+    ;; crystals in sight pulse white to show where it goes.
+    (: beacon-batches (-> Game (List Batch)))
+    (define (beacon-batches game)
+      (let* ((world (Game-world game)) (time (/ (i64->f32 (Game-shown game)) 1000.0)))
+        (if (or (World-started world) (not (playing? world)))
+            (Nil)
+            (list (Batch 10 (stamp game (+ (World-structure-version world) (World-explored-version world)))
+                         (Translucent (+ 0.5 (* 0.3 (f64->f32 (sin (f32->f64 (* 5.0 time)))))))
+                         (lambda () (concatenate (map (lambda (c) (at-cell (Crystal-cell c) (list (flat (Paint (rgb 255 255 255) 1.0) 0.0 0.0 0.02 0.99 0.99))))
+                                                      (open-crystals world)))))))))
+
     ;; Bars follow the camera through every turn: their batch changes with
     ;; the eased heading, in steps too small to see. The tick and the
     ;; explored version only grow, so their sum changes whenever either
@@ -720,11 +732,13 @@
     (define (view-game game)
       (let* ((world (Game-world game)) (camera (game-camera game)))
         (Frame camera (camera-light camera) sky (world-motion game)
-               (append (terrain-batches game)
-                       (list (Batch 3 (stamp game (World-structure-version world)) (Solid) (lambda () (structure-items world)))
-                             (Batch 5 (stamp game (World-tick world)) (Solid) (lambda () (moving-items world)))
-                             (bar-batch game) (link-batch game)
-                             (cursor-batch game) (shimmer-batch game) (preview-batch game))))))
+               (concatenate (list (terrain-batches game)
+                                  (list (Batch 3 (stamp game (World-structure-version world)) (Solid) (lambda () (structure-items world)))
+                                        (Batch 5 (stamp game (World-tick world)) (Solid) (lambda () (moving-items world)))
+                                        (bar-batch game) (link-batch game)
+                                        (cursor-batch game) (shimmer-batch game))
+                                  (beacon-batches game)
+                                  (list (preview-batch game)))))))
 
     (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
     (define (filter-map f items)

@@ -1,18 +1,19 @@
 // Runs the compiled game without a browser: a recording screen host, keys
-// that pan, taps that select cells, an order given through the HUD's card,
-// five minutes of play, and a save replayed through the application entry
-// points.
+// that pan, the opening's banner and pulsing crystals, taps that select
+// cells, an order given through the HUD's card, five minutes of play, and a
+// save replayed through the application entry points.
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const ELAPSED = 11, PRESS = 9, RESIZE = 8, POINTER_UP = 5, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
+const SUGGESTED = 5;
 
 // Records each frame's batches, the camera's target, and the latest HUD's
 // widgets.
 function screen() {
   const host = {frames: [], widgets: [], target: null, imports: null};
   let frame = null, widget = null, field = null, widgets = null;
-  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
+  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption', 'url'];
   host.imports = {
     'frame-begin'() { frame = {batches: []}; },
     camera(ex, ey, ez, tx, ty, tz) { host.target = [tx, tz]; },
@@ -23,11 +24,17 @@ function screen() {
     'hud-begin'() { widgets = []; },
     'panel-begin'() { widget = {key: ''}; },
     'widget-begin'(kind, tone, action, argument, control) {
-      widget = {kind, action, argument, control, key: '', icon: '', help: '', badge: '', text: '', caption: ''};
+      widget = {kind, tone, action, argument, control, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: '', spans: []};
       widgets.push(widget);
     },
-    field(which) { field = fields[which]; },
-    'text-character'(code) { widget[field] += String.fromCodePoint(code); },
+    field(which) {
+      if (which >= 7) widget.spans.push({strong: which === 8, words: ''});
+      field = fields[which] ?? null;
+    },
+    'text-character'(code) {
+      if (field) widget[field] += String.fromCodePoint(code);
+      else widget.spans.at(-1).words += String.fromCodePoint(code);
+    },
     'hud-end'() { host.widgets = widgets; },
   };
   return host;
@@ -67,11 +74,23 @@ const game = await instantiate(path, host);
 game.app_init(7, 960, 640);
 game.app_frame();
 const first = host.frames.at(-1);
-assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 7],
-                 'terrain, structures, motion, bars, links, cursor, shimmer and preview');
+assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 10, 7],
+                 'terrain, structures, motion, bars, links, cursor, shimmer, beacons and preview');
+assert.ok(first.batches[7].items > 0, 'the crystals in sight pulse before the game begins');
+assert.equal(widget(host, 'opening-title').text, 'Siegework');
+const spoken = key => widget(host, key).spans.map(span => span.strong ? `*${span.words}*` : span.words).join('');
+assert.equal(spoken('opening-crystal'), 'Click the *glowing crystal*');
+assert.match(widget(host, 'how-to-play').url, /games\/siegework\.html$/);
 assert.ok(first.batches[0].items > 200, 'the explored ground around the hub');
 assert.equal(widget(host, 'energy').text, '160');
 assert.equal(widget(host, 'nests').text, '☆☆☆');
+// The camera opens on the starter crystal: a tap in the middle offers the
+// suggested extractor.
+tap(game, 480, 320);
+assert.equal(widget(host, 'build-extractor').control, 0, 'the starter crystal is in the middle');
+assert.equal(widget(host, 'build-extractor').tone, SUGGESTED);
+game.app_input(KEY_DOWN, 53, 0, 0, 0);
+game.app_input(KEY_UP, 53, 0, 0, 0);
 
 // Holding D for a second pans nine cells along the ground; holding W for a
 // second pans eighteen, the ground being seen at 30 degrees.
@@ -106,11 +125,22 @@ for (let y = 10; y < 640 && !crystal; y += 20)
     if (button && button.control === 0) crystal = button;
   }
 assert.ok(crystal, 'a crystal is in view');
+assert.equal(crystal.tone, SUGGESTED, 'the opening suggests the extractor');
+assert.equal(spoken('opening-build'), 'Click the *build button* to continue');
 game.app_input(PRESS, crystal.action, crystal.argument, 0, 0);
 assert.equal(widget(host, 'energy').text, '135');
 assert.ok(widget(host, 'scavenge'), 'the first extractor is ready at once');
-// Each tenth of a second advances the world a tick.
-for (let i = 0; i < 3000; i++) game.app_input(ELAPSED, 100, 0, 0, 0);
+assert.ok(!widget(host, 'opening-title'), 'the banner leaves once the game begins');
+game.app_frame();
+assert.ok(!host.frames.at(-1).batches.some(batch => batch.key === 10), 'and so do the pulsing crystals');
+// Each tenth of a second advances the world a tick. The first attack
+// raises the alert under the nests.
+let alarm = null;
+for (let i = 0; i < 3000; i++) {
+  game.app_input(ELAPSED, 100, 0, 0, 0);
+  alarm ??= widget(host, 'attack');
+}
+assert.ok(alarm, 'an attack raises the alert');
 game.app_frame();
 const readouts = h => ['health', 'energy', 'threat', 'elapsed'].map(key => widget(h, key)?.text);
 console.log(readouts(host).join(' | '));
