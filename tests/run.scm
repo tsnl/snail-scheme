@@ -130,6 +130,14 @@
   (let ((day-night (enum-type-id root "(Day) (Night)")) (night-day (enum-type-id root "(Night) (Day)")))
     (or (not (string=? day-night night-day)) (report "type ids" "unchanged by reordering an enum's cases" day-night))))
 
+;; The exposed and foreign ABI, exercised from JavaScript against linked Wasm.
+(define (check-host-boundary root)
+  (let* ((program (path-join root "build/tests/host-boundary.wasm"))
+         (text (program->wat root (list (path-join root "lib")) (path-join root "tests/host-boundary/main.sld"))))
+    (link-wat root text program #f)
+    (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/host-boundary/check.mjs") program))))
+      (or (zero? (caddr result)) (report "host boundary" "failed" (string-append (car result) (cadr result)))))))
+
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld")) (marker "(struct.new $any (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
@@ -262,7 +270,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
