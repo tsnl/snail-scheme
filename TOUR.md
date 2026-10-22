@@ -76,19 +76,20 @@ and keeps state that grows over a whole pass in a `Ref`.
 
 | Path | Responsibility |
 | --- | --- |
-| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile` and `wat`. |
+| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `serve` and `watch`. |
+| `scripts/develop.mjs` | The development loop behind `lofi serve` and `lofi watch`: it watches the sources, builds through the driver, and either serves an application with live reload events or runs a program again. |
 | `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program. |
 | `bootstrap/compile.sld` | The compiler's entry program when it runs as Wasm. |
 | `lib/lofi/` | The standard library, written in Lofi. Chibi never loads it. |
 | `lib/scheme/` | `(scheme compiler)`, which translates R7RS programs to Lofi libraries, and `(scheme runtime)`, their standard procedures. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
 | `scripts/run-lofi.mjs` | Runs a compiled program under Node's WASI, in a worker with room for deep recursion. |
-| `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (perspective or orthographic, glow, motion between ticks, translucent and revealed batches), the keyed HUD and saves. |
+| `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (perspective or orthographic, glow, motion between ticks, translucent and revealed batches), the keyed HUD and saves; `reload.mjs`, which `lofi serve` adds to its pages, swaps a rebuilt module into a running page by restoring the old module's save into it. |
 | `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
 | `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `colony` (orders and work), `siege` (attacks and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
 | `examples/` | Small programs; the test suite runs them, and the book's tutorials show them. |
 | `doc/book/`, `book.toml` | The book published on GitHub Pages; its chapters include the language guide, the redesign and Siegework's guide. |
-| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios and a headless game. |
+| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios, a headless game and `develop.mjs`, which drives `lofi serve` and `lofi watch` over the `tests/apps/counter` fixture; `browser/reload.mjs` checks live reload in Chromium. |
 
 ## Checks
 
@@ -97,6 +98,7 @@ make test       # unit tests, programs, examples and Siegework
 make check      # formatting
 cargo test --manifest-path src/runtime/Cargo.toml --offline
 make site       # Siegework in build/siegework
+make test-browser  # live reload in headless Chromium; CHROMIUM names it
 make pages      # the book, with Siegework at play/siegework/, in build/pages
 ```
 

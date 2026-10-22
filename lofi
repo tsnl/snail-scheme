@@ -2,6 +2,7 @@
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 case ${1:-} in
   -h|--help) cat "$root/scripts/lofi-help.txt"; exit 0 ;;
+  serve|watch) exec "${NODE:-node}" --no-warnings "$root/scripts/develop.mjs" "$root" "$@" ;;
 esac
 # Chibi collects the whole heap whenever it grows, so start it large.
 exec "${CHIBI:-chibi-scheme}" -h "${LOFI_HEAP:-2G}" -I "$root/host/chibi" -I "$root/src" "$root/scripts/lofi.scm" "$root" "$@"
