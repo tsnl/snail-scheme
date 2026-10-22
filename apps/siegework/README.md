@@ -96,8 +96,9 @@ extractor, a wall, a portal, an upgrade, a rush and closing. A button that
 may work later, waiting on energy, work, the network or the first
 extractor, turns flat blue with faint lines; one that cannot apply to the
 selection fades. Rush finishes the selected work, or else makes new
-buildings rushed. A selected building or hub adds cancelling its work and
-scavenging it, or at the hub repair and building a worker. Beside it come the menu and turning buttons and the build queue,
+buildings rushed. Beside it come the menu and turning buttons, then for a
+selected building cancelling its work and scavenging it, or at the hub
+cancelling, repair and building a worker, then the build queue,
 with a ring while a work builds and ! while it is unpowered; tap one to go
 to it. Under the nests in the opposite corner, a red alert throbs while the
 colony is under attack and goes to the latest attack, and a notice says why
