@@ -31,9 +31,11 @@ check:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
 
-# Siegework as a static site in build/siegework.
+# Siegework and Hearsay's prototypes as static sites in build/siegework and
+# build/hearsay.
 site:
 	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-app.scm "$(CURDIR)" --release apps/siegework build/siegework
+	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-app.scm "$(CURDIR)" --release apps/hearsay build/hearsay
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
 # play/siegework/.

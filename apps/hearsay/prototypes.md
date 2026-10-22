@@ -1,18 +1,19 @@
 # Hearsay prototypes
 
 Each prototype asks one question about whether the [design](README.md) is
-fun. The rumor mill and the favor ledger can be played on paper or at a
-terminal; the third prototype waits until both hold up.
+fun. The rumor mill and the favor ledger can be played on paper or in a
+browser; the third prototype waits until both hold up.
 
 ```sh
-source ~/.local/lofi-tools/env.sh   # or any shell with the tools on PATH
-./lofi run -I apps/hearsay/src apps/hearsay/rumor-mill.sld [SCENARIO]
-./lofi run -I apps/hearsay/src apps/hearsay/favor-ledger.sld [SEED]
+make site
+python3 -m http.server 4192 --directory build/hearsay
 ```
 
-Type `help` at the prompt for commands. Each program's rules live in one
-library under `src/hearsay/`, and `tests/` replays a scripted session of
-each.
+Open `http://127.0.0.1:4192` in a browser with WebGPU and choose a
+prototype from the menu. Each prototype's rules live in one library under
+`src/hearsay/` (`mill`, `ledger`), and its screen in another (`mill-screen`,
+`ledger-screen`); `shell` holds the menu. `tests/` replays scripted games
+through the rules and clicks through both screens.
 
 ## 1. The rumor mill
 
@@ -100,22 +101,20 @@ Everyone starts with 10 coins.
    not after the tenth shift.
 3. **Sandbox.** Twelve shifts and no goal.
 
-### At the terminal
+### In the browser
 
-The board shows every person with what they believe, the audiences'
-levels, your liabilities, and a forecast: the next changes in each
-audience's levels if you lie low from now on. Name people by number or by
-first name.
+The town is drawn as its graph: each audience a ring of balls in its own
+color, hubs larger, ties as lines. Pillars over a person show what they
+believe, colored by trait and as tall as the intensity: dangerous or
+harmless on the left, reliable or unreliable on the right. A yellow square
+marks who heard something new in the last shift, a dark one who is keeping
+quiet.
 
-| Command | Effect |
-| --- | --- |
-| `rough P`, `threat P`, `deliver P`, `promise P`, `walk P` | A deed witnessed by P. |
-| `pay P` | Pay P. |
-| `lie reliable P`, `lie harmless P` | Lie to P. |
-| `wait` | Lie low. |
-| `look P` | P's ties and stories, with where each came from. Takes no time. |
-| `map` | Every person's ties. Takes no time. |
-| `help`, `quit` | |
+Point at a person to read their ties and stories, with the path each story
+took to reach them; click to choose them, or choose one of their ties from
+the list. The buttons below act toward the chosen person, or lie low. The
+corner panels show the audiences' levels, your liabilities, and a forecast:
+the next changes in each audience's levels if you lie low from now on.
 
 ### On paper
 
@@ -137,7 +136,7 @@ shift. Use coins and liability cards as above.
 
 *Does an economy of favors produce interesting trades, or collapse into
 hoarding?* On paper, three or four players are fixers trading with each
-other. At the terminal, one player trades with two rival fixers.
+other. In the browser, one player trades with two rival fixers.
 
 ### Pieces
 
@@ -159,7 +158,7 @@ other. At the terminal, one player trades with two rival fixers.
   books until it is honored or refused, and a promise still unhonored when
   it falls due is refused.
 
-### At the terminal
+### In the browser
 
 You and the two rivals, Vee and Kit, each start with 4 coins, no
 standing, and two markers from contacts drawn at random. Vee honors every
@@ -204,16 +203,10 @@ Each round:
       promises kept.
    5. Expired jobs are removed.
 
-| Command | Effect |
-| --- | --- |
-| `accept O` | Accept offer O. |
-| `meet C` | Meet contact C's want. |
-| `job J` | Do job J. |
-| `honor P` | Honor promise P. |
-| `end` | End the round. |
-| `help`, `quit` | |
-
-The same seed deals the same game.
+Every offer, contact, job and promise you owe is a button, green when it
+would succeed now; the board shows everyone's coins, standing, record and
+markers, and what the last end of round did. Each new game from the menu
+deals the next seed.
 
 ### On paper
 
