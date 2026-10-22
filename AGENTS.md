@@ -55,8 +55,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Chibi is stage 0 of the bootstrap: it must keep running the compiler's
   source, so the compiler avoids behavior the two hosts would disagree on,
   such as integer overflow and the order of table keys.
-- Update [TOUR.md](TOUR.md) when module responsibilities change. Keep proposed
-  APIs distinct from implemented behavior in documentation and TODOs.
+- Update [TOUR.md](TOUR.md) when module responsibilities change. Track open
+  work in the book's [roadmap](doc/book/roadmap.md). Keep proposed APIs
+  distinct from implemented behavior in documentation and the roadmap.
 
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path src/runtime/Cargo.toml --offline`, and
