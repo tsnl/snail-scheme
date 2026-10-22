@@ -93,14 +93,17 @@ function screenImports(renderer, hud) {
       panels.push(target);
     },
     'widget-begin'(kind, tone, action, argument, control, value) {
-      target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: ''};
+      target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: '', spans: []};
       panels.at(-1).widgets.push(target);
     },
+    // Fields 7 and 8 each start a span of a text, normal or strong.
     field(which) {
-      fieldName = fields[which];
+      if (which >= 7) target.spans.push({strong: which === 8, words: ''});
+      fieldName = fields[which] ?? null;
     },
     'text-character'(code) {
-      target[fieldName] += String.fromCodePoint(code);
+      if (fieldName) target[fieldName] += String.fromCodePoint(code);
+      else target.spans.at(-1).words += String.fromCodePoint(code);
     },
     'hud-end'() {
       hud.update(panels);

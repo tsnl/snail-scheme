@@ -248,14 +248,16 @@
     ;; ---- Opening ----
 
     ;; Until the first extractor is built, the world waits under a title
-    ;; banner that asks for one, then, once a crystal is selected, for the
-    ;; build button the menu suggests. It links to the guide.
+    ;; banner that points to the glowing crystals, then, once one is
+    ;; selected, to the build button the menu suggests. It links to the
+    ;; guide.
     (: opening (-> Game (List Panel)))
     (define (opening game)
       (if (opening? (Game-world game))
           (list (Panel "opening" (Banner)
                        (list (text "opening-title" "Siegework")
-                             (text "opening" (if (extractor-offered? game) "Click the build button to continue" "Build an extractor to start"))
+                             (Text (look "opening")
+                                   (if (extractor-offered? game) (list (Normal "Click the build button to continue")) (list (Normal "Click the ") (Strong "glowing resource deposit"))))
                              (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
           (Nil)))
 

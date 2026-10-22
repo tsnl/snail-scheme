@@ -7,7 +7,7 @@
 const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 const tones = ['plain', 'good', 'warning', 'danger', 'muted', 'suggested'];
 const DIALOG = 1, BANNER = 2;
-const LABEL = 0, BUTTON = 1, DIAL = 2, LINK = 3;
+const LABEL = 0, BUTTON = 1, DIAL = 2, LINK = 3, TEXT = 4;
 const DISABLED = 1, SELECTED = 2;
 
 // The button under the pointer. One removed while hovered never reports
@@ -53,6 +53,18 @@ function setText(node, selector, text) {
   if (part && part.textContent !== text) part.textContent = text;
 }
 
+// A text's spans, rebuilt only when they change.
+function setSpans(node, spans) {
+  const part = node.querySelector('.text'), shape = JSON.stringify(spans);
+  if (part.dataset.spans === shape) return;
+  part.dataset.spans = shape;
+  part.replaceChildren(...spans.map(span => {
+    const piece = document.createElement(span.strong ? 'strong' : 'span');
+    piece.textContent = span.words;
+    return piece;
+  }));
+}
+
 function updateWidget(node, widget) {
   node.dataset.kind = widget.kind;
   setAttribute(node, 'data-key', widget.key);
@@ -61,7 +73,8 @@ function updateWidget(node, widget) {
   setAttribute(node, 'data-tone', tones[widget.tone]);
   setAttribute(node, 'title', widget.help);
   setAttribute(node, 'aria-label', widget.help ? `${widget.text} ${widget.help}`.trim() : '');
-  setText(node, '.text', widget.text);
+  if (widget.kind === TEXT) setSpans(node, widget.spans);
+  else setText(node, '.text', widget.text);
   setText(node, '.caption', widget.caption);
   if (widget.kind === LINK) setAttribute(node, 'href', widget.url);
   if (widget.kind === BUTTON) {
