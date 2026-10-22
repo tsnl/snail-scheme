@@ -9,5 +9,4 @@ each can return if a program needs it.
 Some smaller features are planned but not yet implemented: complex numbers
 and mutable pairs in the dynamic Scheme libraries, mutually recursive local
 functions, superclasses, literals at a generic numeric type, and
-overflow-checked arithmetic. The repository's
-[TODO](https://github.com/tsnl/snail-scheme/blob/main/TODO.md) lists them.
+overflow-checked arithmetic. The [roadmap](../roadmap.md) lists them.
