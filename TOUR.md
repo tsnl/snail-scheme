@@ -71,7 +71,9 @@ and keeps state that grows over a whole pass in a `Ref`.
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
   names, and definitions that only rename another, such as
-  `(define + i64-add)`, are replaced by their target.
+  `(define + i64-add)`, are replaced by their target. One immutable
+  specialization input indexes the checked program for all libraries in a
+  build; each emitted library owns its requests, copies and imports.
 - **[`wasm.sld`](src/lofi/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
