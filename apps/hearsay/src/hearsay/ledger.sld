@@ -6,6 +6,8 @@
    Ledger
    new-ledger
    ledger-over?
+   Ledger-round
+   round-count
    Command
    Accept
    Meet
@@ -16,6 +18,7 @@
    Choice
    Choice-command
    Choice-text
+   Choice-caption
    Choice-refusal
    offer-choices
    contact-choices
@@ -24,6 +27,9 @@
    ledger-header
    ledger-intro
    fixer-lines
+   fixer-stats
+   fixer-holdings
+   due-now
    owed-lines
    last-round-lines
    ledger-result
@@ -733,37 +739,48 @@
 
     ;; ---- Choices ----
 
-    ;; A command the board offers, and why it would fail now, if it would.
+    ;; A command the board offers: what it does, its terms in a caption, and
+    ;; why it would fail now, if it would.
     (struct Choice
       ((command Command)
        (text String)
+       (caption String)
        (refusal (Option String)))
       (deriving Serialize Deserialize))
 
-    (: choice (-> Ledger Command String Choice))
-    (define (choice ledger command text)
-      (Choice command text
+    (: choice (-> Ledger Command (Pair String String) Choice))
+    (define (choice ledger command parts)
+      (Choice command (Pair-first parts) (Pair-second parts)
               (match (ledger-act ledger command)
                 ((Ok _) (None))
                 ((Err why) (Some why)))))
 
-    (: offer-choices (-> Ledger (List Choice)))
-    (define (offer-choices ledger)
-      (map (lambda (offer) (choice ledger (Accept (Offer-number offer)) (describe-offer offer))) (Ledger-offers ledger)))
+    ;; One rival's offers: Vee is 1 and Kit 2.
+    (: offer-choices (-> Ledger I64 (List Choice)))
+    (define (offer-choices ledger rival)
+      (map (lambda (offer) (choice ledger (Accept (Offer-number offer)) (offer-parts offer)))
+           (filter (lambda (offer) (= (Offer-rival offer) rival)) (Ledger-offers ledger))))
 
     (: contact-choices (-> Ledger (List Choice)))
     (define (contact-choices ledger)
-      (map (lambda (contact) (choice ledger (Meet contact) (describe-contact ledger contact))) (iota contact-count)))
+      (map (lambda (contact) (choice ledger (Meet contact) (contact-parts ledger contact))) (iota contact-count)))
 
     (: job-choices (-> Ledger (List Choice)))
     (define (job-choices ledger)
-      (map (lambda (job) (choice ledger (Work (Job-number job)) (describe-job job))) (Ledger-jobs ledger)))
+      (map (lambda (job) (choice ledger (Work (Job-number job)) (job-parts job))) (Ledger-jobs ledger)))
 
     ;; Only the promises you owe can be honored.
     (: promise-choices (-> Ledger (List Choice)))
     (define (promise-choices ledger)
-      (map (lambda (promise) (choice ledger (Honor (Promise-number promise)) (describe-promise promise)))
+      (map (lambda (promise) (choice ledger (Honor (Promise-number promise)) (promise-parts promise)))
            (filter (lambda (promise) (= (Promise-debtor promise) you)) (Ledger-promises ledger))))
+
+    ;; The rivals you owe a marker by the end of this round.
+    (: due-now (-> Ledger (List String)))
+    (define (due-now ledger)
+      (map (lambda (promise) (fixer-name (Promise-creditor promise)))
+           (filter (lambda (promise) (and (= (Promise-debtor promise) you) (= (Promise-due promise) (Ledger-round ledger))))
+                   (Ledger-promises ledger))))
 
     ;; ---- Text ----
 
@@ -804,12 +821,6 @@
         ((WantAbility ability) (string-append "a marker with " (ability-name ability)))
         ((WantCoins coins) (coins-text coins))))
 
-    (: describe-job (-> Job String))
-    (define (describe-job job)
-      (string-append "Job " (show (Job-number job)) ": " (abilities-text (Job-abilities job)) ", for "
-                     (coins-text (job-coins job)) " and " (show (job-standing job)) " standing, open through round "
-                     (show (Job-expires job))))
-
     (: describe-offer (-> Offer String))
     (define (describe-offer offer)
       (let ((rival (fixer-name (Offer-rival offer)))
@@ -821,6 +832,55 @@
            (string-append rival " pays " price " for your promise of " (ability-name ability) " by round " (show due) "."))
           ((PromiseOffered ability due)
            (string-append rival " promises you " (ability-name ability) " by round " (show due) " for " price ".")))))
+
+    ;; A choice's text and caption: what it does, and its terms.
+    (: offer-parts (-> Offer (Pair String String)))
+    (define (offer-parts offer)
+      (let ((price (coins-text (Offer-price offer))))
+        (match (Offer-deal offer)
+          ((Buy ability) (Pair (string-append "Buys your oldest " (ability-name ability) " marker") (string-append "pays " price)))
+          ((Sell marker)
+           (Pair (string-append "Sells " (contact-name (Marker-contact marker)) " (" (ability-name (marker-ability marker)) ")")
+                 (string-append "for " price ", lapses after round " (show (Marker-lapses marker)))))
+          ((PromiseWanted ability due)
+           (Pair (string-append "Wants your promise of " (ability-name ability))
+                 (string-append "pays " price " now, due at the end of round " (show due))))
+          ((PromiseOffered ability due)
+           (Pair (string-append "Promises you " (ability-name ability)) (string-append "for " price ", due at the end of round " (show due)))))))
+
+    (: contact-parts (-> Ledger I64 (Pair String String)))
+    (define (contact-parts ledger contact)
+      (Pair (string-append (contact-name contact) " (" (ability-name (contact-ability contact)) ")")
+            (if (member? contact (Ledger-met ledger))
+                "met this round"
+                (string-append "wants " (describe-want (list-ref (Ledger-wants ledger) contact))))))
+
+    (: job-parts (-> Job (Pair String String)))
+    (define (job-parts job)
+      (Pair (string-append "Job " (show (Job-number job)) ": " (abilities-text (Job-abilities job)))
+            (string-append (coins-text (job-coins job)) " and " (show (job-standing job)) " standing, open through round "
+                           (show (Job-expires job)))))
+
+    (: promise-parts (-> Promise (Pair String String)))
+    (define (promise-parts promise)
+      (Pair (string-append "Give " (object-name (Promise-creditor promise)) " a " (ability-name (Promise-ability promise)) " marker")
+            (string-append "due at the end of round " (show (Promise-due promise)))))
+
+    ;; A fixer's coins, standing and record of promises.
+    (: fixer-stats (-> Ledger I64 String))
+    (define (fixer-stats ledger who)
+      (let ((fixer (ledger-fixer ledger who)))
+        (string-append (coins-text (Fixer-coins fixer)) " · " (show (Fixer-standing fixer)) " standing · kept "
+                       (show (Fixer-kept fixer)) ", refused " (show (Fixer-refused fixer)))))
+
+    ;; A fixer's markers, and for a rival the job it works toward.
+    (: fixer-holdings (-> Ledger I64 String))
+    (define (fixer-holdings ledger who)
+      (let ((markers (markers-of ledger who)))
+        (string-append (if (null? markers) "No markers" (string-append "Markers: " (string-join (map describe-marker markers) ", ")))
+                       (match (target-job ledger who)
+                         ((Some job) (string-append "\nWorking toward job " (show (Job-number job))))
+                         ((None) "")))))
 
     (: describe-promise (-> Promise String))
     (define (describe-promise promise)
@@ -843,12 +903,6 @@
                          ((Some job) (string-append ", targets job " (show (Job-number job))))
                          ((None) ""))
                        "\n    markers: " (if (null? markers) "none" (string-join (map describe-marker markers) ", ")))))
-
-    (: describe-contact (-> Ledger I64 String))
-    (define (describe-contact ledger contact)
-      (string-append (contact-name contact) " (" (ability-name (contact-ability contact))
-                     ") wants " (describe-want (list-ref (Ledger-wants ledger) contact))
-                     (if (member? contact (Ledger-met ledger)) "; met this round" "")))
 
     ;; A title over indented lines.
     (: section (-> String (List String) String))
@@ -891,12 +945,13 @@
 
     (: playing-board (-> Ledger String))
     (define (playing-board ledger)
-      (let ((texts (lambda (choices) (map Choice-text choices))))
+      (let ((texts (lambda (choices) (map (lambda (c) (string-append (Choice-text c) ", " (Choice-caption c))) choices))))
         (string-join (list (ledger-header ledger)
                            (section "Fixers" (fixer-lines ledger))
                            (section "Contacts" (texts (contact-choices ledger)))
                            (section "Jobs" (texts (job-choices ledger)))
-                           (section "Offers" (texts (offer-choices ledger)))
+                           (section "Vee offers" (texts (offer-choices ledger 1)))
+                           (section "Kit offers" (texts (offer-choices ledger 2)))
                            (section "Promises" (append (texts (promise-choices ledger)) (owed-lines ledger)))
                            (section "Last round" (last-round-lines ledger)))
                      "\n\n")))

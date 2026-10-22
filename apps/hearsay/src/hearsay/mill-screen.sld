@@ -1,7 +1,9 @@
 ;; The rumor mill in the browser: the town as a 2D map of its people, each a
 ;; figure on a base in their audience's color, with pips over their head
-;; for what they believe; the chosen person's portrait and stories; and
-;; buttons for the shift's action.
+;; for what they believe. Around it, the HUD says what to do next, how the
+;; goal stands, who the chosen person is and what they have heard, and
+;; what each audience believes, with a button for each move that says why
+;; when it cannot be made. A guide explains the game the first time.
 (define-library (hearsay mill-screen)
   (export
    MillScreen
@@ -18,25 +20,26 @@
    (only (lpc layout) Stand Stroll)
    (lpc wardrobe)
    (hearsay mill)
-   (hearsay cast))
+   (hearsay cast)
+   (hearsay hud))
   (begin
 
     ;; ---- State ----
 
-    ;; `fresh` lists who heard something new in the last shift. `summary`
-    ;; holds the audiences, forecast and liabilities, which take simulating
-    ;; several shifts, so they are worked out once per shift rather than
-    ;; every frame. `version` changes with every shift, so the host redraws
-    ;; the town only then.
+    ;; `fresh` lists who heard something new in the last shift. The
+    ;; forecast takes simulating several shifts, so it is worked out once
+    ;; per shift rather than every frame. `version` changes with every shift, so the host redraws
+    ;; the town only then. `guide` is the guide's open page, if any.
     (struct MillScreen
       ((scenario I64)
        (mill Mill)
-       (summary (List String))
+       (forecast (List String))
        (selected (Option I64))
        (hover (Option I64))
        (message String)
        (fresh (List I64))
        (version I64)
+       (guide (Option I64))
        (width I32)
        (height I32))
       (deriving Serialize Deserialize))
@@ -45,12 +48,7 @@
     (: new-mill-screen (-> I64 I64 I32 I32 MillScreen))
     (define (new-mill-screen scenario version width height)
       (let ((mill (new-mill scenario)))
-        (MillScreen scenario mill (summary mill) (None) (None) "Click a person to choose them, then choose what to do."
-                    (Nil) version width height)))
-
-    (: summary (-> Mill (List String)))
-    (define (summary mill)
-      (list (lines (mill-audiences mill)) (lines (mill-outlook mill)) (lines (liability-lines mill))))
+        (MillScreen scenario mill (forecast mill) (None) (None) "" (Nil) version (None) width height)))
 
     ;; ---- Layout ----
 
@@ -152,14 +150,16 @@
     (: record-shift (-> MillScreen Mill Mill String MillScreen))
     (define (record-shift screen before after message)
       (let* ((screen (MillScreen-mill-set screen after))
-             (screen (MillScreen-summary-set screen (summary after)))
+             (screen (MillScreen-forecast-set screen (forecast after)))
              (screen (MillScreen-message-set screen message))
              (screen (MillScreen-fresh-set screen (newly-heard before after))))
         (MillScreen-version-set screen (+ (MillScreen-version screen) 1))))
 
     (: press (-> MillScreen I32 MillScreen))
     (define (press screen action)
-      (cond ((>= action action-choose) (MillScreen-selected-set screen (Some (i32->i64 (- action action-choose)))))
+      (cond ((guide-action? action)
+             (MillScreen-guide-set screen (turn-guide (MillScreen-guide screen) (length guide-pages) action)))
+            ((>= action action-choose) (MillScreen-selected-set screen (Some (i32->i64 (- action action-choose)))))
             ((= action action-restart)
              (new-mill-screen (MillScreen-scenario screen) (+ (MillScreen-version screen) 1) (MillScreen-width screen)
                               (MillScreen-height screen)))
@@ -277,62 +277,224 @@
                    (Batch 2 (marker-version screen) (Solid) (lambda () (marker-items screen))))
              (map (lambda (person) (walk-picture art (picture-key person) (resident person))) (iota person-count))))
 
-    ;; ---- Panels ----
+    ;; ---- Status ----
 
-    (: label (-> String String Widget))
-    (define (label key text)
-      (Label (look key) text))
+    ;; The scenario, with the shift and coins as dials.
+    (: status-panel (-> MillScreen Panel))
+    (define (status-panel screen)
+      (let* ((mill (MillScreen-mill screen)) (shift (Mill-shift mill)) (last (last-shift mill)))
+        (Panel "status" (At (TopLeft) 0)
+               (list (label "title" (mill-scenario-name (MillScreen-scenario screen)))
+                     (Dial (look "shift") (string-append "Shift " (show (min shift last)) " of " (show last))
+                           (/ (i64->f32 (- shift 1)) (i64->f32 last)))
+                     (Dial (look "coins") (string-append (show (Mill-coins mill)) " coins") (/ (i64->f32 (Mill-coins mill)) 10.0))))))
 
-    (: button (-> String String I32 Widget))
-    (define (button key text action)
-      (Button (look key) text "" action 0 (Enabled) -1.0))
+    ;; The goal as a checklist, and when it is judged.
+    (: goal-panel (-> Mill Panel))
+    (define (goal-panel mill)
+      (Panel "goal" (At (TopLeft) 0)
+             (Cons (section-heading "goal" "Goal") (append (map-indexed goal-label (mill-goals mill)) (list (toned "deadline" (Muted) (mill-deadline mill)))))))
 
-    (: lines (-> (List String) String))
-    (define (lines texts)
-      (string-join texts "\n"))
+    (: goal-label (-> I64 Goal Widget))
+    (define (goal-label index goal)
+      (let ((key (string-append "goal-" (show index))) (text (Goal-text goal)))
+        (match (Goal-progress goal)
+          ((Met) (toned key (Good) (string-append "✓ " text)))
+          ((Done) (toned key (Good) (string-append "✓ " text)))
+          ((Unmet) (toned key (Danger) (string-append "✗ " text)))
+          ((Due) (toned key (Warning) (string-append "! " text ": now")))
+          ((Upcoming) (toned key (Muted) (string-append "○ " text))))))
 
-    ;; The person under the pointer, or else the chosen one, with buttons to
-    ;; choose their ties.
-    (: person-widgets (-> MillScreen (List Widget)))
-    (define (person-widgets screen)
-      (match (match (MillScreen-hover screen) ((Some person) (Some person)) ((None) (MillScreen-selected screen)))
-        ((Some person)
-         (Cons (portrait "portrait" (picture-key person) 2)
-               (Cons (label "person" (look-text (MillScreen-mill screen) person))
-                     (map (lambda (tie) (button (string-append "choose-" (show tie)) (string-append "Choose " (first-name tie))
-                                                (+ action-choose (i64->i32 tie))))
-                          (neighbors person)))))
-        ((None) (list (label "person" "Point at a person to see what they believe and where they heard it.")))))
+    ;; What to do now: the result once the game is over, the duty of a
+    ;; forced shift, or the next step of a move.
+    (: hint (-> MillScreen Widget))
+    (define (hint screen)
+      (let ((mill (MillScreen-mill screen)) (chosen (MillScreen-selected screen)))
+        (match (mill-result mill)
+          ((Some (Pair won? text)) (toned "hint" (if won? (Good) (Danger)) (string-append text " Restart, or go back to the menu.")))
+          ((None) (if (forced? mill) (toned "hint" (Warning) (duty-text chosen)) (toned "hint" (Plain) (step-text chosen)))))))
 
-    ;; The deeds and the other actions, named for the chosen person.
-    (: action-buttons (-> MillScreen (List Widget)))
-    (define (action-buttons screen)
-      (let ((whom (match (MillScreen-selected screen) ((Some person) (string-append " (" (first-name person) ")")) ((None) ""))))
-        (append (map-indexed (lambda (index deed)
-                               (button (string-append "deed-" (show index)) (string-append (deed-summary deed) whom) (i64->i32 (+ index 1))))
-                             deeds)
-                (list (button "pay" (string-append "Pay 2 coins" whom) action-pay)
-                      (button "lie-reliable" (string-append "Lie: reliable 1" whom) action-lie-reliable)
-                      (button "lie-harmless" (string-append "Lie: harmless 1" whom) action-lie-harmless)
-                      (button "wait" "Lie low" action-wait)
-                      (button "restart" "Restart" action-restart)))))
+    ;; The forced shift's duty, toward the chosen person if they are in the
+    ;; Docks.
+    (: duty-text (-> (Option I64) String))
+    (define (duty-text chosen)
+      (match chosen
+        ((Some person) (if (= (audience-of person) 1)
+                           (string-append "Rough up or threaten " (first-name person) ": this shift you must.")
+                           (duty-text (None))))
+        ((None) "This shift you must rough someone up or make a threat in the Docks: choose someone on a teal base.")))
 
-    (define legend
-      (string-append "Pips over a head, one per point: red dangerous, blue harmless, green reliable, orange unreliable."
-                     " Yellow ring: just heard something. Dark ring: quiet. Big base: hub."))
+    (: step-text (-> (Option I64) String))
+    (define (step-text chosen)
+      (match chosen
+        ((Some person) (string-append "Choose what to do toward " (first-name person) ", who will tell their ties at the end of next shift. Or lie low."))
+        ((None) "Choose a person on the map: they will witness what you do. Or lie low.")))
+
+    ;; What the last shift did, under the moves that made it.
+    (: last-panel (-> MillScreen Panel))
+    (define (last-panel screen)
+      (Panel "last" (At (TopLeft) 0)
+             (match (split-lines (MillScreen-message screen))
+               ((Nil) (list (toned "last-none" (Muted) "Nothing has happened yet.")))
+               (texts (Cons (section-heading "last" "Last shift") (line-labels "last" texts))))))
+
+    (: split-lines (-> String (List String)))
+    (define (split-lines text)
+      (filter (lambda (line) (> (string-length line) 0))
+              (let loop ((index 0) (start 0) (found (Nil)))
+                (cond ((= index (string-length text)) (reverse (Cons (substring text start index) found)))
+                      ((char=? (string-ref text index) #\newline) (loop (+ index 1) (+ index 1) (Cons (substring text start index) found)))
+                      (else (loop (+ index 1) start found))))))
+
+    ;; ---- Moves ----
+
+    ;; The move button `number` makes toward the chosen person, if anyone
+    ;; is chosen.
+    (: toward-chosen (-> MillScreen I32 (Option Action)))
+    (define (toward-chosen screen number)
+      (match (MillScreen-selected screen)
+        ((Some person) (Some (person-action number person)))
+        ((None) (None))))
+
+    ;; A move's button is greyed out with the reason when it cannot be made
+    ;; now, and otherwise says what it will do. `move` is None for a move
+    ;; that needs a person while no one is chosen.
+    (: move-button (-> MillScreen String String String I32 (Option Action) Widget))
+    (define (move-button screen key text caption number move)
+      (match move
+        ((Some action) (choice-button key text caption number 0 (refusal (MillScreen-mill screen) action) (move-help action)))
+        ((None) (choice-button key text caption number 0 (Some "Choose a person on the map first.") ""))))
+
+    (: move-help (-> Action String))
+    (define (move-help action)
+      (match action
+        ((Do deed person) (string-append (first-name person) " witnesses it, and tells their ties at the end of next shift."))
+        ((Pay person) (string-append (first-name person) " forgets every story and keeps quiet for four shifts. It is a liability."))
+        ((Mislead trait person) (string-append (first-name person) " hears a story you did not earn. It is exposed if they hear the truth."))
+        ((Wait) "Do nothing this shift; stories still spread.")))
+
+    (: move-buttons (-> MillScreen (List Widget)))
+    (define (move-buttons screen)
+      (append (map-indexed (lambda (index deed)
+                             (let ((number (i64->i32 (+ index 1))))
+                               (move-button screen (string-append "deed-" (show index)) (deed-name deed) (deed-effect deed) number
+                                            (toward-chosen screen number))))
+                           deeds)
+              (list (move-button screen "pay" "Pay to forget" "2 coins" action-pay (toward-chosen screen action-pay))
+                    (move-button screen "lie-reliable" "Lie: you are reliable" "reliable 1" action-lie-reliable
+                                 (toward-chosen screen action-lie-reliable))
+                    (move-button screen "lie-harmless" "Lie: you are harmless" "harmless 1" action-lie-harmless
+                                 (toward-chosen screen action-lie-harmless))
+                    (move-button screen "wait" "Lie low" "do nothing" action-wait (Some (Wait))))))
+
+    (: action-panel (-> MillScreen Panel))
+    (define (action-panel screen)
+      (Panel "actions" (At (TopLeft) 0)
+             (append (Cons (section-heading "moves" "Your move: one per shift") (if (mill-over? (MillScreen-mill screen)) (Nil) (move-buttons screen)))
+                     (list (Button (look "restart") "Restart" "" action-restart 0 (Enabled) -1.0)))))
+
+    ;; ---- People ----
+
+    ;; The person under the pointer, or else the chosen one: portrait, name,
+    ;; audience, beliefs as chips, the stories they hold, and their ties.
+    (: person-panel (-> MillScreen Panel))
+    (define (person-panel screen)
+      (Panel "person" (At (TopRight) 0)
+             (match (match (MillScreen-hover screen) ((Some person) (Some person)) ((None) (MillScreen-selected screen)))
+               ((Some person) (person-widgets (MillScreen-mill screen) person))
+               ((None) (list (toned "person-none" (Muted) "Point at a person to see who they are, what they believe and where they heard it."))))))
+
+    (: person-widgets (-> Mill I64 (List Widget)))
+    (define (person-widgets mill person)
+      (concatenate
+       (list (list (portrait "portrait" (picture-key person) 2)
+                   (label (string-append "audience-" (show (audience-of person)))
+                          (string-append (person-name person) "\n" (audience-name (audience-of person))
+                                         (if (hub? person) "\nA hub: passes stories two steps" ""))))
+             (section "believes" "Believes" "Nothing about you."
+                      (map (lambda (belief) (label (string-append "chip-" (trait-name (Pair-first belief))) (belief-text belief)))
+                           (person-beliefs mill person)))
+             (match (story-lines mill person)
+               ((Nil) (Nil))
+               (stories (Cons (section-heading "stories" "Stories they hold") (line-labels "story" stories))))
+             (Cons (section-heading "ties" "Ties")
+                   (map (lambda (tie) (Button (look (string-append "choose-" (show tie))) (first-name tie) "" (+ action-choose (i64->i32 tie)) 0
+                                              (Enabled) -1.0))
+                        (neighbors person))))))
+
+    ;; ---- The town ----
+
+    ;; "reliable 2".
+    (: belief-text (-> (Pair Trait I64) String))
+    (define (belief-text belief)
+      (string-append (trait-name (Pair-first belief)) " " (show (Pair-second belief))))
+
+    ;; What each audience believes, beside its color.
+    (: audience-panel (-> MillScreen Panel))
+    (define (audience-panel screen)
+      (Panel "audiences" (At (TopRight) 0)
+             (Cons (section-heading "audiences" "What each audience believes")
+                   (map (lambda (audience)
+                          (label (string-append "audience-" (show audience))
+                                 (string-append (audience-name audience) ": "
+                                                (match (audience-beliefs (MillScreen-mill screen) audience)
+                                                  ((Nil) "nothing yet")
+                                                  (beliefs (string-join (map belief-text beliefs) ", "))))))
+                        (list 0 1 2)))))
+
+    ;; What would change if you lay low, and what could come back to bite.
+    (: outlook-panel (-> MillScreen Panel))
+    (define (outlook-panel screen)
+      (let ((mill (MillScreen-mill screen)))
+        (Panel "outlook" (At (TopRight) 0)
+               (append (if (mill-over? mill)
+                           (Nil)
+                           (section "forecast" "If you lie low" "Nothing changes." (line-labels "forecast" (MillScreen-forecast screen))))
+                       (section "liabilities" "Liabilities" "None yet." (line-labels "liability" (liabilities mill)))))))
+
+    ;; The colors of the pips and rings on the map.
+    (define key-panel
+      (Panel "key" (At (TopRight) 0)
+             (list (label "chip-dangerous" "dangerous") (label "chip-harmless" "harmless") (label "chip-reliable" "reliable")
+                   (label "chip-unreliable" "unreliable") (label "ring-heard" "just heard") (label "ring-quiet" "quiet"))))
+
+    ;; ---- Guide ----
+
+    (: guide-pages (List Page))
+    (define guide-pages
+      (list (Page "What this experiment tests"
+                  (list "The rumor mill asks one question: is steering what people believe fun, and can you predict it? If it is not, nothing else in Hearsay will save it."
+                        "While you play, notice: do you plan several shifts ahead, or one at a time? Does the forecast help you think, or play the game for you? Do your payments and lies come back to bite?")
+                  (Nil))
+            (Page "The town"
+                  (list "Each figure is a person. Their base is their audience: amber for the Market, teal for the Docks, violet for the Tower."
+                        "Lines are ties: people pass stories only to those they are tied to. Big bases are hubs, who pass a story two steps at once.")
+                  (list (portrait "guide-portrait" (picture-key 13) 2) (label "guide-caption" "Nia, the dock foreman, is a hub.")))
+            (Page "Stories"
+                  (list "Everything you do becomes a story about you: a trait and a strength from 1 to 3."
+                        "The witness keeps it to themselves for a shift, then tells their ties at the end of the next one. A story grows by 1 each time it crosses into another audience."
+                        "Point at anyone to see the stories they hold and the path each took to reach them.")
+                  (Nil))
+            (Page "Beliefs"
+                  (list "Each person believes the strongest story they hold on each pair: dangerous against harmless, reliable against unreliable. On a tie, first impressions stick."
+                        "Pips over a head show those beliefs, one per point: red dangerous, blue harmless, green reliable, orange unreliable."
+                        "An audience believes a trait at level N when four of its eight people believe it at N or more. The top right shows each audience's levels, and further down, what will change if you lie low.")
+                  (Nil))
+            (Page "Your move"
+                  (list "Each shift you make one move. Choose a person on the map, then do something they witness, pay them 2 coins to forget and keep quiet for four shifts, or lie to them. Or lie low."
+                        "Payments and lies are liabilities. A lie is exposed while its listener holds a true story of the opposite trait, and each exposed lie makes their audience believe you more unreliable."
+                        "The goal at the top left shows how you stand, and the line under it says what to do next. A greyed-out move says why when you point at it.")
+                  (Nil))))
 
     ;; `first` are panels to show before the screen's own.
     (: mill-screen-hud (-> MillScreen (List Panel) (List Panel)))
     (define (mill-screen-hud screen first)
-      (let ((mill (MillScreen-mill screen)))
-        (append first
-                (list (Panel "status" (At (TopLeft) 0)
-                             (list (label "status" (lines (mill-status mill))) (label "message" (MillScreen-message screen))))
-                      (Panel "person" (At (TopRight) 0) (person-widgets screen))
-                      (Panel "actions" (At (BottomLeft) 0)
-                             (if (mill-over? mill) (list (button "restart" "Restart" action-restart)) (action-buttons screen)))
-                      (Panel "summary" (At (BottomRight) 0)
-                             (map-indexed (lambda (index text) (label (string-append "summary-" (show index)) text))
-                                          (append (MillScreen-summary screen) (list legend))))))))
+      (concatenate
+       (list first
+             (list (status-panel screen) (goal-panel (MillScreen-mill screen)) (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
+                   (action-panel screen) (last-panel screen) (audience-panel screen) key-panel (person-panel screen) (outlook-panel screen))
+             (match (MillScreen-guide screen)
+               ((Some page) (list (guide-panel "Rumor mill" guide-pages page)))
+               ((None) (Nil))))))
 
     ))

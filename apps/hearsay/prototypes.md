@@ -12,8 +12,13 @@ python3 -m http.server 4192 --directory build/hearsay
 Open `http://127.0.0.1:4192` in a browser with WebGPU and choose a
 prototype from the menu. Each prototype's rules live in one library under
 `src/hearsay/` (`mill`, `ledger`), and its screen in another (`mill-screen`,
-`ledger-screen`); `shell` holds the menu. `tests/` replays scripted games
-through the rules and clicks through both screens.
+`ledger-screen`); `shell` holds the menu, and `hud` what both screens'
+panels share, including the guide's pages. `tests/` replays scripted games through the rules
+and clicks through both screens.
+
+The first time each prototype opens, a guide explains it in a few pages,
+starting with the question it asks and what to watch for while playing;
+its Guide button, beside Menu, opens it again.
 
 ## 1. The rumor mill
 
@@ -113,11 +118,15 @@ harmless on the left, green reliable or orange unreliable on the right.
 Those who heard something new in the last shift stroll in place on a yellow
 ring; those keeping quiet stand on a dark one.
 
-Point at a person to see their portrait and read their ties and stories,
-with the path each story took to reach them; click to choose them, or
-choose one of their ties from the list. The buttons below act toward the chosen person, or lie low. The
-corner panels show the audiences' levels, your liabilities, and a forecast:
-the next changes in each audience's levels if you lie low from now on.
+Down the left are the shift and your coins, the goal as a checklist, a
+line saying what to do now, the moves, and what the last shift did. Point
+at a person to see their portrait, what they believe and the stories they
+hold, with the path each took to reach them; click to choose them, or
+choose one of their ties. Each move acts toward the chosen person, its
+effect written beneath it, and says why when it cannot be made. Down the
+right are what each audience believes, a key to the map's colors, the
+person, a forecast of the next changes in each audience's levels if you
+lie low from now on, and your liabilities.
 
 ### On paper
 
@@ -206,11 +215,14 @@ Each round:
       promises kept.
    5. Expired jobs are removed.
 
-Every offer, contact, job and promise you owe is a button, greyed out with
-the reason in its tooltip when it would fail now; the board shows Vee's
-and Kit's portraits, everyone's coins, standing, record and markers, and
-what the last end of round did. Each new game from the menu
-deals the next seed.
+Every offer, contact, job and promise you owe is a button with its terms
+beneath it, greyed out with the reason in its tooltip when it would fail
+now. Down the left are your coins, standing, record and markers, a line
+saying what needs doing now, such as a promise falling due or a job you
+can do, the jobs, and the promises; beside them, the contacts and what the
+last end of round did; on the right, Vee and Kit, each with a portrait,
+standing, markers, the job they are after, and their offers. Each new game
+from the menu deals the next seed.
 
 ### On paper
 
