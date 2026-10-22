@@ -95,7 +95,8 @@ gives the reload rules; what matters when writing code:
   exclusive lock on `build/lock`, so `make test` may run beside a server.
 - The loop is `src/lofi/develop.sld` on a thin host, `scripts/develop.mjs` or
   `src/ide/toolchain.mjs`; the page's reload client is `src/app/reload.sld`,
-  and `relinkModules` in `src/app/host.mjs` relinks. `tests/develop.mjs` (in
+  `relinkProgram` in `src/app/load.mjs` relinks, and `takeState` in
+  `src/app/host.mjs` hands over the state. `tests/develop.mjs` (in
   `make test`) and `tests/browser/reload.mjs` and `tests/browser/ide.mjs`
   (`make test-browser`, needs `CHROMIUM`) cover them. See
   [the toolchain design](doc/toolchain.md).

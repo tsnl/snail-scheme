@@ -91,7 +91,7 @@ const handover = await main(previous);   // the state a reload hands on, or null
   `decode-image`. Synchronous WebGPU calls stay plain imports.
 - Hot reload: the host pushes `Reload`; the loop saves and returns its state
   as an `Any`; with no frames left on the stack, the host relinks the changed
-  modules, as #377's `relinkModules` does between events today, and calls
+  modules, as `relinkProgram` does between events today, and calls
   the new `app_main` with that state. Its `boot` adopts the state when the
   `Any`'s type is unchanged, so an edit to a function body keeps the game
   exactly as it was, and falls back to the save otherwise. Its `reset`

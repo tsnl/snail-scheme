@@ -1,9 +1,10 @@
 // The HUD: panels of labels, buttons, dials, links and images, stacked in
 // columns in the screen's corners, shown as dialogs over a backdrop, or as
-// banners across the top that never take input. Elements are kept by key
-// and changed only where the description changed, so hover and focus
-// survive the updates that arrive several times a second. An image draws a
-// region of a picture, crisply scaled, once the picture is ready.
+// banners across the top that take no input but for their links. Elements
+// are kept by key and changed only where the description changed, so hover
+// and focus survive the updates that arrive several times a second. An
+// image draws a region of a picture, crisply scaled, once the picture is
+// ready.
 
 // The numbers lib/lofi/app.sld sends: corners as `corner-index`, tones as
 // `tone-index` and controls as `control-index` number them; places and

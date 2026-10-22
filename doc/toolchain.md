@@ -116,7 +116,8 @@ type of every import, and a value that crosses as `Any` keeps its own
 check at `type-convert`.
 
 Replacing a library's module means linking it and every module after it
-in program order again; the modules before it cannot import from it. That
+in program order again (`relinkProgram` in `load.mjs`); the modules before
+it cannot import from it. That
 costs the instantiation of a few modules, and keeps debug code free of the
 indirection that a table of mutable globals, like ELF's global offset
 table, would add to every call across libraries.
@@ -209,12 +210,14 @@ starts over.
 ## 5. The development loop in Lofi
 
 The loop is a Lofi program: `(lofi develop)` in `src/lofi/develop.sld`,
-started by `bootstrap/develop.sld`. It keeps a session, debounces changes,
-builds, writes modules and manifests, and broadcasts events. It reaches
-its host only through a `develop` effect of numbered commands: watch a
-path, schedule a timer, assemble a module, serve routes, broadcast an
-event, run a program, digest a file, read the clock, list and make
-directories. Hosts deliver three events back: a file changed, the timer
+exposed and started by `bootstrap/develop.sld`, or by `src/ide/develop.sld`
+in the IDE. It keeps a session, debounces changes, builds, writes modules
+and manifests, broadcasts events, and decides which module files stay: the
+latest build's and the one before, which pages may still be relinking
+from. It reaches its host only through a `develop` effect of named
+commands: watch a path, schedule a timer, assemble a module, serve routes,
+broadcast an event, run a program, digest a file, read the clock, list
+and make directories, and remove a file. Hosts deliver three events back: a file changed, the timer
 fired, and a call into the loop panicked, with the panic's message. The
 loop cannot build a `generate-library` recipe yet, so an application with
 one, such as Hearsay, is built with `make site`.
@@ -251,7 +254,7 @@ panes, and the running application docked on the right.
 | Piece | In a browser |
 | --- | --- |
 | Compiler and loop | `src/ide/develop.sld`, the loop of `bootstrap/develop.sld` compiled one library at a time and linked in a worker. |
-| Files | The worker holds them: the standard library, the project as the editor has it, unsaved edits included, and what builds write. The program handles `(lofi io)`'s `fs` effect with a `files` effect that the worker implements, so the compiler opens files as it does from a disk. Once a build is served, only the modules of it and the build before stay. |
+| Files | The worker holds them: the standard library, the project as the editor has it, unsaved edits included, and what builds write. The program handles `(lofi io)`'s `fs` effect with a `files` effect that the worker implements, so the compiler opens files as it does from a disk. The loop keeps only the modules of the latest build and the one before. |
 | Projects | Text files by relative path in local storage, from a folder opened from disk. Where the browser offers the File System Access API, saving writes back to the folder, whose handle survives a reload in IndexedDB. |
 | Assembler | The `wat` crate compiled to WebAssembly (`src/assembler`), which the desktop loop uses too, instead of `wasm-as`. |
 | Formatter | `(lofi format)`, which reproduces `scripts/format-scheme` on every file in the repository, compiled to its own module (`src/ide/format.sld`) and run on the page's thread. Tab and Enter indent as Emacs does; saving formats the file. Its lexer also classes each character for highlighting, of the lines in view only, read from the start of their top-level form. |
