@@ -1,8 +1,9 @@
 // The reload client's binding, shared by the pages `lofi serve` serves
-// (reload.mjs) and the browser IDE. The client, src/app/reload.sld, runs as
-// WebAssembly and decides what the page does about each build; this file
-// performs its commands with a notice over the page and what the page gives
-// it: how to relink its programs and how to reload.
+// (reload.mjs) and the browser IDE's preview. The client, src/app/reload.sld,
+// runs as WebAssembly and decides what the page does about each build; this
+// file performs its commands with a notice over the page and what the page
+// gives it: how to fetch a style sheet again, relink its programs and
+// reload.
 
 // ---- Notice ----
 
@@ -40,8 +41,9 @@ function button(caption, handler) {
 
 // ---- The client ----
 
-// `page` gives the notice, `relink(module, fresh)`, which resolves once
-// every program on the page is relinked, and `reloadPage()`. The client is
+// `page` gives the notice, `restyle(file, digest)`, `relink(module, fresh)`,
+// which resolves once every program on the page is relinked, and
+// `reloadPage()`. The client is
 // one linked module with its own runtime; it needs only standard output,
 // and the rest of WASI answers ENOSYS.
 export async function createReloadClient(bytes, page) {
@@ -93,7 +95,7 @@ function pageImports(client, page) {
     null,
     ([text], kind) => page.notice.show(text, {failed: kind === 1, seconds: kind === 2 ? 2 : 0}),
     () => page.notice.hide(),
-    ([file, digest]) => restyle(file, digest),
+    ([file, digest]) => page.restyle(file, digest),
     ([module], fresh) => page.relink(module, fresh === 1)
       .then(() => enter(client, 'reload_relinked', '', 0), error => enter(client, 'reload_relinked', error.message, 1)),
     () => page.reloadPage(),
@@ -107,7 +109,8 @@ function pageImports(client, page) {
   };
 }
 
-function restyle(file, digest) {
+// A page's style sheets, linked by URL, fetched again with the new digest.
+export function restyleLinks(file, digest) {
   for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
     const url = new URL(link.href);
     if (url.pathname.endsWith(`/${file}`)) { url.searchParams.set('v', digest); link.href = url.href; }

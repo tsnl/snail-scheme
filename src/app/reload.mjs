@@ -2,12 +2,13 @@
 // (reload-client.mjs), fed the page's manifest and the server's events, and
 // given the application host to relink programs with. Before the first
 // build succeeds the page is a placeholder without a host.
-import {createNotice, createReloadClient} from './reload-client.mjs';
+import {createNotice, createReloadClient, restyleLinks} from './reload-client.mjs';
 
 const loadHost = () => import('/host.mjs').catch(() => null);
 
 const client = await createReloadClient(new Uint8Array(await (await fetch('/.lofi/reload.wasm', {cache: 'no-store'})).arrayBuffer()), {
   notice: createNotice(),
+  restyle: restyleLinks,
   async relink(module, fresh) {
     const host = await loadHost();
     for (const application of host.running) await host.relinkModules(application, module, {fresh});
