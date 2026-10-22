@@ -29,8 +29,9 @@
     ;; `message` is what the last shift did, a line each, or why it could
     ;; not be taken. `fresh` lists who heard something new in it. The
     ;; forecast takes simulating several shifts, so it is worked out once
-    ;; per shift rather than every frame. `version` changes with every shift, so the host redraws
-    ;; the town only then. `guide` is the guide's open page, if any.
+    ;; per shift rather than every frame. `version` changes with every
+    ;; shift, so the host redraws the town only then. `guide` is the guide's
+    ;; open page, if any.
     (struct MillScreen
       ((mill Mill)
        (forecast (List String))

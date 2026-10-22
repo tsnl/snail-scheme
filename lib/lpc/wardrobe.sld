@@ -7,7 +7,6 @@
    Hair
    Worn
    Outfit
-   bare
    Character
    Character-sheets
    dress
@@ -42,8 +41,6 @@
        (legs (Option Worn))
        (feet (Option Worn)))
       (deriving Serialize Deserialize))
-
-    (define bare (Outfit (None) (None) (None) (None)))
 
     ;; ---- Dressing ----
 
