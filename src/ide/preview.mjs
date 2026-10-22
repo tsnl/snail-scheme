@@ -4,7 +4,7 @@
 // with the latest build that succeeded; build events come from the IDE. As
 // on a served page, the reload client decides what each build changes, and
 // reloading reloads only this frame.
-import {relinkAll, saveAll, startApplication} from './host.mjs';
+import {relinkAll, running, saveAll, startApplication} from './host.mjs';
 import {manifestText, readEvent} from './load.mjs';
 import {createReloadClient} from './reload-client.mjs';
 
@@ -31,15 +31,20 @@ addEventListener('keydown', event => {
   }
 });
 
+// Async application traps arrive through the same event as page errors.
+addEventListener('error', event => client.pageError(
+  [event.message, ...running.flatMap(application => application.errors)].join('\n'),
+  running.some(application => application.runtime.execution.queue.closed)));
+
 // Before any build succeeds, the client has nothing to compare and shows
 // the loop's progress; the first build that succeeds reloads the frame,
 // which then starts the application from it.
 if (built) {
   const {manifest} = readEvent(built);
   await Promise.all(styleSheets(manifest).map(file => restyle(read, file)));
+  client.start(manifestText(manifest));
   await startApplication({canvas: document.getElementById('view'), overlay: document.getElementById('overlay'), storageKey,
                           manifest: '/modules.json', read});
-  client.start(manifestText(manifest));
   document.body.dataset.ready = 'true';
 } else client.start('(files) (modules)');
 deliver = text => client.event(text);

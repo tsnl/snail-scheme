@@ -11,10 +11,10 @@ function open() {
 
 function transaction(mode, use) {
   return open().then(database => new Promise((resolve, reject) => {
-    const store = database.transaction('saves', mode).objectStore('saves');
-    const request = use(store);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    const transaction = database.transaction('saves', mode);
+    const request = use(transaction.objectStore('saves'));
+    transaction.oncomplete = () => { database.close(); resolve(request.result); };
+    transaction.onabort = () => { database.close(); reject(transaction.error ?? request.error); };
   }));
 }
 
