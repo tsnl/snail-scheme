@@ -10,6 +10,9 @@
    Mono-items
    Mono-externals
    Mono-exported
+   Specialization
+   Specialization-definitions
+   prepare-specialization
    monomorphize
    monomorphize-library)
   (import
@@ -32,14 +35,23 @@
        (externals (Table Expr))
        (exported (List String))))
 
-    ;; `definitions` maps each name to its typed value. `done` maps a request
-    ;; key to its specialized name; `specialized` collects the copies of each
-    ;; definition in creation order. `owner` names the library being
-    ;; specialized alone, and `externals` collects what it imports.
-    (struct State
+    ;; Checked facts shared by every library emitted in one build. Preparing
+    ;; them once keeps lookup independent of each library's request lifetime.
+    (struct Specialization
       ((typed Typed)
        (instances (Table Instance))
-       (definitions (Table Expr))
+       (definitions (Table Expr))))
+
+    (: prepare-specialization (-> Typed Specialization))
+    (define (prepare-specialization typed)
+      (let ((instances (fold-left (lambda (table instance) (table-set table (Instance-name instance) instance))
+                                  empty-table (concatenate (table-values (Program-instances (Typed-program typed)))))))
+        (Specialization typed instances (item-definitions (Typed-items typed)))))
+
+    ;; Every emission owns fresh requests, copies in creation order, and
+    ;; imports. `owner` names a library, or None for the whole program.
+    (struct State
+      ((input Specialization)
        (done (Ref (Table String)))
        (specialized (Ref (Table (List Item))))
        (pending (Ref (List Request)))
@@ -60,13 +72,17 @@
 
     (: program-of (-> State Program))
     (define (program-of state)
-      (Typed-program (State-typed state)))
+      (Typed-program (Specialization-typed (State-input state))))
 
     (: definition (-> State String Expr))
     (define (definition state name)
-      (match (table-ref (State-definitions state) name)
+      (match (table-ref (Specialization-definitions (State-input state)) name)
         ((Some value) value)
         ((None) (panic (string-append "internal error: no definition " name)))))
+
+    (: scheme-of (-> State String Scheme))
+    (define (scheme-of state name)
+      (definition-scheme (Specialization-typed (State-input state)) name))
 
     ;; ---- Requests ----
 
@@ -92,7 +108,7 @@
     (: specialize-request! (-> State Request Unit ! mut))
     (define (specialize-request! state request)
       (let* ((name (Request-name request))
-             (scheme (definition-scheme (State-typed state) name))
+             (scheme (scheme-of state name))
              (inst (Instantiation (zip (Scheme-vars scheme) (Request-types request)) (Request-evidence request)))
              (value (copy-expr state inst (definition state name)))
              (copies (copies-of state name)))
@@ -183,7 +199,7 @@
 
     (: instance-method (-> State String String String))
     (define (instance-method state instance method)
-      (match (table-ref (State-instances state) instance)
+      (match (table-ref (Specialization-instances (State-input state)) instance)
         ((Some found)
          (match (assoc-ref (Instance-methods found) method)
            ((Some global) global)
@@ -198,7 +214,7 @@
       (let ((value (definition state name)))
         (match (Expr-term value)
           ((Var _ _ _)
-           (let ((scheme (definition-scheme (State-typed state) name)))
+           (let ((scheme (scheme-of state name)))
              (copy-expr state (Instantiation (zip (Scheme-vars scheme) types) evidence) value)))
           (_ (if (external? state name types)
                  (begin (ref-set! (State-externals state) (table-set (ref-get (State-externals state)) name value))
@@ -213,19 +229,16 @@
 
     ;; ---- Programs ----
 
-    (: new-state (-> Typed (Option String) State ! mut))
-    (define (new-state typed owner)
-      (let ((instances (fold-left (lambda (table instance) (table-set table (Instance-name instance) instance))
-                                  empty-table (concatenate (table-values (Program-instances (Typed-program typed)))))))
-        (State typed instances (item-definitions (Typed-items typed)) (ref empty-table) (ref empty-table) (ref (Nil)) owner
-               (ref empty-table))))
+    (: new-state (-> Specialization (Option String) State ! mut))
+    (define (new-state input owner)
+      (State input (ref empty-table) (ref empty-table) (ref (Nil)) owner (ref empty-table)))
 
     ;; Statements and monomorphic top-level values are roots, so their
     ;; initializers run even when nothing refers to them. Functions are
     ;; copied only when reached.
     (: monomorphize (-> Typed Mono ! mut))
     (define (monomorphize typed)
-      (let* ((items (Typed-items typed)) (state (new-state typed (None)))
+      (let* ((items (Typed-items typed)) (state (new-state (prepare-specialization typed) (None)))
              (statements (map (lambda (item) (root-item state item)) items)))
         (run-requests! state)
         (finish-mono state (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair)))
@@ -235,9 +248,9 @@
     ;; definition is a root, since any module may import it. Copies of other
     ;; libraries' definitions, the generic ones this library uses, come first,
     ;; in program order, as those libraries come before it.
-    (: monomorphize-library (-> Typed String (List Item) Mono ! mut))
-    (define (monomorphize-library typed owner items)
-      (let* ((state (new-state typed (Some owner))) (exported (library-roots state items))
+    (: monomorphize-library (-> Specialization String (List Item) Mono ! mut))
+    (define (monomorphize-library input owner items)
+      (let* ((typed (Specialization-typed input)) (state (new-state input (Some owner))) (exported (library-roots state items))
              (statements (map (lambda (item) (root-item state item)) items)))
         (run-requests! state)
         (finish-mono state
@@ -249,7 +262,7 @@
     ;; handler environments before handing this evidence to the backend.
     (: finish-mono (-> State (List Item) (List String) Mono ! mut))
     (define (finish-mono state items exported)
-      (check-handlers (program-of state) (table-union (State-definitions state) (item-definitions items)) items)
+      (check-handlers (program-of state) (table-union (Specialization-definitions (State-input state)) (item-definitions items)) items)
       (Mono (program-of state) (own-items (program-of state) items) (ref-get (State-externals state)) exported))
 
     ;; Requests the library's monomorphic functions, which `root-item` leaves
@@ -259,7 +272,7 @@
       (concatenate (map (lambda (item)
                           (match item
                             ((Define name value)
-                             (if (and (null? (Scheme-vars (definition-scheme (State-typed state) name))) (not (alias-expr? value)))
+                             (if (and (null? (Scheme-vars (scheme-of state name))) (not (alias-expr? value)))
                                  (begin (request! state name (Nil) (Nil)) (list name))
                                  (Nil)))
                             (_ (Nil))))
@@ -278,7 +291,7 @@
         ((Expose name _ _) (request! state name (Nil) (Nil)) (None))
         ((Do expr) (Some (Do (copy-expr state (Instantiation (Nil) (Nil)) expr))))
         ((Define name value)
-         (let ((scheme (definition-scheme (State-typed state) name)))
+         (let ((scheme (scheme-of state name)))
            (if (and (null? (Scheme-vars scheme)) (not (lambda-expr? value)) (not (alias-expr? value)))
                (begin (request! state name (Nil) (Nil)) (None))
                (None))))))
