@@ -2,132 +2,256 @@
 batches: 
 -- menu, top left 0
 Hearsay prototypes
-Each one asks one question about whether the design is fun.
-[Rumor mill: Two faces]
-[Rumor mill: The smear]
-[Rumor mill: Sandbox]
-[Favor ledger]
-==== two faces after delivering a job for Mo
-batches: 30 31 1
+Each prototype asks one question about whether a piece of the design is fun. Each opens with a short guide to its rules and to what to watch for while you play.
+The rumor mill: is steering belief fun?
+[Two faces | Look reliable to the Market without the Tower hearing you are dangerous.]
+[The smear | A rival's lie is spreading; keep it from the Tower for ten shifts.]
+[Sandbox | Twelve shifts and no goal: see how stories travel.]
+The favor ledger: do favors trade, or get hoarded?
+[Favor ledger | Trade markers and promises with two rival fixers.]
+==== two faces with its guide open
+batches: 30 48 0
 -- back, top right 0
 [Menu]
+[Guide]
 -- status, top left 0
-Two faces: shift 3 of 8, 10 coins.
-Goal: after shift 8, the Market believes you reliable at 3, and the Tower does not believe you dangerous at all. On shift 3 you must rough someone up or make a threat in the Docks, in front of a crowd: the witness and everyone tied to them hear it at once.
+Two faces
+Shift 1 of 8
+10 coins
+-- goal, top left 0
+Goal
+(danger) ✗ The Market believes you reliable at 3
+(good) ✓ The Tower does not believe you dangerous
+(muted) ○ On shift 3, rough someone up or threaten someone in the Docks
+(muted) Judged after shift 8.
+-- hint, top left 0
+Choose a person on the map: they will witness what you do. Or lie low.
+-- actions, top left 0
+Your move: one per shift
+-[Rough someone up | dangerous 2]
+-[Make a threat | dangerous 1]
+-[Deliver a job | reliable 2]
+-[Keep a small promise | reliable 1]
+-[Walk away from a fight | harmless 1]
+-[Pay to forget | 2 coins]
+-[Lie: you are reliable | reliable 1]
+-[Lie: you are harmless | harmless 1]
+[Lie low | do nothing]
+[Restart]
+-- last, top left 0
+(muted) Nothing has happened yet.
+-- audiences, top right 0
+What each audience believes
+Market: nothing yet
+Docks: nothing yet
+Tower: nothing yet
+-- key, top right 0
+dangerous
+harmless
+reliable
+unreliable
+just heard
+quiet
+-- person, top right 0
+(muted) Point at a person to see who they are, what they believe and where they heard it.
+-- outlook, top right 0
+If you lie low
+(muted) Nothing changes.
+Liabilities
+(muted) None yet.
+-- guide, dialog
+What this experiment tests
+The rumor mill asks one question: is steering what people believe fun, and can you predict it? If it is not, nothing else in Hearsay will save it.
+While you play, notice: do you plan several shifts ahead, or one at a time? Does the forecast help you think, or play the game for you? Do your payments and lies come back to bite?
+(muted) Rumor mill guide, 1 of 5
+-[Back]
+[Next]
+==== two faces after delivering a job for Mo
+batches: 30 60 1
+-- back, top right 0
+[Menu]
+[Guide]
+-- status, top left 0
+Two faces
+Shift 3 of 8
+10 coins
+-- goal, top left 0
+Goal
+(danger) ✗ The Market believes you reliable at 3
+(good) ✓ The Tower does not believe you dangerous
+(warning) ! On shift 3, rough someone up or threaten someone in the Docks: now
+(muted) Judged after shift 8.
+-- hint, top left 0
+(warning) Rough up or threaten Mo: this shift you must.
+-- actions, top left 0
+Your move: one per shift
+[Rough someone up | dangerous 2]
+[Make a threat | dangerous 1]
+-[Deliver a job | reliable 2]
+-[Keep a small promise | reliable 1]
+-[Walk away from a fight | harmless 1]
+-[Pay to forget | 2 coins]
+-[Lie: you are reliable | reliable 1]
+-[Lie: you are harmless | harmless 1]
+-[Lie low | do nothing]
+[Restart]
+-- last, top left 0
+Last shift
 You lie low.
 End of shift 2: new stories reached 1 in the Market, 2 in the Docks.
+-- audiences, top right 0
+What each audience believes
+Market: nothing yet
+Docks: nothing yet
+Tower: nothing yet
+-- key, top right 0
+dangerous
+harmless
+reliable
+unreliable
+just heard
+quiet
 -- person, top right 0
-12 Mo, smuggler, Docks. Ties: Nia, Lia, Ana.
-Believes: reliable 2.
-  reliable 2: you delivered a job for Mo. First heard here on shift 1.
-[Choose Nia]
-[Choose Lia]
-[Choose Ana]
--- actions, bottom left 0
-[Rough someone up: dangerous 2 (Mo)]
-[Make a threat: dangerous 1 (Mo)]
-[Deliver a job: reliable 2 (Mo)]
-[Keep a small promise: reliable 1 (Mo)]
-[Walk away from a fight: harmless 1 (Mo)]
-[Pay 2 coins (Mo)]
-[Lie: reliable 1 (Mo)]
-[Lie: harmless 1 (Mo)]
-[Lie low]
-[Restart]
--- summary, bottom right 0
-The Market believes nothing about you.
-The Docks believes nothing about you.
-The Tower believes nothing about you.
-This shift you must rough someone up or make a threat in front of someone in the Docks.
-If you lie low:
-  After shift 3: the Docks believes you reliable 2 (now 0).
-  After shift 3: the Tower believes you reliable 3 (now 0).
-  After shift 4: the Market believes you reliable 3 (now 0).
-Liabilities:
-  none.
-Pillars: red dangerous, blue harmless (left); green reliable, orange unreliable (right). Height is intensity. Yellow square: heard something new. Dark square: keeping quiet. Big: hub.
-==== ledger
+<picture 112>
+Mo, smuggler
+Docks
+Believes
+reliable 2
+Stories they hold
+reliable 2: you delivered a job for Mo. First heard here on shift 1.
+Ties
+[Nia]
+[Lia]
+[Ana]
+-- outlook, top right 0
+If you lie low
+After shift 3: the Docks believes you reliable 2 (now 0).
+After shift 3: the Tower believes you reliable 3 (now 0).
+After shift 4: the Market believes you reliable 3 (now 0).
+Liabilities
+(muted) None yet.
+==== ledger with its guide on the last page
 batches: 
 -- back, top right 0
 [Menu]
--- fixers, top left 0
+[Guide]
+-- standings, top left 0
+Favor ledger
 Round 1 of 8
-You: 4 coins, 0 standing, promises kept 0 and refused 0
-    markers: Tia (fencing, through round 3), Vik (eyes, through round 3)
-Vee: 4 coins, 0 standing, promises kept 0 and refused 0, targets job 1
-    markers: Vik (eyes, through round 3), Wes (doors, through round 3)
-Kit: 4 coins, 0 standing, promises kept 0 and refused 0, targets job 1
-    markers: Ivo (medicine, through round 3), Ren (doors, through round 3)
-Jobs
--[Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2]
-[Job 2: fencing + eyes, for 4 coins and 1 standing, open through round 2]
--[Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2]
--- offers, top right 0
-Offers
-[Vee buys your oldest fencing marker for 3 coins.]
-[Vee sells Vik (eyes, through round 3) for 2 coins.]
-[Vee pays 2 coins for your promise of fencing by round 3.]
-[Vee promises you doors by round 3 for 1 coin.]
-[Kit buys your oldest fencing marker for 3 coins.]
-[Kit sells Ivo (medicine, through round 3) for 2 coins.]
-[Kit pays 2 coins for your promise of fencing by round 3.]
-[Kit promises you fencing by round 3 for 1 coin.]
+You
+4 coins · 0 standing · kept 0, refused 0
+Markers: Tia (fencing, through round 3), Vik (eyes, through round 3)
+-- hint, top left 0
+(good) You hold the markers for a job: do it under Jobs for standing.
+-- jobs, top left 0
+Jobs: one marker per ability
+-[Job 1: doors + fencing | 4 coins and 1 standing, open through round 2]
+[Job 2: fencing + eyes | 4 coins and 1 standing, open through round 2]
+-[Job 3: muscle + medicine + paperwork | 6 coins and 2 standing, open through round 2]
+-- promises, top left 0
 Promises
-none
--- contacts, bottom left 0
-[Ivo (medicine) wants 2 coins]
-[Ren (doors) wants a marker with fencing]
-[Sal (muscle) wants a marker with eyes]
-[Tia (fencing) wants 4 coins]
-[Una (paperwork) wants 2 coins]
--[Vik (eyes) wants a marker with doors]
-[Wes (doors) wants 4 coins]
--[Xan (muscle) wants a marker with doors]
+(muted) None yet.
+-- contacts, top left 1
+Contacts: meet a want, get a marker
+[Ivo (medicine) | wants 2 coins]
+[Ren (doors) | wants a marker with fencing]
+[Sal (muscle) | wants a marker with eyes]
+[Tia (fencing) | wants 4 coins]
+[Una (paperwork) | wants 2 coins]
+-[Vik (eyes) | wants a marker with doors]
+[Wes (doors) | wants 4 coins]
+-[Xan (muscle) | wants a marker with doors]
 [End the round]
 [New game]
--- news, bottom right 0
-Trade markers, promises and coins with Vee and Kit for eight rounds; the most standing wins. Green buttons can be done now. End the round when you are done.
-Last round:
+-- news, top left 1
+Last end of round
+(muted) Nothing yet.
+-- vee, top right 1
+<picture 200>
+Vee
+4 coins · 0 standing · kept 0, refused 0
+Markers: Vik (eyes, through round 3), Wes (doors, through round 3)
+Working toward job 1
+Offers
+[Buys your oldest fencing marker | pays 3 coins]
+[Sells Vik (eyes) | for 2 coins, lapses after round 3]
+[Wants your promise of fencing | pays 2 coins now, due at the end of round 3]
+[Promises you doors | for 1 coin, due at the end of round 3]
+-- kit, top right 0
+<picture 201>
+Kit
+4 coins · 0 standing · kept 0, refused 0
+Markers: Ivo (medicine, through round 3), Ren (doors, through round 3)
+Working toward job 1
+Offers
+[Buys your oldest fencing marker | pays 3 coins]
+[Sells Ivo (medicine) | for 2 coins, lapses after round 3]
+[Wants your promise of fencing | pays 2 coins now, due at the end of round 3]
+[Promises you fencing | for 1 coin, due at the end of round 3]
+-- guide, dialog
+Promises and the end of a round
+A promise is a debt of one marker with an ability, due at the end of a round. Honor yours under Promises in time: one still owed when it falls due is refused, and refusing costs 1 standing.
+Once you refuse, Vee and Kit pay less, charge more, and stop asking for your promises. Vee keeps every promise she can; Kit keeps one only if he can spare the marker.
+When you are done, end the round: rivals do their jobs and gain a marker, markers lapse, and promises fall due.
+(muted) Favor ledger guide, 5 of 5
+[Back]
+[Start playing]
 ==== ledger after doing job 2 and ending the round
 batches: 
 -- back, top right 0
 [Menu]
--- fixers, top left 0
+[Guide]
+-- standings, top left 0
+Favor ledger
 Round 2 of 8
-You: 8 coins, 1 standing, promises kept 0 and refused 0
-    markers: none
-Vee: 4 coins, 0 standing, promises kept 0 and refused 0, targets job 1
-    markers: Ivo (medicine, through round 3), Vik (eyes, through round 3), Wes (doors, through round 3)
-Kit: 4 coins, 0 standing, promises kept 0 and refused 0, targets job 1
-    markers: Ivo (medicine, through round 3), Ren (doors, through round 3), Vik (eyes, through round 3)
-Jobs
--[Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2]
--[Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2]
--[Job 4: fencing + paperwork, for 4 coins and 1 standing, open through round 3]
--- offers, top right 0
-Offers
--[Vee buys your oldest fencing marker for 3 coins.]
-[Vee sells Ivo (medicine, through round 3) for 2 coins.]
-[Vee pays 2 coins for your promise of fencing by round 4.]
-[Vee promises you fencing by round 4 for 1 coin.]
--[Kit buys your oldest fencing marker for 3 coins.]
-[Kit sells Ivo (medicine, through round 3) for 2 coins.]
-[Kit pays 2 coins for your promise of fencing by round 4.]
-[Kit promises you doors by round 4 for 1 coin.]
+You
+8 coins · 1 standing · kept 0, refused 0
+No markers
+-- hint, top left 0
+Gather the markers a job needs: meet a contact's want, or trade with Vee and Kit. End the round when you are done.
+-- jobs, top left 0
+Jobs: one marker per ability
+-[Job 1: doors + fencing | 4 coins and 1 standing, open through round 2]
+-[Job 3: muscle + medicine + paperwork | 6 coins and 2 standing, open through round 2]
+-[Job 4: fencing + paperwork | 4 coins and 1 standing, open through round 3]
+-- promises, top left 0
 Promises
-none
--- contacts, bottom left 0
-[Ivo (medicine) wants 2 coins]
--[Ren (doors) wants a marker with fencing]
--[Sal (muscle) wants a marker with eyes]
-[Tia (fencing) wants 4 coins]
-[Una (paperwork) wants 2 coins]
--[Vik (eyes) wants a marker with doors]
-[Wes (doors) wants 4 coins]
--[Xan (muscle) wants a marker with doors]
+(muted) None yet.
+-- contacts, top left 1
+Contacts: meet a want, get a marker
+[Ivo (medicine) | wants 2 coins]
+-[Ren (doors) | wants a marker with fencing]
+-[Sal (muscle) | wants a marker with eyes]
+[Tia (fencing) | wants 4 coins]
+[Una (paperwork) | wants 2 coins]
+-[Vik (eyes) | wants a marker with doors]
+[Wes (doors) | wants 4 coins]
+-[Xan (muscle) | wants a marker with doors]
 [End the round]
 [New game]
--- news, bottom right 0
-Last round:
+-- news, top left 1
+Last end of round
 Vee gains Ivo (medicine, through round 3).
 Kit gains Vik (eyes, through round 3).
+-- vee, top right 1
+<picture 200>
+Vee
+4 coins · 0 standing · kept 0, refused 0
+Markers: Ivo (medicine, through round 3), Vik (eyes, through round 3), Wes (doors, through round 3)
+Working toward job 1
+Offers
+-[Buys your oldest fencing marker | pays 3 coins]
+[Sells Ivo (medicine) | for 2 coins, lapses after round 3]
+[Wants your promise of fencing | pays 2 coins now, due at the end of round 4]
+[Promises you fencing | for 1 coin, due at the end of round 4]
+-- kit, top right 0
+<picture 201>
+Kit
+4 coins · 0 standing · kept 0, refused 0
+Markers: Ivo (medicine, through round 3), Ren (doors, through round 3), Vik (eyes, through round 3)
+Working toward job 1
+Offers
+-[Buys your oldest fencing marker | pays 3 coins]
+[Sells Ivo (medicine) | for 2 coins, lapses after round 3]
+[Wants your promise of fencing | pays 2 coins now, due at the end of round 4]
+[Promises you doors | for 1 coin, due at the end of round 4]

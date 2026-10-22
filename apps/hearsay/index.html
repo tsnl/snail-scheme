@@ -5,14 +5,77 @@
 <title>Hearsay prototypes</title>
 <link rel="stylesheet" href="./style.css">
 <style>
-  /* The prototypes are mostly text: smaller type, labels that keep their
-     line breaks, and buttons that read like list items. */
-  body { font-size: 13px; }
-  .panel { max-width: 420px; gap: 4px; }
-  .panel[data-key="actions"], .panel[data-key="contacts"] { max-width: 760px; }
-  .panel[data-key="offers"] .button, .panel[data-key="person"] .button { width: 100%; }
-  .label { white-space: pre-line; }
-  .button { padding: 5px 9px; text-align: left; }
+  /* The prototypes are mostly text: small type, narrow columns that leave
+     the middle of the screen to the map, headings over each group, and
+     buttons that read like list items with their terms beneath them. */
+  body { font-size: 12px; }
+  .corner.top-left .column, .corner.bottom-left .column { align-items: stretch; }
+  .panel { max-width: 300px; gap: 3px; flex-direction: column; align-items: stretch; }
+  .panel .image { align-self: flex-start; }
+  .label { white-space: pre-line; padding: 3px 8px; }
+  .button { padding: 4px 8px; text-align: left; flex-direction: column; align-items: flex-start; gap: 0; }
+  .button .caption { font-size: 11px; color: #9aa6b8; }
+  .dial { background: linear-gradient(90deg, rgba(143, 209, 143, 0.32) var(--fraction), rgba(16, 20, 28, 0.78) 0); }
+
+  /* Tones: done, needs doing now, failing, and beside the point. */
+  [data-tone="good"] { color: #9be09b; }
+  [data-tone="warning"] { color: #f0c870; }
+  [data-tone="danger"] { color: #f08c84; }
+  [data-tone="muted"] { color: #8a94a6; }
+  .label[data-key="hint"] { border-left: 3px solid currentColor; padding: 6px 8px; }
+
+  .label[data-key="title"] { font-size: 15px; font-weight: 600; }
+  .label[data-key^="heading-"] { margin-top: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: #b8c4d6; }
+  .label[data-key^="heading-"]:first-child { margin-top: 0; }
+
+  /* The rumor mill's colors, matching the map: an audience's base, and a
+     belief's pips. */
+  .label[data-key="audience-0"] { border-left: 4px solid #dca03c; }
+  .label[data-key="audience-1"] { border-left: 4px solid #3caab4; }
+  .label[data-key="audience-2"] { border-left: 4px solid #a078dc; }
+  .label[data-key^="chip-"], .label[data-key^="ring-"] { border-radius: 10px; padding: 1px 8px; font-weight: 600; color: #10141c; }
+  .label[data-key="chip-dangerous"] { background: #e1463c; }
+  .label[data-key="chip-harmless"] { background: #8cbef5; }
+  .label[data-key="chip-reliable"] { background: #5acd6e; }
+  .label[data-key="chip-unreliable"] { background: #f59628; }
+  .label[data-key="ring-heard"] { background: none; color: #ebcd46; box-shadow: inset 0 0 0 2px #ebcd46; }
+  .label[data-key="ring-quiet"] { background: #1e1e24; color: #8a94a6; box-shadow: inset 0 0 0 2px #3a3a44; }
+  .panel[data-key="key"] { flex-direction: row; flex-wrap: wrap; }
+  .panel[data-key="status"], .panel[data-key="actions"] { display: grid; grid-template-columns: 1fr 1fr; }
+  .panel[data-key="status"] .label, .panel[data-key="actions"] .label { grid-column: 1 / -1; }
+
+  /* A person: their portrait beside who they are, then what they believe
+     as chips, their stories, and their ties as a row of buttons. */
+  .panel[data-key="person"] { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+  .panel[data-key="person"] .label { flex: 1 1 100%; }
+  .panel[data-key="person"] .label[data-key^="audience-"] { flex: 1 1 0; align-self: stretch; }
+  .panel[data-key="person"] .label[data-key^="chip-"] { flex: 0 0 auto; }
+
+  /* The favor ledger: each rival's portrait beside their standing, over
+     their offers, and the contacts in two columns. Four columns of panels
+     narrow to fit a small screen. */
+  .panel[data-key="vee"], .panel[data-key="kit"] { display: grid; grid-template-columns: auto 1fr; align-items: start; }
+  .panel[data-key="vee"] .image, .panel[data-key="kit"] .image { grid-row: span 3; }
+  .panel[data-key="vee"] .button, .panel[data-key="kit"] .button,
+  .panel[data-key="vee"] [data-key$="offers"], .panel[data-key="kit"] [data-key$="offers"] { grid-column: 1 / -1; }
+  .panel[data-key="contacts"] { display: grid; grid-template-columns: 1fr 1fr; }
+  .panel[data-key="contacts"] .label { grid-column: 1 / -1; }
+  @media (max-width: 1280px) {
+    .panel:is([data-key="standings"], [data-key="hint"], [data-key="jobs"], [data-key="promises"], [data-key="contacts"],
+              [data-key="news"], [data-key="vee"], [data-key="kit"]) { max-width: 236px; }
+  }
+
+  .panel[data-key="menu"] { max-width: 380px; }
+  .panel[data-key="back"] { flex-direction: row; }
+
+  /* The guide: a page of prose over the screen, with its buttons last. */
+  .dialogs .panel[data-key="guide"] { max-width: 440px; flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 14px;
+    border: 1px solid #3a4658; border-radius: 10px; background: #161c27; }
+  .panel[data-key="guide"] .label { flex: 1 1 100%; background: none; padding: 0; font-size: 13px; line-height: 1.5; }
+  .panel[data-key="guide"] .label[data-key="guide-title"] { font-size: 16px; font-weight: 600; }
+  .panel[data-key="guide"] .label[data-key="guide-page"] { font-size: 11px; }
+  .panel[data-key="guide"] .button[data-key="guide-next"] { margin-left: auto; border-color: #8fd18f; }
 </style>
 <body>
   <canvas id="view" tabindex="0" aria-label="Prototype board"></canvas>
