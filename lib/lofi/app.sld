@@ -18,6 +18,12 @@
 ;; of how to rebuild it. A development server (`lofi serve`) relinks a
 ;; running page's rebuilt modules and hands the state to the new program
 ;; as it is, or through the save when its types changed.
+;;
+;; Scenes are 3D. Meshes and sprites are both items, drawn by one shader in
+;; the metallic-roughness model; a sprite is a textured quad that stands
+;; upright toward the camera, so 2D and 2.5D are scenes too. Textures are
+;; pictures the host composes from regions of encoded image files that the
+;; program carries, typically as byte literals.
 (define-library (lofi app)
   (export
    Input
@@ -59,6 +65,30 @@
    Tile
    Tetrahedron
    Octahedron
+   Quad
+   Rect
+   Rect-x
+   Rect-y
+   Rect-width
+   Rect-height
+   Source
+   Layer
+   Picture
+   Texture
+   Texture-picture
+   Texture-region
+   Texture-region-set
+   Texture-frames
+   Texture-period
+   still
+   Material
+   Material-texture
+   Material-metalness
+   Material-roughness
+   plain
+   Facing
+   Fixed
+   Upright
    Item
    Item-position
    Item-position-set
@@ -72,7 +102,13 @@
    Item-glow-set
    Item-from
    Item-from-set
+   Item-material
+   Item-material-set
+   Item-facing
+   Item-facing-set
    item
+   sprite
+   flat-sprite
    Style
    Solid
    Translucent
@@ -112,6 +148,7 @@
    Span
    Normal
    Strong
+   Image
    Corner
    TopLeft
    TopRight
@@ -130,6 +167,7 @@
    Ray-origin
    Ray-direction
    pointer-ray
+   screen-axes
    ground-point
    define-application)
   (import
@@ -337,7 +375,8 @@
        (ambient F32)))
 
     ;; Every mesh stands on y = 0 within the unit cell around the origin; a
-    ;; tile is a flat unit square at y = 0.
+    ;; tile is a flat unit square at y = 0, and a quad an upright one facing
+    ;; +z. Each face maps a texture's whole region.
     (enum Mesh
       (Box)
       (Pyramid)
@@ -345,7 +384,77 @@
       (Sphere)
       (Tile)
       (Tetrahedron)
-      (Octahedron))
+      (Octahedron)
+      (Quad))
+
+    ;; ---- Pictures ----
+
+    ;; A rectangle of pixels: its left and top edges, then its size.
+    (struct Rect
+      ((x I32)
+       (y I32)
+       (width I32)
+       (height I32))
+      (deriving Serialize Deserialize))
+
+    ;; An encoded image file, PNG or anything else the browser decodes. The
+    ;; host decodes each key once, so `bytes` runs only when it has not.
+    (struct Source
+      ((key I32)
+       (bytes (-> Bytes))))
+
+    ;; The pixels of `source` within `from`, drawn with their top left at
+    ;; (x, y) of the picture. Each swap replaces the 0xRRGGBB color first in
+    ;; the pair with the second, keeping alpha: art drawn in one palette can
+    ;; be recolored, as LPC skin ramps are.
+    (struct Layer
+      ((source Source)
+       (from Rect)
+       (x I32)
+       (y I32)
+       (swaps (List (Pair I32 I32)))))
+
+    ;; A texture the host composes from layers, drawn in order over
+    ;; transparency. Like a batch, it is kept until its version changes, so
+    ;; `layers` runs only when the host lacks this version.
+    (struct Picture
+      ((key I32)
+       (version I32)
+       (width I32)
+       (height I32)
+       (layers (-> (List Layer)))))
+
+    ;; A region of a picture. With more than one frame it is a strip: the
+    ;; host shows `frames` regions side by side, starting at `region` and
+    ;; stepping right by its width, each for `period` milliseconds.
+    (struct Texture
+      ((picture I32)
+       (region Rect)
+       (frames I32)
+       (period I32)))
+
+    (: still (-> I32 Rect Texture))
+    (define (still picture region)
+      (Texture picture region 1 1))
+
+    ;; How a surface reflects light, in the metallic-roughness model. The
+    ;; texture times the item's color is the albedo of a dielectric, or the
+    ;; specular color of a metal. Transparent texels are not drawn.
+    (struct Material
+      ((texture (Option Texture))
+       (metalness F32)
+       (roughness F32)))
+
+    ;; Untextured and fully rough, as a matte dielectric.
+    (define plain (Material (None) 0.0 1.0))
+
+    ;; A fixed item turns by its yaw alone; an upright one also turns about
+    ;; the vertical axis to face the camera, as sprites do.
+    (enum Facing
+      (Fixed)
+      (Upright))
+
+    ;; ---- Items ----
 
     ;; A mesh instance: position, scale, rotation about the vertical axis, a
     ;; 0xRRGGBB color, and a glow from 0, lit by the light, to 1, its own
@@ -358,12 +467,31 @@
        (yaw F32)
        (color I32)
        (glow F32)
-       (from Vec3)))
+       (from Vec3)
+       (material Material)
+       (facing Facing)))
 
-    ;; An unlit item standing still.
+    ;; An unlit, plain item standing still.
     (: item (-> Mesh Vec3 Vec3 F32 I32 Item))
     (define (item mesh position scale yaw color)
-      (Item mesh position scale yaw color 0.0 position))
+      (Item mesh position scale yaw color 0.0 position plain (Fixed)))
+
+    ;; A texture on a quad `width` by `height` world units, its bottom center
+    ;; at `position`, standing upright toward the camera: a sprite in a 2.5D
+    ;; scene.
+    (: sprite (-> Texture Vec3 F32 F32 Item))
+    (define (sprite texture position width height)
+      (Item (Quad) position (Vec3 width height 1.0) 0.0 (rgb 255 255 255) 0.0 position (Material (Some texture) 0.0 1.0)
+            (Upright)))
+
+    ;; A texture lying on the ground, `width` by `height` world units, its
+    ;; top toward -z and the middle of its bottom edge at `position`: a sprite
+    ;; in a 2D scene seen straight down, where -z is the top of the screen.
+    ;; It shows the texture's own colors, unlit.
+    (: flat-sprite (-> Texture Vec3 F32 F32 Item))
+    (define (flat-sprite texture position width height)
+      (let ((center (Vec3 (Vec3-x position) (Vec3-y position) (- (Vec3-z position) (/ height 2.0)))))
+        (Item (Tile) center (Vec3 width 1.0 height) 0.0 (rgb 255 255 255) 1.0 center (Material (Some texture) 0.0 1.0) (Fixed))))
 
     ;; Solid batches hide what is behind them. Translucent ones are drawn
     ;; after, over them. A revealed batch shows only within `radius` of a
@@ -416,13 +544,15 @@
     ;; caption beneath its text and a ring around it filled to a fraction,
     ;; when the fraction is not negative. A dial is a round readout. A link
     ;; opens `url` in a new page and reports nothing. A text is a label
-    ;; whose words may be strong in places.
+    ;; whose words may be strong in places. An image shows a region of a
+    ;; picture, each texel `scale` pixels wide.
     (enum Widget
       (Label ((look Look) (text String)))
       (Button ((look Look) (text String) (caption String) (action I32) (argument I32) (control Control) (ring F32)))
       (Dial ((look Look) (text String) (fraction F32)))
       (Link ((look Look) (text String) (url String)))
-      (Text ((look Look) (spans (List Span)))))
+      (Text ((look Look) (spans (List Span))))
+      (Image ((look Look) (picture I32) (region Rect) (scale I32))))
 
     (enum Span
       (Normal ((words String)))
@@ -450,12 +580,14 @@
        (widgets (List Widget))))
 
     ;; `motion` moves every item from where it was toward where it is.
+    ;; `pictures` are the textures the batches and the HUD may use.
     (struct Frame
       ((camera Camera)
        (light Light)
        (background I32)
        (motion F32)
-       (batches (List Batch))))
+       (batches (List Batch))
+       (pictures (List Picture))))
 
     (: rgb (-> I32 I32 I32 I32))
     (define (rgb red green blue)
@@ -467,12 +599,20 @@
       ((frame-begin (-> I32 F32 Unit))
        (camera (-> F32 F32 F32 F32 F32 F32 I32 F32 Unit))
        (light (-> F32 F32 F32 F32 F32 Unit))
+       (picture-begin (-> I32 I32 I32 I32 Bool))
+       (layer (-> I32 I32 I32 I32 I32 I32 I32 Bool))
+       (source-begin (-> I32 I32 Unit))
+       (source-word (-> I32 Unit))
+       (swap (-> I32 I32 Unit))
+       (picture-end (-> Unit))
        (batch-begin (-> I32 I32 I32 F32 F32 F32 F32 Bool))
        (instance (-> I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 Unit))
+       (surface (-> F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 Unit))
        (frame-end (-> Unit))
        (hud-begin (-> Unit))
        (panel-begin (-> I32 I32 I32 I32 Unit))
        (widget-begin (-> I32 I32 I32 I32 I32 F32 Unit))
+       (widget-image (-> I32 I32 I32 I32 I32 I32 Unit))
        (field (-> I32 Unit))
        (text-character (-> Char Unit))
        (hud-end (-> Unit)))
@@ -480,12 +620,20 @@
             ((frame-begin "frame-begin")
              (camera "camera")
              (light "light")
+             (picture-begin "picture-begin")
+             (layer "layer")
+             (source-begin "source-begin")
+             (source-word "source-word")
+             (swap "swap")
+             (picture-end "picture-end")
              (batch-begin "batch-begin")
              (instance "instance")
+             (surface "surface")
              (frame-end "frame-end")
              (hud-begin "hud-begin")
              (panel-begin "panel-begin")
              (widget-begin "widget-begin")
+             (widget-image "widget-image")
              (field "field")
              (text-character "text-character")
              (hud-end "hud-end"))))
@@ -495,6 +643,7 @@
       (frame-begin (Frame-background frame) (Frame-motion frame))
       (render-camera (Frame-camera frame))
       (render-light (Frame-light frame))
+      (for-each render-picture (Frame-pictures frame))
       (for-each render-batch (Frame-batches frame))
       (frame-end))
 
@@ -509,6 +658,33 @@
     (define (render-light sunlight)
       (let ((direction (Light-direction sunlight)))
         (light (Vec3-x direction) (Vec3-y direction) (Vec3-z direction) (Light-sun sunlight) (Light-ambient sunlight))))
+
+    ;; A picture's layers travel only when the host lacks this version, and a
+    ;; source's bytes only when the host has never decoded it.
+    (: render-picture (-> Picture Unit ! screen))
+    (define (render-picture picture)
+      (unless (picture-begin (Picture-key picture) (Picture-version picture) (Picture-width picture) (Picture-height picture))
+        (for-each render-layer ((Picture-layers picture)))
+        (picture-end)))
+
+    (: render-layer (-> Layer Unit ! screen))
+    (define (render-layer piece)
+      (let ((from (Layer-from piece)) (source (Layer-source piece)))
+        (unless (layer (Source-key source) (Rect-x from) (Rect-y from) (Rect-width from) (Rect-height from) (Layer-x piece) (Layer-y piece))
+          (send-source source))
+        (for-each (lambda (pair) (swap (Pair-first pair) (Pair-second pair))) (Layer-swaps piece))))
+
+    ;; Bytes go four at a time, little-endian, the last word padded.
+    (: send-source (-> Source Unit ! screen))
+    (define (send-source source)
+      (let* ((bytes ((Source-bytes source))) (count (vector-length bytes))
+             (byte (lambda (index) (if (< index count) (u8->i32 (vector-ref bytes index)) 0))))
+        (source-begin (Source-key source) (i64->i32 count))
+        (let loop ((index 0))
+          (when (< index count)
+            (source-word (+ (byte index)
+                            (+ (i32-shift-left (byte (+ index 1)) 8) (+ (i32-shift-left (byte (+ index 2)) 16) (i32-shift-left (byte (+ index 3)) 24)))))
+            (loop (+ index 4))))))
 
     ;; The style travels with every frame; the items only when the host lacks
     ;; this version.
@@ -525,7 +701,20 @@
       (let ((position (Item-position item)) (scale (Item-scale item)) (from (Item-from item)))
         (instance (mesh-index (Item-mesh item)) (Vec3-x position) (Vec3-y position) (Vec3-z position)
                   (Vec3-x scale) (Vec3-y scale) (Vec3-z scale) (Item-yaw item) (Item-color item) (Item-glow item)
-                  (Vec3-x from) (Vec3-y from) (Vec3-z from))))
+                  (Vec3-x from) (Vec3-y from) (Vec3-z from))
+        (render-surface (Item-material item) (Item-facing item))))
+
+    ;; A material and facing follow each instance: an untextured one names
+    ;; picture -1.
+    (: render-surface (-> Material Facing Unit ! screen))
+    (define (render-surface material facing)
+      (let ((turn (match facing ((Fixed) 0) ((Upright) 1))))
+        (match (Material-texture material)
+          ((Some texture)
+           (let ((region (Texture-region texture)))
+             (surface (Material-metalness material) (Material-roughness material) turn (Texture-picture texture)
+                      (Rect-x region) (Rect-y region) (Rect-width region) (Rect-height region) (Texture-frames texture) (Texture-period texture))))
+          ((None) (surface (Material-metalness material) (Material-roughness material) turn -1 0 0 0 0 1 1)))))
 
     ;; The order matches the meshes in src/app/renderer.mjs.
     (: mesh-index (-> Mesh I32))
@@ -537,7 +726,8 @@
         ((Sphere) 3)
         ((Tile) 4)
         ((Tetrahedron) 5)
-        ((Octahedron) 6)))
+        ((Octahedron) 6)
+        ((Quad) 7)))
 
     ;; The HUD is sent apart from frames, only when it may have changed.
     (: render-hud (-> (List Panel) Unit ! screen))
@@ -575,7 +765,11 @@
          (render-look face) (render-field 4 text) (render-field 5 caption))
         ((Dial face text fraction) (widget-begin 2 (tone-index (Look-tone face)) 0 0 0 fraction) (render-look face) (render-field 4 text))
         ((Link face text url) (widget-begin 3 (tone-index (Look-tone face)) 0 0 0 0.0) (render-look face) (render-field 4 text) (render-field 6 url))
-        ((Text face spans) (widget-begin 4 (tone-index (Look-tone face)) 0 0 0 0.0) (render-look face) (for-each render-span spans))))
+        ((Text face spans) (widget-begin 4 (tone-index (Look-tone face)) 0 0 0 0.0) (render-look face) (for-each render-span spans))
+        ((Image face picture region scale)
+         (widget-begin 5 (tone-index (Look-tone face)) 0 0 0 0.0)
+         (widget-image picture (Rect-x region) (Rect-y region) (Rect-width region) (Rect-height region) scale)
+         (render-look face))))
 
     (: render-span (-> Span Unit ! screen))
     (define (render-span span)
@@ -630,7 +824,7 @@
     (: pointer-ray (-> Camera I32 I32 I32 I32 Ray))
     (define (pointer-ray view x y width height)
       (let* ((eye (Camera-eye view)) (forward (normalize (subtract (Camera-target view) eye)))
-             (right (normalize (cross forward (Vec3 0.0 1.0 0.0)))) (up (cross right forward))
+             (axes (screen-axes view)) (right (Pair-first axes)) (up (Pair-second axes))
              (aspect (/ (i32->f32 width) (i32->f32 (max height 1))))
              (px (- (* 2.0 (/ (+ (i32->f32 x) 0.5) (i32->f32 (max width 1)))) 1.0))
              (py (- 1.0 (* 2.0 (/ (+ (i32->f32 y) 0.5) (i32->f32 (max height 1)))))))
@@ -641,6 +835,17 @@
           ((Orthographic height)
            (let ((half (/ height 2.0)))
              (Ray (add eye (add (scale right (* px (* half aspect))) (scale up (* py half)))) forward))))))
+
+    ;; The directions of the screen's right and up in the world. A camera
+    ;; looking straight down has up toward -z, so it shows the ground as a
+    ;; map with the far side at the top, as a camera tilted down from +z
+    ;; would; the renderer uses the same rule.
+    (: screen-axes (-> Camera (Pair Vec3 Vec3)))
+    (define (screen-axes view)
+      (let* ((forward (normalize (subtract (Camera-target view) (Camera-eye view))))
+             (sky (if (> (abs (Vec3-y forward)) 0.999) (Vec3 0.0 0.0 -1.0) (Vec3 0.0 1.0 0.0)))
+             (right (normalize (cross forward sky))))
+        (Pair right (cross right forward))))
 
     ;; Where the ray through pixel (x, y) meets the ground plane y = 0.
     (: ground-point (-> Camera I32 I32 I32 I32 (Option Vec3)))
