@@ -35,8 +35,7 @@
        ((name String)
         (params (List Syntax))
         (body Syntax)
-        (env Env)
-        (expanding (Ref Bool))))
+        (env Env)))
       (TypeVar
        ((type Type)))
       (ClassName
@@ -59,7 +58,7 @@
         ((Local name) name)
         ((Global name) name)
         ((TypeName name _ _) name)
-        ((Alias name _ _ _ _) name)
+        ((Alias name _ _ _) name)
         ((TypeVar _) "%type-variable")
         ((ClassName name) name)
         ((EffectName name) name)
@@ -157,9 +156,11 @@
     ;; so its globals are `prefix:name`, and `loading` the libraries whose
     ;; imports are being loaded, innermost first, so a library requested while
     ;; it loads is part of an import cycle. `scopes` numbers the environments
-    ;; that marks refer to. `generate` runs a producer program for
-    ;; `generate-library` and returns the bytes of the syntax it writes; the
-    ;; driver supplies it, because running a program means compiling one.
+    ;; that marks refer to. `aliases` names the type aliases whose bodies are
+    ;; being resolved, innermost first, so an alias that refers to itself is
+    ;; caught. `generate` runs a producer program for `generate-library` and
+    ;; returns the bytes of the syntax it writes; the driver supplies it,
+    ;; because running a program means compiling one.
     (struct Context
       ((program (Ref Program))
        (expanded (Ref (Table Expanded)))
@@ -168,6 +169,7 @@
        (generate (-> (List Syntax) Bytes ! mut fs))
        (prefix String)
        (loading (List String))
+       (aliases (List String))
        (counter (Ref I64))
        (scopes (Ref (Table Env)))
        (scope-count (Ref I64))
@@ -199,9 +201,9 @@
     (define (new-context directories generate predecessor)
       (match predecessor
         ((Some last)
-         (Context (ref base-program) (ref empty-table) (ExpandedProgram-libraries last) directories generate "" (Nil) (ref (ExpandedProgram-counter last))
+         (Context (ref base-program) (ref empty-table) (ExpandedProgram-libraries last) directories generate "" (Nil) (Nil) (ref (ExpandedProgram-counter last))
                   (ref (ExpandedProgram-scopes last)) (ref (ExpandedProgram-scope-count last)) (ref (None))))
-        ((None) (Context (ref base-program) (ref empty-table) empty-table directories generate "" (Nil) (ref 0) (ref empty-table) (ref 0) (ref (None))))))
+        ((None) (Context (ref base-program) (ref empty-table) empty-table directories generate "" (Nil) (Nil) (ref 0) (ref empty-table) (ref 0) (ref (None))))))
 
     ;; The program as expanded so far.
     (: program (-> Context Program ! mut))
@@ -610,8 +612,9 @@
     ;; ---- Top-level bodies ----
 
     ;; Pass 1 discovers every top-level name, so definitions may refer to later
-    ;; ones. Pass 2 resolves declarations and signatures, returning one thunk
-    ;; per definition or expression; running the thunks in order expands them.
+    ;; ones. Signatures then resolve, needing only those names. Pass 2
+    ;; resolves declarations, returning one thunk per definition or
+    ;; expression; running the thunks in order expands them.
     (struct Pending
       ((keyword String)
        (form Syntax)
@@ -624,7 +627,7 @@
     (: expand-top-level (-> Context Env (List Syntax) Unit ! mut fs))
     (define (expand-top-level cx env forms)
       (let* ((pending (concatenate (map (lambda (form) (scan-top-level cx env form)) forms)))
-             (signatures (ref empty-table))
+             (signatures (fold-left (lambda (table entry) (with-signature cx table entry)) empty-table pending))
              (definitions (concatenate (map (lambda (entry) (declare! cx signatures entry)) pending))))
         (for-each (lambda (expand!) (expand!)) definitions)))
 
@@ -665,11 +668,11 @@
         ((Form (Cons _ (Cons name (Cons _ (Nil)))) _) (expect-ident name "a definition name"))
         (_ (compile-error (syntax-loc form) "expected (define name value) or (define (name parameter ...) body ...)"))))
 
-    (: declare! (-> Context (Ref (Table Scheme)) Pending (List (-> Unit ! mut)) ! mut fs))
+    (: declare! (-> Context (Table Scheme) Pending (List (-> Unit ! mut)) ! mut fs))
     (define (declare! cx signatures pending)
       (let ((form (Pending-form pending)) (env (Pending-env pending)))
         (case (Pending-keyword pending)
-          ((":") (declare-signature! cx signatures env form) (Nil))
+          ((":") (Nil))
           (("struct") (declare-data! cx env form #f) (Nil))
           (("enum") (declare-data! cx env form #t) (Nil))
           (("typeclass") (declare-class! cx env form) (Nil))
@@ -691,10 +694,10 @@
            (_ (compile-error (syntax-loc name) (string-append "only a top-level function can be exposed: " (Ident-name name))))))
         (_ (compile-error (syntax-loc form) "expected (expose name \"symbol\")"))))
 
-    (: define-top-level! (-> Context (Ref (Table Scheme)) Env Syntax Unit ! mut))
+    (: define-top-level! (-> Context (Table Scheme) Env Syntax Unit ! mut))
     (define (define-top-level! cx signatures env form)
       (let ((name (global-binding cx env (definition-name form))))
-        (add-value! (Context-program cx) name (Defined (table-ref (ref-get signatures) name)))
+        (add-value! (Context-program cx) name (Defined (table-ref signatures name)))
         (add-item! (Context-program cx) (Define name (definition-value cx env form)))))
 
     (: definition-value (-> Context Env Syntax Expr ! mut))
@@ -743,7 +746,7 @@
     (define (scan-alias! cx env head rest form)
       (let ((name (declared-name head)))
         (match rest
-          ((Cons body (Nil)) (bind-top! env name (Alias (unique-name cx name) (declared-params head) body env (ref #f))))
+          ((Cons body (Nil)) (bind-top! env name (Alias (unique-name cx name) (declared-params head) body env)))
           (_ (compile-error (syntax-loc form) "expected (type Name type)")))))
 
     (: scan-class! (-> Context Env Syntax (List Syntax) Unit ! mut))
@@ -908,15 +911,18 @@
                   (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
     ;; `(: name type)` records a scheme for the following definition.
-    (: declare-signature! (-> Context (Ref (Table Scheme)) Env Syntax Unit ! mut))
-    (define (declare-signature! cx signatures env form)
-      (match form
-        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
-         (match (resolve cx env (expect-ident name "a name"))
-           ((Some (Global global)) (ref-set! signatures (table-set (ref-get signatures) global (resolve-scheme cx env type))))
-           (_ (compile-error (syntax-loc name) (string-append "signature names an undefined top-level definition: "
-                                                              (Ident-name name))))))
-        (_ (compile-error (syntax-loc form) "expected (: name type)"))))
+    ;; The signatures with the one a `(: name type)` declares.
+    (: with-signature (-> Context (Table Scheme) Pending (Table Scheme) ! mut))
+    (define (with-signature cx signatures pending)
+      (if (string=? (Pending-keyword pending) ":")
+          (match (Pending-form pending)
+            ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
+             (match (resolve cx (Pending-env pending) (expect-ident name "a name"))
+               ((Some (Global global)) (table-set signatures global (resolve-scheme cx (Pending-env pending) type)))
+               (_ (compile-error (syntax-loc name) (string-append "signature names an undefined top-level definition: "
+                                                                  (Ident-name name))))))
+            (form (compile-error (syntax-loc form) "expected (: name type)")))
+          signatures))
 
     (: declare-class! (-> Context Env Syntax Unit ! mut))
     (define (declare-class! cx env form)
@@ -1134,16 +1140,13 @@
          (unless (= arity (length args)) (compile-error loc (string-append "wrong number of type arguments: " (Ident-name ident))))
          (TCon name (map (lambda (arg) (resolve-type cx env arg)) args)))
         ((Some (TypeVar type)) (if (null? args) type (compile-error loc "a type variable takes no arguments")))
-        ((Some (Alias _ params body alias-env expanding))
+        ((Some (Alias name params body alias-env))
          (unless (= (length params) (length args))
            (compile-error loc (string-append "wrong number of alias arguments: " (Ident-name ident))))
-         (when (ref-get expanding) (compile-error loc (string-append "type alias refers to itself: " (Ident-name ident))))
+         (when (member? name (Context-aliases cx)) (compile-error loc (string-append "type alias refers to itself: " (Ident-name ident))))
          (let ((scope (fold-left (lambda (scope pair) (extend scope (Pair-first pair) (TypeVar (resolve-type cx env (Pair-second pair)))))
                                  alias-env (zip params args))))
-           (ref-set! expanding #t)
-           (let ((type (resolve-type cx scope body)))
-             (ref-set! expanding #f)
-             type)))
+           (resolve-type (Context-aliases-set cx (Cons name (Context-aliases cx))) scope body)))
         (_ (compile-error loc (string-append "not a type: " (Ident-name ident))))))
 
     ;; `(-> A B R)` or `(-> A B R ! label ... [row-variable])`.
@@ -1567,7 +1570,7 @@
            (match rule
              ((Form (Cons (Form (Cons _ pattern) _) (Cons template (Nil))) _)
               (match (match-pattern cx (Form pattern loc) (Form (form-tail form) loc) literals env (scope-env cx scope))
-                ((Some bindings) (transcribe template bindings (Expansion (ref empty-table) (fresh cx "m") scope loc)))
+                ((Some bindings) (transcribe template bindings (Expansion (fresh cx "m") scope loc)))
                 ((None) (apply-macro cx env form literals more scope))))
              (_ (compile-error (syntax-loc rule) "expected ((_ pattern ...) template)")))))))
 
@@ -1676,12 +1679,11 @@
     ;; One expansion: identifiers the template introduces share one mark per
     ;; name, and every introduced form is located at the macro use.
     (struct Expansion
-      ((renames (Ref (Table Syntax)))
-       (stamp String)
+      ((stamp String)
        (scope I64)
        (loc Loc)))
 
-    (: transcribe (-> Syntax Bindings Expansion Syntax ! mut))
+    (: transcribe (-> Syntax Bindings Expansion Syntax))
     (define (transcribe template bindings expansion)
       (match template
         ((Ident name _ _)
@@ -1692,7 +1694,7 @@
         ((Atom _ _) template)
         ((Form items _) (Form (transcribe-items items bindings expansion) (Expansion-loc expansion)))))
 
-    (: transcribe-items (-> (List Syntax) Bindings Expansion (List Syntax) ! mut))
+    (: transcribe-items (-> (List Syntax) Bindings Expansion (List Syntax)))
     (define (transcribe-items items bindings expansion)
       (match items
         ((Nil) (Nil))
@@ -1702,7 +1704,7 @@
 
     ;; The repeated template iterates over every variable it uses that matched
     ;; under an ellipsis; such variables must have equal lengths.
-    (: transcribe-repeated (-> Syntax Bindings Expansion (List Syntax) ! mut))
+    (: transcribe-repeated (-> Syntax Bindings Expansion (List Syntax)))
     (define (transcribe-repeated template bindings expansion)
       (let ((repeated (concatenate (map (lambda (key)
                                           (match (assoc-ref bindings key)
@@ -1729,16 +1731,13 @@
         ((Form items _) (concatenate (map template-keys items)))
         (_ (Nil))))
 
-    (: rename-ident (-> Syntax Expansion Syntax ! mut))
+    ;; A template's identifier becomes the same marked identifier wherever it
+    ;; appears in one expansion: its mark is its key with the expansion's
+    ;; stamp, resolved in the macro's scope.
+    (: rename-ident (-> Syntax Expansion Syntax))
     (define (rename-ident ident expansion)
-      (let ((key (ident-key ident)))
-        (match (table-ref (ref-get (Expansion-renames expansion)) key)
-          ((Some renamed) renamed)
-          ((None)
-           (let ((renamed (Ident (Ident-name ident)
-                                 (Some (Mark (string-append key "%" (Expansion-stamp expansion)) ident (Expansion-scope expansion)))
-                                 (Expansion-loc expansion))))
-             (ref-set! (Expansion-renames expansion) (table-set (ref-get (Expansion-renames expansion)) key renamed))
-             renamed)))))
+      (Ident (Ident-name ident)
+             (Some (Mark (string-append (ident-key ident) "%" (Expansion-stamp expansion)) ident (Expansion-scope expansion)))
+             (Expansion-loc expansion)))
 
     ))
