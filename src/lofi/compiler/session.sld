@@ -129,15 +129,6 @@
                                         ((None) own)))
                      (_ own)))
                  empty-table items))
-
-    (: table-union (All (V) (-> (Table V) (Table V) (Table V))))
-    (define (table-union table additions)
-      (fold-left (lambda (result key)
-                   (match (table-ref additions key)
-                     ((Some value) (table-set result key value))
-                     ((None) result)))
-                 table (table-keys additions)))
-
     )
 
   ;; ---- Tests ----

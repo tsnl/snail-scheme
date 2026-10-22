@@ -511,10 +511,9 @@
     (: interface-form (-> Syntax (List String) String))
     (define (interface-form form signed)
       (match form
-        ((Form (Cons (Ident "define" _ _) (Cons (Form (Cons (Ident name _ _) _) _) _)) _)
-         (if (member? name signed) (string-append "(define " name ")") (syntax->key form)))
-        ((Form (Cons (Ident "define" _ _) (Cons (Ident name _ _) _)) _)
-         (if (member? name signed) (string-append "(define " name ")") (syntax->key form)))
+        ((Form (Cons (Ident "define" _ _) _) _)
+         (let ((name (Ident-name (definition-name form))))
+           (if (member? name signed) (string-append "(define " name ")") (syntax->key form))))
         (_ (syntax->key form))))
 
     (: monomorphic-signatures (-> (List Syntax) (List String)))

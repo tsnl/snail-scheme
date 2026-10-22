@@ -1634,13 +1634,8 @@
 
     (: new-module (-> Mono (Option String) Module ! mut))
     (define (new-module mono owner)
-      (let ((definitions (fold-left (lambda (table item)
-                                      (match item
-                                        ((Define name value) (table-set table name value))
-                                        (_ table)))
-                                    empty-table (Mono-items mono))))
-        (Module (Mono-program mono) definitions owner (Mono-externals mono) (ref empty-table) (ref (Nil)) (ref (Nil)) (ref (Nil))
-                (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0))))
+      (Module (Mono-program mono) (item-definitions (Mono-items mono)) owner (Mono-externals mono) (ref empty-table) (ref (Nil))
+              (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0)))
 
     (: emit-items! (-> Module (List Item) Unit ! mut))
     (define (emit-items! m items)

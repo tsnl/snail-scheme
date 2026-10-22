@@ -29,6 +29,7 @@
    type=?
    types=?
    short-name
+   name-owner
    substitute
    substitute-constraint
    label-union
@@ -114,6 +115,7 @@
    Define-value
    Do
    Expose
+   item-definitions
    Program
    base-program
    primitive-global
@@ -133,9 +135,9 @@
    add-library!
    program-delta
    program-with
+   table-union
    program-items
    library-items
-   name-owner
    primitives
    fnv-1a
    case-type-id
@@ -206,6 +208,15 @@
           (cond ((< index 0) name)
                 ((char=? (vector-ref chars index) #\:) (substring name (+ index 1) (string-length name)))
                 (else (loop (- index 1)))))))
+
+    ;; The library that defines a global: its name up to the first colon.
+    (: name-owner (-> String String))
+    (define (name-owner name)
+      (let ((chars (string->vector name)))
+        (let loop ((index 0))
+          (cond ((= index (vector-length chars)) "")
+                ((char=? (vector-ref chars index) #\:) (substring name 0 index))
+                (else (loop (+ index 1)))))))
 
     (: type->string (-> Type String ! mut))
     (define (type->string type)
@@ -567,6 +578,15 @@
         (symbol String)
         (loc Loc))))
 
+    ;; The value of each definition among `items`, by name.
+    (: item-definitions (-> (List Item) (Table Expr)))
+    (define (item-definitions items)
+      (fold-left (lambda (table item)
+                   (match item
+                     ((Define name value) (table-set table name value))
+                     (_ table)))
+                 empty-table items))
+
     ;; ---- Programs ----
 
     ;; A program is a value: the expander builds it up in one cell, and the
@@ -698,15 +718,18 @@
     ;; within a class does not matter, since no two of them overlap.
     (: program-with (-> Program Program Program))
     (define (program-with program delta)
-      (Program (merged (Program-values program) (Program-values delta)) (merged (Program-types program) (Program-types delta))
-               (merged (Program-classes program) (Program-classes delta))
+      (Program (table-union (Program-values program) (Program-values delta))
+               (table-union (Program-types program) (Program-types delta))
+               (table-union (Program-classes program) (Program-classes delta))
                (fold-left (lambda (table class) (table-set table class (append (class-list table class) (class-list (Program-instances delta) class))))
                           (Program-instances program) (table-keys (Program-instances delta)))
-               (merged (Program-effects program) (Program-effects delta))
+               (table-union (Program-effects program) (Program-effects delta))
                (append (Program-items delta) (Program-items program)) (append (Program-libraries delta) (Program-libraries program))))
 
-    (: merged (All (V) (-> (Table V) (Table V) (Table V))))
-    (define (merged table additions)
+    ;; `table` with every entry of `additions`, which win where both have a
+    ;; key.
+    (: table-union (All (V) (-> (Table V) (Table V) (Table V))))
+    (define (table-union table additions)
       (fold-left (lambda (result key)
                    (match (table-ref additions key)
                      ((Some value) (table-set result key value))
@@ -721,15 +744,6 @@
         (match libraries
           ((Cons (Pair name count) rest) (loop rest (list-tail items count) (Cons (Pair name (take items count)) out)))
           ((Nil) (reverse out)))))
-
-    ;; The library that defines a global: its name up to the first colon.
-    (: name-owner (-> String String))
-    (define (name-owner name)
-      (let ((chars (string->vector name)))
-        (let loop ((index 0))
-          (cond ((= index (vector-length chars)) "")
-                ((char=? (vector-ref chars index) #\:) (substring name 0 index))
-                (else (loop (+ index 1)))))))
 
     ;; ---- Wire identities ----
 
