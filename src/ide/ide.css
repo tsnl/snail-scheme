@@ -1,0 +1,10 @@
+/* The IDE: an editor on the left, the application on the right. The
+   application's HUD and dialogs stay within its stage. */
+body { display: grid; grid-template-columns: minmax(320px, 2fr) 3fr; }
+.editor { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid #2a3446; background: #0b0f16; }
+.editor select { margin: 8px; padding: 4px 6px; font: inherit; color: inherit; background: #1c2433; border: 1px solid #3a4658; border-radius: 4px; }
+.editor textarea { flex: 1; margin: 0 8px 8px; padding: 8px; resize: none; color: #e8ecf2; background: #10141c; border: 1px solid #2a3446;
+  border-radius: 4px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; white-space: pre; }
+.stage { position: relative; min-width: 0; overflow: hidden; }
+.stage canvas { width: 100%; height: 100%; }
+.stage #overlay, .stage .dialogs { position: absolute; }

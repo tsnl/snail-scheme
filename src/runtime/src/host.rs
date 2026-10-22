@@ -1,10 +1,13 @@
 //! Buffered text streams for scalar Lofi I/O. The owning file registry closes
 //! them explicitly; borrowed stdin/stdout remain open after invocation cleanup.
+//! With memory files on (`crate::files`), files are read from and written to
+//! the runtime's memory instead of the disk.
 
+use crate::files;
 use std::{
     cell::RefCell,
     fs::File,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Cursor, Read, Write},
 };
 
 // ---- Ports ----
@@ -12,6 +15,8 @@ use std::{
 pub(crate) enum Port {
     Input(TextInput),
     FileOutput(BufWriter<File>),
+    // A memory file's path and the text written so far, stored on flush.
+    MemoryOutput(String, Vec<u8>),
     Stdout,
     Closed,
     #[cfg(test)]
@@ -20,6 +25,11 @@ pub(crate) enum Port {
 
 impl Port {
     pub(crate) fn input_file(path: &str) -> Result<Self, String> {
+        if files::enabled() {
+            let bytes =
+                files::read(path).ok_or_else(|| format!("{path}: No such file or directory"))?;
+            return Ok(Self::Input(TextInput::new(Cursor::new(bytes))));
+        }
         let file = File::open(path).map_err(|e| format!("{path}: {e}"))?;
         Ok(Self::Input(TextInput::new(file)))
     }
@@ -29,6 +39,9 @@ impl Port {
     }
 
     pub(crate) fn output_file(path: &str) -> Result<Self, String> {
+        if files::enabled() {
+            return Ok(Self::MemoryOutput(path.into(), Vec::new()));
+        }
         File::create(path)
             .map(|file| Self::FileOutput(BufWriter::new(file)))
             .map_err(|e| format!("{path}: {e}"))
@@ -36,7 +49,7 @@ impl Port {
 
     pub(crate) fn is_output(&self) -> bool {
         match self {
-            Self::FileOutput(_) | Self::Stdout => true,
+            Self::FileOutput(_) | Self::MemoryOutput(..) | Self::Stdout => true,
             #[cfg(test)]
             Self::Capture(_) => true,
             _ => false,
@@ -66,6 +79,10 @@ impl Port {
     pub(crate) fn flush(&mut self) -> Result<(), String> {
         match self {
             Self::FileOutput(file) => file.flush().map_err(|error| error.to_string()),
+            Self::MemoryOutput(path, bytes) => {
+                files::write(path, bytes.clone());
+                Ok(())
+            }
             Self::Stdout => flush_standard_output(),
             #[cfg(test)]
             Self::Capture(_) => Ok(()),
@@ -76,6 +93,10 @@ impl Port {
     pub(crate) fn write(&mut self, text: &str) -> Result<(), String> {
         match self {
             Self::FileOutput(file) => file.write_all(text.as_bytes()).map_err(|e| e.to_string()),
+            Self::MemoryOutput(_, bytes) => {
+                bytes.extend_from_slice(text.as_bytes());
+                Ok(())
+            }
             Self::Stdout => write_standard_output(text),
             #[cfg(test)]
             Self::Capture(buffer) => {
