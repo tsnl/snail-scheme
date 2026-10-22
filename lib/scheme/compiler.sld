@@ -111,39 +111,43 @@
 
     ;; ---- Procedures and bodies ----
 
+    ;; Construction proves every parameter is a distinct symbol. Both the
+    ;; arity check and the bindings consume this same source-ordered value.
+    (struct Parameters
+      ((fixed (List String))
+       (rest (Option String))))
+
+    (: parse-parameters (-> Datum Parameters))
+    (define (parse-parameters datum)
+      (let loop ((tail datum) (fixed (ann (Nil) (List String))))
+        (match tail
+          ((NullDatum) (Parameters (reverse fixed) (None)))
+          ((SymbolDatum name)
+           (if (member? name fixed) (panic "scheme: duplicate parameter") (Parameters (reverse fixed) (Some name))))
+          ((PairDatum (SymbolDatum name) rest)
+           (if (member? name fixed) (panic "scheme: duplicate parameter") (loop rest (Cons name fixed))))
+          (_ (panic "scheme: expected parameter names")))))
+
     ;; A procedure takes its arguments as one list and checks their count.
     (: translate-lambda (-> Datum (List Datum) Syntax))
-    (define (translate-lambda params body)
-      (let ((arguments (SymbolSyntax "arguments")))
+    (define (translate-lambda datum body)
+      (let ((params (parse-parameters datum)) (arguments (SymbolSyntax "arguments")))
         (form "ProcedureDatum"
               (list (form "lambda"
                           (list (ListSyntax (list arguments))
-                                (form "arity!" (list arguments (IntegerSyntax (length (fixed-parameters params)))
-                                                     (BooleanSyntax (match (rest-parameter params) ((Some _) #t) ((None) #f)))))
+                                (form "arity!" (list arguments (IntegerSyntax (length (Parameters-fixed params)))
+                                                     (BooleanSyntax (match (Parameters-rest params) ((Some _) #t) ((None) #f)))))
                                 (form "let" (list (ListSyntax (parameter-cells params arguments)) (translate-body body)))))))))
 
     ;; Fixed parameters take the arguments' first items, and a rest
     ;; parameter the remainder.
-    (: parameter-cells (-> Datum Syntax (List Syntax)))
+    (: parameter-cells (-> Parameters Syntax (List Syntax)))
     (define (parameter-cells params arguments)
-      (let ((fixed (fixed-parameters params)))
+      (let ((fixed (Parameters-fixed params)))
         (append (map-indexed (lambda (index name) (cell name (form "list-ref" (list arguments (IntegerSyntax index))))) fixed)
-                (match (rest-parameter params)
+                (match (Parameters-rest params)
                   ((Some name) (list (cell name (form "rest-arguments" (list arguments (IntegerSyntax (length fixed)))))))
                   ((None) (Nil))))))
-
-    (: fixed-parameters (-> Datum (List String)))
-    (define (fixed-parameters params)
-      (match params
-        ((PairDatum (SymbolDatum name) rest) (Cons name (fixed-parameters rest)))
-        (_ (Nil))))
-
-    (: rest-parameter (-> Datum (Option String)))
-    (define (rest-parameter params)
-      (match params
-        ((PairDatum _ rest) (rest-parameter rest))
-        ((SymbolDatum name) (Some name))
-        (_ (None))))
 
     ;; `(%name (ref value))`, a binding of a variable's cell.
     (: cell (-> String Syntax Syntax))
