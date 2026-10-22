@@ -911,7 +911,6 @@
                                     (Replacer case index (Scheme params (Nil) (TFun (list self type) self empty-row)))))))
                   (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
-    ;; `(: name type)` records a scheme for the following definition.
     ;; The signatures with the one a `(: name type)` declares.
     (: with-signature (-> Context (Table Scheme) Pending (Table Scheme) ! mut))
     (define (with-signature cx signatures pending)

@@ -82,7 +82,8 @@
 
     ;; The compiler stops with `generate KEY` when it needs a generated
     ;; library that has not been produced; producing it into `generated` and
-    ;; compiling again then finds its text.
+    ;; compiling again then finds the syntax the producer wrote, as
+    ;; KEY.syntax.
     (define (run-compiler-into root command mode directories source output generated)
       (let ((result (process->output+error+status (append command (list mode source output generated) directories))))
         (cond ((zero? (caddr result)) output)

@@ -2,7 +2,6 @@
 (import
  (scheme base)
  (scheme process-context)
- (scheme write)
  (chibi filesystem)
  (chibi pathname)
  (chibi process)
@@ -11,8 +10,6 @@
 ;; ---- Requests ----
 
 (define usage "usage: lofi compile|run|wat|schema [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | lofi bootstrap")
-
-
 
 (define (absolute path)
   (if (path-absolute? path) path (path-join (current-directory) path)))
