@@ -1,0 +1,20 @@
+bodies: 105 sheets, missing 0
+heads: 12 sheets, missing 0
+garments: 35 sheets, missing 0
+hair: 90 sheets, missing 0
+female: dressed in 6 layers
+male in navy pants: refused
+male in green pants: dressed in 3 layers
+shoes on the torso: refused
+  lpc-character-bases-v3_1/bodies/female/universal/olive.png swaps 0
+  lpc-clothing-updates/spritesheets/feet/shoes/female/brown.png swaps 0
+  lpc-clothing-updates/spritesheets/legs/pants/female/navy.png swaps 0
+  lpc-clothing-updates/spritesheets/torso/clothes/longsleeve/female/teal.png swaps 0
+  lpc-character-bases-v3_1/heads/human_female/universal.png swaps 6
+  lpc-hair/hair/bob/female/ginger.png swaps 0
+same character, same fingerprint: yes
+another skin, another fingerprint: yes
+headings: 0 1 2 3 0
+standing toward the viewer: picture 7 at 0,128, 1 frames
+strolling to the right: picture 7 at 64,192, 8 frames
+slashing away: picture 7 at 0,768, 6 frames
