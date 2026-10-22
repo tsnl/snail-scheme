@@ -22,13 +22,14 @@
 
     ;; ---- State ----
 
-    ;; The choices are worked out after every command rather than every
-    ;; frame, because judging one means trying it. `guide` is the guide's
-    ;; open page, if any.
+    ;; `message` is what the last command did, a line each, or why it could
+    ;; not be done. The choices are worked out after every command rather
+    ;; than every frame, because judging one means trying it. `guide` is the
+    ;; guide's open page, if any.
     (struct LedgerScreen
       ((seed I64)
        (ledger Ledger)
-       (message String)
+       (message (List String))
        (vee-offers (List Choice))
        (kit-offers (List Choice))
        (contacts (List Choice))
@@ -39,7 +40,7 @@
 
     (: new-ledger-screen (-> I64 LedgerScreen))
     (define (new-ledger-screen seed)
-      (refresh (LedgerScreen seed (new-ledger seed) "" (Nil) (Nil) (Nil) (Nil) (Nil) (None))))
+      (refresh (LedgerScreen seed (new-ledger seed) (Nil) (Nil) (Nil) (Nil) (Nil) (Nil) (None))))
 
     (: refresh (-> LedgerScreen LedgerScreen))
     (define (refresh screen)
@@ -82,9 +83,9 @@
         ((Ok result)
          (refresh (LedgerScreen-message-set (LedgerScreen-ledger-set screen (Pair-first result))
                                             (match command
-                                              ((EndRound) "")
+                                              ((EndRound) (Nil))
                                               (_ (Pair-second result))))))
-        ((Err message) (LedgerScreen-message-set screen message))))
+        ((Err message) (LedgerScreen-message-set screen (list message)))))
 
     (: press (-> LedgerScreen I32 I32 LedgerScreen))
     (define (press screen action argument)
@@ -138,7 +139,7 @@
       (Panel "standings" (At (TopLeft) 0)
              (list (label "title" "Favor ledger")
                    (Dial (look "round") (ledger-header ledger) (/ (i64->f32 (- (Ledger-round ledger) 1)) (i64->f32 round-count)))
-                   (section-heading "you" "You") (label "you-stats" (fixer-stats ledger 0)) (label "you-markers" (fixer-holdings ledger 0)))))
+                   (section-heading "you" "You") (label "you-stats" (fixer-stats ledger 0)) (label "you-markers" (string-join (fixer-holdings ledger 0) "\n")))))
 
     ;; A rival beside their portrait: their coins, standing, record, markers
     ;; and the job they are after, then their offers while the game is on.
@@ -148,7 +149,7 @@
       (let ((ledger (LedgerScreen-ledger screen)) (vee? (= index 0)))
         (Panel (if vee? "vee" "kit") (At (TopRight) (i64->i32 (- 1 index)))
                (append (list (portrait "portrait" (rival-key index) 2) (section-heading "name" (if vee? "Vee" "Kit"))
-                             (label "stats" (fixer-stats ledger (+ index 1))) (label "markers" (fixer-holdings ledger (+ index 1))))
+                             (label "stats" (fixer-stats ledger (+ index 1))) (label "markers" (string-join (fixer-holdings ledger (+ index 1)) "\n")))
                        (if (ledger-over? ledger)
                            (Nil)
                            (section "offers" "Offers" "Nothing this round."
@@ -195,8 +196,8 @@
     (: news-panel (-> LedgerScreen Panel))
     (define (news-panel screen)
       (Panel "news" (At (TopLeft) 1)
-             (append (if (string=? (LedgerScreen-message screen) "") (Nil) (list (label "message" (LedgerScreen-message screen))))
-                     (section "last-round" "Last end of round" "Nothing yet." (line-labels "last-round" (last-round-lines (LedgerScreen-ledger screen)))))))
+             (append (line-labels "message" (LedgerScreen-message screen))
+                     (section "last-round" "Last end of round" "Nothing yet." (line-labels "last-round" (Ledger-last-round (LedgerScreen-ledger screen)))))))
 
     (: final-panels (-> LedgerScreen (List Panel)))
     (define (final-panels screen)

@@ -29,6 +29,7 @@
    Wait
    take-shift
    refusal
+   Mill-scenario
    Mill-shift
    Mill-coins
    last-shift
@@ -60,14 +61,8 @@
    belief
    quiet?
    newly-heard
-   mill-status
-   mill-audiences
-   liability-lines
    liabilities
-   forecast
-   mill-outlook
-   look-text
-   mill-board)
+   forecast)
   (import
    (lofi base)
    (lofi wire))
@@ -409,17 +404,6 @@
     (define (last-shift mill)
       (list-ref (list 8 10 12) (Mill-scenario mill)))
 
-    (: scenario-goal (-> I64 String))
-    (define (scenario-goal scenario)
-      (list-ref (list (string-append "Goal: after shift 8, the Market believes you reliable at 3, and the Tower does not"
-                                     " believe you dangerous at all. On shift 3 you must rough someone up or make a"
-                                     " threat in the Docks, in front of a crowd: the witness and everyone tied to"
-                                     " them hear it at once.")
-                      (string-append "Goal: a rival has told Lia and Oda that you skipped out on a debt. You lose the"
-                                     " moment the Tower believes you unreliable; hold out through shift 10.")
-                      "Twelve shifts and no goal.")
-                scenario))
-
     (: new-mill (-> I64 Mill))
     (define (new-mill scenario)
       (let ((mill (Mill scenario 1 10 (Nil) (make-vector person-count (Nil)) (make-vector person-count 0) (Nil) (Playing))))
@@ -639,7 +623,7 @@
             (else (None))))
 
     ;; Or why the action cannot be taken.
-    (: take-shift (-> Mill Action (Result (Pair Mill String) String)))
+    (: take-shift (-> Mill Action (Result (Pair Mill (List String)) String)))
     (define (take-shift mill action)
       (cond ((mill-over? mill) (Err "The game is over."))
             ((not (allowed? mill action))
@@ -649,13 +633,11 @@
                     ((Err message) (Err message))))))
 
     ;; Spreads and judges after the action, and reports what changed since
-    ;; the shift began.
-    (: finish-shift (-> Mill (Pair Mill String) (Pair Mill String)))
+    ;; the shift began, a line each.
+    (: finish-shift (-> Mill (Pair Mill String) (Pair Mill (List String))))
     (define (finish-shift mill acted)
       (let* ((before (Pair-first acted)) (after (judge (spread before))))
-        (Pair after
-              (string-join (Cons (Pair-second acted) (Cons (news before after) (map change-text (level-changes mill after))))
-                           "\n"))))
+        (Pair after (Cons (Pair-second acted) (Cons (news before after) (map change-text (level-changes mill after)))))))
 
     ;; ---- Forecast ----
 
@@ -677,109 +659,6 @@
                             " believes you " (trait-name (Change-trait change)) " " (show (Change-now change))
                             " (now " (show (level now (Change-audience change) (Change-trait change))) ")."))
            (level-changes current next)))
-
-    ;; ---- Text ----
-
-    (: pad (-> String I64 String))
-    (define (pad text width)
-      (string-append text (make-string (max 0 (- width (string-length text))) #\space)))
-
-    (: beliefs-text (-> Mill I64 String))
-    (define (beliefs-text mill person)
-      (let ((held (filter (lambda (trait) (> (belief mill person trait) 0)) traits)))
-        (if (null? held)
-            "-"
-            (string-join (map (lambda (trait) (string-append (trait-name trait) " " (show (belief mill person trait)))) held)
-                         ", "))))
-
-    (: person-line (-> Mill I64 String))
-    (define (person-line mill person)
-      (string-append (pad (show person) 4)
-                     (pad (string-append (person-name person) (if (hub? person) " (hub)" "")) 30)
-                     (beliefs-text mill person)
-                     (if (quiet? mill person)
-                         (string-append "  [quiet through shift " (show (vector-ref (Mill-quiet mill) person)) "]")
-                         "")))
-
-    (: audience-line (-> Mill I64 String))
-    (define (audience-line mill audience)
-      (let ((held (filter (lambda (trait) (> (level mill audience trait) 0)) traits)))
-        (string-append "The " (audience-name audience) " believes "
-                       (if (null? held)
-                           "nothing about you."
-                           (string-append "you "
-                                          (string-join (map (lambda (trait)
-                                                              (string-append (trait-name trait) " "
-                                                                             (show (level mill audience trait))))
-                                                            held)
-                                                       ", ")
-                                          ".")))))
-
-    (: liability-text (-> Mill Liability String))
-    (define (liability-text mill liability)
-      (match liability
-        ((Paid person shift) (string-append "Paid " (first-name person) " on shift " (show shift) "."))
-        ((Told id)
-         (let ((s (story mill id)))
-           (string-append "Lied to " (first-name (Story-listener s)) ": " (trait-name (Story-trait s)) " 1"
-                          (if (exposed? mill s) " (exposed)." "."))))))
-
-    (: header (-> Mill String))
-    (define (header mill)
-      (string-append (mill-scenario-name (Mill-scenario mill)) ": "
-                     (if (mill-over? mill)
-                         (string-append "after shift " (show (last-shift mill)))
-                         (string-append "shift " (show (Mill-shift mill)) " of " (show (last-shift mill))))
-                     ", " (show (Mill-coins mill)) " coins."))
-
-    ;; The scenario, the shift, your coins and the goal.
-    (: mill-status (-> Mill (List String)))
-    (define (mill-status mill)
-      (list (header mill) (scenario-goal (Mill-scenario mill))))
-
-    (: mill-audiences (-> Mill (List String)))
-    (define (mill-audiences mill)
-      (map (lambda (audience) (audience-line mill audience)) (list 0 1 2)))
-
-    (: liability-lines (-> Mill (List String)))
-    (define (liability-lines mill)
-      (Cons "Liabilities:"
-            (match (liabilities mill)
-              ((Nil) (list "  none."))
-              (texts (map (lambda (text) (string-append "  " text)) texts)))))
-
-    ;; The payments and lies that could come back to bite, a line each.
-    (: liabilities (-> Mill (List String)))
-    (define (liabilities mill)
-      (map (lambda (item) (liability-text mill item)) (Mill-liabilities mill)))
-
-    ;; The forecast while the game is on, and the verdict once it is over.
-    (: mill-outlook (-> Mill (List String)))
-    (define (mill-outlook mill)
-      (match (Mill-outcome mill)
-        ((Playing)
-         (append (if (forced? mill)
-                     (list "This shift you must rough someone up or make a threat in front of someone in the Docks.")
-                     (Nil))
-                 (Cons "If you lie low:"
-                       (match (forecast mill)
-                         ((Nil) (list "  Nothing changes."))
-                         (lines (map (lambda (line) (string-append "  " line)) lines))))))
-        ((Won reason) (list (string-append "You win. " reason)))
-        ((Lost reason) (list (string-append "You lose. " reason)))
-        ((Ended) (list "The sandbox is over."))))
-
-    ;; Everything at once, for scripted tests.
-    (: mill-board (-> Mill String))
-    (define (mill-board mill)
-      (string-join (append (list (header mill) "")
-                           (append (concatenate (map (lambda (audience)
-                                                       (Cons (audience-line mill audience)
-                                                             (map (lambda (person) (person-line mill person))
-                                                                  (members audience))))
-                                                     (list 0 1 2)))
-                                   (append (liability-lines mill) (mill-outlook mill))))
-                   "\n"))
 
     ;; ---- Goals ----
 
@@ -838,16 +717,28 @@
     (define (person-beliefs mill person)
       (filter (lambda (pair) (> (Pair-second pair) 0)) (map (lambda (trait) (Pair trait (belief mill person trait))) traits)))
 
-    ;; ---- Look ----
+    ;; ---- Liabilities ----
+
+    (: liability-text (-> Mill Liability String))
+    (define (liability-text mill liability)
+      (match liability
+        ((Paid person shift) (string-append "Paid " (first-name person) " on shift " (show shift) "."))
+        ((Told id)
+         (let ((s (story mill id)))
+           (string-append "Lied to " (first-name (Story-listener s)) ": " (trait-name (Story-trait s)) " 1"
+                          (if (exposed? mill s) " (exposed)." "."))))))
+
+    ;; The payments and lies that could come back to bite, a line each.
+    (: liabilities (-> Mill (List String)))
+    (define (liabilities mill)
+      (map (lambda (item) (liability-text mill item)) (Mill-liabilities mill)))
+
+    ;; ---- Stories held ----
 
     ;; "from Mo, who heard it from Lia".
     (: path-text (-> (List I64) String))
     (define (path-text path)
       (string-append "from " (string-join (map first-name path) ", who heard it from ")))
-
-    (: copy-text (-> Mill Copy String))
-    (define (copy-text mill copy)
-      (string-append "  " (story-line mill copy)))
 
     ;; A story a person holds: its trait and strength, what it says, and the
     ;; path it took to them.
@@ -862,16 +753,5 @@
     (: story-lines (-> Mill I64 (List String)))
     (define (story-lines mill person)
       (map (lambda (copy) (story-line mill copy)) (copies-of mill person)))
-
-    (: look-text (-> Mill I64 String))
-    (define (look-text mill person)
-      (string-join (append (list (string-append (show person) " " (person-name person) ", " (audience-name (audience-of person))
-                                                (if (hub? person) ", hub" "") ". Ties: "
-                                                (string-join (map first-name (neighbors person)) ", ") ".")
-                                 (string-append "Believes: " (beliefs-text mill person) "."))
-                           (match (copies-of mill person)
-                             ((Nil) (list "Holds no stories about you."))
-                             (copies (map (lambda (copy) (copy-text mill copy)) copies))))
-                   "\n"))
 
     ))

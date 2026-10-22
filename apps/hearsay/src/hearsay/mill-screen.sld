@@ -26,7 +26,8 @@
 
     ;; ---- State ----
 
-    ;; `fresh` lists who heard something new in the last shift. The
+    ;; `message` is what the last shift did, a line each, or why it could
+    ;; not be taken. `fresh` lists who heard something new in it. The
     ;; forecast takes simulating several shifts, so it is worked out once
     ;; per shift rather than every frame. `version` changes with every shift, so the host redraws
     ;; the town only then. `guide` is the guide's open page, if any.
@@ -36,7 +37,7 @@
        (forecast (List String))
        (selected (Option I64))
        (hover (Option I64))
-       (message String)
+       (message (List String))
        (fresh (List I64))
        (version I64)
        (guide (Option I64))
@@ -48,7 +49,7 @@
     (: new-mill-screen (-> I64 I64 I32 I32 MillScreen))
     (define (new-mill-screen scenario version width height)
       (let ((mill (new-mill scenario)))
-        (MillScreen scenario mill (forecast mill) (None) (None) "" (Nil) version (None) width height)))
+        (MillScreen scenario mill (forecast mill) (None) (None) (Nil) (Nil) version (None) width height)))
 
     ;; ---- Layout ----
 
@@ -144,10 +145,10 @@
       (let ((before (MillScreen-mill screen)))
         (match (take-shift before action)
           ((Ok result) (record-shift screen before (Pair-first result) (Pair-second result)))
-          ((Err message) (MillScreen-message-set screen message)))))
+          ((Err message) (MillScreen-message-set screen (list message))))))
 
     ;; Remembers the new state, what it said, and who heard something new.
-    (: record-shift (-> MillScreen Mill Mill String MillScreen))
+    (: record-shift (-> MillScreen Mill Mill (List String) MillScreen))
     (define (record-shift screen before after message)
       (let* ((screen (MillScreen-mill-set screen after))
              (screen (MillScreen-forecast-set screen (forecast after)))
@@ -166,7 +167,7 @@
             ((= action action-wait) (act screen (Wait)))
             (else (match (MillScreen-selected screen)
                     ((Some person) (act screen (person-action action person)))
-                    ((None) (MillScreen-message-set screen "Click a person first."))))))
+                    ((None) (MillScreen-message-set screen (list "Click a person first.")))))))
 
     (: update-mill-screen (-> MillScreen Input MillScreen))
     (define (update-mill-screen screen input)
@@ -334,17 +335,9 @@
     (: last-panel (-> MillScreen Panel))
     (define (last-panel screen)
       (Panel "last" (At (TopLeft) 0)
-             (match (split-lines (MillScreen-message screen))
+             (match (MillScreen-message screen)
                ((Nil) (list (toned "last-none" (Muted) "Nothing has happened yet.")))
                (texts (Cons (section-heading "last" "Last shift") (line-labels "last" texts))))))
-
-    (: split-lines (-> String (List String)))
-    (define (split-lines text)
-      (filter (lambda (line) (> (string-length line) 0))
-              (let loop ((index 0) (start 0) (found (Nil)))
-                (cond ((= index (string-length text)) (reverse (Cons (substring text start index) found)))
-                      ((char=? (string-ref text index) #\newline) (loop (+ index 1) (+ index 1) (Cons (substring text start index) found)))
-                      (else (loop (+ index 1) start found))))))
 
     ;; ---- Moves ----
 
