@@ -8,7 +8,7 @@ Each one asks one question about whether the design is fun.
 [Rumor mill: Sandbox]
 [Favor ledger]
 ==== two faces after delivering a job for Mo
-batches: 30 31 1
+batches: 30 55 1
 -- back, top right 0
 [Menu]
 -- status, top left 0
@@ -17,6 +17,7 @@ Goal: after shift 8, the Market believes you reliable at 3, and the Tower does n
 You lie low.
 End of shift 2: new stories reached 1 in the Market, 2 in the Docks.
 -- person, top right 0
+<picture 112>
 12 Mo, smuggler, Docks. Ties: Nia, Lia, Ana.
 Believes: reliable 2.
   reliable 2: you delivered a job for Mo. First heard here on shift 1.
@@ -45,7 +46,7 @@ If you lie low:
   After shift 4: the Market believes you reliable 3 (now 0).
 Liabilities:
   none.
-Pillars: red dangerous, blue harmless (left); green reliable, orange unreliable (right). Height is intensity. Yellow square: heard something new. Dark square: keeping quiet. Big: hub.
+Pillars over a person show belief: red dangerous or blue harmless, green reliable or orange unreliable; taller is stronger. A yellow ring: just heard something. A dark ring: keeping quiet. A big base: a hub.
 ==== ledger
 batches: 
 -- back, top right 0
@@ -62,6 +63,11 @@ Jobs
 -[Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2]
 [Job 2: fencing + eyes, for 4 coins and 1 standing, open through round 2]
 -[Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2]
+-- rivals, top left 1
+<picture 200>
+Vee
+<picture 201>
+Kit
 -- offers, top right 0
 Offers
 [Vee buys your oldest fencing marker for 3 coins.]
@@ -86,7 +92,7 @@ none
 [End the round]
 [New game]
 -- news, bottom right 0
-Trade markers, promises and coins with Vee and Kit for eight rounds; the most standing wins. Green buttons can be done now. End the round when you are done.
+Trade markers, promises and coins with Vee and Kit for eight rounds; the most standing wins. A greyed-out button says why when you point at it. End the round when you are done.
 Last round:
 ==== ledger after doing job 2 and ending the round
 batches: 
@@ -104,6 +110,11 @@ Jobs
 -[Job 1: doors + fencing, for 4 coins and 1 standing, open through round 2]
 -[Job 3: muscle + medicine + paperwork, for 6 coins and 2 standing, open through round 2]
 -[Job 4: fencing + paperwork, for 4 coins and 1 standing, open through round 3]
+-- rivals, top left 1
+<picture 200>
+Vee
+<picture 201>
+Kit
 -- offers, top right 0
 Offers
 -[Vee buys your oldest fencing marker for 3 coins.]

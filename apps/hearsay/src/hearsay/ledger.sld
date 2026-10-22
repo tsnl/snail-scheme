@@ -859,7 +859,7 @@
     (: ledger-intro (-> String))
     (define (ledger-intro)
       (string-append "Trade markers, promises and coins with Vee and Kit for eight rounds; the most standing wins."
-                     " Green buttons can be done now. End the round when you are done."))
+                     " A greyed-out button says why when you point at it. End the round when you are done."))
 
     (: ledger-header (-> Ledger String))
     (define (ledger-header ledger)

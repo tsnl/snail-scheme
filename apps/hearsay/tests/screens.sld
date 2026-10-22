@@ -48,7 +48,7 @@
 (define (step shell title presses)
   (let ((shell (click shell presses)))
     (write-line (string-append "==== " title))
-    (show-batches (view-shell shell))
+    (show-batches (view-shell shell (lambda (path) (None))))
     (for-each show-panel (shell-hud shell))
     shell))
 

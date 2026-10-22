@@ -12,7 +12,9 @@
    (lofi base)
    (lofi wire)
    (lofi app)
-   (hearsay ledger))
+   (lpc wardrobe)
+   (hearsay ledger)
+   (hearsay cast))
   (begin
 
     ;; ---- State ----
@@ -90,10 +92,17 @@
         ((Press action argument) (press screen action argument))
         (_ screen)))
 
-    (: view-ledger-screen (-> LedgerScreen Frame))
-    (define (view-ledger-screen screen)
+    ;; The scene is empty; its pictures are the rivals' portraits for the
+    ;; HUD, from the sheets `art` gives.
+    (: view-ledger-screen (-> LedgerScreen (-> String (Option Source)) Frame))
+    (define (view-ledger-screen screen art)
       (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             (rgb 16 20 28) 1.0 (Nil) (Nil)))
+             (rgb 16 20 28) 1.0 (Nil) (map (lambda (index) (walk-picture art (rival-key index) (rival index))) (list 0 1))))
+
+    ;; Vee's picture is 200 and Kit's 201.
+    (: rival-key (-> I64 I32))
+    (define (rival-key index)
+      (i64->i32 (+ 200 index)))
 
     ;; ---- Panels ----
 
@@ -142,6 +151,7 @@
         (list (Panel "fixers" (At (TopLeft) 0)
                      (append (list (label "round" (ledger-header ledger)) (label "fixers" (lines (fixer-lines ledger))))
                              (titled "Jobs" (choice-buttons (LedgerScreen-jobs screen) 3 "job"))))
+              (Panel "rivals" (At (TopLeft) 1) (rival-widgets))
               (Panel "offers" (At (TopRight) 0)
                      (append (titled "Offers" (choice-buttons (LedgerScreen-offers screen) 1 "offer")) (promise-widgets screen)))
               (Panel "contacts" (At (BottomLeft) 0)
@@ -151,12 +161,18 @@
                      (append (if (string=? (LedgerScreen-message screen) "") (Nil) (list (label "message" (LedgerScreen-message screen))))
                              (list (last-round-label ledger)))))))
 
+    ;; The rivals' portraits, each beside their name.
+    (: rival-widgets (-> (List Widget)))
+    (define (rival-widgets)
+      (list (portrait "vee" (rival-key 0) 2) (label "vee-name" "Vee") (portrait "kit" (rival-key 1) 2) (label "kit-name" "Kit")))
+
     (: final-panels (-> LedgerScreen (List Panel)))
     (define (final-panels screen)
       (let ((ledger (LedgerScreen-ledger screen)))
         (list (Panel "standings" (At (TopLeft) 0)
                      (list (label "round" (ledger-header ledger)) (label "fixers" (lines (fixer-lines ledger)))
                            (label "result" (ledger-result ledger)) (last-round-label ledger)))
+              (Panel "rivals" (At (TopLeft) 1) (rival-widgets))
               (Panel "contacts" (At (BottomLeft) 0) (list (button "new" "New game" action-new))))))
 
     ;; `first` are panels to show before the screen's own.

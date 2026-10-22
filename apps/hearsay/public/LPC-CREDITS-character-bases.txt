@@ -1,0 +1,1 @@
+../../../lib/lpc/lpc-character-bases-v3_1/CREDITS.txt
