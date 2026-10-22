@@ -3,20 +3,23 @@
 //   node tests/develop.mjs ROOT
 //
 // `lofi serve` builds a copy of tests/apps/counter, one module per library,
-// and serves it with the reload client. The test plays the page's part: it
-// links the modules (src/app/load.mjs), adds to the counter, edits the
-// greeting, sees from the event that only the program's own module was
-// compiled again, relinks from it and hands over the state as host.mjs
-// does. A broken edit reports a failed build that keeps the last good
-// manifest. Then `lofi watch` runs a program again after an edit.
+// and serves it with the reload client. The test plays the page's part with
+// the browser host's own code: it links the modules (src/app/load.mjs),
+// adds to the counter, edits the greeting, sees from the event that only
+// the program's own module was compiled again, relinks from it and hands
+// over the state as a page does (src/app/host.mjs). Only the modules of the
+// last two builds stay. A broken edit reports a failed build that keeps the
+// last good manifest. Then `lofi watch` runs a program again after an edit.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {cp, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {cp, mkdtemp, readFile, readdir, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
-import {instantiateRuntime, linkModules, loadManifest, runModules} from '../src/app/load.mjs';
+import {basename, join} from 'node:path';
+import {screenImports, takeState} from '../src/app/host.mjs';
+import {createWasi, linkProgram, programExports, readEvent, readManifest, relinkProgram, runProgram} from '../src/app/load.mjs';
+import {until} from './browser/chromium.mjs';
 
-const PRESS = 9, RESIZE = 8;
+const PRESS = 9;
 const root = process.argv[2];
 
 // ---- Processes ----
@@ -29,15 +32,6 @@ function start(args) {
   child.stdout.on('data', chunk => { process.text += chunk; });
   child.stderr.on('data', chunk => { process.text += chunk; });
   return process;
-}
-
-async function waitFor(test, what, seconds = 120) {
-  for (let waited = 0; waited < seconds * 10; waited++) {
-    const value = await test();
-    if (value) return value;
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  throw new Error(`timed out waiting for ${what}`);
 }
 
 // ---- Events ----
@@ -62,58 +56,38 @@ async function listen(url) {
   return events;
 }
 
-function nextEvent(events, kinds) {
+// The next event that ends a build, read.
+function nextBuild(events) {
   const from = events.length;
-  return waitFor(() => events.slice(from).find(event => kinds.some(kind => event.startsWith(`(${kind}`))), kinds.join(' or '));
+  return until(() => events.slice(from).map(readEvent).find(event => event.kind === 'built' || event.kind === 'failed'), 'a build', 120);
 }
 
 // ---- The page ----
 
-// The program's modules, linked in Node with a screen that keeps only the
-// latest HUD's widgets, as a page links them.
-async function linkPage(base) {
-  const page = {widgets: [], runtime: null, linked: null};
+// The program's modules, linked in Node as a page links them, with the
+// browser host's screen: a renderer and a picture store that draw nothing,
+// and a HUD that keeps the latest widgets. `manifest` is the page's.
+async function linkPage(base, manifest) {
+  const page = {manifest, program: null, widgets: []};
+  const screen = screenImports({hasBatch: () => false, draw() {}}, {has: () => true},
+                               {update: panels => { page.widgets = panels.flatMap(panel => panel.widgets); }});
   const read = async file => new Uint8Array(await (await fetch(new URL(file, base))).arrayBuffer());
-  const loaded = await loadManifest(read, '/modules.json');
-  page.runtime = await instantiateRuntime(loaded.runtime, {wasi_snapshot_preview1: {}});
-  page.runtime.exports._initialize();
-  page.host = {'snail.screen': screen(page)};
-  page.linked = await linkModules(page.runtime, loaded.modules, page.host);
-  runModules(page.linked, loaded.modules.map(entry => entry.name));
-  page.modules = loaded.modules.map(({name, file}) => ({name, file}));
-  page.exports = page.linked.get('main').exports;
+  page.program = await linkProgram(read, '/modules.json', createWasi({print: (fd, line) => console.log(line)}), {'snail.screen': screen});
+  runProgram(page.program);
   return page;
-}
-
-function screen(page) {
-  let widget = null, field = null;
-  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption'];
-  return {
-    'frame-begin'() {}, camera() {}, light() {}, 'batch-begin'() { return 0; }, instance() {}, 'frame-end'() {}, 'hud-end'() {},
-    'hud-begin'() { page.widgets = []; },
-    'panel-begin'() { widget = {}; },
-    'widget-begin'() { widget = {key: '', text: ''}; page.widgets.push(widget); },
-    field(which) { field = fields[which]; },
-    'text-character'(code) { if (field in widget) widget[field] += String.fromCodePoint(code); },
-  };
 }
 
 const text = (page, key) => page.widgets.find(entry => entry.key === key)?.text;
 
-// Relinks from the first module whose file changed, keeping the instances
-// before it, and hands the state over, as relinkModules in host.mjs does.
-async function relink(page, base) {
-  const {modules} = JSON.parse(await (await fetch(new URL('/modules.json', base))).text());
-  const start = modules.findIndex((entry, index) => entry.file !== page.modules[index]?.file);
-  const kept = new Map(modules.slice(0, start).map(entry => [entry.name, page.linked.get(entry.name)]));
-  const fresh = await Promise.all(modules.slice(start).map(async entry => (
-    {...entry, module: await WebAssembly.compile(await (await fetch(new URL(entry.file, base))).arrayBuffer())})));
-  const linked = await linkModules(page.runtime, fresh, page.host, kept);
-  runModules(linked, fresh.map(entry => entry.name));
-  const next = linked.get('main').exports;
-  next.app_adopt(page.exports.app_state());
-  next.app_input(RESIZE, 960, 640, 0, 0);
-  return {...page, linked, exports: next, modules: modules.map(({name, file}) => ({name, file})), relinkedFrom: modules[start].name};
+// Relinks the page from the first module, in program order, whose file the
+// build changed, as the reload client finds it, and hands the state over.
+// Returns the module and how the state passed.
+async function relink(page, manifest) {
+  const [from] = manifest.modules.find((entry, index) => entry.join(' ') !== page.manifest.modules[index]?.join(' '));
+  const program = await relinkProgram(page.program, from);
+  const passed = takeState(programExports(program), programExports(page.program), {clientWidth: 960, clientHeight: 640}, false);
+  Object.assign(page, {manifest, program});
+  return {from, passed};
 }
 
 // ---- Serving ----
@@ -123,35 +97,38 @@ async function testServe(directory) {
   await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
   const server = start(['serve', '--port', '0', app]);
   try {
-    const base = await waitFor(() => server.text.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server', 300);
+    const base = await until(() => server.text.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server', 300);
     const events = await listen(new URL('.lofi/events', base));
     const html = await (await fetch(base)).text();
     assert.match(html, /<script type="module" src="\/\.lofi\/reload\.mjs"><\/script>/);
     assert.match(html, /<meta name="lofi-modules" content="\/modules\.json">/);
-    assert.match(html, /id="lofi-manifest">\(files .*\(modules .*\("main" "\/modules\/main-\d+\.wasm"\)\)<\/script>/);
+    const manifest = readManifest(html.match(/id="lofi-manifest">([^<]*)<\/script>/)[1]);
+    assert.match(manifest.modules.at(-1).join(' '), /^main \/modules\/main-\d+\.wasm$/);
     assert.equal((await fetch(new URL('.lofi/reload.wasm', base))).headers.get('content-type'), 'application/wasm');
 
-    let page = await linkPage(base);
-    page.exports.app_init(1, 960, 640);
-    page.exports.app_input(PRESS, 1, 0, 0, 0);
-    page.exports.app_input(PRESS, 1, 0, 0, 0);
+    const page = await linkPage(base, manifest);
+    programExports(page.program).app_init(1, 960, 640);
+    programExports(page.program).app_input(PRESS, 1, 0, 0, 0);
+    programExports(page.program).app_input(PRESS, 1, 0, 0, 0);
     assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['hello', '2']);
 
     await writeFile(source, (await readFile(source, 'utf8')).replace('"hello"', '"hello again"'));
-    const built = await nextEvent(events, ['built', 'failed']);
-    assert.match(built, /^\(built \d+ /, built);
+    const built = await nextBuild(events);
+    assert.equal(built.kind, 'built', built.message);
     assert.match(server.text, /1 of 5 modules compiled/, 'only the program\'s module is compiled again');
-    page = await relink(page, base);
-    assert.equal(page.relinkedFrom, 'main', 'the libraries\' modules stay linked');
+    assert.deepEqual(await relink(page, built.manifest), {from: 'main', passed: 'adopted'}, 'the libraries\' modules stay linked');
     assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['hello again', '2'], 'the new program keeps the state');
+    const kept = new Set([...manifest.modules, ...built.manifest.modules].map(([, file]) => basename(file)));
+    assert.deepEqual((await readdir(join(root, 'build/serve/counter/modules'))).sort(), [...kept].sort(), 'the last two builds\' modules stay');
 
     await writeFile(source, (await readFile(source, 'utf8')).replace('"hello again"', '5'));
-    const failed = await nextEvent(events, ['built', 'failed']);
-    assert.match(failed, /^\(failed "[^"]*main\.sld:\d+:\d+: /);
-    assert.ok(failed.endsWith(built.slice(built.indexOf('(files'))), 'a failed build keeps the last good manifest');
+    const failed = await nextBuild(events);
+    assert.equal(failed.kind, 'failed');
+    assert.match(failed.message, /main\.sld:\d+:\d+: /);
+    assert.deepEqual(failed.manifest, built.manifest, 'a failed build keeps the last good manifest');
     const late = await listen(new URL('.lofi/events', base));
-    await waitFor(() => late.length, 'the latest event');
-    assert.ok(late[0].startsWith('(failed'), 'a page that connects later sees the failure');
+    await until(() => late.length, 'the latest event');
+    assert.equal(readEvent(late[0]).kind, 'failed', 'a page that connects later sees the failure');
   } finally {
     server.child.kill();
   }
@@ -165,9 +142,9 @@ async function testWatch(directory) {
   await writeFile(source, program('first run'));
   const watcher = start(['watch', source]);
   try {
-    await waitFor(() => watcher.text.includes('first run\n'), 'the first run', 300);
+    await until(() => watcher.text.includes('first run\n'), 'the first run', 300);
     await writeFile(source, program('second run'));
-    await waitFor(() => watcher.text.includes('second run\n'), 'the second run');
+    await until(() => watcher.text.includes('second run\n'), 'the second run', 120);
   } finally {
     watcher.child.kill();
   }

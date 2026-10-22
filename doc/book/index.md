@@ -13,5 +13,6 @@ itself.
 As an extra, [Siegework](games/index.md) is a colony game written entirely
 in Lofi. **[Play it](play/siegework/)** in a browser with WebGPU.
 
-Find the source and build instructions in the
-[repository](https://github.com/tsnl/snail-scheme).
+Find the source in the [repository](https://github.com/tsnl/snail-scheme),
+and how to install the tools in its
+[getting started guide](https://github.com/tsnl/snail-scheme/blob/main/doc/getting-started.md).

@@ -74,38 +74,29 @@ rules change, change it to match. Browser changes should be seen running:
 
 ## Live reload
 
-Iterate on applications with `./lofi serve apps/NAME`, left running. It serves
-the application at `http://127.0.0.1:8000/` and rebuilds it whenever the
-application, `lib/` or `src/app/` changes, compiling only the libraries an
-edit reaches: about 100 ms for a function body in Siegework. Each open page
-relinks the changed modules and those after them without reloading, and
-hands the running state to the new program, so the game, the journal and
-the camera survive. Point `tests/browser/page.mjs` at the served URL to see an
-edit land.
+Iterate on applications with `./lofi serve apps/NAME`, left running. It
+rebuilds only the libraries an edit reaches, about 100 ms for a function
+body in Siegework, and relinks them into each open page, keeping the running
+state; point `tests/browser/page.mjs` at the served URL to see an edit land.
+It cannot build a `generate-library` recipe yet, so build Hearsay with
+`make site`. The book's [application model](doc/book/lofi/applications.md)
+gives the reload rules; what matters when writing code:
 
 - Module globals start over on a relink; only the application's state
-  crosses. It crosses as it is while its types are unchanged, and through
-  `save` and `restore` when its layout changed, so keep what should survive
-  an edit in the Save. When neither works the old program keeps running and
-  the page offers a fresh start.
-- A failed build is shown over the page while the old program keeps running.
-  A program that traps stops its clock with the state from before the trap,
-  and the next good build resumes from it, so a crash can be fixed in place.
-- A changed style sheet is swapped in; a changed page or host script reloads
-  the page after saving.
+  crosses, as it is while its type is unchanged and through `save` and
+  `restore` otherwise, so keep what should survive an edit in the Save.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give constants their signatures.
-- `./lofi watch SOURCE [ARGUMENT ...]` is the loop for programs: it builds
-  and runs the program again after each edit.
-- `make ide` packages the browser IDE, the same loop in a worker, around
-  Siegework in `build/ide`.
+- `./lofi watch SOURCE [ARGUMENT ...]` is the same loop for programs, and
+  `make ide` packages it as a browser IDE around Siegework in `build/ide`.
 - Builds in one checkout keep apart, as Cargo's do: each compile and each
   `lofi run` works in a directory of its own under `build/lofi-run/`, and
   rebuilding the compiled compiler or the development tools takes an
   exclusive lock on `build/lock`, so `make test` may run beside a server.
 - The loop is `src/lofi/develop.sld` on a thin host, `scripts/develop.mjs` or
   `src/ide/toolchain.mjs`; the page's reload client is `src/app/reload.sld`,
-  and `relinkModules` in `src/app/host.mjs` relinks. `tests/develop.mjs` (in
+  `relinkProgram` in `src/app/load.mjs` relinks, and `takeState` in
+  `src/app/host.mjs` hands over the state. `tests/develop.mjs` (in
   `make test`) and `tests/browser/reload.mjs` and `tests/browser/ide.mjs`
   (`make test-browser`, needs `CHROMIUM`) cover them. See
   [the toolchain design](doc/toolchain.md).

@@ -3,6 +3,7 @@
 ;; clothing updates and wulax's original sprites. The catalog names each
 ;; variant the way the pack's files do and gives, for each layer, the file
 ;; and region holding its walking rows and the color swaps that recolor it.
+;; It also says which builds can wear each garment, and in which dyes.
 ;; Children, skeletons and zombies are not catalogued yet.
 (define-library (lpc catalog)
   (export
@@ -39,7 +40,6 @@
    Dye
    Dye-name
    dyes
-   find-named
    Garment
    Longsleeve
    Shortsleeve
@@ -62,6 +62,7 @@
    Legs
    Feet
    garment-slot
+   garment-dyes
    garment-builds
    Sheet
    Sheet-path
@@ -125,11 +126,6 @@
     (define dyes
       (map Dye (list "black" "blue" "bluegray" "brown" "charcoal" "forest" "gray" "green" "lavender" "leather" "maroon" "navy"
                      "orange" "pink" "purple" "red" "rose" "sky" "slate" "tan" "teal" "walnut" "white" "yellow")))
-
-    ;; The variant called `name`, if the list has one.
-    (: find-named (All (T) (-> (-> T String) (List T) String (Option T))))
-    (define (find-named name-of variants name)
-      (find (lambda (variant) (string=? (name-of variant) name)) variants))
 
     ;; ---- Bodies and heads ----
 
@@ -255,8 +251,7 @@
       (list (Longsleeve) (Shortsleeve) (Blouse) (Tunic) (Tanktop) (ScoopShirt) (Sleeveless) (Overalls) (Tabard) (Pants) (Skirt)
             (Leggings) (Shoes) (Boots) (Sandals)))
 
-    ;; Where a garment is worn, which also orders the layers: feet first,
-    ;; then legs, then the torso over both.
+    ;; Where a garment is worn.
     (enum Slot
       (Feet)
       (Legs)
@@ -307,24 +302,45 @@
         ((Pair (Feet) (Teen)) (Male))
         (_ build)))
 
+    ;; How a pack draws a garment for a build: in the clothing updates, in
+    ;; every dye, on the sheets of a build; or on a single sheet, in one dye.
+    (enum Drawing
+      (Dyed ((folder String) (build Build)))
+      (Single ((dye Dye) (sheet Sheet))))
+
+    ;; How a garment is drawn for a build, or None where no pack draws it.
+    ;; This is the one place that says what each build can wear.
+    (: garment-drawing (-> Build Garment (Option Drawing)))
+    (define (garment-drawing build garment)
+      (match (Pair garment build)
+        ((Pair (Pants) (Male)) (Some (Single (Dye "green") male-pants)))
+        (_ (let ((folder (garment-folder garment)) (drawn (drawn-build garment build)))
+             (if (any? (lambda (other) (string=? (build-name other) (build-name drawn))) (Pair-second folder))
+                 (Some (Dyed (Pair-first folder) drawn))
+                 (None))))))
+
+    ;; The dyes a build can wear a garment in, none where no pack draws it.
+    (: garment-dyes (-> Build Garment (List Dye)))
+    (define (garment-dyes build garment)
+      (match (garment-drawing build garment)
+        ((Some (Dyed _ _)) dyes)
+        ((Some (Single dye _)) (list dye))
+        ((None) (Nil))))
+
+    ;; The builds that can wear a garment.
     (: garment-builds (-> Garment (List Build)))
     (define (garment-builds garment)
-      (match (garment-slot garment)
-        ((Feet) (append (Pair-second (garment-folder garment)) (list (Teen))))
-        (_ (match garment
-             ((Pants) (Cons (Male) (Pair-second (garment-folder garment))))
-             (_ (Pair-second (garment-folder garment)))))))
+      (filter (lambda (build) (not (null? (garment-dyes build garment)))) builds))
 
-    ;; The garment in `dye` on `build`, or None where no pack draws it. Male
-    ;; pants come only in green.
+    ;; The garment in `dye` on `build`, or None where no pack draws it so.
     (: garment-sheet (-> Build Garment Dye (Option Sheet)))
     (define (garment-sheet build garment dye)
-      (let ((folder (garment-folder garment)) (drawn (drawn-build garment build)))
-        (cond ((and (match garment ((Pants) #t) (_ #f)) (match build ((Male) #t) (_ #f)))
-               (if (string=? (Dye-name dye) "green") (Some male-pants) (None)))
-              ((any? (lambda (other) (string=? (build-name other) (build-name drawn))) (Pair-second folder))
-               (Some (universal (string-append "lib/lpc/lpc-clothing-updates/spritesheets/" (Pair-first folder) "/"
-                                               (build-name drawn) "/" (Dye-name dye) ".png"))))
-              (else (None)))))
+      (match (garment-drawing build garment)
+        ((Some (Dyed folder drawn))
+         (if (any? (lambda (other) (string=? (Dye-name other) (Dye-name dye))) dyes)
+             (Some (universal (string-append "lib/lpc/lpc-clothing-updates/spritesheets/" folder "/" (build-name drawn) "/" (Dye-name dye) ".png")))
+             (None)))
+        ((Some (Single only sheet)) (if (string=? (Dye-name only) (Dye-name dye)) (Some sheet) (None)))
+        ((None) (None))))
 
     ))

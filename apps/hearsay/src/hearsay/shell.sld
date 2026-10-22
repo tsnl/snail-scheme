@@ -66,13 +66,13 @@
 
     (: open (-> Shell I32 I32 Shell))
     (define (open shell action argument)
-      (let ((scenario (i32->i64 argument)) (opened (+ (Shell-opened shell) 1)))
+      (let ((index (i32->i64 argument)) (opened (+ (Shell-opened shell) 1)))
         (cond ((= action action-ledger)
                (show-opened (Shell-ledger-guided-set shell #t) (Favors (new-ledger-screen (+ (Shell-seed shell) opened)))
                             (Shell-ledger-guided shell)))
-              ((and (= action action-scenario) (>= scenario 0) (< scenario mill-scenario-count))
+              ((and (= action action-scenario) (>= index 0) (< index (length scenarios)))
                (show-opened (Shell-mill-guided-set shell #t)
-                            (Rumors (new-mill-screen scenario (* opened 1000) (Shell-width shell) (Shell-height shell)))
+                            (Rumors (new-mill-screen (list-ref scenarios index) (* opened 1000) (Shell-width shell) (Shell-height shell)))
                             (Shell-mill-guided shell)))
               (else shell))))
 
@@ -105,38 +105,29 @@
 
     ;; ---- View ----
 
-    (define menu-frame
-      (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             (rgb 16 20 28) 1.0 (Nil) (Nil)))
-
     ;; `art` gives the bytes of each sheet the cast wears; main.sld passes
     ;; the embedded ones, and tests may pass none.
     (: view-shell (-> Shell (-> String (Option Source)) Frame))
     (define (view-shell shell art)
       (match (Shell-screen shell)
-        ((Menu) menu-frame)
+        ((Menu) (empty-frame (Nil)))
         ((Rumors screen) (view-mill-screen screen art))
         ((Favors screen) (view-ledger-screen screen art))))
-
-    ;; What each rumor-mill scenario asks of the player.
-    (define scenario-pitches
-      (list "Look reliable to the Market without the Tower hearing you are dangerous."
-            "A rival's lie is spreading; keep it from the Tower for ten shifts."
-            "Twelve shifts and no goal: see how stories travel."))
 
     (: menu-panels (List Panel))
     (define menu-panels
       (list (Panel "menu" (At (TopLeft) 0)
                    (concatenate
-                    (list (list (Label (look "title") "Hearsay prototypes")
-                                (Label (look "subtitle")
+                    (list (list (label "title" "Hearsay prototypes")
+                                (label "subtitle"
                                        "Each prototype asks one question about whether a piece of the design is fun. Each opens with a short guide to its rules and to what to watch for while you play.")
-                                (Label (look "heading-rumors") "The rumor mill: is steering belief fun?"))
-                          (map (lambda (index)
-                                 (Button (look (string-append "scenario-" (show index))) (mill-scenario-name index) (list-ref scenario-pitches index)
-                                         action-scenario (i64->i32 index) (Enabled) -1.0))
-                               (iota mill-scenario-count))
-                          (list (Label (look "heading-favors") "The favor ledger: do favors trade, or get hoarded?")
+                                (label "heading-rumors" "The rumor mill: is steering belief fun?"))
+                          (map-indexed (lambda (index scenario)
+                                         (let ((rules (scenario-rules scenario)))
+                                           (Button (look (string-append "scenario-" (show index))) (Rules-name rules) (Rules-pitch rules)
+                                                   action-scenario (i64->i32 index) (Enabled) -1.0)))
+                                       scenarios)
+                          (list (label "heading-favors" "The favor ledger: do favors trade, or get hoarded?")
                                 (Button (look "ledger") "Favor ledger" "Trade markers and promises with two rival fixers." action-ledger 0
                                         (Enabled) -1.0)))))))
 
@@ -145,8 +136,7 @@
     (: menu-button (List Panel))
     (define menu-button
       (list (Panel "back" (At (TopRight) 0)
-                   (list (Button (look "back") "Menu" "" action-menu 0 (Enabled) -1.0)
-                         (Button (look "open-guide") "Guide" "" guide-open 0 (Enabled) -1.0)))))
+                   (list (button "back" "Menu" action-menu) (button "open-guide" "Guide" guide-open)))))
 
     (: shell-hud (-> Shell (List Panel)))
     (define (shell-hud shell)

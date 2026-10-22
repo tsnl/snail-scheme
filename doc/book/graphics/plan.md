@@ -1,9 +1,9 @@
 # Runtime and graphics plan
 
-**Status: proposed.** Nothing on this page is implemented yet. Today an
-application is a `(lofi app)` program whose host calls into it for every
-input and frame, and whose frames are drawn by a fixed WebGPU renderer in
-`src/app/renderer.mjs`. This plan replaces both: the application runs its
+**Status: proposed,** except milestone 1, the pinned tools, which is done.
+Today an application is a `(lofi app)` program whose host calls into it for
+every input and frame, and whose frames are drawn by a fixed WebGPU renderer
+in `src/app/renderer.mjs`. This plan replaces both: the application runs its
 own main loop, suspended between events by JavaScript Promise Integration
 (JSPI), and draws through an effect that exposes WebGPU itself, with a
 `graphics` library of pipelines and packers on top.
@@ -91,7 +91,7 @@ const handover = await main(previous);   // the state a reload hands on, or null
   `decode-image`. Synchronous WebGPU calls stay plain imports.
 - Hot reload: the host pushes `Reload`; the loop saves and returns its state
   as an `Any`; with no frames left on the stack, the host relinks the changed
-  modules, as #377's `relinkModules` does between events today, and calls
+  modules, as `relinkProgram` does between events today, and calls
   the new `app_main` with that state. Its `boot` adopts the state when the
   `Any`'s type is unchanged, so an edit to a function body keeps the game
   exactly as it was, and falls back to the save otherwise. Its `reset`
@@ -248,8 +248,8 @@ G-buffer fills the default 32. Texture heaps start uncompressed; a later
 
 Each is its own pull request:
 
-1. **Tools.** Pin nixpkgs in `shell.nix` with `npins`, move to Node 26, and add
-   a podman devcontainer.
+1. **Tools.** *Done.* `shell.nix` takes nixpkgs from an npins pin, Node is
+   at 26, and a podman devcontainer that CI builds packages the same tools.
 2. **Runtime.** The JSPI main loop, `reset`, the `events` and storage effects,
    and the HTML HUD driven from the loop, still drawing with today's
    renderer.

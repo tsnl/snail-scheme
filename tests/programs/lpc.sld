@@ -19,17 +19,15 @@
 (define (report title paths)
   (write-line (string-append title ": " (show (length paths)) " sheets, missing " (show (length (missing paths))))))
 
-(define first-dye (list-ref dyes 0))
-
 (report "bodies" (concatenate (map (lambda (build) (map (lambda (skin) (Sheet-path (body-sheet build skin))) skins)) builds)))
 (report "heads" (map (lambda (head) (Sheet-path (head-sheet head (list-ref skins 0)))) heads))
 (report "garments"
         (concatenate (map (lambda (garment)
-                            (concatenate (map (lambda (build)
-                                                (match (garment-sheet build garment (if (and (match garment ((Pants) #t) (_ #f)) (match build ((Male) #t) (_ #f))) (Dye "green") first-dye))
-                                                  ((Some sheet) (list (Sheet-path sheet)))
-                                                  ((None) (list "(no sheet)"))))
-                                              (garment-builds garment))))
+                            (map (lambda (build)
+                                   (match (garment-sheet build garment (list-ref (garment-dyes build garment) 0))
+                                     ((Some sheet) (Sheet-path sheet))
+                                     ((None) "(no sheet)")))
+                                 (garment-builds garment)))
                           garments)))
 (report "hair" (concatenate (map (lambda (style) (map (lambda (build) (Sheet-path (hair-sheet build style (list-ref hair-colors 0)))) (list (Male) (Female))))
                                  hair-styles)))
@@ -41,7 +39,7 @@
 (: describe (-> (Option Character) String))
 (define (describe who)
   (match who
-    ((Some character) (string-append "dressed in " (show (length (character-sheets character))) " layers"))
+    ((Some character) (string-append "dressed in " (show (length (Character-sheets character))) " layers"))
     ((None) "refused")))
 
 (write-line (string-append "female: " (describe (dress (Female) (HumanFemale) olive outfit))))
@@ -51,15 +49,21 @@
 (write-line (string-append "shoes on the torso: "
                            (describe (dress (Female) (HumanFemale) olive (Outfit (None) (Some (Worn (Shoes) (Dye "brown"))) (None) (None))))))
 
+(: same-fingerprint? (-> (Option Character) (Option Character) Bool))
+(define (same-fingerprint? a b)
+  (match (Pair a b)
+    ((Pair (Some one) (Some other)) (= (fingerprint one) (fingerprint other)))
+    (_ #f)))
+
 (match (dress (Female) (HumanFemale) olive outfit)
   ((Some who)
    (for-each (lambda (sheet) (write-line (string-append "  " (substring (Sheet-path sheet) 8 (string-length (Sheet-path sheet)))
                                                         " swaps " (show (length (Sheet-swaps sheet))))))
-             (character-sheets who))
+             (Character-sheets who))
    (write-line (string-append "same character, same fingerprint: "
-                              (if (= (fingerprint who) (fingerprint (Character (Female) (HumanFemale) olive outfit))) "yes" "no")))
+                              (if (same-fingerprint? (Some who) (dress (Female) (HumanFemale) olive outfit)) "yes" "no")))
    (write-line (string-append "another skin, another fingerprint: "
-                              (if (= (fingerprint who) (fingerprint (Character (Female) (HumanFemale) (Skin "light") outfit))) "no" "yes"))))
+                              (if (same-fingerprint? (Some who) (dress (Female) (HumanFemale) (Skin "light") outfit)) "no" "yes"))))
   ((None) (write-line "refused")))
 
 ;; A camera looking down -z: a figure facing +z faces the viewer, one

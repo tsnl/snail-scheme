@@ -1,24 +1,17 @@
 // What `lofi serve` adds to every page it serves: the reload client
 // (reload-client.mjs), fed the page's manifest and the server's events, and
-// given the application host to relink programs with. Before the first
-// build succeeds the page is a placeholder without a host.
-import {createNotice, createReloadClient, restyleLinks} from './reload-client.mjs';
+// given the application host to relink and save programs with. Before the
+// first build succeeds the page is a placeholder that runs no program. The
+// host loads only when needed, so a host file that fails to load leaves the
+// client running to reload the page once it is fixed.
+import {createReloadClient, restyleLinks} from './reload-client.mjs';
 
 const loadHost = () => import('/host.mjs').catch(() => null);
 
 const client = await createReloadClient(new Uint8Array(await (await fetch('/.lofi/reload.wasm', {cache: 'no-store'})).arrayBuffer()), {
-  notice: createNotice(),
   restyle: restyleLinks,
-  async relink(module, fresh) {
-    const host = await loadHost();
-    for (const application of host.running) await host.relinkModules(application, module, {fresh});
-  },
-  // The page loads again after every application's save is stored.
-  async reloadPage() {
-    const host = await loadHost();
-    await Promise.all((host?.running ?? []).map(application => host.saveApplication(application)));
-    location.reload();
-  },
+  relink: async (module, fresh) => (await loadHost()).relinkAll(module, fresh),
+  save: async () => (await loadHost())?.saveAll(),
 });
 client.start(document.getElementById('lofi-manifest')?.textContent ?? '(files) (modules)');
 new EventSource('/.lofi/events').addEventListener('message', message => client.event(message.data));

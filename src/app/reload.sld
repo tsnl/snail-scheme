@@ -2,9 +2,10 @@
 ;; the manifest of the build the page runs with the one each of the
 ;; server's events carries, and decides what the page does: fetch a style
 ;; sheet again, relink the program from the first module that changed,
-;; reload the page, or show a notice. It runs as WebAssembly;
-;; src/app/reload.mjs passes it the page's manifest and each event, a
-;; character at a time, and performs the `page` effect's commands.
+;; reload the page, or show a notice. It runs as WebAssembly; the page
+;; (src/app/reload.mjs, or the IDE's src/ide/preview.mjs) passes it the
+;; page's manifest and each event, a character at a time, and
+;; src/app/reload-client.mjs performs the `page` effect's commands.
 (import
  (lofi base)
  (lofi datum)
@@ -13,21 +14,21 @@
 
 ;; ---- Page commands ----
 
-;; A command is a number with string arguments, sent a character at a
-;; time, and a number.
+;; A command is a name with string arguments, sent a character at a time,
+;; and a number.
 (effect page
   ((argument-character (-> Char Unit))
    (argument-end (-> Unit))
-   (command (-> I32 I32 I32)))
+   (command (-> I32 I32)))
   (host "snail.page"
         ((argument-character "argument-character")
          (argument-end "argument-end")
          (command "command"))))
 
-(: page-command (-> I32 (List String) I32 Unit ! page))
-(define (page-command code arguments number)
-  (for-each send-argument arguments)
-  (command code number)
+(: page-command (-> String (List String) I32 Unit ! page))
+(define (page-command name arguments number)
+  (for-each send-argument (Cons name arguments))
+  (command number)
   (unit))
 
 (: send-argument (-> String Unit ! page))
@@ -38,7 +39,7 @@
       (loop (+ index 1))))
   (argument-end))
 
-;; The commands, numbered as src/app/reload.mjs numbers them. A notice is
+;; The commands, as src/app/reload-client.mjs names them. A notice is
 ;; lasting, a failure, or brief.
 (: lasting I32)
 (define lasting 0)
@@ -51,31 +52,31 @@
 
 (: notice! (-> String I32 Unit ! page))
 (define (notice! text kind)
-  (page-command 1 (list text) kind))
+  (page-command "notice" (list text) kind))
 
 (: hide! (-> Unit ! page))
 (define (hide!)
-  (page-command 2 (Nil) 0))
+  (page-command "hide" (Nil) 0))
 
 (: restyle! (-> String String Unit ! page))
 (define (restyle! file digest)
-  (page-command 3 (list file digest) 0))
+  (page-command "restyle" (list file digest) 0))
 
 ;; Relinks the program from `module`, with a fresh state when `fresh`; the
 ;; page reports how it went.
 (: relink! (-> String Bool Unit ! page))
 (define (relink! module fresh)
-  (page-command 4 (list module) (if fresh 1 0)))
+  (page-command "relink" (list module) (if fresh 1 0)))
 
 ;; Stores every application's save, then reloads the page.
 (: reload-page! (-> Unit ! page))
 (define (reload-page!)
-  (page-command 5 (Nil) 0))
+  (page-command "reload" (Nil) 0))
 
 ;; Shows a failure with a button that calls `reload_start_over`.
 (: offer-fresh-start! (-> String Unit ! page))
 (define (offer-fresh-start! text)
-  (page-command 6 (list text) 0))
+  (page-command "offer-fresh-start" (list text) 0))
 
 ;; ---- Manifests ----
 

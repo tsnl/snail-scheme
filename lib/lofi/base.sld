@@ -27,7 +27,7 @@
    string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
    string->vector vector->string
-   vector-length vector-ref make-vector vector-generate vector-set vector-append subvector
+   vector-length vector-ref make-vector vector-generate vector-set vector-append vector-concatenate subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
    ref ref-get ref-set!)
@@ -474,6 +474,21 @@
          (let ((array (make-array (length items) first)))
            (fold-left (lambda (index item) (array-set! array index item) (+ index 1)) 0 items)
            (array->vector array)))))
+
+    ;; Copies each vector once into one array of the total length, which is
+    ;; local to this call. The array's initial element comes from the first
+    ;; vector that has one.
+    (: vector-concatenate (All (T) (-> (List (Vector T)) (Vector T))))
+    (define (vector-concatenate vectors)
+      (match (find (lambda (items) (> (vector-length items) 0)) vectors)
+        ((None) (list->vector (Nil)))
+        ((Some first)
+         (let ((all (make-array (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors) (vector-ref first 0))))
+           (fold-left (lambda (offset items)
+                        (vector-copy! all offset items 0 (vector-length items))
+                        (+ offset (vector-length items)))
+                      0 vectors)
+           (array->vector all)))))
 
     ;; ---- Characters and text ----
 
