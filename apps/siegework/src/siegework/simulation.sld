@@ -29,7 +29,7 @@
     (: advance (-> World World))
     (define (advance world)
       (if (and (World-started world) (playing? world))
-          (judge (settle (strike (settle (fire (march (excavate (spawn (work (produce (World-tick-set world (+ (World-tick world) 1))))))))))))
+          (judge (settle (strike (settle (fire (march (excavate (spawn (toil (work (produce (World-tick-set world (+ (World-tick world) 1)))))))))))))
           world))
 
     ;; ---- Journal ----
