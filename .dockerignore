@@ -2,3 +2,4 @@
 *
 !shell.nix
 !npins
+!rust-toolchain.toml

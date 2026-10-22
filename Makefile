@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-chibi test-browser bootstrap ide site pages
+.PHONY: format check fetch test test-chibi test-browser bootstrap ide site siegework hearsay pages
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
@@ -49,13 +49,18 @@ ide:
 
 # Siegework and Hearsay's prototypes as static sites in build/siegework and
 # build/hearsay.
-site:
+site: siegework hearsay
+
+siegework:
 	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-app.scm "$(CURDIR)" --release apps/siegework build/siegework
+
+hearsay:
 	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-app.scm "$(CURDIR)" --release apps/hearsay build/hearsay
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
-# play/siegework/.
-pages: site
+# play/siegework/. Hearsay stays unpublished: its LPC art must be credited
+# as lib/lpc/ATTRIBUTION.md describes, and the page doesn't show credits.
+pages: siegework
 	"$(MDBOOK)" build --dest-dir build/pages
 	mkdir -p build/pages/play
 	cp -R build/siegework build/pages/play/siegework

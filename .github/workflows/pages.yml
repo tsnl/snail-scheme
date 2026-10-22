@@ -2,32 +2,25 @@ name: Pages
 
 on:
   pull_request:
-    paths:
+    paths: &inputs
       - apps/siegework/**
+      - bootstrap/**
       - doc/**
       - examples/**
+      - host/**
       - lib/**
+      - scripts/**
       - src/**
       - book.toml
+      - lofi
       - Makefile
-      - scripts/build-app.scm
+      - rust-toolchain.toml
       - shell.nix
       - npins/**
       - .github/workflows/pages.yml
   push:
     branches: [main]
-    paths:
-      - apps/siegework/**
-      - doc/**
-      - examples/**
-      - lib/**
-      - src/**
-      - book.toml
-      - Makefile
-      - scripts/build-app.scm
-      - shell.nix
-      - npins/**
-      - .github/workflows/pages.yml
+    paths: *inputs
   workflow_dispatch:
     inputs:
       publish:
@@ -53,7 +46,7 @@ jobs:
       # shell.nix reads its nixpkgs from npins/sources.json.
       - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012 # v31
       - name: Install pinned Rust
-        run: nix-shell --run 'rustup toolchain install 1.95.0 --profile minimal --target wasm32-wasip1'
+        run: nix-shell --run 'rustup toolchain install'
       - name: Build the book and Siegework
         run: nix-shell --run 'make pages'
       - name: Upload Pages artifact
