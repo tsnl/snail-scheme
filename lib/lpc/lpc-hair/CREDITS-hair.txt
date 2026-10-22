@@ -1,0 +1,66 @@
+"[LPC] Hair" by bluecarrot16, ElizaWy, Nila122, Fabzy, thecilekli, Mandi Paugh, Skorpio, kcilds/Rocetti/Eredah, Yamilian, Emilio J. Sanchez-Sierra, Radomir Dopieralski,  Stephen Challener (Redshrike), and William.Thompsonj. 
+License: CC-BY-SA 3.0. 
+
+If you use the entire submission, the license is CC-BY-SA 3.0. Certain parts of the submission are available under other licenses as well; see below.
+
+|           name           |                             authors                             |             licenses             |              changes              |                                     url(s)                                    |
+|--------------------------|-----------------------------------------------------------------|----------------------------------|-----------------------------------|-------------------------------------------------------------------------------|
+| afro                     | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| natural                  | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| flat_top_fade            | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| flat_top_straight        | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| twists_fade              | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| twists_straight          | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| bob                      | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| lob                      | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| dreadlocks_long          | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| dreadlocks_short         | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| cornrows                 | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| bangs_bun                | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| cowlick                  | bluecarrot16                                                    | CC0                              | original                          | https://opengameart.org/content/lpc-hair                                      |
+| balding                  | ElizaWy                                                         | OGA-BY 3.0+                      | original                          | https://opengameart.org/content/lpc-hair                                      |
+| buzzcut                  | ElizaWy                                                         | OGA-BY 3.0+                      | original                          | https://opengameart.org/content/lpc-hair                                      |
+| curly_long               | ElizaWy                                                         | OGA-BY 3.0+                      | original                          | https://opengameart.org/content/lpc-hair                                      |
+| curly_short              | ElizaWy                                                         | OGA-BY 3.0+                      | original                          | https://opengameart.org/content/lpc-hair                                      |
+| half_up                  | ElizaWy                                                         | OGA-BY 3.0+                      | original                          | https://opengameart.org/content/lpc-hair                                      |
+| high_ponytail            | ElizaWy, bluecarrot16                                           | OGA-BY 3.0+                      | original, bluecarrot16 added hurt | https://opengameart.org/content/lpc-hair                                      |
+| braid                    | Nila122, ElizaWy                                                | CC-BY-SA 3.0 / GPL 3.0 / GPL 2.0 | minor editing                     | https://opengameart.org/content/3-hairs-for-lpc                               |
+| braid2 (lidia)           | Yamilian, bluecarrot16                                          | CC-BY-SA 3.0 / GPL 3.0           | cleanup, add hurt                 | https://opengameart.org/content/lpc-heroine                                   |
+| long_messy2 (shura)      | Yamilian, bluecarrot16                                          | CC-BY-SA 3.0 / GPL 3.0           | cleanup, add hurt                 | https://opengameart.org/content/lpc-heroine-2                                 |
+| pigtails_bangs (astarea) | Emilio J. Sanchez-Sierra, bluecarrot16                          | CC-BY-SA 3.0 / GPL 3.0           | cleanup, add hurt                 | https://opengameart.org/content/steampun-a-fy-with-concept-art                |
+| pigtails (betty)         | Radomir Dopieralski, bluecarrot16                               | CC-BY-SA 3.0 / GPL 3.0           | adapt to LPC base, add hurt       | https://opengameart.org/content/one-more-lpc-alternate-character              |
+| mop (george)             | Radomir Dopieralski, bluecarrot16                               | CC-BY-SA 3.0 / GPL 3.0           | adapt to LPC base, add hurt       | https://opengameart.org/content/alternate-lpc-character-sprites-george        |
+| part2                    | Skorpio, bluecarrot16                                           | CC-BY-SA 3.0 / GPL 3.0           | cleanup                           | https://opengameart.org/content/lpc-skorpios-scifi-sprite-pack                |
+| high_and_tight           | Skorpio, bluecarrot16                                           | CC-BY-SA 3.0 / GPL 3.0           | cleanup                           | https://opengameart.org/content/lpc-skorpios-scifi-sprite-pack                |
+| spiked                   | kcilds/Rocetti/Eredah                                           | CC-BY 4.0                        | adapt to LPC base, add hurt       | https://opengameart.org/content/eredah-rpg-character-base-48x64-ongoing       |
+| spiked_liberty           | Fabzy, bluecarrot16                                             | CC-BY-SA 3.0                     | adapt to LPC base, add hurt       | https://opengameart.org/content/the-revolution-hair                           |
+| spiked_liberty2          | Cobra Hubbard (BlueVortexGames), bluecarrot16                   | CC-BY 3.0                        | cleanup, adapt to female          | https://opengameart.org/content/anime-lpc-hair                                |
+| spiked_porcupine         | Fabzy, bluecarrot16                                             | CC-BY-SA 3.0                     | adapt to LPC base, add hurt       | https://opengameart.org/content/the-revolution-hair                           |
+| spiked_beehive           | Fabzy, bluecarrot16                                             | CC-BY-SA 3.0                     | adapt to LPC base, add hurt       | https://opengameart.org/content/the-revolution-hair                           |
+| spiked2                  | Fabzy, bluecarrot16                                             | CC-BY-SA 3.0                     | adapt to LPC base, add hurt       | https://opengameart.org/content/the-revolution-hair                           |
+| cowlick_tall             | Fabzy, bluecarrot16                                             | CC-BY-SA 3.0                     | adapt to LPC base, add hurt       | https://opengameart.org/content/the-revolution-hair                           |
+| messy3                   | Fabzy, bluecarrot16                                             | CC-BY-SA 3.0                     | adapt to LPC base, add hurt       | https://opengameart.org/content/the-revolution-hair                           |
+| long_messy (puck)        | Mandi Paugh, bluecarrot16                                       | GPL 2.0+ / CC-BY 3.0+            | adapt to LPC base, add hurt       | https://opengameart.org/content/puck-overland                                 |
+| curtains (star)          | Mandi Paugh, bluecarrot16                                       | GPL 2.0+ / CC-BY 3.0+            | adapt to LPC base, add hurt       | https://opengameart.org/content/star-overland                                 |
+| curtains_long (trevor)   | Mandi Paugh, bluecarrot16                                       | GPL 2.0+ / CC-BY 3.0+            | adapt to LPC base, add hurt       | https://opengameart.org/content/trevor-overland                               |
+| long_band                | Mandi Paugh, bluecarrot16                                       | CC-BY-SA 3.0                     | adapt to LPC base, add hurt       | https://opengameart.org/content/fantasy-rpg-npcs                              |
+| sara                     | Stephen Challener, William.Thompsonj, Mandi Paugh, bluecarrot16 | OGA-BY 3.0+ / CC-BY 3.0+         | adapt to male, merge layers       | https://opengameart.org/content/lpc-sara                                      |
+| halfmessy                | Nila122, bluecarrot16                                           | CC-BY-SA 3.0 / GPL 3.0 / GPL 2.0 | adapt to female                   | https://opengameart.org/content/more-lpc-clothes-and-hair                     |
+| bob_side_part            | thecilekli, bluecarrot16                                        | CC0                              | touchup                           | https://opengameart.org/content/lpc-pink-short-hair                           |
+| idol                     | thecilekli, bluecarrot16                                        | CC0                              | adapt to female, touchup          | https://opengameart.org/content/lpc-korean-idol-hairstyle-male-with-12-colors |
+| long_center_part         | thecilekli, bluecarrot16                                        | CC0                              | touchup                           | https://opengameart.org/content/lpc-long-straight-hair-with-12-colors         |
+| long_tied                | thecilekli, bluecarrot16                                        | CC0                              | recolors only                     | https://opengameart.org/content/lpc-long-tied-hair-with-12-colors             |
+
+- all assets adapted to work with both male and female bases, if not already possible. 
+- all assets re-shaded/re-drawn to 6-color ramp, then recolored to standard set of palettes
+- touchup = minor changes, slight changes to shading
+- cleanup = major changes, reducing color count, re-drawing or re-shading. 
+
+
+## Possible future inclusions
+
+- Pigtail buns (Odongo)
+- Undercut
+- Bouffant
+- Pompadour
+https://en.wikipedia.org/wiki/List_of_hairstyles
