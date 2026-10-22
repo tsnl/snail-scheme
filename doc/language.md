@@ -62,7 +62,7 @@ output is the library's source text. The compiler builds and runs it first:
 | `(effect Name ((operation type) ...) [(host "module" ((operation "symbol") ...))])` | Effect with operations and optional host defaults. |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
-| `(expose name "symbol")` | Exports a top-level function to the host. |
+| `(expose name "symbol")` | Exports a top-level function to the host; it takes and returns only scalars and `Any`. |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
 `(lofi base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
@@ -207,6 +207,9 @@ allowed. A helper defined elsewhere that mutates its argument is therefore
 rejected even when the argument is local; define it inside the function.
 `unsafe-total` runs a thunk and discards all its effects without a check, for
 the cases this rule rejects; each use says in a comment why nothing escapes.
+`unsafe-cast` is the other unchecked primitive: it turns a `Funcref`, a
+function another module exports, into a function of whatever type the
+context expects (`(lofi wasm)`).
 
 Traps and non-termination are not tracked.
 
@@ -275,6 +278,7 @@ turns raw pointer events into points, taps, drags and pinches.
 | `(lofi random)` | A deterministic generator as a value. |
 | `(lofi wire)` | `Serialize`, `Deserialize` and the byte encoding. |
 | `(lofi app)` | Applications, frames and the `screen` effect. |
+| `(lofi wasm)` | Loading WebAssembly modules while a program runs, and `unsafe-cast`. |
 | `(lofi integer)`, `(lofi rational)`, `(lofi number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(lofi datum)`, `(lofi read)`, `(lofi write)` | Scheme data and its external representation. |
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |

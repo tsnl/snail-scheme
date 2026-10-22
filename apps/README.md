@@ -8,9 +8,9 @@ under `src/`, an `index.html`, and tests. `scripts/build-app.scm` compiles
 chibi-scheme -I host/chibi -I src scripts/build-app.scm "$PWD" apps/siegework build/siegework
 ```
 
-`./lofi serve apps/siegework` builds the same package into
-`build/serve/siegework`, serves it, and swaps each rebuilt module into the
-open page, keeping its state.
+`./lofi serve apps/siegework` builds the same program one library at a
+time into `build/serve/siegework`, serves it, and relinks each rebuilt
+module into the open page, keeping its state.
 
 | Application | Purpose |
 | --- | --- |

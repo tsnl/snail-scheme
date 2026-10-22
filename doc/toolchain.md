@@ -1,254 +1,275 @@
 # Toolchain: linking, live reload and the browser
 
-> **Status: proposed.** Section 4.1 describes the whole-program live reload
-> of `lofi serve` and `lofi watch`, implemented in #367 and not yet merged.
-> Everything else here is a design, and section 9 lists what is still
-> undecided.
+> **Status: implemented in #377,** on top of the live reload of #367,
+> except where a section says *proposed*. Section 8 lists what is left.
 
-This document plans how Lofi programs are built, linked, reloaded and
+This document describes how Lofi programs are built, linked, reloaded and
 loaded during development, so that a rebuild costs as much as the edit
-that caused it and the same toolchain can run in a browser. C is the
-reference model: programs are statically linked, a debug build may link
-dynamically, and code loaded at run time is reached through explicit,
-unchecked casts.
+that caused it and the same toolchain runs in a browser. C is the
+reference model: programs are statically linked, a debug build links
+dynamically, and code loaded at run time is reached through an explicit,
+unchecked cast.
 
 ## 1. Goals
 
 1. Rebuild and reload in proportion to the edit, not to the program.
 2. Hot reload at the granularity of a module, keeping the application's
    state.
-3. Notebooks of compiled, typed cells that rerun without a manual order
-   (#368).
-4. One toolchain for Lofi and for the Scheme that `(scheme compiler)`
-   translates into Lofi.
-5. The development loop written in Lofi and Rust, with hosts that only
+3. Load compiled code while a program runs, for notebooks of typed cells
+   (#368), plugins and `generate-library` producers.
+4. The development loop written in Lofi and Rust, with hosts that only
    perform I/O.
-6. The whole debug toolchain running in a browser.
+5. The whole debug toolchain running in a browser.
 
 ## 2. Where a rebuild's time goes
 
-A rebuild of Siegework through `lofi serve` takes about 1.4 seconds:
+Before this work, a rebuild of Siegework through `lofi serve` took about
+1.4 seconds, half of it work a debug build need not do:
 
 | Step | Time |
 | --- | --- |
 | Starting Chibi and loading the driver, `(lofi build)` | 345 ms |
-| Compiling to WebAssembly text with the compiled compiler | 463 ms |
+| Compiling every library to WebAssembly text with the compiled compiler | 463 ms |
 | Optimizing twice with `wasm-opt` | 170 ms |
 | Assembling with `wasm-as` and merging the runtime with `wasm-merge` | 170 ms |
 | Starting Node | 26 ms |
 
-Half of it is work that a debug build need not do: starting Chibi, and
-optimizing. The compile itself is whole-program, so an edit to one library
-checks and emits every library again.
+Now the development loop is a long-lived Lofi program that compiles one
+library at a time, keeps what it compiled in memory, and assembles
+without Binaryen:
+
+| Build | Desktop | Browser worker |
+| --- | --- | --- |
+| Siegework, first build, 14 modules | about 450 ms | about 440 ms |
+| Siegework, an edit to one function body, 1 or 2 modules | 70 to 110 ms | 70 to 120 ms |
+| The counter of `tests/apps/counter`, an edit | 25 to 50 ms | about 30 ms |
 
 ## 3. Linking, after C
 
 | Build | Linking |
 | --- | --- |
-| Release | Static. The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. This is today's build. |
-| Debug | Dynamic. Each library is compiled separately to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. |
+| Release | Static. The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. `lofi compile`, `lofi run` and `make site` build this way. |
+| Debug | Dynamic. Each library is compiled to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. `lofi serve`, `lofi watch` and the browser IDE build this way. |
 | Either | Code loaded while the program runs, through `(lofi wasm)` (section 3.3). |
 
 ### 3.1 Separate compilation
 
-The unit of compilation is a library. The compiler, running for as long as
-the development loop does, keeps each library's **interface** in memory:
+The unit of compilation is a library (`compile->modules` in
+`src/lofi/compiler.sld`). In its module:
 
-- the type scheme of each export, with its effect row;
-- its data types, with the recursion group that holds their WasmGC types;
-- its classes and instances;
-- its macros, which expand in the importing library;
-- the checked bodies of its generic definitions, which the importing library
-  monomorphizes at its own types, as C++ templates live in headers.
+- each monomorphic definition is exported under its global name, as in
+  `lofi.base:map`;
+- each generic definition and alias the library uses is copied in,
+  specialized at the library's own types, as C++ instantiates a template in
+  every translation unit that uses it;
+- each monomorphic definition of another library is imported from that
+  library's module;
+- each effect's stack of handlers is a global that the declaring library's
+  module exports and the others import.
 
-A library is checked statically against the interfaces of the libraries it
-imports, then compiled to a module. An interface has a hash. An edit
-recompiles its library, and recompiles the libraries that import it only if
-the hash changed, as GHC avoids recompilation. Two modules may instantiate
-the same generic definition at the same types; in a debug build each keeps
-its own copy.
+The checker settles each library's types before it checks the libraries
+that import it, so a definition's type comes from its own library and not
+from how an importer happens to use it.
 
-The cache lives in memory, for as long as the compiler runs. For each
-library it holds the assembled binary module, the interface and the
-interface's hash, keyed by a hash of the library's source, the interface
-hashes of its imports, and the compiler's identity. Imported macros and
-generic bodies end up inside a module, so their interfaces are part of the
-key. A body edit misses for one library: it is compiled, assembled and
-swapped, and every other module is reused, along with the engine's
-compiled form of it. A cold start builds everything once. Keeping the cache
-on disk is left for later (section 9).
+A **session** (`src/lofi/compiler/session.sld`) compiles a program again
+and again, as the development loop does, keeping everything in memory:
+
+- The expander replays a library, adding what it added before, when its
+  declarations read the same and its imports show the same interfaces.
+- A library's **interface** is what importers depend on: its imports and
+  exports, every declaration except the bodies of definitions whose
+  signatures are monomorphic, and its imports' interfaces, since its
+  generic code carries theirs into importers. It is hashed, as GHC uses
+  interface hashes to avoid recompilation.
+- Each library's checked items, type schemes and module text are kept
+  under the expansion they came from. A build checks, specializes and
+  emits only the libraries whose expansion changed.
+
+So an edit to a function body with a signature recompiles one library. An
+edit to an interface recompiles the libraries that import it too. The
+loop assembles each changed module into a file named after a hash of its
+text, so a page fetches a module again only when it changed. Nothing is
+kept on disk; a cold start compiles everything once.
 
 ### 3.2 Dynamic linking
 
-A module reaches each export of another library through a mutable global
-that holds it, as an ELF program reaches a shared library through its
-global offset table. The loader instantiates modules in dependency order
-and fills those globals. A call across libraries costs one indirect call,
-in debug builds only.
+A module imports each function of another library by the library's name,
+and the loader (`src/app/load.mjs`) instantiates the runtime, then the
+modules in program order, so every module comes after those it imports
+from. Calls across libraries are direct calls to imported functions.
 
 WebAssembly treats two GC types as the same only when their whole
-recursion groups match. A spike in Node showed that a module importing a
-function over a struct links when it repeats the exporting module's whole
-recursion group, keeps two identically shaped types in that group
-distinct, and fails to link if it declares the struct in a group of its
-own. So each library's data types form one recursion group, and every
-module that uses them repeats it exactly.
+recursion groups match. The backend therefore puts each type in the
+smallest recursion group it can have: the strongly connected component of
+the graph of references between types, ordered by name, with the groups it
+refers to emitted first. Every module that uses a type declares the
+identical group, and the engine's canonicalization makes them one type
+across modules. A case of an enum without fields declares no type of its
+own, since only the modules that build or match it would declare one.
 
-There are two places where types are checked:
+Lofi types are checked at compile time, each library against the
+interfaces it imports. Nothing checks them at load time: every module of a
+link comes from one build of one session, which recompiles importers
+whenever an interface changes. The engine still checks the WebAssembly
+type of every import, and a value that crosses as `Any` keeps its own
+check at `type-convert`.
 
-- **At compile time,** each library against the interfaces it imports.
-- **At load time,** once per import: the loader compares the interface hash
-  that the importer was compiled against with the one the exporter has,
-  as C++ mangles types into names and OCaml records interface digests.
-  The engine also checks the WebAssembly types of every import, but those
-  are coarser than Lofi's: effect rows and aliases are erased, and two enums
-  without fields are both `i32`.
-
-Calls never check. A value that crosses as `Any` keeps its own check at
-`type-convert`.
+Replacing a library's module means linking it and every module after it
+in program order again; the modules before it cannot import from it. That
+costs the instantiation of a few modules, and keeps debug code free of the
+indirection that a table of mutable globals, like ELF's global offset
+table, would add to every call across libraries.
 
 ### 3.3 Loading modules at run time
 
-`(lofi wasm)` is `dlopen`: it loads a module from bytes with the imports
-given, and returns its exports, which the caller casts to the types it
-expects.
+`(lofi wasm)` is `dlopen` and `dlsym`. It loads a module from a file,
+linked against the runtime, the program's own modules and the modules
+loaded before it, by name, so a notebook's cell can import an earlier
+cell. A function the module exports comes out as a `Funcref`, and
+`unsafe-cast` makes it a function of the type the context expects:
 
 ```scheme
-(let* ((cell (load-module bytes imports))
-       (run (unsafe-cast (module-export cell "run") (-> I64 I64))))
+(let* ((cell (load-module "cell" "build/cell.wasm"))
+       (run (ann (unsafe-cast (module-export cell "cell:run")) (-> I64 I64))))
   (run 41))
 ```
 
-`unsafe-cast` checks nothing about Lofi types, so the unsafe assumption is
-visible where it is made; the engine still traps on a structural mismatch.
-To exchange GC values with its host, a loaded module repeats the host's
-recursion groups (section 3.2). Its uses are notebook cells, plugins, and
-`generate-library` producers, which then run in the compiler's own process
-instead of in a separate program.
+`unsafe-cast` is a primitive. It wraps the reference in a closure whose
+code casts it to the WebAssembly type of a function of the expected type
+and calls it. The cast is the only check: the engine traps when the
+WebAssembly types differ, and nothing compares Lofi types, so the unsafe
+assumption is visible where it is made. `tests/programs/wasm.sld` loads a
+module it writes itself.
+
+The Node runner provides the `wasm` effect for both builds. A statically
+linked program exports nothing of its runtime, so what it loads can link
+only against the host. Browser hosts do not provide it yet: loading is
+synchronous, and a page reads files asynchronously.
 
 ## 4. Hot reload
 
-### 4.1 Swapping the program (#367)
+### 4.1 Relinking from a module
 
-`lofi serve` rebuilds the whole program and swaps the new module into each
-open page. The running module's save is restored into the new one, the
-contract a page reload already uses, so an application whose save is a
-journal, as Siegework's is, replays it under the new code. A failed build
-or a save the new module cannot restore leaves the old module running.
+Each build's event carries a manifest of what a page runs: every file with
+a digest, and the modules in program order with the files they live in.
+The page's reload client compares it with the manifest of the build the
+page runs, and relinks the program from the first module whose file
+changed. A changed style sheet is fetched again; any other changed file
+reloads the page.
 
-### 4.2 Swapping a module
-
-With dynamic linking, a swap replaces only the rebuilt modules. Between two
-events, the loader instantiates each new module and points the globals that
-reach its exports at it; the modules that import it are not touched.
-
-**Module globals are ephemeral.** A swapped module runs its top level
+**Module globals are ephemeral.** A relinked module runs its top level
 again, and whatever its globals held is rebuilt from nothing. The one value
-that survives is the application's state. `define-application` gives it to
-the loader before the swap and takes it back after, so it crosses even when
-the module holding it is swapped:
+that survives is the application's state. `define-application` exposes
+`app_state`, which gives the state to the host as an `Any`, and
+`app_adopt`, which takes it back, so it crosses even when the module that
+defines its type is relinked:
 
-- by reference, when none of the data types it contains changed, because
-  their recursion groups are identical and the new code accepts the old
-  values as they are;
-- through `save` and `restore`, as in section 4.1, when they did.
+- as it is, when its type is unchanged, because the type's recursion
+  groups are identical and the new code accepts the old values;
+- through `save` and `restore`, the contract a page reload uses, when
+  adopting traps because the state's layout changed;
+- not at all, when the save cannot be restored either. The old program
+  keeps running and the page offers to start the new one over.
 
-Treating globals as ephemeral, rather than requiring modules without state,
-is deliberate. `(scheme compiler)` translates every top-level Scheme
-variable into a cell, so a Scheme library is stateful by construction, and
-any test that rejected stateful modules would reject all Scheme. A swapped
-Scheme library simply runs again, as it would when first loaded.
+Treating globals as ephemeral, rather than requiring modules without
+state, is deliberate. `(scheme compiler)` translates every top-level Scheme
+variable into a cell, so a Scheme library is stateful by construction. A
+relinked Scheme library simply runs again, as it would when first loaded.
 
-| Edit | Rebuilt | Swapped | State |
+| Edit | Rebuilt | Relinked | State |
 | --- | --- | --- | --- |
-| A function body | That library | That module | Kept as is |
-| An interface, with data types unchanged | That library and its importers | Those modules | Kept as is |
-| A data type | That library and every user of the type | Those modules | Through `save` and `restore` |
+| A function body | That library | That module and those after it | Kept as is |
+| An interface, with the state's types unchanged | That library and its importers | From the first of them | Kept as is |
+| A type the state holds | That library and every user of the type | From the first of them | Through `save` and `restore` |
+| The state and the save | As above | Nothing, until the developer starts over | Started over |
 | The host's scripts or page | Nothing | The page reloads | Through `save` and `restore` |
 
 Three hazards remain:
 
 - A closure stored in the state keeps running the code it was made from
   until the state is rebuilt. An application that stores functions in its
-  state should swap through `save` and `restore`.
-- A swap happens only between events. Effect handlers are installed only
+  state should relink through `save` and `restore`.
+- A relink happens only between events. Effect handlers are installed only
   while a call runs, so between events no handler is active and no frame of
   the old code is on the stack.
 - A module that traps stops the clock with the state from before the trap,
-  and the next good swap resumes it, as section 4.1 does now.
+  and the next good relink resumes it.
+
+### 4.2 Builds as events
+
+The reload client relinks one build at a time. An event that arrives while
+a relink is in flight waits for it, and only the latest waits. The client
+records a build as the page's only once its relink succeeds, so a page
+that missed events, even across a restart of the server, catches up from
+the next one, and a refused build is not tried again until the developer
+starts over.
 
 ## 5. The development loop in Lofi
 
-The loop's decisions form a total state machine, written like a
-`(lofi app)`. Its events are sources changing, a build finishing and a page
-connecting; its commands are starting a build and sending a page the
-manifest of the build being served. Debouncing, one build at a time,
-manifests and the choice between swapping a module, restyling and reloading
-the page all live there, and can be tested with programs and checked with
-`(lofi explore)`, for example that at most one build runs and that a page
-never applies an older build after a newer one.
+The loop is a Lofi program: `(lofi develop)` in `src/lofi/develop.sld`,
+started by `bootstrap/develop.sld`. It keeps a session, debounces changes,
+builds, writes modules and manifests, and broadcasts events. It reaches
+its host only through a `develop` effect of numbered commands: watch a
+path, schedule a timer, assemble a module, serve routes, broadcast an
+event, run a program, digest a file, read the clock, list and make
+directories. Hosts deliver three events back: a file changed, the timer
+fired, and a call into the loop panicked, with the panic's message.
 
-The reload client in a page is a small Lofi module that makes the same
-choices from manifests. Hosts carry I/O only:
+| Host | Where |
+| --- | --- |
+| Node: HTTP with server-sent events, file watching, timers, child processes | `scripts/develop.mjs`, for `lofi serve` and `lofi watch` |
+| A browser worker: memory files, timers, messages to the page | `src/ide/toolchain.mjs` |
 
-- **In a browser,** JavaScript binds the DOM, WebGPU, `WebAssembly` and
-  event streams, which WebAssembly cannot reach directly, and decides
-  nothing.
-- **On a server,** either Node binds HTTP, file watching and timers, or a
-  native Rust host embedding wasmtime does, without JavaScript.
+The reload client is a Lofi program too, `src/app/reload.sld`, whose
+`page` effect asks the page to show a notice, restyle, relink or reload.
+`src/app/reload-client.mjs` binds it for the pages `lofi serve` serves and
+for the IDE. *Proposed:* checking the loop and the client with
+`(lofi explore)`, for example that a page never applies an older build
+after a newer one.
 
 ## 6. Scheme
 
 A Scheme program becomes a Lofi library through `(scheme compiler)`, so it
-is compiled separately, linked and swapped like any other library. Every
-Scheme variable is a cell, and a swapped Scheme library runs its top level
-again. Scheme's REPL expects that redefining a procedure changes what every
-caller calls, and the mutable globals of section 3.2 give a library's
-exports that meaning.
+is compiled separately, linked and relinked like any other library. Every
+Scheme variable is a cell, and a relinked Scheme library runs its top level
+again. *Proposed:* a Scheme REPL, which expects that redefining a procedure
+changes what every caller calls, would relink every library after the
+redefinition, as an edit does.
 
 ## 7. The toolchain in a browser
 
+`make ide` packages the browser IDE around Siegework in `build/ide`, a
+static site (`scripts/build-ide.scm`). The page edits the application's
+libraries and runs the application; a worker runs the development loop.
+
 | Piece | In a browser |
 | --- | --- |
-| Compiler | Already WebAssembly. It reads `lib/` and the project from a file system kept in memory, which the Rust runtime can provide. |
-| Assembler | Binary emitted directly from the compiler's WebAssembly text forms, instead of through `wasm-as`. This is the one large new component. |
-| Linker | The loader of section 3.2; a debug build merges nothing. |
-| Runtime | The prebuilt `snail_runtime.wasm`, instantiated once. |
-| Optimizer | None for debug builds. For release builds, Binaryen compiled to WebAssembly, if a spike shows its threads and exceptions can be tamed, or no optimizer. |
-| Loop | The state machine of section 5 in a worker, driven by an editor's events instead of file watching and HTTP. |
+| Compiler and loop | `bootstrap/develop.sld` compiled one library at a time, linked in the worker. |
+| Files | The Rust runtime keeps files in its memory when the host asks (`src/runtime/src/files.rs`), so the compiler reads `lib/` and the application, and writes modules, as it does from a disk. |
+| Assembler | The `wat` crate compiled to WebAssembly (`src/assembler`), which the desktop loop uses too, instead of `wasm-as`. |
+| Linker | The loader of section 3.2. |
+| Runtime | The prebuilt `snail_runtime.wasm`, one instance for the loop and one for the application. |
+| Optimizer | None. |
 
-## 8. Order of work
+`tests/browser/ide.mjs` packages `tests/apps/counter`, types into the
+editor in headless Chromium, and checks that the count survives the
+relink.
 
-Each step is useful alone.
-
-1. Debug builds skip `wasm-opt` and instantiate the runtime separately.
-2. The development loop and the reload client in Lofi, on thin hosts.
-3. A long-lived compiler: separate compilation with interfaces in memory,
-   and the dynamic linking of section 3.2.
-4. Swapping modules (section 4.2), keeping section 4.1 as the fallback.
-5. Binary emission.
-6. The toolchain in a browser worker.
-7. `(lofi wasm)`, for notebook cells (#368), plugins and producers.
-8. If wanted, release optimization in a browser.
-
-## 9. Open questions
-
-- **The server's host:** Node with thin bindings, or a native Rust host
-  embedding wasmtime, whose support for WebAssembly GC is younger.
-- **Load-time checks:** made by the loader, from hashes each module records,
-  or by code each module runs when it starts.
-- **Closures in the state:** whether to detect them from the state's type
-  and fall back to `save` and `restore` automatically.
-
-Left for later, if a cold start or one-shot commands become too slow:
+## 8. What is left
 
 - **The cache on disk.** Entries keyed by content hashes and written
   atomically, so parallel builds cannot collide. A cold start would validate
-  them by hashing sources, as Bazel and Nix do, and re-check only the
-  dependencies of a library it recompiles.
+  them by hashing sources, as Bazel and Nix do.
 - **Interfaces as generated headers.** C++ avoids re-parsing headers through
-  a binary module interface (Clang's `.pcm`, GCC's `.gcm`) private to the
-  compiler; OCaml, GHC and Rust keep similar files. A Lisp can instead print
-  each interface as a declaration-only library of S-expressions, whose text
-  hash is the interface hash and whose reading needs no format of its own.
-  A macro that refers to private helpers would export them as hidden names.
+  a binary module interface private to the compiler; OCaml, GHC and Rust
+  keep similar files. A Lisp can instead print each interface as a
+  declaration-only library of S-expressions, whose text hash is the
+  interface hash.
+- **`(lofi wasm)` in browsers,** and with imports given by the caller.
+- **Notebooks** of compiled cells (#368) on `(lofi wasm)`.
+- **The server's host:** Node with thin bindings, or a native Rust host
+  embedding wasmtime, whose support for WebAssembly GC is younger.
+- **Closures in the state:** whether to detect them from the state's type
+  and relink through `save` and `restore` automatically.
+- **Release builds in a browser,** with Binaryen compiled to WebAssembly if
+  its threads and exceptions can be tamed.
