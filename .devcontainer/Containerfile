@@ -1,0 +1,25 @@
+# The development environment: the tools shell.nix pins, the pinned Rust
+# toolchain, and Chromium for the browser checks. Build and run it with
+# rootless podman, which maps the container's root to your own user, so
+# files written in the mounted checkout stay yours:
+#
+#   podman build -t snail-scheme -f .devcontainer/Containerfile .
+#   podman run --rm -it -v "$PWD":/workspace:Z -w /workspace snail-scheme
+FROM docker.io/nixos/nix:2.35.3
+
+# Only what the environment depends on, so editing source never rebuilds it.
+COPY shell.nix /opt/snail-scheme/shell.nix
+COPY npins /opt/snail-scheme/npins
+
+# The shell's packages go into the default profile, which is already on
+# PATH, so every process sees the same tools as `nix-shell`, along with the C
+# compiler `nix-shell` brings, which the Rust runtime's tests link with. The
+# image's own git-minimal would collide with the shell's git.
+RUN nix-env --uninstall git-minimal && nix-env --install --from-expression '_: let pkgs = import (import /opt/snail-scheme/npins).nixpkgs { }; in (import /opt/snail-scheme/shell.nix { inherit pkgs; }).nativeBuildInputs ++ [ pkgs.stdenv.cc pkgs.chromium ]'
+ENV CHROMIUM=/root/.nix-profile/bin/chromium
+
+ENV RUSTUP_TOOLCHAIN=1.95.0
+RUN rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt --target wasm32-wasip1
+
+WORKDIR /workspace
+CMD ["bash", "--login"]
