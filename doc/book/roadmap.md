@@ -145,6 +145,9 @@ server-listener APIs are not implemented yet.
 - [ ] Recognize root `project.sld`, obtain its declared read patterns and
   query `build` and `launch` into one linked target/launch plan. Metadata
   describes work; the IDE executes it. Exact interfaces remain under review.
+- [ ] Use the same project/build engine for proposed `lofi build DIRECTORY`
+  and the persistent IDE; a CLI build needs no HTTP IDE service. Support
+  multiple applications/targets within one project, not cross-project references.
 - [ ] IDE-supplied read-only snapshot filesystem for metadata queries;
   initialization and the `inputs` declaration run without filesystem access.
   Use the same patterns for read authority and conservative invalidation,
@@ -154,6 +157,10 @@ server-listener APIs are not implemented yet.
 - [ ] Launch only a server entry; the server serves its client and assets.
   The project graph compiles client targets into its server resource bundle
   at one revision. Prebuilt resources prove only the preliminary bridge.
+- [ ] Resolve literal intra-project target/output references through a
+  build-time macro. Missing/mismatched outputs, cycles and producer failures
+  fail the dependent build before launch; track real artifact edges without
+  watching generated cache files.
 - [ ] Stop and Restart using isolated run workers/processes; manual restart
   is the default, with an optional policy to restart after a successful
   build. Both reset state; state-preserving server reload remains separate.
