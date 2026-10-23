@@ -28,10 +28,11 @@ run status; it need not open a pane automatically. A pin prevents ordinary
 file navigation from replacing that document; an explicit close still
 closes it.
 
-Launch initially accepts a server source path. Optional named launches
-would come from the backend proposal's S-expression `.datum` metadata;
-its exact schema and timing remain open, without a workspace-definition
-program or multi-workspace UI.
+The backend recognizes a project by its root `project.sld`. Its `inputs`
+export declares metadata read patterns; under the IDE-supplied filesystem
+handler, `build` and `launch` return the build graph and launch menu as
+data. The palette lists those server launches, not a separate client target
+or `launch.datum`. Description functions do not build or start programs.
 
 Two views of a file share a buffer. Two browser views of an address start
 distinct clients of the same server. Splitting or moving an existing
@@ -150,6 +151,13 @@ accepted revision. Saving persists the buffer; it is not a prerequisite
 for compilation. Show build failures and stale diagnostics against their
 revisions while the last good server continues serving its pinned assets.
 
+Reuse the parsed project plan across ordinary application edits. Only
+metadata compiler inputs or changes matching its declared read patterns
+require querying the description again; the same patterns authorize reads
+and cover new or deleted matching files. If metadata fails, show that the
+current launch menu is unavailable or stale. Existing runs and their Stop
+controls remain available; an old plan cannot silently authorize a new run.
+
 Manual restart is the default: a successful build makes Restart available.
 A run can instead opt into restarting after a successful build, consuming
 that build without compiling again. Both use cold replacement: close the
@@ -202,8 +210,10 @@ to deliver the first backend and browser documents.
 
 ## Acceptance gates
 
-1. **Real server, both placements.** One server serves its own client page,
-   JS, Wasm and relative assets on Node and in the static playground. Open
+1. **Real project and server, both placements.** Query `project.sld`, compile
+   its client target and bundle the result as the server's resources. That
+   server serves its page, JS, Wasm and relative assets on Node and in the
+   static playground. Open
    it twice: distinct client identities observe one server count. Requests
    and missing-resource responses are observable in the server handler.
 2. **Bridge failures and lifetime.** Exercise root-relative escape,
@@ -212,9 +222,13 @@ to deliver the first backend and browser documents.
    Service Worker termination/restart, and an unsupported native
    `this-browser://` connection. No request hangs or reaches an unrelated
    static file or later run. No automatic retry duplicates an increment.
-3. **Working text.** Prove unsaved server compilation,
-   an edit during a build, correctly labelled diagnostics and a failed
-   build leaving the running revision usable.
+3. **Working text and metadata.** Prove unsaved client/server compilation,
+   an edit during a build, correctly labelled diagnostics and failed target
+   or metadata builds leaving the running revision usable. Count queries:
+   an ordinary source edit reuses the plan and compiler sessions; metadata
+   code or a matching input change requeries. Check pattern errors, denied
+   reads/writes, initialization/`inputs` restrictions, future matching
+   files and stale-plan completions.
 4. **Documents.** Split code beside two browser documents; pin, resize and
    move them without a reload or new client identity. Closing one client
    leaves the other and the server alive. Restart visibly resets the run.
@@ -223,10 +237,9 @@ to deliver the first backend and browser documents.
    Check persistence failures and embedding restrictions as user-visible
    failures, not successful launches.
 
-These four gates complete the first proof with prebuilt client resources.
-The **next build milestone** is the backend proposal's generated-resource
-contract: edit Lofi client source and compile it into the same frozen
-server bundle in both placements, with failure preserving the old run.
+These gates include the complete client-to-server-resource build graph.
+A prebuilt client can prove the request bridge earlier, but cannot prove
+live client-source editing or project-plan invalidation.
 
 A disposable Chromium 152 probe verified the proposed page/Service Worker/
 server-worker route for two iframes, relative JS/Wasm/image loads, a POST,
