@@ -24,23 +24,95 @@ client code and assets returned to requests. A successful launch reports
 `Application running at <address>`. Opening that address is a separate
 action and may create several clients of the same server.
 
-## One root, ordinary source files
+## `project.sld` describes the project
 
-Start with a folder and the existing library search roots. The folder needs
-no workspace-definition file. Launch initially accepts an explicitly chosen
-server source path; the UI can remember the last choice. There is no
-automatic application discovery or package hierarchy. Existing
-`main.sld` conventions remain useful where the entry is a server; today's
-`(lofi app)` entries do not become servers by renaming them.
+A root `project.sld` marks a recognized project folder. It is an executable
+Lofi metadata library with three exports (`inputs` is the proposed name
+for the declaration):
 
-Optional named launch configurations would be **S-expression data in a
-`.datum` file**, with `launch.datum` as a provisional name. Parse that data
-into launch records at the IDE boundary; do not evaluate it as Scheme,
-expand macros or run shell hooks. It describes launches within this one
-workspace, not a workspace-definition program. The exact filename,
-location and schema, and whether named configurations belong in the first
-milestone, remain open. This does not change existing JSON files or the
-binary application wire format.
+| Export | Returns a datum describing | Does not do |
+| --- | --- | --- |
+| `inputs` | Expected read patterns for the metadata queries | Read the filesystem or grant ambient authority |
+| `build` | Build recipes: file inputs, targets and dependencies between targets | Execute the build |
+| `launch` | Named server launches: built target references, arguments and options | Start programs |
+
+The IDE compiles and dynamically loads this library, obtains the input
+declaration, queries the descriptions and owns actual building and
+launching. Exact signatures, pattern grammar and returned recipe grammar
+remain open; this document does not prescribe Scheme forms for them.
+Plain folders may remain editable without the marker, but the IDE does
+not invent a project graph or launch menu for them.
+
+Both returned datums become one immutable **ProjectPlan**. At the metadata
+execution boundary, parse finite data into target recipes, resolve IDs and
+launch references, and establish a dependency order. Diagnose duplicate or
+unknown IDs, invalid target references and cycles before installing the
+plan. Reject procedure values in the returned data. Execution consumes
+these structured records; it does not interpret datums again on each build.
+Only the validated plan crosses a worker boundary, not arbitrary WasmGC
+`Datum` values. Publish the graph and launch menu together, never one from
+a new description and one from an old description.
+
+The graph describes dependencies between target outputs. Each compilation
+target keeps the compiler's existing library dependency tracking and
+session cache; metadata does not duplicate that import graph. Launch
+entries refer only to server artifacts. Compilation and loading still
+check their actual entry points and platform requirements.
+
+`project.sld` is the canonical source for both descriptions. A separate
+`launch.datum` is unnecessary. `.datum` remains the extension for any plain,
+non-executable S-expression data; the metadata functions return data, not
+JSON. No package hierarchy or deployment language is introduced.
+
+### Declared reads and a hermetic handler
+
+The IDE's trusted compiler loads metadata sources/imports/resources within
+fixed workspace and toolchain bounds. These bootstrap reads are separate
+from query authority. Runtime module/import initialization and `inputs`
+run with filesystem access unavailable: the declaration cannot depend on
+reads made before its policy exists.
+
+The IDE parses `inputs` into one read policy, then supplies the standard
+filesystem handler over a frozen view, unsaved buffers included. Reads
+outside the declared patterns and **all writes** from `build` or `launch`
+fail through that handler. The project does not need to implement its own
+handler. An optional reset/binder may narrow the IDE's authority, never
+expand it. Ambient time, environment and network access are unavailable;
+any later input capability must be explicit.
+
+The proposed standard filesystem handler must enforce resolved paths
+within the supplied snapshot, including `..` and symlink traversal. A
+string-prefix filter is insufficient; [cap-std's rooted directory model](https://github.com/sunfishcode/cap-std/blob/main/README.md#capability-based-security)
+illustrates this distinction, without prescribing a new dependency here.
+Today's `fs` effect includes writes and does not itself prove read-only or
+rooted access. This handler and pattern-based invalidation are new work, not
+an existing type guarantee or a claim of isolation from arbitrary foreign
+code.
+
+Use one fresh instance and one snapshot to query `build` and `launch`.
+Retain compiled-code caches; do not let old module globals become hidden
+inputs. Cache the parsed plan with its metadata compiler dependencies and
+declared read policy. These are distinct from the application's target
+and library dependencies.
+
+The **same parsed patterns** authorize reads and define the metadata watch
+scope. Conservatively requery when a matching path changes, appears or
+disappears, even if the queries did not read it. Watch for future matches,
+not only files present today; creation of a missing matching path matters.
+Metadata compiler inputs invalidate the description independently of this
+scope. A data-only change can reuse compiled metadata. Ordinary application
+edits reuse the plan unless they match the declared scope or metadata
+compiler inputs. Broad patterns intentionally cause more reevaluation;
+fine-grained observation tracing is an optional later optimization.
+
+On a failed query or plan parse, retain its attempted policy for retry
+when matching files change, without installing its candidate plan.
+Compilation or `inputs` failures retry when bootstrap inputs change; missing
+imports must not become permanently cached errors. A failed or stale
+description leaves the running server intact but cannot authorize a new
+launch or automatic restart as the current project plan.
+
+## The IDE API
 
 The IDE API is a library boundary with these operations, whose
 spellings and wire representation remain to be chosen:
@@ -50,8 +122,8 @@ spellings and wire representation remain to be chosen:
 | Connect / observe the IDE | An initial snapshot of its workspace's files, working buffers, builds and runs, followed by ordered changes and logs on one channel. |
 | Edit a buffer | Accept its exact text and return the new source revision. |
 | Save a buffer | Persist that revision; report a failure without discarding its text. |
-| Build a server entry | Return diagnostics or an immutable artifact bundle, labelled with the input revision. |
-| Launch an entry on an executor | Build the current revision, start that server and publish the address returned by its listener. |
+| Build a target | Execute its dependency closure from the current plan; return diagnostics or immutable artifacts with plan and source revision. |
+| Launch a named server on an executor | Build its target closure, start the server and publish the address returned by its listener. |
 | Restart a run | Obtain a successful build of the current revision, then replace the run with a fresh execution. |
 | Stop a run | Close its listener, terminate its execution and settle pending requests. |
 
@@ -76,17 +148,34 @@ format or a demand for a new content-addressed storage system.
 
 ```text
 Workspace = folder
-IDE state = workspace + buffers + revision + sessions + runs
+IDE state = workspace + buffers + revision + plan cache + target sessions + runs
+ProjectPlan = identity + linked target recipes + server launch entries
+Plan cache = metadata compiler inputs + declared read policy + ProjectPlan
 Session(entry) = compiler session + revision-labelled diagnostics + last good build
-Build = entry + input revision + immutable server and resource artifacts
+Build = plan identity + target + input revision + immutable artifacts
 Run = fresh ID + chosen Build + execution handle + listening address
 ```
 
 One session builds one entry at a time. Edits during a build queue the
 latest revision, rather than parallel builds of the same session.
+Ordinary application edits reuse the parsed project plan: visit affected
+targets in dependency order and retain each compile target's session.
+The compiler decides which imported libraries need recompilation. Exposing
+its dependency observations to the IDE is new integration work; a second
+library graph or a general scheduler framework is unnecessary. A small
+target set can be walked directly before adding any persistent reverse
+index. A new plan need not discard cached results for unchanged recipes
+and inputs.
+
 Diagnostics retain their revision, so an old error cannot become a squiggle
 on unrelated new text. The UI distinguishes edited text, the last build and
 the running build. A fresh run ID distinguishes executions of the same build.
+Before launch or automatic replacement, require the current plan, selected
+source revision and still-valid launch intent. Invalidate this eligibility
+as soon as metadata becomes stale, not only when a new plan installs.
+An older completion may remain useful in the cache or for an explicitly
+chosen historical run; it cannot replace the server after a newer edit or
+plan is known. Target IDs alone do not identify an artifact across plans.
 
 Saved files and working buffers have different lifetimes. Persist working
 text for recovery in browser storage, and mark disk Save successful only
@@ -102,24 +191,21 @@ server serves them through its normal request handler; neither the launch
 request nor the IDE carries a separate client target. All resources used
 by a run remain pinned to its build, including lazily requested assets.
 
-For the first transport proof, include a prebuilt client bundle as ordinary
-server resources. This proves that the server serves those exact bytes. It
-does **not** prove that editing their upstream Lofi source rebuilds them.
+A project graph can compile a client target and include its output in the
+server's resource bundle. The launch menu still starts only the server.
+All targets needed for that bundle use the same frozen inputs; failed
+client compilation or bundling prevents publication of the candidate.
+The server reads its pinned resources and answers the actual requests.
 
-Live client editing is the next build milestone. Use a server-owned
-generated resource dependency to compile its client source against the
-same frozen inputs, then make its output available to server compilation.
-Any client compilation or resource generation failure fails the enclosing
-build. Reuse the existing `generate-library` mechanism if its portable
-operations suffice; do not introduce another dependency notation first.
-
-This requires work: today's incremental loop cannot execute producers.
-The proof must establish portable recipe execution in both hosts, a
-separate compiler session for a requested client entry, dependency
-invalidation when its inputs change, and outputs private to the candidate
-build until it succeeds. Whether the existing recipe API can express this
-cleanly is the principal open build question. Native shell commands are
-not browser capabilities.
+The first complete project proof must edit client source and rebuild the
+affected client/resource/server target closure. Prebuilt client bytes can
+test the request bridge earlier, but do not complete this build contract.
+Compilation and resource bundling are enough for that example; the exact
+recipe vocabulary remains open. Reuse compiler sessions and existing
+resource mechanisms where they fit, without making arbitrary shell
+execution a recipe primitive. Today's incremental loop cannot execute
+`generate-library` producers, and browser project-description loading and
+graph execution are also proposed work.
 
 ## Same decisions, different providers
 
@@ -233,8 +319,10 @@ compiler source-location and debugger work.
 
 ## Proofs and deliberate cuts
 
-First, build an unsaved server edit at a recorded revision and launch it on
-each local executor. It serves a small counter client and resources. Two
+Recognize a project by its root marker, query both exports and build a
+counter's client and server resource bundle from its linked plan on each
+local executor. An unsaved client or server edit reaches the served result
+through only the affected targets. Two
 clients share the server count but have distinct session identities. A
 failed build leaves that run usable; closing a client leaves it alive;
 Stop settles pending requests; Restart produces a new run and reset count.
@@ -242,14 +330,19 @@ With automatic restart enabled, a successful build replaces the run, a
 failed build preserves it, and Stop prevents a pending build from reviving
 it. A native connection to `this-browser://` fails explicitly.
 
-Next, compile a changed client dependency into the same candidate build as
-its server, in both placements. A failed client build must leave the old
-server and all its assets intact. This is the gate for claiming live client
-source editing through the IDE backend.
+Count metadata queries: an ordinary source edit reuses the plan, while a
+changed metadata import or matching file causes reevaluation. Check missing
+file creation/deletion, declaration and initialization restrictions, denied
+reads/writes, an invalid graph, a failed metadata
+query, a failed client build, and old-plan completions racing edits or Stop.
+Each failure must preserve the running server and its assets without
+presenting its old build as the current successful result.
 
-The design deliberately omits automatic target discovery, executable
-configuration, a package or deployment hierarchy, migration, and a general
-supervision framework. Optional launch data does not require those features.
-Explicit entry paths, build revisions and
-killable runs are enough to test the boundary. They cost convenience and
-state continuity, which can be added only when an example requires them.
+The remaining design choices are exact export signatures, pattern and
+recipe grammars, the initial recipe operations, and an optional reset/binder
+hook. The fixed boundary is input declaration, bounded executable description,
+parsed plan, then IDE-owned execution. Cut duplicate launch configuration,
+unconditional per-edit metadata evaluation, mandatory read tracing, a
+second compiler dependency graph, package
+or deployment hierarchies, migration and general supervision. The plan
+needs no more machinery to establish these contracts.
