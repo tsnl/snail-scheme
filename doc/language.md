@@ -199,6 +199,11 @@ not be imported. Effects with host defaults, such as `console` and `fs` from
 `(lofi io)`, need no handler at the top level of a program, and a test can
 handle `fs` to serve files from memory.
 
+The isolated [control-handler prototype](../prototypes/ctl/README.md) also
+accepts `(operation ctl type)`, with a typed final continuation argument in
+its handler clause. It uses a separate experimental host and is not part of
+the normal application, actor or command-line runtime contract.
+
 `extern` declares a total foreign function; the declaration is the boundary's
 unsafe assumption.
 

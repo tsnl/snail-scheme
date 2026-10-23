@@ -163,6 +163,19 @@
                  (list "node" "--no-warnings" (path-join root "tests/actors/check.mjs") program (build-crate root "assembler")))))
     (or (zero? (caddr result)) (report "actors" "failed" (string-append (car result) (cadr result))))))
 
+;; The prototype has its own host, but executes the normal compiler's Wasm.
+(define (compile-control root)
+  (guard (failure (#t (report "control prototype" "compile failed" (error-text failure))))
+    (let ((text (program->wat root (list (path-join root "tests/control/lib") (path-join root "lib")) (path-join root "tests/control/main.sld"))))
+      (lambda ()
+        (let ((program (path-join root "build/tests/control.wasm")))
+          (link-wat root text program #f)
+          (check-control root program))))))
+
+(define (check-control root program)
+  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/control/check.mjs") program))))
+    (or (zero? (caddr result)) (report "control prototype" "failed" (string-append (car result) (cadr result))))))
+
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld")) (marker "(struct.new $any (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
@@ -244,7 +257,13 @@
 
 (define (run-linked-cases root)
   (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
-          (list (run-linked-siegework root) (run-linked-app-runtime root) (run-linked-actors root))))
+          (list (run-linked-siegework root) (run-linked-app-runtime root) (run-linked-actors root) (run-linked-control root))))
+
+(define (run-linked-control root)
+  (guard (failure (#t (report "control prototype" "linked build failed" (error-text failure))))
+    (let ((output (path-join root "build/tests/linked/control")))
+      (build-modules root (list (path-join root "tests/control/lib") (path-join root "lib")) (path-join root "tests/control/main.sld") output)
+      (check-control root (path-join output "modules.json")))))
 
 (define (run-linked-actors root)
   (guard (failure (#t (report "actors" "linked build failed" (error-text failure))))
@@ -307,7 +326,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (compile-app-runtime root) (compile-actors root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (compile-app-runtime root) (compile-actors root) (compile-control root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))

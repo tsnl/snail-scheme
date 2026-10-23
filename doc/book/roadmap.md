@@ -85,6 +85,13 @@ rewrite. Pinned tools and the application main loop on JSPI are done;
 `ctl` operations, WebGPU through an effect, and the 2D and 3D `graphics`
 libraries remain proposed. Beyond them:
 
+- [ ] Evaluate the isolated [control-handler prototype](https://github.com/tsnl/snail-scheme/tree/prototype/ctl-handlers/prototypes/ctl):
+  it checks and executes single-shot `ctl` operations on JSPI, including
+  cancellation and dynamic-context switching, but is not integrated with
+  actors, applications or the IDE. Resolve managed asynchronous-import
+  registration, external resource cancellation and the continuation type
+  contract before treating milestone 3 as implemented.
+
 - [ ] Actor worker pools for physical parallelism, with transfer between
   distinct memory domains; the current host uses one JS execution agent.
 - [ ] Network actor transport, cancellation, supervision and backpressure.

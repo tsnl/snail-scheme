@@ -1083,28 +1083,35 @@
     (define (declare-effect! cx env form)
       (match form
         ((Form (Cons _ (Cons name (Cons operations host))) _)
-         (let ((id (match (resolve cx env name) ((Some (EffectName id)) id) (_ (panic "internal error: effect")))))
-           (add-effect! (Context-program cx)
-                        (Effect id
-                                (map (lambda (operation) (declare-operation! cx env id operation))
-                                     (form-items operations "a list of operations"))
-                                (match host
-                                  ((Cons clause (Nil)) (host-defaults cx env clause))
-                                  (_ (Nil)))))))
+         (let* ((id (match (resolve cx env name) ((Some (EffectName id)) id) (_ (panic "internal error: effect"))))
+                (names (map (lambda (operation) (declare-operation! cx env id operation)) (form-items operations "a list of operations")))
+                (defaults (match host ((Cons clause (Nil)) (host-defaults cx env clause)) (_ (Nil)))))
+           (when (any? (lambda (entry) (control-operation? (program cx) (Pair-first entry))) defaults)
+             (compile-error (syntax-loc form) "the ctl prototype requires a language handler, not a host default"))
+           (add-effect! (Context-program cx) (Effect id names defaults))))
         (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))"))))
 
     (: declare-operation! (-> Context Env String Syntax String ! mut))
     (define (declare-operation! cx env effect operation)
       (match operation
         ((Form (Cons name (Cons type (Nil))) _)
-         (match (resolve-scheme cx env type)
-           ((Scheme vars constraints (TFun params result (TRow (Nil) (None))))
-            (let ((global (global-binding cx env name)))
-              (add-value! (Context-program cx) global
-                          (Operation effect (Scheme vars constraints (TFun params result (TRow (list effect) (None))))))
-              global))
-           (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
-        (_ (compile-error (syntax-loc operation) "expected (operation type)"))))
+         (declare-operation-type! cx env effect name type #f))
+        ((Form (Cons name (Cons (Ident mode _ _) (Cons type (Nil)))) loc)
+         (unless (member? mode (list "fun" "ctl")) (compile-error loc "an operation mode is fun or ctl"))
+         (declare-operation-type! cx env effect name type (string=? mode "ctl")))
+        (_ (compile-error (syntax-loc operation) "expected (operation [fun|ctl] type)"))))
+
+    (: declare-operation-type! (-> Context Env String Syntax Syntax Bool String ! mut))
+    (define (declare-operation-type! cx env effect name type control?)
+      (match (resolve-scheme cx env type)
+        ((Scheme vars constraints (TFun params result (TRow (Nil) (None))))
+         (when (and control? (or (not (null? vars)) (not (null? constraints))))
+           (compile-error (syntax-loc type) "the ctl prototype requires a monomorphic operation"))
+         (let ((global (global-binding cx env name)))
+           (add-value! (Context-program cx) global
+                       (Operation effect control? (Scheme vars constraints (TFun params result (TRow (list effect) (None))))))
+           global))
+        (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
 
     (: host-defaults (-> Context Env Syntax (List (Pair String Import)) ! mut))
     (define (host-defaults cx env syntax)
