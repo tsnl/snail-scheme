@@ -6,8 +6,8 @@
 > and [actor host](https://github.com/tsnl/snail-scheme/blob/main/doc/actors.md)
 > supply parts of it.
 
-A **workspace** is the folder being worked on, whether on disk or in the
-browser's virtual files. One **IDE instance** manages exactly one workspace.
+A **workspace** is the single folder being worked on, whether on disk or in
+the browser's virtual files. One **IDE instance** manages exactly one workspace.
 Its backend owns working buffers, file watching, compiler sessions,
 diagnostics and application runs. Managing multiple workspaces or switching
 an instance between folders is out of scope.
@@ -26,12 +26,21 @@ action and may create several clients of the same server.
 
 ## One root, ordinary source files
 
-Start with a folder and the existing library search roots. There is no
-workspace file. Launch accepts an explicitly chosen server source path;
-the UI can remember the last choice. There is no target registry,
+Start with a folder and the existing library search roots. The folder needs
+no workspace-definition file. Launch initially accepts an explicitly chosen
+server source path; the UI can remember the last choice. There is no
 automatic application discovery or package hierarchy. Existing
 `main.sld` conventions remain useful where the entry is a server; today's
 `(lofi app)` entries do not become servers by renaming them.
+
+Optional named launch configurations would be **S-expression data in a
+`.datum` file**, with `launch.datum` as a provisional name. Parse that data
+into launch records at the IDE boundary; do not evaluate it as Scheme,
+expand macros or run shell hooks. It describes launches within this one
+workspace, not a workspace-definition program. The exact filename,
+location and schema, and whether named configurations belong in the first
+milestone, remain open. This does not change existing JSON files or the
+binary application wire format.
 
 The IDE API is a library boundary with these operations, whose
 spellings and wire representation remain to be chosen:
@@ -238,8 +247,9 @@ its server, in both placements. A failed client build must leave the old
 server and all its assets intact. This is the gate for claiming live client
 source editing through the IDE backend.
 
-The design deliberately omits discovery/configuration machinery, a package
-or deployment hierarchy, migration, and a general supervision framework.
+The design deliberately omits automatic target discovery, executable
+configuration, a package or deployment hierarchy, migration, and a general
+supervision framework. Optional launch data does not require those features.
 Explicit entry paths, build revisions and
 killable runs are enough to test the boundary. They cost convenience and
 state continuity, which can be added only when an example requires them.
