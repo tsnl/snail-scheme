@@ -146,8 +146,9 @@ of its new service or server-listener APIs are implemented yet.
 - [ ] Launch only a server entry; the server serves its client and assets.
   Prove this with prebuilt client resources, then compile server-owned
   client dependencies at the same revision in both hosts.
-- [ ] Explicit Stop and Restart using isolated run workers/processes;
-  restart resets state. State-preserving server reload remains separate.
+- [ ] Stop and Restart using isolated run workers/processes; manual restart
+  is the default, with an optional policy to restart after a successful
+  build. Both reset state; state-preserving server reload remains separate.
 - [ ] Browser-local `this-browser://` endpoints with explicit unsupported
   transport errors, and transfer through derived binary codecs.
 - [ ] Placement independent of the workspace: transfer artifacts to an
