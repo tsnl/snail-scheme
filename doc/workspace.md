@@ -13,11 +13,12 @@ diagnostics and application runs. Managing multiple workspaces or switching
 an instance between folders is out of scope.
 
 The IDE backend runs as a native IDE server or inside a static browser
-playground. It subsumes the current watch/compile loop. The IDE frontend
-and CLI clients use the same IDE API: file watching and buffer edits feed
-one revision/build path. Compiler workers are internal, isolated from the
-backend's control event loop. Public endpoints belong to the IDE or to
-user applications; an application server serves its own clients.
+playground. It subsumes the current watch/compile loop and uses the same
+core project/build engine as the ordinary CLI. The IDE frontend talks to
+the backend; a one-shot CLI build needs no HTTP frontend or running IDE
+service. Compiler workers are internal, isolated from the backend's control
+event loop. Public endpoints belong to the IDE or to user applications;
+an application server serves its own clients.
 
 Launching names **only a server program**. The server chooses the page,
 client code and assets returned to requests. A successful launch reports
@@ -43,6 +44,13 @@ remain open; this document does not prescribe Scheme forms for them.
 Plain folders may remain editable without the marker, but the IDE does
 not invent a project graph or launch menu for them.
 
+**Proposed CLI:** `lofi build DIRECTORY` finds `DIRECTORY/project.sld` and
+uses this same metadata loader, policy, parsed plan and build engine.
+Existing file-level compilation can remain. One project may contain
+several applications and build targets; all target references in this
+design stay within that project. There are no cross-project references,
+package resolution or multi-workspace management.
+
 Both returned datums become one immutable **ProjectPlan**. At the metadata
 execution boundary, parse finite data into target recipes, resolve IDs and
 launch references, and establish a dependency order. Diagnose duplicate or
@@ -53,7 +61,7 @@ Only the validated plan crosses a worker boundary, not arbitrary WasmGC
 `Datum` values. Publish the graph and launch menu together, never one from
 a new description and one from an old description.
 
-The graph describes dependencies between target outputs. Each compilation
+The graph describes dependencies between named target outputs. Each compilation
 target keeps the compiler's existing library dependency tracking and
 session cache; metadata does not duplicate that import graph. Launch
 entries refer only to server artifacts. Compilation and loading still
@@ -207,6 +215,31 @@ execution a recipe primitive. Today's incremental loop cannot execute
 `generate-library` producers, and browser project-description loading and
 graph execution are also proposed work.
 
+### Artifact references are checked while building
+
+A server refers to another target's **named output within this project**,
+not a build-cache pathname. A build-time macro resolves literal names
+against the project graph during expansion; its spelling is still open.
+It binds the resolved artifact value or read-only resource into the frozen
+server bundle. No runtime string registry searches for the client binary
+on the first request.
+
+The reference establishes a real build edge. Check it with the declared
+target dependencies before completing the dependent server build: missing
+targets or outputs, output-kind mismatches, cycles and producer failures
+are build diagnostics that prevent launch. Artifact edges discovered by
+expansion belong to that build's dependency evidence; they do not require
+rerunning the metadata functions. A changed producer output invalidates
+the dependent server compilation/bundle. CLI and IDE use the same checks
+and failure behavior.
+
+Generated dependency artifacts occupy an explicit read-only artifact
+namespace supplied by the build engine. The `inputs` patterns govern
+metadata source/external reads, not generated outputs: do not watch the
+build cache directory or create a rebuild feedback loop. Compiler sessions
+continue discovering ordinary library dependencies; project authors do
+not repeat every import in the target graph.
+
 ## Same decisions, different providers
 
 Keep IDE backend decisions in Lofi and bind their I/O through platform
@@ -329,6 +362,13 @@ Stop settles pending requests; Restart produces a new run and reset count.
 With automatic restart enabled, a successful build replaces the run, a
 failed build preserves it, and Stop prevents a pending build from reviving
 it. A native connection to `this-browser://` fails explicitly.
+
+Use the same project through the proposed CLI and persistent IDE engine,
+with more than one launchable application. Check intra-project artifact
+references for missing target/output, kind mismatch, cycles and failed
+producers. Every case fails the dependent server build before launch,
+while a producer edit updates its consumers without repeating metadata
+queries unnecessarily.
 
 Count metadata queries: an ordinary source edit reuses the plan, while a
 changed metadata import or matching file causes reevaluation. Check missing
