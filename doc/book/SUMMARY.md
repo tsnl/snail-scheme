@@ -12,6 +12,7 @@
   - [Actors and their host](lofi/actors.md)
   - [Development toolchain](lofi/toolchain.md)
   - [IDE backend proposal](lofi/workspace.md)
+  - [IDE browser documents proposal](lofi/ide-workspace.md)
   - [Notable omissions](lofi/omissions.md)
   - [References](lofi/references.md)
 - [Tutorials](lofi/tutorials/index.md)

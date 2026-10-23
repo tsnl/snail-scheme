@@ -49,7 +49,8 @@ describe proposed behavior, kept apart from what is implemented.
    [plan](graphics/plan.md): `ctl` operations, then WebGPU through an effect
    and the 2D and 3D graphics libraries.
 2. An IDE backend for one workspace's files, builds and application runs,
-   following the [proposed contract](lofi/workspace.md).
+   following the [proposed contract](lofi/workspace.md), and
+   [browser documents in the IDE](lofi/ide-workspace.md).
 3. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
 
@@ -179,6 +180,14 @@ the application relinked beside the editor
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md),
 section 7). Not implemented:
 
+- [ ] General browser documents beside file documents in the split layout,
+  with an address bar and palette actions to launch a server, open another
+  client, split and pin. Replace the special preview dock while retaining
+  live iframe instances across layout changes; see the
+  [IDE proposal](lofi/ide-workspace.md).
+- [ ] A real browser-local request bridge: root HTML, client code, assets
+  and API replies come from the launched server. Prove two clients and
+  failure/lifetime behavior before cross-tab hosting or IDE self-development.
 - [ ] Previews inlaid in the editor panes: each preview compiled as its own
   module and loaded through `(lofi wasm)`, rerun when what it depends on
   changes, with no manual order.
