@@ -48,7 +48,8 @@ describe proposed behavior, kept apart from what is implemented.
 1. The runtime and graphics rewrite, from milestone 3 of its
    [plan](graphics/plan.md): `ctl` operations, then WebGPU through an effect
    and the 2D and 3D graphics libraries.
-2. Previews inlaid in the IDE's editor panes (below).
+2. A workspace service for files, builds and server runs, following the
+   [proposed contract](lofi/workspace.md).
 3. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
 
@@ -134,6 +135,23 @@ Not implemented:
   relinking through `save` and `restore` instead of handing them over.
 - [ ] Release builds in a browser, with Binaryen compiled to WebAssembly if
   its threads and exceptions can be tamed.
+
+### Workspace
+
+The [workspace proposal](lofi/workspace.md) extends the existing loop; none
+of its new service or server-listener APIs are implemented yet.
+
+- [ ] Revision-labelled builds from frozen files and unsaved buffers, with
+  workspace-owned server runs on native and browser providers.
+- [ ] Launch only a server entry; the server serves its client and assets.
+  Prove this with prebuilt client resources, then compile server-owned
+  client dependencies at the same revision in both hosts.
+- [ ] Explicit Stop and Restart using isolated run workers/processes;
+  restart resets state. State-preserving server reload remains separate.
+- [ ] Browser-local `this-browser://` endpoints with explicit unsupported
+  transport errors, and transfer through derived binary codecs.
+- [ ] Placement independent of the workspace: transfer artifacts to an
+  explicitly connected executor after the two local placements work.
 
 ### IDE
 
