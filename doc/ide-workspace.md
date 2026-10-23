@@ -6,8 +6,9 @@
 
 One IDE instance manages one workspace folder. Its frontend edits files
 and browses running applications; its backend owns the buffers,
-watch/compile loop and application runs through the same API used by CLI
-clients. There is no workspace-switching UI or multi-workspace manager.
+watch/compile loop and application runs using the same core project/build
+engine as the CLI. A one-shot CLI build needs no IDE service. There is no
+workspace-switching UI or multi-workspace manager.
 A browser document is a peer of a file document in the same split layout.
 The IDE backend launches a server, the server publishes an address, and
 the user opens that address once or several times. The server answers the
@@ -33,6 +34,10 @@ export declares metadata read patterns; under the IDE-supplied filesystem
 handler, `build` and `launch` return the build graph and launch menu as
 data. The palette lists those server launches, not a separate client target
 or `launch.datum`. Description functions do not build or start programs.
+One project may offer several applications. Client bundles referenced by a
+server are named outputs of targets in that same project, resolved and
+checked during building; missing artifacts fail before launch. There is
+no cross-project artifact lookup in this scope.
 
 Two views of a file share a buffer. Two browser views of an address start
 distinct clients of the same server. Splitting or moving an existing
@@ -229,6 +234,9 @@ to deliver the first backend and browser documents.
    code or a matching input change requeries. Check pattern errors, denied
    reads/writes, initialization/`inputs` restrictions, future matching
    files and stale-plan completions.
+   Run the same project through the CLI core and IDE backend; missing
+   target/output, output-kind mismatch, cycle and producer failure must
+   fail the dependent server build identically, before any client request.
 4. **Documents.** Split code beside two browser documents; pin, resize and
    move them without a reload or new client identity. Closing one client
    leaves the other and the server alive. Restart visibly resets the run.
