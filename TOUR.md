@@ -42,7 +42,8 @@ and keeps state that grows over a whole pass in a `Ref`.
   wire cases and `Any` values from one FNV-1a hash, and the strongly
   connected components that the checker and the backend share. A `Program`
   is a value: the expander builds it in one cell, and the later passes read
-  it without effects.
+  it without effects. On the control-prototype branch, operation declarations
+  also retain their `fun`/`ctl` mode.
 - **[`expand.sld`](src/lofi/compiler/expand.sld)** is the only pass that
   knows binding forms. It loads libraries, replacing each `include-bytes`
   with the byte vector literal of its file, resolves every identifier through
@@ -66,7 +67,8 @@ and keeps state that grows over a whole pass in a `Ref`.
   with Maranget's usefulness algorithm. A function whose type forbids `mut`
   may mutate storage it allocates; once types are final, nothing it can
   reach from outside, its parameters, result or names it reads, may hold
-  mutable storage.
+  mutable storage. The control prototype checks a clause's final continuation
+  against the operation result, whole handled answer and residual effect row.
 - **[`mono.sld`](src/lofi/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
@@ -88,6 +90,8 @@ and keeps state that grows over a whole pass in a `Ref`.
   the host can restore an entry's context after it settles. Shared-message
   conversions prove deep immutability on concrete types before using the
   opaque boundary, and check the type and GC representation on recovery.
+  Its prototype control section emits typed body, clause and continuation
+  adapters for a separate JSPI host; ordinary operations keep direct calls.
 - **[`session.sld`](src/lofi/compiler/session.sld)** keeps the compiler
   running between builds: the expander replays libraries whose declarations
   and imports' interfaces are unchanged, and only libraries whose expansion
@@ -111,6 +115,7 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `src/assembler/`, `scripts/assemble.mjs` | The in-process assembler: the `wat` crate built for `wasm32-wasip1`, turning WebAssembly text into a module without Binaryen, under Node or in a browser. `scripts/assemble.mjs` binds it for the loop's hosts; programs never carry it. |
 | `scripts/run-lofi.mjs` | Runs a compiled program, or a `modules.json` of linked modules, under Node's WASI, in a worker with room for deep recursion; it provides `(lofi wasm)`'s loading. |
 | `src/app/actors.mjs`, `lib/lofi/actor.sld` | The general host and typed actor boundary: independent instances, startup reservations, request mailboxes and drain; immutable local messages or derived binary transport. The shared entry helper owns effect-handler restoration for both actors and applications; `node-host.mjs` keeps the Node process alive until drain. See [actors](doc/actors.md). |
+| `prototypes/ctl/` | Experimental single-shot control handlers, separate from the production hosts. The host schedules every physical JSPI stack with its handler context, routes logical answers and cancels/joins abandoned bodies. [The prototype note](prototypes/ctl/README.md) records the contract, restrictions and open decisions; `tests/control/` executes it in Node and Chromium. |
 | `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (one metallic-roughness shader for meshes and sprites, textures, upright and flat sprites, frame strips, perspective or orthographic, glow, motion between ticks, translucent and revealed batches), `pictures.mjs` (images decoded from the bytes a program sends, composed into textures with color swaps), the keyed HUD with image widgets, and saves. `load.mjs` runs Lofi programs the same way in Node and browsers: a WASI shim, linking a program compiled one library at a time and relinking it from a changed module (`relinkProgram`), the binding of named commands, and the reader of the loop's events and manifests. `runtime.mjs` owns queued application events, asynchronous storage and checkpoint recovery, using the shared JSPI entry helper; its stable imports survive library relinks. `host.mjs` owns the page's durable renderer, pictures and HUD, enqueues DOM input, relinks every running application (`relinkAll`) after its old loop settles, and exports its screen binding for headless tests. `reload.sld` is the reload client, a Lofi program that compares build manifests and decides what a page does; `reload-client.mjs` binds it, and `reload.mjs` adds it to the pages `lofi serve` serves. |
 | `src/ide/`, `scripts/build-ide.scm` | The browser IDE. `develop.sld` is the development loop with its files in the worker, through a handler of `fs`, and `toolchain.mjs` the worker; `format.sld` is the formatter as a program; `ide.mjs` lays out the toolbar, docks and files, `panes.mjs` the tree of panes, `editor.mjs` one pane, `project.mjs` keeps projects and folders, and `preview.mjs` runs the application in a frame. `build-ide.scm` packages it as a static site. |
 | `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
