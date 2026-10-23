@@ -1,20 +1,23 @@
-# A workspace for editing, building and running servers
+# An IDE backend for one workspace
 
-> **Proposed.** This document specifies a small workspace service. It does
+> **Proposed.** This document specifies the IDE backend. It does
 > not describe an implemented API. The existing
 > [toolchain](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md)
 > and [actor host](https://github.com/tsnl/snail-scheme/blob/main/doc/actors.md)
 > supply parts of it.
 
-A workspace owns a folder's files, working buffers, compiler sessions,
-diagnostics and running servers. It can live in a native development
-service or a static browser playground. The IDE uses that service; an
-application server serves its own clients.
+A **workspace** is the folder being worked on, whether on disk or in the
+browser's virtual files. One **IDE instance** manages exactly one workspace.
+Its backend owns working buffers, file watching, compiler sessions,
+diagnostics and application runs. Managing multiple workspaces or switching
+an instance between folders is out of scope.
 
-This service subsumes the current watch/compile loop and the IDE backend.
-CLI and IDE clients use the same workspace API: file watching and buffer
-edits feed one revision/build path. The compiler and server runs remain
-isolated from the service's control event loop.
+The IDE backend runs as a native IDE server or inside a static browser
+playground. It subsumes the current watch/compile loop. The IDE frontend
+and CLI clients use the same IDE API: file watching and buffer edits feed
+one revision/build path. Compiler workers are internal, isolated from the
+backend's control event loop. Public endpoints belong to the IDE or to
+user applications; an application server serves its own clients.
 
 Launching names **only a server program**. The server chooses the page,
 client code and assets returned to requests. A successful launch reports
@@ -30,12 +33,12 @@ automatic application discovery or package hierarchy. Existing
 `main.sld` conventions remain useful where the entry is a server; today's
 `(lofi app)` entries do not become servers by renaming them.
 
-The workspace API is a library boundary with these operations, whose
+The IDE API is a library boundary with these operations, whose
 spellings and wire representation remain to be chosen:
 
 | Operation | Result and owner |
 | --- | --- |
-| Open / observe a workspace | An initial snapshot of files, working buffers, builds and runs, followed by ordered changes and logs on one channel. |
+| Connect / observe the IDE | An initial snapshot of its workspace's files, working buffers, builds and runs, followed by ordered changes and logs on one channel. |
 | Edit a buffer | Accept its exact text and return the new source revision. |
 | Save a buffer | Persist that revision; report a failure without discarding its text. |
 | Build a server entry | Return diagnostics or an immutable artifact bundle, labelled with the input revision. |
@@ -63,7 +66,8 @@ later edits cannot change them. A revision identifies inputs, not a cache
 format or a demand for a new content-addressed storage system.
 
 ```text
-Workspace = files + buffers + revision + sessions + runs
+Workspace = folder
+IDE state = workspace + buffers + revision + sessions + runs
 Session(entry) = compiler session + revision-labelled diagnostics + last good build
 Build = entry + input revision + immutable server and resource artifacts
 Run = fresh ID + chosen Build + execution handle + listening address
@@ -110,19 +114,19 @@ not browser capabilities.
 
 ## Same decisions, different providers
 
-Keep workspace decisions in Lofi and bind their I/O through platform
+Keep IDE backend decisions in Lofi and bind their I/O through platform
 providers. Reuse the existing compiler sessions and development loop where
-they fit; the workspace is not another compiler pass. Keep compilation
-off the service's control event loop, so editing, Stop and application
-requests remain responsive.
+they fit; the IDE backend is not another compiler pass. Keep compilation
+off its control event loop, so editing, Stop and application requests
+remain responsive.
 
-| Responsibility | Native workspace | Browser workspace |
+| Responsibility | Native IDE server | Browser-local IDE backend |
 | --- | --- | --- |
 | Files and recovery | Folder, working overlay and file watching | Virtual files and persisted working buffers; granted folder access where available |
 | Compiler | Isolated compiler execution | Compiler worker |
 | Server run | Node child process hosting Wasm actors | Dedicated worker hosting Wasm actors |
 | Listener | HTTP(S) provider backed by a real network listener | Browser-local request provider and HTTP(S) bridge |
-| Workspace lifetime | Development service; it may serve the IDE frontend | Owning IDE tab; ending that tab ends its runs |
+| IDE backend lifetime | IDE server; it also serves the frontend | Owning IDE tab; ending that tab ends its runs |
 
 The browser's coordinator can run in the owner page; it needs no extra
 worker just to forward commands. Application requests go to the run's
@@ -132,10 +136,10 @@ JavaScript execution agent, and does not yet supply cross-worker transport
 or cancellation. Separate run workers/processes are the first version's
 termination boundary, not an actor thread pool.
 
-Workspace placement and application placement are separate choices. An
+IDE backend placement and application placement are separate choices. An
 executor consumes a server build and supplies its required capabilities;
-the default executor is local to the workspace. The first proof covers
-native/native and browser/browser. Executing a native workspace's build in
+the default executor is local to the IDE backend. The first proof covers
+native/native and browser/browser. Executing a native IDE server's build in
 an attached browser, or a browser build on a connected native executor,
 requires explicit artifact transfer and executor connection later. Opening
 an already-running HTTP(S) server needs neither remote launching nor a
@@ -155,7 +159,7 @@ work, not assumptions of this API.
 | Address | Meaning |
 | --- | --- |
 | `http://…` or `https://…` | A network endpoint, subject to ordinary browser policy. |
-| `this-browser://<workspace>/<run>/…` | An endpoint in the current browser workspace context; its meaning does not travel to another machine or browser partition. |
+| `this-browser://<ide>/<run>/…` | An endpoint in the current browser IDE instance; its meaning does not travel to another machine or browser partition. |
 
 Parse the address once into a network or browser-local endpoint and select
 its provider explicitly. A host without browser-local transport returns
@@ -183,7 +187,7 @@ error, not a reason to cast an unverified payload.
 
 A run owns its listener and execution. A client document owns one client
 session. Closing the last client leaves the server running; Stop belongs
-to the workspace. Run-to-empty actor lifetime is not a stop primitive:
+to the IDE backend. Run-to-empty actor lifetime is not a stop primitive:
 suspended actors and children may still be alive.
 
 The first Stop closes admission, retires the run ID, terminates its worker
@@ -232,7 +236,7 @@ it. A native connection to `this-browser://` fails explicitly.
 Next, compile a changed client dependency into the same candidate build as
 its server, in both placements. A failed client build must leave the old
 server and all its assets intact. This is the gate for claiming live client
-source editing through the workspace.
+source editing through the IDE backend.
 
 The design deliberately omits discovery/configuration machinery, a package
 or deployment hierarchy, migration, and a general supervision framework.

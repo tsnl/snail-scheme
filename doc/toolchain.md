@@ -281,10 +281,10 @@ format-on-save, splits a pane, and opens a folder.
 
 ## 8. What is left
 
-The [workspace proposal](workspace.md)
-describes a future service that owns working buffers, revision-labelled
-builds and server runs on native and browser providers. It is not part of
-the implemented loop described above.
+The [IDE backend proposal](workspace.md)
+describes one IDE instance managing one workspace folder, with working
+buffers, revision-labelled builds and server runs on native and browser
+providers. It is not part of the implemented loop described above.
 
 The book's [roadmap](book/roadmap.md) lists the open work: the build cache
 on disk, interfaces as generated headers, `(lofi wasm)` in browsers,
