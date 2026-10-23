@@ -11,6 +11,11 @@ diagnostics and running servers. It can live in a native development
 service or a static browser playground. The IDE uses that service; an
 application server serves its own clients.
 
+This service subsumes the current watch/compile loop and the IDE backend.
+CLI and IDE clients use the same workspace API: file watching and buffer
+edits feed one revision/build path. The compiler and server runs remain
+isolated from the service's control event loop.
+
 Launching names **only a server program**. The server chooses the page,
 client code and assets returned to requests. A successful launch reports
 `Application running at <address>`. Opening that address is a separate
@@ -18,10 +23,10 @@ action and may create several clients of the same server.
 
 ## One root, ordinary source files
 
-Start with a folder and the existing library search roots. Launch accepts
-an explicitly chosen server source path; the UI can remember the last
-choice. There is no target registry, automatic application discovery,
-package hierarchy or new `project.scm` configuration language. Existing
+Start with a folder and the existing library search roots. There is no
+workspace file. Launch accepts an explicitly chosen server source path;
+the UI can remember the last choice. There is no target registry,
+automatic application discovery or package hierarchy. Existing
 `main.sld` conventions remain useful where the entry is a server; today's
 `(lofi app)` entries do not become servers by renaming them.
 
@@ -35,13 +40,15 @@ spellings and wire representation remain to be chosen:
 | Save a buffer | Persist that revision; report a failure without discarding its text. |
 | Build a server entry | Return diagnostics or an immutable artifact bundle, labelled with the input revision. |
 | Launch an entry on an executor | Build the current revision, start that server and publish the address returned by its listener. |
-| Restart a run | Build the current revision, then replace the run with a fresh execution. |
+| Restart a run | Obtain a successful build of the current revision, then replace the run with a fresh execution. |
 | Stop a run | Close its listener, terminate its execution and settle pending requests. |
 
 A compiler error makes Launch or Restart fail before changing a running
 server. Running an older successful build is an explicit choice with its
-revision shown. Build completion alone does not restart a server in the
-first version.
+revision shown. Manual restart is the default. A run may opt into restart
+after a successful build, using that completed build and the same cold
+replacement rules as manual Restart; it does not queue another build.
+A failed build leaves the current run untouched.
 
 The snapshot and following events have no gap. Notifications identify
 their source revision, build entry or run as appropriate; reconnecting
@@ -190,10 +197,13 @@ Reserve a launch identity before asynchronous build/startup, so Stop can
 also cancel a pending launch. Launch creates an independent run; Restart
 replaces a specified run. Stop or a newer Restart supersedes a pending
 replacement. Its late completion must close any acquired resources, not
-start or publish a server afterward.
+start or publish a server afterward. Explicit Stop also disables automatic
+replacement until another Launch; a pending or subsequent build cannot
+bring the stopped server back.
 
-Restart builds first. If that succeeds, stop the old run and start a fresh
-one with a fresh address. This permits downtime and resets server state.
+Restart first obtains a successful build, or uses the build that triggered
+the automatic policy. Then stop the old run and start a fresh one with a
+fresh address. This permits downtime and resets server state.
 A startup failure is distinct from a build failure; retain the last good
 artifacts for another explicit launch. Old requests and old addresses never
 silently reach the new run. Retain artifacts while a session's last good
@@ -215,7 +225,9 @@ each local executor. It serves a small counter client and resources. Two
 clients share the server count but have distinct session identities. A
 failed build leaves that run usable; closing a client leaves it alive;
 Stop settles pending requests; Restart produces a new run and reset count.
-A native connection to `this-browser://` fails explicitly.
+With automatic restart enabled, a successful build replaces the run, a
+failed build preserves it, and Stop prevents a pending build from reviving
+it. A native connection to `this-browser://` fails explicitly.
 
 Next, compile a changed client dependency into the same candidate build as
 its server, in both placements. A failed client build must leave the old
@@ -223,7 +235,7 @@ server and all its assets intact. This is the gate for claiming live client
 source editing through the workspace.
 
 The design deliberately omits discovery/configuration machinery, a package
-or deployment hierarchy, automatic server replacement, migration, and a
-general supervision framework. Explicit entry paths, build revisions and
+or deployment hierarchy, migration, and a general supervision framework.
+Explicit entry paths, build revisions and
 killable runs are enough to test the boundary. They cost convenience and
 state continuity, which can be added only when an example requires them.
