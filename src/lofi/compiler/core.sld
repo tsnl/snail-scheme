@@ -106,6 +106,7 @@
    Replacer
    Method
    Operation
+   control-operation?
    Primitive
    Foreign
    value-scheme
@@ -556,6 +557,7 @@
         (scheme Scheme)))
       (Operation
        ((effect String)
+        (control? Bool)
         (scheme Scheme)))
       (Primitive
        ((scheme Scheme)))
@@ -573,9 +575,15 @@
         ((Accessor _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
         ((Method _ scheme) (Some scheme))
-        ((Operation _ scheme) (Some scheme))
+        ((Operation _ _ scheme) (Some scheme))
         ((Primitive scheme) (Some scheme))
         ((Foreign _ scheme) (Some scheme))))
+
+    (: control-operation? (-> Program String Bool))
+    (define (control-operation? program name)
+      (match (program-value program name)
+        ((Some (Operation _ control? _)) control?)
+        (_ #f)))
 
     ;; Top-level items run in order when the program starts. An exposed
     ;; function is exported to the host under `symbol`.
