@@ -11,7 +11,7 @@
   - [Application model](lofi/applications.md)
   - [Actors and their host](lofi/actors.md)
   - [Development toolchain](lofi/toolchain.md)
-  - [Workspace proposal](lofi/workspace.md)
+  - [IDE backend proposal](lofi/workspace.md)
   - [Notable omissions](lofi/omissions.md)
   - [References](lofi/references.md)
 - [Tutorials](lofi/tutorials/index.md)
