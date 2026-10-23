@@ -4,7 +4,9 @@
 > It changes no implementation yet. Today's static IDE has editor panes
 > and a special preview dock; its worker already compiles unsaved edits.
 
-The IDE edits workspace files and browses running applications. A browser
+The IDE is a client of the workspace service, which also owns the CLI's
+watch/compile loop; it does not maintain a separate backend. The IDE edits
+workspace files and browses running applications. A browser
 document is a peer of a file document in the same split layout. The
 workspace launches a server, the server publishes an address, and the user
 opens that address once or several times. The server answers the clients'
@@ -141,9 +143,13 @@ accepted revision. Saving persists the buffer; it is not a prerequisite
 for compilation. Show build failures and stale diagnostics against their
 revisions while the last good server continues serving its pinned assets.
 
-For the initial server workflow, a successful build makes Restart
-available. Restart is a cold replacement: close the old run, start the new
-one and navigate its open IDE documents to the corresponding new address.
+Manual restart is the default: a successful build makes Restart available.
+A run can instead opt into restarting after a successful build, consuming
+that build without compiling again. Both use cold replacement: close the
+old run, start the new one and navigate its open IDE documents to the
+corresponding new address. A failed build leaves the running server alone;
+explicit Stop disables automatic replacement until another Launch, so a
+pending build cannot bring it back.
 No client state or server count is preserved by that operation. If startup
 fails, show that failure; do not quietly connect those views to another run.
 An external tab is not implicitly controlled by the IDE's restart action.
@@ -204,6 +210,8 @@ to deliver the first workspace and browser documents.
 4. **Documents.** Split code beside two browser documents; pin, resize and
    move them without a reload or new client identity. Closing one client
    leaves the other and the server alive. Restart visibly resets the run.
+   Check the optional restart policy against both a failed build and Stop
+   overtaking a pending successful build.
    Check persistence failures and embedding restrictions as user-visible
    failures, not successful launches.
 
