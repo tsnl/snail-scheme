@@ -142,11 +142,18 @@ The [IDE backend proposal](lofi/workspace.md) subsumes the existing loop.
 One IDE instance manages one workspace folder; its new backend and
 server-listener APIs are not implemented yet.
 
+- [ ] Recognize root `project.sld`, obtain its declared read patterns and
+  query `build` and `launch` into one linked target/launch plan. Metadata
+  describes work; the IDE executes it. Exact interfaces remain under review.
+- [ ] IDE-supplied read-only snapshot filesystem for metadata queries;
+  initialization and the `inputs` declaration run without filesystem access.
+  Use the same patterns for read authority and conservative invalidation,
+  including future matching files. Other edits reuse the plan and sessions.
 - [ ] Revision-labelled builds from frozen files and unsaved buffers, with
   IDE-owned server runs on native and browser providers.
 - [ ] Launch only a server entry; the server serves its client and assets.
-  Prove this with prebuilt client resources, then compile server-owned
-  client dependencies at the same revision in both hosts.
+  The project graph compiles client targets into its server resource bundle
+  at one revision. Prebuilt resources prove only the preliminary bridge.
 - [ ] Stop and Restart using isolated run workers/processes; manual restart
   is the default, with an optional policy to restart after a successful
   build. Both reset state; state-preserving server reload remains separate.
