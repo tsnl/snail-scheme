@@ -1,22 +1,23 @@
 # An IDE with file and browser documents
 
-> **Proposed.** This design consumes the [workspace contract](workspace.md).
+> **Proposed.** This design consumes the [IDE backend contract](workspace.md).
 > It changes no implementation yet. Today's static IDE has editor panes
 > and a special preview dock; its worker already compiles unsaved edits.
 
-The IDE is a client of the workspace service, which also owns the CLI's
-watch/compile loop; it does not maintain a separate backend. The IDE edits
-workspace files and browses running applications. A browser
-document is a peer of a file document in the same split layout. The
-workspace launches a server, the server publishes an address, and the user
-opens that address once or several times. The server answers the clients'
-real page, asset and application requests.
+One IDE instance manages one workspace folder. Its frontend edits files
+and browses running applications; its backend owns the buffers,
+watch/compile loop and application runs through the same API used by CLI
+clients. There is no workspace-switching UI or multi-workspace manager.
+A browser document is a peer of a file document in the same split layout.
+The IDE backend launches a server, the server publishes an address, and
+the user opens that address once or several times. The server answers the
+clients' real page, asset and application requests.
 
 ## Two document kinds
 
 | Document | Owns | Shares |
 | --- | --- | --- |
-| File | Editor selection, scroll and view state | The workspace buffer and its revision |
+| File | Editor selection, scroll and view state | The IDE backend's buffer and its revision |
 | Browser | Address, iframe and one client session | The running server with other clients |
 
 Keep the existing split tree, generalized to these two leaves. Browser
@@ -26,6 +27,11 @@ Open another client, Split and Pin. Launch reports a clickable address in
 run status; it need not open a pane automatically. A pin prevents ordinary
 file navigation from replacing that document; an explicit close still
 closes it.
+
+Launch initially accepts a server source path. Optional named launches
+would come from the backend proposal's S-expression `.datum` metadata;
+its exact schema and timing remain open, without a workspace-definition
+program or multi-workspace UI.
 
 Two views of a file share a buffer. Two browser views of an address start
 distinct clients of the same server. Splitting or moving an existing
@@ -53,14 +59,14 @@ application/plugin system.
 
 The chosen first provider uses a Service Worker for request interception,
 an owning IDE page for routing, and a dedicated worker for each server run.
-The compiler has its own worker. Service Worker eviction must not destroy
-workspace buffers or live server state: its lifetime follows events, and
+The compiler runs in an internal worker. Service Worker eviction must not destroy
+IDE buffers or live server state: its lifetime follows events, and
 it may be terminated while idle. Its
 [Client messaging and fetch response APIs](https://w3c.github.io/ServiceWorker/)
 provide the bridge, not a permanently running server host.
 
 ```text
-IDE address: this-browser://<workspace>/<run>/
+IDE address: this-browser://<ide>/<run>/
     |
 iframe URL: <IDE HTTPS scope>/_lofi/<owner>/<run>/
     |
@@ -74,7 +80,7 @@ This is a proposed use of those APIs, with the following concrete route:
 1. On startup, register the Service Worker under the IDE's own site path
    and wait for control before advertising browser-local launch. A
    handshake obtains the owning window's `Client.id`; the first provider
-   uses it as the workspace token. No persistent routing registry is needed.
+   uses it as the IDE-instance token. No workspace registry is needed.
 2. Resolve the logical address into an HTTP(S) URL under that scope,
    including the owner and fresh run ID. Keep the logical address in the
    IDE's address bar. The fragment stays with the document; the path and
@@ -102,7 +108,7 @@ does not cause the IDE to search compiler output for a substitute.
 
 The first bridge handles finite requests and bodies. It does not emulate
 WebSockets, streaming servers or cookies for separate virtual origins.
-Application values cross workers through the workspace proposal's derived
+Application values cross workers through the backend proposal's derived
 binary transport.
 
 ### URL and origin limits
@@ -119,11 +125,12 @@ from the fetch event solely to reject the escape, not to redirect it into
 a different route. Test root-relative script, image and API requests as
 failures. The native listener also rejects paths outside its run mount,
 so local development does not hide this mistake. A top-level navigation
-outside the Service Worker scope follows normal browser navigation and is outside this portable
-subset; arbitrary origin-root applications are not supported.
+outside the Service Worker scope follows normal browser navigation and is
+outside this portable subset; arbitrary origin-root applications are not
+supported.
 
 The real iframe retains the bridge site's origin. A path is not a new
-origin, so the first provider is for trusted workspace programs, not
+origin, so the first provider is for trusted programs from this workspace, not
 isolation of untrusted applications from the IDE. Separate-origin hosting
 would be additional design work. Browser-local addresses are ephemeral
 within their owner, origin and browser partition, not network invitations.
@@ -138,7 +145,7 @@ does not make `this-browser://` a native fetchable address.
 
 ## Editing and running remain separate
 
-An edit updates the workspace buffer and queues a build from the exact
+An edit updates the IDE backend's buffer and queues a build from the exact
 accepted revision. Saving persists the buffer; it is not a prerequisite
 for compilation. Show build failures and stale diagnostics against their
 revisions while the last good server continues serving its pinned assets.
@@ -163,34 +170,35 @@ compiler work.
 
 ## Placements and later extensions
 
-In native development, the workspace service opens a folder, serves the
-IDE frontend as a regular web application, compiles edits and starts
-servers under its lifetime. Closing an IDE tab leaves that service and its
-servers alive. In the static playground, the owner page and its workers
-provide those services; closing that owner ends the workspace and its
-servers. Closing only a browser document never does.
+In native development, an IDE server manages one folder, serves its
+frontend as a regular web application, compiles edits and starts servers
+under its lifetime. Closing a frontend tab leaves the IDE server and its
+application servers alive. In the static playground, the owner page and
+its internal workers provide that backend; closing the owner ends the IDE
+instance and its application servers. Closing only a browser document
+never does. The workspace's saved files remain available.
 
 Shared hosting across tabs is later work. A SharedWorker could hold a
-workspace while same-origin clients reference it, subject to browser
-storage partition and lifetime rules; it is not an always-running daemon.
+single IDE backend while same-origin clients reference it, subject to
+browser storage partition and lifetime rules; it is not an always-running daemon.
 Its [constructor is exposed to windows](https://html.spec.whatwg.org/multipage/workers.html#shared-workers-and-the-sharedworker-interface),
 so a Service Worker cannot simply construct one to recover an application.
 A multi-tab design must establish a real window/port connection and define
-who keeps the workspace alive. The first version needs neither this
+who keeps the IDE backend alive. The first version needs neither this
 coordination nor a standalone client tab to prove two clients.
 
 Siegework is currently one browser application with world and view/input
 state together. Splitting it into a logical game server and UI clients is
 separate game work. Eventually both could run in a browser for solo play,
 or the same server logic could run on a backend for several browser clients.
-The workspace/IDE proof uses a counter first; it makes no multiplayer or
+The IDE proof uses a counter first; it makes no multiplayer or
 automatic distributed-state claim.
 
 An IDE server editing and starting another IDE instance is a later proof
 of the application model. Keep a stable bootstrap outside the component
-being edited, and keep buffers owned by the original workspace so a failed
+being edited, and keep buffers owned by the original IDE backend so a failed
 self-build does not lose them. The IDE does not need to hot-reload itself
-to deliver the first workspace and browser documents.
+to deliver the first backend and browser documents.
 
 ## Acceptance gates
 
@@ -216,7 +224,7 @@ to deliver the first workspace and browser documents.
    failures, not successful launches.
 
 These four gates complete the first proof with prebuilt client resources.
-The **next build milestone** is the workspace proposal's generated-resource
+The **next build milestone** is the backend proposal's generated-resource
 contract: edit Lofi client source and compile it into the same frozen
 server bundle in both placements, with failure preserving the old run.
 
@@ -225,6 +233,6 @@ server-worker route for two iframes, relative JS/Wasm/image loads, a POST,
 a server-produced 404 and rejection of a root-relative API fetch. Forcing
 the Service Worker to stop preserved the server count on the next request.
 This was a JavaScript browser-API experiment outside the repository, not a
-Lofi workspace implementation or the acceptance suite above. The next
+Lofi IDE backend implementation or the acceptance suite above. The next
 implementation must supply the actual typed server, binary bridge, worker
 termination and build contracts before these proposals can be called done.
