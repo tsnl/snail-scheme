@@ -18,7 +18,8 @@
    (lofi compiler read)
    (lofi compiler core)
    (lofi compiler check)
-   (lofi compiler handlers))
+   (lofi compiler handlers)
+   (lofi compiler ownership))
   (begin
 
     ;; ---- Specialization state ----
@@ -249,7 +250,7 @@
     (: finish-mono (-> State (List Item) (List String) Mono ! mut))
     (define (finish-mono state items exported)
       (check-handlers (program-of state) (table-union (State-definitions state) (item-definitions items)) items)
-      (Mono (program-of state) items (ref-get (State-externals state)) exported))
+      (Mono (program-of state) (own-items (program-of state) items) (ref-get (State-externals state)) exported))
 
     ;; Requests the library's monomorphic functions, which `root-item` leaves
     ;; until something reaches them, and returns every name it exports.

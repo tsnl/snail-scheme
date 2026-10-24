@@ -277,6 +277,8 @@
 
     (: check-library-name (-> Syntax (List String) Loc Unit))
     (define (check-library-name declared name loc)
+      (when (string=? (string-join name ".") "prim")
+        (compile-error loc "the prim library name is reserved for compiler primitives"))
       (unless (string=? (string-join (library-name declared) ".") (string-join name "."))
         (compile-error loc "library name does not match its path")))
 

@@ -120,6 +120,7 @@
    base-program
    primitive-global
    Program-instances
+   Program-types
    Program-effects
    program-value
    program-type
@@ -200,7 +201,7 @@
     (: builtin-types (List (Pair String I64)))
     (define builtin-types
       (list (Pair "Any" 0) (Pair "Funcref" 0) (Pair "U8" 0) (Pair "I32" 0) (Pair "I64" 0) (Pair "F32" 0) (Pair "F64" 0) (Pair "Bool" 0)
-            (Pair "Char" 0) (Pair "Unit" 0) (Pair "String" 0) (Pair "Array" 1) (Pair "Vector" 1) (Pair "Ref" 1)))
+            (Pair "Char" 0) (Pair "Unit" 0) (Pair "String" 0) (Pair "Array" 1) (Pair "Vector" 1) (Pair "Ref" 1) (Pair "Once" 1)))
 
     ;; Unique names look like `lofi.base:map`; diagnostics show the source
     ;; name. Text is scanned as a vector of characters, which both hosts index
@@ -933,6 +934,8 @@
     (define primitive-signatures
       (list
        "(unit (-> Unit)) (panic (-> String A)) (unsafe-total (-> (-> A ! e) A)) (unsafe-cast (-> Funcref A))"
+       "(once (-> (-> Unit ! e) (Once (-> Unit ! e)))) (call-once (-> (Once (-> Unit ! e)) Unit ! e))"
+       "(drop-owned (-> A Unit))"
        "(i32-add (-> I32 I32 I32)) (i32-sub (-> I32 I32 I32)) (i32-mul (-> I32 I32 I32))"
        "(i32-quotient (-> I32 I32 I32)) (i32-remainder (-> I32 I32 I32))"
        "(i32-and (-> I32 I32 I32)) (i32-or (-> I32 I32 I32)) (i32-xor (-> I32 I32 I32))"
