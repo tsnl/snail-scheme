@@ -1,5 +1,5 @@
 // One JSPI invocation owns its queue and waits; its application owns resources.
-import {programEntry, runEntry, byteSnapshot} from './actors.mjs';
+import {programEntry, runEntry, byteSnapshot} from './entry.mjs';
 
 export const FRAME = 11, HIDDEN = 12, RELOAD = 13;
 const MOVE = 4, RESIZE = 8;
