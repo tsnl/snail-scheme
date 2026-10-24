@@ -7,8 +7,8 @@ threads; the shipping runtime uses one JavaScript execution agent.
 
 The [task contract](contract.md) specifies the replacement for
 the actor API. It separates scheduling, handler installations and owned
-values. The actor request/reply API has been removed. The task implementation is
-staged; [applications](../lofi/applications.md) describes the existing GUI
+values. The actor request/reply API has been removed. [Task operations](tasks.md)
+run in the CLI; [applications](../lofi/applications.md) describes the GUI
 loop while its runtime integration is being rebuilt. [One-shot work and
 ownership](ownership.md) describes the implemented affine subset.
 

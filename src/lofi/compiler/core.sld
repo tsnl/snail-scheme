@@ -936,6 +936,8 @@
        "(unit (-> Unit)) (panic (-> String A)) (unsafe-total (-> (-> A ! e) A)) (unsafe-cast (-> Funcref A))"
        "(once (-> (-> Unit ! e) (Once (-> Unit ! e)))) (call-once (-> (Once (-> Unit ! e)) Unit ! e))"
        "(drop-owned (-> A Unit))"
+       "(dispatch-local (-> (Once (-> Unit ! e)) Unit ! tasks e))"
+       "(yield-task (-> Unit ! tasks)) (sleep-task (-> I64 Unit ! tasks))"
        "(i32-add (-> I32 I32 I32)) (i32-sub (-> I32 I32 I32)) (i32-mul (-> I32 I32 I32))"
        "(i32-quotient (-> I32 I32 I32)) (i32-remainder (-> I32 I32 I32))"
        "(i32-and (-> I32 I32 I32)) (i32-or (-> I32 I32 I32)) (i32-xor (-> I32 I32 I32))"

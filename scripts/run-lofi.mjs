@@ -4,7 +4,9 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
-import {linkProgram, runProgram, wasmImports} from '../src/app/load.mjs';
+import {linkProgram, wasmImports} from '../src/app/load.mjs';
+import {programEntry} from '../src/app/entry.mjs';
+import {createScheduler, taskImports} from '../src/app/tasks.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
@@ -25,45 +27,49 @@ function resultStatus(value) {
 async function run(filename, arguments_) {
   const wasi = new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
-  if (filename.endsWith('.json')) return runLinked(resolve(filename), wasi);
-  const program = {runtime: null, host: {}, linked: new Map()};
-  program.host['snail.wasm'] = wasmImports(() => program, file => readFileSync(file));
-  ({instance: program.runtime} = await WebAssembly.instantiate(await readFile(filename), {...wasi.getImportObject(), ...program.host}));
-  const {exports} = program.runtime;
-  let status = 1;
+  let program, failed = false, status = 1;
+  const scheduler = createScheduler({handlerGlobals: () => program ? programEntry(program, 'main').handlers : [],
+    // WASI exits throw an opaque sentinel after printing their diagnostic.
+    reportError: error => { failed = true; if (error instanceof Error) console.error(`lofi: ${error.message}`); }});
+  const host = {'snail.wasm': wasmImports(() => program, file => readFileSync(file)), 'snail.tasks': taskImports(() => scheduler)};
+  program = await loadProgram(resolve(filename), wasi, host);
+  // A parked JSPI stack is live work even when no OS handle keeps Node alive.
+  const keepAlive = setInterval(() => {}, 60_000);
   try {
-    wasi.initialize(program.runtime);
-    status = resultStatus(exports.main());
+    status = resultStatus(await runInitializers(program, scheduler));
+    if (failed) status = 1;
   } finally {
-    if (exports['close-resources']() !== 0 && status === 0) status = 1;
+    await scheduler.close();
+    clearInterval(keepAlive);
+    const close = program.runtime.exports[program.names ? 'snail:io/close-all' : 'close-resources'];
+    if (close() !== 0 && status === 0) status = 1;
   }
   return status;
 }
 
-// A modules.json names a program compiled one library at a time; the
-// runtime is its own instance, which the modules import from. The program
-// loads modules only once it runs, after it is linked.
-async function runLinked(manifest, wasi) {
-  let program = null;
-  const host = {'snail.wasm': wasmImports(() => program, file => readFileSync(file))};
-  program = await linkProgram(file => readFile(resolve(dirname(manifest), file)), manifest, wasi, host);
-  let status = 1;
-  try {
-    status = resultStatus(runProgram(program));
-  } finally {
-    if (program.runtime.exports['snail:io/close-all']() !== 0 && status === 0) status = 1;
-  }
-  return status;
+async function loadProgram(filename, wasi, host) {
+  if (filename.endsWith('.json')) return linkProgram(file => readFile(resolve(dirname(filename), file)), filename, wasi, host);
+  const {instance: runtime} = await WebAssembly.instantiate(await readFile(filename), {...wasi.getImportObject(), ...host});
+  wasi.initialize(runtime);
+  return {runtime, host, linked: new Map()};
 }
 
-// ---- A worker with room to recurse and allocate ----
+// Module initialization remains ordered. Work dispatched by any initializer
+// belongs to this runtime and may outlive the program's main invocation.
+async function runInitializers(program, scheduler) {
+  const modules = program.names ? program.names.map(name => program.linked.get(name)) : [program.runtime];
+  let result = 0;
+  for (const {exports} of modules) result = await scheduler.start(() => WebAssembly.promising(exports.main)()).done;
+  await scheduler.drain();
+  return result;
+}
 
-// V8's defaults suit JavaScript: a 1 MB stack overflows on recursion a few
-// tens of thousands of calls deep, and a small young generation copies long
-// lists over and over. The operating system fixes the main thread's stack,
-// so the program runs in a worker that sets its own. Browsers keep their
-// limits.
-const limits = {stackSizeMb: 256, maxYoungGenerationSizeMb: 384};
+// ---- A worker with room to allocate ----
+
+// A small young generation copies long lists repeatedly. Keep the heap
+// tuning in one worker; JSPI uses its own finite, engine-managed stacks.
+// Tail calls are the language's constant-stack loop mechanism.
+const limits = {maxYoungGenerationSizeMb: 384};
 
 if (isMainThread) {
   process.exitCode = 1;

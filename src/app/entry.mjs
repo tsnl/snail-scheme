@@ -6,8 +6,8 @@ import {programExports} from './load.mjs';
 const entered = new WeakSet();
 
 export function programEntry(program, name = 'app_main') {
-  const modules = program.linked ? [...program.linked.values()].map(instance => instance.exports) : [program.exports];
-  const exports = program.linked ? programExports(program) : program.exports;
+  const modules = program.linked ? [program.runtime.exports, ...[...program.linked.values()].map(instance => instance.exports)] : [program.exports];
+  const exports = program.names ? programExports(program) : program.exports ?? program.runtime.exports;
   return {exports, main: exports[name], memory: program.linked ? program.runtime.exports.memory : exports.memory,
           handlers: modules.flatMap(exports => Object.entries(exports).filter(([name]) => name.startsWith('handler.')).map(([, value]) => value))};
 }

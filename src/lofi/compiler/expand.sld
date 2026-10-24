@@ -254,7 +254,7 @@
       (append (map (lambda (name) (Pair name (Core name))) core-keywords)
               (append (map (lambda (entry) (Pair (Pair-first entry) (TypeName (Pair-first entry) (Pair-second entry) (None))))
                            builtin-types)
-                      (list (Pair "mut" (EffectName "mut"))))))
+                      (list (Pair "mut" (EffectName "mut")) (Pair "tasks" (EffectName "tasks"))))))
 
     ;; (lofi primitive) exports each primitive under its own name; their
     ;; values are in the program every build starts from.

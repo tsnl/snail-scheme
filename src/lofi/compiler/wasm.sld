@@ -1418,6 +1418,11 @@
           (("unit") (list (wat "i32.const" (int 0))))
           (("once") (list (wat "struct.new" (id (owned-type m)) (arg 0))))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0))))
+          (("dispatch-local") (dispatch-work m (arg 0)))
+          (("yield-task" "sleep-task")
+           (let ((host (import! m (Import "snail.tasks" (if (string=? operation "yield-task") "yield" "sleep"))
+                                (map (lambda (type) (rep m type)) types) (None))))
+             (list (wat* "call" (Cons (id host) code)) (wat "i32.const" (int 0)))))
           (("drop-owned")
            (list (if (affine-type? (program-of m) (first-type types))
                      (clear-owner m (arg 0))
@@ -1497,6 +1502,26 @@
   (return_call_ref {code} (local.get $closure) (struct.get {closure} 0 (local.get $closure))))"
                           (list (Pair "owner" (owned-type m)) (Pair "closure" closure) (Pair "code" (code-type m closure))
                                 (Pair "take" (take-owned-helper m))))))
+
+    ;; The host receives an opaque owner and two typed Wasm entry points.
+    ;; It runs the work once, or clears queued work on cancellation. No Lofi
+    ;; value is erased to Any and no host needs to inspect a closure display.
+    (: dispatch-work (-> Module Wat (List Wat) ! mut))
+    (define (dispatch-work m owner)
+      (let* ((run (call-once-helper m)) (drop (drop-owned-helper m))
+             (host (import! m (Import "snail.tasks" "dispatch")
+                            (list (Scalar "funcref") (Scalar "funcref") (Reference (owned-type m))) (None))))
+        (push! (Module-declared m) run)
+        (push! (Module-declared m) drop)
+        (list (wat "call" (id host) (wat "ref.func" (id run)) (wat "ref.func" (id drop)) owner)
+              (wat "i32.const" (int 0)))))
+
+    (: drop-owned-helper (-> Module String ! mut))
+    (define (drop-owned-helper m)
+      (template-helper! m "drop-owned" ""
+                        "(func {id} (param $owner (ref {owner}))
+  (struct.set {owner} 0 (local.get $owner) (ref.null any)))"
+                        (list (Pair "owner" (owned-type m)))))
 
     ;; ---- Runtime helpers ----
 

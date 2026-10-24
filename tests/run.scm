@@ -155,6 +155,17 @@
                  (list "node" "--no-warnings" (path-join root "tests/tasks/check.mjs") (build-crate root "assembler")))))
     (or (zero? (caddr result)) (report "task runtime" "failed" (string-append (car result) (cadr result))))))
 
+(define (compile-task-boundary root)
+  (let ((text (program->wat root (list (path-join root "lib")) (path-join root "tests/tasks/boundary.sld"))))
+    (lambda ()
+      (let ((program (path-join root "build/tests/task-boundary.wasm")))
+        (link-wat root text program #f)
+        (check-task-boundary root program)))))
+
+(define (check-task-boundary root program)
+  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/tasks/boundary.mjs") program))))
+    (or (zero? (caddr result)) (report "task boundary" "failed" (string-append (car result) (cadr result))))))
+
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld")) (marker "(struct.new $any (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
@@ -191,9 +202,12 @@
 ;; The command line itself: printing text and running a program.
 (define (run-command-line root)
   (let ((wat (process->output+error+status (list (path-join root "lofi") "wat" (path-join root "examples/fibonacci.sld"))))
-        (run (process->output+error+status (list (path-join root "lofi") "run" (path-join root "examples/fibonacci.sld")))))
+        (run (process->output+error+status (list (path-join root "lofi") "run" (path-join root "examples/fibonacci.sld"))))
+        (failed (process->output+error+status (list (path-join root "lofi") "run" (path-join root "tests/tasks/failure.sld")))))
     (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main"))) (report "lofi wat" "no module text" (cadr wat)))
           ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
+          ((not (and (not (zero? (caddr failed))) (equal? (car failed) "survived\n")))
+           (report "lofi run" "a failed child must set failure status and let its sibling finish" (string-append (car failed) (cadr failed))))
           (else #t))))
 
 ;; ---- Linked modules ----
@@ -207,7 +221,7 @@
   '(("examples" "fibonacci") ("examples" "effects") ("examples" "colors") ("examples" "scheme-fibonacci")
     ("tests/programs" "closures") ("tests/programs" "classes-advanced") ("tests/programs" "data") ("tests/programs" "dynamic")
     ("tests/programs" "wire") ("tests/programs" "tables") ("tests/programs" "libraries") ("tests/programs" "generated") ("tests/programs" "wasm")
-    ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once")))
+    ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once") ("tests/programs" "tasks")))
 
 (define (suite-libraries suite)
   (if (string=? suite "examples") '("examples") '("tests/programs" "tests/programs/lib")))
@@ -237,7 +251,12 @@
 
 (define (run-linked-cases root)
   (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
-          (list (run-linked-siegework root) (run-linked-app-runtime root))))
+          (list (run-linked-siegework root) (run-linked-app-runtime root) (run-linked-task-boundary root))))
+
+(define (run-linked-task-boundary root)
+  (let ((output (path-join root "build/tests/linked/task-boundary")))
+    (build-modules root (list (path-join root "lib")) (path-join root "tests/tasks/boundary.sld") output)
+    (check-task-boundary root (path-join output "modules.json"))))
 
 ;; ---- Development loop ----
 
@@ -294,7 +313,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
