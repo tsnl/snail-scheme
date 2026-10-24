@@ -150,3 +150,18 @@ export function delay(signal, milliseconds = 0) {
     signal.addEventListener('abort', abort, {once: true});
   });
 }
+
+// Imports can survive a reload. The adapter supplies the current runtime;
+// once a call starts, its task and AbortSignal belong to that invocation.
+export function taskImports(scheduler) {
+  return {
+    dispatch(run, drop, owner) {
+      scheduler().dispatch(() => WebAssembly.promising(run)(owner), () => drop(owner));
+    },
+    yield: new WebAssembly.Suspending(() => scheduler().suspend(signal => delay(signal))),
+    sleep: new WebAssembly.Suspending(milliseconds => scheduler().suspend(signal => {
+      if (milliseconds < 0n || milliseconds > 2147483647n) throw new RangeError('sleep expects 0..2147483647 milliseconds');
+      return delay(signal, Number(milliseconds));
+    })),
+  };
+}

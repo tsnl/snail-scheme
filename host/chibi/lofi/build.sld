@@ -257,9 +257,11 @@
         "--enable-nontrapping-float-to-int" "--enable-sign-ext" "--enable-mutable-globals"))
 
     (define (optimization release?)
+      ;; Task entry points escape as function references and the host calls
+      ;; them later. Closed-world mode assumes those calls never happen.
       (if release?
-          '("-O3" "--closed-world" "--always-inline-max-function-size=40" "--converge")
-          '("-O1" "--closed-world")))
+          '("-O3" "--always-inline-max-function-size=40" "--converge")
+          '("-O1")))
 
     (define (wasm-opt input output . flags)
       (apply run-tool "WASM_OPT" "wasm-opt" "-g" (append wasm-features flags (list input "-o" output))))
