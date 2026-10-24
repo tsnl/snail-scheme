@@ -78,8 +78,11 @@ or an agent. Each build attempt publishes a fresh diagnostic collection while
 retaining valid compiler caches. Unsaved buffers stay in the editor.
 
 Applications run as ordinary subprocesses. Today's `watch` restarts them
-after a successful build; preserving server state beyond a restart remains
-an explicit review decision. Browser checkpoint hot reload stays supported.
+after a successful build. The proposal requires preserving server records
+in an actual database and browser data through a saved representation.
+Working state stays in memory; neither every update nor every render needs
+a database operation. Fresh browser instance restoration is proposed for
+review against its checkpoint and reconstruction costs.
 The proposed `serve` command is for production, without development watching;
 `build` remains a one-shot command. See the [terms](terms.md#toolchain-terms)
 for the distinction between incremental compilation, restart and hot reload.

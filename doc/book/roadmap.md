@@ -120,10 +120,10 @@ Not implemented:
 - [ ] Migrations between Save types, so a reload survives a schema change:
   an application would name a function from its old Save to its new one,
   as the redesign's section 5 proposes.
-- [ ] Reloading long-running programs other than pages, such as servers once
-  the socket effect exists, with the same save and restore contract instead
-  of a restart. Today's `watch` restarts its subprocess. Whether the proposed
-  `dev` must preserve server state is still a design-review decision.
+- [ ] Preserve server application records across code replacement by reopening
+  the same database in the new process. This is required by the proposed
+  `dev` design; today's `watch` does not supply a database binding or a server
+  preservation contract. Arbitrary in-memory state is not saved automatically.
 - [ ] Keeping the build cache on disk, so a cold start does not compile
   everything once: entries keyed by content hashes and written atomically,
   validated on a cold start by hashing sources, as Bazel and Nix do.
@@ -134,7 +134,9 @@ Not implemented:
 - [ ] A native host for the loop in place of Node: Rust embedding wasmtime,
   once its support for WebAssembly GC matures.
 - [ ] Closures in the state: detecting them from the state's type, and
-  relinking through `save` and `restore` instead of handing them over.
+  relinking through `save` and `restore` instead of handing them over. The
+  proposed checkpoint-only replacement would remove the need for this
+  separate detection path.
 
 ### Projects, development and the IDE
 
@@ -161,8 +163,14 @@ is proposed and awaits review:
   external tools write files. Publish fresh diagnostics for every attempt.
   Omit unsaved build overlays and source-tree snapshot infrastructure.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
-  ordinary application subprocess controls and browser checkpoint hot reload;
-  settle the server-state handover requirement before implementation.
+  ordinary application subprocess controls; retain committed server records
+  in one concrete database and browser data in application checkpoints.
+  Keep storage identities stable and data writes outside source watching.
+- [ ] Make browser storage failures explicit and require a committed reload
+  checkpoint before replacing its instance. Keep working state in RAM.
+  Measure checkpoint and restoration costs before choosing the proposed
+  deletion of cross-build heap handover; never reset incompatible saved data
+  implicitly or treat a failed write as a successful save.
 - [ ] Let `dev` subsume `watch`, development serving and the IDE. Reserve
   `serve` for production web applications; keep one-shot `build` and `run`.
 - [ ] Prove debugger attachment to the actual Wasm execution agent, then

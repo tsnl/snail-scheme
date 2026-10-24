@@ -23,9 +23,14 @@ not implemented yet.
 | Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from both the compiler session and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |
 | Worker | A separate execution agent used for CPU work. Here a native compiler worker keeps its own compiler state; it is not a browser Service Worker or a Lofi task. |
+| Working state | In-memory values used by the running application, including changes not yet saved. |
+| Persisted data | The application's chosen representation committed to storage independently of the running code. It need not encode every transient resource or cache. |
 
-**Incremental compilation** reuses compiler work. **Restart** replaces an
-application process and resets its in-memory state. **Hot reload** (also
-called live reload) replaces running code through an application state-handover
-contract. Recompiling incrementally does not by itself preserve application
-state, and moving execution into a worker does not supply a handover contract.
+**Incremental compilation** reuses compiler work. **Restart** starts a fresh
+application process; the application can reconstruct working state from
+persisted data. **Hot reload** (also called live reload) replaces
+running code while preserving application data under a stated contract.
+Today's browser uses state handover; the proposal considers checkpoint
+restoration for browsers and reopening the same database for servers.
+Recompiling incrementally does not by itself preserve application state, and
+moving execution into a worker does not supply a preservation contract.

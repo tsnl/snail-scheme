@@ -7,8 +7,11 @@
 > The [project and development proposal](proposals/desktop-ide.md) puts project
 > builds, a shared file watcher and persistent compilation under `lofi dev`.
 > The editor subscribes independently; applications run as ordinary
-> subprocesses. It awaits review. The commands below describe current behavior
-> until implementation; browser-only IDE and integrated preview work is dropped.
+> subprocesses, preserving committed server records and browser checkpoints.
+> Working state remains in memory. Fresh browser instance restoration is a
+> proposed simplification whose cost needs review. The commands and relink
+> behavior below describe the current implementation; browser-only IDE and
+> integrated preview work is dropped from the replacement plan.
 
 This document describes how Lofi programs are built, linked, reloaded and
 loaded during development, so that a rebuild costs as much as the edit

@@ -8,8 +8,9 @@
 
 This section describes the current browser application implementation.
 The proposed [project workflow](toolchain.md#proposed-project-workflow) moves
-development watching to `lofi dev`. Restarting a server subprocess and
-preserving browser application state are distinct operations.
+development watching to `lofi dev` and requires server and browser data to
+survive code replacement. It proposes storage as that boundary, while working
+state stays in RAM. The handover implementation below has not yet changed.
 
 `lofi serve APP-DIRECTORY` builds an application one library at a time,
 serves it at `http://127.0.0.1:8000/`, and builds it again whenever the
@@ -47,6 +48,29 @@ program again whenever its sources change, stopping a run still in
 progress once a new build succeeds. [The development
 toolchain](toolchain.md) describes how builds stay this fast, and the
 browser IDE that runs the same loop without a server.
+
+### Proposed persistence boundary
+
+The [design for review](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md#4-running-and-reloading-applications)
+keeps ordinary updates and rendering in memory. A planned browser reload
+would commit the application's saved representation, then restore it in a
+fresh instance. This would replace direct cross-build state handover, subject
+to measuring checkpoint and restoration costs before deleting the relink path.
+Siegework's journal-based save is compact but still requires replay; fast
+incremental compilation does not make that reconstruction free.
+
+Server processes would reopen the same actual database after replacement.
+Committed records survive; caches and connections are reconstructed. Any
+additional RAM-only state promised to survive must be explicitly saved by
+the application. Browser periodic checkpoints remain useful for recovery
+after unexpected exits, but cannot preserve changes not yet committed.
+
+Storage errors must stay distinct from missing data. A failed reload save
+must leave the old browser loop usable; incompatible saved data must remain
+intact. Fresh instance replacement would drop automatic recovery to the old
+loop after a replacement startup failure: saved data survives, but the page
+awaits a fix or retry. These are proposed changes, not guarantees of the
+implementation described above.
 
 ## Task lifetime
 
