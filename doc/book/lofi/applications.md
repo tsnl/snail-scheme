@@ -2,7 +2,14 @@
 
 {{#include ../../language.md:applications}}
 
-## Live reload
+<a id="live-reload"></a>
+
+## Hot reload
+
+This section describes the current browser application implementation.
+The proposed [project workflow](toolchain.md#proposed-project-workflow) moves
+development watching to `lofi dev`. Restarting a server subprocess and
+preserving browser application state are distinct operations.
 
 `lofi serve APP-DIRECTORY` builds an application one library at a time,
 serves it at `http://127.0.0.1:8000/`, and builds it again whenever the

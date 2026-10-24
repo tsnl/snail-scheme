@@ -9,7 +9,7 @@ instance, when the program starts.
 | Command | Build |
 | --- | --- |
 | `lofi run`, `lofi compile`, `make site` | Release |
-| `lofi serve`, `lofi watch`, `make ide` | Debug |
+| `lofi serve`, `lofi watch`, `make ide` (current commands) | Debug |
 
 ## Builds in proportion to the edit
 
@@ -29,7 +29,7 @@ built siegework in 106 ms: 1 of 14 modules compiled
 
 A page relinks the modules that changed and every module after them, which
 are the only ones that can import from them, and keeps the application's
-state ([live reload](applications.md#live-reload)). Because the loop
+state ([hot reload](applications.md#hot-reload)). Because the loop
 checks each library before the libraries that import it, a definition
 gets its type from its own library: give constants a signature where a
 literal could have more than one type, as `(lofi app)` gives its key codes
@@ -38,11 +38,10 @@ literal could have more than one type, as `(lofi app)` gives its key codes
 ## The browser IDE
 
 The following describes the current implementation. The
-[desktop IDE proposal](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
-would replace its browser backend with a native project server, remove the
-integrated preview and launch applications in separate processes with
-external browser windows. That design awaits review; the commands below
-have not changed.
+[project and development proposal](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
+would replace its browser backend with `lofi dev`, remove the integrated
+preview and make the editor a client of the running development session.
+That design awaits review; the commands below have not changed.
 
 `make ide` packages an IDE as a static site in `build/ide`, with nothing to
 install and no server beyond one for static files:
@@ -52,8 +51,8 @@ $ make ide
 $ python3 -m http.server --directory build/ide
 ```
 
-It opens Siegework until you open a folder of your own; the project stays
-in the browser's storage, and saving writes each file back to its folder
+It opens Siegework until you open a project directory of your own; files stay
+in the browser's storage, and saving writes each file back to its directory
 where the browser allows it. The toolbar along the top toggles the file
 browser on the left and the running application on the right, and splits
 the editor panes. Code is highlighted as you type; Tab and Enter indent as
@@ -63,6 +62,27 @@ goes to the development loop running in a worker, compiler included: a
 build that fails puts a squiggle under what the compiler points at, and one
 that succeeds relinks the application, in 50 to 100 ms for an edit to one
 library of Siegework.
+
+## Proposed project workflow
+
+The proposed `project.datum` is inert data with explicit `build-target` and
+`launch-target` forms. It replaces application build scripts for the CLI as
+well as the IDE. Each target produces one output directory, including all
+of its files. A server can reference multiple frontend bundles by name while
+compiling; serving their paths is ordinary server code.
+
+`lofi dev PROJECT` would keep the incremental compiler alive and share one
+file watcher with the editor. Saving only writes disk; the watcher starts
+compilation regardless of whether the writer was this editor, another tool
+or an agent. Each build attempt publishes a fresh diagnostic collection while
+retaining valid compiler caches. Unsaved buffers stay in the editor.
+
+Applications run as ordinary subprocesses. Today's `watch` restarts them
+after a successful build; preserving server state beyond a restart remains
+an explicit review decision. Browser checkpoint hot reload stays supported.
+The proposed `serve` command is for production, without development watching;
+`build` remains a one-shot command. See the [terms](terms.md#toolchain-terms)
+for the distinction between incremental compilation, restart and hot reload.
 
 ## Loading code while a program runs
 

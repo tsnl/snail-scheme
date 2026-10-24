@@ -325,8 +325,8 @@ the first changed type instead of misreading it.
 ## Applications
 
 <!-- ANCHOR: applications -->
-`(lofi app)` defines interactive applications as total functions over a
-state:
+`(lofi app)` defines interactive browser applications as total functions over
+a state:
 
 | Function | Meaning |
 | --- | --- |
@@ -337,7 +337,7 @@ state:
 | `save : State -> Save` | What to store, with a wire encoding; it may be a record of how to rebuild the state. |
 | `restore : Save -> State` | The state again. |
 
-The messages are pure functions over immutable state. `define-application`
+These functions operate on immutable state. `define-application`
 runs them inside one loop and the binder returned by `reset`:
 
 ```scheme

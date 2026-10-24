@@ -1,340 +1,319 @@
-# Desktop IDE and projects
+# Projects, development and the IDE
 
-**Design for review; not implemented.** Intended implementation base:
-[#421](https://github.com/tsnl/snail-scheme/pull/421), the top of the task-runtime
-stack. This replaces the desktop portion parked by
-[#412](https://github.com/tsnl/snail-scheme/pull/412), whose
-[preserved proposal](https://github.com/tsnl/snail-scheme/blob/be6c41ef76d79d186fc2f405e1c44d28450318bc/doc/proposals/desktop-ide.md)
-and preceding discussion informed this draft. Implementation waits for review.
+**Design for review; not implemented.** This follows
+[#421](https://github.com/tsnl/snail-scheme/pull/421) and replaces the desktop
+proposal preserved by [#412](https://github.com/tsnl/snail-scheme/pull/412).
+The [earlier document](https://github.com/tsnl/snail-scheme/blob/be6c41ef76d79d186fc2f405e1c44d28450318bc/doc/proposals/desktop-ide.md)
+is historical. Implementation waits for review.
 
-## 1. The shape of the system
+## 1. Terms and commands
 
-One IDE server manages one workspace folder. Its browser frontend edits
-files and displays diagnostics, builds and running programs. Applications
-open in **external browser windows only**. A project may contain several
-applications; a workspace does not become a separate service.
+A **project** is one directory containing source files and its project
+description. A **workspace** would be a collection of projects; this design
+supports one project and needs no workspace object. The book's
+[terms](../book/lofi/terms.md#toolchain-terms) distinguish build targets,
+launch targets, compiler sessions, runtimes and processes.
 
-Each launch starts a separate OS process running the existing WasmGC/JSPI
-runtime. A compiler worker keeps compilation off the IDE's execution agent.
-These are independent Wasm heaps, not shared-heap language multithreading.
-The one-shot CLI uses the same project engine without starting an IDE server.
+`lofi dev` owns a development session: watching files, keeping the incremental
+compiler alive, running selected applications and serving the editor UI.
+The UI is a client of these services. Closing it does not stop development.
+Applications execute as ordinary subprocesses with the same entry point,
+arguments, working directory and standard streams as a shell invocation.
+A web application's browser windows are clients of its server; opening a
+window is not the definition of launching an application.
 
-```text
-Browser editor -- HTTP --> IDE server -- jobs --> compiler worker
-                             |
-                             +-- launch --> application process A <-- external browsers
-                             +-- launch --> application process B <-- external browsers
-
-lofi build DIRECTORY ------> the same project engine, using disk inputs
-```
-
-The browser-only IDE backend, integrated preview, Browser documents,
-ServiceWorker routing and virtual schemes (`this-browser://` and its earlier
-names) are dropped from the design. They are not future milestones. Keep
-ordinary browser applications and the editor's local formatter.
-
-Networking has one concrete TCP socket effect that tests can intercept.
-HTTP is a Lofi library over sockets. There is no generic transport typeclass,
-portable provider framework, actor channel or in-memory network platform.
-Keep the existing concrete filesystem effect for compiler inputs and normal
-file operations. There is no executable project metadata to sandbox.
-
-## 2. What we can reuse
-
-| Current boundary | Keep or change |
+| Proposed command | Responsibility |
 | --- | --- |
-| [Compiler sessions](../../src/lofi/compiler/session.sld) | Keep incremental expansion, checking, specialization and emission; add artifact dependencies to their inputs and cache evidence. |
-| [Development loop](../../src/lofi/develop.sld) | Extract its build/session rules into the shared project engine. Watch, serve and restart remain concrete policies around that engine. |
-| [Native development commands](../../scripts/develop.mjs) | Reuse watching, assembly, process management and notifications; consolidate their callers instead of adding another build loop. |
-| [Build driver](../../host/chibi/lofi/build.sld) | Reuse assembly, linking and generated-library execution. Keep the Chibi bootstrap and file-level compile/run commands. |
-| [Task scheduler](../../src/app/tasks.mjs) and [CLI runner](../../scripts/run-lofi.mjs) | Reuse one-shot dispatch, suspension and cleanup inside each launched process. No cross-process continuation or GC reference transfer. |
-| [Browser IDE](../../src/ide/ide.mjs) | Keep editor buffers/views, formatting, highlighting, splits and diagnostics presentation; replace local project/build ownership with the server API. |
-| [Browser toolchain](../../src/ide/toolchain.mjs), [project storage](../../src/ide/project.mjs), [preview](../../src/ide/preview.mjs) | Delete after their replacement or deliberate feature removal. No fallback browser backend. |
+| `lofi build PROJECT` | Read the project description and produce target output directories once. No resident development service is required. |
+| `lofi dev PROJECT` | Watch saved files, compile incrementally, publish diagnostics and make the editor available. Selected launch targets run here. |
+| `lofi run SOURCE [ARGUMENT ...]` | Retain ordinary program execution, using the same compiler and output-directory contract. A server is an ordinary program too. |
+| `lofi serve OUTPUT-DIRECTORY [ARGUMENT ...]` | Proposed production entry for a release-built server program. No watcher, editor or development reload endpoint. |
 
-The existing [datum reader](../../lib/lofi/read.sld) can read project data;
-no new quotation syntax or executable configuration language is needed.
-Compiler sessions expose generated libraries but no project-artifact
-resolver. That is the required compiler extension, not existing behavior.
+`dev` replaces `watch`, the development role of today's `serve`, and the
+separate IDE command/package workflow. Reserve `serve` for production;
+its exact command-line spelling remains proposed. The command examples in
+the existing guides continue to describe implemented behavior until migration.
 
-## 3. `project.datum` describes work
+## 2. Project descriptions belong to the compiler toolchain
 
-The root file contains one **inert datum** with `build` and `launch`
-association lists. Names and settings are literal data. There is no `init`
-function or project code to evaluate. This supersedes the earlier proposal
-for a `project.sld` library exporting three metadata queries.
-
-For example, this is a proposed file schema:
+Use an inert `project.datum`: one list of explicit forms, readable and
+printable without dotted pairs. These forms describe work; they never execute.
+The earlier executable `project.sld` and its `init`/`build`/`launch` queries
+are removed. The filename remains `project.datum` unless that naming decision
+is changed; the format below stays inert either way.
 
 ```scheme
-((build .
-  ((client . (browser
-              (entry "client/main.sld")
-              (public "client/public")
-              (outputs (bundle . bundle))))
-   (server . (program
-              (entry "server/main.sld")
-              (outputs (program . program))))))
- (launch .
-  ((dev . (run
-           (target server)
-           (output program)
-           (args "--port" "0"))))))
+((build-target client
+   (browser
+    (entry "client/main.sld")
+    (public "client/public")))
+ (build-target admin
+   (browser
+    (entry "admin/main.sld")
+    (public "admin/public")))
+ (build-target server
+   (program
+    (entry "server/main.sld")))
+ (launch-target dev
+   (run server
+    (args "--port" "8080"))))
 ```
 
-Start with program compilation and browser-bundle assembly, using the
-existing builders. A `program` output is a frozen launchable build, including
-its required modules/runtime; a `bundle` is an immutable collection of named
-files. Output names identify values of these kinds, not arbitrary build paths.
-Library roots are project-relative target settings; the toolchain supplies
-the standard library. Ordinary imports are discovered by the compiler.
+Each build target produces **one output directory**, containing any number
+of files. There is no second output-name namespace. The compiler driver,
+loaders, CLI and IDE consume that same directory contract, including the
+manifest identifying its program/modules or browser bundle. Changing
+`compile -o` from a file to a directory is an acceptable breaking change;
+migrate callers and tests together. Publish completed directories from build
+staging so a failed attempt cannot expose half a program.
+`dev` uses separate debug modules; `build --release` uses the existing release
+pipeline. Development bundles carry reload manifests/support; release bundles
+omit them.
 
-Parse the file once into `ProjectPlan`, targets, outputs and launch commands.
-Reject malformed shapes, unknown fields, duplicate names, incompatible
-output kinds and invalid launch references. Normalize project-relative paths
-at this boundary and reject escapes from the project roots. Downstream code
-receives structured values. Reading data never invokes an evaluator, and
-the configuration has no callbacks, includes, environment interpolation or
-conditional expressions.
+This replaces project build scripts in general, not just IDE configuration.
+In this checkout the concrete paths are `scripts/build-app.scm`,
+`scripts/build-ide.scm`, the Makefile's application recipes and
+`host/chibi/lofi/build.sld`. Move application selection and packaging into the
+shared project build path and delete superseded scripts. Keep the compiler's
+bootstrap, linking and assembly primitives; the description does not replace
+Chibi's stage-0 role or pretend to be an arbitrary build language.
 
-This deliberately removes deriving target lists, launch lists or settings
-by executing code or reading another file. Explicit targets are sufficient
-for this series. Generated application libraries remain supported inside
-those targets; they do not generate the project description. No second
-configuration mode or constructor library remains to maintain.
+Parse once into target and launch descriptions. Reject duplicate names,
+unknown forms, bad paths and invalid launch references. Library roots and
+public directories are literal settings. The toolchain supplies its standard
+library. No configuration evaluator, conditions, includes, callbacks or
+metadata permission framework is needed.
 
-### Builds use captured inputs
+### Frontends are dependencies of programs
 
-Capture source bytes and the relevant directory namespace in one immutable
-input revision, including `project.datum`, public assets and toolchain inputs.
-An IDE revision overlays acknowledged unsaved buffers; a normal CLI invocation
-uses disk. The CLI never silently inherits an open IDE's buffers. Later edits
-belong to a later revision. Capture is not a claim of atomic transactions
-across arbitrary external filesystem writers.
+A server source can use `(artifact-bundle "client")` and
+`(artifact-bundle "admin")`. Each denotes the complete output of a named
+build target as a typed bundle, resolved while compiling. It is not a raw
+mutable build-directory path or a lookup performed on the first HTTP request.
+Carry the bundle through ordinary/generated libraries, using the existing
+`generate-library` machinery where appropriate. Preserve Hearsay's generated
+libraries. A bundle's `public` files belong to that bundle.
 
-Changing `project.datum`, including an acknowledged unsaved edit, reparses
-the plan. Source imports, included bytes, public files and generated libraries
-remain compiler/build dependencies. File creation and deletion matter as
-well as changed contents. Build staging is outside watched source inputs.
+One server may serve several bundles under different route prefixes. Routes
+are ordinary server code, and bundle URLs must respect their mount prefix.
+There is no one-server/one-frontend relationship in the project schema. A
+frontend is a build dependency, not an independently launched server actor.
+Programs without a frontend remain ordinary programs; TCP/UDP servers and
+future desktop applications do not need new language-level application kinds.
 
-Run existing library producers against the captured project/toolchain tree,
-with writes confined to their staging directory. Hearsay's image generator
-currently reads paths relative to the repository root; preserve those path
-relationships without exposing a changing live tree. Reexecuting a producer
-does not by itself make its reads consistent. Test an asset changing during
-generation while the current build continues to use its captured bytes.
-This needs a concrete build filesystem view, not a portable IO-provider layer
-or a new generator framework.
+Artifact requests arise during actual expansion, including generated code.
+The parser therefore cannot prove the complete dependency graph acyclic.
+Resolve targets serially with a depth-first traversal, detecting an active
+ancestor as a cycle. Replay recorded artifact requests before reusing cached
+expansion. For example, unchanged A previously used B; B now uses A: the next
+attempt must report the cycle. Missing names, wrong kinds and producer errors
+fail before a consumer launches. A selected build checks reachable targets;
+`dev` initially visits all project build targets for project-wide diagnostics.
 
-### Artifact names resolve during building
+## 3. The development loop
 
-A proposed literal form such as `(artifact-bundle "client" "bundle")`
-resolves to a typed bundle value in server code. It neither returns a mutable
-build-cache pathname nor performs a runtime name lookup. Unknown names,
-wrong output kinds, cycles and failed producers prevent a successful build
-of that consumer and therefore prevent its launch.
+```text
+Editor save ----------> file service ----> project files <---- other editors/agents
+                                             |
+                                      shared file watcher
+                                      /                 \
+                         persistent compiler        editor subscriptions
+                                  |
+                      attempt diagnostics + completed builds
+                           /                         \
+                    UI subscriptions           application subprocesses
+                                                        |
+                                                browser clients, if any
+```
 
-Let actual compiler expansion request artifacts from the project engine.
-Build targets serially with a depth-first traversal: mark a target active
-before expansion, record each discovered edge, build its producer, and
-return the completed output. Requesting an active ancestor reports the cycle
-and source locations. Before reusing a cached consumer, replay its recorded
-artifact requests through this traversal for the new revision. An unchanged
-consumer A that used B must still detect B's new dependency back on A.
-Finished outputs belong to this revision. Include
-artifact identities and generated syntax bytes in cached expansion/emission
-keys. The current build driver deliberately regenerates producers on each
-compile because they can read files outside the recipe's hash. Preserve
-that conservative rule until all producer dependencies can be captured;
-do not reuse producer output across revisions merely because its code matches.
-There is no second source scanner or requirement to predeclare every edge.
+1. Load the project description from disk. Start one watcher for project and
+   relevant library inputs, excluding build output. Read/reconcile the initial
+   tree after installing watches so startup changes are not silently lost.
+2. Keep one incremental compiler alive, reusing existing `Session` values per
+   target. A persistent Node worker runs compilation because the present
+   Wasm compiler is synchronous and would block file requests and watch delivery
+   on the parent thread. This is an execution boundary, not a compiler daemon
+   or a second implementation. Cold `build` invocations need not attach to it.
+3. File notifications trigger debounced build attempts. Editor Save only writes
+   a file; it does not call Build or send edited contents to the compiler.
+   The same watcher notifies the editor of changes made by agents and other
+   tools. Explicit initial builds and manual Build are allowed too.
+4. Serialize attempts. Changes observed during one attempt mark another needed.
+   Do not publish or launch an observed superseded attempt. Coalesce the next
+   attempt; never lose a change by clearing the pending work after compiling.
+5. Give every attempt an ID and a **fresh diagnostic collection**. Publish
+   `building` with that ID and an empty current collection, then its diagnostics
+   and success/failure. Superseded results cannot replace the current collection.
+   An empty collection while building is not success. Project-wide names the
+   attempt's scope, not exhaustive error recovery: the compiler still stops at
+   its first error initially.
+   Turn its existing located failure into diagnostic data at the compiler
+   boundary; the editor need not interpret compiler stdout.
+6. Publish completed target directories after success. The launch controller
+   and browser reload path consume that result independently of the UI.
+   Failed attempts report errors while the last successful application stays
+   running. Stop overrides pending automatic restart intentions.
 
-This permits generated application libraries, including Hearsay's existing
-recipes. Producers may execute before a later graph error is discovered;
-their outputs stay in build staging. The promise is failure **before launch**,
-not before any producer runs. A selected target validates its reachable
-dependencies; a default whole-project build visits every declared target.
-Cross-project lookup, package resolution and arbitrary shell recipes are out.
+Fast compilation comes from retaining `src/lofi/compiler/session.sld`'s
+checked libraries and emitted modules. It does not come from repeatedly
+starting `lofi build`. Fresh diagnostics do not require throwing those caches
+away. Cache entries must still prove their source/interface/artifact inputs
+unchanged; failed or changed sources cannot borrow an old successful result.
 
-## 4. Sockets, HTTP and application processes
+Disk is the source of truth. There are no unsaved build overlays or immutable
+source-tree snapshots. The promise is convergence after edits settle, not an
+atomic filesystem revision. Watch events prompt reconciliation with disk;
+renames, creation/deletion, missing filenames and watcher recovery must be
+handled. Node documents these [watcher caveats](https://nodejs.org/api/fs.html#caveats).
+Generated outputs propagate through compiler dependencies, never back through
+the source watcher. Keep conservative producer regeneration until read
+tracking justifies reuse: the existing recipe hash does not cover every file
+a producer can read. Builds use private output staging, not copied source trees.
 
-The socket effect exposes concrete listen, accept, connect, read, write and
-close operations. Reads/writes have explicit EOF, failure, partial-transfer
-and cancellation semantics. Its native implementation uses the current
-runtime's suspension bridge; a pending operation owns its bytes and remains
-accounted until cleanup settles. Closing a socket disarms its waits. No new
-borrow checker or general resource-finalizer system is assumed.
+## 4. Running and reloading applications
 
-HTTP parsing, framing, routing and bundle serving are ordinary Lofi code.
-Start with bounded HTTP/1.1 requests and ordinary finite responses. Preserve
-the development tools' event stream through a small SSE writer over socket
-writes, without inventing a generic stream or transport hierarchy. Unsupported
-framing must fail explicitly. Tests must cover split reads, partial writes,
-EOF, malformed/oversized requests and disconnects, as well as actual TCP.
-TLS, HTTP/2, WebSockets and deployment are outside the first series.
+Three operations have distinct meanings:
 
-The IDE and example application use this HTTP library. An application server
-serves its own frozen client bundle and API at a real loopback address.
-The IDE displays its actual bound address; it does not infer readiness by
-scraping logs or manufacture client pages. Add a small runner event for an
-explicitly announced HTTP address, sent from the execution worker through
-its wrapper and tagged with the run identity. A raw TCP listener does not
-announce HTTP readiness. This runner event is a new capability, not something
-the existing development host already provides. Launch selects only the server
-program. Opening two external browser windows creates two real clients.
-Plain console programs use the same launch operation without an address.
+| Operation | What persists |
+| --- | --- |
+| Incremental compilation | Compiler caches; no application state is involved. |
+| Application restart | The development session and compiler survive; the old process exits and application state starts over. |
+| Browser hot reload | The existing `(lofi app)` checkpoint/save/restore contract transfers browser application state while modules are relinked. |
 
-A run record needs a launch name, frozen build, process handle, status and
-logs. No run-ownership tag is inherited through language tasks. The process
-is the Stop/debugging boundary; its runtime still owns cooperative task
-cancellation internally. Stop closes admission, requests shutdown and waits
-for exit. Add a direct shutdown request through the process wrapper to the
-execution worker, which closes its scheduler and drains cooperative cleanup.
-The wrapper owns the deadline: a bounded forced process exit handles a
-non-yielding program; it is not claimed to run Lofi cleanup or undo side
-effects. No other run or the IDE is terminated with it. Shutting down the
-IDE explicitly stops its
-children; closing an editor or application tab does not stop their servers.
+The proposed first server behavior matches today's `lofi watch`: after a
+successful accepted build, stop an affected running child, await exit, and
+start the new build. Start/Stop/manual Restart also remain available. Run
+records identify the launch target, successful build, process and exit status.
+Use ordinary process controls and a bounded termination fallback; process
+termination does not promise execution of Lofi cleanup. No generic readiness
+or graceful-shutdown protocol is required. Logs remain ordinary output.
 
-Builds retain their input and plan revisions. A failed build leaves the
-running program and its coherent bundle alone. Manual **cold Restart** first
-builds successfully, then stops the old process and starts the new one.
-State resets; the port may change; clients reload/reconnect. Startup failure
-after Stop does not promise rollback. Optional restart-after-success uses
-that same completed build. Stop, a newer restart or changed project
-configuration invalidates older launch intentions; a stale build cannot
-resurrect a stopped run.
+**Server state preservation remains a review decision.** Restarting a server
+is not hot reload under the definition above. Preserving its in-flight work,
+listeners and state would require an explicit application handover contract,
+which the CLI runner does not implement. Moving the program to a Node worker
+would not establish that contract. A browser Service Worker is a different
+API with an event-bound, browser-controlled [lifetime](https://www.w3.org/TR/service-workers/#service-worker-lifetime);
+it is not the native compiler or application execution worker described here.
 
-## 5. The IDE is a client of the project engine
+Browser hot reload stays in scope. Keep the server origin stable across
+restarts. A small HTTP bundle helper serves the files, development manifest
+and reload event stream from the same completed build. After a restart, the
+browser reconnects and receives that bundle's latest manifest; the existing
+reload client performs checkpoint handover/relinking. Pin each relink's
+manifest and module identities to the advertised build. The current loader
+rereads a mutable manifest URL; it must not choose a relink point from build B
+and silently fetch build C. If B becomes unavailable, reconcile with the latest
+manifest and retry. Retryable network/supersession failures must also be
+distinguished from refused application state migration; the current client
+conflates them. Do not signal a browser to adopt a bundle before its server
+serves that build. Several bundles have
+separate prefixes and manifests. No development reverse proxy, special preview
+transport or durable event journal is needed. Production serving omits the
+development endpoints. Changing server APIs can still require application
+migration; browser code reload does not prove client/server compatibility.
 
-`lofi ide DIRECTORY` selects one folder at startup. Plain folders can be
-edited; build/launch actions require `project.datum`. The native server owns
-buffers, disk observations and launch intentions. Its compiler worker runs
-the shared engine, owning captured revisions, sessions, dependencies and
-artifacts. Only copied requests/results, bytes, artifact identities and
-diagnostics cross this boundary; live sessions and WasmGC values do not.
-The frontend owns editor selections, scrolling and presentation, with local
-unacknowledged edits retained until accepted. It no longer owns filesystem
-handles, a compiler worker, application assets or a preview transport.
+## 5. Concrete networking
 
-The API supplies file/buffer state, revision-checked edits and saves, named
-build/launch actions, Stop/Restart, and one event stream. An event carries
-the input/build/run identity it describes. Reconnection obtains a current
-snapshot; it does not require an indefinitely retained event journal.
-Saving revision N cannot mark N+1 saved or overwrite an unacknowledged disk
-edit. Watch notifications must not silently replace dirty buffers. The
-loopback server must reject editing/launch requests from unrelated origins.
+Provide concrete **TCP and UDP** socket operations that effect handlers can
+intercept for testing. TCP has listen/accept/connect, stream reads/writes and
+close; UDP has bind, send/receive datagrams with peer addresses, and close.
+Keep their semantics distinct: TCP can split transfers; UDP preserves message
+boundaries without promising delivery or ordering. Define buffer limits,
+truncation, cancellation and late completion at these boundaries.
 
-One compiler worker serves the IDE's engine jobs. Build completion is a
-result tagged with its revision, not permission to replace newer editor
-state. CLI and IDE call the same engine; a one-shot CLI build needs neither
-HTTP nor an IDE daemon. Project configuration is S-expression data.
-Existing loader manifests need not change format merely to introduce it.
+Use the existing task suspension bridge for pending native operations. HTTP
+is a Lofi library over TCP, with bounded parsing, framing, ordinary routing
+and the small bundle/SSE helper. Test real sockets as well as intercepted
+operations. No transport hierarchy, actor channel or generic IO-provider
+framework is needed. TLS, HTTP/2 and deployment infrastructure remain separate.
 
-Preserve the existing file editor, formatter and split behavior. Remove
-folder-picker/localStorage/IndexedDB project ownership as the native backend
-takes over. There is no new Browser document, iframe retention protocol,
-multi-workspace UI, collaborative editing system or editor plugin platform.
+## 6. The editor and the IPC boundary
 
-Existing standalone `lofi serve` browser reload remains a separate explicit
-development policy using the shared engine and existing reload client.
-`lofi watch` likewise becomes an adapter over that engine. Consolidate build
-and watch decisions rather than leave a second compiler path. Ordinary
-project launches retain frozen bundles; the IDE never pushes new client code
-into an old server. Removing the IDE preview does not remove the application's
-checkpoint/reload implementation from the runtime stack.
+The file service reads/lists files and saves them, checking the last observed
+disk version to detect ordinary external-edit conflicts. The editor owns
+unsaved buffers, selections and panes. A watcher update reloads a clean buffer;
+a dirty buffer offers conflict resolution. Saving acknowledges the bytes
+written; watch reconciliation supplies the file-change notification. Do not
+promise atomic compare-and-swap against arbitrary external writers.
+Bind the local editing/control API to loopback and accept mutations only
+from its own origin.
+Serve this API and editor subscriptions in the development process using
+the same HTTP library; the compiler worker has no HTTP server of its own.
 
-## 6. Global simplification plan
+The editor subscribes to file changes, build state and fresh diagnostics. It
+can request builds and control launches, but owns no compiler session or
+application lifecycle. Squiggles describe saved source; hide them while the
+buffer differs. A reconnect fetches current file/build/run state,
+not a replay of every event. Keep formatting local. Remove the integrated
+preview and the browser compiler/filesystem emulation. Browser windows remain
+ordinary application clients, outside the editor's document model.
 
-- **One project engine:** CLI, IDE and existing development commands reuse
-  plan parsing, dependencies, sessions and publication. No parallel IDE
-  builder, HTTP build implementation or mandatory background daemon.
-- **One owner per boundary:** the engine owns inputs/builds; the native IDE
-  owns buffers and launch intent; each application process owns its runtime
-  and sockets; the editor owns view state. Keep identifiers only where they
-  reject stale work or associate diagnostics with the correct source.
-- **Delete browser development infrastructure:** preview pages/ports/routes,
-  compiler/file emulation in browser workers, packaged source snapshots,
-  folder handles and project persistence. Keep the formatter and real browser
-  application runtime. Delete plans for virtual URLs and embedded browsing.
-- **Concrete I/O:** socket and filesystem effects at their real boundaries;
-  ordinary HTTP library code above sockets. No shared native/browser provider
-  layer, generic channel hierarchy, actor registry or inherited run scopes.
-- **Small build vocabulary:** two useful output kinds, ordinary compiler
-  import discovery, serial artifact traversal, no plugin recipes or parallel
-  graph scheduler. Parse literal configuration once into structured values.
-- **Inert project descriptions:** delete the proposed three-query evaluator,
-  metadata permission filters and authoring constructors. No executable
-  fallback or second configuration format.
+| Boundary | Information crossing it |
+| --- | --- |
+| UI ↔ development process | File reads/saves, subscriptions, build/run requests, diagnostics, logs and status. |
+| Development process ↔ compiler worker | Project/changed paths and attempt IDs; results, diagnostics and completed output-directory identities. No compiler objects or WasmGC references. |
+| Development process ↔ application process | Entry/arguments/environment/working directory; standard streams, exit status and OS process control. Associate each process lifetime with its build. |
+| Browser ↔ application server | Ordinary HTTP plus the bundle's development reload stream. |
 
-Every implementation PR should give an independent behavioral explanation,
-identify what it deletes or makes redundant, name the surviving owner, and
-test a concrete failure/lifetime boundary. Use Astra Max simplify reviews at
-those boundaries and a final whole-series review against this deletion list.
-Record production/test/documentation line changes separately; do not promise
-net deletion by removing necessary correctness checks.
+Debugging is future implementation work, but this boundary should leave one
+clear place to attach it: a run's process identity and successful build identify
+the debug target and source. A future optional inspector endpoint belongs to
+that run and expires with it. The current runner executes Wasm in a Node worker;
+attachment must reach that execution agent, not just its wrapper. Debug commands
+travel on the inspector connection, not through compiler requests or stdout
+parsing. The dev process remains responsive while an application is paused.
+Source mapping and breakpoints need a separate compiler/assembler proof; no
+DAP framework or GC-object inspector is required for this series.
 
-## 7. Proposed PR sequence
+## 7. Global simplification plan
 
-These are plans for review, not implementation PRs. Each builds on the last,
-starting from #421. Names describe responsibilities, not a new framework.
-Each PR updates its relevant book pages and `TOUR.md`; the final pass removes
-any remaining stale descriptions.
+- Reuse the existing compiler session and browser checkpoint/reload machinery.
+  Delete the competing browser build backend and preview.
+- Use one disk-change path for the compiler and editor. Delete unsaved compiler
+  overlays, server-owned buffer histories and source snapshot machinery.
+- Make project files the shared compiler/CLI build description. Delete redundant
+  application build scripts and the old development-command split.
+- Give each target one output directory. Keep serial artifact resolution;
+  omit extra output names, recipe plugins and a second dependency scanner.
+- Keep process control ordinary. Omit custom readiness/shutdown protocols,
+  runtime actor registries, embedded browser documents and virtual URL schemes.
+- Use concrete socket effects and HTTP library code. Keep debugger work outside
+  this stack while preserving process/build identity for later attachment.
 
-| PR | Concrete change and current architecture | Simplification in this PR | Evidence before moving on |
-| --- | --- | --- | --- |
-| 1. Delete the preview | Remove `src/ide/preview.{mjs,html}`, preview UI and port/routing code in `ide.mjs`/`toolchain.mjs`; trim `scripts/build-ide.scm`. | No replacement preview, Browser document or URL router. The interim browser editor may still compile for diagnostics until PR 10 removes that backend. | Editor formatting, splits and diagnostics still work; preview messages and unused application host assets disappear. |
-| 2. Parse project data | Use `(lofi read)` to parse `project.datum` into project-plan types under `src/lofi/`. | No evaluator, constructor library, metadata permissions or quotation extension. | Read actual files; reject duplicate names, unknown fields, bad paths/kinds/references and executable-looking forms outside the schema. |
-| 3. Capture build inputs | Add immutable file/directory revisions with optional editor overlays at the existing filesystem boundary. Adapt producer execution to the captured tree. | One concrete view of build inputs; no general provider framework. Keep producer regeneration conservative. | Source and image edits during a build cannot change its inputs; file creation/deletion changes the next revision; generator writes stay in staging. |
-| 4. Share the engine and add CLI builds | Extract build/session rules from `src/lofi/develop.sld`; reuse `session.sld` and `host/chibi/lofi/build.sld`. Make `serve`/`watch` callers immediately; add `lofi build DIRECTORY`. | One engine and serial builds using the existing program/bundle builders. No separate IDE build algorithm. | Disk and overlay inputs produce runnable artifacts. Failures retain completed builds. Existing watch/reload behavior survives extraction. |
-| 5. Resolve artifact macros | Extend `expand.sld`/`session.sld` with located requests and dependency evidence; the engine resolves them. Carry generated-library support into the shared path. | One serial traversal, including cached dependencies; no scanner, runtime lookup or hardcoded cache paths. | Unknown names/kinds and producer failures reject builds. Cached A→B detects B→A added later. Changed generated bytes invalidate consumers; exercise Hearsay and an embedded client bundle. |
-| 6. Add concrete sockets | Add `(lofi socket)` and a thin native TCP implementation using `src/app/tasks.mjs`; integrate socket cleanup with the runner. | Explicit handles and close; no IO-provider layer, worker pool, generic stream hierarchy or new ownership feature. | Real TCP plus intercepted-effect tests for partial transfers, cancellation and late completion; exhaustion/stop releases listeners and buffers. |
-| 7. HTTP over sockets | Add bounded HTTP parsing, framing, bundle serving and a small SSE writer. Move native `serve` HTTP/SSE handling out of `scripts/develop.mjs` into this library. | Delete native HTTP provider commands; routing is ordinary Lofi code. | Split/malformed/oversized requests and disconnects over TCP. A fixed test server serves a built bundle and API; external-page reload still works. |
-| 8. Process launches | Extend `scripts/run-lofi.mjs` and the existing child-process path with named launches, announced addresses and direct shutdown/drain requests. | One process per launch; no actor catalogue, shared-host run tags or automatic state migration. | Stop one of two servers independently; verify readiness, cold restart, failure continuity, forced exit and stale launch-result races. |
-| 9. Native IDE server | Add the IDE API and compiler worker using the engine and HTTP library. Own buffers/saves/watch observations here. | One folder; the server owns editing/launch intent, the worker owns build state. | Exact unsaved revisions, disk conflicts, responsiveness during compilation, reconnection and consistent CLI/IDE artifact errors. |
-| 10. Switch frontend and remove browser backend | Adapt `ide.mjs`; delete `project.mjs`, `toolchain.mjs`, browser `develop.sld` and source/sample packaging. Keep editor/panes/formatter; rework `make ide`. | No localStorage project copy, directory-picker permissions, second backend or iframe. | Chromium edits/saves/builds/launches through the server; external windows use the application's origin. Refresh preserves acknowledged unsaved buffers. |
-| 11. Examples and series audit | Add representative project files and a multi-client example; audit docs, tests and responsibility changes across the stack. | Remove stale adapters and obsolete plans. No remaining engine migration is deferred to this PR. | CLI and IDE share invalidation; generated libraries and external-page checkpoint reload work. Run compiler suites/bootstrap and inspect the production-code deletion totals. |
+Each implementation PR must name what it deletes and the surviving owner,
+update its book pages and `TOUR.md`, and test one meaningful behavior or failure
+boundary. Record production, test and documentation line changes separately.
+Astra Max simplify reviews should challenge retained behavior, not merely
+validate the machinery chosen to preserve it.
 
-## 8. Debugging: a separate, bounded extension
+## 8. Proposed PR sequence
 
-Initial run controls include logs, exit failures, build diagnostics and
-Stop/Restart. Those are not a source debugger. Separate processes let a
-paused application leave the IDE and other applications responsive.
+These are reviewable implementation cuts above #421, not changes authorized
+by this design PR. The anchors below refer to the current code.
 
-The next useful proof is attaching to the **actual Wasm execution agent**
-through V8's inspector. The present CLI runner starts a Node worker for heap
-settings; attaching only to its wrapper process is not enough. Verify the
-target and JSPI behavior on the pinned engine before designing IDE controls.
-Node documents inspector sessions and cautions against controlling a paused
-program from the same execution thread. See the
-[Node inspector API](https://nodejs.org/api/inspector.html#support-of-breakpoints).
+| PR | Change grounded in current architecture | Simplification and evidence |
+| --- | --- | --- |
+| 1. Delete the preview | Remove `src/ide/preview.{mjs,html}`, iframe/ports and preview packaging. | Keep editor formatting, panes and diagnostics; no replacement preview protocol. |
+| 2. Project forms | Parse explicit target/launch forms with `(lofi read)` into structured descriptions. | No evaluator or metadata sandbox. Check duplicate/invalid forms and round-trip printing. |
+| 3. Output directories and CLI builds | Change `scripts/lofi.scm` and `host/chibi/lofi/build.sld` callers to the directory contract; introduce project builds and replace application packaging scripts. | One compiler build path; migrate `compile -o`, runner and build tests together. Execute built programs and inspect browser output files. |
+| 4. Artifact dependencies | Extend `expand.sld`/`session.sld` and generated-library execution with named target resolution. | One serial traversal; no scanner or runtime lookup. Test missing targets, cached dependency cycles, producer changes and Hearsay generation. |
+| 5. Persistent development | Extract the development session from `develop.sld`/`scripts/develop.mjs`, retaining compiler sessions in one Node worker. Share watch reconciliation and publish fresh attempt diagnostics. | Keep old commands until their launch/reload replacements pass in PR 9. Test external edits, rename saves, invalid→valid builds, changes during compilation and unchanged-library reuse. |
+| 6. TCP sockets | Add the concrete native TCP effect on `src/app/tasks.mjs` suspension and cleanup. | No provider hierarchy. Exercise real partial transfers, close/cancel and late completion. |
+| 7. UDP sockets | Add concrete datagram operations beside TCP. | No stream emulation. Exercise peer addresses, empty/oversized datagrams and cancellation without assuming reliable delivery. |
+| 8. HTTP and browser bundles | Implement HTTP over TCP and application asset/reload serving in the bundle helper; reuse `src/app/reload.sld`. Make root-relative reload URLs bundle-relative and relinks use the advertised artifact identity. | Ordinary routing replaces preview transport. Two frontends reload under distinct prefixes. Retry interrupted fetches without treating them as refused state migrations; production exposes no dev endpoints. |
+| 9. Launches and reload | Reuse the child-process path and `scripts/run-lofi.mjs` for launch targets, restart ordering and process/build identity. Switch to `dev` and retire old watch/development-serve policies once application serving/reload passes. | No actor catalogue or general run protocol. Test failed-build continuity, Stop versus rebuild, restart during module fetch, stable-origin reconnect and checkpoint retention. Server-state policy must be settled first. |
+| 10. File service | Add native file read/save and shared watcher subscriptions to `dev`. | Disk is authoritative; no server buffer database. External writes update clean buffers and surface dirty-buffer conflicts; saves never trigger compilation directly. |
+| 11. Editor client | Adapt `ide.mjs`; delete browser `project.mjs`, `toolchain.mjs`, `develop.sld` and source/sample packaging; keep editor/panes/formatter. | The UI consumes the existing dev session. Test it in Chromium alongside an external file edit and a running subprocess. |
+| 12. Examples and audit | Migrate example projects and command documentation, remove remaining obsolete scripts/adapters, audit the series. | Verify shared CLI/dev artifacts, generated libraries, saved-file squiggles and browser reload. Run compiler suites/bootstrap and inspect net production-code changes. |
 
-Source breakpoints require a second proof: preserve Lofi locations through
-lowering and assembly to Wasm instruction offsets, then map the inspector's
-locations back to the frozen build's source. `Expr` has locations today;
-`wasm.sld` and `src/assembler` do not emit the required Lofi source mappings.
-Use standard source-map/debug-section conventions where supported; choose
-only after an engine experiment. The
-[Wasm debugging conventions](https://github.com/WebAssembly/tool-conventions/blob/main/Debugging.md)
-describe byte-offset source maps and DWARF sections, not an automatic Lofi
-debugger or a guarantee of WasmGC value inspection.
+## 9. Remaining review decisions
 
-Proposed follow-ups: (D1) attach/pause/resume and traps for one isolated run;
-(D2) emitted source locations and line breakpoints for unoptimized builds;
-(D3) scalar locals and supported value views after a representation proof.
-Do not add a DAP framework, arbitrary evaluation, continuation debugger or
-GC-object inspector merely to complete the IDE/project work. Breakpoints
-refer to the run's build, never silently to a newer unsaved buffer.
-
-## 9. Review points
-
-Separate launch processes, external browser windows only, no browser IDE
-backend, inert `project.datum`, and sockets with HTTP as a library are settled.
-Remaining proposals worth challenging are:
-
-- Artifact macros return typed bytes/bundles. They resolve in actual
-  expansion, and only the selected build's reachable targets are checked
-  unless the user requests the whole project.
-- The small program/bundle schema and literal launch settings should be
-  proven on two actual project files before adding more target kinds.
-- Preserve standalone `serve` reload, while ordinary project launches use
-  explicit cold Restart. Full source debugging follows its own proofs.
+- The proposed server baseline restarts the subprocess; state-preserving
+  server reload needs an explicit contract if required in this series.
+- `serve` is reserved for production; confirm whether it should take a built
+  output directory or a project/launch name before fixing CLI syntax.
+- Keep `project.datum` for inert forms unless the filename is deliberately
+  changed. Its role replacing project build scripts is settled.
+- Keep frontends as ordinary server dependencies, without restricting the
+  language to console applications and web servers.

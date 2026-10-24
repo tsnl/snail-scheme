@@ -50,9 +50,10 @@ describe proposed behavior, kept apart from what is implemented.
 
 ## Next
 
-1. Review the [desktop IDE and project design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md):
-   a native server, browser editor, inert `project.datum` and separate
-   application processes. Implementation follows design review.
+1. Review the [project and development design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md):
+   inert project descriptions, directory outputs and `lofi dev` with one
+   shared file watcher, a persistent compiler and an independent editor UI.
+   Implementation follows design review.
 2. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
 
@@ -121,8 +122,8 @@ Not implemented:
   as the redesign's section 5 proposes.
 - [ ] Reloading long-running programs other than pages, such as servers once
   the socket effect exists, with the same save and restore contract instead
-  of a restart. The proposed project launches use cold Restart first; server
-  state migration is separate future work.
+  of a restart. Today's `watch` restarts its subprocess. Whether the proposed
+  `dev` must preserve server state is still a design-review decision.
 - [ ] Keeping the build cache on disk, so a cold start does not compile
   everything once: entries keyed by content hashes and written atomically,
   validated on a cold start by hashing sources, as Bazel and Nix do.
@@ -135,7 +136,7 @@ Not implemented:
 - [ ] Closures in the state: detecting them from the state's type, and
   relinking through `save` and `restore` instead of handing them over.
 
-### IDE
+### Projects, development and the IDE
 
 `make ide` builds a browser IDE: projects opened from disk, highlighting,
 Emacs-style indentation and format-on-save through `(lofi format)`,
@@ -147,21 +148,27 @@ section 7). This is the current implementation. The
 is proposed and awaits review:
 
 - [ ] Delete the integrated preview, then replace browser project/build
-  ownership with one native server for one workspace folder. Preserve the
-  editor, formatting, diagnostics and splits.
-- [ ] Parse inert `project.datum` files containing named build targets and
-  launch commands. Compile from captured input revisions; no `init` or
-  executable metadata queries remain in the design.
-- [ ] Share one project engine between `lofi build DIRECTORY`, the IDE and
-  development commands. Resolve named artifacts during actual expansion,
-  including dependencies from generated application libraries.
-- [ ] Add a concrete TCP socket effect and an HTTP library over it. Start
-  each named launch in a separate OS process; open applications in external
-  browser windows only. Preserve standalone page reload.
+  ownership with `lofi dev` for one project. Preserve the editor, formatting,
+  diagnostics and splits; the UI subscribes to the development session.
+- [ ] Replace project build scripts with inert `project.datum` forms such as
+  `build-target` and `launch-target`. Every build target produces one output
+  directory. This changes the compiler/CLI contract, not just the IDE.
+- [ ] Resolve named artifact bundles during actual expansion, including
+  dependencies from generated application libraries. One server can depend
+  on and serve multiple frontend bundles.
+- [ ] Keep compiler sessions alive under `dev`. One shared watcher drives
+  compilation from saved files and notifies the editor, including after
+  external tools write files. Publish fresh diagnostics for every attempt.
+  Omit unsaved build overlays and source-tree snapshot infrastructure.
+- [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
+  ordinary application subprocess controls and browser checkpoint hot reload;
+  settle the server-state handover requirement before implementation.
+- [ ] Let `dev` subsume `watch`, development serving and the IDE. Reserve
+  `serve` for production web applications; keep one-shot `build` and `run`.
 - [ ] Prove debugger attachment to the actual Wasm execution agent, then
   source mappings and breakpoints, as separate follow-ups.
 
-The browser-only IDE backend, embedded Browser documents, virtual URL
+The browser-only IDE backend, embedded browser documents, virtual URL
 schemes and browser release-build tooling are dropped from the plan. They
 are not deferred milestones. Ordinary browser applications remain supported.
 Other editor improvements remain open:
