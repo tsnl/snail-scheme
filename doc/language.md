@@ -423,6 +423,7 @@ unrestricted types; there is no borrow checker or user-defined destructor.
 | --- | --- |
 | `(lofi base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, lists, vectors, arrays, strings, `Show`. |
 | `(lofi io)` | The `console` and `fs` effects: text output, lines of input, and files as text or bytes. |
+| `(lofi task)` | One-shot local dispatch, cooperative yield and timer waits through the runtime-owned `tasks` effect. |
 | `(lofi table)` | Immutable tables from strings to values. |
 | `(lofi math)` | Elementary functions on `F64`. |
 | `(lofi text)` | Unicode character properties and case mapping. |
