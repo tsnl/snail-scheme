@@ -3,6 +3,12 @@
 > **Status: implemented in #377,** on top of the live reload of #367,
 > except where a section says *proposed*. The book's
 > [roadmap](book/roadmap.md) tracks what is left.
+>
+> The [desktop IDE proposal](proposals/desktop-ide.md) replaces the browser
+> development backend and integrated preview with a native project server
+> and external application windows. It awaits review. Current behavior is
+> documented here until implementation; future browser-only IDE and inlaid
+> preview work is dropped.
 
 This document describes how Lofi programs are built, linked, reloaded and
 loaded during development, so that a rebuild costs as much as the edit
@@ -16,11 +22,12 @@ unchecked cast.
 1. Rebuild and reload in proportion to the edit, not to the program.
 2. Hot reload at the granularity of a module, keeping the application's
    state.
-3. Load compiled code while a program runs, for previews inlaid in the
-   IDE's editor panes, plugins and `generate-library` producers.
+3. Load compiled code while a program runs, including `generate-library`
+   producers.
 4. The development loop written in Lofi and Rust, with hosts that only
    perform I/O.
-5. The whole debug toolchain running in a browser.
+5. The current implementation runs the whole debug toolchain in a browser.
+   The proposed desktop IDE moves builds to a native server.
 
 ## 2. Where a rebuild's time goes
 
@@ -126,9 +133,8 @@ table, would add to every call across libraries.
 
 `(lofi wasm)` is `dlopen` and `dlsym`. It loads a module from a file,
 linked against the runtime, the program's own modules and the modules
-loaded before it, by name, so one inlaid preview can import an earlier
-one. A function the module exports comes out as a `Funcref`, and
-`unsafe-cast` makes it a function of the type the context expects:
+loaded before it, by name. A function the module exports comes out as a
+`Funcref`, and `unsafe-cast` makes it a function of the type the context expects:
 
 ```scheme
 (let* ((cell (load-module "cell" "build/cell.wasm"))
@@ -284,5 +290,7 @@ format-on-save, splits a pane, and opens a folder.
 
 The book's [roadmap](book/roadmap.md) lists the open work: the build cache
 on disk, interfaces as generated headers, `(lofi wasm)` in browsers,
-previews inlaid in the IDE, a native host for the loop, closures in the
-state, and release builds in a browser.
+a native host for the loop, closures in the state, and the proposed
+[desktop IDE and project engine](proposals/desktop-ide.md). Integrated and
+inlaid previews, virtual browser routing and a browser-only development
+backend are not part of that plan.

@@ -37,6 +37,13 @@ literal could have more than one type, as `(lofi app)` gives its key codes
 
 ## The browser IDE
 
+The following describes the current implementation. The
+[desktop IDE proposal](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
+would replace its browser backend with a native project server, remove the
+integrated preview and launch applications in separate processes with
+external browser windows. That design awaits review; the commands below
+have not changed.
+
 `make ide` packages an IDE as a static site in `build/ide`, with nothing to
 install and no server beyond one for static files:
 

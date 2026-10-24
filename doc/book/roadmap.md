@@ -50,7 +50,9 @@ describe proposed behavior, kept apart from what is implemented.
 
 ## Next
 
-1. Previews inlaid in the IDE's editor panes (below).
+1. Review the [desktop IDE and project design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md):
+   a native server, browser editor, inert `project.datum` and separate
+   application processes. Implementation follows design review.
 2. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
 
@@ -118,8 +120,9 @@ Not implemented:
   an application would name a function from its old Save to its new one,
   as the redesign's section 5 proposes.
 - [ ] Reloading long-running programs other than pages, such as servers once
-  a `net` effect exists, with the same save and restore contract instead
-  of a restart.
+  the socket effect exists, with the same save and restore contract instead
+  of a restart. The proposed project launches use cold Restart first; server
+  state migration is separate future work.
 - [ ] Keeping the build cache on disk, so a cold start does not compile
   everything once: entries keyed by content hashes and written atomically,
   validated on a cold start by hashing sources, as Bazel and Nix do.
@@ -131,8 +134,6 @@ Not implemented:
   once its support for WebAssembly GC matures.
 - [ ] Closures in the state: detecting them from the state's type, and
   relinking through `save` and `restore` instead of handing them over.
-- [ ] Release builds in a browser, with Binaryen compiled to WebAssembly if
-  its threads and exceptions can be tamed.
 
 ### IDE
 
@@ -141,11 +142,30 @@ Emacs-style indentation and format-on-save through `(lofi format)`,
 squiggles from the compiler's builds, Zed-style docks and split panes, and
 the application relinked beside the editor
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md),
-section 7). Not implemented:
+section 7). This is the current implementation. The
+[replacement design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
+is proposed and awaits review:
 
-- [ ] Previews inlaid in the editor panes: each preview compiled as its own
-  module and loaded through `(lofi wasm)`, rerun when what it depends on
-  changes, with no manual order.
+- [ ] Delete the integrated preview, then replace browser project/build
+  ownership with one native server for one workspace folder. Preserve the
+  editor, formatting, diagnostics and splits.
+- [ ] Parse inert `project.datum` files containing named build targets and
+  launch commands. Compile from captured input revisions; no `init` or
+  executable metadata queries remain in the design.
+- [ ] Share one project engine between `lofi build DIRECTORY`, the IDE and
+  development commands. Resolve named artifacts during actual expansion,
+  including dependencies from generated application libraries.
+- [ ] Add a concrete TCP socket effect and an HTTP library over it. Start
+  each named launch in a separate OS process; open applications in external
+  browser windows only. Preserve standalone page reload.
+- [ ] Prove debugger attachment to the actual Wasm execution agent, then
+  source mappings and breakpoints, as separate follow-ups.
+
+The browser-only IDE backend, embedded Browser documents, virtual URL
+schemes and browser release-build tooling are dropped from the plan. They
+are not deferred milestones. Ordinary browser applications remain supported.
+Other editor improvements remain open:
+
 - [ ] Semantic highlighting: the lexer colors core forms, capitalized names
   and the names definitions introduce; the expander knows what every name
   resolves to (a local, a global, a type, a constructor, a macro), and a
