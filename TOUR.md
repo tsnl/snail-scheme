@@ -113,6 +113,11 @@ and keeps state that grows over a whole pass in a `Ref`.
 
 ## Around the compiler
 
+- **[`src/app/tasks.mjs`](src/app/tasks.mjs)** schedules task starts and
+  one-shot JSPI resumptions. One execution permit protects dynamic handler
+  bindings; a live-task set accounts for queued work, waits and cleanup.
+  I/O adapters own their abortable registrations and settle after cleanup.
+
 | Path | Responsibility |
 | --- | --- |
 | `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `schema` and `bootstrap`; `lofi` hands `serve` and `watch` to `scripts/develop.mjs`. |
