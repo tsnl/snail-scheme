@@ -15,7 +15,8 @@
    (lofi base)
    (lofi table)
    (lofi compiler read)
-   (lofi compiler core))
+   (lofi compiler core)
+   (lofi compiler capabilities))
   (begin
 
     ;; ---- Checker state ----
@@ -698,7 +699,19 @@
             (None)
             (match (given-evidence (Constraint-class constraint) types givens)
               ((Some evidence) (Some evidence))
-              ((None) (Some (instance-evidence ck (Constraint-class constraint) types givens loc)))))))
+              ((None) (Some (if (capability-class? (Constraint-class constraint))
+                                (capability-evidence ck (Constraint-class constraint) types givens loc)
+                                (instance-evidence ck (Constraint-class constraint) types givens loc))))))))
+
+    (: capability-evidence (-> Checker String (List Type) (List Constraint) Loc Evidence ! mut))
+    (define (capability-evidence ck property types givens loc)
+      (match types
+        ((Cons type (Nil))
+         (unless (capability-type? (program-of ck) property type givens (Nil))
+           (compile-error loc (string-append "no " (short-name property) " evidence for " (type->string type))))
+         ;; Marker evidence has no methods and generates no dictionary code.
+         (EvInstance property types (Nil)))
+        (_ (compile-error loc "Send and Sync each require one type"))))
 
     (: given-evidence (-> String (List Type) (List Constraint) (Option Evidence)))
     (define (given-evidence class types givens)
@@ -1075,7 +1088,12 @@
     ;; where it occurs.
     (: check-annotated (-> Checker Item Scheme Item ! mut))
     (define (check-annotated ck definition scheme)
-      (ref-set! (Checker-givens ck) (Scheme-constraints scheme))
+      ;; Monomorphic roots run without evidence parameters. Their closed
+      ;; requirements must be proved, not assumed by their initializer.
+      (ref-set! (Checker-givens ck) (if (null? (Scheme-vars scheme)) (Nil) (Scheme-constraints scheme)))
+      (when (null? (Scheme-vars scheme))
+        (for-each (lambda (constraint) (want-class! ck constraint (Expr-loc (Define-value definition))) (unit))
+                  (Scheme-constraints scheme)))
       (let* ((row (fresh-meta ck)) (value (check-value ck (Define-value definition) (Scheme-type scheme) row))
              (loc (Expr-loc value)))
         (unify ck (Scheme-type scheme) (Expr-type value) loc)
