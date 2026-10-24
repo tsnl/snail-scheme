@@ -1,7 +1,7 @@
 # Tasks, ownership and runtimes
 
 This is the language contract for the runtime rewrite. The book's
-[runtime chapter](book/runtimes/index.md) distinguishes the implemented
+[runtime chapter](https://tsnl.github.io/snail-scheme/runtimes/index.html) distinguishes the implemented
 subset from this contract. It supersedes the actor hierarchy proposed in
 PR #412. There is one shipping target: WebAssembly GC with JSPI, on one
 JavaScript execution agent. A second backend is future research.
@@ -72,8 +72,10 @@ A handler implementation is distinct from an **installation** of that
 handler. Installations and their outer bindings belong to a computation.
 Suspending and resuming a computation preserves those bindings. Reusing
 handler code does not duplicate a control delimiter or permit two resumes
-of one continuation. Newly dispatched tasks start with runtime defaults;
-install application handlers explicitly inside their closure.
+of one continuation. Newly dispatched tasks inherit the current ordinary
+bindings. Each task owns its binding vector; the reusable implementations
+may be shared. This preserves the dispatched closure's declared effects.
+It does not establish rules for cloning future control delimiters.
 
 Runtime event waits are control operations: the runtime retains a one-shot
 resumption and later makes it ready with a result or cancellation. JSPI
