@@ -24,7 +24,8 @@ A program that traps keeps the last state whose whole event succeeded,
 including presentation. The next good build resumes from that checkpoint
 without repeating the failing event; unread actions wait for it. A cold
 first-frame failure also stays available for a source fix. Reload waits for
-the old JSPI entry to save and settle before relinking, and accepts a new
+the old root to save and return, then cancels and drains its remaining
+tasks and I/O cleanup before relinking. It accepts a new
 entry only after its first frame succeeds. A changed style
 sheet is fetched again; a changed page or host script reloads the page
 after saving. Each event carries the manifest of the build being served,
@@ -39,3 +40,26 @@ program again whenever its sources change, stopping a run still in
 progress once a new build succeeds. [The development
 toolchain](toolchain.md) describes how builds stay this fast, and the
 browser IDE that runs the same loop without a server.
+
+## Task lifetime
+
+Each invocation owns a [task runtime](../runtimes/scheduling.md). Normal
+root completion after initial presentation lets children finish. Root
+failure or return before that acceptance boundary closes the runtime.
+Explicit reload waits for the root's
+checkpoint handover before closing it. Repeated stop requests share one
+handover result. This is application lifecycle policy; ordinary task
+completion does not cancel its children.
+
+Event waits and storage use the same suspension bridge as task waits.
+Their cancellation signals belong to the invocation that began the call.
+Non-abortable storage may delay teardown until it finishes. An old
+completion cannot write into a replacement invocation.
+
+Only one loop consumes application events. The runtime buffers input and
+coalesces frames; it does not own an implicitly shared current world.
+The root task owns event consumption, boot acknowledgement and checkpoint
+storage. Calling these operations from a detached task fails before any
+input or saved bytes change. A child can use task waits and separately bound
+I/O, but cannot replace the application's checkpoint while its loop saves.
+Read-only seed and canvas dimensions remain available to all tasks.

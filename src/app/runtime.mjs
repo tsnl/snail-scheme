@@ -1,5 +1,6 @@
-// One JSPI invocation owns its queue and waits; its application owns resources.
-import {programEntry, runEntry, byteSnapshot} from './entry.mjs';
+// Applications own input and checkpoint handover; the scheduler owns tasks.
+import {programEntry, byteSnapshot} from './entry.mjs';
+import {createScheduler, taskImports} from './tasks.mjs';
 
 export const FRAME = 11, HIDDEN = 12, RELOAD = 13;
 const MOVE = 4, RESIZE = 8;
@@ -32,12 +33,19 @@ export function createEventQueue(frames = null) {
   return {
     push,
     poll() { const event = events.shift(); if (event?.[0] === FRAME) schedule(); return event; },
-    wait() {
+    wait(signal) {
+      if (signal?.aborted) return Promise.reject(signal.reason);
       if (events.length) return Promise.resolve();
       if (phase === 'closed') return Promise.reject(new Error('the application has stopped'));
       if (waiter) throw new Error('an application can have only one event waiter');
       waiter = Promise.withResolvers();
-      return waiter.promise;
+      const pending = waiter;
+      function abort() {
+        if (waiter === pending) waiter = null;
+        pending.reject(signal.reason);
+      }
+      signal?.addEventListener('abort', abort, {once: true});
+      return pending.promise.finally(() => signal?.removeEventListener('abort', abort));
     },
     reload() {
       if (phase !== 'open') return;
@@ -57,6 +65,7 @@ export function createEventQueue(frames = null) {
       return unread;
     },
     get closed() { return phase === 'closed'; },
+    get waiting() { return waiter !== null; },
   };
 }
 
@@ -67,16 +76,23 @@ export function applicationEntry(program) {
 
 // Imports stay attached to the application: kept library instances retain
 // these functions on relink. Async operations capture their invocation before
-// awaiting. Exactly one entry runs at once, so handler globals can be restored
-// after settlement without changing another suspended invocation's handlers.
+// awaiting. The scheduler preserves each task's dynamic handler bindings.
 export function createRuntime({size = () => [960, 640], seed = 1, load = async () => undefined,
                                store = async () => {}, frames = null, reportError = () => {}, warn = console.warn} = {}) {
-  let current = null;
+  let current = null, stopping = null;
   const pending = [];
+  // This scope starts exactly one root, which owns the application protocol.
+  // Children must not consume its input or replace checkpoint bytes while
+  // its storage operation is parked.
+  function applicationRun() {
+    if (!current?.scheduler.inRoot) throw new Error('application events and checkpoint storage belong to the root task');
+    return current;
+  }
   const imports = {
+    'snail.tasks': taskImports(() => current.scheduler),
     'snail.events': {
       poll() {
-        const run = current;
+        const run = applicationRun();
         if (!run.accepted && run.event?.[0] === FRAME) {
           // Returning to poll acknowledges successful initial presentation.
           // Hold transition input until that boundary, even during storage.
@@ -89,25 +105,32 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
         run.event = event;
         return event[0];
       },
-      wait: new WebAssembly.Suspending(() => current.queue.wait()),
-      field: index => current.event[index + 1] ?? 0,
+      wait: new WebAssembly.Suspending(() => {
+        const run = applicationRun();
+        return run.scheduler.suspend(signal => run.queue.wait(signal));
+      }),
+      field: index => applicationRun().event[index + 1] ?? 0,
       seed: () => seed,
       width: () => size()[0],
       height: () => size()[1],
-      boot: kind => { current.boot = kind; },
+      boot: kind => { applicationRun().boot = kind; },
     },
     'snail.storage': {
-      load: new WebAssembly.Suspending(async () => {
-        const run = current;
-        run.loaded = run.restore === undefined ? await load() : run.restore;
-        return run.loaded == null ? -1 : run.loaded.length;
+      load: new WebAssembly.Suspending(() => {
+        const run = applicationRun();
+        return run.scheduler.suspend(async signal => {
+          run.loaded = run.restore === undefined ? await load(signal) : run.restore;
+          return run.loaded == null ? -1 : run.loaded.length;
+        });
       }),
-      byte: index => current.loaded[index],
-      store: new WebAssembly.Suspending(async address => {
-        const run = current, bytes = byteSnapshot(run.entry.memory, address);
+      byte: index => applicationRun().loaded[index],
+      store: new WebAssembly.Suspending(address => {
+        const run = applicationRun(), bytes = byteSnapshot(run.entry.memory, address);
         run.saved = bytes;
-        try { await store(bytes); }
-        catch (error) { warn(`save failed: ${error.message}`); }
+        return run.scheduler.suspend(async signal => {
+          try { await store(bytes, signal); }
+          catch (error) { if (!signal.aborted) warn(`save failed: ${error.message}`); }
+        });
       }),
     },
   };
@@ -123,30 +146,46 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
   }
   function start(entry, handover = null, {restore, transfer = false} = {}) {
     if (current && !current.queue.closed) throw new Error('application entries must not overlap');
+    if (!transfer) stopping = null;
     const ready = Promise.withResolvers(), queue = createEventQueue(transfer ? null : frames);
-    const run = {entry, ready, queue, restore, accepted: false, saved: null, loaded: null, event: null, boot: null, done: null};
+    const scheduler = createScheduler({handlerGlobals: () => entry.handlers, reportError});
+    const run = {entry, ready, queue, restore, scheduler, accepted: false, saved: null, loaded: null,
+                 event: null, boot: null, root: null, done: null};
     ready.promise.catch(() => {});
     current = run;
-    if (transfer) queue.push(RELOAD);
+    if (transfer) queue.reload();
     else { queue.push(RESIZE, ...size()); queue.push(FRAME, 0); }
-    // Deferring the call also turns a synchronous ABI error into settlement.
-    run.done = Promise.resolve().then(() => runEntry(entry, handover)).then(
-      state => finish(run, state, null),
-      error => finish(run, run.boot === null ? handover : entry.exports.app_state(), error));
+    run.root = scheduler.start(() => WebAssembly.promising(entry.main)(handover)).done.then(
+      state => ({state, error: null}),
+      error => ({state: null, error: error instanceof Error ? error : new Error('application failed', {cause: error})}));
+    run.done = run.root.then(async result => {
+      // After the sole event consumer returns, an unpresented application
+      // can never become ready. Its children cannot complete startup for it.
+      if (result.error || !run.accepted) await scheduler.close();
+      else await scheduler.drain();
+      const state = result.error ? (run.boot === null ? handover : entry.exports.app_state()) : result.state;
+      return finish(run, state, result.error);
+    });
     return run;
   }
-  async function stop() {
-    let run = current;
+  async function stopRun(run) {
     run.queue.reload();
-    let result = await run.done;
+    await run.root; // The application saves its checkpoint before teardown.
+    await run.scheduler.close();
+    return run.done;
+  }
+  async function stopCurrent() {
+    let run = current;
+    let result = await stopRun(run);
     if (result.error && result.state !== null) {
       // Transfer the checkpoint through old code without replaying the event
       // or view that trapped. Reload is the first event in this invocation.
       run = start(run.entry, result.state, {transfer: true});
-      result = await run.done;
+      result = await stopRun(run);
     }
     return {state: result.state, saved: run.saved, error: result.error};
   }
+  function stop() { return stopping ??= stopCurrent(); }
   function send(...event) {
     if (!current?.accepted || !current.queue.push(...event)) pending.push(event);
   }

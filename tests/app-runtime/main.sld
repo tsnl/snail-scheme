@@ -1,20 +1,66 @@
 (import
  (lofi base)
+ (lofi task)
  (lofi app))
 
-;; The private handler stays installed across storage and event suspension.
-;; Its host default lets the runner detect a leaked handler after a trap.
+;; Each task retains the private handler across storage and event suspension.
+;; Its host default lets the runner detect a leaked handler between turns.
 (effect Marker
   ((marker (-> I32)))
   (host "snail.test"
         ((marker "marker"))))
 
-(: reset-test (All (T e) (-> (-> (-> T ! Marker e) T ! e))))
+(: reset-test (All (T e) (-> (-> (-> T ! Marker tasks e) T ! tasks e))))
 (define (reset-test)
   (lambda (run)
     (handle Marker
         ((marker (lambda () 17)))
+      (dispatch-local (once (lambda ()
+                              (yield)
+                              (unless (= (marker) 17) (panic "a child lost its inherited handler"))
+                              (sleep 100000))))
       (run))))
+
+;; The runtime drains children after a normal root return. Explicit reload
+;; closes that scope after the root has handed over, including this case.
+(extern background-boot "snail.events" "boot" (-> I32 Unit ! events))
+(extern background-poll "snail.events" "poll" (-> I32 ! events))
+(: background-main (-> (Option Any) (Option Any) ! tasks events))
+(define (background-main handover)
+  (background-boot 2)
+  (background-poll) ; Resize.
+  (background-poll) ; Frame.
+  (background-poll) ; Acknowledge presentation.
+  (dispatch-local (once (lambda () (sleep 100000))))
+  handover)
+(expose background-main "background_main")
+
+(: unpresented-main (-> (Option Any) (Option Any) ! tasks events))
+(define (unpresented-main handover)
+  (background-boot 2)
+  (dispatch-local (once (lambda () (sleep 100000))))
+  handover)
+(expose unpresented-main "unpresented_main")
+
+;; Detached tasks cannot enter the application's loop-owned protocol.
+(: child-load (-> Unit ! storage))
+(define (child-load)
+  (load-save)
+  (unit))
+(: child-store (-> Unit ! storage))
+(define (child-store)
+  (store-save #u8(20)))
+(: child-event (-> Unit ! events))
+(define (child-event)
+  (next-event)
+  (unit))
+(: child-boot (-> Unit ! events))
+(define (child-boot)
+  (background-boot 99))
+(expose child-load "child_load")
+(expose child-store "child_store")
+(expose child-event "child_event")
+(expose child-boot "child_boot")
 
 (struct Counter
   ((count I64)

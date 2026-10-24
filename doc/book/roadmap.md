@@ -17,6 +17,13 @@ describe proposed behavior, kept apart from what is implemented.
 - Effect rows with tail-resumptive handlers and host defaults.
 - Compiler-owned `Send` and `Sync` evidence for structural data, including
   generic requirements and rejection of unsafe marker instances.
+- Reusable `Send + Sync` handler environments, checked again when cached
+  code depends on changed helper bodies.
+- Type-directed affine `Once` work and concrete aggregates, with ownership
+  checks and drops at last use. Generic parameters remain unrestricted.
+- One-shot local tasks on shipping JSPI: dispatch, yield, timers, inherited
+  ordinary handlers, cancellation and exhaustion accounting. GUI event and
+  storage waits use the same scheduler; reload drains the old runtime.
 - Wire types: derived `Serialize` and `Deserialize` with per-case TypeIds.
 - `(lofi app)` applications own a JSPI loop with queued events, suspending
   storage, a reset binder and checkpoint handovers on reload. Their browser
@@ -43,12 +50,8 @@ describe proposed behavior, kept apart from what is implemented.
 
 ## Next
 
-1. The [task runtime rewrite](runtimes/contract.md): ownership and
-   handler capture checks, then single-threaded scheduling and application
-   integration. The language permits multithreading; the implementation
-   remains on shipping WasmGC and JSPI.
-2. Previews inlaid in the IDE's editor panes (below).
-3. The other open items below. The redesign records the parts of its plan
+1. Previews inlaid in the IDE's editor panes (below).
+2. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
 
 ## Open items
@@ -80,12 +83,13 @@ describe proposed behavior, kept apart from what is implemented.
 ### Runtime and graphics
 
 The [runtime and graphics plan](graphics/plan.md) lists the milestones of the
-rewrite. Pinned tools and the application main loop on JSPI are done;
-`ctl` operations, WebGPU through an effect, and the 2D and 3D `graphics`
-libraries remain proposed. Beyond them:
+rewrite. Pinned tools, the application main loop and cooperative tasks on
+JSPI are done. WebGPU through an effect and the 2D and 3D `graphics`
+libraries remain proposed; they do not depend on public `ctl` handlers.
+Further runtime work includes:
 
-- [ ] Replace actor protocols with one-shot tasks and runtime-owned event
-  waits, including cancellation and accounting for suspended work.
+- [ ] Grade-polymorphic containers, borrowed captures and user-defined
+  resource cleanup beyond the current affine work-item subset.
 - [ ] Public `ctl` handlers with affine resumptions and a precise account
   of handler lifetimes. Runtime-provided suspension continues to use JSPI.
 - [ ] Shared-heap CPU parallelism when default Wasm engine support permits

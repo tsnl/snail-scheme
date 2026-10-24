@@ -119,7 +119,7 @@ async function testServe(directory) {
     await writeFile(source, (await readFile(source, 'utf8')).replace('"hello"', '"hello again"'));
     const built = await nextBuild(events);
     assert.equal(built.kind, 'built', built.message);
-    assert.match(server.text, /1 of 5 modules compiled/, 'only the program\'s module is compiled again');
+    assert.match(server.text, new RegExp(`1 of ${manifest.modules.length} modules compiled`), 'only the program\'s module is compiled again');
     assert.deepEqual(await relink(page, built.manifest), {from: 'main', passed: 'adopted'}, 'the libraries\' modules stay linked');
     assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['hello again', '2'], 'the new program keeps the state');
     const kept = new Set([...manifest.modules, ...built.manifest.modules].map(([, file]) => basename(file)));

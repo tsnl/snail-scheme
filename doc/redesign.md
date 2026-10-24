@@ -529,25 +529,19 @@ representations.
 
 ## 5. Runtime and application model
 
-An application is a set of actors. Each actor has a typed state `S`, a message
-enum `M` of wire types, and a total handler `(-> S M (Transition S))`. A
-transition contains the next state and a list of typed effects. A send effect
-names a destination typed by that destination's message enum, so the set of
-messages each handler may send is visible in its type.
+The actor hierarchy has been replaced by one-shot tasks. A runtime owns
+queued, executing and suspended work. The language permits multiple
+threads; the shipping WasmGC and JSPI implementation runs cooperatively on
+one execution agent. Ordinary handlers are reusable `Send + Sync`
+capabilities. See the [runtime contract](runtime-contract.md).
 
-The host delivers one message at a time per actor. State lives in Wasm as a
-typed value. Bytes cross the boundary only for persistence and reload, using the
-state's wire encoding. Reload is compatible when the state's `TypeId` is
-unchanged; otherwise it requires an explicit migration function `(-> Old New)`.
-
-Because handlers are total and states and messages are wire types, a test library
-can explore bounded state spaces, check invariants and replay traces without
-browser code. Host scheduling semantics are written once as a pure Lofi
-reference model and checked against the JavaScript host.
-
-Siegework is rewritten as an ordinary functional program in this model: enums
-for building kinds and job states, `match`, `Option`, and a world value with no
-integer codes.
+An application owns its state as arguments to a loop. Its total update and
+view functions remain easy to test and model-check without browser code.
+The runtime buffers input and supplies suspending event and storage
+operations. Reload waits for the loop's saved handover and remaining task
+cleanup. An unchanged TypeId reuses the state; otherwise `save` and
+`restore` perform the migration. No actor interface, transport, mailbox or
+supervisor is required.
 
 <!-- ANCHOR: bootstrap -->
 ## 6. Bootstrap, self-hosting and Scheme
@@ -690,9 +684,10 @@ needs it.
 
 - **The dependent elaborator.** Generic code is served by Hindley–Milner
   checking with typeclasses, effect rows and monomorphization. Normalization
-  by evaluation, implicit arguments and multiplicity slots would roughly
-  double the checker for type-level computation no program uses, so the core
-  has no multiplicity slot.
+  by evaluation and implicit arguments would add type-level computation
+  no program uses. The implemented ownership subset assigns grade `1` to
+  `Once` and concrete records containing it; it has no general dependent
+  elaborator or grade-polymorphic containers.
 - **Checked interfaces.** Separate compilation hashes each library's
   interface to decide what to rebuild, but stores none: the compiled
   compiler checks Siegework, the largest program, in a fraction of a second,
@@ -701,9 +696,8 @@ needs it.
 - **The WGSL backend.** The renderer's shaders are WGSL text that shares no
   structs with Lofi code beyond fixed instance and material layouts. The
   runtime and graphics plan proposes shaders written as S-expressions.
-- **Typed destinations.** An application is one actor whose host delivers
-  input and ticks; with nothing else to send to, a destination type would
-  have one inhabitant.
+- **Actor destinations.** Tasks schedule one-shot closures. Mailboxes,
+  request/reply protocols and network transports are application concerns.
 
 ### Simplifications made on the way
 

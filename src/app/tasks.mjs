@@ -133,6 +133,7 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
       return drain();
     },
     get size() { return live.size; },
+    get inRoot() { return active !== null && !active.detached; },
   };
 }
 

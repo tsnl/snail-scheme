@@ -283,7 +283,8 @@ Traps and non-termination are not tracked.
 
 ## Dynamic values
 
-`Any` holds a value of any type together with that type's identity.
+`Any` holds an unrestricted value together with its type's identity.
+Affine values cannot cross this boundary.
 `(type-convert e Any)` wraps a value; `(type-convert e T)` unwraps an `Any`,
 panicking if it does not hold a `T`, and `(type-test e T)` asks whether it
 does. A type's identity describes its structure, its fields and cases, so a
@@ -354,7 +355,7 @@ runs them inside one loop and the binder returned by `reset`:
 that installs effect handlers around startup and the whole loop; its result
 and effect row are quantified on the reset function, so the returned binder
 is monomorphic. The loop exports `app_main : (Option Any) -> (Option Any)`.
-The JavaScript host calls it through `WebAssembly.promising`; `next-event`
+The task scheduler calls it through `WebAssembly.promising`; `next-event`
 drains the host queue and suspends through `WebAssembly.Suspending` when it
 is empty. `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
 `Input`, `Hidden` saves without stopping, and `Reload` saves and returns the
@@ -369,6 +370,14 @@ a trap leaves the preceding checkpoint available through `app_state`.
 Because time is input, an application decides how time passes and can stop
 it at any frame. Browser applications and headless tests need JSPI; the
 pinned Node 26 runs both packaging modes.
+
+The loop and locally dispatched work share one runtime. The reset binder
+may dispatch background tasks; the root admits the `tasks` effect as well
+as `mut`, `screen`, `events` and `storage`. Suspensions preserve each
+task's handlers. Reload lets the loop save and return, then cancels and
+drains remaining work before relinking. Module globals still initialize
+synchronously; dispatch application work from the reset binder or the
+running entry. See [runtimes](https://tsnl.github.io/snail-scheme/runtimes/index.html).
 
 Frames are built from batches of items. The host keeps a batch until its
 version changes, so a still scene costs nothing to send; each item also
