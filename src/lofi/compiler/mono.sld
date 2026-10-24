@@ -17,7 +17,8 @@
    (lofi table)
    (lofi compiler read)
    (lofi compiler core)
-   (lofi compiler check))
+   (lofi compiler check)
+   (lofi compiler handlers))
   (begin
 
     ;; ---- Specialization state ----
@@ -226,9 +227,8 @@
       (let* ((items (Typed-items typed)) (state (new-state typed (None)))
              (statements (map (lambda (item) (root-item state item)) items)))
         (run-requests! state)
-        (Mono (Typed-program typed) (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair)))
-                                                      (zip items statements)))
-              empty-table (Nil))))
+        (finish-mono state (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair)))
+                                             (zip items statements))) (Nil))))
 
     ;; One library's items, `items` among the program's. Every monomorphic
     ;; definition is a root, since any module may import it. Copies of other
@@ -239,10 +239,17 @@
       (let* ((state (new-state typed (Some owner))) (exported (library-roots state items))
              (statements (map (lambda (item) (root-item state item)) items)))
         (run-requests! state)
-        (Mono (Typed-program typed)
-              (append (concatenate (map (lambda (item) (foreign-copies state owner item)) (Typed-items typed)))
-                      (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair))) (zip items statements))))
-              (ref-get (State-externals state)) exported)))
+        (finish-mono state
+                     (append (concatenate (map (lambda (item) (foreign-copies state owner item)) (Typed-items typed)))
+                             (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair))) (zip items statements))))
+                     exported)))
+
+    ;; Specialization has selected concrete method implementations. Check
+    ;; handler environments before handing this evidence to the backend.
+    (: finish-mono (-> State (List Item) (List String) Mono ! mut))
+    (define (finish-mono state items exported)
+      (check-handlers (program-of state) (table-union (State-definitions state) (item-definitions items)) items)
+      (Mono (program-of state) items (ref-get (State-externals state)) exported))
 
     ;; Requests the library's monomorphic functions, which `root-item` leaves
     ;; until something reaches them, and returns every name it exports.

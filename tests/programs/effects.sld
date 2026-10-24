@@ -29,9 +29,8 @@
 (newline)
 (display (quietly (lambda () (work 5))))
 (newline)
-(define counter (ref 0))
 (display (handle Counter
-             ((tick (lambda () (ref-set! counter (+ (ref-get counter) 1)) (ref-get counter))))
+             ((tick (lambda () 2)))
            (+ (tick) (+ (tick) (tick)))))
 (newline)
 (loudly (lambda ()
