@@ -193,10 +193,11 @@ Three hazards remain:
 - A closure stored in the state keeps running the code it was made from
   until the state is rebuilt. An application that stores functions in its
   state should relink through `save` and `restore`.
-- A relink waits for the old loop to save and leave its suspended stack.
+- A relink waits for the old loop to save and return, then cancels and
+  drains remaining tasks and I/O cleanup from that invocation.
   Input arriving during the transition waits for the new run. No two entry
-  invocations overlap. Handlers surround the whole loop, survive suspension,
-  and are restored to their entry values after settlement, including a trap.
+  invocations overlap. The scheduler saves handler bindings on suspension
+  and restores them before resumption; idle globals contain runtime defaults.
 - A trap leaves the state from the last complete event. The host reads
   `app_state` only after the entry rejects. If saving that checkpoint is
   needed, the old entry runs with `Reload` as its first event, so a failing
