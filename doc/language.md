@@ -199,6 +199,19 @@ multithreaded contract.
 
 ## Effects
 
+Ordinary handler implementations must be reusable and satisfy `Send + Sync`,
+including their captures and the globals reachable through helper functions.
+The compiler checks concrete handler installations after specialization.
+Capturing an immutable value or a known safe procedure is allowed. Capturing
+a mutable cell, an alias of a procedure that reaches one, or an opaque
+callback whose environment is unknown is rejected. The handler may allocate
+fresh mutable storage on each invocation and operate on its arguments.
+An arrow alone is not a certificate for an unknown callback; higher-order
+handler factories may need to construct their implementation at the binding
+site so its environment remains visible to the compiler.
+Incremental builds recheck cached handler code against current helper bodies;
+an unchanged function signature does not preserve a proof about captures.
+
 Every function type has an effect row: the effects calling it may perform.
 A function without `!` is total. `mut` covers reading and writing `Ref` and
 `Array`; every other effect is declared with operations:
