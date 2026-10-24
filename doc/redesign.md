@@ -32,8 +32,10 @@ Lofi must:
 11. Implement full, dynamically typed Scheme as a library that generates Lofi,
     using `generate-library`.
 
-Garbage collection is acceptable. Affine and graded types are out of scope for
-now, but the core keeps room for them (§3.8).
+Garbage collection is acceptable. The [runtime contract](runtime-contract.md)
+extends this design with type-directed affine ownership, checked transfer
+and reusable handlers. Its implementation is staged separately from the
+original redesign; the book records what has landed.
 
 ## 2. Assessment of the starting point
 
