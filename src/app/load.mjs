@@ -98,10 +98,10 @@ function readModules(bytes) {
 // initializations wait for runProgram, so the caller can keep the program
 // first. A program is the runtime instance, the host's imports, each
 // library's instance by name, and the library names in program order.
-export async function linkProgram(read, manifest, wasi, host, {strictHost = false} = {}) {
+export async function linkProgram(read, manifest, wasi, host) {
   const {runtime, modules} = readModules(await read(manifest));
   const [runtimeModule, compiled] = await Promise.all([compileFile(read, runtime), compileModules(read, modules)]);
-  const program = {read, manifest, runtime: await instantiateRuntime(runtimeModule, wasi), host, strictHost, linked: new Map(),
+  const program = {read, manifest, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
                    names: modules.map(entry => entry.name)};
   await linkModules(program, compiled);
   return program;
@@ -154,11 +154,6 @@ function moduleImports(program, libraries, module) {
   const imports = {...program.host, 'snail.library': program.runtime.exports};
   for (const [library, instance] of program.linked) imports[library] = instance.exports;
   const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(from => !libraries.has(from));
-  if (program.strictHost) {
-    for (const {module: from, name} of WebAssembly.Module.imports(module)) {
-      if (hosted.includes(from) && imports[from]?.[name] === undefined) throw new Error(`this host does not provide ${from} ${name}`);
-    }
-  }
   return withStubs(module, imports, hosted, missingHost);
 }
 

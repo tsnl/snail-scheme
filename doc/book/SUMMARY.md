@@ -9,7 +9,6 @@
   - [Libraries](lofi/libraries.md)
   - [Compilers as libraries](lofi/compilers.md)
   - [Application model](lofi/applications.md)
-  - [Actors and their host](lofi/actors.md)
   - [Development toolchain](lofi/toolchain.md)
   - [Notable omissions](lofi/omissions.md)
   - [References](lofi/references.md)
