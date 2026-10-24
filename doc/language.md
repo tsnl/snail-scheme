@@ -402,6 +402,20 @@ is the complete example, and
 prototypes draw their residents as LPC characters on a 2D map.
 <!-- ANCHOR_END: applications -->
 
+## Ownership and runtimes
+
+`Once` wraps a zero-argument procedure returning `Unit`. Construct one with
+`once` and consume it with `call-once`. It has grade `1` (at most once);
+ordinary procedures have grade `omega` (reusable). Concrete records and
+enums containing affine fields are affine too. Use `match` to consume
+their fields. Moves invalidate the previous binding, and unused owners
+are dropped at their last use on each path.
+
+The [runtime chapter](book/runtimes/index.md) explains the ownership subset,
+effect-handler requirements, single-threaded implementation and future
+parallel execution. Generic type parameters currently range over
+unrestricted types; there is no borrow checker or user-defined destructor.
+
 <!-- ANCHOR: libraries -->
 ## Standard library
 
