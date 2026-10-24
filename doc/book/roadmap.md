@@ -43,7 +43,7 @@ describe proposed behavior, kept apart from what is implemented.
 
 ## Next
 
-1. The [task runtime rewrite](../runtime-contract.md): ownership and
+1. The [task runtime rewrite](runtimes/contract.md): ownership and
    handler capture checks, then single-threaded scheduling and application
    integration. The language permits multithreading; the implementation
    remains on shipping WasmGC and JSPI.

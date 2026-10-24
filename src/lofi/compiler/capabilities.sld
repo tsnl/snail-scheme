@@ -2,7 +2,7 @@
 ;; from sharing even while its managed, aliased mutable containers permit
 ;; neither. A procedure's arrow does not describe its captured environment.
 (define-library (lofi compiler capabilities)
-  (export capability-class? capability-type?)
+  (export capability-class? capability-type? affine-type?)
   (import
    (lofi base)
    (lofi compiler core))
@@ -43,4 +43,31 @@
                      (every? (lambda (field) (capability-type? program property (substitute bindings (Field-type field)) givens visiting))
                              (Case-fields case)))
                    (DataType-cases data))))
+        (_ #f)))
+
+    ;; ---- Type grades ----
+
+    ;; Type variables range over unrestricted values. Concrete fields can
+    ;; make a record affine; ordinary arrows never describe owned captures.
+    (: affine-type? (-> Program Type Bool ! mut))
+    (define (affine-type? program type)
+      (affine-within? program type (ref (Nil))))
+
+    ;; Each declaration is explored once per query, including across sibling
+    ;; fields. Re-exploring a recursive graph by every path is exponential.
+    (: affine-within? (-> Program Type (Ref (List String)) Bool ! mut))
+    (define (affine-within? program type visiting)
+      (match type
+        ((TVar _ cell) (match (ref-get cell) ((Some bound) (affine-within? program bound visiting)) ((None) #f)))
+        ((TCon name args)
+         (or (string=? name "Once")
+             (any? (lambda (arg) (affine-within? program arg visiting)) args)
+             (and (not (member? name (ref-get visiting)))
+                  (not (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+                  (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
+                    (ref-set! visiting (Cons name (ref-get visiting)))
+                    (any? (lambda (case)
+                            (any? (lambda (field) (affine-within? program (substitute bindings (Field-type field)) visiting))
+                                  (Case-fields case)))
+                          (DataType-cases data))))))
         (_ #f)))))

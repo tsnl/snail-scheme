@@ -15,6 +15,7 @@
    (lofi table)
    (lofi compiler read)
    (lofi compiler core)
+   (lofi compiler capabilities)
    (lofi compiler mono))
   (begin
 
@@ -273,6 +274,12 @@
 
     (: rep (-> Module Type Rep ! mut))
     (define (rep m type)
+      (if (affine-type? (program-of m) type)
+          (Reference (owned-type m))
+          (unrestricted-rep m type)))
+
+    (: unrestricted-rep (-> Module Type Rep ! mut))
+    (define (unrestricted-rep m type)
       (match type
         ((TCon name args)
          (case name
@@ -611,7 +618,7 @@
     (define (variable fn name type)
       (let ((m (Fn-module fn)))
         (match (local-access fn name)
-          ((Some access) access)
+          ((Some access) (move-value m (capture-rep fn name) access))
           ((None)
            (match (definition-of m name)
              ((Some definition)
@@ -833,6 +840,13 @@
     ;; nothing.
     (: construct (-> Fn Case Type (List Wat) Wat ! mut))
     (define (construct fn case type args)
+      (let ((value (construct-data fn case type args)))
+        (if (affine-type? (program-of (Fn-module fn)) type)
+            (wat "struct.new" (id (owned-type (Fn-module fn))) value)
+            value)))
+
+    (: construct-data (-> Fn Case Type (List Wat) Wat ! mut))
+    (define (construct-data fn case type args)
       (let* ((m (Fn-module fn)) (name (Case-type case)))
         (cond ((tag-enum? m name) (wat "i32.const" (int (Case-tag case))))
               ((not (DataType-enum? (data-type-of m name))) (wat* "struct.new" (Cons (id (data-type m type)) args)))
@@ -1001,7 +1015,11 @@
     (: clause-block (-> Fn Clause String String Bool Wat ! mut))
     (define (clause-block fn clause value done tail?)
       (let* ((next (fresh-id (Fn-module fn) "clause"))
-             (tests (pattern-code fn (Clause-pattern clause) (wat "local.get" (id value)) next))
+             (pattern (Clause-pattern clause))
+             (tests (if (affine-type? (program-of (Fn-module fn)) (pattern-type pattern))
+                        (let ((plan (owned-pattern fn pattern (wat "local.get" (id value)) next)))
+                          (append (Pair-first plan) (Pair-second plan)))
+                        (pattern-code fn pattern (wat "local.get" (id value)) next)))
              (body (emit1-tail fn (Clause-body clause) tail?)))
         (wat* "block" (Cons (id next) (append tests (list (wat "br" (id done) body)))))))
 
@@ -1012,6 +1030,45 @@
         ((PVar name type) (list (wat "local.set" (id (declare-local! fn name (fn-rep fn type))) value)))
         ((PLit literal-value type) (list (wat "br_if" (id fail) (literal-differs fn literal-value type value))))
         ((PCon constructor args type) (constructor-pattern-code fn constructor args type value fail))))
+
+    ;; Owned matches test first, then move bindings and clear containers.
+    ;; Peeks stay on the operand stack: a failed clause must leave neither
+    ;; changed owners nor raw payload scratch roots reaching their children.
+    (: owned-pattern (-> Fn Pattern Wat String (Pair (List Wat) (List Wat)) ! mut))
+    (define (owned-pattern fn pattern value fail)
+      (match pattern
+        ((PWild _) (Pair (Nil) (Nil)))
+        ((PVar name type)
+         (let ((representation (fn-rep fn type)))
+           (Pair (Nil) (list (wat "local.set" (id (declare-local! fn name representation))
+                                  (move-value (Fn-module fn) representation value))))))
+        ((PLit literal-value type) (Pair (list (wat "br_if" (id fail) (literal-differs fn literal-value type value))) (Nil)))
+        ((PCon constructor args type) (owned-constructor-pattern fn constructor args type value fail))))
+
+    (: owned-constructor-pattern (-> Fn String (List Pattern) Type Wat String (Pair (List Wat) (List Wat)) ! mut))
+    (define (owned-constructor-pattern fn constructor args type value fail)
+      (let* ((m (Fn-module fn))
+             (case (match (program-value (program-of m) constructor)
+                     ((Some (Constructor case _)) case) (_ (panic "internal error: not a constructor"))))
+             (owned (affine-type? (program-of m) type))
+             (raw (if owned (wat "ref.cast" (wat "ref" (id (data-type m type)))
+                                 (wat "struct.get" (id (owned-type m)) (int 0) value)) value))
+             (plan (data-pattern fn case args type raw fail)))
+        (Pair (Pair-first plan) (append (Pair-second plan) (if owned (list (clear-owner m value)) (Nil))))))
+
+    (: data-pattern (-> Fn Case (List Pattern) Type Wat String (Pair (List Wat) (List Wat)) ! mut))
+    (define (data-pattern fn case args type value fail)
+      (let* ((m (Fn-module fn)) (name (Case-type case)) (enum? (DataType-enum? (data-type-of m name))))
+        (if (tag-enum? m name)
+            (Pair (list (wat "br_if" (id fail) (wat "i32.ne" value (wat "i32.const" (int (Case-tag case)))))) (Nil))
+            (let* ((container (if enum? (case-type m type case) (data-type m type)))
+                   (raw (if enum? (wat "ref.cast" (wat "ref" (id container)) value) value))
+                   (fields (map-indexed (lambda (index arg)
+                                          (owned-pattern fn arg (wat "struct.get" (id container) (int (+ index (if enum? 1 0))) raw) fail)) args))
+                   (tag (if enum? (list (wat "br_if" (id fail)
+                                             (wat "i32.ne" (wat "struct.get" (id (data-type m type)) (int 0) value)
+                                                  (wat "i32.const" (int (Case-tag case)))))) (Nil))))
+              (Pair (append tag (concatenate (map Pair-first fields))) (concatenate (map Pair-second fields)))))))
 
     (: literal-differs (-> Fn Datum Type Wat Wat ! mut))
     (define (literal-differs fn literal-value type scrutinee)
@@ -1255,7 +1312,7 @@
                                        (list (wat "local.get" (id saved)))))))
               (wat "local.set" (id result) (emit1 fn body))
               (wat "global.set" (id current) (wat "local.get" (id saved)))
-              (wat "local.get" (id result)))))
+              (move-value m (fn-rep fn (Expr-type expr)) (wat "local.get" (id result))))))
 
     (: handler-global (-> String String))
     (define (handler-global effect)
@@ -1359,6 +1416,12 @@
              (sequence (lambda (t) (reference-type (rep m t)))))
         (case operation
           (("unit") (list (wat "i32.const" (int 0))))
+          (("once") (list (wat "struct.new" (id (owned-type m)) (arg 0))))
+          (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0))))
+          (("drop-owned")
+           (list (if (affine-type? (program-of m) (first-type types))
+                     (clear-owner m (arg 0))
+                     (wat "drop" (arg 0))) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
@@ -1388,6 +1451,52 @@
           (("ref-set!")
            (list (wat* "struct.set" (Cons (id (cell-type m (fn-rep fn (list-ref types 1)))) (Cons (int 0) code))) (wat "i32.const" (int 0))))
           (else (panic (string-append "internal error: unknown primitive " operation))))))
+
+    ;; ---- Owned values ----
+
+    ;; Every affine value is a cell with a nullable payload. A move clears
+    ;; its source and allocates a fresh cell, so stale locals and captures
+    ;; cannot retain owned descendants after the new owner drops them.
+    ;; This is shallow transfer, not a deep copy or a GC timing promise.
+    (: owned-type (-> Module String ! mut))
+    (define (owned-type m)
+      (match (known-type m "owned")
+        ((Some type) type)
+        ((None) (register-type! m "owned" "$owned"
+                                (wat "type" (id "$owned") (wat "struct" (wat "field" (wat "mut" (Word "anyref")))))))))
+
+    (: clear-owner (-> Module Wat Wat ! mut))
+    (define (clear-owner m value)
+      (wat "struct.set" (id (owned-type m)) (int 0) value (wat "ref.null" (Word "any"))))
+
+    (: move-value (-> Module Rep Wat Wat ! mut))
+    (define (move-value m representation value)
+      (match representation
+        ((Reference "$owned")
+         (wat "struct.new" (id (owned-type m)) (wat "call" (id (take-owned-helper m)) value)))
+        (_ value)))
+
+    ;; The raw payload lives only in this helper's frame. In particular it
+    ;; never remains in a caller's scratch local across an I/O suspension.
+    (: take-owned-helper (-> Module String ! mut))
+    (define (take-owned-helper m)
+      (template-helper! m "take-owned" ""
+                        "(func {id} (param $owner (ref {owner})) (result (ref any))
+  (local $value (ref any))
+  (local.set $value (ref.as_non_null (struct.get {owner} 0 (local.get $owner))))
+  (struct.set {owner} 0 (local.get $owner) (ref.null any))
+  (local.get $value))" (list (Pair "owner" (owned-type m)))))
+
+    (: call-once-helper (-> Module String ! mut))
+    (define (call-once-helper m)
+      (let ((closure (closure-type m (Nil) (Scalar "i32"))))
+        (template-helper! m "call-once" ""
+                          "(func {id} (param $owner (ref {owner})) (result i32)
+  (local $closure (ref {closure}))
+  (local.set $closure (ref.cast (ref {closure}) (call {take} (local.get $owner))))
+  (return_call_ref {code} (local.get $closure) (struct.get {closure} 0 (local.get $closure))))"
+                          (list (Pair "owner" (owned-type m)) (Pair "closure" closure) (Pair "code" (code-type m closure))
+                                (Pair "take" (take-owned-helper m))))))
 
     ;; ---- Runtime helpers ----
 
