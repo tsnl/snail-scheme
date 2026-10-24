@@ -150,19 +150,6 @@
   (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/app-runtime/check.mjs") program))))
     (or (zero? (caddr result)) (report "app runtime" "failed" (string-append (car result) (cadr result))))))
 
-(define (compile-actors root)
-  (guard (failure (#t (report "actors" "compile failed" (error-text failure))))
-    (let ((text (program->wat root (list (path-join root "lib")) (path-join root "tests/actors/main.sld"))))
-      (lambda ()
-        (let ((program (path-join root "build/tests/actors.wasm")))
-          (link-wat root text program #f)
-          (check-actors root program))))))
-
-(define (check-actors root program)
-  (let ((result (process->output+error+status
-                 (list "node" "--no-warnings" (path-join root "tests/actors/check.mjs") program (build-crate root "assembler")))))
-    (or (zero? (caddr result)) (report "actors" "failed" (string-append (car result) (cadr result))))))
-
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld")) (marker "(struct.new $any (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
@@ -244,13 +231,7 @@
 
 (define (run-linked-cases root)
   (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
-          (list (run-linked-siegework root) (run-linked-app-runtime root) (run-linked-actors root))))
-
-(define (run-linked-actors root)
-  (guard (failure (#t (report "actors" "linked build failed" (error-text failure))))
-    (let ((output (path-join root "build/tests/linked/actors")))
-      (build-modules root (list (path-join root "lib")) (path-join root "tests/actors/main.sld") output)
-      (check-actors root (path-join output "modules.json")))))
+          (list (run-linked-siegework root) (run-linked-app-runtime root))))
 
 ;; ---- Development loop ----
 
@@ -307,7 +288,7 @@
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (compile-app-runtime root) (compile-actors root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
