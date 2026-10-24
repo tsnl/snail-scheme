@@ -1,7 +1,7 @@
 # Runtime and graphics plan
 
-**Status:** milestones 1 (tools) and 2 (the application runtime) are
-implemented. The `ctl`, GPU and graphics-library work below remains
+**Status:** milestones 1–3 (tools, the application runtime and cooperative
+tasks) are implemented. GPU and graphics-library work below remains
 proposed. Applications run their own loop on JavaScript Promise Integration
 (JSPI), while `src/app/renderer.mjs` still draws their `Frame` values. The
 later milestones replace that renderer with a WebGPU effect and `graphics`
@@ -29,7 +29,7 @@ binder is monomorphic. `default-reset` just calls its argument. A later GPU
 binder will install WebGPU handlers at this same boundary.
 
 The generated loop exports `app_main : (Option Any) -> (Option Any)` with
-`mut`, `screen`, `events` and `storage` effects. It first adopts a compatible
+`mut`, `screen`, `events`, `storage` and `tasks` effects. It first adopts a compatible
 handover by structural TypeId, restores saved bytes if the type changed, or
 initializes a cold start without a save. A live migration refuses an absent
 or incompatible save; it never silently initializes fresh state. Only cold
@@ -55,11 +55,12 @@ a trap. The `Frame` name remains drawing data, so the tick is named
 
 ### The host
 
-The host starts one entry through JSPI:
+The host schedules the application entry through JSPI:
 
 ```js
 const main = WebAssembly.promising(instance.exports.app_main);
-const handover = await main(previous); // null or an opaque managed value
+const root = scheduler.start(() => main(previous));
+const handover = await root.done; // null or an opaque managed value
 ```
 
 `src/app/runtime.mjs` owns that invocation, its event queue and storage
@@ -77,8 +78,8 @@ readbacks, image decoding and pipeline creation belong to the proposed GPU
 milestone.
 
 Reload fences the old queue with `Reload`. Its accepted prefix finishes,
-the loop saves and returns, and the host waits for the entry to settle
-before relinking any modules. New input waits for the next invocation. The
+the loop saves and returns, and the host cancels and drains its remaining
+tasks before relinking any modules. New input waits for the next invocation. The
 candidate starts with Resize and Frame(0); only successful initial
 presentation accepts it and delivers the waiting input. Until then the old
 program and its handover remain available for rollback. Cold startup,
@@ -92,15 +93,16 @@ it. The consumed failing event is dropped; unread actions survive.
 
 The invariants beside the runtime code are:
 
-1. One entry per application is active at a time. The host calls only
-   `app_main`, and `app_state` after a trap; all other work arrives as events.
-2. Handler globals stay installed across suspension and return to their
-   entry values after normal settlement or a trap. Entries never overlap
-   within one runtime instance, so restoration cannot alter another run.
+1. One application invocation owns the input queue and checkpoint. Its
+   root entry can dispatch one-shot tasks; reload drains the whole invocation.
+2. One task at a time owns the execution permit. Suspension saves its
+   handler bindings and restores runtime defaults. Resumption reinstalls
+   that task's bindings before releasing its JSPI gate.
 3. Only Lofi calls suspending imports. Rust scalar services keep a stack in
    linear memory that JSPI does not switch.
-4. Host imports are leaves. No Wasm function is handed to a JavaScript
-   callback API; an intervening JavaScript frame would prevent suspension.
+4. Dispatch hands the host a Wasm trampoline and an opaque owned closure.
+   The scheduler enters the trampoline through `WebAssembly.promising`;
+   synchronous imports must not call a suspending Wasm function directly.
 
 The pinned Node 26 runs static and independently linked Wasm in headless
 tests. Browser tests cover queued input, migration refusal, traps and cold
@@ -108,40 +110,21 @@ startup recovery. The [application model](../lofi/applications.md) and
 [toolchain](../lofi/toolchain.md) describe the implemented API and reload
 contract.
 
-## Effects: `fun` and `ctl`
+## Runtime waits and future `ctl` handlers
 
-**Proposed, from milestone 3 onward.**
+Ordinary handlers compile to direct calls. They must be reusable and
+satisfy `Send + Sync`; the runtime preserves their bindings when a task
+suspends. Runtime-provided event, storage and task waits use JSPI today.
+This is enough for coarse asynchronous operations such as device requests
+and readbacks without exposing continuations to user code.
 
-An operation declared `fun`, the default, always returns to its caller at
-once; it compiles to a direct call, as every operation does today. An
-operation declared `ctl` hands its handler the caller's continuation as
-`resume`, which the handler may call once, later, or never.
-
-`ctl` handlers run on JSPI. A `handle` with `ctl` operations runs its body
-on a stack of its own, through a host trampoline. Performing a `ctl`
-operation is a suspending import that sets the body's stack aside and
-returns control to the handler; `resume` settles the body's promise, then
-suspends the handler until the body performs again or returns, so `resume`
-returns what the rest of the handled computation produces. An operation the
-innermost handler does not handle is forwarded from that handler's stack.
-A second `resume` traps. Handler stacks are global variables today, so each
-switch saves and restores them with the stack it belongs to.
-
-Measured in Chrome 156 with trivial work per call:
-
-| Operation | Time |
-| --- | --- |
-| Wasm-to-Wasm call (a `fun` operation) | 4.5 ns |
-| Plain JavaScript import | 9–11 ns |
-| JSPI import that suspends | 84–88 ns |
-| JSPI entry call, allocating a stack | 600–640 ns |
-| `ctl` perform and resume on JSPI | 290–325 ns |
-| `ctl` perform and resume on native stack switching | 45 ns |
-
-`ctl` suits coarse operations, such as events, readbacks, asynchronous GPU
-work and a few coroutines, and not per-element iteration; `fun` stays the
-default. Native stack switching, implemented in Chrome behind
-`--wasm-wasmfx`, later replaces the JSPI backend without changing programs.
+User-defined `ctl` handlers remain deferred until typed stack switching
+and the language's continuation ownership rules are ready. JSPI does not
+by itself provide typed, delimited continuation values. The
+[runtime chapter](../runtimes/index.md) describes the shipping scheduler;
+[future work](../runtimes/future.md) separates the Wasm proposals from
+possible LLVM and C implementations. GPU work does not depend on adding
+public `ctl` handlers first.
 
 ## WebGPU through an effect
 
@@ -245,7 +228,8 @@ Each milestone is a focused series of pull requests:
 2. **Runtime.** *Done.* The JSPI main loop, `reset`, the `events` and storage effects,
    and the HTML HUD driven from the loop, still drawing with today's
    renderer.
-3. **`ctl`.** `ctl` operations and their handlers on JSPI.
+3. **Tasks.** *Done.* One-shot local dispatch, runtime waits, reusable
+   handler bindings, cancellation and reload draining on one execution agent.
 4. **GPU.** The `gpu` effect, the host executor with paths, marking and
    eviction, the device baseline, and a recording handler.
 5. **2D.** `(graphics pod)`, `(graphics wgsl)`, `(graphics atlas)` and
