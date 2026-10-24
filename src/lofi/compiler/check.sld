@@ -16,7 +16,8 @@
    (lofi table)
    (lofi compiler read)
    (lofi compiler core)
-   (lofi compiler capabilities))
+   (lofi compiler capabilities)
+   (lofi compiler ownership))
   (begin
 
     ;; ---- Checker state ----
@@ -55,6 +56,9 @@
       (WantLiteral
        ((value Datum)
         (type Type)
+        (loc Loc)))
+      (WantOmega
+       ((type Type)
         (loc Loc))))
 
     ;; The checker's output: typed items in program order and every
@@ -263,6 +267,7 @@
              (type (open-row ck (substitute metas (Scheme-type scheme))))
              (evidence (map (lambda (constraint) (want-class! ck (substitute-constraint metas constraint) loc))
                             (Scheme-constraints scheme))))
+        (for-each (lambda (meta) (want! ck (WantOmega (Pair-second meta) loc))) metas)
         (Instantiated type (map Pair-second metas) evidence)))
 
     (: open-row (-> Checker Type Type ! mut))
@@ -638,6 +643,9 @@
         (for-each (lambda (want)
                     (match want
                       ((WantLiteral value type loc) (check-literal value type loc))
+                      ((WantOmega type loc)
+                       (when (affine-type? (program-of ck) type)
+                         (compile-error loc "a type variable requires an unrestricted type; this value is affine")))
                       (_ (unit))))
                   pending)
         (for-each (lambda (want)
@@ -1071,7 +1079,8 @@
     (define (wanted-metas want)
       (match want
         ((WantClass constraint _ _ _) (concatenate (map free-metas (Constraint-types constraint))))
-        ((WantLiteral _ type _) (free-metas type))))
+        ((WantLiteral _ type _) (free-metas type))
+        ((WantOmega _ _) (Nil))))
 
     (: free-metas (-> Type (List Type) ! mut))
     (define (free-metas type)
@@ -1169,6 +1178,7 @@
                       (_ (unit))))
                   items)
         (let ((typed (Typed program (map zonk-item typed) (final-schemes ck items))))
+          (check-owned-types program (Typed-items typed))
           (for-each (lambda (function) (check-confined typed (zonk-expr function))) (ref-get (Checker-confined ck)))
           typed)))
 
