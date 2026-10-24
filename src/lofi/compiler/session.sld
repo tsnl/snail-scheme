@@ -24,19 +24,27 @@
    (lofi compiler expand)
    (lofi compiler check)
    (lofi compiler mono)
+   (lofi compiler handlers)
    (lofi compiler wasm))
   (begin
 
     ;; ---- Sessions ----
 
     ;; What one library's expansion became: its checked items, the schemes
-    ;; of its own definitions, and its module's text, None until it is
-    ;; emitted. `key` is the build key of the expansion it was made from.
+    ;; of its own definitions, and its emission, None until emitted. `key`
+    ;; is the build key of the expansion it was made from.
     (struct Compiled
       ((key String)
        (items (List Item))
        (schemes (Table Scheme))
-       (text (Option String))))
+       (emission (Option Emission))))
+
+    ;; Keep the checked monomorphic bodies beside cached text. Handler
+    ;; safety depends on imported helpers' bodies, even when their signatures
+    ;; stay unchanged; reusing text must not reuse that proof unchecked.
+    (struct Emission
+      ((text String)
+       (items (List Item))))
 
     ;; Where libraries are found, how generated ones are made, the last
     ;; build's expansion, and each library as last compiled.
@@ -104,11 +112,17 @@
         (match libraries
           ((Cons (Pair name _) rest)
            (let ((before (compiled-of compiled name)))
-             (match (Compiled-text before)
-               ((Some text) (loop rest compiled (Cons (Built name text #f) built)))
+             (match (Compiled-emission before)
+               ((Some emission)
+                (check-handlers (Typed-program typed)
+                                (table-union (item-definitions (Typed-items typed)) (item-definitions (Emission-items emission)))
+                                (Emission-items emission))
+                (loop rest compiled (Cons (Built name (Emission-text emission) #f) built)))
                ((None)
-                (let ((text (wat->string (emit-library (monomorphize-library typed name (Compiled-items before)) name))))
-                  (loop rest (table-set compiled name (Compiled-text-set before (Some text))) (Cons (Built name text #t) built)))))))
+                (let* ((mono (monomorphize-library typed name (Compiled-items before)))
+                       (text (wat->string (emit-library mono name)))
+                       (emission (Emission text (Mono-items mono))))
+                  (loop rest (table-set compiled name (Compiled-emission-set before (Some emission))) (Cons (Built name text #t) built)))))))
           ((Nil) (Pair (reverse built) compiled)))))
 
     ;; ---- Records ----
@@ -138,6 +152,8 @@
     (export test-session)
     (import
      (only (chibi filesystem) create-directory*)
+     (only (chibi string) string-contains)
+     (only (scheme base) guard error-object? error-object-message)
      (lofi testing))
     (begin
 
@@ -159,7 +175,31 @@
             (expect (compiled-names first) (list "sample.a" "sample.b" "main"))
             (expect (compiled-names unchanged) (list))
             (expect (compiled-names body) (list "sample.a"))
-            (expect (compiled-names interface) (list "sample.a" "sample.b" "main")))))
+            (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
+        (test-handler-revalidation directory))
+
+      (define (test-handler-revalidation directory)
+        (let ((main (string-append directory "/main.sld")))
+          (write-handler-helper directory "(ann 1 I64)")
+          (write-file (string-append directory "/sample/b.sld")
+                      "(define-library (sample b) (export run) (import (lofi core) (lofi primitive) (sample a)) (begin (effect Counter ((tick (-> I64)))) (: run (-> I64 ! mut)) (define (run) (handle Counter ((tick (lambda () (helper)))) (tick)))))")
+          (write-file main "(import (lofi core) (lofi primitive) (sample b)) (run)")
+          (let* ((first (build-session (make-session (list directory) (lambda (forms) (panic "no generated libraries"))) main))
+                 (session (Pair-second first)))
+            (expect (compiled-names (build-session session main)) (list))
+            (write-handler-helper directory "(ref-get cell)")
+            (expect (guard (failure
+                            ((error-object? failure)
+                             (if (string-contains (error-object-message failure) "a handler and its captures must satisfy") #t #f)))
+                      (build-session session main)
+                      #f)
+                    #t))))
+
+      (define (write-handler-helper directory body)
+        (write-file (string-append directory "/sample/a.sld")
+                    (string-append "(define-library (sample a) (export helper) (import (lofi core) (lofi primitive)) (begin "
+                                   "(: cell (Ref I64)) (define cell (ref (ann 9 I64))) "
+                                   "(: helper (-> I64 ! mut)) (define (helper) " body ")))")))
 
       (define (write-sample-a directory body more)
         (write-file (string-append directory "/sample/a.sld")
