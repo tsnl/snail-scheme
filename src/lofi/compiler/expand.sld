@@ -14,7 +14,8 @@
    (lofi table)
    (lofi io)
    (lofi compiler read)
-   (lofi compiler core))
+   (lofi compiler core)
+   (lofi compiler capabilities))
   (begin
 
     ;; ---- Bindings and environments ----
@@ -985,6 +986,8 @@
     ;; Unbound identifiers in an instance head are its type variables.
     (: declared-instance (-> Context Env Class (List Syntax) (List Syntax) Loc Instance ! mut))
     (define (declared-instance cx env class type-args requires loc)
+      (when (capability-class? (Class-name class))
+        (compile-error loc "Send and Sync instances are compiler-owned"))
       (let* ((vars (delete-duplicates string=? (concatenate (map (lambda (type) (free-type-names cx env type)) type-args))))
              (scope (type-scope env (map (lambda (name) (Ident name (None) loc)) vars))))
         (Instance (fresh-global cx (short-name (Class-name class))) (Class-name class) vars

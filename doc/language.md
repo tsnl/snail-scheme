@@ -173,6 +173,30 @@ instance head are its type variables.
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Fractional`; `Show` converts values to text.
 
+### Transfer and sharing
+
+`(Send T)` permits transferring ownership of a value between threads;
+`(Sync T)` permits shared access across threads. Both are compiler-owned
+marker typeclasses from `(lofi base)`. Write them as ordinary requirements:
+
+```scheme
+(: transferable (All (T) (requires (Send T)) (-> T T)))
+(define (transferable value) value)
+```
+
+The compiler derives evidence for scalars, text, immutable vectors and
+declared data whose arguments and fields satisfy the same requirement.
+Recursive data is checked structurally. Aliased `Ref` and `Array`, opaque
+`Any`, raw `Funcref`, and ordinary function arrows do not satisfy either
+marker. A procedure's arrow does not describe its captures. Generic fields
+need the corresponding evidence in the enclosing signature.
+
+There are no user-defined instances for these two markers. Their meanings
+differ even though this initial set of representations has the same proofs
+for both. No data is serialized or copied by a marker constraint. These
+checks apply on today's single-threaded runtime as part of the language's
+multithreaded contract.
+
 ## Effects
 
 Every function type has an effect row: the effects calling it may perform.
