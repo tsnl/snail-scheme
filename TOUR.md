@@ -67,6 +67,10 @@ and keeps state that grows over a whole pass in a `Ref`.
   may mutate storage it allocates; once types are final, nothing it can
   reach from outside, its parameters, result or names it reads, may hold
   mutable storage.
+- **[`capabilities.sld`](src/lofi/compiler/capabilities.sld)** establishes
+  structural `Send` and `Sync` evidence from types and declared fields.
+  The checker resolves these compiler-owned markers; user instances cannot
+  override them. Ordinary arrows carry no proof about their captures.
 - **[`mono.sld`](src/lofi/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence

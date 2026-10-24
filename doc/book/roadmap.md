@@ -15,6 +15,8 @@ describe proposed behavior, kept apart from what is implemented.
 - Typeclasses with generic instances and requirements; instances are chosen
   once, during checking.
 - Effect rows with tail-resumptive handlers and host defaults.
+- Compiler-owned `Send` and `Sync` evidence for structural data, including
+  generic requirements and rejection of unsafe marker instances.
 - Wire types: derived `Serialize` and `Deserialize` with per-case TypeIds.
 - `(lofi app)` applications own a JSPI loop with queued events, suspending
   storage, a reset binder and checkpoint handovers on reload. Their browser
