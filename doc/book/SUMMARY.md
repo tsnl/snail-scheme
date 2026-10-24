@@ -18,6 +18,7 @@
   - [Effects](lofi/tutorials/effects.md)
   - [Scheme on Lofi](lofi/tutorials/scheme.md)
 - [Runtimes](runtimes/index.md)
+  - [Task operations](runtimes/tasks.md)
   - [One-shot work and ownership](runtimes/ownership.md)
   - [Scheduling and suspension](runtimes/scheduling.md)
   - [Language contract](runtimes/contract.md)
