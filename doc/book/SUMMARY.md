@@ -18,6 +18,8 @@
   - [Effects](lofi/tutorials/effects.md)
   - [Scheme on Lofi](lofi/tutorials/scheme.md)
 - [Runtimes](runtimes/index.md)
+  - [One-shot work and ownership](runtimes/ownership.md)
+  - [Language contract](runtimes/contract.md)
   - [Continuations and parallel execution](runtimes/future.md)
 
 # Extras

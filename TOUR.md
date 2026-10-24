@@ -81,6 +81,11 @@ and keeps state that grows over a whole pass in a `Ref`.
   instantiation. A method reference becomes the instance method its evidence
   names, and definitions that only rename another, such as
   `(define + i64-add)`, are replaced by their target.
+- **[`ownership.sld`](src/lofi/compiler/ownership.sld)** consumes affine
+  locals once per path after specialization. Branches fork and intersect
+  their live owners; a path drops a value when it has no remaining use.
+  Only one-shot closures can own affine captures. Concrete records inherit
+  their fields' grade; existing generic parameters remain unrestricted.
 - **[`wasm.sld`](src/lofi/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
