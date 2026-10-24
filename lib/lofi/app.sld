@@ -185,6 +185,7 @@
    define-application)
   (import
    (lofi base)
+   (lofi task)
    (lofi wire)
    (lofi math))
   (begin
@@ -943,6 +944,8 @@
         (13 (Reload))
         (kind (InputEvent (decode-input kind (event-field 0) (event-field 1) (event-field 2) (event-field 3))))))
 
+    ;; The application root owns this checkpoint protocol. Detached tasks
+    ;; need their own storage binding; they cannot replace the loop's save.
     (effect storage
       ((load-count (-> I32))
        (loaded-byte (-> I32 U8))
@@ -1032,7 +1035,7 @@
 
            ;; The host's first Resize and Frame(0) own initial presentation.
            ;; reset installs its handlers around this monomorphic run.
-           (: app-main (-> (Option Any) (Option Any) ! mut screen events storage))
+           (: app-main (-> (Option Any) (Option Any) ! mut screen events storage tasks))
            (define (app-main handover)
              ((reset-run)
               (lambda ()
