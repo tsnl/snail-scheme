@@ -17,6 +17,8 @@
   - [Colors](lofi/tutorials/colors.md)
   - [Effects](lofi/tutorials/effects.md)
   - [Scheme on Lofi](lofi/tutorials/scheme.md)
+- [Runtimes](runtimes/index.md)
+  - [Continuations and parallel execution](runtimes/future.md)
 
 # Extras
 
