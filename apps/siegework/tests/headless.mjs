@@ -43,11 +43,15 @@ async function instantiateGame(path, host, saved) {
   return runtime;
 }
 
-// Event delivery resumes a suspended entry on a microtask. Let each scripted
-// event finish before inspecting the screen or sending another clock tick.
+// The scheduler may yield an event-loop turn. Wait until the loop consumes
+// the input and parks again before inspecting the screen or sending a tick.
 async function send(game, ...event) {
   game.send(...event);
-  await new Promise(setImmediate);
+  const end = Date.now() + 10000, queue = game.execution.queue;
+  while (!queue.waiting && !queue.closed) {
+    assert.ok(Date.now() < end, 'the application consumed its queued input');
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
   assert.equal(game.execution.queue.closed, false, 'the application is still running');
 }
 

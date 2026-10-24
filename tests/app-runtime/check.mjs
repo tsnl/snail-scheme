@@ -26,6 +26,13 @@ async function checkQueue() {
   assert.deepEqual([queue.poll(), queue.poll(), queue.poll()], [[PRESS, 2], [RELOAD], undefined]);
   queue.close();
   await assert.rejects(queue.wait(), /stopped/);
+  const abortable = createEventQueue(), controller = new AbortController();
+  const cancelled = abortable.wait(controller.signal);
+  controller.abort();
+  await assert.rejects(cancelled, {name: 'AbortError'});
+  abortable.push(PRESS, 7); await abortable.wait();
+  assert.deepEqual(abortable.poll(), [PRESS, 7], 'cancellation does not consume input');
+  abortable.close();
 }
 
 function checkFrames() {
@@ -87,19 +94,21 @@ async function checkSuspension() {
   runtime.send(PRESS, 1); runtime.send(PRESS, 1);
   await turn();
   const installed = entry.handlers.map(global => global.value);
-  assert.ok(installed.some(value => value !== null), 'reset stays installed while loading');
+  assert.ok(installed.every(value => value === null), 'parked tasks leave runtime defaults in the handler globals');
+  assert.equal(run.scheduler.size, 2, 'the root and its sleeping child both remain live');
   assert.equal(observed.frames, 0);
   assert.throws(() => runtime.start(entry), /overlap/);
   loaded.resolve(undefined);
   assert.equal(await run.ready.promise, 2);
   await turn();
   assert.equal(observed.count, '2', 'input received during startup follows initial presentation');
-  assert.deepEqual(entry.handlers.map(global => global.value), installed, 'the same handler survives storage and event suspension');
+  assert.deepEqual(entry.handlers.map(global => global.value), installed, 'handler registers are restored between task turns');
   runtime.send(HIDDEN);
   await turn();
   assert.equal(saves, 1);
   runtime.send(PRESS, 1);
   const stopping = runtime.stop();
+  assert.equal(runtime.stop(), stopping, 'repeated stop shares one handover');
   runtime.send(PRESS, 1); // Arrives beyond the fence, for the next invocation.
   await turn();
   assert.equal(runtime.execution.queue.closed, false, 'reload waits for storage instead of abandoning a stack');
@@ -230,6 +239,57 @@ async function checkStorageFailure() {
   app.settled();
 }
 
+async function checkRootReturn() {
+  const app = await application();
+  const entry = {...app.entry, main: app.entry.exports.background_main};
+  const run = app.runtime.start(entry);
+  assert.equal(await run.ready.promise, 2);
+  await run.root;
+  let settled = false;
+  run.done.then(() => { settled = true; });
+  await turn();
+  assert.equal(settled, false, 'a child outlives a normally returning root');
+  await app.runtime.stop();
+  assert.equal(run.scheduler.size, 0, 'reload cancels and drains the remaining child');
+  app.settled();
+}
+
+async function checkUnpresentedReturn() {
+  const app = await application();
+  const run = app.runtime.start({...app.entry, main: app.entry.exports.unpresented_main});
+  await run.root; await turn();
+  assert.equal(run.scheduler.size, 0, 'children cannot keep an unpresented application alive');
+  await assert.rejects(run.ready.promise, /before startup completed/);
+  app.settled();
+}
+
+async function checkProtocolOwnership() {
+  const loaded = Promise.withResolvers(), stored = Promise.withResolvers();
+  let loads = 0;
+  const saves = [], app = await application({load: () => { loads++; return loaded.promise; },
+    store: bytes => { saves.push(bytes); return stored.promise; }});
+  const run = app.runtime.start(app.entry);
+  await turn();
+  for (const name of ['child_load', 'child_store', 'child_event', 'child_boot']) {
+    const child = run.scheduler.dispatch(() => WebAssembly.promising(app.entry.exports[name])());
+    await assert.rejects(child.done, /belong to the root task/);
+  }
+  assert.equal(loads, 1, 'a child cannot replace the root load buffer');
+  assert.equal(saves.length, 0); assert.equal(run.boot, null);
+  loaded.resolve(undefined); await run.ready.promise;
+  const stopping = app.runtime.stop();
+  await turn();
+  assert.equal(saves.length, 1);
+  const child = run.scheduler.dispatch(() => WebAssembly.promising(app.entry.exports.child_store)());
+  await assert.rejects(child.done, /belong to the root task/);
+  assert.equal(saves.length, 1, 'a child cannot start persistence during checkpoint handover');
+  stored.resolve();
+  const handover = await stopping;
+  assert.deepEqual(handover.saved, saves[0]);
+  assert.equal(app.observed.errors.length, 5);
+  app.settled();
+}
+
 await checkQueue();
 checkFrames();
 await checkSuspension();
@@ -239,4 +299,7 @@ await checkUpdateTrap();
 await checkRefusal();
 await checkStartupFailures();
 await checkStorageFailure();
+await checkRootReturn();
+await checkUnpresentedReturn();
+await checkProtocolOwnership();
 console.log('app runtime: suspended storage, queued input, handler restoration and checkpoint recovery passed');
