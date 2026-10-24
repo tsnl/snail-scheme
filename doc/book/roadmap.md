@@ -41,9 +41,10 @@ describe proposed behavior, kept apart from what is implemented.
 
 ## Next
 
-1. The runtime and graphics rewrite, from milestone 3 of its
-   [plan](graphics/plan.md): `ctl` operations, then WebGPU through an effect
-   and the 2D and 3D graphics libraries.
+1. The [task runtime rewrite](../runtime-contract.md): ownership and
+   handler capture checks, then single-threaded scheduling and application
+   integration. The language permits multithreading; the implementation
+   remains on shipping WasmGC and JSPI.
 2. Previews inlaid in the IDE's editor panes (below).
 3. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
@@ -81,17 +82,15 @@ rewrite. Pinned tools and the application main loop on JSPI are done;
 `ctl` operations, WebGPU through an effect, and the 2D and 3D `graphics`
 libraries remain proposed. Beyond them:
 
-- [ ] Replace the removed actor API with one-shot tasks, runtime-owned
-  event waits and cancellation. Keep the language ready for multithreading
-  while the shipping WasmGC implementation uses one execution agent.
-
-- [ ] Move `ctl` operations, such as the proposed `wait-event` and
-  `read-buffer`, from JSPI to native stack switching. Chrome 156 implements
-  core stack switching (`cont.new`, `resume` and `suspend`) only behind
-  `--wasm-wasmfx`; once it is on by default, compile `ctl` handlers to
-  one-shot continuations and drop the JSPI scheduler. Measured, a perform
-  and resume costs about 300 ns on JSPI and 45 ns natively. Tests that use it
-  need a Node release with stack switching.
+- [ ] Replace actor protocols with one-shot tasks and runtime-owned event
+  waits, including cancellation and accounting for suspended work.
+- [ ] Public `ctl` handlers with affine resumptions and a precise account
+  of handler lifetimes. Runtime-provided suspension continues to use JSPI.
+- [ ] Shared-heap CPU parallelism when default Wasm engine support permits
+  it. Deploy independent instances behind a load balancer in the meantime.
+- [ ] Evaluate native backend options only if maintaining a second backend
+  becomes worthwhile. The [research](runtimes/future.md) compares restoring
+  Wasm-to-LLVM with a C backend informed by Koka; neither is scheduled.
 - [ ] Path-traced lighting over the rasterized G-buffer: a BVH built on the
   CPU first, compute-shader ray queries, and SVGF denoising, as the
   [path tracing primer](graphics/path-tracing.md) describes.
