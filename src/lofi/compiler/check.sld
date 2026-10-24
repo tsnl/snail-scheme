@@ -463,6 +463,8 @@
     ;; is `{effect | rest}`, and `rest` flows to the outer row.
     (: infer-handle (-> Checker String (List (Pair String Expr)) Expr Type Loc Expr ! mut))
     (define (infer-handle ck effect implementations body row loc)
+      (when (string=? effect "tasks")
+        (compile-error loc "the runtime binds the tasks control effect; user control handlers are not supported"))
       (let ((operations (Effect-operations (program-effect (program-of ck) effect))))
         (unless (and (= (length operations) (length implementations))
                      (every? (lambda (operation) (any? (lambda (entry) (string=? (Pair-first entry) operation)) implementations))
@@ -1140,7 +1142,7 @@
     (: check-host-effects (-> Checker Type Loc Unit ! mut))
     (define (check-host-effects ck row loc)
       (for-each (lambda (label)
-                  (unless (or (string=? label "mut")
+                  (unless (or (member? label (list "mut" "tasks"))
                               (let ((effect (program-effect (program-of ck) label)))
                                 (= (length (Effect-host effect)) (length (Effect-operations effect)))))
                     (compile-error loc (string-append "the effect " (short-name label) " has no host implementation here"))))
