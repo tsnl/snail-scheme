@@ -71,6 +71,11 @@ and keeps state that grows over a whole pass in a `Ref`.
   structural `Send` and `Sync` evidence from types and declared fields.
   The checker resolves these compiler-owned markers; user instances cannot
   override them. Ordinary arrows carry no proof about their captures.
+- **[`handlers.sld`](src/lofi/compiler/handlers.sld)** checks that a handler's
+  retained environment is reusable and satisfies `Send + Sync`. It follows
+  closure aliases, named helpers and selected method evidence to their
+  captures and globals, while keeping invocation arguments and fresh local
+  storage separate. Unknown callback provenance is rejected.
 - **[`mono.sld`](src/lofi/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
@@ -95,7 +100,9 @@ and keeps state that grows over a whole pass in a `Ref`.
 - **[`session.sld`](src/lofi/compiler/session.sld)** keeps the compiler
   running between builds: the expander replays libraries whose declarations
   and imports' interfaces are unchanged, and only libraries whose expansion
-  changed are checked, specialized and emitted again.
+  changed are checked, specialized and emitted again. Cached emissions keep
+  their monomorphic items so handler capture proofs can be rechecked against
+  current helper bodies without regenerating unchanged Wasm text.
 - **[`compiler.sld`](src/lofi/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text, or to one module's text per library.
 
