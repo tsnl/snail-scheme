@@ -9,7 +9,7 @@ as a separate instance.
 | Command | Build |
 | --- | --- |
 | `lofi run`, `lofi compile`, `lofi build`, `make site` | Static; `--release` requests full optimization |
-| `lofi serve`, `lofi watch`, `make ide` (current commands) | Separate development modules |
+| `lofi dev`, `lofi serve`, `lofi watch`, `make ide` | Separate development modules |
 
 `lofi compile -o DIRECTORY SOURCE` publishes `DIRECTORY/program.wasm`.
 The output is a directory, even for a single-file program. Compiler and linker
@@ -47,8 +47,8 @@ manifest and runtime, so they are self-contained. The native project development
 shares one disk observer with the file service, and publishes only attempts not
 superseded by observed changes. Its loopback HTTP boundary offers file reads and
 conditional saves, manual Build and current build/file-change subscriptions.
-Save only writes disk; compiler attempts come from observation. The editor/CLI
-migration follows; the existing commands below still use their old loop.
+Save only writes disk; compiler attempts come from observation. The editor uses this service through `lofi dev`; `serve` and `watch` still use
+their old application loop until launch/reload integration.
 
 ## Builds in proportion to the edit
 
@@ -70,9 +70,9 @@ binaries beside their destination, then renames them into place, so concurrent
 reads see complete files. Stopping the host closes its resources and
 the worker, and stops its current application child.
 
-This establishes the execution boundary for the proposed project development
-session. The current loop still has the old command, publication and watcher
-policies; shared project subscriptions and attempt-scoped diagnostics follow.
+The project development session uses the same execution boundary with shared
+file subscriptions, attempt-scoped diagnostics and generation publication.
+`serve` and `watch` still have their older publication and watcher policies.
 
 ```text
 $ ./lofi serve apps/siegework
@@ -89,42 +89,43 @@ gets its type from its own library: give constants a signature where a
 literal could have more than one type, as `(lofi app)` gives its key codes
 `I32`.
 
-## The browser IDE
-
-The following describes the current implementation. The
-[project and development proposal](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
-will replace its temporary browser backend with `lofi dev` and make the editor
-a client of the running development session. The integrated preview has been
-removed; the commands below have not changed.
-
-`make ide` packages an IDE as a static site in `build/ide`, with nothing to
-install and no server beyond one for static files:
+## The project editor
 
 ```text
-$ make ide
-$ python3 -m http.server --directory build/ide
+$ ./lofi dev apps/siegework
+editing /path/to/apps/siegework at http://127.0.0.1:8000/
 ```
 
-It opens Siegework until you open a project directory of your own; files stay
-in the browser's storage, and saving writes each file back to its directory
-where the browser allows it. The toolbar along the top toggles the file
-browser on the left and splits the editor panes. Code is highlighted as you type; Tab and Enter indent as
-Emacs's Scheme mode does, and saving formats the file as `make check`
-expects. Each edit, saved or not,
-goes to the development loop running in a worker, compiler included: a
-build that fails puts a squiggle under what the compiler points at; a
-successful build clears the diagnostic. The editor does not run the application.
+Open the printed URL. `--port PORT` selects another port; 0 chooses a free port.
+`make ide` starts the same service for Siegework. The native process owns the
+compiler and disk files. The browser keeps only open buffers and unsaved edits,
+with highlighting, Scheme indentation, format-on-save and split panes.
 
-## Proposed project workflow
+Save writes disk. One watcher informs both the compiler and editor, so edits made
+by agents and other applications take the same path. Clean buffers update;
+unsaved buffers retain their text and report a conflict. Reload discards a draft
+explicitly. Saving while typing preserves the later typing as unsaved text.
+Deleted dirty files remain available to copy, and an empty project is supported.
+
+Every compilation starts with fresh diagnostic messages while keeping valid
+compiler caches. The UI currently displays full messages; structured locations
+and squiggles follow in a separate compiler change. Build requests compilation
+explicitly; unsaved edits are never sent to the compiler.
+
+`dev` currently builds and edits. Use existing `serve`/`watch` for application
+execution and reload until those move into this service. The editor has no
+integrated preview, browser compiler or persistent copy of the project.
+
+## Projects and the remaining application workflow
 
 The [project-description parser](https://github.com/tsnl/snail-scheme/blob/stack/project-forms-20261024/doc/project-format.md)
 is implemented as `(lofi project)` for Chibi and Wasm. It returns typed build
 descriptions and resolves run targets to program builds, retaining error locations.
-The one-shot CLI builder consumes these descriptions. The development workflow
-below remains proposed.
+Both the one-shot CLI builder and `dev` consume these descriptions. Application
+launch/reload integration and the state API below remain proposed.
 
 `project.datum` uses explicit `build-target` and `run-target` forms. It now
-replaces the application packaging script for the CLI; IDE integration follows.
+replaces the application packaging script for both CLI and IDE builds.
 The compiler now supports the `(lofi artifact)` library's `artifact-bundle`
 macro and checks recorded file dependencies before reusing cached compilation.
 `lofi build` resolves these requests to browser targets in the same project,
@@ -139,7 +140,7 @@ now uses typed request/reply datums for generated libraries and artifact inputs,
 with exclusive scratch ownership across compiler restarts. Stderr is only
 diagnostic text.
 
-`lofi dev PROJECT` would keep the incremental compiler alive and share one
+`lofi dev PROJECT` keeps the incremental compiler alive and shares one
 file watcher with the editor. Saving only writes disk; the watcher starts
 compilation regardless of whether the writer was this editor, another tool
 or an agent. Each build attempt publishes a fresh diagnostic collection while

@@ -1,11 +1,8 @@
-// One editor pane: a text area whose own text is invisible, over a layer
-// that draws the text highlighted and one that draws the last build's
-// diagnostic as a squiggle, beside a gutter of line numbers. Several panes
-// may show one buffer, a project file as the IDE holds it: `{path, text,
-// saved, diagnostic}`, where a diagnostic is `{line, column, message}`,
-// counting from 1. Tab and Enter indent as Emacs does, through the
-// formatter; every change goes through the browser's own editing, so undo
-// keeps it.
+// One editor pane: a text area over syntax highlighting, with line numbers.
+// Panes share buffer objects containing a draft and a saved baseline. A null
+// buffer is empty; a null baseline is loading/unavailable and cannot be edited.
+// File-operation problems appear below the pane. Structured compiler source
+// locations will be added at the compiler boundary in a separate change.
 
 // ---- Panes ----
 
@@ -19,17 +16,20 @@ export function createEditor(formatter, actions) {
   textarea.addEventListener('focus', () => actions.focus(editor));
   textarea.addEventListener('scroll', () => {
     scrollLayers(parts);
-    if (!parts.frame) parts.frame = requestAnimationFrame(() => { parts.frame = null; drawHighlight(parts, editor.buffer.text); });
+    if (!parts.frame) parts.frame = requestAnimationFrame(() => { parts.frame = null; drawHighlight(parts, editor.buffer?.text ?? '', schemeFile(editor.buffer)); });
   });
   parts.formatter = formatter;
-  textarea.addEventListener('keydown', event => keyDown(event, textarea, formatter));
-  parts.diagnostic.addEventListener('click', () => editor.reveal(editor.buffer.diagnostic));
+  textarea.addEventListener('keydown', event => { if (schemeFile(editor.buffer)) keyDown(event, textarea, formatter); });
   Object.assign(editor, {
     show(buffer) { editor.buffer = buffer; editor.refresh(); },
-    refresh() { if (textarea.value !== editor.buffer.text) setText(textarea, editor.buffer.text); draw(parts, editor); },
+    refresh() {
+      textarea.disabled = !editor.buffer?.baseline;
+      const text = editor.buffer?.text ?? '';
+      if (textarea.value !== text) setText(textarea, text);
+      draw(parts, editor);
+    },
     focus() { textarea.focus(); },
     replaceAll(text) { replaceKeepingCaret(textarea, text); },
-    reveal(place) { if (place) revealPlace(textarea, editor.buffer.text, place); },
     setActive(active) { parts.element.classList.toggle('active', active); },
   });
   return editor;
@@ -45,16 +45,16 @@ function paneParts(editor, actions) {
   });
   header.append(title, ...buttons);
   const body = node('div', 'editor'), gutter = node('div', 'gutter'), gutterContent = node('div', 'gutter-content');
-  const numbers = node('pre', 'numbers'), marker = node('div', 'gutter-marker'), code = node('div', 'code');
-  const highlight = node('pre', 'highlight'), marks = node('pre', 'marks');
+  const numbers = node('pre', 'numbers'), code = node('div', 'code');
+  const highlight = node('pre', 'highlight');
   const textarea = Object.assign(node('textarea'), {spellcheck: false, wrap: 'off', autocapitalize: 'off'});
-  gutterContent.append(numbers, marker);
+  gutterContent.append(numbers);
   gutter.append(gutterContent);
-  code.append(highlight, marks, textarea);
+  code.append(highlight, textarea);
   body.append(gutter, code);
-  const diagnostic = node('div', 'pane-diagnostic');
-  element.append(header, body, diagnostic);
-  return {element, title, gutterContent, numbers, marker, highlight, marks, textarea, diagnostic};
+  const problem = node('div', 'pane-problem');
+  element.append(header, body, problem);
+  return {element, title, gutterContent, numbers, highlight, textarea, problem};
 }
 
 function node(tag, className = '', text = '') {
@@ -63,14 +63,17 @@ function node(tag, className = '', text = '') {
 
 // ---- Drawing ----
 
+const schemeFile = buffer => /\.(sld|scm|datum)$/.test(buffer?.path ?? '');
+
 function draw(parts, editor) {
   const {buffer} = editor;
-  parts.title.textContent = buffer.path + (buffer.text === buffer.saved ? '' : ' ●');
-  const lines = buffer.text.split('\n').length;
+  parts.title.textContent = buffer ? buffer.path + (buffer.baseline && buffer.text !== buffer.baseline.text ? ' ●' : '') : 'Choose a file';
+  const text = buffer?.text ?? '', lines = buffer ? text.split('\n').length : 0;
   if (lines !== editor.lines) parts.numbers.textContent = Array.from({length: lines}, (_, index) => index + 1).join('\n');
   editor.lines = lines;
-  drawHighlight(parts, buffer.text);
-  drawDiagnostic(parts, buffer);
+  drawHighlight(parts, text, schemeFile(buffer));
+  parts.problem.textContent = buffer?.operationError || buffer?.problem || (buffer && !buffer.baseline ? 'Loading…' : '');
+  parts.problem.hidden = !parts.problem.textContent;
   scrollLayers(parts);
 }
 
@@ -78,13 +81,13 @@ function draw(parts, editor) {
 // runs of one class each. The formatter's lexer reads them from the start of
 // their top-level form, as Emacs resynchronizes; if it fails, the text stays
 // plain, so it never disappears.
-function drawHighlight(parts, text) {
+function drawHighlight(parts, text, scheme) {
   const {textarea, highlight} = parts, height = lineHeight(textarea);
   const first = Math.max(0, Math.floor(textarea.scrollTop / height) - 10), count = Math.ceil(textarea.clientHeight / height) + 20;
   const start = lineOffset(text, first + 1), end = lineOffset(text, first + count + 1);
   const base = topLevelStart(text, start), shown = Array.from(text.slice(start, end));
   let classes = '';
-  try { classes = parts.formatter.highlight(text.slice(base, end)).slice(Array.from(text.slice(base, start)).length); } catch {}
+  try { if (scheme) classes = parts.formatter.highlight(text.slice(base, end)).slice(Array.from(text.slice(base, start)).length); } catch {}
   highlight.style.top = `${first * height}px`;
   highlight.replaceChildren(...classRuns(shown, classes));
 }
@@ -106,22 +109,9 @@ function topLevelStart(text, start) {
   return start;
 }
 
-// The squiggle layer holds the text up to the end of the diagnostic's
-// range, invisible but for the range's underline.
-function drawDiagnostic(parts, {text, diagnostic}) {
-  parts.marker.hidden = parts.diagnostic.hidden = !diagnostic;
-  parts.marks.replaceChildren();
-  if (!diagnostic) return;
-  const start = lineOffset(text, diagnostic.line) + diagnostic.column - 1, end = expressionEnd(text, start);
-  const squiggle = Object.assign(document.createElement('span'), {className: 'squiggle', textContent: text.slice(start, end) || ' '});
-  parts.marks.append(text.slice(0, start), squiggle);
-  parts.marker.style.top = `${(diagnostic.line - 1) * lineHeight(parts.textarea)}px`;
-  parts.marker.title = parts.diagnostic.textContent = `${diagnostic.line}:${diagnostic.column}: ${diagnostic.message}`;
-}
-
-function scrollLayers({textarea, gutterContent, highlight, marks}) {
+function scrollLayers({textarea, gutterContent, highlight}) {
   gutterContent.style.transform = `translateY(${-textarea.scrollTop}px)`;
-  for (const layer of [highlight, marks]) layer.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+  highlight.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
 }
 
 function lineHeight(textarea) {
@@ -137,25 +127,6 @@ function lineOffset(text, line) {
     offset = newline + 1;
   }
   return offset;
-}
-
-// The compiler points at an expression's start: the squiggle covers the
-// expression, or as much of it as its line holds.
-function expressionEnd(text, start) {
-  const newline = text.indexOf('\n', start), lineEnd = newline < 0 ? text.length : newline;
-  if (text[start] !== '(') return start + (/^"(?:[^"\\]|\\.)*"?|^[^\s()";]+/.exec(text.slice(start, lineEnd))?.[0].length ?? 1);
-  for (let index = start, depth = 0; index < lineEnd; index++) {
-    if (text[index] === '(') depth++;
-    else if (text[index] === ')' && --depth === 0) return index + 1;
-  }
-  return lineEnd;
-}
-
-function revealPlace(textarea, text, {line, column}) {
-  const offset = lineOffset(text, line) + column - 1;
-  textarea.focus();
-  textarea.setSelectionRange(offset, offset);
-  textarea.scrollTop = Math.max(0, (line - 5) * lineHeight(textarea));
 }
 
 // ---- Editing ----

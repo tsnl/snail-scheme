@@ -8,8 +8,9 @@
   <header class="toolbar">
     <button id="toggle-files" class="tool" aria-pressed="true" title="Files (Ctrl+B)">☰</button>
     <span id="project" class="project"></span>
-    <button id="open-folder" class="tool" title="Open a project folder">Open folder…</button>
-    <input id="folder-input" type="file" webkitdirectory hidden>
+    <button id="save" class="tool" title="Save (Ctrl+S)" disabled>Save</button>
+    <button id="reload" class="tool" title="Reload the selected file from disk" disabled>Reload</button>
+    <button id="build" class="tool" title="Build the files saved on disk">Build</button>
     <span id="status" class="status" role="status"></span>
     <button id="format" class="tool" title="Format (Ctrl+Shift+F)">Format</button>
     <button id="split-right" class="tool" title="Split right (Ctrl+\)">⇥</button>
@@ -20,6 +21,7 @@
     <div id="files-resizer" class="resizer"></div>
     <section id="panes" class="panes" aria-label="Editors"></section>
   </main>
+  <pre id="diagnostics" class="diagnostics" role="status" hidden></pre>
   <script type="module" src="./ide.mjs"></script>
 </body>
 </html>

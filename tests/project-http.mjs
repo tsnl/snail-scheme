@@ -69,6 +69,14 @@ try {
   const projectReply = await (await get('/api/project')).json();
   assert.deepEqual(projectReply.files, ['main.sld', 'project.datum']);
   assert.equal(projectReply.name, project.split('/').at(-1));
+  const page = await request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document'});
+  assert.equal(page.status, 200);
+  assert.equal(page.headers['x-frame-options'], 'DENY');
+  assert.match(page.headers['content-security-policy'], /frame-ancestors 'none'/);
+  assert.match(page.text, /id="save"/);
+  assert.equal((await request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'iframe'})).status, 403);
+  assert.equal((await get('/main.sld')).status, 404, 'no arbitrary project files on the editor origin');
+  assert.equal((await get('/src/ide/ide.mjs')).status, 404, 'asset lookup is an allowlist');
   const initial = await read(), first = service.development.status.id;
 
   // HTTP Save writes disk; only the independent observer schedules compilation.
