@@ -30,13 +30,19 @@ export function createTcp() {
     else { resource.reading = false; resource.writing = false; }
     owned.add(resource);
     io.on('error', error => closeResource(resource, error));
-    if (kind === 'connection') io.once('close', () => { closeResource(resource); finish(resource); });
+    if (kind === 'connection') io.once('close', () => {
+      // Snapshot the terminal cause before ordinary revocation supplies EBADF.
+      // The wrapper distinguishes success from a null cancellation reason.
+      const outcome = resource.stop.signal.aborted ? {error: resource.stop.signal.reason}
+        : io.readableEnded && io.writableFinished ? null : {error: closedError()};
+      closeResource(resource); finish(resource, outcome);
+    });
     return resource;
   }
 
-  function finish(resource) {
+  function finish(resource, outcome) {
     owned.delete(resource);
-    resource.done.resolve();
+    resource.done.resolve(outcome);
   }
 
   function publish(resource) {
@@ -50,7 +56,7 @@ export function createTcp() {
 
   function get(id, kind) {
     const resource = handles.get(id);
-    if (!resource) throw closedError();
+    if (!resource || resource.io.writableEnded) throw closedError();
     if (resource.kind !== kind) throw fault('EINVAL', `TCP operation requires a ${kind}`);
     return resource;
   }
@@ -172,6 +178,27 @@ export function createTcp() {
     finally { signal.removeEventListener('abort', abort); connection.writing = false; }
   }
 
+  // Completion owns both directions until native close. Aliases may still
+  // force close, but cannot begin more I/O. No discarded input is retained.
+  async function finishConnection(signal, id, grace) {
+    signal.throwIfAborted();
+    if (!Number.isInteger(grace) || grace < 0 || grace > 0x7fffffff) throw fault('EINVAL', 'TCP finish grace must be 0..2147483647 ms');
+    const connection = get(id, 'connection');
+    if (connection.reading || connection.writing) throw fault('EBUSY', 'TCP I/O is still pending');
+    const abort = () => closeResource(connection, signal.reason);
+    const expire = () => closeResource(connection, fault('ETIMEDOUT', 'TCP finish grace expired'));
+    let timer;
+    try {
+      signal.addEventListener('abort', abort, {once: true});
+      if (!grace) expire();
+      else { timer = setTimeout(expire, grace); connection.io.end(); connection.io.resume(); }
+    } catch (error) { closeResource(connection, error); }
+    try {
+      const outcome = await connection.done.promise;
+      if (outcome) throw outcome.error;
+    } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
+  }
+
   async function shutdown() {
     stopped = true;
     // A late connection callback may still acquire a resource while its listener
@@ -183,7 +210,7 @@ export function createTcp() {
     }
   }
 
-  return {listen, connect, accept, read, write,
+  return {listen, connect, accept, read, write, finish: finishConnection,
     port: id => get(id, 'listener').io.address().port,
     close(id) { const resource = handles.get(id); if (resource) closeResource(resource); },
     shutdown};
