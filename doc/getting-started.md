@@ -201,5 +201,5 @@ make test-browser  # hot reload and the IDE in headless Chromium
 
 CI runs the first four, and `cargo fmt --check` on both crates. A change to
 the compiler also needs `make test-chibi` and `make bootstrap`, and a change
-to the browser host or the IDE `make test-browser`. The [tour](../TOUR.md)
+to the browser host or the IDE `make test-browser`. The [tour](book/lofi/compilers.md)
 introduces the compiler.

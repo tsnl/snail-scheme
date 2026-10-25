@@ -1,12 +1,13 @@
 # Typed tables and cached views
 
-**Prototype for review, not implemented.** This replaces the proposed
-application checkpoint/resume contract in the [development design](desktop-ide.md).
-Implementation of the independent project/IDE stack may proceed while this API
-is reviewed. Names and forms below are proposed library syntax, not available
-compiler features. The examples illustrate contracts, not a runnable program.
+**Proposed API, not implemented.** The [application model](applications.md#proposed-application-processes)
+proposes preserving server and browser data through durable typed tables and
+disposable views. This chapter develops that state model for review; its forms
+are illustrative library syntax, not runnable examples. Storage semantics,
+checking rules and performance need proof before replacing current save/restore.
+[The state issue](https://github.com/tsnl/snail-scheme/issues/459) tracks that review.
 
-## 1. One owner for retained state
+## One owner for retained state
 
 All base tables are durable. A view computes a value from a consistent database
 snapshot and explicit arguments; caching that value is optional. There are no
@@ -27,7 +28,7 @@ every field. Key types distinguish domains; they do not prove that an entity
 or component exists. Missing-row results and referential constraints remain
 explicit. IDs are values, not array positions or pointers.
 
-## 2. Schema from ordinary types
+## Schema from ordinary types
 
 ```scheme
 (struct EntityId
@@ -83,7 +84,7 @@ codecs. `Serialize`, `Send` and `Sync` each serve their existing purpose; none
 alone is a certificate for this complete storage contract. This does not add
 a general-purpose `Immutable` marker.
 
-## 3. Reads and writes have scopes, not exposed tokens
+## Reads and writes have scopes, not exposed tokens
 
 The examples use the existing `(Result A E)` from `(lofi base)`, with `(Ok A)`
 and `(Err E)`.
@@ -161,7 +162,7 @@ may leave the caller uncertain whether the operation committed; no exactly-once
 delivery guarantee is implied. Send a response or present UI only after the
 write result, outside the transaction.
 
-## 4. Views are ordinary typed computations
+## Views are ordinary typed computations
 
 Assume `Layout` is ordinary immutable data and `typeset` is a pure function:
 
@@ -205,7 +206,7 @@ the wait for the next frame or request. Nested views share the snapshot; they
 do not begin independent reads. The result is internally consistent, not a
 promise that no newer commit exists by the time presentation finishes.
 
-## 5. Cache correctness before fine-grained invalidation
+## Cache correctness before fine-grained invalidation
 
 The first cache key includes the database identity/incarnation, its revision,
 the code generation, the view identity and argument values. Initially use an
@@ -232,7 +233,7 @@ invalidating unrelated views, including dependencies inherited from nested
 views and missing-row lookups. Row-level dependencies, incremental query
 maintenance and subscriptions are not prerequisites for the first contract.
 
-## 6. Startup, reload and schema changes
+## Startup, reload and schema changes
 
 The runtime opens the configured store and binds `store` around the ordinary
 entry point. A new application may perform a transaction that inserts missing
@@ -264,7 +265,7 @@ storage contract. It is not an identical power-loss or retention promise on
 every host; browser storage eviction remains a platform policy. Do not report
 success merely because a write request was accepted or a RAM cache changed.
 
-## 7. Performance and implementation boundaries
+## Performance and implementation boundaries
 
 Reads may use memory and indexes; durability does not imply a physical disk
 read for every lookup. Durable writes still cost work. A game's live positions
@@ -292,7 +293,7 @@ application typeclass is required by the surface model. Whether its proposed
 forms can expand entirely to existing checks is still to be proved. Transactions
 and cache coherence remain runtime work; a type annotation cannot supply them.
 
-## 8. Review and verification
+## Review and verification
 
 Before adopting this API, prove: a typed key/row mismatch is rejected; a view
 cannot write or depend on mutable hidden state; a write cannot perform network
@@ -305,9 +306,8 @@ preserves committed data while permitting view result types to change.
 
 Measure whole-frame/request cost, transactions at realistic write rates,
 cache misses after writes and first-view latency after reload. These determine
-whether coarse invalidation is sufficient. Keep state-library implementation
-out of the independent IDE deletion, project-description, compiler output,
-watcher, networking and editor-service PRs while this prototype is reviewed.
+whether coarse invalidation is sufficient. These measurements and checks are acceptance criteria for adopting the API,
+not claims about the current runtime.
 
 Related prior art: [SpacetimeDB tables](https://spacetimedb.com/docs/tables/) and
 [transactional reducers](https://spacetimedb.com/docs/functions/reducers/) combine
