@@ -45,8 +45,11 @@ jobs:
           persist-credentials: false
       # shell.nix reads its nixpkgs from npins/sources.json.
       - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012 # v31
-      - name: Install pinned Rust
-        run: nix-shell --run 'rustup toolchain install'
+      # `lofi build` compiles src/runtime and src/assembler for WASI with
+      # `cargo --offline`, so this job needs the target and the locked crates
+      # in the registry, exactly as the test job does.
+      - name: Install pinned Rust and fetch locked dependencies
+        run: nix-shell --run 'rustup toolchain install && rustup target add wasm32-wasip1 && make fetch'
       - name: Build the book and Siegework
         run: nix-shell --run 'make pages'
       - name: Upload Pages artifact

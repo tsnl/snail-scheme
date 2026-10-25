@@ -282,10 +282,30 @@
     ;; drives it.
     (define (build-crate root name)
       (let ((target (path-join root (string-append "build/wasm-" name))))
-        (run-tool "CARGO" "cargo" "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
+        (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
+                  "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
                   "--target" "wasm32-wasip1" "--manifest-path" (path-join root "src" name "Cargo.toml")
                   "--target-dir" target)
         (path-join target "wasm32-wasip1/release" (string-append "snail_" name ".wasm"))))
+
+    ;; rustup resolves a toolchain from the working directory, which belongs
+    ;; to whoever ran the command: building a project in another directory
+    ;; would otherwise compile these crates with whatever toolchain is default
+    ;; there, which need not have the pinned `wasm32-wasip1` target.
+    ;; rust-toolchain.toml holds the one pin; name its channel explicitly.
+    (define (pinned-channel root)
+      (let* ((path (path-join root "rust-toolchain.toml"))
+             (channel (quoted-value (read-file path) "channel")))
+        (or channel (error "rust-toolchain.toml must name a channel" path))))
+
+    ;; The text between the first pair of double quotes at or after KEY.
+    (define (quoted-value text key)
+      (let* ((at (string-contains text key))
+             (rest (and at (substring text (string-cursor->index text at) (string-length text))))
+             (open (and rest (string-contains rest "\"")))
+             (tail (and open (substring rest (+ (string-cursor->index rest open) 1) (string-length rest))))
+             (close (and tail (string-contains tail "\""))))
+        (and close (substring tail 0 (string-cursor->index tail close)))))
 
     (define (link module output runtime release?)
       (let ((adapter (string-append output ".adapter.wasm")) (linked (string-append output ".linked.wasm"))
