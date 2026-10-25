@@ -272,10 +272,10 @@ service described above. Production `serve` and package installation still need
 their own contracts; neither is a current public command.
 
 The concrete [TCP effect](../runtimes/networking.md) supports native CLI programs
-and replacement handlers for tests. UDP still needs bind, datagram send/receive
-with peer addresses, and close. It keeps message boundaries without guaranteeing
-delivery or order. Define buffer limits, truncation, cancellation and late-result
-ownership for those operations.
+and replacement handlers for tests. The native UDP owner has bounded datagram
+queues, peer addresses and cancellation/close behavior; its typed Lofi binding
+remains to be added. UDP keeps message boundaries without guaranteeing delivery
+or order.
 
 HTTP is proposed as a Lofi library over TCP, with bounded parsing, framing,
 routing and bundle/reload serving. The project service currently uses Node HTTP;
