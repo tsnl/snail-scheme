@@ -1,7 +1,7 @@
 # Artifact bundles
 
 The compiler and `(lofi artifact)` library implement named artifact requests.
-The native project builder's target traversal and request bridge are the next
+The native project builder's target traversal is the next
 integration step: current `lofi build`, `compile`, `run` and development commands
 explicitly reject these requests. Compiler clients can already supply the
 in-memory inputs described below, as the linked-Wasm integration fixture does.
@@ -46,9 +46,9 @@ it has no filesystem capability. Inputs belong to the current invocation, not
 the retained session. `no-artifacts` is an empty input table.
 
 The project implementation will own target lookup, browser-kind checking,
-serial traversal and cycle detection. A missing input currently produces a
-located error; the following integration will turn it into a structured request
-to the native builder after the compiler invocation has unwound.
+serial traversal and cycle detection. A missing input records a typed request
+and aborts the invocation. The native builder obtains the request only after
+the compiler stack has unwound.
 
 Each library's expansion records its direct requests and the exact file values
 embedded. Ordinary source/import eligibility is checked before replaying those
@@ -67,6 +67,40 @@ publish no replacement session. This keeps bundle bytes out of string keys
 without trusting a content checksum.
 
 Generated syntax is obtained before deciding whether to replay its library.
-The native bridge must also keep the project resolver active while compiling
+The native bridge keeps a bound project resolver active while compiling
 producer programs. Persistent producer caching remains separate work; current
 producer output lasts only for its enclosing compile.
+
+## Native compiler requests
+
+The compiler cannot start a producer or build another project target. It stores
+one pending `CompilerRequest` in memory and exits immediately. Chibi and Node
+compiler entries initialize this state before calling the shared typed driver.
+After a compiler failure unwinds, they consume the request and publish
+`request.datum` in the private compile directory. Artifact expansion and request
+signaling have no filesystem effects; library loading and generated-source IO
+still do. Requests are concrete datums parsed by `(lofi compiler inputs)`:
+
+```scheme
+(generate "123456")
+(artifact "client" "server/main.sld" 12 8)
+```
+
+The first runs the existing generated-library producer. The second calls the
+synchronously bound artifact resolver, preserving the source location for
+errors. Its reply names relative bundle entries and their immutable backing
+files in `artifacts.datum`. The restarted compiler parses that manifest once
+and loads all supplied bytes into an immutable table before expansion; repeated
+lookups never reread those files. Applications embed the bytes and need no
+runtime file access.
+
+One logical compilation owns its replies across restarts. Each attempt deletes
+the preceding request before starting the compiler. Only exit status 1 permits
+a request. Publication failures use status 2; any other exit or signal also
+cannot fulfill work from a leftover file. Success with a pending request and a
+request already answered are errors. Scratch directories are
+created exclusively, so stale files from a reused process id cannot become
+inputs. Stderr carries diagnostics only. Nested producer compiles own separate
+scratch directories but inherit the same bound resolver, which is restored
+when its dynamic scope exits. The next project-builder change supplies the
+target traversal behind that binding.

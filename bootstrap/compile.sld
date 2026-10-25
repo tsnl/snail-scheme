@@ -1,41 +1,18 @@
-;; The self-hosted compiler's entry program:
-;;
-;;   compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]
-;;
-;; writes the WebAssembly text of the program SOURCE, or the schemas of its
-;; wire types, to OUTPUT, finding its libraries in the DIRECTORY arguments.
-;; `modules` writes one module per library into the directory OUTPUT, as
-;; NAME.wat, and their names in program order, one to a line, to
-;; OUTPUT/modules.
-;; A compiled program cannot run another, so the driver produces generated
-;; libraries: the syntax a producer writes is GENERATED/KEY.syntax, where KEY
-;; hashes the producer program; when it is missing, the compiler writes the
-;; producer to GENERATED/KEY.sld and stops with `generate KEY`.
+;; The compiled compiler's synchronous entry and its post-exit request hook.
 (import
  (lofi base)
  (lofi io)
- (only (lofi compiler read) syntax->string)
- (only (lofi compiler core) fnv-1a)
- (lofi compiler))
+ (lofi compiler driver))
 
-(define (generated-syntax directory forms)
-  (let* ((text (string-join (map syntax->string forms) "\n")) (key (i64->string (fnv-1a text)))
-         (output (string-append directory "/" key ".syntax")))
-    (if (file-exists? output)
-        (read-bytes output)
-        (begin (write-file (string-append directory "/" key ".sld") text)
-               (panic (string-append "generate " key))))))
+(: publish-request (-> Unit ! mut fs))
+(define (publish-request)
+  (publish-compiler-request!))
 
-(define (write-modules directory modules)
-  (for-each (lambda (module) (write-file (string-append directory "/" (Pair-first module) ".wat") (Pair-second module))) modules)
-  (write-file (string-append directory "/modules") (string-concatenate (map (lambda (module) (string-append (Pair-first module) "\n")) modules))))
+(: compile-source (-> Unit ! mut fs))
+(define (compile-source)
+  (compile-command-line))
 
-(define (compile-source mode source output generate directories)
-  (cond ((string=? mode "schema") (write-file output (compile->schemas directories source generate no-artifacts)))
-        ((string=? mode "modules") (write-modules output (compile->modules directories source generate no-artifacts)))
-        (else (write-file output (compile->wat directories source generate no-artifacts)))))
+(expose publish-request "compiler-request")
+(expose compile-source "compiler-compile")
 
-(match (command-line)
-  ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
-   (compile-source mode source output (lambda (forms) (generated-syntax generated forms)) directories))
-  (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]")))
+(unit)
