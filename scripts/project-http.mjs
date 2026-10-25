@@ -34,6 +34,10 @@ function expectedRevision(request) {
   return match[1];
 }
 
+function emptyBody(request) {
+  if (Number(request.headers['content-length']) || request.headers['transfer-encoding']) throw new HttpError(400, 'command takes no request body');
+}
+
 async function readText(request) {
   if (!/^text\/plain(?:\s*;\s*charset=utf-8)?$/i.test(request.headers['content-type'] ?? '')) throw new HttpError(415, 'save requires UTF-8 text/plain');
   if (Number(request.headers['content-length']) > bodyLimit) throw new HttpError(413, 'request exceeds 8 MiB');
@@ -77,7 +81,7 @@ export async function serveProject({root, project, tools, port = 0}) {
   const assets = editorAssets(root, tools);
   const clients = new Set(), closed = Promise.withResolvers();
   closed.promise.catch(() => {}); // Callers may inspect it later or call close().
-  let stopping = false, failure = null;
+  let stopping = false, failure = null, compilerEvent = null, runsEvent = null;
   const server = createServer({requestTimeout: 15_000, headersTimeout: 15_000}, (request, response) => {
     void route(request, response).catch(error => {
       request.resume();
@@ -98,8 +102,7 @@ export async function serveProject({root, project, tools, port = 0}) {
     catch { response.destroy(); }
   }
 
-  function broadcast(kind, value) {
-    const text = frame(kind, value);
+  function broadcast(text) {
     for (const response of clients) send(response, text);
   }
 
@@ -109,7 +112,8 @@ export async function serveProject({root, project, tools, port = 0}) {
     response.on('close', () => clients.delete(response));
     response.on('error', () => response.destroy());
     response.writeHead(200, {...headers, 'Content-Type': 'text/event-stream', Connection: 'keep-alive'});
-    send(response, 'retry: 1000\n\n' + frame('status', editorStatus(development.status)) + frame('files', null));
+    const status = development.status;
+    send(response, 'retry: 1000\n\n' + frame('status', editorStatus(status)) + frame('runs', status.runs) + frame('files', null));
   }
 
   async function route(request, response) {
@@ -125,9 +129,21 @@ export async function serveProject({root, project, tools, port = 0}) {
       case 'GET /api/file': return json(response, 200, files.read(path));
       case 'GET /api/events': return events(response);
       case 'POST /api/build':
-        if (Number(request.headers['content-length']) || request.headers['transfer-encoding']) throw new HttpError(400, 'build takes no request body');
+        emptyBody(request);
         development.requestBuild();
         return json(response, 202, editorStatus(development.status));
+      case 'POST /api/run/start':
+      case 'POST /api/run/stop':
+      case 'POST /api/run/restart': {
+        emptyBody(request);
+        const action = url.pathname.split('/').at(-1);
+        const run = development.status.runs.find(run => run.target === url.searchParams.get('target'));
+        if (!run || (action !== 'stop' && !run.available)) throw new HttpError(404, 'unknown accepted run target');
+        const controls = {start: development.startRun, stop: development.stopRun, restart: development.restartRun};
+        controls[action](run.target);
+        response.writeHead(204, headers);
+        return response.end(); // Acknowledge the command; SSE owns observed run state.
+      }
       case 'PUT /api/file': {
         const revision = expectedRevision(request), text = await readText(request);
         if (stopping) throw new HttpError(503, 'project development is closing');
@@ -147,11 +163,16 @@ export async function serveProject({root, project, tools, port = 0}) {
   }
 
   const stopStatus = development.subscribe(status => {
-    broadcast('status', editorStatus(status));
+    // Compiler evidence is independent of process output. Repeating a compiler
+    // status for each log chunk would cause needless editor reads and redraws.
+    const compiler = frame('status', editorStatus(status)), runs = frame('runs', status.runs);
+    const changed = (compiler === compilerEvent ? '' : compiler) + (runs === runsEvent ? '' : runs);
+    compilerEvent = compiler; runsEvent = runs;
+    if (changed) broadcast(changed); // One observation gets one opportunity to drain.
     if (status.phase === 'fatal') fail(new Error(status.diagnostics[0].message));
   });
   const stopFiles = development.files.subscribe(event => {
-    if (event.kind === 'changed' && event.paths.some(path => path === files.project || path.startsWith(files.project + sep))) broadcast('files', null);
+    if (event.kind === 'changed' && event.paths.some(path => path === files.project || path.startsWith(files.project + sep))) broadcast(frame('files', null));
   });
 
   function fail(error) {
