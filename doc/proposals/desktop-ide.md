@@ -4,7 +4,8 @@
 [#421](https://github.com/tsnl/snail-scheme/pull/421) and replaces the desktop
 proposal preserved by [#412](https://github.com/tsnl/snail-scheme/pull/412).
 The [earlier document](https://github.com/tsnl/snail-scheme/blob/be6c41ef76d79d186fc2f405e1c44d28450318bc/doc/proposals/desktop-ide.md)
-is historical. Implementation waits for review.
+is historical. The settled project/IDE changes are authorized for implementation;
+the [typed state prototype](typed-state.md) remains under review.
 
 ## 1. Terms and commands
 
@@ -172,104 +173,67 @@ a producer can read. Builds use private output staging, not copied source trees.
 
 ## 4. Running and reloading applications
 
-**Preserving server and browser application data across reload is required
-in this series.** Storage is accessed through effects and outlives replacement
-code: an actual database for server records, and a database-like store for
-the browser. This does not require every state access to go through storage.
+**Server and browser application data must survive code replacement.** The
+[typed state prototype](typed-state.md) develops the agreed direction: durable
+base tables and disposable, read-only cached views. There are no mutable volatile
+tables or application `resume` methods. It supersedes the earlier proposal to
+save an application's working state immediately before replacement.
 
-### Working state and persisted data
+### Facts, views and ordinary startup
 
-| State | During execution | Across replacement |
-| --- | --- | --- |
-| Server application records | Application operations read and commit database transactions; working sets and derived caches may stay in RAM. | The new process reopens the same database. It need not rewrite or eagerly load every record. |
-| Browser working state | Updates and rendering use RAM. The application chooses its saved representation. | Proposed: a planned reload commits a checkpoint and restores it under the new code. IndexedDB already supplies the browser's checkpoint store. |
-| Transient resources | Connections, suspended tasks, render caches and intermediate calculations belong to the running instance. | They are closed, interrupted or reconstructed; they are not serialized as application data. |
+Tables hold retained facts as ordinary typed records. Views derive working
+values from one consistent database snapshot and explicit parameters. A cache
+can be discarded at any time; application code does not manually rebuild or
+synchronize it. A new program starts normally, opens the same store, recreates
+its sockets/windows and computes views as requested. Committed data survives;
+managed objects, closures and suspended computations do not cross code versions.
 
-Storage lifetime and access frequency are separate choices. Siegework already
-keeps a `Game` in memory and saves a `Save` containing its journal, tick, view
-and preferences. Its current browser loop saves periodically and on reload,
-not on each frame. A smaller saved representation can still be expensive to
-restore: replaying a growing journal costs work. Persisting a whole simulation
-on every interaction is not the proposed contract.
+The prototype specifies typed operations, closed read/write effects, transaction
+failure boundaries, coherent snapshots, cache identity, external writers and
+schema compatibility. Its syntax, checking rules and storage implementations
+remain proposed. The existing browser save/restore implementation remains until
+its replacement is reviewed and tested. No new application typeclass is required.
 
-RAM-only authoritative state needs an explicit checkpoint if it is promised
-to survive replacement. A database connection does not flush that state
-automatically. For servers, the first implementation preserves committed
-application records; the application must commit any additional state before
-replacement if it requires that state to survive. There is no generic server
-heap checkpoint or shutdown-save guarantee. The first server fixture must
-demonstrate this boundary with a real database, not an in-memory stand-in.
+This is a state organization contract, not a promise of zero-cost persistence.
+Views cannot reconstruct facts absent from durable inputs. Frequent authoritative
+writes still cost database work; coarse cache invalidation and reconstruction
+must be measured. Keep data files and journals outside compiler watch inputs
+and output directories. Browser applications use distinct stable store names.
 
-Keep database paths and browser storage keys stable across build IDs.
-Independent applications use distinct checkpoint keys, including frontends
-sharing an origin, unless they deliberately share data. Database files,
-journals and WAL files belong outside output directories and watched
-source inputs; a database write must not trigger compilation. Read errors,
-incompatible data and a missing record are different outcomes. Initialize only
-missing data; never silently replace an unreadable or incompatible save. Data
-migration belongs to the application. Reverting code does not undo database
-writes, and browser and server commits are independent.
+### Process replacement
 
-### Browser replacement: proposed simplification
+Applications remain ordinary subprocesses. After an accepted build, stop the
+affected child, await exit and start the new program against the same store.
+Start/Stop/manual Restart and standard streams remain ordinary process controls.
+Run records identify launch target, build, process and exit status. Use bounded
+termination; killing a process does not promise cleanup or a final commit.
+A committed write may survive even when its client never receives a reply.
 
-Propose replacing the browser's Wasm application instance from its saved
-representation, removing opaque `Any` state transfers and cross-build heap
-rollback. Keep the page host where useful. This simplifies the existing
-`app-boot`, `relinkApplication` and module-relink lifecycle, but remains a design
-choice for review. Measure checkpoint, startup and restoration costs with
-representative Siegework state before deleting the existing relink path.
-Compilation and state restoration have separate costs.
+Transactions finish or abort at their defined commit boundary. Code replacement
+discards view caches. If new startup fails, preserve stored records and report
+the failure; automatic rollback to the old running loop is not promised.
+Reverting code does not undo database writes. Durable schema changes require
+explicit migration, while changing a view's result type only invalidates caches.
+No database-state transfer IPC is needed.
 
-For planned replacement, pause updates at a coherent event boundary, finish
-earlier writes, commit the latest checkpoint, then dispose the old instance
-and restore the new one. Await the IndexedDB transaction's completion, not
-just the write request. If saving fails, report it and leave the old loop
-usable. The current `loadSave` treats read errors as absence, `store` can warn
-and continue after failure, and `startCold` may discard incompatible data;
-these behaviors must change before storage becomes the reload boundary.
+One concrete server database binding is sufficient. SQLite is a candidate:
+the pinned Node 26.8.1 offers `node:sqlite`, and a temporary probe confirmed
+committed records survive exit while an open transaction rolls back. This does
+not establish a Lofi binding or nonblocking execution; Node's [SQLite API](https://nodejs.org/api/sqlite.html)
+is synchronous. Browser storage needs its own transaction/commit proof.
 
-Keep periodic saves for recovery after an unexpected exit. A planned reload
-checkpoint and crash recovery are different guarantees: uncommitted RAM can
-be lost on a crash. A new version that cannot restore must report an error
-without resetting the saved data. Full restoration preserves what `save`
-encodes; selection, focus or other interaction state survives only if included
-or explicitly retained by the page host. Retain the same-version trap
-checkpoint only for its existing failed-event recovery role.
-The proposal also drops automatic recovery to the old loop if the replacement
-fails to restore or present its first frame after disposal. Saved data remains
-intact, but the page reports the error and awaits a corrected build or retry.
-That loss of running continuity is part of the replacement choice under review.
-
-### Server replacement and build delivery
-
-After a successful accepted build, stop an affected running child, await exit,
-and start the new build against the same database. Start/Stop/manual Restart
-remain ordinary process operations. A process restart and data-preserving
-reload are compatible: the heap is new while committed records survive.
-Run records identify the launch target, successful build, process and exit
-status. Use bounded termination; exiting does not promise Lofi cleanup or a
-final database commit. Interrupted requests may have committed without their
-clients receiving a reply; do not promise automatic replay or exactly-once
-execution. No database-state transfer IPC is needed. Logs remain ordinary output.
-
-One concrete database binding is enough to establish this contract. SQLite
-is a candidate, not a generic provider framework: the pinned Node 26.8.1 has
-`node:sqlite`, and a local probe confirmed committed records survive process
-exit while an open transaction rolls back. That probe does not establish a
-Lofi binding or nonblocking execution. Node's [SQLite API](https://nodejs.org/api/sqlite.html)
-is synchronous; wrapping it in a Promise does not remove blocking.
+### Build delivery
 
 Keep the server origin stable across restarts. A small HTTP bundle helper
-serves the files, development manifest and reload event stream from completed
-builds. After reconnecting, the browser receives the latest manifest. Pin each
-replacement's manifest and module identities to its advertised build; fetching
-build B must not return build C's bytes. If B is unavailable, reconcile with
-the latest manifest and retry. A network failure is distinct from incompatible
-saved data. Do not signal a browser to adopt a bundle before its server serves
-that build. Several bundles have separate prefixes and manifests. No development
-reverse proxy, preview transport or durable event journal is needed. Production
-serving omits the development endpoints. Code compilation does not prove
-client/server API or data-schema compatibility.
+serves files, development manifests and reload events from completed builds.
+After reconnecting, the browser receives the latest manifest. Pin replacement
+assets to the advertised build: fetching B must not return C's bytes. If B is
+unavailable, reconcile with the latest manifest and retry. A network failure is
+distinct from incompatible stored data; neither permits silently clearing data.
+
+Do not advertise a bundle before its server serves it. Multiple bundles have
+separate prefixes and manifests. Production serving omits development endpoints.
+Code compilation does not prove client/server API or data-schema compatibility.
 
 ## 5. Concrete networking
 
@@ -326,9 +290,8 @@ DAP framework or GC-object inspector is required for this series.
 
 ## 7. Global simplification plan
 
-- Reuse the compiler session and browser save/restore representation. Propose
-  deleting cross-build heap handover in favor of checkpoint restoration,
-  subject to the reload-cost review above. Delete the competing browser build
+- Reuse the compiler session. Replace application checkpoint/resume policy
+  with durable facts and disposable views after the state prototype is reviewed. Delete the competing browser build
   backend and preview.
 - Use one disk-change path for the compiler and editor. Delete unsaved compiler
   overlays, server-owned buffer histories and source snapshot machinery.
@@ -340,9 +303,9 @@ DAP framework or GC-object inspector is required for this series.
   runtime actor registries, embedded browser documents and virtual URL schemes.
 - Use concrete socket effects and HTTP library code. Keep debugger work outside
   this stack while preserving process/build identity for later attachment.
-- Keep working state in RAM and persist application-defined data. Use one
-  concrete server database binding; omit automatic heap snapshots, transparent
-  caching, a database abstraction hierarchy and database-state transfer IPC.
+- Keep durable facts in typed tables and derive working state through views.
+  Use one concrete server database binding; omit manual cache rebuilding,
+  automatic heap snapshots, a database engine of our own and state-transfer IPC.
 
 Each implementation PR must name what it deletes and the surviving owner,
 update its book pages and `TOUR.md`, and test one meaningful behavior or failure
@@ -352,8 +315,9 @@ validate the machinery chosen to preserve it.
 
 ## 8. Proposed PR sequence
 
-These are reviewable implementation cuts above #421, not changes authorized
-by this design PR. The anchors below refer to the current code.
+These are implementation cuts above #421. Settled project/IDE work is authorized;
+state-library integration waits for prototype review. The anchors refer to the
+current code. Each state-library cut will be split further once its API is settled.
 
 | PR | Change grounded in current architecture | Simplification and evidence |
 | --- | --- | --- |
@@ -364,22 +328,20 @@ by this design PR. The anchors below refer to the current code.
 | 5. Persistent development | Extract the development session from `develop.sld`/`scripts/develop.mjs`, retaining compiler sessions in one Node worker. Share watch reconciliation and publish fresh attempt diagnostics. | Keep old commands until their launch/reload replacements pass in PR 11. Test external edits, rename saves, invalid→valid builds, changes during compilation and unchanged-library reuse. |
 | 6. TCP sockets | Add the concrete native TCP effect on `src/app/tasks.mjs` suspension and cleanup. | No provider hierarchy. Exercise real partial transfers, close/cancel and late completion. |
 | 7. UDP sockets | Add concrete datagram operations beside TCP. | No stream emulation. Exercise peer addresses, empty/oversized datagrams and cancellation without assuming reliable delivery. |
-| 8. Browser checkpoints | Make storage outcomes explicit in `storage.mjs`, `runtime.mjs` and `(lofi app)`. Prove and measure committed checkpoint restoration in `host.mjs` before adopting it in place of relinking. | Proposed deletion of cross-build `Any` handover and rollback. Test commit failure leaves the old loop usable, replacement startup failure retains saved data, late writes cannot replace the final checkpoint, and saved interaction state survives. |
-| 9. HTTP and browser bundles | Implement HTTP over TCP and application asset/reload serving in the bundle helper; adapt `src/app/reload.sld` to the agreed replacement path. Make root-relative reload URLs bundle-relative and fetch the advertised artifact identity. | Ordinary routing replaces preview transport. Two frontends reload under distinct prefixes and retain independent checkpoints. Retry interrupted fetches without resetting saved data; production exposes no dev endpoints. |
+| 8. Typed state (review pending) | Follow the [prototype](typed-state.md): typed table operations, transactions, coherent read snapshots and disposable views, grounded in existing effects, wire types and task suspension. | Replace checkpoint/resume and cross-build heap handover. Split schema/checking, platform storage and view caching into separate PRs after review; prove commit/cancel and snapshot/cache boundaries. |
+| 9. HTTP and browser bundles | Implement HTTP over TCP and application asset/reload serving in the bundle helper; adapt `src/app/reload.sld` to the agreed replacement path. Make root-relative reload URLs bundle-relative and fetch the advertised artifact identity. | Ordinary routing replaces preview transport. Two frontends reload under distinct prefixes and retain independent stores. Retry interrupted fetches without resetting saved data; production exposes no dev endpoints. |
 | 10. Server persistence | Bind one concrete database through effects in the Node runtime; keep its data outside build output and watch inputs. Exercise a server using committed application records. | No provider hierarchy or automatic heap persistence. Test a fresh process recovers committed data, an unfinished transaction is rolled back, and storage failures are reported. Verify the binding's blocking/cancellation behavior. |
-| 11. Launches and reload | Reuse the child-process path and `scripts/run-lofi.mjs` for launch targets, restart ordering and process/build identity. Switch to `dev` and retire old watch/development-serve policies once application serving/reload passes. | No actor catalogue or database-state transfer protocol. Test failed-build continuity, Stop versus rebuild, server record retention, database-write watcher exclusion, restart during bundle fetch and browser checkpoint retention. |
+| 11. Launches and reload | Reuse the child-process path and `scripts/run-lofi.mjs` for launch targets, restart ordering and process/build identity. Switch to `dev` and retire old watch/development-serve policies once application serving/reload passes. | No actor catalogue or database-state transfer protocol. Test failed-build continuity, Stop versus rebuild, server record retention, database-write watcher exclusion, restart during bundle fetch and browser data retention. |
 | 12. File service | Add native file read/save and shared watcher subscriptions to `dev`. | Disk is authoritative; no server buffer database. External writes update clean buffers and surface dirty-buffer conflicts; saves never trigger compilation directly. |
 | 13. Editor client | Adapt `ide.mjs`; delete browser `project.mjs`, `toolchain.mjs`, `develop.sld` and source/sample packaging; keep editor/panes/formatter. | The UI consumes the existing dev session. Test it in Chromium alongside an external file edit and a running subprocess. |
 | 14. Examples and audit | Migrate example projects and command documentation, remove remaining obsolete scripts/adapters, audit the series. | Verify shared CLI/dev artifacts, generated libraries, saved-file squiggles and server/browser data preservation. Run compiler suites/bootstrap and inspect net production-code changes. |
 
 ## 9. Remaining review decisions
 
-- Review fresh browser instance restoration against measured checkpoint and
-  restore costs before deleting the current relink path. Keeping working state
-  in RAM is settled; making every update a database operation is not proposed.
-- Select the concrete server database binding. Preservation of committed
-  records is required; automatic preservation of arbitrary RAM is not supplied.
-- `serve` is reserved for production; confirm whether it should take a built
-  output directory or a project/launch name before fixing CLI syntax.
-- Keep frontends as ordinary server dependencies, without restricting the
-  language to console applications and web servers.
+- Review the concrete [typed state prototype](typed-state.md), including its
+  structural data/capture checks, transaction errors and cache policy. Durable
+  tables, derived views and removal of `resume` are settled directions.
+- Select the concrete server database binding and browser transaction strategy;
+  measure write rates, cache invalidation and first-view latency after reload.
+- `serve` is reserved for production; settle its output-directory versus
+  project/launch argument before fixing CLI syntax.

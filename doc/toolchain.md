@@ -7,9 +7,9 @@
 > The [project and development proposal](proposals/desktop-ide.md) puts project
 > builds, a shared file watcher and persistent compilation under `lofi dev`.
 > The editor subscribes independently; applications run as ordinary
-> subprocesses, preserving committed server records and browser checkpoints.
-> Working state remains in memory. Fresh browser instance restoration is a
-> proposed simplification whose cost needs review. The commands and relink
+> subprocesses, preserving durable facts and deriving working state through
+> disposable views. The [state prototype](proposals/typed-state.md) remains
+> under review while independent IDE/project work proceeds. The commands and relink
 > behavior below describe the current implementation; browser-only IDE and
 > integrated preview work is dropped from the replacement plan.
 

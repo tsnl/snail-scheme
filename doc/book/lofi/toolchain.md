@@ -79,10 +79,10 @@ retaining valid compiler caches. Unsaved buffers stay in the editor.
 
 Applications run as ordinary subprocesses. Today's `watch` restarts them
 after a successful build. The proposal requires preserving server records
-in an actual database and browser data through a saved representation.
-Working state stays in memory; neither every update nor every render needs
-a database operation. Fresh browser instance restoration is proposed for
-review against its checkpoint and reconstruction costs.
+in durable typed tables and deriving working data through cached views.
+Views recompute on demand, with no application `resume` method. The detailed
+state API remains under review; durable writes and view recomputation must
+be measured independently of incremental compilation.
 The proposed `serve` command is for production, without development watching;
 `build` remains a one-shot command. See the [terms](terms.md#toolchain-terms)
 for the distinction between incremental compilation, restart and hot reload.

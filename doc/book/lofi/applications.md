@@ -51,26 +51,18 @@ browser IDE that runs the same loop without a server.
 
 ### Proposed persistence boundary
 
-The [design for review](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md#4-running-and-reloading-applications)
-keeps ordinary updates and rendering in memory. A planned browser reload
-would commit the application's saved representation, then restore it in a
-fresh instance. This would replace direct cross-build state handover, subject
-to measuring checkpoint and restoration costs before deleting the relink path.
-Siegework's journal-based save is compact but still requires replay; fast
-incremental compilation does not make that reconstruction free.
+The [typed state prototype](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/typed-state.md)
+proposes durable typed tables and disposable cached views. A view computes
+from one consistent database snapshot and explicit arguments. Ordinary startup
+opens the store and recreates platform resources; no application `resume`
+method or manual cache reconstruction is needed.
 
-Server processes would reopen the same actual database after replacement.
-Committed records survive; caches and connections are reconstructed. Any
-additional RAM-only state promised to survive must be explicitly saved by
-the application. Browser periodic checkpoints remain useful for recovery
-after unexpected exits, but cannot preserve changes not yet committed.
-
-Storage errors must stay distinct from missing data. A failed reload save
-must leave the old browser loop usable; incompatible saved data must remain
-intact. Fresh instance replacement would drop automatic recovery to the old
-loop after a replacement startup failure: saved data survives, but the page
-awaits a fix or retry. These are proposed changes, not guarantees of the
-implementation described above.
+Code replacement preserves committed records and discards view caches.
+Durable schema changes require explicit migration; view result types can change
+when their caches are discarded. Failed startup retains the database but does
+not promise to resume the old program automatically. Durable writes and view
+reconstruction still cost work. These are proposed changes; the save/restore
+implementation above remains until its replacement is reviewed and tested.
 
 ## Task lifetime
 

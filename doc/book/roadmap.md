@@ -147,7 +147,9 @@ the application relinked beside the editor
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md),
 section 7). This is the current implementation. The
 [replacement design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
-is proposed and awaits review:
+authorizes the settled project/IDE work. Its detailed
+[state prototype](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/typed-state.md)
+remains under review:
 
 - [ ] Delete the integrated preview, then replace browser project/build
   ownership with `lofi dev` for one project. Preserve the editor, formatting,
@@ -164,13 +166,12 @@ is proposed and awaits review:
   Omit unsaved build overlays and source-tree snapshot infrastructure.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
-  in one concrete database and browser data in application checkpoints.
+  in concrete databases and derive browser working data through cached views.
   Keep storage identities stable and data writes outside source watching.
-- [ ] Make browser storage failures explicit and require a committed reload
-  checkpoint before replacing its instance. Keep working state in RAM.
-  Measure checkpoint and restoration costs before choosing the proposed
-  deletion of cross-build heap handover; never reset incompatible saved data
-  implicitly or treat a failed write as a successful save.
+- [ ] Review typed tables, write transactions, coherent read snapshots and
+  cached views. Replace checkpoint/resume and cross-build heap handover only
+  after proving storage, cancellation and cache validity. Views rebuild on
+  demand; incompatible durable schemas require explicit migration.
 - [ ] Let `dev` subsume `watch`, development serving and the IDE. Reserve
   `serve` for production web applications; keep one-shot `build` and `run`.
 - [ ] Prove debugger attachment to the actual Wasm execution agent, then

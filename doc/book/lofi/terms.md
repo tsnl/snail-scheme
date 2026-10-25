@@ -30,7 +30,7 @@ not implemented yet.
 application process; the application can reconstruct working state from
 persisted data. **Hot reload** (also called live reload) replaces
 running code while preserving application data under a stated contract.
-Today's browser uses state handover; the proposal considers checkpoint
-restoration for browsers and reopening the same database for servers.
+Today's browser uses state handover; the proposal uses durable typed tables
+and disposable cached views, recomputed on demand after ordinary startup.
 Recompiling incrementally does not by itself preserve application state, and
 moving execution into a worker does not supply a preservation contract.
