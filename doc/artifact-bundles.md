@@ -33,7 +33,9 @@ no special backend representation or runtime artifact service.
 
 ## Compiler boundary
 
-The compiler entry points and `build-session` take an `ArtifactInputs` value:
+The compiler entry points and `build-session` take the current generated-library
+provider and an `ArtifactInputs` value. `make-session` takes only library
+directories; a retained session owns evidence, never a provider closure:
 
 ```scheme
 (Table (List (Pair String Bytes)))

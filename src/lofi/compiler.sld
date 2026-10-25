@@ -33,7 +33,7 @@
     ;; session's build with nothing kept from before.
     (: compile->modules (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs (List (Pair String String)) ! mut fs))
     (define (compile->modules directories source generate artifacts)
-      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories generate) source artifacts))))
+      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories) source generate artifacts))))
 
     (: compile->schemas (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs String ! mut fs))
     (define (compile->schemas directories source generate artifacts)
