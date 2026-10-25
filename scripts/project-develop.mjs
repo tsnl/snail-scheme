@@ -7,6 +7,10 @@ import {applicationProcess} from './application-process.mjs';
 import {discardProject, publishProject} from './project.mjs';
 import {watchProject} from './watch.mjs';
 
+export class UnknownRunTarget extends Error {
+  constructor(name) { super(`unknown accepted run target: ${name}`); }
+}
+
 const within = (directory, path) => path === directory || path.startsWith(directory.endsWith(sep) ? directory : directory + sep);
 
 // Source libraries and declared entry/public paths are build inputs. Arbitrary
@@ -111,7 +115,7 @@ export function developProject({root, project, tools}) {
   function requiredRun(name, available = true) {
     if (stopping) throw new Error('project development is closed');
     const run = runs.get(name);
-    if (!run || (available && !launch(name))) throw new Error(`unknown accepted run target: ${name}`);
+    if (!run || (available && !launch(name))) throw new UnknownRunTarget(name);
     return run;
   }
 

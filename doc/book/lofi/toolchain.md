@@ -216,8 +216,9 @@ Origin or fetch context. Mutations require the exact Origin. It provides no CORS
 access. This boundary keeps other websites from reading or writing project files;
 it is not authentication against other native processes on the same machine.
 
-Run controls use the last accepted definitions, even while compilation fails.
-Unknown names, and Start/Restart for removed names, return 404. The 204 response
+The native development owner admits run controls using the last accepted
+definitions, even while compilation fails. HTTP maps its rejection of unknown
+names, and Start/Restart for removed names, to 404. The 204 response
 acknowledges applying intent; it contains no process snapshot that could overwrite
 a newer SSE observation. A lost response leaves the outcome unknown and must not
 cause automatic retries. Closing an HTTP or event connection does not stop an
