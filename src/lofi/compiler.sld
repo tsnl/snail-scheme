@@ -6,6 +6,7 @@
 ;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (lofi compiler)
   (export
+   check-source
    compile->wat
    compile->modules
    compile->schemas
@@ -21,6 +22,13 @@
    (lofi compiler wasm)
    (lofi compiler session))
   (begin
+
+    ;; Specialization also proves concrete handler captures and affine uses.
+    ;; Checking stops before emission, retaining no backend result.
+    (: check-source (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs Unit ! mut fs))
+    (define (check-source directories source generate artifacts)
+      (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate artifacts source empty-expansion))))
+      (unit))
 
     ;; `generate` runs the producer program of a `generate-library` and
     ;; returns the bytes of the syntax it writes.

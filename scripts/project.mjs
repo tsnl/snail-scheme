@@ -104,10 +104,15 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       });
     }
 
+    function checkTarget(target, artifact) {
+      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'lib'));
+      scratch(working => withInputs(inputs => compiler.check(inputs, source, working, libraries), working, libraries, artifact));
+    }
+
     function build(description, names = null, mode = 'development', prefix = '.lofi-') {
-      if (!['debug', 'release', 'development'].includes(mode)) throw new Error(`unknown build mode ${mode}`);
+      if (!['debug', 'release', 'development', 'check'].includes(mode)) throw new Error(`unknown build mode ${mode}`);
       if (!prefix.startsWith('.lofi-') || prefix !== basename(prefix)) throw new Error('invalid project generation prefix');
-      const filename = join(project, 'project.datum');
+      const filename = join(project, 'project.datum'), outputMode = mode === 'check' ? 'debug' : mode;
       for (const name of sessions.keys()) if (!description.builds.some(target => target.name === name)) sessions.delete(name);
       const active = [], completed = new Map(), targets = [];
       const required = name => {
@@ -120,15 +125,18 @@ export async function createProjectBuilder({root, project, tools, directory}) {
         if (target.kind !== 'browser') throw new Error(`artifact target must be a browser build: ${name}`);
         return visit(target);
       };
-      const visit = target => {
+      const visit = (target, checkOnly = false) => {
         if (active.includes(target.name)) throw new Error(`artifact dependency cycle: ${[...active, target.name].join(' -> ')}`);
         if (completed.has(target.name)) return completed.get(target.name);
-        const directory = prepareGeneration(project, target.name, prefix), output = {name: target.name, directory};
-        targets.push(output); // Own even the directory of a target that fails.
         active.push(target.name);
         try {
-          Object.assign(output, compile(target, directory, mode, artifact));
-          if (target.kind === 'browser') packageBrowser(root, project, target, directory, mode);
+          // A checked root is not an artifact. Keep it active through retries,
+          // and materialize it later if another root actually needs its files.
+          if (checkOnly) { checkTarget(target, artifact); return; }
+          const directory = prepareGeneration(project, target.name, prefix), output = {name: target.name, directory};
+          targets.push(output); // Own even the directory of a target that fails.
+          Object.assign(output, compile(target, directory, outputMode, artifact));
+          if (target.kind === 'browser') packageBrowser(root, project, target, directory, outputMode);
           chmodSync(directory, 0o755);
           const files = generationFiles(directory);
           completed.set(target.name, files);
@@ -136,7 +144,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
         } finally { active.pop(); }
       };
       try {
-        for (const name of names ?? description.builds.map(target => target.name)) visit(required(name));
+        for (const name of names ?? description.builds.map(target => target.name)) visit(required(name), mode === 'check');
         return {project, description, targets};
       } catch (error) {
         try { discardProject({targets}); } catch {}
@@ -144,7 +152,9 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       }
     }
 
-    return {describe: () => compiler.project(join(project, 'project.datum')), build, close: () => compiler.close()};
+    return {describe: () => compiler.project(join(project, 'project.datum')), build,
+      check: description => discardProject(build(description, null, 'check')),
+      close: () => compiler.close()};
   } catch (error) {
     try { compiler.close(); } catch {}
     throw error;

@@ -121,6 +121,13 @@
      (write-file output (compile->wat directories source (lambda (forms) (generated-syntax scratch forms)) (type-convert inputs ArtifactInputs))))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
 
+(: check! (-> Any Unit ! mut fs))
+(define (check! inputs)
+  (match (take-arguments!)
+    ((Cons source (Cons scratch directories))
+     (check-source directories source (lambda (forms) (generated-syntax scratch forms)) (type-convert inputs ArtifactInputs)))
+    (_ (panic "compiler check: expected source, scratch and library directories"))))
+
 (: modules! (-> Any Any Any ! mut fs compiler-output))
 (define (modules! previous inputs)
   (match (take-arguments!)
@@ -188,6 +195,7 @@
 (expose project! "project")
 (expose session! "session")
 (expose static! "static")
+(expose check! "check")
 (expose modules! "modules")
 (expose reset! "reset")
 (expose request! "request")

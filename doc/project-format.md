@@ -4,6 +4,11 @@
 in `src/lofi/project.sld` as `(lofi project)` and runs on Chibi and compiled Wasm.
 `lofi build [--release] PROJECT TARGET` consumes it and builds one named target.
 `lofi run PROJECT RUN-TARGET [ARGUMENT ...]` builds and runs a named program.
+`lofi check PROJECT` checks every declared build entry through specialization
+and ownership, without emitting or executing it. Required generators execute and
+artifact dependencies build temporarily; those generations are discarded without
+publication. A browser entry's public assets are packaged when it is built,
+including when another entry requests its artifact.
 `lofi dev` retains incremental compiler sessions and serves the project editor;
 application launch and reload integration follow separately.
 

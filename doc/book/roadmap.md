@@ -176,8 +176,10 @@ remains under review:
   source driver's separate output-directory publication contract.
 - [x] Run named project programs from their exact completed generation with
   inherited IO, working directory, exit status and signals.
-- [ ] Add project-wide `lofi check`. Defer `install` until the package-manager
-  design supplies its contract.
+- [x] Check every project build root through specialization and ownership
+  without emitting it. Execute required generators and materialize artifact
+  dependencies temporarily; discard their generations without publication.
+- [ ] Specify package installation before adding `lofi install`.
 - [x] Resolve named artifact bundles during actual expansion, including
   dependencies from generated application libraries. One server can depend
   on multiple frontend bundles. Native project builds use one serial traversal
