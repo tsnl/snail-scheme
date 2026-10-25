@@ -124,7 +124,7 @@ the last successful Session. Arbitrary Wasm or imported-function traps retire
 the instance. This distinction comes from the runtime exit path, not from
 finding a familiar string in stderr. These operations are implemented and
 tested. `scripts/project.mjs` now calls them for cold and resident project builds;
-the shared watcher and replacement development loop are the next integration step.
+connecting the shared watcher to a replacement development loop is next.
 
 The native builder owns serial target traversal, producer execution and packaging.
 Each attempt creates private generations and discovers dependencies only through
@@ -139,6 +139,25 @@ a future watcher parent can reject superseded work. Publication and discard cons
 the candidate. If one of several link renames fails, publication preserves its
 completed prefix and removes the remaining generations; it is not a project-wide
 transaction. Failed compilation or packaging publishes nothing.
+
+`scripts/watch.mjs` supplies one disk observer with independent subscriptions.
+Construction installs recursive watches before the first inventory read; callers
+subscribe and then await `reconcile()`. Named native notifications are hints.
+Periodic inventories compare file identity, size and nanosecond modification/change
+times, recording symlinks without following them. Directory identity omits child
+timestamps so writes inside explicitly excluded output/data directories do not
+invalidate their parents. Exclusions are exact paths, not every folder named `build`.
+
+Missing names and lost watches report uncertainty; they do not by themselves mean
+source code changed. The caller decides which observed paths affect compilation.
+Missing roots are checked again, and replaced roots get new watches. A failed scan
+retains the previous complete inventory until recovery. `reconcile()` requests a
+fresh scan after any active one without waiting for global quiet; closing suppresses
+later notifications and waits for an active scan to finish. There is no content
+cache or filesystem snapshot. Metadata polling catches ordinary local writes but
+cannot guarantee detection on filesystems that hide changes behind unchanged or
+coarse metadata. This observer is tested independently; the old commands still use
+their existing watches until the project development host is connected.
 
 So an edit to a function body with a signature recompiles one library. An
 edit to an interface recompiles the libraries that import it too. The
