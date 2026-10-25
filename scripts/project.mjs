@@ -98,9 +98,10 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       });
     }
 
-    function build(names = null, mode = 'development') {
+    function build(description, names = null, mode = 'development', prefix = '.lofi-') {
       if (!['debug', 'release', 'development'].includes(mode)) throw new Error(`unknown build mode ${mode}`);
-      const filename = join(project, 'project.datum'), description = compiler.project(filename);
+      if (!prefix.startsWith('.lofi-') || prefix !== basename(prefix)) throw new Error('invalid project generation prefix');
+      const filename = join(project, 'project.datum');
       for (const name of sessions.keys()) if (!description.builds.some(target => target.name === name)) sessions.delete(name);
       const active = [], completed = new Map(), targets = [];
       const required = name => {
@@ -116,7 +117,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       const visit = target => {
         if (active.includes(target.name)) throw new Error(`artifact dependency cycle: ${[...active, target.name].join(' -> ')}`);
         if (completed.has(target.name)) return completed.get(target.name);
-        const directory = prepareGeneration(project, target.name), output = {name: target.name, directory};
+        const directory = prepareGeneration(project, target.name, prefix), output = {name: target.name, directory};
         targets.push(output); // Own even the directory of a target that fails.
         active.push(target.name);
         try {
@@ -137,7 +138,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       }
     }
 
-    return {build, close: () => compiler.close()};
+    return {describe: () => compiler.project(join(project, 'project.datum')), build, close: () => compiler.close()};
   } catch (error) {
     try { compiler.close(); } catch {}
     throw error;
@@ -227,12 +228,12 @@ function checkOutput(output, name) {
   throw new Error(`refusing to replace an unmanaged project output: ${output}`);
 }
 
-function prepareGeneration(project, name) {
+function prepareGeneration(project, name, prefix) {
   const build = join(project, 'build');
   if (status(build)?.isSymbolicLink()) throw new Error(`project build directory cannot be a symbolic link: ${build}`);
   mkdirSync(build, {recursive: true});
   checkOutput(join(build, name), name);
-  const directory = mkdtempSync(join(build, '.lofi-'));
+  const directory = mkdtempSync(join(build, prefix));
   try { writeFileSync(join(directory, '.lofi-target'), name); }
   catch (error) { try { rmSync(directory, {recursive: true, force: true}); } catch {} throw error; }
   return directory;
