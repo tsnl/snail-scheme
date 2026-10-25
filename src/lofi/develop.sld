@@ -112,6 +112,16 @@
       (host-command "remove-file" (list path) 0)
       (unit))
 
+    ;; The parent may serve a published path while the compiler works. One
+    ;; serial writer owns its neighboring staging file; a failed write or
+    ;; rename leaves the preceding complete file visible.
+    (: write-published-file! (-> String String Unit ! fs develop))
+    (define (write-published-file! path text)
+      (let ((staging (string-append path ".next")))
+        (write-file staging text)
+        (host-command "rename-file" (list staging path) 0)
+        (unit)))
+
     ;; ---- Requests ----
 
     ;; `serve PORT APP-DIRECTORY` serves an application; `watch SOURCE
@@ -179,7 +189,9 @@
         ((Serve port app) (serve-pages! loop port app))
         ((Watch _ _ _) (unit)))
       (for-each watch! (watched (Loop-root loop) (Loop-request loop)))
-      (build! loop))
+      ;; The native host installs every watch before returning this timer
+      ;; event to its compiler worker. No startup handshake is needed.
+      (schedule! 0))
 
     (: new-session (-> String Request Session ! mut))
     (define (new-session root request)
@@ -281,7 +293,7 @@
     (: write-modules! (-> Loop (List Built) (List (Pair String String)) ! mut fs develop))
     (define (write-modules! loop builds)
       (let ((modules (map (lambda (built) (Pair (Built-name built) (module-file! loop built))) builds)))
-        (write-file (manifest-path loop) (modules-json (runtime-path loop) modules))
+        (write-published-file! (manifest-path loop) (modules-json (runtime-path loop) modules))
         modules))
 
     (: manifest-path (-> Loop String))
@@ -334,7 +346,7 @@
     (: publish-pages! (-> Loop String (List (Pair String String)) I32 Unit ! mut fs develop))
     (define (publish-pages! loop app modules started)
       (let ((manifest (page-manifest loop app modules)))
-        (write-file (string-append (Loop-output loop) "/index.html") (string-append (app-page app) (page-client manifest)))
+        (write-published-file! (string-append (Loop-output loop) "/index.html") (string-append (app-page app) (page-client manifest)))
         (ref-set! (Loop-manifest loop) manifest)
         (broadcast! (string-append "(built " (i32->string (- (now) started)) " " manifest ")"))))
 
@@ -387,8 +399,8 @@
     (: serve-pages! (-> Loop I32 String Unit ! mut fs develop))
     (define (serve-pages! loop port app)
       (let ((routes (string-append (Loop-output loop) "/routes.json")))
-        (write-file (string-append (Loop-output loop) "/index.html")
-                    (string-append "<!doctype html>\n<meta charset=\"utf-8\">\n<title>Building</title>\n" (page-client (ref-get (Loop-manifest loop)))))
+        (write-published-file! (string-append (Loop-output loop) "/index.html")
+                               (string-append "<!doctype html>\n<meta charset=\"utf-8\">\n<title>Building</title>\n" (page-client (ref-get (Loop-manifest loop)))))
         (write-file routes (routes-json loop app))
         (serve! routes (base-name app) port)))
 

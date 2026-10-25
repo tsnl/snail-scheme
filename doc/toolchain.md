@@ -245,7 +245,31 @@ one, such as Hearsay, is built with `make site`.
 | Host | Where |
 | --- | --- |
 | Node: HTTP with server-sent events, file watching, timers, child processes | `scripts/develop.mjs`, for `lofi serve` and `lofi watch` |
+| Node compiler worker: one Wasm instance, its assembler and immediate filesystem helpers | `scripts/develop-worker.mjs` |
 | A browser worker: the files it holds, timers, messages to the IDE | `src/ide/toolchain.mjs`, running `src/ide/develop.sld` |
+
+The native parent remains responsive during synchronous compilation. The worker
+receives file/timer events and forwards only watch, schedule, serve, broadcast
+and run commands. Immediate helper results stay in the worker; no request/reply
+service or second compiler coordinator is introduced. Startup sends watch
+commands before a zero-delay timer, so watches are installed before the first
+compile. Recoverable compiler panics report through the existing loop; fatal
+worker or host failures close the native host.
+
+Because HTTP now runs during compilation, published HTML and manifests are
+written to neighboring staging files and renamed into place. A synchronous
+rename command also works as a map move in the temporary browser backend.
+Assembled module binaries use the same replacement rule; a failed write cannot
+leave a partial module that a later build mistakes for a cached file. This
+provides complete individual files; project-level attempt acceptance and
+generation publication remain the next development-session changes.
+
+Each host owns private diagnostic storage and removes it after worker exit.
+Node [tracks filesystem descriptors opened by a worker](https://nodejs.org/api/worker_threads.html#new-workerfilename-options)
+and closes them on exit. Shutdown marks the host stopped before closing watches,
+timers and connections, stopping its application child, and terminating the
+compiler worker. Late commands cannot start a replacement child. This is one
+isolated compiler runtime, not shared-memory Lofi execution.
 
 The reload client is a Lofi program too, `src/app/reload.sld`, whose
 `page` effect asks the page to show a notice, restyle, relink or reload.
