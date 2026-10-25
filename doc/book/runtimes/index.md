@@ -44,6 +44,11 @@ compiler backend to use multiple independently hosted instances.
 
 ## Future work
 
-[Continuations and parallel execution](future.md) compares the two native
-backend research options and the Wasm extensions that would let us retain
-one backend. Neither native option is being implemented now.
+[Mixed memory and continuations](memory-and-continuations.md) proposes
+type-directed GC and owned linear storage in the existing Wasm backend,
+explicit affine and reusable continuations, and a scheduler written in
+Lofi. Transferable linear-memory tasks could then run across workers while
+ordinary GC references remain local. These changes are not implemented.
+
+[Continuations and parallel execution](future.md) retains the earlier
+backend research. Neither native alternative is part of the draft plan.

@@ -5,6 +5,11 @@ shipping features. We ship one WasmGC backend. The language keeps its
 multithreaded contract and `Send + Sync` handler restrictions while the
 implementation runs one execution agent.
 
+The follow-on [mixed memory and continuations draft](memory-and-continuations.md)
+selects one Wasm backend with both GC and owned linear storage, and
+compiler-lowered affine and reusable continuations. The native alternatives
+below remain research; their implementation is not required by that plan.
+
 ## What the Wasm target needs
 
 Existing Wasm threads share **linear memory**. That does not make ordinary
@@ -104,9 +109,10 @@ continuation's path, whereas native stack switching can retain the stack
 without rebuilding that path as closures. These are different cost models;
 neither establishes a performance result for Lofi without measurement.
 
-Koka supports multiple resumptions. Lofi's affine-only policy would simplify
-ownership, but a C backend would still need closure conversion, effect
-lowering, a managed-memory strategy, a foreign ABI and a portable runtime.
+Koka supports multiple resumptions. Restricting Lofi to affine resumptions
+would simplify ownership, but the follow-on draft plans both grades. A C
+backend would still need closure conversion, effect lowering, a
+managed-memory strategy, a foreign ABI and a portable runtime.
 Adopting this technique does not mean embedding Koka or obtaining those
 pieces automatically. Koka's reference-counting implementation is also not
 a requirement of the continuation technique.
