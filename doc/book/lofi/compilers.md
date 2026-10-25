@@ -296,8 +296,8 @@ Applications embed the bytes and need no runtime file access.
 `bootstrap/compiler.sld` exposes this compiler to a resident native caller.
 `scripts/compiler.mjs` owns one Wasm instance and returns parsed project and
 input-request records, static text, or modular text with a successor Session.
-JavaScript retains Sessions and immutable artifact inputs as opaque `Any`
-values; it cannot inspect them and must keep them with their originating compiler
+JavaScript retains Sessions and immutable artifact inputs as opaque typed
+references; it cannot inspect them and must keep them with their originating compiler
 instance. Each operation consumes its staged arguments
 before doing work, and projected records become visible only on success.
 
