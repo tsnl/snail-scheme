@@ -92,15 +92,21 @@ JSPI are done. WebGPU through an effect and the 2D and 3D `graphics`
 libraries remain proposed; they do not depend on public `ctl` handlers.
 Further runtime work includes:
 
-- [ ] Grade-polymorphic containers, borrowed captures and user-defined
-  resource cleanup beyond the current affine work-item subset.
-- [ ] Public `ctl` handlers with affine resumptions and a precise account
-  of handler lifetimes. Runtime-provided suspension continues to use JSPI.
-- [ ] Shared-heap CPU parallelism when default Wasm engine support permits
-  it. Deploy independent instances behind a load balancer in the meantime.
-- [ ] Evaluate native backend options only if maintaining a second backend
-  becomes worthwhile. The [research](runtimes/future.md) compares restoring
-  Wasm-to-LLVM with a C backend informed by Koka; neither is scheduled.
+- [ ] Specify and implement the [mixed memory and continuations
+  draft](runtimes/memory-and-continuations.md) in the existing Wasm backend:
+  `Gc` and raw `Ptr` representations, grade-polymorphic owners, Box/Arc/Weak,
+  resource destruction and representation-aware transfer proofs.
+- [ ] Lower public `ctl` and Scheme control into explicit affine and
+  reusable continuations, including handler lifetimes and dynamic wind.
+  Preserve the required effect evidence through specialization.
+- [ ] Move scheduling and task lifecycle policy into Lofi, replacing JSPI
+  with foreign completions that enqueue owned continuation invocations.
+  Reduce Rust and JavaScript to allocation, foreign services and startup.
+- [ ] Execute transferable linear-memory tasks across workers while keeping
+  ordinary GC references and their captured continuations local. Shared GC
+  references remain dependent on further engine support; the proposed
+  linear-memory worker pool does not. Today only independent instances
+  execute in parallel.
 - [ ] Path-traced lighting over the rasterized G-buffer: a BVH built on the
   CPU first, compute-shader ray queries, and SVGF denoising, as the
   [path tracing primer](graphics/path-tracing.md) describes.
