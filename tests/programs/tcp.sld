@@ -1,13 +1,13 @@
 (import
  (lofi base)
  (lofi io)
- (lofi tcp))
+ (lofi socket))
 
-(: require (All (T) (-> (Result T TcpError) T)))
+(: require (All (T) (-> (Result T SocketError) T)))
 (define (require result)
   (match result
     ((Ok value) value)
-    ((Err error) (panic (TcpError-code error)))))
+    ((Err error) (panic (SocketError-code error)))))
 
 (: receive-four (-> Connection Bytes ! tcp))
 (define (receive-four connection)
@@ -31,16 +31,16 @@
   (require (close-connection server))
   (require (close-connection server))
   (match (read server 1)
-    ((Err error) (write-line (TcpError-code error)))
+    ((Err error) (write-line (SocketError-code error)))
     ((Ok _) (panic "closed socket was read"))))
 
 (match (listen (Endpoint "localhost" 0))
-  ((Err error) (write-line (TcpError-code error)))
+  ((Err error) (write-line (SocketError-code error)))
   ((Ok _) (panic "a hostname was accepted")))
 
 ;; A token from a replacement handler cannot masquerade as a native handle.
 (match (close-connection (Connection (type-convert (ann 1 I32) Any)))
-  ((Err error) (write-line (TcpError-code error)))
+  ((Err error) (write-line (SocketError-code error)))
   ((Ok _) (panic "a fake token was accepted")))
 
 ;; Returning from main must close even a delivered listener left open by user code.

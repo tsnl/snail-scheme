@@ -262,16 +262,16 @@
              (or (zero? (caddr result)) (report "native UDP" "failed" (string-append (car result) (cadr result))))))
          '(() ("--test-udp-no-try-send"))))
 
-(define (compile-tcp-boundary root)
-  (let ((text (program->wat root (list (path-join root "lib")) (path-join root "tests/tcp-boundary/main.sld"))))
+(define (compile-socket-boundary root)
+  (let ((text (program->wat root (list (path-join root "lib")) (path-join root "tests/socket-boundary/main.sld"))))
     (lambda ()
-      (let ((program (path-join root "build/tests/tcp-boundary.wasm")))
+      (let ((program (path-join root "build/tests/socket-boundary.wasm")))
         (link-wat root text program #f)
-        (check-tcp-boundary root program)))))
+        (check-socket-boundary root program)))))
 
-(define (check-tcp-boundary root program)
-  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/tcp-boundary/check.mjs") program))))
-    (or (zero? (caddr result)) (report "TCP boundary" "failed" (string-append (car result) (cadr result))))))
+(define (check-socket-boundary root program)
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/socket-boundary/check.mjs") program))))
+    (or (zero? (caddr result)) (report "socket boundary" "failed" (string-append (car result) (cadr result))))))
 
 ;; A compiler running as Wasm resolves concrete file snapshots, then emits
 ;; static and cached library builds whose current bytes are executed.
@@ -317,7 +317,8 @@
     ("tests/programs" "closures") ("tests/programs" "classes-advanced") ("tests/programs" "data") ("tests/programs" "dynamic")
     ("tests/programs" "wire") ("tests/programs" "tables") ("tests/programs" "libraries") ("tests/programs" "generated") ("tests/programs" "wasm")
     ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once") ("tests/programs" "tasks")
-    ("tests/programs" "tcp") ("tests/programs" "tcp-handler")))
+    ("tests/programs" "tcp") ("tests/programs" "tcp-handler")
+    ("tests/programs" "udp") ("tests/programs" "udp-handler")))
 
 (define (suite-libraries suite)
   (if (string=? suite "examples") '("examples") '("tests/programs" "tests/programs/lib")))
@@ -348,12 +349,12 @@
 (define (run-linked-cases root)
   (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
           (list (run-linked-siegework root) (run-linked-app-runtime root) (run-linked-task-boundary root) (run-linked-host-boundary root)
-                (run-linked-tcp-boundary root))))
+                (run-linked-socket-boundary root))))
 
-(define (run-linked-tcp-boundary root)
-  (let ((output (path-join root "build/tests/linked/tcp-boundary")))
-    (build-modules root (list (path-join root "lib")) (path-join root "tests/tcp-boundary/main.sld") output)
-    (check-tcp-boundary root (path-join output "modules.json"))))
+(define (run-linked-socket-boundary root)
+  (let ((output (path-join root "build/tests/linked/socket-boundary")))
+    (build-modules root (list (path-join root "lib")) (path-join root "tests/socket-boundary/main.sld") output)
+    (check-socket-boundary root (path-join output "modules.json"))))
 
 (define (run-linked-host-boundary root)
   (let ((output (path-join root "build/tests/linked/host-boundary")))
@@ -425,7 +426,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-project-check root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-tcp-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-project-check root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
