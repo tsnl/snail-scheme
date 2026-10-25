@@ -7,6 +7,8 @@ import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads'
 import {linkProgram, wasmImports} from '../src/app/load.mjs';
 import {programEntry} from '../src/app/entry.mjs';
 import {createScheduler, taskImports} from '../src/app/tasks.mjs';
+import {createTcp} from './tcp.mjs';
+import {tcpImports} from './tcp-imports.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
@@ -28,21 +30,27 @@ async function run(filename, arguments_) {
   const wasi = new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
   let program, failed = false, status = 1;
+  const tcp = createTcp();
   const scheduler = createScheduler({handlerGlobals: () => program ? programEntry(program, 'main').handlers : [],
     // WASI exits throw an opaque sentinel after printing their diagnostic.
     reportError: error => { failed = true; if (error instanceof Error) console.error(`lofi: ${error.message}`); }});
-  const host = {'snail.wasm': wasmImports(() => program, file => readFileSync(file)), 'snail.tasks': taskImports(() => scheduler)};
-  program = await loadProgram(resolve(filename), wasi, host);
+  const host = {'snail.wasm': wasmImports(() => program, file => readFileSync(file)), 'snail.tasks': taskImports(() => scheduler),
+                'snail.tcp': tcpImports(() => program, scheduler, tcp)};
   // A parked JSPI stack is live work even when no OS handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
   try {
+    program = await loadProgram(resolve(filename), wasi, host);
     status = resultStatus(await runInitializers(program, scheduler));
     if (failed) status = 1;
   } finally {
-    await scheduler.close();
-    clearInterval(keepAlive);
-    const close = program.runtime.exports[program.names ? 'snail:io/close-all' : 'close-resources'];
-    if (close() !== 0 && status === 0) status = 1;
+    try { await scheduler.close(); await tcp.shutdown(); }
+    finally {
+      clearInterval(keepAlive);
+      if (program) {
+        const close = program.runtime.exports[program.names ? 'snail:io/close-all' : 'close-resources'];
+        if (close() !== 0 && status === 0) status = 1;
+      }
+    }
   }
   return status;
 }
