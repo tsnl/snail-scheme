@@ -1,7 +1,6 @@
 // The browser IDE in a real page: scripts/build-ide.scm packages it with
 // tests/apps/counter as its project, a static server serves the site, and
-// headless Chromium adds to the counter in the preview, then types into the
-// editor. An edit relinks the preview with the count kept; a broken edit
+// headless Chromium types into the editor. A broken edit
 // puts a squiggle under what the compiler points at; Tab indents as Emacs
 // does; saving formats the file and keeps it across a reload; a split shows
 // the buffer twice; and opening a folder replaces the project.
@@ -38,8 +37,7 @@ await promisify(execFile)(process.env.CHIBI ?? 'chibi-scheme', ['-h', '2G', '-I'
   join(root, 'scripts/build-ide.scm'), root, join(root, 'tests/apps/counter'), site]);
 const server = await serve(site);
 const browser = await openBrowser();
-const frame = 'document.getElementById("preview").contentDocument';
-const text = key => browser.evaluate(`${frame}?.querySelector('[data-key="${key}"] .text')?.textContent`);
+const built = () => browser.evaluate('document.getElementById("status")?.dataset.state === "built"');
 const editorText = () => browser.evaluate('document.querySelector(".pane textarea").value');
 // Selects the first match of `from` in the first pane and types `to` over it.
 const type = (from, to) => browser.evaluate(`(() => { const t = document.querySelector('.pane textarea'), at = t.value.indexOf(${JSON.stringify(from)});
@@ -47,21 +45,14 @@ const type = (from, to) => browser.evaluate(`(() => { const t = document.querySe
 const press = (target, init) => browser.evaluate(`${target}.dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({bubbles: true, cancelable: true, ...init})}))`);
 try {
   await browser.navigate(`http://127.0.0.1:${server.address().port}/`);
-  await until(() => browser.evaluate(`${frame}?.body?.dataset.ready`), 'the first build');
-  await browser.evaluate(`${frame}.querySelector('[data-key="add"]').click(), ${frame}.querySelector('[data-key="add"]').click()`);
-  await until(async () => await text('count') === '2', 'two presses');
+  await until(built, 'the first build');
 
-  assert.ok(await type('"hello"', '"hello from the editor"'));
-  await until(async () => await text('greeting') === 'hello from the editor', 'the new greeting');
-  assert.equal(await text('count'), '2', 'the count survives the relink');
-
-  assert.ok(await type('"hello from the editor"', '5'));
+  assert.ok(await type('"hello"', '5'));
   const squiggle = await until(() => browser.evaluate('document.querySelector(".squiggle")?.textContent'), 'the squiggle');
   assert.equal(squiggle, '5');
   assert.match(await browser.evaluate('document.querySelector(".pane-diagnostic").textContent'), /^\d+:\d+: the literal 5 does not fit String/);
-  assert.equal(await text('count'), '2', 'the old program keeps running');
   assert.ok(await type('(define greeting 5)', '(define greeting "fixed")'));
-  await until(async () => await text('greeting') === 'fixed', 'the fix');
+  await until(built, 'the fix');
   assert.equal(await browser.evaluate('document.querySelector(".squiggle")'), null);
 
   assert.ok(await type('(define add-action 1)', '(define add-action\n1)'));
@@ -78,12 +69,19 @@ try {
   assert.match(await editorText(), /\(define add-action\n  1\)/, 'saving formats the file');
   assert.equal(await browser.evaluate('document.querySelector(".pane-title").textContent'), 'main.sld');
   await browser.navigate(`http://127.0.0.1:${server.address().port}/`);
-  await until(() => browser.evaluate(`${frame}?.body?.dataset.ready`), 'the reload');
+  await until(built, 'the reload');
   assert.match(await editorText(), /\(define greeting "fixed"\)/, 'the saved file survives a reload');
 
-  await press(`${frame}.getElementById("view")`, {code: 'KeyB', key: 'b', ctrlKey: true});
-  assert.ok(await browser.evaluate('document.querySelector(".workspace").classList.contains("no-files")'), 'a chord in the preview reaches the IDE');
+  await press('document.querySelector(".pane textarea")', {code: 'KeyB', key: 'b', ctrlKey: true});
+  assert.ok(await browser.evaluate('document.querySelector(".project-layout").classList.contains("no-files")'), 'the shortcut hides the file browser');
   await browser.evaluate('document.getElementById("toggle-files").click()');
+
+  const edge = await browser.evaluate(`(() => { const r = document.getElementById('files-resizer').getBoundingClientRect();
+    return {x: r.x + r.width / 2, y: r.y + 30, width: document.getElementById('files').getBoundingClientRect().width}; })()`);
+  await browser.send('Input.dispatchMouseEvent', {type: 'mousePressed', x: edge.x, y: edge.y, button: 'left', clickCount: 1});
+  await browser.send('Input.dispatchMouseEvent', {type: 'mouseMoved', x: edge.x + 60, y: edge.y, button: 'left', buttons: 1});
+  await browser.send('Input.dispatchMouseEvent', {type: 'mouseReleased', x: edge.x + 60, y: edge.y, button: 'left', clickCount: 1});
+  assert.ok(await browser.evaluate('document.getElementById("files").getBoundingClientRect().width') > edge.width + 50, 'dragging widens the file browser');
 
   await browser.evaluate('document.getElementById("split-right").click()');
   assert.equal(await browser.evaluate('document.querySelectorAll(".pane textarea").length'), 2);
@@ -99,9 +97,9 @@ try {
   const {result: {root: {nodeId}}} = await browser.send('DOM.getDocument');
   const {result: input} = await browser.send('DOM.querySelector', {nodeId, selector: '#folder-input'});
   await browser.send('DOM.setFileInputFiles', {nodeId: input.nodeId, files: [folder]});
-  await until(async () => await text('greeting') === 'from a folder', 'the folder\'s project');
+  await until(async () => (await editorText())?.includes('"from a folder"') && await built(), 'the folder\'s project');
   assert.equal(await browser.evaluate('document.querySelector(".pane-title").textContent'), 'main.sld', 'a file with CRLF lines opens unchanged');
-  console.log('ide: the page built, relinked, indented, saved and opened a folder');
+  console.log('ide: the page built, diagnosed, indented, saved and opened a folder');
 } finally {
   browser.close();
   server.close();

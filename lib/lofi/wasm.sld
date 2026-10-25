@@ -2,7 +2,7 @@
 ;; with dlopen and finds a function in it with dlsym. A module is loaded
 ;; from a file and linked against the program's own modules, the runtime,
 ;; and the modules loaded before it, by name, so a module can import one
-;; loaded earlier, as the IDE's planned previews would. Its exported
+;; loaded earlier. Its exported
 ;; functions come out as Funcref values, untyped; `unsafe-cast` makes one a
 ;; function of the type the program expects. Nothing checks that type: the
 ;; engine traps only if the function's WebAssembly type differs from the one
