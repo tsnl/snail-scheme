@@ -85,19 +85,20 @@ a general-purpose `Immutable` marker.
 
 ## 3. Reads and writes have scopes, not exposed tokens
 
-The library supplies a conventional `(Outcome A E)` with `(Ok A)` and `(Err E)`.
+The examples use the existing `(Result A E)` from `(lofi base)`, with `(Ok A)`
+and `(Err E)`.
 The following signatures are schematic generated API contracts:
 
 ```scheme
 (: notes-read
    (All (A)
      (-> (-> A ! NotesRead)
-         (Outcome A StoreError) ! store)))
+         (Result A StoreError) ! store)))
 
 (: notes-write
    (All (A E)
-     (-> (-> (Outcome A E) ! NotesRead NotesWrite)
-         (Outcome A (WriteError E)) ! store)))
+     (-> (-> (Result A E) ! NotesRead NotesWrite)
+         (Result A (WriteError E)) ! store)))
 ```
 
 `notes-read` binds one consistent snapshot for the whole computation, including
@@ -136,7 +137,7 @@ An edit action might be:
 
 ```scheme
 (: replace-text
-   (-> EntityId String (Outcome Unit EditError)
+   (-> EntityId String (Result Unit EditError)
        ! NotesRead NotesWrite))
 (define (replace-text id text)
   (match (paragraphs-ref id)
