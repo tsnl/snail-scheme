@@ -6,7 +6,9 @@ import {WASI} from 'node:wasi';
 // Only the trusted compiler's diagnostic exit is recoverable. Its panic and
 // checked IO paths release resources before exiting; an arbitrary trap does not.
 export class CompilerFailure extends Error {
-  constructor(message, request) { super(message); this.request = request; }
+  constructor(message, request, diagnostic) {
+    super(message); this.request = request; this.diagnostic = diagnostic;
+  }
 }
 export class CompilerCrashed extends Error {}
 
@@ -32,6 +34,15 @@ function recordImports(receive) {
     },
     module(compiled) { const [name, file] = take(); receive({name, file, compiled: !!compiled}); },
     generate() { const [key] = take(); receive({kind: 'generate', key}); },
+    diagnostic(line, column) {
+      const [message, file] = take();
+      line = Number(line); column = Number(column);
+      if (!Number.isSafeInteger(line) || !Number.isSafeInteger(column)) throw new Error('invalid compiler source point');
+      // Internal no-loc sentinels are not source locations. Positive columns
+      // count Unicode scalar values, starting at one, just like the reader.
+      const source = file && line > 0 && column > 0 ? {file, line, column} : null;
+      receive({severity: 'error', message, source});
+    },
     artifact(line, column) {
       const [name, file] = take();
       receive({kind: 'artifact', name, file, line: Number(line), column: Number(column)});
@@ -79,6 +90,7 @@ export async function createCompiler(program, diagnostics) {
     let entered = false;
     try {
       ftruncateSync(errors, 0);
+      // main initializes the request and diagnostic cells before reset can run.
       if (name !== 'main') api.reset();
       for (const text of strings) {
         for (const character of text) api.input_character(character.codePointAt(0));
@@ -95,7 +107,11 @@ export async function createCompiler(program, diagnostics) {
         records = [];
         try { api.request(); }
         catch (failure) { retire(new CompilerCrashed('cannot read compiler request', {cause: failure})); }
-        throw new CompilerFailure(message, records[0] ?? null);
+        const request = records[0] ?? null;
+        records = [];
+        try { api.diagnostic(); }
+        catch (failure) { retire(new CompilerCrashed('cannot read compiler diagnostic', {cause: failure})); }
+        throw new CompilerFailure(message, request, records[0] ?? null);
       }
       retire(new CompilerCrashed(message, {cause: error}));
     }

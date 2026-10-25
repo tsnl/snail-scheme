@@ -52,7 +52,8 @@ try {
   assert.equal(parsed.builds[0].location, `${project}:2:5`);
   assert.deepEqual(parsed.runs[0], {kind: 'run', name: 'dev', build: 'server', location: `${project}:1:2`, args: ['', 'λ😀', 'quote"\\\n']});
   write(project, '((unknown x))');
-  failure(() => compiler.project(project), /expected a build-target/);
+  const malformedProject = failure(() => compiler.project(project), /expected a build-target/);
+  assert.deepEqual(malformedProject.diagnostic, {severity: 'error', message: 'expected a build-target or run-target declaration', source: {file: project, line: 1, column: 2}});
   write(project, '()');
   assert.deepEqual(compiler.project(project), {builds: [], runs: []});
 
@@ -67,7 +68,10 @@ try {
   const second = compiler.modules(first.session, source, fresh(), fresh());
   assert.deepEqual(second.modules.filter(module => module.compiled), []);
   write(helper, value('missing-name'));
-  failure(() => compiler.modules(second.session, source, fresh(), fresh()), /missing-name/);
+  const badHelper = failure(() => compiler.modules(second.session, source, fresh(), fresh()), /missing-name/);
+  assert.equal(badHelper.diagnostic.source.file, helper);
+  assert.equal(badHelper.diagnostic.source.line, 2);
+  assert.match(badHelper.diagnostic.message, /missing-name/);
   write(helper, value(43));
   const repaired = compiler.modules(second.session, source, fresh(), fresh());
   assert.deepEqual(repaired.modules.filter(module => module.compiled).map(module => module.name), ['sample.value']);
@@ -75,7 +79,7 @@ try {
   const wat = join(fresh(), 'program.wat');
   compiler.static(source, wat, fresh(), libraries);
   execute([{name: 'program', file: wat}], '43\n');
-  failure(() => compiler.static(join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/);
+  assert.equal(failure(() => compiler.static(join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).diagnostic, null, 'IO failures cannot inherit a preceding source point');
   assert.deepEqual(compiler.modules(repaired.session, source, fresh(), fresh()).modules.filter(module => module.compiled), []);
 
   // Missing inputs unwind before native work. A new logical compilation
@@ -84,9 +88,19 @@ try {
   write(generated, '(import (lofi base) (lofi io) (sample table)) (write-line (i64->string (length squares)))');
   const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'lib')];
   const previous = compiler.session(generatedLibraries);
-  const request = failure(() => compiler.modules(previous, generated, fresh(), scratch), /compiler requires an input/).request;
+  const missing = failure(() => compiler.modules(previous, generated, fresh(), scratch), /compiler requires an input/);
+  assert.equal(missing.diagnostic, null, 'input requests have no source-failure record');
+  const request = missing.request;
   assert.equal(existsSync(join(scratch, 'request.datum')), false);
   assert.equal(failure(() => compiler.static(join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).request, null);
+  const malformed = join(directory, 'malformed.sld');
+  write(malformed, '(import (lofi base)) (');
+  const syntaxFailure = failure(() => compiler.static(malformed, wat, fresh(), libraries), /unclosed list/);
+  assert.equal(syntaxFailure.request, null);
+  assert.equal(syntaxFailure.diagnostic.source.file, malformed);
+  const retried = failure(() => compiler.modules(previous, generated, fresh(), scratch), /compiler requires an input/);
+  assert.deepEqual(retried.request, request);
+  assert.equal(retried.diagnostic, null);
   assert.equal(request.kind, 'generate');
   assert.match(request.key, /^\d+$/);
   const producer = join(fresh(), 'producer.wat');
@@ -115,6 +129,13 @@ try {
   assert.deepEqual(compiler.project(project), {builds: [], runs: []});
   assert.equal(readFileSync(join(directory, 'errors'), 'utf8'), '', 'successful calls start with fresh diagnostics');
 
+  const unicode = '(import (lofi base))\n(: greeting String)\n(define greeting (if #t "😀" 5))';
+  write(source, unicode);
+  const point = failure(() => compiler.static(source, wat, fresh(), libraries), /does not fit String/).diagnostic;
+  assert.deepEqual(point.source, {file: source, line: 3, column: Array.from(unicode.split('\n')[2].split('5')[0]).length + 1});
+  write(source, '(import (lofi base))\n(');
+  assert.deepEqual(failure(() => compiler.static(source, wat, fresh(), libraries), /unclosed list/).diagnostic.source, {file: source, line: 2, column: 1});
+
   // An arbitrary imported-function trap is terminal; it cannot be confused
   // with the trusted compiler's resource-cleaning diagnostic exit.
   const trapping = join(directory, 'trapping.wasm');
@@ -124,11 +145,37 @@ try {
     (func (export "_initialize")) (func (export "main")) (func (export "reset"))
     (func (export "input_character") (param i32) (call $character (i32.const 1114112)))
     (func (export "input_end")) (func (export "project"))
+    (func (export "request")) (func (export "diagnostic"))
     (func (export "close-resources") (result i32) (i32.const 0)))`));
   const broken = await createCompiler(trapping, join(directory, 'trapping-errors'));
   assert.throws(() => broken.project(project), error => error instanceof CompilerCrashed && error.cause instanceof RangeError);
   assert.throws(() => broken.project(project), /compiler is closed/);
   broken.close();
+
+  // Diagnostic reset/projection are part of the trusted boundary too. A trap
+  // there retires the instance; emitting a record never makes a trap recoverable.
+  for (const stage of ['reset', 'argument-exit', 'request', 'diagnostic', 'after-record']) {
+    const fixture = join(directory, `${stage}.wasm`);
+    write(fixture, assemble(`(module
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (import "lofi.compiler" "end" (func $end))
+      (import "lofi.compiler" "diagnostic" (func $diagnostic (param i64 i64)))
+      (memory (export "memory") 1)
+      (func (export "_initialize")) (func (export "main"))
+      (func (export "input_character") (param i32) ${stage === 'argument-exit' ? '(call $exit (i32.const 1))' : ''})
+      (func (export "input_end"))
+      (func (export "reset") ${stage === 'reset' ? 'unreachable' : ''})
+      (func (export "request") ${stage === 'request' ? 'unreachable' : ''})
+      (func (export "diagnostic") ${stage === 'diagnostic' ? 'unreachable' : ''})
+      (func (export "project") ${stage === 'after-record'
+        ? '(call $end) (call $end) (call $diagnostic (i64.const 1) (i64.const 1)) unreachable'
+        : '(call $exit (i32.const 1))'})
+      (func (export "close-resources") (result i32) (i32.const 0)))`));
+    const trapped = await createCompiler(fixture, join(directory, `${stage}-errors`));
+    assert.throws(() => trapped.project(project), CompilerCrashed, stage);
+    assert.throws(() => trapped.project(project), /compiler is closed/, stage);
+    trapped.close();
+  }
 
   // Initialization owns its descriptor even before WASI exists. On Linux,
   // an unlinked current directory makes environment preparation fail.
