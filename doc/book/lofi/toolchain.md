@@ -101,7 +101,8 @@ at the first unreadable root and retains the previous complete inventory. It
 reports one uncertainty for the failure episode, then one recovery after a complete
 scan succeeds; failures moving between roots do not publish partial inventories.
 `reconcile()` requests a
-fresh scan after any active one without waiting for global quiet; closing suppresses
+fresh scan after any active one without waiting for global quiet and returns its
+regular filenames, detached from the internal inventory. Closing suppresses
 later notifications and waits for an active scan to finish. There is no content
 cache or filesystem snapshot. Metadata polling catches ordinary local writes but
 cannot guarantee detection on filesystems that hide changes behind unchanged or
@@ -149,8 +150,10 @@ development session; there is no automatic crash loop.
 ## Project file service
 
 `scripts/project-files.mjs` owns one physical project directory and three native
-operations: list candidate filenames, read text with a revision, and save against
-that revision. No contents or revisions persist in the service. The editor holds
+operations: filter the shared observer's filenames, read text with a revision,
+and save against that revision. Listing awaits a fresh complete reconciliation;
+a failed scan rejects the request instead of returning stale names. There is no
+second directory traversal. No contents or revisions persist in the service. The editor holds
 its unsaved text and the revision of its saved baseline; the shared disk observer
 remains the only source of file-change notifications. Save has no compiler call.
 
