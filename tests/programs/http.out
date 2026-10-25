@@ -1,0 +1,8 @@
+POST
+/a%2Fb?x=1&x=2
+first
+second
+framing errors
+exact limits
+response framing
+safe output

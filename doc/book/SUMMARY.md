@@ -7,6 +7,7 @@
   - [Types](lofi/types.md)
   - [Macros and Scheme libraries](lofi/macros.md)
   - [Libraries](lofi/libraries.md)
+  - [HTTP protocol](lofi/http.md)
   - [Projects and targets](lofi/projects.md)
   - [Compiler architecture](lofi/compilers.md)
   - [Application model](lofi/applications.md)
