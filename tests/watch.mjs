@@ -28,7 +28,11 @@ fs.watch = function(path, options, callback) {
 fsp.readdir = async function(path, ...args) {
   if (path === project) rootReads++;
   if (path === unreadable) throw Object.assign(new Error('injected directory read error'), {code: 'EIO'});
-  if (paused && path === paused.path) { paused.entered.resolve(); await paused.release.promise; }
+  if (paused && path === paused.path) {
+    const gate = paused;
+    gate.entered.resolve(); await gate.release.promise;
+    if (gate.failure) throw gate.failure;
+  }
   return nativeRead(path, ...args);
 };
 syncBuiltinESMExports();
@@ -118,11 +122,19 @@ try {
   write(source, 'after read failure');
   await assert.rejects(files.reconcile(), /cannot reconcile/);
   await assert.rejects(files.reconcile(), /cannot reconcile/);
+  write(join(external, 'base.sld'), 'also changed during failure');
+  unreadable = external;
+  await assert.rejects(files.reconcile(), {message: `cannot reconcile ${external}`});
   assert.equal(compiler.filter(event => event.kind === 'uncertain' && event.error).length, 1);
   assert.ok(!compiler.some(event => event.kind === 'changed'));
   unreadable = null;
   await files.reconcile();
-  assert.ok(changed(source));
+  assert.ok(changed(source) && changed(join(external, 'base.sld')));
+  assert.deepEqual(compiler.filter(event => event.kind === 'uncertain' && !event.error), [{kind: 'uncertain'}], 'one complete inventory ends the failure episode');
+  assert.deepEqual(compiler.at(-1), {kind: 'uncertain'}, 'recovery follows inventory changes');
+  const recovered = compiler.length;
+  await files.reconcile();
+  assert.equal(compiler.length, recovered, 'success does not repeat the recovery');
   silence = false;
 
   stopEditor();
@@ -153,6 +165,7 @@ try {
   await paused.entered.promise;
   const queued = files.reconcile().then(() => null, error => error);
   const seen = compiler.length, closing = files.close();
+  paused.failure = new Error('read failed after shutdown');
   paused.release.resolve();
   assert.match((await pending).message, /watcher is closed/);
   await closing;
