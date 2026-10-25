@@ -54,16 +54,17 @@ export async function createProjectBuilder({root, project, tools, directory}) {
     // A missing input is serviced only after the failed Wasm call unwinds.
     // Every retry uses the same preceding Session, never an interrupted value.
     function withInputs(invoke, working, libraries, artifact) {
+      let inputs = compiler.inputs();
       for (;;) {
-        try { return invoke(); }
+        try { return invoke(inputs); }
         catch (error) {
           if (!(error instanceof CompilerFailure) || !error.request) throw error;
-          provide(error.request, working, libraries, artifact);
+          inputs = provide(error.request, inputs, working, libraries, artifact);
         }
       }
     }
 
-    function provide(request, working, libraries, artifact) {
+    function provide(request, inputs, working, libraries, artifact) {
       if (request.kind === 'generate') {
         const output = join(working, `${request.key}.syntax`);
         if (status(output)) throw new Error('compiler requested an already provided generated library');
@@ -72,15 +73,16 @@ export async function createProjectBuilder({root, project, tools, directory}) {
           run(process.execPath, ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), program, output]);
         });
         if (!status(output)) throw new Error('the producer did not write its generated library');
+        return inputs;
       } else {
-        try { compiler.addArtifact(join(working, 'artifacts.datum'), request.name, artifact(request.name)); }
+        try { return compiler.addArtifact(inputs, request.name, artifact(request.name)); }
         catch (error) { throw new Error(`${request.file}:${request.line}:${request.column}: ${error.message}`, {cause: error}); }
       }
     }
 
     function staticProgram(source, libraries, working, mode, artifact) {
       const text = join(working, 'program.wat'), output = join(working, 'program.wasm');
-      withInputs(() => compiler.static(source, text, working, libraries), working, libraries, artifact);
+      withInputs(inputs => compiler.static(inputs, source, text, working, libraries), working, libraries, artifact);
       link(root, text, output, mode);
       return output;
     }
@@ -95,7 +97,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
         const settings = JSON.stringify([source, libraries]);
         const previous = sessions.get(target.name);
         const session = previous?.settings === settings ? previous.session : compiler.session(libraries);
-        const built = withInputs(() => compiler.modules(session, source, working, working), working, libraries, artifact);
+        const built = withInputs(inputs => compiler.modules(session, inputs, source, working, working), working, libraries, artifact);
         sessions.set(target.name, {settings, session: built.session});
         writeModules(generation, built.modules, tools.runtime, assemble);
         return {compiled: built.modules.filter(module => module.compiled).length, modules: built.modules.length};

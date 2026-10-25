@@ -16,6 +16,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const directory = mkdtempSync(join(tmpdir(), 'lofi-compiler-'));
 const assemble = await createAssembler(readFileSync(assembler));
 const compiler = await createCompiler(program, join(directory, 'errors'));
+const empty = compiler.inputs();
 const libraries = [directory, join(root, 'lib')];
 let sequence = 0;
 const fresh = () => { const path = join(directory, String(sequence++)); mkdirSync(path); return path; };
@@ -65,24 +66,24 @@ try {
     (begin (: value (-> I64)) (define (value) ${number})))`;
   write(helper, value(42));
   write(source, '(import (lofi base) (lofi io) (sample value)) (write-line (i64->string (value)))');
-  const first = compiler.modules(compiler.session(libraries), source, fresh(), fresh());
+  const first = compiler.modules(compiler.session(libraries), empty, source, fresh(), fresh());
   execute(first.modules, '42\n');
-  const second = compiler.modules(first.session, source, fresh(), fresh());
+  const second = compiler.modules(first.session, empty, source, fresh(), fresh());
   assert.deepEqual(second.modules.filter(module => module.compiled), []);
   write(helper, value('missing-name'));
-  const badHelper = failure(() => compiler.modules(second.session, source, fresh(), fresh()), /missing-name/);
+  const badHelper = failure(() => compiler.modules(second.session, empty, source, fresh(), fresh()), /missing-name/);
   assert.equal(badHelper.diagnostic.source.file, helper);
   assert.equal(badHelper.diagnostic.source.line, 2);
   assert.match(badHelper.diagnostic.message, /missing-name/);
   write(helper, value(43));
-  const repaired = compiler.modules(second.session, source, fresh(), fresh());
+  const repaired = compiler.modules(second.session, empty, source, fresh(), fresh());
   assert.deepEqual(repaired.modules.filter(module => module.compiled).map(module => module.name), ['sample.value']);
   execute(repaired.modules, '43\n');
   const wat = join(fresh(), 'program.wat');
-  compiler.static(source, wat, fresh(), libraries);
+  compiler.static(empty, source, wat, fresh(), libraries);
   execute([{name: 'program', file: wat}], '43\n');
-  assert.equal(failure(() => compiler.static(join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).diagnostic, null, 'IO failures cannot inherit a preceding source point');
-  assert.deepEqual(compiler.modules(repaired.session, source, fresh(), fresh()).modules.filter(module => module.compiled), []);
+  assert.equal(failure(() => compiler.static(empty, join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).diagnostic, null, 'IO failures cannot inherit a preceding source point');
+  assert.deepEqual(compiler.modules(repaired.session, empty, source, fresh(), fresh()).modules.filter(module => module.compiled), []);
 
   // Missing inputs unwind before native work. A new logical compilation
   // requests generated syntax again, even with its last successful Session.
@@ -90,53 +91,58 @@ try {
   write(generated, '(import (lofi base) (lofi io) (sample table)) (write-line (i64->string (length squares)))');
   const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'lib')];
   const previous = compiler.session(generatedLibraries);
-  const missing = failure(() => compiler.modules(previous, generated, fresh(), scratch), /compiler requires an input/);
+  const missing = failure(() => compiler.modules(previous, empty, generated, fresh(), scratch), /compiler requires an input/);
   assert.equal(missing.diagnostic, null, 'input requests have no source-failure record');
   const request = missing.request;
   assert.equal(existsSync(join(scratch, 'request.datum')), false);
-  assert.equal(failure(() => compiler.static(join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).request, null);
+  assert.equal(failure(() => compiler.static(empty, join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).request, null);
   const malformed = join(directory, 'malformed.sld');
   write(malformed, '(import (lofi base)) (');
-  const syntaxFailure = failure(() => compiler.static(malformed, wat, fresh(), libraries), /unclosed list/);
+  const syntaxFailure = failure(() => compiler.static(empty, malformed, wat, fresh(), libraries), /unclosed list/);
   assert.equal(syntaxFailure.request, null);
   assert.equal(syntaxFailure.diagnostic.source.file, malformed);
-  const retried = failure(() => compiler.modules(previous, generated, fresh(), scratch), /compiler requires an input/);
+  const retried = failure(() => compiler.modules(previous, empty, generated, fresh(), scratch), /compiler requires an input/);
   assert.deepEqual(retried.request, request);
   assert.equal(retried.diagnostic, null);
   assert.equal(request.kind, 'generate');
   assert.match(request.key, /^\d+$/);
   const producer = join(fresh(), 'producer.wat');
-  compiler.static(join(scratch, `${request.key}.sld`), producer, fresh(), generatedLibraries);
+  compiler.static(empty, join(scratch, `${request.key}.sld`), producer, fresh(), generatedLibraries);
   execute([{name: 'program', file: producer}], '', [join(scratch, `${request.key}.syntax`)]);
-  const built = compiler.modules(previous, generated, fresh(), scratch);
+  const built = compiler.modules(previous, empty, generated, fresh(), scratch);
   execute(built.modules, '6\n');
-  failure(() => compiler.modules(built.session, generated, fresh(), fresh()), /compiler requires an input/);
+  failure(() => compiler.modules(built.session, empty, generated, fresh(), fresh()), /compiler requires an input/);
 
-  // One Lofi reader/printer handles artifact fields, including control
-  // characters and supplementary Unicode. A rejected update keeps the file.
+  // Snapshot creation owns the bytes before compilation starts. Independent
+  // values and failed additions cannot mutate a caller's previous inputs.
   const artifactSource = join(root, 'tests/artifacts/native.sld'), artifactScratch = fresh();
-  const artifact = failure(() => compiler.static(artifactSource, wat, artifactScratch, libraries), /compiler requires an input/).request;
+  const artifact = failure(() => compiler.static(empty, artifactSource, wat, artifactScratch, libraries), /compiler requires an input/).request;
   assert.deepEqual(artifact, {kind: 'artifact', name: 'client', file: artifactSource, line: 6, column: 16});
   const relative = 'data"\\😀\n\t\x01.bin', backing = join(directory, 'backing"\\😀.bin');
   write(backing, Buffer.from([0, 128, 255]));
-  const replies = join(artifactScratch, 'artifacts.datum');
-  compiler.addArtifact(replies, 'client', [[relative, backing]]);
-  const before = readFileSync(replies, 'utf8');
-  failure(() => compiler.addArtifact(replies, 'client', []), /already provided/);
-  failure(() => compiler.addArtifact(replies, 'other', [['incomplete']]), /backing path pairs/);
-  assert.equal(readFileSync(replies, 'utf8'), before);
-  compiler.static(artifactSource, wat, artifactScratch, libraries);
+  const inputs = compiler.addArtifact(empty, 'client', [[relative, backing]]);
+  failure(() => compiler.addArtifact(inputs, 'client', []), /already provided/);
+  failure(() => compiler.addArtifact(inputs, 'other', [['incomplete']]), /backing path pairs/);
+  failure(() => compiler.addArtifact(inputs, 'other', [['first', backing], ['second', join(directory, 'absent-artifact')]]), /absent-artifact/);
+  const repairedInputs = compiler.addArtifact(inputs, 'other', []);
+  write(backing, Buffer.from([42]));
+  const independent = compiler.addArtifact(empty, 'client', [[relative, backing]]);
   rmSync(backing);
+  compiler.static(repairedInputs, artifactSource, wat, fresh(), libraries);
+  execute([{name: 'program', file: wat}], `${relative}:0,128,255,\n`);
+  compiler.static(independent, artifactSource, wat, fresh(), libraries);
+  execute([{name: 'program', file: wat}], `${relative}:42,\n`);
+  compiler.static(inputs, artifactSource, wat, fresh(), libraries);
   execute([{name: 'program', file: wat}], `${relative}:0,128,255,\n`);
   assert.deepEqual(compiler.project(project), {builds: [], runs: []});
   assert.equal(readFileSync(join(directory, 'errors'), 'utf8'), '', 'successful calls start with fresh diagnostics');
 
   const unicode = '(import (lofi base))\n(: greeting String)\n(define greeting (if #t "😀" 5))';
   write(source, unicode);
-  const point = failure(() => compiler.static(source, wat, fresh(), libraries), /does not fit String/).diagnostic;
+  const point = failure(() => compiler.static(empty, source, wat, fresh(), libraries), /does not fit String/).diagnostic;
   assert.deepEqual(point.source, {file: source, line: 3, column: Array.from(unicode.split('\n')[2].split('5')[0]).length + 1});
   write(source, '(import (lofi base))\n(');
-  assert.deepEqual(failure(() => compiler.static(source, wat, fresh(), libraries), /unclosed list/).diagnostic.source, {file: source, line: 2, column: 1});
+  assert.deepEqual(failure(() => compiler.static(empty, source, wat, fresh(), libraries), /unclosed list/).diagnostic.source, {file: source, line: 2, column: 1});
 
   // An arbitrary imported-function trap is terminal; it cannot be confused
   // with the trusted compiler's resource-cleaning diagnostic exit.
@@ -185,7 +191,7 @@ try {
   fs.readSync = () => { throw unavailable; };
   syncBuiltinESMExports();
   try {
-    assert.throws(() => compiler.static(source, wat, fresh(), libraries),
+    assert.throws(() => compiler.static(empty, source, wat, fresh(), libraries),
       error => error instanceof CompilerCrashed && error.cause === unavailable);
   } finally { fs.readSync = readSync; syncBuiltinESMExports(); }
   assert.throws(() => compiler.project(project), /compiler is closed/);

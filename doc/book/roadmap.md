@@ -183,9 +183,10 @@ remains under review:
 - [x] Implement the artifact macro, typed values and compiler resolver contract.
   Cached expansion re-resolves exact file evidence and invalidates generic
   consumers. Native traversal captures completed generation files for each build.
-- [x] Replace stderr work requests with typed request/reply datums. The native
-  builder retains artifact replies across retries and shares its target traversal
-  through producer compilation. Scratch directories are exclusive.
+- [x] Replace stderr work requests with typed records consumed after unwind.
+  The native builder retains immutable artifact inputs across retries without
+  reply manifests and shares target traversal through producer compilation.
+  Standalone generated-library requests still cross a process boundary as datums.
 - [x] Keep compiler sessions alive under `dev`. One shared watcher drives
   compilation from saved files and notifies the editor, including after
   external tools write files. Publish fresh diagnostics for every attempt.
@@ -195,11 +196,11 @@ remains under review:
   installs watches before the first build and shutdown closes owned resources.
   Project sessions, shared subscriptions and fresh attempt diagnostics use this
   execution boundary too.
-- [x] Keep generated-library and artifact providers local to each compiler
+- [x] Keep generated-library callbacks and artifact inputs local to each compiler
   invocation. Persistent sessions retain cache evidence without keeping an old
-  build's provider closures or captured state alive.
+  build's callbacks or input table alive.
 - [x] Expose the resident compiler through parsed native records and opaque
-  Session values. Share the request/reply providers with the command-line
+  Session and artifact-input values. Share missing-input records with the command-line
   compiler, capture diagnostics per call and retire instances on arbitrary
   traps. Shared project traversal and development use the same boundary.
 - [x] Replace the separate Chibi project builder with one native builder for
