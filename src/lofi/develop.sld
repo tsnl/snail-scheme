@@ -186,7 +186,7 @@
       (make-session (match request
                       ((Serve _ app) (list (string-append app "/src") (string-append root "/lib")))
                       ((Watch _ directories _) (append directories (list (string-append root "/lib")))))
-                    (lambda (forms) (panic "the development loop cannot build a generate-library yet")) no-artifacts))
+                    (lambda (forms) (panic "the development loop cannot build a generate-library yet"))))
 
     (: output (-> String Request String))
     (define (output root request)
@@ -272,7 +272,7 @@
     ;; session the next build starts from.
     (: next-build! (-> Loop String (List Built) ! mut fs))
     (define (next-build! loop source)
-      (match (build-session (ref-get (Loop-session loop)) source)
+      (match (build-session (ref-get (Loop-session loop)) source no-artifacts)
         ((Pair builds session) (ref-set! (Loop-session loop) session) builds)))
 
     ;; Writes each module that changed, assembled, and modules.json, which

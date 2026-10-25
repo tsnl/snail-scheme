@@ -12,7 +12,7 @@
    artifact-ref)
   (import
    (lofi base)
-   (only (lofi core) %artifact-files))
+   (only (lofi core) artifact-files))
   (begin
 
     (struct ArtifactFile
@@ -26,7 +26,7 @@
     ;; under another name or expanded beneath shadowing local bindings.
     (define-syntax artifact-bundle
       (syntax-rules ()
-        ((_ name) (ArtifactBundle (%artifact-files name ArtifactFile Cons Nil)))))
+        ((_ name) (ArtifactBundle (artifact-files name ArtifactFile Cons Nil)))))
 
     (: artifact-ref (-> ArtifactBundle String (Option Bytes)))
     (define (artifact-ref bundle path)

@@ -4,7 +4,7 @@ The compiler and `(lofi artifact)` library implement named artifact requests.
 The native project builder's target traversal and request bridge are the next
 integration step: current `lofi build`, `compile`, `run` and development commands
 explicitly reject these requests. Compiler clients can already supply the
-resolver described below, as the linked-Wasm integration fixture does.
+in-memory inputs described below, as the linked-Wasm integration fixture does.
 
 ```scheme
 (import
@@ -33,29 +33,34 @@ no special backend representation or runtime artifact service.
 
 ## Compiler boundary
 
-The compiler entry points and `make-session` take an `ArtifactResolver` after
-the existing generated-library callback. Its type is:
+The compiler entry points and `build-session` take an `ArtifactInputs` value:
 
 ```scheme
-(-> String Loc (List (Pair String Bytes)) ! mut fs)
+(Table (List (Pair String Bytes)))
 ```
 
-The resolver establishes that entries have unique, canonical relative paths,
-sorted by path, with bytes from one completed immutable output. It must return
-a stable snapshot throughout a build, including repeated resolution after a
-cache mismatch. A project implementation will own target lookup, browser-kind
-checking, serial traversal and cycle detection. `no-artifacts` supplies a
-located failure for compiler clients without that capability.
+The table maps target names to ordered file snapshots. Its provider establishes
+unique, canonical relative paths sorted by path, with bytes loaded from one
+completed immutable output. Expression expansion performs only memory lookups;
+it has no filesystem capability. Inputs belong to the current invocation, not
+the retained session. `no-artifacts` is an empty input table.
+
+The project implementation will own target lookup, browser-kind checking,
+serial traversal and cycle detection. A missing input currently produces a
+located error; the following integration will turn it into a structured request
+to the native builder after the compiler invocation has unwound.
 
 Each library's expansion records its direct requests and the exact file values
 embedded. Ordinary source/import eligibility is checked before replaying those
 requests, so an edited body can remove an obsolete dependency. A cache hit
-still resolves every recorded request and compares paths and every byte. An
-error propagates; changed contents cause fresh expansion.
+still looks up every recorded input and compares paths and every byte using the
+reader's byte comparison. A missing input fails the build; changed contents cause
+fresh expansion. No lookup rereads a backing file.
 
 An artifact-bearing expansion receives a fresh revision stamp from the
-session's existing expansion counter. Replaying it preserves that stamp. Both
-its compiled key and its interface include the stamp, so changed bytes also
+session's existing expansion counter. Replaying it preserves that stamp. Its compiled
+key is constructed once with its source key and stamp; its interface also
+includes the stamp, so changed bytes also
 invalidate generic importers that embed specialized bodies. These stamps are
 local to one session lineage, not persistent content identities. Failed builds
 publish no replacement session. This keeps bundle bytes out of string keys
