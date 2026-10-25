@@ -43,8 +43,12 @@ Builds return completed private directories before publication. A failed parent
 changes none of its dependencies' public outputs. A caller can discard a completed
 candidate and still reuse the compiler's successful work: caches retain evidence,
 not paths into that candidate. Development directories contain their modules,
-manifest and runtime, so they are self-contained. The new watcher/IDE integration
-will use this same builder; the existing commands below still use their old loop.
+manifest and runtime, so they are self-contained. The native project development API now uses this builder in a persistent worker,
+shares one disk observer with the file service, and publishes only attempts not
+superseded by observed changes. Its loopback HTTP boundary offers file reads and
+conditional saves, manual Build and current build/file-change subscriptions.
+Save only writes disk; compiler attempts come from observation. The editor/CLI
+migration follows; the existing commands below still use their old loop.
 
 ## Builds in proportion to the edit
 
