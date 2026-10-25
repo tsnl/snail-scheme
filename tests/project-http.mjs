@@ -128,12 +128,12 @@ try {
   // A first status larger than the writable high-water mark must still arrive.
   const largeMessage = 'diagnostic '.repeat(20_000);
   const {diagnostics} = service.development.status;
-  service.development.status.diagnostics = [{severity: 'error', message: largeMessage}];
+  diagnostics.push({severity: 'error', message: largeMessage});
   const large = await events();
   await until(() => large.seen.some(event => event.kind === 'files'));
   assert.equal(large.seen[0].data.diagnostics[0].message, largeMessage);
   await large.close();
-  service.development.status.diagnostics = diagnostics;
+  diagnostics.pop();
   await assert.rejects(serveProject({root, project, tools, port: Number(new URL(service.url).port)}), {code: 'EADDRINUSE'});
   assert.equal((await get('/api/project')).status, 200);
 

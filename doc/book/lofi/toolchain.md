@@ -64,6 +64,8 @@ editor Save or external writer -> disk -> shared observer
                               reconcile and accept or discard
                                            |
                                 output links + UI status
+                                           |
+                              affected wanted run targets
 ```
 
 Save only writes disk. The observer triggers compilation regardless of which
@@ -116,6 +118,17 @@ against the new description, and publishes synchronously only if no observed inp
 change superseded it. Otherwise it discards and coalesces a successor. Successful
 compiler cache entries remain useful in either case; accepted application files
 remain available after a failed build.
+
+The builder also hashes each completed target's sorted relative filenames and
+bytes, including runtime modules, artifacts and public files. File boundaries are
+length framed; generation directory names and publication bookkeeping are excluded.
+The development owner compares that digest and the run's arguments with its last
+issued launch, independently of compiler cache counters. An unchanged child keeps
+its earlier generation and build ID; explicit Restart uses the latest accepted
+generation. Paths observed through command-line arguments therefore still belong
+to the actual run. Native runner/tool changes require restarting the development
+service. [Application processes](applications.md#development-run-targets) define
+the controls and their interaction with acceptance and shutdown.
 
 Source inputs currently include the project description, `.sld` libraries, declared
 entry/public paths and browser runtime assets. Ordinary data writes do not request
@@ -293,7 +306,7 @@ is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 | --- | --- |
 | Editor ↔ development process | File reads/saves, build requests, current status and diagnostics. Run controls/logs are proposed. |
 | Development process ↔ compiler worker | Attempt IDs, project descriptions, results, diagnostics and candidate output identities. Compiler objects and WasmGC references stay in the worker. |
-| Development process ↔ application process (proposed) | Entry, arguments, environment, working directory, standard streams, exit status and OS controls. Each process lifetime names its build and run target. |
+| Development process ↔ application process | Entry, arguments, environment, working directory, standard streams, exit status and OS controls. Each process lifetime names its build and run target. |
 | Browser ↔ application server | Ordinary HTTP; build-specific reload delivery is proposed. |
 
 A future debugger attaches to a run's process and build. Its inspector endpoint
