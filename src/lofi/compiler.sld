@@ -9,7 +9,8 @@
   (export
    compile->wat
    compile->modules
-   compile->schemas)
+   compile->schemas
+   no-artifacts)
   (import
    (lofi base)
    (lofi io)
@@ -24,19 +25,19 @@
 
     ;; `generate` runs the producer program of a `generate-library` and
     ;; returns the bytes of the syntax it writes.
-    (: compile->wat (-> (List String) String (-> (List Syntax) Bytes ! mut fs) String ! mut fs))
-    (define (compile->wat directories source generate)
-      (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate source empty-expansion)))))))
+    (: compile->wat (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactResolver String ! mut fs))
+    (define (compile->wat directories source generate resolve-artifact)
+      (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate resolve-artifact source empty-expansion)))))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from. This is a
     ;; session's build with nothing kept from before.
-    (: compile->modules (-> (List String) String (-> (List Syntax) Bytes ! mut fs) (List (Pair String String)) ! mut fs))
-    (define (compile->modules directories source generate)
-      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories generate) source))))
+    (: compile->modules (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactResolver (List (Pair String String)) ! mut fs))
+    (define (compile->modules directories source generate resolve-artifact)
+      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories generate resolve-artifact) source))))
 
-    (: compile->schemas (-> (List String) String (-> (List Syntax) Bytes ! mut fs) String ! mut fs))
-    (define (compile->schemas directories source generate)
-      (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate source empty-expansion))))))
+    (: compile->schemas (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactResolver String ! mut fs))
+    (define (compile->schemas directories source generate resolve-artifact)
+      (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate resolve-artifact source empty-expansion))))))
 
     ))
