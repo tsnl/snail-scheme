@@ -91,8 +91,12 @@ try {
   assert.equal((await save(initial.revision, program('stale'))).status, 409);
   await until(() => service.development.status.id > first && service.development.status.phase === 'succeeded');
   assert.ok(stream.seen.filter(event => event.kind === 'files').length >= 2);
-  assert.equal((await request('/api/build', 'POST', {Origin: service.url})).status, 202);
+  const built = await request('/api/build', 'POST', {Origin: service.url});
+  assert.equal(built.status, 202);
+  const buildStatus = JSON.parse(built.text);
+  assert.deepEqual(Object.keys(buildStatus).sort(), ['diagnostics', 'id', 'phase']);
   assert.equal(manualBuilds, 1);
+  await until(() => service.development.status.id > buildStatus.id && service.development.status.phase === 'succeeded');
 
   for (const headers of [{Host: 'unrelated.example'}, {Origin: 'https://unrelated.example'}, {Origin: 'null'}, {'Sec-Fetch-Site': 'cross-site'}]) {
     const denied = await request('/api/project', 'GET', headers);
@@ -114,10 +118,22 @@ try {
 
   // Reconnection needs no event IDs or archive: both current status and a file
   // invalidation arrive even if no files changed while the stream was absent.
+  const beforeReconnect = service.development.status.id;
   const reconnected = await events();
   await until(() => reconnected.seen.some(event => event.kind === 'files'));
-  assert.ok(reconnected.seen[0].data.worker > 0);
+  assert.deepEqual(Object.keys(reconnected.seen[0].data).sort(), ['diagnostics', 'id', 'phase']);
+  assert.ok(reconnected.seen[0].data.id >= beforeReconnect && reconnected.seen[0].data.id <= service.development.status.id);
   await reconnected.close();
+
+  // A first status larger than the writable high-water mark must still arrive.
+  const largeMessage = 'diagnostic '.repeat(20_000);
+  const {diagnostics} = service.development.status;
+  service.development.status.diagnostics = [{severity: 'error', message: largeMessage}];
+  const large = await events();
+  await until(() => large.seen.some(event => event.kind === 'files'));
+  assert.equal(large.seen[0].data.diagnostics[0].message, largeMessage);
+  await large.close();
+  service.development.status.diagnostics = diagnostics;
   await assert.rejects(serveProject({root, project, tools, port: Number(new URL(service.url).port)}), {code: 'EADDRINUSE'});
   assert.equal((await get('/api/project')).status, 200);
 
@@ -152,6 +168,9 @@ try {
   await service.close();
   pending.destroy();
   await stream.done;
+  for (const event of stream.seen.filter(event => event.kind === 'status')) {
+    assert.deepEqual(Object.keys(event.data).sort(), ['diagnostics', 'id', 'phase']);
+  }
   assert.equal(fs.readFileSync(source, 'utf8'), final.text);
   await service.closed;
   await assert.rejects(get('/api/project'));
