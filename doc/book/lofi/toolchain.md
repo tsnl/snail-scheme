@@ -65,12 +65,12 @@ successful build clears the diagnostic. The editor does not run the application.
 
 The [project-description parser](https://github.com/tsnl/snail-scheme/blob/stack/project-forms-20261024/doc/project-format.md)
 is implemented as `(lofi project)` for Chibi and Wasm. It returns typed build
-descriptions and resolves launches to program builds, retaining error locations.
+descriptions and resolves run targets to program builds, retaining error locations.
 The CLI/build workflow below remains proposed; current commands do not yet
 consume `project.datum`.
 
 The proposed `project.datum` is inert data with explicit `build-target` and
-`launch-target` forms. It replaces application build scripts for the CLI as
+`run-target` forms. It replaces application build scripts for the CLI as
 well as the IDE. Each target produces one output directory, including all
 of its files. A server can reference multiple frontend bundles by name while
 compiling; serving their paths is ordinary server code.

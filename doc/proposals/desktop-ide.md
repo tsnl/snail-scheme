@@ -56,9 +56,9 @@ follows separately. Literal `library-roots` are optional per build target.
  (build-target server
    (program
     (entry "server/main.sld")))
- (launch-target dev
+ (run-target dev
    (run server
-    (args "--port" "8080"))))
+    (args ("--port" "8080")))))
 ```
 
 Each build target produces **one output directory**, containing any number
