@@ -88,7 +88,7 @@ try {
   const priorClient = await realpath(output('client'));
   await assert.rejects(build('server'), /missing-function/);
   assert.equal(await realpath(output('server')), second, 'failed parent retains its prior completed output');
-  assert.notEqual(await realpath(output('client')), priorClient, 'successful dependencies remain published');
+  assert.equal(await realpath(output('client')), priorClient, 'a failed parent publishes none of its dependencies');
   await checkProgram(join(second, 'program.wasm'), 90);
 
   // Artifact bytes do not depend on a generation path at runtime.
