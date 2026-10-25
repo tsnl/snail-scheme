@@ -104,6 +104,9 @@ The following signatures are schematic generated API contracts:
 nested views. `notes-write` binds one transaction and reads its own staged writes.
 Both execute their action once; the first version has no automatic retry or
 nested transactions. A conflict is a result the caller may explicitly retry.
+Writes require serializable isolation, not merely snapshot isolation: checks
+across several rows must not admit write skew. The backend must either serialize
+writes or detect conflicts that would violate this contract.
 Pure helper calls are permitted. Networking, rendering, timers and task dispatch
 are absent from the action's closed effect row. Storage operations themselves
 may suspend; an unrelated application wait cannot keep a transaction open.
@@ -120,6 +123,14 @@ There are no top-level defaults for `NotesRead` or `NotesWrite`. Their handlers
 exist only in the appropriate scope. A test can intercept the underlying
 `store` effect; runtime implementations own the actual synchronized storage.
 A reusable, shareable handler is not itself a lock or an isolation guarantee.
+
+The simple operation results above require a runtime-owned recoverable abort
+boundary: an engine failure aborts the enclosing action and becomes its
+`StoreError`, rather than being reported as a missing row or false result.
+Ordinary value-returning effect handlers do not establish this boundary.
+Implementing it is explicit runtime/compiler work; an alternative is to expose
+typed storage errors on every operation. User-defined control handlers are not
+required, but pure library expansion of the runner is not yet established.
 
 An edit action might be:
 
@@ -139,8 +150,10 @@ An edit action might be:
 (notes-write (lambda () (replace-text paragraph-id edited-text)))
 ```
 
-The read and replacement share a transaction. The backend must reject a
-serialization conflict rather than silently lose a concurrent edit. Domain
+The read and replacement share a serializable transaction. This action overwrites
+the text; it cannot detect that a client prepared it from an older UI snapshot.
+To reject stale-editor writes, pass an expected row version/value and compare
+it inside the action. Transaction isolation alone does not supply that policy. Domain
 errors roll back; storage errors remain distinct. A trap also aborts unpublished
 work. Once commit succeeds, later cancellation cannot undo it. A lost response
 may leave the caller uncertain whether the operation committed; no exactly-once
@@ -194,8 +207,10 @@ promise that no newer commit exists by the time presentation finishes.
 ## 5. Cache correctness before fine-grained invalidation
 
 The first cache key includes the database identity/incarnation, its revision,
-the code generation, the view identity and argument values. Argument equality
-must compare values or a collision-checked canonical encoding, not a hash alone.
+the code generation, the view identity and argument values. Initially use an
+exact structural encoding with bit-preserving floating-point arguments, including
+signed zero; numeric equality alone can merge observably different inputs.
+Hashes require collision checks against that encoding.
 Read the revision inside the same snapshot that supplies the rows. A view that
 started under revision 8 may finish after revision 9 commits; its result remains
 an answer for revision 8 and cannot populate revision 9's cache.
@@ -237,6 +252,16 @@ Changing a durable row schema requires an explicit migration. Existing wire
 TypeIds detect mismatches; they do not migrate data. Keep stable table identity
 and schema versions separate from compiler type hashes. Refuse incompatible
 data without clearing it. Automatic migration inference is outside this design.
+Initially migrations are offline/exclusive: stop every store user and exclude
+concurrent access before changing the schema. Old instances must not continue
+using an incompatible schema. Online migration and fencing live instances are
+separate work; checking only when an instance first opens is insufficient.
+
+A successful write means the backend completed its configured transaction
+commit, preserving records across code/process replacement under that platform's
+storage contract. It is not an identical power-loss or retention promise on
+every host; browser storage eviction remains a platform policy. Do not report
+success merely because a write request was accepted or a RAM cache changed.
 
 ## 7. Performance and implementation boundaries
 
@@ -258,7 +283,7 @@ storage API, not inferred from the server implementation.
 | Structs/enums, generic functions, concrete effect operations | Schema/library forms and generated typed operations |
 | Serialize/Deserialize and schema-sensitive TypeIds | Stable database schema identity and explicit migration boundary |
 | Closed effect rows and handler capture checks | A precise structural data/capture check for cached views and actions |
-| JSPI task suspension and cleanup | Database transactions, consistent snapshots and commit/cancel ownership |
+| JSPI task suspension and cleanup | Recoverable storage-abort boundary, serializable writes, consistent snapshots and commit/cancel ownership |
 | Compiler generation identity | Bounded view caching tied to database identity and snapshot revision |
 
 No associated types, borrow checker, user-defined control handlers or new
@@ -270,7 +295,9 @@ and cache coherence remain runtime work; a type annotation cannot supply them.
 
 Before adopting this API, prove: a typed key/row mismatch is rejected; a view
 cannot write or depend on mutable hidden state; a write cannot perform network
-I/O; an aborted write exposes no changes; two views share one snapshot; a late
+I/O; an engine failure reaches the runner as an error; an aborted write exposes
+no changes; writes reject write skew; migration excludes old instances; two views
+share one snapshot; a late
 old view cannot contaminate a newer revision; another process's write invalidates
 reuse; database replacement cannot collide with an old cache; and code reload
 preserves committed data while permitting view result types to change.
