@@ -8,7 +8,7 @@ instance, when the program starts.
 
 | Command | Build |
 | --- | --- |
-| `lofi run`, `lofi compile`, `make site` | Release |
+| `lofi run`, `lofi compile`, `lofi build`, `make site` | Release |
 | `lofi serve`, `lofi watch`, `make ide` (current commands) | Debug |
 
 `lofi compile -o DIRECTORY SOURCE` publishes `DIRECTORY/program.wasm`.
@@ -18,6 +18,20 @@ program, and unrelated files in the directory remain untouched.
 `lofi run -o DIRECTORY SOURCE` also retains its program there; without `-o`,
 `run` removes its private build when execution ends. To run a published artifact
 directly, use `node --no-warnings scripts/run-lofi.mjs DIRECTORY/program.wasm`.
+
+Projects describe named builds in inert `project.datum`:
+
+```text
+./lofi build --release apps/siegework site
+python3 -m http.server 4191 --directory apps/siegework/build/site
+```
+
+`build` takes an explicit project directory and target name. It publishes that
+target at `PROJECT/build/TARGET`, a link to a completed directory containing
+`program.wasm` and, for a browser build, the shared host and its `public` files.
+Put the page in `public/index.html`. Builds retain prior generations and reject
+unmanaged entries at the output path. The [project format](https://github.com/tsnl/snail-scheme/blob/stack/project-builds-20261024/doc/project-format.md)
+documents publication and public-file rules.
 
 ## Builds in proportion to the edit
 
@@ -74,14 +88,13 @@ successful build clears the diagnostic. The editor does not run the application.
 The [project-description parser](https://github.com/tsnl/snail-scheme/blob/stack/project-forms-20261024/doc/project-format.md)
 is implemented as `(lofi project)` for Chibi and Wasm. It returns typed build
 descriptions and resolves run targets to program builds, retaining error locations.
-The CLI/build workflow below remains proposed; current commands do not yet
-consume `project.datum`.
+The one-shot CLI builder consumes these descriptions. The development workflow
+below remains proposed.
 
-The proposed `project.datum` is inert data with explicit `build-target` and
-`run-target` forms. It replaces application build scripts for the CLI as
-well as the IDE. Each target produces one output directory, including all
-of its files. A server can reference multiple frontend bundles by name while
-compiling; serving their paths is ordinary server code.
+`project.datum` uses explicit `build-target` and `run-target` forms. It now
+replaces the application packaging script for the CLI; IDE integration follows.
+Named artifact dependencies remain proposed: a server will reference multiple
+frontend bundles while compiling and serve them through ordinary server code.
 
 `lofi dev PROJECT` would keep the incremental compiler alive and share one
 file watcher with the editor. Saving only writes disk; the watcher starts

@@ -2,8 +2,8 @@
 
 `project.datum` describes one project with inert data. The parser is implemented
 in `src/lofi/project.sld` as `(lofi project)` and runs on Chibi and compiled Wasm.
-CLI building and development integration are subsequent changes; current
-commands do not consume this file yet.
+`lofi build [--release] PROJECT TARGET` consumes it and builds one named target.
+Development sessions and launch execution are separate integration work.
 
 ```scheme
 ((build-target client
@@ -58,8 +58,25 @@ locations. Build declarations are collected before runs are resolved. No separat
 pending declaration tree is needed. Duplicate target diagnostics identify both
 declarations; duplicate fields identify the second field.
 
-Each build target will produce one output directory, potentially containing
-multiple files. Artifact dependencies are discovered later during expansion,
+Each build target produces one output directory at `PROJECT/build/TARGET`.
+Programs contain `program.wasm`. Browsers add the shared browser host and a
+recursive copy of `public`, if specified. Supply `index.html` in `public`;
+no page is generated. Browser pages load `./program.wasm` through `host.mjs`.
+Public files cannot overwrite generated files, the ownership marker
+`.lofi-target`. The publication name `.lofi-publish` is reserved at every depth.
+Public trees
+must contain regular files/directories, with no symlinks, and cannot include
+the project's build output. Public path components cannot be symlinks either.
+
+The output is a relative symlink to a completed generation beside it. Rebuilds
+atomically replace that link after compilation and packaging succeed. Previous
+generations remain available to readers; no automatic reclamation occurs yet.
+Resolve the link once before reading several files as one artifact. This
+guarantees complete publication, not a transaction across changing source files
+or durability after power loss. An ordinary directory, file or unrelated link
+at the target's output path is rejected. The builder never removes it.
+
+Artifact dependencies will be discovered later during expansion,
 including generated libraries. The parser does not scan source, build a second
 dependency graph, detect artifact cycles or invoke a build.
 
