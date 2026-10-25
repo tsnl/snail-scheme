@@ -1,0 +1,6 @@
+client
+dev
+dev -> dev
+server/main.sld
+|--port|8080
+src
