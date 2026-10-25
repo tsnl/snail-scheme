@@ -123,11 +123,6 @@ launches and reload integration remain in progress. Use the book's
 [terms](doc/book/lofi/terms.md#toolchain-terms) for projects, compiler sessions,
 runtimes and application processes.
 
-- **[`src/app/tasks.mjs`](src/app/tasks.mjs)** schedules task starts and
-  one-shot JSPI resumptions. One execution permit protects dynamic handler
-  bindings; a live-task set accounts for queued work, waits and cleanup.
-  I/O adapters own their abortable registrations and settle after cleanup.
-
 | Path | Responsibility |
 | --- | --- |
 | `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `schema` and `bootstrap`; `-o` publishes a directory's `program.wasm` through `(lofi build)`. `lofi` hands `build` to `scripts/build.mjs`, `dev` to `scripts/dev.mjs`, and `serve` and `watch` to `scripts/develop.mjs`. |
@@ -156,6 +151,7 @@ runtimes and application processes.
 | `src/assembler/`, `scripts/assemble.mjs` | The in-process assembler: the `wat` crate built for `wasm32-wasip1`, turning WebAssembly text into a module without Binaryen, under Node or in a browser. `scripts/assemble.mjs` binds it for the loop's hosts; programs never carry it. |
 | `scripts/run-lofi.mjs` | Runs a compiled program, or a `modules.json` of linked modules, under Node's WASI, in a worker with a tuned GC heap. It provides `(lofi wasm)` loading and the task scheduler. JSPI stacks remain finite. |
 | `src/app/entry.mjs` | Wasm application entries, effect-handler restoration and owned snapshots of foreign byte arguments. |
+| `src/app/tasks.mjs` | One execution permit protects dynamic handler globals across JSPI waits. Adapters own abortable registrations and settle after cleanup. Tasks own queued native results until delivery; cancellation disposes an undelivered result and unwinds its parked invocation before exhaustion. |
 | `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (one metallic-roughness shader for meshes and sprites, textures, upright and flat sprites, frame strips, perspective or orthographic, glow, motion between ticks, translucent and revealed batches), `pictures.mjs` (images decoded from the bytes a program sends, composed into textures with color swaps), the keyed HUD with image widgets, and saves. `load.mjs` runs Lofi programs the same way in Node and browsers: a WASI shim, linking a program compiled one library at a time and relinking it from a changed module (`relinkProgram`), the binding of named commands, and the reader of the loop's events and manifests. `runtime.mjs` owns queued application events, asynchronous storage and checkpoint recovery on the shared task scheduler; its stable imports survive library relinks. `host.mjs` owns the page's durable renderer, pictures and HUD, enqueues DOM input, relinks every running application (`relinkAll`) after its old tasks settle, and exports its screen binding for headless tests. `reload.sld` is the reload client, a Lofi program that compares build manifests and decides what a page does; `reload-client.mjs` binds it, and `reload.mjs` adds it to the pages `lofi serve` serves. |
 | `scripts/dev.mjs` | The `lofi dev PROJECT` command: builds native editor tools, starts one project service, prints its URL and closes it on SIGINT/SIGTERM. Application launches are not integrated yet. |
 | `src/ide/` | The browser client of the native project service. `ide.mjs` owns unsaved buffers, revision-aware save/read operations, subscriptions and file/build presentation; `panes.mjs` owns pane layout and `editor.mjs` one editor. Only `(lofi format)` runs in the page, through `format.sld` and `formatter.mjs`. There is no browser compiler, copied project or integrated application execution. |
