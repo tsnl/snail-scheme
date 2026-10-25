@@ -9,6 +9,7 @@
    Typed-items
    definition-scheme
    Typed-schemes
+   outside-reads
    check-program
    check-library)
   (import
@@ -981,6 +982,7 @@
 
     ;; The variable reads in `expr` of names it does not bind. Names are
     ;; unique, so a name bound anywhere inside is bound at all its reads.
+    ;; Keep occurrences: handler captures need each read's method evidence.
     (: outside-reads (-> Expr (List Expr)))
     (define (outside-reads expr)
       (let ((bound (binders expr)))
