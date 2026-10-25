@@ -8,16 +8,15 @@ as a separate instance.
 
 | Command | Build |
 | --- | --- |
-| `lofi run`, `lofi compile`, `lofi build`, `make site` | Static; `--release` requests full optimization |
-| `lofi dev`, `lofi serve`, `lofi watch`, `make ide` | Separate development modules |
+| `lofi build`, `make site`, internal source compile/run | Static; `--release` requests full optimization |
+| `lofi dev`, `./scripts/lofi-tool serve`, `./scripts/lofi-tool watch`, `make ide` | Separate development modules |
 
-`lofi compile -o DIRECTORY SOURCE` publishes `DIRECTORY/program.wasm`.
-The output is a directory, even for a single-file program. Compiler and linker
-intermediates stay private; a failed rebuild keeps the previous successful
-program, and unrelated files in the directory remain untouched.
-`lofi run -o DIRECTORY SOURCE` also retains its program there; without `-o`,
-`run` removes its private build when execution ends. To run a published artifact
-directly, use `node --no-warnings scripts/run-lofi.mjs DIRECTORY/program.wasm`.
+The public commands operate on projects. Compiler contributors can use
+`./scripts/lofi-tool run SOURCE`, `wat SOURCE`, `schema SOURCE` or `bootstrap`.
+`./scripts/lofi-tool compile -o FILE SOURCE` writes a raw Wasm file and linker
+intermediates; it does not provide project publication guarantees.
+Source-level `run` uses a private build directory by default and removes it when
+the process finishes.
 
 Projects describe named builds in inert `project.datum`:
 
@@ -55,7 +54,7 @@ their old application loop until launch/reload integration.
 
 ## Builds in proportion to the edit
 
-`lofi serve` and `lofi watch` run a development loop that is itself a
+`./scripts/lofi-tool serve` and `./scripts/lofi-tool watch` run a development loop that is itself a
 Lofi program, `(lofi develop)`, and keeps the compiler running between
 builds. It remembers every library's **interface**: everything importers
 depend on, which is every declaration but the bodies of functions with
@@ -78,7 +77,7 @@ file subscriptions, attempt-scoped diagnostics and generation publication.
 `serve` and `watch` still have their older publication and watcher policies.
 
 ```text
-$ ./lofi serve apps/siegework
+$ ./scripts/lofi-tool serve apps/siegework
 built siegework in 457 ms: 14 of 14 modules compiled
 serving siegework at http://127.0.0.1:8000/
 built siegework in 106 ms: 1 of 14 modules compiled

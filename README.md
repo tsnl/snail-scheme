@@ -24,10 +24,17 @@ Scheme runs its source to start the first bootstrap.
 ```sh
 nix-shell
 make fetch
-./lofi run examples/fibonacci.sld
-./lofi compile -o build/fibonacci examples/fibonacci.sld
-./lofi wat examples/effects.sld
-./lofi watch examples/fibonacci.sld   # runs it again after each edit
+./lofi build apps/siegework site
+./lofi dev apps/siegework
+```
+
+Compiler contributors can also inspect and execute individual source files:
+
+```sh
+./scripts/lofi-tool run examples/fibonacci.sld
+./scripts/lofi-tool compile -o build/fibonacci.wasm examples/fibonacci.sld
+./scripts/lofi-tool wat examples/effects.sld
+./scripts/lofi-tool watch examples/fibonacci.sld   # runs it again after each edit
 ```
 
 Chibi Scheme, Binaryen, Rust and Node 26 are required. `shell.nix` provides
@@ -54,7 +61,7 @@ make site
 python3 -m http.server 4191 --directory apps/siegework/build/site
 ```
 
-While you change it, `./lofi serve apps/siegework` serves it at
+While you change it, `./scripts/lofi-tool serve apps/siegework` serves it at
 <http://127.0.0.1:8000/>, rebuilds only the libraries you edit, and relinks
 them into the open page, which keeps the game and the camera.
 `./lofi dev --port 8001 apps/siegework` starts the native project compiler and

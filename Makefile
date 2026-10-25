@@ -34,7 +34,7 @@ test-browser:
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.
 bootstrap:
 	rm -rf build/compiler
-	./lofi bootstrap
+	./scripts/lofi-tool bootstrap
 
 format:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --write
