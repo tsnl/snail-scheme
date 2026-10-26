@@ -33,6 +33,7 @@
    Mark-scope
    syntax-loc
    datum=?
+   bytes=?
    datum->string
    syntax->string
    compile-error

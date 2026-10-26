@@ -10,6 +10,7 @@
   (export
    Session
    make-session
+   no-artifacts
    Built
    Built-name
    Built-text
@@ -68,10 +69,11 @@
     ;; ---- Builds ----
 
     ;; The modules of the program at `source`, in program order, and the
-    ;; session after the build.
-    (: build-session (-> Session String (Pair (List Built) Session) ! mut fs))
-    (define (build-session session source)
-      (let* ((expansion (expand-program (Session-directories session) (Session-generate session) source (Session-expansion session)))
+    ;; session after the build. Artifact snapshots belong to this invocation,
+    ;; never to the retained session.
+    (: build-session (-> Session String ArtifactInputs (Pair (List Built) Session) ! mut fs))
+    (define (build-session session source artifacts)
+      (let* ((expansion (expand-program (Session-directories session) (Session-generate session) artifacts source (Session-expansion session)))
              (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))
              (checked (check-libraries (Session-compiled session) expansion libraries))
              (built (emit-libraries (Pair-second checked) (Pair-first checked) libraries)))
@@ -162,21 +164,51 @@
       ;; importers see recompiles them too. The libraries use only
       ;; primitives, so the session runs quickly on Chibi. The sources are
       ;; written into `directory`.
-      (define (test-session directory)
+      (define (test-session directory library)
         (let ((main (string-append directory "/main.sld")))
           (create-directory* (string-append directory "/sample"))
           (write-sample-a directory "(i64-add x x)" "")
           (write-file (string-append directory "/sample/b.sld") sample-b)
           (write-file main "(import (lofi core) (lofi primitive) (sample b)) (four)")
-          (let* ((first (build-session (make-session (list directory) (lambda (forms) (panic "no generated libraries"))) main))
-                 (unchanged (build-session (Pair-second first) main))
-                 (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main)))
-                 (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main))))
+          (let* ((first (build-session (make-session (list directory) (lambda (forms) (panic "no generated libraries"))) main no-artifacts))
+                 (unchanged (build-session (Pair-second first) main no-artifacts))
+                 (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main no-artifacts)))
+                 (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main no-artifacts))))
             (expect (compiled-names first) (list "sample.a" "sample.b" "main"))
             (expect (compiled-names unchanged) (list))
             (expect (compiled-names body) (list "sample.a"))
             (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
-        (test-handler-revalidation directory))
+        (test-handler-revalidation directory)
+        (test-artifact-replay directory library))
+
+      ;; Unchanged bytes preserve emission. Missing inputs invalidate even
+      ;; a replay, but removing the invocation must not demand its old input.
+      (define (test-artifact-replay directory library)
+        (let ((main (string-append directory "/artifact.sld"))
+              (files (list (Pair "page.html" (list->vector (list (i32->u8 1)))))))
+          (write-artifact-source directory "(artifact-bundle \"client\")")
+          (write-file main "(import (lofi base) (sample assets)) (bundle)")
+          (let* ((inputs (table-set no-artifacts "client" files))
+                 (first (build-session (make-session (list directory library) (lambda (forms) (panic "unexpected recipe"))) main inputs))
+                 (unchanged (build-session (Pair-second first) main (table-set no-artifacts "client" files)))
+                 (empty (build-session (Pair-second first) main (table-set no-artifacts "client" (Nil)))))
+            (expect (compiled-names unchanged) (Nil))
+            (expect (compiled-names empty) (list "sample.assets" "main"))
+            (expect (artifact-replay-error (Pair-second empty) main) #t)
+            (write-artifact-source directory "(ArtifactBundle (Nil))")
+            (expect (compiled-names (build-session (Pair-second empty) main no-artifacts)) (list "sample.assets" "main")))))
+
+      (define (artifact-replay-error session main)
+        (guard (failure
+                ((error-object? failure)
+                 (if (string-contains (error-object-message failure) "missing artifact target: client") #t #f)))
+          (build-session session main no-artifacts)
+          #f))
+
+      (define (write-artifact-source directory body)
+        (write-file (string-append directory "/sample/assets.sld")
+                    (string-append "(define-library (sample assets) (export bundle) (import (lofi base) (lofi artifact)) "
+                                   "(begin (: bundle (-> ArtifactBundle)) (define (bundle) " body ")))")))
 
       (define (test-handler-revalidation directory)
         (let ((main (string-append directory "/main.sld")))
@@ -184,14 +216,14 @@
           (write-file (string-append directory "/sample/b.sld")
                       "(define-library (sample b) (export run) (import (lofi core) (lofi primitive) (sample a)) (begin (effect Counter ((tick (-> I64)))) (: run (-> I64 ! mut)) (define (run) (handle Counter ((tick (lambda () (helper)))) (tick)))))")
           (write-file main "(import (lofi core) (lofi primitive) (sample b)) (run)")
-          (let* ((first (build-session (make-session (list directory) (lambda (forms) (panic "no generated libraries"))) main))
+          (let* ((first (build-session (make-session (list directory) (lambda (forms) (panic "no generated libraries"))) main no-artifacts))
                  (session (Pair-second first)))
-            (expect (compiled-names (build-session session main)) (list))
+            (expect (compiled-names (build-session session main no-artifacts)) (list))
             (write-handler-helper directory "(ref-get cell)")
             (expect (guard (failure
                             ((error-object? failure)
                              (if (string-contains (error-object-message failure) "a handler and its captures must satisfy") #t #f)))
-                      (build-session session main)
+                      (build-session session main no-artifacts)
                       #f)
                     #t))))
 
