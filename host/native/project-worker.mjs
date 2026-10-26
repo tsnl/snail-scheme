@@ -15,15 +15,17 @@ function failureDiagnostic(error) {
   return diagnostic ?? {severity: 'error', message: error.message, source: null};
 }
 
-function build({id, prefix}) {
+// The epoch comes back untouched, so the parent can tell this reply from a
+// reply to an attempt it has already given up on.
+function build({epoch, prefix}) {
   let description = null, candidate = null;
   try {
     description = builder.describe();
     candidate = builder.build(description, null, 'development', prefix);
-    parentPort.postMessage({id, description, candidate, diagnostics: []});
+    parentPort.postMessage({epoch, description, candidate, diagnostics: []});
   } catch (error) {
     if (candidate) discardProject(candidate); // A failed handoff retains ownership here.
-    parentPort.postMessage({id, description, candidate: null,
+    parentPort.postMessage({epoch, description, candidate: null,
       diagnostics: [failureDiagnostic(error)]});
   }
 }
