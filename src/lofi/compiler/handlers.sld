@@ -9,6 +9,7 @@
    (lofi table)
    (lofi compiler read)
    (lofi compiler core)
+   (only (lofi compiler check) outside-reads)
    (lofi compiler capabilities))
   (begin
 
@@ -25,11 +26,12 @@
 
     ;; An ordinary arrow carries no capture proof. Recover only concrete
     ;; lambdas and aliases; an opaque callback or function-returning call fails.
+    ;; Specialization preserves each expression's unique resolved binders.
     (: shared-value? (-> Context (Table Expr) Expr (List String) Bool ! mut))
     (define (shared-value? cx locals value visiting)
       (or (shared-type? cx (Expr-type value))
           (match (Expr-term value)
-            ((Lambda _ _) (every? (lambda (reference) (shared-reference? cx locals reference visiting)) (free-references value (Nil))))
+            ((Lambda _ _) (every? (lambda (reference) (shared-reference? cx locals reference visiting)) (outside-reads value)))
             ((Var _ _ _) (shared-reference? cx locals value visiting))
             (_ #f))))
 
@@ -77,30 +79,6 @@
               ((None) #f)))
            ((None) #f)))
         (_ #f)))
-
-    ;; ---- Free references ----
-
-    ;; Keep each reference's evidence. Deduplicating by name would lose the
-    ;; different instances chosen at two uses of the same class method.
-    (: free-references (-> Expr (List String) (List Expr)))
-    (define (free-references expr bound)
-      (match (Expr-term expr)
-        ((Var name _ _) (if (member? name bound) (Nil) (list expr)))
-        ((Lambda params body) (free-references body (append params bound)))
-        ((Let name value body)
-         (append (free-references value (if (lambda-expr? value) (Cons name bound) bound))
-                 (free-references body (Cons name bound))))
-        ((Match value clauses)
-         (append (free-references value bound)
-                 (concatenate (map (lambda (clause) (free-references (Clause-body clause) (append (pattern-names (Clause-pattern clause)) bound))) clauses))))
-        (_ (concatenate (map (lambda (child) (free-references child bound)) (children expr))))))
-
-    (: pattern-names (-> Pattern (List String)))
-    (define (pattern-names pattern)
-      (match pattern
-        ((PVar name _) (list name))
-        ((PCon _ args _) (concatenate (map pattern-names args)))
-        (_ (Nil))))
 
     (: children (-> Expr (List Expr)))
     (define (children expr)
