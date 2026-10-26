@@ -22,6 +22,7 @@ unwinds the task; it is not a recoverable `SocketError`. TCP operations are:
 | `accept listener` | `Connection`. |
 | `read connection maximum` | `Some Bytes` containing an available nonempty prefix, or `None` at EOF. |
 | `write connection bytes` | `I32` count accepted locally, possibly smaller than the input. |
+| `finish-connection connection grace` | `Unit` after ending output, discarding input and awaiting native closure; grace is an I32 millisecond deadline. |
 | `close-listener listener` | `Unit`. |
 | `close-connection connection` | `Unit`. |
 
@@ -54,7 +55,7 @@ the native binding reports `EBADF` instead of being cast to an integer handle.
 TCP and UDP owners may issue the same numeric handle, but their private token
 types differ. Tokens must remain with the runtime that issued them.
 
-A replacement `handle tcp` supplies seven operations; `handle udp` supplies four.
+A replacement `handle tcp` supplies eight operations; `handle udp` supplies four.
 They may create endpoint values with their own tokens. For example, a test
 can put a `Ref Bytes` in a connection token or a `Ref Datagram` in a UDP token,
 accessed through operation arguments. The reusable handler's captures still satisfy `Send + Sync` and
@@ -116,8 +117,8 @@ retrying the whole buffer is not automatically safe.
 
 ### Finishing a connection
 
-The native `finish` operation is implemented; its Lofi effect binding is still
-pending. It takes an idle connection and a whole-number grace period from 0
+Lofi's `finish-connection` binds the native `finish` operation. It takes an idle
+connection and a whole-number grace period from 0
 through 2,147,483,647 milliseconds. Pending read or write rejects with `EBUSY`
 without changing ownership. Invalid grace rejects with `EINVAL`.
 
