@@ -48,7 +48,7 @@ user, so files written in the mounted checkout stay yours:
 
 ```sh
 podman build -t snail-scheme -f .devcontainer/Containerfile .
-podman run --rm -it -v "$PWD":/workspace:Z -w /workspace snail-scheme
+podman run --rm -it -v "$PWD":/project:Z -w /project snail-scheme
 ```
 
 An editor that opens devcontainers runs `make fetch` when it creates the
@@ -196,7 +196,7 @@ cargo test --manifest-path src/runtime/Cargo.toml --offline
 cargo test --manifest-path src/assembler/Cargo.toml --offline
 make test-chibi    # the suite with the compiler's source running on Chibi
 make bootstrap     # the compiler rebuilt from Chibi alone, to a fixpoint
-make test-browser  # live reload and the IDE in headless Chromium
+make test-browser  # hot reload and the IDE in headless Chromium
 ```
 
 CI runs the first four, and `cargo fmt --check` on both crates. A change to

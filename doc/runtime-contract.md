@@ -103,7 +103,7 @@ animate(window, world):
 ```
 
 The existing application's checkpoint and save/restore handover remain
-useful during live reload. They are an application protocol on top of tasks,
+useful during browser hot reload. They are an application protocol on top of tasks,
 not the definition of a task. Reload waits for the old computation to
 settle before relinking its modules.
 

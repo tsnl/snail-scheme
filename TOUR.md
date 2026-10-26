@@ -113,6 +113,13 @@ and keeps state that grows over a whole pass in a `Ref`.
 
 ## Around the compiler
 
+The table describes current responsibilities. The
+[project and development proposal](doc/proposals/desktop-ide.md) moves
+application build recipes into project descriptions and unifies development
+under `lofi dev`; those changes are not implemented yet. Use the book's
+[terms](doc/book/lofi/terms.md#toolchain-terms) for projects, compiler sessions,
+runtimes and application processes.
+
 - **[`src/app/tasks.mjs`](src/app/tasks.mjs)** schedules task starts and
   one-shot JSPI resumptions. One execution permit protects dynamic handler
   bindings; a live-task set accounts for queued work, waits and cleanup.
@@ -130,10 +137,10 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `lib/scheme/` | `(scheme base)`, R7RS names over the typed language; `(scheme compiler)`, which translates R7RS programs to Lofi libraries; and `(scheme runtime)`, the standard procedures their code calls. |
 | `src/runtime/` | Rust services linked into every program: math, Unicode, float text, console and file I/O, panics. |
 | `src/assembler/`, `scripts/assemble.mjs` | The in-process assembler: the `wat` crate built for `wasm32-wasip1`, turning WebAssembly text into a module without Binaryen, under Node or in a browser. `scripts/assemble.mjs` binds it for the loop's hosts; programs never carry it. |
-| `scripts/run-lofi.mjs` | Runs a compiled program, or a `modules.json` of linked modules, under Node's WASI, in a worker with room for deep recursion; it provides `(lofi wasm)`'s loading. |
+| `scripts/run-lofi.mjs` | Runs a compiled program, or a `modules.json` of linked modules, under Node's WASI, in a worker with a tuned GC heap. It provides `(lofi wasm)` loading and the task scheduler. JSPI stacks remain finite. |
 | `src/app/entry.mjs` | Wasm application entries, effect-handler restoration and owned snapshots of foreign byte arguments. |
 | `src/app/` | The browser host for `(lofi app)`: input with pointer ids, ticks, a WebGPU renderer (one metallic-roughness shader for meshes and sprites, textures, upright and flat sprites, frame strips, perspective or orthographic, glow, motion between ticks, translucent and revealed batches), `pictures.mjs` (images decoded from the bytes a program sends, composed into textures with color swaps), the keyed HUD with image widgets, and saves. `load.mjs` runs Lofi programs the same way in Node and browsers: a WASI shim, linking a program compiled one library at a time and relinking it from a changed module (`relinkProgram`), the binding of named commands, and the reader of the loop's events and manifests. `runtime.mjs` owns queued application events, asynchronous storage and checkpoint recovery on the shared task scheduler; its stable imports survive library relinks. `host.mjs` owns the page's durable renderer, pictures and HUD, enqueues DOM input, relinks every running application (`relinkAll`) after its old tasks settle, and exports its screen binding for headless tests. `reload.sld` is the reload client, a Lofi program that compares build manifests and decides what a page does; `reload-client.mjs` binds it, and `reload.mjs` adds it to the pages `lofi serve` serves. |
-| `src/ide/`, `scripts/build-ide.scm` | The browser IDE. `develop.sld` is the development loop with its files in the worker, through a handler of `fs`, and `toolchain.mjs` the worker; `format.sld` is the formatter as a program; `ide.mjs` lays out the toolbar, docks and files, `panes.mjs` the tree of panes, `editor.mjs` one pane, `project.mjs` keeps projects and folders, and `preview.mjs` runs the application in a frame. `build-ide.scm` packages it as a static site. |
+| `src/ide/`, `scripts/build-ide.scm` | The browser IDE. `develop.sld` is the development loop with its files in the worker, through a handler of `fs`, and `toolchain.mjs` the worker; `format.sld` is the formatter as a program; `ide.mjs` lays out the toolbar, docks and files, `panes.mjs` the tree of panes, `editor.mjs` one pane, `project.mjs` keeps project files and directory handles, and `preview.mjs` runs the application in a frame. `build-ide.scm` packages it as a static site. |
 | `scripts/build-app.scm` | Packages an application, with its `public/` files, as a static site. |
 | `apps/siegework/` | The example game: `grid` and `terrain` (the seeded land), `world` (state, wires, power and sight), `colony` (orders and work), `siege` (attacks and combat), `simulation` (`act`, `advance` and the journal), `game` (camera, selection and commands), `view` and `hud`. |
 | `apps/hearsay/` | A design for a social simulation game, and browser prototypes that test it: `mill` (stories spreading through a town) and `ledger` (an economy of favors), each with a `-screen` that draws and plays it; `cast` (an LPC character for each person) and `art` (the sheets they wear, embedded); `hud`, the panel pieces both screens share, with the guide that explains each prototype and the empty scene behind a screen; and `shell`, the menu. Its styles are in `public/app.css`. |
@@ -142,7 +149,7 @@ and keeps state that grows over a whole pass in a `Ref`.
 | `doc/book/`, `book.toml` | The book published on GitHub Pages; its chapters include the language guide, the redesign and Siegework's guide, and its roadmap tracks open work. |
 | `shell.nix`, `npins/`, `rust-toolchain.toml`, `.devcontainer/` | The pinned tools: nixpkgs from an npins pin, the Rust toolchain, and a podman devcontainer with the same tools and Chromium, which CI builds. |
 | `scripts/format-scheme`, `scripts/format-scheme.el` | The Scheme formatter, Emacs's scheme-mode with the repository's rules, which `make format` and `make check` run. |
-| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios, a headless game and `develop.mjs`, which drives `lofi serve` and `lofi watch` over the `tests/apps/counter` fixture, and programs linked one library at a time; `browser/reload.mjs` and `browser/ide.mjs` check live reload and the IDE in Chromium. |
+| `tests/` | `run.scm` runs the unit tests, `tests/programs`, Siegework's scenarios, a headless game and `develop.mjs`, which drives `lofi serve` and `lofi watch` over the `tests/apps/counter` fixture, and programs linked one library at a time; `browser/reload.mjs` and `browser/ide.mjs` check hot reload and the IDE in Chromium. |
 
 ## Checks and builds
 
