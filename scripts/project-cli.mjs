@@ -6,8 +6,9 @@ import {createProjectBuilder, projectTools, publishProject} from './project.mjs'
 
 function request([root, action, ...args]) {
   const mode = action === 'build' && args[0] === '--release' ? (args.shift(), 'release') : 'debug';
-  if (!['build', 'run'].includes(action) || args.length < 2 || (action === 'build' && args.length !== 2)) {
-    throw new Error('usage: lofi build [--release] PROJECT BUILD-TARGET | lofi run PROJECT RUN-TARGET [ARGUMENT ...]');
+  const valid = action === 'check' ? args.length === 1 : action === 'build' ? args.length === 2 : action === 'run' && args.length >= 2;
+  if (!valid) {
+    throw new Error('usage: lofi build [--release] PROJECT BUILD-TARGET | lofi run PROJECT RUN-TARGET [ARGUMENT ...] | lofi check PROJECT');
   }
   return {root, action, project: resolve(args[0]), target: args[1], args: args.slice(2), mode};
 }
@@ -20,13 +21,16 @@ async function build(job) {
   try {
     builder = await createProjectBuilder({...job, tools, directory});
     const description = builder.describe();
-    const run = job.action === 'run' ? description.runs.find(run => run.name === job.target) : null;
-    if (job.action === 'run' && !run) throw new Error(`unknown project run target ${job.target}`);
-    const target = run?.build ?? job.target;
-    const candidate = builder.build(description, [target], job.mode);
-    result = {directory: candidate.targets.find(output => output.name === target).directory,
-      args: [...(run?.args ?? []), ...job.args]};
-    publishProject(candidate);
+    if (job.action === 'check') builder.check(description);
+    else {
+      const run = job.action === 'run' ? description.runs.find(run => run.name === job.target) : null;
+      if (job.action === 'run' && !run) throw new Error(`unknown project run target ${job.target}`);
+      const target = run?.build ?? job.target;
+      const candidate = builder.build(description, [target], job.mode);
+      if (run) result = {directory: candidate.targets.find(output => output.name === target).directory,
+        args: [...run.args, ...job.args]};
+      publishProject(candidate);
+    }
   } catch (error) { failure = error; }
   try { builder?.close(); } catch (error) { failure ??= error; }
   try { rmSync(directory, {recursive: true, force: true}); } catch (error) { failure ??= error; }
@@ -37,7 +41,7 @@ async function build(job) {
 try {
   const job = request(process.argv.slice(2)), result = await build(job);
   if (job.action === 'build') console.log(join(job.project, 'build', job.target));
-  else process.execve(process.execPath, [process.execPath, '--no-warnings',
+  else if (job.action === 'run') process.execve(process.execPath, [process.execPath, '--no-warnings',
     join(job.root, 'scripts/run-lofi.mjs'), join(result.directory, 'program.wasm'), ...result.args], process.env);
 }
 catch (error) {

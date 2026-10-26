@@ -43,6 +43,20 @@ Its PID, exit status and signals therefore belong to the application. This uses
 the existing Node 26 POSIX host. Compilation and generator execution retain
 the cold builder's synchronous behavior.
 
+`lofi check PROJECT` checks every declared build entry using the same expansion,
+type/effect checking, specialization and ownership passes as a static debug build.
+It does not emit or execute those entries. Specialization still matters: selected
+typeclass methods can reveal unsafe handler captures or affine uses. Checking
+does not invent specializations for unused generic definitions.
+
+Generated-library producers execute normally. An artifact reference requires a
+real temporary build, including browser packaging, even if that target's code
+was checked earlier. The same traversal detects cycles through checked roots.
+All temporary artifact generations are discarded when checking ends, including
+on failure; check never publishes them. A root-only check creates no project
+output directory. Artifact dependencies can leave an empty `build` directory.
+The command stops at the first failure and is silent on success.
+
 The native project builder keeps one Wasm compiler alive throughout an invocation.
 `lofi build` calls it directly and releases its scratch files on completion or
 failure. Only development puts the compiler in a worker, to keep its HTTP service
