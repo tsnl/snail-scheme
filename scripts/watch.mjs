@@ -74,9 +74,9 @@ export function watchProject({roots, exclude = []}) {
       let names;
       try { names = await readdir(path); }
       catch (error) { if (error.code === 'ENOENT') return; throw error; }
-      next.set(path, fingerprint(stat));
+      next.set(path, {fingerprint: fingerprint(stat), file: false});
       for (const name of names) await collect(join(path, name), next);
-    } else next.set(path, fingerprint(stat));
+    } else next.set(path, {fingerprint: fingerprint(stat), file: stat.isFile()});
   }
 
   async function scan() {
@@ -95,17 +95,19 @@ export function watchProject({roots, exclude = []}) {
       }
     }
     if (closed) throw new Error('the project watcher is closed');
-    const paths = [...new Set([...inventory.keys(), ...next.keys()])].filter(path => inventory.get(path) !== next.get(path));
+    const paths = [...new Set([...inventory.keys(), ...next.keys()])].filter(path => inventory.get(path)?.fingerprint !== next.get(path)?.fingerprint);
     inventory = next;
     if (paths.length) emit({kind: 'changed', paths});
     if (failed) {
       failed = false;
       emit({kind: 'uncertain'}); // A complete inventory may unblock a caller.
     }
+    return [...next].filter(([, entry]) => entry.file).map(([path]) => path);
   }
 
   // A caller during a scan receives the next fresh scan, shared with other
   // waiters. Later notifications do not extend that promise until global quiet.
+  // Success returns regular filenames from that scan, not the mutable inventory.
   async function reconcile() {
     const preceding = scanning;
     if (preceding) await preceding.catch(() => {});
