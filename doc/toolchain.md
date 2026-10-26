@@ -60,7 +60,7 @@ without Binaryen:
 
 | Build | Linking |
 | --- | --- |
-| Release | Static. The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. `lofi compile`, `lofi run` and `make site` build this way. |
+| Release | Static. The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. `lofi compile`, `lofi run`, `lofi build` and `make site` build this way. |
 | Debug | Dynamic. Each library is compiled to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. `lofi serve`, `lofi watch` and the browser IDE build this way. |
 | Either | Code loaded while the program runs, through `(lofi wasm)` (section 3.3). |
 

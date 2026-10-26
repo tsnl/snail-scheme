@@ -10,6 +10,7 @@
    program->schemas
    build-program
    build-program-directory
+   create-staging-directory
    build-modules
    link-wat
    build-crate
@@ -18,7 +19,6 @@
    bootstrap!
    with-private-directory
    node-command
-   app-host-files
    path-join
    absolute
    read-file
@@ -346,7 +346,7 @@
 
     (define (publish-program! program output)
       (unless (create-directory* output) (error "cannot create output directory" output))
-      (let* ((staging (publication-directory output)) (file (path-join staging "program.wasm")) (destination (path-join output "program.wasm")))
+      (let* ((staging (create-staging-directory output)) (file (path-join staging "program.wasm")) (destination (path-join output "program.wasm")))
         (dynamic-wind (lambda () #f)
             (lambda ()
               (copy-file! program file)
@@ -359,11 +359,11 @@
 
     ;; Exclusive creation owns exactly this staging directory. A stale name
     ;; from a reused process id is skipped, never adopted or removed.
-    (define (publication-directory output)
+    (define (create-staging-directory output)
       (set! private-count (+ private-count 1))
       (let ((directory (path-join output (string-append ".lofi-" (number->string (current-process-id)) "-" (number->string private-count)))))
         (cond ((create-directory directory #o700) directory)
-              ((file-link-status directory) (publication-directory output))
+              ((file-link-status directory) (create-staging-directory output))
               (else (error "cannot stage program in output directory" output)))))
 
     ;; ---- Linked modules ----
@@ -421,13 +421,6 @@
     ;; `directories` when it is stale.
     (define (build-tool root source output directories)
       (rebuild-if-stale! root output (cons source directories) (lambda () (build-program root directories source output #f))))
-
-    ;; ---- Applications ----
-
-    ;; The browser host, from src/app, that every packaged application
-    ;; loads beside its own files.
-    (define app-host-files
-      '("host.mjs" "runtime.mjs" "tasks.mjs" "entry.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs" "storage.mjs" "load.mjs" "style.css"))
 
     ;; ---- Failures ----
 

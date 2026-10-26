@@ -75,12 +75,19 @@ pipeline. Development bundles carry reload manifests/support; release bundles
 omit them.
 
 This replaces project build scripts in general, not just IDE configuration.
-In this checkout the concrete paths are `scripts/build-app.scm`,
-`scripts/build-ide.scm`, the Makefile's application recipes and
-`host/chibi/lofi/build.sld`. Move application selection and packaging into the
-shared project build path and delete superseded scripts. Keep the compiler's
-bootstrap, linking and assembly primitives; the description does not replace
-Chibi's stage-0 role or pretend to be an arbitrary build language.
+`lofi build [--release] PROJECT TARGET` now selects one target and publishes
+`PROJECT/build/TARGET` as a link to a completed generation. Program and browser
+builds use `program.wasm`; browsers add host files and their public tree,
+including `public/index.html` when supplied. Prior generations stay available;
+readers resolve the link once to consume a coherent artifact. No extra manifest
+is needed for these statically linked builds.
+
+`host/chibi/lofi/project-build.sld` owns this packaging and replaces
+`scripts/build-app.scm`; the Makefile's application recipes use it. The separate
+IDE packaging script remains until the editor becomes a development client.
+The compiler's bootstrap, linking, assembly and generated-library primitives
+remain; descriptions do not replace Chibi's stage-0 role or become an arbitrary
+build language.
 
 Parse once into target and launch descriptions. Reject duplicate names,
 unknown forms, bad paths and invalid launch references. Library roots and

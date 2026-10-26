@@ -155,9 +155,10 @@ remains under review:
   packaging. Keep editor formatting, diagnostics and split panes.
 - [ ] Replace browser project/build ownership with `lofi dev` for one project. Preserve the editor, formatting,
   diagnostics and splits; the UI subscribes to the development session.
-- [ ] Replace project build scripts with inert `project.datum` forms such as
+- [x] Replace application build scripts with inert `project.datum` forms such as
   `build-target` and `run-target`. Every build target produces one output
-  directory. This changes the compiler/CLI contract, not just the IDE.
+  directory through `lofi build PROJECT TARGET`. This changes the compiler/CLI
+  contract, not just the IDE. Prior completed generations remain until removed.
 - [x] Parse project forms on Chibi and Wasm with located diagnostics and typed,
   resolved run references. File access, building and artifacts remain separate.
 - [x] Make `compile -o` and `run -o` publish `program.wasm` in an output directory,
