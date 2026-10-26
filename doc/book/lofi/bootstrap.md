@@ -33,13 +33,23 @@ in Scheme, where every implementation provides its own `(scheme base)`:
   `type` and `match` as erasing macros. The compiler defines no typeclass
   instances of its own, so nothing dispatches at run time.
 
-The shared compiler driver reads its arguments and files through `(lofi io)`.
-The Chibi and Wasm entries publish missing-input requests after unwinding. Lofi's standard library lives on Lofi's search path only,
-so Chibi never sees it, and Chibi runs the compiler with
-`-I bootstrap/chibi-include`, which symlinks exactly the libraries the compiler reaches. The hosts disagree on integer overflow, argument
-evaluation order and the order of table keys, so the compiler's output never
-depends on them, except for the numbering of generated names, which follows
-evaluation order.
+The shared driver reads its arguments and files through `(lofi io)`, and both
+entries publish missing-input requests after unwinding.
+
+Stage 0's only search root is `bootstrap/chibi-include/`: one symlink per
+library the compiler's own load closure reaches, and nothing else, so no other
+library under `src/` can enter the bootstrap by accident. Reaching for one
+fails with `couldn't find import`, which is how `make test-chibi` and
+`make bootstrap` catch a compiler module that starts importing the standard
+library.
+
+The hosts disagree on integer overflow, argument evaluation order and the
+order of table keys, so the compiler's output must not depend on them. One
+place still does: generated names are numbered from a counter the two hosts
+consume in different orders, so the two texts differ in their names even
+though no instruction differs. Until that is fixed, `make bootstrap` cannot
+compare one host's output against the other's —
+[issue 495](https://github.com/tsnl/snail-scheme/issues/495) measures it.
 
 **Bootstrap.**
 
