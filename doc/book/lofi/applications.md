@@ -107,8 +107,8 @@ starts over.
 ## Native application process owner
 
 `scripts/application-process.mjs` implements ownership of one ordinary OS child
-for one run target. The native development service uses it; HTTP and editor
-controls are the next integration. The public `lofi run` command executes a cold
+for one run target. The native development service and HTTP controls use it;
+editor controls are the next integration. The public `lofi run` command executes a cold
 project build with ordinary shell IO.
 
 The owner accepts a latest launch request `{build, entry, args}` or `null` to stop.
@@ -165,8 +165,8 @@ well as the compiler and file observer.
 
 ## Proposed application processes
 
-The native process controls above are implemented. Exposing them through the
-editor and integrating durable application data and browser reload remain
+The native and HTTP process controls above are implemented. Exposing them through
+the editor and integrating durable application data and browser reload remain
 [application work](https://github.com/tsnl/snail-scheme/issues/458). Process
 replacement alone preserves no managed state; killing a process cannot promise
 cleanup or a final commit.

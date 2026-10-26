@@ -35,8 +35,9 @@ python3 -m http.server 4191 --directory apps/siegework/build/site
 its required artifacts. `lofi run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
 runs a named program. `lofi check PROJECT` checks all declared entries.
 `lofi dev [--port PORT] PROJECT` retains compiler sessions and serves the editor.
-The [toolchain](toolchain.md) describes command lifetimes, checking and development;
-application launch/reload integration into `dev` remains proposed.
+The [toolchain](toolchain.md) describes command lifetimes, checking and development,
+including the HTTP run controls. Editor controls, durable application data and
+browser reload integration remain in progress.
 
 ## Description format
 
