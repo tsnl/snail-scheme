@@ -20,6 +20,16 @@ a native service's client. C is the reference model: programs can link staticall
 or by library, and code loaded at run time is reached through an explicit,
 unchecked cast.
 
+Native Chibi tooling captures each command's stdout and stderr in a private
+`TMPDIR` directory (or `/tmp`). A constant POSIX shell script owns redirection;
+paths and arguments are positional data, never interpolated into shell source.
+The parent waits for the direct child, reads both files, then removes the
+directory. This avoids a Chibi 0.12 pipe-descriptor finalizer bug that could
+truncate compiler output on a cold tool build, and allows large stderr output
+without a pipe-draining deadlock. This synchronous capture supplies EOF on stdin;
+it is not the application launch or supervision service. Tool names must be
+nonempty and cannot begin with a dash; use a path for such executables.
+
 ## 1. Goals
 
 1. Rebuild and reload in proportion to the edit, not to the program.
