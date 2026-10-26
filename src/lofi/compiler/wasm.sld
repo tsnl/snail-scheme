@@ -795,7 +795,7 @@
           ((Some (Accessor case index _)) (list (field-access fn case index (first-arg args))))
           ((Some (Replacer case index _)) (list (replace-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (Expr-type expr)))
-          ((Some (Operation effect _)) (list (wat* "call" (Cons (id (performer m effect name)) (emit-args fn args)))))
+          ((Some (Operation effect _ _)) (list (wat* "call" (Cons (id (performer m effect name)) (emit-args fn args)))))
           ((Some (Foreign import scheme)) (host-call m import (Scheme-type scheme) (emit-args fn args) (Expr-loc expr)))
           (_ (panic (string-append "internal error: cannot call " name))))))
 
@@ -1243,7 +1243,7 @@
           ((None)
            (let ((type-id (wasm-id key)))
              (put! (Module-type-ids m) key type-id)
-             (let ((fields (map (lambda (operation) (wat "field" (rep->wat (rep m (operation-type m operation)))))
+             (let ((fields (map (lambda (operation) (wat "field" (rep->wat (handler-field-rep m operation))))
                                 (Effect-operations (program-effect (program-of m) effect)))))
                (push! (Module-types m) (wat "type" (id type-id) (wat* "struct" (append fields (list (wat "field" (wat "ref" (Word "null") (id type-id))))))))
                (declare-handler-global! m effect type-id)
@@ -1268,23 +1268,40 @@
     (: operation-type (-> Module String Type))
     (define (operation-type m operation)
       (match (program-value (program-of m) operation)
-        ((Some (Operation _ (Scheme _ _ (TFun params result _)))) (TFun params result empty-row))
+        ((Some (Operation _ _ (Scheme _ _ (TFun params result _)))) (TFun params result empty-row))
         (_ (panic "internal error: not an operation"))))
+
+    (: handler-field-rep (-> Module String Rep ! mut))
+    (define (handler-field-rep m operation)
+      (if (control-operation? (program-of m) operation)
+          (Reference (control-record-type m (list (Scalar "funcref") (Scalar "anyref"))))
+          (rep m (operation-type m operation))))
+
+    (: handler-value (-> Fn String (List (Pair String Expr)) Wat Wat ! mut))
+    (define (handler-value fn effect implementations outer)
+      (let ((m (Fn-module fn)))
+        (wat* "struct.new" (Cons (id (handler-type m effect))
+                                 (append (map (lambda (operation)
+                                                (match (assoc-ref implementations operation)
+                                                  ((Some value) (if (control-operation? (program-of m) operation)
+                                                                    (control-clause fn value) (emit1 fn value)))
+                                                  ((None) (panic "internal error: missing implementation"))))
+                                              (Effect-operations (program-effect (program-of m) effect)))
+                                         (list outer))))))
 
     (: emit-handle (-> Fn Expr String (List (Pair String Expr)) Expr (List Wat) ! mut))
     (define (emit-handle fn expr effect implementations body)
+      (if (any? (lambda (operation) (control-operation? (program-of (Fn-module fn)) operation))
+                (Effect-operations (program-effect (program-of (Fn-module fn)) effect)))
+          (list (emit-control-handle fn effect implementations body))
+          (emit-fun-handle fn expr effect implementations body)))
+
+    (: emit-fun-handle (-> Fn Expr String (List (Pair String Expr)) Expr (List Wat) ! mut))
+    (define (emit-fun-handle fn expr effect implementations body)
       (let* ((m (Fn-module fn)) (type-id (handler-type m effect)) (current (handler-global effect))
              (saved (declare-temp! fn (nullable (Reference type-id)))) (result (declare-temp! fn (rep->wat (fn-rep fn (Expr-type expr))))))
         (list (wat "local.set" (id saved) (wat "global.get" (id current)))
-              (wat "global.set" (id current)
-                   (wat* "struct.new"
-                         (Cons (id type-id)
-                               (append (map (lambda (operation)
-                                              (match (assoc-ref implementations operation)
-                                                ((Some implementation) (emit1 fn implementation))
-                                                ((None) (panic "internal error: missing implementation"))))
-                                            (Effect-operations (program-effect (program-of m) effect)))
-                                       (list (wat "local.get" (id saved)))))))
+              (wat "global.set" (id current) (handler-value fn effect implementations (wat "local.get" (id saved))))
               (wat "local.set" (id result) (emit1 fn body))
               (wat "global.set" (id current) (wat "local.get" (id saved)))
               (wat "local.get" (id result)))))
@@ -1313,7 +1330,9 @@
                                                (wat "local.set" (Word "$handler") (wat "global.get" (id (handler-global effect))))
                                                (wat "if" (wat "ref.is_null" (wat "local.get" (Word "$handler")))
                                                     (wat "then" (wat* "return" (host-default m info operation names)))))
-                                         (call-implementation m info operation names params result))))))))
+                                         (if (control-operation? (program-of m) operation)
+                                             (list (call-control-implementation m info operation names params result))
+                                             (call-implementation m info operation names params result)))))))))
 
     (: call-implementation (-> Module Effect String (List String) (List Rep) Rep (List Wat) ! mut))
     (define (call-implementation m info operation names params result)
@@ -1339,6 +1358,145 @@
           ((None)
            (list (wat "call" (id (panic-helper m)) (string-literal m (string-append "unhandled effect operation " (short-name operation))))
                  (wat "unreachable"))))))
+
+    ;; ---- Control handlers (prototype) ----
+
+    ;; Only these imports suspend. The prototype host owns their stacks and
+    ;; restores every handler global before each reentry. Scalar Rust services
+    ;; have already returned when a Lofi frame reaches any of these imports.
+    ;; The opaque records carry GC references without inspecting them in JS.
+    (: control-import (-> Module String (List Rep) String ! mut))
+    (define (control-import m name params)
+      (import! m (Import "lofi.control.prototype" name) params (Some (Scalar "anyref"))))
+
+    ;; The host invokes these references. Exporting that boundary also tells
+    ;; closed-world optimization that their bodies and argument types escape.
+    (: control-entry! (-> Module String Unit ! mut))
+    (define (control-entry! m function-id)
+      (push! (Module-declared m) function-id)
+      (push! (Module-exports m) (wat "export" (wat-string (string-append "control." function-id)) (wat "func" (id function-id)))))
+
+    (: control-record-type (-> Module (List Rep) String ! mut))
+    (define (control-record-type m fields)
+      (let ((key (string-append "ctl.record." (string-join (map rep-key fields) ","))))
+        (match (known-type m key)
+          ((Some type) type)
+          ((None) (register-type! m key (wasm-id key)
+                                  (wat "type" (id (wasm-id key))
+                                       (wat* "struct" (map (lambda (field) (wat "field" (rep->wat field))) fields))))))))
+
+    (: control-box (-> Module Rep Wat Wat ! mut))
+    (define (control-box m representation value)
+      (match representation
+        ((Reference _) value)
+        (_ (wat "struct.new" (id (control-record-type m (list representation))) value))))
+
+    (: control-unbox (-> Module Rep Wat Wat ! mut))
+    (define (control-unbox m representation value)
+      (match representation
+        ((Reference type) (wat "ref.cast" (wat "ref" (id type)) value))
+        (_ (let ((type (control-record-type m (list representation))))
+             (wat "struct.get" (id type) (int 0) (wat "ref.cast" (wat "ref" (id type)) value))))))
+
+    ;; A handle calls the host before installing its handler. The new body's
+    ;; entry installs it on its own stack; the caller keeps the outer context.
+    (: emit-control-handle (-> Fn String (List (Pair String Expr)) Expr Wat ! mut))
+    (define (emit-control-handle fn effect implementations body)
+      (let* ((m (Fn-module fn)) (answer (fn-rep fn (Expr-type body)))
+             (thunk (Expr (Lambda (Nil) body) (TFun (Nil) (Expr-type body) empty-row) (Expr-loc body)))
+             (entry (control-body-entry m effect answer))
+             (import
+              (control-import m "handle" (list (Scalar "funcref") (Scalar "anyref") (Scalar "anyref")))))
+        (control-unbox m answer
+                       (wat "call" (id import) (wat "ref.func" (id entry)) (closure fn thunk (None))
+                            (handler-value fn effect implementations (wat "global.get" (id (handler-global effect))))))))
+
+    (: control-body-entry (-> Module String Rep String ! mut))
+    (define (control-body-entry m effect answer)
+      (helper! m "ctl.body" (string-append effect ":" (rep-key answer))
+               (lambda (function-id)
+                 (let* ((base (closure-type m (Nil) answer))
+                        (closure (wat "ref.cast" (wat "ref" (id base)) (wat "local.get" (Word "$closure")))))
+                   (control-entry! m function-id)
+                   (wat "func" (id function-id) (wat "param" (Word "$closure") (Word "anyref"))
+                        (wat "param" (Word "$handler") (Word "anyref")) (wat "result" (Word "anyref"))
+                        (wat "global.set" (id (handler-global effect))
+                             (wat "ref.cast" (wat "ref" (id (handler-type m effect))) (wat "local.get" (Word "$handler"))))
+                        (control-box m answer (closure-call-wat m base closure (Nil) #f)))))))
+
+    ;; Each operation field has one uniform record, independent of the
+    ;; handle's answer type: a typed adapter and the implementation closure.
+    (: control-clause (-> Fn Expr Wat ! mut))
+    (define (control-clause fn implementation)
+      (match (Expr-type implementation)
+        ((TFun params answer _)
+         (let* ((m (Fn-module fn)) (count (- (length params) 1))
+                (resume (function-signature m (list-ref params count)))
+                (entry (control-clause-entry m (map (lambda (type) (rep m type)) (take params count))
+                                             (list-ref (Pair-first resume) 0) (rep m answer))))
+           (wat "struct.new" (id (control-record-type m (list (Scalar "funcref") (Scalar "anyref"))))
+                (wat "ref.func" (id entry)) (emit1 fn implementation))))
+        (_ (panic "internal error: a control clause is a function"))))
+
+    (: control-clause-entry (-> Module (List Rep) Rep Rep String ! mut))
+    (define (control-clause-entry m params argument answer)
+      (let ((base (closure-type m (append params (list (Reference (closure-type m (list argument) answer)))) answer)))
+        (helper! m "ctl.clause" base
+                 (lambda (function-id)
+                   (let* ((args-type (control-record-type m params))
+                          (args (wat "ref.cast" (wat "ref" (id args-type)) (wat "local.get" (Word "$arguments"))))
+                          (closure (wat "ref.cast" (wat "ref" (id base)) (wat "local.get" (Word "$closure")))))
+                     (control-entry! m function-id)
+                     (wat "func" (id function-id) (wat "param" (Word "$closure") (Word "anyref"))
+                          (wat "param" (Word "$arguments") (Word "anyref")) (wat "param" (Word "$token") (Word "externref"))
+                          (wat "result" (Word "anyref"))
+                          (control-box m answer
+                                       (closure-call-wat m base closure
+                                                         (append (map-indexed (lambda (index _) (wat "struct.get" (id args-type) (int index) args)) params)
+                                                                 (list (control-resume-closure m argument answer))) #f))))))))
+
+    ;; The checked continuation type supplies its argument through the code
+    ;; type. The only captured value is an opaque single-shot host token.
+    (: control-resume-closure (-> Module Rep Rep Wat ! mut))
+    (define (control-resume-closure m argument answer)
+      (let* ((base (closure-type m (list argument) answer)) (type (string-append base ".ctl"))
+             (code (control-resume-code m base type argument answer)))
+        (match (known-type m type)
+          ((Some _) (unit))
+          ((None) (register-type! m type type
+                                  (wat "type" (id type) (wat "sub" (Word "final") (id base)
+                                                             (wat "struct" (wat "field" (wat "ref" (id (code-type m base))))
+                                                                  (wat "field" (Word "externref")))))) (unit)))
+        (wat "struct.new" (id type) (wat "ref.func" (id code)) (wat "local.get" (Word "$token")))))
+
+    (: control-resume-code (-> Module String String Rep Rep String ! mut))
+    (define (control-resume-code m base type argument answer)
+      (helper! m "ctl.resume" base
+               (lambda (function-id)
+                 (let ((import
+                        (control-import m "resume" (list (Scalar "externref") (Scalar "anyref")))))
+                   (push! (Module-declared m) function-id)
+                   (wat "func" (id function-id) (wat "type" (id (code-type m base)))
+                        (wat "param" (Word "$closure") (wat "ref" (id base))) (wat "param" (Word "$value") (rep->wat argument))
+                        (wat "result" (rep->wat answer))
+                        (control-unbox m answer
+                                       (wat "call" (id import)
+                                            (wat "struct.get" (id type) (int 1) (wat "ref.cast" (wat "ref" (id type)) (wat "local.get" (Word "$closure"))))
+                                            (control-box m argument (wat "local.get" (Word "$value"))))))))))
+
+    (: call-control-implementation (-> Module Effect String (List String) (List Rep) Rep Wat ! mut))
+    (define (call-control-implementation m info operation names params result)
+      (let* ((handler (handler-type m (Effect-name info)))
+             (index (match (list-index (lambda (name) (string=? name operation)) (Effect-operations info))
+                      ((Some index) index) ((None) (panic "internal error: missing control operation"))))
+             (clause-type (control-record-type m (list (Scalar "funcref") (Scalar "anyref"))))
+             (clause (wat "struct.get" (id handler) (int index) (wat "local.get" (Word "$handler"))))
+             (import
+              (control-import m "perform" (list (Scalar "anyref") (Scalar "funcref") (Scalar "anyref") (Scalar "anyref")))))
+        (control-unbox m result
+                       (wat "call" (id import) (wat "local.get" (Word "$handler"))
+                            (wat "struct.get" (id clause-type) (int 0) clause) (wat "struct.get" (id clause-type) (int 1) clause)
+                            (wat* "struct.new" (Cons (id (control-record-type m params)) (map (lambda (name) (wat "local.get" (id name))) names)))))))
 
     ;; ---- Primitives ----
 
