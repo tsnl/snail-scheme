@@ -25,7 +25,6 @@ struct Files {
 
 thread_local! {
     static FILES: RefCell<Files> = RefCell::new(Files::default());
-    static PATHNAME: RefCell<Option<String>> = const { RefCell::new(None) };
     // One shared reader preserves lookahead across every borrowed stdin alias.
     static INPUT: RefCell<Port> = RefCell::new(Port::stdin());
 }
@@ -52,48 +51,27 @@ impl Files {
 
 // WASI has no working directory of its own; the host passes it as SNAIL_CWD
 // and relative paths are resolved against it.
-fn take_pathname() -> Result<String, String> {
-    let path = PATHNAME
-        .with_borrow_mut(Option::take)
-        .ok_or("no pathname transfer is active")?;
+fn staged_path(count: u32) -> Result<String, String> {
+    let path = staged_text(count)?;
     Ok(match std::env::var("SNAIL_CWD") {
         Ok(directory) if !path.starts_with('/') => format!("{directory}/{path}"),
         _ => path,
     })
 }
 
-fn append_character(text: &mut String, code: u32) -> Result<(), String> {
-    text.push(char::from_u32(code).ok_or("invalid Unicode scalar")?);
-    Ok(())
-}
+// ---- Filesystem operations ----
 
-// One instance runs one invocation at a time. These private transfer operations
-// never call guest code, and the Lofi loop performs no user callbacks. Reentry or
-// concurrent invocation during a transfer is outside this provider's contract.
-#[unsafe(export_name = "snail:io/path-begin")]
-pub extern "C" fn path_begin() {
-    PATHNAME.with_borrow_mut(|path| *path = Some(String::new()));
-}
-
-#[unsafe(export_name = "snail:io/path-character")]
-pub extern "C" fn path_character(code: u32) {
-    let result = PATHNAME.with_borrow_mut(|path| {
-        append_character(path.as_mut().ok_or("no pathname transfer is active")?, code)
-    });
-    checked(result);
-}
-
-// ---- Filesystem operations consume their pathname on every outcome ----
-
+// The compiler stages a final String argument immediately before the call.
+// Each operation copies it to an owned path before touching the filesystem;
+// no pathname construction or transfer state survives the call.
 #[unsafe(export_name = "snail:io/file-exists")]
-pub extern "C" fn file_exists() -> i32 {
-    let result = take_pathname().and_then(|path| {
+pub extern "C" fn file_exists(count: u32) -> i32 {
+    checked(staged_path(count).and_then(|path| {
         Path::new(&path)
             .try_exists()
             .map(i32::from)
             .map_err(|error| format!("{path}: {error}"))
-    });
-    checked(result)
+    }))
 }
 
 fn open_output(path: String) -> Result<i32, String> {
@@ -106,8 +84,8 @@ fn open_output(path: String) -> Result<i32, String> {
 }
 
 #[unsafe(export_name = "snail:io/open-output-file")]
-pub extern "C" fn open_output_file() -> i32 {
-    checked(take_pathname().and_then(open_output))
+pub extern "C" fn open_output_file(count: u32) -> i32 {
+    checked(staged_path(count).and_then(open_output))
 }
 
 fn open_input(path: String) -> Result<i32, String> {
@@ -118,8 +96,8 @@ fn open_input(path: String) -> Result<i32, String> {
 }
 
 #[unsafe(export_name = "snail:io/open-input-file")]
-pub extern "C" fn open_input_file() -> i32 {
-    checked(take_pathname().and_then(open_input))
+pub extern "C" fn open_input_file(count: u32) -> i32 {
+    checked(staged_path(count).and_then(open_input))
 }
 
 // ---- Scalar reads and writes ----
@@ -277,7 +255,6 @@ pub extern "C" fn close(id: u32) {
 
 fn release_all() -> Result<(), String> {
     let flushed = flush_standard_output();
-    PATHNAME.with_borrow_mut(Option::take);
     let ports = FILES.with_borrow_mut(|files| std::mem::take(&mut files.live));
     let mut result = flushed;
     for port in ports.into_values() {
@@ -344,19 +321,15 @@ mod tests {
 
     #[test]
     fn unicode_characters_are_encoded_without_replacement() {
-        let mut path = String::new();
         let mut port = Port::output_string();
         for code in [0, 0x03bb, 0x1f600, 0x10ffff] {
-            append_character(&mut path, code).unwrap();
             write_character(&mut port, code).unwrap();
         }
-        assert_eq!(path, "\0λ😀\u{10ffff}");
-        assert_eq!(port.captured_output().unwrap(), path);
+        assert_eq!(port.captured_output().unwrap(), "\0λ😀\u{10ffff}");
         for code in [0xd800, 0xdfff, 0x110000, u32::MAX] {
-            assert!(append_character(&mut path, code).is_err());
             assert!(write_character(&mut port, code).is_err());
         }
-        assert_eq!(port.captured_output().unwrap(), path);
+        assert_eq!(port.captured_output().unwrap(), "\0λ😀\u{10ffff}");
     }
 
     #[test]
@@ -404,18 +377,24 @@ mod tests {
     }
 
     #[test]
-    fn consuming_and_cleanup_remove_temporary_paths_and_live_ports() {
-        path_begin();
-        path_character(0x03bb);
-        assert_eq!(take_pathname().unwrap(), "λ");
-        assert!(take_pathname().is_err());
-        path_begin();
+    fn staged_text_is_copied_and_checks_its_scalar_boundary() {
+        STAGED.with_borrow_mut(|staged| *staged = vec![0x03bb, 0x1f600]);
+        let path = staged_text(2).unwrap();
+        assert_eq!(path, "λ😀");
+        assert!(staged_text(3).is_err());
+        STAGED.with_borrow_mut(|staged| *staged = vec![0xd800]);
+        assert!(staged_text(1).is_err());
+        assert_eq!(staged_text(0).unwrap(), "");
+        assert_eq!(path, "λ😀");
+    }
+
+    #[test]
+    fn cleanup_releases_live_ports() {
         FILES.with_borrow_mut(|files| {
             let id = files.reserve_id().unwrap();
             files.live.insert(id as u32, Port::output_string());
         });
         assert_eq!(close_all(), 0);
-        assert!(take_pathname().is_err());
         assert!(FILES.with_borrow(|files| files.live.is_empty()));
     }
 }

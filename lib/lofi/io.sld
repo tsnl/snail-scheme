@@ -72,23 +72,19 @@
 
     ;; ---- Files ----
 
-    ;; A path is sent one scalar at a time before the operation that uses
-    ;; it. Ports are runtime handles; a closed port must not be used again.
+    ;; Each operation receives its complete path. Ports are runtime handles;
+    ;; a closed port must not be used again.
     (effect fs
-      ((path-begin (-> Unit))
-       (path-character (-> Char Unit))
-       (path-exists (-> I32))
-       (open-input (-> I32))
-       (open-output (-> I32))
+      ((path-exists (-> String I32))
+       (open-input (-> String I32))
+       (open-output (-> String I32))
        (port-read (-> I32 I32))
        (port-read-byte (-> I32 I32))
        (port-write (-> I32 String Unit))
        (port-write-byte (-> I32 I32 Unit))
        (port-close (-> I32 Unit)))
       (host "snail.library"
-            ((path-begin "snail:io/path-begin")
-             (path-character "snail:io/path-character")
-             (path-exists "snail:io/file-exists")
+            ((path-exists "snail:io/file-exists")
              (open-input "snail:io/open-input-file")
              (open-output "snail:io/open-output-file")
              (port-read "snail:io/read-character")
@@ -97,25 +93,15 @@
              (port-write-byte "snail:io/write-byte")
              (port-close "snail:io/close"))))
 
-    (: send-path (-> String Unit ! fs))
-    (define (send-path path)
-      (path-begin)
-      (let loop ((index 0))
-        (when (< index (string-length path))
-          (path-character (string-ref path index))
-          (loop (+ index 1)))))
-
     (: file-exists? (-> String Bool ! fs))
     (define (file-exists? path)
-      (send-path path)
-      (= (path-exists) 1))
+      (= (path-exists path) 1))
 
     ;; The whole file as text; the runtime fails the program if it cannot
     ;; be read.
     (: read-file (-> String String ! fs))
     (define (read-file path)
-      (send-path path)
-      (let ((port (open-input)))
+      (let ((port (open-input path)))
         (let ((chars (drain (lambda () (let ((code (port-read port))) (if (= code -1) (None) (Some (i32->char code))))))))
           (port-close port)
           (vector->string chars))))
@@ -123,8 +109,7 @@
     ;; The whole file as bytes, for binary files such as images.
     (: read-bytes (-> String Bytes ! fs))
     (define (read-bytes path)
-      (send-path path)
-      (let ((port (open-input)))
+      (let ((port (open-input path)))
         (let ((bytes (drain (lambda () (let ((byte (port-read-byte port))) (if (= byte -1) (None) (Some (i32->u8 byte))))))))
           (port-close port)
           bytes)))
@@ -155,16 +140,14 @@
 
     (: write-file (-> String String Unit ! fs))
     (define (write-file path text)
-      (send-path path)
-      (let ((port (open-output)))
+      (let ((port (open-output path)))
         (port-write port text)
         (port-close port)))
 
     ;; Bytes to a binary file, replacing it.
     (: write-bytes (-> String Bytes Unit ! fs))
     (define (write-bytes path bytes)
-      (send-path path)
-      (let ((port (open-output)))
+      (let ((port (open-output path)))
         (let loop ((index 0))
           (when (< index (vector-length bytes))
             (port-write-byte port (u8->i32 (vector-ref bytes index)))
