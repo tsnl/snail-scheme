@@ -37,7 +37,7 @@ Compiler contributors can also inspect and execute individual source files:
 ./scripts/lofi-tool watch examples/fibonacci.sld   # runs it again after each edit
 ```
 
-Chibi Scheme, Binaryen, Rust and Node 26 are required. `shell.nix` provides
+Chibi Scheme, Binaryen, Rust and Node 26.4 or later are required. `shell.nix` provides
 them from the nixpkgs revision CI uses, and `.devcontainer/` packages the
 same tools for podman. [Getting started](doc/getting-started.md) covers
 both, other package managers and Windows, and the checks. `make fetch`

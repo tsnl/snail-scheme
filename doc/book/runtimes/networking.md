@@ -2,8 +2,9 @@
 
 `(lofi tcp)` provides a concrete, interceptable TCP effect. The Node program
 runner binds it to `scripts/tcp.mjs` through JSPI and `scripts/tcp-imports.mjs`.
-Static and separately linked programs use the same binding. Browser TCP, UDP
-and the HTTP library are not implemented;
+Static and separately linked programs use the same binding. UDP has a native
+owner, described below, but no Lofi binding yet. Browser TCP and the HTTP library
+are not implemented;
 [the networking issue](https://github.com/tsnl/snail-scheme/issues/457) tracks the
 remaining work.
 
@@ -121,3 +122,51 @@ waits for all ownership, including late arrivals during listener closure.
 The task scheduler separately owns successful native results until delivery;
 the binding supplies its disposer when a cancelled task cannot receive a newly
 created handle. No native cleanup record retains a managed wrapper.
+
+## Native UDP owner
+
+`scripts/udp.mjs` owns IPv4 datagram sockets. It is tested against real loopback
+sockets, but is not yet installed in the runner or bound to a Lofi effect.
+It uses Node's [synchronous numeric bind](https://nodejs.org/api/dgram.html#socketbindsyncoptions),
+available from 26.4. Binding is a nonblocking local operation, so it needs no
+opening state, DNS lookup or bind cancellation registration.
+
+| Operation | Result |
+| --- | --- |
+| `bind(signal, address, port)` | Positive I32 handle; port 0 selects an available port. |
+| `port(handle)` | The actual bound port. |
+| `receive(signal, handle, maximum)` | One whole datagram: `{bytes, address, port}`, including the sender's endpoint. |
+| `send(signal, handle, address, port, bytes)` | Entire payload length after local completion; no peer delivery guarantee. |
+| `close(handle)` | Immediate alias revocation and initiation of cleanup; repeated close does nothing. |
+| `shutdown()` | Stop new binds, close remaining sockets and await native cleanup. |
+
+Handles never repeat within their owner, including after failed bind attempts.
+Addresses must be numeric IPv4; send destination ports are 1–65,535. A payload
+may contain 0–65,507 bytes. Zero-length datagrams are messages, not EOF.
+Receive accepts a maximum in the same range. If the next datagram is too large,
+it is consumed and discarded with `EMSGSIZE`; there is no partial result or
+remainder to read. Oversized sends fail before native submission. UDP makes no
+delivery, order or uniqueness guarantee.
+
+Each socket queues at most 32 complete datagrams; excess arrivals are dropped,
+preserving the queued messages. One receive and one send may be pending at a
+time and may overlap; duplicates fail with `EBUSY`. Receive cancellation removes
+its registration and preserves the socket and remaining queue. A datagram
+already consumed before cancellation wins is not requeued.
+
+Send borrows immutable bytes until its callback. The Wasm binding must snapshot
+staging before calling it. Cancelling send waits for native completion and
+then rejects with the exact cancellation reason. It cannot retract the datagram.
+A send callback failure affects that operation; a socket-level error closes
+the socket. Closing wakes pending receives and discards queued datagrams.
+
+Node still resolves numeric send addresses asynchronously. Closing during that
+lookup can suppress the send callback, and a native close event can otherwise
+precede pending send completion. The owner therefore revokes aliases immediately
+but defers native close until the single send settles. The closed record remains
+owned until its close event. Shutdown cannot finish while that send or cleanup
+is outstanding. Failed bind closes and awaits cleanup before rejecting.
+
+As for TCP, the scheduler owns successful acquisitions until delivery; the UDP
+binding must provide the existing native disposer. The owner adds no second
+delivery protocol and retains no managed wrapper.
