@@ -168,7 +168,10 @@ remains under review:
   on and serve multiple frontend bundles.
 - [x] Implement the artifact macro, typed values and compiler resolver contract.
   Cached expansion re-resolves exact file evidence and invalidates generic
-  consumers. Native target traversal and request handling remain to connect.
+  consumers. Native target traversal remains to connect.
+- [x] Replace stderr work requests with typed request/reply datums. The native
+  builder retains artifact replies across compiler restarts and keeps a bound
+  resolver active through producer compilation. Scratch directories are exclusive.
 - [ ] Keep compiler sessions alive under `dev`. One shared watcher drives
   compilation from saved files and notifies the editor, including after
   external tools write files. Publish fresh diagnostics for every attempt.
