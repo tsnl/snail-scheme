@@ -17,7 +17,7 @@ const directory = mkdtempSync(join(tmpdir(), 'lofi-compiler-'));
 const assemble = await createAssembler(readFileSync(assembler));
 const compiler = await createCompiler(program, join(directory, 'errors'));
 const empty = compiler.inputs();
-const libraries = [directory, join(root, 'src'), join(root, 'guest')];
+const libraries = [directory, join(root, 'src')];
 let sequence = 0;
 const fresh = () => { const path = join(directory, String(sequence++)); mkdirSync(path); return path; };
 const write = (path, text) => { mkdirSync(dirname(path), {recursive: true}); writeFileSync(path, text); };
@@ -89,7 +89,7 @@ try {
   // requests generated syntax again, even with its last successful Session.
   const generated = join(directory, 'generated.sld'), scratch = fresh();
   write(generated, '(import (lofi base) (lofi io) (sample table)) (write-line (i64->string (length squares)))');
-  const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'src'), join(root, 'guest')];
+  const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'src')];
   const previous = compiler.session(generatedLibraries);
   const missing = failure(() => compiler.modules(previous, empty, generated, scratch), /compiler requires an input/);
   assert.equal(missing.diagnostic, null, 'input requests have no source-failure record');

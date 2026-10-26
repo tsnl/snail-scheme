@@ -344,7 +344,7 @@ discards the IR. It returns no emitted code or publishable candidate.
 | `crates/runtime/` | Rust scalar services: math, Unicode, float text, console and file IO, panics. External resources use explicit handles; managed references remain engine-traced. |
 | `crates/assembler/`, `host/native/assemble.mjs` | The `wat` crate compiled to Wasm for in-process text assembly. Programs do not carry the assembler. |
 | `host/native/run-lofi.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading and the task scheduler. JSPI stacks remain finite. |
-| `src/`, `host/chibi/lofi/` | Every Lofi library, the compiler among them, and the separate stage-0 implementations of the three it imports. Chibi prepends each `-I`, so `host/chibi` comes last and those three shadow the typed ones. |
+| `src/`, `host/chibi/lofi/`, `bootstrap/chibi-include/` | Every library that ships with the language, the compiler among them, and the separate stage-0 implementations of the three it imports. Stage 0's only search root is `bootstrap/chibi-include/`, one symlink per library the compiler reaches. |
 
 Project traversal and publication belong to the [project builder](projects.md),
 watching and editor services to the [development toolchain](toolchain.md), and

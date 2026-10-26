@@ -8,10 +8,10 @@ EMACS ?= emacs
 NIXFMT ?= nixfmt
 MDBOOK ?= mdbook
 SCHEME_SOURCES = '*.scm' '*.sld'
-# Chibi prepends each -I, so the last one wins: host/chibi comes last, where
-# its stage-0 (lofi base), (lofi table) and (lofi io) shadow the typed ones
-# that now live beside every other library under src/.
-CHIBI_PATH = -I tests -I src -I host/chibi
+# Stage 0 sees only bootstrap/chibi-include: one symlink per library the
+# compiler's own load closure reaches, so no other library under src/ can
+# enter the bootstrap by accident. tests/ supplies (lofi testing).
+CHIBI_PATH = -I tests -I bootstrap/chibi-include
 
 # Downloads the Rust crates in each Cargo.lock, which the tests and every
 # build then use offline. Run it once in a new checkout or container.

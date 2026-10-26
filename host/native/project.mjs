@@ -27,7 +27,7 @@ export function editorTools(root) {
 
 function link(root, text, output, mode) {
   run(process.env.CHIBI || 'chibi-scheme', ['-h', process.env.LOFI_HEAP || '2G',
-    '-I', join(root, 'src'), '-I', join(root, 'host/chibi'), join(root, 'scripts/link.scm'), root, text, output, mode]);
+    '-I', join(root, 'bootstrap/chibi-include'), join(root, 'scripts/link.scm'), root, text, output, mode]);
 }
 
 // ---- A resident builder ----
@@ -88,7 +88,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
     }
 
     function compile(target, generation, mode, artifact) {
-      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'src'), join(root, 'guest'));
+      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'src'));
       return scratch(working => {
         if (mode !== 'development') {
           copyFileSync(staticProgram(source, libraries, working, mode, artifact), join(generation, 'program.wasm'));
