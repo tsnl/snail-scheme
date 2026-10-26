@@ -1,0 +1,16 @@
+(generate-library (legacy parameters)
+                  (import
+                   (lofi base)
+                   (scheme compiler))
+                  (scheme->lofi-library
+                   (list "legacy" "parameters")
+                   "(write ((lambda () 'empty))) (newline)
+(write ((lambda (x . ()) x) 'fixed)) (newline)
+(write ((lambda r r) 1 2 3)) (newline)
+(write ((lambda (a . (b . r)) (list a b r)) 1 2 3 4)) (newline)
+(define (capture x . rest)
+  (lambda () (set! x (+ x 1)) (set! rest (cdr rest)) (list x rest)))
+(define next (capture 0 'a 'b 'c))
+(write (next)) (newline)
+(write (next)) (newline)
+(write (let loop ((n 3)) (if (= n 0) 'done (loop (- n 1))))) (newline)"))
