@@ -1,6 +1,89 @@
 # Application model
 
-{{#include ../../language.md:applications}}
+`(lofi app)` defines interactive browser applications as total functions over
+a state:
+
+| Function | Meaning |
+| --- | --- |
+| `init : seed width height -> State` | The first state. |
+| `update : State Input -> State` | Applies one input: a key, a pointer, a HUD button, the screen's size, or the milliseconds since the last display frame. |
+| `view : State -> Frame` | A frame of items, meshes and sprites, under a camera and a light, with the pictures their textures use. |
+| `hud : State -> (List Panel)` | The HUD's panels of labels, texts, buttons, dials, links and images, shown again after each update. |
+| `save : State -> Save` | What to store, with a wire encoding; it may be a record of how to rebuild the state. |
+| `restore : Save -> State` | The state again. |
+
+These functions operate on immutable state. `define-application`
+runs them inside one loop and the binder returned by `reset`:
+
+```scheme
+(define-application Game
+  (reset: default-reset)
+  (init: new-game)
+  (update: step)
+  (view: draw)
+  (hud: panels)
+  (save: save-game)
+  (restore: restore-game))
+```
+
+`default-reset` simply runs its argument. A custom reset returns a binder
+that installs effect handlers around startup and the whole loop; its result
+and effect row are quantified on the reset function, so the returned binder
+is monomorphic. The loop exports `app_main : (Option Any) -> (Option Any)`.
+The task scheduler calls it through `WebAssembly.promising`; `next-event`
+drains the host queue and suspends through `WebAssembly.Suspending` when it
+is empty. `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
+`Input`, `Hidden` saves without stopping, and `Reload` saves and returns the
+state. The `Frame` type continues to describe drawing data.
+
+DOM listeners enqueue input. The host keeps at most one pending display
+frame and coalesces consecutive pointer moves and resizes without crossing
+other input. Storage suspends for a whole load or store, copying save bytes
+before awaiting the browser. The loop saves every five seconds and when the
+page becomes hidden. Only a complete successful event commits its state;
+a trap leaves the preceding checkpoint available through `app_state`.
+Because time is input, an application decides how time passes and can stop
+it at any frame. Browser applications and headless tests need JSPI; the
+pinned Node 26 runs both packaging modes.
+
+The loop and locally dispatched work share one runtime. The reset binder
+may dispatch background tasks; the root admits the `tasks` effect as well
+as `mut`, `screen`, `events` and `storage`. Suspensions preserve each
+task's handlers. Reload lets the loop save and return, then cancels and
+drains remaining work before relinking. Module globals still initialize
+synchronously; dispatch application work from the reset binder or the
+running entry. See [runtimes](https://tsnl.github.io/snail-scheme/runtimes/index.html).
+
+Frames are built from batches of items. The host keeps a batch until its
+version changes, so a still scene costs nothing to send; each item also
+carries where it was, and the host moves it toward where it is as the
+frame's motion goes from 0 to 1. Batches may be solid, translucent, or
+revealed within a growing disc. The camera is perspective or orthographic.
+
+Meshes and sprites are both items, drawn by one shader in the
+metallic-roughness model: a `Material` gives an optional texture, the albedo
+of a dielectric or the specular color of a metal, with metalness and
+roughness defaulting to 0 and 1. Textures are regions of `Picture`s, which
+the host composes from layers of encoded image files the program carries,
+recoloring each by swapping colors, and keeps until their version changes.
+A sprite is a textured quad, standing upright toward the camera in a 2.5D
+scene or lying flat under an orthographic camera looking straight down in
+a 2D one, and a texture region can be a strip of frames the host steps
+through by the clock. `(lofi sprite)` poses figures from spritebooks of any
+sheet, and `src/lpc` uses it for the Liberated Pixel Cup character art.
+
+HUD panels, built from widgets such as those `label` and `button` make,
+stack in columns from the screen's corners, appear as dialogs, or sit in a
+banner across the top that lets input through but for its links. A widget's
+tone can mark it suggested, the control to use next. The host keeps elements
+by key, so hover and focus survive updates, and reports presses and hovering
+back as input. `recognize` turns raw pointer events into points, taps, drags
+and pinches.
+
+[Siegework](https://github.com/tsnl/snail-scheme/tree/main/apps/siegework)
+is the complete example, and
+[Hearsay](https://github.com/tsnl/snail-scheme/tree/main/apps/hearsay)'s
+prototypes draw their residents as LPC characters on a 2D map.
 
 <a id="live-reload"></a>
 
