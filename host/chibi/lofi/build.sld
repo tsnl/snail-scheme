@@ -11,6 +11,7 @@
    build-program
    build-modules
    link-wat
+   link-wat-file
    build-crate
    build-tool
    build-tools
@@ -339,16 +340,26 @@
     ;; Writes OUTPUT from module text, keeping the text and intermediate
     ;; modules beside it.
     (define (link-wat root text output release?)
-      (let ((wat (string-append output ".wat")) (raw (string-append output ".raw.wasm"))
-            (module (string-append output ".module.wasm")))
+      (let ((wat (string-append output ".wat")))
         (write-file wat text)
+        (link-wat-file root wat output release?)))
+
+    ;; The compiler already wrote this text. Assemble its file directly;
+    ;; only callers that hold text need link-wat's materialization above.
+    (define (link-wat-file root wat output release?)
+      (let ((raw (string-append output ".raw.wasm")) (module (string-append output ".module.wasm")))
         (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list wat "-o" raw)))
         (apply wasm-opt raw module (optimization release?))
         (link module output (build-crate root "runtime") release?)
         output))
 
     (define (build-program root directories source output release?)
-      (link-wat root (program->wat root directories source) output release?))
+      (let ((wat (string-append output ".wat")))
+        (create-directory* (path-directory output))
+        (with-private-directory root
+                                (lambda (directory)
+                                  (run-compiler-into root (selected-compiler root) "wat" directories source wat directory)))
+        (link-wat-file root wat output release?)))
 
     ;; Exclusive creation owns exactly this staging directory. A stale name
     ;; from a reused process id is skipped, never adopted or removed.
