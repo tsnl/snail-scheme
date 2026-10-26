@@ -101,7 +101,8 @@ export async function createCompiler(program, diagnostics) {
       return {value, records};
     } catch (error) {
       let diagnostic;
-      try { diagnostic = readErrors(); } catch (failure) { retire(failure); }
+      try { diagnostic = readErrors(); }
+      catch (failure) { retire(new CompilerCrashed('cannot read compiler diagnostics', {cause: failure})); }
       const message = diagnostic || error?.message || `compiler exited with status ${exitCode}`;
       if (entered && name !== 'main' && error === exited && exitCode === 1) {
         records = [];

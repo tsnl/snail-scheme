@@ -2,7 +2,9 @@
 // emitted programs. Graph traversal and retry policy belong to the builder.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
+import fs from 'node:fs';
 import {existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from 'node:fs';
+import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -176,6 +178,17 @@ try {
     assert.throws(() => trapped.project(project), /compiler is closed/, stage);
     trapped.close();
   }
+
+  // A diagnostic stream failure retires the instance and must tell the
+  // project worker to stop, rather than accepting another recoverable build.
+  const readSync = fs.readSync, unavailable = new Error('diagnostic read failed');
+  fs.readSync = () => { throw unavailable; };
+  syncBuiltinESMExports();
+  try {
+    assert.throws(() => compiler.static(source, wat, fresh(), libraries),
+      error => error instanceof CompilerCrashed && error.cause === unavailable);
+  } finally { fs.readSync = readSync; syncBuiltinESMExports(); }
+  assert.throws(() => compiler.project(project), /compiler is closed/);
 
   // Initialization owns its descriptor even before WASI exists. On Linux,
   // an unlinked current directory makes environment preparation fail.

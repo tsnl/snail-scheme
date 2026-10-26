@@ -132,7 +132,9 @@ Each native call starts with empty diagnostic storage. The trusted compiler's
 code-1 diagnostic exits follow resource cleanup and allow another call with
 the last successful Session. Arbitrary Wasm or imported-function traps retire
 the instance. This distinction comes from the runtime exit path, not from
-finding a familiar string or a diagnostic record. `compile-error` keeps its
+finding a familiar string or a diagnostic record. Failure to read diagnostic
+storage is terminal too: the worker cannot reuse a retired compiler.
+`compile-error` keeps its
 `Loc` and message in a compiler-private cell before the existing terminal panic.
 This explicitly unsafe bridge avoids adding an abort effect to every compiler
 pass; it does not prove the mutation pure. The serial native caller resets the
