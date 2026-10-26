@@ -42,6 +42,21 @@ depend on, which is every declaration but the bodies of functions with
 monomorphic signatures. An edit to such a body recompiles one library; an
 edit to an interface recompiles the libraries that import it too.
 
+The native loop and its Wasm compiler now run in one persistent Node worker.
+The parent owns file watches, timers, HTTP connections and application children,
+so it can receive an external edit or answer a request while compilation runs.
+Synchronous filesystem and assembler operations stay with the compiler. Five
+existing commands cross to the parent; compiler entries remain serial and keep
+the same session after a reported compile error. The first build is scheduled
+only after watches are installed. The loop writes HTML, manifests and module
+binaries beside their destination, then renames them into place, so concurrent
+reads see complete files. Stopping the host closes its resources and
+the worker, and stops its current application child.
+
+This establishes the execution boundary for the proposed project development
+session. The current loop still has the old command, publication and watcher
+policies; shared project subscriptions and attempt-scoped diagnostics follow.
+
 ```text
 $ ./lofi serve apps/siegework
 built siegework in 457 ms: 14 of 14 modules compiled

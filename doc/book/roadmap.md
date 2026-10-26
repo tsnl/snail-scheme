@@ -177,6 +177,10 @@ remains under review:
   compilation from saved files and notifies the editor, including after
   external tools write files. Publish fresh diagnostics for every attempt.
   Omit unsaved build overlays and source-tree snapshot infrastructure.
+- [x] Move the existing native incremental loop to one persistent compiler
+  worker. HTTP and watches remain responsive during compilation; startup
+  installs watches before the first build and shutdown closes owned resources.
+  Project sessions, shared subscriptions and fresh attempt diagnostics follow.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.
