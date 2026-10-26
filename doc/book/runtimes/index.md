@@ -5,6 +5,12 @@ Lofi's shipping target is WebAssembly GC with JavaScript Promise Integration
 use them. The language's intended concurrency contract permits multiple
 threads; the shipping runtime uses one JavaScript execution agent.
 
+The **host** is the surrounding platform, such as Node or a browser. A runtime
+owns language tasks; an OS process owns its platform execution environment.
+A compiler session is cached compiler work, not an application runtime.
+The [toolchain terms](../lofi/terms.md#toolchain-terms) keep these boundaries
+distinct in the project and development design.
+
 The [task contract](contract.md) specifies the replacement for
 the actor API. It separates scheduling, handler installations and owned
 values. The actor request/reply API has been removed. [Task operations](tasks.md)

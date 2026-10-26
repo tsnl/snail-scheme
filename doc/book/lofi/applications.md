@@ -2,7 +2,15 @@
 
 {{#include ../../language.md:applications}}
 
-## Live reload
+<a id="live-reload"></a>
+
+## Hot reload
+
+This section describes the current browser application implementation.
+The proposed [project workflow](toolchain.md#proposed-project-workflow) moves
+development watching to `lofi dev` and requires server and browser data to
+survive code replacement. It proposes storage as that boundary, while working
+state stays in RAM. The handover implementation below has not yet changed.
 
 `lofi serve APP-DIRECTORY` builds an application one library at a time,
 serves it at `http://127.0.0.1:8000/`, and builds it again whenever the
@@ -40,6 +48,21 @@ program again whenever its sources change, stopping a run still in
 progress once a new build succeeds. [The development
 toolchain](toolchain.md) describes how builds stay this fast, and the
 browser IDE that runs the same loop without a server.
+
+### Proposed persistence boundary
+
+The [typed state prototype](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/typed-state.md)
+proposes durable typed tables and disposable cached views. A view computes
+from one consistent database snapshot and explicit arguments. Ordinary startup
+opens the store and recreates platform resources; no application `resume`
+method or manual cache reconstruction is needed.
+
+Code replacement preserves committed records and discards view caches.
+Durable schema changes require explicit migration; view result types can change
+when their caches are discarded. Failed startup retains the database but does
+not promise to resume the old program automatically. Durable writes and view
+reconstruction still cost work. These are proposed changes; the save/restore
+implementation above remains until its replacement is reviewed and tested.
 
 ## Task lifetime
 

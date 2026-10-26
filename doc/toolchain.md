@@ -1,8 +1,17 @@
-# Toolchain: linking, live reload and the browser
+# Toolchain: linking, hot reload and development
 
-> **Status: implemented in #377,** on top of the live reload of #367,
+> **Status: implemented in #377,** on top of the hot reload of #367,
 > except where a section says *proposed*. The book's
 > [roadmap](book/roadmap.md) tracks what is left.
+>
+> The [project and development proposal](proposals/desktop-ide.md) puts project
+> builds, a shared file watcher and persistent compilation under `lofi dev`.
+> The editor subscribes independently; applications run as ordinary
+> subprocesses, preserving durable facts and deriving working state through
+> disposable views. The [state prototype](proposals/typed-state.md) remains
+> under review while independent IDE/project work proceeds. The commands and relink
+> behavior below describe the current implementation; browser-only IDE and
+> integrated preview work is dropped from the replacement plan.
 
 This document describes how Lofi programs are built, linked, reloaded and
 loaded during development, so that a rebuild costs as much as the edit
@@ -16,11 +25,13 @@ unchecked cast.
 1. Rebuild and reload in proportion to the edit, not to the program.
 2. Hot reload at the granularity of a module, keeping the application's
    state.
-3. Load compiled code while a program runs, for previews inlaid in the
-   IDE's editor panes, plugins and `generate-library` producers.
+3. Load compiled code while a program runs, including `generate-library`
+   producers.
 4. The development loop written in Lofi and Rust, with hosts that only
    perform I/O.
-5. The whole debug toolchain running in a browser.
+5. The current implementation runs the whole debug toolchain in a browser.
+   The proposed `dev` keeps a native incremental compiler alive and gives
+   the editor file/build subscriptions.
 
 ## 2. Where a rebuild's time goes
 
@@ -126,9 +137,8 @@ table, would add to every call across libraries.
 
 `(lofi wasm)` is `dlopen` and `dlsym`. It loads a module from a file,
 linked against the runtime, the program's own modules and the modules
-loaded before it, by name, so one inlaid preview can import an earlier
-one. A function the module exports comes out as a `Funcref`, and
-`unsafe-cast` makes it a function of the type the context expects:
+loaded before it, by name. A function the module exports comes out as a
+`Funcref`, and `unsafe-cast` makes it a function of the type the context expects:
 
 ```scheme
 (let* ((cell (load-module "cell" "build/cell.wasm"))
@@ -257,7 +267,7 @@ redefinition, as an edit does.
 
 `make ide` packages the browser IDE as a static site in `build/ide`
 (`scripts/build-ide.scm`), with Siegework as the project it opens until the
-developer opens a folder. The page is laid out as Zed is: a narrow toolbar
+developer opens a project directory. The page is laid out as Zed is: a narrow toolbar
 along the top, a file browser docked on the left, a binary tree of editor
 panes, and the running application docked on the right.
 
@@ -265,7 +275,7 @@ panes, and the running application docked on the right.
 | --- | --- |
 | Compiler and loop | `src/ide/develop.sld`, the loop of `bootstrap/develop.sld` compiled one library at a time and linked in a worker. |
 | Files | The worker holds them: the standard library, the project as the editor has it, unsaved edits included, and what builds write. The program handles `(lofi io)`'s `fs` effect with a `files` effect that the worker implements, so the compiler opens files as it does from a disk. The loop keeps only the modules of the latest build and the one before. |
-| Projects | Text files by relative path in local storage, from a folder opened from disk. Where the browser offers the File System Access API, saving writes back to the folder, whose handle survives a reload in IndexedDB. |
+| Projects | Text files by relative path in local storage, from a project directory opened from disk. Where the browser offers the File System Access API, saving writes back to that directory, whose handle survives a reload in IndexedDB. |
 | Assembler | The `wat` crate compiled to WebAssembly (`src/assembler`), which the desktop loop uses too, instead of `wasm-as`. |
 | Formatter | `(lofi format)`, which reproduces `scripts/format-scheme` on every file in the repository, compiled to its own module (`src/ide/format.sld`) and run on the page's thread. Tab and Enter indent as Emacs does; saving formats the file. Its lexer also classes each character for highlighting, of the lines in view only, read from the start of their top-level form. |
 | Diagnostics | A failed build's message starts with the place the compiler means; the IDE puts a squiggle under the expression there. |
@@ -278,11 +288,15 @@ Section 2 gives the worker's build times; text crosses to the worker a
 character at a time, which makes its first build slower than the desktop's.
 `tests/browser/ide.mjs` packages `tests/apps/counter` and, in headless
 Chromium, relinks an edit with the count kept, checks a squiggle, Tab and
-format-on-save, splits a pane, and opens a folder.
+format-on-save, splits a pane, and opens a project directory.
 
 ## 8. What is left
 
-The book's [roadmap](book/roadmap.md) lists the open work: the build cache
+The book's [terms](book/lofi/terms.md#toolchain-terms) distinguish a project
+from a workspace, and incremental compilation from restart and hot reload.
+The [roadmap](book/roadmap.md) lists the open work: the build cache
 on disk, interfaces as generated headers, `(lofi wasm)` in browsers,
-previews inlaid in the IDE, a native host for the loop, closures in the
-state, and release builds in a browser.
+a native host for the loop, closures in the state, and the proposed
+[project and development workflow](proposals/desktop-ide.md). Integrated and
+inlaid previews, virtual browser routing and a browser-only development
+backend are not part of that plan.

@@ -7,9 +7,9 @@ is an R7RS program with the same behavior. Languages are libraries: the
 compiler is a Lofi program, and Scheme itself is offered as libraries over
 the typed language.
 
-The chapters describe what the compiler implements today:
+The chapters describe implemented behavior and mark proposed toolchain changes:
 
-- [Terms](terms.md): programs, libraries and the forms of the language.
+- [Terms](terms.md): programs, libraries, language forms and toolchain names.
 - [Types](types.md): scalars, data, typeclasses, effects and dynamic values.
 - [Macros and Scheme libraries](macros.md): hygienic macros, generated
   libraries and Scheme on Lofi.
@@ -19,6 +19,6 @@ The chapters describe what the compiler implements today:
 - [Application model](applications.md): interactive applications in the
   browser.
 - [Development toolchain](toolchain.md): building one library at a time,
-  live reload, and the browser IDE.
+  hot reload, the current browser IDE and the proposed project workflow.
 - [Notable omissions](omissions.md): what was left out, and why.
 - [References](references.md): influences and further reading.
