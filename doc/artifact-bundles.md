@@ -106,6 +106,14 @@ inputs. Stderr carries diagnostics only. Nested producer compiles own separate
 scratch directories but inherit the same bound resolver, which is restored
 when its dynamic scope exits.
 
+The resident native compiler consumes the pending request directly after a
+trusted exit and returns it in `CompilerFailure.request`; no request file is
+written or parsed. Each invocation clears pending state before work. Artifact
+replies still use Lofi's printer and input loader. Expected diagnostic exits
+preserve the instance, but return no successor Session. Servicing inputs and
+retrying happen outside the compiler call. The shared project builder will
+connect this boundary to cold and development traversal.
+
 ## Project traversal
 
 Each invocation parses the project once and binds one resolver around the
