@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {connect, Server, Socket} from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
-import {createTcp} from '../scripts/tcp.mjs';
+import {createTcp} from '../host/native/tcp.mjs';
 
 const signal = new AbortController().signal;
 const watchdog = setTimeout(() => { console.error('TCP test did not release its resources'); process.exit(1); }, 20_000);

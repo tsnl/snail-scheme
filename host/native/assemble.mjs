@@ -1,8 +1,8 @@
-// Drives the in-process assembler (src/assembler) built for wasm32-wasip1:
+// Drives the in-process assembler (crates/assembler) built for wasm32-wasip1:
 // WebAssembly text in, a binary module out, without Binaryen. It uses only
 // the WebAssembly API, so the development loop's hosts, in Node and in the
 // IDE's worker, import it alike. It keeps its own few WASI functions: the
-// IDE's site copies it beside src/app/load.mjs, but here it lives in
+// IDE's site copies it beside host/browser/load.mjs, but here it lives in
 // scripts/, and no one relative import finds load.mjs from both places.
 
 // ---- Platform ----

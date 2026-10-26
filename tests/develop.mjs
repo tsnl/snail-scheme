@@ -4,10 +4,10 @@
 //
 // `./scripts/lofi-tool serve` builds a copy of tests/apps/counter, one module per library,
 // and serves it with the reload client. The test plays the page's part with
-// the browser host's own code: it links the modules (src/app/load.mjs),
+// the browser host's own code: it links the modules (host/browser/load.mjs),
 // adds to the counter, edits the greeting, sees from the event that only
 // the program's own module was compiled again, relinks from it and hands
-// over the state as a page does (src/app/host.mjs). Only the modules of the
+// over the state as a page does (host/browser/host.mjs). Only the modules of the
 // last two builds stay. A broken edit reports a failed build that keeps the
 // last good manifest. Then `./scripts/lofi-tool watch` runs a program again after an edit.
 import assert from 'node:assert/strict';
@@ -18,9 +18,9 @@ import {cp, mkdtemp, open, readFile, readdir, rm, writeFile} from 'node:fs/promi
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {screenImports} from '../src/app/host.mjs';
-import {createRuntime, applicationEntry} from '../src/app/runtime.mjs';
-import {createWasi, linkProgram, readEvent, readManifest, relinkProgram, runProgram} from '../src/app/load.mjs';
+import {screenImports} from '../host/browser/host.mjs';
+import {createRuntime, applicationEntry} from '../host/browser/runtime.mjs';
+import {createWasi, linkProgram, readEvent, readManifest, relinkProgram, runProgram} from '../host/browser/load.mjs';
 import {until} from './browser/chromium.mjs';
 
 const PRESS = 9;
@@ -31,7 +31,7 @@ const root = process.argv[2];
 // Starts `lofi COMMAND ...` and collects what it prints, so a test can wait
 // for a line to appear.
 function start(args, env = process.env) {
-  const child = spawn('node', ['--no-warnings', join(root, 'scripts/develop.mjs'), root, ...args], {env, stdio: ['ignore', 'pipe', 'pipe']});
+  const child = spawn('node', ['--no-warnings', join(root, 'host/native/develop.mjs'), root, ...args], {env, stdio: ['ignore', 'pipe', 'pipe']});
   const process = {child, text: ''};
   child.stdout.on('data', chunk => { process.text += chunk; });
   child.stderr.on('data', chunk => { process.text += chunk; });

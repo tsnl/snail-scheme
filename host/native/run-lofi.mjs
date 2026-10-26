@@ -4,9 +4,9 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
-import {linkProgram, wasmImports} from '../src/app/load.mjs';
-import {programEntry} from '../src/app/entry.mjs';
-import {createScheduler, taskImports} from '../src/app/tasks.mjs';
+import {linkProgram, wasmImports} from '../browser/load.mjs';
+import {programEntry} from '../browser/entry.mjs';
+import {createScheduler, taskImports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
 import {socketImports} from './socket-imports.mjs';
@@ -14,7 +14,7 @@ import {socketImports} from './socket-imports.mjs';
 // ---- One reactor initialization and one program invocation ----
 //
 // A program is one linked module, or a modules.json naming the modules of a
-// program compiled one library at a time (src/app/load.mjs). Either may
+// program compiled one library at a time (host/browser/load.mjs). Either may
 // load modules while it runs, through (lofi wasm); a linked module links
 // only against what the program kept exported, which for one linked module
 // is nothing of the runtime's.

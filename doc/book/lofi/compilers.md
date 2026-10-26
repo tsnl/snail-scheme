@@ -154,7 +154,7 @@ Sessions retain compilation evidence, not a build's providers or files. The
 ## Linking
 
 A module imports each function of another library by the library's name,
-and the loader (`src/app/load.mjs`) instantiates the runtime, then the
+and the loader (`host/browser/load.mjs`) instantiates the runtime, then the
 modules in program order, so every module comes after those it imports
 from. Calls across libraries are direct calls to imported functions.
 
@@ -278,7 +278,7 @@ no request file is written or parsed. Each invocation clears pending request and
 diagnostic state before work. Trusted exits preserve the instance but return no
 successor Session. Both cold project builds and `dev` use this boundary.
 
-Only `scripts/project.mjs` resolves named browser targets, including during
+Only `host/native/project.mjs` resolves named browser targets, including during
 producer compilation. It passes each completed target's canonical file inventory
 to `addArtifact`, which reads the bytes once and returns an opaque immutable
 input table. A failed read returns no replacement; the preceding table remains
@@ -294,7 +294,7 @@ Applications embed the bytes and need no runtime file access.
 ## Resident compiler boundary
 
 `bootstrap/compiler.sld` exposes this compiler to a resident native caller.
-`scripts/compiler.mjs` owns one Wasm instance and returns parsed project and
+`host/native/compiler.mjs` owns one Wasm instance and returns parsed project and
 input-request records, static text, or modular text with a successor Session.
 JavaScript retains Sessions and immutable artifact inputs as opaque typed
 references; it cannot inspect them and must keep them with their originating compiler
@@ -338,13 +338,13 @@ discards the IR. It returns no emitted code or publishable candidate.
 | Path | Responsibility |
 | --- | --- |
 | `src/lofi/compiler/driver.sld`, `bootstrap/compile.sld` | Typed source invocation shared by both hosts; compilation and post-exit request publication are separate entries. |
-| `host/chibi/compile.scm`, `scripts/run-compiler.mjs` | Process unwind boundaries; publish missing-input requests only after trusted exit. |
+| `host/chibi/compile.scm`, `host/native/run-compiler.mjs` | Process unwind boundaries; publish missing-input requests only after trusted exit. |
 | `host/chibi/lofi/build.sld`, `scripts/link.scm` | Bootstrap, standalone generated libraries, tool builds and Binaryen/runtime linking policy. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
 | `host/chibi/lofi/process.sld` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. This avoids Chibi 0.12 pipe-finalizer and sequential pipe-draining failures. |
-| `src/runtime/` | Rust scalar services: math, Unicode, float text, console and file IO, panics. External resources use explicit handles; managed references remain engine-traced. |
-| `src/assembler/`, `scripts/assemble.mjs` | The `wat` crate compiled to Wasm for in-process text assembly. Programs do not carry the assembler. |
-| `scripts/run-lofi.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading and the task scheduler. JSPI stacks remain finite. |
-| `lib/`, `host/chibi/lofi/` | The typed standard library and its separate stage-0 host implementations. Chibi never loads `lib/`. |
+| `crates/runtime/` | Rust scalar services: math, Unicode, float text, console and file IO, panics. External resources use explicit handles; managed references remain engine-traced. |
+| `crates/assembler/`, `host/native/assemble.mjs` | The `wat` crate compiled to Wasm for in-process text assembly. Programs do not carry the assembler. |
+| `host/native/run-lofi.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading and the task scheduler. JSPI stacks remain finite. |
+| `src/`, `host/chibi/lofi/` | Every Lofi library, the compiler among them, and the separate stage-0 implementations of the three it imports. Chibi prepends each `-I`, so `host/chibi` comes last and those three shadow the typed ones. |
 
 Project traversal and publication belong to the [project builder](projects.md),
 watching and editor services to the [development toolchain](toolchain.md), and

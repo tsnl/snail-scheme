@@ -25,7 +25,7 @@
   (let ((entry (assq name options))) (if entry (cdr entry) default)))
 
 (define (directories root options)
-  (append (reverse (map cdr (filter-library options))) (list (path-join root "lib"))))
+  (append (reverse (map cdr (filter-library options))) (standard-directories root)))
 
 (define (filter-library options)
   (let loop ((options options) (out '()))
@@ -62,7 +62,7 @@
     (quotient status 256)))
 
 ;; The tools the development server runs, built if needed, as JSON for
-;; scripts/develop.mjs.
+;; host/native/develop.mjs.
 (define (print-tools tools)
   (write-string "{")
   (let loop ((tools tools) (first? #t))

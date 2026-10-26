@@ -42,7 +42,7 @@ try {
   const job = request(process.argv.slice(2)), result = await build(job);
   if (job.action === 'build') console.log(join(job.project, 'build', job.target));
   else if (job.action === 'run') process.execve(process.execPath, [process.execPath, '--no-warnings',
-    join(job.root, 'scripts/run-lofi.mjs'), join(result.directory, 'program.wasm'), ...result.args], process.env);
+    join(job.root, 'host/native/run-lofi.mjs'), join(result.directory, 'program.wasm'), ...result.args], process.env);
 }
 catch (error) {
   console.error(`lofi: ${error.message}`);

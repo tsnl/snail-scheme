@@ -32,7 +32,7 @@ const addStateField = (source, field) => edit(source, /\(height I32\)((?:\n   \(
 const directory = await mkdtemp(join(tmpdir(), 'lofi-reload-'));
 const app = join(directory, 'counter'), source = join(app, 'main.sld');
 await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
-const server = spawn('node', [join(root, 'scripts/develop.mjs'), root, 'serve', '--port', '0', app], {stdio: ['ignore', 'pipe', 'inherit']});
+const server = spawn('node', [join(root, 'host/native/develop.mjs'), root, 'serve', '--port', '0', app], {stdio: ['ignore', 'pipe', 'inherit']});
 let printed = '';
 server.stdout.on('data', chunk => { printed += chunk; process.stdout.write(chunk); });
 const browser = await openBrowser();

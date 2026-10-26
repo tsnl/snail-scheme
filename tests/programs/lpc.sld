@@ -1,4 +1,4 @@
-;; The LPC libraries against the packs checked in under lib/lpc: every sheet
+;; The LPC libraries against the packs checked in under src/lpc: every sheet
 ;; the catalog names exists, dressing refuses what no pack draws, layers come
 ;; in drawing order, heads are recolored ramp for ramp, and a pose picks the
 ;; strip a viewer should see.

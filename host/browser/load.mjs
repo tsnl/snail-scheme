@@ -3,7 +3,7 @@
 // one library at a time and relinking it from a rebuilt library, how Lofi
 // passes a host strings and commands, and reading what the development loop
 // tells pages. It decides nothing about what a program is for: the browser
-// host (host.mjs), the development loop's hosts and scripts/run-lofi.mjs
+// host (host.mjs), the development loop's hosts and host/native/run-lofi.mjs
 // build on it.
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
@@ -213,7 +213,7 @@ export function wasmImports(program, read) {
 // `command` calls the function `commands` has under the name with the
 // arguments and a number, and answers with its result, or 0. The `develop`
 // effect of src/lofi/develop.sld and the `page` effect of
-// src/app/reload.sld are bound this way.
+// host/browser/reload.sld are bound this way.
 export function commandImports(commands) {
   const strings = stagedStrings();
   return {
@@ -244,7 +244,7 @@ function stagedStrings() {
 // manifest of the latest build that succeeded, `(files ("NAME" "DIGEST")
 // ...) (modules ("LIBRARY" "FILE") ...)`: each file a page loads with its
 // digest, and the modules in program order. The reload client reads these
-// itself (src/app/reload.sld); JavaScript reads them here, a manifest as
+// itself (host/browser/reload.sld); JavaScript reads them here, a manifest as
 // {files, modules}, each a list of pairs.
 export function readEvent(text) {
   const [[kind, ...fields]] = readData(text);

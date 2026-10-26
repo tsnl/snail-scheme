@@ -6,12 +6,12 @@ import {mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSyn
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
-import {applicationProcess} from '../scripts/application-process.mjs';
+import {applicationProcess} from '../host/native/application-process.mjs';
 
 const root = process.argv[2], directory = mkdtempSync(join(tmpdir(), 'lofi-application-process-'));
 const fixture = join(directory, 'fixture'), cwd = join(directory, 'caller'), owners = [];
-mkdirSync(join(fixture, 'scripts'), {recursive: true}); mkdirSync(cwd);
-writeFileSync(join(fixture, 'scripts/run-lofi.mjs'), `
+mkdirSync(join(fixture, 'host/native'), {recursive: true}); mkdirSync(cwd);
+writeFileSync(join(fixture, 'host/native/run-lofi.mjs'), `
 import {existsSync, readFileSync} from 'node:fs';
 import {basename} from 'node:path';
 const mode = basename(process.argv[2]);

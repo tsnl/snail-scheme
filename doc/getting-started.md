@@ -192,8 +192,8 @@ prints `832040`. The second is the same program in Scheme, compiled through
 ```sh
 make test          # the formatter, the compiler, the programs and the games
 make check         # formatting
-cargo test --manifest-path src/runtime/Cargo.toml --offline
-cargo test --manifest-path src/assembler/Cargo.toml --offline
+cargo test --manifest-path crates/runtime/Cargo.toml --offline
+cargo test --manifest-path crates/assembler/Cargo.toml --offline
 make test-chibi    # the suite with the compiler's source running on Chibi
 make bootstrap     # the compiler rebuilt from Chibi alone, to a fixpoint
 make test-browser  # hot reload and the IDE in headless Chromium

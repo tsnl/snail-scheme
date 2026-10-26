@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {createWasi, instantiate, linkProgram, runProgram, programExports} from '../../src/app/load.mjs';
+import {createWasi, instantiate, linkProgram, runProgram, programExports} from '../../host/browser/load.mjs';
 
 let program, api, constructors, memory, number = 42;
 const seen = [], errors = [];

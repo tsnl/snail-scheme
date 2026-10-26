@@ -4,12 +4,12 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {setImmediate as turn} from 'node:timers/promises';
-import {createWasi, instantiate, linkProgram} from '../../src/app/load.mjs';
-import {programEntry} from '../../src/app/entry.mjs';
-import {createScheduler} from '../../src/app/tasks.mjs';
-import {createTcp} from '../../scripts/tcp.mjs';
-import {createUdp} from '../../scripts/udp.mjs';
-import {socketImports} from '../../scripts/socket-imports.mjs';
+import {createWasi, instantiate, linkProgram} from '../../host/browser/load.mjs';
+import {programEntry} from '../../host/browser/entry.mjs';
+import {createScheduler} from '../../host/browser/tasks.mjs';
+import {createTcp} from '../../host/native/tcp.mjs';
+import {createUdp} from '../../host/native/udp.mjs';
+import {socketImports} from '../../host/native/socket-imports.mjs';
 
 let program, api;
 const tcp = createTcp(), udp = createUdp(), reported = [];
