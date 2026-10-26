@@ -13,6 +13,8 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
 - [Types](types.md): scalars, data, typeclasses, effects and dynamic values.
 - [Macros and Scheme libraries](macros.md): hygienic macros, generated
   libraries and Scheme on Lofi.
+- [Bootstrap and self-hosting](bootstrap.md): the erasure property, the two
+  hosts and the stages that make the compiler compile itself.
 - [Libraries](libraries.md): the standard library and wire types.
 - [Projects and targets](projects.md): inert descriptions, output directories
   and embedded artifact bundles.
