@@ -26,9 +26,14 @@ All compiler modules live in `src/lofi/compiler/` and are written in typed
 Lofi: they import only `(lofi base)`, `(lofi table)` and `(lofi io)`, so the
 compiler can compile itself. Chibi Scheme runs the same source through
 `host/chibi/`, which implements those three libraries and erases the typed
-forms. `(lofi table)` is an immutable table, so a pass threads its tables
-as values where their scope is clear, such as the checker's local types,
-and keeps state that grows over a whole pass in a `Ref`.
+forms.
+
+Tables are immutable, so a pass can thread its state as a value rather than
+mutate it. How far each pass has gone differs: checking is a pure function of
+a program, while the expander and the backend still keep what grows over a
+pass in a `Ref`. Where a pass does thread state, its type says so — the
+checker's `check-library` has no `mut` in its row — and where it does not,
+the `Ref` is allocated by the pass and never escapes it.
 
 - **[`read.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/lofi/compiler/read.sld)** turns text into `Syntax`:
   atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
@@ -64,11 +69,20 @@ and keeps state that grows over a whole pass in a `Ref`.
   checked, constraints are only recorded; a group of functions quantifies
   the metavariables nothing else still mentions. Libraries are checked one
   at a time; when a library is checked, its literals default, and each
-  class constraint is solved once, filling its hole. Rows unify as sets with open tails. Matches are checked
-  with Maranget's usefulness algorithm. A function whose type forbids `mut`
-  may mutate storage it allocates; once types are final, nothing it can
-  reach from outside, its parameters, result or names it reads, may hold
-  mutable storage.
+  class constraint is solved once, filling its hole. Rows unify as sets with
+  open tails. Matches are checked with Maranget's usefulness algorithm.
+
+  The pass holds no mutable state. A `Checker` is plain data, threaded
+  through: each step takes one and hands back the one it learned in, so
+  `check-library`'s type is a pure function from a program to a typed one.
+  Its fields separate scope a sub-check may replace and the caller gets back
+  — locals, givens, the confining row — from what it learned, which flows
+  forward. One `resumed` says which is which.
+
+  It also decides where a function may mutate at all: a function whose type
+  forbids `mut` may still mutate storage it allocates, provided nothing it
+  can reach from outside — its parameters, its result, or a name it reads —
+  can hold mutable storage.
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/lofi/compiler/capabilities.sld)** establishes
   structural `Send` and `Sync` evidence from types and declared fields.
   The checker resolves these compiler-owned markers; user instances cannot
