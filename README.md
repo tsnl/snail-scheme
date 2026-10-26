@@ -25,7 +25,7 @@ Scheme runs its source to start the first bootstrap.
 nix-shell
 make fetch
 ./lofi run examples/fibonacci.sld
-./lofi compile -o fibonacci.wasm examples/fibonacci.sld
+./lofi compile -o build/fibonacci examples/fibonacci.sld
 ./lofi wat examples/effects.sld
 ./lofi watch examples/fibonacci.sld   # runs it again after each edit
 ```
