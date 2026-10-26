@@ -504,7 +504,14 @@
          (and (string=? (Pair-first a) (Pair-first b)) (bytes=? (Pair-second a) (Pair-second b)) (artifact-files=? rest-a rest-b)))
         (_ #f)))
 
-    ;; A library replayed adds what it added in the build before.
+    ;; A library replayed adds what it added in the build before. The
+    ;; generation handoff itself is already functional and is not here:
+    ;; `expand-program` takes the previous generation as an argument,
+    ;; `Context-predecessor` holds it read-only, and `program-with` unions
+    ;; persistent tables, so a replayed library's values alias the ones it
+    ;; produced before rather than being rebuilt. What mutates is only this
+    ;; generation's accumulating program, which every `add-*!` in this module
+    ;; shares; see the issue for threading it.
     (: replay! (-> Context Expanded Exports ! mut))
     (define (replay! cx entry)
       (ref-set! (Context-program cx) (program-with (program cx) (Expanded-delta entry)))
