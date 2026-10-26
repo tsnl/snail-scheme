@@ -123,6 +123,11 @@ function commands(loop) {
     'list-directory'([directory, output]) { files.set(output, encoder.encode(listing(files, directory))); },
     'make-directory'() {},
     'remove-file'([path]) { files.delete(path); },
+    'rename-file'([from, to]) {
+      if (!files.has(from)) throw new Error(`${from}: no such file`);
+      files.set(to, files.get(from));
+      files.delete(from);
+    },
   };
 }
 
@@ -130,7 +135,7 @@ const toolchain = new URL('toolchain/', import.meta.url);
 const fetchBytes = async url => new Uint8Array(await (await fetch(url)).arrayBuffer());
 
 // The library's and the project's files go in before the loop starts,
-// which builds first.
+// which schedules its first build after setup.
 async function startLoop({library, project}) {
   const loop = {errors: '', files: new Map()};
   for (const [path, text] of Object.entries(library)) loop.files.set(path, encoder.encode(text));

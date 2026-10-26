@@ -3,8 +3,9 @@
 ;;   develop ROOT RUNTIME CLIENT serve PORT APP-DIRECTORY
 ;;   develop ROOT RUNTIME CLIENT watch SOURCE DIRECTORY ... -- ARGUMENT ...
 ;;
-;; the loop of (lofi develop), which builds first, with the files of the
-;; machine it runs on, and its events from scripts/develop.mjs.
+;; the loop of (lofi develop), with the machine's files and events from
+;; scripts/develop.mjs, running in scripts/develop-worker.mjs. It installs
+;; watches and schedules its initial build through the existing timer event.
 (import
  (lofi base)
  (lofi develop))
