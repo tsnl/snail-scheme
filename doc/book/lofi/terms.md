@@ -1,6 +1,86 @@
 # Terms
 
-{{#include ../../language.md:terms}}
+## Programs and libraries
+
+A program is a file of `import` forms followed by definitions and expressions,
+which run in order. A library is an R7RS `define-library` with `import`,
+`export` and `begin` sections, stored at a path that matches its name:
+`(sample geometry)` lives in `sample/geometry.sld` under a search directory.
+Import sets may use `only`, `except`, `prefix` and `rename`.
+
+```scheme
+(import
+ (lofi base)
+ (lofi io))
+
+(: fibonacci (-> I64 I64))
+(define (fibonacci n)
+  (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
+
+(display (fibonacci 30))
+(newline)
+```
+
+`src/` is always on the search path. `./scripts/lofi-tool run -I DIR program.sld` adds more.
+
+A library file may instead hold a `generate-library` recipe: a program whose
+value is the library's `define-library` form, as a `Syntax` from
+`(lofi syntax)`. The compiler builds and runs it first:
+
+```scheme
+(generate-library (sample table)
+  (import
+   (lofi base)
+   (lofi syntax))
+  (library-syntax (list "sample" "table")
+                  (list "squares")
+                  (list (list "lofi" "base"))
+                  (list (form "define" (list (SymbolSyntax "squares")
+                                             (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))
+```
+
+The program writes the syntax as bytes that the compiler decodes, so no text
+is printed or parsed in between, and a `BytesSyntax` reaches the compiler
+as the bytes it holds. `datum->syntax` from `(lofi datum)` turns a Scheme
+datum into syntax. Every generated form is located at the recipe.
+
+## Forms
+
+| Form | Meaning |
+| --- | --- |
+| `(define name value)`, `(define (name param ...) body ...)` | Definition. |
+| `(lambda (param ...) body ...)` | Function with a fixed number of parameters. |
+| `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
+| `(begin form ...)` | A body: definitions and expressions in order. |
+| `(let ((name value) ...) body ...)`, `(let loop ((name value) ...) body ...)` | Local bindings and loops. |
+| `(match value (pattern body ...) ...)` | Pattern matching, checked for exhaustiveness and unreachable clauses. |
+| `(: name type)` | Signature for the following definition. |
+| `(ann expression type)` | Static type annotation. |
+| `(type-convert expression type)` | Converts to or from `Any`; a downcast is checked at run time. |
+| `(type-test expression type)` | Whether an `Any` holds a value of `type`, without trapping. |
+| `(struct (Name param ...) ((field type) ...))` | Record type. |
+| `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
+| `(type (Name param ...) type)` | Transparent alias. |
+| `(typeclass (Class param ...) (: method type) ...)` | Class of types with methods. |
+| `(instance (Class type ...) [(requires constraint ...)] (define ...) ...)` | Instance. |
+| `(effect Name ((operation type) ...) [(host "module" ((operation "symbol") ...))])` | Effect with operations and optional host defaults. |
+| `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`. |
+| `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
+| `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
+| `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
+
+`(lofi base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
+`or`, `do`, `list`, `string` and a variadic `string-append` as macros.
+
+### Bodies and scope
+
+Library and program top levels see all of their definitions, so top-level
+functions may be mutually recursive. A local body is sequential: a definition
+is visible to the forms after it, and a local function is also visible to
+itself. Write mutually recursive helpers at the top level.
+
+Functions have fixed arity. Where Scheme uses variadic procedures, Lofi
+uses macros (`list`, `string-append`) or lists.
 
 ## Toolchain terms
 

@@ -82,7 +82,8 @@ reload loop. The [typed-state API](doc/book/lofi/state.md) remains under review.
 - [The book](https://tsnl.github.io/snail-scheme/) gathers the guides below
   with the player's guide and tutorials; `make pages` builds it with the
   game into `build/pages`.
-- [The language guide](doc/language.md) describes the language as implemented.
+- [The language chapters](doc/book/lofi/index.md) describe terms, types,
+  macros and the standard library as implemented.
 - [The compiler architecture](doc/book/lofi/compilers.md) follows a program
   through the passes, linking and incremental caches.
 - [Projects and targets](doc/book/lofi/projects.md) defines inert descriptions,

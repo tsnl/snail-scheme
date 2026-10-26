@@ -17,7 +17,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   code lives only under `host/`: `chibi/` for stage 0, `native/` for Node,
   `browser/` for the page, `ide/` for the editor. Rust crates live in
   `crates/`. Surface macros expand away before checking. See
-  [the language guide](doc/language.md) and [the redesign](doc/redesign.md).
+  [the language chapters](doc/book/lofi/index.md) and [the redesign](doc/redesign.md).
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries

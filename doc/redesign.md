@@ -2,7 +2,7 @@
 
 > **Historical design, partly implemented.** [GitHub issues](https://github.com/tsnl/snail-scheme/issues)
 > track open work; section 7 records this design's implementation history.
-> The [language guide](language.md) and [compiler architecture](book/lofi/compilers.md)
+> The [language chapters](book/lofi/index.md) and [compiler architecture](book/lofi/compilers.md)
 > describe implemented behavior.
 
 This document designs Lofi as if starting over, then plans the path from the
