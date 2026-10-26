@@ -6,9 +6,13 @@ import {createProjectBuilder, discardProject} from './project.mjs';
 
 const builder = await createProjectBuilder(workerData);
 
-function crashed(error) {
-  for (; error; error = error.cause) if (error instanceof CompilerCrashed) return true;
-  return false;
+function failureDiagnostic(error) {
+  let diagnostic = null;
+  for (let cause = error; cause; cause = cause.cause) {
+    if (cause instanceof CompilerCrashed) throw error;
+    diagnostic ??= cause.diagnostic;
+  }
+  return diagnostic ?? {severity: 'error', message: error.message, source: null};
 }
 
 function build({id, prefix}) {
@@ -19,9 +23,8 @@ function build({id, prefix}) {
     parentPort.postMessage({id, description, candidate, diagnostics: []});
   } catch (error) {
     if (candidate) discardProject(candidate); // A failed handoff retains ownership here.
-    if (crashed(error)) throw error;
     parentPort.postMessage({id, description, candidate: null,
-      diagnostics: [{severity: 'error', message: error.message}]});
+      diagnostics: [failureDiagnostic(error)]});
   }
 }
 

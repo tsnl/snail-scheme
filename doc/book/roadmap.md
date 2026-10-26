@@ -155,8 +155,10 @@ remains under review:
 - [x] Replace browser project/build ownership with `lofi dev` for one project.
   Preserve formatting and splits; subscribe to native file/build updates. Keep
   drafts through conflicting external changes, delayed replies and file deletion.
-- [ ] Expose structured compiler locations for editor squiggles; current build
-  diagnostics are full messages, with no UI parser for source coordinates.
+- [x] Preserve structured compiler source points through the resident boundary,
+  including failing artifact dependencies and generated source. The editor opens
+  matching project files and marks saved buffers without parsing error prose.
+  Full source spans and multiple-error recovery remain separate work.
 - [x] Replace application build scripts with inert `project.datum` forms such as
   `build-target` and `run-target`. Every build target produces one output
   directory through `lofi build PROJECT TARGET`. This changes the compiler/CLI
@@ -175,39 +177,40 @@ remains under review:
 - [x] Replace stderr work requests with typed request/reply datums. The native
   builder retains artifact replies across compiler restarts and keeps a bound
   resolver active through producer compilation. Scratch directories are exclusive.
-- [ ] Keep compiler sessions alive under `dev`. One shared watcher drives
+- [x] Keep compiler sessions alive under `dev`. One shared watcher drives
   compilation from saved files and notifies the editor, including after
   external tools write files. Publish fresh diagnostics for every attempt.
   Omit unsaved build overlays and source-tree snapshot infrastructure.
 - [x] Move the existing native incremental loop to one persistent compiler
   worker. HTTP and watches remain responsive during compilation; startup
   installs watches before the first build and shutdown closes owned resources.
-  Project sessions, shared subscriptions and fresh attempt diagnostics follow.
+  Project sessions, shared subscriptions and fresh attempt diagnostics use this
+  execution boundary too.
 - [x] Keep generated-library and artifact providers local to each compiler
   invocation. Persistent sessions retain cache evidence without keeping an old
   build's provider closures or captured state alive.
 - [x] Expose the resident compiler through parsed native records and opaque
   Session values. Share the request/reply providers with the command-line
   compiler, capture diagnostics per call and retire instances on arbitrary
-  traps. Shared project traversal and development integration follow.
+  traps. Shared project traversal and development use the same boundary.
 - [x] Replace the separate Chibi project builder with one native builder for
   cold and incremental output. Keep successful Sessions per target, regenerate
   producers, and return private candidates before publication. Failed parents
   preserve dependency outputs; publication failure retains its completed prefix.
-  Connect this builder to the persistent worker and shared watcher next.
+  The persistent worker and shared watcher use this builder too.
 - [x] Provide one disk observer with independent subscriptions, metadata
   reconciliation and watch recovery. Explicit exclusions keep output/data
   directories separate; caller policy decides which observed paths need builds.
-  Connect it to project attempts and file-service subscriptions next. Metadata
+  Project attempts and editor file updates share its subscriptions. Metadata
   polling detects ordinary local writes, not every change on coarse or unusual
   filesystems.
 - [x] Connect project compilation to a persistent native worker and shared
   observer. Retain parsed inputs even after a failed build; reconcile and reject
   observed superseded candidates before publication. Clear diagnostics at each
   attempt, preserve accepted outputs and clean abandoned worker namespaces.
-  The native API is tested; CLI, file-service and application launch integration
-  follow. Current diagnostic records carry severity/message; expose structured
-  source spans at the compiler boundary before editor squiggles.
+  The native API, CLI and file service are connected. Diagnostics carry severity,
+  message and an optional compiler source point. Application launch integration
+  remains open.
 - [x] Make cold tool builds independent of Chibi 0.12's pipe-descriptor
   finalizers. Native command capture uses private output files and a constant
   redirection script with positional arguments, including in the test runner.

@@ -37,6 +37,11 @@
    datum->string
    syntax->string
    compile-error
+   SourceDiagnostic
+   SourceDiagnostic-loc
+   SourceDiagnostic-message
+   clear-compile-error!
+   take-compile-error!
    read-text
    decode-syntax)
   (import
@@ -139,10 +144,38 @@
     (define (loc->string loc)
       (string-append (Loc-file loc) ":" (i64->string (Loc-line loc)) ":" (i64->string (Loc-column loc))))
 
-    ;; Every pass reports a source error through this one procedure.
+    ;; ---- Source failures ----
+
+    (struct SourceDiagnostic
+      ((loc Loc)
+       (message String)))
+
+    (: source-diagnostic (Ref (Option SourceDiagnostic)))
+    (define source-diagnostic (ref (None)))
+
+    (: clear-compile-error! (-> Unit ! mut))
+    (define (clear-compile-error!)
+      (ref-set! source-diagnostic (None)))
+
+    (: take-compile-error! (-> (Option SourceDiagnostic) ! mut))
+    (define (take-compile-error!)
+      (let ((diagnostic (ref-get source-diagnostic)))
+        (clear-compile-error!)
+        diagnostic))
+
+    ;; Every pass reports a source error here. This unsafe bridge deliberately
+    ;; records a value on a non-returning path without changing every pure
+    ;; pass's signature. The native boundary consumes it after abandoning the
+    ;; invocation; it is observable there (and through Chibi guards), not pure.
+    ;; One serial compiler instance owns the cell. Reset it before each entry;
+    ;; only the trusted terminal exit permits taking it. It never classifies
+    ;; traps or producer requests, and is never an ambient last-syntax pointer.
     (: compile-error (All (A) (-> Loc String A)))
     (define (compile-error loc message)
-      (panic (string-append (loc->string loc) ": " message)))
+      (unsafe-total
+       (lambda ()
+         (ref-set! source-diagnostic (Some (SourceDiagnostic loc message)))
+         (panic (string-append (loc->string loc) ": " message)))))
 
     ;; ---- Line table ----
 
@@ -544,7 +577,19 @@
         (expect (map syntax->string (read-text "#u8(0 137 255) #u8( )" "t")) (list "#u8(0 137 255)" "#u8()"))
         (expect (guard (failure (#t (error-object-message failure))) (read-text "#u8(1 256)" "t"))
                 "t:1:7: a byte is an integer from 0 to 255")
+        (test-source-diagnostic)
         (test-decode-syntax))
+
+      (define (test-source-diagnostic)
+        (clear-compile-error!)
+        (expect (guard (failure (#t (error-object-message failure))) (read-text "😀 )" "λ😀.sld"))
+                "λ😀.sld:1:3: unexpected closing parenthesis")
+        (expect (take-compile-error!) (Some (SourceDiagnostic (Loc "λ😀.sld" 1 3) "unexpected closing parenthesis")))
+        (expect (take-compile-error!) (None))
+        (guard (failure (#t (unit))) (read-text "(" "discarded.sld"))
+        (clear-compile-error!)
+        (read-text "()" "recovered.sld")
+        (expect (take-compile-error!) (None)))
 
       ;; (f "λ" -7 1.5 #\a #t #u8(0 200)), with a two-byte count for λ.
       (define (test-decode-syntax)
@@ -555,5 +600,8 @@
           (expect (guard (failure (#t (error-object-message failure))) (decode-syntax (list->vector (list 0 2 1 1 102)) loc))
                   "recipe.sld:3:4: malformed generated syntax: it ends early")
           (expect (guard (failure (#t (error-object-message failure))) (decode-syntax (list->vector (list 2 1 120)) loc))
-                  "recipe.sld:3:4: malformed generated syntax: the number x does not read as one")))))
+                  "recipe.sld:3:4: malformed generated syntax: the number x does not read as one")
+          (match (take-compile-error!)
+            ((Some diagnostic) (expect (SourceDiagnostic-loc diagnostic) loc))
+            ((None) (expect "missing generated source diagnostic" "diagnostic")))))))
    (else)))

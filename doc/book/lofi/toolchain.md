@@ -108,9 +108,11 @@ explicitly. Saving while typing preserves the later typing as unsaved text.
 Deleted dirty files remain available to copy, and an empty project is supported.
 
 Every compilation starts with fresh diagnostic messages while keeping valid
-compiler caches. The UI currently displays full messages; structured locations
-and squiggles follow in a separate compiler change. Build requests compilation
-explicitly; unsaved edits are never sent to the compiler.
+compiler caches. Compiler-provided locations open the matching project file and
+mark the source point in saved buffers without conflicts. Unsaved drafts suppress
+these marks. Generated source and external libraries keep their actual locations
+in the message panel. The compiler still stops at its first error. Build requests
+compilation explicitly; unsaved edits are never sent to the compiler.
 
 `dev` currently builds and edits. Use existing `serve`/`watch` for application
 execution and reload until those move into this service. The editor has no

@@ -34,7 +34,8 @@ and keeps state that grows over a whole pass in a `Ref`.
   over a vector of characters; a line table recovers line and column only
   when a location is needed. It also decodes the bytes a `generate-library`
   producer writes, the encoding `(lofi syntax)` defines, straight into
-  `Syntax`. `compile-error` reports every diagnostic.
+  `Syntax`. `compile-error` preserves the source point and message at terminal
+  failure; the resident caller resets and consumes this private diagnostic cell.
 - **[`core.sld`](src/lofi/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
@@ -134,7 +135,7 @@ runtimes and application processes.
 | `src/lofi/project.sld` | Parses inert `project.datum` through the compiler's located reader. Returns typed program/browser builds and resolved program run targets, with lexical path and duplicate checks. It does no file IO, expansion or building. |
 | `src/lofi/compiler/inputs.sld` | Parses and prints the two concrete native compiler requests (generated syntax and named artifacts) and artifact-file replies. Missing inputs are recorded in memory; host entries publish requests after unwinding. The native builder supplies them and retries in exclusively owned scratch. Stderr carries only diagnostics. |
 | `lib/lofi/artifact.sld` | Ordinary artifact-file/bundle structs and the hygienic `artifact-bundle` macro. The expander consumes immutable file inputs and retains exact evidence for cache reuse. Project builds supply named browser targets. |
-| `bootstrap/compiler.sld`, `scripts/compiler.mjs` | The resident compiler boundary: parsed project/request records, static text and modular builds with opaque Session values. The native wrapper captures fresh diagnostics per call and retires the instance after arbitrary traps. Traversal, retries, publication and watching remain caller responsibilities. |
+| `bootstrap/compiler.sld`, `scripts/compiler.mjs` | The resident compiler boundary: parsed project/request records, static text and modular builds with opaque Session values. The native wrapper captures fresh requests and source diagnostics per call and retires the instance after arbitrary traps, including reset/projection failures. Traversal, retries, publication and watching remain caller responsibilities. |
 | `scripts/project.mjs` | One native project traversal and packager for static and incremental builds. Owns the resident compiler, successful per-target Sessions, generated-input retries and private candidate directories. Detects cycles through producers, packages self-contained output and enumerates immutable artifact files. Publication and discard consume candidates; failed builds change no public outputs. |
 | `scripts/build.mjs`, `scripts/link.scm` | The cold CLI runs the shared builder in a worker and immediately publishes its candidate. The narrow Chibi linker entry retains `(lofi build)`'s existing Binaryen/runtime policy; only the final binary leaves scratch. |
 | `scripts/develop.mjs` | The native parent owns watchers, timers, HTTP/SSE and application children. It forwards events to one persistent compiler worker and performs its five asynchronous commands. Shutdown closes resources and prevents queued child replacement. |

@@ -54,16 +54,36 @@ try {
   write('main.sld', '(import (lofi base)) (first-missing)');
   const failed = await settled(first.id, 'failed');
   assert.match(failed.diagnostics[0].message, /first-missing/);
+  assert.deepEqual(failed.diagnostics[0].source, {file: join(project, 'main.sld'), line: 1, column: 23});
   assert.equal(fs.realpathSync(join(project, 'build/server')), initial, 'failure preserves accepted output');
   write('main.sld', '(import (lofi base)) (second-missing)');
   const failedAgain = await settled(failed.id, 'failed');
   assert.match(failedAgain.diagnostics[0].message, /second-missing/);
   assert.doesNotMatch(failedAgain.diagnostics[0].message, /first-missing/);
   write('main.sld', program('repaired'));
-  const repaired = await settled(failedAgain.id);
+  let repaired = await settled(failedAgain.id);
   assert.deepEqual(repaired.diagnostics, []);
   assert.ok(events.filter(event => event.phase === 'building').every(event => event.diagnostics.length === 0));
   assert.ok(observed.some(event => event.kind === 'changed' && event.paths.includes(join(project, 'main.sld'))));
+
+  // Artifact context must not overwrite a failing dependency's real source.
+  write('main.sld', '(import (lofi base) (lofi artifact)) (artifact-bundle "client")');
+  write('client.sld', '(import (lofi base)) (child-missing)');
+  const childFailure = await settled(repaired.id, 'failed');
+  assert.match(childFailure.diagnostics[0].message, /child-missing/);
+  assert.deepEqual(childFailure.diagnostics[0].source, {file: join(project, 'client.sld'), line: 1, column: 23});
+
+  // A generated producer is checked in its printed scratch source. Report that
+  // origin, never invent a point in the importing application or recipe.
+  write('bad.sld', '(generate-library (bad) (import (lofi base) (lofi syntax)) producer-missing)');
+  write('client.sld', '(import (lofi base)) (unit)');
+  write('main.sld', '(import (lofi base) (bad)) (unit)');
+  const producerFailure = await settled(childFailure.id, 'failed');
+  assert.match(producerFailure.diagnostics[0].message, /producer-missing/);
+  assert.ok(producerFailure.diagnostics[0].source.file.startsWith(join(root, 'build/lofi-run/')));
+  assert.ok(producerFailure.diagnostics[0].source.file.endsWith('.sld'));
+  write('main.sld', program('repaired'));
+  repaired = await settled(producerFailure.id);
 
   dev.requestBuild();
   const reused = await settled(repaired.id);
@@ -78,10 +98,12 @@ try {
   // directory must recover without another config/source write or Save event.
   write('project.datum', description('new-public'));
   const missingPublic = await settled(reused.id, 'failed');
+  assert.equal(missingPublic.diagnostics[0].source, null, 'packaging failures have no source point');
   write('new-public/index.html', '<!doctype html><title>recovered</title>');
   const recovered = await settled(missingPublic.id);
   write('project.datum', '(');
   const malformed = await settled(recovered.id, 'failed');
+  assert.deepEqual(malformed.diagnostics[0].source, {file: join(project, 'project.datum'), line: 1, column: 1});
   write('project.datum', description('new-public'));
   const restored = await settled(malformed.id);
 

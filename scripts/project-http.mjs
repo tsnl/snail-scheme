@@ -124,7 +124,7 @@ export async function serveProject({root, project, tools, port = 0}) {
     authorize(request, base, navigation);
     if (request.method === 'GET' && assets.has(url.pathname)) return serveAsset(response, assets.get(url.pathname));
     switch (`${request.method} ${url.pathname}`) {
-      case 'GET /api/project': return json(response, 200, {name: basename(files.project), files: files.list()});
+      case 'GET /api/project': return json(response, 200, {name: basename(files.project), directory: files.project, files: files.list()});
       case 'GET /api/file': return json(response, 200, files.read(path));
       case 'GET /api/events': return events(response);
       case 'POST /api/build':

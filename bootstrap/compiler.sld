@@ -43,7 +43,8 @@
    (output-run (-> Unit))
    (output-module (-> Bool Unit))
    (output-generate (-> Unit))
-   (output-artifact (-> I64 I64 Unit)))
+   (output-artifact (-> I64 I64 Unit))
+   (output-diagnostic (-> I64 I64 Unit)))
   (host "lofi.compiler"
         ((output-character "character")
          (output-end "end")
@@ -52,11 +53,26 @@
          (output-run "run")
          (output-module "module")
          (output-generate "generate")
-         (output-artifact "artifact"))))
+         (output-artifact "artifact")
+         (output-diagnostic "diagnostic"))))
 
 (: send-strings (-> (List String) Unit ! compiler-output))
 (define (send-strings strings)
   (for-each (lambda (text) (for-each output-character (string->list text)) (output-end)) strings))
+
+;; ---- Source failures ----
+
+;; The host calls this directly after a trusted terminal exit, before another
+;; invocation can reset the record. File cleanup does not invalidate WasmGC
+;; values. This emits no record for an IO failure or an input request.
+(: diagnostic! (-> Unit ! mut compiler-output))
+(define (diagnostic!)
+  (match (take-compile-error!)
+    ((Some diagnostic)
+     (let ((loc (SourceDiagnostic-loc diagnostic)))
+       (send-strings (list (SourceDiagnostic-message diagnostic) (Loc-file loc)))
+       (output-diagnostic (Loc-line loc) (Loc-column loc))))
+    ((None) (unit))))
 
 ;; ---- Parsed projects ----
 
@@ -124,6 +140,7 @@
 
 (: reset! (-> Unit ! mut))
 (define (reset!)
+  (clear-compile-error!)
   (take-input-request!)
   (unit))
 
@@ -155,6 +172,7 @@
     ((Cons relative (Cons path rest)) (Cons (Pair relative path) (file-pairs rest)))
     (_ (panic "compiler artifact: expected relative and backing path pairs"))))
 
+(expose diagnostic! "diagnostic")
 (expose input-character! "input_character")
 (expose input-end! "input_end")
 (expose project! "project")
