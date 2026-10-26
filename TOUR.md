@@ -107,7 +107,8 @@ and keeps state that grows over a whole pass in a `Ref`.
   and imports' interfaces are unchanged, and only libraries whose expansion
   changed are checked, specialized and emitted again. Cached emissions keep
   their monomorphic items so handler capture proofs can be rechecked against
-  current helper bodies without regenerating unchanged Wasm text.
+  current helper bodies without regenerating unchanged Wasm text. Input
+  providers are passed to each build; sessions do not retain their closures.
 - **[`compiler.sld`](src/lofi/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text, or to one module's text per library.
 

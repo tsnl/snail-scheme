@@ -97,6 +97,13 @@ and again, as the development loop does, keeping everything in memory:
   under the expansion they came from. A build checks, specializes and
   emits only the libraries whose expansion changed.
 
+`make-session` fixes its library directories. `build-session` receives the
+generated-library and artifact providers for that invocation. A returned
+session keeps only compilation evidence; it cannot retain a provider's expired
+scratch directory. Replacing a provider still replays cached artifact requests
+and compares their bytes before reusing expansion. A failed build returns no
+replacement session.
+
 So an edit to a function body with a signature recompiles one library. An
 edit to an interface recompiles the libraries that import it too. The
 loop assembles each changed module into a file named after a hash of its

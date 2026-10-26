@@ -181,6 +181,9 @@ remains under review:
   worker. HTTP and watches remain responsive during compilation; startup
   installs watches before the first build and shutdown closes owned resources.
   Project sessions, shared subscriptions and fresh attempt diagnostics follow.
+- [x] Keep generated-library and artifact providers local to each compiler
+  invocation. Persistent sessions retain cache evidence without keeping an old
+  build's provider closures or captured state alive.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.
