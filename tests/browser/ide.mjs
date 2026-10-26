@@ -93,16 +93,43 @@ try {
   assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").selectionStart'), unicode.replace(/\r\n/g, '\n').indexOf('5'));
   // A newer read must withdraw the previous point even before the next build
   // event arrives. Supply that HTTP observation independently of the watcher.
-  await browser.evaluate(`window.fetch = (...args) => String(args[0]).startsWith('/api/file?path=main.sld') && !args[1]?.method
-    ? Promise.resolve(new Response(JSON.stringify({text: ${JSON.stringify(program('newer observation'))}, revision: 'newer'})))
-    : window.actualFetch(...args);`);
+  await browser.evaluate(`window.newerReads = 0;
+    window.fetch = (...args) => {
+      if (String(args[0]).startsWith('/api/file?path=main.sld') && !args[1]?.method) {
+        window.newerReads++; return Promise.resolve(new Response(JSON.stringify({text: ${JSON.stringify(program('newer observation'))}, revision: 'newer'})));
+      } return window.actualFetch(...args); };`);
   await click('reload');
   await until(async () => (await text()).includes('newer observation'), 'newer baseline before build');
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
   assert.match(await browser.evaluate('document.getElementById("diagnostics").textContent'), /does not fit String/);
+  await browser.evaluate('document.getElementById("status").textContent = "Connection lost"; window.dispatchEvent(new Event("online"))');
+  await until(() => browser.evaluate('window.newerReads >= 3 && document.getElementById("status").textContent === "Build failed"'), 'replayed failure and fresh files');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'reconnect cannot rebind an old point to a newer read');
   await browser.evaluate('window.fetch = window.actualFetch');
   await click('reload');
   await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'matching observation restored');
+
+  // Save invalidates the old failure even if its successor build has not yet
+  // arrived. Keep the server status fixed while acknowledging the submitted text.
+  await browser.evaluate(`window.savedObservation = null; window.savedReads = 0;
+    window.fetch = (...args) => {
+      if (String(args[0]).startsWith('/api/file?path=main.sld')) {
+        if (args[1]?.method === 'PUT') window.savedObservation = {text: args[1].body, revision: 'saved'};
+        if (window.savedObservation) {
+          if (!args[1]?.method) window.savedReads++;
+          return Promise.resolve(new Response(JSON.stringify(window.savedObservation)));
+        }
+      } return window.actualFetch(...args); };`);
+  await click('save'); await saved();
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
+  await browser.evaluate('window.dispatchEvent(new Event("online"))');
+  await until(() => browser.evaluate('window.savedReads >= 3'), 'replay after acknowledged save');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'reconnect preserves Save invalidation');
+  await browser.evaluate('window.fetch = window.actualFetch');
+  await click('reload');
+  await until(async () => (await text()) === unicode.replace(/\r\n/g, '\n'), 'actual saved source');
+  await click('build');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'new failure replaces invalidation');
   assert.ok(await type('5', '"draft"'));
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'unsaved text has no compiled point');
   await browser.evaluate('window.confirm = () => true');
