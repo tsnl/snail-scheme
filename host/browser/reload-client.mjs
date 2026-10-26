@@ -1,5 +1,5 @@
 // The reload client's binding for the pages `./scripts/lofi-tool serve` serves
-// (reload.mjs). The client, src/app/reload.sld,
+// (reload.mjs). The client, host/browser/reload.sld,
 // runs as WebAssembly and decides what the page does about each build; this
 // file performs its commands with a notice over the page and what the page
 // gives it: how to fetch a style sheet again, relink its programs and save
@@ -69,7 +69,7 @@ function enter(client, entry, text, ...numbers) {
 
 // ---- Page commands ----
 
-// The `page` effect's commands, by the names src/app/reload.sld gives them.
+// The `page` effect's commands, by the names host/browser/reload.sld gives them.
 // A notice is lasting (0), a failure (1) or brief (2). The client asks for
 // one relink at a time.
 function pageCommands(client) {

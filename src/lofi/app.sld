@@ -227,7 +227,7 @@
     (: key-space I32)
     (define key-space 32)
 
-    ;; The kinds match the input encoding in src/app/host.mjs.
+    ;; The kinds match the input encoding in host/browser/host.mjs.
     (: decode-input (-> I32 I32 I32 I32 I32 Input))
     (define (decode-input kind a b c d)
       (case kind
@@ -676,7 +676,7 @@
       (for-each render-batch (Frame-batches frame))
       (frame-end))
 
-    ;; Kind 0 is perspective and 1 orthographic, as in src/app/renderer.mjs.
+    ;; Kind 0 is perspective and 1 orthographic, as in host/browser/renderer.mjs.
     (: render-camera (-> Camera Unit ! screen))
     (define (render-camera view)
       (let ((eye (Camera-eye view)) (target (Camera-target view)))
@@ -717,7 +717,7 @@
             (loop (+ index 4))))))
 
     ;; The style travels with every frame; the items only when the host lacks
-    ;; this version. Styles 0 to 2 match the `styles` of src/app/host.mjs.
+    ;; this version. Styles 0 to 2 match the `styles` of host/browser/host.mjs.
     (: render-batch (-> Batch Unit ! screen))
     (define (render-batch batch)
       (unless (match (Batch-style batch)
@@ -746,7 +746,7 @@
                       (Rect-x region) (Rect-y region) (Rect-width region) (Rect-height region) (Texture-frames texture) (Texture-period texture))))
           ((None) (surface (Material-metalness material) (Material-roughness material) turn -1 0 0 0 0 1 1)))))
 
-    ;; The order matches the meshes in src/app/renderer.mjs.
+    ;; The order matches the meshes in host/browser/renderer.mjs.
     (: mesh-index (-> Mesh I32))
     (define (mesh-index mesh)
       (match mesh
@@ -766,7 +766,7 @@
       (for-each render-panel panels)
       (hud-end))
 
-    ;; Places and corners match src/app/hud.mjs.
+    ;; Places and corners match host/browser/hud.mjs.
     (: render-panel (-> Panel Unit ! screen))
     (define (render-panel panel)
       (match (Panel-place panel)
@@ -787,7 +787,7 @@
     ;; A widget's kind and numbers, then its strings, each named by a field:
     ;; 0 key, 1 icon, 2 help, 3 badge, 4 text, 5 caption, 6 url, then each
     ;; span of a text, 7 normal or 8 strong. Kinds, tones and controls match
-    ;; src/app/hud.mjs, and fields src/app/host.mjs.
+    ;; host/browser/hud.mjs, and fields host/browser/host.mjs.
     (: render-widget (-> Widget Unit ! screen))
     (define (render-widget widget)
       (match widget

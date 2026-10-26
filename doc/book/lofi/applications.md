@@ -67,7 +67,7 @@ Read-only seed and canvas dimensions remain available to all tasks.
 
 ## Event and reload boundaries
 
-`src/app/runtime.mjs` owns an invocation's queue and storage bindings;
+`host/browser/runtime.mjs` owns an invocation's queue and storage bindings;
 `host.mjs` retains the canvas, renderer, pictures and HUD across invocations.
 DOM listeners enqueue input rather than calling Wasm. Consecutive moves for the
 same pointer and consecutive resizes coalesce without crossing other input.
@@ -97,7 +97,7 @@ A closure kept in the state can retain old code; applications storing functions
 must reconstruct them through save/restore when changing their implementation.
 Relinked module globals, including Scheme's top-level variable cells, start over.
 
-The reload client (`src/app/reload.sld`, bound by `reload-client.mjs`) compares
+The reload client (`host/browser/reload.sld`, bound by `reload-client.mjs`) compares
 manifests and relinks from the first changed module. It serializes relinks and
 keeps only the latest waiting build. A build becomes the page's current build
 only after acceptance. Missed events reconcile against the next complete
@@ -106,7 +106,7 @@ starts over.
 
 ## Native application process owner
 
-`scripts/application-process.mjs` implements ownership of one ordinary OS child
+`host/native/application-process.mjs` implements ownership of one ordinary OS child
 for one run target. The native development service, HTTP API and editor use it.
 The public `lofi run` command executes a cold
 project build with ordinary shell IO.

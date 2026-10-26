@@ -4,7 +4,7 @@
 ;;   develop ROOT RUNTIME CLIENT watch SOURCE DIRECTORY ... -- ARGUMENT ...
 ;;
 ;; the loop of (lofi develop), with the machine's files and events from
-;; scripts/develop.mjs, running in scripts/develop-worker.mjs. It installs
+;; host/native/develop.mjs, running in host/native/develop-worker.mjs. It installs
 ;; watches and schedules its initial build through the existing timer event.
 (import
  (lofi base)

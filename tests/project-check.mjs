@@ -6,7 +6,7 @@ import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {createProjectBuilder, projectTools} from '../scripts/project.mjs';
+import {createProjectBuilder, projectTools} from '../host/native/project.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
 const project = fs.mkdtempSync(join(tmpdir(), 'lofi-check-project-'));

@@ -2,8 +2,8 @@
 // promises: resolving a gate is not the same as entering its Wasm stack.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createAssembler} from '../../scripts/assemble.mjs';
-import {createScheduler, delay} from '../../src/app/tasks.mjs';
+import {createAssembler} from '../../host/native/assemble.mjs';
+import {createScheduler, delay} from '../../host/browser/tasks.mjs';
 
 const assemble = await createAssembler(await readFile(process.argv[2]));
 const module = await WebAssembly.compile(assemble(`(module

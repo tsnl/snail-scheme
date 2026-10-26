@@ -1,6 +1,6 @@
 # Scheduling and suspension
 
-`src/app/tasks.mjs` implements the scheduler shared by runtime adapters.
+`host/browser/tasks.mjs` implements the scheduler shared by runtime adapters.
 The [Lofi task API](tasks.md) and application event and storage waits use
 it in the CLI and browser. It uses one JavaScript execution agent and shipping
 JSPI; it does not create workers.

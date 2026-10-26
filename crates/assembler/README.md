@@ -9,7 +9,7 @@ calls.
 
 The crate is built for `wasm32-wasip1` as a reactor, apart from the runtime,
 so programs never carry it. `build-crate` in `host/chibi/lofi/build.sld`
-builds it, and `scripts/assemble.mjs` drives it through four exports over
+builds it, and `host/native/assemble.mjs` drives it through four exports over
 its linear memory:
 
 | Export | Meaning |
@@ -20,6 +20,6 @@ its linear memory:
 | `snail:assembler/output-length` (→ length) | How long it is. |
 
 ```sh
-cargo test --manifest-path src/assembler/Cargo.toml --offline
-cargo fmt --manifest-path src/assembler/Cargo.toml --all -- --check
+cargo test --manifest-path crates/assembler/Cargo.toml --offline
+cargo fmt --manifest-path crates/assembler/Cargo.toml --all -- --check
 ```

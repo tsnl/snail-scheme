@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import http from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {serveProject} from '../scripts/project-http.mjs';
-import {projectTools} from '../scripts/project.mjs';
+import {serveProject} from '../host/native/project-http.mjs';
+import {projectTools} from '../host/native/project.mjs';
 
 const root = process.argv[2], project = fs.mkdtempSync(join(tmpdir(), 'lofi-project-http-'));
 const source = join(project, 'main.sld'), pipe = join(project, 'slow.sld');
@@ -105,7 +105,7 @@ try {
   assert.match(page.text, /id="save"/);
   assert.equal((await request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'iframe'})).status, 403);
   assert.equal((await get('/main.sld')).status, 404, 'no arbitrary project files on the editor origin');
-  assert.equal((await get('/src/ide/ide.mjs')).status, 404, 'asset lookup is an allowlist');
+  assert.equal((await get('/host/ide/ide.mjs')).status, 404, 'asset lookup is an allowlist');
   const initial = await read(), first = service.development.status.id;
 
   // HTTP Save writes disk; only the independent observer schedules compilation.
@@ -184,7 +184,7 @@ try {
   fs.closeSync(writer); writer = null;
   await until(() => service.development.status.id > blocked && service.development.status.phase === 'succeeded');
   const manifest = join(service.development.status.published.targets[0].directory, 'modules.json');
-  const executed = spawnSync(process.execPath, ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), manifest], {encoding: 'utf8'});
+  const executed = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), manifest], {encoding: 'utf8'});
   assert.equal(executed.status, 0, executed.stderr);
   assert.equal(executed.stdout, 'edited during compilation\n');
 

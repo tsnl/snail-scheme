@@ -200,7 +200,7 @@
        (from Rect)
        (swaps (List (Pair I32 I32)))))
 
-    (define bases "lib/lpc/lpc-character-bases-v3_1")
+    (define bases "src/lpc/lpc-character-bases-v3_1")
 
     (: universal (-> String Sheet))
     (define (universal path)
@@ -224,7 +224,7 @@
     (: hair-sheet (-> Build HairStyle HairColor Sheet))
     (define (hair-sheet build style color)
       (let ((cut (match build ((Female) "female") ((Pregnant) "female") (_ "male"))))
-        (universal (string-append "lib/lpc/lpc-hair/hair/" (HairStyle-name style) "/" cut "/" (HairColor-name color) ".png"))))
+        (universal (string-append "src/lpc/lpc-hair/hair/" (HairStyle-name style) "/" cut "/" (HairColor-name color) ".png"))))
 
     ;; ---- Garments ----
 
@@ -292,7 +292,7 @@
 
     ;; Male pants come from wulax's original sprites, which draw them in one
     ;; greenish color on a sheet of walking rows alone.
-    (define male-pants (Sheet "lib/lpc/lpc_entry/png/walkcycle/LEGS_pants_greenish.png" (Rect 0 0 576 256) (Nil)))
+    (define male-pants (Sheet "src/lpc/lpc_entry/png/walkcycle/LEGS_pants_greenish.png" (Rect 0 0 576 256) (Nil)))
 
     ;; No pack draws teen footwear, but a teen's feet stand close enough to
     ;; a man's that the male sheets fit.
@@ -338,7 +338,7 @@
       (match (garment-drawing build garment)
         ((Some (Dyed folder drawn))
          (if (any? (lambda (other) (string=? (Dye-name other) (Dye-name dye))) dyes)
-             (Some (universal (string-append "lib/lpc/lpc-clothing-updates/spritesheets/" folder "/" (build-name drawn) "/" (Dye-name dye) ".png")))
+             (Some (universal (string-append "src/lpc/lpc-clothing-updates/spritesheets/" folder "/" (build-name drawn) "/" (Dye-name dye) ".png")))
              (None)))
         ((Some (Single only sheet)) (if (string=? (Dye-name only) (Dye-name dye)) (Some sheet) (None)))
         ((None) (None))))

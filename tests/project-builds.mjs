@@ -30,14 +30,14 @@ try {
 
   await assert.rejects(build('missing'), /unknown project build target/);
   assert.equal((await build('cli')).stdout.trim(), output('cli'), 'building does not run launch commands');
-  const executed = await execute(process.execPath, ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), join(output('cli'), 'program.wasm')]);
+  const executed = await execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), join(output('cli'), 'program.wasm')]);
   assert.equal(executed.stdout, 'hello project', 'entry and explicit library roots reach the existing compiler');
 
   await build('page');
   const first = await realpath(output('page'));
   assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><title>Project</title>');
   assert.deepEqual(await readFile(join(first, 'nested/data.bin')), Buffer.from([0, 255, 127]));
-  assert.equal(await readFile(join(first, 'host.mjs'), 'utf8'), await readFile(join(root, 'src/app/host.mjs'), 'utf8'));
+  assert.equal(await readFile(join(first, 'host.mjs'), 'utf8'), await readFile(join(root, 'host/browser/host.mjs'), 'utf8'));
 
   await rm(join(project, 'public/obsolete.txt'));
   await build('page');

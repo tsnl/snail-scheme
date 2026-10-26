@@ -8,8 +8,8 @@ import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createAssembler} from '../scripts/assemble.mjs';
-import {CompilerCrashed, CompilerFailure, createCompiler} from '../scripts/compiler.mjs';
+import {createAssembler} from '../host/native/assemble.mjs';
+import {CompilerCrashed, CompilerFailure, createCompiler} from '../host/native/compiler.mjs';
 
 const [program, assembler, runtime] = process.argv.slice(2);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -17,7 +17,7 @@ const directory = mkdtempSync(join(tmpdir(), 'lofi-compiler-'));
 const assemble = await createAssembler(readFileSync(assembler));
 const compiler = await createCompiler(program, join(directory, 'errors'));
 const empty = compiler.inputs();
-const libraries = [directory, join(root, 'lib')];
+const libraries = [directory, join(root, 'src'), join(root, 'guest')];
 let sequence = 0;
 const fresh = () => { const path = join(directory, String(sequence++)); mkdirSync(path); return path; };
 const write = (path, text) => { mkdirSync(dirname(path), {recursive: true}); writeFileSync(path, text); };
@@ -30,7 +30,7 @@ function execute(modules, expected, args = []) {
     return {name, file: wasm};
   });
   writeFileSync(manifest, JSON.stringify({runtime, modules: files}));
-  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), manifest, ...args], {encoding: 'utf8'});
+  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), manifest, ...args], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout + result.stderr, expected);
 }
@@ -89,7 +89,7 @@ try {
   // requests generated syntax again, even with its last successful Session.
   const generated = join(directory, 'generated.sld'), scratch = fresh();
   write(generated, '(import (lofi base) (lofi io) (sample table)) (write-line (i64->string (length squares)))');
-  const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'lib')];
+  const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'src'), join(root, 'guest')];
   const previous = compiler.session(generatedLibraries);
   const missing = failure(() => compiler.modules(previous, empty, generated, scratch), /compiler requires an input/);
   assert.equal(missing.diagnostic, null, 'input requests have no source-failure record');

@@ -9,8 +9,8 @@ import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import threads from 'node:worker_threads';
-import {developProject} from '../scripts/project-develop.mjs';
-import {projectTools} from '../scripts/project.mjs';
+import {developProject} from '../host/native/project-develop.mjs';
+import {projectTools} from '../host/native/project.mjs';
 
 const root = process.argv[2], parent = fs.mkdtempSync(join(tmpdir(), 'lofi-project-attempts-'));
 const project = join(parent, 'project'), gate = join(parent, 'gate');
@@ -24,7 +24,7 @@ async function until(test) {
   assert.fail('timed out waiting for project attempt');
 }
 function execute(directory) {
-  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
+  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   return result.stdout;
 }
