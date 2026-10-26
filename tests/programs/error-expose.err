@@ -1,1 +1,1 @@
-an exposed function takes and returns only scalars, Any and (Option Any)
+an exposed function cannot take or return an affine value

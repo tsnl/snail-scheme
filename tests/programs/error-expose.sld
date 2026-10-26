@@ -1,8 +1,8 @@
 (import
  (lofi base))
 
-(: names (-> I32 (List String)))
-(define (names count)
-  (Nil))
+(: use (-> (Once (-> Unit)) Unit))
+(define (use work)
+  (call-once work))
 
-(expose names "names")
+(expose use "use")

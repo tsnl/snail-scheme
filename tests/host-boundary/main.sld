@@ -1,9 +1,11 @@
 (import
- (lofi base))
+ (lofi base)
+ (boundary value))
 
 (extern note-text "snail.test" "text" (-> String I32))
 (extern note-bytes "snail.test" "bytes" (-> I32 Bytes I32))
 (extern hold-bytes "snail.test" "hold" (-> Bytes I32))
+(extern receive-managed "snail.test" "managed" (-> (Result Payload String)))
 
 (: checkpoint (Ref Any))
 (define checkpoint (ref (type-convert (ann 42 I64) Any)))
@@ -52,3 +54,28 @@
 (expose held "held")
 (expose discard "discard")
 (expose fail "fail")
+
+(: managed (-> (Result Payload String)))
+(define (managed)
+  (receive-managed))
+
+(: result-number (-> (Result Payload String) I32))
+(define (result-number value)
+  (match value
+    ((Ok payload) (Payload-number payload))
+    ((Err _) -1)))
+
+(: result-bytes (-> (Result Payload String) Bytes))
+(define (result-bytes value)
+  (match value
+    ((Ok payload) (Payload-bytes payload))
+    ((Err _) #u8())))
+
+(: inspect-bytes (-> Bytes I32))
+(define (inspect-bytes bytes)
+  (u8->i32 (vector-ref bytes 2)))
+
+(expose managed "managed")
+(expose result-number "result-number")
+(expose result-bytes "result-bytes")
+(expose inspect-bytes "inspect-bytes")
