@@ -144,6 +144,16 @@ try {
   write(source, '(import (lofi base))\n(');
   assert.deepEqual(failure(() => compiler.static(empty, source, wat, fresh(), libraries), /unclosed list/).diagnostic.source, {file: source, line: 2, column: 1});
 
+  // Session and artifact references keep distinct Wasm types. Passing one
+  // where the other belongs is a host trap, so the instance cannot be reused.
+  const wrongHandle = await createCompiler(program, join(directory, 'wrong-handle-errors'));
+  try {
+    const session = wrongHandle.session(libraries);
+    assert.throws(() => wrongHandle.static(session, source, wat, fresh(), libraries),
+      error => error instanceof CompilerCrashed && error.cause instanceof TypeError);
+    assert.throws(() => wrongHandle.inputs(), /compiler is closed/);
+  } finally { wrongHandle.close(); }
+
   // An arbitrary imported-function trap is terminal; it cannot be confused
   // with the trusted compiler's resource-cleaning diagnostic exit.
   const trapping = join(directory, 'trapping.wasm');

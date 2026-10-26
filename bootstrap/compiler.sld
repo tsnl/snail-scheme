@@ -1,5 +1,5 @@
 ;; A resident compiler's native boundary. JavaScript retains Session values
-;; and immutable artifact inputs as opaque Any references. It receives only
+;; and immutable artifact inputs as opaque typed references. It receives only
 ;; parsed records. Missing inputs are projected only
 ;; after the compiler unwinds, before native work starts.
 (import
@@ -110,32 +110,31 @@
 
 ;; ---- Compiler entries ----
 
-(: session! (-> Any ! mut))
+(: session! (-> Session ! mut))
 (define (session!)
-  (type-convert (make-session (take-arguments!)) Any))
+  (make-session (take-arguments!)))
 
-(: static! (-> Any Unit ! mut fs))
+(: static! (-> ArtifactInputs Unit ! mut fs))
 (define (static! inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch directories)))
-     (write-file output (compile->wat directories source (lambda (forms) (generated-syntax scratch forms)) (type-convert inputs ArtifactInputs))))
+     (write-file output (compile->wat directories source (lambda (forms) (generated-syntax scratch forms)) inputs)))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
 
-(: check! (-> Any Unit ! mut fs))
+(: check! (-> ArtifactInputs Unit ! mut fs))
 (define (check! inputs)
   (match (take-arguments!)
     ((Cons source (Cons scratch directories))
-     (check-source directories source (lambda (forms) (generated-syntax scratch forms)) (type-convert inputs ArtifactInputs)))
+     (check-source directories source (lambda (forms) (generated-syntax scratch forms)) inputs))
     (_ (panic "compiler check: expected source, scratch and library directories"))))
 
-(: modules! (-> Any Any Any ! mut fs compiler-output))
+(: modules! (-> Session ArtifactInputs Session ! mut fs compiler-output))
 (define (modules! previous inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch (Nil))))
-     (let ((built (build-session (type-convert previous Session) source
-                                 (lambda (forms) (generated-syntax scratch forms)) (type-convert inputs ArtifactInputs))))
+     (let ((built (build-session previous source (lambda (forms) (generated-syntax scratch forms)) inputs)))
        (for-each (lambda (module) (send-module output module)) (Pair-first built))
-       (type-convert (Pair-second built) Any)))
+       (Pair-second built)))
     (_ (panic "compiler modules: expected source, output and scratch directories"))))
 
 (: send-module (-> String Built Unit ! fs compiler-output))
@@ -164,20 +163,19 @@
 
 ;; ---- Immutable artifact inputs ----
 
-(: inputs (-> Any))
+(: inputs (-> ArtifactInputs))
 (define (inputs)
-  (type-convert no-artifacts Any))
+  no-artifacts)
 
 ;; The caller owns a canonical ordered inventory of completed output files.
 ;; Read them once; only a successful call exposes the replacement table.
-(: add-artifact! (-> Any Any ! mut fs))
+(: add-artifact! (-> ArtifactInputs ArtifactInputs ! mut fs))
 (define (add-artifact! previous)
   (match (take-arguments!)
     ((Cons name files)
-     (let ((inputs (type-convert previous ArtifactInputs)))
-       (match (table-ref inputs name)
-         ((Some _) (panic "compiler artifact: already provided"))
-         ((None) (type-convert (table-set inputs name (snapshot-files files)) Any)))))
+     (match (table-ref previous name)
+       ((Some _) (panic "compiler artifact: already provided"))
+       ((None) (table-set previous name (snapshot-files files)))))
     (_ (panic "compiler artifact: expected name and file pairs"))))
 
 (: snapshot-files (-> (List String) (List (Pair String Bytes)) ! fs))
