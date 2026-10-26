@@ -39,9 +39,9 @@ literal could have more than one type, as `(lofi app)` gives its key codes
 
 The following describes the current implementation. The
 [project and development proposal](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
-would replace its browser backend with `lofi dev`, remove the integrated
-preview and make the editor a client of the running development session.
-That design awaits review; the commands below have not changed.
+will replace its temporary browser backend with `lofi dev` and make the editor
+a client of the running development session. The integrated preview has been
+removed; the commands below have not changed.
 
 `make ide` packages an IDE as a static site in `build/ide`, with nothing to
 install and no server beyond one for static files:
@@ -54,14 +54,12 @@ $ python3 -m http.server --directory build/ide
 It opens Siegework until you open a project directory of your own; files stay
 in the browser's storage, and saving writes each file back to its directory
 where the browser allows it. The toolbar along the top toggles the file
-browser on the left and the running application on the right, and splits
-the editor panes. Code is highlighted as you type; Tab and Enter indent as
+browser on the left and splits the editor panes. Code is highlighted as you type; Tab and Enter indent as
 Emacs's Scheme mode does, and saving formats the file as `make check`
 expects. Each edit, saved or not,
 goes to the development loop running in a worker, compiler included: a
-build that fails puts a squiggle under what the compiler points at, and one
-that succeeds relinks the application, in 50 to 100 ms for an edit to one
-library of Siegework.
+build that fails puts a squiggle under what the compiler points at; a
+successful build clears the diagnostic. The editor does not run the application.
 
 ## Proposed project workflow
 

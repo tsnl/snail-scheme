@@ -1,6 +1,6 @@
 /* The IDE, laid out as Zed is: a narrow toolbar along the top, a file
-   browser docked on the left, the editor panes, and the preview docked on
-   the right. The editor's text area, its squiggle layer and its gutter share
+   browser docked on the left and editor panes. The editor's text area,
+   its squiggle layer and its gutter share
    one font and line height, so they line up. */
 :root { --background: #1e2127; --surface: #24282f; --raised: #2f343d; --line: #363c46; --text: #d7dae0; --muted: #8b93a1;
   --accent: #61afef; --error: #e06c75; --code: 13px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -18,11 +18,9 @@ button { font: inherit; color: inherit; }
 .status[data-state="failed"] { color: var(--error); cursor: pointer; }
 .status[data-state="built"], .status[data-state="saved"] { color: #98c379; }
 
-.workspace { --files-width: 220px; --preview-width: 42vw; display: grid; min-height: 0;
-  grid-template-columns: var(--files-width) 4px minmax(0, 1fr) 4px var(--preview-width); }
-.workspace.no-files { grid-template-columns: 0 0 minmax(0, 1fr) 4px var(--preview-width); }
-.workspace.no-preview { grid-template-columns: var(--files-width) 4px minmax(0, 1fr) 0 0; }
-.workspace.no-files.no-preview { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
+.project-layout { --files-width: 220px; display: grid; min-height: 0;
+  grid-template-columns: var(--files-width) 4px minmax(0, 1fr); }
+.project-layout.no-files { grid-template-columns: 0 0 minmax(0, 1fr); }
 .dock { min-width: 0; overflow: hidden; background: var(--surface); }
 .resizer { background: var(--line); cursor: col-resize; }
 .resizer:hover { background: var(--accent); }
@@ -84,5 +82,3 @@ button { font: inherit; color: inherit; }
 .hl-p { color: #7f848e; }
 .hl-q { color: #56b6c2; }
 .squiggle { text-decoration: underline wavy var(--error); text-decoration-skip-ink: none; text-underline-offset: 3px; }
-
-.preview iframe { display: block; width: 100%; height: 100%; border: 0; background: #10141c; }

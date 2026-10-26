@@ -1,10 +1,9 @@
 // The browser IDE: a toolbar above a file browser docked on the left, a tree
-// of editor panes, and the running application docked on the right. The
-// toolchain runs in a worker (toolchain.mjs), compiler included. Each edit,
+// of editor panes. The toolchain runs in a worker (toolchain.mjs), compiler
+// included. Each edit,
 // saved or not, goes to it, and each build's events come back: a failure
-// puts a squiggle under what the compiler points at, and the preview
-// (preview.mjs) relinks the application. Saving formats a source file,
-// keeps the project in storage, and writes the file back to its folder.
+// puts a squiggle under what the compiler points at. Saving formats a source
+// file, keeps the project in storage, and writes the file back to its folder.
 import {createEditor} from './editor.mjs';
 import {createFormatter} from './formatter.mjs';
 import {readEvent} from './load.mjs';
@@ -18,7 +17,7 @@ const [library, sample, formatter] = await Promise.all([
 const project = loadProject(sample);
 const folder = project.folder ? await recallFolder() : null;
 const worker = new Worker(new URL('./toolchain.mjs', import.meta.url), {type: 'module'});
-const status = document.getElementById('status'), preview = document.getElementById('preview');
+const status = document.getElementById('status');
 
 // ---- Buffers ----
 
@@ -124,17 +123,13 @@ function fileButton(name, path) {
 
 // ---- Builds ----
 
-// The loop's events (load.mjs reads them). The preview gets each one; a
-// failure whose message starts with a project file's place becomes that
-// file's diagnostic.
-let latestBuilt = null;
+// A failure whose message starts with a project file's place becomes that
+// file's diagnostic. Successful builds clear the preceding diagnostic.
 
 function received(text) {
-  preview.contentWindow?.postMessage({type: 'event', text}, '*');
   const event = readEvent(text);
   if (event.kind === 'building') setStatus('Building…', 'building');
   else if (event.kind === 'built') {
-    latestBuilt = text;
     showDiagnostic(null);
     setStatus(`Built in ${event.milliseconds} ms`, 'built');
   } else if (event.kind === 'failed') {
@@ -215,17 +210,16 @@ addEventListener('beforeunload', event => { if (!leaving && [...buffers.values()
 
 // ---- Layout ----
 
-function toggleDock(name) {
-  const hidden = document.querySelector('.workspace').classList.toggle(`no-${name}`);
-  document.getElementById(`toggle-${name}`).setAttribute('aria-pressed', String(!hidden));
+function toggleFiles() {
+  const hidden = document.querySelector('.project-layout').classList.toggle('no-files');
+  document.getElementById('toggle-files').setAttribute('aria-pressed', String(!hidden));
 }
 
-// Dragging a dock's edge sets its width.
-function dragResizer(event) {
-  const dock = event.target.dataset.dock, workspace = document.querySelector('.workspace');
+// Dragging the file browser's edge sets its width.
+function dragFiles(event) {
+  const layout = document.querySelector('.project-layout');
   const move = ({clientX}) => {
-    const width = dock === 'files' ? clientX : innerWidth - clientX;
-    workspace.style.setProperty(`--${dock}-width`, `${Math.max(120, Math.min(innerWidth * 0.7, width))}px`);
+    layout.style.setProperty('--files-width', `${Math.max(120, Math.min(innerWidth * 0.7, clientX))}px`);
   };
   const stop = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', stop); };
   event.preventDefault();
@@ -233,10 +227,10 @@ function dragResizer(event) {
   addEventListener('pointerup', stop);
 }
 
-for (const resizer of document.querySelectorAll('.resizer')) resizer.addEventListener('pointerdown', dragResizer);
+document.getElementById('files-resizer').addEventListener('pointerdown', dragFiles);
 const toolbar = {
-  'toggle-files': () => toggleDock('files'), 'open-folder': openFolder, format: () => formatPane(panes.active.editor),
-  'split-right': () => panes.split('row'), 'split-down': () => panes.split('column'), 'toggle-preview': () => toggleDock('preview'),
+  'toggle-files': toggleFiles, 'open-folder': openFolder, format: () => formatPane(panes.active.editor),
+  'split-right': () => panes.split('row'), 'split-down': () => panes.split('column'),
 };
 for (const [id, action] of Object.entries(toolbar)) {
   const button = document.getElementById(id);
@@ -245,12 +239,11 @@ for (const [id, action] of Object.entries(toolbar)) {
 }
 
 // Shortcuts take Ctrl, or Command on a Mac: S saves, Shift+F formats, B
-// toggles the files and Alt+B the preview, \ splits right and Shift+\ down.
-// The preview sends the chords pressed while it has the keys.
+// toggles the files, \ splits right and Shift+\ down.
 function shortcut({code, shiftKey, altKey}) {
   return code === 'KeyS' ? save
     : code === 'KeyF' && shiftKey ? toolbar.format
-      : code === 'KeyB' ? (altKey ? toolbar['toggle-preview'] : toolbar['toggle-files'])
+      : code === 'KeyB' && !altKey ? toolbar['toggle-files']
         : code === 'Backslash' ? (shiftKey ? toolbar['split-down'] : toolbar['split-right']) : null;
 }
 
@@ -263,21 +256,10 @@ addEventListener('keydown', event => {
 
 // ---- Starting ----
 
-// The preview asks to connect whenever it loads: it gets a port to the
-// worker and the latest build that succeeded.
-addEventListener('message', ({data, source}) => {
-  if (source !== preview.contentWindow) return;
-  if (data.type === 'chord') return shortcut(data)?.();
-  if (data.type !== 'preview-ready') return;
-  const channel = new MessageChannel();
-  worker.postMessage({type: 'connect'}, [channel.port1]);
-  preview.contentWindow.postMessage({type: 'connect', built: latestBuilt, storageKey: `lofi-ide:${project.name}`}, '*', [channel.port2]);
-});
 worker.onmessage = ({data}) => {
   if (data.type === 'event') received(data.text);
   else if (data.type === 'log') (data.error ? console.error : console.log)(data.text.trimEnd());
 };
 worker.postMessage({type: 'start', library, project: project.files});
-preview.src = './preview.html';
 renderFiles();
 setStatus('Starting the toolchain…', 'building');

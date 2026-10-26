@@ -116,7 +116,7 @@ function commands(loop) {
       try { files.set(module, loop.assemble(decoder.decode(files.get(text)))); return 0; }
       catch (error) { postMessage({type: 'log', text: error.message, error: true}); return 1; }
     },
-    serve([routes]) { loop.routes = JSON.parse(decoder.decode(files.get(routes))); },
+    serve() {},
     broadcast([event]) { postMessage({type: 'event', text: event}); },
     digest: ([path]) => digest(files.get(path)),
     now: () => Math.round(performance.now()) | 0,
@@ -145,9 +145,8 @@ async function startLoop({library, project}) {
 
 // The loop's arguments are those `lofi serve` passes (bootstrap/develop.sld):
 // the root is '', so the standard library is under /lib and builds write
-// under /build; the runtime is the one fetched here; and the reload client
-// is the preview's own, from the IDE's site, so the loop's route to
-// /reload.wasm is never asked for. What the loop prints goes to the page,
+// under /build; the runtime is the one fetched here. No page consumes the
+// loop's application routes or reload client. What the loop prints goes to the page,
 // and its standard error is kept for a panic's message.
 function loopWasi(loop) {
   return createWasi({args: ['develop', '', '/runtime.wasm', '/reload.wasm', 'serve', '0', '/project'], print: (fd, line) => {
@@ -158,33 +157,14 @@ function loopWasi(loop) {
 
 // ---- Messages ----
 
-// The routes the loop served map a page's request to a file, as a server's
-// would: the path's exact route, then each directory whose prefix it
-// starts with, in order, the first that has the file.
-function routeFile(loop, path) {
-  const exact = loop.routes.files.find(([route]) => route === path);
-  if (exact) return exact[1];
-  for (const [prefix, directory] of loop.routes.directories) {
-    const file = directory + path.slice(prefix.length);
-    if (path.startsWith(prefix) && loop.files.has(file)) return file;
-  }
-  return null;
-}
-
 // The IDE starts the loop and sends each change to a project file, saved or
-// not; its preview connects a port, through which it reads the files builds
-// write. Messages that arrive while the loop starts wait for it, in order.
+// not. Messages that arrive while the loop starts wait for it, in order.
 let started = null;
-onmessage = async ({data, ports}) => {
+onmessage = async ({data}) => {
   if (data.type === 'start') { started = startLoop(data); return; }
   const loop = await started;
   if (data.type === 'write') {
     loop.files.set(`/project/${data.path}`, encoder.encode(data.text));
     send(loop, CHANGED, `/project/${data.path}`);
-  } else if (data.type === 'connect') {
-    ports[0].onmessage = ({data: request}) => {
-      const file = routeFile(loop, request.path), bytes = file ? loop.files.get(file) : null;
-      ports[0].postMessage({id: request.id, bytes: bytes ?? null});
-    };
   }
 };

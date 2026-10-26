@@ -44,7 +44,7 @@ check:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
 
-# The browser IDE around Siegework as a static site in build/ide.
+# The browser editor opening Siegework as a project in build/ide.
 ide:
 	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-ide.scm "$(CURDIR)" apps/siegework build/ide
 
