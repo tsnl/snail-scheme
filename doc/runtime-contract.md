@@ -37,10 +37,12 @@ This is an ownership check, not a borrow checker.
 
 An owned value's lifetime ends at its last use, not the enclosing lexical
 scope. Moving into a task keeps it alive in that task. Deterministic
-resource cleanup is separate from tracing the managed storage: dropping a
-continuation must disarm its pending operation and initiate cancellation,
+resource cleanup is separate from tracing the managed storage: abandoning a
+pending one-shot continuation must disarm its operation and initiate cancellation,
 not merely release the allocation holding its captures. Unrestricted
 aliases cannot each independently destroy a shared resource at last use.
+Dropping one reference to a future reusable continuation does not cancel
+other retained invocations.
 
 `Send` means ownership may cross a thread boundary. `Sync` means shared
 access is safe across threads. Neither means serializable. The compiler
@@ -48,6 +50,10 @@ establishes these properties from representations and captures; users
 cannot assert them with an empty marker instance. Mutable aliased `Ref`
 and `Array`, opaque `Any`, and unclassified foreign references do not gain
 these properties just because this implementation uses one thread.
+Today's compiler checks types and captures structurally. Worker dispatch
+will also need proof that their emitted representations can be transferred;
+the [mixed memory draft](https://tsnl.github.io/snail-scheme/runtimes/memory-and-continuations.html) specifies
+that additional obligation. Current WasmGC values remain local.
 
 Local dispatch may retain values that are not `Send`. A task eligible for
 any worker must be `Send`. A reusable closure's signature alone does not
@@ -72,7 +78,7 @@ A handler implementation is distinct from an **installation** of that
 handler. Installations and their outer bindings belong to a computation.
 Suspending and resuming a computation preserves those bindings. Reusing
 handler code does not duplicate a control delimiter or permit two resumes
-of one continuation. Newly dispatched tasks inherit the current ordinary
+of one affine continuation. Newly dispatched tasks inherit the current ordinary
 bindings. Each task owns its binding vector; the reusable implementations
 may be shared. This preserves the dispatched closure's declared effects.
 It does not establish rules for cloning future control delimiters.
