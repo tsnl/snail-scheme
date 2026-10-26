@@ -1,8 +1,8 @@
 // One editor pane: a text area over syntax highlighting, with line numbers.
 // Panes share buffer objects containing a draft and a saved baseline. A null
 // buffer is empty; a null baseline is loading/unavailable and cannot be edited.
-// File-operation problems appear below the pane. Structured compiler source
-// locations will be added at the compiler boundary in a separate change.
+// File-operation problems appear below the pane. The parent supplies a
+// structured diagnostic point only when the buffer matches saved source.
 
 // ---- Panes ----
 
@@ -16,7 +16,7 @@ export function createEditor(formatter, actions) {
   textarea.addEventListener('focus', () => actions.focus(editor));
   textarea.addEventListener('scroll', () => {
     scrollLayers(parts);
-    if (!parts.frame) parts.frame = requestAnimationFrame(() => { parts.frame = null; drawHighlight(parts, editor.buffer?.text ?? '', schemeFile(editor.buffer)); });
+    if (!parts.frame) parts.frame = requestAnimationFrame(() => { parts.frame = null; drawHighlight(parts, textarea.value, schemeFile(editor.buffer)); });
   });
   parts.formatter = formatter;
   textarea.addEventListener('keydown', event => { if (schemeFile(editor.buffer)) keyDown(event, textarea, formatter); });
@@ -24,12 +24,17 @@ export function createEditor(formatter, actions) {
     show(buffer) { editor.buffer = buffer; editor.refresh(); },
     refresh() {
       textarea.disabled = !editor.buffer?.baseline;
-      const text = editor.buffer?.text ?? '';
+      const text = displayText(editor.buffer?.text ?? '');
       if (textarea.value !== text) setText(textarea, text);
-      draw(parts, editor);
+      draw(parts, editor, actions.diagnostic(editor.buffer));
     },
     focus() { textarea.focus(); },
     replaceAll(text) { replaceKeepingCaret(textarea, text); },
+    reveal(source) {
+      const raw = sourceOffset(editor.buffer.text, source), prefix = displayText(editor.buffer.text.slice(0, raw));
+      textarea.focus(); textarea.setSelectionRange(prefix.length, prefix.length);
+      textarea.scrollTop = Math.max(0, (prefix.split('\n').length - 5) * lineHeight(textarea));
+    },
     setActive(active) { parts.element.classList.toggle('active', active); },
   });
   return editor;
@@ -46,15 +51,15 @@ function paneParts(editor, actions) {
   header.append(title, ...buttons);
   const body = node('div', 'editor'), gutter = node('div', 'gutter'), gutterContent = node('div', 'gutter-content');
   const numbers = node('pre', 'numbers'), code = node('div', 'code');
-  const highlight = node('pre', 'highlight');
+  const highlight = node('pre', 'highlight'), marks = node('pre', 'marks');
   const textarea = Object.assign(node('textarea'), {spellcheck: false, wrap: 'off', autocapitalize: 'off'});
   gutterContent.append(numbers);
   gutter.append(gutterContent);
-  code.append(highlight, textarea);
+  code.append(highlight, marks, textarea);
   body.append(gutter, code);
   const problem = node('div', 'pane-problem');
   element.append(header, body, problem);
-  return {element, title, gutterContent, numbers, highlight, textarea, problem};
+  return {element, title, gutterContent, numbers, highlight, marks, textarea, problem};
 }
 
 function node(tag, className = '', text = '') {
@@ -63,17 +68,19 @@ function node(tag, className = '', text = '') {
 
 // ---- Drawing ----
 
+const displayText = text => text.replace(/\r\n?/g, '\n');
 const schemeFile = buffer => /\.(sld|scm|datum)$/.test(buffer?.path ?? '');
 
-function draw(parts, editor) {
+function draw(parts, editor, diagnostic) {
   const {buffer} = editor;
   parts.title.textContent = buffer ? buffer.path + (buffer.baseline && buffer.text !== buffer.baseline.text ? ' ●' : '') : 'Choose a file';
-  const text = buffer?.text ?? '', lines = buffer ? text.split('\n').length : 0;
+  const text = displayText(buffer?.text ?? ''), lines = buffer ? text.split('\n').length : 0;
   if (lines !== editor.lines) parts.numbers.textContent = Array.from({length: lines}, (_, index) => index + 1).join('\n');
   editor.lines = lines;
   drawHighlight(parts, text, schemeFile(buffer));
   parts.problem.textContent = buffer?.operationError || buffer?.problem || (buffer && !buffer.baseline ? 'Loading…' : '');
   parts.problem.hidden = !parts.problem.textContent;
+  drawDiagnostic(parts, buffer?.text ?? '', diagnostic);
   scrollLayers(parts);
 }
 
@@ -109,9 +116,29 @@ function topLevelStart(text, start) {
   return start;
 }
 
-function scrollLayers({textarea, gutterContent, highlight}) {
+// Compiler columns count Unicode scalar values; textarea offsets count UTF-16
+// code units. A point marks one scalar (or a space at EOF), never a guessed
+// expression range parsed from source or diagnostic prose.
+function sourceOffset(text, source) {
+  let offset = lineOffset(text, source.line);
+  for (let column = 1; column < source.column && offset < text.length && text[offset] !== '\n'; column++) {
+    offset += text.codePointAt(offset) > 0xffff ? 2 : 1;
+  }
+  return offset;
+}
+
+function drawDiagnostic({marks}, text, diagnostic) {
+  marks.replaceChildren();
+  if (!diagnostic) return;
+  const offset = sourceOffset(text, diagnostic.source), scalar = String.fromCodePoint(text.codePointAt(offset) ?? 32);
+  const mark = node('span', 'squiggle', scalar === '\n' || scalar === '\r' ? ' ' : scalar);
+  mark.title = diagnostic.message;
+  marks.append(displayText(text.slice(0, offset)), mark);
+}
+
+function scrollLayers({textarea, gutterContent, highlight, marks}) {
   gutterContent.style.transform = `translateY(${-textarea.scrollTop}px)`;
-  highlight.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+  for (const layer of [highlight, marks]) layer.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
 }
 
 function lineHeight(textarea) {

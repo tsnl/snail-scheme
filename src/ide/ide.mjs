@@ -4,9 +4,9 @@ import {createEditor} from './editor.mjs';
 import {createFormatter} from './formatter.mjs';
 import {createPanes} from './panes.mjs';
 
-const status = document.getElementById('status'), diagnostics = document.getElementById('diagnostics');
+const status = document.getElementById('status'), diagnosticPanel = document.getElementById('diagnostics');
 const buffers = new Map(), closedFolders = new Set();
-let project = {name: '', files: []}, listSequence = 0;
+let project = {name: '', directory: '', files: []}, listSequence = 0, diagnostics = [];
 const dirty = buffer => Boolean(buffer?.baseline && buffer.text !== buffer.baseline.text);
 const conflict = buffer => Boolean(buffer?.baseline && buffer.observed !== buffer.baseline.revision);
 const sourceFile = buffer => /\.(sld|scm|datum)$/.test(buffer?.path ?? '');
@@ -28,6 +28,7 @@ const formatter = await fetch('/format.wasm').then(response => {
 }).then(createFormatter).catch(error => { setStatus(error.message, 'failed'); throw error; });
 const panes = createPanes(document.getElementById('panes'), () => createEditor(formatter, {
   input: edited,
+  diagnostic: diagnosticFor,
   focus(editor) { panes.activateEditor(editor); renderFiles(); },
   split(editor, direction) { panes.activateEditor(editor); panes.split(direction); },
   close(editor) { panes.activateEditor(editor); panes.close(); renderFiles(); },
@@ -37,16 +38,19 @@ const panes = createPanes(document.getElementById('panes'), () => createEditor(f
 
 // A null baseline means no disk contents have been accepted yet. Selecting
 // this object is synchronous; an old read never changes a pane's selection.
-function openFile(path) {
+async function openFile(path, diagnostic) {
   let buffer = buffers.get(path);
   if (!buffer) {
     buffer = {path, text: '', baseline: null, observed: null, saving: false, readSequence: 0, problem: '', operationError: ''};
     buffers.set(path, buffer);
-    void refreshBuffer(buffer);
   }
-  panes.active.editor.show(buffer);
-  panes.active.editor.focus();
+  const editor = panes.active.editor;
+  editor.show(buffer);
   renderFiles();
+  if (!buffer.baseline || diagnostic) await refreshBuffer(buffer);
+  if (panes.active.editor !== editor || editor.buffer !== buffer) return;
+  editor.focus();
+  if (diagnostic && diagnosticFor(buffer) === diagnostic) editor.reveal(diagnostic.source);
 }
 
 function refreshEditors(buffer) {
@@ -71,7 +75,8 @@ async function refreshProject() {
     const current = await request('/api/project');
     if (sequence !== listSequence) return;
     project = current;
-    renderFiles();
+    renderDiagnostics();
+    refreshEditors(null);
     if (!buffers.size && project.files.length) openFile(project.files.includes('main.sld') ? 'main.sld' : project.files[0]);
   } catch (error) { if (sequence === listSequence) setStatus(error.message, 'failed'); }
 }
@@ -79,12 +84,18 @@ async function refreshProject() {
 async function refreshBuffer(buffer) {
   if (buffer.saving) return;
   const sequence = ++buffer.readSequence;
+  const diagnostic = diagnosticAt(buffer.path), observation = diagnostic?.observation;
   const current = () => sequence === buffer.readSequence && buffers.get(buffer.path) === buffer;
+  refreshEditors(buffer); // Starting a read withdraws the previous observation.
   try {
     const snapshot = await request('/api/file?path=' + encodeURIComponent(buffer.path));
     if (!current()) return;
     buffer.observed = snapshot.revision;
     if (!dirty(buffer)) { buffer.text = snapshot.text; buffer.baseline = snapshot; }
+    if (diagnosticAt(buffer.path) === diagnostic && diagnostic &&
+        (observation === undefined || observation?.revision === snapshot.revision)) {
+      diagnostic.observation = {revision: snapshot.revision, sequence};
+    }
     buffer.problem = conflict(buffer) ? 'Changed on disk. Your draft is kept; Reload discards it.' : '';
   } catch (error) {
     if (!current()) return;
@@ -111,6 +122,8 @@ async function save() {
   if (sourceFile(buffer)) formatPane(editor); // Formatting failure must not prevent saving an incomplete draft.
   const text = buffer.text, revision = buffer.baseline.revision;
   buffer.saving = true; buffer.readSequence++; buffer.operationError = '';
+  const diagnostic = diagnosticAt(buffer.path);
+  if (diagnostic) diagnostic.observation = null; // Save cannot rebind an earlier failure to its new text.
   refreshEditors(buffer);
   try {
     const snapshot = await request('/api/file?path=' + encodeURIComponent(buffer.path), {
@@ -208,9 +221,42 @@ function fileButton(name, path) {
 
 // ---- Builds ----
 
+// A point binds to a fresh editor read after its failure arrives. Later reads
+// withdraw it until they confirm that same revision; Save invalidates it.
+// This observation is not proof of the compiler's exact filesystem snapshot.
+// Generated scratch and library sources remain readable messages; they are
+// never silently mapped onto a project file.
+function sourcePath(source) {
+  const prefix = project.directory.endsWith('/') ? project.directory : project.directory + '/';
+  const path = source?.file.startsWith(prefix) ? source.file.slice(prefix.length) : null;
+  return project.files.includes(path) ? path : null;
+}
+
+const diagnosticAt = path => diagnostics.find(diagnostic => sourcePath(diagnostic.source) === path);
+
+function diagnosticFor(buffer) {
+  if (!buffer?.baseline || dirty(buffer) || conflict(buffer)) return null;
+  const diagnostic = diagnosticAt(buffer.path), observation = diagnostic?.observation;
+  return observation?.revision === buffer.baseline.revision && observation.sequence === buffer.readSequence ? diagnostic : null;
+}
+
+function renderDiagnostics() {
+  diagnosticPanel.replaceChildren(...diagnostics.map(diagnostic => {
+    const {source} = diagnostic, path = sourcePath(source);
+    const element = document.createElement(path ? 'button' : 'div');
+    const location = source ? `${path ?? source.file}:${source.line}:${source.column}: ` : '';
+    element.textContent = `${diagnostic.severity}: ${location}${diagnostic.message}`;
+    if (path) element.onclick = () => { void openFile(path, diagnostic); };
+    return element;
+  }));
+  diagnosticPanel.hidden = !diagnostics.length;
+}
+
 function received(current) {
-  const messages = current.diagnostics.map(diagnostic => `${diagnostic.severity}: ${diagnostic.message}`).join('\n');
-  diagnostics.textContent = messages; diagnostics.hidden = !messages;
+  diagnostics = current.diagnostics;
+  renderDiagnostics();
+  refreshEditors(null);
+  if (diagnostics.length) for (const buffer of buffers.values()) void refreshBuffer(buffer);
   const text = {starting: 'Starting the compiler…', building: 'Building…', succeeded: 'Built', failed: 'Build failed', fatal: 'Compiler stopped'};
   setStatus(text[current.phase] ?? current.phase, ['failed', 'fatal'].includes(current.phase) ? 'failed' : current.phase === 'succeeded' ? 'built' : current.phase);
   status.dataset.attempt = current.id;
