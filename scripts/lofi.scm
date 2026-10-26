@@ -1,9 +1,11 @@
 ;; The lofi command: compile, run, or print the WebAssembly text of a program.
 (import
  (scheme base)
+ (scheme cxr)
  (scheme process-context)
  (chibi process)
- (lofi build))
+ (lofi build)
+ (lofi project-build))
 
 ;; ---- Requests ----
 
@@ -33,6 +35,14 @@
           (else (loop (cdr options) out)))))
 
 ;; ---- Actions ----
+
+(define (perform-project-build root arguments)
+  (let* ((release? (and (pair? arguments) (string=? (car arguments) "--release")))
+         (paths (if release? (cdr arguments) arguments)))
+    (unless (= (length paths) 2) (error "usage: lofi build [--release] PROJECT TARGET"))
+    (write-string (build-project root (absolute (car paths)) (cadr paths) release?))
+    (newline)
+    0))
 
 (define (perform root options)
   (let ((source (option options 'source #f)) (action (option options 'action "run")))
@@ -75,4 +85,5 @@
   (exit (guard (failure (#t (report-failure "lofi" failure)))
           (cond ((equal? (cddr arguments) '("bootstrap")) (bootstrap! (cadr arguments)) 0)
                 ((equal? (cddr arguments) '("tools")) (print-tools (cadr arguments)))
+                ((and (pair? (cddr arguments)) (string=? (caddr arguments) "build")) (perform-project-build (cadr arguments) (cdddr arguments)))
                 (else (perform (cadr arguments) (request (cddr arguments))))))))

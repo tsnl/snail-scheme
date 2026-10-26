@@ -6,7 +6,7 @@ browser; the third prototype waits until both hold up.
 
 ```sh
 make site
-python3 -m http.server 4192 --directory build/hearsay
+python3 -m http.server 4192 --directory apps/hearsay/build/site
 ```
 
 Open `http://127.0.0.1:4192` in a browser with WebGPU and choose a

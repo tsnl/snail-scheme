@@ -9,7 +9,7 @@ browser only forwards input, draws frames and the HUD, and stores the save.
 
 ```sh
 make site
-python3 -m http.server 4191 --directory build/siegework
+python3 -m http.server 4191 --directory apps/siegework/build/site
 ```
 
 Open `http://127.0.0.1:4191` in a browser with WebGPU.

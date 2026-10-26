@@ -51,7 +51,7 @@ or build it:
 
 ```sh
 make site
-python3 -m http.server 4191 --directory build/siegework
+python3 -m http.server 4191 --directory apps/siegework/build/site
 ```
 
 While you change it, `./lofi serve apps/siegework` serves it at

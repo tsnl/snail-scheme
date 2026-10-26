@@ -360,7 +360,9 @@
     (: page-files (-> Loop String (List (Pair String String)) ! fs develop))
     (define (page-files loop app)
       (Cons (Pair "index.html" (i64->string (fnv-1a (app-page app))))
-            (append (file-digests loop (host-directory (Loop-root loop))) (file-digests loop (string-append app "/public")))))
+            (append (file-digests loop (host-directory (Loop-root loop)))
+                    (filter (lambda (file) (not (string=? (Pair-first file) "index.html")))
+                            (file-digests loop (string-append app "/public"))))))
 
     (: file-digests (-> Loop String (List (Pair String String)) ! fs develop))
     (define (file-digests loop directory)
@@ -370,7 +372,7 @@
     ;; as the IDE may open.
     (: app-page (-> String String ! fs))
     (define (app-page app)
-      (let ((path (string-append app "/index.html")))
+      (let ((path (string-append app "/public/index.html")))
         (if (file-exists? path) (read-file path) "<!doctype html>\n<meta charset=\"utf-8\">\n")))
 
     ;; The manifest the page was built from, and the reload client that

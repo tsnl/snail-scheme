@@ -5,5 +5,7 @@
 
 # Intermediate build files
 /build/
+/apps/*/build/
+/tests/apps/*/build/
 /src/runtime/target/
 /src/assembler/target/
