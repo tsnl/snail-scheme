@@ -12,6 +12,5 @@
 # ignore the name anywhere rather than listing each crate and each caller.
 target/
 
-# Scratch from local experiments, kept out of the tree by name.
+# Scratch from a local experiment, which nothing in the tree references.
 /wasm-native/
-/REVIEW.md
