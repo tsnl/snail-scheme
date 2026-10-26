@@ -30,7 +30,7 @@ if (isMainThread) {
 } else {
   const builder = await createProjectBuilder(workerData);
   try {
-    publishProject(builder.build([workerData.target], workerData.mode));
+    publishProject(builder.build(builder.describe(), [workerData.target], workerData.mode));
     parentPort.postMessage(join(workerData.project, 'build', workerData.target));
   } finally { builder.close(); }
 }

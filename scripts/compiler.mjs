@@ -8,6 +8,7 @@ import {WASI} from 'node:wasi';
 export class CompilerFailure extends Error {
   constructor(message, request) { super(message); this.request = request; }
 }
+export class CompilerCrashed extends Error {}
 
 // ---- Parsed records ----
 
@@ -92,10 +93,11 @@ export async function createCompiler(program, diagnostics) {
       const message = diagnostic || error?.message || `compiler exited with status ${exitCode}`;
       if (entered && name !== 'main' && error === exited && exitCode === 1) {
         records = [];
-        try { api.request(); } catch (failure) { retire(failure); }
+        try { api.request(); }
+        catch (failure) { retire(new CompilerCrashed('cannot read compiler request', {cause: failure})); }
         throw new CompilerFailure(message, records[0] ?? null);
       }
-      retire(new Error(message, {cause: error}));
+      retire(new CompilerCrashed(message, {cause: error}));
     }
   }
 
