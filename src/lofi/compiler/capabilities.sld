@@ -14,15 +14,11 @@
     (define (capability-class? name)
       (member? name (list "lofi.base:Send" "lofi.base:Sync")))
 
-    (: capability-type? (-> Program String Type (List Constraint) (List String) Bool ! mut))
+    (: capability-type? (-> Program String Type (List Constraint) (List String) Bool))
     (define (capability-type? program property type givens visiting)
       (or (any? (lambda (given) (and (string=? property (Constraint-class given))
                                      (types=? (list type) (Constraint-types given)))) givens)
           (match type
-            ((TVar _ cell)
-             (match (ref-get cell)
-               ((Some bound) (capability-type? program property bound givens visiting))
-               ((None) #f)))
             ((TCon name args)
              (and (not (member? name (list "Ref" "Array" "Any" "Funcref")))
                   (every? (lambda (arg) (capability-type? program property arg givens visiting)) args)
@@ -34,7 +30,7 @@
 
     ;; Arguments are checked before cutting a recursive declaration by name.
     ;; Thus List<Ref<I64>> cannot pass because List has been visited already.
-    (: capability-fields? (-> Program String Type (List Constraint) (List String) Bool ! mut))
+    (: capability-fields? (-> Program String Type (List Constraint) (List String) Bool))
     (define (capability-fields? program property type givens visiting)
       (match type
         ((TCon name args)
@@ -58,7 +54,6 @@
     (: affine-within? (-> Program Type (Ref (List String)) Bool ! mut))
     (define (affine-within? program type visiting)
       (match type
-        ((TVar _ cell) (match (ref-get cell) ((Some bound) (affine-within? program bound visiting)) ((None) #f)))
         ((TCon name args)
          (or (string=? name "Once")
              (any? (lambda (arg) (affine-within? program arg visiting)) args)

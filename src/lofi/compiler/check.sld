@@ -39,6 +39,7 @@
        (counter (Ref I64))
        (locals (Table Type))
        (schemes (Ref (Table Scheme)))
+       (solution (Ref Solution))
        (givens (Ref (List Constraint)))
        (pending (Ref (List Wanted)))
        (pending-count (Ref I64))
@@ -47,11 +48,37 @@
        (discharged (Ref Bool))
        (confined (Ref (List Expr)))))
 
+    ;; What checking has learned: each metavariable's identity to the type it
+    ;; stands for, and each evidence hole's to its evidence. A `Type` and an
+    ;; `Expr` are plain data, so reading one means reading it through a
+    ;; solution. `check-library` allocates one, refines it, and zonks it away
+    ;; before returning, so neither it nor a metavariable outlives the call.
+    (struct Solution
+      ((types (Table Type))
+       (evidence (Table Evidence))))
+
+    (: empty-solution Solution)
+    (define empty-solution (Solution empty-table empty-table))
+
+    ;; Identities are dense small integers from one counter, so a key is just
+    ;; its decimal text.
+    (: identity-key (-> I64 String))
+    (define (identity-key id)
+      (i64->string id))
+
+    (: solved-type (-> Solution I64 (Option Type)))
+    (define (solved-type solution id)
+      (table-ref (Solution-types solution) (identity-key id)))
+
+    (: solved-evidence (-> Solution I64 (Option Evidence)))
+    (define (solved-evidence solution id)
+      (table-ref (Solution-evidence solution) (identity-key id)))
+
     ;; A class constraint keeps the givens in scope where it arose.
     (enum Wanted
       (WantClass
        ((constraint Constraint)
-        (cell (Ref (Option Evidence)))
+        (hole I64)
         (givens (List Constraint))
         (loc Loc)))
       (WantLiteral
@@ -79,50 +106,63 @@
     (define (program-of ck)
       (Checker-program ck))
 
+    (: solution (-> Checker Solution ! mut))
+    (define (solution ck)
+      (ref-get (Checker-solution ck)))
+
+    ;; An affine query reads a type's structure, so it needs the solution
+    ;; applied first; a metavariable on its own is not known to be affine.
+    (: affine? (-> Checker Type Bool ! mut))
+    (define (affine? ck type)
+      (affine-type? (program-of ck) (resolve-type (solution ck) type)))
+
+    (: fresh-identity (-> Checker I64 ! mut))
+    (define (fresh-identity ck)
+      (let ((id (+ (ref-get (Checker-counter ck)) 1)))
+        (ref-set! (Checker-counter ck) id)
+        id))
+
     ;; ---- Metavariables and unification ----
 
     (: fresh-meta (-> Checker Type ! mut))
     (define (fresh-meta ck)
-      (let ((id (+ (ref-get (Checker-counter ck)) 1)))
-        (ref-set! (Checker-counter ck) id)
-        (TVar id (ref (None)))))
+      (TVar (fresh-identity ck)))
 
     (: meta? (-> Type Bool))
     (define (meta? type)
       (match type
-        ((TVar _ _) #t)
+        ((TVar _) #t)
         (_ #f)))
 
     (: same-meta? (-> Type Type Bool))
     (define (same-meta? a b)
       (match a
-        ((TVar id _) (match b ((TVar other _) (= id other)) (_ #f)))
+        ((TVar id) (match b ((TVar other) (= id other)) (_ #f)))
         (_ #f)))
 
-    ;; Follows bound metavariables, compressing the chain.
-    (: prune (-> Type Type ! mut))
-    (define (prune type)
+    ;; The type a metavariable stands for, following a chain of bindings.
+    ;; `bind?` always binds a pruned type, so a chain is short.
+    (: prune (-> Solution Type Type))
+    (define (prune solution type)
       (match type
-        ((TVar _ cell)
-         (match (ref-get cell)
-           ((Some bound)
-            (let ((target (prune bound)))
-              (ref-set! cell (Some target))
-              target))
+        ((TVar id)
+         (match (solved-type solution id)
+           ((Some bound) (prune solution bound))
            ((None) type)))
         (_ type)))
 
     (: unify (-> Checker Type Type Loc Unit ! mut))
     (define (unify ck expected actual loc)
       (unless (unify? ck expected actual)
-        (compile-error loc (string-append "type mismatch: expected " (type->string expected) ", found " (type->string actual)))))
+        (compile-error loc (string-append "type mismatch: expected " (type->string (resolve-type (solution ck) expected))
+                                          ", found " (type->string (resolve-type (solution ck) actual))))))
 
     (: unify? (-> Checker Type Type Bool ! mut))
     (define (unify? ck a b)
-      (let ((a (prune a)) (b (prune b)))
+      (let ((a (prune (solution ck) a)) (b (prune (solution ck) b)))
         (cond ((same-meta? a b) #t)
-              ((meta? a) (bind? a b))
-              ((meta? b) (bind? b a))
+              ((meta? a) (bind? ck a b))
+              ((meta? b) (bind? ck b a))
               (else (unify-structure? ck a b)))))
 
     (: unify-all? (-> Checker (List Type) (List Type) Bool ! mut))
@@ -148,33 +188,37 @@
            (_ #f)))
         (_ #f)))
 
-    (: bind? (-> Type Type Bool ! mut))
-    (define (bind? meta type)
-      (and (not (occurs? meta type))
-           (begin (ref-set! (TVar-cell meta) (Some type)) #t)))
+    (: bind? (-> Checker Type Type Bool ! mut))
+    (define (bind? ck meta type)
+      (and (not (occurs? (solution ck) meta type))
+           (begin (ref-set! (Checker-solution ck)
+                            (Solution (table-set (Solution-types (solution ck)) (identity-key (TVar-id meta)) type)
+                                      (Solution-evidence (solution ck))))
+                  #t)))
 
-    (: occurs? (-> Type Type Bool ! mut))
-    (define (occurs? meta type)
-      (let ((type (prune type)))
+    (: occurs? (-> Solution Type Type Bool))
+    (define (occurs? solution meta type)
+      (let ((type (prune solution type)))
         (match type
-          ((TVar _ _) (same-meta? type meta))
-          ((TCon _ args) (any? (lambda (arg) (occurs? meta arg)) args))
+          ((TVar _) (same-meta? type meta))
+          ((TCon _ args) (any? (lambda (arg) (occurs? solution meta arg)) args))
           ((TFun params result row)
-           (or (any? (lambda (param) (occurs? meta param)) params) (occurs? meta result) (occurs? meta row)))
-          ((TRow _ (Some tail)) (occurs? meta tail))
+           (or (any? (lambda (param) (occurs? solution meta param)) params)
+               (occurs? solution meta result) (occurs? solution meta row)))
+          ((TRow _ (Some tail)) (occurs? solution meta tail))
           (_ #f))))
 
     ;; ---- Effect rows ----
 
     ;; A row flattens to its labels and a tail: none when closed, otherwise a
     ;; rigid variable or an unbound metavariable.
-    (: flatten-row (-> Type (Pair (List String) (Option Type)) ! mut))
-    (define (flatten-row row)
-      (let ((row (prune row)))
+    (: flatten-row (-> Solution Type (Pair (List String) (Option Type))))
+    (define (flatten-row solution row)
+      (let ((row (prune solution row)))
         (match row
           ((TRow labels (None)) (Pair labels (None)))
           ((TRow labels (Some tail))
-           (let ((rest (flatten-row tail)))
+           (let ((rest (flatten-row solution tail)))
              (Pair (label-union labels (Pair-first rest)) (Pair-second rest))))
           (_ (Pair (Nil) (Some row))))))
 
@@ -195,16 +239,17 @@
     ;; labels only the other side has.
     (: unify-rows? (-> Checker Type Type Bool ! mut))
     (define (unify-rows? ck a b)
-      (let* ((left (flatten-row a)) (right (flatten-row b))
+      (let* ((left (flatten-row (solution ck) a)) (right (flatten-row (solution ck) b))
              (only-left (label-difference (Pair-first left) (Pair-first right)))
              (only-right (label-difference (Pair-first right) (Pair-first left)))
              (left-tail (Pair-second left)) (right-tail (Pair-second right)))
         (cond ((same-tail? left-tail right-tail) (and (null? only-left) (null? only-right)))
               ((and (meta-tail? left-tail) (meta-tail? right-tail))
                (let ((tail (Some (fresh-meta ck))))
-                 (and (bind? (tail-type left-tail) (TRow only-right tail)) (bind? (tail-type right-tail) (TRow only-left tail)))))
-              ((meta-tail? left-tail) (and (null? only-left) (bind? (tail-type left-tail) (TRow only-right right-tail))))
-              ((meta-tail? right-tail) (and (null? only-right) (bind? (tail-type right-tail) (TRow only-left left-tail))))
+                 (and (bind? ck (tail-type left-tail) (TRow only-right tail))
+                      (bind? ck (tail-type right-tail) (TRow only-left tail)))))
+              ((meta-tail? left-tail) (and (null? only-left) (bind? ck (tail-type left-tail) (TRow only-right right-tail))))
+              ((meta-tail? right-tail) (and (null? only-right) (bind? ck (tail-type right-tail) (TRow only-left left-tail))))
               (else #f))))
 
     (: tail-type (-> (Option Type) Type))
@@ -219,9 +264,9 @@
     ;; In a confining body, `mut` is discharged before either check.
     (: perform! (-> Checker Type Type Loc Unit ! mut))
     (define (perform! ck latent row loc)
-      (let* ((flat (flatten-row latent))
+      (let* ((flat (flatten-row (solution ck) latent))
              (labels (if (confining-row? ck row) (discharge-mut ck (Pair-first flat)) (Pair-first flat)))
-             (context (flatten-row row)))
+             (context (flatten-row (solution ck) row)))
         (unless (or (and (same-tail? (Pair-second flat) (Pair-second context))
                          (null? (label-difference labels (Pair-first context))))
                     (let ((tail (match (Pair-second flat) ((Some tail) tail) ((None) (fresh-meta ck)))))
@@ -237,12 +282,12 @@
     (: confining-row? (-> Checker Type Bool ! mut))
     (define (confining-row? ck row)
       (match (Pair (ref-get (Checker-confining ck)) row)
-        ((Pair (Some number) (TVar id _)) (= number id))
+        ((Pair (Some number) (TVar id)) (= number id))
         (_ #f)))
 
-    (: total? (-> Type Bool ! mut))
-    (define (total? row)
-      (null? (Pair-first (flatten-row row))))
+    (: total? (-> Solution Type Bool))
+    (define (total? solution row)
+      (null? (Pair-first (flatten-row solution row))))
 
     ;; ---- Instantiation ----
 
@@ -253,9 +298,9 @@
 
     (: want-class! (-> Checker Constraint Loc Evidence ! mut))
     (define (want-class! ck constraint loc)
-      (let ((cell (ref (None))))
-        (want! ck (WantClass constraint cell (ref-get (Checker-givens ck)) loc))
-        (EvHole cell)))
+      (let ((hole (fresh-identity ck)))
+        (want! ck (WantClass constraint hole (ref-get (Checker-givens ck)) loc))
+        (EvHole hole)))
 
     ;; A use of a variable: its type, the types its quantified variables
     ;; took, and the evidence for its constraints.
@@ -277,7 +322,7 @@
 
     (: open-row (-> Checker Type Type ! mut))
     (define (open-row ck type)
-      (match (prune type)
+      (match (prune (solution ck) type)
         ((TFun params result (TRow labels (None))) (TFun params result (TRow labels (Some (fresh-meta ck)))))
         (_ type)))
 
@@ -377,11 +422,13 @@
     (define (check-value ck expr type row)
       (match (Expr-term expr)
         ((Lambda params body)
-         (match (prune type)
+         (match (prune (solution ck) type)
            ((TFun param-types result body-row)
             (if (= (length params) (length param-types))
                 (let* ((inner (bind-locals ck params param-types))
-                       (body (if (forbids-mut? body-row) (check-confining-body inner body body-row (Expr-loc expr)) (infer inner body body-row)))
+                       (body (if (forbids-mut? (solution ck) body-row)
+                                 (check-confining-body inner body body-row (Expr-loc expr))
+                                 (infer inner body body-row)))
                        (value (Expr (Lambda params body) type (Expr-loc expr))))
                   (unify ck result (Expr-type body) (Expr-loc body))
                   (when (ref-get (Checker-discharged ck))
@@ -407,13 +454,13 @@
     (: meta-number (-> Type I64))
     (define (meta-number meta)
       (match meta
-        ((TVar id _) id)
+        ((TVar id) id)
         (_ -1)))
 
     ;; A row forbids `mut` unless it lists it or is open to more labels.
-    (: forbids-mut? (-> Type Bool ! mut))
-    (define (forbids-mut? row)
-      (let ((flat (flatten-row row)))
+    (: forbids-mut? (-> Solution Type Bool))
+    (define (forbids-mut? solution row)
+      (let ((flat (flatten-row solution row)))
         (not (or (member? "mut" (Pair-first flat)) (meta-tail? (Pair-second flat))))))
 
     (: infer-app (-> Checker Expr (List Expr) Type Loc Expr ! mut))
@@ -428,7 +475,7 @@
     ;; Arguments are compared one by one, so a mismatch names its argument.
     (: unify-call (-> Checker Type (List Expr) Type Type Loc Unit ! mut))
     (define (unify-call ck callee-type args result latent loc)
-      (match (prune callee-type)
+      (match (prune (solution ck) callee-type)
         ((TFun params callee-result row)
          (unless (= (length params) (length args))
            (compile-error loc (string-append "expected " (i64->string (length params)) " arguments, found "
@@ -437,7 +484,7 @@
                    (zip params args))
          (unify ck callee-result result loc)
          (unify ck row latent loc))
-        ((TVar _ _) (unify ck callee-type (TFun (map Expr-type args) result latent) loc))
+        ((TVar _) (unify ck callee-type (TFun (map Expr-type args) result latent) loc))
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
     ;; A function's own name is visible in its body, with a monomorphic type.
@@ -649,9 +696,9 @@
         (for-each (lambda (want) (default-literal! ck want #f)) pending)
         (for-each (lambda (want)
                     (match want
-                      ((WantLiteral value type loc) (check-literal value type loc))
+                      ((WantLiteral value type loc) (check-literal ck value type loc))
                       ((WantOmega type loc)
-                       (when (affine-type? (program-of ck) type)
+                       (when (affine? ck type)
                          (compile-error loc "a type variable requires an unrestricted type; this value is affine")))
                       (_ (unit))))
                   pending)
@@ -665,7 +712,7 @@
     (define (default-literal! ck want float?)
       (match want
         ((WantLiteral value type loc)
-         (when (and (float-literal? value float?) (meta? (prune type)))
+         (when (and (float-literal? value float?) (meta? (prune (solution ck) type)))
            (unify ck (TCon (if float? "F64" "I64") (Nil)) type loc)))
         (_ (unit))))
 
@@ -675,9 +722,9 @@
         ((DFloat _) float?)
         (_ (not float?))))
 
-    (: check-literal (-> Datum Type Loc Unit ! mut))
-    (define (check-literal value type loc)
-      (match (prune type)
+    (: check-literal (-> Checker Datum Type Loc Unit ! mut))
+    (define (check-literal ck value type loc)
+      (match (prune (solution ck) type)
         ((TCon name (Nil))
          (unless (literal-fits? value name)
            (compile-error loc (string-append "the literal " (datum->string value) " does not fit " name))))
@@ -695,22 +742,26 @@
         ((DFloat _) (or (string=? type "F32") (string=? type "F64")))
         (_ #f)))
 
-    (: solve-class! (-> Checker Constraint (Ref (Option Evidence)) (List Constraint) Loc Unit ! mut))
-    (define (solve-class! ck constraint cell givens loc)
+    (: solve-class! (-> Checker Constraint I64 (List Constraint) Loc Unit ! mut))
+    (define (solve-class! ck constraint hole givens loc)
       (match (find-evidence ck constraint givens loc)
-        ((Some evidence) (ref-set! cell (Some evidence)))
+        ((Some evidence)
+         (ref-set! (Checker-solution ck)
+                   (Solution (Solution-types (solution ck))
+                             (table-set (Solution-evidence (solution ck)) (identity-key hole) evidence))))
         ((None)
          (compile-error loc (string-append "ambiguous constraint "
                                            (constraint->string (Constraint-class constraint)
-                                                               (map resolve-type (Constraint-types constraint)))
+                                                               (map (lambda (type) (resolve-type (solution ck) type))
+                                                                    (Constraint-types constraint)))
                                            "; add a signature or an annotation")))))
 
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
     (: find-evidence (-> Checker Constraint (List Constraint) Loc (Option Evidence) ! mut))
     (define (find-evidence ck constraint givens loc)
-      (let ((types (map resolve-type (Constraint-types constraint))))
-        (if (any? has-meta? types)
+      (let ((types (map (lambda (type) (resolve-type (solution ck) type)) (Constraint-types constraint))))
+        (if (any? (lambda (type) (has-meta? (solution ck) type)) types)
             (None)
             (match (given-evidence (Constraint-class constraint) types givens)
               ((Some evidence) (Some evidence))
@@ -792,81 +843,89 @@
     (define (constraint->string class types)
       (type->string (TCon class types)))
 
-    (: has-meta? (-> Type Bool ! mut))
-    (define (has-meta? type)
-      (match (prune type)
-        ((TVar _ _) #t)
-        ((TCon _ args) (any? has-meta? args))
-        ((TFun params result _) (or (any? has-meta? params) (has-meta? result)))
+    (: has-meta? (-> Solution Type Bool))
+    (define (has-meta? solution type)
+      (match (prune solution type)
+        ((TVar _) #t)
+        ((TCon _ args) (any? (lambda (arg) (has-meta? solution arg)) args))
+        ((TFun params result _)
+         (or (any? (lambda (param) (has-meta? solution param)) params) (has-meta? solution result)))
         (_ #f)))
 
     ;; ---- Zonking ----
 
     ;; Replaces solved metavariables and keeps unsolved ones.
-    (: resolve-type (-> Type Type ! mut))
-    (define (resolve-type type)
-      (let ((type (prune type)))
+    (: resolve-type (-> Solution Type Type))
+    (define (resolve-type solution type)
+      (let ((type (prune solution type)))
         (match type
-          ((TCon name args) (TCon name (map resolve-type args)))
-          ((TFun params result row) (TFun (map resolve-type params) (resolve-type result) (resolve-type row)))
-          ((TRow _ _) (let ((flat (flatten-row type))) (TRow (Pair-first flat) (Pair-second flat))))
+          ((TCon name args) (TCon name (map (lambda (arg) (resolve-type solution arg)) args)))
+          ((TFun params result row)
+           (TFun (map (lambda (param) (resolve-type solution param)) params)
+                 (resolve-type solution result) (resolve-type solution row)))
+          ((TRow _ _) (let ((flat (flatten-row solution type))) (TRow (Pair-first flat) (Pair-second flat))))
           (_ type))))
 
     ;; Replaces solved metavariables. An unsolved type defaults to Unit and an
     ;; unsolved row tail closes; nothing observable depends on either.
-    (: zonk (-> Type Type ! mut))
-    (define (zonk type)
-      (let ((type (prune type)))
+    (: zonk (-> Solution Type Type))
+    (define (zonk solution type)
+      (let ((type (prune solution type)))
         (match type
-          ((TVar _ _) (TCon "Unit" (Nil)))
-          ((TCon name args) (TCon name (map zonk args)))
-          ((TFun params result row) (TFun (map zonk params) (zonk result) (zonk-row row)))
-          ((TRow _ _) (zonk-row type))
+          ((TVar _) (TCon "Unit" (Nil)))
+          ((TCon name args) (TCon name (map (lambda (arg) (zonk solution arg)) args)))
+          ((TFun params result row)
+           (TFun (map (lambda (param) (zonk solution param)) params) (zonk solution result) (zonk-row solution row)))
+          ((TRow _ _) (zonk-row solution type))
           (_ type))))
 
-    (: zonk-row (-> Type Type ! mut))
-    (define (zonk-row row)
-      (let ((flat (flatten-row row)))
+    (: zonk-row (-> Solution Type Type))
+    (define (zonk-row solution row)
+      (let ((flat (flatten-row solution row)))
         (TRow (Pair-first flat) (if (meta-tail? (Pair-second flat)) (None) (Pair-second flat)))))
 
-    (: zonk-evidence (-> Evidence Evidence ! mut))
-    (define (zonk-evidence evidence)
+    (: zonk-evidence (-> Solution Evidence Evidence))
+    (define (zonk-evidence solution evidence)
       (match evidence
-        ((EvHole cell)
-         (match (ref-get cell)
-           ((Some solved) (zonk-evidence solved))
+        ((EvHole hole)
+         (match (solved-evidence solution hole)
+           ((Some solved) (zonk-evidence solution solved))
            ((None) (panic "internal error: unsolved evidence"))))
-        ((EvInstance instance types subs) (EvInstance instance (map zonk types) (map zonk-evidence subs)))
+        ((EvInstance instance types subs)
+         (EvInstance instance (map (lambda (type) (zonk solution type)) types)
+                     (map (lambda (sub) (zonk-evidence solution sub)) subs)))
         (_ evidence)))
 
-    (: zonk-expr (-> Expr Expr ! mut))
-    (define (zonk-expr expr)
+    (: zonk-expr (-> Solution Expr Expr))
+    (define (zonk-expr solution expr)
       (Expr (match (Expr-term expr)
               ((Lit value) (Lit value))
-              ((Var name types evidence) (Var name (map zonk types) (map zonk-evidence evidence)))
-              ((Lambda params body) (Lambda params (zonk-expr body)))
-              ((App callee args) (App (zonk-expr callee) (map zonk-expr args)))
-              ((If test then otherwise) (If (zonk-expr test) (zonk-expr then) (zonk-expr otherwise)))
-              ((Let name value body) (Let name (zonk-expr value) (zonk-expr body)))
-              ((Seq first rest) (Seq (zonk-expr first) (zonk-expr rest)))
+              ((Var name types evidence) (Var name (map (lambda (type) (zonk solution type)) types) (map (lambda (e) (zonk-evidence solution e)) evidence)))
+              ((Lambda params body) (Lambda params (zonk-expr solution body)))
+              ((App callee args) (App (zonk-expr solution callee) (map (lambda (arg) (zonk-expr solution arg)) args)))
+              ((If test then otherwise) (If (zonk-expr solution test) (zonk-expr solution then) (zonk-expr solution otherwise)))
+              ((Let name value body) (Let name (zonk-expr solution value) (zonk-expr solution body)))
+              ((Seq first rest) (Seq (zonk-expr solution first) (zonk-expr solution rest)))
               ((Match scrutinee clauses)
-               (Match (zonk-expr scrutinee)
-                      (map (lambda (clause) (Clause (zonk-pattern (Clause-pattern clause)) (zonk-expr (Clause-body clause)))) clauses)))
-              ((Ann inner type) (Ann (zonk-expr inner) (zonk type)))
-              ((Convert inner target) (Convert (zonk-expr inner) (zonk target)))
-              ((TypeTest inner target) (TypeTest (zonk-expr inner) (zonk target)))
+               (Match (zonk-expr solution scrutinee)
+                      (map (lambda (clause) (Clause (zonk-pattern solution (Clause-pattern clause))
+                                                    (zonk-expr solution (Clause-body clause))))
+                           clauses)))
+              ((Ann inner type) (Ann (zonk-expr solution inner) (zonk solution type)))
+              ((Convert inner target) (Convert (zonk-expr solution inner) (zonk solution target)))
+              ((TypeTest inner target) (TypeTest (zonk-expr solution inner) (zonk solution target)))
               ((Handle effect implementations body)
-               (Handle effect (map (lambda (entry) (Pair (Pair-first entry) (zonk-expr (Pair-second entry)))) implementations)
-                       (zonk-expr body))))
-            (zonk (Expr-type expr)) (Expr-loc expr)))
+               (Handle effect (map (lambda (entry) (Pair (Pair-first entry) (zonk-expr solution (Pair-second entry)))) implementations)
+                       (zonk-expr solution body))))
+            (zonk solution (Expr-type expr)) (Expr-loc expr)))
 
-    (: zonk-pattern (-> Pattern Pattern ! mut))
-    (define (zonk-pattern pattern)
+    (: zonk-pattern (-> Solution Pattern Pattern))
+    (define (zonk-pattern solution pattern)
       (match pattern
-        ((PWild type) (PWild (zonk type)))
-        ((PVar name type) (PVar name (zonk type)))
-        ((PLit value type) (PLit value (zonk type)))
-        ((PCon constructor args type) (PCon constructor (map zonk-pattern args) (zonk type)))))
+        ((PWild type) (PWild (zonk solution type)))
+        ((PVar name type) (PVar name (zonk solution type)))
+        ((PLit value type) (PLit value (zonk solution type)))
+        ((PCon constructor args type) (PCon constructor (map (lambda (arg) (zonk-pattern solution arg)) args) (zonk solution type)))))
 
     ;; ---- Confined mutation ----
 
@@ -1065,39 +1124,53 @@
     ;; definition's type, or a constraint of this group.
     (: generalize! (-> Checker (List Item) (List Wanted) Unit ! mut))
     (define (generalize! ck definitions wanted)
-      (let* ((fixed (map meta-id (append (concatenate (map (lambda (name) (free-metas (scheme-type ck name))) (ref-get (Checker-open ck))))
-                                         (concatenate (map wanted-metas wanted)))))
+      (let* ((fixed (map meta-id
+                         (append (concatenate (map (lambda (name) (free-metas (solution ck) (scheme-type ck name)))
+                                                   (ref-get (Checker-open ck))))
+                                 (concatenate (map (lambda (want) (wanted-metas (solution ck) want)) wanted)))))
              (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
                             (delete-duplicates same-meta?
-                                               (concatenate (map (lambda (d) (free-metas (scheme-type ck (Define-name d)))) definitions)))))
+                                               (concatenate (map (lambda (d) (free-metas (solution ck) (scheme-type ck (Define-name d))))
+                                                                 definitions)))))
              (names (map (lambda (index) (string-append "t" (i64->string (+ index 1)))) (iota (length metas)))))
-        (for-each (lambda (pair) (ref-set! (TVar-cell (Pair-first pair)) (Some (TRigid (Pair-second pair))))) (zip metas names))
+        (for-each (lambda (pair) (bind-rigid! ck (Pair-first pair) (TRigid (Pair-second pair)))) (zip metas names))
         (for-each (lambda (definition)
                     (let ((name (Define-name definition)))
-                      (set-scheme! ck name (Scheme names (Nil) (resolve-type (scheme-type ck name))))))
+                      (set-scheme! ck name (Scheme names (Nil) (resolve-type (solution ck) (scheme-type ck name))))))
                   definitions)))
+
+    ;; Generalization binds a metavariable to a quantified name, like any
+    ;; other solution; nothing distinguishes the two afterwards.
+    (: bind-rigid! (-> Checker Type Type Unit ! mut))
+    (define (bind-rigid! ck meta rigid)
+      (ref-set! (Checker-solution ck)
+                (Solution (table-set (Solution-types (solution ck)) (identity-key (TVar-id meta)) rigid)
+                          (Solution-evidence (solution ck)))))
 
     (: meta-id (-> Type I64))
     (define (meta-id meta)
       (match meta
-        ((TVar id _) id)
+        ((TVar id) id)
         (_ -1)))
 
-    (: wanted-metas (-> Wanted (List Type) ! mut))
-    (define (wanted-metas want)
+    (: wanted-metas (-> Solution Wanted (List Type)))
+    (define (wanted-metas solution want)
       (match want
-        ((WantClass constraint _ _ _) (concatenate (map free-metas (Constraint-types constraint))))
-        ((WantLiteral _ type _) (free-metas type))
+        ((WantClass constraint _ _ _)
+         (concatenate (map (lambda (type) (free-metas solution type)) (Constraint-types constraint))))
+        ((WantLiteral _ type _) (free-metas solution type))
         ((WantOmega _ _) (Nil))))
 
-    (: free-metas (-> Type (List Type) ! mut))
-    (define (free-metas type)
-      (let ((type (prune type)))
+    (: free-metas (-> Solution Type (List Type)))
+    (define (free-metas solution type)
+      (let ((type (prune solution type)))
         (match type
-          ((TVar _ _) (list type))
-          ((TCon _ args) (concatenate (map free-metas args)))
-          ((TFun params result row) (append (concatenate (map free-metas params)) (append (free-metas result) (free-metas row))))
-          ((TRow _ (Some tail)) (free-metas tail))
+          ((TVar _) (list type))
+          ((TCon _ args) (concatenate (map (lambda (arg) (free-metas solution arg)) args)))
+          ((TFun params result row)
+           (append (concatenate (map (lambda (param) (free-metas solution param)) params))
+                   (append (free-metas solution result) (free-metas solution row))))
+          ((TRow _ (Some tail)) (free-metas solution tail))
           (_ (Nil)))))
 
     ;; A signature's variables are rigid and its constraints are given. A
@@ -1114,7 +1187,7 @@
       (let* ((row (fresh-meta ck)) (value (check-value ck (Define-value definition) (Scheme-type scheme) row))
              (loc (Expr-loc value)))
         (unify ck (Scheme-type scheme) (Expr-type value) loc)
-        (when (and (not (null? (Scheme-vars scheme))) (not (total? row)))
+        (when (and (not (null? (Scheme-vars scheme))) (not (total? (solution ck) row)))
           (compile-error loc "a polymorphic definition must have a total initializer"))
         (check-host-effects ck row loc)
         (ref-set! (Checker-givens ck) (Nil))
@@ -1133,7 +1206,7 @@
     (define (check-exposed ck name loc)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) (TFun params result row)))
-         (when (any? (lambda (type) (affine-type? (program-of ck) type)) (Cons result params))
+         (when (any? (lambda (type) (affine? ck type)) (Cons result params))
            (compile-error loc "an exposed function cannot take or return an affine value"))
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
@@ -1146,7 +1219,7 @@
                               (let ((effect (program-effect (program-of ck) label)))
                                 (= (length (Effect-host effect)) (length (Effect-operations effect)))))
                     (compile-error loc (string-append "the effect " (short-name label) " has no host implementation here"))))
-                (Pair-first (flatten-row row))))
+                (Pair-first (flatten-row (solution ck) row))))
 
     ;; ---- Programs ----
 
@@ -1170,7 +1243,8 @@
     ;; schemes. Then every constraint is solved and every type zonked.
     (: check-library (-> Program (Table Scheme) (List Item) Typed ! mut))
     (define (check-library program schemes items)
-      (let* ((ck (Checker program (ref 0) empty-table (ref schemes) (ref (Nil)) (ref (Nil)) (ref 0) (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
+      (let* ((ck (Checker program (ref 0) empty-table (ref schemes) (ref empty-solution) (ref (Nil)) (ref (Nil)) (ref 0)
+                          (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
              (inferred (check-inferred ck items))
              (typed (map (lambda (item) (check-item ck inferred item)) items)))
         (solve-pending! ck)
@@ -1179,9 +1253,9 @@
                       ((Expose name _ loc) (check-exposed ck name loc))
                       (_ (unit))))
                   items)
-        (let ((typed (Typed program (map zonk-item typed) (final-schemes ck items))))
+        (let ((typed (Typed program (map (lambda (item) (zonk-item (solution ck) item)) typed) (final-schemes ck items))))
           (check-owned-types program (Typed-items typed))
-          (for-each (lambda (function) (check-confined typed (zonk-expr function))) (ref-get (Checker-confined ck)))
+          (for-each (lambda (function) (check-confined typed (zonk-expr (solution ck) function))) (ref-get (Checker-confined ck)))
           typed)))
 
     ;; Checks the definitions without signatures, a group at a time in
@@ -1210,11 +1284,11 @@
         ((Do expr) (check-statement ck expr))
         ((Expose _ _ _) item)))
 
-    (: zonk-item (-> Item Item ! mut))
-    (define (zonk-item item)
+    (: zonk-item (-> Solution Item Item))
+    (define (zonk-item solution item)
       (match item
-        ((Define name value) (Define name (zonk-expr value)))
-        ((Do value) (Do (zonk-expr value)))
+        ((Define name value) (Define name (zonk-expr solution value)))
+        ((Do value) (Do (zonk-expr solution value)))
         (_ item)))
 
     ;; Inferred schemes with their remaining metavariables defaulted, and the
@@ -1224,7 +1298,7 @@
       (for-each (lambda (name)
                   (match (table-ref (ref-get (Checker-schemes ck)) name)
                     ((Some scheme)
-                     (set-scheme! ck name (Scheme (Scheme-vars scheme) (Scheme-constraints scheme) (zonk (Scheme-type scheme)))))
+                     (set-scheme! ck name (Scheme (Scheme-vars scheme) (Scheme-constraints scheme) (zonk (solution ck) (Scheme-type scheme)))))
                     ((None) (unit))))
                 (ref-get (Checker-open ck)))
       (for-each (lambda (item)
