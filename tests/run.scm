@@ -318,7 +318,7 @@
     ("tests/programs" "wire") ("tests/programs" "tables") ("tests/programs" "libraries") ("tests/programs" "generated") ("tests/programs" "wasm")
     ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once") ("tests/programs" "tasks")
     ("tests/programs" "tcp") ("tests/programs" "tcp-handler")
-    ("tests/programs" "udp") ("tests/programs" "udp-handler")))
+    ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")))
 
 (define (suite-libraries suite)
   (if (string=? suite "examples") '("examples") '("tests/programs" "tests/programs/lib")))
