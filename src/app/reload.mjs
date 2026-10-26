@@ -1,4 +1,4 @@
-// What `lofi serve` adds to every page it serves: the reload client
+// What `./scripts/lofi-tool serve` adds to every page it serves: the reload client
 // (reload-client.mjs), fed the page's manifest and the server's events, and
 // given the application host to relink and save programs with. Before the
 // first build succeeds the page is a placeholder that runs no program. The

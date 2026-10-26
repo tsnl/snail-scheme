@@ -11,7 +11,7 @@ import {createServer} from 'node:http';
 import {extname, join, relative, resolve} from 'node:path';
 import {Worker} from 'node:worker_threads';
 
-const usage = 'usage: lofi serve [--port PORT] APP-DIRECTORY | lofi watch [-I DIRECTORY] SOURCE [ARGUMENT ...]';
+const usage = 'usage: ./scripts/lofi-tool serve [--port PORT] APP-DIRECTORY | ./scripts/lofi-tool watch [-I DIRECTORY] SOURCE [ARGUMENT ...]';
 
 // ---- Requests ----
 
@@ -33,7 +33,7 @@ function loopRequest([command, ...rest]) {
 // The loop, the reload client, the runtime and the assembler, which the
 // driver builds when their sources change.
 function buildTools(root) {
-  const result = spawnSync(join(root, 'lofi'), ['tools'], {encoding: 'utf8'});
+  const result = spawnSync(join(root, 'scripts/lofi-tool'), ['tools'], {encoding: 'utf8'});
   if (result.status !== 0) throw new Error(result.stderr.trim());
   return JSON.parse(result.stdout);
 }

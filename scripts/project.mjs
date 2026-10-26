@@ -18,11 +18,11 @@ function run(command, args) {
 }
 
 export function projectTools(root) {
-  return JSON.parse(run(join(root, 'lofi'), ['project-tools']));
+  return JSON.parse(run(join(root, 'scripts/lofi-tool'), ['project-tools']));
 }
 
 export function editorTools(root) {
-  return JSON.parse(run(join(root, 'lofi'), ['editor-tools']));
+  return JSON.parse(run(join(root, 'scripts/lofi-tool'), ['editor-tools']));
 }
 
 function link(root, text, output, mode) {
