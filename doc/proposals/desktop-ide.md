@@ -28,7 +28,7 @@ window is not the definition of launching an application.
 | `lofi build [--release] PROJECT BUILD-TARGET` | Produce the named target's output directory once. |
 | `lofi dev PROJECT` | Watch saved files, compile incrementally, publish diagnostics and make the editor available. Application launching/reloading remains to be integrated. |
 | `lofi run PROJECT RUN-TARGET [ARGUMENT ...]` | Build the referenced program and replace the command process with that exact generation, with configured arguments followed by supplied arguments. |
-| `lofi check PROJECT` | Planned: check every build root without emitting its executable. Expansion still obtains required generated libraries and artifact inputs. |
+| `lofi check PROJECT` | Check every build root through specialization and ownership without emitting it. Required generators execute and artifact dependencies build temporarily; their outputs are discarded. |
 
 `install` waits for package-manager design. Source-level compilation, inspection,
 bootstrap and the older application reload loop remain internal contributor
