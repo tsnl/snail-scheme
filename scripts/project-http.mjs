@@ -1,13 +1,14 @@
 // The local IDE boundary: concrete HTTP requests to the existing project and
 // file owners. It owns connections, not source contents or compiler state.
 import {createServer} from 'node:http';
-import {basename, sep} from 'node:path';
+import {readFile} from 'node:fs/promises';
+import {basename, join, sep} from 'node:path';
 import {developProject} from './project-develop.mjs';
 import {FileConflict, ProjectFileError, projectFiles} from './project-files.mjs';
 
 const bodyLimit = 8 * 1024 * 1024;
 const decoder = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true});
-const headers = {'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'};
+const headers = {'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY'};
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -18,11 +19,11 @@ function json(response, status, value) {
   response.end(JSON.stringify(value));
 }
 
-function authorize(request, origin) {
+function authorize(request, origin, navigation = false) {
   if (request.headers.host !== new URL(origin).host) throw new HttpError(403, 'unexpected host');
   if (request.headers.origin !== undefined && request.headers.origin !== origin) throw new HttpError(403, 'unexpected origin');
   const site = request.headers['sec-fetch-site'];
-  if (site && site !== 'same-origin' && site !== 'none') throw new HttpError(403, 'unexpected fetch context');
+  if (!navigation && site && site !== 'same-origin' && site !== 'none') throw new HttpError(403, 'unexpected fetch context');
   if (request.method !== 'GET' && request.headers.origin !== origin) throw new HttpError(403, 'mutation requires the project origin');
 }
 
@@ -57,8 +58,22 @@ function errorStatus(error) {
 
 const frame = (kind, value) => `event: ${kind}\ndata: ${JSON.stringify(value)}\n\n`;
 
+// Only trusted editor assets share the file API's origin. Project HTML and
+// arbitrary paths are never served here; application serving is separate.
+function editorAssets(root, tools) {
+  const assets = new Map([
+    ['/', [join(root, 'src/ide/index.html'), 'text/html']],
+    ['/format.wasm', [tools.formatter, 'application/wasm']],
+    ['/load.mjs', [join(root, 'src/app/load.mjs'), 'text/javascript']],
+    ['/ide.css', [join(root, 'src/ide/ide.css'), 'text/css']],
+  ]);
+  for (const name of ['ide', 'editor', 'panes', 'formatter']) assets.set(`/${name}.mjs`, [join(root, `src/ide/${name}.mjs`), 'text/javascript']);
+  return assets;
+}
+
 export async function serveProject({root, project, tools, port = 0}) {
   const files = projectFiles(project), development = developProject({root, project: files.project, tools});
+  const assets = editorAssets(root, tools);
   const clients = new Set(), closed = Promise.withResolvers();
   closed.promise.catch(() => {}); // Callers may inspect it later or call close().
   let stopping = false, failure = null;
@@ -103,9 +118,11 @@ export async function serveProject({root, project, tools, port = 0}) {
   async function route(request, response) {
     if (stopping) throw new HttpError(503, 'project development is closing');
     const base = origin();
-    authorize(request, base);
     const url = new URL(request.url, base), path = url.searchParams.get('path');
     if (url.origin !== base) throw new HttpError(403, 'unexpected request origin');
+    const navigation = request.method === 'GET' && url.pathname === '/' && request.headers['sec-fetch-mode'] === 'navigate' && request.headers['sec-fetch-dest'] === 'document';
+    authorize(request, base, navigation);
+    if (request.method === 'GET' && assets.has(url.pathname)) return serveAsset(response, assets.get(url.pathname));
     switch (`${request.method} ${url.pathname}`) {
       case 'GET /api/project': return json(response, 200, {name: basename(files.project), files: files.list()});
       case 'GET /api/file': return json(response, 200, files.read(path));
@@ -121,6 +138,15 @@ export async function serveProject({root, project, tools, port = 0}) {
       }
       default: throw new HttpError(404, 'unknown project endpoint');
     }
+  }
+
+  async function serveAsset(response, [path, type]) {
+    if (!path) throw new HttpError(404, 'editor formatter is unavailable');
+    const bytes = await readFile(path);
+    if (stopping || response.destroyed) return;
+    response.writeHead(200, {...headers, 'Content-Type': type,
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; worker-src 'none'"});
+    response.end(bytes);
   }
 
   const stopStatus = development.subscribe(status => {

@@ -1,95 +1,181 @@
-// The browser IDE: a toolbar above a file browser docked on the left, a tree
-// of editor panes. The toolchain runs in a worker (toolchain.mjs), compiler
-// included. Each edit,
-// saved or not, goes to it, and each build's events come back: a failure
-// puts a squiggle under what the compiler points at. Saving formats a source
-// file, keeps the project in storage, and writes the file back to its folder.
+// A client of one native project. Disk owns saved files, buffers own drafts,
+// and the service's shared observer supplies both editor and compiler updates.
 import {createEditor} from './editor.mjs';
 import {createFormatter} from './formatter.mjs';
-import {readEvent} from './load.mjs';
 import {createPanes} from './panes.mjs';
-import {chooseFolder, loadProject, recallFolder, rememberFolder, storeProject, writeToFolder} from './project.mjs';
 
-const fetchBytes = async url => new Uint8Array(await (await fetch(url)).arrayBuffer());
-const [library, sample, formatter] = await Promise.all([
-  fetch('files.json').then(response => response.json()), fetch('sample.json').then(response => response.json()),
-  fetchBytes('format.wasm').then(createFormatter)]);
-const project = loadProject(sample);
-const folder = project.folder ? await recallFolder() : null;
-const worker = new Worker(new URL('./toolchain.mjs', import.meta.url), {type: 'module'});
-const status = document.getElementById('status');
+const status = document.getElementById('status'), diagnostics = document.getElementById('diagnostics');
+const buffers = new Map(), closedFolders = new Set();
+let project = {name: '', files: []}, listSequence = 0;
+const dirty = buffer => Boolean(buffer?.baseline && buffer.text !== buffer.baseline.text);
+const conflict = buffer => Boolean(buffer?.baseline && buffer.observed !== buffer.baseline.revision);
+const sourceFile = buffer => /\.(sld|scm|datum)$/.test(buffer?.path ?? '');
 
-// ---- Buffers ----
-
-// A project file as the IDE holds it: its text, the text last saved, and
-// the last build's diagnostic in it.
-const buffers = new Map();
-let diagnostic = null;
-
-function bufferFor(path) {
-  if (!buffers.has(path)) buffers.set(path, {path, text: project.files[path], saved: project.files[path], diagnostic: null});
-  return buffers.get(path);
+async function request(path, options) {
+  const response = await fetch(path, options), value = await response.json();
+  if (!response.ok) throw Object.assign(new Error(value.message), {status: response.status});
+  return value;
 }
 
-const dirty = buffer => buffer.text !== buffer.saved;
-
-// A pane's edit: every pane on the buffer shows it, and the toolchain builds
-// from it.
-function edited(editor, text) {
-  const {buffer} = editor, wasDirty = dirty(buffer);
-  buffer.text = text;
-  refreshEditors(buffer);
-  if (dirty(buffer) !== wasDirty) renderFiles();
-  worker.postMessage({type: 'write', path: buffer.path, text});
+function setStatus(text, state) {
+  status.textContent = status.title = text;
+  status.dataset.state = state;
 }
 
-function refreshEditors(buffer) {
-  for (const editor of panes.editors()) if (!buffer || editor.buffer === buffer) editor.refresh();
-}
-
-function openFile(path, place) {
-  const {editor} = panes.active;
-  editor.show(bufferFor(path));
-  editor.focus();
-  editor.reveal(place);
-  renderFiles();
-}
-
-// ---- Panes ----
-
+const formatter = await fetch('/format.wasm').then(response => {
+  if (!response.ok) throw new Error('Could not load the formatter');
+  return response.arrayBuffer();
+}).then(createFormatter).catch(error => { setStatus(error.message, 'failed'); throw error; });
 const panes = createPanes(document.getElementById('panes'), () => createEditor(formatter, {
   input: edited,
   focus(editor) { panes.activateEditor(editor); renderFiles(); },
   split(editor, direction) { panes.activateEditor(editor); panes.split(direction); },
   close(editor) { panes.activateEditor(editor); panes.close(); renderFiles(); },
 }));
-panes.active.editor.show(bufferFor('main.sld' in project.files ? 'main.sld' : Object.keys(project.files).sort()[0]));
+
+// ---- Buffers ----
+
+// A null baseline means no disk contents have been accepted yet. Selecting
+// this object is synchronous; an old read never changes a pane's selection.
+function openFile(path) {
+  let buffer = buffers.get(path);
+  if (!buffer) {
+    buffer = {path, text: '', baseline: null, observed: null, saving: false, readSequence: 0, problem: '', operationError: ''};
+    buffers.set(path, buffer);
+    void refreshBuffer(buffer);
+  }
+  panes.active.editor.show(buffer);
+  panes.active.editor.focus();
+  renderFiles();
+}
+
+function refreshEditors(buffer) {
+  for (const editor of panes.editors()) if (!buffer || editor.buffer === buffer) editor.refresh();
+  renderFiles();
+}
+
+function edited(editor, text) {
+  const buffer = editor.buffer;
+  if (!buffer?.baseline) return;
+  buffer.text = text;
+  refreshEditors(buffer);
+  if (!dirty(buffer) && conflict(buffer)) void refreshBuffer(buffer);
+}
+
+// Listing and file reads certify different observations. Only a current file
+// GET returning 404 removes a buffer; a missing tree entry never does so.
+async function refreshProject() {
+  const sequence = ++listSequence;
+  for (const buffer of buffers.values()) void refreshBuffer(buffer);
+  try {
+    const current = await request('/api/project');
+    if (sequence !== listSequence) return;
+    project = current;
+    renderFiles();
+    if (!buffers.size && project.files.length) openFile(project.files.includes('main.sld') ? 'main.sld' : project.files[0]);
+  } catch (error) { if (sequence === listSequence) setStatus(error.message, 'failed'); }
+}
+
+async function refreshBuffer(buffer) {
+  if (buffer.saving) return;
+  const sequence = ++buffer.readSequence;
+  const current = () => sequence === buffer.readSequence && buffers.get(buffer.path) === buffer;
+  try {
+    const snapshot = await request('/api/file?path=' + encodeURIComponent(buffer.path));
+    if (!current()) return;
+    buffer.observed = snapshot.revision;
+    if (!dirty(buffer)) { buffer.text = snapshot.text; buffer.baseline = snapshot; }
+    buffer.problem = conflict(buffer) ? 'Changed on disk. Your draft is kept; Reload discards it.' : '';
+  } catch (error) {
+    if (!current()) return;
+    buffer.problem = error.message;
+    if (error.status === 404) {
+      buffer.observed = null;
+      if (!dirty(buffer)) {
+        buffers.delete(buffer.path);
+        for (const editor of panes.editors()) if (editor.buffer === buffer) editor.show(null);
+      } else buffer.problem = 'Deleted on disk. Your draft is kept; copy it before reloading.';
+    }
+  }
+  refreshEditors(buffer);
+}
+
+// ---- Saving ----
+
+// Operation errors survive background reads until another explicit operation.
+// One in-flight save per buffer. Its response changes the baseline, never
+// newer typing. Reads begun before the save cannot replace this evidence.
+async function save() {
+  const editor = panes.active.editor, buffer = editor.buffer;
+  if (!buffer?.baseline || buffer.saving) return;
+  if (sourceFile(buffer)) formatPane(editor); // Formatting failure must not prevent saving an incomplete draft.
+  const text = buffer.text, revision = buffer.baseline.revision;
+  buffer.saving = true; buffer.readSequence++; buffer.operationError = '';
+  refreshEditors(buffer);
+  try {
+    const snapshot = await request('/api/file?path=' + encodeURIComponent(buffer.path), {
+      method: 'PUT', headers: {'Content-Type': 'text/plain; charset=utf-8', 'If-Match': `"${revision}"`}, body: text,
+    });
+    buffer.baseline = snapshot; buffer.observed = snapshot.revision;
+  } catch (error) {
+    buffer.operationError = error.status === 409 ? 'Changed on disk; save rejected. Your draft is kept.' : error.message;
+  } finally {
+    buffer.saving = false; buffer.readSequence++;
+    refreshEditors(buffer);
+    void refreshBuffer(buffer); // Also after failure: the write may have reached disk.
+  }
+}
+
+function formatPane(editor) {
+  if (!editor.buffer?.baseline || !sourceFile(editor.buffer)) return;
+  editor.buffer.operationError = '';
+  try { editor.replaceAll(formatter.format(editor.buffer.text)); }
+  catch (error) { editor.buffer.operationError = error.message; }
+  refreshEditors(editor.buffer);
+}
+
+function reload() {
+  const buffer = panes.active.editor.buffer;
+  if (!buffer || buffer.saving) return;
+  if (dirty(buffer) && !confirm('Discard this file’s unsaved changes and reload from disk?')) return;
+  // Discard now: any later watcher read can load disk, while typing after
+  // this point becomes a new draft and survives that read.
+  if (buffer.baseline) buffer.text = buffer.baseline.text;
+  buffer.operationError = '';
+  refreshEditors(buffer);
+  void refreshBuffer(buffer);
+}
+
+addEventListener('beforeunload', event => { if ([...buffers.values()].some(dirty)) event.preventDefault(); });
 
 // ---- Files ----
 
-// The project's files as a tree of folders. A file is marked when a pane
-// shows it, when it has unsaved changes, and when the last build failed in it.
-const closedFolders = new Set();
-
 function renderFiles() {
   const nav = document.getElementById('files'), heading = document.createElement('h2');
-  heading.textContent = project.name + (folder ? '' : ' (in this browser)');
-  nav.replaceChildren(heading, treeElement(fileTree(Object.keys(project.files)), ''));
+  heading.textContent = project.name || 'Project';
+  nav.replaceChildren(heading, treeElement(fileTree(project.files), ''));
+  const unlisted = [...buffers.keys()].filter(path => !project.files.includes(path));
+  if (unlisted.length) {
+    const label = document.createElement('h2'); label.textContent = 'Open files';
+    nav.append(label, ...unlisted.map(path => fileButton(path, path)));
+  }
   document.getElementById('project').textContent = project.name;
+  const buffer = panes.active.editor.buffer;
+  document.getElementById('save').disabled = !buffer?.baseline || buffer.saving;
+  document.getElementById('reload').disabled = !buffer || buffer.saving;
+  document.getElementById('format').disabled = !buffer?.baseline || !sourceFile(buffer);
 }
 
 function fileTree(paths) {
-  const root = {};
+  const root = Object.create(null);
   for (const path of paths) {
-    const parts = path.split('/');
-    let node = root;
-    for (const part of parts.slice(0, -1)) node = node[part] ??= {};
+    const parts = path.split('/'); let node = root;
+    for (const part of parts.slice(0, -1)) node = node[part] ??= Object.create(null);
     node[parts.at(-1)] = path;
   }
   return root;
 }
 
-// Folders first, then files, each by name.
 function treeElement(tree, prefix) {
   const list = document.createElement('ul');
   const entries = Object.entries(tree).sort(([a, x], [b, y]) => (typeof x === typeof y ? a.localeCompare(b) : typeof x === 'string' ? 1 : -1));
@@ -103,8 +189,7 @@ function treeElement(tree, prefix) {
 
 function folderElement(name, tree, path) {
   const details = document.createElement('details'), summary = document.createElement('summary');
-  summary.textContent = name;
-  details.open = !closedFolders.has(path);
+  summary.textContent = name; details.open = !closedFolders.has(path);
   details.ontoggle = () => (details.open ? closedFolders.delete(path) : closedFolders.add(path));
   details.append(summary, treeElement(tree, path));
   return details;
@@ -112,101 +197,42 @@ function folderElement(name, tree, path) {
 
 function fileButton(name, path) {
   const button = document.createElement('button'), buffer = buffers.get(path);
-  button.className = 'file';
-  button.textContent = name;
+  button.className = 'file'; button.dataset.path = path; button.textContent = name;
   button.classList.toggle('active', panes.active.editor.buffer?.path === path);
-  button.classList.toggle('dirty', Boolean(buffer && dirty(buffer)));
-  button.classList.toggle('failed', diagnostic?.path === path);
+  button.classList.toggle('dirty', dirty(buffer));
+  button.classList.toggle('conflict', conflict(buffer));
+  button.title = buffer?.operationError || buffer?.problem || path;
   button.onclick = () => openFile(path);
   return button;
 }
 
 // ---- Builds ----
 
-// A failure whose message starts with a project file's place becomes that
-// file's diagnostic. Successful builds clear the preceding diagnostic.
-
-function received(text) {
-  const event = readEvent(text);
-  if (event.kind === 'building') setStatus('Building…', 'building');
-  else if (event.kind === 'built') {
-    showDiagnostic(null);
-    setStatus(`Built in ${event.milliseconds} ms`, 'built');
-  } else if (event.kind === 'failed') {
-    const found = diagnosticOf(event.message);
-    showDiagnostic(found);
-    setStatus(found ? `${found.path}:${found.line}:${found.column}: ${found.message}` : event.message.split('\n')[0], 'failed');
-  }
+function received(current) {
+  const messages = current.diagnostics.map(diagnostic => `${diagnostic.severity}: ${diagnostic.message}`).join('\n');
+  diagnostics.textContent = messages; diagnostics.hidden = !messages;
+  const text = {starting: 'Starting the compiler…', building: 'Building…', succeeded: 'Built', failed: 'Build failed', fatal: 'Compiler stopped'};
+  setStatus(text[current.phase] ?? current.phase, ['failed', 'fatal'].includes(current.phase) ? 'failed' : current.phase === 'succeeded' ? 'built' : current.phase);
+  status.dataset.attempt = current.id;
 }
 
-// The compiler starts a message with the place it means:
-// `/project/src/view.sld:18:18: what is wrong`.
-function diagnosticOf(message) {
-  const match = /^\/project\/(.+?):(\d+):(\d+): ([\s\S]*)$/.exec(message);
-  return match && match[1] in project.files ? {path: match[1], line: Number(match[2]), column: Number(match[3]), message: match[4]} : null;
+async function build() {
+  try { await request('/api/build', {method: 'POST'}); }
+  catch (error) { setStatus(error.message, 'failed'); }
 }
 
-function showDiagnostic(found) {
-  diagnostic = found;
-  if (found) bufferFor(found.path);
-  for (const buffer of buffers.values()) buffer.diagnostic = found?.path === buffer.path ? found : null;
-  refreshEditors(null);
-  renderFiles();
+let events;
+function connect() {
+  events?.close();
+  events = new EventSource('/api/events');
+  events.addEventListener('status', event => received(JSON.parse(event.data)));
+  events.addEventListener('files', () => { void refreshProject(); });
+  events.onerror = () => setStatus('Connection lost; reconnecting…', 'failed');
 }
-
-function setStatus(text, state) {
-  status.textContent = text;
-  status.dataset.state = state;
-}
-
-status.onclick = () => { if (diagnostic) openFile(diagnostic.path, diagnostic); };
-
-// ---- Saving ----
-
-// Saving formats a source file, keeps the project in storage, and writes
-// the file back to the folder it came from.
-async function save() {
-  const {editor} = panes.active, {buffer} = editor;
-  if (/\.(sld|scm)$/.test(buffer.path)) formatPane(editor);
-  buffer.saved = project.files[buffer.path] = buffer.text;
-  storeProject(project);
-  refreshEditors(buffer);
-  renderFiles();
-  await writeBack(buffer);
-}
-
-async function writeBack(buffer) {
-  try {
-    if (folder) await writeToFolder(folder, buffer.path, buffer.text);
-    setStatus(`Saved ${buffer.path}${folder ? ` to ${folder.name}` : ''}`, 'saved');
-  } catch (error) {
-    setStatus(error.message, 'failed');
-  }
-}
-
-function formatPane(editor) {
-  try {
-    editor.replaceAll(formatter.format(editor.buffer.text));
-  } catch (error) {
-    setStatus(`Could not format ${editor.buffer.path}: ${error.message}`, 'failed');
-  }
-}
-
-// Opening a folder replaces the project and loads the IDE again, with a new
-// toolchain; unsaved changes are lost, after a warning.
-let leaving = false;
-
-async function openFolder() {
-  const chosen = await chooseFolder(document.getElementById('folder-input'));
-  if (!Object.keys(chosen.files).length) return setStatus(`${chosen.name} has no text files`, 'failed');
-  if ([...buffers.values()].some(dirty) && !confirm('Discard the unsaved changes?')) return;
-  storeProject({name: chosen.name, files: chosen.files, folder: Boolean(chosen.handle)});
-  await rememberFolder(chosen.handle);
-  leaving = true;
-  location.reload();
-}
-
-addEventListener('beforeunload', event => { if (!leaving && [...buffers.values()].some(dirty)) event.preventDefault(); });
+// An existing stream can survive offline while a file GET fails. Going online
+// obtains both current status and files even without a transport-level retry.
+addEventListener('online', connect);
+connect();
 
 // ---- Layout ----
 
@@ -215,51 +241,35 @@ function toggleFiles() {
   document.getElementById('toggle-files').setAttribute('aria-pressed', String(!hidden));
 }
 
-// Dragging the file browser's edge sets its width.
 function dragFiles(event) {
   const layout = document.querySelector('.project-layout');
-  const move = ({clientX}) => {
-    layout.style.setProperty('--files-width', `${Math.max(120, Math.min(innerWidth * 0.7, clientX))}px`);
-  };
+  const move = ({clientX}) => layout.style.setProperty('--files-width', `${Math.max(120, Math.min(innerWidth * 0.7, clientX))}px`);
   const stop = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', stop); };
   event.preventDefault();
-  addEventListener('pointermove', move);
-  addEventListener('pointerup', stop);
+  addEventListener('pointermove', move); addEventListener('pointerup', stop);
 }
 
 document.getElementById('files-resizer').addEventListener('pointerdown', dragFiles);
 const toolbar = {
-  'toggle-files': toggleFiles, 'open-folder': openFolder, format: () => formatPane(panes.active.editor),
+  'toggle-files': toggleFiles, save, reload, build, format: () => formatPane(panes.active.editor),
   'split-right': () => panes.split('row'), 'split-down': () => panes.split('column'),
 };
 for (const [id, action] of Object.entries(toolbar)) {
   const button = document.getElementById(id);
-  button.onmousedown = event => event.preventDefault();
-  button.onclick = action;
+  button.onmousedown = event => event.preventDefault(); button.onclick = action;
 }
 
-// Shortcuts take Ctrl, or Command on a Mac: S saves, Shift+F formats, B
-// toggles the files, \ splits right and Shift+\ down.
 function shortcut({code, shiftKey, altKey}) {
-  return code === 'KeyS' ? save
-    : code === 'KeyF' && shiftKey ? toolbar.format
-      : code === 'KeyB' && !altKey ? toolbar['toggle-files']
-        : code === 'Backslash' ? (shiftKey ? toolbar['split-down'] : toolbar['split-right']) : null;
+  return code === 'KeyS' ? save : code === 'KeyF' && shiftKey ? toolbar.format
+    : code === 'KeyB' && !altKey ? toolbar['toggle-files']
+      : code === 'Backslash' ? (shiftKey ? toolbar['split-down'] : toolbar['split-right']) : null;
 }
 
 addEventListener('keydown', event => {
   const action = (event.ctrlKey || event.metaKey) && shortcut(event);
   if (!action) return;
-  event.preventDefault();
-  action();
+  event.preventDefault(); action();
 });
-
-// ---- Starting ----
-
-worker.onmessage = ({data}) => {
-  if (data.type === 'event') received(data.text);
-  else if (data.type === 'log') (data.error ? console.error : console.log)(data.text.trimEnd());
-};
-worker.postMessage({type: 'start', library, project: project.files});
+panes.active.editor.show(null);
 renderFiles();
-setStatus('Starting the toolchain…', 'building');
+setStatus('Connecting…', 'starting');

@@ -40,14 +40,15 @@ after saving. Each event carries the manifest of the build being served,
 so a page that missed events, even across a restart of the server,
 catches up from the next one.
 
-Neither `lofi serve` nor the IDE builds a `generate-library` recipe yet, so
-an application with one, such as Hearsay, is built with `make site`.
+`lofi serve` does not build generated-library recipes. The project builder
+used by `lofi build`, `lofi dev` and `make site` does; application launch/reload
+integration into `dev` remains in progress.
 
 `lofi watch SOURCE` is the same loop for a program: it builds and runs the
 program again whenever its sources change, stopping a run still in
 progress once a new build succeeds. [The development
 toolchain](toolchain.md) describes how builds stay this fast, and the
-browser IDE that runs the same loop without a server.
+browser editor that subscribes to the native project development service.
 
 ### Proposed persistence boundary
 

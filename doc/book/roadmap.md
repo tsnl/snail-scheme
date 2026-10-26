@@ -44,7 +44,7 @@ describe proposed behavior, kept apart from what is implemented.
 - A development loop: separate compilation of each library, with debug
   builds linked dynamically, so `lofi serve` relinks a running page from the
   first changed module and `lofi watch` reruns a program after each edit;
-  `make ide` runs the same loop in a browser IDE.
+  `lofi dev` and `make ide` expose the native project compiler to a browser editor.
 - Pinned tools: `shell.nix` takes nixpkgs from an npins pin, and a podman
   devcontainer that CI builds packages the same tools.
 
@@ -109,15 +109,15 @@ Further runtime work includes:
 
 `lofi serve` compiles only the libraries an edit reaches and relinks a
 running page from the first changed module, handing over its state, and
-`lofi watch` runs a program again after each edit; `make ide` runs the same
-loop in a browser
+`lofi watch` runs a program again after each edit. `lofi dev`/`make ide` run
+the separate native project development service and browser editor
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md)).
 Not implemented:
 
 - [ ] Building `generate-library` recipes in the loop: `lofi serve`,
-  `lofi watch` and the IDE cannot run a producer program yet, so an
-  application with a generated library, such as Hearsay with its art, is
-  built with `make site` instead.
+  `lofi watch` cannot run a producer program yet. Project builds through
+  `lofi build` and `lofi dev` support producers; use `make site` for a
+  static application with generated libraries.
 - [ ] Migrations between Save types, so a reload survives a schema change:
   an application would name a function from its old Save to its new one,
   as the redesign's section 5 proposes.
@@ -136,16 +136,15 @@ Not implemented:
   once its support for WebAssembly GC matures.
 - [ ] Closures in the state: detecting them from the state's type, and
   relinking through `save` and `restore` instead of handing them over. The
-  proposed checkpoint-only replacement would remove the need for this
+  proposed durable-table replacement would remove state handover and this
   separate detection path.
 
 ### Projects, development and the IDE
 
-`make ide` builds a browser IDE: projects opened from disk, highlighting,
-Emacs-style indentation and format-on-save through `(lofi format)`,
-squiggles from the compiler's builds, a file browser and split panes
-([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md),
-section 7). This is the current implementation. The
+`lofi dev PROJECT` and `make ide` run a native project service with a browser
+editor: highlighting, Scheme indentation and format-on-save through `(lofi format)`,
+full build diagnostics, disk conflict handling, a file browser and split panes.
+The browser compiler, project copy and static IDE packaging are removed. The
 [replacement design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
 authorizes the settled project/IDE work. Its detailed
 [state prototype](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/typed-state.md)
@@ -153,8 +152,11 @@ remains under review:
 
 - [x] Delete the integrated preview, its frame transport and application-host
   packaging. Keep editor formatting, diagnostics and split panes.
-- [ ] Replace browser project/build ownership with `lofi dev` for one project. Preserve the editor, formatting,
-  diagnostics and splits; the UI subscribes to the development session.
+- [x] Replace browser project/build ownership with `lofi dev` for one project.
+  Preserve formatting and splits; subscribe to native file/build updates. Keep
+  drafts through conflicting external changes, delayed replies and file deletion.
+- [ ] Expose structured compiler locations for editor squiggles; current build
+  diagnostics are full messages, with no UI parser for source coordinates.
 - [x] Replace application build scripts with inert `project.datum` forms such as
   `build-target` and `run-target`. Every build target produces one output
   directory through `lofi build PROJECT TARGET`. This changes the compiler/CLI
@@ -214,8 +216,8 @@ remains under review:
   build output; Save neither retains buffers nor calls the compiler.
 - [x] Bind the project attempt owner, file service and shared observer in one
   loopback HTTP API. Conditional saves, manual Build and current-status/file-change
-  SSE stay responsive during compilation. UI/CLI integration follows independently
-  of typed-state review.
+  SSE stay responsive during compilation. The native `dev` command and editor use
+  this boundary independently of typed-state review.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.
@@ -251,7 +253,8 @@ Other editor improvements remain open:
   check` need no Emacs.
 - [ ] A row-polymorphic handler of a host-bound effect, such as
   `(All (e) (-> (-> Unit ! fs e) Unit ! files e))`, fails to check with an
-  empty list of disallowed effects; src/ide/develop.sld spells its rows out.
+  empty list of disallowed effects. This language gap remains after removing
+  the browser compiler handler that exposed it.
 
 ### Siegework
 

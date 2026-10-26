@@ -87,14 +87,17 @@ gives the reload rules; what matters when writing code:
   `restore` otherwise, so keep what should survive an edit in the Save.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give constants their signatures.
-- `./lofi watch SOURCE [ARGUMENT ...]` is the same loop for programs, and
-  `make ide` packages it as a browser IDE around Siegework in `build/ide`.
+- `./lofi watch SOURCE [ARGUMENT ...]` is the same loop for programs.
+  `./lofi dev PROJECT` runs the native project compiler and browser editor;
+  `make ide` starts it for Siegework. Save writes disk; the shared watcher
+  drives compiler and editor updates. Application launching/reload still uses
+  `serve`/`watch` until that integration lands.
 - Builds in one checkout keep apart, as Cargo's do: each compile and each
   `lofi run` works in a directory of its own under `build/lofi-run/`, and
   rebuilding the compiled compiler or the development tools takes an
   exclusive lock on `build/lock`, so `make test` may run beside a server.
-- The loop is `src/lofi/develop.sld` on a thin host, `scripts/develop.mjs` or
-  `src/ide/toolchain.mjs`; the page's reload client is `src/app/reload.sld`,
+- The existing application loop is `src/lofi/develop.sld` on the native
+  `scripts/develop.mjs` host; the page's reload client is `src/app/reload.sld`,
   `relinkProgram` in `src/app/load.mjs` relinks after the JSPI loop in
   `src/app/runtime.mjs` saves, returns its state and settles. `tests/develop.mjs` (in
   `make test`) and `tests/browser/reload.mjs` and `tests/browser/ide.mjs`

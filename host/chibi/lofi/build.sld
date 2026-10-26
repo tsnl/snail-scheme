@@ -18,6 +18,7 @@
    build-tool
    build-tools
    build-project-tools
+   build-editor-tools
    bootstrap!
    with-private-directory
    node-command
@@ -459,6 +460,12 @@
                                          (list (path-join root "src") (path-join root "lib"))))
             (cons "runtime" (build-crate root "runtime"))
             (cons "assembler" (build-crate root "assembler"))))
+
+    ;; The editor adds only its formatter to the native project tools.
+    (define (build-editor-tools root)
+      (cons (cons "formatter" (build-tool root (path-join root "src/ide/format.sld") (path-join root "build/ide-tools/format.wasm")
+                                          (list (path-join root "lib"))))
+            (build-project-tools root)))
 
     ;; A program the tools run, built from `source` with the libraries in
     ;; `directories` when it is stale.

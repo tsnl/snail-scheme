@@ -56,16 +56,19 @@ python3 -m http.server 4191 --directory apps/siegework/build/site
 
 While you change it, `./lofi serve apps/siegework` serves it at
 <http://127.0.0.1:8000/>, rebuilds only the libraries you edit, and relinks
-them into the open page, which keeps the game and the camera. `make ide`
-builds an IDE that runs the same loop in the browser, in `build/ide`: open a
-project directory, edit with highlighting, Emacs-style indentation and squiggles from
-the compiler, and watch the application relink beside the editor.
+them into the open page, which keeps the game and the camera.
+`./lofi dev --port 8001 apps/siegework` starts the native project compiler and
+browser editor. It reads `project.datum`; saving writes disk, and one shared
+watcher notifies both compiler and editor, including edits made by other tools.
+The editor keeps highlighting, Scheme indentation, format-on-save and split
+panes. Builds publish fresh diagnostic messages; located squiggles follow.
+`make ide` starts this service for Siegework on port 8000.
 
-These are the current commands. The proposed
-[project and development workflow](doc/proposals/desktop-ide.md) replaces
-application build scripts with inert project descriptions and brings watching,
-incremental compilation and the editor's services under `lofi dev`.
-That design awaits review.
+Project builds and the native editor are implemented. The
+[project and development workflow](doc/proposals/desktop-ide.md) still needs
+application launches and reloads under `dev`; use `serve`/`watch` for those
+until that integration lands. The [typed-state API](doc/proposals/typed-state.md)
+remains under review.
 
 ## Reading on
 
@@ -77,6 +80,6 @@ That design awaits review.
 - [The redesign](doc/redesign.md) records the design, and the book's
   [roadmap](doc/book/roadmap.md) what is implemented and what remains.
 - [The toolchain design](doc/toolchain.md) explains separate compilation,
-  hot reload and the current browser IDE.
+  hot reload and the native project service with its browser editor.
 
 [Apache-2.0](LICENSE)
