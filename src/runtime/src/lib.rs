@@ -1,7 +1,7 @@
 //! Scalar host services linked into Lofi's Wasm programs.
 //!
-//! Managed values remain in compiled Lofi. Rust owns streams, temporary token
-//! text and stable symbol names behind scalar IDs; it never holds guest GC roots.
+//! Managed values remain in compiled Lofi. Rust owns streams behind scalar
+//! IDs and synchronous text-conversion scratch; it never holds guest GC roots.
 
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -81,7 +81,7 @@ pub extern "C" fn panic_raise() {
     fail_message(&message)
 }
 
-// ---- Floating-point text shared by scalar token services ----
+// ---- Floating-point text ----
 
 fn parse_float(text: &str) -> Option<f64> {
     if text.eq_ignore_ascii_case("+inf.0") {
