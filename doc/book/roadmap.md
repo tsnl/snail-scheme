@@ -193,6 +193,12 @@ remains under review:
   producers, and return private candidates before publication. Failed parents
   preserve dependency outputs; publication failure retains its completed prefix.
   Connect this builder to the persistent worker and shared watcher next.
+- [x] Provide one disk observer with independent subscriptions, metadata
+  reconciliation and watch recovery. Explicit exclusions keep output/data
+  directories separate; caller policy decides which observed paths need builds.
+  Connect it to project attempts and file-service subscriptions next. Metadata
+  polling detects ordinary local writes, not every change on coarse or unusual
+  filesystems.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.
