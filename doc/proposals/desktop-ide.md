@@ -64,10 +64,12 @@ follows separately. Literal `library-roots` are optional per build target.
 Each build target produces **one output directory**, containing any number
 of files. There is no second output-name namespace. The compiler driver,
 loaders, CLI and IDE consume that same directory contract, including the
-manifest identifying its program/modules or browser bundle. Changing
-`compile -o` from a file to a directory is an acceptable breaking change;
-migrate callers and tests together. Publish completed directories from build
-staging so a failed attempt cannot expose half a program.
+manifest identifying its modules or browser bundle when needed. `compile -o`
+and `run -o` now publish `DIRECTORY/program.wasm`, a breaking change from the
+old filename argument. Single-file builds stage the completed file on the
+destination filesystem and rename it atomically; unrelated files remain intact.
+Multi-file bundles need a publication boundary for the whole artifact so a
+failed attempt cannot expose half a program.
 `dev` uses separate debug modules; `build --release` uses the existing release
 pipeline. Development bundles carry reload manifests/support; release bundles
 omit them.
@@ -325,7 +327,8 @@ current code. Each state-library cut will be split further once its API is settl
 | --- | --- | --- |
 | 1. Delete the preview | Remove `src/ide/preview.{mjs,html}`, iframe/ports and preview packaging. | Keep editor formatting, panes and diagnostics; no replacement preview protocol. |
 | 2. Project forms | Parse explicit target/launch forms in `(lofi project)` with the compiler's located reader, shared by Chibi and Wasm. | No evaluator or metadata sandbox. Check duplicate/invalid forms, resolved launch types and round-trip printing. |
-| 3. Output directories and CLI builds | Change `scripts/lofi.scm` and `host/chibi/lofi/build.sld` callers to the directory contract; introduce project builds and replace application packaging scripts. | One compiler build path; migrate `compile -o`, runner and build tests together. Execute built programs and inspect browser output files. |
+| 3a. Output directories | Change `scripts/lofi.scm` and `host/chibi/lofi/build.sld` callers to the directory contract. | Keep linker primitives; publish only completed `program.wasm`. Execute output and prove failed builds preserve it and unrelated files. |
+| 3b. CLI project builds | Consume parsed project descriptions, introduce project builds and replace application packaging scripts. | One compiler build path; inspect browser output files and preserve generated libraries. |
 | 4. Artifact dependencies | Extend `expand.sld`/`session.sld` and generated-library execution with named target resolution. | One serial traversal; no scanner or runtime lookup. Test missing targets, cached dependency cycles, producer changes and Hearsay generation. |
 | 5. Persistent development | Extract the development session from `develop.sld`/`scripts/develop.mjs`, retaining compiler sessions in one Node worker. Share watch reconciliation and publish fresh attempt diagnostics. | Keep old commands until their launch/reload replacements pass in PR 11. Test external edits, rename saves, invalid→valid builds, changes during compilation and unchanged-library reuse. |
 | 6. TCP sockets | Add the concrete native TCP effect on `src/app/tasks.mjs` suspension and cleanup. | No provider hierarchy. Exercise real partial transfers, close/cancel and late completion. |
