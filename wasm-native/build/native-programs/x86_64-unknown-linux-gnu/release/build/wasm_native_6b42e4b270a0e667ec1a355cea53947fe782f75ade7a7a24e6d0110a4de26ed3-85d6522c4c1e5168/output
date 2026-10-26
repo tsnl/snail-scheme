@@ -1,1 +1,0 @@
-cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/self-hosting-probes/fibonacci.native-12-0/module.bc

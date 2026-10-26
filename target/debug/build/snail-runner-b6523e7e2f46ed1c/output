@@ -1,4 +1,0 @@
-cargo:rerun-if-env-changed=SNAIL_LLVM_IR
-cargo:rerun-if-env-changed=LLVM_LLC
-cargo:rerun-if-changed=/tmp/snail-runtime-runner-probe.ll
-cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/target/debug/build/snail-runner-b6523e7e2f46ed1c/out/scheme.o
