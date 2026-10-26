@@ -98,6 +98,7 @@ Every operation must use the owner that issued its handle.
 | `accept(signal, listener)` | One connection, independent of its listener after delivery from this operation. |
 | `read(signal, connection, maximum)` | A nonempty available byte prefix, or `null` at EOF. The limit is 1–65,536. |
 | `write(signal, connection, bytes)` | A count of bytes accepted locally, at most 65,536; empty input returns 0. |
+| `finish(signal, connection, grace)` | End output, discard input and await physical closure; grace bounds graceful progress in milliseconds. |
 | `close(handle)` | Immediate revocation of aliases and initiation of native cleanup; repeated close does nothing. |
 | `shutdown()` | Reject new work, close all resources, and await native cleanup. |
 
@@ -113,6 +114,30 @@ staging memory before awaiting; native callers must not mutate or detach
 the supplied storage. A cancelled write may already have transmitted bytes, so
 retrying the whole buffer is not automatically safe.
 
+### Finishing a connection
+
+The native `finish` operation is implemented; its Lofi effect binding is still
+pending. It takes an idle connection and a whole-number grace period from 0
+through 2,147,483,647 milliseconds. Pending read or write rejects with `EBUSY`
+without changing ownership. Invalid grace rejects with `EINVAL`.
+
+Once accepted, `finish` ends output and consumes remaining input without keeping
+it. Node's `writableEnded` state prevents aliases from starting further I/O;
+`close` can still abort the connection. EOF plus completed output lets Node close
+the socket naturally. This staged teardown avoids discarding a final HTTP
+response when unread input remains; see [RFC 9112 §9.6](https://www.rfc-editor.org/rfc/rfc9112.html#section-9.6).
+Success reports local completion, not proof that the peer application processed
+the response.
+
+The deadline is elapsed time, not an idle timeout renewed by incoming data.
+Expiry forces closure and reports `ETIMEDOUT`; zero means immediate expiry.
+Cancellation preserves its exact reason. Transport failure, explicit close,
+timeout or cancellation records the first cause; clean native closure records
+success. A later cancellation cannot rewrite that native outcome, although the
+task scheduler can still reject delivery to a cancelled task. Every accepted
+finish waits for physical closure before settling. The grace bounds graceful
+progress; forced cleanup still needs event-loop scheduling.
+
 ## Ownership and cancellation
 
 Node accepts eagerly. A listener retains at most 64 unclaimed connections in a
@@ -122,8 +147,9 @@ listener and unclaimed connections usable; closing a listener releases its queue
 but leaves already handed-out connections independent.
 
 Native ownership lasts from creation through the close callback. A public handle
-exists only after successful listen/connect/accept and is removed when close
-begins. Failed creation and rejected incoming sockets therefore participate in
+exists only after successful listen/connect/accept. Immediate close removes it;
+graceful finish disables ordinary I/O but retains the handle for an explicit
+abort until physical closure. Failed creation and rejected incoming sockets therefore participate in
 shutdown without receiving a handle. Exhausting the handle namespace reports
 `EMFILE`; an accept that cannot publish leaves its connection listener-owned.
 

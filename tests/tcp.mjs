@@ -128,6 +128,7 @@ async function cancelledWrite() {
       if (!await Promise.race([writing.then(() => true), delay(10).then(() => false)])) { pending = writing; break; }
     }
     assert.ok(pending, 'the unread peer eventually applies backpressure');
+    await assert.rejects(tcp.finish(signal, outgoing, 1000), {code: 'EBUSY'}, 'finish cannot take a pending write');
     const reason = new Error('cancel blocked write');
     controller.abort(reason);
     await assert.rejects(pending, error => error === reason);
@@ -222,6 +223,98 @@ async function failedQueuedConnection() {
   } finally { Server.prototype.emit = emit; for (const client of clients) client.destroy(); await tcp.shutdown(); }
 }
 
+async function peerConnection(tcp) {
+  const listener = await tcp.listen(signal, '127.0.0.1', 0), client = await peer(tcp.port(listener));
+  return {listener, client, connection: await tcp.accept(signal, listener)};
+}
+
+async function gracefulTransfer() {
+  for (const peerEndsFirst of [false, true]) {
+    const tcp = createTcp(); let client;
+    try {
+      const pair = await peerConnection(tcp); client = pair.client;
+      const response = Buffer.alloc(130_000, 123), chunks = [], eof = once(client, 'end');
+      client.on('data', bytes => chunks.push(bytes));
+      client.once('end', () => { if (!client.writableEnded) client.end('final unread bytes'); });
+      if (peerEndsFirst) {
+        client.end('request');
+        while (await tcp.read(signal, pair.connection, 32) !== null) {}
+      } else client.write(Buffer.alloc(130_000, 42));
+      for (let offset = 0; offset < response.length;)
+        offset += await tcp.write(signal, pair.connection, response.subarray(offset));
+      const finishing = tcp.finish(signal, pair.connection, 2000);
+      await assert.rejects(tcp.read(signal, pair.connection, 1), {code: 'EBADF'});
+      await assert.rejects(tcp.write(signal, pair.connection, new Uint8Array()), {code: 'EBADF'});
+      await assert.rejects(tcp.finish(signal, pair.connection, 1000), {code: 'EBADF'});
+      await finishing; await eof;
+      assert.deepEqual(Buffer.concat(chunks), response, 'finish preserves the whole response despite unread input');
+    } finally { client?.destroy(); await tcp.shutdown(); }
+  }
+}
+
+async function gracefulOwnership() {
+  const tcp = createTcp(); let client;
+  try {
+    const pair = await peerConnection(tcp); client = pair.client;
+    for (const grace of [-1, 0.5, Infinity, 0x80000000])
+      await assert.rejects(tcp.finish(signal, pair.connection, grace), {code: 'EINVAL'});
+    const reading = tcp.read(signal, pair.connection, 32);
+    await assert.rejects(tcp.finish(signal, pair.connection, 1000), {code: 'EBUSY'});
+    client.write('still open'); assert.equal((await reading).toString(), 'still open');
+    const cancelled = new AbortController(), reason = new Error('not started');
+    cancelled.abort(reason);
+    await assert.rejects(tcp.finish(cancelled.signal, pair.connection, 1000), error => error === reason);
+    assert.equal(await tcp.write(signal, pair.connection, new Uint8Array()), 0, 'pre-abort leaves ownership unchanged');
+
+    const finishing = assert.rejects(tcp.finish(signal, pair.connection, 1000), {code: 'EBADF'});
+    tcp.close(pair.connection); await finishing;
+    await assert.rejects(tcp.read(signal, pair.connection, 1), {code: 'EBADF'});
+  } finally { client?.destroy(); await tcp.shutdown(); }
+}
+
+async function gracefulDeadlineAndAbort() {
+  for (const mode of ['timeout', 'zero', 'abort', 'null', 'shutdown']) {
+    const tcp = createTcp(), controller = new AbortController(); let client;
+    try {
+      const pair = await peerConnection(tcp); client = pair.client;
+      client.resume(); // Observe FIN without closing our writable side.
+      const reason = mode === 'null' ? null : new Error('cancel graceful finish');
+      const rejected = assert.rejects(tcp.finish(controller.signal, pair.connection, mode === 'zero' ? 0 : mode === 'timeout' ? 30 : 1000),
+        error => mode === 'abort' || mode === 'null' ? error === reason : error.code === (mode === 'shutdown' ? 'EBADF' : 'ETIMEDOUT'));
+      if (mode === 'abort' || mode === 'null') controller.abort(reason);
+      if (mode === 'zero') controller.abort(new Error('later than zero grace'));
+      if (mode === 'shutdown') await tcp.shutdown();
+      await rejected;
+      await assert.rejects(tcp.write(signal, pair.connection, new Uint8Array()), {code: 'EBADF'});
+    } finally { client?.destroy(); await tcp.shutdown(); }
+  }
+}
+
+async function gracefulCloseOrdering() {
+  for (const cause of ['clean', 'error', 'abort']) {
+    const tcp = createTcp(), controller = new AbortController(), emit = Socket.prototype.emit;
+    const reason = Object.assign(new Error('first terminal cause'), {code: 'ECONNRESET'});
+    let client, ownedSocket, nativeClosed = false;
+    try {
+      const pair = await peerConnection(tcp); client = pair.client;
+      const port = tcp.port(pair.listener);
+      Socket.prototype.emit = function(event, ...args) {
+        if (this.localPort === port) ownedSocket = this;
+        if (this === ownedSocket && event === 'finish' && cause === 'error') emit.call(this, 'error', reason);
+        if (this === ownedSocket && event === 'finish' && cause === 'abort') controller.abort(reason);
+        const result = emit.call(this, event, ...args);
+        if (this === ownedSocket && event === 'close') { nativeClosed = true; controller.abort(new Error('after native close')); }
+        return result;
+      };
+      client.end(); client.resume();
+      const finishing = tcp.finish(controller.signal, pair.connection, 1000);
+      if (cause === 'clean') await finishing;
+      else await assert.rejects(finishing, error => error === reason);
+      assert.ok(nativeClosed, 'finish waits for physical close and retains its first outcome');
+    } finally { Socket.prototype.emit = emit; client?.destroy(); await tcp.shutdown(); }
+  }
+}
+
 try {
   await transfers();
   await cancellation();
@@ -231,5 +324,9 @@ try {
   await completedCreation();
   await completedWrite();
   await failedQueuedConnection();
-  console.log('TCP: partial transfers, half-close, cancellation, queued ownership and shutdown');
+  await gracefulTransfer();
+  await gracefulOwnership();
+  await gracefulDeadlineAndAbort();
+  await gracefulCloseOrdering();
+  console.log('TCP: partial transfers, graceful finish, cancellation, queued ownership and shutdown');
 } finally { clearTimeout(watchdog); }
