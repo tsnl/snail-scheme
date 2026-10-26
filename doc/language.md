@@ -412,7 +412,7 @@ A sprite is a textured quad, standing upright toward the camera in a 2.5D
 scene or lying flat under an orthographic camera looking straight down in
 a 2D one, and a texture region can be a strip of frames the host steps
 through by the clock. `(lofi sprite)` poses figures from spritebooks of any
-sheet, and `lib/lpc` uses it for the Liberated Pixel Cup character art.
+sheet, and `src/lpc` uses it for the Liberated Pixel Cup character art.
 
 HUD panels, built from widgets such as those `label` and `button` make,
 stack in columns from the screen's corners, appear as dialogs, or sit in a

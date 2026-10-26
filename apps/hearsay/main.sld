@@ -1,6 +1,6 @@
 ;; Hearsay's prototypes in the browser: a menu that opens the rumor mill or
 ;; the favor ledger. See prototypes.md for their rules. The cast's LPC
-;; sheets are embedded through (hearsay art); see lib/lpc/ATTRIBUTION.md.
+;; sheets are embedded through (hearsay art); see src/lpc/ATTRIBUTION.md.
 (import
  (lofi base)
  (lofi app)

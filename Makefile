@@ -60,7 +60,7 @@ hearsay:
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
 # play/siegework/. Hearsay stays unpublished: its LPC art must be credited
-# as lib/lpc/ATTRIBUTION.md describes, and the page doesn't show credits.
+# as src/lpc/ATTRIBUTION.md describes, and the page doesn't show credits.
 pages: siegework
 	"$(MDBOOK)" build --dest-dir build/pages
 	mkdir -p build/pages/play/siegework
