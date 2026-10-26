@@ -2,13 +2,13 @@
  (lofi base)
  (lofi io)
  (lofi task)
- (lofi tcp))
+ (lofi socket))
 
-(: require (All (T) (-> (Result T TcpError) T)))
+(: require (All (T) (-> (Result T SocketError) T)))
 (define (require result)
   (match result
     ((Ok value) value)
-    ((Err error) (panic (TcpError-code error)))))
+    ((Err error) (panic (SocketError-code error)))))
 
 ;; Mutable test state travels in operation arguments, not the reusable
 ;; handler's captures. A dispatched task inherits this handler across waits.
