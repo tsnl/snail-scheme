@@ -4,6 +4,6 @@ case ${1:-} in
   -h|--help) cat "$root/scripts/lofi-help.txt"; exit 0 ;;
   dev) shift; exec "${NODE:-node}" --no-warnings "$root/scripts/dev.mjs" "$root" "$@" ;;
   # Keep the old build worker's 384 MiB young generation and 4 MiB stack less 192 KiB native overhead.
-  build) shift; exec "${NODE:-node}" --no-warnings --max-semi-space-size=128 --stack-size=3904 "$root/scripts/build.mjs" "$root" "$@" ;;
-  *) printf 'lofi: expected build or dev; use --help\n' >&2; exit 2 ;;
+  build|run) exec "${NODE:-node}" --no-warnings --max-semi-space-size=128 --stack-size=3904 "$root/scripts/project-cli.mjs" "$root" "$@" ;;
+  *) printf 'lofi: expected build, run or dev; use --help\n' >&2; exit 2 ;;
 esac
