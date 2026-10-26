@@ -1,0 +1,198 @@
+// One project, one compiler worker, one disk observer. The parent owns attempts
+// and accepts completed directories; the worker owns successful compiler caches.
+import {lstatSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync} from 'node:fs';
+import {basename, join, sep} from 'node:path';
+import {Worker} from 'node:worker_threads';
+import {discardProject, publishProject} from './project.mjs';
+import {watchProject} from './watch.mjs';
+
+const within = (directory, path) => path === directory || path.startsWith(directory.endsWith(sep) ? directory : directory + sep);
+
+// Source libraries and declared entry/public paths are build inputs. Arbitrary
+// data reads by a producer are not tracked yet; manual Build reruns producers.
+function inputPath(root, project, description, path) {
+  if (path === join(project, 'project.datum')) return true;
+  if ((within(project, path) || within(join(root, 'lib'), path)) && path.endsWith('.sld')) return true;
+  if (within(join(root, 'src/app'), path)) return true;
+  return description?.builds.some(target => {
+    const entry = join(project, target.entry), publicPath = target.public && join(project, target.public);
+    return within(path, entry) || (publicPath && (within(publicPath, path) || within(path, publicPath)));
+  }) ?? false;
+}
+
+// Atomically reserve a namespace before the worker can create generations.
+// Sibling generation names preserve the builder's basename-only output links.
+function reserve(project) {
+  const build = join(project, 'build');
+  if (lstatSync(build, {throwIfNoEntry: false})?.isSymbolicLink()) throw new Error(`project build directory cannot be a symbolic link: ${build}`);
+  mkdirSync(build, {recursive: true});
+  return mkdtempSync(join(build, '.lofi-attempt-'));
+}
+
+// Sweep unpublished namespaces only after a reply relinquishes the attempt or
+// the worker exits. Publication consumes ownership even when it partly fails.
+function abandon(project, attempt) {
+  let names;
+  try { names = readdirSync(join(project, 'build')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; names = []; }
+  for (const name of names) {
+    if (name.startsWith(attempt.prefix)) rmSync(join(project, 'build', name), {recursive: true, force: true});
+  }
+  rmSync(attempt.reservation, {recursive: true, force: true});
+}
+
+export function developProject({root, project, tools}) {
+  root = realpathSync(root); project = realpathSync(project);
+  mkdirSync(join(root, 'build/lofi-run'), {recursive: true});
+  const directory = mkdtempSync(join(root, 'build/lofi-run/project-'));
+  const files = watchProject({roots: [project, join(root, 'lib'), join(root, 'src/app')],
+    exclude: [join(project, 'build'), join(project, '.git'), join(root, 'build')]});
+  let worker;
+  try {
+    worker = new Worker(new URL('./project-worker.mjs', import.meta.url), {
+      workerData: {root, project, tools, directory}, name: 'lofi-project-compiler',
+      resourceLimits: {maxYoungGenerationSizeMb: 384},
+    });
+  } catch (error) { void files.close(); rmSync(directory, {recursive: true, force: true}); throw error; }
+
+  const listeners = new Set(), ready = Promise.withResolvers(), exited = Promise.withResolvers();
+  let description = null, published = null, attempt = null, serial = 0, timer = null;
+  let initialized = false, dirty = true, diskFailed = false, stopping = false, closing = null, finishing = null;
+  let status = {phase: 'starting', id: 0, diagnostics: [], published, worker: worker.threadId};
+
+  // Status is one replaceable value; subscribing includes the current value.
+  // Subscribers are trusted host code and must not throw.
+  function report(phase, diagnostics = []) {
+    status = {phase, id: serial, diagnostics, published, worker: status.worker};
+    for (const listener of listeners) listener(status);
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    if (!stopping && initialized && !attempt && dirty) timer = setTimeout(start, 40);
+  }
+
+  function requestBuild() {
+    if (stopping) return;
+    dirty = true;
+    schedule();
+  }
+
+  files.subscribe(event => {
+    if (event.kind === 'uncertain') {
+      if (diskFailed && !event.error) requestBuild();
+      return; // Reconciliation, not uncertainty itself, establishes a change.
+    }
+    for (const path of event.kind === 'changed' ? event.paths : [event.path]) {
+      attempt?.paths.add(path);
+      if (inputPath(root, project, description, path)) requestBuild();
+    }
+  });
+
+  function start() {
+    timer = null;
+    if (stopping || attempt || !dirty) return;
+    dirty = false; diskFailed = false; serial++;
+    report('building'); // Previous errors disappear before this attempt starts.
+    if (stopping) return;
+    try {
+      const reservation = reserve(project), prefix = basename(reservation) + '-';
+      attempt = {id: serial, reservation, prefix, paths: new Set(), owned: true};
+      worker.postMessage({kind: 'build', id: serial, prefix});
+    } catch (error) { fatal(error); }
+  }
+
+  async function complete(result) {
+    const current = attempt;
+    if (!current || result.id !== current.id) throw new Error('unexpected compiler attempt result');
+    if (result.description) description = result.description; // Retain even a failed build's parsed inputs.
+    let diagnostics = result.diagnostics;
+    try { await files.reconcile(); }
+    catch (error) { diskFailed = true; diagnostics = [{severity: 'error', message: error.message}]; }
+    const superseded = dirty || [...current.paths].some(path => inputPath(root, project, description, path));
+    if (superseded) dirty = true;
+    if (result.candidate) {
+      if (stopping || superseded || diskFailed) discardProject(result.candidate);
+      else {
+        current.owned = false; // publishProject consumes even a partially published failure.
+        try { publishProject(result.candidate); published = {id: current.id, ...result.candidate}; }
+        catch (error) { diagnostics = [{severity: 'error', message: error.message}]; }
+      }
+    }
+    if (current.owned) abandon(project, current);
+    else rmSync(current.reservation, {recursive: true, force: true});
+    attempt = null;
+    if (!stopping) report(superseded ? 'superseded' : diagnostics.length ? 'failed' : 'succeeded', superseded ? [] : diagnostics);
+    schedule();
+  }
+
+  function fatal(error) {
+    if (stopping) return;
+    report('fatal', [{severity: 'error', message: error.message}]);
+    void close().catch(() => {}); // Explicit close() callers still receive cleanup errors.
+  }
+
+  worker.on('message', result => {
+    if (result.kind === 'ready') { ready.resolve(); return; }
+    finishing = complete(result).catch(fatal).finally(() => { finishing = null; });
+  });
+  worker.on('error', error => { ready.reject(error); fatal(error); });
+  worker.on('exit', code => {
+    exited.resolve();
+    const error = new Error(`compiler worker exited with status ${code}`);
+    ready.reject(error);
+    if (!stopping) fatal(error);
+  });
+
+  // A worker message cannot interrupt synchronous Wasm or native IO. Request
+  // graceful close, then termination; cleanup waits for actual worker exit.
+  // Blocking OS operations can delay exit. This is not a shutdown deadline.
+  function close() {
+    if (closing) return closing;
+    stopping = true;
+    clearTimeout(timer);
+    worker.postMessage({kind: 'close'});
+    const timeout = setTimeout(() => { void worker.terminate(); }, 2000);
+    closing = (async () => {
+      await files.close();
+      await exited.promise;
+      clearTimeout(timeout);
+      await finishing;
+      let failure;
+      try {
+        if (attempt?.owned) abandon(project, attempt);
+        else if (attempt) rmSync(attempt.reservation, {recursive: true, force: true});
+      } catch (error) { failure = error; }
+      try { rmSync(directory, {recursive: true, force: true}); }
+      catch (error) { failure ??= error; }
+      listeners.clear();
+      if (failure) throw failure;
+    })();
+    return closing;
+  }
+
+  void (async () => {
+    await ready.promise;
+    if (stopping) return;
+    try { await files.reconcile(); }
+    catch (error) {
+      if (stopping) return;
+      diskFailed = true; report('failed', [{severity: 'error', message: error.message}]);
+    }
+    if (stopping) return;
+    initialized = true;
+    if (!diskFailed) schedule();
+  })().catch(fatal);
+
+  return {
+    files,
+    get status() { return status; },
+    requestBuild,
+    subscribe(listener) {
+      if (stopping) throw new Error('project development is closed');
+      listeners.add(listener); listener(status);
+      return () => listeners.delete(listener);
+    },
+    close,
+  };
+}

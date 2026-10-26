@@ -199,6 +199,13 @@ remains under review:
   Connect it to project attempts and file-service subscriptions next. Metadata
   polling detects ordinary local writes, not every change on coarse or unusual
   filesystems.
+- [x] Connect project compilation to a persistent native worker and shared
+  observer. Retain parsed inputs even after a failed build; reconcile and reject
+  observed superseded candidates before publication. Clear diagnostics at each
+  attempt, preserve accepted outputs and clean abandoned worker namespaces.
+  The native API is tested; CLI, file-service and application launch integration
+  follow. Current diagnostic records carry severity/message; expose structured
+  source spans at the compiler boundary before editor squiggles.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.
