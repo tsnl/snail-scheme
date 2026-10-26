@@ -1,15 +1,17 @@
 ;; A resident compiler's native boundary. JavaScript retains Session values
-;; as opaque Any references and receives only parsed records. Input providers
-;; load artifact snapshots before expansion. Missing inputs are projected only
+;; and immutable artifact inputs as opaque Any references. It receives only
+;; parsed records. Missing inputs are projected only
 ;; after the compiler unwinds, before native work starts.
 (import
  (lofi base)
  (lofi io)
+ (lofi table)
  (lofi project)
  (lofi compiler)
  (lofi compiler read)
  (lofi compiler inputs)
- (lofi compiler session))
+ (lofi compiler session)
+ (only (lofi compiler expand) ArtifactInputs))
 
 ;; ---- Arguments and records ----
 
@@ -112,19 +114,19 @@
 (define (session!)
   (type-convert (make-session (take-arguments!)) Any))
 
-(: static! (-> Unit ! mut fs))
-(define (static!)
+(: static! (-> Any Unit ! mut fs))
+(define (static! inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch directories)))
-     (write-file output (compile->wat directories source (lambda (forms) (generated-syntax scratch forms)) (load-artifacts scratch))))
+     (write-file output (compile->wat directories source (lambda (forms) (generated-syntax scratch forms)) (type-convert inputs ArtifactInputs))))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
 
-(: modules! (-> Any Any ! mut fs compiler-output))
-(define (modules! previous)
+(: modules! (-> Any Any Any ! mut fs compiler-output))
+(define (modules! previous inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch (Nil))))
      (let ((built (build-session (type-convert previous Session) source
-                                 (lambda (forms) (generated-syntax scratch forms)) (load-artifacts scratch))))
+                                 (lambda (forms) (generated-syntax scratch forms)) (type-convert inputs ArtifactInputs))))
        (for-each (lambda (module) (send-module output module)) (Pair-first built))
        (type-convert (Pair-second built) Any)))
     (_ (panic "compiler modules: expected source, output and scratch directories"))))
@@ -153,23 +155,31 @@
      (output-artifact (Loc-line loc) (Loc-column loc)))
     ((None) (unit))))
 
-;; Native code supplies fields; Lofi owns the datum grammar and escaping.
-;; The manifest belongs to a logical compilation, not the resident instance.
-(: add-artifact! (-> Unit ! mut fs))
-(define (add-artifact!)
-  (match (take-arguments!)
-    ((Cons path (Cons name files))
-     (let ((replies (read-replies path)))
-       (when (any? (lambda (reply) (string=? name (ArtifactReply-name reply))) replies)
-         (panic "compiler artifact: already provided"))
-       (write-file path (replies->string (Cons (ArtifactReply name (file-pairs files)) replies)))))
-    (_ (panic "compiler artifact: expected manifest, name and file pairs"))))
+;; ---- Immutable artifact inputs ----
 
-(: file-pairs (-> (List String) (List (Pair String String))))
-(define (file-pairs fields)
+(: inputs (-> Any))
+(define (inputs)
+  (type-convert no-artifacts Any))
+
+;; The caller owns a canonical ordered inventory of completed output files.
+;; Read them once; only a successful call exposes the replacement table.
+(: add-artifact! (-> Any Any ! mut fs))
+(define (add-artifact! previous)
+  (match (take-arguments!)
+    ((Cons name files)
+     (let ((inputs (type-convert previous ArtifactInputs)))
+       (match (table-ref inputs name)
+         ((Some _) (panic "compiler artifact: already provided"))
+         ((None) (type-convert (table-set inputs name (snapshot-files files)) Any)))))
+    (_ (panic "compiler artifact: expected name and file pairs"))))
+
+(: snapshot-files (-> (List String) (List (Pair String Bytes)) ! fs))
+(define (snapshot-files fields)
   (match fields
     ((Nil) (Nil))
-    ((Cons relative (Cons path rest)) (Cons (Pair relative path) (file-pairs rest)))
+    ((Cons relative (Cons path rest))
+     (let ((bytes (read-bytes path)))
+       (Cons (Pair relative bytes) (snapshot-files rest))))
     (_ (panic "compiler artifact: expected relative and backing path pairs"))))
 
 (expose diagnostic! "diagnostic")
@@ -181,4 +191,5 @@
 (expose modules! "modules")
 (expose reset! "reset")
 (expose request! "request")
+(expose inputs "inputs")
 (expose add-artifact! "add_artifact")

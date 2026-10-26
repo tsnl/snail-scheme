@@ -115,17 +115,18 @@ replacement session.
 `bootstrap/compiler.sld` exposes this compiler to a resident native caller.
 `scripts/compiler.mjs` owns one Wasm instance and returns parsed project and
 input-request records, static text, or modular text with a successor Session.
-JavaScript retains a Session as an opaque `Any`; it cannot inspect it and must
-keep it with its originating compiler instance. Each operation consumes its staged arguments
+JavaScript retains Sessions and immutable artifact inputs as opaque `Any`
+values; it cannot inspect them and must keep them with their originating compiler
+instance. Each operation consumes its staged arguments
 before doing work, and projected records become visible only on success.
 
 The compiler records missing inputs in memory. After a trusted diagnostic exit
 unwinds, the resident boundary projects the pending request into the returned
 `CompilerFailure`; it needs no request file. Each invocation resets this state.
-Generated syntax and artifact replies belong to a logical compilation's private
-scratch. The resident boundary constructs artifact replies through Lofi's
-printer and loads their snapshots before expansion. Native code needs no datum
-parser or string-escaping implementation. Its caller handles requests after
+Generated syntax belongs to a logical compilation's private scratch. Artifact
+inputs are immutable values retained by that compilation's retry loop. Adding
+a target reads its files once and returns a new table only after success. Nested
+compilations own separate tables. No artifact manifest is written or parsed. Its caller handles requests after
 Wasm unwinds; the boundary itself neither retries nor traverses projects.
 
 Each native call starts with empty diagnostic storage. The trusted compiler's

@@ -41,7 +41,7 @@ directories; a retained session owns evidence, never a provider closure:
 (Table (List (Pair String Bytes)))
 ```
 
-The table maps target names to ordered file snapshots. Its provider establishes
+The table maps target names to ordered file snapshots. The native builder establishes
 unique, canonical relative paths sorted by path, with bytes loaded from one
 completed immutable output. Expression expansion performs only memory lookups;
 it has no filesystem capability. Inputs belong to the current invocation, not
@@ -104,12 +104,17 @@ diagnostic state before work. Trusted exits preserve the instance but return no
 successor Session. Both cold project builds and `dev` use this boundary.
 
 Only `scripts/project.mjs` resolves named browser targets, including during
-producer compilation. Artifact replies name relative bundle entries and immutable
-backing files in `artifacts.datum`. The compiler parses this manifest and loads
-all supplied bytes into an immutable table before expansion. Lookups never
-reread files; applications embed the bytes and need no runtime file access.
-Each logical compilation owns its replies. Nested producers own separate scratch
-directories and share the builder's active/completed target traversal.
+producer compilation. It passes each completed target's canonical file inventory
+to `addArtifact`, which reads the bytes once and returns an opaque immutable
+input table. A failed read returns no replacement; the preceding table remains
+usable. There is no artifact reply manifest or second parsing step.
+
+Each logical compilation retains its table through retries and passes it to
+`static` or `modules`. Nested producers own separate inputs and scratch while
+sharing the builder's active/completed target traversal. These opaque values
+belong to their originating compiler instance, like Sessions. Successful
+Sessions retain only the per-library evidence already used for cache reuse.
+Applications embed the bytes and need no runtime file access.
 
 ## Project traversal
 
@@ -126,12 +131,12 @@ throughout the invocation. There is no source scanner, second dependency graph,
 persistent artifact cache or runtime lookup. A new attempt builds dependencies
 again and regenerates producer output. A resident builder retains successful
 compiler Sessions per target when its entry and ordered library roots match;
-cached expansion still resolves current artifact bytes through fresh providers.
+cached expansion still compares its exact evidence with the current inputs.
 
 Packaging and complete file enumeration precede publication. Enumeration
 includes hidden and nested files, excludes only the root `.lofi-target` marker,
 and rejects unreadable directories, symbolic links and nonregular entries.
-Every compiler reply names generation files directly, never `build/TARGET`.
+Every artifact inventory names generation files directly, never `build/TARGET`.
 The whole traversal returns a private candidate before any public link changes.
 A failed parent preserves every previous output, including its dependencies.
 Successful compiler Sessions may still advance: their evidence contains bytes,

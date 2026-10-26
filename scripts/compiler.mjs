@@ -54,7 +54,7 @@ function recordImports(receive) {
 
 // The caller owns the diagnostics file's directory; this object owns its fd.
 // Calls are serial. A worker keeps this object private and never transfers a
-// Session to another instance, worker, or version of the compiler.
+// Session or artifact inputs to another instance, worker, or compiler version.
 export async function createCompiler(program, diagnostics) {
   // Append semantics let each invocation truncate without leaving a stale
   // write position. Positional reads do not change WASI's descriptor state.
@@ -137,12 +137,13 @@ export async function createCompiler(program, diagnostics) {
       return {builds: records.filter(record => record.kind !== 'run'), runs: records.filter(record => record.kind === 'run')};
     },
     session(directories) { return invoke('session', directories).value; },
-    static(source, output, scratch, directories) { invoke('static', [source, output, scratch, ...directories]); },
-    modules(previous, source, output, scratch) {
-      const {value: session, records: modules} = invoke('modules', [source, output, scratch], previous);
+    static(inputs, source, output, scratch, directories) { invoke('static', [source, output, scratch, ...directories], inputs); },
+    modules(previous, inputs, source, output, scratch) {
+      const {value: session, records: modules} = invoke('modules', [source, output, scratch], previous, inputs);
       return {session, modules};
     },
-    addArtifact(path, name, files) { invoke('add_artifact', [path, name, ...files.flat()]); },
+    inputs() { return invoke('inputs', []).value; },
+    addArtifact(inputs, name, files) { return invoke('add_artifact', [name, ...files.flat()], inputs).value; },
     close,
   };
 }
