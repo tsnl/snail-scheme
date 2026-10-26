@@ -1,5 +1,7 @@
 # Working on Lofi
 
+`CLAUDE.md` is a symlink to this file; edit `AGENTS.md`.
+
 Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
@@ -60,6 +62,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   lives there. Track open work in [GitHub issues](https://github.com/tsnl/snail-scheme/issues).
   Keep proposed APIs explicitly distinct from implemented behavior. Do not
   duplicate the book in proposal documents or progress trackers.
+
+Run the relevant checks locally and have them pass before pushing. A local
+run answers in minutes what CI answers in tens of minutes, and it reproduces
+a failure as many times as a fix needs; pushing to see what breaks spends
+that time for a worse report. Push when a change is verified, not to find out.
 
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path src/runtime/Cargo.toml --offline`, and
