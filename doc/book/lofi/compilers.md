@@ -300,6 +300,11 @@ JavaScript retains Sessions and immutable artifact inputs as opaque typed
 references; it cannot inspect them and must keep them with their originating compiler
 instance. Each operation consumes its staged arguments
 before doing work, and projected records become visible only on success.
+Module text crosses directly through the runtime's existing String staging
+buffer, alongside the other record fields; no temporary WAT files stand between
+the resident compiler and assembler. The host copies each field synchronously
+before another call can reuse the buffer. Generated-library scratch remains
+private to its compilation.
 
 Each native call starts with empty diagnostic storage. The trusted compiler's
 code-1 diagnostic exits follow resource cleanup and allow another call with

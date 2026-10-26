@@ -14,12 +14,31 @@ export class CompilerCrashed extends Error {}
 
 // ---- Parsed records ----
 
-function recordImports(receive) {
-  let fields = [], text = '';
+// String host arguments borrow UTF-32 staging memory. Copy synchronously and
+// acquire the view after staging may have grown memory. UTF-16 decoding avoids
+// a JavaScript call or argument conversion for every emitted WAT character.
+function stagedText(memory, pointer, length) {
+  length >>>= 0;
+  const scalars = new DataView(memory.buffer, pointer >>> 0, length * 4), units = Buffer.allocUnsafe(length * 4);
+  let end = 0;
+  for (let index = 0; index < length; index++) {
+    let code = scalars.getUint32(index * 4, true);
+    if (code > 0xffff) {
+      if (code > 0x10ffff) throw new RangeError('invalid compiler character');
+      code -= 0x10000;
+      units.writeUInt16LE(0xd800 + (code >> 10), end); end += 2;
+      code = 0xdc00 + (code & 1023);
+    }
+    units.writeUInt16LE(code, end); end += 2;
+  }
+  return units.toString('utf16le', 0, end);
+}
+
+function recordImports(receive, memory) {
+  let fields = [];
   const take = () => { const taken = fields; fields = []; return taken; };
   return {
-    character(code) { text += String.fromCodePoint(code); },
-    end() { fields.push(text); text = ''; },
+    text(pointer, length) { fields.push(stagedText(memory(), pointer, length)); },
     program() {
       const [name, entry, location, ...libraries] = take();
       receive({kind: 'program', name, entry, location, libraries});
@@ -32,7 +51,7 @@ function recordImports(receive) {
       const [name, build, location, ...args] = take();
       receive({kind: 'run', name, build, location, args});
     },
-    module(compiled) { const [name, file] = take(); receive({name, file, compiled: !!compiled}); },
+    module(compiled) { const [name, text] = take(); receive({name, text, compiled: !!compiled}); },
     generate() { const [key] = take(); receive({kind: 'generate', key}); },
     diagnostic(line, column) {
       const [message, file] = take();
@@ -121,7 +140,7 @@ export async function createCompiler(program, diagnostics) {
   try {
     const wasi = new WASI({version: 'preview1', args: [program],
       env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, stderr: errors});
-    const imports = {...wasi.getImportObject(), 'lofi.compiler': recordImports(record => records.push(record))};
+    const imports = {...wasi.getImportObject(), 'lofi.compiler': recordImports(record => records.push(record), () => api.memory)};
     imports.wasi_snapshot_preview1.proc_exit = code => { exitCode = code; throw exited; };
     const {instance} = await WebAssembly.instantiate(readFileSync(program), imports);
     api = instance.exports;
@@ -139,8 +158,8 @@ export async function createCompiler(program, diagnostics) {
     session(directories) { return invoke('session', directories).value; },
     static(inputs, source, output, scratch, directories) { invoke('static', [source, output, scratch, ...directories], inputs); },
     check(inputs, source, scratch, directories) { invoke('check', [source, scratch, ...directories], inputs); },
-    modules(previous, inputs, source, output, scratch) {
-      const {value: session, records: modules} = invoke('modules', [source, output, scratch], previous, inputs);
+    modules(previous, inputs, source, scratch) {
+      const {value: session, records: modules} = invoke('modules', [source, scratch], previous, inputs);
       return {session, modules};
     },
     inputs() { return invoke('inputs', []).value; },

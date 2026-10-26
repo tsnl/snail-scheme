@@ -38,8 +38,7 @@
 
 ;; Only projection performs this effect. It never enters compiler callbacks.
 (effect compiler-output
-  ((output-character (-> Char Unit))
-   (output-end (-> Unit))
+  ((output-text (-> I32 String Unit))
    (output-program (-> Unit))
    (output-browser (-> Unit))
    (output-run (-> Unit))
@@ -48,8 +47,7 @@
    (output-artifact (-> I64 I64 Unit))
    (output-diagnostic (-> I64 I64 Unit)))
   (host "lofi.compiler"
-        ((output-character "character")
-         (output-end "end")
+        ((output-text "text")
          (output-program "program")
          (output-browser "browser")
          (output-run "run")
@@ -58,9 +56,14 @@
          (output-artifact "artifact")
          (output-diagnostic "diagnostic"))))
 
+;; Reserve before the String argument is staged. Staging that same scalar
+;; count cannot grow or move the buffer, so the pointer reaches the leaf host
+;; import with its text. The host copies it before another call can stage.
+(extern stage-text "snail.library" "snail:io/stage" (-> I32 I32))
+
 (: send-strings (-> (List String) Unit ! compiler-output))
 (define (send-strings strings)
-  (for-each (lambda (text) (for-each output-character (string->list text)) (output-end)) strings))
+  (for-each (lambda (text) (output-text (stage-text (i64->i32 (string-length text))) text)) strings))
 
 ;; ---- Source failures ----
 
@@ -131,18 +134,16 @@
 (: modules! (-> Session ArtifactInputs Session ! mut fs compiler-output))
 (define (modules! previous inputs)
   (match (take-arguments!)
-    ((Cons source (Cons output (Cons scratch (Nil))))
+    ((Cons source (Cons scratch (Nil)))
      (let ((built (build-session previous source (lambda (forms) (generated-syntax scratch forms)) inputs)))
-       (for-each (lambda (module) (send-module output module)) (Pair-first built))
+       (for-each send-module (Pair-first built))
        (Pair-second built)))
-    (_ (panic "compiler modules: expected source, output and scratch directories"))))
+    (_ (panic "compiler modules: expected source and scratch directory"))))
 
-(: send-module (-> String Built Unit ! fs compiler-output))
-(define (send-module output module)
-  (let ((path (string-append output "/" (Built-name module) ".wat")))
-    (write-file path (Built-text module))
-    (send-strings (list (Built-name module) path))
-    (output-module (Built-compiled? module))))
+(: send-module (-> Built Unit ! compiler-output))
+(define (send-module module)
+  (send-strings (list (Built-name module) (Built-text module)))
+  (output-module (Built-compiled? module)))
 
 ;; ---- Typed input protocol ----
 

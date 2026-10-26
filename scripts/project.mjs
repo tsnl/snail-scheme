@@ -97,7 +97,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
         const settings = JSON.stringify([source, libraries]);
         const previous = sessions.get(target.name);
         const session = previous?.settings === settings ? previous.session : compiler.session(libraries);
-        const built = withInputs(inputs => compiler.modules(session, inputs, source, working, working), working, libraries, artifact);
+        const built = withInputs(inputs => compiler.modules(session, inputs, source, working), working, libraries, artifact);
         sessions.set(target.name, {settings, session: built.session});
         writeModules(generation, built.modules, tools.runtime, assemble);
         return {compiled: built.modules.filter(module => module.compiled).length, modules: built.modules.length};
@@ -168,8 +168,8 @@ export async function createProjectBuilder({root, project, tools, directory}) {
 // caching remains the sole cache; a second native binary cache is unnecessary.
 function writeModules(directory, modules, runtime, assemble) {
   mkdirSync(join(directory, 'modules'));
-  const files = modules.map(({name, file}) => {
-    const text = readFileSync(file, 'utf8'), digest = createHash('sha256').update(text).digest('hex');
+  const files = modules.map(({name, text}) => {
+    const digest = createHash('sha256').update(text).digest('hex');
     const path = `modules/${digest}.wasm`;
     writeFileSync(join(directory, path), assemble(text));
     return {name, file: path};

@@ -24,9 +24,9 @@ const write = (path, text) => { mkdirSync(dirname(path), {recursive: true}); wri
 
 function execute(modules, expected, args = []) {
   const output = fresh(), manifest = join(output, 'modules.json');
-  const files = modules.map(({name, file}) => {
+  const files = modules.map(({name, text}) => {
     const wasm = join(output, `${name}.wasm`);
-    writeFileSync(wasm, assemble(readFileSync(file, 'utf8')));
+    writeFileSync(wasm, assemble(text));
     return {name, file: wasm};
   });
   writeFileSync(manifest, JSON.stringify({runtime, modules: files}));
@@ -66,24 +66,24 @@ try {
     (begin (: value (-> I64)) (define (value) ${number})))`;
   write(helper, value(42));
   write(source, '(import (lofi base) (lofi io) (sample value)) (write-line (i64->string (value)))');
-  const first = compiler.modules(compiler.session(libraries), empty, source, fresh(), fresh());
+  const first = compiler.modules(compiler.session(libraries), empty, source, fresh());
   execute(first.modules, '42\n');
-  const second = compiler.modules(first.session, empty, source, fresh(), fresh());
+  const second = compiler.modules(first.session, empty, source, fresh());
   assert.deepEqual(second.modules.filter(module => module.compiled), []);
   write(helper, value('missing-name'));
-  const badHelper = failure(() => compiler.modules(second.session, empty, source, fresh(), fresh()), /missing-name/);
+  const badHelper = failure(() => compiler.modules(second.session, empty, source, fresh()), /missing-name/);
   assert.equal(badHelper.diagnostic.source.file, helper);
   assert.equal(badHelper.diagnostic.source.line, 2);
   assert.match(badHelper.diagnostic.message, /missing-name/);
   write(helper, value(43));
-  const repaired = compiler.modules(second.session, empty, source, fresh(), fresh());
+  const repaired = compiler.modules(second.session, empty, source, fresh());
   assert.deepEqual(repaired.modules.filter(module => module.compiled).map(module => module.name), ['sample.value']);
   execute(repaired.modules, '43\n');
   const wat = join(fresh(), 'program.wat');
   compiler.static(empty, source, wat, fresh(), libraries);
-  execute([{name: 'program', file: wat}], '43\n');
+  execute([{name: 'program', text: readFileSync(wat, 'utf8')}], '43\n');
   assert.equal(failure(() => compiler.static(empty, join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).diagnostic, null, 'IO failures cannot inherit a preceding source point');
-  assert.deepEqual(compiler.modules(repaired.session, empty, source, fresh(), fresh()).modules.filter(module => module.compiled), []);
+  assert.deepEqual(compiler.modules(repaired.session, empty, source, fresh()).modules.filter(module => module.compiled), []);
 
   // Missing inputs unwind before native work. A new logical compilation
   // requests generated syntax again, even with its last successful Session.
@@ -91,7 +91,7 @@ try {
   write(generated, '(import (lofi base) (lofi io) (sample table)) (write-line (i64->string (length squares)))');
   const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'lib')];
   const previous = compiler.session(generatedLibraries);
-  const missing = failure(() => compiler.modules(previous, empty, generated, fresh(), scratch), /compiler requires an input/);
+  const missing = failure(() => compiler.modules(previous, empty, generated, scratch), /compiler requires an input/);
   assert.equal(missing.diagnostic, null, 'input requests have no source-failure record');
   const request = missing.request;
   assert.equal(existsSync(join(scratch, 'request.datum')), false);
@@ -101,17 +101,17 @@ try {
   const syntaxFailure = failure(() => compiler.static(empty, malformed, wat, fresh(), libraries), /unclosed list/);
   assert.equal(syntaxFailure.request, null);
   assert.equal(syntaxFailure.diagnostic.source.file, malformed);
-  const retried = failure(() => compiler.modules(previous, empty, generated, fresh(), scratch), /compiler requires an input/);
+  const retried = failure(() => compiler.modules(previous, empty, generated, scratch), /compiler requires an input/);
   assert.deepEqual(retried.request, request);
   assert.equal(retried.diagnostic, null);
   assert.equal(request.kind, 'generate');
   assert.match(request.key, /^\d+$/);
   const producer = join(fresh(), 'producer.wat');
   compiler.static(empty, join(scratch, `${request.key}.sld`), producer, fresh(), generatedLibraries);
-  execute([{name: 'program', file: producer}], '', [join(scratch, `${request.key}.syntax`)]);
-  const built = compiler.modules(previous, empty, generated, fresh(), scratch);
+  execute([{name: 'program', text: readFileSync(producer, 'utf8')}], '', [join(scratch, `${request.key}.syntax`)]);
+  const built = compiler.modules(previous, empty, generated, scratch);
   execute(built.modules, '6\n');
-  failure(() => compiler.modules(built.session, empty, generated, fresh(), fresh()), /compiler requires an input/);
+  failure(() => compiler.modules(built.session, empty, generated, fresh()), /compiler requires an input/);
 
   // Snapshot creation owns the bytes before compilation starts. Independent
   // values and failed additions cannot mutate a caller's previous inputs.
@@ -129,11 +129,11 @@ try {
   const independent = compiler.addArtifact(empty, 'client', [[relative, backing]]);
   rmSync(backing);
   compiler.static(repairedInputs, artifactSource, wat, fresh(), libraries);
-  execute([{name: 'program', file: wat}], `${relative}:0,128,255,\n`);
+  execute([{name: 'program', text: readFileSync(wat, 'utf8')}], `${relative}:0,128,255,\n`);
   compiler.static(independent, artifactSource, wat, fresh(), libraries);
-  execute([{name: 'program', file: wat}], `${relative}:42,\n`);
+  execute([{name: 'program', text: readFileSync(wat, 'utf8')}], `${relative}:42,\n`);
   compiler.static(inputs, artifactSource, wat, fresh(), libraries);
-  execute([{name: 'program', file: wat}], `${relative}:0,128,255,\n`);
+  execute([{name: 'program', text: readFileSync(wat, 'utf8')}], `${relative}:0,128,255,\n`);
   assert.deepEqual(compiler.project(project), {builds: [], runs: []});
   assert.equal(readFileSync(join(directory, 'errors'), 'utf8'), '', 'successful calls start with fresh diagnostics');
 
@@ -158,10 +158,10 @@ try {
   // with the trusted compiler's resource-cleaning diagnostic exit.
   const trapping = join(directory, 'trapping.wasm');
   write(trapping, assemble(`(module
-    (import "lofi.compiler" "character" (func $character (param i32)))
+    (import "lofi.compiler" "text" (func $text (param i32 i32)))
     (memory (export "memory") 1)
     (func (export "_initialize")) (func (export "main")) (func (export "reset"))
-    (func (export "input_character") (param i32) (call $character (i32.const 1114112)))
+    (func (export "input_character") (param i32) (i32.store (i32.const 0) (i32.const 1114112)) (call $text (i32.const 0) (i32.const 1)))
     (func (export "input_end")) (func (export "project"))
     (func (export "request")) (func (export "diagnostic"))
     (func (export "close-resources") (result i32) (i32.const 0)))`));
@@ -176,7 +176,7 @@ try {
     const fixture = join(directory, `${stage}.wasm`);
     write(fixture, assemble(`(module
       (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
-      (import "lofi.compiler" "end" (func $end))
+      (import "lofi.compiler" "text" (func $text (param i32 i32)))
       (import "lofi.compiler" "diagnostic" (func $diagnostic (param i64 i64)))
       (memory (export "memory") 1)
       (func (export "_initialize")) (func (export "main"))
@@ -186,7 +186,7 @@ try {
       (func (export "request") ${stage === 'request' ? 'unreachable' : ''})
       (func (export "diagnostic") ${stage === 'diagnostic' ? 'unreachable' : ''})
       (func (export "project") ${stage === 'after-record'
-        ? '(call $end) (call $end) (call $diagnostic (i64.const 1) (i64.const 1)) unreachable'
+        ? '(call $text (i32.const 0) (i32.const 0)) (call $text (i32.const 0) (i32.const 0)) (call $diagnostic (i64.const 1) (i64.const 1)) unreachable'
         : '(call $exit (i32.const 1))'})
       (func (export "close-resources") (result i32) (i32.const 0)))`));
     const trapped = await createCompiler(fixture, join(directory, `${stage}-errors`));
