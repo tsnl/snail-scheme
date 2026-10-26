@@ -71,7 +71,7 @@ datum into syntax. Every generated form is located at the recipe.
 | `(effect Name ((operation type) ...) [(host "module" ((operation "symbol") ...))])` | Effect with operations and optional host defaults. |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
-| `(expose name "symbol")` | Exports a top-level function to the host; it takes and returns only scalars, `Any` and `(Option Any)`. |
+| `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
 `(lofi base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
@@ -247,13 +247,27 @@ that many packed bytes. The host reads the current memory buffer and copies
 any bytes it retains before returning or awaiting; later calls reuse staging.
 Imports are leaves and must not call back into Lofi while reading staging.
 
+An exposed function passes scalars directly and managed values as opaque engine
+references. JavaScript can retain those references and pass them to synchronous
+Wasm constructors/projectors, but cannot inspect their fields or substitute a
+JavaScript object, string or typed array. Exposed `String` and `Bytes` are managed
+arrays; the staging convention above applies to calls into foreign imports.
+Affine values, including records that contain them, cannot cross this unrestricted
+boundary. Exposed signatures remain monomorphic and their effects need host bindings.
+The host must respect the declared Lofi types: Wasm representation checks do not
+prove nominal identity or permit treating immutable `Bytes` as a mutable `Array`.
+
 An exposed `(Option Any)` crosses as `null` for `None` or the opaque `Any`
 payload for `Some`. The wrapper converts at the boundary; internal Options
 keep their normal enum representation. Plain `Any` remains non-nullable.
-The host can retain and hand these managed values back without inspecting
-them. Programs export their dynamic handler globals as `handler.NAME` so a
-host can restore an entry's original handler context after a trap. Entries
-that share those globals must not overlap while suspended.
+This exception applies only to exposed parameters/results; a host import
+returning `(Option Any)` still expects its ordinary enum. Constructors for a
+typed host operation should return its whole result, such as `(Result Bytes E)`.
+Resolve helpers from their library instance in separate builds and the combined
+instance in static builds. After a wait, the runtime must reacquire the execution
+permit before invoking a constructor or returning to Wasm. Programs export their
+dynamic handler globals as `handler.NAME`; the scheduler preserves each task's
+bindings across suspension. See [scheduling](https://tsnl.github.io/snail-scheme/runtimes/scheduling.html).
 
 A function whose signature has no `mut` may still mutate storage that it
 allocates and that nothing keeps after it returns:

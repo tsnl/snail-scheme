@@ -136,10 +136,13 @@
 ;; The exposed and foreign ABI, exercised from JavaScript against linked Wasm.
 (define (check-host-boundary root)
   (let* ((program (path-join root "build/tests/host-boundary.wasm"))
-         (text (program->wat root (list (path-join root "lib")) (path-join root "tests/host-boundary/main.sld"))))
+         (text (program->wat root (list (path-join root "tests/host-boundary") (path-join root "lib")) (path-join root "tests/host-boundary/main.sld"))))
     (link-wat root text program #f)
-    (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/host-boundary/check.mjs") program))))
-      (or (zero? (caddr result)) (report "host boundary" "failed" (string-append (car result) (cadr result)))))))
+    (run-host-boundary root program)))
+
+(define (run-host-boundary root program)
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/host-boundary/check.mjs") program))))
+    (or (zero? (caddr result)) (report "host boundary" "failed" (string-append (car result) (cadr result))))))
 
 (define (compile-app-runtime root)
   (guard (failure (#t (report "app runtime" "compile failed" (error-text failure))))
@@ -326,7 +329,12 @@
 
 (define (run-linked-cases root)
   (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
-          (list (run-linked-siegework root) (run-linked-app-runtime root) (run-linked-task-boundary root))))
+          (list (run-linked-siegework root) (run-linked-app-runtime root) (run-linked-task-boundary root) (run-linked-host-boundary root))))
+
+(define (run-linked-host-boundary root)
+  (let ((output (path-join root "build/tests/linked/host-boundary")))
+    (build-modules root (list (path-join root "tests/host-boundary") (path-join root "lib")) (path-join root "tests/host-boundary/main.sld") output)
+    (run-host-boundary root (path-join output "modules.json"))))
 
 (define (run-linked-task-boundary root)
   (let ((output (path-join root "build/tests/linked/task-boundary")))

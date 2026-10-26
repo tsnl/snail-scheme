@@ -1120,23 +1120,17 @@
         (check-host-effects ck row (Expr-loc value))
         (Do value)))
 
-    ;; The host passes and receives scalars, and `Any`, which it holds without
-    ;; looking inside and may hand to another module; it implements every
-    ;; effect an exposed function performs.
+    ;; The host may retain unrestricted values, holding managed references
+    ;; opaquely. Affine ownership cannot cross this unrestricted boundary.
+    ;; The trusted host respects Lofi types and implements the declared effects.
     (: check-exposed (-> Checker String Loc Unit ! mut))
     (define (check-exposed ck name loc)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) (TFun params result row)))
-         (unless (every? host-value? (Cons result params))
-           (compile-error loc "an exposed function takes and returns only scalars, Any and (Option Any)"))
+         (when (any? (lambda (type) (affine-type? (program-of ck) type)) (Cons result params))
+           (compile-error loc "an exposed function cannot take or return an affine value"))
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
-
-    (: host-value? (-> Type Bool))
-    (define (host-value? type)
-      (match type
-        ((TCon name (Nil)) (member? name (list "I32" "I64" "F32" "F64" "Bool" "Char" "Unit" "Any")))
-        (_ (optional-any-type? type))))
 
     ;; Effects performed at program start need host implementations.
     (: check-host-effects (-> Checker Type Loc Unit ! mut))
