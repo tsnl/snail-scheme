@@ -326,9 +326,9 @@ Astra Max simplify reviews should challenge retained behavior, not merely
 validate the machinery chosen to preserve it.
 
 The current audit removes the obsolete Chibi artifact resolver and the worker
-protocol around a one-shot CLI build. Next it collapses watcher failure tracking
-to one incomplete-inventory episode and projects HTTP build status to the fields
-the editor uses. Slow event clients can close on a second blocked write without
+protocol around a one-shot CLI build. Watcher failure tracking now has one
+incomplete-inventory episode, and HTTP build status contains only the fields
+the editor uses. Slow event clients close on a second blocked write without
 a separate timer and drain registry. The development worker remains necessary:
 compilation must not block HTTP or disk observation.
 

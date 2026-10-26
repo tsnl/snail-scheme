@@ -57,6 +57,7 @@ function errorStatus(error) {
 }
 
 const frame = (kind, value) => `event: ${kind}\ndata: ${JSON.stringify(value)}\n\n`;
+const editorStatus = ({phase, id, diagnostics}) => ({phase, id, diagnostics});
 
 // Only trusted editor assets share the file API's origin. Project HTML and
 // arbitrary paths are never served here; application serving is separate.
@@ -89,30 +90,26 @@ export async function serveProject({root, project, tools, port = 0}) {
   const origin = () => `http://127.0.0.1:${server.address().port}`;
 
   // One pending response write, no application queue. A large initial status
-  // may legitimately need drain; a later event or a deadline closes a blocked
+  // may legitimately need drain; a later event closes a still-blocked
   // stream. Reconnect obtains current status and an unconditional invalidation.
-  function send(client, text) {
-    if (client.timer) { client.response.destroy(); return; }
-    try {
-      if (client.response.write(text)) return;
-      client.timer = setTimeout(() => client.response.destroy(), 5000);
-      client.response.once('drain', () => { clearTimeout(client.timer); client.timer = null; });
-    } catch { client.response.destroy(); }
+  function send(response, text) {
+    if (response.writableNeedDrain) { response.destroy(); return; }
+    try { response.write(text); }
+    catch { response.destroy(); }
   }
 
   function broadcast(kind, value) {
     const text = frame(kind, value);
-    for (const client of clients) send(client, text);
+    for (const response of clients) send(response, text);
   }
 
   function events(response) {
     if (clients.size >= 64) throw new HttpError(429, 'too many event connections');
-    const client = {response, timer: null};
-    clients.add(client);
-    response.on('close', () => { clearTimeout(client.timer); clients.delete(client); });
+    clients.add(response);
+    response.on('close', () => clients.delete(response));
     response.on('error', () => response.destroy());
     response.writeHead(200, {...headers, 'Content-Type': 'text/event-stream', Connection: 'keep-alive'});
-    send(client, 'retry: 1000\n\n' + frame('status', development.status) + frame('files', null));
+    send(response, 'retry: 1000\n\n' + frame('status', editorStatus(development.status)) + frame('files', null));
   }
 
   async function route(request, response) {
@@ -130,7 +127,7 @@ export async function serveProject({root, project, tools, port = 0}) {
       case 'POST /api/build':
         if (Number(request.headers['content-length']) || request.headers['transfer-encoding']) throw new HttpError(400, 'build takes no request body');
         development.requestBuild();
-        return json(response, 202, development.status);
+        return json(response, 202, editorStatus(development.status));
       case 'PUT /api/file': {
         const revision = expectedRevision(request), text = await readText(request);
         if (stopping) throw new HttpError(503, 'project development is closing');
@@ -150,7 +147,7 @@ export async function serveProject({root, project, tools, port = 0}) {
   }
 
   const stopStatus = development.subscribe(status => {
-    broadcast('status', status);
+    broadcast('status', editorStatus(status));
     if (status.phase === 'fatal') fail(new Error(status.diagnostics[0].message));
   });
   const stopFiles = development.files.subscribe(event => {
@@ -169,7 +166,7 @@ export async function serveProject({root, project, tools, port = 0}) {
     stopping = true;
     stopStatus(); stopFiles();
     const http = server.listening ? new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())) : Promise.resolve();
-    for (const client of clients) client.response.destroy();
+    for (const response of clients) response.destroy();
     server.closeAllConnections();
     void Promise.allSettled([http, development.close()]).then(results => {
       failure ??= results.find(result => result.status === 'rejected')?.reason;
