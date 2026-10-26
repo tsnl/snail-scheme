@@ -198,8 +198,8 @@ can delay actual exit; cleanup waits for it. Arbitrary compiler traps retire thi
 development session; there is no automatic crash loop.
 
 This native API is implemented and tested, including a producer blocked on an input
-pipe while a newly configured public file changes. CLI, file service and launch
-integration follow. Diagnostic records currently contain severity and message;
+pipe while a newly configured public file changes. The native file service and
+HTTP API are connected; CLI/editor and application launch integration follow. Diagnostic records currently contain severity and message;
 source locations remain in the message until the compiler exposes structured spans.
 The editor must not add its own text parser for them.
 
@@ -414,6 +414,37 @@ can still race after the final comparison, and pathname checks do not constitute
 a sandbox against a hostile local process. This API makes no crash-durability,
 ACL, extended-attribute or hardlink-preservation promise. It edits existing files;
 creation, rename, deletion, merging and automatic conflict retry are omitted.
+
+### Project HTTP service
+
+`scripts/project-http.mjs` connects the project attempt owner and file service on
+`127.0.0.1`. Its native API returns the URL, development session, completion promise
+and an idempotent close operation. The browser UI and `dev` command follow in the
+next slice; this service does not yet serve pages or applications.
+
+| Request | Result |
+| --- | --- |
+| `GET /api/project` | Project name and candidate relative filenames. |
+| `GET /api/file?path=...` | `{text, revision}` for one file. |
+| `PUT /api/file?path=...` | UTF-8 `text/plain` plus one strong quoted `If-Match` revision; returns the submitted snapshot or a conflict (409). |
+| `POST /api/build` | Explicit Build, with an empty body. Save never calls this operation. |
+| `GET /api/events` | SSE: full current `status`, then `files` invalidation; subsequent status and shared-observer changes. |
+
+Reconnect obtains current status and an unconditional file invalidation; there is
+no event archive or replay cursor. Each stream holds at most one pending write;
+a later event or five-second drain deadline closes a blocked reader. Request
+bodies are limited to 8 MiB and decoded strictly as UTF-8. File operations remain
+responsive while the real compiler waits on a source pipe in its worker.
+
+The service requires its exact Host authority and rejects a supplied foreign
+Origin or fetch context. Mutations require the exact Origin. It provides no CORS
+access. This boundary keeps other websites from reading or writing project files;
+it is not authentication against other native processes on the same machine.
+
+Closing removes subscriptions, closes HTTP connections and pending request bodies,
+and awaits the development owner. A body that finishes after shutdown cannot save.
+A fatal compiler/service failure closes the session and rejects its completion
+promise; a failed bind also disposes the session it created.
 
 ## 6. Scheme
 
