@@ -43,26 +43,52 @@
 
     ;; ---- Type grades ----
 
+    ;; One query's progress: whether it has found an affine field yet, and
+    ;; which declarations it has entered. A declaration is entered once per
+    ;; query, including across sibling fields, because re-exploring a
+    ;; recursive graph by every path is exponential. Carrying the set rather
+    ;; than mutating one keeps the query a function of its arguments.
+    (struct Affinity
+      ((found? Bool)
+       (entered (List String))))
+
     ;; Type variables range over unrestricted values. Concrete fields can
     ;; make a record affine; ordinary arrows never describe owned captures.
-    (: affine-type? (-> Program Type Bool ! mut))
+    (: affine-type? (-> Program Type Bool))
     (define (affine-type? program type)
-      (affine-within? program type (ref (Nil))))
+      (Affinity-found? (affine-search program type (Nil))))
 
-    ;; Each declaration is explored once per query, including across sibling
-    ;; fields. Re-exploring a recursive graph by every path is exponential.
-    (: affine-within? (-> Program Type (Ref (List String)) Bool ! mut))
-    (define (affine-within? program type visiting)
+    (: affine-search (-> Program Type (List String) Affinity))
+    (define (affine-search program type entered)
       (match type
+        ((TCon "Once" _) (Affinity #t entered))
         ((TCon name args)
-         (or (string=? name "Once")
-             (any? (lambda (arg) (affine-within? program arg visiting)) args)
-             (and (not (member? name (ref-get visiting)))
-                  (not (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
-                  (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
-                    (ref-set! visiting (Cons name (ref-get visiting)))
-                    (any? (lambda (case)
-                            (any? (lambda (field) (affine-within? program (substitute bindings (Field-type field)) visiting))
-                                  (Case-fields case)))
-                          (DataType-cases data))))))
-        (_ #f)))))
+         (let ((found (affine-any program args entered)))
+           (cond ((Affinity-found? found) found)
+                 ((or (member? name (Affinity-entered found))
+                      (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+                  found)
+                 (else (affine-fields program name args (Cons name (Affinity-entered found)))))))
+        (_ (Affinity #f entered))))
+
+    ;; Arguments are searched before a recursive declaration is cut by name.
+    ;; Thus List<Ref<I64>> cannot pass because List has been entered already.
+    (: affine-any (-> Program (List Type) (List String) Affinity))
+    (define (affine-any program types entered)
+      (fold-left (lambda (found type) (affine-next program type found))
+                 (Affinity #f entered) types))
+
+    (: affine-next (-> Program Type Affinity Affinity))
+    (define (affine-next program type found)
+      (if (Affinity-found? found) found (affine-search program type (Affinity-entered found))))
+
+    (: affine-fields (-> Program String (List Type) (List String) Affinity))
+    (define (affine-fields program name args entered)
+      (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
+        (fold-left (lambda (found case) (affine-case program bindings case found))
+                   (Affinity #f entered) (DataType-cases data))))
+
+    (: affine-case (-> Program Substitution Case Affinity Affinity))
+    (define (affine-case program bindings case found)
+      (fold-left (lambda (found field) (affine-next program (substitute bindings (Field-type field)) found))
+                 found (Case-fields case)))))

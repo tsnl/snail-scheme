@@ -17,7 +17,7 @@
 
     ;; ---- Representable ownership ----
 
-    (: check-type (-> Program Type Loc Unit ! mut))
+    (: check-type (-> Program Type Loc Unit))
     (define (check-type program type loc)
       (match type
         ((TCon "Once" args)
@@ -32,7 +32,7 @@
         ((TFun params result _) (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
         (_ (unit))))
 
-    (: check-owned-types (-> Program (List Item) Unit ! mut))
+    (: check-owned-types (-> Program (List Item) Unit))
     (define (check-owned-types program items)
       (for-each (lambda (data)
                   (for-each (lambda (case)
@@ -47,7 +47,7 @@
                     ((Do value) (check-expression-types program value))
                     (_ (unit)))) items))
 
-    (: check-expression-types (-> Program Expr Unit ! mut))
+    (: check-expression-types (-> Program Expr Unit))
     (define (check-expression-types program expr)
       (check-type program (Expr-type expr) (Expr-loc expr))
       (for-each (lambda (child) (check-expression-types program child)) (children expr)))
@@ -77,7 +77,7 @@
        (live (Ref (List String)))
        (counter (Ref I64))))
 
-    (: owned? (-> Scope Type Bool ! mut))
+    (: owned? (-> Scope Type Bool))
     (define (owned? scope type) (affine-type? (Scope-program scope) type))
 
     (: bind (-> Scope String Type Scope ! mut))
