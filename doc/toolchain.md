@@ -1,7 +1,6 @@
 # Toolchain: linking, hot reload and development
 
-> **Status: implemented in #377,** on top of the hot reload of #367,
-> except where a section says *proposed*. The book's
+> **Status: implemented**, except where a section says *proposed*. The book's
 > [roadmap](book/roadmap.md) tracks what is left.
 >
 > The [project and development proposal](proposals/desktop-ide.md) puts project
@@ -15,9 +14,10 @@
 
 This document describes how Lofi programs are built, linked, reloaded and
 loaded during development, so that a rebuild costs as much as the edit
-that caused it and the same toolchain runs in a browser. C is the
-reference model: programs are statically linked, a debug build links
-dynamically, and code loaded at run time is reached through an explicit,
+that caused it. The compiler and assembler run as Wasm; native code owns project
+traversal and processes. The older browser toolchain remains until the IDE becomes
+a native service's client. C is the reference model: programs can link statically
+or by library, and code loaded at run time is reached through an explicit,
 unchecked cast.
 
 ## 1. Goals
@@ -27,8 +27,7 @@ unchecked cast.
    state.
 3. Load compiled code while a program runs, including `generate-library`
    producers.
-4. The development loop written in Lofi and Rust, with hosts that only
-   perform I/O.
+4. Keep compiler decisions in Lofi and native project/process ownership explicit.
 5. The current implementation runs the whole debug toolchain in a browser.
    The proposed `dev` keeps a native incremental compiler alive and gives
    the editor file/build subscriptions.
@@ -60,8 +59,8 @@ without Binaryen:
 
 | Build | Linking |
 | --- | --- |
-| Release | Static. The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. `lofi compile`, `lofi run`, `lofi build` and `make site` build this way. |
-| Debug | Dynamic. Each library is compiled to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. `lofi serve`, `lofi watch` and the browser IDE build this way. |
+| Static | The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. `lofi compile`, `lofi run`, `lofi build` and `make site` build this way; `--release` increases optimization. |
+| Development | Each library is compiled to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. `lofi serve`, `lofi watch` and the browser IDE build this way. |
 | Either | Code loaded while the program runs, through `(lofi wasm)` (section 3.3). |
 
 ### 3.1 Separate compilation
@@ -124,8 +123,22 @@ code-1 diagnostic exits follow resource cleanup and allow another call with
 the last successful Session. Arbitrary Wasm or imported-function traps retire
 the instance. This distinction comes from the runtime exit path, not from
 finding a familiar string in stderr. These operations are implemented and
-tested; replacing the cold project builder and development loop with their
-shared caller remains the next integration step.
+tested. `scripts/project.mjs` now calls them for cold and resident project builds;
+the shared watcher and replacement development loop are the next integration step.
+
+The native builder owns serial target traversal, producer execution and packaging.
+Each attempt creates private generations and discovers dependencies only through
+compiler requests. Successful Sessions advance independently of output acceptance;
+they retain evidence, not backing-file lifetimes. Static output uses the existing
+linker through `scripts/link.scm`, with intermediates kept in scratch. Development
+output assembles all returned modules into a fresh self-contained directory.
+Only the compiler cache persists; there is no second native binary cache.
+
+A completed attempt returns a candidate. `scripts/build.mjs` accepts it immediately;
+a future watcher parent can reject superseded work. Publication and discard consume
+the candidate. If one of several link renames fails, publication preserves its
+completed prefix and removes the remaining generations; it is not a project-wide
+transaction. Failed compilation or packaging publishes nothing.
 
 So an edit to a function body with a signature recompiles one library. An
 edit to an interface recompiles the libraries that import it too. The

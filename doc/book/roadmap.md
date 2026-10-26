@@ -188,6 +188,11 @@ remains under review:
   Session values. Share the request/reply providers with the command-line
   compiler, capture diagnostics per call and retire instances on arbitrary
   traps. Shared project traversal and development integration follow.
+- [x] Replace the separate Chibi project builder with one native builder for
+  cold and incremental output. Keep successful Sessions per target, regenerate
+  producers, and return private candidates before publication. Failed parents
+  preserve dependency outputs; publication failure retains its completed prefix.
+  Connect this builder to the persistent worker and shared watcher next.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.

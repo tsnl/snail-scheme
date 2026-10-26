@@ -17,6 +17,7 @@
    build-crate
    build-tool
    build-tools
+   build-project-tools
    bootstrap!
    with-private-directory
    node-command
@@ -449,6 +450,14 @@
                                          (list (path-join root "lib"))))
               (cons "runtime" (build-crate root "runtime"))
               (cons "assembler" (build-crate root "assembler")))))
+
+    ;; The shared native project builder uses the resident compiler boundary.
+    ;; The old application loop remains a separate tool until dev replaces it.
+    (define (build-project-tools root)
+      (list (cons "compiler" (build-tool root (path-join root "bootstrap/compiler.sld") (path-join root "build/project/compiler.wasm")
+                                         (list (path-join root "src") (path-join root "lib"))))
+            (cons "runtime" (build-crate root "runtime"))
+            (cons "assembler" (build-crate root "assembler"))))
 
     ;; A program the tools run, built from `source` with the libraries in
     ;; `directories` when it is stale.

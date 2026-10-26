@@ -4,8 +4,7 @@
  (scheme cxr)
  (scheme process-context)
  (chibi process)
- (lofi build)
- (lofi project-build))
+ (lofi build))
 
 ;; ---- Requests ----
 
@@ -36,14 +35,6 @@
 
 ;; ---- Actions ----
 
-(define (perform-project-build root arguments)
-  (let* ((release? (and (pair? arguments) (string=? (car arguments) "--release")))
-         (paths (if release? (cdr arguments) arguments)))
-    (unless (= (length paths) 2) (error "usage: lofi build [--release] PROJECT TARGET"))
-    (write-string (build-project root (absolute (car paths)) (cadr paths) release?))
-    (newline)
-    0))
-
 (define (perform root options)
   (let ((source (option options 'source #f)) (action (option options 'action "run")))
     (cond
@@ -72,9 +63,9 @@
 
 ;; The tools the development server runs, built if needed, as JSON for
 ;; scripts/develop.mjs.
-(define (print-tools root)
+(define (print-tools tools)
   (write-string "{")
-  (let loop ((tools (build-tools root)) (first? #t))
+  (let loop ((tools tools) (first? #t))
     (unless (null? tools)
       (write-string (string-append (if first? "" ", ") "\"" (caar tools) "\": \"" (cdar tools) "\""))
       (loop (cdr tools) #f)))
@@ -84,6 +75,6 @@
 (let ((arguments (command-line)))
   (exit (guard (failure (#t (report-failure "lofi" failure)))
           (cond ((equal? (cddr arguments) '("bootstrap")) (bootstrap! (cadr arguments)) 0)
-                ((equal? (cddr arguments) '("tools")) (print-tools (cadr arguments)))
-                ((and (pair? (cddr arguments)) (string=? (caddr arguments) "build")) (perform-project-build (cadr arguments) (cdddr arguments)))
+                ((equal? (cddr arguments) '("tools")) (print-tools (build-tools (cadr arguments))))
+                ((equal? (cddr arguments) '("project-tools")) (print-tools (build-project-tools (cadr arguments))))
                 (else (perform (cadr arguments) (request (cddr arguments))))))))

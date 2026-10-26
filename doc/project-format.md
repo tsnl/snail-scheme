@@ -3,7 +3,8 @@
 `project.datum` describes one project with inert data. The parser is implemented
 in `src/lofi/project.sld` as `(lofi project)` and runs on Chibi and compiled Wasm.
 `lofi build [--release] PROJECT TARGET` consumes it and builds one named target.
-Development sessions and launch execution are separate integration work.
+The same native builder also supports persistent incremental sessions; watcher,
+launch and IDE integration follow separately.
 
 ```scheme
 ((build-target client
@@ -75,6 +76,21 @@ Resolve the link once before reading several files as one artifact. This
 guarantees complete publication, not a transaction across changing source files
 or durability after power loss. An ordinary directory, file or unrelated link
 at the target's output path is rejected. The builder never removes it.
+
+`scripts/project.mjs` owns traversal and packaging for both cold builds and
+resident callers. It finishes all selected targets before returning a candidate;
+the CLI publishes it immediately. Compilation or packaging failure changes no
+public output, including outputs of already compiled dependencies. Publication
+of several links is not globally atomic; if a later rename fails, already
+published complete generations remain and unpublished candidates are removed.
+
+The builder's development mode uses per-library modules, `modules.json` and
+`runtime.wasm` instead of a linked `program.wasm`. Every directory remains
+self-contained. An existing browser page receives the module-manifest meta
+tag understood by `host.mjs`; the builder does not invent a page. It retains
+compiler Sessions across calls but regenerates producer results each attempt.
+The current `serve`/`watch` commands still use their old loop until `dev`
+integration is complete.
 
 `(artifact-bundle "NAME")` embeds the complete output of a browser build in
 this project. Requests arise during expansion, including macros, generated

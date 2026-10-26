@@ -117,7 +117,8 @@ and keeps state that grows over a whole pass in a `Ref`.
 The table describes current responsibilities. The
 [project and development proposal](doc/proposals/desktop-ide.md) moves
 application build recipes into project descriptions and unifies development
-under `lofi dev`; those changes are not implemented yet. Use the book's
+under `lofi dev`. Project builds are implemented; the command and IDE migration
+remain in progress. Use the book's
 [terms](doc/book/lofi/terms.md#toolchain-terms) for projects, compiler sessions,
 runtimes and application processes.
 
@@ -128,13 +129,14 @@ runtimes and application processes.
 
 | Path | Responsibility |
 | --- | --- |
-| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `build`, `wat`, `schema` and `bootstrap`; `-o` publishes a directory's `program.wasm` through `(lofi build)`, and `build` selects one project target. `lofi` hands `serve` and `watch` to `scripts/develop.mjs`. |
+| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `schema` and `bootstrap`; `-o` publishes a directory's `program.wasm` through `(lofi build)`. `lofi` hands `build` to `scripts/build.mjs`, and `serve` and `watch` to `scripts/develop.mjs`. |
 | `src/lofi/develop.sld`, `bootstrap/develop.sld` | The development loop behind `lofi serve`, `lofi watch` and the IDE, as a Lofi program: it keeps a session, debounces changes, writes each changed module and a manifest, broadcasts build events, keeps only the latest build's and the previous build's modules, and serves every file in `src/app`, reaching its host only through the `develop` effect's named commands. `bootstrap/develop.sld` exposes its entry points for Node. |
 | `src/lofi/project.sld` | Parses inert `project.datum` through the compiler's located reader. Returns typed program/browser builds and resolved program run targets, with lexical path and duplicate checks. It does no file IO, expansion or building. |
 | `src/lofi/compiler/inputs.sld` | Parses and prints the two concrete native compiler requests (generated syntax and named artifacts) and artifact-file replies. Missing inputs are recorded in memory; host entries publish requests after unwinding. The native builder supplies them and retries in exclusively owned scratch. Stderr carries only diagnostics. |
 | `lib/lofi/artifact.sld` | Ordinary artifact-file/bundle structs and the hygienic `artifact-bundle` macro. The expander consumes immutable file inputs and retains exact evidence for cache reuse. Project builds supply named browser targets. |
 | `bootstrap/compiler.sld`, `scripts/compiler.mjs` | The resident compiler boundary: parsed project/request records, static text and modular builds with opaque Session values. The native wrapper captures fresh diagnostics per call and retires the instance after arbitrary traps. Traversal, retries, publication and watching remain caller responsibilities. |
-| `host/chibi/lofi/project-build.sld` | Parses one project, traverses targets as compiler requests arise, and reuses completed generations within the invocation. It detects active-target cycles through producer compilation, packages browser files, enumerates sorted immutable file paths and atomically publishes each target's output link. Owns the browser-host file list and preserves prior generations. |
+| `scripts/project.mjs` | One native project traversal and packager for static and incremental builds. Owns the resident compiler, successful per-target Sessions, generated-input retries and private candidate directories. Detects cycles through producers, packages self-contained output and enumerates immutable artifact files. Publication and discard consume candidates; failed builds change no public outputs. |
+| `scripts/build.mjs`, `scripts/link.scm` | The cold CLI runs the shared builder in a worker and immediately publishes its candidate. The narrow Chibi linker entry retains `(lofi build)`'s existing Binaryen/runtime policy; only the final binary leaves scratch. |
 | `scripts/develop.mjs` | The native parent owns watchers, timers, HTTP/SSE and application children. It forwards events to one persistent compiler worker and performs its five asynchronous commands. Shutdown closes resources and prevents queued child replacement. |
 | `scripts/develop-worker.mjs` | Owns the Wasm development loop, incremental compiler session, assembler and synchronous file helpers. Serial entries preserve the instance across compiler errors. Immediate results remain here; the parent stays responsive during compilation. |
 | `host/chibi/lofi/` | The Chibi host: `forms` erases `struct`, `enum`, `match` and signatures; `base`, `table` and `io` implement the compiler's libraries with Chibi's; `build` runs Binaryen and Cargo to assemble, optimize and link a program, gives each compile a private directory, rebuilds the compiled compiler and the development tools under `build/lock` when they are stale, and lends the scripts its file helpers. |

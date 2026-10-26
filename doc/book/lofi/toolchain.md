@@ -1,15 +1,15 @@
 # Development toolchain
 
-Lofi builds programs as C does. A release build links statically: the
-whole program is compiled at once, optimized, and merged with the Rust
-runtime into one module. A debug build links dynamically: each library is
-its own module, and the modules are linked, with the runtime as a separate
-instance, when the program starts.
+Lofi can link a program statically or link its libraries when it starts.
+Static builds compile the whole program, optimize it and merge the Rust runtime
+into one module. `--release` increases optimization; it does not select linking
+mode. Development builds keep each library as its own module, with the runtime
+as a separate instance.
 
 | Command | Build |
 | --- | --- |
-| `lofi run`, `lofi compile`, `lofi build`, `make site` | Release |
-| `lofi serve`, `lofi watch`, `make ide` (current commands) | Debug |
+| `lofi run`, `lofi compile`, `lofi build`, `make site` | Static; `--release` requests full optimization |
+| `lofi serve`, `lofi watch`, `make ide` (current commands) | Separate development modules |
 
 `lofi compile -o DIRECTORY SOURCE` publishes `DIRECTORY/program.wasm`.
 The output is a directory, even for a single-file program. Compiler and linker
@@ -32,6 +32,19 @@ target at `PROJECT/build/TARGET`, a link to a completed directory containing
 Put the page in `public/index.html`. Builds retain prior generations and reject
 unmanaged entries at the output path. The [project format](https://github.com/tsnl/snail-scheme/blob/stack/project-builds-20261024/doc/project-format.md)
 documents publication and public-file rules.
+
+The native project builder keeps one Wasm compiler alive throughout an invocation.
+It also supports resident callers with a successful compiler Session per target.
+Changing a target's entry or library roots starts a fresh Session; an edit within
+those inputs uses the compiler's existing incremental checks. Generated-library
+producers run again each attempt because they may read files outside their recipe.
+
+Builds return completed private directories before publication. A failed parent
+changes none of its dependencies' public outputs. A caller can discard a completed
+candidate and still reuse the compiler's successful work: caches retain evidence,
+not paths into that candidate. Development directories contain their modules,
+manifest and runtime, so they are self-contained. The new watcher/IDE integration
+will use this same builder; the existing commands below still use their old loop.
 
 ## Builds in proportion to the edit
 

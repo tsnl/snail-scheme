@@ -111,8 +111,9 @@ trusted exit and returns it in `CompilerFailure.request`; no request file is
 written or parsed. Each invocation clears pending state before work. Artifact
 replies still use Lofi's printer and input loader. Expected diagnostic exits
 preserve the instance, but return no successor Session. Servicing inputs and
-retrying happen outside the compiler call. The shared project builder will
-connect this boundary to cold and development traversal.
+retrying happen outside the compiler call. `scripts/project.mjs` uses this
+boundary for cold and incremental project builds; connection to the watcher
+and editor follows.
 
 ## Project traversal
 
@@ -126,13 +127,23 @@ producer. Errors include the traversal path, such as `client -> admin -> client`
 A completed-target list stores sorted relative names paired with files in
 the target's immutable generation. Repeated requests use those same files
 throughout the invocation. There is no source scanner, second dependency graph,
-persistent target cache or runtime lookup. A new invocation builds dependencies
-again and regenerates producer output.
+persistent artifact cache or runtime lookup. A new attempt builds dependencies
+again and regenerates producer output. A resident builder retains successful
+compiler Sessions per target when its entry and ordered library roots match;
+cached expansion still resolves current artifact bytes through fresh providers.
 
 Packaging and complete file enumeration precede publication. Enumeration
 includes hidden and nested files, excludes only the root `.lofi-target` marker,
 and rejects unreadable directories, symbolic links and nonregular entries.
 Every compiler reply names generation files directly, never `build/TARGET`.
-The public link changes only after this preparation succeeds. A failed parent
-keeps its preceding output; dependencies that already succeeded remain published.
-The parent's previous program still contains its previous embedded bytes.
+The whole traversal returns a private candidate before any public link changes.
+A failed parent preserves every previous output, including its dependencies.
+Successful compiler Sessions may still advance: their evidence contains bytes,
+not references to the discarded directories.
+
+Cold builds accept the candidate immediately. A resident caller can discard it
+instead, keeping public outputs unchanged. Publication checks every destination
+and prepares its temporary link before renaming any. Each rename is atomic;
+several target links are not one transaction. A later rename failure preserves
+the published prefix and removes only the unrenamed directories. Publication
+consumes the candidate even on failure; callers must not discard it afterward.
