@@ -104,6 +104,44 @@ only after acceptance. Missed events reconcile against the next complete
 manifest; a refused build is not retried automatically until the developer
 starts over.
 
+## Native application process owner
+
+`scripts/application-process.mjs` implements ownership of one ordinary OS child
+for one run target. It is internal infrastructure; the build service and editor
+controls do not use it yet. The public `lofi run` command already executes a cold
+project build with ordinary shell IO.
+
+The owner accepts a latest launch request `{build, entry, args}` or `null` to stop.
+Each non-null request means a fresh attempt. `entry` names the accepted generation
+directly, rather than its mutable build-target link: development entries are
+`modules.json`, cold entries are `program.wasm`. The owner invokes the existing
+runner through `process.execPath` without a shell. It copies arguments and captures
+the caller's working directory when constructed; the environment is inherited.
+Its stdin is EOF. Interactive execution remains available through `lofi run`.
+
+Replacement first terminates the old child and awaits its `close` event, including
+captured streams, then re-reads intent. New requests overwrite pending ones; Stop
+can remove a queued replacement while the old child exits. A terminal attempt is
+retained and never retried automatically. SIGTERM has two seconds before SIGKILL;
+the owner still waits for actual cleanup rather than allowing overlapping children.
+Signal failures are reported. OS cleanup or inherited pipes can delay closure;
+this is not a wall-clock shutdown guarantee or process-tree supervisor.
+
+Status separates the desired build from the observed attempt's build, PID, phase,
+exit code/signal and error. It retains only the latest attempt and the last 64 KiB
+of each output stream, decoded for display; truncation can split a UTF-8 character.
+There is no history or ordering guarantee between stdout and stderr. Observers
+receive current snapshots, may request or close synchronously, and must not throw.
+Permanent close prevents late launches, returns one stable cleanup promise and
+removes observers after cleanup.
+
+Start/Restart policy and accepted-build decisions belong to the project service.
+In particular, that service must consult the user's current intent when a build
+finishes; the process owner cannot distinguish a legitimate new request from an
+incorrect automatic restart issued after Stop. Applications are assumed not to
+spawn additional OS children, and accepted generation files must remain available
+for the child's lifetime. The current project publisher retains those directories.
+
 ## Proposed application processes
 
 **Not yet implemented.** [Application integration](https://github.com/tsnl/snail-scheme/issues/458)
