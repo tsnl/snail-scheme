@@ -6,7 +6,7 @@
 ;; some programs and Siegework run again as modules linked when they run,
 ;; and the development server serves and rebuilds an application.
 ;;
-;;   chibi-scheme -D snail-tests -I tests -I src -I host/chibi tests/run.scm ROOT [NAME ...]
+;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/run.scm ROOT [NAME ...]
 (import
  (scheme base)
  (scheme cxr)

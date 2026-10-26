@@ -195,8 +195,8 @@
     (: new-session (-> String Request Session ! mut))
     (define (new-session root request)
       (make-session (match request
-                      ((Serve _ app) (list (string-append app "/src") (string-append root "/src") (string-append root "/guest")))
-                      ((Watch _ directories _) (append directories (list (string-append root "/src") (string-append root "/guest")))))))
+                      ((Serve _ app) (list (string-append app "/src") (string-append root "/src")))
+                      ((Watch _ directories _) (append directories (list (string-append root "/src")))))))
 
     (: output (-> String Request String))
     (define (output root request)
@@ -207,9 +207,9 @@
     (: watched (-> String Request (List String)))
     (define (watched root request)
       (match request
-        ((Serve _ app) (list app (string-append root "/src") (string-append root "/guest") (host-directory root)))
+        ((Serve _ app) (list app (string-append root "/src") (host-directory root)))
         ((Watch source directories _)
-         (Cons (directory-name source) (append directories (list (string-append root "/src") (string-append root "/guest")))))))
+         (Cons (directory-name source) (append directories (list (string-append root "/src")))))))
 
     (: main-source (-> Request String))
     (define (main-source request)

@@ -6,18 +6,25 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- Languages are libraries. Every Lofi library lives under `src/`, with paths
-  matching library names and `.sld` sources, and the compiler is one of them:
-  `src/lofi/compiler/`, written in typed Lofi importing only `(lofi base)`,
-  `(lofi table)` and `(lofi io)`, so it compiles itself. Chibi runs that same
-  source with `-I src -I host/chibi`; Chibi prepends each `-I`, so the last
-  wins and `host/chibi/`'s implementations of those three shadow the typed
-  ones and erase the typed forms. `make bootstrap` is what proves the
-  compiler reaches nothing else. Host-specific
-  code lives only under `host/`: `chibi/` for stage 0, `native/` for Node,
-  `browser/` for the page, `ide/` for the editor. Rust crates live in
-  `crates/`. Surface macros expand away before checking. See
-  [the language chapters](doc/book/lofi/index.md) and [the redesign](doc/redesign.md).
+- Languages are libraries. Every library that ships with the language lives
+  under `src/`, with paths matching library names and `.sld` sources: Lofi's
+  own under `src/lofi/`, Scheme's under `src/scheme/`, and the compiler among
+  them at `src/lofi/compiler/`, written in typed Lofi importing only
+  `(lofi base)`, `(lofi table)` and `(lofi io)`, so it compiles itself.
+  Host-specific code lives only under `host/`: `chibi/` for stage 0,
+  `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
+  crates live in `crates/`. Surface macros expand away before checking. See
+  [the language chapters](doc/book/lofi/index.md).
+
+- Stage 0 sees `bootstrap/chibi-include/` and nothing else: one symlink per
+  library the compiler's load closure actually reaches — `host/chibi/`'s
+  stage-0 `base`, `table`, `io` and `forms`, which erase the typed forms,
+  plus the build driver, and the compiler's own directory. `src/` is not on
+  Chibi's path, so no other library can enter the bootstrap by accident and
+  `src/scheme/base.sld` cannot shadow the Scheme that runs stage 0. Reaching
+  for a library that is not symlinked fails in `make test-chibi` and
+  `make bootstrap` with `couldn't find import`; adding one is a deliberate
+  edit to that directory.
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries

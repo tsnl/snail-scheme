@@ -59,10 +59,10 @@
     ;; compiler allocates gigabytes, so a large heap keeps collections rare.
     (define (chibi-compiler root)
       (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "LOFI_STAGE0_HEAP") "6G")
-            ;; Chibi prepends each -I, so the last one wins: host/chibi comes
-            ;; last, where its stage-0 (lofi base), (lofi table) and (lofi io)
-            ;; shadow the typed ones beside every other library under src/.
-            "-I" (path-join root "src") "-I" (path-join root "host/chibi") (path-join root "host/chibi/compile.scm")))
+            ;; Stage 0 sees only bootstrap/chibi-include, which symlinks the
+            ;; libraries the compiler's own load closure reaches and nothing
+            ;; else, so no other library under src/ can enter the bootstrap.
+            "-I" (path-join root "bootstrap/chibi-include") (path-join root "host/chibi/compile.scm")))
 
     ;; The command that runs a compiler. The compiled compiler is rebuilt
     ;; first when its source has changed; LOFI_STAGE0=chibi runs the source
@@ -89,12 +89,12 @@
                                   (run-compiler-into root command mode directories source output directory)
                                   (read-file output)))))
 
-    ;; The libraries that ship with the language: Lofi's own under src/, and
-    ;; the guest languages implemented on it under guest/. `(scheme base)`
-    ;; keeps its own root because src/ is on Chibi's module path, where a
-    ;; file of that name would shadow the Scheme that runs stage 0.
+    ;; Every library that ships with the language, Lofi's own and Scheme's
+    ;; alike, lives under src/. Stage 0 reaches it through
+    ;; bootstrap/chibi-include instead, so `(scheme base)` here cannot shadow
+    ;; the Scheme that runs stage 0.
     (define (standard-directories root)
-      (list (path-join root "src") (path-join root "guest")))
+      (list (path-join root "src")))
 
     (define (with-private-directory root use)
       (let ((directory (private-directory root)))
@@ -209,9 +209,6 @@
     (define (compiler-path root)
       (path-join root "build/compiler/lofic.wasm"))
 
-    (define (compiler-directories root)
-      (list (path-join root "src")))
-
     ;; The compiled compiler, rebuilt when it is older than its own source:
     ;; its entry program, its modules, and the three libraries it imports.
     (define (current-compiler root)
@@ -227,7 +224,7 @@
     (define (rebuild-compiler! root)
       (let* ((directory (path-join root "build/compiler")) (entry (path-join root "bootstrap/compile.sld"))
              (stage1 (path-join directory "stage1.wasm")) (stage2 (path-join directory "stage2.wasm"))
-             (stage3 (path-join directory "stage3.wat")) (sources (compiler-directories root)))
+             (stage3 (path-join directory "stage3.wat")) (sources (standard-directories root)))
         (create-directory* directory)
         (link-wat root (stage1-text root entry) stage1 #f)
         (link-wat root (run-compiler root (compiler-command root stage1) "wat" sources entry) stage2 #f)
@@ -237,7 +234,7 @@
         (rename-file stage2 (compiler-path root))))
 
     (define (stage1-text root entry)
-      (let ((previous (compiler-path root)) (sources (compiler-directories root)))
+      (let ((previous (compiler-path root)) (sources (standard-directories root)))
         (or (and (file-exists? previous)
                  (guard (failure (#t #f)) (run-compiler root (compiler-command root previous) "wat" sources entry)))
             (run-compiler root (chibi-compiler root) "wat" sources entry))))
