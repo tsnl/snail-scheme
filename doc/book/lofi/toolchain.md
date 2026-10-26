@@ -11,6 +11,14 @@ instance, when the program starts.
 | `lofi run`, `lofi compile`, `make site` | Release |
 | `lofi serve`, `lofi watch`, `make ide` (current commands) | Debug |
 
+`lofi compile -o DIRECTORY SOURCE` publishes `DIRECTORY/program.wasm`.
+The output is a directory, even for a single-file program. Compiler and linker
+intermediates stay private; a failed rebuild keeps the previous successful
+program, and unrelated files in the directory remain untouched.
+`lofi run -o DIRECTORY SOURCE` also retains its program there; without `-o`,
+`run` removes its private build when execution ends. To run a published artifact
+directly, use `node --no-warnings scripts/run-lofi.mjs DIRECTORY/program.wasm`.
+
 ## Builds in proportion to the edit
 
 `lofi serve` and `lofi watch` run a development loop that is itself a

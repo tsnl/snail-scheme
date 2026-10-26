@@ -53,7 +53,8 @@ describe proposed behavior, kept apart from what is implemented.
 1. Review the [project and development design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md):
    inert project descriptions, directory outputs and `lofi dev` with one
    shared file watcher, a persistent compiler and an independent editor UI.
-   Implementation follows design review.
+   Settled toolchain work is being implemented; the typed-state API remains
+   under review.
 2. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
 
@@ -158,7 +159,9 @@ remains under review:
   `build-target` and `run-target`. Every build target produces one output
   directory. This changes the compiler/CLI contract, not just the IDE.
 - [x] Parse project forms on Chibi and Wasm with located diagnostics and typed,
-  resolved launch references. File access, building and artifacts remain separate.
+  resolved run references. File access, building and artifacts remain separate.
+- [x] Make `compile -o` and `run -o` publish `program.wasm` in an output directory,
+  preserving unrelated files and the last successful program on a failed build.
 - [ ] Resolve named artifact bundles during actual expansion, including
   dependencies from generated application libraries. One server can depend
   on and serve multiple frontend bundles.

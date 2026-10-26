@@ -127,7 +127,7 @@ runtimes and application processes.
 
 | Path | Responsibility |
 | --- | --- |
-| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `schema` and `bootstrap`; `lofi` hands `serve` and `watch` to `scripts/develop.mjs`. |
+| `lofi`, `scripts/lofi.scm` | The command line: `run`, `compile`, `wat`, `schema` and `bootstrap`; `-o` publishes a directory's `program.wasm` through `(lofi build)`. `lofi` hands `serve` and `watch` to `scripts/develop.mjs`. |
 | `src/lofi/develop.sld`, `bootstrap/develop.sld` | The development loop behind `lofi serve`, `lofi watch` and the IDE, as a Lofi program: it keeps a session, debounces changes, writes each changed module and a manifest, broadcasts build events, keeps only the latest build's and the previous build's modules, and serves every file in `src/app`, reaching its host only through the `develop` effect's named commands. `bootstrap/develop.sld` exposes its entry points for Node. |
 | `src/lofi/project.sld` | Parses inert `project.datum` through the compiler's located reader. Returns typed program/browser builds and resolved program run targets, with lexical path and duplicate checks. It does no file IO, expansion or building; CLI integration follows separately. |
 | `scripts/develop.mjs` | The loop's Node host, performing its commands: file watching, timers, HTTP with server-sent events, files, and running programs. |
