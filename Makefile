@@ -30,6 +30,7 @@ test-chibi:
 test-browser:
 	node tests/browser/reload.mjs "$(CURDIR)"
 	node tests/browser/ide.mjs "$(CURDIR)"
+	node tests/browser/ide-runs.mjs "$(CURDIR)"
 
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.
 bootstrap:

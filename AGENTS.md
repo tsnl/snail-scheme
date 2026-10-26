@@ -92,8 +92,9 @@ gives the reload rules; what matters when writing code:
 - `./scripts/lofi-tool watch SOURCE [ARGUMENT ...]` is the same loop for programs.
   `./lofi dev PROJECT` runs the native project compiler and browser editor;
   `make ide` starts it for Siegework. Save writes disk; the shared watcher
-  drives compiler and editor updates. Application launching/reload still uses
-  `serve`/`watch` until that integration lands.
+  drives compiler and editor updates. Its application controls launch named
+  program targets and replace affected processes after accepted builds. Browser
+  reload still uses internal `serve` until durable-state/bundle integration lands.
 - Builds in one checkout keep private compiler scratch under `build/lofi-run/`.
   Public `lofi run` executes its completed project generation in the caller's
   working directory after removing build scratch. Rebuilding the compiled
