@@ -69,51 +69,47 @@ publish no replacement session. This keeps bundle bytes out of string keys
 without trusting a content checksum.
 
 Generated syntax is obtained before deciding whether to replay its library.
-The native bridge keeps a bound project resolver active while compiling
+The native project builder uses the same target traversal while compiling
 producer programs. Persistent producer caching remains separate work; current
 producer output lasts only for its enclosing compile.
 
 ## Native compiler requests
 
-The compiler cannot start a producer or build another project target. It stores
-one pending `CompilerRequest` in memory and exits immediately. Chibi and Node
-compiler entries initialize this state before calling the shared typed driver.
-After a compiler failure unwinds, they consume the request and publish
-`request.datum` in the private compile directory. Artifact expansion and request
-signaling have no filesystem effects; library loading and generated-source IO
-still do. Requests are concrete datums parsed by `(lofi compiler inputs)`:
+The compiler cannot start a producer or build another project target. It records
+one pending `CompilerRequest` in memory and exits immediately. Artifact expansion
+and request signaling have no filesystem effects; library loading and
+generated-source IO still do. The host consumes the request after the compiler
+stack has unwound.
+
+Standalone source builds service generated-library requests and reject artifact
+requests with their source location: an artifact needs a project build. Chibi
+and Node compiler entries publish the pending request in `request.datum` after
+unwinding. `(lofi compiler inputs)` owns this grammar:
 
 ```scheme
 (generate "123456")
 (artifact "client" "server/main.sld" 12 8)
 ```
 
-The first runs the existing generated-library producer. The second calls the
-synchronously bound artifact resolver, preserving the source location for
-errors. Its reply names relative bundle entries and their immutable backing
-files in `artifacts.datum`. The restarted compiler parses that manifest once
-and loads all supplied bytes into an immutable table before expansion; repeated
-lookups never reread those files. Applications embed the bytes and need no
-runtime file access.
+Each attempt deletes the preceding request before starting the compiler. Only
+exit status 1 permits a request. Publication failures use status 2; any other
+exit or signal cannot fulfill work from a leftover file. Success with a pending
+request and a request already answered are errors. Scratch directories are
+created exclusively, so stale files cannot become inputs. Stderr carries only
+diagnostics. Standalone builds have no artifact resolver or reply accumulation.
 
-One logical compilation owns its replies across restarts. Each attempt deletes
-the preceding request before starting the compiler. Only exit status 1 permits
-a request. Publication failures use status 2; any other exit or signal also
-cannot fulfill work from a leftover file. Success with a pending request and a
-request already answered are errors. Scratch directories are
-created exclusively, so stale files from a reused process id cannot become
-inputs. Stderr carries diagnostics only. Nested producer compiles own separate
-scratch directories but inherit the same bound resolver, which is restored
-when its dynamic scope exits.
+The resident compiler returns the pending request in `CompilerFailure.request`;
+no request file is written or parsed. Each invocation clears pending request and
+diagnostic state before work. Trusted exits preserve the instance but return no
+successor Session. Both cold project builds and `dev` use this boundary.
 
-The resident native compiler consumes the pending request directly after a
-trusted exit and returns it in `CompilerFailure.request`; no request file is
-written or parsed. Each invocation clears pending state before work. Artifact
-replies still use Lofi's printer and input loader. Expected diagnostic exits
-preserve the instance, but return no successor Session. Servicing inputs and
-retrying happen outside the compiler call. `scripts/project.mjs` uses this
-boundary for cold and incremental project builds; connection to the watcher
-and editor follows.
+Only `scripts/project.mjs` resolves named browser targets, including during
+producer compilation. Artifact replies name relative bundle entries and immutable
+backing files in `artifacts.datum`. The compiler parses this manifest and loads
+all supplied bytes into an immutable table before expansion. Lookups never
+reread files; applications embed the bytes and need no runtime file access.
+Each logical compilation owns its replies. Nested producers own separate scratch
+directories and share the builder's active/completed target traversal.
 
 ## Project traversal
 

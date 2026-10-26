@@ -10,8 +10,6 @@
    program->schemas
    build-program
    build-program-directory
-   create-staging-directory
-   with-artifact-resolver
    build-modules
    link-wat
    build-crate
@@ -38,7 +36,7 @@
    (chibi pathname)
    (chibi process)
    (lofi process)
-   (only (lofi base) match any?)
+   (only (lofi base) match)
    (only (lofi compiler read) compile-error)
    (lofi compiler inputs)
    (only (chibi string) string-contains string-cursor->index string-suffix?))
@@ -98,7 +96,6 @@
         (unless (create-directory* directory) (error "cannot create compiler scratch directory" directory))
         (create-staging-directory directory)))
 
-    ;; One logical compile owns its replies across synchronous attempts.
     ;; Remove the old request immediately before starting each process;
     ;; stderr is only diagnostic text, never a work request. Only normal
     ;; compiler failure (exit 1, waitpid status 256) can supply a request.
@@ -106,42 +103,24 @@
     ;; Nested producer compiles have their own scratch.
     (define (run-compiler-into root command mode directories source output generated)
       (let ((request (path-join generated "request.datum")))
-        (let loop ((replies '()))
-          (write-file (path-join generated "artifacts.datum") (replies->string replies))
+        (let loop ()
           (when (file-link-status request) (delete-file request))
           (let ((result (capture-process (append command (list mode source output generated) directories))))
             (cond ((zero? (caddr result))
                    (when (file-link-status request) (error "compiler succeeded with a pending input request"))
                    output)
                   ((and (= (caddr result) 256) (file-link-status request))
-                   (loop (provide-input! root directories generated (parse-request (read-file request) request) replies)))
+                   (provide-input! root directories generated (parse-request (read-file request) request))
+                   (loop))
                   (else (error (diagnostic (cadr result)))))))))
 
-    (define (provide-input! root directories generated request replies)
+    (define (provide-input! root directories generated request)
       (match request
         ((GenerateInput key)
          (when (file-exists? (path-join generated (string-append key ".syntax"))) (error "compiler requested an already provided generated library" key))
-         (produce! root directories generated key)
-         replies)
+         (produce! root directories generated key))
         ((ArtifactInput name loc)
-         (when (any? (lambda (reply) (string=? (ArtifactReply-name reply) name)) replies) (error "compiler requested an already provided artifact" name))
-         (cons (ArtifactReply name (resolve-artifact-input name loc)) replies))))
-
-    ;; The whole project build binds this one synchronous resolver. Nested
-    ;; producer compilation inherits the same active/completed target owner;
-    ;; unwinding restores the preceding binding even when a dependency fails.
-    ;; It returns Lofi (Pair relative-name immutable-path) values for the
-    ;; typed reply printer, not native Scheme pairs.
-    (define artifact-resolver #f)
-
-    (define (with-artifact-resolver resolver use)
-      (let ((previous artifact-resolver))
-        (dynamic-wind (lambda () (set! artifact-resolver resolver)) use (lambda () (set! artifact-resolver previous)))))
-
-    (define (resolve-artifact-input name loc)
-      (guard (failure (#t (compile-error loc (failure-message failure))))
-        (unless artifact-resolver (error (string-append "artifact-bundle requires a project build resolver: " name)))
-        (artifact-resolver name)))
+         (compile-error loc (string-append "artifact-bundle requires a project build resolver: " name)))))
 
     ;; The compiler's message without the host's prefix.
     (define (diagnostic text)
@@ -543,17 +522,6 @@
         (expect-request-error (lambda () (test-request root "publication-failed" (lambda (_) #f))) "input publication failed")
         (expect-request-error (lambda () (test-request root "generated" (lambda (directory) (write-file (path-join directory "123.syntax") "()"))))
                               "already provided generated library")
-        (let ((calls 0))
-          (with-artifact-resolver (lambda (_) (set! calls (+ calls 1)) '())
-                                  (lambda ()
-                                    (expect-request-error (lambda () (test-request root "artifact" (lambda (_) #f))) "already provided artifact")
-                                    (expect calls 1)
-                                    (expect-request-error
-                                     (lambda () (with-artifact-resolver (lambda (_) (error "inner resolver"))
-                                                                        (lambda () (test-request root "artifact" (lambda (_) #f)))))
-                                     "application.sld:3:8: inner resolver")
-                                    (resolve-artifact-input "client" #f)
-                                    (expect calls 2))))
         (expect-request-error (lambda () (test-request root "artifact" (lambda (_) #f)))
                               "application.sld:3:8: artifact-bundle requires a project build resolver")
         ;; Simulate a reused process id/counter. The allocator must leave
