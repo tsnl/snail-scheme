@@ -1,0 +1,4 @@
+((build-target site
+   (browser
+    (entry "main.sld")
+    (public "public"))))

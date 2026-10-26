@@ -1,10 +1,10 @@
 # Applications
 
-Each application is a directory with a `main.sld` program, its own libraries
-under `src/`, an `index.html`, files to publish under `public/`, and tests.
-`scripts/build-app.scm` compiles `main.sld` and packages it with the shared
-browser host from `src/app`; `make site` runs it for both applications,
-into `build/siegework` and `build/hearsay`.
+Each application is a project with an inert `project.datum`, a `main.sld`
+program, its own libraries under `src/`, files including `index.html` under
+`public/`, and tests. `lofi build --release apps/NAME site` selects the `site`
+target and packages it with the shared browser host from `src/app` into
+`apps/NAME/build/site`. `make site` builds both applications this way.
 
 `./lofi serve apps/siegework` builds the same program one library at a
 time into `build/serve/siegework`, serves it, and relinks each rebuilt

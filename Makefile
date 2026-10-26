@@ -48,23 +48,22 @@ check:
 ide:
 	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-ide.scm "$(CURDIR)" apps/siegework build/ide
 
-# Siegework and Hearsay's prototypes as static sites in build/siegework and
-# build/hearsay.
+# Each application's project describes its site target, in APP/build/site.
 site: siegework hearsay
 
 siegework:
-	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-app.scm "$(CURDIR)" --release apps/siegework build/siegework
+	CHIBI="$(CHIBI)" LOFI_HEAP="$(HEAP)" ./lofi build --release apps/siegework site
 
 hearsay:
-	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-app.scm "$(CURDIR)" --release apps/hearsay build/hearsay
+	CHIBI="$(CHIBI)" LOFI_HEAP="$(HEAP)" ./lofi build --release apps/hearsay site
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
 # play/siegework/. Hearsay stays unpublished: its LPC art must be credited
 # as lib/lpc/ATTRIBUTION.md describes, and the page doesn't show credits.
 pages: siegework
 	"$(MDBOOK)" build --dest-dir build/pages
-	mkdir -p build/pages/play
-	cp -R build/siegework build/pages/play/siegework
+	mkdir -p build/pages/play/siegework
+	cp -R apps/siegework/build/site/. build/pages/play/siegework/
 	test -f build/pages/index.html
 	test -f build/pages/games/siegework.html
-	test -f build/pages/play/siegework/app.wasm
+	test -f build/pages/play/siegework/program.wasm

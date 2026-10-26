@@ -2,16 +2,16 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hearsay prototypes</title>
+<title>Siegework</title>
 <link rel="stylesheet" href="./style.css">
 <link rel="stylesheet" href="./app.css">
 <body>
-  <canvas id="view" tabindex="0" aria-label="Prototype board"></canvas>
+  <canvas id="view" tabindex="0" aria-label="Colony map"></canvas>
   <div id="overlay"></div>
   <script type="module">
     import {startApplication} from './host.mjs';
     const overlay = document.getElementById('overlay');
-    startApplication({url: './app.wasm', canvas: document.getElementById('view'), overlay, storageKey: 'hearsay'})
+    startApplication({url: './program.wasm', canvas: document.getElementById('view'), overlay, storageKey: 'siegework'})
       .then(() => { document.body.dataset.ready = 'true'; })
       .catch(error => { document.body.dataset.error = error.message; overlay.textContent = error.message; });
   </script>
