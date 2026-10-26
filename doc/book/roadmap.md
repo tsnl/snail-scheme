@@ -211,8 +211,11 @@ remains under review:
   redirection script with positional arguments, including in the test runner.
 - [x] Add native project text-file reads and atomic saves with client-held
   revision evidence. Reject observed conflicts and keep staging under excluded
-  build output; Save neither retains buffers nor calls the compiler. HTTP and
-  browser-client integration follow independently of typed-state review.
+  build output; Save neither retains buffers nor calls the compiler.
+- [x] Bind the project attempt owner, file service and shared observer in one
+  loopback HTTP API. Conditional saves, manual Build and current-status/file-change
+  SSE stay responsive during compilation. UI/CLI integration follows independently
+  of typed-state review.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.
