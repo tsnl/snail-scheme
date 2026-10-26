@@ -6,6 +6,7 @@
   - [Terms](lofi/terms.md)
   - [Types](lofi/types.md)
   - [Macros and Scheme libraries](lofi/macros.md)
+  - [Bootstrap and self-hosting](lofi/bootstrap.md)
   - [Libraries](lofi/libraries.md)
   - [HTTP protocol](lofi/http.md)
   - [Projects and targets](lofi/projects.md)
