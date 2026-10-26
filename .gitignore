@@ -7,5 +7,11 @@
 /build/
 /apps/*/build/
 /tests/apps/*/build/
-/src/runtime/target/
-/src/assembler/target/
+
+# Cargo names its output `target` relative to wherever the build ran, so
+# ignore the name anywhere rather than listing each crate and each caller.
+target/
+
+# Scratch from local experiments, kept out of the tree by name.
+/wasm-native/
+/REVIEW.md
