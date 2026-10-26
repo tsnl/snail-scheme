@@ -76,9 +76,13 @@ guarantees complete publication, not a transaction across changing source files
 or durability after power loss. An ordinary directory, file or unrelated link
 at the target's output path is rejected. The builder never removes it.
 
-Artifact dependencies will be discovered later during expansion,
-including generated libraries. The parser does not scan source, build a second
-dependency graph, detect artifact cycles or invoke a build.
+`(artifact-bundle "NAME")` embeds the complete output of a browser build in
+this project. Requests arise during expansion, including macros, generated
+libraries and compilation of their producers. The builder resolves targets
+serially, reuses each completed generation during the invocation, and reports
+an active target as a cycle. The [artifact contract](artifact-bundles.md)
+describes file ordering and publication. The project parser does not scan
+source, construct a second dependency graph or invoke builds.
 
 See the [implementation plan](proposals/desktop-ide.md) for output directories,
 project builds, `lofi dev` and the editor service.

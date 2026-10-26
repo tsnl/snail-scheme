@@ -95,14 +95,17 @@ below remains proposed.
 replaces the application packaging script for the CLI; IDE integration follows.
 The compiler now supports the `(lofi artifact)` library's `artifact-bundle`
 macro and checks recorded file dependencies before reusing cached compilation.
-The native project builder's resolver is still pending, so current commands
-explicitly reject artifact requests. Once connected, a server can reference
-several frontend targets while compiling and serve their embedded files through
-ordinary code. The [artifact contract](https://github.com/tsnl/snail-scheme/blob/stack/artifact-resolution-20261024/doc/artifact-bundles.md)
-describes the implemented compiler boundary and cache rules. The native driver
+`lofi build` resolves these requests to browser targets in the same project,
+including requests inside generated-library producers. Repeated requests reuse
+one completed generation during a build; cycles report their target path.
+A server can reference several frontend targets while compiling; their files
+become ordinary embedded bytes. Standalone commands and the old development
+loop still reject project artifact requests. The
+[artifact contract](https://github.com/tsnl/snail-scheme/blob/stack/project-target-dependencies-20261024/doc/artifact-bundles.md)
+describes the compiler boundary and cache rules. The native driver
 now uses typed request/reply datums for generated libraries and artifact inputs,
-with exclusive scratch ownership across compiler restarts. Project target
-traversal is the remaining connection; stderr is only diagnostic text.
+with exclusive scratch ownership across compiler restarts. Stderr is only
+diagnostic text.
 
 `lofi dev PROJECT` would keep the incremental compiler alive and share one
 file watcher with the editor. Saving only writes disk; the watcher starts

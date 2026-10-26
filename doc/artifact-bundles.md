@@ -1,10 +1,10 @@
 # Artifact bundles
 
 The compiler and `(lofi artifact)` library implement named artifact requests.
-The native project builder's target traversal is the next
-integration step: current `lofi build`, `compile`, `run` and development commands
-explicitly reject these requests. Compiler clients can already supply the
-in-memory inputs described below, as the linked-Wasm integration fixture does.
+`lofi build PROJECT TARGET` resolves them to browser targets in that project's
+`project.datum`. Standalone `compile` and `run`, and the old development
+commands, have no project resolver and reject these requests. Compiler clients
+can also supply the in-memory inputs described below.
 
 ```scheme
 (import
@@ -45,7 +45,7 @@ completed immutable output. Expression expansion performs only memory lookups;
 it has no filesystem capability. Inputs belong to the current invocation, not
 the retained session. `no-artifacts` is an empty input table.
 
-The project implementation will own target lookup, browser-kind checking,
+The project implementation owns target lookup, browser-kind checking,
 serial traversal and cycle detection. A missing input records a typed request
 and aborts the invocation. The native builder obtains the request only after
 the compiler stack has unwound.
@@ -102,5 +102,27 @@ request already answered are errors. Scratch directories are
 created exclusively, so stale files from a reused process id cannot become
 inputs. Stderr carries diagnostics only. Nested producer compiles own separate
 scratch directories but inherit the same bound resolver, which is restored
-when its dynamic scope exits. The next project-builder change supplies the
-target traversal behind that binding.
+when its dynamic scope exits.
+
+## Project traversal
+
+Each invocation parses the project once and binds one resolver around the
+entire root build. A request names a browser target in that project; missing
+targets and program targets fail at the requesting source location. Recursive
+build calls discover dependencies as they occur. A list of active target names
+detects cycles, including requests made while compiling a generated-library
+producer. Errors include the traversal path, such as `client -> admin -> client`.
+
+A completed-target list stores sorted relative names paired with files in
+the target's immutable generation. Repeated requests use those same files
+throughout the invocation. There is no source scanner, second dependency graph,
+persistent target cache or runtime lookup. A new invocation builds dependencies
+again and regenerates producer output.
+
+Packaging and complete file enumeration precede publication. Enumeration
+includes hidden and nested files, excludes only the root `.lofi-target` marker,
+and rejects unreadable directories, symbolic links and nonregular entries.
+Every compiler reply names generation files directly, never `build/TARGET`.
+The public link changes only after this preparation succeeds. A failed parent
+keeps its preceding output; dependencies that already succeeded remain published.
+The parent's previous program still contains its previous embedded bytes.

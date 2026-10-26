@@ -163,12 +163,13 @@ remains under review:
   resolved run references. File access, building and artifacts remain separate.
 - [x] Make `compile -o` and `run -o` publish `program.wasm` in an output directory,
   preserving unrelated files and the last successful program on a failed build.
-- [ ] Resolve named artifact bundles during actual expansion, including
+- [x] Resolve named artifact bundles during actual expansion, including
   dependencies from generated application libraries. One server can depend
-  on and serve multiple frontend bundles.
+  on multiple frontend bundles. Native project builds use one serial traversal
+  through generated-library producers too; HTTP serving remains library work.
 - [x] Implement the artifact macro, typed values and compiler resolver contract.
   Cached expansion re-resolves exact file evidence and invalidates generic
-  consumers. Native target traversal remains to connect.
+  consumers. Native traversal captures completed generation files for each build.
 - [x] Replace stderr work requests with typed request/reply datums. The native
   builder retains artifact replies across compiler restarts and keeps a bound
   resolver active through producer compilation. Scratch directories are exclusive.
