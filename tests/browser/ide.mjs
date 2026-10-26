@@ -1,108 +1,194 @@
-// The browser IDE in a real page: scripts/build-ide.scm packages it with
-// tests/apps/counter as its project, a static server serves the site, and
-// headless Chromium types into the editor. A broken edit
-// puts a squiggle under what the compiler points at; Tab indents as Emacs
-// does; saving formats the file and keeps it across a reload; a split shows
-// the buffer twice; and opening a folder replaces the project.
-//
-//   CHROMIUM=... node tests/browser/ide.mjs ROOT [SCREENSHOT]
+// The native project service in a real browser. Disk edits, compiler updates
+// and file saves are independent; delayed HTTP replies must not erase typing.
+// CHROMIUM=... node tests/browser/ide.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
-import {execFile} from 'node:child_process';
-import {cp, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
-import {createServer} from 'node:http';
+import {spawn} from 'node:child_process';
+import {mkdtemp, readFile, rm, unlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {extname, join} from 'node:path';
-import {promisify} from 'node:util';
-import {openBrowser, until} from './chromium.mjs';
+import {join} from 'node:path';
+import {serveProject} from '../../scripts/project-http.mjs';
+import {editorTools} from '../../scripts/project.mjs';
+import {openBrowser, sleep, until} from './chromium.mjs';
 
-const [root, screenshot] = process.argv.slice(2);
-const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm'};
-
-// Serves the site's files, nothing more.
-function serve(site) {
-  const server = createServer(async (request, response) => {
-    const path = new URL(request.url, 'http://localhost').pathname;
-    try {
-      const bytes = await readFile(join(site, path.endsWith('/') ? `${path}index.html` : path));
-      response.writeHead(200, {'content-type': types[extname(path)] ?? 'text/html'}).end(bytes);
-    } catch {
-      response.writeHead(404).end();
-    }
-  });
-  return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server)));
-}
-
-const site = await mkdtemp(join(tmpdir(), 'lofi-ide-')), folder = await mkdtemp(join(tmpdir(), 'lofi-folder-'));
-await promisify(execFile)(process.env.CHIBI ?? 'chibi-scheme', ['-h', '2G', '-I', join(root, 'host/chibi'), '-I', join(root, 'src'),
-  join(root, 'scripts/build-ide.scm'), root, join(root, 'tests/apps/counter'), site]);
-const server = await serve(site);
+const [root, screenshot] = process.argv.slice(2), project = await mkdtemp(join(tmpdir(), 'lofi-ide-'));
+const source = join(project, 'main.sld'), description = join(project, 'project.datum');
+const config = '((build-target main (program (entry "main.sld"))))';
+const program = text => `(import (lofi base) (lofi io))\n(: greeting String)\n(define greeting "${text}")\n(write-line greeting)\n`;
+await writeFile(description, config); await writeFile(source, program('hello'));
+await writeFile(join(project, 'notes.txt'), 'plain text\r\n');
+const tools = editorTools(root), service = await serveProject({root, project, tools});
 const browser = await openBrowser();
-const built = () => browser.evaluate('document.getElementById("status")?.dataset.state === "built"');
-const editorText = () => browser.evaluate('document.querySelector(".pane textarea").value');
-// Selects the first match of `from` in the first pane and types `to` over it.
-const type = (from, to) => browser.evaluate(`(() => { const t = document.querySelector('.pane textarea'), at = t.value.indexOf(${JSON.stringify(from)});
-  if (at < 0) return false; t.focus(); t.setSelectionRange(at, at + ${from.length}); return document.execCommand('insertText', false, ${JSON.stringify(to)}); })()`);
-const press = (target, init) => browser.evaluate(`${target}.dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({bubbles: true, cancelable: true, ...init})}))`);
+const text = () => browser.evaluate('document.querySelector(".pane.active textarea").value');
+const title = () => browser.evaluate('document.querySelector(".pane.active .pane-title").textContent');
+const problem = () => browser.evaluate('document.querySelector(".pane.active .pane-problem").textContent');
+const click = id => browser.evaluate(`document.getElementById(${JSON.stringify(id)}).click()`);
+const press = init => browser.evaluate(`document.querySelector('.pane.active textarea').dispatchEvent(new KeyboardEvent('keydown', ${JSON.stringify({bubbles: true, cancelable: true, ...init})}))`);
+const type = (from, to) => browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'), at = t.value.indexOf(${JSON.stringify(from)});
+  if (at < 0 || t.disabled) return false; t.focus(); t.setSelectionRange(at, at + ${from.length}); return document.execCommand('insertText', false, ${JSON.stringify(to)}); })()`);
+const select = path => browser.evaluate(`document.querySelector('.file[data-path=${JSON.stringify(path)}]').click()`);
+const built = () => browser.evaluate('document.getElementById("status").dataset.state === "built"');
+const saved = () => until(async () => !(await title()).includes('●') && !(await problem()), 'saved baseline');
+let cli = null;
 try {
-  await browser.navigate(`http://127.0.0.1:${server.address().port}/`);
-  await until(built, 'the first build');
-
+  await browser.navigate(service.url + '/');
+  await until(async () => (await text())?.includes('"hello"') && await built(), 'initial native project');
+  assert.equal(await title(), 'main.sld');
+  const attempt = service.development.status.id;
+  // A failed save remains visible after its successful follow-up read.
+  assert.ok(await type('"hello"', '"hello draft"'));
+  await browser.evaluate(`window.actualFetch = window.fetch;
+    window.fetch = (...args) => args[1]?.method === 'PUT'
+      ? Promise.resolve(new Response(JSON.stringify({message: 'save rejected for test'}), {status: 500}))
+      : window.actualFetch(...args);`);
+  await click('save');
+  await until(async () => (await problem()).includes('save rejected for test'), 'save failure');
+  await sleep(150);
+  assert.match(await problem(), /save rejected for test/);
+  assert.match(await text(), /"hello draft"/);
+  await browser.evaluate('window.fetch = window.actualFetch; window.confirm = () => true');
+  await click('reload');
+  await until(async () => (await text()).includes('"hello"') && !(await problem()), 'failed-save recovery');
   assert.ok(await type('"hello"', '5'));
-  const squiggle = await until(() => browser.evaluate('document.querySelector(".squiggle")?.textContent'), 'the squiggle');
-  assert.equal(squiggle, '5');
-  assert.match(await browser.evaluate('document.querySelector(".pane-diagnostic").textContent'), /^\d+:\d+: the literal 5 does not fit String/);
-  assert.ok(await type('(define greeting 5)', '(define greeting "fixed")'));
-  await until(built, 'the fix');
-  assert.equal(await browser.evaluate('document.querySelector(".squiggle")'), null);
+  await sleep(500);
+  assert.equal(service.development.status.id, attempt, 'typing does not compile unsaved text');
+  assert.match(await readFile(source, 'utf8'), /"hello"/);
+  await click('save');
+  await until(() => browser.evaluate('document.getElementById("diagnostics").textContent.includes("does not fit String")'), 'fresh compiler diagnostic');
+  assert.equal(await browser.evaluate('document.querySelector(".squiggle")'), null, 'no locations inferred from diagnostic prose');
+  assert.ok(await type('(define greeting 5)', '(define greeting\n"fixed")'));
+  await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"'); t.setSelectionRange(at, at); })()`);
+  await press({key: 'Tab'});
+  assert.match(await text(), /\(define greeting\n  "fixed"\)/);
+  await press({code: 'KeyS', key: 's', ctrlKey: true});
+  await saved(); await until(built, 'fixed build');
+  assert.equal(await browser.evaluate('document.getElementById("diagnostics").textContent'), '');
 
-  assert.ok(await type('(define add-action 1)', '(define add-action\n1)'));
-  await browser.evaluate(`(() => { const t = document.querySelector('.pane textarea'), at = t.value.indexOf('\\n1)') + 1; t.setSelectionRange(at, at); })()`);
-  await press('document.querySelector(".pane textarea")', {key: 'Tab'});
-  assert.match(await editorText(), /\(define add-action\n  1\)/, 'Tab indents the body of a definition');
+  // Even a formatter/editor replacement failure must not prevent persistence.
+  assert.ok(await type('  "fixed"', '          "unformatted"'));
+  await browser.evaluate("window.insertCommand = document.execCommand; document.execCommand = () => { throw new Error('format replacement failed'); };");
+  await click('save'); await saved();
+  await browser.evaluate('document.execCommand = window.insertCommand');
+  assert.match(await readFile(source, 'utf8'), /          "unformatted"/);
 
-  await browser.evaluate(`(() => { const t = document.querySelector('.pane textarea'), at = t.value.indexOf('(define add-action\\n  1)') + 18;
-    t.setSelectionRange(at, at); document.execCommand('insertText', false, '   '); })()`);
-  await press('document.querySelector(".pane textarea")', {key: 'Enter'});
-  assert.match(await editorText(), /\(define add-action\n  \n  1\)/, 'Enter drops the spaces it leaves behind and indents the new line');
-  assert.ok(await type('(define add-action\n  \n  1)', '(define add-action\n                1)'));
-  await press('document', {code: 'KeyS', key: 's', ctrlKey: true});
-  assert.match(await editorText(), /\(define add-action\n  1\)/, 'saving formats the file');
-  assert.equal(await browser.evaluate('document.querySelector(".pane-title").textContent'), 'main.sld');
-  await browser.navigate(`http://127.0.0.1:${server.address().port}/`);
-  await until(built, 'the reload');
-  assert.match(await editorText(), /\(define greeting "fixed"\)/, 'the saved file survives a reload');
+  await writeFile(source, program('external'));
+  await until(async () => (await text()).includes('"external"'), 'clean external edit');
+  assert.ok(await type('"external"', '"draft"'));
+  await writeFile(source, program('another writer'));
+  await until(async () => (await problem()).includes('Changed on disk'), 'dirty external conflict');
+  assert.match(await text(), /"draft"/);
+  await click('save');
+  await until(() => browser.evaluate('!document.getElementById("save").disabled'), 'conflicting save completion');
+  assert.match(await readFile(source, 'utf8'), /"another writer"/);
+  await browser.evaluate('window.confirm = () => true');
+  await click('reload');
+  await until(async () => (await text()).includes('"another writer"') && !(await problem()), 'explicit reload');
 
-  await press('document.querySelector(".pane textarea")', {code: 'KeyB', key: 'b', ctrlKey: true});
-  assert.ok(await browser.evaluate('document.querySelector(".project-layout").classList.contains("no-files")'), 'the shortcut hides the file browser');
-  await browser.evaluate('document.getElementById("toggle-files").click()');
+  // Discard is immediate, so a newer watcher read can finish Reload;
+  // subsequent typing survives the older discard request's delayed response.
+  assert.ok(await type('"another writer"', '"discard me"'));
+  await browser.evaluate(`window.actualFetch = window.fetch;
+    window.fetch = async (...args) => { const response = await window.actualFetch(...args);
+      if (String(args[0]).startsWith('/api/file?path=main.sld') && !window.heldReload) {
+        window.heldReload = true; await new Promise(resolve => window.releaseReload = resolve);
+      } return response; };`);
+  await click('reload');
+  await until(() => browser.evaluate('window.heldReload'), 'held reload');
+  await writeFile(source, program('watcher during reload'));
+  await until(async () => (await text()).includes('"watcher during reload"'), 'watcher completes discard');
+  assert.ok(await type('"watcher during reload"', '"typing after reload"'));
+  await browser.evaluate('window.releaseReload(); window.fetch = window.actualFetch');
+  await sleep(100);
+  assert.match(await text(), /"typing after reload"/);
+  await click('reload');
+  await until(async () => (await text()).includes('"watcher during reload"'), 'discard later typing');
 
-  const edge = await browser.evaluate(`(() => { const r = document.getElementById('files-resizer').getBoundingClientRect();
-    return {x: r.x + r.width / 2, y: r.y + 30, width: document.getElementById('files').getBoundingClientRect().width}; })()`);
-  await browser.send('Input.dispatchMouseEvent', {type: 'mousePressed', x: edge.x, y: edge.y, button: 'left', clickCount: 1});
-  await browser.send('Input.dispatchMouseEvent', {type: 'mouseMoved', x: edge.x + 60, y: edge.y, button: 'left', buttons: 1});
-  await browser.send('Input.dispatchMouseEvent', {type: 'mouseReleased', x: edge.x + 60, y: edge.y, button: 'left', clickCount: 1});
-  assert.ok(await browser.evaluate('document.getElementById("files").getBoundingClientRect().width') > edge.width + 50, 'dragging widens the file browser');
+  // Hold the successful save response after its real disk write. Later typing
+  // remains a draft against the submitted bytes, even with watcher updates.
+  await browser.evaluate(`window.actualFetch = window.fetch;
+    window.fetch = async (...args) => { const response = await window.actualFetch(...args);
+      if (args[1]?.method === 'PUT' && !window.heldSave) { window.heldSave = true; await new Promise(resolve => window.releaseSave = resolve); }
+      return response; };`);
+  assert.ok(await type('"watcher during reload"', '"submitted"'));
+  await click('save');
+  await until(() => browser.evaluate('window.heldSave'), 'held save response');
+  assert.ok(await type('"submitted"', '"typed later"'));
+  await browser.evaluate('window.releaseSave()');
+  await until(() => browser.evaluate('!document.getElementById("save").disabled'), 'save release');
+  assert.match(await readFile(source, 'utf8'), /"submitted"/);
+  assert.match(await text(), /"typed later"/); assert.match(await title(), /●/);
+  await browser.evaluate('window.fetch = window.actualFetch');
+  await click('save'); await saved();
 
-  await browser.evaluate('document.getElementById("split-right").click()');
-  assert.equal(await browser.evaluate('document.querySelectorAll(".pane textarea").length'), 2);
-  assert.ok(await type('"fixed"', '"twice"'));
-  assert.match(await browser.evaluate('document.querySelectorAll(".pane textarea")[1].value'), /"twice"/, 'both panes show the buffer');
+  // A read begun before Save cannot restore its older revision afterward.
+  await browser.evaluate(`window.fetch = async (...args) => { const response = await window.actualFetch(...args);
+    if (String(args[0]).startsWith('/api/file?path=main.sld') && !args[1]?.method && !window.heldRead) {
+      window.heldRead = true; await new Promise(resolve => window.releaseRead = resolve);
+    } return response; };`);
+  await writeFile(source, await readFile(source));
+  await until(() => browser.evaluate('window.heldRead'), 'held old file read');
+  assert.ok(await type('"typed later"', '"new revision"'));
+  await click('save'); await saved();
+  await browser.evaluate('window.releaseRead(); window.fetch = window.actualFetch');
+  await sleep(100);
+  assert.ok(await type('"new revision"', '"after stale read"'));
+  await click('save'); await saved();
+  assert.match(await readFile(source, 'utf8'), /"after stale read"/);
+
+  await click('split-right');
+  assert.equal(await browser.evaluate('document.querySelectorAll(".pane").length'), 2);
+  assert.ok(await type('"after stale read"', '"two panes"'));
+  assert.match(await browser.evaluate('document.querySelector(".pane textarea").value'), /"two panes"/);
+  await click('save'); await saved();
   if (screenshot) await browser.screenshot(screenshot);
 
-  // Saved first, since unsaved changes would ask before they are dropped.
-  await press('document', {code: 'KeyS', key: 's', ctrlKey: true});
-  await cp(join(root, 'tests/apps/counter'), folder, {recursive: true});
-  await writeFile(join(folder, 'main.sld'), (await readFile(join(folder, 'main.sld'), 'utf8')).replace('"hello"', '"from a folder"').replace(/\n/g, '\r\n'));
-  await browser.evaluate('delete window.showDirectoryPicker; document.getElementById("open-folder").click()');
-  const {result: {root: {nodeId}}} = await browser.send('DOM.getDocument');
-  const {result: input} = await browser.send('DOM.querySelector', {nodeId, selector: '#folder-input'});
-  await browser.send('DOM.setFileInputFiles', {nodeId: input.nodeId, files: [folder]});
-  await until(async () => (await editorText())?.includes('"from a folder"') && await built(), 'the folder\'s project');
-  assert.equal(await browser.evaluate('document.querySelector(".pane-title").textContent'), 'main.sld', 'a file with CRLF lines opens unchanged');
-  console.log('ide: the page built, diagnosed, indented, saved and opened a folder');
+  // Reconnecting the event stream refreshes disk state without replay history.
+  await browser.send('Network.enable');
+  await browser.send('Network.emulateNetworkConditions', {offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1});
+  await writeFile(source, program('while disconnected'));
+  await sleep(300);
+  await browser.send('Network.emulateNetworkConditions', {offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1});
+  await until(async () => (await text()).includes('"while disconnected"'), 'event reconnection');
+  await until(async () => Number(await browser.evaluate('document.getElementById("status").dataset.attempt')) === service.development.status.id && await built(), 'current attempt after reconnect');
+
+  await select('notes.txt');
+  await until(async () => (await text()) === 'plain text\n', 'plain text file');
+  assert.equal(await title(), 'notes.txt', 'CRLF read does not mark an untouched file dirty');
+  await unlink(join(project, 'notes.txt'));
+  await until(async () => (await title()) === 'Choose a file', 'clean deletion');
+  await select('main.sld');
+  assert.ok(await type('"while disconnected"', '"deleted draft"'));
+  await unlink(source);
+  await until(async () => (await problem()).includes('Deleted on disk'), 'dirty deletion');
+  assert.match(await text(), /"deleted draft"/);
+  await click('save');
+  await until(() => browser.evaluate('!document.getElementById("save").disabled'), 'deleted save rejection');
+  await assert.rejects(readFile(source), {code: 'ENOENT'});
+  await click('reload');
+  await until(async () => (await title()) === 'Choose a file', 'discard deleted draft');
+  await unlink(description);
+  await until(() => browser.evaluate('document.querySelectorAll(".file").length === 0'), 'empty project');
+  await browser.navigate(service.url + '/');
+  await until(() => browser.evaluate('document.querySelector(".pane textarea")?.disabled'), 'empty editor after reload');
+
+  await writeFile(description, config); await writeFile(source, program('restored'));
+  await until(async () => (await text())?.includes('"restored"') && await built(), 'project restored from disk');
+  const previous = service.development.status.id;
+  await click('build');
+  await until(() => service.development.status.id > previous && service.development.status.phase === 'succeeded', 'manual Build');
+  await service.close();
+
+  // The command owns the same service and releases it on an ordinary signal.
+  cli = spawn(join(root, 'lofi'), ['dev', '--port', '0', project], {stdio: ['ignore', 'pipe', 'pipe']});
+  let output = '', errors = '';
+  cli.stdout.on('data', bytes => output += bytes); cli.stderr.on('data', bytes => errors += bytes);
+  const exited = new Promise(resolve => cli.once('exit', (code, signal) => resolve({code, signal})));
+  const address = await until(() => /at (http:\/\/127\.0\.0\.1:\d+)\//.exec(output)?.[1], 'dev command address');
+  assert.equal((await fetch(address + '/api/project')).status, 200);
+  cli.kill('SIGTERM');
+  assert.deepEqual(await exited, {code: 0, signal: null}, errors);
+  console.log('ide: native save/build, external edits, conflicts, delayed replies, deletion, reconnect and dev shutdown');
 } finally {
-  browser.close();
-  server.close();
-  await rm(site, {recursive: true, force: true});
-  await rm(folder, {recursive: true, force: true});
+  cli?.kill('SIGTERM'); browser.close();
+  await service.close();
+  await rm(project, {recursive: true, force: true});
 }

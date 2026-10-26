@@ -44,9 +44,9 @@ check:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
 
-# The browser editor opening Siegework as a project in build/ide.
+# The native project service and browser editor for Siegework.
 ide:
-	"$(CHIBI)" -h $(HEAP) -I host/chibi -I src scripts/build-ide.scm "$(CURDIR)" apps/siegework build/ide
+	CHIBI="$(CHIBI)" LOFI_HEAP="$(HEAP)" ./lofi dev apps/siegework
 
 # Each application's project describes its site target, in APP/build/site.
 site: siegework hearsay
