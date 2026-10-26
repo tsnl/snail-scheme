@@ -47,11 +47,10 @@
       ((text String)
        (items (List Item))))
 
-    ;; Where libraries are found, how generated ones are made, the last
-    ;; build's expansion, and each library as last compiled.
+    ;; Where libraries are found, the last expansion and each library as
+    ;; last compiled. Generators and artifact inputs belong to one invocation.
     (struct Session
       ((directories (List String))
-       (generate (-> (List Syntax) Bytes ! mut fs))
        (expansion ExpandedProgram)
        (compiled (Table Compiled))))
 
@@ -62,22 +61,22 @@
        (text String)
        (compiled? Bool)))
 
-    (: make-session (-> (List String) (-> (List Syntax) Bytes ! mut fs) Session))
-    (define (make-session directories generate)
-      (Session directories generate empty-expansion empty-table))
+    (: make-session (-> (List String) Session))
+    (define (make-session directories)
+      (Session directories empty-expansion empty-table))
 
     ;; ---- Builds ----
 
     ;; The modules of the program at `source`, in program order, and the
     ;; session after the build. Artifact snapshots belong to this invocation,
     ;; never to the retained session.
-    (: build-session (-> Session String ArtifactInputs (Pair (List Built) Session) ! mut fs))
-    (define (build-session session source artifacts)
-      (let* ((expansion (expand-program (Session-directories session) (Session-generate session) artifacts source (Session-expansion session)))
+    (: build-session (-> Session String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs (Pair (List Built) Session) ! mut fs))
+    (define (build-session session source generate artifacts)
+      (let* ((expansion (expand-program (Session-directories session) generate artifacts source (Session-expansion session)))
              (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))
              (checked (check-libraries (Session-compiled session) expansion libraries))
              (built (emit-libraries (Pair-second checked) (Pair-first checked) libraries)))
-        (Pair (Pair-first built) (Session (Session-directories session) (Session-generate session) expansion (Pair-second built)))))
+        (Pair (Pair-first built) (Session (Session-directories session) expansion (Pair-second built)))))
 
     ;; Checks each library whose expansion changed, after the schemes of the
     ;; libraries before it, and returns the whole program checked, with each
@@ -171,16 +170,18 @@
           (write-sample-a directory "(i64-add x x)" "")
           (write-file (string-append directory "/sample/b.sld") sample-b)
           (write-file main "(import (lofi core) (lofi primitive) (sample b)) (four)")
-          (let* ((first (build-session (make-session (list directory) (lambda (forms) (panic "no generated libraries"))) main no-artifacts))
-                 (unchanged (build-session (Pair-second first) main no-artifacts))
-                 (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main no-artifacts)))
-                 (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main no-artifacts))))
+          (let* ((first (build-session (make-session (list directory)) main no-generation no-artifacts))
+                 (unchanged (build-session (Pair-second first) main no-generation no-artifacts))
+                 (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main no-generation no-artifacts)))
+                 (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main no-generation no-artifacts))))
             (expect (compiled-names first) (list "sample.a" "sample.b" "main"))
             (expect (compiled-names unchanged) (list))
             (expect (compiled-names body) (list "sample.a"))
             (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
         (test-handler-revalidation directory)
         (test-artifact-replay directory library))
+
+      (define (no-generation forms) (panic "unexpected generated library"))
 
       ;; Unchanged bytes preserve emission. Missing inputs invalidate even
       ;; a replay, but removing the invocation must not demand its old input.
@@ -190,14 +191,14 @@
           (write-artifact-source directory "(artifact-bundle \"client\")")
           (write-file main "(import (lofi base) (sample assets)) (bundle)")
           (let* ((inputs (table-set no-artifacts "client" files))
-                 (first (build-session (make-session (list directory library) (lambda (forms) (panic "unexpected recipe"))) main inputs))
-                 (unchanged (build-session (Pair-second first) main (table-set no-artifacts "client" files)))
-                 (empty (build-session (Pair-second first) main (table-set no-artifacts "client" (Nil)))))
+                 (first (build-session (make-session (list directory library)) main no-generation inputs))
+                 (unchanged (build-session (Pair-second first) main no-generation (table-set no-artifacts "client" files)))
+                 (empty (build-session (Pair-second first) main no-generation (table-set no-artifacts "client" (Nil)))))
             (expect (compiled-names unchanged) (Nil))
             (expect (compiled-names empty) (list "sample.assets" "main"))
             (expect (artifact-replay-error (Pair-second empty) main) #t)
             (write-artifact-source directory "(ArtifactBundle (Nil))")
-            (expect (compiled-names (build-session (Pair-second empty) main no-artifacts)) (list "sample.assets" "main")))))
+            (expect (compiled-names (build-session (Pair-second empty) main no-generation no-artifacts)) (list "sample.assets" "main")))))
 
       (define (artifact-replay-error session main)
         (guard (failure
@@ -205,7 +206,7 @@
                  (match (take-input-request!)
                    ((Some (ArtifactInput "client" _)) #t)
                    (_ #f))))
-          (build-session session main no-artifacts)
+          (build-session session main no-generation no-artifacts)
           #f))
 
       (define (write-artifact-source directory body)
@@ -219,14 +220,14 @@
           (write-file (string-append directory "/sample/b.sld")
                       "(define-library (sample b) (export run) (import (lofi core) (lofi primitive) (sample a)) (begin (effect Counter ((tick (-> I64)))) (: run (-> I64 ! mut)) (define (run) (handle Counter ((tick (lambda () (helper)))) (tick)))))")
           (write-file main "(import (lofi core) (lofi primitive) (sample b)) (run)")
-          (let* ((first (build-session (make-session (list directory) (lambda (forms) (panic "no generated libraries"))) main no-artifacts))
+          (let* ((first (build-session (make-session (list directory)) main no-generation no-artifacts))
                  (session (Pair-second first)))
-            (expect (compiled-names (build-session session main no-artifacts)) (list))
+            (expect (compiled-names (build-session session main no-generation no-artifacts)) (list))
             (write-handler-helper directory "(ref-get cell)")
             (expect (guard (failure
                             ((error-object? failure)
                              (if (string-contains (error-object-message failure) "a handler and its captures must satisfy") #t #f)))
-                      (build-session session main no-artifacts)
+                      (build-session session main no-generation no-artifacts)
                       #f)
                     #t))))
 
