@@ -8,6 +8,8 @@
    char-unicode-numeric?
    char-unicode-whitespace?
    char-lower-case?
+   char-upper-case?
+   char-digit-value
    string-upcase
    string-downcase
    string-foldcase)
@@ -21,6 +23,8 @@
     (extern char-downcase "snail.library" "snail:text/downcase" (-> Char Char))
     (extern char-foldcase "snail.library" "snail:text/foldcase" (-> Char Char))
     (extern lowercase-flag "snail.library" "snail:text/lowercase" (-> Char I32))
+    (extern uppercase-flag "snail.library" "snail:text/uppercase" (-> Char I32))
+    (extern digit-flag "snail.library" "snail:text/digit-value" (-> Char I32))
     (extern alphabetic-flag "snail.library" "snail:text/alphabetic" (-> Char I32))
     (extern numeric-flag "snail.library" "snail:text/numeric" (-> Char I32))
     (extern whitespace-flag "snail.library" "snail:datum/whitespace" (-> Char I32))
@@ -40,6 +44,17 @@
     (: char-lower-case? (-> Char Bool))
     (define (char-lower-case? char)
       (= (lowercase-flag char) 1))
+
+    (: char-upper-case? (-> Char Bool))
+    (define (char-upper-case? char)
+      (= (uppercase-flag char) 1))
+
+    ;; A decimal digit's value in any script, or nothing for anything else.
+    ;; The runtime answers -1 rather than a value it could be mistaken for.
+    (: char-digit-value (-> Char (Option I64)))
+    (define (char-digit-value char)
+      (let ((value (digit-flag char)))
+        (if (< value 0) (None) (Some (i32->i64 value)))))
 
     ;; ---- Strings ----
 

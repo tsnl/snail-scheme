@@ -1,0 +1,17 @@
+(generate-library (legacy characters)
+                  (import
+                   (lofi base)
+                   (scheme compiler))
+                  (scheme->lofi-library
+                   (list "legacy" "characters")
+                   "(write (list (char-upcase #\\a) (char-downcase #\\A) (char-foldcase #\\A))) (newline)
+(write (list (char-upcase #\\λ) (char-downcase #\\Λ) (char-foldcase #\\Σ))) (newline)
+(write (list (char-alphabetic? #\\λ) (char-alphabetic? #\\7) (char-whitespace? #\\space))) (newline)
+(write (list (char-numeric? #\\٣) (char-numeric? #\\a))) (newline)
+(write (list (digit-value #\\٣) (digit-value #\\7) (digit-value #\\a))) (newline)
+(write (list (char-upper-case? #\\Λ) (char-lower-case? #\\λ) (char-upper-case? #\\λ))) (newline)
+(write (list (char-ci=? #\\Σ #\\σ) (char-ci=? #\\a #\\b))) (newline)
+(write (string-upcase \"straße\")) (newline)
+(write (string-downcase \"ΣΑΣ\")) (newline)
+(write (string-foldcase \"Straße\")) (newline)
+(write (list (string-ci=? \"Straße\" \"STRASSE\") (string-ci=? \"a\" \"b\"))) (newline)"))
