@@ -249,8 +249,8 @@ one, such as Hearsay, is built with `make site`.
 
 The reload client is a Lofi program too, `src/app/reload.sld`, whose
 `page` effect asks the page to show a notice, restyle, relink or reload.
-`src/app/reload-client.mjs` binds it for the pages `lofi serve` serves and
-for the IDE. *Proposed:* checking the loop and the client with
+`src/app/reload-client.mjs` binds it for the pages `lofi serve` serves.
+*Proposed:* checking the loop and the client with
 `(lofi explore)`, for example that a page never applies an older build
 after a newer one.
 
@@ -269,7 +269,7 @@ redefinition, as an edit does.
 (`scripts/build-ide.scm`), with Siegework as the project it opens until the
 developer opens a project directory. The page is laid out as Zed is: a narrow toolbar
 along the top, a file browser docked on the left, a binary tree of editor
-panes, and the running application docked on the right.
+panes. The editor compiles for diagnostics but does not run the application.
 
 | Piece | In a browser |
 | --- | --- |
@@ -279,15 +279,14 @@ panes, and the running application docked on the right.
 | Assembler | The `wat` crate compiled to WebAssembly (`src/assembler`), which the desktop loop uses too, instead of `wasm-as`. |
 | Formatter | `(lofi format)`, which reproduces `scripts/format-scheme` on every file in the repository, compiled to its own module (`src/ide/format.sld`) and run on the page's thread. Tab and Enter indent as Emacs does; saving formats the file. Its lexer also classes each character for highlighting, of the lines in view only, read from the start of their top-level form. |
 | Diagnostics | A failed build's message starts with the place the compiler means; the IDE puts a squiggle under the expression there. |
-| Preview | The page `lofi serve` would serve, in a frame (`src/ide/preview.mjs`), so the application's styles and keys stay out of the editor. It reads files from the worker through a port, and its reload client relinks it after each build; reloading reloads only the frame. |
 | Linker | The loader of section 3.2. |
-| Runtime | The prebuilt `snail_runtime.wasm`, one instance for the loop and one for the application. |
+| Runtime | The prebuilt `snail_runtime.wasm`, an instance for the development loop. |
 | Optimizer | None. |
 
 Section 2 gives the worker's build times; text crosses to the worker a
 character at a time, which makes its first build slower than the desktop's.
 `tests/browser/ide.mjs` packages `tests/apps/counter` and, in headless
-Chromium, relinks an edit with the count kept, checks a squiggle, Tab and
+Chromium, checks failed-build recovery, a squiggle, Tab and
 format-on-save, splits a pane, and opens a project directory.
 
 ## 8. What is left

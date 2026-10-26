@@ -142,8 +142,7 @@ Not implemented:
 
 `make ide` builds a browser IDE: projects opened from disk, highlighting,
 Emacs-style indentation and format-on-save through `(lofi format)`,
-squiggles from the compiler's builds, Zed-style docks and split panes, and
-the application relinked beside the editor
+squiggles from the compiler's builds, a file browser and split panes
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md),
 section 7). This is the current implementation. The
 [replacement design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
@@ -151,8 +150,9 @@ authorizes the settled project/IDE work. Its detailed
 [state prototype](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/typed-state.md)
 remains under review:
 
-- [ ] Delete the integrated preview, then replace browser project/build
-  ownership with `lofi dev` for one project. Preserve the editor, formatting,
+- [x] Delete the integrated preview, its frame transport and application-host
+  packaging. Keep editor formatting, diagnostics and split panes.
+- [ ] Replace browser project/build ownership with `lofi dev` for one project. Preserve the editor, formatting,
   diagnostics and splits; the UI subscribes to the development session.
 - [ ] Replace project build scripts with inert `project.datum` forms such as
   `build-target` and `launch-target`. Every build target produces one output

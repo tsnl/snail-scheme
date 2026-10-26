@@ -138,7 +138,7 @@ function hudImports(hud) {
 // ---- Application ----
 
 // The applications running on this page, which the pages that relink, the
-// ones `lofi serve` serves and the IDE's preview, relink and save together.
+// ones `lofi serve` serves, relink and save together.
 export const running = [];
 
 // An application is the program it runs, which may be relinked, with the
