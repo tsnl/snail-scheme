@@ -212,15 +212,19 @@
         ((Some type) type)
         ((None) (panic "internal error: closed row"))))
 
-    ;; Adds the effects of `latent` to the current row. A closed latent row is
-    ;; opened first: performing at most those effects fits any larger row.
-    ;; In a confining body, `mut` is discharged rather than added.
+    ;; Calls require inclusion, not row equality: e fits console + e for every
+    ;; substitution of e. A shared tail proves inclusion when its known labels
+    ;; fit. Otherwise inference opens closed latent rows before unification.
+    ;; In a confining body, `mut` is discharged before either check.
     (: perform! (-> Checker Type Type Loc Unit ! mut))
     (define (perform! ck latent row loc)
       (let* ((flat (flatten-row latent))
              (labels (if (confining-row? ck row) (discharge-mut ck (Pair-first flat)) (Pair-first flat)))
-             (tail (match (Pair-second flat) ((Some tail) tail) ((None) (fresh-meta ck)))))
-        (unless (unify? ck (TRow labels (Some tail)) row)
+             (context (flatten-row row)))
+        (unless (or (and (same-tail? (Pair-second flat) (Pair-second context))
+                         (null? (label-difference labels (Pair-first context))))
+                    (let ((tail (match (Pair-second flat) ((Some tail) tail) ((None) (fresh-meta ck)))))
+                      (unify? ck (TRow labels (Some tail)) row)))
           (compile-error loc (string-append "this performs effects its context does not allow:" (labels->string labels))))))
 
     (: discharge-mut (-> Checker (List String) (List String) ! mut))

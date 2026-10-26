@@ -317,6 +317,7 @@
     ("tests/programs" "closures") ("tests/programs" "classes-advanced") ("tests/programs" "data") ("tests/programs" "dynamic")
     ("tests/programs" "wire") ("tests/programs" "tables") ("tests/programs" "libraries") ("tests/programs" "generated") ("tests/programs" "wasm")
     ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once") ("tests/programs" "tasks")
+    ("tests/programs" "effect-row-inclusion")
     ("tests/programs" "tcp") ("tests/programs" "tcp-handler")
     ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")))
 
