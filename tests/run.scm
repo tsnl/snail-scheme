@@ -17,8 +17,10 @@
  (chibi process)
  (only (chibi string) string-contains string-split string-suffix?)
  (srfi 1)
+ (only (lofi base) Pair)
  (lofi build)
  (only (lofi compiler read) test-read)
+ (only (lofi compiler inputs) test-inputs)
  (only (lofi compiler core) test-core)
  (only (lofi compiler wasm) test-wasm)
  (only (lofi compiler session) test-session)
@@ -219,6 +221,20 @@
   (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/project-builds.mjs") root))))
     (or (zero? (caddr result)) (report "project builds" "failed" (string-append (car result) (cadr result))))))
 
+;; The native driver services one request, the restarted Wasm compiler
+;; reads the reply's binary file, and the linked program keeps its bytes
+;; after that backing file is gone.
+(define (check-native-artifacts root)
+  (with-private-directory root
+                          (lambda (directory)
+                            (let ((file (path-join directory "data.bin")) (program (path-join directory "program.wasm")) (calls 0))
+                              (call-with-port (open-binary-output-file file) (lambda (port) (write-bytevector #u8(0 128 255) port)))
+                              (with-artifact-resolver (lambda (name) (set! calls (+ calls 1)) (list (Pair "data.bin" file)))
+                                                      (lambda () (build-program root (list (path-join root "lib")) (path-join root "tests/artifacts/native.sld") program #f)))
+                              (delete-file file)
+                              (or (and (= calls 1) (equal? (run-wasm root program) "data.bin:0,128,255,\n"))
+                                  (report "native artifacts" "wrong resolver count or embedded data" (number->string calls)))))))
+
 ;; A compiler running as Wasm resolves concrete file snapshots, then emits
 ;; static and cached library builds whose current bytes are executed.
 (define (compile-artifacts root)
@@ -336,6 +352,8 @@
 
 (define (main root selected)
   (test-read)
+  (test-inputs)
+  (test-build root)
   (test-core)
   (test-wasm)
   (test-session (path-join root "build/tests/session") (path-join root "lib"))
@@ -345,7 +363,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-output-directories root)) (lambda () (check-project-builds root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-output-directories root)) (lambda () (check-project-builds root)) (lambda () (check-native-artifacts root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
