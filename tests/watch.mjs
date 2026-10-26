@@ -155,8 +155,11 @@ try {
   const following = files.reconcile();
   const gate = paused; paused = null;
   write(source, 'during scan');
+  const fresh = join(external, 'fresh.sld');
+  write(fresh);
   gate.release.resolve();
-  await first; await following;
+  await first;
+  assert.ok((await following).includes(fresh), 'the returned names belong to the following complete scan');
   assert.ok(rootReads > reads, 'the waiting caller receives another complete scan');
   assert.ok(changed(source));
 
