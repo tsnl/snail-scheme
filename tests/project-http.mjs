@@ -11,15 +11,42 @@ const root = process.argv[2], project = fs.mkdtempSync(join(tmpdir(), 'lofi-proj
 const source = join(project, 'main.sld'), pipe = join(project, 'slow.sld');
 const program = text => `(import (lofi base) (lofi io)) (write-line "${text}")`;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Waiting costs what the service costs: wake on each development snapshot,
+// and keep a short tick for the predicates that watch the event stream or the
+// filesystem instead. One deadline covers every wait; it is a liveness
+// backstop for a wedged service, not a bound anything is expected to approach.
+const liveness = 30_000;
 async function until(test) {
-  for (let n = 0; n < 600; n++) { if (test()) return; await delay(50); }
-  assert.fail('timed out waiting for project HTTP state');
+  const deadline = Date.now() + liveness;
+  let wake = Promise.withResolvers();
+  const stop = service.development.subscribe(() => wake.resolve());
+  try {
+    while (!test()) {
+      if (Date.now() > deadline) assert.fail('timed out waiting for project HTTP state');
+      await Promise.race([wake.promise, delay(5)]);
+      wake = Promise.withResolvers();
+    }
+  } finally { stop(); }
 }
 const config = '((build-target main (program (entry "main.sld") (library-roots (".")))) (run-target dev (run main)))';
 fs.writeFileSync(join(project, 'project.datum'), config);
 fs.writeFileSync(source, program('initial'));
 const tools = projectTools(root), service = await serveProject({root, project, tools});
-const get = path => fetch(service.url + path, {signal: AbortSignal.timeout(3000)});
+// These requests run while the compiler blocks reading the fifo below, and
+// that build only completes once this test writes to it. A service that
+// answered from the compiler's thread would therefore deadlock here rather
+// than answer late, so the deadline distinguishes wedged from slow and never
+// fires on a working service. Report which request gave up and after how
+// long: an aborted fetch otherwise raises a DOMException carrying neither.
+async function get(path) {
+  const began = Date.now();
+  try { return await fetch(service.url + path, {signal: AbortSignal.timeout(liveness)}); }
+  catch (error) {
+    if (error.name !== 'TimeoutError') throw error;
+    assert.fail(`GET ${path} never answered in ${Date.now() - began} ms, with the service ${service.development.status.phase}`);
+  }
+}
 const read = async () => (await get('/api/file?path=main.sld')).json();
 const save = (revision, text, headers = {}) => fetch(service.url + '/api/file?path=main.sld', {
   method: 'PUT', headers: {Origin: service.url, 'Content-Type': 'text/plain; charset=utf-8', 'If-Match': `"${revision}"`, ...headers}, body: text,
