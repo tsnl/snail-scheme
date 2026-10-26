@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -14,6 +15,8 @@ write('main.sld', '\ufeff(hello 😀)\r\nno final newline');
 write('src/build/real.scm', '(source)');
 write('build/hidden.sld', '(output)');
 write('.git/hidden.sld', '(git)');
+write('src/.git/hidden.sld', '(nested git)');
+write('back\\slash/hidden.sld', '(unaddressable directory)');
 write('binary.sld', Buffer.from([255]));
 write('zero.sld', Buffer.from([65, 0, 66]));
 write('ignored.bin', '(not listed)');
@@ -21,14 +24,25 @@ write('README', 'extensionless');
 fs.writeFileSync(join(parent, 'outside.sld'), '(outside)');
 fs.symlinkSync(join(parent, 'outside.sld'), join(project, 'linked.sld'));
 fs.symlinkSync(parent, join(project, 'linked-directory'));
+fs.mkdirSync(join(parent, 'project-other'));
+fs.writeFileSync(join(parent, 'project-other/outside.sld'), '(sibling)');
 const files = projectFiles(project), path = join(project, 'main.sld');
-const observer = watchProject({roots: [project], exclude: [join(project, 'build'), join(project, '.git')]});
+const observer = watchProject({roots: [project, join(parent, 'project-other')], exclude: [join(project, 'build'), join(project, '.git')]});
+const list = async () => files.list(await observer.reconcile());
 const events = []; observer.subscribe(event => events.push(event));
 
 try {
-  await observer.reconcile();
+  assert.deepEqual(await list(), ['binary.sld', 'main.sld', 'project.datum', 'src/build/real.scm', 'zero.sld']);
   events.length = 0;
-  assert.deepEqual(files.list(), ['binary.sld', 'main.sld', 'project.datum', 'src/build/real.scm', 'zero.sld']);
+  write('fresh.txt', 'external creation');
+  assert.ok((await list()).includes('fresh.txt'), 'listing reconciles a fresh inventory');
+  fs.unlinkSync(join(project, 'fresh.txt'));
+  assert.ok(!(await list()).includes('fresh.txt'));
+  const nativeRead = fsp.readdir;
+  fsp.readdir = async target => { if (target === project) throw new Error('injected listing failure'); return nativeRead(target); };
+  syncBuiltinESMExports();
+  try { await assert.rejects(list(), /cannot reconcile/, 'a failed listing cannot return earlier names'); }
+  finally { fsp.readdir = nativeRead; syncBuiltinESMExports(); }
   for (const invalid of ['', '/main.sld', '../outside.sld', 'src/../main.sld', './main.sld', 'src//file.sld', 'src\\file.sld', '\ud800.sld', '.git/hidden.sld', 'build/hidden.sld', 'ignored.bin', 'README']) {
     assert.throws(() => files.read(invalid), ProjectFileError);
   }
@@ -37,6 +51,7 @@ try {
   assert.throws(() => files.read('binary.sld'), /UTF-8/);
   assert.throws(() => files.read('zero.sld'), /NUL/);
   assert.equal(spawnSync('mkfifo', [join(project, 'pipe.sld')]).status, 0);
+  assert.ok(!(await list()).includes('pipe.sld'), 'inventory classification excludes pipes without opening them');
   assert.throws(() => files.read('pipe.sld'), /regular project file/, 'a pipe cannot block the native event loop');
   write('large.txt', Buffer.alloc(8 * 1024 * 1024 + 1, 65));
   assert.throws(() => files.read('large.txt'), /8 MiB/);

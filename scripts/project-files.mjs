@@ -3,8 +3,8 @@
 // one native turn; saves through this service cannot interleave publication.
 import {createHash} from 'node:crypto';
 import {closeSync, constants, fchmodSync, fstatSync, lstatSync, mkdirSync, mkdtempSync,
-  openSync, readSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync} from 'node:fs';
-import {join} from 'node:path';
+  openSync, readSync, realpathSync, renameSync, rmSync, writeFileSync} from 'node:fs';
+import {join, relative, sep} from 'node:path';
 
 const limit = 8 * 1024 * 1024;
 const candidate = path => /\.(sld|scm|datum|html|css|js|mjs|json|svg|txt|md)$/i.test(path);
@@ -61,11 +61,16 @@ export function projectFiles(project) {
   // No normalized aliases or traversal. Root build output is reserved; a
   // source directory such as src/build remains an ordinary project directory.
   function parse(path) {
-    if (typeof path !== 'string' || !path.isWellFormed() || path.includes('\\') || path.includes('\0')) throw new ProjectFileError('invalid project path');
+    if (typeof path !== 'string' || !path.isWellFormed() || path.includes('\\') || path.includes('\0')) return null;
     const parts = path.split('/');
-    if (parts.some(part => !part || part === '.' || part === '..' || part === '.git') || parts[0] === 'build') throw new ProjectFileError('invalid project path');
-    if (!candidate(path)) throw new ProjectFileError('unsupported text filename');
+    if (parts.some(part => !part || part === '.' || part === '..' || part === '.git') || parts[0] === 'build' || !candidate(path)) return null;
     return {path, parts, absolute: join(project, ...parts)};
+  }
+
+  function requiredFile(path) {
+    const file = parse(path);
+    if (!file) throw new ProjectFileError('invalid project text path');
+    return file;
   }
 
   function checkParents(file) {
@@ -110,7 +115,7 @@ export function projectFiles(project) {
   // Rename is atomic, not compare-and-replace. External writers can race the
   // final check; portable path operations do not sandbox hostile local writers.
   function save(path, expected, text) {
-    const file = parse(path), bytes = encode(text);
+    const file = requiredFile(path), bytes = encode(text);
     expect(file, expected);
     const directory = staging(), temporary = join(directory, 'contents');
     try {
@@ -128,26 +133,20 @@ export function projectFiles(project) {
     }
   }
 
-  // Listing is an inventory of candidate names; read is the text acceptance
-  // boundary. Do not load every file's contents merely to populate a tree.
-  function list(directory = project, prefix = '') {
-    if (!lstatSync(directory).isDirectory()) throw new ProjectFileError('project paths cannot traverse symlinks or non-directories');
-    const paths = [];
-    for (const name of readdirSync(directory)) {
-      if (name === '.git' || name.includes('\\') || (!prefix && name === 'build')) continue;
-      const path = join(directory, name), relative = prefix + name;
-      let stat;
-      try { stat = lstatSync(path); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-      if (stat.isDirectory()) paths.push(...list(path, relative + '/'));
-      else if (stat.isFile() && candidate(relative)) paths.push(relative);
-    }
-    return paths.sort();
+  // The shared observer supplies regular filenames from a complete scan.
+  // Listing filters names only; read/save still establish current disk evidence.
+  function list(paths) {
+    if (!lstatSync(project).isDirectory()) throw new ProjectFileError('the project root must remain a directory');
+    return paths.flatMap(absolute => {
+      const file = parse(relative(project, absolute).split(sep).join('/'));
+      return file ? [file.path] : [];
+    }).sort();
   }
 
   return {
     project,
-    list: () => list(),
-    read(path) { const {bytes, revision} = snapshot(parse(path)); return {text: decode(bytes), revision}; },
+    list,
+    read(path) { const {bytes, revision} = snapshot(requiredFile(path)); return {text: decode(bytes), revision}; },
     save,
   };
 }
