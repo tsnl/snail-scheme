@@ -90,7 +90,6 @@ reload loop. The [typed-state API](doc/book/lofi/state.md) remains under review.
   directory outputs and artifact bundles.
 - [The development toolchain](doc/book/lofi/toolchain.md) explains the native
   project service and browser editor.
-- [The redesign](doc/redesign.md) records the historical design;
-  [GitHub issues](https://github.com/tsnl/snail-scheme/issues) track open work.
+- [GitHub issues](https://github.com/tsnl/snail-scheme/issues) track open work.
 
 [Apache-2.0](LICENSE)
