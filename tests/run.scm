@@ -21,7 +21,8 @@
  (only (lofi compiler read) test-read)
  (only (lofi compiler core) test-core)
  (only (lofi compiler wasm) test-wasm)
- (only (lofi compiler session) test-session))
+ (only (lofi compiler session) test-session)
+ (only (lofi project) test-project))
 
 ;; ---- Cases ----
 
@@ -309,8 +310,10 @@
   (test-core)
   (test-wasm)
   (test-session (path-join root "build/tests/session"))
+  (test-project)
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)
+                        (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
                         (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))

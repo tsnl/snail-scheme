@@ -1,6 +1,6 @@
 # Projects, development and the IDE
 
-**Design for review; not implemented.** This follows
+**Implementation plan; individual state APIs remain under review.** This follows
 [#421](https://github.com/tsnl/snail-scheme/pull/421) and replaces the desktop
 proposal preserved by [#412](https://github.com/tsnl/snail-scheme/pull/412).
 The [earlier document](https://github.com/tsnl/snail-scheme/blob/be6c41ef76d79d186fc2f405e1c44d28450318bc/doc/proposals/desktop-ide.md)
@@ -41,6 +41,8 @@ Use an inert `project.datum`: one list of explicit forms, readable and
 printable without dotted pairs. These forms describe work; they never execute.
 The earlier executable `project.sld` and its `init`/`build`/`launch` queries
 are removed. Both the inert format and the `project.datum` filename are settled.
+The [format and parser](../project-format.md) are implemented; CLI integration
+follows separately. Literal `library-roots` are optional per build target.
 
 ```scheme
 ((build-target client
@@ -54,9 +56,9 @@ are removed. Both the inert format and the `project.datum` filename are settled.
  (build-target server
    (program
     (entry "server/main.sld")))
- (launch-target dev
+ (run-target dev
    (run server
-    (args "--port" "8080"))))
+    (args ("--port" "8080")))))
 ```
 
 Each build target produces **one output directory**, containing any number
@@ -322,7 +324,7 @@ current code. Each state-library cut will be split further once its API is settl
 | PR | Change grounded in current architecture | Simplification and evidence |
 | --- | --- | --- |
 | 1. Delete the preview | Remove `src/ide/preview.{mjs,html}`, iframe/ports and preview packaging. | Keep editor formatting, panes and diagnostics; no replacement preview protocol. |
-| 2. Project forms | Parse explicit target/launch forms with `(lofi read)` into structured descriptions. | No evaluator or metadata sandbox. Check duplicate/invalid forms and round-trip printing. |
+| 2. Project forms | Parse explicit target/launch forms in `(lofi project)` with the compiler's located reader, shared by Chibi and Wasm. | No evaluator or metadata sandbox. Check duplicate/invalid forms, resolved launch types and round-trip printing. |
 | 3. Output directories and CLI builds | Change `scripts/lofi.scm` and `host/chibi/lofi/build.sld` callers to the directory contract; introduce project builds and replace application packaging scripts. | One compiler build path; migrate `compile -o`, runner and build tests together. Execute built programs and inspect browser output files. |
 | 4. Artifact dependencies | Extend `expand.sld`/`session.sld` and generated-library execution with named target resolution. | One serial traversal; no scanner or runtime lookup. Test missing targets, cached dependency cycles, producer changes and Hearsay generation. |
 | 5. Persistent development | Extract the development session from `develop.sld`/`scripts/develop.mjs`, retaining compiler sessions in one Node worker. Share watch reconciliation and publish fresh attempt diagnostics. | Keep old commands until their launch/reload replacements pass in PR 11. Test external edits, rename saves, invalid→valid builds, changes during compilation and unchanged-library reuse. |
