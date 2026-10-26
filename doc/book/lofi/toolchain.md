@@ -268,7 +268,9 @@ worker and prevents late commands from starting replacement children.
 
 The [application process design](applications.md#proposed-application-processes)
 moves run controls and reload under `dev`. It is not implemented by the editor
-service described above. Production `serve` and package installation still need
+service described above. The internal [application process owner](applications.md#native-application-process-owner)
+already provides child lifetime, signals and bounded output; build acceptance and
+UI integration follow separately. Production `serve` and package installation still need
 their own contracts; neither is a current public command.
 
 The concrete [socket effects](../runtimes/networking.md) provide TCP streams and
