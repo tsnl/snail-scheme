@@ -1,1 +1,0 @@
-cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/serialization-scalars-final/scalars.native.native-111-0/module.bc

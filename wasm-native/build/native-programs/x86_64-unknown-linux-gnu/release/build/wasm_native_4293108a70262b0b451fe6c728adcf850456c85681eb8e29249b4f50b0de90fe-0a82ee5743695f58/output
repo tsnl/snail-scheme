@@ -1,1 +1,0 @@
-cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/serialization-current/roundtrip.native.native-107-0/module.bc

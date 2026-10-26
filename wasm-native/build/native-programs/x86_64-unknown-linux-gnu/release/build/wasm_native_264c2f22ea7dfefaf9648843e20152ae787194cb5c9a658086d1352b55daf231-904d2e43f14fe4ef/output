@@ -1,1 +1,0 @@
-cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/ci-fix-builder/complete-parsed-native.native-1604-0/module.o

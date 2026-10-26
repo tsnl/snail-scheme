@@ -1,1 +1,0 @@
-cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/serialization-current-wire/sexp-malformed.native.native-2830-0/module.bc

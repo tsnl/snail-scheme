@@ -1,1 +1,0 @@
-cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/serialization-malformed-native-final/malformed.native.native-20-0/module.bc
