@@ -62,24 +62,38 @@ export function developProject({root, project, tools}) {
   } catch (error) { void files.close(); rmSync(directory, {recursive: true, force: true}); throw error; }
 
   const listeners = new Set(), runs = new Map(), ready = Promise.withResolvers(), exited = Promise.withResolvers();
-  let description = null, published = null, attempt = null, serial = 0, timer = null;
-  let initialized = false, dirty = true, diskFailed = false, stopping = false, closing = null, finishing = null;
-  let status = {phase: 'starting', id: 0, diagnostics: [], published, worker: worker.threadId};
+  // One epoch numbers every attempt, the job sent to the worker, the reply it
+  // returns, and the publication that results, so a late or duplicate reply is
+  // recognized by comparing numbers rather than by tracking which is current.
+  // Subscribers see it as `id`, both the current attempt's and the published
+  // build's; those are the same counter.
+  let epoch = 0, attempt = null, published = null, description = null;
+  // Why an attempt is or is not wanted: `dirty` an input changed since the
+  // last one started, `initialized` the first disk reconciliation finished,
+  // `diskFailed` the last one did not, so disk cannot be trusted yet.
+  let dirty = true, initialized = false, diskFailed = false;
+  let phase = 'starting', diagnostics = [], timer = null, closing = null, finishing = null;
 
+  // What a subscriber sees, read from the live state rather than copied into a
+  // record kept beside it. Subscribers are trusted host code and must not
+  // throw; subscribing delivers the current value.
   function snapshot() {
-    return {...status, runs: [...runs].map(([name, run]) => ({...run.owner.status, wanted: run.wanted,
-      available: published.description.runs.some(target => target.name === name)}))};
+    return {phase, id: epoch, diagnostics, published, worker: worker.threadId,
+      runs: [...runs].map(([name, run]) => ({...run.owner.status, wanted: run.wanted,
+        available: launchable(name)}))};
   }
 
-  // Status is one replaceable value; subscribing includes the current value.
-  // Subscribers are trusted host code and must not throw.
-  function report(phase, diagnostics = []) {
-    status = {phase, id: serial, diagnostics, published, worker: status.worker};
+  function notify() {
     for (const listener of listeners) listener(snapshot());
   }
 
-  function reportRuns() {
-    if (!stopping) report(status.phase, status.diagnostics);
+  function report(next, messages = []) {
+    phase = next; diagnostics = messages;
+    notify();
+  }
+
+  function launchable(name) {
+    return published?.description.runs.some(target => target.name === name) ?? false;
   }
 
   function launch(name) {
@@ -93,7 +107,7 @@ export function developProject({root, project, tools}) {
   // Remember the last issued intent, not the observed PID. A terminal child
   // is not retried, and callbacks cannot enqueue the same replacement twice.
   function reconcileRun(name, run) {
-    if (stopping) return;
+    if (closing) return;
     const next = run.wanted ? launch(name) : null, identity = next?.identity ?? null;
     if (identity === run.issued) return;
     run.issued = identity;
@@ -105,7 +119,7 @@ export function developProject({root, project, tools}) {
       if (runs.has(name)) continue;
       const owner = applicationProcess({root, target: name});
       runs.set(name, {owner, wanted: false, issued: null});
-      owner.subscribe(value => { if (value.attempt) reportRuns(); });
+      owner.subscribe(value => { if (value.attempt && !closing) notify(); });
     }
     // Commit all removals before callbacks can issue controls. Retain each
     // owner until shutdown, so a reintroduced name cannot overlap its child.
@@ -114,7 +128,7 @@ export function developProject({root, project, tools}) {
   }
 
   function requiredRun(name, available = true) {
-    if (stopping) throw new Error('project development is closed');
+    if (closing) throw new Error('project development is closed');
     const run = runs.get(name);
     if (!run || (available && !launch(name))) throw new UnknownRunTarget(name);
     return run;
@@ -124,29 +138,29 @@ export function developProject({root, project, tools}) {
     const run = requiredRun(name);
     if (run.wanted) return;
     run.wanted = true;
-    reconcileRun(name, run); reportRuns();
+    reconcileRun(name, run); notify();
   }
 
   function stopRun(name) {
     const run = requiredRun(name, false);
     if (!run.wanted) return;
     run.wanted = false;
-    reconcileRun(name, run); reportRuns();
+    reconcileRun(name, run); notify();
   }
 
   function restartRun(name) {
     const run = requiredRun(name);
     run.wanted = true; run.issued = null;
-    reconcileRun(name, run); reportRuns();
+    reconcileRun(name, run); notify();
   }
 
   function schedule() {
     clearTimeout(timer);
-    if (!stopping && initialized && !attempt && dirty) timer = setTimeout(start, 40);
+    if (!closing && initialized && !attempt && dirty) timer = setTimeout(start, 40);
   }
 
   function requestBuild() {
-    if (stopping) return;
+    if (closing) return;
     dirty = true;
     schedule();
   }
@@ -164,44 +178,44 @@ export function developProject({root, project, tools}) {
 
   function start() {
     timer = null;
-    if (stopping || attempt || !dirty) return;
-    dirty = false; diskFailed = false; serial++;
+    if (closing || attempt || !dirty) return;
+    dirty = false; diskFailed = false; epoch++;
     report('building'); // Previous errors disappear before this attempt starts.
-    if (stopping) return;
+    if (closing) return;
     try {
       const reservation = reserve(project), prefix = basename(reservation) + '-';
-      attempt = {id: serial, reservation, prefix, paths: new Set(), owned: true};
-      worker.postMessage({kind: 'build', id: serial, prefix});
+      attempt = {reservation, prefix, paths: new Set(), owned: true};
+      worker.postMessage({kind: 'build', epoch, prefix});
     } catch (error) { fatal(error); }
   }
 
   async function complete(result) {
-    const current = attempt;
-    if (!current || result.id !== current.id) throw new Error('unexpected compiler attempt result');
+    const current = attempt, built = epoch;
+    if (!current || result.epoch !== built) throw new Error('unexpected compiler attempt result');
     if (result.description) description = result.description; // Retain even a failed build's parsed inputs.
-    let diagnostics = result.diagnostics;
+    let messages = result.diagnostics;
     try { await files.reconcile(); }
-    catch (error) { diskFailed = true; diagnostics = [{severity: 'error', message: error.message}]; }
+    catch (error) { diskFailed = true; messages = [{severity: 'error', message: error.message}]; }
     const superseded = dirty || [...current.paths].some(path => inputPath(root, project, description, path));
     if (superseded) dirty = true;
     if (result.candidate) {
-      if (stopping || superseded || diskFailed) discardProject(result.candidate);
+      if (closing || superseded || diskFailed) discardProject(result.candidate);
       else {
         current.owned = false; // publishProject consumes even a partially published failure.
-        try { publishProject(result.candidate); published = {id: current.id, ...result.candidate}; }
-        catch (error) { diagnostics = [{severity: 'error', message: error.message}]; }
+        try { publishProject(result.candidate); published = {id: built, ...result.candidate}; }
+        catch (error) { messages = [{severity: 'error', message: error.message}]; }
       }
     }
     if (current.owned) abandon(project, current);
     else rmSync(current.reservation, {recursive: true, force: true});
     attempt = null;
-    if (!stopping && published?.id === current.id) acceptRuns();
-    if (!stopping) report(superseded ? 'superseded' : diagnostics.length ? 'failed' : 'succeeded', superseded ? [] : diagnostics);
+    if (!closing && published?.id === built) acceptRuns();
+    if (!closing) report(superseded ? 'superseded' : messages.length ? 'failed' : 'succeeded', superseded ? [] : messages);
     schedule();
   }
 
   function fatal(error) {
-    if (stopping) return;
+    if (closing) return;
     report('fatal', [{severity: 'error', message: error.message}]);
     void close().catch(() => {}); // Explicit close() callers still receive cleanup errors.
   }
@@ -215,7 +229,7 @@ export function developProject({root, project, tools}) {
     exited.resolve();
     const error = new Error(`compiler worker exited with status ${code}`);
     ready.reject(error);
-    if (!stopping) fatal(error);
+    if (!closing) fatal(error);
   });
 
   // A worker message cannot interrupt synchronous Wasm or native IO. Request
@@ -223,7 +237,6 @@ export function developProject({root, project, tools}) {
   // Blocking OS operations can delay exit. This is not a shutdown deadline.
   function close() {
     if (closing) return closing;
-    stopping = true;
     clearTimeout(timer);
     worker.postMessage({kind: 'close'});
     const timeout = setTimeout(() => { void worker.terminate(); }, 2000);
@@ -247,13 +260,13 @@ export function developProject({root, project, tools}) {
 
   void (async () => {
     await ready.promise;
-    if (stopping) return;
+    if (closing) return;
     try { await files.reconcile(); }
     catch (error) {
-      if (stopping) return;
+      if (closing) return;
       diskFailed = true; report('failed', [{severity: 'error', message: error.message}]);
     }
-    if (stopping) return;
+    if (closing) return;
     initialized = true;
     if (!diskFailed) schedule();
   })().catch(fatal);
@@ -266,7 +279,7 @@ export function developProject({root, project, tools}) {
     stopRun,
     restartRun,
     subscribe(listener) {
-      if (stopping) throw new Error('project development is closed');
+      if (closing) throw new Error('project development is closed');
       listeners.add(listener); listener(snapshot());
       return () => listeners.delete(listener);
     },
