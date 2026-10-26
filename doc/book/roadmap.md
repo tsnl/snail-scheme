@@ -50,7 +50,10 @@ describe proposed behavior, kept apart from what is implemented.
 
 ## Next
 
-1. Previews inlaid in the IDE's editor panes (below).
+1. Review the [project and development design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md):
+   inert project descriptions, directory outputs and `lofi dev` with one
+   shared file watcher, a persistent compiler and an independent editor UI.
+   Implementation follows design review.
 2. The other open items below. The redesign records the parts of its plan
    that were cut, such as the dependent elaborator.
 
@@ -117,9 +120,10 @@ Not implemented:
 - [ ] Migrations between Save types, so a reload survives a schema change:
   an application would name a function from its old Save to its new one,
   as the redesign's section 5 proposes.
-- [ ] Reloading long-running programs other than pages, such as servers once
-  a `net` effect exists, with the same save and restore contract instead
-  of a restart.
+- [ ] Preserve server application records across code replacement by reopening
+  the same database in the new process. This is required by the proposed
+  `dev` design; today's `watch` does not supply a database binding or a server
+  preservation contract. Arbitrary in-memory state is not saved automatically.
 - [ ] Keeping the build cache on disk, so a cold start does not compile
   everything once: entries keyed by content hashes and written atomically,
   validated on a cold start by hashing sources, as Bazel and Nix do.
@@ -130,22 +134,54 @@ Not implemented:
 - [ ] A native host for the loop in place of Node: Rust embedding wasmtime,
   once its support for WebAssembly GC matures.
 - [ ] Closures in the state: detecting them from the state's type, and
-  relinking through `save` and `restore` instead of handing them over.
-- [ ] Release builds in a browser, with Binaryen compiled to WebAssembly if
-  its threads and exceptions can be tamed.
+  relinking through `save` and `restore` instead of handing them over. The
+  proposed checkpoint-only replacement would remove the need for this
+  separate detection path.
 
-### IDE
+### Projects, development and the IDE
 
 `make ide` builds a browser IDE: projects opened from disk, highlighting,
 Emacs-style indentation and format-on-save through `(lofi format)`,
 squiggles from the compiler's builds, Zed-style docks and split panes, and
 the application relinked beside the editor
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md),
-section 7). Not implemented:
+section 7). This is the current implementation. The
+[replacement design](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/desktop-ide.md)
+authorizes the settled project/IDE work. Its detailed
+[state prototype](https://github.com/tsnl/snail-scheme/blob/design/desktop-ide-tasks-20261024/doc/proposals/typed-state.md)
+remains under review:
 
-- [ ] Previews inlaid in the editor panes: each preview compiled as its own
-  module and loaded through `(lofi wasm)`, rerun when what it depends on
-  changes, with no manual order.
+- [ ] Delete the integrated preview, then replace browser project/build
+  ownership with `lofi dev` for one project. Preserve the editor, formatting,
+  diagnostics and splits; the UI subscribes to the development session.
+- [ ] Replace project build scripts with inert `project.datum` forms such as
+  `build-target` and `launch-target`. Every build target produces one output
+  directory. This changes the compiler/CLI contract, not just the IDE.
+- [ ] Resolve named artifact bundles during actual expansion, including
+  dependencies from generated application libraries. One server can depend
+  on and serve multiple frontend bundles.
+- [ ] Keep compiler sessions alive under `dev`. One shared watcher drives
+  compilation from saved files and notifies the editor, including after
+  external tools write files. Publish fresh diagnostics for every attempt.
+  Omit unsaved build overlays and source-tree snapshot infrastructure.
+- [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
+  ordinary application subprocess controls; retain committed server records
+  in concrete databases and derive browser working data through cached views.
+  Keep storage identities stable and data writes outside source watching.
+- [ ] Review typed tables, write transactions, coherent read snapshots and
+  cached views. Replace checkpoint/resume and cross-build heap handover only
+  after proving storage, cancellation and cache validity. Views rebuild on
+  demand; incompatible durable schemas require explicit migration.
+- [ ] Let `dev` subsume `watch`, development serving and the IDE. Reserve
+  `serve` for production web applications; keep one-shot `build` and `run`.
+- [ ] Prove debugger attachment to the actual Wasm execution agent, then
+  source mappings and breakpoints, as separate follow-ups.
+
+The browser-only IDE backend, embedded browser documents, virtual URL
+schemes and browser release-build tooling are dropped from the plan. They
+are not deferred milestones. Ordinary browser applications remain supported.
+Other editor improvements remain open:
+
 - [ ] Semantic highlighting: the lexer colors core forms, capitalized names
   and the names definitions introduce; the expander knows what every name
   resolves to (a local, a global, a type, a constructor, a macro), and a

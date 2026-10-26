@@ -58,8 +58,14 @@ While you change it, `./lofi serve apps/siegework` serves it at
 <http://127.0.0.1:8000/>, rebuilds only the libraries you edit, and relinks
 them into the open page, which keeps the game and the camera. `make ide`
 builds an IDE that runs the same loop in the browser, in `build/ide`: open a
-folder, edit with highlighting, Emacs-style indentation and squiggles from
+project directory, edit with highlighting, Emacs-style indentation and squiggles from
 the compiler, and watch the application relink beside the editor.
+
+These are the current commands. The proposed
+[project and development workflow](doc/proposals/desktop-ide.md) replaces
+application build scripts with inert project descriptions and brings watching,
+incremental compilation and the editor's services under `lofi dev`.
+That design awaits review.
 
 ## Reading on
 
@@ -71,6 +77,6 @@ the compiler, and watch the application relink beside the editor.
 - [The redesign](doc/redesign.md) records the design, and the book's
   [roadmap](doc/book/roadmap.md) what is implemented and what remains.
 - [The toolchain design](doc/toolchain.md) explains separate compilation,
-  live reload and the browser IDE.
+  hot reload and the current browser IDE.
 
 [Apache-2.0](LICENSE)
