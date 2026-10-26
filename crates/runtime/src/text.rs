@@ -48,6 +48,21 @@ pub extern "C" fn lowercase(code: u32) -> i32 {
     i32::from(character(code).is_lowercase())
 }
 
+#[unsafe(export_name = "snail:text/uppercase")]
+pub extern "C" fn uppercase(code: u32) -> i32 {
+    i32::from(character(code).is_uppercase())
+}
+
+// The digit's value, or -1 when the character is not a decimal digit: Lofi
+// reads the tag rather than a sentinel it could confuse with a value.
+#[unsafe(export_name = "snail:text/digit-value")]
+pub extern "C" fn digit_value(code: u32) -> i32 {
+    match unicode::digit_value(character(code)) {
+        Some(value) => i32::from(value),
+        None => -1,
+    }
+}
+
 #[unsafe(export_name = "snail:text/alphabetic")]
 pub extern "C" fn alphabetic(code: u32) -> i32 {
     i32::from(character(code).is_alphabetic())
