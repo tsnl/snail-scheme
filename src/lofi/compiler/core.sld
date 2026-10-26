@@ -10,7 +10,7 @@
    TRow
    TVar
    TRigid
-   TVar-cell
+   TVar-id
    empty-row
    unchecked
    Constraint
@@ -171,8 +171,7 @@
        ((labels (List String))
         (tail (Option Type))))
       (TVar
-       ((id I64)
-        (cell (Ref (Option Type)))))
+       ((id I64)))
       (TRigid
        ((name String))))
 
@@ -231,7 +230,7 @@
         ((TCon "lofi.base:Option" (Cons (TCon "Any" (Nil)) (Nil))) #t)
         (_ #f)))
 
-    (: type->string (-> Type String ! mut))
+    (: type->string (-> Type String))
     (define (type->string type)
       (match type
         ((TCon name (Nil)) (short-name name))
@@ -239,17 +238,14 @@
         ((TFun params result row)
          (string-append "(->" (types->string params) " " (type->string result) (row->string row) ")"))
         ((TRow _ _) (string-append "{" (row->string type) " }"))
-        ((TVar id cell)
-         (match (ref-get cell)
-           ((Some bound) (type->string bound))
-           ((None) (string-append "?" (i64->string id)))))
+        ((TVar id) (string-append "?" (i64->string id)))
         ((TRigid name) name)))
 
-    (: types->string (-> (List Type) String ! mut))
+    (: types->string (-> (List Type) String))
     (define (types->string types)
       (string-concatenate (map (lambda (type) (string-append " " (type->string type))) types)))
 
-    (: row->string (-> Type String ! mut))
+    (: row->string (-> Type String))
     (define (row->string row)
       (let* ((parts (row-parts row (Nil))) (labels (Pair-first parts)) (tail (Pair-second parts)))
         (match tail
@@ -261,15 +257,11 @@
       (string-concatenate (map (lambda (label) (string-append " " (short-name label))) labels)))
 
     ;; The labels of a row, following bound tails, and its final tail.
-    (: row-parts (-> Type (List String) (Pair (List String) (Option Type)) ! mut))
+    (: row-parts (-> Type (List String) (Pair (List String) (Option Type))))
     (define (row-parts row labels)
       (match row
         ((TRow more (Some tail)) (row-parts tail (label-union labels more)))
         ((TRow more (None)) (Pair (label-union labels more) (None)))
-        ((TVar _ cell)
-         (match (ref-get cell)
-           ((Some bound) (row-parts bound labels))
-           ((None) (Pair labels (Some row)))))
         (_ (Pair labels (Some row)))))
 
     ;; A unique text for a ground type, with full names; it names
@@ -283,7 +275,7 @@
         ((TFun params result _) (string-append "fn<" (string-join (map type-key params) ",") "->" (type-key result) ">"))
         ((TRow _ _) "row")
         ((TRigid name) name)
-        ((TVar id _) (string-append "?" (i64->string id)))))
+        ((TVar id) (string-append "?" (i64->string id)))))
 
     ;; Structural equality of types without bound metavariables.
     (: type=? (-> Type Type Bool))
@@ -305,9 +297,9 @@
                    ((Some tail) (match other-tail ((Some other) (type=? tail other)) ((None) #f)))
                    ((None) (match other-tail ((Some _) #f) ((None) #t))))))
            (_ #f)))
-        ((TVar id _)
+        ((TVar id)
          (match b
-           ((TVar other _) (= id other))
+           ((TVar other) (= id other))
            (_ #f)))
         ((TRigid name)
          (match b
@@ -380,7 +372,7 @@
       (EvParam
        ((index I64)))
       (EvHole
-       ((cell (Ref (Option Evidence))))))
+       ((id I64))))
 
     ;; ---- Expressions ----
 
