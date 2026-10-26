@@ -107,8 +107,8 @@ starts over.
 ## Native application process owner
 
 `scripts/application-process.mjs` implements ownership of one ordinary OS child
-for one run target. It is internal infrastructure; the build service and editor
-controls do not use it yet. The public `lofi run` command already executes a cold
+for one run target. The native development service uses it; HTTP and editor
+controls are the next integration. The public `lofi run` command executes a cold
 project build with ordinary shell IO.
 
 The owner accepts a latest launch request `{build, entry, args}` or `null` to stop.
@@ -136,22 +136,40 @@ Permanent close prevents late launches, returns one stable cleanup promise and
 removes observers after cleanup.
 
 Start/Restart policy and accepted-build decisions belong to the project service.
-In particular, that service must consult the user's current intent when a build
-finishes; the process owner cannot distinguish a legitimate new request from an
-incorrect automatic restart issued after Stop. Applications are assumed not to
+Applications are assumed not to
 spawn additional OS children, and accepted generation files must remain available
 for the child's lifetime. The current project publisher retains those directories.
 
+### Development run targets
+
+`developProject` exposes `startRun`, `stopRun` and `restartRun` for names from the
+last accepted `project.datum`. Targets begin stopped. Start sets run intent and is
+idempotent while that intent remains set, including after exit or failure. Restart
+explicitly requests a fresh attempt from the latest accepted build. Stop clears
+intent immediately; a compilation already in flight cannot restore it.
+
+Acceptance compares the run's selected build target, literal arguments and complete
+output digest against its last issued launch. Changed wanted targets request a
+replacement; unchanged targets keep their child and actual build ID. A compiler
+cache hit is not this evidence: a discarded build may already have warmed the
+cache. Failed or superseded builds do not change accepted launch definitions or
+running children. Start remains usable against the last successful build while
+the current compilation fails.
+
+Status includes each run's availability, intent, desired build and observed attempt.
+Removed names stop and retain their owner and last attempt until session shutdown;
+reintroducing a name leaves it stopped. Retaining the owner prevents an old stopping
+child from overlapping a new child with the same name. There is no attempt history
+or automatic crash retry. Closing the development session waits for all owners as
+well as the compiler and file observer.
+
 ## Proposed application processes
 
-**Not yet implemented.** [Application integration](https://github.com/tsnl/snail-scheme/issues/458)
-will move ordinary process controls and reload under `lofi dev`. After an accepted
-build, stop the affected child, await exit and start its replacement. Each run
-records its run target, build, process and exit status. Start/Stop/Restart and
-standard streams remain OS process operations, with bounded termination; killing
-a process cannot promise cleanup or a final commit.
-Stop overrides a pending automatic restart: stopping during compilation must
-not let the completed build start a new child.
+The native process controls above are implemented. Exposing them through the
+editor and integrating durable application data and browser reload remain
+[application work](https://github.com/tsnl/snail-scheme/issues/458). Process
+replacement alone preserves no managed state; killing a process cannot promise
+cleanup or a final commit.
 
 The [typed state prototype](state.md) proposes durable base tables and disposable,
 read-only cached views. Ordinary entry startup opens the same store, recreates
