@@ -578,8 +578,8 @@ in Scheme, where every implementation provides its own `(scheme base)`:
   `type` and `match` as erasing macros. The compiler defines no typeclass
   instances of its own, so nothing dispatches at run time.
 
-The entry program, `bootstrap/compile.sld`, reads its arguments and files
-through `(lofi io)`. Lofi's standard library lives on Lofi's search path only,
+The shared compiler driver reads its arguments and files through `(lofi io)`.
+The Chibi and Wasm entries publish missing-input requests after unwinding. Lofi's standard library lives on Lofi's search path only,
 so Chibi never sees it, and Chibi runs the compiler with
 `-I host/chibi -I src`. The hosts disagree on integer overflow, argument
 evaluation order and the order of table keys, so the compiler's output never

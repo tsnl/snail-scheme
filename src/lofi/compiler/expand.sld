@@ -17,6 +17,7 @@
    (lofi table)
    (lofi io)
    (lofi compiler read)
+   (only (lofi compiler inputs) ArtifactInput request-input!)
    (lofi compiler core)
    (lofi compiler capabilities))
   (begin
@@ -198,11 +199,11 @@
     (: no-artifacts ArtifactInputs)
     (define no-artifacts empty-table)
 
-    (: artifact-files (-> Context String Loc ArtifactFiles))
+    (: artifact-files (-> Context String Loc ArtifactFiles ! mut))
     (define (artifact-files cx name loc)
       (match (table-ref (Context-artifacts cx) name)
         ((Some files) files)
-        ((None) (compile-error loc (string-append "missing artifact target: " name)))))
+        ((None) (request-input! (ArtifactInput name loc)))))
 
     ;; A library as a build expanded it: its build key, the canonical text
     ;; of its declarations with the interfaces of its imports, which decides
@@ -489,7 +490,7 @@
     ;; a changed body may have removed an old dependency. Every candidate
     ;; replay still requires the recorded inputs and compares exact file
     ;; contents. Removing an invocation must not require its obsolete input.
-    (: artifacts-current? (-> Context (List ArtifactUse) Bool))
+    (: artifacts-current? (-> Context (List ArtifactUse) Bool ! mut))
     (define (artifacts-current? cx uses)
       (every? (lambda (use)
                 (artifact-files=? (ArtifactUse-files use) (artifact-files cx (ArtifactUse-name use) (ArtifactUse-loc use))))

@@ -99,7 +99,10 @@ The native project builder's resolver is still pending, so current commands
 explicitly reject artifact requests. Once connected, a server can reference
 several frontend targets while compiling and serve their embedded files through
 ordinary code. The [artifact contract](https://github.com/tsnl/snail-scheme/blob/stack/artifact-resolution-20261024/doc/artifact-bundles.md)
-describes the implemented compiler boundary and cache rules.
+describes the implemented compiler boundary and cache rules. The native driver
+now uses typed request/reply datums for generated libraries and artifact inputs,
+with exclusive scratch ownership across compiler restarts. Project target
+traversal is the remaining connection; stderr is only diagnostic text.
 
 `lofi dev PROJECT` would keep the incremental compiler alive and share one
 file watcher with the editor. Saving only writes disk; the watcher starts

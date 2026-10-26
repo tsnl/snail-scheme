@@ -156,7 +156,8 @@
      (only (chibi filesystem) create-directory*)
      (only (chibi string) string-contains)
      (only (scheme base) guard error-object? error-object-message)
-     (lofi testing))
+     (lofi testing)
+     (only (lofi compiler inputs) take-input-request! ArtifactInput))
     (begin
 
       ;; A session rebuilds only what an edit changed: a body edit under a
@@ -201,7 +202,9 @@
       (define (artifact-replay-error session main)
         (guard (failure
                 ((error-object? failure)
-                 (if (string-contains (error-object-message failure) "missing artifact target: client") #t #f)))
+                 (match (take-input-request!)
+                   ((Some (ArtifactInput "client" _)) #t)
+                   (_ #f))))
           (build-session session main no-artifacts)
           #f))
 

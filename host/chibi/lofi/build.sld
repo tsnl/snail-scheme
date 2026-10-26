@@ -11,6 +11,7 @@
    build-program
    build-program-directory
    create-staging-directory
+   with-artifact-resolver
    build-modules
    link-wat
    build-crate
@@ -34,6 +35,9 @@
    (chibi filesystem)
    (chibi pathname)
    (chibi process)
+   (only (lofi base) match any?)
+   (only (lofi compiler read) compile-error)
+   (lofi compiler inputs)
    (only (chibi string) string-contains string-cursor->index string-suffix?))
   (begin
 
@@ -43,11 +47,17 @@
     (define (node-command root program)
       (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "scripts/run-lofi.mjs") program))
 
+    ;; The compiler is synchronous and has no application scheduler. Keep
+    ;; the previous compiler worker's heap and native stack allowance.
+    (define (compiler-command root program)
+      (list (or (get-environment-variable "NODE") "node") "--no-warnings" "--max-semi-space-size=128" "--stack-size=3904"
+            (path-join root "scripts/run-compiler.mjs") program))
+
     ;; Chibi sweeps its whole heap on every collection, and compiling the
     ;; compiler allocates gigabytes, so a large heap keeps collections rare.
     (define (chibi-compiler root)
       (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "LOFI_STAGE0_HEAP") "6G")
-            "-I" (path-join root "host/chibi") "-I" (path-join root "src") (path-join root "bootstrap/compile.sld")))
+            "-I" (path-join root "host/chibi") "-I" (path-join root "src") (path-join root "host/chibi/compile.scm")))
 
     ;; The command that runs a compiler. The compiled compiler is rebuilt
     ;; first when its source has changed; LOFI_STAGE0=chibi runs the source
@@ -55,7 +65,7 @@
     (define (selected-compiler root)
       (if (equal? (get-environment-variable "LOFI_STAGE0") "chibi")
           (chibi-compiler root)
-          (node-command root (current-compiler root))))
+          (compiler-command root (current-compiler root))))
 
     (define (program->wat root directories source)
       (run-compiler root (selected-compiler root) "wat" directories source))
@@ -81,32 +91,54 @@
     (define private-count 0)
 
     (define (private-directory root)
-      (set! private-count (+ private-count 1))
-      (let ((directory (path-join root "build/lofi-run"
-                                  (string-append (number->string (current-process-id)) "-" (number->string private-count)))))
-        (create-directory* directory)
-        directory))
+      (let ((directory (path-join root "build/lofi-run")))
+        (unless (create-directory* directory) (error "cannot create compiler scratch directory" directory))
+        (create-staging-directory directory)))
 
-    ;; The compiler stops with `generate KEY` when it needs a generated
-    ;; library that has not been produced; producing it into `generated` and
-    ;; compiling again then finds the syntax the producer wrote, as
-    ;; KEY.syntax.
+    ;; One logical compile owns its replies across synchronous attempts.
+    ;; Remove the old request immediately before starting each process;
+    ;; stderr is only diagnostic text, never a work request. Only normal
+    ;; compiler failure (exit 1, waitpid status 256) can supply a request.
+    ;; Publication/host failure exits 2 and must not consume a partial file.
+    ;; Nested producer compiles have their own scratch.
     (define (run-compiler-into root command mode directories source output generated)
-      (let ((result (process->output+error+status (append command (list mode source output generated) directories))))
-        (cond ((zero? (caddr result)) output)
-              ((generate-request (cadr result))
-               => (lambda (key)
-                    (produce! root directories generated key)
-                    (run-compiler-into root command mode directories source output generated)))
-              (else (error (diagnostic (cadr result)))))))
+      (let ((request (path-join generated "request.datum")))
+        (let loop ((replies '()))
+          (write-file (path-join generated "artifacts.datum") (replies->string replies))
+          (when (file-link-status request) (delete-file request))
+          (let ((result (process->output+error+status (append command (list mode source output generated) directories))))
+            (cond ((zero? (caddr result))
+                   (when (file-link-status request) (error "compiler succeeded with a pending input request"))
+                   output)
+                  ((and (= (caddr result) 256) (file-link-status request))
+                   (loop (provide-input! root directories generated (parse-request (read-file request) request) replies)))
+                  (else (error (diagnostic (cadr result)))))))))
 
-    ;; The digits after `generate `, if the compiler asked for a library.
-    (define (generate-request text)
-      (let ((cursor (string-contains text "generate ")))
-        (and cursor
-             (let* ((start (+ (string-cursor->index text cursor) 9))
-                    (end (let loop ((end start)) (if (and (< end (string-length text)) (char-numeric? (string-ref text end))) (loop (+ end 1)) end))))
-               (and (> end start) (substring text start end))))))
+    (define (provide-input! root directories generated request replies)
+      (match request
+        ((GenerateInput key)
+         (when (file-exists? (path-join generated (string-append key ".syntax"))) (error "compiler requested an already provided generated library" key))
+         (produce! root directories generated key)
+         replies)
+        ((ArtifactInput name loc)
+         (when (any? (lambda (reply) (string=? (ArtifactReply-name reply) name)) replies) (error "compiler requested an already provided artifact" name))
+         (cons (ArtifactReply name (resolve-artifact-input name loc)) replies))))
+
+    ;; The whole project build binds this one synchronous resolver. Nested
+    ;; producer compilation inherits the same active/completed target owner;
+    ;; unwinding restores the preceding binding even when a dependency fails.
+    ;; It returns Lofi (Pair relative-name immutable-path) values for the
+    ;; typed reply printer, not native Scheme pairs.
+    (define artifact-resolver #f)
+
+    (define (with-artifact-resolver resolver use)
+      (let ((previous artifact-resolver))
+        (dynamic-wind (lambda () (set! artifact-resolver resolver)) use (lambda () (set! artifact-resolver previous)))))
+
+    (define (resolve-artifact-input name loc)
+      (guard (failure (#t (compile-error loc (failure-message failure))))
+        (unless artifact-resolver (error (string-append "artifact-bundle requires a project build resolver: " name)))
+        (artifact-resolver name)))
 
     ;; The compiler's message without the host's prefix.
     (define (diagnostic text)
@@ -128,7 +160,8 @@
              (program (path-join generated (string-append key ".wasm")))
              (output (path-join generated (string-append key ".syntax")))
              (result (begin (build-program root directories source program #f) (run-wasm root program (list output)))))
-        (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))))
+        (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))
+        (unless (file-exists? output) (error "the producer did not write its generated library" source))))
 
     ;; ---- The build lock ----
 
@@ -204,8 +237,8 @@
              (stage3 (path-join directory "stage3.wat")) (sources (compiler-directories root)))
         (create-directory* directory)
         (link-wat root (stage1-text root entry) stage1 #f)
-        (link-wat root (run-compiler root (node-command root stage1) "wat" sources entry) stage2 #f)
-        (write-file stage3 (run-compiler root (node-command root stage2) "wat" sources entry))
+        (link-wat root (run-compiler root (compiler-command root stage1) "wat" sources entry) stage2 #f)
+        (write-file stage3 (run-compiler root (compiler-command root stage2) "wat" sources entry))
         (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
           (error "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
         (rename-file stage2 (compiler-path root))))
@@ -213,7 +246,7 @@
     (define (stage1-text root entry)
       (let ((previous (compiler-path root)) (sources (compiler-directories root)))
         (or (and (file-exists? previous)
-                 (guard (failure (#t #f)) (run-compiler root (node-command root previous) "wat" sources entry)))
+                 (guard (failure (#t #f)) (run-compiler root (compiler-command root previous) "wat" sources entry)))
             (run-compiler root (chibi-compiler root) "wat" sources entry))))
 
     ;; ---- Files and commands ----
@@ -430,11 +463,92 @@
       (let ((port (current-error-port)))
         (display command port)
         (display ": " port)
+        (display (failure-message failure) port)
+        (newline port)
+        1))
+
+    (define (failure-message failure)
+      (let ((port (open-output-string)))
         (if (error-object? failure)
             (begin (display (error-object-message failure) port)
                    (for-each (lambda (irritant) (display " " port) (write irritant port)) (error-object-irritants failure)))
             (write failure port))
-        (newline port)
-        1))
+        (get-output-string port)))
 
-    ))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-build)
+    (import
+     (lofi testing))
+    (begin
+      (define (request-failure thunk)
+        (guard (failure (#t (failure-message failure))) (thunk) "accepted"))
+
+      (define (test-request root scenario prepare)
+        (with-private-directory root
+                                (lambda (directory)
+                                  (prepare directory)
+                                  (run-compiler-into root (list "sh" (path-join root "tests/compiler-inputs/compiler.sh") scenario)
+                                                     "wat" '() "source.sld" (path-join directory "output.wat") directory))))
+
+      (define (expect-request-error thunk wanted)
+        (let ((actual (request-failure thunk)))
+          (expect (if (string-contains actual wanted) wanted actual) wanted)))
+
+      ;; Exercise the real stage-0 unwind wrapper: uncaught Chibi errors use
+      ;; exit 70, so re-raising would silently break the exit-1 protocol.
+      (define (test-source-request-status root)
+        (with-private-directory root
+                                (lambda (directory)
+                                  (let* ((request (path-join directory "request.datum"))
+                                         (command (append (chibi-compiler root)
+                                                          (list "wat" (path-join root "tests/artifacts/native.sld")
+                                                                (path-join directory "output.wat") directory (path-join root "lib")))))
+                                    (expect (caddr (process->output+error+status command)) 256)
+                                    (expect (match (parse-request (read-file request) request)
+                                              ((ArtifactInput "client" _) #t) (_ #f)) #t)
+                                    (delete-file request)
+                                    (create-directory request)
+                                    (expect (caddr (process->output+error+status command)) 512)))))
+
+      (define (test-build root)
+        (test-source-request-status root)
+        (expect-request-error
+         (lambda () (test-request root "stderr" (lambda (directory) (write-file (path-join directory "request.datum") "(artifact \"stale\" \"old.sld\" 1 1)"))))
+         "generate 123")
+        (test-request root "stale" (lambda (directory) (write-file (path-join directory "request.datum") "(generate \"123\")")))
+        (expect-request-error (lambda () (test-request root "malformed" (lambda (_) #f))) "expected exactly one")
+        (expect-request-error (lambda () (test-request root "success-request" (lambda (_) #f))) "succeeded with a pending")
+        (expect-request-error (lambda () (test-request root "publication-failed" (lambda (_) #f))) "input publication failed")
+        (expect-request-error (lambda () (test-request root "generated" (lambda (directory) (write-file (path-join directory "123.syntax") "()"))))
+                              "already provided generated library")
+        (let ((calls 0))
+          (with-artifact-resolver (lambda (_) (set! calls (+ calls 1)) '())
+                                  (lambda ()
+                                    (expect-request-error (lambda () (test-request root "artifact" (lambda (_) #f))) "already provided artifact")
+                                    (expect calls 1)
+                                    (expect-request-error
+                                     (lambda () (with-artifact-resolver (lambda (_) (error "inner resolver"))
+                                                                        (lambda () (test-request root "artifact" (lambda (_) #f)))))
+                                     "application.sld:3:8: inner resolver")
+                                    (resolve-artifact-input "client" #f)
+                                    (expect calls 2))))
+        (expect-request-error (lambda () (test-request root "artifact" (lambda (_) #f)))
+                              "application.sld:3:8: artifact-bundle requires a project build resolver")
+        ;; Simulate a reused process id/counter. The allocator must leave
+        ;; the previous compile and its stale generated input untouched.
+        (let* ((parent (path-join root "build/lofi-run"))
+               (old (path-join parent (string-append ".lofi-" (number->string (current-process-id)) "-" (number->string (+ private-count 1)))))
+               (sentinel (path-join old "123.syntax")))
+          (unless (create-directory old #o700) (error "test scratch collision" old))
+          (write-file sentinel "old compile")
+          (dynamic-wind (lambda () #f)
+              (lambda ()
+                (with-private-directory root (lambda (fresh) (expect (string=? old fresh) #f)))
+                (expect (read-file sentinel) "old compile"))
+              (lambda () (delete-file-hierarchy old)))))))
+   (else)))

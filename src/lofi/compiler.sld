@@ -2,9 +2,8 @@
 ;; WebAssembly text, or to the schemas of its wire types. In a one-off
 ;; compile each pass's output is the next pass's only input; a session,
 ;; (lofi compiler session), also keeps what each library became in the
-;; build before. Both hosts run it through bootstrap/compile.sld: Chibi
-;; runs the source, as stage 0 of the bootstrap, and Node runs the compiler
-;; compiled to Wasm.
+;; build before. The typed driver serves both compiler entries: Chibi runs
+;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (lofi compiler)
   (export
    compile->wat
