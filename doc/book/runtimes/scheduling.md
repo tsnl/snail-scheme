@@ -53,6 +53,20 @@ that cannot abort may finish normally; the runtime then rejects its
 resumption because cancellation was requested. Its external effects are
 not rolled back.
 
+`suspend(operation, discard)` can take a synchronous native disposer for a
+successful result. The suspension owns that result until the scheduler accepts
+delivery. If cancellation wins while the result is queued, or a non-abortable
+operation succeeds after cancellation, the runtime disposes the result exactly
+once and rejects the parked invocation. It does not dispose delivered results or
+operation failures. A disposer failure also rejects the parked invocation, so
+Wasm still unwinds before task completion.
+
+The disposer must not suspend or reenter Lofi. If it starts OS resource closure,
+the native owner awaits that remaining cleanup during shutdown.
+Work must return its complete invocation Promise, and
+suspending imports must return or await their gate; abandoning either loses the
+relationship between task completion and its parked stack.
+
 This makes cleanup part of the suspended task's lifetime, without a
 second cleanup counter. A host adapter that never settles can prevent
 exhaustion. Runtime authors must uphold this boundary; a pending Promise
