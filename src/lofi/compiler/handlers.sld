@@ -19,7 +19,7 @@
       ((program Program)
        (definitions (Table Expr))))
 
-    (: shared-type? (-> Context Type Bool ! mut))
+    (: shared-type? (-> Context Type Bool))
     (define (shared-type? cx type)
       (and (capability-type? (Context-program cx) "lofi.base:Send" type (Nil) (Nil))
            (capability-type? (Context-program cx) "lofi.base:Sync" type (Nil) (Nil))))
@@ -27,7 +27,7 @@
     ;; An ordinary arrow carries no capture proof. Recover only concrete
     ;; lambdas and aliases; an opaque callback or function-returning call fails.
     ;; Specialization preserves each expression's unique resolved binders.
-    (: shared-value? (-> Context (Table Expr) Expr (List String) Bool ! mut))
+    (: shared-value? (-> Context (Table Expr) Expr (List String) Bool))
     (define (shared-value? cx locals value visiting)
       (or (shared-type? cx (Expr-type value))
           (match (Expr-term value)
@@ -35,7 +35,7 @@
             ((Var _ _ _) (shared-reference? cx locals value visiting))
             (_ #f))))
 
-    (: shared-reference? (-> Context (Table Expr) Expr (List String) Bool ! mut))
+    (: shared-reference? (-> Context (Table Expr) Expr (List String) Bool))
     (define (shared-reference? cx locals reference visiting)
       (match (Expr-term reference)
         ((Var name _ evidence)
@@ -55,7 +55,7 @@
 
     ;; A known function may recurse, but all its other edges still have to
     ;; pass. A global's initializer is inspected only for the value it retains.
-    (: shared-global? (-> Context String (List Evidence) (List String) Bool ! mut))
+    (: shared-global? (-> Context String (List Evidence) (List String) Bool))
     (define (shared-global? cx name evidence visiting)
       (match (table-ref (Context-definitions cx) name)
         ((Some value) (or (member? name visiting) (shared-value? cx empty-table value (Cons name visiting))))
@@ -68,7 +68,7 @@
 
     ;; Imported monomorphic code may still name methods in its typed body.
     ;; Its selected evidence is a dependency, never a proof of safe captures.
-    (: shared-method? (-> Context String String (List Evidence) (List String) Bool ! mut))
+    (: shared-method? (-> Context String String (List Evidence) (List String) Bool))
     (define (shared-method? cx class method evidence visiting)
       (match evidence
         ((Cons (EvInstance name _ _) _)
@@ -109,7 +109,7 @@
         ((PCon _ args _) (fold-left (lambda (scope arg) (bind-pattern scope arg loc)) locals args))
         (_ locals)))
 
-    (: check-expression (-> Context (Table Expr) Expr Unit ! mut))
+    (: check-expression (-> Context (Table Expr) Expr Unit))
     (define (check-expression cx locals expr)
       (match (Expr-term expr)
         ((Lambda params body)
@@ -132,7 +132,7 @@
          (check-expression cx locals body))
         (_ (for-each (lambda (child) (check-expression cx locals child)) (children expr)))))
 
-    (: check-handlers (-> Program (Table Expr) (List Item) Unit ! mut))
+    (: check-handlers (-> Program (Table Expr) (List Item) Unit))
     (define (check-handlers program definitions items)
       (let ((cx (Context program definitions)))
         (for-each (lambda (item)
