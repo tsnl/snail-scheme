@@ -319,7 +319,8 @@
     ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once") ("tests/programs" "tasks")
     ("tests/programs" "effect-row-inclusion")
     ("tests/programs" "tcp") ("tests/programs" "tcp-handler")
-    ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")))
+    ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")
+    ("tests/programs" "http-exchange") ("tests/programs" "http-sockets")))
 
 (define (suite-libraries suite)
   (if (string=? suite "examples") '("examples") '("tests/programs" "tests/programs/lib")))

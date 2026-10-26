@@ -1,0 +1,8 @@
+fragmented request and partial response
+HEAD suppression
+bounded heads and declared bodies
+binary body across transfer bounds
+tiny writes keep copying linear
+truncated input closes
+returned failures preserve primary error
+transport failures and no progress close

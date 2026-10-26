@@ -276,8 +276,8 @@ UDP datagrams to native CLI programs and replacement handlers for tests. Their
 native owners define bounded buffering, cancellation and close behavior. UDP
 keeps message boundaries without guaranteeing delivery or order.
 
-The [HTTP head codec](http.md) provides bounded parsing and response framing.
-Connection IO, routing and bundle/reload serving remain to be added. The project
+The [HTTP library](http.md) provides bounded parsing, response framing and one
+complete exchange over TCP. Routing and bundle/reload serving remain to be added. The project
 service currently uses Node HTTP; sharing a Lofi HTTP implementation with
 applications is future integration.
 Use the existing runtime suspension bridge and test real sockets as well as
