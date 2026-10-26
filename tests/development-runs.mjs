@@ -7,7 +7,7 @@ import fsp from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
-import {developProject} from '../scripts/project-develop.mjs';
+import {developProject, UnknownRunTarget} from '../scripts/project-develop.mjs';
 import {projectTools} from '../scripts/project.mjs';
 
 const root = process.argv[2], directory = fs.mkdtempSync(join(tmpdir(), 'lofi-development-runs-'));
@@ -45,10 +45,10 @@ async function settled(after, phase = 'succeeded') {
 let writer = null;
 
 try {
-  assert.throws(() => dev.startRun('app'), /unknown accepted run target/);
+  assert.throws(() => dev.startRun('app'), UnknownRunTarget);
   const first = await settled(0);
   assert.ok(first.runs.every(run => !run.wanted && !run.attempt && run.available));
-  assert.throws(() => dev.startRun('missing'), /unknown accepted run target/);
+  for (const command of [dev.startRun, dev.stopRun, dev.restartRun]) assert.throws(() => command('missing'), UnknownRunTarget);
 
   let veto = true;
   const unveto = dev.subscribe(() => { if (veto && app().wanted) { veto = false; dev.stopRun('app'); } });
@@ -134,6 +134,9 @@ try {
   write('project.datum', description('new arguments', false));
   accepted = await settled(accepted.id); await stopped('app'); dead(removedPid);
   assert.equal(app().available, false); assert.equal(app().wanted, false);
+  assert.throws(() => dev.startRun('app'), UnknownRunTarget);
+  assert.throws(() => dev.restartRun('app'), UnknownRunTarget);
+  assert.doesNotThrow(() => dev.stopRun('app'));
   write('project.datum', description('new arguments'));
   accepted = await settled(accepted.id);
   assert.equal(app().available, true); assert.equal(app().wanted, false); assert.equal(app().attempt.pid, removedPid);

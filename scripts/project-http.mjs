@@ -3,7 +3,7 @@
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {basename, join, sep} from 'node:path';
-import {developProject} from './project-develop.mjs';
+import {developProject, UnknownRunTarget} from './project-develop.mjs';
 import {FileConflict, ProjectFileError, projectFiles} from './project-files.mjs';
 
 const bodyLimit = 8 * 1024 * 1024;
@@ -55,6 +55,7 @@ function errorStatus(error) {
   if (error instanceof HttpError) return error.status;
   if (error instanceof FileConflict) return 409;
   if (error instanceof ProjectFileError) return 400;
+  if (error instanceof UnknownRunTarget) return 404;
   if (error.code === 'ENOENT') return 404;
   if (['EACCES', 'EPERM', 'ELOOP'].includes(error.code)) return 403;
   return 500;
@@ -137,10 +138,8 @@ export async function serveProject({root, project, tools, port = 0}) {
       case 'POST /api/run/restart': {
         emptyBody(request);
         const action = url.pathname.split('/').at(-1);
-        const run = development.status.runs.find(run => run.target === url.searchParams.get('target'));
-        if (!run || (action !== 'stop' && !run.available)) throw new HttpError(404, 'unknown accepted run target');
         const controls = {start: development.startRun, stop: development.stopRun, restart: development.restartRun};
-        controls[action](run.target);
+        controls[action](url.searchParams.get('target'));
         response.writeHead(204, headers);
         return response.end(); // Acknowledge the command; SSE owns observed run state.
       }
