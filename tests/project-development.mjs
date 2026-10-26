@@ -40,12 +40,23 @@ try {
 
   const discarded = builder.build(builder.describe(), ['server']);
   assert.ok(discarded.targets.every(target => target.compiled === 0), 'unchanged compilation evidence is reused');
+  for (const output of discarded.targets) {
+    assert.match(output.digest, /^[0-9a-f]{64}$/);
+    assert.equal(output.digest, target(first, output.name).digest, 'identity excludes generation paths');
+  }
   discardProject(discarded);
   assert.ok(discarded.targets.every(target => !fs.existsSync(target.directory)));
   assert.equal(output('server'), initialServer);
   const afterDiscard = builder.build(builder.describe(), ['server']);
   assert.ok(afterDiscard.targets.every(target => target.compiled === 0), 'sessions retain no paths into discarded candidates');
   publishProject(afterDiscard);
+
+  fs.renameSync(join(project, 'client-public/nested/data.bin'), join(project, 'client-public/nested/renamed.bin'));
+  const renamed = builder.build(builder.describe(), ['client']);
+  assert.equal(target(renamed, 'client').compiled, 0, 'public paths do not affect compilation');
+  assert.notEqual(target(renamed, 'client').digest, target(first, 'client').digest, 'public paths affect output identity');
+  discardProject(renamed);
+  fs.renameSync(join(project, 'client-public/nested/renamed.bin'), join(project, 'client-public/nested/data.bin'));
 
   const beforeFailure = output('server'), beforeDirectories = fs.readdirSync(join(project, 'build')).sort();
   write('client.sld', '(import (lofi base)) (ann 42 I64)');
@@ -70,6 +81,7 @@ try {
   write('server.sld', source);
   const repaired = builder.build(builder.describe(), ['server']);
   assert.equal(target(repaired, 'client').compiled, 0, 'a successful dependency session survives consumer failure');
+  assert.notEqual(target(repaired, 'client').digest, target(first, 'client').digest, 'cached work can differ from accepted output');
   assert.match(execute(target(repaired, 'server').directory), /90,0,255,/);
 
   // A later rename failure keeps its published prefix and removes only the

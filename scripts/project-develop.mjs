@@ -3,6 +3,7 @@
 import {lstatSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync} from 'node:fs';
 import {basename, join, sep} from 'node:path';
 import {Worker} from 'node:worker_threads';
+import {applicationProcess} from './application-process.mjs';
 import {discardProject, publishProject} from './project.mjs';
 import {watchProject} from './watch.mjs';
 
@@ -55,16 +56,83 @@ export function developProject({root, project, tools}) {
     });
   } catch (error) { void files.close(); rmSync(directory, {recursive: true, force: true}); throw error; }
 
-  const listeners = new Set(), ready = Promise.withResolvers(), exited = Promise.withResolvers();
+  const listeners = new Set(), runs = new Map(), ready = Promise.withResolvers(), exited = Promise.withResolvers();
   let description = null, published = null, attempt = null, serial = 0, timer = null;
   let initialized = false, dirty = true, diskFailed = false, stopping = false, closing = null, finishing = null;
   let status = {phase: 'starting', id: 0, diagnostics: [], published, worker: worker.threadId};
+
+  function snapshot() {
+    return {...status, runs: [...runs].map(([name, run]) => ({...run.owner.status, wanted: run.wanted,
+      available: published.description.runs.some(target => target.name === name)}))};
+  }
 
   // Status is one replaceable value; subscribing includes the current value.
   // Subscribers are trusted host code and must not throw.
   function report(phase, diagnostics = []) {
     status = {phase, id: serial, diagnostics, published, worker: status.worker};
-    for (const listener of listeners) listener(status);
+    for (const listener of listeners) listener(snapshot());
+  }
+
+  function reportRuns() {
+    if (!stopping) report(status.phase, status.diagnostics);
+  }
+
+  function launch(name) {
+    const definition = published?.description.runs.find(target => target.name === name);
+    if (!definition) return null;
+    const target = published.targets.find(target => target.name === definition.build);
+    return {identity: JSON.stringify([definition.build, target.digest, definition.args]),
+      request: {build: published.id, entry: join(target.directory, 'modules.json'), args: definition.args}};
+  }
+
+  // Remember the last issued intent, not the observed PID. A terminal child
+  // is not retried, and callbacks cannot enqueue the same replacement twice.
+  function reconcileRun(name, run) {
+    if (stopping) return;
+    const next = run.wanted ? launch(name) : null, identity = next?.identity ?? null;
+    if (identity === run.issued) return;
+    run.issued = identity;
+    run.owner.request(next?.request ?? null);
+  }
+
+  function acceptRuns() {
+    for (const {name} of published.description.runs) {
+      if (runs.has(name)) continue;
+      const owner = applicationProcess({root, target: name});
+      runs.set(name, {owner, wanted: false, issued: null});
+      owner.subscribe(value => { if (value.attempt) reportRuns(); });
+    }
+    // Commit all removals before callbacks can issue controls. Retain each
+    // owner until shutdown, so a reintroduced name cannot overlap its child.
+    for (const [name, run] of runs) if (!launch(name)) run.wanted = false;
+    for (const [name, run] of runs) reconcileRun(name, run);
+  }
+
+  function requiredRun(name, available = true) {
+    if (stopping) throw new Error('project development is closed');
+    const run = runs.get(name);
+    if (!run || (available && !launch(name))) throw new Error(`unknown accepted run target: ${name}`);
+    return run;
+  }
+
+  function startRun(name) {
+    const run = requiredRun(name);
+    if (run.wanted) return;
+    run.wanted = true;
+    reconcileRun(name, run); reportRuns();
+  }
+
+  function stopRun(name) {
+    const run = requiredRun(name, false);
+    if (!run.wanted) return;
+    run.wanted = false;
+    reconcileRun(name, run); reportRuns();
+  }
+
+  function restartRun(name) {
+    const run = requiredRun(name);
+    run.wanted = true; run.issued = null;
+    reconcileRun(name, run); reportRuns();
   }
 
   function schedule() {
@@ -122,6 +190,7 @@ export function developProject({root, project, tools}) {
     if (current.owned) abandon(project, current);
     else rmSync(current.reservation, {recursive: true, force: true});
     attempt = null;
+    if (!stopping && published?.id === current.id) acceptRuns();
     if (!stopping) report(superseded ? 'superseded' : diagnostics.length ? 'failed' : 'succeeded', superseded ? [] : diagnostics);
     schedule();
   }
@@ -153,21 +222,21 @@ export function developProject({root, project, tools}) {
     clearTimeout(timer);
     worker.postMessage({kind: 'close'});
     const timeout = setTimeout(() => { void worker.terminate(); }, 2000);
-    closing = (async () => {
-      await files.close();
-      await exited.promise;
+    closing = Promise.resolve().then(async () => {
+      const results = await Promise.allSettled([files.close(), exited.promise,
+        ...[...runs.values()].map(run => run.owner.close())]);
       clearTimeout(timeout);
       await finishing;
-      let failure;
+      let failure = results.find(result => result.status === 'rejected')?.reason;
       try {
         if (attempt?.owned) abandon(project, attempt);
         else if (attempt) rmSync(attempt.reservation, {recursive: true, force: true});
-      } catch (error) { failure = error; }
+      } catch (error) { failure ??= error; }
       try { rmSync(directory, {recursive: true, force: true}); }
       catch (error) { failure ??= error; }
       listeners.clear();
       if (failure) throw failure;
-    })();
+    });
     return closing;
   }
 
@@ -186,11 +255,14 @@ export function developProject({root, project, tools}) {
 
   return {
     files,
-    get status() { return status; },
+    get status() { return snapshot(); },
     requestBuild,
+    startRun,
+    stopRun,
+    restartRun,
     subscribe(listener) {
       if (stopping) throw new Error('project development is closed');
-      listeners.add(listener); listener(status);
+      listeners.add(listener); listener(snapshot());
       return () => listeners.delete(listener);
     },
     close,
