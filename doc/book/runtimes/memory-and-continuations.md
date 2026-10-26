@@ -188,7 +188,7 @@ handlers. Invoking an escape continuation replaces the current
 continuation. A root delimiter must model the Scheme execution context;
 delimiting every ordinary function or temporary browser callback would
 truncate it. Other Scheme conformance work remains in the
-[roadmap](../roadmap.md). See [R7RS sections 6.10 and 6.11](https://standards.scheme.org/official/r7rs.pdf).
+[language issue](https://github.com/tsnl/snail-scheme/issues/456). See [R7RS sections 6.10 and 6.11](https://standards.scheme.org/official/r7rs.pdf).
 
 Represent `dynamic-wind` scopes as persistent nodes with identity, parent,
 entry and exit thunks, and their surrounding dynamic context. A
@@ -268,36 +268,13 @@ Wasm instructions.
 Move portable policy into Lofi incrementally, preserving bootstrap-visible
 behavior. The new representation need not wait for every scalar service to move.
 
-## Delivery and validation
+## Validation boundary
 
-Deliver the work as a sequence of executable changes:
-
-1. **Representations and capabilities.** Specify the pointer types,
-   storable payload rules and layout evidence. Reject invalid worker
-   transfers and unsafe heap crossings. Test both successful and rejected
-   cases, including immutable GC values and hidden closure captures.
-2. **Owned linear storage.** Provide allocation, memory primitives,
-   grade-polymorphic owners, destruction and Arc/Weak. Test moves, last
-   releases, failed weak upgrades and cleanup after partial construction
-   before adding concurrent access.
-3. **Control lowering.** Build one control IR for both grades. Exercise
-   nested and escaping handlers, repeated resumption, shared mutable
-   locations, capture or nonlocal transfer from wind hooks, multiple values
-   and bounded tail recursion.
-   Retain the existing JSPI behavior until the replacement runs these
-   paths and the existing application lifecycle correctly.
-4. **Lofi scheduler and host adapters.** Move queues and lifecycle policy
-   into Lofi, bind foreign completions to owned work, then remove JSPI
-   from task execution. Test cancellation races, exhaustion, application
-   checkpoints and reload in a browser.
-5. **Shared execution.** Initialize multiple workers against one linear
-   heap. Test concurrent allocation and release, publication and transfer
-   of thunks, local GC use, pinned resumptions and cancellation races.
-   Exercise both separately linked and whole-program builds.
-
-Keep the repository's compiler, Chibi/bootstrap and changed-provider checks.
-Backend tests must execute emitted Wasm; browser tests must exercise the
-actual host and reload protocol.
+[The implementation issue](https://github.com/tsnl/snail-scheme/issues/460) tracks
+representation, ownership, control lowering, scheduler and worker proofs. Each
+backend step must execute emitted Wasm on both linked and whole-program paths;
+keep Chibi/bootstrap behavior and real browser reload tests. The existing JSPI
+implementation remains until its replacement demonstrates those contracts.
 
 A local feasibility probe on 2026-10-24 combined ordinary GC structs with
 shared memory64 in the same module. Four workers each performed 100,000

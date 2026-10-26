@@ -43,7 +43,7 @@ same tools for podman. [Getting started](doc/getting-started.md) covers
 both, other package managers and Windows, and the checks. `make fetch`
 downloads the Rust crates once; builds and tests then run offline.
 
-Programs are linked with a small Rust runtime and run under WASI. The
+Programs link with Rust scalar services and run under WASI. The
 first run bootstraps the compiler, which takes about a minute: Chibi runs
 its source once, and the compiled compiler then rebuilds itself whenever
 the source changes.
@@ -68,13 +68,13 @@ them into the open page, which keeps the game and the camera.
 browser editor. It reads `project.datum`; saving writes disk, and one shared
 watcher notifies both compiler and editor, including edits made by other tools.
 The editor keeps highlighting, Scheme indentation, format-on-save and split
-panes. Builds publish fresh diagnostic messages; located squiggles follow.
+panes. Builds publish fresh diagnostics with source points in saved buffers.
 `make ide` starts this service for Siegework on port 8000.
 
 Project builds and the native editor are implemented. The
-[project and development workflow](doc/proposals/desktop-ide.md) still needs
+[development workflow](doc/book/lofi/toolchain.md) still needs
 application launches and reloads under `dev`; use `serve`/`watch` for those
-until that integration lands. The [typed-state API](doc/proposals/typed-state.md)
+until that integration lands. The [typed-state API](doc/book/lofi/state.md)
 remains under review.
 
 ## Reading on
@@ -83,10 +83,13 @@ remains under review.
   with the player's guide and tutorials; `make pages` builds it with the
   game into `build/pages`.
 - [The language guide](doc/language.md) describes the language as implemented.
-- [The compiler tour](TOUR.md) follows a program through the passes.
-- [The redesign](doc/redesign.md) records the design, and the book's
-  [roadmap](doc/book/roadmap.md) what is implemented and what remains.
-- [The toolchain design](doc/toolchain.md) explains separate compilation,
-  hot reload and the native project service with its browser editor.
+- [The compiler architecture](doc/book/lofi/compilers.md) follows a program
+  through the passes, linking and incremental caches.
+- [Projects and targets](doc/book/lofi/projects.md) defines inert descriptions,
+  directory outputs and artifact bundles.
+- [The development toolchain](doc/book/lofi/toolchain.md) explains the native
+  project service and browser editor.
+- [The redesign](doc/redesign.md) records the historical design;
+  [GitHub issues](https://github.com/tsnl/snail-scheme/issues) track open work.
 
 [Apache-2.0](LICENSE)

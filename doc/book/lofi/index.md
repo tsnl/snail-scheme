@@ -14,11 +14,15 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
 - [Macros and Scheme libraries](macros.md): hygienic macros, generated
   libraries and Scheme on Lofi.
 - [Libraries](libraries.md): the standard library and wire types.
-- [Compilers as libraries](compilers.md): the compiler's passes, and how it
-  bootstraps from Scheme.
+- [Projects and targets](projects.md): inert descriptions, output directories
+  and embedded artifact bundles.
+- [Compiler architecture](compilers.md): the passes, bootstrap, linking and
+  incremental compilation.
 - [Application model](applications.md): interactive applications in the
   browser.
 - [Development toolchain](toolchain.md): building one library at a time,
   hot reload, the native project editor and the proposed application workflow.
+- [Proposed typed state](state.md): durable records and disposable cached views;
+  an API for review, not implemented functionality.
 - [Notable omissions](omissions.md): what was left out, and why.
 - [References](references.md): influences and further reading.

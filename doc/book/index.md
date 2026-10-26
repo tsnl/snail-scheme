@@ -16,3 +16,5 @@ in Lofi. **[Play it](play/siegework/)** in a browser with WebGPU.
 Find the source in the [repository](https://github.com/tsnl/snail-scheme),
 and how to install the tools in its
 [getting started guide](https://github.com/tsnl/snail-scheme/blob/main/doc/getting-started.md).
+The book describes implemented contracts and marks proposals explicitly;
+[GitHub issues](https://github.com/tsnl/snail-scheme/issues) track open work.

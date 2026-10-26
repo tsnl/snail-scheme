@@ -1,9 +1,9 @@
 # Redesign: Lofi from a clean slate, and how to get there
 
-> **Status: partly implemented.** The book's [roadmap](book/roadmap.md)
-> tracks what exists and what remains; section 7 records how this plan was
-> carried out. The [language guide](language.md) and [tour](../TOUR.md)
-> describe the current compiler.
+> **Historical design, partly implemented.** [GitHub issues](https://github.com/tsnl/snail-scheme/issues)
+> track open work; section 7 records this design's implementation history.
+> The [language guide](language.md) and [compiler architecture](book/lofi/compilers.md)
+> describe implemented behavior.
 
 This document designs Lofi as if starting over, then plans the path from the
 previous compiler to that design.
@@ -32,7 +32,7 @@ Lofi must:
 11. Implement full, dynamically typed Scheme as a library that generates Lofi,
     using `generate-library`.
 
-Garbage collection is acceptable. The [runtime contract](runtime-contract.md)
+Garbage collection is acceptable. The [runtime contract](book/runtimes/contract.md)
 extends this design with type-directed affine ownership, checked transfer
 and reusable handlers. Its implementation is staged separately from the
 original redesign; the book records what has landed.
@@ -533,7 +533,7 @@ The actor hierarchy has been replaced by one-shot tasks. A runtime owns
 queued, executing and suspended work. The language permits multiple
 threads; the shipping WasmGC and JSPI implementation runs cooperatively on
 one execution agent. Ordinary handlers are reusable `Send + Sync`
-capabilities. See the [runtime contract](runtime-contract.md).
+capabilities. See the [runtime contract](book/runtimes/contract.md).
 
 An application owns its state as arguments to a loop. Its total update and
 view functions remain easy to test and model-check without browser code.
@@ -659,8 +659,7 @@ Scheme subset, beside the old one, which was then deleted.
 
 - **Section 5, reload.** `./scripts/lofi-tool serve` relinks a rebuilt module into a
   running page and hands the state over as it is when `type-test` finds its
-  type unchanged, or through its save otherwise ([toolchain.md](toolchain.md),
-  section 4.1). Migration functions between schemas are not implemented.
+  type unchanged, or through its save otherwise ([application model](book/lofi/applications.md#hot-reload)). Migration functions between schemas are not implemented.
 
 - **Phase 5, partly.** `./scripts/lofi-tool schema` prints the wire schema of every data
   type with a `Serialize` instance: each case's TypeId and field types.

@@ -55,9 +55,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Chibi is stage 0 of the bootstrap: it must keep running the compiler's
   source, so the compiler avoids behavior the two hosts would disagree on,
   such as integer overflow and the order of table keys.
-- Update [TOUR.md](TOUR.md) when module responsibilities change. Track open
-  work in the book's [roadmap](doc/book/roadmap.md). Keep proposed APIs
-  distinct from implemented behavior in documentation and the roadmap.
+- Update the relevant [book chapter](doc/book/SUMMARY.md) when contracts or
+  module responsibilities change; the [compiler tour](doc/book/lofi/compilers.md)
+  lives there. Track open work in [GitHub issues](https://github.com/tsnl/snail-scheme/issues).
+  Keep proposed APIs explicitly distinct from implemented behavior. Do not
+  duplicate the book in proposal documents or progress trackers.
 
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path src/runtime/Cargo.toml --offline`, and
@@ -103,4 +105,4 @@ gives the reload rules; what matters when writing code:
   `src/app/runtime.mjs` saves, returns its state and settles. `tests/develop.mjs` (in
   `make test`) and `tests/browser/reload.mjs` and `tests/browser/ide.mjs`
   (`make test-browser`, needs `CHROMIUM`) cover them. See
-  [the toolchain design](doc/toolchain.md).
+  [the development toolchain](doc/book/lofi/toolchain.md).
