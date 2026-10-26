@@ -206,6 +206,9 @@ remains under review:
   The native API is tested; CLI, file-service and application launch integration
   follow. Current diagnostic records carry severity/message; expose structured
   source spans at the compiler boundary before editor squiggles.
+- [x] Make cold tool builds independent of Chibi 0.12's pipe-descriptor
+  finalizers. Native command capture uses private output files and a constant
+  redirection script with positional arguments, including in the test runner.
 - [x] Add native project text-file reads and atomic saves with client-held
   revision evidence. Reject observed conflicts and keep staging under excluded
   build output; Save neither retains buffers nor calls the compiler. HTTP and
