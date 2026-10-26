@@ -139,6 +139,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
           if (target.kind === 'browser') packageBrowser(root, project, target, directory, outputMode);
           chmodSync(directory, 0o755);
           const files = generationFiles(directory);
+          output.digest = generationDigest(files);
           completed.set(target.name, files);
           return files;
         } finally { active.pop(); }
@@ -230,6 +231,17 @@ function generationFiles(directory, relative = '') {
   }
   // UTF-8 lexicographic order agrees with the compiler's Unicode scalar order.
   return files.sort(([a], [b]) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+}
+
+// Content, not compiler work counters or generation paths, identifies an
+// output. Include framing and relative names so file boundaries are unambiguous.
+function generationDigest(files) {
+  const hash = createHash('sha256');
+  for (const [name, path] of files) {
+    const bytes = readFileSync(path);
+    hash.update(JSON.stringify([name, bytes.length])).update(bytes);
+  }
+  return hash.digest('hex');
 }
 
 // ---- Publication and directory ownership ----
