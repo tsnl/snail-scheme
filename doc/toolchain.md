@@ -164,7 +164,9 @@ linker through `scripts/link.scm`, with intermediates kept in scratch. Developme
 output assembles all returned modules into a fresh self-contained directory.
 Only the compiler cache persists; there is no second native binary cache.
 
-A completed attempt returns a candidate. `scripts/build.mjs` accepts it immediately;
+A completed attempt returns a candidate. `scripts/project-cli.mjs` publishes it
+immediately for build/run; a run retains that exact directory, closes its
+compiler and scratch, then replaces the command process with the application;
 the project development parent can reject superseded work. Publication and discard consume
 the candidate. If one of several link renames fails, publication preserves its
 completed prefix and removes the remaining generations; it is not a project-wide

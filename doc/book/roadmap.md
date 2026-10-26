@@ -174,8 +174,10 @@ remains under review:
 - [x] Restrict the public CLI to project commands; keep source inspection,
   bootstrap and the older reload loop in `scripts/lofi-tool`. Remove the
   source driver's separate output-directory publication contract.
-- [ ] Add named `lofi run` and project-wide `lofi check`. Defer `install` until
-  the package-manager design supplies its contract.
+- [x] Run named project programs from their exact completed generation with
+  inherited IO, working directory, exit status and signals.
+- [ ] Add project-wide `lofi check`. Defer `install` until the package-manager
+  design supplies its contract.
 - [x] Resolve named artifact bundles during actual expansion, including
   dependencies from generated application libraries. One server can depend
   on multiple frontend bundles. Native project builds use one serial traversal

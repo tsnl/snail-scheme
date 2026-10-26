@@ -3,8 +3,9 @@
 `project.datum` describes one project with inert data. The parser is implemented
 in `src/lofi/project.sld` as `(lofi project)` and runs on Chibi and compiled Wasm.
 `lofi build [--release] PROJECT TARGET` consumes it and builds one named target.
-The same native builder also supports persistent incremental sessions; watcher,
-launch and IDE integration follow separately.
+`lofi run PROJECT RUN-TARGET [ARGUMENT ...]` builds and runs a named program.
+`lofi dev` retains incremental compiler sessions and serves the project editor;
+application launch and reload integration follow separately.
 
 ```scheme
 ((build-target client
@@ -31,7 +32,10 @@ A run target names a program build and accepts one optional `args` list.
 Arguments are literal strings, preserving order and empty strings. Runs may
 precede their build declarations. A browser bundle is a dependency served by a
 program, not a directly launched process. Environment and working-directory
-policies belong to launch integration, not this parser.
+are inherited from the caller by `lofi run`. Configured arguments precede the
+arguments supplied after the run target. The command uses the exact completed
+generation rather than reading the public output link again. Compiler and
+scratch cleanup finish before the command becomes the application process.
 
 Each field is exactly `(key value)`, including list values such as
 `(library-roots ("src" "shared"))` and `(args ())`.
@@ -89,7 +93,7 @@ The builder's development mode uses per-library modules, `modules.json` and
 self-contained. An existing browser page receives the module-manifest meta
 tag understood by `host.mjs`; the builder does not invent a page. It retains
 compiler Sessions across calls but regenerates producer results each attempt.
-The current `serve`/`watch` commands still use their old loop until `dev`
+The internal `serve`/`watch` commands still use their old loop until `dev`
 integration is complete.
 
 `(artifact-bundle "NAME")` embeds the complete output of a browser build in
