@@ -191,11 +191,18 @@ formatter; it never serves project HTML or arbitrary filesystem paths.
 | `GET /api/file?path=...` | `{text, revision}` for one file. |
 | `PUT /api/file?path=...` | UTF-8 `text/plain` plus one strong quoted `If-Match` revision; returns the submitted snapshot or a conflict (409). |
 | `POST /api/build` | Explicit Build, with an empty body. Save never calls this operation. |
-| `GET /api/events` | SSE: current `status` (`phase`, attempt `id`, `diagnostics`), then `files` invalidation; subsequent status and shared-observer changes. |
+| `POST /api/run/start?target=...` | Start an accepted run target; empty body, 204 acknowledgement. |
+| `POST /api/run/stop?target=...` | Stop a retained run target, including a removed name; empty body, 204 acknowledgement. |
+| `POST /api/run/restart?target=...` | Fresh attempt for an accepted run target; empty body, 204 acknowledgement. |
+| `GET /api/events` | SSE: current compiler `status` (`phase`, attempt `id`, `diagnostics`), current `runs` array, then `files` invalidation; subsequent changes to each. |
 
-Reconnect obtains current status and an unconditional file invalidation; there is
-no event archive or replay cursor. Build directories and worker identity stay in
-the native session. Each stream holds at most one pending write; a later event
+Reconnect obtains both current snapshots and an unconditional file invalidation;
+there is no event archive or replay cursor. Each run includes its target, availability,
+intent, desired build and observed attempt, with PID, build, phase, exit outcome and
+bounded stdout/stderr tails. Compiler and run frames are sent independently when
+their respective values change: output does not replay compiler diagnostics.
+Build directories and worker identity stay in the native session.
+Each stream holds at most one pending write; a later event
 closes a reader whose previous write still needs drain. An idle blocked stream
 stays open until another event or connection closure, within the 64-stream limit. Request
 bodies are limited to 8 MiB and decoded strictly as UTF-8. File operations remain
@@ -205,6 +212,13 @@ The service requires its exact Host authority and rejects a supplied foreign
 Origin or fetch context. Mutations require the exact Origin. It provides no CORS
 access. This boundary keeps other websites from reading or writing project files;
 it is not authentication against other native processes on the same machine.
+
+Run controls use the last accepted definitions, even while compilation fails.
+Unknown names, and Start/Restart for removed names, return 404. The 204 response
+acknowledges applying intent; it contains no process snapshot that could overwrite
+a newer SSE observation. A lost response leaves the outcome unknown and must not
+cause automatic retries. Closing an HTTP or event connection does not stop an
+application. Closing the development service does.
 
 Closing removes subscriptions, closes HTTP connections and pending request bodies,
 and awaits the development owner. A body that finishes after shutdown cannot save.
@@ -277,14 +291,13 @@ files rather than the project builder's generation publication. The loop keeps
 its latest and previous module sets. Shutdown closes native resources and the
 worker and prevents late commands from starting replacement children.
 
-## Proposed application and networking integration
+## Application and networking integration
 
-The [application process design](applications.md#proposed-application-processes)
-moves run controls and reload under `dev`. It is not implemented by the editor
-service described above. The internal [application process owner](applications.md#native-application-process-owner)
-already provides child lifetime, signals and bounded output; build acceptance and
-UI integration follow separately. Production `serve` and package installation still need
-their own contracts; neither is a current public command.
+The native service and HTTP API implement [application run controls](applications.md#development-run-targets)
+and replacement after accepted builds. The editor UI follows separately. Durable
+state and browser reload integration remain [proposed work](applications.md#proposed-application-processes).
+Production `serve` and package installation still need their own contracts;
+neither is a current public command.
 
 The concrete [socket effects](../runtimes/networking.md) provide TCP streams and
 UDP datagrams to native CLI programs and replacement handlers for tests. Their
@@ -304,7 +317,7 @@ is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 
 | Boundary | Information crossing it |
 | --- | --- |
-| Editor ↔ development process | File reads/saves, build requests, current status and diagnostics. Run controls/logs are proposed. |
+| Editor ↔ development process | File reads/saves, build requests, current status and diagnostics. HTTP run controls/status are implemented; the editor UI follows. |
 | Development process ↔ compiler worker | Attempt IDs, project descriptions, results, diagnostics and candidate output identities. Compiler objects and WasmGC references stay in the worker. |
 | Development process ↔ application process | Entry, arguments, environment, working directory, standard streams, exit status and OS controls. Each process lifetime names its build and run target. |
 | Browser ↔ application server | Ordinary HTTP; build-specific reload delivery is proposed. |
