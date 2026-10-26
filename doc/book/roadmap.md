@@ -181,8 +181,8 @@ remains under review:
   Cached expansion re-resolves exact file evidence and invalidates generic
   consumers. Native traversal captures completed generation files for each build.
 - [x] Replace stderr work requests with typed request/reply datums. The native
-  builder retains artifact replies across compiler restarts and keeps a bound
-  resolver active through producer compilation. Scratch directories are exclusive.
+  builder retains artifact replies across retries and shares its target traversal
+  through producer compilation. Scratch directories are exclusive.
 - [x] Keep compiler sessions alive under `dev`. One shared watcher drives
   compilation from saved files and notifies the editor, including after
   external tools write files. Publish fresh diagnostics for every attempt.
@@ -204,6 +204,9 @@ remains under review:
   producers, and return private candidates before publication. Failed parents
   preserve dependency outputs; publication failure retains its completed prefix.
   The persistent worker and shared watcher use this builder too.
+- [x] Remove the unused Chibi artifact-resolver binding and its reply state.
+  Standalone source compilation retains generated libraries and rejects project
+  artifact requests; real project builds use the native target traversal.
 - [x] Provide one disk observer with independent subscriptions, metadata
   reconciliation and watch recovery. Explicit exclusions keep output/data
   directories separate; caller policy decides which observed paths need builds.
