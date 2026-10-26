@@ -466,7 +466,7 @@
 
     ;; ---- Generated syntax ----
 
-    ;; One form in the encoding lib/lofi/syntax.sld describes, every part
+    ;; One form in the encoding src/lofi/syntax.sld describes, every part
     ;; placed at `loc`, the recipe that produced it. A byte vector is cut
     ;; from the bytes as they are, and a number must read as it would in
     ;; text.

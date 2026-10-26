@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, writeFileSync} from 'node:fs';
 import {WASI} from 'node:wasi';
 import {parentPort, workerData} from 'node:worker_threads';
-import {commandImports} from '../src/app/load.mjs';
+import {commandImports} from '../browser/load.mjs';
 import {createAssembler} from './assemble.mjs';
 
 // ---- Program entries ----

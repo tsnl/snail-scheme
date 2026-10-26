@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {Socket} from 'node:dgram';
 import {getEventListeners, once} from 'node:events';
-import {createUdp} from '../scripts/udp.mjs';
+import {createUdp} from '../host/native/udp.mjs';
 
 const udp = createUdp(), signal = new AbortController().signal, sockets = [], closed = new Set();
 const bind = Socket.prototype.bindSync, send = Socket.prototype.send;
