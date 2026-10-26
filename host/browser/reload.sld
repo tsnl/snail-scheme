@@ -3,9 +3,9 @@
 ;; server's events carries, and decides what the page does: fetch a style
 ;; sheet again, relink the program from the first module that changed,
 ;; reload the page, or show a notice. It runs as WebAssembly; the page
-;; (src/app/reload.mjs) passes it the
+;; (host/browser/reload.mjs) passes it the
 ;; page's manifest and each event, a character at a time, and
-;; src/app/reload-client.mjs performs the `page` effect's commands.
+;; host/browser/reload-client.mjs performs the `page` effect's commands.
 (import
  (lofi base)
  (lofi datum)
@@ -39,7 +39,7 @@
       (loop (+ index 1))))
   (argument-end))
 
-;; The commands, as src/app/reload-client.mjs names them. A notice is
+;; The commands, as host/browser/reload-client.mjs names them. A notice is
 ;; lasting, a failure, or brief.
 (: lasting I32)
 (define lasting 0)

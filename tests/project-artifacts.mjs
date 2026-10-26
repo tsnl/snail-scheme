@@ -12,7 +12,7 @@ const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'lofi-project-artifacts-'));
 const output = name => join(project, 'build', name);
 const build = (name, env = process.env) => execute(join(root, 'lofi'), ['build', project, name], {env, maxBuffer: 4 * 1024 * 1024});
-const run = path => execute(process.execPath, ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), path]);
+const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), path]);
 const artifact = name => `(import (lofi base) (lofi artifact))\n(artifact-bundle "${name}")\n`;
 
 async function generations() {

@@ -6,15 +6,18 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- Languages are libraries. The compiler lives in `src/lofi/compiler/` and is
-  written in typed Lofi importing only `(lofi base)`, `(lofi table)` and
-  `(lofi io)`, so it compiles itself. Chibi runs the same source with
-  `-I host/chibi -I src`; `host/chibi/` implements those libraries and erases
-  the typed forms, and is the only place host-specific code may live. The
-  standard library lives in `lib/`, a search root Chibi never loads, with
-  paths matching library names and `.sld` sources. Surface macros expand away
-  before checking. See [the language guide](doc/language.md) and
-  [the redesign](doc/redesign.md).
+- Languages are libraries. Every Lofi library lives under `src/`, with paths
+  matching library names and `.sld` sources, and the compiler is one of them:
+  `src/lofi/compiler/`, written in typed Lofi importing only `(lofi base)`,
+  `(lofi table)` and `(lofi io)`, so it compiles itself. Chibi runs that same
+  source with `-I src -I host/chibi`; Chibi prepends each `-I`, so the last
+  wins and `host/chibi/`'s implementations of those three shadow the typed
+  ones and erase the typed forms. `make bootstrap` is what proves the
+  compiler reaches nothing else. Host-specific
+  code lives only under `host/`: `chibi/` for stage 0, `native/` for Node,
+  `browser/` for the page, `ide/` for the editor. Rust crates live in
+  `crates/`. Surface macros expand away before checking. See
+  [the language guide](doc/language.md) and [the redesign](doc/redesign.md).
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries
@@ -69,9 +72,9 @@ a failure as many times as a fix needs; pushing to see what breaks spends
 that time for a worse report. Push when a change is verified, not to find out.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path src/runtime/Cargo.toml --offline`, and
-`cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check`, and the
-same two for `src/assembler`. The
+`cargo test --manifest-path crates/runtime/Cargo.toml --offline`, and
+`cargo fmt --manifest-path crates/runtime/Cargo.toml --all -- --check`, and the
+same two for `crates/assembler`. The
 driver rebuilds the compiled compiler whenever the compiler's source
 changes; compiler changes must also pass `make test-chibi`, which runs the
 source on Chibi, and `make bootstrap`, which rebuilds from Chibi alone.
@@ -108,9 +111,9 @@ gives the reload rules; what matters when writing code:
   compiler or development tools takes an exclusive lock on `build/lock`, so
   `make test` may run beside a server.
 - The existing application loop is `src/lofi/develop.sld` on the native
-  `scripts/develop.mjs` host; the page's reload client is `src/app/reload.sld`,
-  `relinkProgram` in `src/app/load.mjs` relinks after the JSPI loop in
-  `src/app/runtime.mjs` saves, returns its state and settles. `tests/develop.mjs` (in
+  `host/native/develop.mjs` host; the page's reload client is `host/browser/reload.sld`,
+  `relinkProgram` in `host/browser/load.mjs` relinks after the JSPI loop in
+  `host/browser/runtime.mjs` saves, returns its state and settles. `tests/develop.mjs` (in
   `make test`) and `tests/browser/reload.mjs` and `tests/browser/ide.mjs`
   (`make test-browser`, needs `CHROMIUM`) cover them. See
   [the development toolchain](doc/book/lofi/toolchain.md).

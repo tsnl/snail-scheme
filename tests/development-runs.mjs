@@ -7,8 +7,8 @@ import fsp from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
-import {developProject, UnknownRunTarget} from '../scripts/project-develop.mjs';
-import {projectTools} from '../scripts/project.mjs';
+import {developProject, UnknownRunTarget} from '../host/native/project-develop.mjs';
+import {projectTools} from '../host/native/project.mjs';
 
 const root = process.argv[2], directory = fs.mkdtempSync(join(tmpdir(), 'lofi-development-runs-'));
 const project = join(directory, 'project'), gate = join(directory, 'gate');

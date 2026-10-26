@@ -5,8 +5,8 @@ import fsp from 'node:fs/promises';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {FileConflict, ProjectFileError, projectFiles} from '../scripts/project-files.mjs';
-import {watchProject} from '../scripts/watch.mjs';
+import {FileConflict, ProjectFileError, projectFiles} from '../host/native/project-files.mjs';
+import {watchProject} from '../host/native/watch.mjs';
 
 const parent = fs.mkdtempSync(join(tmpdir(), 'lofi-project-files-')), project = join(parent, 'project');
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };

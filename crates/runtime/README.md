@@ -14,13 +14,13 @@ The command-line driver (`host/chibi/lofi/build.sld`) builds this crate for
 as `lofi build` and the internal source compiler build them, and connects terminal
 diagnostics and resource cleanup. A program linked when it runs, as
 `./scripts/lofi-tool serve`, `./scripts/lofi-tool watch` and the IDE build it, instead loads the runtime
-as its own instance beside the library modules (`src/app/load.mjs`). Node's
-WASI and the browser host in `src/app/host.mjs` supply the platform
+as its own instance beside the library modules (`host/browser/load.mjs`). Node's
+WASI and the browser host in `host/browser/host.mjs` supply the platform
 operations.
 
 ```sh
-cargo test --manifest-path src/runtime/Cargo.toml --offline
-cargo fmt --manifest-path src/runtime/Cargo.toml --all -- --check
+cargo test --manifest-path crates/runtime/Cargo.toml --offline
+cargo fmt --manifest-path crates/runtime/Cargo.toml --all -- --check
 ```
 
 Host compilation is used for unit tests.

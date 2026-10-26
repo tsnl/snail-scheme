@@ -1,7 +1,7 @@
 // Numeric conversion scratch belongs to one actual Wasm runtime instance.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createWasi, instantiate} from '../src/app/load.mjs';
+import {createWasi, instantiate} from '../host/browser/load.mjs';
 
 const module = await WebAssembly.compile(await readFile(process.argv[2]));
 async function runtime() {

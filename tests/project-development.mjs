@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createProjectBuilder, discardProject, projectTools, publishProject} from '../scripts/project.mjs';
+import {createProjectBuilder, discardProject, projectTools, publishProject} from '../host/native/project.mjs';
 
 const root = process.argv[2], project = fs.mkdtempSync(join(tmpdir(), 'lofi-project-development-'));
 const working = fs.mkdtempSync(join(tmpdir(), 'lofi-project-worker-'));
@@ -16,7 +16,7 @@ const output = name => fs.realpathSync(join(project, 'build', name));
 const target = (candidate, name) => candidate.targets.find(target => target.name === name);
 
 function execute(directory) {
-  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
+  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, '');
   return result.stdout;

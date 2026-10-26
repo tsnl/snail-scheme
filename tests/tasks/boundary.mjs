@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {createWasi, instantiate, linkProgram, runProgram} from '../../src/app/load.mjs';
+import {createWasi, instantiate, linkProgram, runProgram} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]), work = [], lines = [];
 const host = {'snail.tasks': {dispatch: (run, drop, owner) => work.push({run, drop, owner})}};

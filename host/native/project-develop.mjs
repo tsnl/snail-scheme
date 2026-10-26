@@ -17,8 +17,9 @@ const within = (directory, path) => path === directory || path.startsWith(direct
 // data reads by a producer are not tracked yet; manual Build reruns producers.
 function inputPath(root, project, description, path) {
   if (path === join(project, 'project.datum')) return true;
-  if ((within(project, path) || within(join(root, 'lib'), path)) && path.endsWith('.sld')) return true;
-  if (within(join(root, 'src/app'), path)) return true;
+  if ((within(project, path) || within(join(root, 'src'), path) || within(join(root, 'guest'), path))
+      && path.endsWith('.sld')) return true;
+  if (within(join(root, 'host/browser'), path)) return true;
   return description?.builds.some(target => {
     const entry = join(project, target.entry), publicPath = target.public && join(project, target.public);
     return within(path, entry) || (publicPath && (within(publicPath, path) || within(path, publicPath)));
@@ -50,7 +51,7 @@ export function developProject({root, project, tools}) {
   root = realpathSync(root); project = realpathSync(project);
   mkdirSync(join(root, 'build/lofi-run'), {recursive: true});
   const directory = mkdtempSync(join(root, 'build/lofi-run/project-'));
-  const files = watchProject({roots: [project, join(root, 'lib'), join(root, 'src/app')],
+  const files = watchProject({roots: [project, join(root, 'src'), join(root, 'guest'), join(root, 'host/browser')],
     exclude: [join(project, 'build'), join(project, '.git'), join(root, 'build')]});
   let worker;
   try {

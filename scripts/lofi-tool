@@ -2,7 +2,9 @@
 # Internal contributor commands; applications use the project CLI.
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 case ${1:-} in
-  serve|watch) exec "${NODE:-node}" --no-warnings "$root/scripts/develop.mjs" "$root" "$@" ;;
+  serve|watch) exec "${NODE:-node}" --no-warnings "$root/host/native/develop.mjs" "$root" "$@" ;;
 esac
-# Chibi collects the whole heap whenever it grows, so start it large.
-exec "${CHIBI:-chibi-scheme}" -h "${LOFI_HEAP:-2G}" -I "$root/host/chibi" -I "$root/src" "$root/scripts/lofi.scm" "$root" "$@"
+# Chibi collects the whole heap whenever it grows, so start it large. It
+# prepends each -I, so host/chibi comes last, where its stage-0 (lofi base),
+# (lofi table) and (lofi io) shadow the typed ones under src/.
+exec "${CHIBI:-chibi-scheme}" -h "${LOFI_HEAP:-2G}" -I "$root/src" -I "$root/host/chibi" "$root/scripts/lofi.scm" "$root" "$@"

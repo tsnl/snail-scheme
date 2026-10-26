@@ -74,7 +74,7 @@ never enters compilation. Each attempt starts with fresh diagnostics while
 retaining valid compiler caches; an error does not display stale diagnostics
 from the preceding attempt.
 
-`scripts/project.mjs` supplies the same serial builder to cold commands and the
+`host/native/project.mjs` supplies the same serial builder to cold commands and the
 resident service. A cold command owns its compiler directly. Development uses
 one persistent compiler worker so synchronous compilation and tool IO cannot
 block the HTTP service or disk observation. The worker retains a successful
@@ -86,7 +86,7 @@ recompiles importers. A cold start has no retained compiler cache.
 
 ### Observation and acceptance
 
-`scripts/watch.mjs` supplies one disk observer with independent subscriptions.
+`host/native/watch.mjs` supplies one disk observer with independent subscriptions.
 Construction installs recursive watches before the first inventory read; callers
 subscribe and then await `reconcile()`. Named native notifications are hints.
 Periodic inventories compare file identity, size and nanosecond modification/change
@@ -109,8 +109,8 @@ cannot guarantee detection on filesystems that hide changes behind unchanged or
 coarse metadata. The project development parent consumes this observer; the old
 commands still use their existing watches until command/application integration.
 
-`scripts/project-develop.mjs` owns serialized project attempts and one current
-status, with independent subscriptions. `scripts/project-worker.mjs` owns the
+`host/native/project-develop.mjs` owns serialized project attempts and one current
+status, with independent subscriptions. `host/native/project-worker.mjs` owns the
 resident builder. Each attempt starts with an ID and empty diagnostics. The parent
 keeps distinct observed paths only for the active attempt, including paths outside
 the previous project's public inputs. A reply carries the newly parsed description
@@ -149,7 +149,7 @@ development session; there is no automatic crash loop.
 
 ## Project file service
 
-`scripts/project-files.mjs` owns one physical project directory and three native
+`host/native/project-files.mjs` owns one physical project directory and three native
 operations: filter the shared observer's filenames, read text with a revision,
 and save against that revision. Listing awaits a fresh complete reconciliation;
 a failed scan rejects the request instead of returning stale names. There is no
@@ -182,9 +182,9 @@ creation, rename, deletion, merging and automatic conflict retry are omitted.
 
 ## Project HTTP service
 
-`scripts/project-http.mjs` connects the project attempt owner and file service on
+`host/native/project-http.mjs` connects the project attempt owner and file service on
 `127.0.0.1`. Its native API returns the URL, development session, completion promise
-and an idempotent close operation. `scripts/dev.mjs` supplies the `dev` command.
+and an idempotent close operation. `host/native/dev.mjs` supplies the `dev` command.
 The same HTTP service serves a fixed list of trusted editor assets and the
 formatter; it never serves project HTML or arbitrary filesystem paths.
 
@@ -299,7 +299,7 @@ session, debounces changes and publishes manifests. It cannot run generated-libr
 producers or resolve project artifacts. Use project builds for those inputs.
 The [application chapter](applications.md#hot-reload) defines current reload behavior.
 
-`scripts/develop.mjs` owns watches, timers, HTTP and application children;
+`host/native/develop.mjs` owns watches, timers, HTTP and application children;
 `develop-worker.mjs` owns the compiled loop, assembler and immediate filesystem
 helpers. Watch, schedule, serve, broadcast and run commands cross to the parent.
 Watches are installed before the first compile. HTML, manifests and module bytes

@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN, RELOAD} from '../../src/app/runtime.mjs';
-import {screenImports} from '../../src/app/host.mjs';
-import {createWasi, instantiate, linkProgram, runProgram} from '../../src/app/load.mjs';
+import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN, RELOAD} from '../../host/browser/runtime.mjs';
+import {screenImports} from '../../host/browser/host.mjs';
+import {createWasi, instantiate, linkProgram, runProgram} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]);
 const turn = () => new Promise(setImmediate);

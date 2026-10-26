@@ -6,8 +6,8 @@ import {spawn} from 'node:child_process';
 import {mkdtemp, readFile, rm, unlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {serveProject} from '../../scripts/project-http.mjs';
-import {editorTools} from '../../scripts/project.mjs';
+import {serveProject} from '../../host/native/project-http.mjs';
+import {editorTools} from '../../host/native/project.mjs';
 import {openBrowser, sleep, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2), project = await mkdtemp(join(tmpdir(), 'lofi-ide-'));

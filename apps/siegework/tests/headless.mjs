@@ -5,9 +5,9 @@
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import assert from 'node:assert/strict';
-import {screenImports} from '../../../src/app/host.mjs';
-import {createRuntime, applicationEntry} from '../../../src/app/runtime.mjs';
-import {createWasi, instantiate, linkProgram, runProgram} from '../../../src/app/load.mjs';
+import {screenImports} from '../../../host/browser/host.mjs';
+import {createRuntime, applicationEntry} from '../../../host/browser/runtime.mjs';
+import {createWasi, instantiate, linkProgram, runProgram} from '../../../host/browser/load.mjs';
 
 const ELAPSED = 11, PRESS = 9, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 const SUGGESTED = 5;
@@ -26,7 +26,7 @@ function screen() {
 const target = host => [host.frames.at(-1).camera.target[0], host.frames.at(-1).camera.target[2]];
 
 // A linked module, or a modules.json naming the game's library modules,
-// which link to a runtime instance of their own (src/app/load.mjs).
+// which link to a runtime instance of their own (host/browser/load.mjs).
 async function instantiateGame(path, host, saved) {
   const runtime = createRuntime({seed: 7, load: async () => saved});
   const wasi = createWasi({print: (fd, line) => console.log(line)});

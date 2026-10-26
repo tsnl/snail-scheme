@@ -1,4 +1,4 @@
-// The formatter, src/ide/format.sld, on the page's own thread, so Tab and
+// The formatter, host/ide/format.sld, on the page's own thread, so Tab and
 // Enter indent at once and highlighting follows each keystroke. Text
 // crosses a character at a time each way. A formatter that panics may hold
 // half its input, so the next call gets a fresh instance.

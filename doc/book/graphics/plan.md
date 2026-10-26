@@ -2,7 +2,7 @@
 
 **Proposed.** The [application loop](../lofi/applications.md) and
 [task runtime](../runtimes/index.md) already execute on JSPI. Applications still
-send `Frame` values to `src/app/renderer.mjs`; this design replaces that renderer
+send `Frame` values to `host/browser/renderer.mjs`; this design replaces that renderer
 with a concrete GPU effect and libraries of pipelines and packers. Delivery is
 tracked in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 

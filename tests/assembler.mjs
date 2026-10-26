@@ -12,9 +12,9 @@ import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createAssembler} from '../scripts/assemble.mjs';
+import {createAssembler} from '../host/native/assemble.mjs';
 
-const runner = fileURLToPath(new URL('../scripts/run-lofi.mjs', import.meta.url));
+const runner = fileURLToPath(new URL('../host/native/run-lofi.mjs', import.meta.url));
 
 // The module runs as the one library of a modules.json, in a child process,
 // so its standard output can be compared.

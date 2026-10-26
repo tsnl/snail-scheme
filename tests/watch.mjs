@@ -6,7 +6,7 @@ import fsp from 'node:fs/promises';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {watchProject} from '../scripts/watch.mjs';
+import {watchProject} from '../host/native/watch.mjs';
 
 const parent = fs.mkdtempSync(join(tmpdir(), 'lofi-watcher-'));
 const project = join(parent, 'project'), external = join(parent, 'library');

@@ -68,12 +68,12 @@ const editorStatus = ({phase, id, diagnostics}) => ({phase, id, diagnostics});
 // arbitrary paths are never served here; application serving is separate.
 function editorAssets(root, tools) {
   const assets = new Map([
-    ['/', [join(root, 'src/ide/index.html'), 'text/html']],
+    ['/', [join(root, 'host/ide/index.html'), 'text/html']],
     ['/format.wasm', [tools.formatter, 'application/wasm']],
-    ['/load.mjs', [join(root, 'src/app/load.mjs'), 'text/javascript']],
-    ['/ide.css', [join(root, 'src/ide/ide.css'), 'text/css']],
+    ['/load.mjs', [join(root, 'host/browser/load.mjs'), 'text/javascript']],
+    ['/ide.css', [join(root, 'host/ide/ide.css'), 'text/css']],
   ]);
-  for (const name of ['ide', 'editor', 'panes', 'formatter']) assets.set(`/${name}.mjs`, [join(root, `src/ide/${name}.mjs`), 'text/javascript']);
+  for (const name of ['ide', 'editor', 'panes', 'formatter']) assets.set(`/${name}.mjs`, [join(root, `host/ide/${name}.mjs`), 'text/javascript']);
   return assets;
 }
 

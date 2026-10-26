@@ -1,8 +1,8 @@
 # Native networking
 
 `(lofi socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
-program runner binds them to `scripts/tcp.mjs` and `scripts/udp.mjs` through JSPI
-and `scripts/socket-imports.mjs`. Static and separately linked programs use the
+program runner binds them to `host/native/tcp.mjs` and `host/native/udp.mjs` through JSPI
+and `host/native/socket-imports.mjs`. Static and separately linked programs use the
 same binding. The [HTTP library](../lofi/http.md) implements one complete
 request/response exchange over TCP. Browser sockets are not implemented.
 [The networking issue](https://github.com/tsnl/snail-scheme/issues/457) tracks the
@@ -169,7 +169,7 @@ created handle. No native cleanup record retains a managed wrapper.
 
 ## Native UDP owner
 
-`scripts/udp.mjs` owns IPv4 datagram sockets behind the `udp` effect. It is tested
+`host/native/udp.mjs` owns IPv4 datagram sockets behind the `udp` effect. It is tested
 against real loopback sockets, including forced asynchronous native sends.
 It uses Node's [synchronous numeric bind](https://nodejs.org/api/dgram.html#socketbindsyncoptions),
 available from 26.4. Binding is a nonblocking local operation, so it needs no

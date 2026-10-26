@@ -6,7 +6,7 @@
 ;; some programs and Siegework run again as modules linked when they run,
 ;; and the development server serves and rebuilds an application.
 ;;
-;;   chibi-scheme -D snail-tests -I host/chibi -I src -I tests tests/run.scm ROOT [NAME ...]
+;;   chibi-scheme -D snail-tests -I tests -I src -I host/chibi tests/run.scm ROOT [NAME ...]
 (import
  (scheme base)
  (scheme cxr)
@@ -90,7 +90,7 @@
          (names (filter (lambda (name) (or (null? selected) (member name selected))) (case-names directory))))
     (create-directory* build)
     (map (lambda (name)
-           (compile-case root (append (map (lambda (library) (path-join root library)) libraries) (list (path-join root "lib")))
+           (compile-case root (append (map (lambda (library) (path-join root library)) libraries) (standard-directories root))
                          directory build name))
          names)))
 
@@ -98,7 +98,7 @@
 
 (define (compile-siegework root)
   (guard (failure (#t (report "siegework" "compile failed" (error-text failure))))
-    (let ((text (program->wat root (list (path-join root "apps/siegework/src") (path-join root "lib"))
+    (let ((text (program->wat root (cons (path-join root "apps/siegework/src") (standard-directories root))
                               (path-join root "apps/siegework/main.sld"))))
       (lambda () (check-siegework root text)))))
 
@@ -113,7 +113,7 @@
 ;; module that runs with the runtime as its own instance.
 (define (compile-assembler root)
   (guard (failure (#t (report "assembler" "compile failed" (error-text failure))))
-    (let ((text (program->wat root (list (path-join root "examples") (path-join root "lib")) (path-join root "examples/fibonacci.sld"))))
+    (let ((text (program->wat root (cons (path-join root "examples") (standard-directories root)) (path-join root "examples/fibonacci.sld"))))
       (lambda () (check-assembler root text)))))
 
 (define (check-assembler root text)
@@ -136,7 +136,7 @@
 ;; The exposed and foreign ABI, exercised from JavaScript against linked Wasm.
 (define (check-host-boundary root)
   (let* ((program (path-join root "build/tests/host-boundary.wasm"))
-         (text (program->wat root (list (path-join root "tests/host-boundary") (path-join root "lib")) (path-join root "tests/host-boundary/main.sld"))))
+         (text (program->wat root (cons (path-join root "tests/host-boundary") (standard-directories root)) (path-join root "tests/host-boundary/main.sld"))))
     (link-wat root text program #f)
     (run-host-boundary root program)))
 
@@ -146,7 +146,7 @@
 
 (define (compile-app-runtime root)
   (guard (failure (#t (report "app runtime" "compile failed" (error-text failure))))
-    (let ((text (program->wat root (list (path-join root "lib")) (path-join root "tests/app-runtime/main.sld"))))
+    (let ((text (program->wat root (standard-directories root) (path-join root "tests/app-runtime/main.sld"))))
       (lambda ()
         (let ((program (path-join root "build/tests/app-runtime.wasm")))
           (link-wat root text program #f)
@@ -162,7 +162,7 @@
     (or (zero? (caddr result)) (report "task runtime" "failed" (string-append (car result) (cadr result))))))
 
 (define (compile-task-boundary root)
-  (let ((text (program->wat root (list (path-join root "lib")) (path-join root "tests/tasks/boundary.sld"))))
+  (let ((text (program->wat root (standard-directories root) (path-join root "tests/tasks/boundary.sld"))))
     (lambda ()
       (let ((program (path-join root "build/tests/task-boundary.wasm")))
         (link-wat root text program #f)
@@ -183,7 +183,7 @@
     (create-directory* (path-join root "build/tests/type-ids"))
     (call-with-output-file source
       (lambda (port) (write-string (string-append "(import (lofi base))\n(enum Phase " cases ")\n(type-convert (Day) Any)\n") port)))
-    (let* ((text (program->wat root (list (path-join root "lib")) source)) (start (+ (text-index text marker 0) (string-length marker))))
+    (let* ((text (program->wat root (standard-directories root) source)) (start (+ (text-index text marker 0) (string-length marker))))
       (substring text start (text-index text ")" start)))))
 
 (define (text-index text pattern from)
@@ -196,7 +196,7 @@
 ;; left it.
 (define (compile-formatter root)
   (guard (failure (#t (report "formatter" "compile failed" (error-text failure))))
-    (let ((text (program->wat root (list (path-join root "lib")) (path-join root "src/ide/format.sld"))))
+    (let ((text (program->wat root (standard-directories root) (path-join root "host/ide/format.sld"))))
       (lambda () (check-formatter root text)))))
 
 (define (check-formatter root text)
@@ -206,7 +206,7 @@
       (create-directory* (path-join root "build/tests/formatter"))
       (link-wat root text program #f)
       (let ((result (capture-process
-                     (append (list "node" "--no-warnings" (path-join root "scripts/run-lofi.mjs") program "--check")
+                     (append (list "node" "--no-warnings" (path-join root "host/native/run-lofi.mjs") program "--check")
                              (map (lambda (file) (path-join root file)) (delete "" (string-split (car files) #\newline)))))))
         (or (and (zero? (caddr result)) (string=? (car result) ""))
             (report "formatter" "formats differently from Emacs" (string-append (car result) (cadr result))))))))
@@ -277,7 +277,7 @@
          '(() ("--test-udp-no-try-send"))))
 
 (define (compile-socket-boundary root)
-  (let ((text (program->wat root (list (path-join root "lib")) (path-join root "tests/socket-boundary/main.sld"))))
+  (let ((text (program->wat root (standard-directories root) (path-join root "tests/socket-boundary/main.sld"))))
     (lambda ()
       (let ((program (path-join root "build/tests/socket-boundary.wasm")))
         (link-wat root text program #f)
@@ -290,7 +290,7 @@
 ;; A compiler running as Wasm resolves concrete file snapshots, then emits
 ;; static and cached library builds whose current bytes are executed.
 (define (compile-artifacts root)
-  (let ((text (program->wat root (list (path-join root "src") (path-join root "lib")) (path-join root "tests/artifacts/compiler.sld"))))
+  (let ((text (program->wat root (standard-directories root) (path-join root "tests/artifacts/compiler.sld"))))
     (lambda ()
       (let* ((output (path-join root "build/tests/artifacts")) (compiler (path-join output "compiler.wasm")))
         (for-each (lambda (name) (create-directory* (path-join output name))) '("first" "unchanged" "changed"))
@@ -300,7 +300,8 @@
 (define (check-artifacts root output compiler)
   (let ((compiled (capture-process
                    (append (node-command root compiler)
-                           (list (path-join root "tests/artifacts/main.sld") output (path-join root "lib") (path-join root "tests/artifacts/lib"))))))
+                           (append (list (path-join root "tests/artifacts/main.sld") output)
+                                   (standard-directories root) (list (path-join root "tests/artifacts/lib")))))))
     (if (not (zero? (caddr compiled)))
         (report "artifacts" "fixture compiler failed" (string-append (car compiled) (cadr compiled)))
         (let ((result (capture-process
@@ -310,7 +311,7 @@
 
 ;; One resident compiler instance returns opaque sessions and parsed records.
 (define (compile-native-compiler root)
-  (let ((text (program->wat root (list (path-join root "src") (path-join root "lib")) (path-join root "bootstrap/compiler.sld"))))
+  (let ((text (program->wat root (standard-directories root) (path-join root "bootstrap/compiler.sld"))))
     (lambda ()
       (let* ((program (path-join root "build/tests/native-compiler.wasm"))
              (linked (link-wat root text program #f))
@@ -322,7 +323,7 @@
 ;; ---- Linked modules ----
 
 ;; Programs compiled one library at a time and linked when they run, by
-;; scripts/run-lofi.mjs and the loader in src/app/load.mjs, must print what
+;; host/native/run-lofi.mjs and the loader in host/browser/load.mjs, must print what
 ;; their statically linked builds print. A sample of the suites covers each
 ;; kind of definition crossing a module boundary, and Siegework covers an
 ;; application. Building runs the compiler, so these run after the others.
@@ -342,7 +343,7 @@
 (define (run-linked root suite name)
   (guard (failure (#t (report name "linked build failed" (error-text failure))))
     (let ((output (path-join root "build/tests/linked" name)))
-      (build-modules root (append (map (lambda (library) (path-join root library)) (suite-libraries suite)) (list (path-join root "lib")))
+      (build-modules root (append (map (lambda (library) (path-join root library)) (suite-libraries suite)) (standard-directories root))
                      (path-join root suite (string-append name ".sld")) output)
       (let ((printed (run-wasm root (path-join output "modules.json")))
             (expected (read-file (path-join root suite (string-append name ".out")))))
@@ -351,7 +352,7 @@
 (define (run-linked-siegework root)
   (guard (failure (#t (report "siegework" "linked build failed" (error-text failure))))
     (let ((output (path-join root "build/tests/linked/siegework")))
-      (build-modules root (list (path-join root "apps/siegework/src") (path-join root "lib")) (path-join root "apps/siegework/main.sld") output)
+      (build-modules root (cons (path-join root "apps/siegework/src") (standard-directories root)) (path-join root "apps/siegework/main.sld") output)
       (let ((result (capture-process (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs")
                                            (path-join output "modules.json")))))
         (or (zero? (caddr result)) (report "siegework" "linked headless run failed" (string-append (car result) (cadr result))))))))
@@ -359,7 +360,7 @@
 (define (run-linked-app-runtime root)
   (guard (failure (#t (report "app runtime" "linked build failed" (error-text failure))))
     (let ((output (path-join root "build/tests/linked/app-runtime")))
-      (build-modules root (list (path-join root "lib")) (path-join root "tests/app-runtime/main.sld") output)
+      (build-modules root (standard-directories root) (path-join root "tests/app-runtime/main.sld") output)
       (check-app-runtime root (path-join output "modules.json")))))
 
 (define (run-linked-cases root)
@@ -369,17 +370,17 @@
 
 (define (run-linked-socket-boundary root)
   (let ((output (path-join root "build/tests/linked/socket-boundary")))
-    (build-modules root (list (path-join root "lib")) (path-join root "tests/socket-boundary/main.sld") output)
+    (build-modules root (standard-directories root) (path-join root "tests/socket-boundary/main.sld") output)
     (check-socket-boundary root (path-join output "modules.json"))))
 
 (define (run-linked-host-boundary root)
   (let ((output (path-join root "build/tests/linked/host-boundary")))
-    (build-modules root (list (path-join root "tests/host-boundary") (path-join root "lib")) (path-join root "tests/host-boundary/main.sld") output)
+    (build-modules root (cons (path-join root "tests/host-boundary") (standard-directories root)) (path-join root "tests/host-boundary/main.sld") output)
     (run-host-boundary root (path-join output "modules.json"))))
 
 (define (run-linked-task-boundary root)
   (let ((output (path-join root "build/tests/linked/task-boundary")))
-    (build-modules root (list (path-join root "lib")) (path-join root "tests/tasks/boundary.sld") output)
+    (build-modules root (standard-directories root) (path-join root "tests/tasks/boundary.sld") output)
     (check-task-boundary root (path-join output "modules.json"))))
 
 ;; ---- Development loop ----
@@ -435,7 +436,7 @@
   (test-process root)
   (test-core)
   (test-wasm)
-  (test-session (path-join root "build/tests/session") (path-join root "lib"))
+  (test-session (path-join root "build/tests/session") (path-join root "src"))
   (test-project)
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)

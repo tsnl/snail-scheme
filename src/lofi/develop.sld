@@ -3,10 +3,10 @@
 ;; again. A build goes through a compile session (lofi compiler session), so
 ;; it recompiles only the libraries an edit changed, each to its own module.
 ;; bootstrap/develop.sld exposes its entry points as WebAssembly under Node.
-;; The scripts/develop.mjs host performs the `develop` commands, such as
+;; The host/native/develop.mjs host performs the `develop` commands, such as
 ;; watching a directory or serving a page, and reports events. This older
 ;; application loop remains behind serve/watch while native project
-;; development and the editor use scripts/project-develop.mjs.
+;; development and the editor use host/native/project-develop.mjs.
 (define-library (lofi develop)
   (export
    develop
@@ -195,8 +195,8 @@
     (: new-session (-> String Request Session ! mut))
     (define (new-session root request)
       (make-session (match request
-                      ((Serve _ app) (list (string-append app "/src") (string-append root "/lib")))
-                      ((Watch _ directories _) (append directories (list (string-append root "/lib")))))))
+                      ((Serve _ app) (list (string-append app "/src") (string-append root "/src") (string-append root "/guest")))
+                      ((Watch _ directories _) (append directories (list (string-append root "/src") (string-append root "/guest")))))))
 
     (: output (-> String Request String))
     (define (output root request)
@@ -207,8 +207,9 @@
     (: watched (-> String Request (List String)))
     (define (watched root request)
       (match request
-        ((Serve _ app) (list app (string-append root "/lib") (host-directory root)))
-        ((Watch source directories _) (Cons (directory-name source) (append directories (list (string-append root "/lib")))))))
+        ((Serve _ app) (list app (string-append root "/src") (string-append root "/guest") (host-directory root)))
+        ((Watch source directories _)
+         (Cons (directory-name source) (append directories (list (string-append root "/src") (string-append root "/guest")))))))
 
     (: main-source (-> Request String))
     (define (main-source request)
@@ -225,7 +226,7 @@
     ;; The browser host's files, which pages load beside their own.
     (: host-directory (-> String String))
     (define (host-directory root)
-      (string-append root "/src/app"))
+      (string-append root "/host/browser"))
 
     ;; ---- Events ----
 

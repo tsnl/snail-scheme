@@ -7,7 +7,7 @@
 ;; of a call, under the first expression of the line its list's last element
 ;; starts on, or in by two columns for the body of a special form, as the
 ;; rule for the form's name says. Highlighting classes each character by the
-;; same lexical rules. The IDE (src/ide/format.sld) formats on save, indents
+;; same lexical rules. The IDE (host/ide/format.sld) formats on save, indents
 ;; a line when Tab is pressed, and highlights as the text changes.
 (define-library (lofi format)
   (export

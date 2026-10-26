@@ -12,7 +12,7 @@ import {createRuntime, applicationEntry, HIDDEN} from './runtime.mjs';
 // ---- Input encoding ----
 
 // Input kinds and named keys match `decode-input` and the key constants in
-// lib/lofi/app.sld.
+// src/lofi/app.sld.
 const KEY_DOWN = 1, KEY_UP = 2, POINTER_DOWN = 3, POINTER_MOVE = 4, POINTER_UP = 5, POINTER_CANCEL = 6;
 const WHEEL = 7, RESIZE = 8, PRESS = 9, HOVER = 10;
 const namedKeys = {ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3, ArrowDown: 4, Escape: 27, Enter: 13, ' ': 32};
@@ -24,7 +24,7 @@ function keyCode(event) {
 
 // ---- Screen effect ----
 
-// The `screen` effect of lib/lofi/app.sld, in three parts: frames for the
+// The `screen` effect of src/lofi/app.sld, in three parts: frames for the
 // renderer, pictures for the picture store, which the renderer and the HUD
 // both read, and the HUD. A test passes its own renderer, picture store and
 // HUD, each with just what its part calls.
@@ -35,7 +35,7 @@ export function screenImports(renderer, pictures, hud) {
 // Collects one frame and hands it to the renderer, which may already hold
 // a batch's instances. A batch's style is [opacity, x, z, radius], with a
 // negative radius when nothing is hidden, from the solid, translucent or
-// revealed style that `render-batch` in lib/lofi/app.sld numbers 0, 1, 2.
+// revealed style that `render-batch` in src/lofi/app.sld numbers 0, 1, 2.
 function frameImports(renderer) {
   let frame = null, batch = null;
   const styles = [(a, b, c, d) => [1, 0, 0, -1], (a, b, c, d) => [a, 0, 0, -1], (a, b, c, d) => [1, b, c, d]];
@@ -101,7 +101,7 @@ function pictureImports(pictures) {
 
 // Collects the HUD, which the program sends only after updates, and hands
 // its panels to the HUD. A widget's strings arrive by field, numbered as
-// `render-widget` in lib/lofi/app.sld numbers them; fields 7 and 8 each
+// `render-widget` in src/lofi/app.sld numbers them; fields 7 and 8 each
 // start a span of a text, normal or strong.
 function hudImports(hud) {
   let panels = null, target = null, fieldName = null;

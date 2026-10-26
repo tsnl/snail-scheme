@@ -27,7 +27,7 @@ export function editorTools(root) {
 
 function link(root, text, output, mode) {
   run(process.env.CHIBI || 'chibi-scheme', ['-h', process.env.LOFI_HEAP || '2G',
-    '-I', join(root, 'host/chibi'), '-I', join(root, 'src'), join(root, 'scripts/link.scm'), root, text, output, mode]);
+    '-I', join(root, 'src'), '-I', join(root, 'host/chibi'), join(root, 'scripts/link.scm'), root, text, output, mode]);
 }
 
 // ---- A resident builder ----
@@ -70,7 +70,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
         if (status(output)) throw new Error('compiler requested an already provided generated library');
         scratch(producer => {
           const program = staticProgram(join(working, `${request.key}.sld`), libraries, producer, 'debug', artifact);
-          run(process.execPath, ['--no-warnings', join(root, 'scripts/run-lofi.mjs'), program, output]);
+          run(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), program, output]);
         });
         if (!status(output)) throw new Error('the producer did not write its generated library');
         return inputs;
@@ -88,7 +88,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
     }
 
     function compile(target, generation, mode, artifact) {
-      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'lib'));
+      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'src'), join(root, 'guest'));
       return scratch(working => {
         if (mode !== 'development') {
           copyFileSync(staticProgram(source, libraries, working, mode, artifact), join(generation, 'program.wasm'));
@@ -105,7 +105,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
     }
 
     function checkTarget(target, artifact) {
-      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'lib'));
+      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'src'));
       scratch(working => withInputs(inputs => compiler.check(inputs, source, working, libraries), working, libraries, artifact));
     }
 
@@ -181,7 +181,7 @@ function writeModules(directory, modules, runtime, assemble) {
 const browserFiles = ['host.mjs', 'runtime.mjs', 'tasks.mjs', 'entry.mjs', 'renderer.mjs', 'hud.mjs', 'pictures.mjs', 'storage.mjs', 'load.mjs', 'style.css'];
 
 function packageBrowser(root, project, target, output, mode) {
-  for (const name of browserFiles) copyFileSync(join(root, 'src/app', name), join(output, name));
+  for (const name of browserFiles) copyFileSync(join(root, 'host/browser', name), join(output, name));
   if (target.public !== null) copyPublic(publicDirectory(project, target.public), output);
   const page = join(output, 'index.html');
   if (mode === 'development' && status(page)) {

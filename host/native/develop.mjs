@@ -148,7 +148,7 @@ function runProgram(loop, manifest, args) {
   const previous = loop.child;
   loop.next = () => {
     if (loop.stopping) return;
-    const child = spawn(process.env.NODE ?? 'node', ['--no-warnings', join(loop.root, 'scripts/run-lofi.mjs'), manifest, ...args], {stdio: 'inherit'});
+    const child = spawn(process.env.NODE ?? 'node', ['--no-warnings', join(loop.root, 'host/native/run-lofi.mjs'), manifest, ...args], {stdio: 'inherit'});
     child.on('error', error => fail(loop, error));
     child.on('exit', (code, signal) => { if (!signal) console.error(`\x1b[2m-- exited with status ${code}\x1b[0m`); });
     loop.child = child;

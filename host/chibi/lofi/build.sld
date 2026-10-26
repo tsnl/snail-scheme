@@ -18,6 +18,7 @@
    build-project-tools
    build-editor-tools
    bootstrap!
+   standard-directories
    with-private-directory
    node-command
    path-join
@@ -46,19 +47,22 @@
 
     ;; The command that runs a compiled program under Node.
     (define (node-command root program)
-      (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "scripts/run-lofi.mjs") program))
+      (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "host/native/run-lofi.mjs") program))
 
     ;; The compiler is synchronous and has no application scheduler. Keep
     ;; the previous compiler worker's heap and native stack allowance.
     (define (compiler-command root program)
       (list (or (get-environment-variable "NODE") "node") "--no-warnings" "--max-semi-space-size=128" "--stack-size=3904"
-            (path-join root "scripts/run-compiler.mjs") program))
+            (path-join root "host/native/run-compiler.mjs") program))
 
     ;; Chibi sweeps its whole heap on every collection, and compiling the
     ;; compiler allocates gigabytes, so a large heap keeps collections rare.
     (define (chibi-compiler root)
       (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "LOFI_STAGE0_HEAP") "6G")
-            "-I" (path-join root "host/chibi") "-I" (path-join root "src") (path-join root "host/chibi/compile.scm")))
+            ;; Chibi prepends each -I, so the last one wins: host/chibi comes
+            ;; last, where its stage-0 (lofi base), (lofi table) and (lofi io)
+            ;; shadow the typed ones beside every other library under src/.
+            "-I" (path-join root "src") "-I" (path-join root "host/chibi") (path-join root "host/chibi/compile.scm")))
 
     ;; The command that runs a compiler. The compiled compiler is rebuilt
     ;; first when its source has changed; LOFI_STAGE0=chibi runs the source
@@ -84,6 +88,13 @@
                                 (let ((output (path-join directory "output.wat")))
                                   (run-compiler-into root command mode directories source output directory)
                                   (read-file output)))))
+
+    ;; The libraries that ship with the language: Lofi's own under src/, and
+    ;; the guest languages implemented on it under guest/. `(scheme base)`
+    ;; keeps its own root because src/ is on Chibi's module path, where a
+    ;; file of that name would shadow the Scheme that runs stage 0.
+    (define (standard-directories root)
+      (list (path-join root "src") (path-join root "guest")))
 
     (define (with-private-directory root use)
       (let ((directory (private-directory root)))
@@ -199,15 +210,15 @@
       (path-join root "build/compiler/lofic.wasm"))
 
     (define (compiler-directories root)
-      (list (path-join root "src") (path-join root "lib")))
+      (list (path-join root "src")))
 
     ;; The compiled compiler, rebuilt when it is older than its own source:
     ;; its entry program, its modules, and the three libraries it imports.
     (define (current-compiler root)
       (rebuild-if-stale! root (compiler-path root)
                          (map (lambda (path) (path-join root path))
-                              '("bootstrap/compile.sld" "src/lofi/compiler.sld" "src/lofi/compiler" "lib/lofi/base.sld"
-                                "lib/lofi/table.sld" "lib/lofi/io.sld"))
+                              '("bootstrap/compile.sld" "src/lofi/compiler.sld" "src/lofi/compiler" "src/lofi/base.sld"
+                                "src/lofi/table.sld" "src/lofi/io.sld"))
                          (lambda () (rebuild-compiler! root))))
 
     (define (bootstrap! root)
@@ -296,13 +307,13 @@
     ;; The crate src/NAME, "runtime" or "assembler", built for WASI into
     ;; build/wasm-NAME; Cargo decides whether it is stale. The in-process
     ;; assembler is a reactor too: text in, a binary module out, for a
-    ;; toolchain that runs as Wasm without Binaryen. scripts/assemble.mjs
+    ;; toolchain that runs as Wasm without Binaryen. host/native/assemble.mjs
     ;; drives it.
     (define (build-crate root name)
       (let ((target (path-join root (string-append "build/wasm-" name))))
         (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
                   "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-                  "--target" "wasm32-wasip1" "--manifest-path" (path-join root "src" name "Cargo.toml")
+                  "--target" "wasm32-wasip1" "--manifest-path" (path-join root "crates" name "Cargo.toml")
                   "--target-dir" target)
         (path-join target "wasm32-wasip1/release" (string-append "snail_" name ".wasm"))))
 
@@ -374,7 +385,7 @@
 
     ;; A program linked when it runs: each library's module, assembled but
     ;; not optimized, the runtime beside them, and modules.json naming the
-    ;; modules in program order for the loader in src/app/load.mjs.
+    ;; modules in program order for the loader in host/browser/load.mjs.
     (define (build-modules root directories source output)
       (create-directory* output)
       (with-private-directory root (lambda (generated) (run-compiler-into root (selected-compiler root) "modules" directories source output generated)))
@@ -415,9 +426,9 @@
       (let ((directory (path-join root "build/develop")))
         (create-directory* directory)
         (list (cons "develop" (build-tool root (path-join root "bootstrap/develop.sld") (path-join directory "develop.wasm")
-                                          (list (path-join root "src") (path-join root "lib"))))
-              (cons "client" (build-tool root (path-join root "src/app/reload.sld") (path-join directory "reload.wasm")
-                                         (list (path-join root "lib"))))
+                                          (standard-directories root)))
+              (cons "client" (build-tool root (path-join root "host/browser/reload.sld") (path-join directory "reload.wasm")
+                                         (standard-directories root)))
               (cons "runtime" (build-crate root "runtime"))
               (cons "assembler" (build-crate root "assembler")))))
 
@@ -425,14 +436,14 @@
     ;; The old application loop remains a separate tool until dev replaces it.
     (define (build-project-tools root)
       (list (cons "compiler" (build-tool root (path-join root "bootstrap/compiler.sld") (path-join root "build/project/compiler.wasm")
-                                         (list (path-join root "src") (path-join root "lib"))))
+                                         (standard-directories root)))
             (cons "runtime" (build-crate root "runtime"))
             (cons "assembler" (build-crate root "assembler"))))
 
     ;; The editor adds only its formatter to the native project tools.
     (define (build-editor-tools root)
-      (cons (cons "formatter" (build-tool root (path-join root "src/ide/format.sld") (path-join root "build/ide-tools/format.wasm")
-                                          (list (path-join root "lib"))))
+      (cons (cons "formatter" (build-tool root (path-join root "host/ide/format.sld") (path-join root "build/ide-tools/format.wasm")
+                                          (standard-directories root)))
             (build-project-tools root)))
 
     ;; A program the tools run, built from `source` with the libraries in
@@ -492,7 +503,7 @@
                                   (let* ((request (path-join directory "request.datum"))
                                          (command (append (chibi-compiler root)
                                                           (list "wat" (path-join root "tests/artifacts/native.sld")
-                                                                (path-join directory "output.wat") directory (path-join root "lib")))))
+                                                                (path-join directory "output.wat") directory (path-join root "src")))))
                                     (expect (caddr (capture-process command)) 256)
                                     (expect (match (parse-request (read-file request) request)
                                               ((ArtifactInput "client" _) #t) (_ #f)) #t)

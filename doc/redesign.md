@@ -581,7 +581,7 @@ in Scheme, where every implementation provides its own `(scheme base)`:
 The shared compiler driver reads its arguments and files through `(lofi io)`.
 The Chibi and Wasm entries publish missing-input requests after unwinding. Lofi's standard library lives on Lofi's search path only,
 so Chibi never sees it, and Chibi runs the compiler with
-`-I host/chibi -I src`. The hosts disagree on integer overflow, argument
+`-I src -I host/chibi`, the last `-I` winning. The hosts disagree on integer overflow, argument
 evaluation order and the order of table keys, so the compiler's output never
 depends on them, except for the numbering of generated names, which follows
 evaluation order.
