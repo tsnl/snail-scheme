@@ -12,7 +12,7 @@ development watching to `lofi dev` and requires server and browser data to
 survive code replacement. It proposes storage as that boundary, while working
 state stays in RAM. The handover implementation below has not yet changed.
 
-`lofi serve APP-DIRECTORY` builds an application one library at a time,
+`./scripts/lofi-tool serve APP-DIRECTORY` builds an application one library at a time,
 serves it at `http://127.0.0.1:8000/`, and builds it again whenever the
 application's directory, the standard library or the browser host
 changes, compiling only the libraries the change reaches. Each page it
@@ -40,11 +40,11 @@ after saving. Each event carries the manifest of the build being served,
 so a page that missed events, even across a restart of the server,
 catches up from the next one.
 
-`lofi serve` does not build generated-library recipes. The project builder
+`./scripts/lofi-tool serve` does not build generated-library recipes. The project builder
 used by `lofi build`, `lofi dev` and `make site` does; application launch/reload
 integration into `dev` remains in progress.
 
-`lofi watch SOURCE` is the same loop for a program: it builds and runs the
+`./scripts/lofi-tool watch SOURCE` is the same loop for a program: it builds and runs the
 program again whenever its sources change, stopping a run still in
 progress once a new build succeeds. [The development
 toolchain](toolchain.md) describes how builds stay this fast, and the

@@ -23,17 +23,16 @@ arguments, working directory and standard streams as a shell invocation.
 A web application's browser windows are clients of its server; opening a
 window is not the definition of launching an application.
 
-| Proposed command | Responsibility |
+| Project command | Responsibility |
 | --- | --- |
-| `lofi build PROJECT` | Read the project description and produce target output directories once. No resident development service is required. |
-| `lofi dev PROJECT` | Watch saved files, compile incrementally, publish diagnostics and make the editor available. Selected launch targets run here. |
-| `lofi run SOURCE [ARGUMENT ...]` | Retain ordinary program execution, using the same compiler and output-directory contract. A server is an ordinary program too. |
-| `lofi serve OUTPUT-DIRECTORY [ARGUMENT ...]` | Proposed production entry for a release-built server program. No watcher, editor or development reload endpoint. |
+| `lofi build [--release] PROJECT BUILD-TARGET` | Produce the named target's output directory once. |
+| `lofi dev PROJECT` | Watch saved files, compile incrementally, publish diagnostics and make the editor available. Application launching/reloading remains to be integrated. |
+| `lofi run PROJECT RUN-TARGET [ARGUMENT ...]` | Planned: build the referenced program and run it as an ordinary subprocess, with configured arguments followed by supplied arguments. |
+| `lofi check PROJECT` | Planned: check every build root without emitting its executable. Expansion still obtains required generated libraries and artifact inputs. |
 
-`dev` replaces `watch`, the development role of today's `serve`, and the
-separate IDE command/package workflow. Reserve `serve` for production;
-its exact command-line spelling remains proposed. The command examples in
-the existing guides continue to describe implemented behavior until migration.
+`install` waits for package-manager design. Source-level compilation, inspection,
+bootstrap and the older application reload loop remain internal contributor
+commands in `scripts/lofi-tool`. There is no public `serve` or `watch` command.
 
 ## 2. Project descriptions belong to the compiler toolchain
 
@@ -64,12 +63,10 @@ follows separately. Literal `library-roots` are optional per build target.
 Each build target produces **one output directory**, containing any number
 of files. There is no second output-name namespace. The compiler driver,
 loaders, CLI and IDE consume that same directory contract, including the
-manifest identifying its modules or browser bundle when needed. `compile -o`
-and `run -o` now publish `DIRECTORY/program.wasm`, a breaking change from the
-old filename argument. Single-file builds stage the completed file on the
-destination filesystem and rename it atomically; unrelated files remain intact.
-Multi-file bundles need a publication boundary for the whole artifact so a
-failed attempt cannot expose half a program.
+manifest identifying its modules or browser bundle when needed. Publication
+renames a link to a completed directory, so a failed attempt cannot expose
+half a program. Internal source tools write raw files and do not participate
+in project publication.
 `dev` uses separate debug modules; `build --release` uses the existing release
 pipeline. Development bundles carry reload manifests/support; release bundles
 omit them.
@@ -348,7 +345,6 @@ current code. Each state-library cut will be split further once its API is settl
 | --- | --- | --- |
 | 1. Delete the preview | Remove `src/ide/preview.{mjs,html}`, iframe/ports and preview packaging. | Keep editor formatting, panes and diagnostics; no replacement preview protocol. |
 | 2. Project forms | Parse explicit target/launch forms in `(lofi project)` with the compiler's located reader, shared by Chibi and Wasm. | No evaluator or metadata sandbox. Check duplicate/invalid forms, resolved launch types and round-trip printing. |
-| 3a. Output directories | Change `scripts/lofi.scm` and `host/chibi/lofi/build.sld` callers to the directory contract. | Keep linker primitives; publish only completed `program.wasm`. Execute output and prove failed builds preserve it and unrelated files. |
 | 3b. CLI project builds | Consume parsed project descriptions, introduce project builds and replace application packaging scripts. | One compiler build path; inspect browser output files and preserve generated libraries. |
 | 4a. Artifact compiler contract | Extend `expand.sld`/`session.sld` with a concrete file resolver, exact cached evidence and ordinary typed bundle values. Existing hosts reject requests until connected. | No new backend representation; test hygienic/generated uses, replay failures, changed bytes and generic importers through executed Wasm. |
 | 4b. Native compiler inputs | Replace stderr work requests with typed request/reply datums; native project traversal services artifact requests inside producers too. | One request file per exclusive compile scratch directory, no compatibility path. Test stale/malformed/repeated requests, generated libraries and binary embedding. |

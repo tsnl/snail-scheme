@@ -44,7 +44,7 @@ nonempty and cannot begin with a dash; use a path for such executables.
 
 ## 2. Where a rebuild's time goes
 
-Before this work, a rebuild of Siegework through `lofi serve` took about
+Before this work, a rebuild of Siegework through `./scripts/lofi-tool serve` took about
 1.4 seconds, half of it work a debug build need not do:
 
 | Step | Time |
@@ -69,8 +69,8 @@ without Binaryen:
 
 | Build | Linking |
 | --- | --- |
-| Static | The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. `lofi compile`, `lofi run`, `lofi build` and `make site` build this way; `--release` increases optimization. |
-| Development | Each library is compiled to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. `lofi dev`, `lofi serve` and `lofi watch` build this way. |
+| Static | The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. `./scripts/lofi-tool compile`, `./scripts/lofi-tool run`, `lofi build` and `make site` build this way; `--release` increases optimization. |
+| Development | Each library is compiled to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. `lofi dev`, `./scripts/lofi-tool serve` and `./scripts/lofi-tool watch` build this way. |
 | Either | Code loaded while the program runs, through `(lofi wasm)` (section 3.3). |
 
 ### 3.1 Separate compilation
@@ -372,7 +372,7 @@ one, such as Hearsay, is built with `make site`.
 
 | Host | Where |
 | --- | --- |
-| Node: HTTP with server-sent events, file watching, timers, child processes | `scripts/develop.mjs`, for `lofi serve` and `lofi watch` |
+| Node: HTTP with server-sent events, file watching, timers, child processes | `scripts/develop.mjs`, for `./scripts/lofi-tool serve` and `./scripts/lofi-tool watch` |
 | Node compiler worker: one Wasm instance, its assembler and immediate filesystem helpers | `scripts/develop-worker.mjs` |
 
 The native parent remains responsive during synchronous compilation. The worker
@@ -399,7 +399,7 @@ isolated compiler runtime, not shared-memory Lofi execution.
 
 The reload client is a Lofi program too, `src/app/reload.sld`, whose
 `page` effect asks the page to show a notice, restyle, relink or reload.
-`src/app/reload-client.mjs` binds it for the pages `lofi serve` serves.
+`src/app/reload-client.mjs` binds it for the pages `./scripts/lofi-tool serve` serves.
 *Proposed:* checking the loop and the client with
 `(lofi explore)`, for example that a page never applies an older build
 after a newer one.

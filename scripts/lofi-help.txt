@@ -1,48 +1,16 @@
-Usage: lofi run [OPTIONS] SOURCE.sld [ARGUMENT ...]
-       lofi compile [OPTIONS] -o DIRECTORY SOURCE.sld
-       lofi build [--release] PROJECT TARGET
-       lofi wat [OPTIONS] SOURCE.sld
-       lofi schema [OPTIONS] SOURCE.sld
+Usage: lofi build [--release] PROJECT BUILD-TARGET
        lofi dev [--port PORT] PROJECT
-       lofi serve [--port PORT] APP-DIRECTORY
-       lofi watch [-I DIR] SOURCE.sld [ARGUMENT ...]
-       lofi bootstrap
 
-Compile a Lofi program to WasmGC, linked with the Rust runtime. The
-compiler runs as Wasm, rebuilt from its own source when that changes;
-Chibi starts the first bootstrap. Binaryen, Cargo and Node are required.
-
-  --release        Optimize fully (the default is basic optimization).
-  -I DIR           Add a library search directory; may repeat. lib/ is
-                   always searched last.
-  -o DIRECTORY     Publish program.wasm in this directory; required by compile.
-                   run may also keep its build here. Other files are preserved.
-  -h, --help       Show this help.
-
-run passes the arguments after SOURCE to the program. wat prints the
-generated WebAssembly text without assembling it. schema prints the wire
-schema of every type with a Serialize instance: each case's TypeId and
-field types.
-
-build reads PROJECT/project.datum and builds one named target into
-PROJECT/build/TARGET. The output is a link to a completed generation;
-earlier generations remain in PROJECT/build until explicitly removed.
-Browser targets package program.wasm, the shared browser host and their
-public directory. Put index.html in public; no page is generated.
+build reads PROJECT/project.datum and publishes the named target into
+PROJECT/build/TARGET. Each output directory is a link to a completed
+generation; earlier generations remain until explicitly removed. --release
+requests full optimization. Browser targets package their program, browser
+runtime and public directory. Put index.html in public; no page is generated.
 
 dev keeps one native project compiler running, watches disk and serves an
 editor at http://127.0.0.1:PORT/ (8000 by default, 0 chooses a free port).
 Save writes disk; the shared watcher triggers compilation. External edits
 update clean editor buffers and report conflicts for unsaved buffers.
-Application launching/reloading is not integrated into dev yet; use the
-existing serve/watch commands below for that part of development.
+Application launching/reloading is not integrated into dev yet.
 
-serve builds a (lofi app) application one library at a time, serves it at
-http://127.0.0.1:PORT/ (8000 by default) and rebuilds the libraries its
-edits reach; open pages relink the changed modules and keep their state.
-watch builds and runs a program again whenever its sources change. Neither
-builds a generate-library recipe yet.
-
-bootstrap rebuilds the compiler until it reproduces itself.
-LOFI_STAGE0=chibi compiles with the compiler's source running on Chibi
-instead.
+  -h, --help       Show this help.

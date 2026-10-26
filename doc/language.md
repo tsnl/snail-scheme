@@ -26,7 +26,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 (newline)
 ```
 
-`lib/` is always on the search path. `./lofi run -I DIR program.sld` adds more.
+`lib/` is always on the search path. `./scripts/lofi-tool run -I DIR program.sld` adds more.
 
 A library file may instead hold a `generate-library` recipe: a program whose
 value is the library's `define-library` form, as a `Syntax` from
