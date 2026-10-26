@@ -15,7 +15,8 @@ async function until(test) {
   for (let n = 0; n < 600; n++) { if (test()) return; await delay(50); }
   assert.fail('timed out waiting for project HTTP state');
 }
-fs.writeFileSync(join(project, 'project.datum'), '((build-target main (program (entry "main.sld") (library-roots (".")))))');
+const config = '((build-target main (program (entry "main.sld") (library-roots (".")))) (run-target dev (run main)))';
+fs.writeFileSync(join(project, 'project.datum'), config);
 fs.writeFileSync(source, program('initial'));
 const tools = projectTools(root), service = await serveProject({root, project, tools});
 const get = path => fetch(service.url + path, {signal: AbortSignal.timeout(3000)});
@@ -65,6 +66,7 @@ let writer = null;
 try {
   await until(() => stream.seen.some(event => event.kind === 'files'));
   assert.equal(stream.seen[0].kind, 'status');
+  assert.equal(stream.seen[1].kind, 'runs');
   await until(() => service.development.status.phase === 'succeeded');
   const projectReply = await (await get('/api/project')).json();
   assert.deepEqual(projectReply.files, ['main.sld', 'project.datum']);
@@ -159,6 +161,65 @@ try {
   assert.equal(executed.status, 0, executed.stderr);
   assert.equal(executed.stdout, 'edited during compilation\n');
 
+  const control = (action, target = 'dev') => request(`/api/run/${action}?target=${encodeURIComponent(target)}`, 'POST', {Origin: service.url});
+  const run = () => service.development.status.runs.find(run => run.target === 'dev');
+  for (const action of ['start', 'stop', 'restart']) {
+    assert.equal((await request(`/api/run/${action}?target=dev`, 'POST')).status, 403);
+    assert.equal((await request(`/api/run/${action}?target=dev`, 'POST', {Origin: 'https://unrelated.example'})).status, 403);
+    assert.equal((await control(action, 'missing')).status, 404);
+  }
+  assert.equal((await request('/api/run/start?target=dev', 'POST', {Origin: service.url}, 'body')).status, 400);
+  assert.equal((await control('unknown')).status, 404);
+  await until(() => stream.seen.some(event => event.kind === 'status' && event.data.id === service.development.status.id && event.data.phase === 'succeeded'));
+  const compilerCount = stream.seen.filter(event => event.kind === 'status').length;
+  const started = await control('start'); assert.equal(started.status, 204); assert.equal(started.text, '');
+  await until(() => run().attempt?.phase === 'exited');
+  const firstPid = run().attempt.pid;
+  assert.equal(run().attempt.stdout, 'edited during compilation\n');
+  assert.equal((await control('start')).status, 204);
+  await delay(50); assert.equal(run().attempt.pid, firstPid);
+  assert.equal((await control('restart')).status, 204);
+  await until(() => run().attempt?.pid !== firstPid && run().attempt?.phase === 'exited');
+  await until(() => stream.seen.some(event => event.kind === 'runs' && event.data[0]?.attempt?.pid === run().attempt.pid && event.data[0].attempt.phase === 'exited'));
+  assert.equal(stream.seen.filter(event => event.kind === 'status').length, compilerCount, 'run updates do not replay compiler evidence');
+
+  // One native observation changes both frames. It needs one write so the
+  // second frame cannot close a healthy reader before the first can drain.
+  const updates = stream.seen.length, currentDiagnostics = service.development.status.diagnostics;
+  currentDiagnostics.push({severity: 'error', message: largeMessage});
+  assert.equal((await control('stop')).status, 204);
+  await until(() => stream.seen.slice(updates).some(event => event.kind === 'status' && event.data.diagnostics[0]?.message === largeMessage)
+    && stream.seen.slice(updates).some(event => event.kind === 'runs' && !event.data[0].wanted));
+  currentDiagnostics.pop();
+
+  let before = service.development.status.id;
+  fs.writeFileSync(join(project, 'project.datum'), '((build-target main (program (entry "main.sld"))))');
+  await until(() => service.development.status.id > before && service.development.status.phase === 'succeeded');
+  assert.equal((await control('start')).status, 404); assert.equal((await control('restart')).status, 404);
+  assert.equal((await control('stop')).status, 204);
+  before = service.development.status.id;
+  fs.writeFileSync(join(project, 'project.datum'), config);
+  fs.writeFileSync(source, '(import (lofi base) (lofi io) (lofi task)) (write-line "running") (sleep 600000)');
+  await until(() => service.development.status.id > before && service.development.status.phase === 'succeeded');
+  assert.equal(run().wanted, false);
+  assert.equal((await control('start')).status, 204);
+  await until(() => run().attempt.stdout === 'running\n');
+  const livePid = run().attempt.pid;
+  await stream.close();
+  await delay(50); process.kill(livePid, 0); // Disconnect owns no application process.
+  const runReconnect = await events();
+  await until(() => runReconnect.seen.some(event => event.kind === 'files'));
+  assert.equal(runReconnect.seen.find(event => event.kind === 'runs').data[0].attempt.pid, livePid);
+  await runReconnect.close();
+
+  before = service.development.status.id;
+  fs.writeFileSync(source, '(import (lofi base)) (missing)');
+  await until(() => service.development.status.id > before && service.development.status.phase === 'failed');
+  assert.equal(run().attempt.pid, livePid);
+  assert.equal((await control('restart')).status, 204, 'a compiler failure does not disable accepted controls');
+  await until(() => run().attempt.pid !== livePid && run().attempt.stdout === 'running\n');
+  const finalPid = run().attempt.pid;
+
   // Closing with an undecoded body prevents its later save, and closes active
   // SSE and keepalive connections along with the development session.
   const final = await read();
@@ -166,6 +227,7 @@ try {
   pending.on('error', () => {}); pending.write('unfinished');
   await delay(50);
   await service.close();
+  assert.throws(() => process.kill(finalPid, 0), {code: 'ESRCH'});
   pending.destroy();
   await stream.done;
   for (const event of stream.seen.filter(event => event.kind === 'status')) {
