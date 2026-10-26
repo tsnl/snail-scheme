@@ -82,8 +82,9 @@ including `public/index.html` when supplied. Prior generations stay available;
 readers resolve the link once to consume a coherent artifact. No extra manifest
 is needed for these statically linked builds.
 
-`host/chibi/lofi/project-build.sld` owns this packaging and replaces
-`scripts/build-app.scm`; the Makefile's application recipes use it. The separate
+`scripts/project.mjs` now owns traversal and packaging for cold and incremental
+builds, replacing the temporary Chibi project builder and `scripts/build-app.scm`.
+The Makefile's application recipes use it. The separate
 IDE packaging script remains until the editor becomes a development client.
 The compiler's bootstrap, linking, assembly and generated-library primitives
 remain; descriptions do not replace Chibi's stage-0 role or become an arbitrary
