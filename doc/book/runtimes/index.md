@@ -17,6 +17,8 @@ values. The actor request/reply API has been removed. [Task operations](tasks.md
 run in the CLI and GUI. [Applications](../lofi/applications.md) describes
 checkpoint handover and reload on that runtime. [One-shot work and
 ownership](ownership.md) describes the implemented affine subset.
+The [native TCP owner](networking.md) establishes socket cleanup before its
+Lofi effect binding; program execution does not yet expose networking.
 
 ## Execution and suspension
 
