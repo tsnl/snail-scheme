@@ -8,7 +8,7 @@ as a separate instance.
 
 | Command | Build |
 | --- | --- |
-| `lofi build`, `make site`, internal source compile/run | Static; `--release` requests full optimization |
+| `lofi build`, `lofi run`, `make site`, internal source compile/run | Static; build accepts `--release` for full optimization |
 | `lofi dev`, `./scripts/lofi-tool serve`, `./scripts/lofi-tool watch`, `make ide` | Separate development modules |
 
 The public commands operate on projects. Compiler contributors can use
@@ -31,6 +31,17 @@ target at `PROJECT/build/TARGET`, a link to a completed directory containing
 Put the page in `public/index.html`. Builds retain prior generations and reject
 unmanaged entries at the output path. The [project format](https://github.com/tsnl/snail-scheme/blob/stack/project-builds-20261024/doc/project-format.md)
 documents publication and public-file rules.
+
+`lofi run PROJECT RUN-TARGET [ARGUMENT ...]` builds the referenced program in
+debug mode and runs that exact completed generation. Configured arguments come
+first; arguments after the target are passed through unchanged. The application
+inherits the caller's working directory, environment and terminal IO.
+
+After compiler and scratch cleanup, the native command replaces itself with the
+runtime using [Node's process replacement](https://nodejs.org/api/process.html#processexecvefile-args-env).
+Its PID, exit status and signals therefore belong to the application. This uses
+the existing Node 26 POSIX host. Compilation and generator execution retain
+the cold builder's synchronous behavior.
 
 The native project builder keeps one Wasm compiler alive throughout an invocation.
 `lofi build` calls it directly and releases its scratch files on completion or

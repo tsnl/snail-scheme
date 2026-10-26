@@ -1,4 +1,5 @@
 Usage: lofi build [--release] PROJECT BUILD-TARGET
+       lofi run PROJECT RUN-TARGET [ARGUMENT ...]
        lofi dev [--port PORT] PROJECT
 
 build reads PROJECT/project.datum and publishes the named target into
@@ -6,6 +7,10 @@ PROJECT/build/TARGET. Each output directory is a link to a completed
 generation; earlier generations remain until explicitly removed. --release
 requests full optimization. Browser targets package their program, browser
 runtime and public directory. Put index.html in public; no page is generated.
+
+run builds the named run-target's program and executes that completed generation
+in the current directory. Configured arguments precede ARGUMENTs. The command
+becomes the application process, retaining terminal IO, exit status and signals.
 
 dev keeps one native project compiler running, watches disk and serves an
 editor at http://127.0.0.1:PORT/ (8000 by default, 0 chooses a free port).

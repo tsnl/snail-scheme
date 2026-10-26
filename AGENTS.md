@@ -92,10 +92,11 @@ gives the reload rules; what matters when writing code:
   `make ide` starts it for Siegework. Save writes disk; the shared watcher
   drives compiler and editor updates. Application launching/reload still uses
   `serve`/`watch` until that integration lands.
-- Builds in one checkout keep apart, as Cargo's do: each compile and each
-  `lofi run` works in a directory of its own under `build/lofi-run/`, and
-  rebuilding the compiled compiler or the development tools takes an
-  exclusive lock on `build/lock`, so `make test` may run beside a server.
+- Builds in one checkout keep private compiler scratch under `build/lofi-run/`.
+  Public `lofi run` executes its completed project generation in the caller's
+  working directory after removing build scratch. Rebuilding the compiled
+  compiler or development tools takes an exclusive lock on `build/lock`, so
+  `make test` may run beside a server.
 - The existing application loop is `src/lofi/develop.sld` on the native
   `scripts/develop.mjs` host; the page's reload client is `src/app/reload.sld`,
   `relinkProgram` in `src/app/load.mjs` relinks after the JSPI loop in
