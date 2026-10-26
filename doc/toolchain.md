@@ -123,8 +123,9 @@ code-1 diagnostic exits follow resource cleanup and allow another call with
 the last successful Session. Arbitrary Wasm or imported-function traps retire
 the instance. This distinction comes from the runtime exit path, not from
 finding a familiar string in stderr. These operations are implemented and
-tested. `scripts/project.mjs` now calls them for cold and resident project builds;
-connecting the shared watcher to a replacement development loop is next.
+tested. `scripts/project.mjs` now calls them for cold and resident project builds.
+Its `describe()` parses once; `build(description, ...)` consumes that parsed
+description, allowing a development caller to retain inputs even after failure.
 
 The native builder owns serial target traversal, producer execution and packaging.
 Each attempt creates private generations and discovers dependencies only through
@@ -135,7 +136,7 @@ output assembles all returned modules into a fresh self-contained directory.
 Only the compiler cache persists; there is no second native binary cache.
 
 A completed attempt returns a candidate. `scripts/build.mjs` accepts it immediately;
-a future watcher parent can reject superseded work. Publication and discard consume
+the project development parent can reject superseded work. Publication and discard consume
 the candidate. If one of several link renames fails, publication preserves its
 completed prefix and removes the remaining generations; it is not a project-wide
 transaction. Failed compilation or packaging publishes nothing.
@@ -156,8 +157,41 @@ fresh scan after any active one without waiting for global quiet; closing suppre
 later notifications and waits for an active scan to finish. There is no content
 cache or filesystem snapshot. Metadata polling catches ordinary local writes but
 cannot guarantee detection on filesystems that hide changes behind unchanged or
-coarse metadata. This observer is tested independently; the old commands still use
-their existing watches until the project development host is connected.
+coarse metadata. The project development parent consumes this observer; the old
+commands still use their existing watches until command/application integration.
+
+`scripts/project-develop.mjs` owns serialized project attempts and one current
+status, with independent subscriptions. `scripts/project-worker.mjs` owns the
+resident builder. Each attempt starts with an ID and empty diagnostics. The parent
+keeps distinct observed paths only for the active attempt, including paths outside
+the previous project's public inputs. A reply carries the newly parsed description
+even after a later build failure. The parent reconciles disk, tests those paths
+against the new description, and publishes synchronously only if no observed input
+change superseded it. Otherwise it discards and coalesces a successor. Successful
+compiler cache entries remain useful in either case; accepted application files
+remain available after a failed build.
+
+Source inputs currently include the project description, `.sld` libraries, declared
+entry/public paths and browser runtime assets. Ordinary data writes do not request
+builds. Arbitrary producer file reads are not tracked yet: use manual Build for
+those inputs. Unnamed watcher hints do not themselves declare source changes.
+The observer and compiler do not claim an atomic filesystem revision.
+
+Before sending work, the parent reserves a private generation-name prefix under
+the project's build directory. A worker result relinquishes that attempt; exit
+relinquishes any unfinished one. This lets the parent remove only abandoned private
+generations, including ones a crashed worker never returned. Publication consumes
+ownership even when some target links moved before failure, so those generations
+must never be swept afterward. Shutdown suppresses acceptance, closes observation
+and requests graceful worker exit, then termination. Synchronous native operations
+can delay actual exit; cleanup waits for it. Arbitrary compiler traps retire this
+development session; there is no automatic crash loop.
+
+This native API is implemented and tested, including a producer blocked on an input
+pipe while a newly configured public file changes. CLI, file service and launch
+integration follow. Diagnostic records currently contain severity and message;
+source locations remain in the message until the compiler exposes structured spans.
+The editor must not add its own text parser for them.
 
 So an edit to a function body with a signature recompiles one library. An
 edit to an interface recompiles the libraries that import it too. The

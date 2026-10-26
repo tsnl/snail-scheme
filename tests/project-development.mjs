@@ -30,7 +30,7 @@ const source = fs.readFileSync(join(project, 'server.sld'), 'utf8');
 const builder = await createProjectBuilder({root, project, tools, directory: working});
 
 try {
-  const first = builder.build(['server']);
+  const first = builder.build(builder.describe(), ['server']);
   assert.equal(first.targets.length, 3, 'nested/repeated artifact requests build each target once');
   assert.throws(() => output('server'), {code: 'ENOENT'}, 'a candidate has no public output');
   assert.match(execute(target(first, 'server').directory), /65,0,255,/);
@@ -38,12 +38,12 @@ try {
   publishProject(first);
   const initialServer = output('server'), initialClient = output('client');
 
-  const discarded = builder.build(['server']);
+  const discarded = builder.build(builder.describe(), ['server']);
   assert.ok(discarded.targets.every(target => target.compiled === 0), 'unchanged compilation evidence is reused');
   discardProject(discarded);
   assert.ok(discarded.targets.every(target => !fs.existsSync(target.directory)));
   assert.equal(output('server'), initialServer);
-  const afterDiscard = builder.build(['server']);
+  const afterDiscard = builder.build(builder.describe(), ['server']);
   assert.ok(afterDiscard.targets.every(target => target.compiled === 0), 'sessions retain no paths into discarded candidates');
   publishProject(afterDiscard);
 
@@ -51,7 +51,7 @@ try {
   write('client.sld', '(import (lofi base)) (ann 42 I64)');
   write('client-public/nested/data.bin', Buffer.from([90, 0, 255]));
   write('server.sld', `${source}\n(missing-function)\n`);
-  assert.throws(() => builder.build(['server']), /missing-function/);
+  assert.throws(() => builder.build(builder.describe(), ['server']), /missing-function/);
   assert.equal(output('server'), beforeFailure);
   assert.deepEqual(fs.readdirSync(join(project, 'build')).sort(), beforeDirectories, 'failed traversal removes every private generation');
 
@@ -62,13 +62,13 @@ try {
     return remove(path, options);
   };
   syncBuiltinESMExports();
-  try { assert.throws(() => builder.build(['server']), /missing-function/, 'cleanup preserves the compiler diagnostic'); }
+  try { assert.throws(() => builder.build(builder.describe(), ['server']), /missing-function/, 'cleanup preserves the compiler diagnostic'); }
   finally {
     fs.rmSync = remove; syncBuiltinESMExports();
     for (const name of fs.readdirSync(working)) if (name.startsWith('compile-')) fs.rmSync(join(working, name), {recursive: true});
   }
   write('server.sld', source);
-  const repaired = builder.build(['server']);
+  const repaired = builder.build(builder.describe(), ['server']);
   assert.equal(target(repaired, 'client').compiled, 0, 'a successful dependency session survives consumer failure');
   assert.match(execute(target(repaired, 'server').directory), /90,0,255,/);
 
@@ -97,7 +97,7 @@ try {
   write('two/sample/message.sld', library('two'));
   for (const name of ['one', 'two']) {
     write('project.datum', description(name));
-    const changed = builder.build();
+    const changed = builder.build(builder.describe());
     assert.equal(execute(changed.targets[0].directory), `${name}\n`);
     discardProject(changed);
   }
@@ -110,11 +110,11 @@ try {
     (library-syntax (list "sample" "message") (list "message") (list (list "lofi" "base"))
       (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
         (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${project}/message.txt")))))))`);
-  const generated = builder.build();
+  const generated = builder.build(builder.describe());
   assert.equal(execute(generated.targets[0].directory), 'generated first\n');
   discardProject(generated);
   write('message.txt', 'generated second');
-  const regenerated = builder.build();
+  const regenerated = builder.build(builder.describe());
   assert.equal(execute(regenerated.targets[0].directory), 'generated second\n');
   discardProject(regenerated);
 
@@ -123,7 +123,7 @@ try {
   const longName = 'x'.repeat(200);
   write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (lofi base)) (begin (: message String) (define message "long name")))`);
   write('main.sld', `(import (lofi base) (lofi io) (${longName})) (write-line message)`);
-  const longLibrary = builder.build();
+  const longLibrary = builder.build(builder.describe());
   assert.equal(execute(longLibrary.targets[0].directory), 'long name\n');
   discardProject(longLibrary);
   assert.deepEqual(fs.readdirSync(working), ['errors'], 'logical compile scratch is removed');

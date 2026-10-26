@@ -7,7 +7,7 @@ import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createAssembler} from '../scripts/assemble.mjs';
-import {CompilerFailure, createCompiler} from '../scripts/compiler.mjs';
+import {CompilerCrashed, CompilerFailure, createCompiler} from '../scripts/compiler.mjs';
 
 const [program, assembler, runtime] = process.argv.slice(2);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -126,7 +126,7 @@ try {
     (func (export "input_end")) (func (export "project"))
     (func (export "close-resources") (result i32) (i32.const 0)))`));
   const broken = await createCompiler(trapping, join(directory, 'trapping-errors'));
-  assert.throws(() => broken.project(project), error => !(error instanceof CompilerFailure) && error.cause instanceof RangeError);
+  assert.throws(() => broken.project(project), error => error instanceof CompilerCrashed && error.cause instanceof RangeError);
   assert.throws(() => broken.project(project), /compiler is closed/);
   broken.close();
 
