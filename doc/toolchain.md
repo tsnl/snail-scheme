@@ -374,6 +374,37 @@ The reload client is a Lofi program too, `src/app/reload.sld`, whose
 `(lofi explore)`, for example that a page never applies an older build
 after a newer one.
 
+### Project file service
+
+`scripts/project-files.mjs` owns one physical project directory and three native
+operations: list candidate filenames, read text with a revision, and save against
+that revision. No contents or revisions persist in the service. The editor holds
+its unsaved text and the revision of its saved baseline; the shared disk observer
+remains the only source of file-change notifications. Save has no compiler call.
+
+The text subset is valid UTF-8 without NUL, up to 8 MiB, preserving BOM, newline
+bytes and a missing final newline. Listing selects regular files ending in `.sld`,
+`.scm`, `.datum`, `.html`, `.css`, `.js`, `.mjs`, `.json`, `.svg`, `.txt` or `.md`;
+reading establishes content validity. Other suffixes and extensionless files are
+outside this first editor API. Paths reject traversal and symlinks. `.git` and
+the root `build` directory are excluded; `src/build` remains an ordinary source
+directory. A pipe cannot block the service while it checks for a regular file.
+
+Revisions describe file identity and exact bytes. A save compares the current
+revision, writes an exclusive temporary file under `project/build`, compares
+again, preserves ordinary permission bits and renames onto the destination. This
+keeps temporary writes out of source/public trees and compiler inputs. It returns
+evidence for the submitted bytes, even if another writer subsequently changes the
+file. Failed writes or rename leave the old destination intact; saves across a
+nested filesystem mount fail with `EXDEV` instead of copying over the destination.
+
+Reads/saves are bounded synchronous operations, so this service's saves cannot
+interleave. Rename is atomic; comparison plus rename is not. An external writer
+can still race after the final comparison, and pathname checks do not constitute
+a sandbox against a hostile local process. This API makes no crash-durability,
+ACL, extended-attribute or hardlink-preservation promise. It edits existing files;
+creation, rename, deletion, merging and automatic conflict retry are omitted.
+
 ## 6. Scheme
 
 A Scheme program becomes a Lofi library through `(scheme compiler)`, so it
