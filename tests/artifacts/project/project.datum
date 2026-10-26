@@ -1,0 +1,14 @@
+((build-target client
+   (browser
+    (entry "client.sld")
+    (library-roots ("src"))
+    (public "client-public")))
+ (build-target admin
+   (browser
+    (entry "admin.sld")
+    (library-roots ("src"))
+    (public "admin-public")))
+ (build-target server
+   (program
+    (entry "server.sld")
+    (library-roots ("src")))))
