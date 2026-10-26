@@ -54,7 +54,8 @@ try {
   assert.match(await readFile(source, 'utf8'), /"hello"/);
   await click('save');
   await until(() => browser.evaluate('document.getElementById("diagnostics").textContent.includes("does not fit String")'), 'fresh compiler diagnostic');
-  assert.equal(await browser.evaluate('document.querySelector(".squiggle")'), null, 'no locations inferred from diagnostic prose');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'fresh source observation');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent'), '5', 'compiler-provided point');
   assert.ok(await type('(define greeting 5)', '(define greeting\n"fixed")'));
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"'); t.setSelectionRange(at, at); })()`);
   await press({key: 'Tab'});
@@ -69,6 +70,43 @@ try {
   await click('save'); await saved();
   await browser.evaluate('document.execCommand = window.insertCommand');
   assert.match(await readFile(source, 'utf8'), /          "unformatted"/);
+
+  const unicode = '(import (lofi base))\r\n(: greeting String)\r\n(define greeting (if #t "😀" 5))\r\n';
+  // A diagnostic can arrive before its source GETs. Keep the old editor text
+  // visible, but do not apply the new point to that older baseline.
+  await browser.evaluate(`window.actualFetch = window.fetch; window.sourceReads = []; window.holdSource = true;
+    window.fetch = async (...args) => { const response = await window.actualFetch(...args);
+      if (window.holdSource && String(args[0]).startsWith('/api/file?path=main.sld') && !args[1]?.method)
+        await new Promise(resolve => window.sourceReads.push(resolve));
+      return response; };`);
+  const beforeUnicode = service.development.status.id;
+  await writeFile(source, unicode);
+  await until(async () => service.development.status.id > beforeUnicode && service.development.status.phase === 'failed' &&
+    Number(await browser.evaluate('document.getElementById("status").dataset.attempt')) === service.development.status.id &&
+    await browser.evaluate('window.sourceReads.length > 0'), 'failure before its source reads');
+  assert.match(await text(), /unformatted/);
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
+  await browser.evaluate('window.holdSource = false; for (const release of window.sourceReads) release(); window.fetch = window.actualFetch');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'Unicode compiler point');
+  await browser.evaluate('document.querySelector("#diagnostics button").click()');
+  await until(async () => await browser.evaluate('document.querySelector(".pane.active textarea").selectionStart') === unicode.replace(/\r\n/g, '\n').indexOf('5'), 'source navigation');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active textarea").selectionStart'), unicode.replace(/\r\n/g, '\n').indexOf('5'));
+  // A newer read must withdraw the previous point even before the next build
+  // event arrives. Supply that HTTP observation independently of the watcher.
+  await browser.evaluate(`window.fetch = (...args) => String(args[0]).startsWith('/api/file?path=main.sld') && !args[1]?.method
+    ? Promise.resolve(new Response(JSON.stringify({text: ${JSON.stringify(program('newer observation'))}, revision: 'newer'})))
+    : window.actualFetch(...args);`);
+  await click('reload');
+  await until(async () => (await text()).includes('newer observation'), 'newer baseline before build');
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
+  assert.match(await browser.evaluate('document.getElementById("diagnostics").textContent'), /does not fit String/);
+  await browser.evaluate('window.fetch = window.actualFetch');
+  await click('reload');
+  await until(() => browser.evaluate('document.querySelector(".pane.active .squiggle")?.textContent === "5"'), 'matching observation restored');
+  assert.ok(await type('5', '"draft"'));
+  assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null, 'unsaved text has no compiled point');
+  await browser.evaluate('window.confirm = () => true');
+  await click('reload');
 
   await writeFile(source, program('external'));
   await until(async () => (await text()).includes('"external"'), 'clean external edit');

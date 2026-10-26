@@ -132,8 +132,24 @@ Each native call starts with empty diagnostic storage. The trusted compiler's
 code-1 diagnostic exits follow resource cleanup and allow another call with
 the last successful Session. Arbitrary Wasm or imported-function traps retire
 the instance. This distinction comes from the runtime exit path, not from
-finding a familiar string in stderr. These operations are implemented and
-tested. `scripts/project.mjs` now calls them for cold and resident project builds.
+finding a familiar string or a diagnostic record. `compile-error` keeps its
+`Loc` and message in a compiler-private cell before the existing terminal panic.
+This explicitly unsafe bridge avoids adding an abort effect to every compiler
+pass; it does not prove the mutation pure. The serial native caller resets the
+request and diagnostic cells before entry, then takes and projects each after a
+trusted exit, before compiling a producer. Reset/projection traps retire
+the instance too. Module initialization precedes the first reset.
+
+Native failures carry `{severity, message, source}`; `source` is null or
+`{file, line, column}`. Lines and Unicode scalar columns start at one. IO and
+producer-input requests have no source record; internal no-location sentinels
+are unlocated. An artifact wrapper preserves a failing child's origin. Printed
+producer programs report their actual scratch source, while decoded generated
+syntax retains the recipe location already established by expansion. No source
+mapping is invented. CLI panic text is unchanged, and the compiler still stops
+at its first error. These operations are implemented and tested.
+
+`scripts/project.mjs` calls this boundary for cold and resident project builds.
 Its `describe()` parses once; `build(description, ...)` consumes that parsed
 description, allowing a development caller to retain inputs even after failure.
 
@@ -200,9 +216,9 @@ development session; there is no automatic crash loop.
 This native API is implemented and tested, including a producer blocked on an input
 pipe while a newly configured public file changes. The native file service and
 HTTP API and editor are connected through `lofi dev`; application launch
-integration follows. Diagnostic records currently contain severity and message;
-source locations remain in the message until the compiler exposes structured spans.
-The editor must not add its own text parser for them.
+integration follows. Diagnostic records carry source points from the compiler;
+the editor never parses locations from error prose. Full source spans and
+multiple-error recovery remain separate work.
 
 So an edit to a function body with a signature recompiles one library. An
 edit to an interface recompiles the libraries that import it too. The
@@ -424,7 +440,7 @@ formatter; it never serves project HTML or arbitrary filesystem paths.
 
 | Request | Result |
 | --- | --- |
-| `GET /api/project` | Project name and candidate relative filenames. |
+| `GET /api/project` | Project name, canonical directory and candidate relative filenames. |
 | `GET /api/file?path=...` | `{text, revision}` for one file. |
 | `PUT /api/file?path=...` | UTF-8 `text/plain` plus one strong quoted `If-Match` revision; returns the submitted snapshot or a conflict (409). |
 | `POST /api/build` | Explicit Build, with an empty body. Save never calls this operation. |
@@ -490,8 +506,17 @@ observer. A project listing alone never discards a buffer: lists and reads are
 different observations, with independent ordering.
 
 Build status replaces the preceding diagnostic collection at each attempt. The
-page shows full messages in a separate panel; it does not parse locations out of
-compiler prose. Source spans and squiggles are the next compiler-boundary slice.
+page shows messages and compiler-provided locations in a separate panel. A
+location in an editable project file opens that file. A fresh file read after
+the failure binds a one-character squiggle to that observed revision. Later
+reads withdraw it until the same revision is confirmed; Save invalidates it.
+Drafts and conflicts suppress it. This is an editor observation, not proof of
+the compiler's exact filesystem snapshot; the watcher rejects observed
+supersession without claiming an atomic filesystem revision. Columns count
+Unicode scalars in the original file, converted to textarea UTF-16 offsets and
+LF display text, including CRLF files. Generated scratch and external library
+locations remain messages rather than being mapped to another file. These are
+source points, not guessed expression ranges or full source spans.
 Manual Build requests compilation; Save writes disk and leaves scheduling to the
 shared observer. Reconnecting the event stream supplies current status and file
 invalidation without a replay log. Going back online replaces the stream too,
