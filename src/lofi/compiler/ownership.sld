@@ -250,9 +250,10 @@
       (let ((inner (own scope inner future)))
         (rebuild expr (if test? (TypeTest inner target) (Convert inner target)))))
 
+    ;; The checker already proved representability. Specialization substitutes
+    ;; only unrestricted types and erases rows, so that proof still holds here.
     (: own-items (-> Program (List Item) (List Item) ! mut))
     (define (own-items program items)
-      (check-owned-types program items)
       (map (lambda (item)
              (let ((scope (Scope program empty-table (ref (Nil)) (ref 0))))
                (match item

@@ -20,6 +20,11 @@
     ((Link work rest) (call-once work) (drain rest))
     ((End) (unit))))
 
+;; Specializing an unrestricted parameter may retain a procedure whose
+;; result is affine. Calling that procedure still produces one owned value.
+(: preserve (All (A) (-> A A)))
+(define (preserve value) value)
+
 (let ((work (message "moved"))) (run work))
 (let ((work (message "branch"))) (if #t (call-once work) (call-once work)))
 (let* ((inner (message "capture")) (outer (once (lambda () (call-once inner)))))
@@ -35,3 +40,4 @@
 (drain (Link (message "first") (Link (message "last") (End))))
 (let ((unused (Job (handle Probe ((ping (lambda () (unit)))) (message "must not run")))))
   (write-line "handled drop"))
+(call-once ((preserve message) "specialized"))
