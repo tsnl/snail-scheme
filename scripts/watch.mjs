@@ -25,8 +25,8 @@ export function watchProject({roots, exclude = []}) {
   const paths = [...new Set(roots.map(path => resolve(path)))].filter(path => !ignored(path));
   const watched = paths.filter(path => !paths.some(other => other !== path && within(other, path)))
     .map(path => ({path, handle: null, identity: null}));
-  const subscribers = new Set(), failed = new Set();
-  let inventory = new Map(), scanning = null, closed = false;
+  const subscribers = new Set();
+  let inventory = new Map(), scanning = null, closed = false, failed = false;
 
   function emit(event) {
     if (!closed) for (const subscriber of subscribers) subscriber(event);
@@ -80,24 +80,28 @@ export function watchProject({roots, exclude = []}) {
   }
 
   async function scan() {
-    const next = new Map(), failures = new Map();
+    const next = new Map();
+    for (const root of watched) attach(root);
     for (const root of watched) {
       if (closed) throw new Error('the project watcher is closed');
-      attach(root);
       try { await collect(root.path, next); }
-      catch (error) { failures.set(root.path, error); }
+      catch (error) {
+        if (closed) throw new Error('the project watcher is closed');
+        if (!failed) {
+          failed = true;
+          emit({kind: 'uncertain', path: root.path, error: error.message});
+        }
+        throw new Error(`cannot reconcile ${root.path}`, {cause: error});
+      }
     }
     if (closed) throw new Error('the project watcher is closed');
-    for (const [path, error] of failures) {
-      if (!failed.has(path)) emit({kind: 'uncertain', path, error: error.message});
-      failed.add(path);
-    }
-    if (failures.size) throw new Error(`cannot reconcile ${failures.keys().next().value}`, {cause: failures.values().next().value});
     const paths = [...new Set([...inventory.keys(), ...next.keys()])].filter(path => inventory.get(path) !== next.get(path));
     inventory = next;
     if (paths.length) emit({kind: 'changed', paths});
-    for (const path of failed) emit({kind: 'uncertain', path}); // Recovery may unblock a caller.
-    failed.clear();
+    if (failed) {
+      failed = false;
+      emit({kind: 'uncertain'}); // A complete inventory may unblock a caller.
+    }
   }
 
   // A caller during a scan receives the next fresh scan, shared with other
@@ -125,7 +129,7 @@ export function watchProject({roots, exclude = []}) {
       subscribers.clear();
       for (const root of watched) detach(root);
       await scanning?.catch(() => {});
-      inventory.clear(); failed.clear();
+      inventory.clear();
     },
   };
 }
