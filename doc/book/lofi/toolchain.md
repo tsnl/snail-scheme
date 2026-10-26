@@ -271,11 +271,11 @@ moves run controls and reload under `dev`. It is not implemented by the editor
 service described above. Production `serve` and package installation still need
 their own contracts; neither is a current public command.
 
-Provide concrete TCP and UDP socket effects that tests can intercept. TCP needs
-listen/accept/connect, stream reads/writes and close; UDP needs bind, datagram
-send/receive with peer addresses, and close. TCP can split transfers. UDP keeps
-message boundaries without guaranteeing delivery or order. Define buffer limits,
-truncation, cancellation and late-result ownership at each operation.
+The concrete [TCP effect](../runtimes/networking.md) supports native CLI programs
+and replacement handlers for tests. UDP still needs bind, datagram send/receive
+with peer addresses, and close. It keeps message boundaries without guaranteeing
+delivery or order. Define buffer limits, truncation, cancellation and late-result
+ownership for those operations.
 
 HTTP is proposed as a Lofi library over TCP, with bounded parsing, framing,
 routing and bundle/reload serving. The project service currently uses Node HTTP;
