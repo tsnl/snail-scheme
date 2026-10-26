@@ -36,6 +36,7 @@
    (chibi filesystem)
    (chibi pathname)
    (chibi process)
+   (lofi process)
    (only (lofi base) match any?)
    (only (lofi compiler read) compile-error)
    (lofi compiler inputs)
@@ -107,7 +108,7 @@
         (let loop ((replies '()))
           (write-file (path-join generated "artifacts.datum") (replies->string replies))
           (when (file-link-status request) (delete-file request))
-          (let ((result (process->output+error+status (append command (list mode source output generated) directories))))
+          (let ((result (capture-process (append command (list mode source output generated) directories))))
             (cond ((zero? (caddr result))
                    (when (file-link-status request) (error "compiler succeeded with a pending input request"))
                    output)
@@ -276,13 +277,13 @@
 
     ;; Runs a compiled program under Node, returning (output error status).
     (define (run-wasm root program arguments)
-      (process->output+error+status (append (node-command root program) arguments)))
+      (capture-process (append (node-command root program) arguments)))
 
     ;; Runs a command, raising its standard error if it fails. Tools can be
     ;; overridden by environment variables such as WASM_OPT.
     (define (run-tool variable default . arguments)
       (let* ((tool (or (get-environment-variable variable) default))
-             (result (process->output+error+status (cons tool arguments))))
+             (result (capture-process (cons tool arguments))))
         (unless (zero? (caddr result))
           (error (string-append tool " failed:\n" (cadr result))))
         (car result)))
@@ -517,12 +518,12 @@
                                          (command (append (chibi-compiler root)
                                                           (list "wat" (path-join root "tests/artifacts/native.sld")
                                                                 (path-join directory "output.wat") directory (path-join root "lib")))))
-                                    (expect (caddr (process->output+error+status command)) 256)
+                                    (expect (caddr (capture-process command)) 256)
                                     (expect (match (parse-request (read-file request) request)
                                               ((ArtifactInput "client" _) #t) (_ #f)) #t)
                                     (delete-file request)
                                     (create-directory request)
-                                    (expect (caddr (process->output+error+status command)) 512)))))
+                                    (expect (caddr (capture-process command)) 512)))))
 
       (define (test-build root)
         (test-source-request-status root)

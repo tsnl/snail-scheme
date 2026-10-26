@@ -15,6 +15,7 @@
  (scheme write)
  (chibi filesystem)
  (chibi process)
+ (lofi process)
  (only (chibi string) string-contains string-split string-suffix?)
  (srfi 1)
  (only (lofi base) Pair)
@@ -59,7 +60,7 @@
 ;; ---- Programs ----
 
 (define (run-wasm root program)
-  (let ((result (process->output+error+status (node-command root program))))
+  (let ((result (capture-process (node-command root program))))
     (string-append (car result) (cadr result))))
 
 ;; Compiles a case. A case that expects a diagnostic is decided here; any
@@ -106,7 +107,7 @@
   (guard (failure (#t (report "siegework" "headless run failed" (error-text failure))))
     (let ((program (path-join root "build/tests/siegework/app.wasm")))
       (link-wat root text program #f)
-      (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs") program))))
+      (let ((result (capture-process (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs") program))))
         (or (zero? (caddr result)) (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))))
 
 ;; The in-process assembler, itself Wasm, turns a program's text into a
@@ -121,7 +122,7 @@
     (let ((wat (path-join root "build/tests/assembler/fibonacci.wat")))
       (create-directory* (path-join root "build/tests/assembler"))
       (call-with-output-file wat (lambda (port) (write-string text port)))
-      (let ((result (process->output+error+status
+      (let ((result (capture-process
                      (list "node" "--no-warnings" (path-join root "tests/assembler.mjs") (build-crate root "assembler") (build-crate root "runtime") wat
                            (path-join root "examples/fibonacci.out")))))
         (or (zero? (caddr result)) (report "assembler" "test failed" (string-append (car result) (cadr result))))))))
@@ -138,7 +139,7 @@
   (let* ((program (path-join root "build/tests/host-boundary.wasm"))
          (text (program->wat root (list (path-join root "lib")) (path-join root "tests/host-boundary/main.sld"))))
     (link-wat root text program #f)
-    (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/host-boundary/check.mjs") program))))
+    (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/host-boundary/check.mjs") program))))
       (or (zero? (caddr result)) (report "host boundary" "failed" (string-append (car result) (cadr result)))))))
 
 (define (compile-app-runtime root)
@@ -150,11 +151,11 @@
           (check-app-runtime root program))))))
 
 (define (check-app-runtime root program)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/app-runtime/check.mjs") program))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/app-runtime/check.mjs") program))))
     (or (zero? (caddr result)) (report "app runtime" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-task-runtime root)
-  (let ((result (process->output+error+status
+  (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/tasks/check.mjs") (build-crate root "assembler")))))
     (or (zero? (caddr result)) (report "task runtime" "failed" (string-append (car result) (cadr result))))))
 
@@ -166,7 +167,7 @@
         (check-task-boundary root program)))))
 
 (define (check-task-boundary root program)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/tasks/boundary.mjs") program))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/tasks/boundary.mjs") program))))
     (or (zero? (caddr result)) (report "task boundary" "failed" (string-append (car result) (cadr result))))))
 
 (define (enum-type-id root cases)
@@ -193,10 +194,10 @@
 (define (check-formatter root text)
   (guard (failure (#t (report "formatter" "check failed" (error-text failure))))
     (let ((program (path-join root "build/tests/formatter/format.wasm"))
-          (files (process->output+error+status (list "git" "-C" root "ls-files" "*.scm" "*.sld"))))
+          (files (capture-process (list "git" "-C" root "ls-files" "*.scm" "*.sld"))))
       (create-directory* (path-join root "build/tests/formatter"))
       (link-wat root text program #f)
-      (let ((result (process->output+error+status
+      (let ((result (capture-process
                      (append (list "node" "--no-warnings" (path-join root "scripts/run-lofi.mjs") program "--check")
                              (map (lambda (file) (path-join root file)) (delete "" (string-split (car files) #\newline)))))))
         (or (and (zero? (caddr result)) (string=? (car result) ""))
@@ -204,9 +205,9 @@
 
 ;; The command line itself: printing text and running a program.
 (define (run-command-line root)
-  (let ((wat (process->output+error+status (list (path-join root "lofi") "wat" (path-join root "examples/fibonacci.sld"))))
-        (run (process->output+error+status (list (path-join root "lofi") "run" (path-join root "examples/fibonacci.sld"))))
-        (failed (process->output+error+status (list (path-join root "lofi") "run" (path-join root "tests/tasks/failure.sld")))))
+  (let ((wat (capture-process (list (path-join root "lofi") "wat" (path-join root "examples/fibonacci.sld"))))
+        (run (capture-process (list (path-join root "lofi") "run" (path-join root "examples/fibonacci.sld"))))
+        (failed (capture-process (list (path-join root "lofi") "run" (path-join root "tests/tasks/failure.sld")))))
     (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main"))) (report "lofi wat" "no module text" (cadr wat)))
           ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
           ((not (and (not (zero? (caddr failed))) (equal? (car failed) "survived\n")))
@@ -214,31 +215,31 @@
           (else #t))))
 
 (define (check-output-directories root)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/output-directories.mjs") root))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/output-directories.mjs") root))))
     (or (zero? (caddr result)) (report "output directories" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-project-builds root)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/project-builds.mjs") root))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-builds.mjs") root))))
     (or (zero? (caddr result)) (report "project builds" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-project-artifacts root)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/project-artifacts.mjs") root))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-artifacts.mjs") root))))
     (or (zero? (caddr result)) (report "project artifacts" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-project-development root)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" "--max-semi-space-size=384" (path-join root "tests/project-development.mjs") root))))
+  (let ((result (capture-process (list "node" "--no-warnings" "--max-semi-space-size=384" (path-join root "tests/project-development.mjs") root))))
     (or (zero? (caddr result)) (report "project development" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-project-watcher root)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/watch.mjs")))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/watch.mjs")))))
     (or (zero? (caddr result)) (report "project watcher" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-project-attempts root)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/project-attempts.mjs") root))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-attempts.mjs") root))))
     (or (zero? (caddr result)) (report "project attempts" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-project-files root)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/project-files.mjs")))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-files.mjs")))))
     (or (zero? (caddr result)) (report "project files" "failed" (string-append (car result) (cadr result))))))
 
 ;; The native driver services one request, the restarted Wasm compiler
@@ -266,12 +267,12 @@
         (check-artifacts root output compiler)))))
 
 (define (check-artifacts root output compiler)
-  (let ((compiled (process->output+error+status
+  (let ((compiled (capture-process
                    (append (node-command root compiler)
                            (list (path-join root "tests/artifacts/main.sld") output (path-join root "lib") (path-join root "tests/artifacts/lib"))))))
     (if (not (zero? (caddr compiled)))
         (report "artifacts" "fixture compiler failed" (string-append (car compiled) (cadr compiled)))
-        (let ((result (process->output+error+status
+        (let ((result (capture-process
                        (list "node" "--no-warnings" (path-join root "tests/artifacts/check.mjs")
                              (build-crate root "assembler") (build-crate root "runtime") output (path-join root "tests/artifacts/main.out")))))
           (or (zero? (caddr result)) (report "artifacts" "execution failed" (string-append (car result) (cadr result))))))))
@@ -282,7 +283,7 @@
     (lambda ()
       (let* ((program (path-join root "build/tests/native-compiler.wasm"))
              (linked (link-wat root text program #f))
-             (result (process->output+error+status
+             (result (capture-process
                       (list "node" "--no-warnings" "--max-semi-space-size=384" (path-join root "tests/compiler.mjs") linked
                             (build-crate root "assembler") (build-crate root "runtime")))))
         (or (zero? (caddr result)) (report "resident compiler" "failed" (string-append (car result) (cadr result))))))))
@@ -316,8 +317,8 @@
   (guard (failure (#t (report "siegework" "linked build failed" (error-text failure))))
     (let ((output (path-join root "build/tests/linked/siegework")))
       (build-modules root (list (path-join root "apps/siegework/src") (path-join root "lib")) (path-join root "apps/siegework/main.sld") output)
-      (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs")
-                                                        (path-join output "modules.json")))))
+      (let ((result (capture-process (list "node" "--no-warnings" (path-join root "apps/siegework/tests/headless.mjs")
+                                           (path-join output "modules.json")))))
         (or (zero? (caddr result)) (report "siegework" "linked headless run failed" (string-append (car result) (cadr result))))))))
 
 (define (run-linked-app-runtime root)
@@ -341,7 +342,7 @@
 ;; for their builds with a timeout, so it runs alone, after the others,
 ;; rather than competing with them.
 (define (run-develop root)
-  (let ((result (process->output+error+status (list "node" "--no-warnings" (path-join root "tests/develop.mjs") root))))
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/develop.mjs") root))))
     (or (zero? (caddr result)) (report "develop" "the development loop failed" (string-append (car result) (cadr result))))))
 
 ;; ---- Checks in parallel ----
@@ -385,6 +386,7 @@
   (test-read)
   (test-inputs)
   (test-build root)
+  (test-process root)
   (test-core)
   (test-wasm)
   (test-session (path-join root "build/tests/session") (path-join root "lib"))
