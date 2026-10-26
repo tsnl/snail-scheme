@@ -184,6 +184,10 @@ remains under review:
 - [x] Keep generated-library and artifact providers local to each compiler
   invocation. Persistent sessions retain cache evidence without keeping an old
   build's provider closures or captured state alive.
+- [x] Expose the resident compiler through parsed native records and opaque
+  Session values. Share the request/reply providers with the command-line
+  compiler, capture diagnostics per call and retire instances on arbitrary
+  traps. Shared project traversal and development integration follow.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.

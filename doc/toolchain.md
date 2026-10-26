@@ -98,11 +98,34 @@ and again, as the development loop does, keeping everything in memory:
   emits only the libraries whose expansion changed.
 
 `make-session` fixes its library directories. `build-session` receives the
-generated-library and artifact providers for that invocation. A returned
-session keeps only compilation evidence; it cannot retain a provider's expired
-scratch directory. Replacing a provider still replays cached artifact requests
-and compares their bytes before reusing expansion. A failed build returns no
+generated-library provider and artifact snapshots for that invocation. A
+returned session keeps only compilation evidence. Cached artifact uses must
+still match the current snapshots before expansion is reused. A failed build returns no
 replacement session.
+
+`bootstrap/compiler.sld` exposes this compiler to a resident native caller.
+`scripts/compiler.mjs` owns one Wasm instance and returns parsed project and
+input-request records, static text, or modular text with a successor Session.
+JavaScript retains a Session as an opaque `Any`; it cannot inspect it and must
+keep it with its originating compiler instance. Each operation consumes its staged arguments
+before doing work, and projected records become visible only on success.
+
+The compiler records missing inputs in memory. After a trusted diagnostic exit
+unwinds, the resident boundary projects the pending request into the returned
+`CompilerFailure`; it needs no request file. Each invocation resets this state.
+Generated syntax and artifact replies belong to a logical compilation's private
+scratch. The resident boundary constructs artifact replies through Lofi's
+printer and loads their snapshots before expansion. Native code needs no datum
+parser or string-escaping implementation. Its caller handles requests after
+Wasm unwinds; the boundary itself neither retries nor traverses projects.
+
+Each native call starts with empty diagnostic storage. The trusted compiler's
+code-1 diagnostic exits follow resource cleanup and allow another call with
+the last successful Session. Arbitrary Wasm or imported-function traps retire
+the instance. This distinction comes from the runtime exit path, not from
+finding a familiar string in stderr. These operations are implemented and
+tested; replacing the cold project builder and development loop with their
+shared caller remains the next integration step.
 
 So an edit to a function body with a signature recompiles one library. An
 edit to an interface recompiles the libraries that import it too. The

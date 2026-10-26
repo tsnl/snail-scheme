@@ -260,6 +260,17 @@
                              (build-crate root "assembler") (build-crate root "runtime") output (path-join root "tests/artifacts/main.out")))))
           (or (zero? (caddr result)) (report "artifacts" "execution failed" (string-append (car result) (cadr result))))))))
 
+;; One resident compiler instance returns opaque sessions and parsed records.
+(define (compile-native-compiler root)
+  (let ((text (program->wat root (list (path-join root "src") (path-join root "lib")) (path-join root "bootstrap/compiler.sld"))))
+    (lambda ()
+      (let* ((program (path-join root "build/tests/native-compiler.wasm"))
+             (linked (link-wat root text program #f))
+             (result (process->output+error+status
+                      (list "node" "--no-warnings" "--max-semi-space-size=384" (path-join root "tests/compiler.mjs") linked
+                            (build-crate root "assembler") (build-crate root "runtime")))))
+        (or (zero? (caddr result)) (report "resident compiler" "failed" (string-append (car result) (cadr result))))))))
+
 ;; ---- Linked modules ----
 
 ;; Programs compiled one library at a time and linked when they run, by
@@ -367,7 +378,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-output-directories root)) (lambda () (check-project-builds root)) (lambda () (check-project-artifacts root)) (lambda () (check-native-artifacts root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-output-directories root)) (lambda () (check-project-builds root)) (lambda () (check-project-artifacts root)) (lambda () (check-native-artifacts root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
