@@ -3,8 +3,9 @@
 `(lofi socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
 program runner binds them to `scripts/tcp.mjs` and `scripts/udp.mjs` through JSPI
 and `scripts/socket-imports.mjs`. Static and separately linked programs use the
-same binding. Browser sockets and the HTTP library are not implemented;
-[the networking issue](https://github.com/tsnl/snail-scheme/issues/457) tracks the
+same binding. The [HTTP head codec](../lofi/http.md) is implemented; its socket
+integration and browser sockets are not implemented.
+[The networking issue](https://github.com/tsnl/snail-scheme/issues/457) tracks the
 remaining work.
 
 ## Lofi API

@@ -276,9 +276,10 @@ UDP datagrams to native CLI programs and replacement handlers for tests. Their
 native owners define bounded buffering, cancellation and close behavior. UDP
 keeps message boundaries without guaranteeing delivery or order.
 
-HTTP is proposed as a Lofi library over TCP, with bounded parsing, framing,
-routing and bundle/reload serving. The project service currently uses Node HTTP;
-sharing a Lofi HTTP implementation with applications is future integration.
+The [HTTP head codec](http.md) provides bounded parsing and response framing.
+Connection IO, routing and bundle/reload serving remain to be added. The project
+service currently uses Node HTTP; sharing a Lofi HTTP implementation with
+applications is future integration.
 Use the existing runtime suspension bridge and test real sockets as well as
 intercepted operations. [Networking work](https://github.com/tsnl/snail-scheme/issues/457)
 tracks this boundary. No transport hierarchy or generic provider framework
