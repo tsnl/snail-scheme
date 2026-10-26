@@ -230,6 +230,9 @@ remains under review:
   loopback HTTP API. Conditional saves, manual Build and current-status/file-change
   SSE stay responsive during compilation. The native `dev` command and editor use
   this boundary independently of typed-state review.
+- [x] Give native suspensions ownership of successful results until delivery.
+  Cancellation disposes undelivered resources and unwinds parked Wasm before
+  task exhaustion; disposer failures also reject through the parked stack.
 - [ ] Add concrete TCP and UDP socket effects and HTTP over TCP. Keep
   ordinary application subprocess controls; retain committed server records
   in concrete databases and derive browser working data through cached views.
