@@ -179,8 +179,11 @@ invalidate their parents. Exclusions are exact paths, not every folder named `bu
 
 Missing names and lost watches report uncertainty; they do not by themselves mean
 source code changed. The caller decides which observed paths affect compilation.
-Missing roots are checked again, and replaced roots get new watches. A failed scan
-retains the previous complete inventory until recovery. `reconcile()` requests a
+Missing roots are checked again, and replaced roots get new watches. A scan stops
+at the first unreadable root and retains the previous complete inventory. It
+reports one uncertainty for the failure episode, then one recovery after a complete
+scan succeeds; failures moving between roots do not publish partial inventories.
+`reconcile()` requests a
 fresh scan after any active one without waiting for global quiet; closing suppresses
 later notifications and waits for an active scan to finish. There is no content
 cache or filesystem snapshot. Metadata polling catches ordinary local writes but
