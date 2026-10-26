@@ -1,19 +1,18 @@
 # Native networking
 
-`(lofi tcp)` provides a concrete, interceptable TCP effect. The Node program
-runner binds it to `scripts/tcp.mjs` through JSPI and `scripts/tcp-imports.mjs`.
-Static and separately linked programs use the same binding. UDP has a native
-owner, described below, but no Lofi binding yet. Browser TCP and the HTTP library
-are not implemented;
+`(lofi socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
+program runner binds them to `scripts/tcp.mjs` and `scripts/udp.mjs` through JSPI
+and `scripts/socket-imports.mjs`. Static and separately linked programs use the
+same binding. Browser sockets and the HTTP library are not implemented;
 [the networking issue](https://github.com/tsnl/snail-scheme/issues/457) tracks the
 remaining work.
 
 ## Lofi API
 
-Import `(lofi tcp)` and include `tcp` in the effect row of code using it.
-Every operation returns `Result` with a `TcpError` whose `code` is a string
+Import `(lofi socket)` and include `tcp` or `udp` in the effect row of code using it.
+Every operation returns `Result` with a `SocketError` whose `code` is a string
 such as `"EBADF"`, `"EINVAL"` or a native network error code. Cancellation
-unwinds the task; it is not a recoverable `TcpError`.
+unwinds the task; it is not a recoverable `SocketError`. TCP operations are:
 
 | Operation | Success value |
 | --- | --- |
@@ -25,28 +24,45 @@ unwinds the task; it is not a recoverable `TcpError`.
 | `close-listener listener` | `Unit`. |
 | `close-connection connection` | `Unit`. |
 
-Read limits are 1–65,536 bytes; one write accepts at most 65,536. Reads may
+TCP read limits are 1–65,536 bytes; one write accepts at most 65,536. Reads may
 split or combine peer writes. Callers must loop to transfer an exact length.
 Addresses are numeric IPv4 and ports are 0–65,535; listen port 0 selects a free
 port. Hostnames, TLS and stream framing are outside this API.
 
-`Listener` and `Connection` carry an opaque `Any` token belonging to their
+UDP operations are:
+
+| Operation | Success value |
+| --- | --- |
+| `bind (Endpoint address port)` | `UdpSocket`; `UdpSocket-port` is the actual bound port. |
+| `send socket peer bytes` | `I32` count of the entire datagram accepted locally, including zero; never a partial prefix. |
+| `receive socket maximum` | `Datagram` with an `Endpoint` peer and immutable bytes. |
+| `close-udp socket` | `Unit`. |
+
+UDP payloads and receive bounds are 0–65,507 bytes. Empty packets are messages,
+not EOF. An oversized receive consumes and discards that packet with `EMSGSIZE`;
+the next receive starts at the next packet. `Datagram-peer` supplies the sender's
+address and port, and `Datagram-bytes` supplies the whole payload. Bind port 0
+selects a free port; send destination ports are 1–65,535. UDP does not guarantee
+delivery, order or uniqueness.
+
+`Listener`, `Connection` and `UdpSocket` carry an opaque `Any` token belonging to their
 handler. They are reusable local values, neither `Send` nor `Sync`. Closing
 revokes all aliases; closing the same native token again succeeds. Native
 token types stay private to the library. A different handler's token reaching
 the native binding reports `EBADF` instead of being cast to an integer handle.
-Tokens must remain with the runtime that issued them.
+TCP and UDP owners may issue the same numeric handle, but their private token
+types differ. Tokens must remain with the runtime that issued them.
 
-A replacement `handle tcp` supplies the same seven operations. It may create
-`Listener` and `Connection` values with its own tokens. For example, a test
-can put a `Ref Bytes` in the connection token and access it through operation
-arguments. The reusable handler's captures still satisfy `Send + Sync` and
+A replacement `handle tcp` supplies seven operations; `handle udp` supplies four.
+They may create endpoint values with their own tokens. For example, a test
+can put a `Ref Bytes` in a connection token or a `Ref Datagram` in a UDP token,
+accessed through operation arguments. The reusable handler's captures still satisfy `Send + Sync` and
 grade `omega`; this does not relax the language's handler rules.
 
 ## Wasm boundary
 
 The binding borrows the program's synchronous constructor/projector exports
-from `(lofi tcp)`. Native I/O runs while the task is suspended. Only after its
+from `(lofi socket)`. Native I/O runs while the task is suspended. Only after its
 scheduler gate returns the execution permit does the binding enter Wasm to
 construct a typed `Result`. Ordinary JavaScript objects cannot substitute for
 these managed values. Host code remains trusted to use the correct Lofi types.
@@ -63,7 +79,7 @@ before delivery. A trap constructing its managed wrapper also closes the handle.
 Successful delivery transfers responsibility to user code: close explicitly, or
 leave cleanup to runtime shutdown. There is no implicit last-use socket drop or
 task-scoped socket owner. Cancelling an unrelated task does not close a delivered
-endpoint. The runner cancels/drains tasks, closes all TCP resources, then closes
+endpoint. The runner cancels/drains tasks, closes all socket resources, then closes
 its scalar resources when execution ends or initialization fails.
 
 ## TCP operations
@@ -125,8 +141,8 @@ created handle. No native cleanup record retains a managed wrapper.
 
 ## Native UDP owner
 
-`scripts/udp.mjs` owns IPv4 datagram sockets. It is tested against real loopback
-sockets, but is not yet installed in the runner or bound to a Lofi effect.
+`scripts/udp.mjs` owns IPv4 datagram sockets behind the `udp` effect. It is tested
+against real loopback sockets, including forced asynchronous native sends.
 It uses Node's [synchronous numeric bind](https://nodejs.org/api/dgram.html#socketbindsyncoptions),
 available from 26.4. Binding is a nonblocking local operation, so it needs no
 opening state, DNS lookup or bind cancellation registration.
@@ -154,7 +170,7 @@ time and may overlap; duplicates fail with `EBUSY`. Receive cancellation removes
 its registration and preserves the socket and remaining queue. A datagram
 already consumed before cancellation wins is not requeued.
 
-Send borrows immutable bytes until its callback. The Wasm binding must snapshot
+Send borrows immutable bytes until its callback. The Wasm binding snapshots
 staging before calling it. Cancelling send waits for native completion and
 then rejects with the exact cancellation reason. It cannot retract the datagram.
 A send callback failure affects that operation; a socket-level error closes
@@ -167,6 +183,6 @@ but defers native close until the single send settles. The closed record remains
 owned until its close event. Shutdown cannot finish while that send or cleanup
 is outstanding. Failed bind closes and awaits cleanup before rejecting.
 
-As for TCP, the scheduler owns successful acquisitions until delivery; the UDP
-binding must provide the existing native disposer. The owner adds no second
+As for TCP, the scheduler owns successful acquisitions until delivery; the shared
+binding supplies the existing native disposer. The owner adds no second
 delivery protocol and retains no managed wrapper.

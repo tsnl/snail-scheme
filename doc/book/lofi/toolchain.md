@@ -271,11 +271,10 @@ moves run controls and reload under `dev`. It is not implemented by the editor
 service described above. Production `serve` and package installation still need
 their own contracts; neither is a current public command.
 
-The concrete [TCP effect](../runtimes/networking.md) supports native CLI programs
-and replacement handlers for tests. The native UDP owner has bounded datagram
-queues, peer addresses and cancellation/close behavior; its typed Lofi binding
-remains to be added. UDP keeps message boundaries without guaranteeing delivery
-or order.
+The concrete [socket effects](../runtimes/networking.md) provide TCP streams and
+UDP datagrams to native CLI programs and replacement handlers for tests. Their
+native owners define bounded buffering, cancellation and close behavior. UDP
+keeps message boundaries without guaranteeing delivery or order.
 
 HTTP is proposed as a Lofi library over TCP, with bounded parsing, framing,
 routing and bundle/reload serving. The project service currently uses Node HTTP;
