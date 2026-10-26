@@ -22,6 +22,21 @@
     <section id="panes" class="panes" aria-label="Editors"></section>
   </main>
   <div id="diagnostics" class="diagnostics" role="status" hidden></div>
+  <section id="runs" class="runs" aria-label="Applications" hidden>
+    <div class="run-toolbar">
+      <label for="run-target">Application</label>
+      <select id="run-target"></select>
+      <button id="run-start" class="tool">Start</button>
+      <button id="run-stop" class="tool">Stop</button>
+      <button id="run-restart" class="tool">Restart</button>
+      <span id="run-status" role="status"></span>
+    </div>
+    <p id="run-problem" role="alert" hidden></p>
+    <div class="run-output">
+      <section aria-label="Standard output"><h2>stdout</h2><pre id="run-stdout" tabindex="0"></pre></section>
+      <section aria-label="Standard error"><h2>stderr</h2><pre id="run-stderr" tabindex="0"></pre></section>
+    </div>
+  </section>
   <script type="module" src="./ide.mjs"></script>
 </body>
 </html>

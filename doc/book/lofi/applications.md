@@ -7,10 +7,10 @@
 ## Hot reload
 
 This section describes the current browser application implementation.
-The [proposed process workflow](#proposed-application-processes) moves application
-execution into `lofi dev` and requires server and browser data to survive code
-replacement through durable records. The handover implementation below has not
-yet changed.
+`lofi dev` runs named program targets as subprocesses. The
+[proposed durable reload workflow](#proposed-application-processes) requires server
+and browser data to survive code replacement through durable records. The browser
+handover implementation below has not yet changed.
 
 `./scripts/lofi-tool serve APP-DIRECTORY` builds an application one library at a time,
 serves it at `http://127.0.0.1:8000/`, and builds it again whenever the
@@ -33,8 +33,8 @@ the page after saving. The [event and reload boundaries](#event-and-reload-bound
 below define checkpoint recovery, acceptance and manifest reconciliation.
 
 `./scripts/lofi-tool serve` does not build generated-library recipes. The project builder
-used by `lofi build`, `lofi dev` and `make site` does; application launch/reload
-integration into `dev` remains in progress.
+used by `lofi build`, `lofi dev` and `make site` does. Program targets run through
+the editor's application controls; browser bundle/reload integration remains in progress.
 
 `./scripts/lofi-tool watch SOURCE` is the same loop for a program: it builds and runs the
 program again whenever its sources change, stopping a run still in
@@ -107,8 +107,8 @@ starts over.
 ## Native application process owner
 
 `scripts/application-process.mjs` implements ownership of one ordinary OS child
-for one run target. The native development service and HTTP controls use it;
-editor controls are the next integration. The public `lofi run` command executes a cold
+for one run target. The native development service, HTTP API and editor use it.
+The public `lofi run` command executes a cold
 project build with ordinary shell IO.
 
 The owner accepts a latest launch request `{build, entry, args}` or `null` to stop.
@@ -163,10 +163,12 @@ child from overlapping a new child with the same name. There is no attempt histo
 or automatic crash retry. Closing the development session waits for all owners as
 well as the compiler and file observer.
 
-## Proposed application processes
+<a id="proposed-application-processes"></a>
 
-The native and HTTP process controls above are implemented. Exposing them through
-the editor and integrating durable application data and browser reload remain
+## Proposed durable reload
+
+The process controls above are implemented. Durable application data and browser
+reload remain
 [application work](https://github.com/tsnl/snail-scheme/issues/458). Process
 replacement alone preserves no managed state; killing a process cannot promise
 cleanup or a final commit.

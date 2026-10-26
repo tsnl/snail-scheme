@@ -234,6 +234,19 @@ use LF in edited text; the native file API preserves exact bytes until saved.
 The browser has no compiler, copied project, directory handles or persistent
 project storage. Closing/reloading a page with drafts asks before discarding them.
 
+The Applications panel selects one run target and provides Start, Stop and Restart.
+It shows requested and observed builds, PID, exit outcome and separate stdout/stderr
+tails. Output is literal text and preserves scroll position; it does not refresh
+files, panes or compiler diagnostic evidence. Removed names remain visible and
+stoppable. Application pages remain ordinary clients of their own server.
+
+Run snapshots arrive only through the current event connection. One command may
+be in flight; its response changes feedback, never the observed process state.
+A lost response or timeout reports an unknown outcome without retrying. That
+message names its command and target, survives output, selection and reconnect,
+and clears on the next deliberate run command. An empty run catalog does not hide
+pending command feedback. The controls are not a terminal, log archive or debugger.
+
 Each open buffer owns its draft and saved `{text, revision}` baseline. A file read
 updates a clean buffer; a dirty buffer keeps its draft and reports a changed disk
 revision. Saving sends the baseline revision and one captured string. Success
@@ -293,8 +306,8 @@ worker and prevents late commands from starting replacement children.
 
 ## Application and networking integration
 
-The native service and HTTP API implement [application run controls](applications.md#development-run-targets)
-and replacement after accepted builds. The editor UI follows separately. Durable
+The native service, HTTP API and editor implement [application run controls](applications.md#development-run-targets)
+and replacement after accepted builds. Durable
 state and browser reload integration remain [proposed work](applications.md#proposed-application-processes).
 Production `serve` and package installation still need their own contracts;
 neither is a current public command.
@@ -317,7 +330,7 @@ is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 
 | Boundary | Information crossing it |
 | --- | --- |
-| Editor ↔ development process | File reads/saves, build requests, current status and diagnostics. HTTP run controls/status are implemented; the editor UI follows. |
+| Editor ↔ development process | File reads/saves, build requests, compiler diagnostics, run controls and current process/output snapshots. |
 | Development process ↔ compiler worker | Attempt IDs, project descriptions, results, diagnostics and candidate output identities. Compiler objects and WasmGC references stay in the worker. |
 | Development process ↔ application process | Entry, arguments, environment, working directory, standard streams, exit status and OS controls. Each process lifetime names its build and run target. |
 | Browser ↔ application server | Ordinary HTTP; build-specific reload delivery is proposed. |
