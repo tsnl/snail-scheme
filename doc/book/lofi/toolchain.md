@@ -140,8 +140,8 @@ become ordinary embedded bytes. Standalone commands and the old development
 loop still reject project artifact requests. The
 [artifact contract](https://github.com/tsnl/snail-scheme/blob/stack/project-target-dependencies-20261024/doc/artifact-bundles.md)
 describes the compiler boundary and cache rules. The native driver
-now uses typed request/reply datums for generated libraries and artifact inputs,
-with exclusive scratch ownership across compiler restarts. Stderr is only
+now uses typed missing-input records and immutable artifact tables,
+with exclusive scratch ownership across retries. Stderr is only
 diagnostic text.
 
 `lofi dev PROJECT` keeps the incremental compiler alive and shares one

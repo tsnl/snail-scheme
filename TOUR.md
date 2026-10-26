@@ -109,7 +109,8 @@ and keeps state that grows over a whole pass in a `Ref`.
   changed are checked, specialized and emitted again. Cached emissions keep
   their monomorphic items so handler capture proofs can be rechecked against
   current helper bodies without regenerating unchanged Wasm text. Input
-  providers are passed to each build; sessions do not retain their closures.
+  generators and immutable artifact inputs are passed to each build; sessions
+  retain only compilation evidence.
 - **[`compiler.sld`](src/lofi/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text, or to one module's text per library.
 
@@ -129,9 +130,9 @@ runtimes and application processes.
 | `scripts/lofi-tool`, `scripts/lofi.scm` | Internal source compile/run, Wasm/schema inspection, bootstrap and tool builds. The internal script also retains the older application serve/watch loop until its replacement is integrated. |
 | `src/lofi/develop.sld`, `bootstrap/develop.sld` | The older development loop behind `./scripts/lofi-tool serve` and `./scripts/lofi-tool watch`, as a Lofi program: it keeps a session, debounces changes, writes each changed module and a manifest, broadcasts build events, keeps only the latest build's and the previous build's modules, and serves every file in `src/app`, reaching its host only through the `develop` effect's named commands. `bootstrap/develop.sld` exposes its entry points for Node. |
 | `src/lofi/project.sld` | Parses inert `project.datum` through the compiler's located reader. Returns typed program/browser builds and resolved program run targets, with lexical path and duplicate checks. It does no file IO, expansion or building. |
-| `src/lofi/compiler/inputs.sld` | Parses and prints the two concrete native compiler requests (generated syntax and named artifacts) and artifact-file replies. Missing inputs are recorded in memory; host entries publish requests after unwinding. The native builder supplies them and retries in exclusively owned scratch. Stderr carries only diagnostics. |
+| `src/lofi/compiler/inputs.sld` | Owns the two concrete missing-input requests (generated syntax and named artifacts). Resident code consumes them directly; process entries publish request datums after unwinding. Generated-source IO stays here. Stderr carries only diagnostics. |
 | `lib/lofi/artifact.sld` | Ordinary artifact-file/bundle structs and the hygienic `artifact-bundle` macro. The expander consumes immutable file inputs and retains exact evidence for cache reuse. Project builds supply named browser targets. |
-| `bootstrap/compiler.sld`, `scripts/compiler.mjs` | The resident compiler boundary: parsed project/request records, static text and modular builds with opaque Session values. The native wrapper captures fresh requests and source diagnostics per call and retires the instance after arbitrary traps, including reset/projection failures. Traversal, retries, publication and watching remain caller responsibilities. |
+| `bootstrap/compiler.sld`, `scripts/compiler.mjs` | The resident compiler boundary: parsed project/request records, static text and modular builds with opaque Session and immutable artifact-input values. The native wrapper captures fresh requests and source diagnostics per call and retires the instance after arbitrary traps, including reset/projection failures. Traversal, retries, publication and watching remain caller responsibilities. |
 | `scripts/project.mjs` | One native project traversal and packager for static and incremental builds. Owns the resident compiler, successful per-target Sessions, generated-input retries and private candidate directories. Detects cycles through producers, packages self-contained output and enumerates immutable artifact files. Publication and discard consume candidates; failed builds change no public outputs. |
 | `host/chibi/lofi/build.sld` | Standalone source compilation, bootstrap, generated-library producers and tool/link builds. Artifact requests fail with their source location; only the native project builder resolves project targets. |
 | `scripts/build.mjs`, `scripts/link.scm` | The cold CLI directly owns the shared builder, scratch lifetime and immediate publication. The narrow Chibi linker entry retains `(lofi build)`'s existing Binaryen/runtime policy; only the final binary leaves scratch. |
