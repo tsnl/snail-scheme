@@ -155,8 +155,10 @@ remains under review:
 - [ ] Replace browser project/build ownership with `lofi dev` for one project. Preserve the editor, formatting,
   diagnostics and splits; the UI subscribes to the development session.
 - [ ] Replace project build scripts with inert `project.datum` forms such as
-  `build-target` and `launch-target`. Every build target produces one output
+  `build-target` and `run-target`. Every build target produces one output
   directory. This changes the compiler/CLI contract, not just the IDE.
+- [x] Parse project forms on Chibi and Wasm with located diagnostics and typed,
+  resolved launch references. File access, building and artifacts remain separate.
 - [ ] Resolve named artifact bundles during actual expansion, including
   dependencies from generated application libraries. One server can depend
   on and serve multiple frontend bundles.
