@@ -4,7 +4,7 @@ Small complete programs, each run by the repository's test suite with the
 output shown. Run one with
 
 ```sh
-./lofi run examples/fibonacci.sld
+./scripts/lofi-tool run examples/fibonacci.sld
 ```
 
 - [Fibonacci](fibonacci.md): a typed recursive function and output.

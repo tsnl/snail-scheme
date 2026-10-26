@@ -9,7 +9,6 @@
    program->wat
    program->schemas
    build-program
-   build-program-directory
    build-modules
    link-wat
    build-crate
@@ -351,27 +350,6 @@
     (define (build-program root directories source output release?)
       (link-wat root (program->wat root directories source) output release?))
 
-    ;; Public builds expose only program.wasm. Intermediates stay private;
-    ;; the completed file is staged on the destination filesystem so rename
-    ;; publishes it atomically and a failed build keeps the previous file.
-    (define (build-program-directory root directories source output release?)
-      (with-private-directory root
-                              (lambda (directory)
-                                (publish-program! (build-program root directories source (path-join directory "program.wasm") release?) output))))
-
-    (define (publish-program! program output)
-      (unless (create-directory* output) (error "cannot create output directory" output))
-      (let* ((staging (create-staging-directory output)) (file (path-join staging "program.wasm")) (destination (path-join output "program.wasm")))
-        (dynamic-wind (lambda () #f)
-            (lambda ()
-              (copy-file! program file)
-              (unless (rename-file file destination) (error "cannot publish program" destination))
-              destination)
-            (lambda ()
-              (guard (failure (#t #f))
-                (when (file-exists? file) (delete-file file))
-                (delete-directory staging))))))
-
     ;; Exclusive creation owns exactly this staging directory. A stale name
     ;; from a reused process id is skipped, never adopted or removed.
     (define (create-staging-directory output)
@@ -418,7 +396,7 @@
 
     ;; ---- Development tools ----
 
-    ;; What `lofi serve` and `lofi watch` run: the development loop, a
+    ;; What `./scripts/lofi-tool serve` and `./scripts/lofi-tool watch` run: the development loop, a
     ;; program that includes the compiler; the reload client pages load; the
     ;; runtime; and the assembler. Each is built again only when its sources
     ;; are newer. Returns their paths by name.

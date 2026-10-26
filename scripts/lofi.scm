@@ -1,4 +1,4 @@
-;; The lofi command: compile, run, or print the WebAssembly text of a program.
+;; Internal compiler commands: source execution, inspection and bootstrap.
 (import
  (scheme base)
  (scheme cxr)
@@ -8,7 +8,7 @@
 
 ;; ---- Requests ----
 
-(define usage "usage: lofi compile|run|wat|schema [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | lofi bootstrap")
+(define usage "usage: scripts/lofi-tool compile|run|wat|schema [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | scripts/lofi-tool bootstrap")
 
 ;; Returns an association list of the options, the source and its arguments.
 (define (request arguments)
@@ -42,8 +42,8 @@
      ((string=? action "schema") (write-string (program->schemas root (directories root options) source)) 0)
      ((option options 'output #f)
       => (lambda (output)
-           (run-if-requested root options (build-program-directory root (directories root options) source output (option options 'release #f)))))
-     ((string=? action "compile") (error "lofi compile requires -o DIRECTORY"))
+           (run-if-requested root options (build-program root (directories root options) source output (option options 'release #f)))))
+     ((string=? action "compile") (error "source compilation requires -o FILE"))
      ;; Without -o the program lives as long as its run, in a directory of
      ;; its own, so runs at once in one checkout never share a file.
      (else (with-private-directory root

@@ -1,4 +1,4 @@
-;; The reload client: the part of a page that `lofi serve` adds. It compares
+;; The reload client: the part of a page that `./scripts/lofi-tool serve` adds. It compares
 ;; the manifest of the build the page runs with the one each of the
 ;; server's events carries, and decides what the page does: fetch a style
 ;; sheet again, relink the program from the first module that changed,

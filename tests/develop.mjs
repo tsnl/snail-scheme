@@ -2,14 +2,14 @@
 //
 //   node tests/develop.mjs ROOT
 //
-// `lofi serve` builds a copy of tests/apps/counter, one module per library,
+// `./scripts/lofi-tool serve` builds a copy of tests/apps/counter, one module per library,
 // and serves it with the reload client. The test plays the page's part with
 // the browser host's own code: it links the modules (src/app/load.mjs),
 // adds to the counter, edits the greeting, sees from the event that only
 // the program's own module was compiled again, relinks from it and hands
 // over the state as a page does (src/app/host.mjs). Only the modules of the
 // last two builds stay. A broken edit reports a failed build that keeps the
-// last good manifest. Then `lofi watch` runs a program again after an edit.
+// last good manifest. Then `./scripts/lofi-tool watch` runs a program again after an edit.
 import assert from 'node:assert/strict';
 import {execFileSync, spawn} from 'node:child_process';
 import {once} from 'node:events';

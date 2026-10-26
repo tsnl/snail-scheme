@@ -202,20 +202,16 @@
         (or (and (zero? (caddr result)) (string=? (car result) ""))
             (report "formatter" "formats differently from Emacs" (string-append (car result) (cadr result))))))))
 
-;; The command line itself: printing text and running a program.
+;; The internal compiler driver: printing text and running a program.
 (define (run-command-line root)
-  (let ((wat (capture-process (list (path-join root "lofi") "wat" (path-join root "examples/fibonacci.sld"))))
-        (run (capture-process (list (path-join root "lofi") "run" (path-join root "examples/fibonacci.sld"))))
-        (failed (capture-process (list (path-join root "lofi") "run" (path-join root "tests/tasks/failure.sld")))))
-    (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main"))) (report "lofi wat" "no module text" (cadr wat)))
-          ((not (equal? (car run) "832040\n")) (report "lofi run" "wrong output" (string-append (car run) (cadr run))))
+  (let ((wat (capture-process (list (path-join root "scripts/lofi-tool") "wat" (path-join root "examples/fibonacci.sld"))))
+        (run (capture-process (list (path-join root "scripts/lofi-tool") "run" (path-join root "examples/fibonacci.sld"))))
+        (failed (capture-process (list (path-join root "scripts/lofi-tool") "run" (path-join root "tests/tasks/failure.sld")))))
+    (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main"))) (report "compiler wat" "no module text" (cadr wat)))
+          ((not (equal? (car run) "832040\n")) (report "compiler run" "wrong output" (string-append (car run) (cadr run))))
           ((not (and (not (zero? (caddr failed))) (equal? (car failed) "survived\n")))
-           (report "lofi run" "a failed child must set failure status and let its sibling finish" (string-append (car failed) (cadr failed))))
+           (report "compiler run" "a failed child must set failure status and let its sibling finish" (string-append (car failed) (cadr failed))))
           (else #t))))
-
-(define (check-output-directories root)
-  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/output-directories.mjs") root))))
-    (or (zero? (caddr result)) (report "output directories" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-project-builds root)
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-builds.mjs") root))))
@@ -327,7 +323,7 @@
 
 ;; ---- Development loop ----
 
-;; `lofi serve` and `lofi watch` build while they run, and the check waits
+;; `lofi-tool serve` and `lofi-tool watch` build while they run, and the check waits
 ;; for their builds with a timeout, so it runs alone, after the others,
 ;; rather than competing with them.
 (define (run-develop root)
@@ -385,7 +381,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-output-directories root)) (lambda () (check-project-builds root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-project-builds root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))

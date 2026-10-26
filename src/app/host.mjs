@@ -138,14 +138,14 @@ function hudImports(hud) {
 // ---- Application ----
 
 // The applications running on this page, which the pages that relink, the
-// ones `lofi serve` serves, relink and save together.
+// ones `./scripts/lofi-tool serve` serves, relink and save together.
 export const running = [];
 
 // An application is the program it runs, which may be relinked, with the
 // last lines the program wrote to standard error, and the page's pictures,
 // renderer, HUD and canvas, which outlive any one program. `manifest` names
 // a program compiled one library at a time, whose files `read` gives: a
-// page that `lofi serve` serves names its modules.json in a meta tag, and
+// page that `./scripts/lofi-tool serve` serves names its modules.json in a meta tag, and
 // the browser IDE passes one with a `read` that fetches from its toolchain.
 // Without one the page is published, and loads one linked module from
 // `url`, which a manifest makes the page ignore.

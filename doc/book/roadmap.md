@@ -39,11 +39,11 @@ describe proposed behavior, kept apart from what is implemented.
   reaches the compiler as its bytes.
 - A structural TypeId for `Any`, and `type-test`, which asks what an `Any`
   holds without trapping.
-- Wire schema export (`lofi schema`) and bounded model checking of total
+- Wire schema export (`./scripts/lofi-tool schema`) and bounded model checking of total
   state machines (`(lofi explore)`).
 - A development loop: separate compilation of each library, with debug
-  builds linked dynamically, so `lofi serve` relinks a running page from the
-  first changed module and `lofi watch` reruns a program after each edit;
+  builds linked dynamically, so `./scripts/lofi-tool serve` relinks a running page from the
+  first changed module and `./scripts/lofi-tool watch` reruns a program after each edit;
   `lofi dev` and `make ide` expose the native project compiler to a browser editor.
 - Pinned tools: `shell.nix` takes nixpkgs from an npins pin, and a podman
   devcontainer that CI builds packages the same tools.
@@ -113,15 +113,15 @@ Further runtime work includes:
 
 ### Development loop
 
-`lofi serve` compiles only the libraries an edit reaches and relinks a
+`./scripts/lofi-tool serve` compiles only the libraries an edit reaches and relinks a
 running page from the first changed module, handing over its state, and
-`lofi watch` runs a program again after each edit. `lofi dev`/`make ide` run
+`./scripts/lofi-tool watch` runs a program again after each edit. `lofi dev`/`make ide` run
 the separate native project development service and browser editor
 ([toolchain.md](https://github.com/tsnl/snail-scheme/blob/main/doc/toolchain.md)).
 Not implemented:
 
-- [ ] Building `generate-library` recipes in the loop: `lofi serve`,
-  `lofi watch` cannot run a producer program yet. Project builds through
+- [ ] Building `generate-library` recipes in the loop: `./scripts/lofi-tool serve`,
+  `./scripts/lofi-tool watch` cannot run a producer program yet. Project builds through
   `lofi build` and `lofi dev` support producers; use `make site` for a
   static application with generated libraries.
 - [ ] Migrations between Save types, so a reload survives a schema change:
@@ -171,8 +171,11 @@ remains under review:
   contract, not just the IDE. Prior completed generations remain until removed.
 - [x] Parse project forms on Chibi and Wasm with located diagnostics and typed,
   resolved run references. File access, building and artifacts remain separate.
-- [x] Make `compile -o` and `run -o` publish `program.wasm` in an output directory,
-  preserving unrelated files and the last successful program on a failed build.
+- [x] Restrict the public CLI to project commands; keep source inspection,
+  bootstrap and the older reload loop in `scripts/lofi-tool`. Remove the
+  source driver's separate output-directory publication contract.
+- [ ] Add named `lofi run` and project-wide `lofi check`. Defer `install` until
+  the package-manager design supplies its contract.
 - [x] Resolve named artifact bundles during actual expansion, including
   dependencies from generated application libraries. One server can depend
   on multiple frontend bundles. Native project builds use one serial traversal

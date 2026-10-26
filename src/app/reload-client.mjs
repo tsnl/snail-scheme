@@ -1,4 +1,4 @@
-// The reload client's binding for the pages `lofi serve` serves
+// The reload client's binding for the pages `./scripts/lofi-tool serve` serves
 // (reload.mjs). The client, src/app/reload.sld,
 // runs as WebAssembly and decides what the page does about each build; this
 // file performs its commands with a notice over the page and what the page

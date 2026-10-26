@@ -74,7 +74,7 @@ rules change, change it to match. Browser changes should be seen running:
 
 ## Live reload
 
-Iterate on applications with `./lofi serve apps/NAME`, left running. It
+Iterate on applications with `./scripts/lofi-tool serve apps/NAME`, left running. It
 rebuilds only the libraries an edit reaches, about 100 ms for a function
 body in Siegework, and relinks them into each open page, keeping the running
 state; point `tests/browser/page.mjs` at the served URL to see an edit land.
@@ -87,7 +87,7 @@ gives the reload rules; what matters when writing code:
   `restore` otherwise, so keep what should survive an edit in the Save.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give constants their signatures.
-- `./lofi watch SOURCE [ARGUMENT ...]` is the same loop for programs.
+- `./scripts/lofi-tool watch SOURCE [ARGUMENT ...]` is the same loop for programs.
   `./lofi dev PROJECT` runs the native project compiler and browser editor;
   `make ide` starts it for Siegework. Save writes disk; the shared watcher
   drives compiler and editor updates. Application launching/reload still uses
