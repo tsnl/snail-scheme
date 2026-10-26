@@ -221,6 +221,10 @@
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-run.mjs") root))))
     (or (zero? (caddr result)) (report "project run" "failed" (string-append (car result) (cadr result))))))
 
+(define (check-project-check root)
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-check.mjs") root))))
+    (or (zero? (caddr result)) (report "project check" "failed" (string-append (car result) (cadr result))))))
+
 (define (check-project-artifacts root)
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-artifacts.mjs") root))))
     (or (zero? (caddr result)) (report "project artifacts" "failed" (string-append (car result) (cadr result))))))
@@ -385,7 +389,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-project-check root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-type-ids root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))

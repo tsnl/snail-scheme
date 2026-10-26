@@ -152,6 +152,14 @@ syntax retains the recipe location already established by expansion. No source
 mapping is invented. CLI panic text is unchanged, and the compiler still stops
 at its first error. These operations are implemented and tested.
 
+The resident `check` entry has no output filename. It expands, checks and
+specializes one source, including concrete handler and ownership checks, then
+discards the IR. Project-wide checking keeps each root active through its input
+retries. Only real packaged artifact builds enter the traversal's completed map;
+checking a root does not make its bytes available. Required artifacts use debug
+builds. The builder's `check` operation consumes and discards every generation,
+returning no publishable candidate.
+
 `scripts/project.mjs` calls this boundary for cold and resident project builds.
 Its `describe()` parses once; `build(description, ...)` consumes that parsed
 description, allowing a development caller to retain inputs even after failure.

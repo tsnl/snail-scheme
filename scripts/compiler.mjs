@@ -138,6 +138,7 @@ export async function createCompiler(program, diagnostics) {
     },
     session(directories) { return invoke('session', directories).value; },
     static(inputs, source, output, scratch, directories) { invoke('static', [source, output, scratch, ...directories], inputs); },
+    check(inputs, source, scratch, directories) { invoke('check', [source, scratch, ...directories], inputs); },
     modules(previous, inputs, source, output, scratch) {
       const {value: session, records: modules} = invoke('modules', [source, output, scratch], previous, inputs);
       return {session, modules};
