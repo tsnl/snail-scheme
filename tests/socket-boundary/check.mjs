@@ -106,8 +106,35 @@ try {
   tcp.read = () => { throw fault; };
   await assert.rejects(invoke('receive', client, 1).done, error => error === fault);
   tcp.read = native.read;
-  await invoke('stop-connection', client).done;
+  assert.equal(api.finished(await invoke('finish', client, 1000).done), 1, 'finish after remote EOF returns typed Unit');
   await invoke('stop-listener', listener).done;
+
+  // Both tasks may finish concurrently; unread bytes are drained.
+  const finishingListener = api.listener(await invoke('open').done), finishingPort = api.port(finishingListener);
+  const endingClient = api.connection(await invoke('dial', finishingPort).done);
+  const endingServer = api.connection(await invoke('take', finishingListener).done);
+  await invoke('send', endingClient).done;
+  const ending = invoke('finish', endingClient, 1000);
+  assert.equal(api.finished(await invoke('finish', endingServer, 1000).done), 1);
+  assert.equal(api.finished(await ending.done), 1);
+
+  const stalled = api.connection(await invoke('dial', finishingPort).done);
+  const stalledPeer = api.connection(await invoke('take', finishingListener).done);
+  assert.equal(api['timed-out'](await invoke('finish', stalled, 0).done), 1, 'deadline failure is a typed socket error');
+  await invoke('stop-connection', stalledPeer).done;
+
+  const interrupted = api.connection(await invoke('dial', finishingPort).done);
+  const interruptedPeer = api.connection(await invoke('take', finishingListener).done);
+  const nativeFinish = tcp.finish, started = Promise.withResolvers();
+  tcp.finish = (...args) => { const result = nativeFinish(...args); started.resolve(); return result; };
+  const finishing = invoke('finish', interrupted, 1000);
+  await started.promise;
+  finishing.cancel(cancelled);
+  await assert.rejects(finishing.done, error => error === cancelled);
+  tcp.finish = nativeFinish;
+  assert.equal(api['bad-read'](await invoke('receive', interrupted, 1).done), 1, 'cancellation closes aliases and returns the scheduler permit');
+  await invoke('stop-connection', interruptedPeer).done;
+  await invoke('stop-listener', finishingListener).done;
 
   const first = await invoke('open-udp').done, second = await invoke('open-udp').done;
   const firstPort = api['udp-port'](first), secondPort = api['udp-port'](second);
