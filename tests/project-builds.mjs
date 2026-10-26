@@ -62,7 +62,7 @@ try {
   if (process.getuid() !== 0) {
     await chmod(join(project, 'public/nested'), 0);
     try {
-      await assert.rejects(build('page'), /cannot read public directory/);
+      await assert.rejects(build('page'), /cannot read directory/);
       assert.equal(await realpath(output('page')), second, 'an unreadable public directory is not silently omitted');
     } finally { await chmod(join(project, 'public/nested'), 0o755); }
   }
