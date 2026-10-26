@@ -252,8 +252,13 @@ function renderDiagnostics() {
   diagnosticPanel.hidden = !diagnostics.length;
 }
 
-function received(current) {
-  diagnostics = current.diagnostics;
+let statusMessage;
+
+function received(message) {
+  const current = JSON.parse(message);
+  // Reconnect repeats the retained status. Keep its observation evidence,
+  // including Save's invalidation; a repeat is not a new compiler failure.
+  if (message !== statusMessage) { diagnostics = current.diagnostics; statusMessage = message; }
   renderDiagnostics();
   refreshEditors(null);
   if (diagnostics.length) for (const buffer of buffers.values()) void refreshBuffer(buffer);
@@ -271,7 +276,7 @@ let events;
 function connect() {
   events?.close();
   events = new EventSource('/api/events');
-  events.addEventListener('status', event => received(JSON.parse(event.data)));
+  events.addEventListener('status', event => received(event.data));
   events.addEventListener('files', () => { void refreshProject(); });
   events.onerror = () => setStatus('Connection lost; reconnecting…', 'failed');
 }

@@ -521,7 +521,9 @@ locations remain messages rather than being mapped to another file. These are
 source points, not guessed expression ranges or full source spans.
 Manual Build requests compilation; Save writes disk and leaves scheduling to the
 shared observer. Reconnecting the event stream supplies current status and file
-invalidation without a replay log. Going back online replaces the stream too,
+invalidation without a replay log. An exact repeat of the retained status keeps
+its diagnostic observations, including invalidation by Save or a changed read.
+It still restores status presentation and refreshes files. Going back online replaces the stream too,
 covering file reads that failed while an existing event connection survived.
 
 `tests/browser/ide.mjs` drives the actual native service with Chromium: disk saves,
