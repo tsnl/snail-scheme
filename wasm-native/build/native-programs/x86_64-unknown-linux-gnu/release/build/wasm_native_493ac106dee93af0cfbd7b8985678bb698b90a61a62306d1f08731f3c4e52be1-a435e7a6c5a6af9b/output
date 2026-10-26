@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/serialization-graphs-native/graphs.native.native-20-0/module.bc

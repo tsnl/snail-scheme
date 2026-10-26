@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/lofi-book/attempt-2-0/colors/program.native.native-730-0/module.bc

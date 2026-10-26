@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/ci-fix-bytes/literal-native.native-940-0/module.bc

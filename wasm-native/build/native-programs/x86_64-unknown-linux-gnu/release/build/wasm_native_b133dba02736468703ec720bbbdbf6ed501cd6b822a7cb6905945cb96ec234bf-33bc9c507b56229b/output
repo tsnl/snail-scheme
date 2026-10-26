@@ -1,0 +1,1 @@
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/build/lofi-book/attempt-2-1/fibonacci/program.native.native-56-0/module.bc

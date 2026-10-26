@@ -181,7 +181,7 @@ pub extern "C" fn stage(count: u32) -> u32 {
     })
 }
 
-fn staged_text(count: u32) -> Result<String, String> {
+pub(crate) fn staged_text(count: u32) -> Result<String, String> {
     STAGED.with_borrow(|staged| {
         let scalars = staged
             .get(..count as usize)
@@ -277,7 +277,6 @@ pub extern "C" fn close(id: u32) {
 
 fn release_all() -> Result<(), String> {
     let flushed = flush_standard_output();
-    crate::datum::close_all();
     PATHNAME.with_borrow_mut(Option::take);
     let ports = FILES.with_borrow_mut(|files| std::mem::take(&mut files.live));
     let mut result = flushed;

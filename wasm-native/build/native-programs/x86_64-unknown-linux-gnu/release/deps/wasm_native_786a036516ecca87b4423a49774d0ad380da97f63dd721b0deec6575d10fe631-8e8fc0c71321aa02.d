@@ -1,0 +1,5 @@
+/home/nti/Developer/snail-scheme/wasm-native/build/native-programs/x86_64-unknown-linux-gnu/release/deps/wasm_native_786a036516ecca87b4423a49774d0ad380da97f63dd721b0deec6575d10fe631-8e8fc0c71321aa02.d: .snail-native-entry-4738-0.rs
+
+/home/nti/Developer/snail-scheme/wasm-native/build/native-programs/x86_64-unknown-linux-gnu/release/deps/wasm_native_786a036516ecca87b4423a49774d0ad380da97f63dd721b0deec6575d10fe631-8e8fc0c71321aa02: .snail-native-entry-4738-0.rs
+
+.snail-native-entry-4738-0.rs:

@@ -1,0 +1,4 @@
+cargo:rerun-if-env-changed=SNAIL_LLVM_IR
+cargo:rerun-if-env-changed=LLVM_LLC
+cargo:rerun-if-changed=/home/nti/Developer/snail-scheme/build/backend-tests/backend-bootstrap.ll
+cargo:rustc-link-arg=/home/nti/Developer/snail-scheme/target/release/build/snail-runner-afc46eebd27d9f91/out/scheme.o
