@@ -2,8 +2,8 @@
 ;; project it opens until another is chosen:
 ;;   build-ide ROOT APP-DIRECTORY OUTPUT-DIRECTORY
 ;; The site holds the IDE's development loop (src/ide/develop.sld) compiled
-;; one library at a time, with the runtime, the reload client, the assembler
-;; and the formatter; the browser host and the IDE's pages; files.json, the
+;; one library at a time, with the runtime, assembler and formatter;
+;; the program loader and IDE's pages; files.json, the
 ;; text of the standard library; and sample.json, the application's text
 ;; files.
 (import
@@ -18,37 +18,42 @@
  (lofi build))
 
 (define ide-files
-  '("index.html" "ide.mjs" "ide.css" "editor.mjs" "panes.mjs" "project.mjs" "formatter.mjs" "preview.html" "preview.mjs"
+  '("index.html" "ide.mjs" "ide.css" "editor.mjs" "panes.mjs" "project.mjs" "formatter.mjs"
     "toolchain.mjs"))
 
 ;; ---- Packaging ----
 
 (define (package root app output)
   (create-directory* output)
+  (remove-retired-preview! output)
   (copy-programs! root output)
   (copy-pages! root output)
   (write-json (path-join output "files.json") (library-json root))
   (write-json (path-join output "sample.json") (sample-json app))
   0)
 
+;; Rebuilding an older site removes its retired application entry points.
+(define (remove-retired-preview! output)
+  (for-each (lambda (name)
+              (let ((path (path-join output name)))
+                (when (file-exists? path) (delete-file path))))
+            '("preview.html" "preview.mjs")))
+
 ;; The development loop, one module per library, and the programs it runs
-;; beside the runtime: the reload client, the assembler and the formatter.
+;; beside the runtime: the assembler and the formatter.
 ;; The formatter is built, as the development tools are, when it is stale.
 (define (copy-programs! root output)
   (build-modules root (list (path-join root "src") (path-join root "lib")) (path-join root "src/ide/develop.sld") (path-join output "toolchain"))
-  (let ((tools (build-tools root))
-        (formatter (build-tool root (path-join root "src/ide/format.sld") (path-join root "build/ide-tools/format.wasm")
+  (let ((formatter (build-tool root (path-join root "src/ide/format.sld") (path-join root "build/ide-tools/format.wasm")
                                (list (path-join root "lib")))))
     (copy-file! formatter (path-join output "format.wasm"))
-    (copy-file! (cdr (assoc "client" tools)) (path-join output "reload.wasm"))
-    (copy-file! (cdr (assoc "assembler" tools)) (path-join output "assembler.wasm"))))
+    (copy-file! (build-crate root "assembler") (path-join output "assembler.wasm"))))
 
-;; The browser host with its reload client, the assembler's driver, and
+;; The program loader, the assembler's driver, and
 ;; the IDE's own pages.
 (define (copy-pages! root output)
   (copy-file! (path-join root "scripts/assemble.mjs") (path-join output "assemble.mjs"))
-  (for-each (lambda (file) (copy-file! (path-join root "src/app" file) (path-join output file)))
-            (append app-host-files '("reload-client.mjs")))
+  (copy-file! (path-join root "src/app/load.mjs") (path-join output "load.mjs"))
   (for-each (lambda (file) (copy-file! (path-join root "src/ide" file) (path-join output file))) ide-files))
 
 ;; The text of every library in lib/, under its path in the IDE.

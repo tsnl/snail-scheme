@@ -1,5 +1,5 @@
-// The reload client's binding, shared by the pages `lofi serve` serves
-// (reload.mjs) and the browser IDE's preview. The client, src/app/reload.sld,
+// The reload client's binding for the pages `lofi serve` serves
+// (reload.mjs). The client, src/app/reload.sld,
 // runs as WebAssembly and decides what the page does about each build; this
 // file performs its commands with a notice over the page and what the page
 // gives it: how to fetch a style sheet again, relink its programs and save
