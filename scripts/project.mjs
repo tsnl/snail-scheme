@@ -21,6 +21,10 @@ export function projectTools(root) {
   return JSON.parse(run(join(root, 'lofi'), ['project-tools']));
 }
 
+export function editorTools(root) {
+  return JSON.parse(run(join(root, 'lofi'), ['editor-tools']));
+}
+
 function link(root, text, output, mode) {
   run(process.env.CHIBI || 'chibi-scheme', ['-h', process.env.LOFI_HEAP || '2G',
     '-I', join(root, 'host/chibi'), '-I', join(root, 'src'), join(root, 'scripts/link.scm'), root, text, output, mode]);

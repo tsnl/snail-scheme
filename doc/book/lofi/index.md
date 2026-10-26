@@ -19,6 +19,6 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
 - [Application model](applications.md): interactive applications in the
   browser.
 - [Development toolchain](toolchain.md): building one library at a time,
-  hot reload, the current browser IDE and the proposed project workflow.
+  hot reload, the native project editor and the proposed application workflow.
 - [Notable omissions](omissions.md): what was left out, and why.
 - [References](references.md): influences and further reading.

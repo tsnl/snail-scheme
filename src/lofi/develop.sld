@@ -2,12 +2,11 @@
 ;; build it again when they change, and tell its open pages, or run it
 ;; again. A build goes through a compile session (lofi compiler session), so
 ;; it recompiles only the libraries an edit changed, each to its own module.
-;; The loop decides everything, the same wherever it runs: a program
-;; exposes its entry points and starts it, as WebAssembly under Node
-;; (bootstrap/develop.sld) or in the IDE's worker (src/ide/develop.sld). The
-;; host (scripts/develop.mjs, or src/ide/toolchain.mjs) performs the
-;; commands of the `develop` effect, such as watching a directory or serving
-;; a page, and reports what happened as events.
+;; bootstrap/develop.sld exposes its entry points as WebAssembly under Node.
+;; The scripts/develop.mjs host performs the `develop` commands, such as
+;; watching a directory or serving a page, and reports events. This older
+;; application loop remains behind serve/watch while native project
+;; development and the editor use scripts/project-develop.mjs.
 (define-library (lofi develop)
   (export
    develop

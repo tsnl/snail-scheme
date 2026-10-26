@@ -3,6 +3,7 @@ Usage: lofi run [OPTIONS] SOURCE.sld [ARGUMENT ...]
        lofi build [--release] PROJECT TARGET
        lofi wat [OPTIONS] SOURCE.sld
        lofi schema [OPTIONS] SOURCE.sld
+       lofi dev [--port PORT] PROJECT
        lofi serve [--port PORT] APP-DIRECTORY
        lofi watch [-I DIR] SOURCE.sld [ARGUMENT ...]
        lofi bootstrap
@@ -28,6 +29,13 @@ PROJECT/build/TARGET. The output is a link to a completed generation;
 earlier generations remain in PROJECT/build until explicitly removed.
 Browser targets package program.wasm, the shared browser host and their
 public directory. Put index.html in public; no page is generated.
+
+dev keeps one native project compiler running, watches disk and serves an
+editor at http://127.0.0.1:PORT/ (8000 by default, 0 chooses a free port).
+Save writes disk; the shared watcher triggers compilation. External edits
+update clean editor buffers and report conflicts for unsaved buffers.
+Application launching/reloading is not integrated into dev yet; use the
+existing serve/watch commands below for that part of development.
 
 serve builds a (lofi app) application one library at a time, serves it at
 http://127.0.0.1:PORT/ (8000 by default) and rebuilds the libraries its

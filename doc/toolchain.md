@@ -8,15 +8,16 @@
 > The editor subscribes independently; applications run as ordinary
 > subprocesses, preserving durable facts and deriving working state through
 > disposable views. The [state prototype](proposals/typed-state.md) remains
-> under review while independent IDE/project work proceeds. The commands and relink
-> behavior below describe the current implementation; browser-only IDE and
-> integrated preview work is dropped from the replacement plan.
+> under review. `lofi dev` now owns native compilation and the editor; application
+> launch/reload integration remains. The older `serve`/`watch` relink behavior
+> below is still implemented. Browser-only development and integrated previews
+> have been removed.
 
 This document describes how Lofi programs are built, linked, reloaded and
 loaded during development, so that a rebuild costs as much as the edit
 that caused it. The compiler and assembler run as Wasm; native code owns project
-traversal and processes. The older browser toolchain remains until the IDE becomes
-a native service's client. C is the reference model: programs can link statically
+traversal and processes. The browser editor is a client of the native project
+service; its only Wasm tool is the formatter. C is the reference model: programs can link statically
 or by library, and code loaded at run time is reached through an explicit,
 unchecked cast.
 
@@ -38,9 +39,8 @@ nonempty and cannot begin with a dash; use a path for such executables.
 3. Load compiled code while a program runs, including `generate-library`
    producers.
 4. Keep compiler decisions in Lofi and native project/process ownership explicit.
-5. The current implementation runs the whole debug toolchain in a browser.
-   The proposed `dev` keeps a native incremental compiler alive and gives
-   the editor file/build subscriptions.
+5. Keep the compiler in a persistent native worker. Give the independent editor
+   file/build subscriptions and keep unsaved buffers out of compilation.
 
 ## 2. Where a rebuild's time goes
 
@@ -59,18 +59,18 @@ Now the development loop is a long-lived Lofi program that compiles one
 library at a time, keeps what it compiled in memory, and assembles
 without Binaryen:
 
-| Build | Desktop | Browser worker |
-| --- | --- | --- |
-| Siegework, first build, 14 modules | about 450 ms | about 550 ms |
-| Siegework, an edit to one function body, 1 or 2 modules | 70 to 110 ms | 50 to 100 ms |
-| The counter of `tests/apps/counter`, an edit | 25 to 50 ms | about 30 ms |
+| Build | Native loop |
+| --- | --- |
+| Siegework, first build, 14 modules | about 450 ms |
+| Siegework, an edit to one function body, 1 or 2 modules | 70 to 110 ms |
+| The counter of `tests/apps/counter`, an edit | 25 to 50 ms |
 
 ## 3. Linking, after C
 
 | Build | Linking |
 | --- | --- |
 | Static | The whole program is compiled at once, optimized and tree-shaken, and the Rust runtime is merged in. `lofi compile`, `lofi run`, `lofi build` and `make site` build this way; `--release` increases optimization. |
-| Development | Each library is compiled to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. `lofi serve`, `lofi watch` and the browser IDE build this way. |
+| Development | Each library is compiled to its own module, and the modules are linked when the program is instantiated. The Rust runtime is a separate instance, like a shared C library. Nothing is optimized or tree-shaken. `lofi dev`, `lofi serve` and `lofi watch` build this way. |
 | Either | Code loaded while the program runs, through `(lofi wasm)` (section 3.3). |
 
 ### 3.1 Separate compilation
@@ -199,15 +199,16 @@ development session; there is no automatic crash loop.
 
 This native API is implemented and tested, including a producer blocked on an input
 pipe while a newly configured public file changes. The native file service and
-HTTP API are connected; CLI/editor and application launch integration follow. Diagnostic records currently contain severity and message;
+HTTP API and editor are connected through `lofi dev`; application launch
+integration follows. Diagnostic records currently contain severity and message;
 source locations remain in the message until the compiler exposes structured spans.
 The editor must not add its own text parser for them.
 
 So an edit to a function body with a signature recompiles one library. An
 edit to an interface recompiles the libraries that import it too. The
 loop assembles each changed module into a file named after a hash of its
-text, so a page fetches a module again only when it changed. Nothing is
-kept on disk; a cold start compiles everything once.
+text, so a page fetches a module again only when it changed. Compiler Sessions live in memory; a cold start compiles everything once.
+Accepted project output generations remain on disk.
 
 ### 3.2 Dynamic linking
 
@@ -333,11 +334,11 @@ that missed events, even across a restart of the server, catches up from
 the next one, and a refused build is not tried again until the developer
 starts over.
 
-## 5. The development loop in Lofi
+## 5. The existing application development loop
 
-The loop is a Lofi program: `(lofi develop)` in `src/lofi/develop.sld`,
-exposed and started by `bootstrap/develop.sld`, or by `src/ide/develop.sld`
-in the IDE. It keeps a session, debounces changes, builds, writes modules
+The older `serve`/`watch` loop is a Lofi program: `(lofi develop)` in
+`src/lofi/develop.sld`, exposed by `bootstrap/develop.sld`. It remains until
+application launching and reloads move to the project development service. It keeps a session, debounces changes, builds, writes modules
 and manifests, broadcasts events, and decides which module files stay: the
 latest build's and the one before, which pages may still be relinking
 from. It reaches its host only through a `develop` effect of named
@@ -352,7 +353,6 @@ one, such as Hearsay, is built with `make site`.
 | --- | --- |
 | Node: HTTP with server-sent events, file watching, timers, child processes | `scripts/develop.mjs`, for `lofi serve` and `lofi watch` |
 | Node compiler worker: one Wasm instance, its assembler and immediate filesystem helpers | `scripts/develop-worker.mjs` |
-| A browser worker: the files it holds, timers, messages to the IDE | `src/ide/toolchain.mjs`, running `src/ide/develop.sld` |
 
 The native parent remains responsive during synchronous compilation. The worker
 receives file/timer events and forwards only watch, schedule, serve, broadcast
@@ -363,12 +363,11 @@ compile. Recoverable compiler panics report through the existing loop; fatal
 worker or host failures close the native host.
 
 Because HTTP now runs during compilation, published HTML and manifests are
-written to neighboring staging files and renamed into place. A synchronous
-rename command also works as a map move in the temporary browser backend.
+written to neighboring staging files and renamed into place.
 Assembled module binaries use the same replacement rule; a failed write cannot
 leave a partial module that a later build mistakes for a cached file. This
-provides complete individual files; project-level attempt acceptance and
-generation publication remain the next development-session changes.
+provides complete individual files. The newer `dev` service instead uses
+project-level attempt acceptance and completed output generations.
 
 Each host owns private diagnostic storage and removes it after worker exit.
 Node [tracks filesystem descriptors opened by a worker](https://nodejs.org/api/worker_threads.html#new-workerfilename-options)
@@ -419,8 +418,9 @@ creation, rename, deletion, merging and automatic conflict retry are omitted.
 
 `scripts/project-http.mjs` connects the project attempt owner and file service on
 `127.0.0.1`. Its native API returns the URL, development session, completion promise
-and an idempotent close operation. The browser UI and `dev` command follow in the
-next slice; this service does not yet serve pages or applications.
+and an idempotent close operation. `scripts/dev.mjs` supplies the `dev` command.
+The same HTTP service serves a fixed list of trusted editor assets and the
+formatter; it never serves project HTML or arbitrary filesystem paths.
 
 | Request | Result |
 | --- | --- |
@@ -455,31 +455,52 @@ again. *Proposed:* a Scheme REPL, which expects that redefining a procedure
 changes what every caller calls, would relink every library after the
 redefinition, as an edit does.
 
-## 7. The toolchain in a browser
+## 7. The native project editor
 
-`make ide` packages the browser IDE as a static site in `build/ide`
-(`scripts/build-ide.scm`), with Siegework as the project it opens until the
-developer opens a project directory. The page is laid out as Zed is: a narrow toolbar
-along the top, a file browser docked on the left, a binary tree of editor
-panes. The editor compiles for diagnostics but does not run the application.
+`lofi dev [--port PORT] PROJECT` reads `project.datum`, keeps the shared project
+builder alive and serves the editor on loopback. Port 8000 is the default; port 0
+chooses a free port. `make ide` runs this command for Siegework. SIGINT/SIGTERM
+close the HTTP service, shared observer and compiler worker. Existing `serve` and
+`watch` still provide application execution/reload until that part of `dev` lands.
 
-| Piece | In a browser |
-| --- | --- |
-| Compiler and loop | `src/ide/develop.sld`, the loop of `bootstrap/develop.sld` compiled one library at a time and linked in a worker. |
-| Files | The worker holds them: the standard library, the project as the editor has it, unsaved edits included, and what builds write. The program handles `(lofi io)`'s `fs` effect with a `files` effect that the worker implements, so the compiler opens files as it does from a disk. The loop keeps only the modules of the latest build and the one before. |
-| Projects | Text files by relative path in local storage, from a project directory opened from disk. Where the browser offers the File System Access API, saving writes back to that directory, whose handle survives a reload in IndexedDB. |
-| Assembler | The `wat` crate compiled to WebAssembly (`src/assembler`), which the desktop loop uses too, instead of `wasm-as`. |
-| Formatter | `(lofi format)`, which reproduces `scripts/format-scheme` on every file in the repository, compiled to its own module (`src/ide/format.sld`) and run on the page's thread. Tab and Enter indent as Emacs does; saving formats the file. Its lexer also classes each character for highlighting, of the lines in view only, read from the start of their top-level form. |
-| Diagnostics | A failed build's message starts with the place the compiler means; the IDE puts a squiggle under the expression there. |
-| Linker | The loader of section 3.2. |
-| Runtime | The prebuilt `snail_runtime.wasm`, an instance for the development loop. |
-| Optimizer | None. |
+The editor has a file browser and split panes. `(lofi format)` runs in the page
+for Scheme highlighting, Tab/Enter indentation and format-on-save (`.sld`, `.scm`
+and `.datum`). Other supported files use ordinary text editing. Browser textareas
+use LF in edited text; the native file API preserves exact bytes until saved.
+The browser has no compiler, copied project, directory handles or persistent
+project storage. Closing/reloading a page with drafts asks before discarding them.
 
-Section 2 gives the worker's build times; text crosses to the worker a
-character at a time, which makes its first build slower than the desktop's.
-`tests/browser/ide.mjs` packages `tests/apps/counter` and, in headless
-Chromium, checks failed-build recovery, a squiggle, Tab and
-format-on-save, splits a pane, and opens a project directory.
+Each open buffer owns its draft and saved `{text, revision}` baseline. A file read
+updates a clean buffer; a dirty buffer keeps its draft and reports a changed disk
+revision. Saving sends the baseline revision and one captured string. Success
+advances the baseline without replacing later typing; an older in-flight read
+cannot overwrite that evidence. Every completed save refreshes from disk,
+including failures whose writes might have reached the server. There is one save
+in flight per buffer, with no autosave or queued retries. A formatting failure
+still permits saving the original draft, including incomplete code. Explicit
+operation failures remain visible through background reads until the next
+Save, Format or Reload action; reading successfully does not prove saving succeeded.
+
+Reload discards a confirmed draft immediately to its saved baseline, then reads
+disk. A failed read leaves that baseline and an error; later typing is a new draft
+and survives the read. A current file read returning 404 clears a clean/loading buffer;
+a dirty deleted file remains selectable with its text. Saves cannot recreate it.
+The UI handles an empty project and later discovers files through the same
+observer. A project listing alone never discards a buffer: lists and reads are
+different observations, with independent ordering.
+
+Build status replaces the preceding diagnostic collection at each attempt. The
+page shows full messages in a separate panel; it does not parse locations out of
+compiler prose. Source spans and squiggles are the next compiler-boundary slice.
+Manual Build requests compilation; Save writes disk and leaves scheduling to the
+shared observer. Reconnecting the event stream supplies current status and file
+invalidation without a replay log. Going back online replaces the stream too,
+covering file reads that failed while an existing event connection survived.
+
+`tests/browser/ide.mjs` drives the actual native service with Chromium: disk saves,
+compiler recovery, clean external updates, dirty conflicts, delayed save/read
+replies, deleted drafts, empty projects, reconnection, split panes and command
+shutdown. Application launch/reload tests will follow that integration.
 
 ## 8. What is left
 

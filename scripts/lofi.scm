@@ -77,4 +77,5 @@
           (cond ((equal? (cddr arguments) '("bootstrap")) (bootstrap! (cadr arguments)) 0)
                 ((equal? (cddr arguments) '("tools")) (print-tools (build-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("project-tools")) (print-tools (build-project-tools (cadr arguments))))
+                ((equal? (cddr arguments) '("editor-tools")) (print-tools (build-editor-tools (cadr arguments))))
                 (else (perform (cadr arguments) (request (cddr arguments))))))))
