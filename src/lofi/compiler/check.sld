@@ -23,30 +23,66 @@
 
     ;; ---- Checker state ----
 
-    ;; `locals` maps unique local names to monomorphic types. `schemes` holds
-    ;; inferred schemes, and the provisional types of the group being inferred.
-    ;; While items are checked, constraints are only recorded in `pending`,
-    ;; newest first, with their number in `pending-count`; they are decided
-    ;; once, when the whole program has been checked. `open` names the
-    ;; definitions whose types may still contain metavariables, and `givens`
-    ;; the requirements of the annotated definition being checked.
-    ;; `confining` names the row variable of a function body whose type
-    ;; forbids `mut`: calls in that body may mutate, and `discharged` records
-    ;; whether one did. `confined` holds the functions that did, to be checked
-    ;; once their types are final.
+    ;; The checker is plain data, threaded through the pass: a step takes one
+    ;; and hands back the one it learned in. Its fields fall into two kinds.
+    ;;
+    ;; Scope, which a sub-check may replace and which the caller gets back
+    ;; unchanged: `program`, `locals` mapping unique local names to
+    ;; monomorphic types, `givens` the requirements of the annotated
+    ;; definition being checked, and `confining` the row variable of a
+    ;; function body whose type forbids `mut`, so calls in that body may
+    ;; mutate.
+    ;;
+    ;; What it has learned, which flows forward out of every sub-check:
+    ;; `counter` numbering metavariables and evidence holes, `solution`,
+    ;; `schemes` holding inferred schemes and the provisional types of the
+    ;; group being inferred, `pending` recording constraints newest first
+    ;; with their number in `pending-count` — they are decided once, when the
+    ;; whole program has been checked — `open` naming the definitions whose
+    ;; types may still contain metavariables, `discharged` recording whether
+    ;; a call in a confining body mutated, and `confined` holding the
+    ;; functions that did, to be checked once their types are final.
     (struct Checker
       ((program Program)
-       (counter (Ref I64))
        (locals (Table Type))
-       (schemes (Ref (Table Scheme)))
-       (solution (Ref Solution))
-       (givens (Ref (List Constraint)))
-       (pending (Ref (List Wanted)))
-       (pending-count (Ref I64))
-       (open (Ref (List String)))
-       (confining (Ref (Option I64)))
-       (discharged (Ref Bool))
-       (confined (Ref (List Expr)))))
+       (givens (List Constraint))
+       (confining (Option I64))
+       (counter I64)
+       (solution Solution)
+       (schemes (Table Scheme))
+       (pending (List Wanted))
+       (pending-count I64)
+       (open (List String))
+       (discharged Bool)
+       (confined (List Expr))))
+
+    ;; A sequence of steps that each take the checker and hand it back,
+    ;; written as `let*` is. `(name (step argument ...))` binds the step's
+    ;; value; `(then (step argument ...))` is for a step that only learns and
+    ;; hands back the checker alone. Every step is a call, with the checker
+    ;; passed as its first argument, and the checker is named by an
+    ;; identifier: each step rebinds that name, so the body and every later
+    ;; step see the newest one and nothing can read a checker a step has
+    ;; moved past. `then` is this form's own keyword, so a step cannot bind
+    ;; a value under that name.
+    (define-syntax learning
+      (syntax-rules (then)
+        ((_ ck () body ...) (begin body ...))
+        ((_ ck ((then (f argument ...)) step ...) body ...)
+         (let ((ck (f ck argument ...))) (learning ck (step ...) body ...)))
+        ((_ ck ((name (f argument ...)) step ...) body ...)
+         (match (f ck argument ...)
+           ((Pair name ck) (learning ck (step ...) body ...))))))
+
+    ;; A sub-check that ran under its own scope, resumed in the caller's:
+    ;; everything it learned stays, every scoped field is the caller's again.
+    ;; One place names which fields are which, so a sub-check cannot leak the
+    ;; scope it ran under.
+    (: resumed (-> Checker Checker Checker))
+    (define (resumed outer inner)
+      (Checker (Checker-program outer) (Checker-locals outer) (Checker-givens outer) (Checker-confining outer)
+               (Checker-counter inner) (Checker-solution inner) (Checker-schemes inner) (Checker-pending inner)
+               (Checker-pending-count inner) (Checker-open inner) (Checker-discharged inner) (Checker-confined inner)))
 
     ;; What checking has learned: each metavariable's identity to the type it
     ;; stands for, and each evidence hole's to its evidence. A `Type` and an
@@ -106,27 +142,32 @@
     (define (program-of ck)
       (Checker-program ck))
 
-    (: solution (-> Checker Solution ! mut))
+    (: solution (-> Checker Solution))
     (define (solution ck)
-      (ref-get (Checker-solution ck)))
+      (Checker-solution ck))
 
     ;; An affine query reads a type's structure, so it needs the solution
     ;; applied first; a metavariable on its own is not known to be affine.
-    (: affine? (-> Checker Type Bool ! mut))
+    (: affine? (-> Checker Type Bool))
     (define (affine? ck type)
       (affine-type? (program-of ck) (resolve-type (solution ck) type)))
 
-    (: fresh-identity (-> Checker I64 ! mut))
+    (: bind-solved (-> Checker Type Type Checker))
+    (define (bind-solved ck meta type)
+      (Checker-solution-set ck (Solution (table-set (Solution-types (solution ck)) (identity-key (TVar-id meta)) type)
+                                         (Solution-evidence (solution ck)))))
+
+    (: fresh-identity (-> Checker (Pair I64 Checker)))
     (define (fresh-identity ck)
-      (let ((id (+ (ref-get (Checker-counter ck)) 1)))
-        (ref-set! (Checker-counter ck) id)
-        id))
+      (let ((id (+ (Checker-counter ck) 1)))
+        (Pair id (Checker-counter-set ck id))))
 
     ;; ---- Metavariables and unification ----
 
-    (: fresh-meta (-> Checker Type ! mut))
+    (: fresh-meta (-> Checker (Pair Type Checker)))
     (define (fresh-meta ck)
-      (TVar (fresh-identity ck)))
+      (learning ck ((id (fresh-identity)))
+                (Pair (TVar id) ck)))
 
     (: meta? (-> Type Bool))
     (define (meta? type)
@@ -151,50 +192,67 @@
            ((None) type)))
         (_ type)))
 
-    (: unify (-> Checker Type Type Loc Unit ! mut))
+    (: unify (-> Checker Type Type Loc Checker))
     (define (unify ck expected actual loc)
-      (unless (unify? ck expected actual)
-        (compile-error loc (string-append "type mismatch: expected " (type->string (resolve-type (solution ck) expected))
-                                          ", found " (type->string (resolve-type (solution ck) actual))))))
+      (learning ck ((agreed (unify? expected actual)))
+                (if agreed
+                    ck
+                    (compile-error loc (string-append "type mismatch: expected " (type->string (resolve-type (solution ck) expected))
+                                                      ", found " (type->string (resolve-type (solution ck) actual)))))))
 
-    (: unify? (-> Checker Type Type Bool ! mut))
+    ;; Unification both answers and learns, so it hands back both. A failed
+    ;; attempt may still have bound metavariables along the way; the caller
+    ;; reports the mismatch and goes no further, so nothing reads them.
+    (: unify? (-> Checker Type Type (Pair Bool Checker)))
     (define (unify? ck a b)
       (let ((a (prune (solution ck) a)) (b (prune (solution ck) b)))
-        (cond ((same-meta? a b) #t)
+        (cond ((same-meta? a b) (Pair #t ck))
               ((meta? a) (bind? ck a b))
               ((meta? b) (bind? ck b a))
               (else (unify-structure? ck a b)))))
 
-    (: unify-all? (-> Checker (List Type) (List Type) Bool ! mut))
+    (: unify-all? (-> Checker (List Type) (List Type) (Pair Bool Checker)))
     (define (unify-all? ck as bs)
-      (and (= (length as) (length bs)) (every? (lambda (pair) (unify? ck (Pair-first pair) (Pair-second pair))) (zip as bs))))
+      (if (= (length as) (length bs))
+          (fold-left (lambda (done pair)
+                       (if (Pair-first done)
+                           (unify? (Pair-second done) (Pair-first pair) (Pair-second pair))
+                           done))
+                     (Pair #t ck) (zip as bs))
+          (Pair #f ck)))
 
-    (: unify-structure? (-> Checker Type Type Bool ! mut))
+    (: unify-structure? (-> Checker Type Type (Pair Bool Checker)))
     (define (unify-structure? ck a b)
       (match a
         ((TCon name args)
          (match b
-           ((TCon other others) (and (string=? name other) (unify-all? ck args others)))
-           (_ #f)))
+           ((TCon other others) (if (string=? name other) (unify-all? ck args others) (Pair #f ck)))
+           (_ (Pair #f ck))))
         ((TFun params result row)
          (match b
-           ((TFun others other-result other-row)
-            (and (unify-all? ck params others) (unify? ck result other-result) (unify-rows? ck row other-row)))
-           (_ #f)))
+           ((TFun others other-result other-row) (unify-function? ck params result row others other-result other-row))
+           (_ (Pair #f ck))))
         ((TRow _ _) (unify-rows? ck a b))
         ((TRigid name)
          (match b
-           ((TRigid other) (string=? name other))
-           (_ #f)))
-        (_ #f)))
+           ((TRigid other) (Pair (string=? name other) ck))
+           (_ (Pair #f ck))))
+        (_ (Pair #f ck))))
 
-    (: bind? (-> Checker Type Type Bool ! mut))
+    ;; Parameters, result and row in turn, stopping at the first disagreement.
+    (: unify-function? (-> Checker (List Type) Type Type (List Type) Type Type (Pair Bool Checker)))
+    (define (unify-function? ck params result row others other-result other-row)
+      (learning ck ((parameters (unify-all? params others)))
+                (if (not parameters)
+                    (Pair #f ck)
+                    (learning ck ((results (unify? result other-result)))
+                              (if (not results) (Pair #f ck) (unify-rows? ck row other-row))))))
+
+    (: bind? (-> Checker Type Type (Pair Bool Checker)))
     (define (bind? ck meta type)
-      (and (not (occurs? (solution ck) meta type))
-           (begin (ref-set! (Checker-solution ck)
-                            (Solution (table-set (Solution-types (solution ck)) (identity-key (TVar-id meta)) type)
-                                      (Solution-evidence (solution ck))))
-                  #t)))
+      (if (occurs? (solution ck) meta type)
+          (Pair #f ck)
+          (Pair #t (bind-solved ck meta type))))
 
     (: occurs? (-> Solution Type Type Bool))
     (define (occurs? solution meta type)
@@ -237,20 +295,24 @@
 
     ;; Rows unify as sets: shared labels match, and each open tail absorbs the
     ;; labels only the other side has.
-    (: unify-rows? (-> Checker Type Type Bool ! mut))
+    (: unify-rows? (-> Checker Type Type (Pair Bool Checker)))
     (define (unify-rows? ck a b)
       (let* ((left (flatten-row (solution ck) a)) (right (flatten-row (solution ck) b))
              (only-left (label-difference (Pair-first left) (Pair-first right)))
              (only-right (label-difference (Pair-first right) (Pair-first left)))
              (left-tail (Pair-second left)) (right-tail (Pair-second right)))
-        (cond ((same-tail? left-tail right-tail) (and (null? only-left) (null? only-right)))
+        (cond ((same-tail? left-tail right-tail) (Pair (and (null? only-left) (null? only-right)) ck))
               ((and (meta-tail? left-tail) (meta-tail? right-tail))
-               (let ((tail (Some (fresh-meta ck))))
-                 (and (bind? ck (tail-type left-tail) (TRow only-right tail))
-                      (bind? ck (tail-type right-tail) (TRow only-left tail)))))
-              ((meta-tail? left-tail) (and (null? only-left) (bind? ck (tail-type left-tail) (TRow only-right right-tail))))
-              ((meta-tail? right-tail) (and (null? only-right) (bind? ck (tail-type right-tail) (TRow only-left left-tail))))
-              (else #f))))
+               (learning ck ((meta (fresh-meta))
+                             (bound-left (bind? (tail-type left-tail) (TRow only-right (Some meta)))))
+                         (if (not bound-left)
+                             (Pair #f ck)
+                             (bind? ck (tail-type right-tail) (TRow only-left (Some meta))))))
+              ((meta-tail? left-tail)
+               (if (null? only-left) (bind? ck (tail-type left-tail) (TRow only-right right-tail)) (Pair #f ck)))
+              ((meta-tail? right-tail)
+               (if (null? only-right) (bind? ck (tail-type right-tail) (TRow only-left left-tail)) (Pair #f ck)))
+              (else (Pair #f ck)))))
 
     (: tail-type (-> (Option Type) Type))
     (define (tail-type tail)
@@ -262,26 +324,41 @@
     ;; substitution of e. A shared tail proves inclusion when its known labels
     ;; fit. Otherwise inference opens closed latent rows before unification.
     ;; In a confining body, `mut` is discharged before either check.
-    (: perform! (-> Checker Type Type Loc Unit ! mut))
-    (define (perform! ck latent row loc)
-      (let* ((flat (flatten-row (solution ck) latent))
-             (labels (if (confining-row? ck row) (discharge-mut ck (Pair-first flat)) (Pair-first flat)))
-             (context (flatten-row (solution ck) row)))
-        (unless (or (and (same-tail? (Pair-second flat) (Pair-second context))
-                         (null? (label-difference labels (Pair-first context))))
-                    (let ((tail (match (Pair-second flat) ((Some tail) tail) ((None) (fresh-meta ck)))))
-                      (unify? ck (TRow labels (Some tail)) row)))
-          (compile-error loc (string-append "this performs effects its context does not allow:" (labels->string labels))))))
+    (: perform (-> Checker Type Type Loc Checker))
+    (define (perform ck latent row loc)
+      (let ((flat (flatten-row (solution ck) latent)))
+        (learning ck ((labels (performed-labels row (Pair-first flat))))
+                  (let ((context (flatten-row (solution ck) row)))
+                    (if (and (same-tail? (Pair-second flat) (Pair-second context))
+                             (null? (label-difference labels (Pair-first context))))
+                        ck
+                        (learning ck ((tail (row-tail (Pair-second flat)))
+                                      (included (unify? (TRow labels (Some tail)) row)))
+                                  (if included
+                                      ck
+                                      (compile-error loc (string-append "this performs effects its context does not allow:"
+                                                                        (labels->string labels))))))))))
 
-    (: discharge-mut (-> Checker (List String) (List String) ! mut))
+    ;; In a confining body `mut` is discharged before the row is compared.
+    (: performed-labels (-> Checker Type (List String) (Pair (List String) Checker)))
+    (define (performed-labels ck row labels)
+      (if (confining-row? ck row) (discharge-mut ck labels) (Pair labels ck)))
+
+    ;; A latent row's own tail, or a fresh one when it is closed.
+    (: row-tail (-> Checker (Option Type) (Pair Type Checker)))
+    (define (row-tail ck tail)
+      (match tail
+        ((Some tail) (Pair tail ck))
+        ((None) (fresh-meta ck))))
+
+    (: discharge-mut (-> Checker (List String) (Pair (List String) Checker)))
     (define (discharge-mut ck labels)
-      (when (member? "mut" labels)
-        (ref-set! (Checker-discharged ck) #t))
-      (filter (lambda (label) (not (string=? label "mut"))) labels))
+      (Pair (filter (lambda (label) (not (string=? label "mut"))) labels)
+            (if (member? "mut" labels) (Checker-discharged-set ck #t) ck)))
 
-    (: confining-row? (-> Checker Type Bool ! mut))
+    (: confining-row? (-> Checker Type Bool))
     (define (confining-row? ck row)
-      (match (Pair (ref-get (Checker-confining ck)) row)
+      (match (Pair (Checker-confining ck) row)
         ((Pair (Some number) (TVar id)) (= number id))
         (_ #f)))
 
@@ -291,16 +368,16 @@
 
     ;; ---- Instantiation ----
 
-    (: want! (-> Checker Wanted Unit ! mut))
-    (define (want! ck wanted)
-      (ref-set! (Checker-pending ck) (Cons wanted (ref-get (Checker-pending ck))))
-      (ref-set! (Checker-pending-count ck) (+ (ref-get (Checker-pending-count ck)) 1)))
+    (: want (-> Checker Wanted Checker))
+    (define (want ck wanted)
+      (Checker-pending-count-set (Checker-pending-set ck (Cons wanted (Checker-pending ck)))
+                                 (+ (Checker-pending-count ck) 1)))
 
-    (: want-class! (-> Checker Constraint Loc Evidence ! mut))
-    (define (want-class! ck constraint loc)
-      (let ((hole (fresh-identity ck)))
-        (want! ck (WantClass constraint hole (ref-get (Checker-givens ck)) loc))
-        (EvHole hole)))
+    (: want-class (-> Checker Constraint Loc (Pair Evidence Checker)))
+    (define (want-class ck constraint loc)
+      (learning ck ((hole (fresh-identity))
+                    (then (want (WantClass constraint hole (Checker-givens ck) loc))))
+                (Pair (EvHole hole) ck)))
 
     ;; A use of a variable: its type, the types its quantified variables
     ;; took, and the evidence for its constraints.
@@ -311,24 +388,45 @@
 
     ;; Fresh metavariables for the quantified variables, a hole for each
     ;; constraint, and a fresh tail on a closed outermost row.
-    (: instantiate (-> Checker Scheme Loc Instantiated ! mut))
+    (: instantiate (-> Checker Scheme Loc (Pair Instantiated Checker)))
     (define (instantiate ck scheme loc)
-      (let* ((metas (map (lambda (var) (Pair var (fresh-meta ck))) (Scheme-vars scheme)))
-             (type (open-row ck (substitute metas (Scheme-type scheme))))
-             (evidence (map (lambda (constraint) (want-class! ck (substitute-constraint metas constraint) loc))
-                            (Scheme-constraints scheme))))
-        (for-each (lambda (meta) (want! ck (WantOmega (Pair-second meta) loc))) metas)
-        (Instantiated type (map Pair-second metas) evidence)))
+      (learning ck ((metas (fresh-bindings (Scheme-vars scheme)))
+                    (type (open-row (substitute metas (Scheme-type scheme))))
+                    (evidence (each (lambda (ck constraint) (want-class ck (substitute-constraint metas constraint) loc))
+                                    (Scheme-constraints scheme)))
+                    (then (want-each (map (lambda (meta) (WantOmega (Pair-second meta) loc)) metas))))
+                (Pair (Instantiated type (map Pair-second metas) evidence) ck)))
 
-    (: open-row (-> Checker Type Type ! mut))
+    ;; A fresh metavariable per quantified variable, in order.
+    (: fresh-bindings (-> Checker (List String) (Pair Substitution Checker)))
+    (define (fresh-bindings ck vars)
+      (each ck (lambda (ck var) (learning ck ((meta (fresh-meta))) (Pair (Pair var meta) ck))) vars))
+
+    (: want-each (-> Checker (List Wanted) Checker))
+    (define (want-each ck wanted)
+      (fold-left want ck wanted))
+
+    ;; `step` over each item in order, threading the checker and collecting
+    ;; the values, so a sequence of learning steps is itself one step.
+    (: each (All (A B) (-> Checker (-> Checker A (Pair B Checker)) (List A) (Pair (List B) Checker))))
+    (define (each ck step items)
+      (let ((done (fold-left (lambda (done item)
+                               (match (step (Pair-second done) item)
+                                 ((Pair value ck) (Pair (Cons value (Pair-first done)) ck))))
+                             (Pair (Nil) ck) items)))
+        (Pair (reverse (Pair-first done)) (Pair-second done))))
+
+    (: open-row (-> Checker Type (Pair Type Checker)))
     (define (open-row ck type)
       (match (prune (solution ck) type)
-        ((TFun params result (TRow labels (None))) (TFun params result (TRow labels (Some (fresh-meta ck)))))
-        (_ type)))
+        ((TFun params result (TRow labels (None)))
+         (learning ck ((tail (fresh-meta)))
+                   (Pair (TFun params result (TRow labels (Some tail))) ck)))
+        (_ (Pair type ck))))
 
-    (: global-scheme (-> Checker String (Option Scheme) ! mut))
+    (: global-scheme (-> Checker String (Option Scheme)))
     (define (global-scheme ck name)
-      (match (table-ref (ref-get (Checker-schemes ck)) name)
+      (match (table-ref (Checker-schemes ck) name)
         ((Some scheme) (Some scheme))
         ((None)
          (match (program-value (program-of ck) name)
@@ -345,14 +443,14 @@
     (define (bind-locals ck names types)
       (fold-left (lambda (ck pair) (bind-local ck (Pair-first pair) (Pair-second pair))) ck (zip names types)))
 
-    (: set-scheme! (-> Checker String Scheme Unit ! mut))
-    (define (set-scheme! ck name scheme)
-      (ref-set! (Checker-schemes ck) (table-set (ref-get (Checker-schemes ck)) name scheme)))
+    (: set-scheme (-> Checker String Scheme Checker))
+    (define (set-scheme ck name scheme)
+      (Checker-schemes-set ck (table-set (Checker-schemes ck) name scheme)))
 
-    (: variable-type (-> Checker String Loc Instantiated ! mut))
+    (: variable-type (-> Checker String Loc (Pair Instantiated Checker)))
     (define (variable-type ck name loc)
       (match (table-ref (Checker-locals ck) name)
-        ((Some local) (Instantiated local (Nil) (Nil)))
+        ((Some local) (Pair (Instantiated local (Nil) (Nil)) ck))
         ((None)
          (match (global-scheme ck name)
            ((Some scheme) (instantiate ck scheme loc))
@@ -360,96 +458,118 @@
 
     ;; ---- Expressions ----
 
-    (: literal-type (-> Checker Datum Loc Type ! mut))
+    (: literal-type (-> Checker Datum Loc (Pair Type Checker)))
     (define (literal-type ck value loc)
       (match value
-        ((DBool _) (TCon "Bool" (Nil)))
-        ((DChar _) (TCon "Char" (Nil)))
-        ((DString _) (TCon "String" (Nil)))
-        ((DBytes _) (TCon "Vector" (list (TCon "U8" (Nil)))))
-        ((DUnit) (TCon "Unit" (Nil)))
-        (_ (let ((type (fresh-meta ck)))
-             (want! ck (WantLiteral value type loc))
-             type))))
+        ((DBool _) (Pair (TCon "Bool" (Nil)) ck))
+        ((DChar _) (Pair (TCon "Char" (Nil)) ck))
+        ((DString _) (Pair (TCon "String" (Nil)) ck))
+        ((DBytes _) (Pair (TCon "Vector" (list (TCon "U8" (Nil)))) ck))
+        ((DUnit) (Pair (TCon "Unit" (Nil)) ck))
+        (_ (learning ck ((type (fresh-meta))
+                         (then (want (WantLiteral value type loc))))
+                     (Pair type ck)))))
 
     ;; `row` is the effect row of the enclosing function body.
-    (: infer (-> Checker Expr Type Expr ! mut))
+    (: infer (-> Checker Expr Type (Pair Expr Checker)))
     (define (infer ck expr row)
       (let ((loc (Expr-loc expr)))
         (match (Expr-term expr)
-          ((Lit value) (Expr (Lit value) (literal-type ck value loc) loc))
+          ((Lit value)
+           (learning ck ((type (literal-type value loc)))
+                     (Pair (Expr (Lit value) type loc) ck)))
           ((Var name _ _)
-           (let ((use (variable-type ck name loc)))
-             (Expr (Var name (Instantiated-types use) (Instantiated-evidence use)) (Instantiated-type use) loc)))
+           (learning ck ((use (variable-type name loc)))
+                     (Pair (Expr (Var name (Instantiated-types use) (Instantiated-evidence use)) (Instantiated-type use) loc) ck)))
           ((Lambda params body) (infer-lambda ck params body loc))
           ((App callee args) (infer-app ck callee args row loc))
-          ((If test then otherwise)
-           (let* ((test (infer ck test row)) (then (infer ck then row)) (otherwise (infer ck otherwise row)))
-             (unify ck (TCon "Bool" (Nil)) (Expr-type test) (Expr-loc test))
-             (unify ck (Expr-type then) (Expr-type otherwise) (Expr-loc otherwise))
-             (Expr (If test then otherwise) (Expr-type then) loc)))
+          ;; `then` is `learning`'s own keyword, so the branches are named
+          ;; for what they are rather than by their field names.
+          ((If test consequent alternative)
+           (learning ck ((test (infer test row))
+                         (consequent (infer consequent row))
+                         (alternative (infer alternative row))
+                         (then (unify (TCon "Bool" (Nil)) (Expr-type test) (Expr-loc test)))
+                         (then (unify (Expr-type consequent) (Expr-type alternative) (Expr-loc alternative))))
+                     (Pair (Expr (If test consequent alternative) (Expr-type consequent) loc) ck)))
           ((Let name value body) (infer-let ck name value body row loc))
           ((Seq first rest)
-           (let* ((first (infer ck first row)) (rest (infer ck rest row)))
-             (Expr (Seq first rest) (Expr-type rest) loc)))
+           (learning ck ((first (infer first row))
+                         (rest (infer rest row)))
+                     (Pair (Expr (Seq first rest) (Expr-type rest) loc) ck)))
           ((Match scrutinee clauses) (infer-match ck scrutinee clauses row loc))
           ((Ann inner type)
-           (let ((inner (infer ck inner row)))
-             (unify ck type (Expr-type inner) loc)
-             inner))
+           (learning ck ((inner (infer inner row))
+                         (then (unify type (Expr-type inner) loc)))
+                     (Pair inner ck)))
           ((Handle effect implementations body) (infer-handle ck effect implementations body row loc))
           ;; The direction is decided once types are ground: to Any, from
           ;; Any, or nothing when the types already agree.
-          ((Convert inner target) (Expr (Convert (infer ck inner row) target) target loc))
+          ((Convert inner target)
+           (learning ck ((inner (infer inner row)))
+                     (Pair (Expr (Convert inner target) target loc) ck)))
           ;; Whether an Any holds a value of the target type.
           ((TypeTest inner target)
-           (let ((inner (infer ck inner row)))
-             (unify ck (TCon "Any" (Nil)) (Expr-type inner) (Expr-loc inner))
-             (Expr (TypeTest inner target) (TCon "Bool" (Nil)) loc))))))
+           (learning ck ((inner (infer inner row))
+                         (then (unify (TCon "Any" (Nil)) (Expr-type inner) (Expr-loc inner))))
+                     (Pair (Expr (TypeTest inner target) (TCon "Bool" (Nil)) loc) ck))))))
 
-    (: infer-lambda (-> Checker (List String) Expr Loc Expr ! mut))
+    (: infer-lambda (-> Checker (List String) Expr Loc (Pair Expr Checker)))
     (define (infer-lambda ck params body loc)
-      (let ((types (map (lambda (param) (fresh-meta ck)) params))
-            (body-row (fresh-meta ck)))
-        (let ((body (infer (bind-locals ck params types) body body-row)))
-          (Expr (Lambda params body) (TFun types (Expr-type body) body-row) loc))))
+      (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params))
+                    (body-row (fresh-meta))
+                    (body (scoped (bind-locals ck params types) body body-row)))
+                (Pair (Expr (Lambda params body) (TFun types (Expr-type body) body-row) loc) ck)))
+
+    ;; A sub-check under `inner`'s scope, resumed in this checker's. `inner`
+    ;; is built from this one, so everything it learns flows back; only its
+    ;; scope is discarded.
+    (: within (All (A) (-> Checker Checker (-> Checker (Pair A Checker)) (Pair A Checker))))
+    (define (within ck inner check)
+      (match (check inner)
+        ((Pair value done) (Pair value (resumed ck done)))))
 
     ;; Checks an expression against a known type: a lambda's parameters and
     ;; body row come from the type; anything else is inferred. A body whose
     ;; row forbids `mut` may still mutate storage it allocates; the function
     ;; is confined once its types are final.
-    (: check-value (-> Checker Expr Type Type Expr ! mut))
+    (: check-value (-> Checker Expr Type Type (Pair Expr Checker)))
     (define (check-value ck expr type row)
       (match (Expr-term expr)
         ((Lambda params body)
          (match (prune (solution ck) type)
            ((TFun param-types result body-row)
             (if (= (length params) (length param-types))
-                (let* ((inner (bind-locals ck params param-types))
-                       (body (if (forbids-mut? (solution ck) body-row)
-                                 (check-confining-body inner body body-row (Expr-loc expr))
-                                 (infer inner body body-row)))
-                       (value (Expr (Lambda params body) type (Expr-loc expr))))
-                  (unify ck result (Expr-type body) (Expr-loc body))
-                  (when (ref-get (Checker-discharged ck))
-                    (ref-set! (Checker-discharged ck) #f)
-                    (ref-set! (Checker-confined ck) (Cons value (ref-get (Checker-confined ck)))))
-                  value)
+                (check-lambda ck expr params body type param-types result body-row)
                 (infer ck expr row)))
            (_ (infer ck expr row))))
         (_ (infer ck expr row))))
 
-    ;; The body's row is a variable bound to the type's row, so `perform!` can
+    ;; A lambda checked against its type. A body whose row forbids `mut` is
+    ;; checked as confining; if a call in it did mutate, the function goes to
+    ;; `confined` and the flag is cleared for the next one.
+    (: check-lambda (-> Checker Expr (List String) Expr Type (List Type) Type Type (Pair Expr Checker)))
+    (define (check-lambda ck expr params body type param-types result body-row)
+      (learning ck ((body (within (bind-locals ck params param-types)
+                                  (lambda (inner)
+                                    (if (forbids-mut? (solution inner) body-row)
+                                        (check-confining-body inner body body-row (Expr-loc expr))
+                                        (infer inner body body-row)))))
+                    (then (unify result (Expr-type body) (Expr-loc body))))
+                (let ((value (Expr (Lambda params body) type (Expr-loc expr))))
+                  (Pair value (if (Checker-discharged ck)
+                                  (Checker-confined-set (Checker-discharged-set ck #f) (Cons value (Checker-confined ck)))
+                                  ck)))))
+
+    ;; The body's row is a variable bound to the type's row, so `perform` can
     ;; recognize it and let calls in this body, but not in lambdas inside it,
-    ;; mutate.
-    (: check-confining-body (-> Checker Expr Type Loc Expr ! mut))
+    ;; mutate. `confining` is scope, so the caller gets its own back.
+    (: check-confining-body (-> Checker Expr Type Loc (Pair Expr Checker)))
     (define (check-confining-body ck body body-row loc)
-      (let ((row (fresh-meta ck)) (outer (ref-get (Checker-confining ck))))
-        (unify ck row body-row loc)
-        (ref-set! (Checker-confining ck) (Some (meta-number row)))
-        (let ((checked (infer ck body row)))
-          (ref-set! (Checker-confining ck) outer)
-          checked)))
+      (learning ck ((row (fresh-meta))
+                    (then (unify row body-row loc)))
+                (within ck (Checker-confining-set ck (Some (meta-number row)))
+                        (lambda (inner) (infer inner body row)))))
 
     (: meta-number (-> Type I64))
     (define (meta-number meta)
@@ -463,57 +583,81 @@
       (let ((flat (flatten-row solution row)))
         (not (or (member? "mut" (Pair-first flat)) (meta-tail? (Pair-second flat))))))
 
-    (: infer-app (-> Checker Expr (List Expr) Type Loc Expr ! mut))
+    (: infer-app (-> Checker Expr (List Expr) Type Loc (Pair Expr Checker)))
     (define (infer-app ck callee args row loc)
-      (let* ((callee (infer ck callee row))
-             (args (map (lambda (arg) (infer ck arg row)) args))
-             (result (fresh-meta ck)) (latent (fresh-meta ck)))
-        (unify-call ck (Expr-type callee) args result latent loc)
-        (perform! ck latent row loc)
-        (Expr (App callee args) result loc)))
+      (learning ck ((callee (infer callee row))
+                    (args (each (lambda (ck arg) (infer ck arg row)) args))
+                    (result (fresh-meta))
+                    (latent (fresh-meta))
+                    (then (unify-call (Expr-type callee) args result latent loc))
+                    (then (perform latent row loc)))
+                (Pair (Expr (App callee args) result loc) ck)))
 
     ;; Arguments are compared one by one, so a mismatch names its argument.
-    (: unify-call (-> Checker Type (List Expr) Type Type Loc Unit ! mut))
+    (: unify-call (-> Checker Type (List Expr) Type Type Loc Checker))
     (define (unify-call ck callee-type args result latent loc)
       (match (prune (solution ck) callee-type)
         ((TFun params callee-result row)
          (unless (= (length params) (length args))
            (compile-error loc (string-append "expected " (i64->string (length params)) " arguments, found "
                                              (i64->string (length args)))))
-         (for-each (lambda (pair) (unify ck (Pair-first pair) (Expr-type (Pair-second pair)) (Expr-loc (Pair-second pair))))
-                   (zip params args))
-         (unify ck callee-result result loc)
-         (unify ck row latent loc))
+         (learning ck ((then (unify-arguments params args))
+                       (then (unify callee-result result loc)))
+                   (unify ck row latent loc)))
         ((TVar _) (unify ck callee-type (TFun (map Expr-type args) result latent) loc))
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
-    ;; A function's own name is visible in its body, with a monomorphic type.
-    (: infer-let (-> Checker String Expr Expr Type Loc Expr ! mut))
-    (define (infer-let ck name value body row loc)
-      (let* ((type (fresh-meta ck)) (inner (bind-local ck name type))
-             (value (infer (if (lambda-expr? value) inner ck) value row)))
-        (unify ck type (Expr-type value) (Expr-loc value))
-        (let ((body (infer inner body row)))
-          (Expr (Let name value body) (Expr-type body) loc))))
+    (: unify-arguments (-> Checker (List Type) (List Expr) Checker))
+    (define (unify-arguments ck params args)
+      (fold-left (lambda (ck pair)
+                   (unify ck (Pair-first pair) (Expr-type (Pair-second pair)) (Expr-loc (Pair-second pair))))
+                 ck (zip params args)))
 
-    (: infer-match (-> Checker Expr (List Clause) Type Loc Expr ! mut))
+    ;; A function's own name is visible in its body, with a monomorphic type.
+    (: infer-let (-> Checker String Expr Expr Type Loc (Pair Expr Checker)))
+    (define (infer-let ck name value body row loc)
+      (learning ck ((type (fresh-meta))
+                    (value (infer-let-value name type value row))
+                    (then (unify type (Expr-type value) (Expr-loc value)))
+                    (body (scoped (bind-local ck name type) body row)))
+                (Pair (Expr (Let name value body) (Expr-type body) loc) ck)))
+
+    ;; A `let`'s own name is visible in its value only when the value is a
+    ;; lambda, so a recursive local function can call itself.
+    (: infer-let-value (-> Checker String Type Expr Type (Pair Expr Checker)))
+    (define (infer-let-value ck name type value row)
+      (if (lambda-expr? value)
+          (scoped ck (bind-local ck name type) value row)
+          (infer ck value row)))
+
+    ;; `expr` inferred under `inner`'s scope, resumed in this checker's.
+    (: scoped (-> Checker Checker Expr Type (Pair Expr Checker)))
+    (define (scoped ck inner expr row)
+      (within ck inner (lambda (scope) (infer scope expr row))))
+
+    (: infer-match (-> Checker Expr (List Clause) Type Loc (Pair Expr Checker)))
     (define (infer-match ck scrutinee clauses row loc)
-      (let* ((scrutinee (infer ck scrutinee row)) (result (fresh-meta ck))
-             (clauses (map (lambda (clause)
-                             (let* ((body-loc (Expr-loc (Clause-body clause)))
-                                    (checked (check-pattern ck (Clause-pattern clause) (Expr-type scrutinee) body-loc))
-                                    (body (infer (Pair-second checked) (Clause-body clause) row)))
-                               (unify ck result (Expr-type body) body-loc)
-                               (Clause (Pair-first checked) body)))
-                           clauses)))
-        (when (null? clauses) (compile-error loc "a match needs at least one clause"))
-        (check-coverage ck (map Clause-pattern clauses) loc)
-        (Expr (Match scrutinee clauses) result loc)))
+      (learning ck ((scrutinee (infer scrutinee row))
+                    (result (fresh-meta))
+                    (clauses (each (lambda (ck clause) (infer-clause ck clause (Expr-type scrutinee) result row)) clauses)))
+                (when (null? clauses) (compile-error loc "a match needs at least one clause"))
+                (check-coverage ck (map Clause-pattern clauses) loc)
+                (Pair (Expr (Match scrutinee clauses) result loc) ck)))
+
+    ;; One clause: its pattern binds for its body alone, and every body has
+    ;; the match's result type.
+    (: infer-clause (-> Checker Clause Type Type Type (Pair Clause Checker)))
+    (define (infer-clause ck clause scrutinee-type result row)
+      (let ((body-loc (Expr-loc (Clause-body clause))))
+        (learning ck ((checked (check-pattern (Clause-pattern clause) scrutinee-type body-loc))
+                      (body (scoped (Checked-scope checked) (Clause-body clause) row))
+                      (then (unify result (Expr-type body) body-loc)))
+                  (Pair (Clause (Checked-pattern checked) body) ck))))
 
     ;; Implementations run in the handler's outer context. The body may
     ;; perform the handled effect plus whatever the context allows: its row
     ;; is `{effect | rest}`, and `rest` flows to the outer row.
-    (: infer-handle (-> Checker String (List (Pair String Expr)) Expr Type Loc Expr ! mut))
+    (: infer-handle (-> Checker String (List (Pair String Expr)) Expr Type Loc (Pair Expr Checker)))
     (define (infer-handle ck effect implementations body row loc)
       (when (string=? effect "tasks")
         (compile-error loc "the runtime binds the tasks control effect; user control handlers are not supported"))
@@ -522,49 +666,75 @@
                      (every? (lambda (operation) (any? (lambda (entry) (string=? (Pair-first entry) operation)) implementations))
                              operations))
           (compile-error loc "a handler implements each operation of its effect exactly once"))
-        (let* ((implementations (map (lambda (entry) (infer-implementation ck entry row loc)) implementations))
-               (rest (fresh-meta ck)) (body (infer ck body (TRow (list effect) (Some rest)))))
-          (perform! ck rest row loc)
-          (Expr (Handle effect implementations body) (Expr-type body) loc))))
+        (learning ck ((implementations (each (lambda (ck entry) (infer-implementation ck entry row loc)) implementations))
+                      (rest (fresh-meta))
+                      (body (infer body (TRow (list effect) (Some rest))))
+                      (then (perform rest row loc)))
+                  (Pair (Expr (Handle effect implementations body) (Expr-type body) loc) ck))))
 
-    (: infer-implementation (-> Checker (Pair String Expr) Type Loc (Pair String Expr) ! mut))
+    (: infer-implementation (-> Checker (Pair String Expr) Type Loc (Pair (Pair String Expr) Checker)))
     (define (infer-implementation ck entry row loc)
       (match (global-scheme ck (Pair-first entry))
         ((Some scheme)
-         (match (Instantiated-type (instantiate ck scheme loc))
-           ((TFun params result _)
-            (let ((value (infer ck (Pair-second entry) row)) (latent (fresh-meta ck)))
-              (unify ck (TFun params result latent) (Expr-type value) (Expr-loc value))
-              (perform! ck latent row (Expr-loc value))
-              (Pair (Pair-first entry) value)))
-           (_ (panic "internal error: an operation is a function"))))
+         (learning ck ((use (instantiate scheme loc)))
+                   (match (Instantiated-type use)
+                     ((TFun params result _)
+                      (learning ck ((value (infer (Pair-second entry) row))
+                                    (latent (fresh-meta))
+                                    (then (unify (TFun params result latent) (Expr-type value) (Expr-loc value)))
+                                    (then (perform latent row (Expr-loc value))))
+                                (Pair (Pair (Pair-first entry) value) ck)))
+                     (_ (panic "internal error: an operation is a function")))))
         ((None) (panic "internal error: unknown operation"))))
 
     ;; ---- Patterns ----
 
     ;; The typed pattern, and the checker its body sees: extended by the
     ;; pattern's variables.
-    (: check-pattern (-> Checker Pattern Type Loc (Pair Pattern Checker) ! mut))
+    ;; A checked pattern: the typed pattern, and the scope its body sees,
+    ;; which is this checker extended by the pattern's variables. Checking a
+    ;; pattern also learns, so it hands back a checker of its own as well.
+    (struct Checked
+      ((pattern Pattern)
+       (scope Checker)))
+
+    (: check-pattern (-> Checker Pattern Type Loc (Pair Checked Checker)))
     (define (check-pattern ck pattern type loc)
       (match pattern
-        ((PWild _) (Pair (PWild type) ck))
-        ((PVar name _) (Pair (PVar name type) (bind-local ck name type)))
-        ((PLit value _) (begin (unify ck type (literal-type ck value loc) loc) (Pair (PLit value type) ck)))
+        ((PWild _) (Pair (Checked (PWild type) ck) ck))
+        ((PVar name _) (Pair (Checked (PVar name type) (bind-local ck name type)) ck))
+        ((PLit value _)
+         (learning ck ((literal (literal-type value loc))
+                       (then (unify type literal loc)))
+                   (Pair (Checked (PLit value type) ck) ck)))
         ((PCon constructor args _)
          (match (program-value (program-of ck) constructor)
            ((Some (Constructor case scheme))
-            (match (Instantiated-type (instantiate ck scheme loc))
-              ((TFun fields result _)
-               (unless (= (length fields) (length args))
-                 (compile-error loc (string-append (short-name constructor) " has " (i64->string (length fields)) " fields")))
-               (unify ck type result loc)
-               (let ((checked (fold-left (lambda (done pair)
-                                           (let ((field (check-pattern (Pair-second done) (Pair-first pair) (Pair-second pair) loc)))
-                                             (Pair (Cons (Pair-first field) (Pair-first done)) (Pair-second field))))
-                                         (Pair (Nil) ck) (zip args fields))))
-                 (Pair (PCon constructor (reverse (Pair-first checked)) type) (Pair-second checked))))
-              (_ (panic "internal error: a constructor is a function"))))
+            (learning ck ((use (instantiate scheme loc)))
+                      (match (Instantiated-type use)
+                        ((TFun fields result _)
+                         (unless (= (length fields) (length args))
+                           (compile-error loc (string-append (short-name constructor) " has " (i64->string (length fields)) " fields")))
+                         (learning ck ((then (unify type result loc))
+                                       (checked (check-fields constructor type args fields loc)))
+                                   (Pair checked ck)))
+                        (_ (panic "internal error: a constructor is a function")))))
            (_ (compile-error loc (string-append "not a constructor: " (short-name constructor))))))))
+
+    ;; A constructor pattern's fields, checked in order into one scope:
+    ;; names are unique, so the fields' locals simply join.
+    (: check-fields (-> Checker String Type (List Pattern) (List Type) Loc (Pair Checked Checker)))
+    (define (check-fields ck constructor type args fields loc)
+      (learning ck ((done (each (lambda (ck pair) (check-pattern ck (Pair-first pair) (Pair-second pair) loc))
+                                (zip args fields))))
+                (Pair (Checked (PCon constructor (map Checked-pattern done) type)
+                               (fold-left (lambda (scope field) (merged-locals scope (Checked-scope field))) ck done))
+                      ck)))
+
+    ;; Every local a field pattern bound, added to the scope so far.
+    (: merged-locals (-> Checker Checker Checker))
+    (define (merged-locals scope field)
+      (Checker-locals-set scope (table-union (Checker-locals scope) (Checker-locals field))))
 
     ;; ---- Coverage ----
 
@@ -689,32 +859,37 @@
     ;; determined default to F64 or I64, every literal is range-checked, and
     ;; every class constraint is solved with the givens it arose under. Solving
     ;; binds no metavariables, so waiting until now loses nothing.
-    (: solve-pending! (-> Checker Unit ! mut))
-    (define (solve-pending! ck)
-      (let ((pending (reverse (ref-get (Checker-pending ck)))))
-        (for-each (lambda (want) (default-literal! ck want #t)) pending)
-        (for-each (lambda (want) (default-literal! ck want #f)) pending)
-        (for-each (lambda (want)
-                    (match want
-                      ((WantLiteral value type loc) (check-literal ck value type loc))
-                      ((WantOmega type loc)
-                       (when (affine? ck type)
-                         (compile-error loc "a type variable requires an unrestricted type; this value is affine")))
-                      (_ (unit))))
-                  pending)
-        (for-each (lambda (want)
-                    (match want
-                      ((WantClass constraint cell givens loc) (solve-class! ck constraint cell givens loc))
-                      (_ (unit))))
-                  pending)))
+    (: solve-pending (-> Checker Checker))
+    (define (solve-pending ck)
+      (let ((pending (reverse (Checker-pending ck))))
+        (learning ck ((then (default-literals pending #t))
+                      (then (default-literals pending #f)))
+                  (for-each (lambda (want)
+                              (match want
+                                ((WantLiteral value type loc) (check-literal ck value type loc))
+                                ((WantOmega type loc)
+                                 (when (affine? ck type)
+                                   (compile-error loc "a type variable requires an unrestricted type; this value is affine")))
+                                (_ (unit))))
+                            pending)
+                  (fold-left (lambda (ck want)
+                               (match want
+                                 ((WantClass constraint hole givens loc) (solve-class ck constraint hole givens loc))
+                                 (_ ck)))
+                             ck pending))))
 
-    (: default-literal! (-> Checker Wanted Bool Unit ! mut))
-    (define (default-literal! ck want float?)
+    (: default-literals (-> Checker (List Wanted) Bool Checker))
+    (define (default-literals ck pending float?)
+      (fold-left (lambda (ck want) (default-literal ck want float?)) ck pending))
+
+    (: default-literal (-> Checker Wanted Bool Checker))
+    (define (default-literal ck want float?)
       (match want
         ((WantLiteral value type loc)
-         (when (and (float-literal? value float?) (meta? (prune (solution ck) type)))
-           (unify ck (TCon (if float? "F64" "I64") (Nil)) type loc)))
-        (_ (unit))))
+         (if (and (float-literal? value float?) (meta? (prune (solution ck) type)))
+             (unify ck (TCon (if float? "F64" "I64") (Nil)) type loc)
+             ck))
+        (_ ck)))
 
     (: float-literal? (-> Datum Bool Bool))
     (define (float-literal? value float?)
@@ -722,7 +897,7 @@
         ((DFloat _) float?)
         (_ (not float?))))
 
-    (: check-literal (-> Checker Datum Type Loc Unit ! mut))
+    (: check-literal (-> Checker Datum Type Loc Unit))
     (define (check-literal ck value type loc)
       (match (prune (solution ck) type)
         ((TCon name (Nil))
@@ -742,13 +917,12 @@
         ((DFloat _) (or (string=? type "F32") (string=? type "F64")))
         (_ #f)))
 
-    (: solve-class! (-> Checker Constraint I64 (List Constraint) Loc Unit ! mut))
-    (define (solve-class! ck constraint hole givens loc)
+    (: solve-class (-> Checker Constraint I64 (List Constraint) Loc Checker))
+    (define (solve-class ck constraint hole givens loc)
       (match (find-evidence ck constraint givens loc)
         ((Some evidence)
-         (ref-set! (Checker-solution ck)
-                   (Solution (Solution-types (solution ck))
-                             (table-set (Solution-evidence (solution ck)) (identity-key hole) evidence))))
+         (Checker-solution-set ck (Solution (Solution-types (solution ck))
+                                            (table-set (Solution-evidence (solution ck)) (identity-key hole) evidence))))
         ((None)
          (compile-error loc (string-append "ambiguous constraint "
                                            (constraint->string (Constraint-class constraint)
@@ -758,7 +932,7 @@
 
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
-    (: find-evidence (-> Checker Constraint (List Constraint) Loc (Option Evidence) ! mut))
+    (: find-evidence (-> Checker Constraint (List Constraint) Loc (Option Evidence)))
     (define (find-evidence ck constraint givens loc)
       (let ((types (map (lambda (type) (resolve-type (solution ck) type)) (Constraint-types constraint))))
         (if (any? (lambda (type) (has-meta? (solution ck) type)) types)
@@ -769,7 +943,7 @@
                                 (capability-evidence ck (Constraint-class constraint) types givens loc)
                                 (instance-evidence ck (Constraint-class constraint) types givens loc))))))))
 
-    (: capability-evidence (-> Checker String (List Type) (List Constraint) Loc Evidence ! mut))
+    (: capability-evidence (-> Checker String (List Type) (List Constraint) Loc Evidence))
     (define (capability-evidence ck property types givens loc)
       (match types
         ((Cons type (Nil))
@@ -786,7 +960,7 @@
         ((Some index) (Some (EvParam index)))
         ((None) (None))))
 
-    (: instance-evidence (-> Checker String (List Type) (List Constraint) Loc Evidence ! mut))
+    (: instance-evidence (-> Checker String (List Type) (List Constraint) Loc Evidence))
     (define (instance-evidence ck class types givens loc)
       (let loop ((instances (class-instances (program-of ck) class)))
         (match instances
@@ -801,7 +975,7 @@
                                (Instance-requires instance))))
              ((None) (loop rest)))))))
 
-    (: requirement-evidence (-> Checker Constraint (List Constraint) Loc Evidence ! mut))
+    (: requirement-evidence (-> Checker Constraint (List Constraint) Loc Evidence))
     (define (requirement-evidence ck requirement givens loc)
       (match (find-evidence ck requirement givens loc)
         ((Some evidence) evidence)
@@ -839,7 +1013,7 @@
            (_ (None))))
         (_ (None))))
 
-    (: constraint->string (-> String (List Type) String ! mut))
+    (: constraint->string (-> String (List Type) String))
     (define (constraint->string class types)
       (type->string (TCon class types)))
 
@@ -939,7 +1113,7 @@
     ;; once, nothing resumes the function twice. Primitives, constructors and
     ;; field operations act only on their arguments, so a function may always
     ;; use them. Only functions whose bodies did mutate are checked.
-    (: check-confined (-> Typed Expr Unit ! mut))
+    (: check-confined (-> Typed Expr Unit))
     (define (check-confined typed function)
       (match (Pair (Expr-term function) (Expr-type function))
         ((Pair (Lambda params _) (TFun param-types result _))
@@ -977,7 +1151,7 @@
     ;; A local of an enclosing definition is judged by its type; a global by
     ;; its declared or inferred type, since instantiating a row variable can
     ;; only bring in effects the function itself performs.
-    (: check-outside-read (-> Typed Expr Unit ! mut))
+    (: check-outside-read (-> Typed Expr Unit))
     (define (check-outside-read typed read)
       (match (Expr-term read)
         ((Var name _ _)
@@ -1094,58 +1268,75 @@
     ;; An unannotated group of mutually recursive definitions is inferred
     ;; together. A group of functions is generalized; any other group stays
     ;; monomorphic, so later uses can still decide its types.
-    (: check-group (-> Checker (List Item) (List Item) ! mut))
+    (: check-group (-> Checker (List Item) (Pair (List Item) Checker)))
     (define (check-group ck definitions)
-      (let ((before (ref-get (Checker-pending-count ck))))
-        (for-each (lambda (definition) (set-scheme! ck (Define-name definition) (mono-scheme (fresh-meta ck))))
-                  definitions)
-        (let ((results (map (lambda (definition) (infer-definition ck definition)) definitions)))
-          (for-each (lambda (result) (check-host-effects ck (Pair-second result) (Expr-loc (Pair-first result)))) results)
-          (when (every? (lambda (definition) (lambda-expr? (Define-value definition))) definitions)
-            (generalize! ck definitions (take (ref-get (Checker-pending ck)) (- (ref-get (Checker-pending-count ck)) before))))
-          (ref-set! (Checker-open ck) (append (map Define-name definitions) (ref-get (Checker-open ck))))
-          (map (lambda (pair) (Define (Define-name (Pair-first pair)) (Pair-first (Pair-second pair)))) (zip definitions results)))))
+      (let ((before (Checker-pending-count ck)))
+        (learning ck ((then (provisional-schemes definitions))
+                      (results (each infer-definition definitions))
+                      (then (host-effects results))
+                      (then (generalize-group definitions before)))
+                  (Pair (map (lambda (pair) (Define (Define-name (Pair-first pair)) (Pair-first (Pair-second pair))))
+                             (zip definitions results))
+                        (Checker-open-set ck (append (map Define-name definitions) (Checker-open ck)))))))
+
+    ;; Each definition in the group starts with a monomorphic metavariable, so
+    ;; the group's members can refer to one another while it is inferred.
+    (: provisional-schemes (-> Checker (List Item) Checker))
+    (define (provisional-schemes ck definitions)
+      (fold-left (lambda (ck definition)
+                   (learning ck ((meta (fresh-meta)))
+                             (set-scheme ck (Define-name definition) (mono-scheme meta))))
+                 ck definitions))
+
+    (: host-effects (-> Checker (List (Pair Expr Type)) Checker))
+    (define (host-effects ck results)
+      (fold-left (lambda (ck result) (check-host-effects ck (Pair-second result) (Expr-loc (Pair-first result))))
+                 ck results))
+
+    ;; A group of functions is generalized over the constraints it raised;
+    ;; any other group stays monomorphic, so later uses can still decide it.
+    (: generalize-group (-> Checker (List Item) I64 Checker))
+    (define (generalize-group ck definitions before)
+      (if (every? (lambda (definition) (lambda-expr? (Define-value definition))) definitions)
+          (generalize ck definitions (take (Checker-pending ck) (- (Checker-pending-count ck) before)))
+          ck))
 
     ;; The checked value and the effect row of its initializer.
-    (: infer-definition (-> Checker Item (Pair Expr Type) ! mut))
+    (: infer-definition (-> Checker Item (Pair (Pair Expr Type) Checker)))
     (define (infer-definition ck definition)
-      (let* ((row (fresh-meta ck)) (value (infer ck (Define-value definition) row)))
-        (unify ck (scheme-type ck (Define-name definition)) (Expr-type value) (Expr-loc value))
-        (Pair value row)))
+      (learning ck ((row (fresh-meta))
+                    (value (infer (Define-value definition) row))
+                    (then (unify (scheme-type ck (Define-name definition)) (Expr-type value) (Expr-loc value))))
+                (Pair (Pair value row) ck)))
 
-    (: scheme-type (-> Checker String Type ! mut))
+    (: scheme-type (-> Checker String Type))
     (define (scheme-type ck name)
-      (match (table-ref (ref-get (Checker-schemes ck)) name)
+      (match (table-ref (Checker-schemes ck) name)
         ((Some scheme) (Scheme-type scheme))
         ((None) (panic (string-append "internal error: no scheme for " name)))))
 
     ;; A metavariable becomes a quantified variable (`t1`, `t2`, ...) unless
     ;; something that outlives the group still mentions it: another
     ;; definition's type, or a constraint of this group.
-    (: generalize! (-> Checker (List Item) (List Wanted) Unit ! mut))
-    (define (generalize! ck definitions wanted)
+    (: generalize (-> Checker (List Item) (List Wanted) Checker))
+    (define (generalize ck definitions wanted)
       (let* ((fixed (map meta-id
                          (append (concatenate (map (lambda (name) (free-metas (solution ck) (scheme-type ck name)))
-                                                   (ref-get (Checker-open ck))))
+                                                   (Checker-open ck)))
                                  (concatenate (map (lambda (want) (wanted-metas (solution ck) want)) wanted)))))
              (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
                             (delete-duplicates same-meta?
                                                (concatenate (map (lambda (d) (free-metas (solution ck) (scheme-type ck (Define-name d))))
                                                                  definitions)))))
-             (names (map (lambda (index) (string-append "t" (i64->string (+ index 1)))) (iota (length metas)))))
-        (for-each (lambda (pair) (bind-rigid! ck (Pair-first pair) (TRigid (Pair-second pair)))) (zip metas names))
-        (for-each (lambda (definition)
-                    (let ((name (Define-name definition)))
-                      (set-scheme! ck name (Scheme names (Nil) (resolve-type (solution ck) (scheme-type ck name))))))
-                  definitions)))
-
-    ;; Generalization binds a metavariable to a quantified name, like any
-    ;; other solution; nothing distinguishes the two afterwards.
-    (: bind-rigid! (-> Checker Type Type Unit ! mut))
-    (define (bind-rigid! ck meta rigid)
-      (ref-set! (Checker-solution ck)
-                (Solution (table-set (Solution-types (solution ck)) (identity-key (TVar-id meta)) rigid)
-                          (Solution-evidence (solution ck)))))
+             (names (map (lambda (index) (string-append "t" (i64->string (+ index 1)))) (iota (length metas))))
+             ;; Generalization binds a metavariable to a quantified name, like
+             ;; any other solution; nothing distinguishes the two afterwards.
+             (bound (fold-left (lambda (ck pair) (bind-solved ck (Pair-first pair) (TRigid (Pair-second pair))))
+                               ck (zip metas names))))
+        (fold-left (lambda (ck definition)
+                     (let ((name (Define-name definition)))
+                       (set-scheme ck name (Scheme names (Nil) (resolve-type (solution ck) (scheme-type ck name))))))
+                   bound definitions)))
 
     (: meta-id (-> Type I64))
     (define (meta-id meta)
@@ -1176,33 +1367,43 @@
     ;; A signature's variables are rigid and its constraints are given. A
     ;; function is checked against it directly, so a mismatch is reported
     ;; where it occurs.
-    (: check-annotated (-> Checker Item Scheme Item ! mut))
+    ;; `givens` is scope: the requirements hold while this definition is
+    ;; checked and no longer, so the sub-check runs under its own checker.
+    (: check-annotated (-> Checker Item Scheme (Pair Item Checker)))
     (define (check-annotated ck definition scheme)
+      (within ck (Checker-givens-set ck (if (null? (Scheme-vars scheme)) (Nil) (Scheme-constraints scheme)))
+              (lambda (inner) (check-annotated-value inner definition scheme))))
+
+    (: check-annotated-value (-> Checker Item Scheme (Pair Item Checker)))
+    (define (check-annotated-value ck definition scheme)
       ;; Monomorphic roots run without evidence parameters. Their closed
       ;; requirements must be proved, not assumed by their initializer.
-      (ref-set! (Checker-givens ck) (if (null? (Scheme-vars scheme)) (Nil) (Scheme-constraints scheme)))
-      (when (null? (Scheme-vars scheme))
-        (for-each (lambda (constraint) (want-class! ck constraint (Expr-loc (Define-value definition))) (unit))
-                  (Scheme-constraints scheme)))
-      (let* ((row (fresh-meta ck)) (value (check-value ck (Define-value definition) (Scheme-type scheme) row))
-             (loc (Expr-loc value)))
-        (unify ck (Scheme-type scheme) (Expr-type value) loc)
-        (when (and (not (null? (Scheme-vars scheme))) (not (total? (solution ck) row)))
-          (compile-error loc "a polymorphic definition must have a total initializer"))
-        (check-host-effects ck row loc)
-        (ref-set! (Checker-givens ck) (Nil))
-        (Define (Define-name definition) value)))
+      (learning ck ((then (want-closed-requirements scheme (Expr-loc (Define-value definition))))
+                    (row (fresh-meta))
+                    (value (check-value (Define-value definition) (Scheme-type scheme) row))
+                    (then (unify (Scheme-type scheme) (Expr-type value) (Expr-loc value)))
+                    (then (check-host-effects row (Expr-loc value))))
+                (when (and (not (null? (Scheme-vars scheme))) (not (total? (solution ck) row)))
+                  (compile-error (Expr-loc value) "a polymorphic definition must have a total initializer"))
+                (Pair (Define (Define-name definition) value) ck)))
 
-    (: check-statement (-> Checker Expr Item ! mut))
+    (: want-closed-requirements (-> Checker Scheme Loc Checker))
+    (define (want-closed-requirements ck scheme loc)
+      (if (null? (Scheme-vars scheme))
+          (fold-left (lambda (ck constraint) (Pair-second (want-class ck constraint loc))) ck (Scheme-constraints scheme))
+          ck))
+
+    (: check-statement (-> Checker Expr (Pair Item Checker)))
     (define (check-statement ck expr)
-      (let* ((row (fresh-meta ck)) (value (infer ck expr row)))
-        (check-host-effects ck row (Expr-loc value))
-        (Do value)))
+      (learning ck ((row (fresh-meta))
+                    (value (infer expr row))
+                    (then (check-host-effects row (Expr-loc value))))
+                (Pair (Do value) ck)))
 
     ;; The host may retain unrestricted values, holding managed references
     ;; opaquely. Affine ownership cannot cross this unrestricted boundary.
     ;; The trusted host respects Lofi types and implements the declared effects.
-    (: check-exposed (-> Checker String Loc Unit ! mut))
+    (: check-exposed (-> Checker String Loc Checker))
     (define (check-exposed ck name loc)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) (TFun params result row)))
@@ -1212,14 +1413,15 @@
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
     ;; Effects performed at program start need host implementations.
-    (: check-host-effects (-> Checker Type Loc Unit ! mut))
+    (: check-host-effects (-> Checker Type Loc Checker))
     (define (check-host-effects ck row loc)
       (for-each (lambda (label)
                   (unless (or (member? label (list "mut" "tasks"))
                               (let ((effect (program-effect (program-of ck) label)))
                                 (= (length (Effect-host effect)) (length (Effect-operations effect)))))
                     (compile-error loc (string-append "the effect " (short-name label) " has no host implementation here"))))
-                (Pair-first (flatten-row (solution ck) row))))
+                (Pair-first (flatten-row (solution ck) row)))
+      ck)
 
     ;; ---- Programs ----
 
@@ -1227,7 +1429,7 @@
     ;; library's types are settled within it, as they must be when libraries
     ;; are compiled apart: an unannotated value takes its type from its own
     ;; library, never from a library that imports it.
-    (: check-program (-> Program Typed ! mut))
+    (: check-program (-> Program Typed))
     (define (check-program program)
       (let loop ((libraries (library-items program (program-items program))) (items (Nil)) (schemes empty-table))
         (match libraries
@@ -1241,48 +1443,57 @@
     ;; new ones. Unannotated definitions are checked first, in dependency
     ;; order; then annotated definitions and statements, which only need
     ;; schemes. Then every constraint is solved and every type zonked.
-    (: check-library (-> Program (Table Scheme) (List Item) Typed ! mut))
+    (: check-library (-> Program (Table Scheme) (List Item) Typed))
     (define (check-library program schemes items)
-      (let* ((ck (Checker program (ref 0) empty-table (ref schemes) (ref empty-solution) (ref (Nil)) (ref (Nil)) (ref 0)
-                          (ref (Nil)) (ref (None)) (ref #f) (ref (Nil))))
-             (inferred (check-inferred ck items))
-             (typed (map (lambda (item) (check-item ck inferred item)) items)))
-        (solve-pending! ck)
-        (for-each (lambda (item)
-                    (match item
-                      ((Expose name _ loc) (check-exposed ck name loc))
-                      (_ (unit))))
-                  items)
-        (let ((typed (Typed program (map (lambda (item) (zonk-item (solution ck) item)) typed) (final-schemes ck items))))
-          (check-owned-types program (Typed-items typed))
-          (for-each (lambda (function) (check-confined typed (zonk-expr (solution ck) function))) (ref-get (Checker-confined ck)))
-          typed)))
+      (let ((ck (Checker program empty-table (Nil) (None) 0 empty-solution schemes (Nil) 0 (Nil) #f (Nil))))
+        (learning ck ((inferred (check-inferred items))
+                      (typed (each (lambda (ck item) (check-item ck inferred item)) items))
+                      (then (solve-pending))
+                      (then (check-exposures items)))
+                  (let ((result (Typed program (map (lambda (item) (zonk-item (solution ck) item)) typed)
+                                       (final-schemes ck items))))
+                    (check-owned-types program (Typed-items result))
+                    (for-each (lambda (function) (check-confined result (zonk-expr (solution ck) function))) (Checker-confined ck))
+                    result))))
+
+    (: check-exposures (-> Checker (List Item) Checker))
+    (define (check-exposures ck items)
+      (fold-left (lambda (ck item)
+                   (match item
+                     ((Expose name _ loc) (check-exposed ck name loc))
+                     (_ ck)))
+                 ck items))
 
     ;; Checks the definitions without signatures, a group at a time in
     ;; dependency order, and returns them by name.
-    (: check-inferred (-> Checker (List Item) (Table Item) ! mut))
+    (: check-inferred (-> Checker (List Item) (Pair (Table Item) Checker)))
     (define (check-inferred ck items)
-      (fold-left (lambda (results group)
-                   (fold-left (lambda (results result) (table-set results (Define-name result) result)) results (check-group ck group)))
-                 empty-table
-                 (definition-groups (filter (lambda (item)
-                                              (match item
-                                                ((Define name _) (match (annotated-scheme (program-of ck) name) ((None) #t) ((Some _) #f)))
-                                                (_ #f)))
-                                            items))))
+      (learning ck ((groups (each check-group (unannotated-groups ck items))))
+                (Pair (fold-left (lambda (results result) (table-set results (Define-name result) result))
+                                 empty-table (concatenate groups))
+                      ck)))
 
-    (: check-item (-> Checker (Table Item) Item Item ! mut))
+    (: unannotated-groups (-> Checker (List Item) (List (List Item))))
+    (define (unannotated-groups ck items)
+      (definition-groups
+        (filter (lambda (item)
+                  (match item
+                    ((Define name _) (match (annotated-scheme (program-of ck) name) ((None) #t) ((Some _) #f)))
+                    (_ #f)))
+                items)))
+
+    (: check-item (-> Checker (Table Item) Item (Pair Item Checker)))
     (define (check-item ck results item)
       (match item
         ((Define name _)
          (match (table-ref results name)
-           ((Some result) result)
+           ((Some result) (Pair result ck))
            ((None)
             (match (annotated-scheme (program-of ck) name)
               ((Some scheme) (check-annotated ck item scheme))
               ((None) (panic "internal error: unchecked definition"))))))
         ((Do expr) (check-statement ck expr))
-        ((Expose _ _ _) item)))
+        ((Expose _ _ _) (Pair item ck))))
 
     (: zonk-item (-> Solution Item Item))
     (define (zonk-item solution item)
@@ -1293,23 +1504,24 @@
 
     ;; Inferred schemes with their remaining metavariables defaulted, and the
     ;; signatures of annotated definitions.
-    (: final-schemes (-> Checker (List Item) (Table Scheme) ! mut))
+    (: final-schemes (-> Checker (List Item) (Table Scheme)))
     (define (final-schemes ck items)
-      (for-each (lambda (name)
-                  (match (table-ref (ref-get (Checker-schemes ck)) name)
-                    ((Some scheme)
-                     (set-scheme! ck name (Scheme (Scheme-vars scheme) (Scheme-constraints scheme) (zonk (solution ck) (Scheme-type scheme)))))
-                    ((None) (unit))))
-                (ref-get (Checker-open ck)))
-      (for-each (lambda (item)
-                  (match item
-                    ((Define name _)
-                     (match (annotated-scheme (program-of ck) name)
-                       ((Some scheme) (set-scheme! ck name scheme))
-                       ((None) (unit))))
-                    (_ (unit))))
-                items)
-      (ref-get (Checker-schemes ck)))
+      (let ((defaulted (fold-left (lambda (ck name)
+                                    (match (table-ref (Checker-schemes ck) name)
+                                      ((Some scheme)
+                                       (set-scheme ck name (Scheme (Scheme-vars scheme) (Scheme-constraints scheme)
+                                                                   (zonk (solution ck) (Scheme-type scheme)))))
+                                      ((None) ck)))
+                                  ck (Checker-open ck))))
+        (Checker-schemes
+         (fold-left (lambda (ck item)
+                      (match item
+                        ((Define name _)
+                         (match (annotated-scheme (program-of ck) name)
+                           ((Some scheme) (set-scheme ck name scheme))
+                           ((None) ck)))
+                        (_ ck)))
+                    defaulted items))))
 
     (: annotated-scheme (-> Program String (Option Scheme)))
     (define (annotated-scheme program name)
