@@ -69,6 +69,19 @@
 (: stop-connection (-> Connection Unit ! tcp))
 (define (stop-connection connection) (require (close-connection connection)))
 
+(: finish (-> Connection I32 (Result Unit SocketError) ! tcp))
+(define (finish connection grace) (finish-connection connection grace))
+
+(: finished? (-> (Result Unit SocketError) Bool))
+(define (finished? result)
+  (match result ((Ok _) #t) ((Err _) #f)))
+
+(: timed-out? (-> (Result Unit SocketError) Bool))
+(define (timed-out? result)
+  (match result
+    ((Err error) (string=? (SocketError-code error) "ETIMEDOUT"))
+    ((Ok _) #f)))
+
 (expose open "open")
 (expose listener "listener")
 (expose port "port")
@@ -84,6 +97,9 @@
 (expose overwrite "overwrite")
 (expose stop-listener "stop-listener")
 (expose stop-connection "stop-connection")
+(expose finish "finish")
+(expose finished? "finished")
+(expose timed-out? "timed-out")
 
 (: open-udp (-> UdpSocket ! udp))
 (define (open-udp) (require (bind (Endpoint "127.0.0.1" 0))))

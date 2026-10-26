@@ -25,8 +25,8 @@ export function socketImports(program, scheduler, tcp, udp) {
     return current.names ? current.linked.get('lofi.socket').exports : current.runtime.exports;
   };
 
-  // Socket successes are acquisitions, counts, packets, bytes or EOF; a string is an error
-  // code. Cancellation and uncoded host failures must unwind the invocation.
+  // Socket successes never use strings; a string is an error code.
+  // Cancellation and uncoded host failures must unwind the invocation.
   function wait(operation, discard) {
     return scheduler.suspend(async signal => {
       try { return await operation(signal); }
@@ -91,6 +91,11 @@ export function socketImports(program, scheduler, tcp, udp) {
       const bytes = byteSnapshot(program().runtime.exports.memory, pointer), api = helpers();
       const id = api['tcp:connection-handle'](connection), count = await wait(signal => tcp.write(signal, id, bytes));
       return typeof count === 'string' ? api['socket:write-error'](errorCode(api, count)) : api['socket:written'](count);
+    }),
+    'finish-connection': new WebAssembly.Suspending(async (connection, grace) => {
+      const api = helpers(), id = api['tcp:connection-handle'](connection);
+      const result = await wait(signal => tcp.finish(signal, id, grace));
+      return typeof result === 'string' ? api['socket:close-error'](errorCode(api, result)) : api['socket:closed']();
     }),
     'close-listener'(listener) { const api = helpers(); return close(api, tcp, api['tcp:listener-handle'](listener)); },
     'close-connection'(connection) { const api = helpers(); return close(api, tcp, api['tcp:connection-handle'](connection)); },

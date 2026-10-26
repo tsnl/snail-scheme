@@ -1,6 +1,7 @@
 (import
  (lofi base)
  (lofi io)
+ (lofi task)
  (lofi socket))
 
 (: require (All (T) (-> (Result T SocketError) T)))
@@ -45,3 +46,11 @@
 
 ;; Returning from main must close even a delivered listener left open by user code.
 (require (listen (Endpoint "127.0.0.1" 0)))
+
+(let* ((listener (require (listen (Endpoint "127.0.0.1" 0))))
+       (client (require (connect (Endpoint "127.0.0.1" (Listener-port listener)))))
+       (server (require (accept listener))))
+  (require (close-listener listener))
+  (dispatch-local (once (lambda () (require (finish-connection server 1000)))))
+  (require (finish-connection client 1000))
+  (write-line "finished"))

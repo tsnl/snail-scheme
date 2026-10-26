@@ -92,10 +92,12 @@ The response writer must loop over short writes. One exchange per connection is
 the initial scope; persistent connections, pipelining and streaming uploads are
 not implemented. Byte limits alone do not bound a stalled peer's lifetime.
 
-The current native TCP close destroys the socket immediately. Before server
-integration, add write-half-close and bounded graceful draining: unread incoming
-data can otherwise cause a reset that loses the response.
-[RFC 9112 §9.6](https://www.rfc-editor.org/rfc/rfc9112.html#section-9.6)
+The socket effect provides [graceful completion](../runtimes/networking.md#finishing-a-connection)
+through `finish-connection`: it ends output, discards input and awaits closure
+with a bounded grace period. Use that after the response, since unread incoming
+data can otherwise cause a reset that loses it; see
+[RFC 9112 §9.6](https://www.rfc-editor.org/rfc/rfc9112.html#section-9.6).
+Immediate `close-connection` remains the abort operation.
 
 Artifact serving, explicit streaming/SSE, connection scheduling and deadline policy
 remain [networking work](https://github.com/tsnl/snail-scheme/issues/457). Existing

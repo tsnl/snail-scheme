@@ -2,7 +2,7 @@
 ;; the native runner supplies the default implementation through JSPI.
 (define-library (lofi socket)
   (export
-   tcp listen connect accept read write close-listener close-connection
+   tcp listen connect accept read write finish-connection close-listener close-connection
    udp bind send receive close-udp
    Endpoint Endpoint-address Endpoint-port
    Listener Listener-token Listener-port
@@ -47,6 +47,7 @@
        (accept (-> Listener (Result Connection SocketError)))
        (read (-> Connection I32 (Result (Option Bytes) SocketError)))
        (write (-> Connection Bytes (Result I32 SocketError)))
+       (finish-connection (-> Connection I32 (Result Unit SocketError)))
        (close-listener (-> Listener (Result Unit SocketError)))
        (close-connection (-> Connection (Result Unit SocketError))))
       (host "snail.socket"
@@ -55,6 +56,7 @@
              (accept "accept")
              (read "read")
              (write "write")
+             (finish-connection "finish-connection")
              (close-listener "close-listener")
              (close-connection "close-connection"))))
 
