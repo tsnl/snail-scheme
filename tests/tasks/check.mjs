@@ -37,13 +37,13 @@ async function until(predicate) {
   const end = Date.now() + 3000;
   while (!predicate()) { assert.ok(Date.now() < end, 'task reached its expected boundary'); await turn(); }
 }
-async function fixture({abortable = true} = {}) {
+async function fixture({abortable = true, discard = null} = {}) {
   let instance;
   const waits = new Map(), records = [], errors = [], cleaned = [];
   const scheduler = createScheduler({handlerGlobals: () => instance ? [instance.exports['handler.test']] : [],
                                      reportError: error => errors.push(error)});
   const host = {
-    wait: scheduler.suspending((signal, key) => {
+    wait: new WebAssembly.Suspending(key => scheduler.suspend(signal => {
       const completion = Promise.withResolvers();
       waits.set(key, completion);
       const abort = () => completion.reject(signal.reason);
@@ -53,7 +53,7 @@ async function fixture({abortable = true} = {}) {
         waits.delete(key);
         cleaned.push(key);
       });
-    }),
+    }, discard)),
     spawn: key => scheduler.dispatch(() => WebAssembly.promising(instance.exports.child)(key)),
     record: (key, token, phase) => records.push([key, token, phase]),
   };
@@ -89,7 +89,7 @@ async function detachedChild() {
 }
 
 async function cancellation() {
-  const f = await fixture();
+  const discarded = [], f = await fixture({discard: value => discarded.push(value)});
   let dropped = 0;
   const queued = f.scheduler.dispatch(() => assert.fail('cancelled work ran'), () => dropped++);
   queued.cancel(); queued.cancel();
@@ -111,25 +111,37 @@ async function cancellation() {
   ready.cancel(); held.resolve(); await blocker.done;
   await assert.rejects(ready.done, {name: 'AbortError'});
   assert.equal(f.records.filter(([key]) => key === 5).length, 1);
+  assert.deepEqual(discarded, [50], 'cancellation disposes the queued result exactly once');
   const closing = f.run({}, 9);
   await until(() => f.waits.has(9));
-  const closed = f.scheduler.close();
+  const heldOnClose = Promise.withResolvers();
+  const blockerOnClose = f.scheduler.start(() => heldOnClose.promise);
+  await turn();
+  f.waits.get(9).resolve(90); await turn();
+  let drained = false;
+  const closed = f.scheduler.close().then(() => { drained = true; });
+  await turn(); assert.equal(drained, false, 'close waits for disposal and JSPI unwind');
+  heldOnClose.resolve();
+  await assert.rejects(blockerOnClose.done, {name: 'AbortError'});
   await assert.rejects(closing.done, {name: 'AbortError'});
   await closed;
+  assert.deepEqual(discarded, [50, 90]);
   assert.throws(() => f.scheduler.dispatch(() => {}), /closed/);
   f.settled();
 }
 
 async function cleanupBeforeCompletion() {
-  const f = await fixture({abortable: false});
+  const discarded = [], f = await fixture({abortable: false, discard: value => discarded.push(value)});
   const task = f.run({}, 6);
   await until(() => f.waits.has(6));
   task.cancel();
   await turn();
   assert.equal(f.scheduler.size, 1, 'non-abortable operation remains accounted until it finishes');
+  assert.deepEqual(discarded, []);
   f.waits.get(6).resolve(60);
   await assert.rejects(task.done, {name: 'AbortError'});
   assert.deepEqual(f.cleaned, [6]);
+  assert.deepEqual(discarded, [60], 'late successful result is never delivered to cancelled Wasm');
   f.settled();
 }
 
@@ -172,6 +184,24 @@ async function failedDiscard() {
   assert.equal(errors.length, 1); assert.equal(scheduler.size, 0);
 }
 
+async function failedResultDiscard() {
+  const disposed = [], failure = new Error('result disposal failed'), operationFailure = new Error('operation failed');
+  const f = await fixture({abortable: false, discard: value => { disposed.push(value); throw failure; }});
+  const bad = f.scheduler.dispatch(() => WebAssembly.promising(f.instance.exports.run)({}, 7));
+  const token = {}, good = f.run(token, 8), rejected = f.run({}, 9);
+  await until(() => f.waits.size === 3);
+  bad.cancel();
+  f.waits.get(7).resolve(70); f.waits.get(8).resolve(80); f.waits.get(9).reject(operationFailure);
+  await assert.rejects(bad.done, error => error === failure);
+  assert.equal(await good.done, 80);
+  await assert.rejects(rejected.done, error => error === operationFailure);
+  assert.deepEqual(disposed, [70], 'delivered results and operation failures do not call the disposer');
+  assert.deepEqual(f.errors, [failure], 'a disposal failure reports once after the parked stack unwinds');
+  assert.deepEqual(f.records.filter(([key]) => key === 7).map(([, , phase]) => phase), [0]);
+  assert.deepEqual(f.records.at(-1), [8, token, 1]);
+  await f.scheduler.drain(); f.settled();
+}
+
 async function repeatedSuspension() {
   const f = await fixture(), token = {};
   const task = f.scheduler.start(() => WebAssembly.promising(f.instance.exports.twice)(token, 10));
@@ -205,6 +235,7 @@ await cleanupBeforeCompletion();
 await failure();
 await fairness();
 await failedDiscard();
+await failedResultDiscard();
 await repeatedSuspension();
 await lateHandlers();
 console.log('tasks: JSPI bindings, exhaustion, cancellation, cleanup and fairness');

@@ -55,7 +55,7 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
     if (!live.delete(task)) return;
     release(task);
     task.bindings.clear();
-    task.work = task.discard = task.next = task.wait = null;
+    task.work = task.discard = task.next = null;
     if (ok && task.controller.signal.aborted) { ok = false; result = task.controller.signal.reason; }
     if (ok) task.completion.resolve(result);
     else task.completion.reject(result);
@@ -79,7 +79,7 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
     if (closed) throw new Error('the task runtime has closed');
     discover();
     const task = {work, discard, detached, bindings: detached && active ? snapshot() : new Map(baseline), controller: new AbortController(),
-                  completion: Promise.withResolvers(), next: null, wait: null};
+                  completion: Promise.withResolvers(), next: null};
     task.completion.promise.catch(() => {});
     live.add(task); // Reserve before the dispatching task can return.
     enqueue(task, () => {
@@ -93,25 +93,28 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
   // The operation owns its abort listener and settles only after cleanup.
   // An operation that cannot abort may finish normally; cancellation still
   // rejects the gate. A broken adapter that never settles prevents drain.
-  function suspend(operation) {
+  // Work returns its complete invocation Promise: a parked task cannot finish
+  // or enter another wait before this gate settles. No wait identity is needed.
+  // Successful results belong to the gate until delivery. Discard is native,
+  // synchronous cleanup and must not reenter Wasm.
+  function suspend(operation, discard = null) {
     const task = active;
     if (!task) throw new Error('a runtime wait requires a running task');
     task.controller.signal.throwIfAborted();
     const gate = Promise.withResolvers();
-    task.wait = gate;
     let pending;
     try { pending = operation(task.controller.signal); }
     catch (error) { pending = Promise.reject(error); }
     task.bindings = snapshot();
     release(task);
     function completed(ok, result) {
-      if (task.wait !== gate) return;
       enqueue(task, () => {
-        task.wait = null;
         // Cancellation can race with an already queued successful result.
         if (!ok) gate.reject(result);
-        else if (task.controller.signal.aborted) gate.reject(task.controller.signal.reason);
-        else gate.resolve(result);
+        else if (task.controller.signal.aborted) {
+          try { discard?.(result); gate.reject(task.controller.signal.reason); }
+          catch (error) { gate.reject(error); } // Reject the parked stack so it still unwinds.
+        } else gate.resolve(result);
         // Keep the permit until JSPI next suspends or its export settles.
       });
     }
@@ -125,7 +128,6 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
     start: work => spawn(work, null, false),
     dispatch: (work, discard = null) => spawn(work, discard, true),
     suspend,
-    suspending: operation => new WebAssembly.Suspending((...args) => suspend(signal => operation(signal, ...args))),
     drain,
     close(reason) {
       closed = true;
