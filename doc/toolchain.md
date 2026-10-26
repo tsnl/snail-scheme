@@ -449,11 +449,13 @@ formatter; it never serves project HTML or arbitrary filesystem paths.
 | `GET /api/file?path=...` | `{text, revision}` for one file. |
 | `PUT /api/file?path=...` | UTF-8 `text/plain` plus one strong quoted `If-Match` revision; returns the submitted snapshot or a conflict (409). |
 | `POST /api/build` | Explicit Build, with an empty body. Save never calls this operation. |
-| `GET /api/events` | SSE: full current `status`, then `files` invalidation; subsequent status and shared-observer changes. |
+| `GET /api/events` | SSE: current `status` (`phase`, attempt `id`, `diagnostics`), then `files` invalidation; subsequent status and shared-observer changes. |
 
 Reconnect obtains current status and an unconditional file invalidation; there is
-no event archive or replay cursor. Each stream holds at most one pending write;
-a later event or five-second drain deadline closes a blocked reader. Request
+no event archive or replay cursor. Build directories and worker identity stay in
+the native session. Each stream holds at most one pending write; a later event
+closes a reader whose previous write still needs drain. An idle blocked stream
+stays open until another event or connection closure, within the 64-stream limit. Request
 bodies are limited to 8 MiB and decoded strictly as UTF-8. File operations remain
 responsive while the real compiler waits on a source pipe in its worker.
 
