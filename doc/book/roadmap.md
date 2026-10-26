@@ -166,6 +166,9 @@ remains under review:
 - [ ] Resolve named artifact bundles during actual expansion, including
   dependencies from generated application libraries. One server can depend
   on and serve multiple frontend bundles.
+- [x] Implement the artifact macro, typed values and compiler resolver contract.
+  Cached expansion re-resolves exact file evidence and invalidates generic
+  consumers. Native target traversal and request handling remain to connect.
 - [ ] Keep compiler sessions alive under `dev`. One shared watcher drives
   compilation from saved files and notifies the editor, including after
   external tools write files. Publish fresh diagnostics for every attempt.

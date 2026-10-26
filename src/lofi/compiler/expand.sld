@@ -8,6 +8,9 @@
    ExpandedProgram-program
    empty-expansion
    library-key
+   ArtifactFiles
+   ArtifactInputs
+   no-artifacts
    expand-program)
   (import
    (lofi base)
@@ -161,13 +164,16 @@
     ;; being resolved, innermost first, so an alias that refers to itself is
     ;; caught. `generate` runs a producer program for `generate-library` and
     ;; returns the bytes of the syntax it writes; the driver supplies it,
-    ;; because running a program means compiling one.
+    ;; because running a program means compiling one. `artifacts` supplies
+    ;; completed target files in memory; each library records its own uses.
     (struct Context
       ((program (Ref Program))
        (expanded (Ref (Table Expanded)))
        (predecessor (Table Expanded))
        (directories (List String))
        (generate (-> (List Syntax) Bytes ! mut fs))
+       (artifacts ArtifactInputs)
+       (artifact-uses (Ref (List ArtifactUse)))
        (prefix String)
        (loading (List String))
        (aliases (List String))
@@ -178,15 +184,37 @@
 
     (type Exports (List (Pair String Binding)))
 
+    ;; Each immutable input is an ordered snapshot of a completed target's
+    ;; paths and bytes. The host loads files before expansion starts. Uses
+    ;; retain these same vectors as exact cache evidence, without copying.
+    (type ArtifactFiles (List (Pair String Bytes)))
+    (type ArtifactInputs (Table ArtifactFiles))
+
+    (struct ArtifactUse
+      ((name String)
+       (loc Loc)
+       (files ArtifactFiles)))
+
+    (: no-artifacts ArtifactInputs)
+    (define no-artifacts empty-table)
+
+    (: artifact-files (-> Context String Loc ArtifactFiles))
+    (define (artifact-files cx name loc)
+      (match (table-ref (Context-artifacts cx) name)
+        ((Some files) files)
+        ((None) (compile-error loc (string-append "missing artifact target: " name)))))
+
     ;; A library as a build expanded it: its build key, the canonical text
     ;; of its declarations with the interfaces of its imports, which decides
     ;; whether a later build may replay it; its own interface; its exports;
     ;; and everything it added to the program.
     (struct Expanded
       ((key String)
+       (body-key String)
        (interface String)
        (exports Exports)
-       (delta Program)))
+       (delta Program)
+       (artifacts (List ArtifactUse))))
 
     ;; What a build expanded: the program, its libraries, and the counters
     ;; and scopes a later build continues from, so that the names and marks
@@ -204,13 +232,23 @@
     (define empty-expansion
       (ExpandedProgram base-program empty-table 0 0 empty-table))
 
-    (: new-context (-> (List String) (-> (List Syntax) Bytes ! mut fs) ExpandedProgram Context ! mut))
-    (define (new-context directories generate predecessor)
-      (Context (ref base-program) (ref empty-table) (ExpandedProgram-libraries predecessor) directories generate "" (Nil) (Nil)
-               (ref (ExpandedProgram-counter predecessor)) (ref (ExpandedProgram-scopes predecessor))
-               (ref (ExpandedProgram-scope-count predecessor)) (ref (None))))
+    (: new-context (-> (List String) (-> (List Syntax) Bytes ! mut fs) ArtifactInputs ExpandedProgram Context ! mut))
+    (define (new-context directories generate artifacts predecessor)
+      (Context (ref base-program)
+               (ref empty-table)
+               (ExpandedProgram-libraries predecessor)
+               directories
+               generate
+               artifacts
+               (ref (Nil))
+               ""
+               (Nil)
+               (Nil)
+               (ref (ExpandedProgram-counter predecessor))
+               (ref (ExpandedProgram-scopes predecessor))
+               (ref (ExpandedProgram-scope-count predecessor))
+               (ref (None))))
 
-    ;; The program as expanded so far.
     (: program (-> Context Program ! mut))
     (define (program cx)
       (ref-get (Context-program cx)))
@@ -247,7 +285,7 @@
     (: core-keywords (List String))
     (define core-keywords
       (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type"
-            "typeclass" "instance" "match" "ann" "extern" "effect" "handle" "expose" "case-id" "type-convert" "type-test"))
+            "typeclass" "instance" "match" "ann" "extern" "effect" "handle" "expose" "case-id" "type-convert" "type-test" "artifact-files"))
 
     (: core-library (-> Exports))
     (define (core-library)
@@ -376,9 +414,13 @@
     ;; it; either way the library is recorded for the next build.
     (: expand-sections (-> Context (List (Pair String (List Syntax))) Exports ! mut fs))
     (define (expand-sections cx sections)
-      (let* ((env (import-env cx (section-items sections "import"))) (key (sections-key cx sections)))
+      (let* ((env (import-env cx (section-items sections "import"))) (key (sections-key cx sections))
+             (cx (Context-artifact-uses-set cx (ref (Nil)))))
         (match (table-ref (Context-predecessor cx) (Context-prefix cx))
-          ((Some entry) (if (string=? (Expanded-key entry) key) (replay! cx entry) (expand-recorded cx sections env key)))
+          ((Some entry)
+           (if (and (string=? (Expanded-key entry) key) (artifacts-current? cx (Expanded-artifacts entry)))
+               (replay! cx entry)
+               (expand-recorded cx sections env key)))
           ((None) (expand-recorded cx sections env key)))))
 
     ;; The body's items follow those of the library's imports, and the
@@ -431,9 +473,9 @@
     ;; A program is a sequence of imports followed by a body, which counts as
     ;; a library named `main` that exports nothing. A build replays what it
     ;; can of `predecessor`, the build before.
-    (: expand-program (-> (List String) (-> (List Syntax) Bytes ! mut fs) String ExpandedProgram ExpandedProgram ! mut fs))
-    (define (expand-program directories generate path predecessor)
-      (let ((cx (Context-prefix-set (new-context directories generate predecessor) "main")))
+    (: expand-program (-> (List String) (-> (List Syntax) Bytes ! mut fs) ArtifactInputs String ExpandedProgram ExpandedProgram ! mut fs))
+    (define (expand-program directories generate artifacts path predecessor)
+      (let ((cx (Context-prefix-set (new-context directories generate artifacts predecessor) "main")))
         (let loop ((forms (read-source path)) (specs (Nil)))
           (match forms
             ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
@@ -443,6 +485,24 @@
 
     ;; ---- Replaying libraries ----
 
+    ;; Ordinary source/import eligibility is checked before these requests:
+    ;; a changed body may have removed an old dependency. Every candidate
+    ;; replay still requires the recorded inputs and compares exact file
+    ;; contents. Removing an invocation must not require its obsolete input.
+    (: artifacts-current? (-> Context (List ArtifactUse) Bool))
+    (define (artifacts-current? cx uses)
+      (every? (lambda (use)
+                (artifact-files=? (ArtifactUse-files use) (artifact-files cx (ArtifactUse-name use) (ArtifactUse-loc use))))
+              uses))
+
+    (: artifact-files=? (-> ArtifactFiles ArtifactFiles Bool))
+    (define (artifact-files=? left right)
+      (match (Pair left right)
+        ((Pair (Nil) (Nil)) #t)
+        ((Pair (Cons a rest-a) (Cons b rest-b))
+         (and (string=? (Pair-first a) (Pair-first b)) (bytes=? (Pair-second a) (Pair-second b)) (artifact-files=? rest-a rest-b)))
+        (_ #f)))
+
     ;; A library replayed adds what it added in the build before.
     (: replay! (-> Context Expanded Exports ! mut))
     (define (replay! cx entry)
@@ -450,10 +510,24 @@
       (record! cx entry)
       (Expanded-exports entry))
 
+    ;; The fresh artifact stamp identifies each new artifact-bearing
+    ;; expansion. The counter continues from the last
+    ;; successful build; replay keeps its old stamp. It enters both the
+    ;; checked-body key and importers' interface keys, including generic
+    ;; importers that specialize this library's body into their own module.
+    ;; Stamps identify entries in one session lineage, not global content.
+
     (: expand-recorded (-> Context (List (Pair String (List Syntax))) Env String Exports ! mut fs))
     (define (expand-recorded cx sections env key)
-      (let ((exports (expand-library-body cx sections env)))
-        (record! cx (Expanded key (interface-hash cx sections) exports (program-delta (program cx) (Context-prefix cx))))
+      (let* ((exports (expand-library-body cx sections env))
+             (uses (ref-get (Context-artifact-uses cx)))
+             (stamp (if (null? uses) "" (fresh cx " artifact-"))))
+        (record! cx (Expanded key
+                              (string-append key stamp)
+                              (string-append (interface-hash cx sections) stamp)
+                              exports
+                              (program-delta (program cx) (Context-prefix cx))
+                              uses))
         exports))
 
     (: record! (-> Context Expanded Unit ! mut))
@@ -508,7 +582,7 @@
     (: library-key (-> ExpandedProgram String String))
     (define (library-key expansion name)
       (match (table-ref (ExpandedProgram-libraries expansion) name)
-        ((Some entry) (Expanded-key entry))
+        ((Some entry) (Expanded-body-key entry))
         ((None) "")))
 
     (: spec-library (-> Syntax Syntax))
@@ -1193,6 +1267,33 @@
 
     ;; ---- Expressions ----
 
+    ;; Only an expanded use requests files. Unused macro templates cannot
+    ;; trigger a build. The public macro supplies marked constructor names,
+    ;; so ordinary expansion/typing constructs the value hygienically.
+    (: expand-artifact-files (-> Context Env (List Syntax) Loc Expr ! mut))
+    (define (expand-artifact-files cx env items loc)
+      (match items
+        ((Cons _ (Cons (Atom (DString name) _) (Cons file (Cons cons (Cons nil (Nil))))))
+         (let ((syntax
+                (fold-right (lambda (entry rest)
+                              (Form (list cons (Form (list file (Atom (DString (Pair-first entry)) loc)
+                                                           (Atom (DBytes (Pair-second entry)) loc)) loc) rest) loc))
+                            (Form (list nil) loc) (resolve-artifact-files cx name loc))))
+           (expand-expr cx env syntax)))
+        (_ (compile-error loc "artifact-bundle expects a literal target name"))))
+
+    ;; Each library owns its uses, including when expansion loads another
+    ;; library during deriving. Record an actual invocation once; unused
+    ;; macro templates never enter this accumulator.
+    (: resolve-artifact-files (-> Context String Loc ArtifactFiles ! mut))
+    (define (resolve-artifact-files cx name loc)
+      (match (find (lambda (use) (string=? name (ArtifactUse-name use))) (ref-get (Context-artifact-uses cx)))
+        ((Some use) (ArtifactUse-files use))
+        ((None)
+         (let ((files (artifact-files cx name loc)))
+           (ref-set! (Context-artifact-uses cx) (Cons (ArtifactUse name loc files) (ref-get (Context-artifact-uses cx))))
+           files))))
+
     ;; Expands macro uses at the head of a form until the head is not a macro.
     (: expand-head (-> Context Env Syntax Syntax ! mut))
     (define (expand-head cx env syntax)
@@ -1243,6 +1344,7 @@
         (("begin") (expand-body cx env (list-tail items 1) loc))
         (("let") (expand-let cx env items loc))
         (("match") (expand-match cx env items loc))
+        (("artifact-files") (expand-artifact-files cx env items loc))
         (("ann")
          (match items
            ((Cons _ (Cons value (Cons type (Nil)))) (expr (Ann (expand-expr cx env value) (resolve-type cx env type)) loc))

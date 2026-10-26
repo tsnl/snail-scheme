@@ -31,9 +31,9 @@
   (write-file (string-append directory "/modules") (string-concatenate (map (lambda (module) (string-append (Pair-first module) "\n")) modules))))
 
 (define (compile-source mode source output generate directories)
-  (cond ((string=? mode "schema") (write-file output (compile->schemas directories source generate)))
-        ((string=? mode "modules") (write-modules output (compile->modules directories source generate)))
-        (else (write-file output (compile->wat directories source generate)))))
+  (cond ((string=? mode "schema") (write-file output (compile->schemas directories source generate no-artifacts)))
+        ((string=? mode "modules") (write-modules output (compile->modules directories source generate no-artifacts)))
+        (else (write-file output (compile->wat directories source generate no-artifacts)))))
 
 (match (command-line)
   ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
