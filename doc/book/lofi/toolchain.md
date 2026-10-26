@@ -34,6 +34,9 @@ unmanaged entries at the output path. The [project format](https://github.com/ts
 documents publication and public-file rules.
 
 The native project builder keeps one Wasm compiler alive throughout an invocation.
+`lofi build` calls it directly and releases its scratch files on completion or
+failure. Only development puts the compiler in a worker, to keep its HTTP service
+and disk observer responsive during compilation.
 It also supports resident callers with a successful compiler Session per target.
 Changing a target's entry or library roots starts a fresh Session; an edit within
 those inputs uses the compiler's existing incremental checks. Generated-library

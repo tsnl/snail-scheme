@@ -325,6 +325,19 @@ boundary. Record production, test and documentation line changes separately.
 Astra Max simplify reviews should challenge retained behavior, not merely
 validate the machinery chosen to preserve it.
 
+The current audit removes the obsolete Chibi artifact resolver and the worker
+protocol around a one-shot CLI build. Next it collapses watcher failure tracking
+to one incomplete-inventory episode and projects HTTP build status to the fields
+the editor uses. Slow event clients can close on a second blocked write without
+a separate timer and drain registry. The development worker remains necessary:
+compilation must not block HTTP or disk observation.
+
+Keep the state that carries evidence: successful compiler caches, paths observed
+during an active attempt, and the editor's saved revisions and pending-read
+identity. Publication still preserves a completed prefix on failure rather than
+claiming a project-wide transaction. The old application loop can be deleted once
+launch and reload integration replace its behavior.
+
 ## 8. Proposed PR sequence
 
 These are implementation cuts above #421. Settled project/IDE work is authorized;
@@ -352,7 +365,11 @@ current code. Each state-library cut will be split further once its API is settl
 | 5i. Editor client | Introduce `lofi dev PROJECT` while old application commands remain. Adapt `ide.mjs`; delete browser `project.mjs`, `toolchain.mjs`, `develop.sld` and source/sample packaging; keep editor/panes/formatter. | The UI consumes the existing dev session. Keep saved baseline evidence beside drafts; late reads/saves cannot overwrite typing. Delete browser persistence and prose-derived squiggles. Test external edits, conflicts, deletion, reconnect and shutdown in Chromium; add running applications with launch integration. |
 | 5j. Located diagnostics | Preserve structured source points through compiler failures and the resident boundary; open and mark matching saved editor buffers. | The editor consumes diagnostic fields, never parses compiler output text. Keep first-error behavior and actual generated-source origins; no guessed ranges, diagnostic history or recovery framework. |
 | 5k. Delete the Chibi artifact resolver | Remove the dynamic resolver and reply accumulation left in `host/chibi/lofi/build.sld` after project builds moved to the native builder. | Delete resolver-only tests. Keep standalone generated libraries and located rejection of project artifacts; native project tests cover actual traversal and embedding. |
-| 6. TCP sockets | Add the concrete native TCP effect on `src/app/tasks.mjs` suspension and cleanup. | No provider hierarchy. Exercise real partial transfers, close/cancel and late completion. |
+| 5l. Direct cold builds | Call the shared builder directly from `scripts/build.mjs`; one scope owns compiler and scratch cleanup. | Delete the one-shot worker protocol and exit/message bookkeeping. Preserve heap sizing, output bytes and failed-build publication behavior. |
+| 5m. Watcher failure episodes | Retain the previous inventory until every root can be read; report one failure and one recovery per episode. | Delete per-root failure collections; no partial inventories. Keep root reattachment and native hints. |
+| 5n. HTTP event projection | Send only editor build status and close clients that remain blocked at a subsequent event. | Delete unused status fields from HTTP and separate drain timers; keep native process/build identity for launches. |
+| 6a. Suspended result ownership | Let a native suspension dispose a successful result if cancellation wins before delivery. | Delete redundant task wait identity; keep JSPI unwind and native operation cleanup. Test cancellation races with real suspended Wasm. |
+| 6b. TCP sockets | Add the concrete native TCP effect on `src/app/tasks.mjs` suspension and cleanup. | No provider hierarchy. Exercise real partial transfers, close/cancel and late completion. |
 | 7. UDP sockets | Add concrete datagram operations beside TCP. | No stream emulation. Exercise peer addresses, empty/oversized datagrams and cancellation without assuming reliable delivery. |
 | 8. Typed state (review pending) | Follow the [prototype](typed-state.md): typed table operations, transactions, coherent read snapshots and disposable views, grounded in existing effects, wire types and task suspension. | Replace checkpoint/resume and cross-build heap handover. Split schema/checking, platform storage and view caching into separate PRs after review; prove commit/cancel and snapshot/cache boundaries. |
 | 9. HTTP and browser bundles | Implement HTTP over TCP and application asset/reload serving in the bundle helper; adapt `src/app/reload.sld` to the agreed replacement path. Make root-relative reload URLs bundle-relative and fetch the advertised artifact identity. | Ordinary routing replaces preview transport. Two frontends reload under distinct prefixes and retain independent stores. Retry interrupted fetches without resetting saved data; production exposes no dev endpoints. |
