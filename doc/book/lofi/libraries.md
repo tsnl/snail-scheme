@@ -9,7 +9,7 @@
 | `(lofi task)` | One-shot local dispatch, cooperative yield and timer waits through the runtime-owned `tasks` effect. |
 | `(lofi table)` | Immutable tables from strings to values. |
 | `(lofi math)` | Elementary functions on `F64`. |
-| `(lofi text)` | Unicode character properties and case mapping. |
+| `(lofi text)` | Unicode character properties, case mapping and decimal digit values, from the runtime's tables. `(scheme runtime)` is built on it, so Scheme's character procedures are Unicode's. |
 | `(lofi random)` | A deterministic generator as a value. |
 | `(lofi wire)` | `Serialize`, `Deserialize` and the byte encoding. |
 | `(lofi app)` | Applications, frames, pictures, materials and sprites, and the `screen` effect. |

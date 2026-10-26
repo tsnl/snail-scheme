@@ -13,8 +13,12 @@ the compiler decodes rather than as text.
 Scheme is a library too. `(scheme base)` gives R7RS names (`cons`, `car`,
 `vector`, `char=?`, ...) over the typed language, and `(scheme compiler)`
 translates R7RS programs into Lofi libraries, run by a `generate-library`
-recipe, with `(scheme runtime)` for the standard procedures. The
-[Scheme on Lofi](tutorials/scheme.md) tutorial runs a Scheme program.
+recipe, with `(scheme runtime)` for the standard procedures. Its character
+procedures are Unicode's, from `(lofi text)`: `char-upcase` maps the full
+repertoire, `char-numeric?` and `digit-value` hold for any script's decimal
+digits, and `string-ci=?` compares case-folded text, so `"Straße"` and
+`"STRASSE"` are equal. The [Scheme on Lofi](tutorials/scheme.md) tutorial runs
+a Scheme program.
 
 That compatibility rests on Lofi's core being built so that erasing its typed
 forms leaves an R7RS program — which is also how Chibi Scheme runs the

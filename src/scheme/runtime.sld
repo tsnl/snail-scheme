@@ -58,6 +58,20 @@
    %string-length
    %substring
    %string=?
+   %char-upcase
+   %char-downcase
+   %char-foldcase
+   %char-alphabetic?
+   %char-numeric?
+   %char-whitespace?
+   %char-upper-case?
+   %char-lower-case?
+   %char-ci=?
+   %digit-value
+   %string-upcase
+   %string-downcase
+   %string-foldcase
+   %string-ci=?
    %symbol->string
    %string->symbol
    %display
@@ -77,6 +91,7 @@
    (lofi integer)
    (lofi rational)
    (lofi datum)
+   (lofi text)
    (lofi write))
   (begin
 
@@ -349,6 +364,79 @@
 
     (: %string=? (Ref Datum))
     (define %string=? (procedure2 (lambda (a b) (boolean (string=? (text-of a) (text-of b))))))
+
+    (: text (-> (-> String String) (Ref Datum) ! mut))
+    (define (text f)
+      (procedure1 (lambda (a) (StringDatum (f (text-of a))))))
+
+    (: %string-upcase (Ref Datum))
+    (define %string-upcase (text string-upcase))
+
+    (: %string-downcase (Ref Datum))
+    (define %string-downcase (text string-downcase))
+
+    (: %string-foldcase (Ref Datum))
+    (define %string-foldcase (text string-foldcase))
+
+    (: %string-ci=? (Ref Datum))
+    (define %string-ci=?
+      (procedure2 (lambda (a b) (boolean (string=? (string-foldcase (text-of a)) (string-foldcase (text-of b)))))))
+
+    ;; ---- Characters ----
+
+    ;; Scheme's character procedures are Unicode's, from the runtime's
+    ;; tables through (lofi text): `char-upcase` maps the full repertoire,
+    ;; `char-numeric?` holds for any script's decimal digits, and
+    ;; `string-foldcase` may expand a scalar, as "ß" into "ss", so
+    ;; `string-ci=?` compares folded text rather than scalar by scalar.
+    (: char-of (-> Datum Char))
+    (define (char-of datum)
+      (match datum
+        ((CharDatum char) char)
+        (_ (type-error "a character" datum))))
+
+    (: character (-> (-> Char Char) (Ref Datum) ! mut))
+    (define (character f)
+      (procedure1 (lambda (a) (CharDatum (f (char-of a))))))
+
+    (: character-property (-> (-> Char Bool) (Ref Datum) ! mut))
+    (define (character-property holds?)
+      (procedure1 (lambda (a) (boolean (holds? (char-of a))))))
+
+    (: %char-upcase (Ref Datum))
+    (define %char-upcase (character char-upcase))
+
+    (: %char-downcase (Ref Datum))
+    (define %char-downcase (character char-downcase))
+
+    (: %char-foldcase (Ref Datum))
+    (define %char-foldcase (character char-foldcase))
+
+    (: %char-alphabetic? (Ref Datum))
+    (define %char-alphabetic? (character-property char-unicode-alphabetic?))
+
+    (: %char-numeric? (Ref Datum))
+    (define %char-numeric? (character-property char-unicode-numeric?))
+
+    (: %char-whitespace? (Ref Datum))
+    (define %char-whitespace? (character-property char-unicode-whitespace?))
+
+    (: %char-upper-case? (Ref Datum))
+    (define %char-upper-case? (character-property char-upper-case?))
+
+    (: %char-lower-case? (Ref Datum))
+    (define %char-lower-case? (character-property char-lower-case?))
+
+    (: %char-ci=? (Ref Datum))
+    (define %char-ci=? (procedure2 (lambda (a b) (boolean (char=? (char-foldcase (char-of a)) (char-foldcase (char-of b)))))))
+
+    ;; R7RS answers #f for anything that is not a decimal digit.
+    (: %digit-value (Ref Datum))
+    (define %digit-value
+      (procedure1 (lambda (a)
+                    (match (char-digit-value (char-of a))
+                      ((Some value) (number (number-from-i64 value)))
+                      ((None) (boolean #f))))))
 
     (: %symbol->string (Ref Datum))
     (define %symbol->string (procedure1 (lambda (a) (match a ((SymbolDatum name) (StringDatum name)) (_ (type-error "a symbol" a))))))
