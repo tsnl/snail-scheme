@@ -227,8 +227,11 @@ A function without `!` is total. `mut` covers reading and writing `Ref` and
     (action)))
 ```
 
-Rows are inferred by unification, Koka-style. A call adds its callee's
-effects to the current row, and a handler removes its effect. Handler
+Rows are inferred by unification, Koka-style. A call requires its callee's
+effects to fit the current row. With a shared quantified tail, `e` fits
+`console e`, and `fs e` fits `console fs e`; the reverse inclusion does not
+hold. This permission check does not change equality of function types.
+A handler removes its effect. Handler
 implementations return to the operation's caller exactly once, and they run
 in the handler's outer context, so an operation they perform goes to the
 next handler out. A handler names operations within its effect, so they need
