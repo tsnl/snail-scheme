@@ -1,6 +1,6 @@
 (import
  (lofi base)
- (lofi tcp))
+ (lofi socket))
 
 (: transfer (All (T) (requires (Send T)) (-> T T)))
 (define (transfer value) value)
