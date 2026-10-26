@@ -854,61 +854,98 @@
     ;; i leads to the nodes in `(vector-ref edges i)`. The search starts
     ;; from each node in turn and follows edges in order. Each component
     ;; lists its nodes in the order the search reached them, and comes after
-    ;; every component it leads to. `index` numbers the nodes as the search
-    ;; reaches them, -1 until then; `low` is the least number a node leads
-    ;; back to; and `open` marks the nodes on the stack.
+    ;; every component it leads to.
+    ;;
+    ;; The search carries what it has learned and hands it back, so the whole
+    ;; pass is a function of its graph: `index` numbers the nodes as the
+    ;; search reaches them and has no entry until then, `low` is the least
+    ;; number a node leads back to, and `open` holds the nodes on the stack.
+    ;; Nodes are dense small integers, so a key is just the decimal text.
     (struct Search
       ((edges (Vector (List I64)))
-       (index (Array I64))
-       (low (Array I64))
-       (open (Array Bool))
-       (stack (Ref (List I64)))
-       (count (Ref I64))
-       (components (Ref (List (List I64))))))
+       (index (Table I64))
+       (low (Table I64))
+       (open (Table Bool))
+       (stack (List I64))
+       (count I64)
+       (components (List (List I64)))))
 
-    (: strong-components (-> (Vector (List I64)) (List (List I64)) ! mut))
+    (: strong-components (-> (Vector (List I64)) (List (List I64))))
     (define (strong-components edges)
-      (let* ((count (vector-length edges))
-             (search (Search edges (make-array count -1) (make-array count 0) (make-array count #f) (ref (Nil)) (ref 0) (ref (Nil)))))
-        (for-each (lambda (node) (when (< (array-ref (Search-index search) node) 0) (visit! search node))) (iota count))
-        (reverse (ref-get (Search-components search)))))
+      (let ((search (fold-left (lambda (search node) (if (reached? search node) search (visit search node)))
+                               (Search edges empty-table empty-table empty-table (Nil) 0 (Nil))
+                               (iota (vector-length edges)))))
+        (reverse (Search-components search))))
 
-    (: visit! (-> Search I64 Unit ! mut))
-    (define (visit! search node)
-      (let ((number (ref-get (Search-count search))))
-        (ref-set! (Search-count search) (+ number 1))
-        (array-set! (Search-index search) node number)
-        (array-set! (Search-low search) node number)
-        (ref-set! (Search-stack search) (Cons node (ref-get (Search-stack search))))
-        (array-set! (Search-open search) node #t)
-        (for-each (lambda (next) (follow! search node next)) (vector-ref (Search-edges search) node))
-        (when (= (array-ref (Search-low search) node) number)
-          (pop-component! search node))))
+    (: node-key (-> I64 String))
+    (define (node-key node)
+      (i64->string node))
+
+    (: reached? (-> Search I64 Bool))
+    (define (reached? search node)
+      (match (table-ref (Search-index search) (node-key node))
+        ((Some _) #t)
+        ((None) #f)))
+
+    (: node-index (-> Search I64 I64))
+    (define (node-index search node)
+      (match (table-ref (Search-index search) (node-key node))
+        ((Some number) number)
+        ((None) (panic "internal error: the search has not reached this node"))))
+
+    (: node-low (-> Search I64 I64))
+    (define (node-low search node)
+      (match (table-ref (Search-low search) (node-key node))
+        ((Some number) number)
+        ((None) (panic "internal error: the search has not reached this node"))))
+
+    (: open? (-> Search I64 Bool))
+    (define (open? search node)
+      (match (table-ref (Search-open search) (node-key node))
+        ((Some flag) flag)
+        ((None) #f)))
+
+    ;; Numbers `node`, pushes it, follows its edges, and closes a component
+    ;; when nothing it reached leads back past it.
+    (: visit (-> Search I64 Search))
+    (define (visit search node)
+      (let* ((number (Search-count search))
+             (entered (Search (Search-edges search)
+                              (table-set (Search-index search) (node-key node) number)
+                              (table-set (Search-low search) (node-key node) number)
+                              (table-set (Search-open search) (node-key node) #t)
+                              (Cons node (Search-stack search))
+                              (+ number 1)
+                              (Search-components search)))
+             (followed (fold-left (lambda (search next) (follow search node next))
+                                  entered (vector-ref (Search-edges search) node))))
+        (if (= (node-low followed node) number) (pop-component followed node) followed)))
 
     ;; Lowers `node`'s link through its edge to `next`, visiting `next`
     ;; first if the search has not reached it.
-    (: follow! (-> Search I64 I64 Unit ! mut))
-    (define (follow! search node next)
-      (cond ((< (array-ref (Search-index search) next) 0)
-             (visit! search next)
-             (lower! search node (array-ref (Search-low search) next)))
-            ((array-ref (Search-open search) next) (lower! search node (array-ref (Search-index search) next)))
-            (else (unit))))
+    (: follow (-> Search I64 I64 Search))
+    (define (follow search node next)
+      (cond ((not (reached? search next))
+             (let ((search (visit search next)))
+               (lower search node (node-low search next))))
+            ((open? search next) (lower search node (node-index search next)))
+            (else search)))
 
-    (: lower! (-> Search I64 I64 Unit ! mut))
-    (define (lower! search node number)
-      (array-set! (Search-low search) node (min (array-ref (Search-low search) node) number)))
+    (: lower (-> Search I64 I64 Search))
+    (define (lower search node number)
+      (Search-low-set search (table-set (Search-low search) (node-key node) (min (node-low search node) number))))
 
-    (: pop-component! (-> Search I64 Unit ! mut))
-    (define (pop-component! search node)
-      (let loop ((component (Nil)))
-        (match (ref-get (Search-stack search))
+    ;; Pops the stack down to `node`; those nodes are one component.
+    (: pop-component (-> Search I64 Search))
+    (define (pop-component search node)
+      (let loop ((search search) (component (Nil)))
+        (match (Search-stack search)
           ((Cons top rest)
-           (ref-set! (Search-stack search) rest)
-           (array-set! (Search-open search) top #f)
-           (if (= top node)
-               (ref-set! (Search-components search) (Cons (Cons top component) (ref-get (Search-components search))))
-               (loop (Cons top component))))
+           (let ((search (Search-open-set (Search-stack-set search rest)
+                                          (table-set (Search-open search) (node-key top) #f))))
+             (if (= top node)
+                 (Search-components-set search (Cons (Cons top component) (Search-components search)))
+                 (loop search (Cons top component)))))
           ((Nil) (panic "internal error: empty search stack")))))
 
     ;; ---- Primitives ----

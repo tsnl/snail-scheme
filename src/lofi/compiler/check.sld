@@ -1321,7 +1321,7 @@
 
     ;; The definitions in groups that refer to one another, each group after
     ;; the groups it refers to. Definitions are numbered in program order.
-    (: definition-groups (-> (List Item) (List (List Item)) ! mut))
+    (: definition-groups (-> (List Item) (List (List Item))))
     (define (definition-groups definitions)
       (let* ((nodes (list->vector definitions))
              (numbers (fold-left (lambda (table index) (table-set table (Define-name (vector-ref nodes index)) index))
