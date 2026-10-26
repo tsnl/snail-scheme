@@ -12,7 +12,7 @@ const conflict = buffer => Boolean(buffer?.baseline && buffer.observed !== buffe
 const sourceFile = buffer => /\.(sld|scm|datum)$/.test(buffer?.path ?? '');
 
 async function request(path, options) {
-  const response = await fetch(path, options), value = await response.json();
+  const response = await fetch(path, options), value = response.status === 204 ? null : await response.json();
   if (!response.ok) throw Object.assign(new Error(value.message), {status: response.status});
   return value;
 }
@@ -272,13 +272,73 @@ async function build() {
   catch (error) { setStatus(error.message, 'failed'); }
 }
 
+// ---- Applications ----
+
+const runPanel = document.getElementById('runs'), runTarget = document.getElementById('run-target');
+let runs = [], runPending = false, runProblem = '';
+
+function renderRunTargets() {
+  const selected = runTarget.value, label = run => run.target + (run.available ? '' : ' (removed)');
+  if (runTarget.options.length !== runs.length || runs.some((run, i) => runTarget.options[i].value !== run.target || runTarget.options[i].text !== label(run))) {
+    runTarget.replaceChildren(...runs.map(run => new Option(label(run), run.target)));
+    runTarget.value = runs.some(run => run.target === selected) ? selected : (runs.find(run => run.available) ?? runs[0])?.target ?? '';
+  }
+}
+
+function runDescription(run) {
+  if (!run) return 'No run targets';
+  const attempt = run.attempt;
+  const observed = attempt ? `${attempt.phase}, build ${attempt.build}${attempt.pid === null ? '' : `, PID ${attempt.pid}`}` : 'no process';
+  const outcome = attempt?.signal ? ` · ${attempt.signal}` : attempt?.code !== null && attempt?.code !== undefined ? ` · exit ${attempt.code}` : '';
+  return `${run.available ? '' : 'Removed · '}Requested: ${run.desired ? `build ${run.desired.build}` : 'stop'} · Observed: ${observed}${outcome}${attempt?.error ? ` · ${attempt.error}` : ''}`;
+}
+
+function renderOutput(id, text) {
+  const element = document.getElementById(id);
+  if (element.textContent === text) return;
+  const {scrollLeft, scrollTop} = element;
+  element.textContent = text;
+  element.scrollTo(scrollLeft, scrollTop);
+}
+
+function renderRuns() {
+  renderRunTargets();
+  const run = runs.find(run => run.target === runTarget.value);
+  runPanel.hidden = !runs.length && !runPending && !runProblem;
+  document.getElementById('run-start').disabled = runPending || !run?.available || run.wanted;
+  document.getElementById('run-stop').disabled = runPending || !run;
+  document.getElementById('run-restart').disabled = runPending || !run?.available;
+  const status = document.getElementById('run-status'), description = runDescription(run);
+  if (status.textContent !== description) status.textContent = description;
+  const problem = document.getElementById('run-problem');
+  if (problem.textContent !== runProblem) problem.textContent = runProblem;
+  problem.hidden = !runProblem;
+  renderOutput('run-stdout', run?.attempt?.stdout ?? '');
+  renderOutput('run-stderr', run?.attempt?.stderr ?? '');
+}
+
+async function controlRun(action) {
+  if (runPending) return;
+  const target = runTarget.value;
+  runPending = true; runProblem = ''; renderRuns();
+  try { await request(`/api/run/${action}?target=${encodeURIComponent(target)}`, {method: 'POST', signal: AbortSignal.timeout(10_000)}); }
+  catch (error) {
+    runProblem = `${action} ${target}: ` + (error.status >= 400 && error.status < 500
+      ? error.message : 'Outcome unknown; the command may have taken effect. Check process status before trying again.');
+  } finally { runPending = false; renderRuns(); } // Replies never replace SSE observations.
+}
+
+runTarget.onchange = renderRuns;
+for (const action of ['start', 'stop', 'restart']) document.getElementById(`run-${action}`).onclick = () => controlRun(action);
+
 let events;
 function connect() {
   events?.close();
-  events = new EventSource('/api/events');
-  events.addEventListener('status', event => received(event.data));
-  events.addEventListener('files', () => { void refreshProject(); });
-  events.onerror = () => setStatus('Connection lost; reconnecting…', 'failed');
+  const source = events = new EventSource('/api/events');
+  source.addEventListener('status', event => { if (events === source) received(event.data); });
+  source.addEventListener('runs', event => { if (events === source) { runs = JSON.parse(event.data); renderRuns(); } });
+  source.addEventListener('files', () => { if (events === source) void refreshProject(); });
+  source.onerror = () => { if (events === source) setStatus('Connection lost; reconnecting…', 'failed'); };
 }
 // An existing stream can survive offline while a file GET fails. Going online
 // obtains both current status and files even without a transport-level retry.

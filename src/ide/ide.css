@@ -3,7 +3,7 @@
 :root { --background: #1e2127; --surface: #24282f; --raised: #2f343d; --line: #363c46; --text: #d7dae0; --muted: #8b93a1;
   --accent: #61afef; --error: #e06c75; --code: 13px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 html, body { height: 100%; margin: 0; overflow: hidden; }
-body { display: grid; grid-template-rows: 32px minmax(0, 1fr) auto; background: var(--background); color: var(--text);
+body { display: grid; grid-template-rows: 32px minmax(0, 1fr) auto auto; background: var(--background); color: var(--text);
   font: 13px/1.4 system-ui, sans-serif; }
 button { font: inherit; color: inherit; }
 
@@ -84,3 +84,14 @@ button { font: inherit; color: inherit; }
 .squiggle { text-decoration: underline wavy var(--error); text-decoration-skip-ink: none; text-underline-offset: 3px; }
 .diagnostics button { display: block; width: 100%; border: 0; padding: 0; background: none; color: inherit; font: inherit; text-align: left; white-space: pre-wrap; cursor: pointer; }
 .diagnostics button:hover { text-decoration: underline; }
+
+.runs { max-height: 35vh; overflow: auto; border-top: 1px solid var(--line); background: var(--surface); }
+.run-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 10px; }
+.run-toolbar select { font: inherit; color: inherit; background: var(--raised); border: 1px solid var(--line); }
+#run-status { color: var(--muted); }
+#run-problem { margin: 0; padding: 4px 10px; color: var(--error); }
+.run-output { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.run-output section { min-width: 0; }
+.run-output section + section { border-left: 1px solid var(--line); }
+.run-output h2 { margin: 0; padding: 2px 10px; font-size: 11px; font-weight: 500; color: var(--muted); }
+.run-output pre { height: 16vh; overflow: auto; margin: 0; padding: 4px 10px; font: var(--code); white-space: pre; }

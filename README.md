@@ -71,11 +71,11 @@ The editor keeps highlighting, Scheme indentation, format-on-save and split
 panes. Builds publish fresh diagnostics with source points in saved buffers.
 `make ide` starts this service for Siegework on port 8000.
 
-Project builds and the native editor are implemented. The
-[development workflow](doc/book/lofi/toolchain.md) still needs
-application launches and reloads under `dev`; use `serve`/`watch` for those
-until that integration lands. The [typed-state API](doc/book/lofi/state.md)
-remains under review.
+The Applications panel starts, stops and restarts named program targets. Accepted
+builds replace affected wanted processes; failed builds leave them running.
+The [development workflow](doc/book/lofi/toolchain.md) still needs browser bundle
+and durable-state reload integration. Use internal `serve` for the existing browser
+reload loop. The [typed-state API](doc/book/lofi/state.md) remains under review.
 
 ## Reading on
 
