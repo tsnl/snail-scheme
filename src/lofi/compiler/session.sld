@@ -81,7 +81,7 @@
     ;; Checks each library whose expansion changed, after the schemes of the
     ;; libraries before it, and returns the whole program checked, with each
     ;; library as compiled now.
-    (: check-libraries (-> (Table Compiled) ExpandedProgram (List (Pair String (List Item))) (Pair Typed (Table Compiled)) ! mut))
+    (: check-libraries (-> (Table Compiled) ExpandedProgram (List (Pair String (List Item))) (Pair Typed (Table Compiled))))
     (define (check-libraries compiled expansion libraries)
       (let loop ((libraries libraries) (compiled compiled) (items (Nil)) (schemes empty-table))
         (match libraries
@@ -93,14 +93,14 @@
 
     ;; A library as compiled before, if made from its current expansion, or
     ;; checked again.
-    (: checked-library (-> (Table Compiled) ExpandedProgram (Table Scheme) (Pair String (List Item)) Compiled ! mut))
+    (: checked-library (-> (Table Compiled) ExpandedProgram (Table Scheme) (Pair String (List Item)) Compiled))
     (define (checked-library compiled expansion schemes library)
       (let ((key (library-key expansion (Pair-first library))))
         (match (table-ref compiled (Pair-first library))
           ((Some before) (if (string=? (Compiled-key before) key) before (check-anew expansion schemes library key)))
           ((None) (check-anew expansion schemes library key)))))
 
-    (: check-anew (-> ExpandedProgram (Table Scheme) (Pair String (List Item)) String Compiled ! mut))
+    (: check-anew (-> ExpandedProgram (Table Scheme) (Pair String (List Item)) String Compiled))
     (define (check-anew expansion schemes library key)
       (let ((typed (check-library (ExpandedProgram-program expansion) schemes (Pair-second library))))
         (Compiled key (Typed-items typed) (own-schemes (Typed-schemes typed) (Typed-items typed)) (None))))
