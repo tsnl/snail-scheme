@@ -1,9 +1,10 @@
 # HTTP protocol
 
 `(lofi http)` implements a pure, bounded request-head parser and response
-serializer, importing only `(lofi base)`. It does not yet read connections,
-collect request bodies, route requests or run a server. Those operations belong
-to the next integration with the [socket effects](../runtimes/networking.md).
+serializer, importing only `(lofi base)`. `(lofi http exchange)` reads one complete
+request, calls application code and writes its response over the concrete
+[socket effects](../runtimes/networking.md). Applications own accepting and
+scheduling connections; the library supplies no router or server framework.
 
 This is a deliberate HTTP/1.1 subset. Full HTTP/1.1 also requires features this
 module rejects, including chunked decoding and absolute-form targets.
@@ -19,8 +20,8 @@ module rejects, including chunked decoding and absolute-form targets.
 `Ok None` means the supplied prefix needs more bytes. `Ok (Some parsed)` contains
 a `RequestHead` and the offset of the first body byte. Bytes after that offset
 are not inspected, so binary content or a large body cannot invalidate a short
-head. The TCP reader must later distinguish peer closure before any input from
-EOF during an incomplete head or body. The parser does not establish body receipt.
+head. The exchange reader reports EOF before a complete head as `TruncatedHead`,
+including an empty connection. The parser itself does not establish body receipt.
 An incomplete prefix is not a certificate of valid syntax: some errors are
 decided once a complete head is available.
 
@@ -82,23 +83,60 @@ Status rules take precedence over HEAD. Response representations are not subject
 to the request-body bound. The caller still has to write all head/body bytes and
 close appropriately; successful encoding is not delivery.
 
-## Remaining integration
+## One exchange
 
-The connection reader needs a bounded accumulator and delimiter cursor, then one
-parse of the complete head. Repeatedly parsing every one-byte prefix would rescan
-data unnecessarily. It must collect exactly the declared body length, retain
-any body prefix already read, and distinguish incomplete input from socket errors.
-The response writer must loop over short writes. One exchange per connection is
-the initial scope; persistent connections, pipelining and streaming uploads are
-not implemented. Byte limits alone do not bound a stalled peer's lifetime.
+Import `(lofi http exchange)` and call `serve-one` with an exclusively used
+`Connection`, an I32 grace period in milliseconds, and an application function:
 
-The socket effect provides [graceful completion](../runtimes/networking.md#finishing-a-connection)
-through `finish-connection`: it ends output, discards input and awaits closure
-with a bounded grace period. Use that after the response, since unread incoming
-data can otherwise cause a reset that loses it; see
+```scheme
+(: serve-one
+   (All (E e)
+     (-> Connection I32
+         (-> Request (Result Response E) ! e)
+         (Result Unit (ExchangeError E)) ! tcp e)))
+```
+
+`Request` contains `head : RequestHead` and `body : Bytes`. The callback returns
+`Response`, containing `status : I32`, `headers : List Header` and `body : Bytes`,
+or an application error of its chosen type `E`. It may suspend for other effects;
+the surrounding computation retains those requirements. The callback receives
+the request, not the connection.
+
+The reader scans incoming bytes once for the head delimiter and parses the
+completed head once. It collects exactly the declared body length, including any
+prefix that arrived with the head. Fragment lists are copied once into the final
+vectors; one-byte fragmentation does not repeatedly copy the accumulated input.
+Unneeded pipelined bytes are discarded. The serializer validates the complete
+response before any output, then the writer sends head and body separately,
+advancing by each accepted count. HEAD and bodyless statuses use the codec's
+rules. No handler call occurs before the complete request body arrives.
+Each write offers at most twice the previous accepted count, capped at 65,536;
+this bounds slice copying even when an intercepted write makes tiny progress.
+
+`ExchangeError E` distinguishes protocol failure (`HttpError`), transport failure
+(`SocketError`), `TruncatedHead`, `TruncatedBody` with expected/received counts,
+and `ApplicationFailure E`. Every returned failure closes the connection while
+preserving the original error if close also fails. Empty successful reads or
+invalid write counts report transport `EIO`, rather than looping without progress.
+Protocol/application errors do not generate automatic HTTP error responses.
+
+Success ends with [graceful completion](../runtimes/networking.md#finishing-a-connection)
+through `finish-connection`: it ends output, discards input and awaits physical
+closure with a bounded grace period. Unread incoming data can otherwise cause a
+reset that loses the response; see
 [RFC 9112 §9.6](https://www.rfc-editor.org/rfc/rfc9112.html#section-9.6).
-Immediate `close-connection` remains the abort operation.
+This grace is for completion only. There is no request-idle deadline yet.
+
+Exclusive use is a calling convention, not affine ownership. The caller must not
+use another alias during the exchange. Cancellation of active native socket I/O
+closes that socket. An uncatchable trap or cancellation while the callback waits
+on an unrelated effect cannot execute the Lofi cleanup branch; runtime shutdown
+cleans the remaining native resource. `serve-one` does not introduce a task scope
+or stronger unwinding guarantee.
+
+## Remaining integration
 
 Artifact serving, explicit streaming/SSE, connection scheduling and deadline policy
 remain [networking work](https://github.com/tsnl/snail-scheme/issues/457). Existing
 project file, status and origin policies remain in the native project service.
+Persistent connections, pipelining and streaming uploads are not implemented.
