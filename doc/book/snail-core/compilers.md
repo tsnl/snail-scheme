@@ -1,6 +1,6 @@
 # Compiler architecture
 
-The compiler is a pipeline of five passes. Each pass consumes the previous
+The compiler is a pipeline of six passes. Each pass consumes the previous
 pass's output and nothing earlier:
 
 ```text
@@ -8,6 +8,7 @@ text ──read──▶ located syntax
      ──expand─▶ core program      unique names, resolved types, entity tables
      ──check──▶ typed program     every expression typed, instances chosen
      ──mono───▶ monomorphic program
+     ──control▶ monomorphic program, each call that may yield a let's value
      ──wasm───▶ WasmGC text ──assemble──▶ module, linked with the Rust runtime
 ```
 
@@ -126,6 +127,22 @@ the `Ref` is allocated by the pass and never escapes it.
   their live owners; a path drops a value when it has no remaining use.
   Only one-shot closures can own affine captures. Concrete records inherit
   their fields' grade; existing generic parameters remain unrestricted.
+- **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/control.sld)** prepares the calls
+  that may yield to a control handler. After specialization a row keeps
+  only control effects, so a call may yield exactly when its callee's row
+  names one, and a handle keeps what its body yields except to its own
+  effect. Such a call stays where it is when its value flows straight out
+  of a function, a handle body or a let's value, so a tail call stays one;
+  anywhere else a let names it, with the rest of the expression as the
+  let's body, and names first each operand that runs before it, so those
+  still run first. A program without control effects comes back as it went
+  in, as does each item without such a call. The pass also refuses a
+  control row where nothing could carry a yield: in a `vector-generate` or
+  `string-generate` callback, which a WAT loop calls; in an `unsafe-total`
+  thunk, whose row the call discards; in `dispatch-local` work, which runs
+  later on a task's own stack; and in the implementation of an operation
+  declared without `ctl`, which returns into a handled body that does not
+  test for a yield there.
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final

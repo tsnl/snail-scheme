@@ -32,6 +32,7 @@
    (snail-core compiler check)
    (snail-core compiler mono)
    (snail-core compiler handlers)
+   (snail-core compiler control)
    (snail-core compiler wasm))
   (begin
 
@@ -130,7 +131,7 @@
                   (loop rest compiled (Cons (Built name (Emission-text emission) #f (library-links expansion name)) built)))
                  ((None)
                   (let* ((mono (monomorphize-library input name (Compiled-items before)))
-                         (text (wat->string (emit-library mono name)))
+                         (text (wat->string (emit-library (name-yield-points mono) name)))
                          (emission (Emission text (Mono-items mono))))
                     (loop rest (table-set compiled name (Compiled-emission-set before (Some emission)))
                           (Cons (Built name text #t (library-links expansion name)) built)))))))
