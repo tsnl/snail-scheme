@@ -13,6 +13,7 @@
    Specialization
    Specialization-definitions
    prepare-specialization
+   control-effects
    monomorphize
    monomorphize-library)
   (import
