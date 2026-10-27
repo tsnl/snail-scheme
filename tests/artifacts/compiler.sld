@@ -14,7 +14,7 @@
   (table-set (table-set no-artifacts "client" (list (Pair "client.dat" client)))
              "admin" (list (Pair "admin.dat" #u8(99)))))
 
-(: generate (-> (List String) (List reader:Syntax) Bytes ! mut fs))
+(: generate (-> (List String) (List reader:Syntax) Bytes))
 (define (generate loading forms)
   (generated:syntax->bytes
    (generated:library-syntax

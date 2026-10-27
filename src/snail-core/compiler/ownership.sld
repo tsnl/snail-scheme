@@ -206,7 +206,7 @@
         ((Some (Replacer _ _ _)) (check-accessor scope expr))
         (_ (unit))))
 
-    (: check-accessor (-> Scope Expr Unit ! mut))
+    (: check-accessor (-> Scope Expr Unit))
     (define (check-accessor scope expr)
       (match (Expr-type expr)
         ((TFun (Cons type _) _ _)

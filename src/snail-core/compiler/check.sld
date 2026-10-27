@@ -29,9 +29,11 @@
     ;; Scope, which a sub-check may replace and which the caller gets back
     ;; unchanged: `program`, `locals` mapping unique local names to
     ;; monomorphic types, `givens` the requirements of the annotated
-    ;; definition being checked, and `confining` the row variable of a
+    ;; definition being checked, `confining` the row variable of a
     ;; function body whose type forbids `mut`, so calls in that body may
-    ;; mutate.
+    ;; mutate, and `signed` the row variable of a function body checked
+    ;; against its signature, so calls in that body record what they
+    ;; perform.
     ;;
     ;; What it has learned, which flows forward out of every sub-check:
     ;; `counter` numbering metavariables and evidence holes, `solution`,
@@ -40,13 +42,15 @@
     ;; with their number in `pending-count` — they are decided once, when the
     ;; whole program has been checked — `open` naming the definitions whose
     ;; types may still contain metavariables, `discharged` recording whether
-    ;; a call in a confining body mutated, and `confined` holding the
-    ;; functions that did, to be checked once their types are final.
+    ;; a call in a confining body mutated, `confined` holding the functions
+    ;; that did, to be checked once their types are final, and `performed`
+    ;; the effects that calls in the `signed` body performed.
     (struct Checker
       ((program Program)
        (locals (Table Type))
        (givens (List Constraint))
        (confining (Option I64))
+       (signed (Option I64))
        (counter I64)
        (solution Solution)
        (schemes (Table Scheme))
@@ -54,7 +58,8 @@
        (pending-count I64)
        (open (List String))
        (discharged Bool)
-       (confined (List Expr))))
+       (confined (List Expr))
+       (performed (List String))))
 
     ;; A sequence of steps that each take the checker and hand it back,
     ;; written as `let*` is. `(name (step argument ...))` binds the step's
@@ -80,9 +85,10 @@
     ;; scope it ran under.
     (: resumed (-> Checker Checker Checker))
     (define (resumed outer inner)
-      (Checker (Checker-program outer) (Checker-locals outer) (Checker-givens outer) (Checker-confining outer)
+      (Checker (Checker-program outer) (Checker-locals outer) (Checker-givens outer) (Checker-confining outer) (Checker-signed outer)
                (Checker-counter inner) (Checker-solution inner) (Checker-schemes inner) (Checker-pending inner)
-               (Checker-pending-count inner) (Checker-open inner) (Checker-discharged inner) (Checker-confined inner)))
+               (Checker-pending-count inner) (Checker-open inner) (Checker-discharged inner) (Checker-confined inner)
+               (Checker-performed inner)))
 
     ;; What checking has learned: each metavariable's identity to the type it
     ;; stands for, and each evidence hole's to its evidence. A `Type` and an
@@ -327,7 +333,8 @@
     (: perform (-> Checker Type Type Loc Checker))
     (define (perform ck latent row loc)
       (let ((flat (flatten-row (solution ck) latent)))
-        (learning ck ((labels (performed-labels row (Pair-first flat))))
+        (learning ck ((labels (performed-labels row (Pair-first flat)))
+                      (then (record-performed row (append labels (tail-variable (Pair-second flat))))))
                   (let ((context (flatten-row (solution ck) row)))
                     (if (and (same-tail? (Pair-second flat) (Pair-second context))
                              (null? (label-difference labels (Pair-first context))))
@@ -358,9 +365,36 @@
 
     (: confining-row? (-> Checker Type Bool))
     (define (confining-row? ck row)
-      (match (Pair (Checker-confining ck) row)
+      (row-variable? (Checker-confining ck) row))
+
+    ;; Whether `row` is the row variable that `variable` names, if any.
+    (: row-variable? (-> (Option I64) Type Bool))
+    (define (row-variable? variable row)
+      (match (Pair variable row)
         ((Pair (Some number) (TVar id)) (= number id))
         (_ #f)))
+
+    ;; A call in the signed body performs its labels, and its tail when that
+    ;; is a quantified variable. A metavariable tail performs nothing of its
+    ;; own: inclusion binds it to whatever the row has left over.
+    (: record-performed (-> Checker Type (List String) Checker))
+    (define (record-performed ck row effects)
+      (if (row-variable? (Checker-signed ck) row)
+          (Checker-performed-set ck (label-union (Checker-performed ck) effects))
+          ck))
+
+    (: tail-variable (-> (Option Type) (List String)))
+    (define (tail-variable tail)
+      (match tail
+        ((Some (TRigid name)) (list name))
+        (_ (Nil))))
+
+    ;; The effects a declared row names that no call performed: its labels
+    ;; and its tail variable, less those `performed` records.
+    (: unperformed-effects (-> Type (List String) (List String)))
+    (define (unperformed-effects declared performed)
+      (let ((flat (flatten-row empty-solution declared)))
+        (label-difference (append (Pair-first flat) (tail-variable (Pair-second flat))) performed)))
 
     (: total? (-> Solution Type Bool))
     (define (total? solution row)
@@ -545,31 +579,40 @@
            (_ (infer ck expr row))))
         (_ (infer ck expr row))))
 
-    ;; A lambda checked against its type. A body whose row forbids `mut` is
-    ;; checked as confining; if a call in it did mutate, the function goes to
-    ;; `confined` and the flag is cleared for the next one.
+    ;; A lambda checked against its type. The body's row is a variable bound
+    ;; to the type's row, so `perform` can recognize it: calls in this body,
+    ;; but not in lambdas inside it, record in `performed` what they
+    ;; perform. A body whose row forbids `mut` is checked as confining; if a
+    ;; call in it did mutate, the function goes to `confined` and the flag
+    ;; is cleared for the next one.
     (: check-lambda (-> Checker Expr (List String) Expr Type (List Type) Type Type (Pair Expr Checker)))
     (define (check-lambda ck expr params body type param-types result body-row)
-      (learning ck ((body (within (bind-locals ck params param-types)
+      (learning ck ((row (fresh-meta))
+                    (then (unify row body-row (Expr-loc expr)))
+                    (body (within (signed-body (bind-locals ck params param-types) row)
                                   (lambda (inner)
                                     (if (forbids-mut? (solution inner) body-row)
-                                        (check-confining-body inner body body-row (Expr-loc expr))
-                                        (infer inner body body-row)))))
+                                        (check-confining-body inner body row)
+                                        (infer inner body row)))))
                     (then (unify result (Expr-type body) (Expr-loc body))))
                 (let ((value (Expr (Lambda params body) type (Expr-loc expr))))
                   (Pair value (if (Checker-discharged ck)
                                   (Checker-confined-set (Checker-discharged-set ck #f) (Cons value (Checker-confined ck)))
                                   ck)))))
 
-    ;; The body's row is a variable bound to the type's row, so `perform` can
-    ;; recognize it and let calls in this body, but not in lambdas inside it,
-    ;; mutate. `confining` is scope, so the caller gets its own back.
-    (: check-confining-body (-> Checker Expr Type Loc (Pair Expr Checker)))
-    (define (check-confining-body ck body body-row loc)
-      (learning ck ((row (fresh-meta))
-                    (then (unify row body-row loc)))
-                (within ck (Checker-confining-set ck (Some (meta-number row)))
-                        (lambda (inner) (infer inner body row)))))
+    ;; The scope of a body checked against its signature, whose row
+    ;; variable is `row`: nothing is performed in it yet.
+    (: signed-body (-> Checker Type Checker))
+    (define (signed-body ck row)
+      (Checker-performed-set (Checker-signed-set ck (Some (meta-number row))) (Nil)))
+
+    ;; `perform` recognizes the body's row variable and lets calls in this
+    ;; body, but not in lambdas inside it, mutate. `confining` is scope, so
+    ;; the caller gets its own back.
+    (: check-confining-body (-> Checker Expr Type (Pair Expr Checker)))
+    (define (check-confining-body ck body row)
+      (within ck (Checker-confining-set ck (Some (meta-number row)))
+              (lambda (inner) (infer inner body row))))
 
     (: meta-number (-> Type I64))
     (define (meta-number meta)
@@ -1385,7 +1428,30 @@
                     (then (check-host-effects row (Expr-loc value))))
                 (when (and (not (null? (Scheme-vars scheme))) (not (total? (solution ck) row)))
                   (compile-error (Expr-loc value) "a polymorphic definition must have a total initializer"))
+                (check-performed ck definition scheme)
                 (Pair (Define (Define-name definition) value) ck)))
+
+    ;; A signature's row says what calling the function may do, so it may
+    ;; not name an effect the body never performs. A lambda was checked by
+    ;; `check-lambda`, so `performed` holds what its body performed. An
+    ;; instance method has its class's row, which this instance may need
+    ;; less of, a macro's signature is a contract for every expansion, and
+    ;; a value other than a lambda has no body of its own, so none of them
+    ;; is held to it.
+    (: check-performed (-> Checker Item Scheme Unit))
+    (define (check-performed ck definition scheme)
+      (match (Pair (signature-loc (program-of ck) (Define-name definition)) (Scheme-type scheme))
+        ((Pair (Some loc) (TFun _ _ row))
+         (match (if (lambda-expr? (Define-value definition)) (unperformed-effects row (Checker-performed ck)) (Nil))
+           ((Nil) (unit))
+           (effects (compile-error loc (unperformed-message (Define-name definition) effects)))))
+        (_ (unit))))
+
+    (: unperformed-message (-> String (List String) String))
+    (define (unperformed-message name effects)
+      (let ((one (= (length effects) 1)))
+        (string-append (short-name name) " declares the effect" (if one "" "s") (labels->string effects)
+                       " but never performs " (if one "it" "them"))))
 
     (: want-closed-requirements (-> Checker Scheme Loc Checker))
     (define (want-closed-requirements ck scheme loc)
@@ -1445,7 +1511,7 @@
     ;; schemes. Then every constraint is solved and every type zonked.
     (: check-library (-> Program (Table Scheme) (List Item) Typed))
     (define (check-library program schemes items)
-      (let ((ck (Checker program empty-table (Nil) (None) 0 empty-solution schemes (Nil) 0 (Nil) #f (Nil))))
+      (let ((ck (Checker program empty-table (Nil) (None) (None) 0 empty-solution schemes (Nil) 0 (Nil) #f (Nil) (Nil))))
         (learning ck ((inferred (check-inferred items))
                       (typed (each (lambda (ck item) (check-item ck inferred item)) items))
                       (then (solve-pending))
@@ -1526,7 +1592,14 @@
     (: annotated-scheme (-> Program String (Option Scheme)))
     (define (annotated-scheme program name)
       (match (program-value program name)
-        ((Some (Defined scheme)) scheme)
+        ((Some (Defined scheme _)) scheme)
+        (_ (None))))
+
+    ;; Where a definition's own signature was written, if it has one.
+    (: signature-loc (-> Program String (Option Loc)))
+    (define (signature-loc program name)
+      (match (program-value program name)
+        ((Some (Defined _ loc)) loc)
         (_ (None))))
 
     ;; ---- Dependency order ----
@@ -1554,4 +1627,24 @@
                      (Nil) (expr-references value)))
         (_ (Nil))))
 
-    ))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-check)
+    (import
+     (snail-core testing))
+    (begin
+      ;; Which declared effects a body left unperformed, and how the error
+      ;; names them. Whole programs exercise the rule and its exemptions in
+      ;; tests/programs/error-unperformed-effect and declared-effects.
+      (define (test-check)
+        (expect (unperformed-effects (TRow (list "mut" "snail-core.io:console") (None)) (list "snail-core.io:console")) (list "mut"))
+        (expect (unperformed-effects (TRow (list "mut") (Some (TRigid "e"))) (list "mut")) (list "e"))
+        (expect (unperformed-effects (TRow (list "mut") (Some (TRigid "e"))) (list "e" "mut")) (Nil))
+        (expect (unperformed-message "main:double" (list "mut")) "double declares the effect mut but never performs it")
+        (expect (unperformed-message "main:f" (list "snail-core.io:console" "e"))
+                "f declares the effects console e but never performs them"))))
+   (else)))

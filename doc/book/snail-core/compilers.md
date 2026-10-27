@@ -76,8 +76,10 @@ the `Ref` is allocated by the pass and never escapes it.
   through: each step takes one and hands back the one it learned in, so
   `check-library`'s type is a pure function from a program to a typed one.
   Its fields separate scope a sub-check may replace and the caller gets back
-  — locals, givens, the confining row — from what it learned, which flows
-  forward. One `resumed` says which is which.
+  — locals, givens, the confining and signed rows — from what it learned,
+  which flows forward. One `resumed` says which is which. A function checked
+  against its signature records what the calls in its body perform, so a
+  signature that names an effect the body never performs is an error.
 
   It also decides where a function may mutate at all: a function whose type
   forbids `mut` may still mutate storage it allocates, provided nothing it
