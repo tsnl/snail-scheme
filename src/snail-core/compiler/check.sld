@@ -550,8 +550,13 @@
 
     (: infer-lambda (-> Checker (List String) Expr Loc (Pair Expr Checker)))
     (define (infer-lambda ck params body loc)
-      (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params))
-                    (body-row (fresh-meta))
+      (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params)))
+                (infer-lambda-at ck params body types loc)))
+
+    ;; A lambda whose parameter types are known before its body is seen.
+    (: infer-lambda-at (-> Checker (List String) Expr (List Type) Loc (Pair Expr Checker)))
+    (define (infer-lambda-at ck params body types loc)
+      (learning ck ((body-row (fresh-meta))
                     (body (scoped (bind-locals ck params types) body body-row)))
                 (Pair (Expr (Lambda params body) (TFun types (Expr-type body) body-row) loc) ck)))
 
@@ -701,36 +706,68 @@
 
     ;; Implementations run in the handler's outer context. The body may
     ;; perform the handled effect plus whatever the context allows: its row
-    ;; is `{effect | rest}`, and `rest` flows to the outer row.
+    ;; is `{effect | rest}`, and `rest` flows to the outer row. The handler's
+    ;; result is the body's, which a control implementation also returns.
     (: infer-handle (-> Checker String (List (Pair String Expr)) Expr Type Loc (Pair Expr Checker)))
     (define (infer-handle ck effect implementations body row loc)
       (when (string=? effect "tasks")
         (compile-error loc "the runtime binds the tasks control effect; user control handlers are not supported"))
-      (let ((operations (Effect-operations (program-effect (program-of ck) effect))))
+      (let* ((info (program-effect (program-of ck) effect)) (operations (Effect-operations info)))
         (unless (and (= (length operations) (length implementations))
                      (every? (lambda (operation) (any? (lambda (entry) (string=? (Pair-first entry) operation)) implementations))
                              operations))
           (compile-error loc "a handler implements each operation of its effect exactly once"))
-        (learning ck ((implementations (each (lambda (ck entry) (infer-implementation ck entry row loc)) implementations))
+        (learning ck ((result (fresh-meta))
                       (rest (fresh-meta))
+                      (implementations
+                       (each (lambda (ck entry) (infer-implementation ck entry (Answer (Effect-control info) result rest) row loc)) implementations))
                       (body (infer body (TRow (list effect) (Some rest))))
+                      (then (unify result (Expr-type body) (Expr-loc body)))
                       (then (perform rest row loc)))
-                  (Pair (Expr (Handle effect implementations body) (Expr-type body) loc) ck))))
+                  (Pair (Expr (Handle effect implementations body) result loc) ck))))
 
-    (: infer-implementation (-> Checker (Pair String Expr) Type Loc (Pair (Pair String Expr) Checker)))
-    (define (infer-implementation ck entry row loc)
+    ;; What a control implementation is given and returns: `resume` takes the
+    ;; operation's answer and runs the rest of the body, under the handler
+    ;; again, to the handler's result.
+    (struct Answer
+      ((control (List String))
+       (result Type)
+       (rest Type)))
+
+    (: infer-implementation (-> Checker (Pair String Expr) Answer Type Loc (Pair (Pair String Expr) Checker)))
+    (define (infer-implementation ck entry answer row loc)
       (match (global-scheme ck (Pair-first entry))
         ((Some scheme)
          (learning ck ((use (instantiate scheme loc)))
                    (match (Instantiated-type use)
                      ((TFun params result _)
-                      (learning ck ((value (infer (Pair-second entry) row))
-                                    (latent (fresh-meta))
-                                    (then (unify (TFun params result latent) (Expr-type value) (Expr-loc value)))
+                      (learning ck ((latent (fresh-meta))
+                                    (value (infer-implementation-value (Pair-second entry)
+                                                                       (implementation-type (Pair-first entry) answer params result latent) row))
+                                    (then (unify (implementation-type (Pair-first entry) answer params result latent) (Expr-type value) (Expr-loc value)))
                                     (then (perform latent row (Expr-loc value))))
                                 (Pair (Pair (Pair-first entry) value) ck)))
                      (_ (panic "internal error: an operation is a function")))))
         ((None) (panic "internal error: unknown operation"))))
+
+    ;; An implementation that is a lambda takes its parameter types from the
+    ;; operation, so its body knows `resume` is one-shot when it calls it.
+    (: infer-implementation-value (-> Checker Expr Type Type (Pair Expr Checker)))
+    (define (infer-implementation-value ck value expected row)
+      (match (Pair (Expr-term value) expected)
+        ((Pair (Lambda params body) (TFun types _ _))
+         (if (= (length params) (length types)) (infer-lambda-at ck params body types (Expr-loc value)) (infer ck value row)))
+        (_ (infer ck value row))))
+
+    ;; An implementation returns the operation's answer to its caller. A
+    ;; control operation's implementation is also handed `resume`, which it
+    ;; may call at most once, and returns the handler's result.
+    (: implementation-type (-> String Answer (List Type) Type Type Type))
+    (define (implementation-type operation answer params result latent)
+      (if (member? operation (Answer-control answer))
+          (TFun (append params (list (TCon "Once" (list (TFun (list result) (Answer-result answer) (Answer-rest answer))))))
+                (Answer-result answer) latent)
+          (TFun params result latent)))
 
     ;; ---- Patterns ----
 
