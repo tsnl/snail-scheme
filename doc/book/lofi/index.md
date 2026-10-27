@@ -1,11 +1,12 @@
 # LoFI: Low-Level Functional IR
 
 Lofi is a typed, pure-by-default functional language with Scheme syntax. It
-compiles to WasmGC. Its typed forms (structs, enums, signatures, effects
-and typeclasses) sit on a Scheme-shaped core: erase them and what remains
-is an R7RS program with the same behavior. Languages are libraries: the
-compiler is a Lofi program, and Scheme itself is offered as libraries over
-the typed language.
+compiles to WasmGC. Scheme does not compile directly: its macros and
+libraries expand it into Lofi, and checking, specialization and code
+generation all happen there, so Scheme ships as libraries over the typed
+language. The compiler is a Lofi program and compiles itself. Erasing
+Lofi's typed forms leaves an R7RS program with the same behavior, which is
+how stage 0 runs that source; [Bootstrap](bootstrap.md) explains it.
 
 The chapters describe implemented behavior and mark proposed toolchain changes:
 
