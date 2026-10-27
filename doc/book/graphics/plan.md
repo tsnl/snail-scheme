@@ -1,17 +1,17 @@
 # WebGPU and graphics libraries
 
-**Proposed.** The [application loop](../snail-core/applications.md) and
-[task runtime](../runtimes/index.md) already execute on JSPI. Applications still
-send `Frame` values to `host/browser/renderer.mjs`; this design replaces that renderer
-with a concrete GPU effect and libraries of pipelines and packers. Delivery is
-tracked in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
+**Proposed.** Applications send `Frame` values to
+`host/browser/renderer.mjs`, a fixed JavaScript renderer. This design replaces
+it with two layers written in Snail-Core: a `gpu` effect that is a thin wrapper
+around WebGPU, and `(snail-core graphics ...)` libraries of pipelines and
+packers on top of it. Delivery is tracked in
+[the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
-Ordinary reusable handlers and runtime-provided waits are sufficient for device
-requests, decoding, pipeline creation and readbacks. Public `ctl` is not required.
-JSPI does not expose typed delimited continuation values; the
-[continuation research](../runtimes/future.md) and
-[explicit-lowering draft](../runtimes/memory-and-continuations.md) explain future
-options without making GPU work depend on an engine extension.
+Device requests, decoding, pipeline creation and readbacks need only ordinary
+handlers and the runtime's waits. Those waits suspend through JSPI today and
+become ordinary effects once handlers have one-shot continuations
+([issue 511](https://github.com/tsnl/snail-scheme/issues/511)), so nothing here
+depends on an engine extension.
 
 ## WebGPU through an effect
 
@@ -63,22 +63,31 @@ device that lacks them.
   commands as small scalar calls that the default handler may batch until
   `submit`.
 
-## The `graphics` library
+## The `graphics` libraries
 
-`graphics` is middleware: composable WebGPU pipelines and packers whose
-interfaces are buffers and textures. The application decides what to pack,
-when to copy, and how to stitch passes together.
+The graphics libraries are middleware: composable WebGPU pipelines and packers
+whose interfaces are buffers and textures, in WebGPU's own terms. The
+application decides what to pack, when to copy, and how to stitch passes
+together. A higher-level operation such as drawing a sphere is a helper that
+prepares the buffers a pipeline expects, not a call into a renderer.
+
+**The ABI is not stable, on purpose.** A pipeline's interface is a Snail-Core
+struct deriving `Pod`, and it changes when the pipeline does. Nothing is hidden
+behind a renderer object: every pass, buffer and layout is a value the
+application can read, replace or extend.
+
+Each row is `(snail-core graphics NAME)`:
 
 | Library | Provides |
 | --- | --- |
-| `(graphics pod)` | `(deriving Pod)` on a struct gives its WGSL layout and alignment, a packer from a list to `Bytes`, and its WGSL declaration, one source of truth for each shader interface. |
-| `(graphics wgsl)` | Shaders as S-expressions: one-to-one with WGSL, read from source files by build-time recipes and printed to WGSL text, with struct declarations from `Pod`. |
-| `(graphics mesh)` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. |
-| `(graphics atlas)` | Texture-array pages with padded slots, slot tables, mips, and texture encoders, uncompressed first. |
-| `(graphics raster)` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. |
-| `(graphics passes)` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. |
-| `(graphics quad)` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling any texture view, including earlier passes' targets. |
-| later | `(graphics bvh)`, compute ray tracing and `(graphics svgf)`, for path-traced lighting over the rasterized G-buffer. |
+| `pod` | `(deriving Pod)` on a struct gives its WGSL layout and alignment, a packer from a list to `Bytes`, and its WGSL declaration, one source of truth for each shader interface. |
+| `wgsl` | Shaders as S-expressions: one-to-one with WGSL, read from source files by build-time recipes and printed to WGSL text, with struct declarations from `Pod`. |
+| `mesh` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. |
+| `atlas` | Texture-array pages with padded slots, slot tables, mips, and texture encoders, uncompressed first. |
+| `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. |
+| `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. |
+| `quad` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling any texture view, including earlier passes' targets. |
+| later | `bvh`, compute ray tracing and `svgf`, for path-traced lighting over the rasterized G-buffer. |
 
 - **Sampling an atlas.** Slots carry gutters of repeated edge texels; UVs wrap
   in slot space, `fract` for repeat and `clamp` for clamp; samples stay half
@@ -108,9 +117,8 @@ G-buffer fills the default 32. Texture heaps start uncompressed; a later
 
 ## Design choices
 
-
-- Images are decoded by the browser behind `decode-image`, a suspending
-  import, rather than in Snail-Core.
+- Images are decoded by the host behind `decode-image`, a host operation
+  that waits, rather than in Snail-Core.
 - `update` stays total: prefetching happens from `view`.
-- Open: shader sources as S-expression files compiled by recipes, the
-  default here, or as S-expressions built in Snail-Core code.
+- Open: shader sources as S-expression files compiled by `generate-library`
+  recipes, the default here, or as S-expressions built in Snail-Core code.
