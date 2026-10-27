@@ -49,7 +49,6 @@
    (output-diagnostic (-> I64 I64 Unit))
    (output-produce (-> I64 I64 Unit))
    (output-build (-> I64 I64 Unit))
-   (output-check (-> I64 I64 Unit))
    (output-waiting (-> Unit)))
   (host "snail-core.compiler"
         ((output-text "text")
@@ -62,7 +61,6 @@
          (output-diagnostic "diagnostic")
          (output-produce "produce")
          (output-build "build")
-         (output-check "check")
          (output-waiting "waiting"))))
 
 ;; Reserve before the String argument is staged. Staging that same scalar
@@ -147,26 +145,25 @@
 (define (library-directories directory standard roots)
   (append (map (lambda (root) (in-project directory root)) roots) (list standard)))
 
-;; A root the build asks for by name, to be built or only checked.
-(: root-phase (-> (List Target) String Bool String Phase))
-(define (root-phase targets file check? name)
+;; A root the build asks for by name.
+(: root-target (-> (List Target) String String Target))
+(define (root-target targets file name)
   (match (find (lambda (target) (string=? (Target-name target) name)) targets)
-    ((Some target) (if check? (CheckPhase target) (BuildPhase target)))
+    ((Some target) target)
     ((None) (panic (string-append "unknown project build target " name " in " file)))))
 
 ;; Plans the build of the project in a directory: its arguments are that
 ;; directory, the standard libraries' directory, the scratch directory
-;; producers are printed into, `build` or `check`, and the roots' names.
-;; Sends the first wave of phases and returns the plan.
+;; producers are printed into, and the names of the roots to build. Sends
+;; the first wave of phases and returns the plan.
 (: plan! (-> Inputs Plan ! mut fs compiler-output))
 (define (plan! inputs)
   (match (take-arguments!)
-    ((Cons directory (Cons standard (Cons scratch (Cons mode names))))
+    ((Cons directory (Cons standard (Cons scratch names)))
      (let* ((file (string-append directory "/project.datum"))
             (targets (plan-targets directory standard (parse-project (read-file file) file))))
-       (send-wave (plan-build targets (map (lambda (name) (root-phase targets file (string=? mode "check") name)) names)
-                              inputs scratch))))
-    (_ (panic "compiler plan: expected project and standard directories, scratch, mode and root names"))))
+       (send-wave (plan-build targets (map (lambda (name) (root-target targets file name)) names) inputs scratch))))
+    (_ (panic "compiler plan: expected project and standard directories, scratch and root names"))))
 
 ;; The plan again, now that `inputs` holds the outputs of the producers the
 ;; waiting phases waited for. Sends the next wave.
@@ -194,12 +191,9 @@
       ((ProducePhase producer)
        (send-strings (Cons (Producer-key producer) (Cons (Producer-source producer) (append (Producer-directories producer) embeds))))
        (output-produce node (length (Producer-directories producer))))
-      ((BuildPhase target) (send-target target embeds) (output-build node (length (Target-directories target))))
-      ((CheckPhase target) (send-target target embeds) (output-check node (length (Target-directories target)))))))
-
-(: send-target (-> Target (List String) Unit ! compiler-output))
-(define (send-target target embeds)
-  (send-strings (Cons (Target-name target) (Cons (Target-entry target) (append (Target-directories target) embeds)))))
+      ((BuildPhase target)
+       (send-strings (Cons (Target-name target) (Cons (Target-entry target) (append (Target-directories target) embeds))))
+       (output-build node (length (Target-directories target)))))))
 
 ;; The targets whose files the phase at `node` embeds: the builds among
 ;; its needs, which are known by the time a wave hands it out. Each was
@@ -228,13 +222,6 @@
     ((Cons source (Cons output (Cons scratch directories)))
      (write-file output (source->wat directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
-
-(: check! (-> Inputs Unit ! mut fs))
-(define (check! inputs)
-  (match (take-arguments!)
-    ((Cons source (Cons scratch directories))
-     (check-source directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs))
-    (_ (panic "compiler check: expected source, scratch and library directories"))))
 
 (: modules! (-> Session Inputs Session ! mut fs compiler-output))
 (define (modules! previous inputs)
@@ -315,7 +302,6 @@
 (expose project! "project")
 (expose session! "session")
 (expose static! "static")
-(expose check! "check")
 (expose modules! "modules")
 (expose reset! "reset")
 (expose request! "request")

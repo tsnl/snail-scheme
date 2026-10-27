@@ -6,7 +6,6 @@
 ;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (snail-core compiler)
   (export
-   check-source
    source->wat
    source->modules
    source->schemas
@@ -33,13 +32,6 @@
       (let* ((expanded (expand-program directories generate inputs source empty-expansion))
              (program (ExpandedProgram-program expanded)))
         (check-program program)))
-
-    ;; Specialization also proves concrete handler captures and affine uses.
-    ;; Checking stops before emission, retaining no backend result.
-    (: check-source (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs Unit ! mut fs))
-    (define (check-source directories source generate inputs)
-      (monomorphize (source->typed directories source generate inputs))
-      (unit))
 
     (: source->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
     (define (source->wat directories source generate inputs)

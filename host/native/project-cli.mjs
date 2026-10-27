@@ -6,9 +6,9 @@ import {createProjectBuilder, projectTools, publishProject} from './project.mjs'
 
 function request([root, action, ...args]) {
   const mode = action === 'build' && args[0] === '--release' ? (args.shift(), 'release') : 'debug';
-  const valid = action === 'check' ? args.length === 1 : action === 'build' ? args.length === 2 : action === 'run' && args.length >= 2;
+  const valid = action === 'build' ? args.length === 2 : action === 'run' && args.length >= 2;
   if (!valid) {
-    throw new Error('usage: snail build [--release] PROJECT BUILD-TARGET | snail run PROJECT RUN-TARGET [ARGUMENT ...] | snail check PROJECT');
+    throw new Error('usage: snail build [--release] PROJECT BUILD-TARGET | snail run PROJECT RUN-TARGET [ARGUMENT ...]');
   }
   return {root, action, project: resolve(args[0]), target: args[1], args: args.slice(2), mode};
 }
@@ -21,16 +21,13 @@ async function build(job) {
   try {
     builder = await createProjectBuilder({...job, tools, directory});
     const description = builder.describe();
-    if (job.action === 'check') builder.check(description);
-    else {
-      const run = job.action === 'run' ? description.runs.find(run => run.name === job.target) : null;
-      if (job.action === 'run' && !run) throw new Error(`unknown project run target ${job.target}`);
-      const target = run?.build ?? job.target;
-      const candidate = builder.build(description, [target], job.mode);
-      if (run) result = {directory: candidate.targets.find(output => output.name === target).directory,
-        args: [...run.args, ...job.args]};
-      publishProject(candidate);
-    }
+    const run = job.action === 'run' ? description.runs.find(run => run.name === job.target) : null;
+    if (job.action === 'run' && !run) throw new Error(`unknown project run target ${job.target}`);
+    const target = run?.build ?? job.target;
+    const candidate = builder.build(description, [target], job.mode);
+    if (run) result = {directory: candidate.targets.find(output => output.name === target).directory,
+      args: [...run.args, ...job.args]};
+    publishProject(candidate);
   } catch (error) { failure = error; }
   try { builder?.close(); } catch (error) { failure ??= error; }
   try { rmSync(directory, {recursive: true, force: true}); } catch (error) { failure ??= error; }

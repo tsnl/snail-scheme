@@ -144,8 +144,8 @@ the `Ref` is allocated by the pass and never escapes it.
   generators and immutable build inputs are passed to each build; sessions
   retain only compilation evidence.
 - **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/plan.sld)** orders a project build's
-  phases before any of them runs: building or checking a target, and running
-  a producer. A phase needs the producers its program's closure reaches, then
+  phases before any of them runs: building a target, and running a
+  producer. A phase needs the producers its program's closure reaches, then
   the targets a discovery expansion finds it embeds. Nodes number in
   depth-first pre-order from the roots, `strong-components` puts each phase
   after what it needs, and a cycle is an error naming the targets around it
@@ -369,8 +369,8 @@ returns opaque immutable inputs. A failed read returns no replacement; the
 preceding inputs remain usable. There is no artifact reply manifest or second
 parsing step.
 
-One table serves every phase of a build, and is passed to each `check`,
-`static`, `modules` and `refine` call. These opaque values belong to their
+One table serves every phase of a build, and is passed to each `static`,
+`modules` and `refine` call. These opaque values belong to their
 originating compiler instance, like Sessions and Plans. Successful Sessions
 retain only the per-library evidence already used for cache reuse.
 Applications embed the bytes and need no runtime file access.
@@ -391,10 +391,10 @@ before another call can reuse the buffer. Generated-library scratch remains
 private to its build.
 
 `plan` takes the project's directory, the standard libraries' directory, the
-scratch directory producers are printed into, `build` or `check`, and the
-roots' names; `refine` takes the plan back with the build's current inputs.
-Each returns an opaque Plan and the wave that can run now, in order: records
-`produce INDEX KEY SOURCE`, `build INDEX NAME ENTRY` and `check INDEX NAME ENTRY`,
+scratch directory producers are printed into, and the names of the roots to
+build; `refine` takes the plan back with the build's current inputs. Each
+returns an opaque Plan and the wave that can run now, in order: records
+`produce INDEX KEY SOURCE` and `build INDEX NAME ENTRY`,
 each followed by its library directories and the targets whose files it embeds,
 then `waiting` if the plan goes on once this wave's producers have run. A
 phase is compiled with the directories its record names, the same ones the
@@ -422,10 +422,6 @@ producer programs report their actual scratch source, while decoded generated
 syntax retains the recipe location already established by expansion. No source
 mapping is invented. CLI panic text is unchanged, and the compiler still stops
 at its first error. These operations are implemented and tested.
-
-The resident `check` entry has no output filename. It expands, checks and
-specializes one source, including concrete handler and ownership checks, then
-discards the IR. It returns no emitted code or publishable candidate.
 
 ## Supporting modules
 
