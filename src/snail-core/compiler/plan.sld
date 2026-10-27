@@ -19,6 +19,7 @@
    Producer
    Producer-key
    Producer-library
+   Producer-forms
    Producer-source
    Producer-directories
    Producer-loading
@@ -39,7 +40,8 @@
    Plan-order
    plan-build
    refine-plan
-   next-phases)
+   next-phases
+   phases-left?)
   (import
    (snail-core base)
    (snail-core table)
@@ -149,6 +151,12 @@
         (Pair (map (lambda (node) (Pair node (Step-phase (vector-ref steps node)))) ready)
               (Plan-steps-set plan (fold-left (lambda (steps node) (vector-set steps node (Step-emitted-set (vector-ref steps node) #t)))
                                               steps ready)))))
+
+    ;; Whether a later wave has phases to hand out, once the producers this
+    ;; one ran have refined the plan.
+    (: phases-left? (-> Plan Bool))
+    (define (phases-left? plan)
+      (any? (lambda (step) (not (Step-emitted step))) (vector->list (Plan-steps plan))))
 
     (: ready-nodes (-> (Vector Step) (List I64) (List I64)))
     (define (ready-nodes steps order)
@@ -326,12 +334,16 @@
         ((None) #f)))
 
     ;; The targets whose files a program embeds, once each, in the order
-    ;; discovery first meets them.
+    ;; discovery first meets them. A build that declares no targets, as
+    ;; the development loop's, has none to embed: a use there can only
+    ;; fail, and the compile that meets it fails, so no discovery runs.
     (: embedded-targets (-> Growth PhaseProgram (List Phase) ! mut fs))
     (define (embedded-targets growth program)
-      (let ((uses (discover-artifacts (PhaseProgram-directories program) (Growth-inputs growth) (PhaseProgram-path program))))
-        (map (lambda (use) (BuildPhase (used-target (Growth-targets growth) use)))
-             (delete-duplicates (lambda (a b) (string=? (ArtifactUse-name a) (ArtifactUse-name b))) uses))))
+      (if (null? (Growth-targets growth))
+          (Nil)
+          (let ((uses (discover-artifacts (PhaseProgram-directories program) (Growth-inputs growth) (PhaseProgram-path program))))
+            (map (lambda (use) (BuildPhase (used-target (Growth-targets growth) use)))
+                 (delete-duplicates (lambda (a b) (string=? (ArtifactUse-name a) (ArtifactUse-name b))) uses)))))
 
     ;; A use names a declared browser build.
     (: used-target (-> (List Target) ArtifactUse Target))
@@ -462,7 +474,8 @@
       ;; then, once the producer's output refines the plan, admin and
       ;; server. Checking every root also builds the one whose files the
       ;; producer embeds. Cycles through targets and through producers fail
-      ;; with the texts the native builder and the expander use. Sources are
+      ;; with the texts the native builder and the expander use, and a build
+      ;; that declares no targets runs no discovery. Sources are
       ;; written into `directory`; `library` holds the standard libraries.
       (define (test-plan directory library)
         (let ((targets (project-targets directory library)) (scratch (string-append directory "/scratch")))
@@ -485,11 +498,13 @@
           (expect (Step-needs (vector-ref (Plan-steps cold) 0)) (Waiting (list 1) (list 1)))
           (expect (Plan-order cold) (list 2 1 0))
           (expect (wave-names (Pair-first wave)) (list "build client" "produce generated.assets"))
+          (expect (phases-left? (Pair-second wave)) #t)
           (expect (first-line (read-file (Producer-source producer))) "(generating \"generated.assets\")")
           (expect (step-names warm) (list "build server" "produce generated.assets" "build client" "build admin"))
           (expect (Step-needs (vector-ref (Plan-steps warm) 0)) (Known (list 1 3 2)))
           (expect (Plan-order warm) (list 2 1 3 0))
           (expect (wave-names (Pair-first next)) (list "build admin" "build server"))
+          (expect (phases-left? (Pair-second next)) #f)
           (expect (Pair-first (next-phases (Pair-second next))) (list))))
 
       (define (test-check targets scratch)
@@ -501,6 +516,7 @@
         (let ((client (list (BuildPhase (list-ref targets 0)))) (server (list (BuildPhase (list-ref targets 2)))))
           (write-file (string-append directory "/client.sld") (embedding "client"))
           (expect (plan-error targets client scratch) "artifact dependency cycle: client -> client")
+          (expect (step-names (plan-build (Nil) client no-inputs scratch)) (list "build client"))
           (write-file (string-append directory "/client.sld") (embedding "admin"))
           (write-file (string-append directory "/admin.sld") "(import (snail-core base) (generated assets)) (unit)")
           (expect (plan-error targets client scratch) "artifact dependency cycle: client -> admin -> client through the producer of (generated assets)")
