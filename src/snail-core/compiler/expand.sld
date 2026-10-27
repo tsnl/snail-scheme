@@ -13,6 +13,11 @@
    ArtifactUse-name
    ArtifactUse-loc
    discover-artifacts
+   LinkedFile
+   LinkedFile-name
+   LinkedFile-path
+   library-links
+   program-links
    LibraryFile
    DefinedLibrary
    GeneratedLibrary
@@ -182,7 +187,8 @@
     ;; libraries loading when it was reached, and returns the bytes of the
     ;; syntax it writes; the driver supplies it, because running a program
     ;; means compiling one. `artifacts` says where an `artifact-files` use
-    ;; finds its files, and each library records its own uses.
+    ;; finds its files, and each library records its own uses, as it
+    ;; records in `links` the files its `link-file` uses name.
     (struct Context
       ((program (Ref Program))
        (expanded (Ref (Table Expanded)))
@@ -192,6 +198,7 @@
        (inputs Inputs)
        (artifacts ArtifactSource)
        (artifact-uses (Ref (List ArtifactUse)))
+       (links (Ref (List LinkedFile)))
        (prefix String)
        (loading (List String))
        (aliases (List String))
@@ -208,6 +215,15 @@
       ((name String)
        (loc Loc)
        (files ArtifactFiles)))
+
+    ;; A file a library links rather than embeds, which the build places
+    ;; beside the payload: `name` is what the payload asks its host for, and
+    ;; `path` where the build finds the file; `loc` is where the library
+    ;; names it.
+    (struct LinkedFile
+      ((name String)
+       (path String)
+       (loc Loc)))
 
     ;; Where an expanded `artifact-files` use finds its target's files. A
     ;; compile is supplied them in its inputs. A discovery expansion, which
@@ -234,14 +250,16 @@
     ;; A library as a build expanded it: its build key, the canonical text
     ;; of its declarations with the interfaces of its imports, which decides
     ;; whether a later build may replay it; its own interface; its exports;
-    ;; and everything it added to the program.
+    ;; everything it added to the program; the targets whose files it
+    ;; embeds; and the files it links.
     (struct Expanded
       ((key String)
        (body-key String)
        (interface String)
        (exports Exports)
        (delta Program)
-       (artifacts (List ArtifactUse))))
+       (artifacts (List ArtifactUse))
+       (links (List LinkedFile))))
 
     ;; What a build expanded: the program, its libraries, and the counters
     ;; and scopes a later build continues from, so that the names and marks
@@ -268,6 +286,7 @@
                generate
                inputs
                artifacts
+               (ref (Nil))
                (ref (Nil))
                ""
                (Nil)
@@ -313,7 +332,8 @@
     (: core-keywords (List String))
     (define core-keywords
       (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type"
-            "typeclass" "instance" "match" "ann" "extern" "effect" "handle" "expose" "case-id" "type-convert" "type-test" "artifact-files"))
+            "typeclass" "instance" "match" "ann" "extern" "effect" "handle" "expose" "case-id" "type-convert" "type-test" "artifact-files"
+            "link-file"))
 
     (: core-library (-> Exports))
     (define (core-library)
@@ -478,16 +498,114 @@
                   ((char=? (string-ref file (- end 1)) #\/) (string-append (substring file 0 end) path))
                   (else (loop (- end 1)))))))
 
+    ;; ---- Linked files ----
+
+    ;; `(link-file "path")` names a file the library links: it ships beside
+    ;; the payload instead of in it, and the program gets a handle rather
+    ;; than the bytes. The path is relative to the file it is written in, as
+    ;; `include-bytes`'s is, and may not leave that file's directory. The
+    ;; file ships under a name made from the library and the path, the same
+    ;; on every host and in every build: `data/pixel.png` in (sample assets)
+    ;; is `sample.assets/data/pixel.png`. The handle is what an import from
+    ;; "snail.link" under that name returns, so the module records the
+    ;; files it links where its host must see them: a host reads each before
+    ;; it instantiates the module, and a module cannot be instantiated
+    ;; without its files. Only the name enters the build key; the file's
+    ;; bytes do not, so editing the file rebuilds nothing, and the build
+    ;; only places it again.
+    (: expand-link-file (-> Context (List Syntax) Loc Expr ! mut))
+    (define (expand-link-file cx items loc)
+      (match items
+        ((Cons _ (Cons (Atom (DString path) path-loc) (Nil)))
+         (let* ((relative (linked-path path path-loc))
+                (name (record-link! cx relative path-loc))
+                (handle (global-name cx (string-append "%link " relative))))
+           (add-value! (Context-program cx) handle (Foreign (Import "snail.link" name) (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) empty-row))))
+           (expr (App (expr (Var handle (Nil) (Nil)) loc) (Nil)) loc)))
+        (_ (compile-error loc "link-bytes expects a literal relative path"))))
+
+    ;; Records the file a use names on the library, once, and returns the
+    ;; name it ships under. A macro whose template holds the path names a
+    ;; file beside the macro's library, so two files could claim one name;
+    ;; that is an error.
+    (: record-link! (-> Context String Loc String ! mut))
+    (define (record-link! cx relative loc)
+      (let ((name (string-append (Context-prefix cx) "/" relative)) (path (beside (Loc-file loc) relative))
+            (links (ref-get (Context-links cx))))
+        (match (find (lambda (link) (string=? (LinkedFile-name link) name)) links)
+          ((Some link)
+           (unless (string=? (LinkedFile-path link) path)
+             (compile-error loc (string-append "two files link as " name ": " (LinkedFile-path link) " and " path))))
+          ((None) (ref-set! (Context-links cx) (Cons (LinkedFile name path loc) links))))
+        name))
+
+    ;; A linked path in its canonical form: names separated by `/`, where
+    ;; `.` is the directory it is in and `..` its parent, so
+    ;; `data/../pixel.png` is `pixel.png`. A path that is absolute, has an
+    ;; empty name, names nothing, or climbs out of the directory is refused,
+    ;; since the payload could not ship its file under a name of its own.
+    (: linked-path (-> String Loc String))
+    (define (linked-path path loc)
+      (let loop ((names (path-names path)) (kept (Nil)))
+        (match names
+          ((Nil) (if (null? kept) (compile-error loc (string-append "link-bytes names no file: " path)) (string-join (reverse kept) "/")))
+          ((Cons "." rest) (loop rest kept))
+          ((Cons ".." rest)
+           (match kept
+             ((Cons _ parent) (loop rest parent))
+             ((Nil) (compile-error loc (string-append "link-bytes may not leave the library's directory: " path)))))
+          ((Cons "" _) (compile-error loc (string-append "link-bytes takes a path relative to the library, with no empty names: " path)))
+          ((Cons name rest) (loop rest (Cons name kept))))))
+
+    (: path-names (-> String (List String)))
+    (define (path-names path)
+      (match (string-index path #\/)
+        ((Some index) (Cons (substring path 0 index) (path-names (substring path (+ index 1) (string-length path)))))
+        ((None) (list path))))
+
+    ;; A library's linked files must exist when it expands, though the build
+    ;; copies them only later; the message names the library and the path.
+    (: check-linked-file (-> String LinkedFile Unit ! fs))
+    (define (check-linked-file library link)
+      (unless (linked-file-present? link)
+        (compile-error (LinkedFile-loc link)
+                       (string-append "the library " library " links "
+                                      (substring (LinkedFile-name link) (+ (string-length library) 1) (string-length (LinkedFile-name link)))
+                                      ", but there is no file at " (LinkedFile-path link)))))
+
+    ;; A replayed library checks only that its files are still there: their
+    ;; names are in its key, and their bytes in no key at all.
+    (: linked-file-present? (-> LinkedFile Bool ! fs))
+    (define (linked-file-present? link)
+      (file-exists? (LinkedFile-path link)))
+
+    ;; The files a library links, as the build expanded it, in the order
+    ;; its uses were reached.
+    (: library-links (-> ExpandedProgram String (List LinkedFile)))
+    (define (library-links expansion name)
+      (match (table-ref (ExpandedProgram-libraries expansion) name)
+        ((Some entry) (Expanded-links entry))
+        ((None) (Nil))))
+
+    ;; The files the whole program links: each library's, in program order.
+    (: program-links (-> ExpandedProgram (List LinkedFile)))
+    (define (program-links expansion)
+      (let ((program (ExpandedProgram-program expansion)))
+        (concatenate (map (lambda (library) (library-links expansion (Pair-first library)))
+                          (library-items program (program-items program))))))
+
     ;; Loads the imports, then replays the library from the build before if
-    ;; its declarations and its imports' interfaces are unchanged, or expands
-    ;; it; either way the library is recorded for the next build.
+    ;; its declarations and its imports' interfaces are unchanged, its
+    ;; embedded files current and its linked files present, or expands it;
+    ;; either way the library is recorded for the next build.
     (: expand-sections (-> Context (List (Pair String (List Syntax))) Exports ! mut fs))
     (define (expand-sections cx sections)
       (let* ((env (import-env cx (section-items sections "import"))) (key (sections-key cx sections))
-             (cx (Context-artifact-uses-set cx (ref (Nil)))))
+             (cx (Context-links-set (Context-artifact-uses-set cx (ref (Nil))) (ref (Nil)))))
         (match (table-ref (Context-predecessor cx) (Context-prefix cx))
           ((Some entry)
-           (if (and (string=? (Expanded-key entry) key) (artifacts-current? cx (Expanded-artifacts entry)))
+           (if (and (string=? (Expanded-key entry) key) (artifacts-current? cx (Expanded-artifacts entry))
+                    (every? linked-file-present? (Expanded-links entry)))
                (replay! cx entry)
                (expand-recorded cx sections env key)))
           ((None) (expand-recorded cx sections env key)))))
@@ -714,13 +832,16 @@
     (define (expand-recorded cx sections env key)
       (let* ((exports (expand-library-body cx sections env))
              (uses (ref-get (Context-artifact-uses cx)))
-             (stamp (if (null? uses) "" (fresh cx " artifact-"))))
+             (stamp (if (null? uses) "" (fresh cx " artifact-")))
+             (links (reverse (ref-get (Context-links cx)))))
+        (for-each (lambda (link) (check-linked-file (Context-prefix cx) link)) links)
         (record! cx (Expanded key
                               (string-append key stamp)
                               (string-append (interface-hash cx sections) stamp)
                               exports
                               (program-delta (program cx) (Context-prefix cx))
-                              uses))
+                              uses
+                              links))
         exports))
 
     (: record! (-> Context Expanded Unit ! mut))
@@ -1561,6 +1682,7 @@
         (("let") (expand-let cx env items loc))
         (("match") (expand-match cx env items loc))
         (("artifact-files") (expand-artifact-files cx env items loc))
+        (("link-file") (expand-link-file cx items loc))
         (("ann")
          (match items
            ((Cons _ (Cons value (Cons type (Nil)))) (expr (Ann (expand-expr cx env value) (resolve-type cx env type)) loc))
@@ -2092,7 +2214,7 @@
     (import
      (only (scheme base) guard error-object? error-object-message)
      (only (chibi filesystem) create-directory*)
-     (only (chibi string) string-contains)
+     (only (chibi string) string-contains string-cursor->index)
      (snail-core testing)
      (only (snail-core compiler inputs) no-inputs supply-generated))
     (begin
@@ -2109,7 +2231,8 @@
         (let ((walk (list (string-append directory "/walk") library)) (discover (string-append directory "/discover")))
           (test-library-file walk)
           (test-library-closure walk)
-          (test-discovery (list discover library) discover)))
+          (test-discovery (list discover library) discover)
+          (test-links (string-append directory "/links"))))
 
       (define (test-library-file directories)
         (let ((loc (Loc "test.sld" 1 1)))
@@ -2151,6 +2274,35 @@
           (expect (map ArtifactUse-name uses) (list "admin" "client"))
           (expect (map (lambda (use) (Loc-file (ArtifactUse-loc use))) uses)
                   (list (string-append root "/sample/assets.sld") (string-append root "/main.sld")))))
+
+      ;; A linked path is made canonical against its library's directory and
+      ;; named for the library; the program body links as `main`. A path
+      ;; that leaves the directory, or a file that is not there, is an error
+      ;; naming the library and the path.
+      (define (test-links root)
+        (create-directory* (string-append root "/sample/data"))
+        (write-file (string-append root "/sample/data/pixel.bin") "pixel")
+        (write-file (string-append root "/notes.txt") "notes")
+        (write-file (string-append root "/sample/linked.sld")
+                    "(define-library (sample linked) (export pixel) (import (snail-core core)) (begin (define pixel (link-file \"data/./x/../pixel.bin\"))))")
+        (let ((expansion (link-expansion root "(import (snail-core core) (sample linked)) (define notes (link-file \"notes.txt\")) (link-file \"notes.txt\")")))
+          (expect (map LinkedFile-name (program-links expansion)) (list "sample.linked/data/pixel.bin" "main/notes.txt"))
+          (expect (map LinkedFile-path (library-links expansion "sample.linked")) (list (string-append root "/sample/data/pixel.bin"))))
+        (expect (link-error root "../notes.txt") "link-bytes may not leave the library's directory: ../notes.txt")
+        (expect (link-error root "/notes.txt") "link-bytes takes a path relative to the library, with no empty names: /notes.txt")
+        (expect (link-error root "./") "link-bytes takes a path relative to the library, with no empty names: ./")
+        (expect (link-error root "absent.bin") (string-append "the library main links absent.bin, but there is no file at " root "/absent.bin")))
+
+      (define (link-expansion root body)
+        (write-file (string-append root "/main.sld") body)
+        (expand-program (list root) (lambda (loading forms) (panic "unexpected producer")) no-inputs (string-append root "/main.sld") empty-expansion))
+
+      (define (link-error root path)
+        (guard (failure ((error-object? failure)
+                         (let* ((message (error-object-message failure)) (start (string-contains message ": ")))
+                           (substring message (+ (string-cursor->index message start) 2) (string-length message)))))
+          (link-expansion root (string-append "(import (snail-core core)) (link-file \"" path "\")"))
+          "accepted"))
 
       (define assets-output
         (string-append "(define-library (sample assets) (export admin-bundle) (import (snail-core base) (snail-core artifact)) "

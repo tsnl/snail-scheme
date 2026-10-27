@@ -7,6 +7,8 @@
 (define-library (snail-core build)
   (export
    program->wat
+   program->linked-wat
+   place-links!
    program->schemas
    build-program
    build-modules
@@ -32,6 +34,7 @@
    (scheme cxr)
    (scheme file)
    (scheme process-context)
+   (scheme read)
    (scheme write)
    (chibi filesystem)
    (chibi pathname)
@@ -74,6 +77,15 @@
 
     (define (program->wat root directories source)
       (run-compiler root (selected-compiler root) "wat" directories source))
+
+    ;; The program's text with the files it links, (TEXT (NAME . PATH) ...),
+    ;; for a caller that links the text itself and places the files.
+    (define (program->linked-wat root directories source)
+      (with-private-directory root
+                              (lambda (directory)
+                                (let ((output (path-join directory "output.wat")))
+                                  (run-compiler-into root (selected-compiler root) "wat" directories source output directory)
+                                  (cons (read-file output) (read-links directory))))))
 
     (define (program->schemas root directories source)
       (run-compiler root (selected-compiler root) "schema" directories source))
@@ -386,10 +398,13 @@
     (define (build-program root directories source output release?)
       (let ((wat (string-append output ".wat")))
         (create-directory* (path-directory output))
-        (with-private-directory root
-                                (lambda (directory)
-                                  (run-compiler-into root (selected-compiler root) "wat" directories source wat directory)))
-        (link-wat-file root wat output release?)))
+        (let ((links (with-private-directory root
+                                             (lambda (directory)
+                                               (run-compiler-into root (selected-compiler root) "wat" directories source wat directory)
+                                               (read-links directory)))))
+          (link-wat-file root wat output release?)
+          (place-links! links (path-directory output))
+          output)))
 
     ;; Exclusive creation owns exactly this staging directory. A stale name
     ;; from a reused process id is skipped, never adopted or removed.
@@ -400,6 +415,27 @@
               ((file-link-status directory) (create-staging-directory output))
               (else (error "cannot stage program in output directory" output)))))
 
+    ;; ---- Linked files ----
+
+    ;; The files a compile reports its program links, as (NAME . PATH)
+    ;; pairs, from the `("NAME" "PATH")` lines the driver writes to
+    ;; links.datum in the compile's directory.
+    (define (read-links directory)
+      (call-with-input-file (path-join directory "links.datum")
+        (lambda (port)
+          (let loop ((links '()))
+            (let ((entry (read port)))
+              (if (eof-object? entry) (reverse links) (loop (cons (cons (car entry) (cadr entry)) links))))))))
+
+    ;; Each file goes to resources/NAME in `directory`, beside the payload,
+    ;; where both hosts read it before the program starts.
+    (define (place-links! links directory)
+      (for-each (lambda (link)
+                  (let ((to (path-join directory "resources" (car link))))
+                    (create-directory* (path-directory to))
+                    (copy-file! (cdr link) to)))
+                links))
+
     ;; ---- Linked modules ----
 
     ;; A program linked when it runs: each library's module, assembled but
@@ -407,11 +443,15 @@
     ;; modules in program order for the loader in host/browser/load.mjs.
     (define (build-modules root directories source output)
       (create-directory* output)
-      (with-private-directory root (lambda (generated) (run-compiler-into root (selected-compiler root) "modules" directories source output generated)))
-      (let ((names (read-lines (path-join output "modules"))))
+      (let* ((links (with-private-directory root
+                                            (lambda (generated)
+                                              (run-compiler-into root (selected-compiler root) "modules" directories source output generated)
+                                              (read-links generated))))
+             (names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble (path-join output name))) names)
         (copy-file! (build-crate root "runtime") (path-join output "runtime.wasm"))
         (write-file (path-join output "modules.json") (modules-json names))
+        (place-links! links output)
         output))
 
     ;; PATH.wat to PATH.wasm.

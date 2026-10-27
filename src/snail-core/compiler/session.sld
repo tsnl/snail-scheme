@@ -16,6 +16,10 @@
    Built-name
    Built-text
    Built-compiled?
+   Built-links
+   LinkedFile
+   LinkedFile-name
+   LinkedFile-path
    build-session)
   (import
    (snail-core base)
@@ -56,12 +60,14 @@
        (expansion ExpandedProgram)
        (compiled (Table Compiled))))
 
-    ;; One library's module after a build, and whether this build compiled
-    ;; it.
+    ;; One library's module after a build, whether this build compiled it,
+    ;; and the files the library links, which the build places beside the
+    ;; payload whether or not it compiled the module.
     (struct Built
       ((name String)
        (text String)
-       (compiled? Bool)))
+       (compiled? Bool)
+       (links (List LinkedFile))))
 
     (: make-session (-> (List String) Session))
     (define (make-session directories)
@@ -77,7 +83,7 @@
       (let* ((expansion (expand-program (Session-directories session) generate inputs source (Session-expansion session)))
              (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))
              (checked (check-libraries (Session-compiled session) expansion libraries))
-             (built (emit-libraries (Pair-second checked) (Pair-first checked) libraries)))
+             (built (emit-libraries expansion (Pair-second checked) (Pair-first checked) libraries)))
         (Pair (Pair-first built) (Session (Session-directories session) expansion (Pair-second built)))))
 
     ;; Checks each library whose expansion changed, after the schemes of the
@@ -109,8 +115,8 @@
 
     ;; Each library's module: the one emitted before, or, for a library just
     ;; checked, a new one, which this build compiled.
-    (: emit-libraries (-> (Table Compiled) Typed (List (Pair String (List Item))) (Pair (List Built) (Table Compiled)) ! mut))
-    (define (emit-libraries compiled typed libraries)
+    (: emit-libraries (-> ExpandedProgram (Table Compiled) Typed (List (Pair String (List Item))) (Pair (List Built) (Table Compiled)) ! mut))
+    (define (emit-libraries expansion compiled typed libraries)
       (let ((input (prepare-specialization typed)))
         (let loop ((libraries libraries) (compiled compiled) (built (Nil)))
           (match libraries
@@ -121,13 +127,13 @@
                   (check-handlers (Typed-program typed)
                                   (table-union (Specialization-definitions input) (item-definitions (Emission-items emission)))
                                   (Emission-items emission))
-                  (loop rest compiled (Cons (Built name (Emission-text emission) #f) built)))
+                  (loop rest compiled (Cons (Built name (Emission-text emission) #f (library-links expansion name)) built)))
                  ((None)
                   (let* ((mono (monomorphize-library input name (Compiled-items before)))
                          (text (wat->string (emit-library mono name)))
                          (emission (Emission text (Mono-items mono))))
                     (loop rest (table-set compiled name (Compiled-emission-set before (Some emission)))
-                          (Cons (Built name text #t) built)))))))
+                          (Cons (Built name text #t (library-links expansion name)) built)))))))
             ((Nil) (Pair (reverse built) compiled))))))
 
     ;; ---- Records ----
@@ -159,6 +165,7 @@
      (only (chibi filesystem) create-directory*)
      (only (chibi string) string-contains)
      (only (scheme base) guard error-object? error-object-message)
+     (only (scheme file) delete-file)
      (snail-core testing)
      (only (snail-core compiler inputs) take-input-request! ArtifactInput supply-artifact))
     (begin
@@ -183,7 +190,8 @@
             (expect (compiled-names body) (list "sample.a"))
             (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
         (test-handler-revalidation directory)
-        (test-artifact-replay directory library))
+        (test-artifact-replay directory library)
+        (test-link-replay directory))
 
       (define (no-generation loading forms) (panic "unexpected generated library"))
 
@@ -203,6 +211,31 @@
             (expect (artifact-replay-error (Pair-second empty) main) #t)
             (write-artifact-source directory "(ArtifactBundle (Nil))")
             (expect (compiled-names (build-session (Pair-second empty) main no-generation no-inputs)) (list "sample.assets" "main")))))
+
+      ;; A linked file's bytes are no build key: editing it compiles
+      ;; nothing, though every build still reports it. Removing it fails
+      ;; even a replay, naming the library and the path.
+      (define (test-link-replay directory)
+        (let ((main (string-append directory "/linked.sld")) (data (string-append directory "/sample/data.bin")))
+          (write-file data "first")
+          (write-file (string-append directory "/sample/linked.sld")
+                      (string-append "(define-library (sample linked) (export data) (import (snail-core core) (snail-core primitive)) "
+                                     "(begin (: data I32) (define data (link-file \"./data.bin\"))))"))
+          (write-file main "(import (snail-core core) (snail-core primitive) (sample linked)) data")
+          (let* ((first (build-session (make-session (list directory)) main no-generation no-inputs))
+                 (edited (begin (write-file data "second") (build-session (Pair-second first) main no-generation no-inputs))))
+            (expect (compiled-names edited) (Nil))
+            (expect (map (lambda (built) (map LinkedFile-name (Built-links built))) (Pair-first edited)) (list (list "sample.linked/data.bin") (Nil)))
+            (expect (map LinkedFile-path (Built-links (list-ref (Pair-first edited) 0))) (list (string-append directory "/sample/data.bin")))
+            (delete-file data)
+            (expect (link-missing? (Pair-second edited) main) #t))))
+
+      (define (link-missing? session main)
+        (guard (failure
+                ((error-object? failure)
+                 (if (string-contains (error-object-message failure) "the library sample.linked links data.bin, but there is no file at") #t #f)))
+          (build-session session main no-generation no-inputs)
+          #f))
 
       (define (artifact-replay-error session main)
         (guard (failure

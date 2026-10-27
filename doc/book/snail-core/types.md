@@ -12,7 +12,8 @@ program can carry large binary data, such as images; it cannot be a
 pattern. `(include-bytes "pixel.png")` is another spelling of the literal
 holding a file's bytes, with the path relative to the file it is written
 in. It is replaced when the source is read, so a macro cannot compute the
-path, and nothing else may be named `include-bytes`.
+path, and nothing else may be named `include-bytes`. A large file is better
+linked than included: see [linked files](#linked-files).
 
 A function type is `(-> Param ... Result)`, optionally followed by an effect
 row: `(-> String Unit ! console)`. A polymorphic signature quantifies type
@@ -228,6 +229,54 @@ function another module exports, into a function of whatever type the
 context expects (`(snail-core wasm)`).
 
 Traps and non-termination are not tracked.
+
+## Linked files
+
+`(snail-core resource)` links a file to a library instead of embedding it, as
+Python's `importlib.resources` addresses a package's data:
+
+```scheme
+(import
+ (snail-core base)
+ (snail-core resource))
+
+(: hero Resource)
+(define hero (link-bytes "art/hero.png"))
+
+(: hero-bytes (-> Bytes ! resource))
+(define (hero-bytes)
+  (read-resource hero))
+```
+
+- **Addressed by the library.** The path is relative to the file the form is
+  written in, as `include-bytes`'s is, and may not leave its directory: `.`
+  and `..` are resolved, and an absolute path, an empty name or a path that
+  climbs out is an error. The file ships under a name made from the library
+  and the canonical path, `assets.sprites/art/hero.png` for `(assets sprites)`,
+  or `main/...` for a program's own body. The name is the same on every host
+  and in every build; it is never a filesystem path.
+- **Guaranteed to ship.** The build places the file at `resources/NAME`
+  beside the payload, `program.wasm` or `modules.json`, in every build that
+  produces one: project program and browser targets, `scripts/snail-tool run`
+  and `compile`, and the development loop. A file that is missing fails the
+  build with the library and the path. The module itself records what it
+  links: `link-bytes` becomes a call to an import from `snail.link` named for
+  the file, so a host cannot instantiate the module without supplying it.
+- **A handle, not the bytes.** `link-bytes` evaluates to a `Resource`, which
+  names bytes and nothing more. The type is exported without its constructor,
+  so a program cannot make one from a string: holding a `Resource` is evidence
+  that its file ships. `(read-resource r)` returns the file's `Bytes` and
+  performs `resource`, an effect with host defaults on Node and in the
+  browser. It is not `fs`: a page has no filesystem, and a program with none
+  still reads its own files.
+
+**Resources are loaded before the program starts.** Each host reads every
+file a module links before it instantiates the module, Node from the
+payload's directory and the browser by fetching beside the page's module, so
+`read-resource` is a synchronous lookup on both hosts and never suspends. A
+payload whose files are absent fails to load, not when one is first read.
+A module linked again reads its files again; a module kept linked keeps the
+bytes it was linked with. Loading on demand waits for tasks to become effects.
 
 ## Dynamic values
 

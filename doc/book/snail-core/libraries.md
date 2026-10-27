@@ -6,6 +6,7 @@
 | --- | --- |
 | `(snail-core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, lists, vectors, arrays, strings, `Show`. |
 | `(snail-core io)` | The `console` and `fs` effects: text output, lines of input, and files as text or bytes. |
+| `(snail-core resource)` | Files a library links rather than embeds: `link-bytes`, the `Resource` handle, and `read-resource` through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail-core task)` | One-shot local dispatch, cooperative yield and timer waits through the runtime-owned `tasks` effect. |
 | `(snail-core table)` | Immutable tables from strings to values. |
 | `(snail-core math)` | Elementary functions on `F64`. |

@@ -14,6 +14,7 @@
  (scheme process-context)
  (scheme write)
  (chibi filesystem)
+ (only (chibi pathname) path-directory)
  (chibi process)
  (snail-core process)
  (only (chibi string) string-contains string-split string-suffix?)
@@ -67,8 +68,8 @@
     (string-append (car result) (cadr result))))
 
 ;; Compiles a case. A case that expects a diagnostic is decided here; any
-;; other becomes the check that links its program, runs it and compares the
-;; output.
+;; other becomes the check that links its program, places the files it
+;; links beside it, runs it and compares the output.
 (define (compile-case root directories directory build name)
   (let ((source (path-join directory (string-append name ".sld")))
         (expected-output (path-join directory (string-append name ".out")))
@@ -78,14 +79,15 @@
              (let ((text (error-text failure)) (wanted (trim-newline (read-file expected-error))))
                (or (string-contains text wanted) (report name "wrong diagnostic" (string-append text "\nexpected: " wanted)))))
             (#t (report name "compile failed" (error-text failure))))
-      (let ((text (program->wat root directories source)))
+      (let ((compiled (program->linked-wat root directories source)))
         (cond ((file-exists? expected-error) (report name "compiled, but a diagnostic was expected" ""))
               ((not (file-exists? expected-output)) (report name "no expected output" ""))
-              (else (lambda () (check-output root text (path-join build (string-append name ".wasm")) name expected-output))))))))
+              (else (lambda () (check-output root compiled (path-join build (string-append name ".wasm")) name expected-output))))))))
 
-(define (check-output root text program name expected-output)
+(define (check-output root compiled program name expected-output)
   (guard (failure (#t (report name "link failed" (error-text failure))))
-    (link-wat root text program #f)
+    (link-wat root (car compiled) program #f)
+    (place-links! (cdr compiled) (path-directory program))
     (let ((output (run-wasm root program)) (expected (read-file expected-output)))
       (or (equal? output expected) (report name "wrong output" (string-append output "\nexpected:\n" expected))))))
 
@@ -254,6 +256,10 @@
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-failures.mjs") root))))
     (or (zero? (caddr result)) (report "project failures" "failed" (string-append (car result) (cadr result))))))
 
+(define (check-project-resources root)
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-resources.mjs") root))))
+    (or (zero? (caddr result)) (report "project resources" "failed" (string-append (car result) (cadr result))))))
+
 (define (check-project-artifacts root)
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-artifacts.mjs") root))))
     (or (zero? (caddr result)) (report "project artifacts" "failed" (string-append (car result) (cadr result))))))
@@ -348,7 +354,7 @@
     ("tests/programs" "closures") ("tests/programs" "classes-advanced") ("tests/programs" "data") ("tests/programs" "dynamic")
     ("tests/programs" "wire") ("tests/programs" "tables") ("tests/programs" "libraries") ("tests/programs" "generated") ("tests/programs" "wasm")
     ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once") ("tests/programs" "tasks")
-    ("tests/programs" "effect-row-inclusion")
+    ("tests/programs" "effect-row-inclusion") ("tests/programs" "link-bytes")
     ("tests/programs" "tcp") ("tests/programs" "tcp-handler")
     ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")
     ("tests/programs" "http-exchange") ("tests/programs" "http-sockets")))
@@ -463,7 +469,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-host-agreement root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-application-process root)) (lambda () (check-project-failures root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-development-runs root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-host-agreement root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-application-process root)) (lambda () (check-project-failures root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-resources root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-development-runs root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
