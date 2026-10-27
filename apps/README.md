@@ -8,8 +8,9 @@ target and packages it with the shared browser host from `host/browser` into
 
 `./scripts/snail-tool serve apps/siegework` builds the same program one library at a
 time into `build/serve/siegework`, serves it, and relinks each rebuilt
-module into the open page, keeping its state. It cannot build Hearsay yet,
-whose art comes from `generate-library` recipes.
+module into the open page, keeping its state. Hearsay, whose art comes from
+`generate-library` recipes, serves the same way; its producers run in every
+build.
 
 | Application | Purpose |
 | --- | --- |

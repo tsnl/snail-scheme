@@ -37,7 +37,42 @@ async function checkProgram(program, value) {
   assert.deepEqual(lines.slice(1), [`${value},0,255,`, `${value},0,255,`, '99,', `${value},0,255,`]);
 }
 
+// Producer cycles fail while the build is planned, before the producer that
+// would close one runs. Each producer leaves a marker when it runs. A
+// knot's producer imports, through a helper, the library it generates; a
+// late cycle shows only once the first producer's output imports a second
+// generated library, whose producer imports the first.
+async function producerCycles() {
+  const directory = await mkdtemp(join(tmpdir(), 'snail-producer-cycles-'));
+  const write = (name, text) => mkdir(join(directory, name, '..'), {recursive: true}).then(() => writeFile(join(directory, name), text));
+  const ran = name => readFile(join(directory, `${name}.ran`), 'utf8').then(() => true, () => false);
+  const recipe = (name, imports, output) => `(generate-library (${name.replace('/', ' ')})
+    (import (snail-core base) (snail-core io) (snail-core syntax) ${imports})
+    (begin (write-file "${join(directory, `${name.replace('/', '-')}.ran`)}" "ran")
+      (library-syntax (list "${name.replace('/', '" "')}") (list "value") (list (list "snail-core" "base") ${output})
+        (list (form ":" (list (SymbolSyntax "value") (SymbolSyntax "String")))
+              (form "define" (list (SymbolSyntax "value") (StringSyntax "${name}")))))))`;
+  try {
+    await write('project.datum', `((build-target knot (program (entry "knot.sld") (library-roots ("src"))))
+      (build-target late (program (entry "late.sld") (library-roots ("src")))))`);
+    await write('knot.sld', '(import (snail-core base) (sample knot)) (unit)');
+    await write('src/sample/knot.sld', recipe('sample/knot', '(sample knot-helper)', ''));
+    await write('src/sample/knot-helper.sld', '(define-library (sample knot-helper) (export) (import (sample knot)) (begin))');
+    await write('late.sld', '(import (snail-core base) (g one)) (unit)');
+    await write('src/g/one.sld', recipe('g/one', '', '(list "g" "two")'));
+    await write('src/g/two.sld', recipe('g/two', '(g one)', ''));
+    const build = name => execute(join(root, 'snail'), ['build', directory, name], {maxBuffer: 4 * 1024 * 1024});
+    await assert.rejects(build('knot'), /library import cycle through sample\.knot/);
+    assert.equal(await ran('sample-knot'), false, 'a producer in a cycle never runs');
+    await assert.rejects(build('late'), /library import cycle through g\.one/);
+    assert.deepEqual([await ran('g-one'), await ran('g-two')], [true, false], 'only the producer the cycle shows after runs');
+  } finally {
+    await rm(directory, {recursive: true, force: true});
+  }
+}
+
 try {
+  await producerCycles();
   await cp(join(root, 'tests/artifacts/project'), project, {recursive: true});
   await mkdir(join(project, 'client-public/nested'), {recursive: true});
   await mkdir(join(project, 'admin-public'));
@@ -81,6 +116,8 @@ try {
   await writeFile(join(project, 'client.sld'), artifact('admin'));
   await writeFile(join(project, 'admin.sld'), '(import (snail-core base) (generated assets))\n(unit)\n');
   await assert.rejects(build('client'), /client -> admin -> client/, 'cycle discovered while compiling a producer');
+  await writeFile(join(project, 'client.sld'), '(import (snail-core base)) (unit)\n');
+  await assert.rejects(build('admin'), /artifact dependency cycle: admin -> admin/, 'cycle introduced by generated syntax');
 
   await writeFile(join(project, 'client.sld'), '(import (snail-core base)) (unit)\n');
   await writeFile(join(project, 'admin.sld'), '(import (snail-core base)) (unit)\n');

@@ -1,5 +1,5 @@
 // The resident compiler boundary, exercised against real linked Wasm and
-// emitted programs. Graph traversal and retry policy belong to the builder.
+// emitted programs. Executing a build plan belongs to the builder.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -136,6 +136,39 @@ try {
   execute([{name: 'program', text: readFileSync(wat, 'utf8')}], `${relative}:0,128,255,\n`);
   assert.deepEqual(compiler.project(project), {builds: [], runs: []});
   assert.equal(readFileSync(join(directory, 'errors'), 'utf8'), '', 'successful calls start with fresh diagnostics');
+
+  // A plan hands out waves of phase records. A program that imports a
+  // generated library waits for its producer, which runs first; the plan
+  // refined with its output hands out the build, which needs no request.
+  const planned = join(directory, 'planned'), standard = join(root, 'src'), plannedDirectories = [planned, standard];
+  write(join(planned, 'project.datum'), `((build-target client (browser (entry "client.sld")))
+    (build-target main (program (entry "main.sld") (library-roots ("."))))
+    (build-target server (program (entry "server.sld"))))`);
+  write(join(planned, 'client.sld'), '(import (snail-core base)) (unit)');
+  write(join(planned, 'server.sld'), '(import (snail-core base) (snail-core artifact)) (artifact-bundle "client")');
+  write(join(planned, 'main.sld'), '(import (snail-core base) (snail-core io) (sample made)) (write-line value)');
+  write(join(planned, 'sample/made.sld'), `(generate-library (sample made) (import (snail-core base) (snail-core syntax))
+    (library-syntax (list "sample" "made") (list "value") (list (list "snail-core" "base"))
+      (list (form ":" (list (SymbolSyntax "value") (SymbolSyntax "String"))) (form "define" (list (SymbolSyntax "value") (StringSyntax "made"))))))`);
+  const waiting = compiler.plan(empty, planned, standard, fresh(), 'build', ['main']);
+  const [producerPhase] = waiting.phases;
+  assert.equal(waiting.waiting, true);
+  assert.deepEqual(waiting.phases.map(({source, key, ...phase}) => phase), [{kind: 'produce', index: 1, directories: plannedDirectories, embeds: []}]);
+  const producerText = join(fresh(), 'producer.wat'), madeOutput = join(fresh(), 'made.syntax');
+  compiler.static(empty, producerPhase.source, producerText, fresh(), producerPhase.directories);
+  execute([{name: 'program', text: readFileSync(producerText, 'utf8')}], '', [madeOutput]);
+  const made = compiler.addGenerated(empty, producerPhase.key, producerPhase.source, madeOutput, producerPhase.directories);
+  failure(() => compiler.addGenerated(made, producerPhase.key, producerPhase.source, madeOutput, producerPhase.directories), /already provided/);
+  const refined = compiler.refine(waiting.plan, made);
+  assert.equal(refined.waiting, false);
+  assert.deepEqual(refined.phases, [{kind: 'build', index: 0, name: 'main', entry: join(planned, 'main.sld'), directories: plannedDirectories, embeds: []}]);
+  execute(compiler.modules(compiler.session(plannedDirectories), made, refined.phases[0].entry, fresh()).modules, 'made\n');
+  // A checked root that embeds a target needs it built, as a phase of its own, first.
+  const checked = compiler.plan(empty, planned, standard, fresh(), 'check', ['server']);
+  assert.deepEqual(checked.phases.map(({kind, index, name, embeds}) => ({kind, index, name, embeds})),
+    [{kind: 'build', index: 1, name: 'client', embeds: []}, {kind: 'check', index: 0, name: 'server', embeds: ['client']}]);
+  assert.equal(checked.waiting, false);
+  failure(() => compiler.plan(empty, planned, standard, fresh(), 'build', ['absent']), /unknown project build target absent/);
 
   const unicode = '(import (snail-core base))\n(: greeting String)\n(define greeting (if #t "😀" 5))';
   write(source, unicode);

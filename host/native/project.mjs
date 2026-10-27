@@ -1,5 +1,6 @@
-// One project traversal and packager for cold and resident builds. The compiler
-// owns parsing and cache evidence; native code owns processes and directories.
+// One plan executor and packager for cold and resident builds. The compiler
+// owns parsing, planning and cache evidence; native code owns processes and
+// directories.
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync,
@@ -51,104 +52,103 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       return result;
     }
 
-    // A missing input is serviced only after the failed Wasm call unwinds.
-    // Every retry uses the same preceding Session, never an interrupted value.
-    function withInputs(invoke, working, libraries, artifact) {
-      let inputs = compiler.inputs();
-      for (;;) {
-        try { return invoke(inputs); }
-        catch (error) {
-          if (!(error instanceof CompilerFailure) || !error.request) throw error;
-          inputs = provide(error.request, inputs, working, libraries, artifact);
-        }
+    // A phase runs only once the plan has supplied everything it needs, so
+    // a compile that still asks for an input names a need the planner
+    // missed: an internal error, never a retry.
+    function planned(compile) {
+      try { return compile(); }
+      catch (error) {
+        if (!(error instanceof CompilerFailure) || !error.request) throw error;
+        const {kind, key, name} = error.request;
+        throw new Error(`internal error: the build plan did not supply the ${kind} input ${key ?? name}`, {cause: error});
       }
     }
 
-    function provide(request, inputs, working, libraries, artifact) {
-      if (request.kind === 'generate') {
-        const output = join(working, `${request.key}.syntax`);
-        if (status(output)) throw new Error('compiler requested an already provided generated library');
-        scratch(producer => {
-          const program = staticProgram(join(working, `${request.key}.sld`), libraries, producer, 'debug', artifact);
-          run(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), program, output]);
-        });
-        if (!status(output)) throw new Error('the producer did not write its generated library');
-        return inputs;
-      } else {
-        try { return compiler.addArtifact(inputs, request.name, artifact(request.name)); }
-        catch (error) { throw new Error(`${request.file}:${request.line}:${request.column}: ${error.message}`, {cause: error}); }
-      }
-    }
-
-    function staticProgram(source, libraries, working, mode, artifact) {
+    function staticProgram(source, libraries, working, mode, inputs) {
       const text = join(working, 'program.wat'), output = join(working, 'program.wasm');
-      withInputs(inputs => compiler.static(inputs, source, text, working, libraries), working, libraries, artifact);
+      planned(() => compiler.static(inputs, source, text, working, libraries));
       link(root, text, output, mode);
       return output;
     }
 
-    function compile(target, generation, mode, artifact) {
-      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'src'));
+    function compile(phase, generation, mode, inputs) {
       return scratch(working => {
         if (mode !== 'development') {
-          copyFileSync(staticProgram(source, libraries, working, mode, artifact), join(generation, 'program.wasm'));
+          copyFileSync(staticProgram(phase.entry, phase.directories, working, mode, inputs), join(generation, 'program.wasm'));
           return {compiled: 1, modules: 1};
         }
-        const settings = JSON.stringify([source, libraries]);
-        const previous = sessions.get(target.name);
-        const session = previous?.settings === settings ? previous.session : compiler.session(libraries);
-        const built = withInputs(inputs => compiler.modules(session, inputs, source, working), working, libraries, artifact);
-        sessions.set(target.name, {settings, session: built.session});
+        const settings = JSON.stringify([phase.entry, phase.directories]);
+        const previous = sessions.get(phase.name);
+        const session = previous?.settings === settings ? previous.session : compiler.session(phase.directories);
+        const built = planned(() => compiler.modules(session, inputs, phase.entry, working));
+        sessions.set(phase.name, {settings, session: built.session});
         writeModules(generation, built.modules, tools.runtime, assemble);
         return {compiled: built.modules.filter(module => module.compiled).length, modules: built.modules.length};
       });
     }
 
-    function checkTarget(target, artifact) {
-      const source = join(project, target.entry), libraries = target.libraries.map(path => join(project, path)).concat(join(root, 'src'));
-      scratch(working => withInputs(inputs => compiler.check(inputs, source, working, libraries), working, libraries, artifact));
+    // A producer is compiled from the source the planner printed, then run
+    // to write its library's syntax, which the inputs supply from then on.
+    function produce(phase, inputs) {
+      return scratch(working => {
+        const program = staticProgram(phase.source, phase.directories, working, 'debug', inputs), output = join(working, 'output.syntax');
+        run(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), program, output]);
+        if (!status(output)) throw new Error('the producer did not write its generated library');
+        return compiler.addGenerated(inputs, phase.key, phase.source, output, phase.directories);
+      });
     }
 
+    // Builds a target into a generation of its own, which the candidate owns
+    // from the start, so a build that fails still discards it.
+    function buildTarget(phase, target, outputs, mode, prefix, inputs) {
+      const directory = prepareGeneration(project, phase.name, prefix), output = {name: phase.name, directory};
+      outputs.set(phase.index, output);
+      Object.assign(output, compile(phase, directory, mode, inputs));
+      if (target.kind === 'browser') packageBrowser(root, project, target, directory, mode);
+      chmodSync(directory, 0o755);
+      const files = generationFiles(directory);
+      output.digest = generationDigest(files);
+      return files;
+    }
+
+    // The compiler plans the build, and hands it out in waves: the phases
+    // that can run now, dependencies first. A wave that ends waiting has
+    // run the producers whose outputs the rest needs, and the plan refined
+    // with them names the next. A phase is first given the files of each
+    // target it embeds, all built in an earlier phase.
     function build(description, names = null, mode = 'development', prefix = '.snail-') {
       if (!['debug', 'release', 'development', 'check'].includes(mode)) throw new Error(`unknown build mode ${mode}`);
       if (!prefix.startsWith('.snail-') || prefix !== basename(prefix)) throw new Error('invalid project generation prefix');
-      const filename = join(project, 'project.datum'), outputMode = mode === 'check' ? 'debug' : mode;
+      const outputMode = mode === 'check' ? 'debug' : mode;
       for (const name of sessions.keys()) if (!description.builds.some(target => target.name === name)) sessions.delete(name);
-      const active = [], completed = new Map(), targets = [];
-      const required = name => {
-        const target = description.builds.find(target => target.name === name);
-        if (!target) throw new Error(`unknown project build target ${name} in ${filename}`);
-        return target;
-      };
-      const artifact = name => {
-        const target = required(name);
-        if (target.kind !== 'browser') throw new Error(`artifact target must be a browser build: ${name}`);
-        return visit(target);
-      };
-      const visit = (target, checkOnly = false) => {
-        if (active.includes(target.name)) throw new Error(`artifact dependency cycle: ${[...active, target.name].join(' -> ')}`);
-        if (completed.has(target.name)) return completed.get(target.name);
-        active.push(target.name);
-        try {
-          // A checked root is not an artifact. Keep it active through retries,
-          // and materialize it later if another root actually needs its files.
-          if (checkOnly) { checkTarget(target, artifact); return; }
-          const directory = prepareGeneration(project, target.name, prefix), output = {name: target.name, directory};
-          targets.push(output); // Own even the directory of a target that fails.
-          Object.assign(output, compile(target, directory, outputMode, artifact));
-          if (target.kind === 'browser') packageBrowser(root, project, target, directory, outputMode);
-          chmodSync(directory, 0o755);
-          const files = generationFiles(directory);
-          output.digest = generationDigest(files);
-          completed.set(target.name, files);
-          return files;
-        } finally { active.pop(); }
+      const outputs = new Map(), completed = new Map(), supplied = new Set();
+      const execute = (phase, inputs) => {
+        for (const name of phase.embeds.filter(name => !supplied.has(name))) {
+          if (!completed.has(name)) throw new Error(`internal error: the build plan embeds ${name} before building it`);
+          inputs = compiler.addArtifact(inputs, name, completed.get(name));
+          supplied.add(name);
+        }
+        if (phase.kind === 'produce') return produce(phase, inputs);
+        if (phase.kind === 'check') scratch(working => planned(() => compiler.check(inputs, phase.entry, working, phase.directories)));
+        else completed.set(phase.name, buildTarget(phase, described(description, phase.name), outputs, outputMode, prefix, inputs));
+        return inputs;
       };
       try {
-        for (const name of names ?? description.builds.map(target => target.name)) visit(required(name), mode === 'check');
-        return {project, description, targets};
+        scratch(planning => {
+          let inputs = compiler.inputs();
+          let wave = compiler.plan(inputs, project, join(root, 'src'), planning, mode === 'check' ? 'check' : 'build',
+            names ?? description.builds.map(target => target.name));
+          for (;;) {
+            for (const phase of wave.phases) inputs = execute(phase, inputs);
+            if (!wave.waiting) return;
+            wave = compiler.refine(wave.plan, inputs);
+            if (!wave.phases.length) throw new Error('internal error: a refined build plan has nothing to run');
+          }
+        });
+        // In plan order, which puts the first root first.
+        return {project, description, targets: [...outputs].sort(([a], [b]) => a - b).map(([, output]) => output)};
       } catch (error) {
-        try { discardProject({targets}); } catch {}
+        try { discardProject({targets: [...outputs.values()]}); } catch {}
         throw error;
       }
     }
@@ -160,6 +160,14 @@ export async function createProjectBuilder({root, project, tools, directory}) {
     try { compiler.close(); } catch {}
     throw error;
   }
+}
+
+// The compiler plans from the project file it reads; packaging takes the
+// target's settings from the description the caller read just before.
+function described(description, name) {
+  const target = description.builds.find(target => target.name === name);
+  if (!target) throw new Error(`the project changed while its build was planned: ${name}`);
+  return target;
 }
 
 // ---- Completed program files ----

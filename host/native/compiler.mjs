@@ -66,7 +66,32 @@ function recordImports(receive, memory) {
       const [name, file] = take();
       receive({kind: 'artifact', name, file, line: Number(line), column: Number(column)});
     },
+    produce(index, count) {
+      const [key, source, ...rest] = take();
+      receive({kind: 'produce', index: Number(index), key, source, ...phaseInputs(rest, count)});
+    },
+    build(index, count) {
+      const [name, entry, ...rest] = take();
+      receive({kind: 'build', index: Number(index), name, entry, ...phaseInputs(rest, count)});
+    },
+    check(index, count) {
+      const [name, entry, ...rest] = take();
+      receive({kind: 'check', index: Number(index), name, entry, ...phaseInputs(rest, count)});
+    },
+    waiting() { receive({kind: 'waiting'}); },
   };
+}
+
+// A phase's library directories, counted, then the targets it embeds.
+function phaseInputs(fields, count) {
+  count = Number(count);
+  return {directories: fields.slice(0, count), embeds: fields.slice(count)};
+}
+
+// A wave: the plan that handed it out, its phases in the order they run,
+// and whether the plan waits for their producers' outputs to go on.
+function wave({value, records}) {
+  return {plan: value, phases: records.filter(record => record.kind !== 'waiting'), waiting: records.some(record => record.kind === 'waiting')};
 }
 
 // ---- Instance ownership ----
@@ -164,6 +189,13 @@ export async function createCompiler(program, diagnostics) {
     },
     inputs() { return invoke('inputs', []).value; },
     addArtifact(inputs, name, files) { return invoke('add_artifact', [name, ...files.flat()], inputs).value; },
+    addGenerated(inputs, key, source, output, directories) {
+      return invoke('add_generated', [key, source, output, ...directories], inputs).value;
+    },
+    plan(inputs, project, standard, scratch, mode, names) {
+      return wave(invoke('plan', [project, standard, scratch, mode, ...names], inputs));
+    },
+    refine(plan, inputs) { return wave(invoke('refine', [], plan, inputs)); },
     close,
   };
 }

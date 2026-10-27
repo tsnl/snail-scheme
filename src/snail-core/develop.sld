@@ -2,6 +2,8 @@
 ;; build it again when they change, and tell its open pages, or run it
 ;; again. A build goes through a compile session (snail-core compiler session), so
 ;; it recompiles only the libraries an edit changed, each to its own module.
+;; A build is planned first (snail-core compiler plan), so the producers of
+;; the program's generated libraries run before it.
 ;; bootstrap/develop.sld exposes its entry points as WebAssembly under Node.
 ;; The host/native/develop.mjs host performs the `develop` commands, such as
 ;; watching a directory or serving a page, and reports events. This older
@@ -16,8 +18,11 @@
   (import
    (snail-core base)
    (snail-core io)
+   (only (snail-core compiler read) Syntax)
    (only (snail-core compiler core) fnv-1a)
-   (snail-core compiler session))
+   (only (snail-core compiler inputs) Inputs supply-generated producer-text)
+   (snail-core compiler session)
+   (snail-core compiler plan))
   (begin
 
     ;; ---- Host commands ----
@@ -84,6 +89,13 @@
     (define (run! manifest arguments)
       (host-command "run" (Cons manifest arguments) 0)
       (unit))
+
+    ;; Runs the producer a modules.json names to write `output`, and waits
+    ;; for it: whether it exited successfully. The host adds what it printed
+    ;; to the build's diagnostics.
+    (: produce-command! (-> String String Bool ! develop))
+    (define (produce-command! manifest output)
+      (= (host-command "produce" (list manifest output) 0) 0))
 
     ;; A digest of a file's bytes, which change when the file does.
     (: digest (-> String I32 ! develop))
@@ -184,6 +196,7 @@
     (: start-loop! (-> Loop Unit ! mut fs develop))
     (define (start-loop! loop)
       (make-directory! (string-append (Loop-output loop) "/modules"))
+      (make-directory! (producers-directory loop))
       (match (Loop-request loop)
         ((Serve port app) (serve-pages! loop port app))
         ((Watch _ _ _) (unit)))
@@ -280,12 +293,33 @@
           (remove-old-modules! loop (map (lambda (module) (base-name (Pair-second module))) modules)))))
 
     ;; Builds through the loop's session, which the build replaces with the
-    ;; session the next build starts from.
-    (: next-build! (-> Loop String (List Built) ! mut fs))
+    ;; session the next build starts from, once the plan has run the
+    ;; producers the program reaches. The loop declares no project targets,
+    ;; so the plan's one build is the program's own, its last phase.
+    (: next-build! (-> Loop String (List Built) ! mut fs develop))
     (define (next-build! loop source)
-      (match (build-session (ref-get (Loop-session loop)) source
-                            (lambda (loading forms) (panic "the development loop cannot build a generate-library yet")) no-inputs)
-        ((Pair builds session) (ref-set! (Loop-session loop) session) builds)))
+      (let* ((session (ref-get (Loop-session loop)))
+             (program (Target "main" (serving? (Loop-request loop)) source (Session-directories session)))
+             (inputs (produced! loop (plan-build (Nil) (list (BuildPhase program)) no-inputs (producers-directory loop)) no-inputs)))
+        (match (build-session session source unplanned-producer inputs)
+          ((Pair builds next) (ref-set! (Loop-session loop) next) builds))))
+
+    ;; Runs the producers of each wave, refining the plan with what they
+    ;; wrote, until no phase is left, and returns the inputs that hold it.
+    (: produced! (-> Loop Plan Inputs Inputs ! mut fs develop))
+    (define (produced! loop plan inputs)
+      (let* ((wave (next-phases plan))
+             (inputs (fold-left (lambda (inputs entry)
+                                  (match (Pair-second entry)
+                                    ((ProducePhase producer) (produce! loop producer inputs))
+                                    (_ inputs)))
+                                inputs (Pair-first wave))))
+        (if (phases-left? (Pair-second wave)) (produced! loop (refine-plan (Pair-second wave) inputs) inputs) inputs)))
+
+    ;; Every compile runs after the plan has run each producer it reaches.
+    (: unplanned-producer (-> (List String) (List Syntax) Bytes))
+    (define (unplanned-producer loading forms)
+      (panic "internal error: the build plan did not run this producer"))
 
     ;; Writes each module that changed, assembled, and modules.json, which
     ;; names them in program order. Returns each library's name with its
@@ -304,13 +338,19 @@
     ;; only when it changed.
     (: module-file! (-> Loop Built String ! fs develop))
     (define (module-file! loop built)
-      (let* ((file (string-append "modules/" (Built-name built) "-" (i64->string (fnv-1a (Built-text built))) ".wasm"))
-             (path (string-append (Loop-output loop) "/" file)))
+      (module-url loop (string-append "modules/" (assembled-module! (string-append (Loop-output loop) "/modules") built))))
+
+    ;; The name of a library's module file in `directory`, named for its
+    ;; text, which is assembled there unless it already is.
+    (: assembled-module! (-> String Built String ! fs develop))
+    (define (assembled-module! directory built)
+      (let* ((file (string-append (Built-name built) "-" (i64->string (fnv-1a (Built-text built))) ".wasm"))
+             (path (string-append directory "/" file)))
         (unless (file-exists? path)
           (write-file (string-append path ".wat") (Built-text built))
           (unless (assemble! (string-append path ".wat") path)
             (panic (string-append "could not assemble the module of " (Built-name built)))))
-        (module-url loop file)))
+        file))
 
     ;; Pages fetch from the server's root; a program reads files.
     (: module-url (-> Loop String String))
@@ -339,6 +379,39 @@
       (let ((listing (string-append (Loop-output loop) "/listing")))
         (list-directory! directory listing)
         (filter (lambda (line) (not (string=? line ""))) (lines (read-file listing)))))
+
+    ;; ---- Producers ----
+
+    ;; Where producers are printed, compiled to modules, run from a
+    ;; manifest, and write their libraries. A module is named for its text,
+    ;; as the program's are, so an unchanged library is not assembled again.
+    (: producers-directory (-> Loop String))
+    (define (producers-directory loop)
+      (string-append (Loop-output loop) "/producers"))
+
+    ;; A producer is compiled one library at a time, as the program is, and
+    ;; run by the host. What it writes is an input of every compile after.
+    (: produce! (-> Loop Producer Inputs Inputs ! mut fs develop))
+    (define (produce! loop producer inputs)
+      (let ((manifest (producer-manifest! loop producer inputs))
+            (output (string-append (producers-directory loop) "/" (Producer-key producer) ".syntax"))
+            (name (string-append "the producer of (" (string-join (Producer-library producer) " ") ")")))
+        (remove-file! output)
+        (cond ((not (produce-command! manifest output)) (panic (string-append name " failed")))
+              ((not (file-exists? output)) (panic (string-append name " did not write its generated library")))
+              (else (supply-generated inputs (producer-text (Producer-directories producer) (Producer-forms producer)) (read-bytes output))))))
+
+    ;; Compiles the producer afresh from the source the plan printed, and
+    ;; writes the manifest it runs from.
+    (: producer-manifest! (-> Loop Producer Inputs String ! mut fs develop))
+    (define (producer-manifest! loop producer inputs)
+      (let* ((directory (producers-directory loop))
+             (built (build-session (make-session (Producer-directories producer)) (Producer-source producer) unplanned-producer inputs))
+             (manifest (string-append directory "/" (Producer-key producer) ".json")))
+        (write-file manifest (modules-json (Loop-runtime loop)
+                                           (map (lambda (module) (Pair (Built-name module) (string-append directory "/" (assembled-module! directory module))))
+                                                (Pair-first built))))
+        manifest))
 
     ;; ---- Pages ----
 

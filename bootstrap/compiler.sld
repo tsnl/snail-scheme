@@ -1,7 +1,8 @@
-;; A resident compiler's native boundary. JavaScript retains Session values
-;; and immutable build inputs as opaque typed references. It receives only
-;; parsed records. Missing inputs are projected only
-;; after the compiler unwinds, before native work starts.
+;; A resident compiler's native boundary. JavaScript retains Session values,
+;; build plans and immutable build inputs as opaque typed references. It
+;; receives only parsed records: a project's targets, a plan's phases, a
+;; compile's modules. A compile the plan supplied needs no input it lacks;
+;; one that asks anyway is projected only after the compiler unwinds.
 (import
  (snail-core base)
  (snail-core io)
@@ -10,7 +11,8 @@
  (snail-core compiler)
  (snail-core compiler read)
  (snail-core compiler inputs)
- (snail-core compiler session))
+ (snail-core compiler session)
+ (snail-core compiler plan))
 
 ;; ---- Arguments and records ----
 
@@ -44,7 +46,11 @@
    (output-module (-> Bool Unit))
    (output-generate (-> Unit))
    (output-artifact (-> I64 I64 Unit))
-   (output-diagnostic (-> I64 I64 Unit)))
+   (output-diagnostic (-> I64 I64 Unit))
+   (output-produce (-> I64 I64 Unit))
+   (output-build (-> I64 I64 Unit))
+   (output-check (-> I64 I64 Unit))
+   (output-waiting (-> Unit)))
   (host "snail-core.compiler"
         ((output-text "text")
          (output-program "program")
@@ -53,7 +59,11 @@
          (output-module "module")
          (output-generate "generate")
          (output-artifact "artifact")
-         (output-diagnostic "diagnostic"))))
+         (output-diagnostic "diagnostic")
+         (output-produce "produce")
+         (output-build "build")
+         (output-check "check")
+         (output-waiting "waiting"))))
 
 ;; Reserve before the String argument is staged. Staging that same scalar
 ;; count cannot grow or move the buffer, so the pointer reaches the leaf host
@@ -109,6 +119,102 @@
   (send-strings (append (list (RunTarget-name run) (ProgramBuild-name (RunTarget-program run))
                               (loc->string (RunTarget-loc run))) (RunTarget-arguments run)))
   (output-run))
+
+;; ---- Build plans ----
+
+;; A project's build targets as the planner takes them, in declaration
+;; order: each entry and library root found in the project's `directory`,
+;; and the standard libraries' directory after the roots. The host compiles
+;; every phase with the directories its record names, so a producer's key,
+;; which covers them, is the same in the plan and in the compile.
+(: plan-targets (-> String String Project (List Target)))
+(define (plan-targets directory standard project)
+  (map (lambda (target)
+         (match target
+           ((ProgramTarget program)
+            (Target (ProgramBuild-name program) #f (in-project directory (ProgramBuild-entry program))
+                    (library-directories directory standard (ProgramBuild-libraries program))))
+           ((BrowserTarget browser)
+            (Target (BrowserBuild-name browser) #t (in-project directory (BrowserBuild-entry browser))
+                    (library-directories directory standard (BrowserBuild-libraries browser))))))
+       (Project-builds project)))
+
+(: in-project (-> String ProjectPath String))
+(define (in-project directory path)
+  (if (string=? (ProjectPath-text path) ".") directory (string-append directory "/" (ProjectPath-text path))))
+
+(: library-directories (-> String String (List ProjectPath) (List String)))
+(define (library-directories directory standard roots)
+  (append (map (lambda (root) (in-project directory root)) roots) (list standard)))
+
+;; A root the build asks for by name, to be built or only checked.
+(: root-phase (-> (List Target) String Bool String Phase))
+(define (root-phase targets file check? name)
+  (match (find (lambda (target) (string=? (Target-name target) name)) targets)
+    ((Some target) (if check? (CheckPhase target) (BuildPhase target)))
+    ((None) (panic (string-append "unknown project build target " name " in " file)))))
+
+;; Plans the build of the project in a directory: its arguments are that
+;; directory, the standard libraries' directory, the scratch directory
+;; producers are printed into, `build` or `check`, and the roots' names.
+;; Sends the first wave of phases and returns the plan.
+(: plan! (-> Inputs Plan ! mut fs compiler-output))
+(define (plan! inputs)
+  (match (take-arguments!)
+    ((Cons directory (Cons standard (Cons scratch (Cons mode names))))
+     (let* ((file (string-append directory "/project.datum"))
+            (targets (plan-targets directory standard (parse-project (read-file file) file))))
+       (send-wave (plan-build targets (map (lambda (name) (root-phase targets file (string=? mode "check") name)) names)
+                              inputs scratch))))
+    (_ (panic "compiler plan: expected project and standard directories, scratch, mode and root names"))))
+
+;; The plan again, now that `inputs` holds the outputs of the producers the
+;; waiting phases waited for. Sends the next wave.
+(: refine! (-> Plan Inputs Plan ! mut fs compiler-output))
+(define (refine! plan inputs)
+  (send-wave (refine-plan plan inputs)))
+
+;; Sends the phases that can run now, in the order they run, then
+;; `waiting` if any phase is left for a later wave, and returns the plan
+;; that counts them handed out.
+(: send-wave (-> Plan Plan ! compiler-output))
+(define (send-wave plan)
+  (let* ((wave (next-phases plan)) (next (Pair-second wave)))
+    (for-each (lambda (entry) (send-phase next (Pair-first entry) (Pair-second entry))) (Pair-first wave))
+    (when (phases-left? next) (output-waiting))
+    next))
+
+;; A phase's record: its node, the producer's key and printed source or the
+;; target's name and entry, its library directories, counted, and then the
+;; names of the targets whose files it embeds.
+(: send-phase (-> Plan I64 Phase Unit ! compiler-output))
+(define (send-phase plan node phase)
+  (let ((embeds (embedded-names plan node)))
+    (match phase
+      ((ProducePhase producer)
+       (send-strings (Cons (Producer-key producer) (Cons (Producer-source producer) (append (Producer-directories producer) embeds))))
+       (output-produce node (length (Producer-directories producer))))
+      ((BuildPhase target) (send-target target embeds) (output-build node (length (Target-directories target))))
+      ((CheckPhase target) (send-target target embeds) (output-check node (length (Target-directories target)))))))
+
+(: send-target (-> Target (List String) Unit ! compiler-output))
+(define (send-target target embeds)
+  (send-strings (Cons (Target-name target) (Cons (Target-entry target) (append (Target-directories target) embeds)))))
+
+;; The targets whose files the phase at `node` embeds: the builds among
+;; its needs, which are known by the time a wave hands it out. Each was
+;; built in an earlier wave, or earlier in this one.
+(: embedded-names (-> Plan I64 (List String)))
+(define (embedded-names plan node)
+  (let ((steps (Plan-steps plan)))
+    (match (Step-needs (vector-ref steps node))
+      ((Known nodes)
+       (concatenate (map (lambda (need)
+                           (match (Step-phase (vector-ref steps need))
+                             ((BuildPhase target) (list (Target-name target)))
+                             (_ (Nil))))
+                         nodes)))
+      ((Waiting _ _) (panic "internal error: a wave handed out a waiting phase")))))
 
 ;; ---- Compiler entries ----
 
@@ -216,3 +322,5 @@
 (expose inputs "inputs")
 (expose add-artifact! "add_artifact")
 (expose add-generated! "add_generated")
+(expose plan! "plan")
+(expose refine! "refine")

@@ -9,12 +9,14 @@
 // the program's own module was compiled again, relinks from it and hands
 // over the state as a page does (host/browser/host.mjs). Only the modules of the
 // last two builds stay. A broken edit reports a failed build that keeps the
-// last good manifest. Then `./scripts/snail-tool watch` runs a program again after an edit.
+// last good manifest. An application with a `generate-library` builds, its
+// producer running in every build. Then `./scripts/snail-tool watch` runs a
+// program again after an edit.
 import assert from 'node:assert/strict';
 import {execFileSync, spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {constants} from 'node:fs';
-import {cp, mkdtemp, open, readFile, readdir, rm, writeFile} from 'node:fs/promises';
+import {cp, mkdir, mkdtemp, open, readFile, readdir, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -173,6 +175,44 @@ async function testServe(directory) {
   }
 }
 
+// ---- Generated libraries ----
+
+// The counter's greeting comes from a `generate-library` recipe whose
+// producer reads a file of the application. The plan runs the producer
+// before the program is compiled; editing the file builds again, and the
+// producer runs again with it.
+async function testGenerated(directory) {
+  const app = join(directory, 'generated'), source = join(app, 'main.sld'), message = join(app, 'greeting.txt');
+  await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
+  await mkdir(join(app, 'src/sample'), {recursive: true});
+  await writeFile(message, 'generated');
+  await writeFile(join(app, 'src/sample/greeting.sld'), `(generate-library (sample greeting)
+    (import (snail-core base) (snail-core io) (snail-core syntax))
+    (library-syntax (list "sample" "greeting") (list "greeting") (list (list "snail-core" "base"))
+      (list (form ":" (list (SymbolSyntax "greeting") (SymbolSyntax "String")))
+            (form "define" (list (SymbolSyntax "greeting") (StringSyntax (read-file "${message}")))))))`);
+  const program = (await readFile(source, 'utf8')).replace('(snail-core app))', '(snail-core app)\n (sample greeting))');
+  await writeFile(source, program.replace('(: greeting String)\n(define greeting "hello")\n', ''));
+  const server = start(['serve', '--port', '0', app]);
+  try {
+    const base = await until(() => server.text.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server', 300);
+    const events = await listen(new URL('.snail/events', base));
+    const built = await nextBuild(events, 0);
+    assert.equal(built.kind, 'built', built.message);
+    const page = await linkPage(base, built.manifest);
+    assert.equal(text(page, 'greeting'), 'generated');
+    const from = events.length;
+    await writeFile(message, 'generated again');
+    const rebuilt = await nextBuild(events, from);
+    assert.equal(rebuilt.kind, 'built', rebuilt.message);
+    assert.equal((await relink(page, rebuilt.manifest)).from, 'sample.greeting');
+    assert.equal(text(page, 'greeting'), 'generated again', 'the producer runs again in every build');
+    await page.runtime.stop();
+  } finally {
+    await stop(server);
+  }
+}
+
 // ---- Watching ----
 
 async function testWatch(directory) {
@@ -249,9 +289,10 @@ async function testBusyCompiler(directory) {
 const directory = await mkdtemp(join(tmpdir(), 'snail-develop-'));
 try {
   await testServe(directory);
+  await testGenerated(directory);
   await testWatch(directory);
   await testBusyCompiler(directory);
-  console.log('develop: worker, serve and watch passed');
+  console.log('develop: worker, serve, generated libraries and watch passed');
 } finally {
   await rm(directory, {recursive: true, force: true});
 }
