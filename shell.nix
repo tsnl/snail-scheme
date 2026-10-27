@@ -9,6 +9,7 @@
 pkgs.mkShell {
   packages = with pkgs; [
     git
+    git-filter-repo
     chibi
     gnumake
     nixfmt
