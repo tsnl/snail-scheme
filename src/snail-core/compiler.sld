@@ -7,9 +7,9 @@
 (define-library (snail-core compiler)
   (export
    check-source
-   compile->wat
-   compile->modules
-   compile->schemas
+   source->wat
+   source->modules
+   source->schemas
    no-inputs)
   (import
    (snail-core base)
@@ -24,29 +24,42 @@
    (snail-core compiler session))
   (begin
 
+    ;; The front of every compile: the program a source path reads, expanded
+    ;; and type-checked. `generate` runs the producer program of a
+    ;; `generate-library`, given the libraries loading when it was reached,
+    ;; and returns the bytes of the syntax it writes.
+    (: source->typed (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs Typed ! mut fs))
+    (define (source->typed directories source generate inputs)
+      (let* ((expanded (expand-program directories generate inputs source empty-expansion))
+             (program (ExpandedProgram-program expanded)))
+        (check-program program)))
+
     ;; Specialization also proves concrete handler captures and affine uses.
     ;; Checking stops before emission, retaining no backend result.
     (: check-source (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs Unit ! mut fs))
     (define (check-source directories source generate inputs)
-      (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate inputs source empty-expansion))))
+      (monomorphize (source->typed directories source generate inputs))
       (unit))
 
-    ;; `generate` runs the producer program of a `generate-library`, given
-    ;; the libraries loading when it was reached, and returns the bytes of
-    ;; the syntax it writes.
-    (: compile->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
-    (define (compile->wat directories source generate inputs)
-      (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate inputs source empty-expansion)))))))
+    (: source->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
+    (define (source->wat directories source generate inputs)
+      (let* ((typed (source->typed directories source generate inputs))
+             (mono (monomorphize typed))
+             (module (emit-module mono)))
+        (wat->string module)))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from. This is a
     ;; session's build with nothing kept from before.
-    (: compile->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs (List (Pair String String)) ! mut fs))
-    (define (compile->modules directories source generate inputs)
-      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories) source generate inputs))))
+    (: source->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs (List (Pair String String)) ! mut fs))
+    (define (source->modules directories source generate inputs)
+      (let* ((built (build-session (make-session directories) source generate inputs))
+             (modules (Pair-first built)))
+        (map (lambda (module) (Pair (Built-name module) (Built-text module))) modules)))
 
-    (: compile->schemas (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
-    (define (compile->schemas directories source generate inputs)
-      (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate inputs source empty-expansion))))))
+    (: source->schemas (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
+    (define (source->schemas directories source generate inputs)
+      (let ((typed (source->typed directories source generate inputs)))
+        (wire-schemas (Typed-program typed))))
 
     ))
