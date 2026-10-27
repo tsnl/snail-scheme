@@ -5,14 +5,15 @@
  (snail-core io)
  (snail-core table)
  (snail-core compiler)
+ (snail-core compiler inputs)
  (snail-core compiler session)
  (prefix (snail-core compiler read) reader:)
  (prefix (snail-core syntax) generated:))
 
-(: inputs (-> Bytes (Table (List (Pair String Bytes)))))
+(: inputs (-> Bytes Inputs))
 (define (inputs client)
-  (table-set (table-set no-artifacts "client" (list (Pair "client.dat" client)))
-             "admin" (list (Pair "admin.dat" #u8(99)))))
+  (supply-artifact (supply-artifact no-inputs "client" (list (Pair "client.dat" client)))
+                   "admin" (list (Pair "admin.dat" #u8(99)))))
 
 (: generate (-> (List String) (List reader:Syntax) Bytes))
 (define (generate loading forms)
