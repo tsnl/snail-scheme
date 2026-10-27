@@ -128,8 +128,9 @@ Iterate on applications with `./scripts/snail-tool serve apps/NAME`, left
 running. It rebuilds only the libraries an edit reaches, about 100 ms for a
 function body in Siegework, and relinks them into each open page, keeping the
 running state; point `tests/browser/page.mjs` at the served URL to see an edit
-land. It cannot build a `generate-library` recipe yet, so build Hearsay with
-`make site`. The book's
+land. Each build first runs the producers of the `generate-library` recipes it
+reaches, so Hearsay serves too, rebuilding in about 500 ms since its producers
+run every time. An `artifact-bundle` still needs a project build. The book's
 [application model](doc/book/snail-core/applications.md) gives the reload
 rules; what matters when writing code:
 

@@ -295,13 +295,20 @@ covering file reads that failed while an existing event connection survived.
 still use `./scripts/snail-tool serve APP-DIRECTORY` and
 `./scripts/snail-tool watch SOURCE [ARGUMENT ...]`. Their loop is
 `src/snail-core/develop.sld`, exposed by `bootstrap/develop.sld`; it retains a compiler
-session, debounces changes and publishes manifests. It cannot run generated-library
-producers or resolve project artifacts. Use project builds for those inputs.
+session, debounces changes and publishes manifests. It plans each build as the
+project builder does, with no project targets: the producers of the
+generated libraries the program reaches run first, each compiled one library
+at a time into `producers/` beside the build and run to completion by the
+worker, and their outputs supply the program's compile. Producers run in
+every build, since what they read is not tracked. With no project there is no
+target to embed, so the plan runs no discovery expansion, and an
+`artifact-bundle` fails in the compile; use project builds for artifacts.
 The [application chapter](applications.md#hot-reload) defines current reload behavior.
 
 `host/native/develop.mjs` owns watches, timers, HTTP and application children;
-`develop-worker.mjs` owns the compiled loop, assembler and immediate filesystem
-helpers. Watch, schedule, serve, broadcast and run commands cross to the parent.
+`develop-worker.mjs` owns the compiled loop, assembler, immediate filesystem
+helpers and the synchronous `produce MANIFEST OUTPUT` command that runs a
+producer. Watch, schedule, serve, broadcast and run commands cross to the parent.
 Watches are installed before the first compile. HTML, manifests and module bytes
 are staged beside their destinations and renamed, providing complete individual
 files rather than the project builder's generation publication. The loop keeps

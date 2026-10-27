@@ -155,7 +155,8 @@ the `Ref` is allocated by the pass and never escapes it.
   order up to the first that waits, and `refine-plan` learns what the waiting
   steps need once those producers' outputs are supplied. `bootstrap/compiler.sld`
   resolves the project's targets, and the native builder runs the plan wave by
-  wave.
+  wave. The development loop plans with no targets, which needs no discovery,
+  and runs only the producers.
 - **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text, or to one module's text per library.
 

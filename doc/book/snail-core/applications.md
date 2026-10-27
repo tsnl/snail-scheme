@@ -116,9 +116,11 @@ A changed stylesheet is fetched again; a changed page or host script reloads
 the page after saving. The [event and reload boundaries](#event-and-reload-boundaries)
 below define checkpoint recovery, acceptance and manifest reconciliation.
 
-`./scripts/snail-tool serve` does not build generated-library recipes. The project builder
-used by `snail build`, `snail dev` and `make site` does. Program targets run through
-the editor's application controls; browser bundle/reload integration remains in progress.
+`./scripts/snail-tool serve` runs the producers of generated-library recipes
+before each build, as the project builder used by `snail build`, `snail dev`
+and `make site` does; only the project builder resolves artifact bundles.
+Program targets run through the editor's application controls; browser
+bundle/reload integration remains in progress.
 
 `./scripts/snail-tool watch SOURCE` is the same loop for a program: it builds and runs the
 program again whenever its sources change, stopping a run still in
