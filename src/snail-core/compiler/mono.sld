@@ -153,22 +153,28 @@
           (term (Expr (copy-term state inst term) type loc)))))
 
     (: copy-term (-> State Instantiation Term Term ! mut))
+    ;; A copy requests the specializations it references, so sibling copies
+    ;; are sequenced: the requests, and the copies they produce, then come
+    ;; in the same order on either host.
     (define (copy-term state inst term)
       (let ((copy (lambda (expr) (copy-expr state inst expr))))
         (match term
           ((Lit value) (Lit value))
           ((Var name types evidence) (Var name types evidence))
           ((Lambda params body) (Lambda params (copy body)))
-          ((App callee args) (App (copy callee) (map copy args)))
-          ((If test then otherwise) (If (copy test) (copy then) (copy otherwise)))
-          ((Let name value body) (Let name (copy value) (copy body)))
-          ((Seq first rest) (Seq (copy first) (copy rest)))
+          ((App callee args) (let* ((callee (copy callee)) (args (map copy args))) (App callee args)))
+          ((If test then otherwise) (let* ((test (copy test)) (then (copy then)) (otherwise (copy otherwise))) (If test then otherwise)))
+          ((Let name value body) (let* ((value (copy value)) (body (copy body))) (Let name value body)))
+          ((Seq first rest) (let* ((first (copy first)) (rest (copy rest))) (Seq first rest)))
           ((Match scrutinee clauses)
-           (Match (copy scrutinee)
-                  (map (lambda (clause) (Clause (copy-pattern inst (Clause-pattern clause)) (copy (Clause-body clause)))) clauses)))
+           (let* ((scrutinee (copy scrutinee))
+                  (clauses (map (lambda (clause) (Clause (copy-pattern inst (Clause-pattern clause)) (copy (Clause-body clause)))) clauses)))
+             (Match scrutinee clauses)))
           ((Ann inner type) (Ann (copy inner) (ground inst type)))
           ((Handle effect implementations body)
-           (Handle effect (map (lambda (entry) (Pair (Pair-first entry) (copy (Pair-second entry)))) implementations) (copy body)))
+           (let* ((implementations (map (lambda (entry) (Pair (Pair-first entry) (copy (Pair-second entry)))) implementations))
+                  (body (copy body)))
+             (Handle effect implementations body)))
           ((Convert inner target) (Convert (copy inner) (ground inst target)))
           ((TypeTest inner target) (TypeTest (copy inner) (ground inst target))))))
 

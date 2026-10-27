@@ -222,6 +222,18 @@
            (report "compiler run" "a failed child must set failure status and let its sibling finish" (string-append (car failed) (cadr failed))))
           (else #t))))
 
+;; The compiled compiler and its source on Chibi must emit the same text
+;; for the same program; `make bootstrap` checks the compiler itself.
+(define (check-host-agreement root)
+  (let* ((tool (path-join root "scripts/snail-tool")) (source (path-join root "examples/fibonacci.sld"))
+         (compiled (capture-process (list tool "wat" source)))
+         (interpreted (capture-process (list "env" "SNAIL_STAGE0=chibi" tool "wat" source))))
+    (cond ((not (zero? (caddr compiled))) (report "host agreement" "the compiled compiler failed" (cadr compiled)))
+          ((not (zero? (caddr interpreted))) (report "host agreement" "the source on Chibi failed" (cadr interpreted)))
+          ((not (equal? (car compiled) (car interpreted)))
+           (report "host agreement" "the two hosts emit different text for examples/fibonacci.sld" ""))
+          (else #t))))
+
 (define (check-project-builds root)
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/project-builds.mjs") root))))
     (or (zero? (caddr result)) (report "project builds" "failed" (string-append (car result) (cadr result))))))
@@ -443,7 +455,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-application-process root)) (lambda () (check-project-check root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-development-runs root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-host-agreement root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-application-process root)) (lambda () (check-project-check root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-development-runs root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))

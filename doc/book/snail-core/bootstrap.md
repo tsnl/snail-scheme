@@ -44,12 +44,15 @@ fails with `couldn't find import`, which is how `make test-chibi` and
 library.
 
 The hosts disagree on integer overflow, argument evaluation order and the
-order of table keys, so the compiler's output must not depend on them. One
-place still does: generated names are numbered from a counter the two hosts
-consume in different orders, so the two texts differ in their names even
-though no instruction differs. Until that is fixed, `make bootstrap` cannot
-compare one host's output against the other's —
-[issue 495](https://github.com/tsnl/snail-scheme/issues/495) measures it.
+order of table keys, so the compiler's output must not depend on them. The
+places that once did are closed: every generated name derives from what it
+names — a lambda from the hash of its own text, a string from its content,
+an import from its module and symbol — and a pass that expands, specializes
+or emits sibling subexpressions sequences them rather than letting the host
+choose. Declarations are listed by name. So the two hosts emit the same text
+for the same program, and the build checks it: `make test` compares them on
+`examples/fibonacci.sld`, and `make bootstrap` compares them on the compiler
+itself.
 
 **Bootstrap.**
 
@@ -58,6 +61,8 @@ compare one host's output against the other's —
 2. Stage 0 compiles the source to Wasm, giving stage 1.
 3. Stage 1 compiles stage 2.
 4. Stage 2 must reproduce its own text exactly.
+5. When Chibi was stage 0, stage 1's text must be stage 2's as well: the two
+   hosts ran the same source on the same input.
 
 The driver repeats this whenever the compiler's source changes, so a pinned
 Wasm build bootstraps without Chibi. Chibi remains the host of the first
