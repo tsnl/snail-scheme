@@ -150,7 +150,7 @@ try {
   write(join(planned, 'sample/made.sld'), `(generate-library (sample made) (import (snail-core base) (snail-core syntax))
     (library-syntax (list "sample" "made") (list "value") (list (list "snail-core" "base"))
       (list (form ":" (list (SymbolSyntax "value") (SymbolSyntax "String"))) (form "define" (list (SymbolSyntax "value") (StringSyntax "made"))))))`);
-  const waiting = compiler.plan(empty, planned, standard, fresh(), 'build', ['main']);
+  const waiting = compiler.plan(empty, planned, standard, fresh(), ['main']);
   const [producerPhase] = waiting.phases;
   assert.equal(waiting.waiting, true);
   assert.deepEqual(waiting.phases.map(({source, key, ...phase}) => phase), [{kind: 'produce', index: 1, directories: plannedDirectories, embeds: []}]);
@@ -163,12 +163,12 @@ try {
   assert.equal(refined.waiting, false);
   assert.deepEqual(refined.phases, [{kind: 'build', index: 0, name: 'main', entry: join(planned, 'main.sld'), directories: plannedDirectories, embeds: []}]);
   execute(compiler.modules(compiler.session(plannedDirectories), made, refined.phases[0].entry, fresh()).modules, 'made\n');
-  // A checked root that embeds a target needs it built, as a phase of its own, first.
-  const checked = compiler.plan(empty, planned, standard, fresh(), 'check', ['server']);
-  assert.deepEqual(checked.phases.map(({kind, index, name, embeds}) => ({kind, index, name, embeds})),
-    [{kind: 'build', index: 1, name: 'client', embeds: []}, {kind: 'check', index: 0, name: 'server', embeds: ['client']}]);
-  assert.equal(checked.waiting, false);
-  failure(() => compiler.plan(empty, planned, standard, fresh(), 'build', ['absent']), /unknown project build target absent/);
+  // A root that embeds a target is built after it, and its record names it.
+  const embedding = compiler.plan(empty, planned, standard, fresh(), ['server']);
+  assert.deepEqual(embedding.phases.map(({kind, index, name, embeds}) => ({kind, index, name, embeds})),
+    [{kind: 'build', index: 1, name: 'client', embeds: []}, {kind: 'build', index: 0, name: 'server', embeds: ['client']}]);
+  assert.equal(embedding.waiting, false);
+  failure(() => compiler.plan(empty, planned, standard, fresh(), ['absent']), /unknown project build target absent/);
 
   const unicode = '(import (snail-core base))\n(: greeting String)\n(define greeting (if #t "😀" 5))';
   write(source, unicode);
