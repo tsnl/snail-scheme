@@ -1474,9 +1474,8 @@
     ;; not name an effect the body never performs. A lambda was checked by
     ;; `check-lambda`, so `performed` holds what its body performed. An
     ;; instance method has its class's row, which this instance may need
-    ;; less of, a macro's signature is a contract for every expansion, and
-    ;; a value other than a lambda has no body of its own, so none of them
-    ;; is held to it.
+    ;; less of, and a value other than a lambda has no body of its own, so
+    ;; neither is held to it.
     (: check-performed (-> Checker Item Scheme Unit))
     (define (check-performed ck definition scheme)
       (match (Pair (signature-loc (program-of ck) (Define-name definition)) (Scheme-type scheme))
