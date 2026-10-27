@@ -1,16 +1,16 @@
 # Native networking
 
-`(lofi socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
+`(snail-core socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
 program runner binds them to `host/native/tcp.mjs` and `host/native/udp.mjs` through JSPI
 and `host/native/socket-imports.mjs`. Static and separately linked programs use the
-same binding. The [HTTP library](../lofi/http.md) implements one complete
+same binding. The [HTTP library](../snail-core/http.md) implements one complete
 request/response exchange over TCP. Browser sockets are not implemented.
 [The networking issue](https://github.com/tsnl/snail-scheme/issues/457) tracks the
 remaining work.
 
-## Lofi API
+## Snail-Core API
 
-Import `(lofi socket)` and include `tcp` or `udp` in the effect row of code using it.
+Import `(snail-core socket)` and include `tcp` or `udp` in the effect row of code using it.
 Every operation returns `Result` with a `SocketError` whose `code` is a string
 such as `"EBADF"`, `"EINVAL"` or a native network error code. Cancellation
 unwinds the task; it is not a recoverable `SocketError`. TCP operations are:
@@ -64,10 +64,10 @@ grade `omega`; this does not relax the language's handler rules.
 ## Wasm boundary
 
 The binding borrows the program's synchronous constructor/projector exports
-from `(lofi socket)`. Native I/O runs while the task is suspended. Only after its
+from `(snail-core socket)`. Native I/O runs while the task is suspended. Only after its
 scheduler gate returns the execution permit does the binding enter Wasm to
 construct a typed `Result`. Ordinary JavaScript objects cannot substitute for
-these managed values. Host code remains trusted to use the correct Lofi types.
+these managed values. Host code remains trusted to use the correct Snail-Core types.
 
 Outgoing bytes are copied from staging before any other Wasm call or await.
 Incoming bytes are written into a temporary managed array and copied to an
@@ -117,7 +117,7 @@ retrying the whole buffer is not automatically safe.
 
 ### Finishing a connection
 
-Lofi's `finish-connection` binds the native `finish` operation. It takes an idle
+Snail-Core's `finish-connection` binds the native `finish` operation. It takes an idle
 connection and a whole-number grace period from 0
 through 2,147,483,647 milliseconds. Pending read or write rejects with `EBUSY`
 without changing ownership. Invalid grace rejects with `EINVAL`.

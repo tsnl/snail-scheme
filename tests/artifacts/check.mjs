@@ -9,7 +9,7 @@ import {createAssembler} from '../../host/native/assemble.mjs';
 
 const [assemblerPath, runtimePath, directory, expectedPath] = process.argv.slice(2);
 const assemble = await createAssembler(await readFile(assemblerPath));
-const runner = fileURLToPath(new URL('../../host/native/run-lofi.mjs', import.meta.url));
+const runner = fileURLToPath(new URL('../../host/native/run-snail.mjs', import.meta.url));
 const expected = await readFile(expectedPath, 'utf8');
 
 async function execute(output, names, wanted) {

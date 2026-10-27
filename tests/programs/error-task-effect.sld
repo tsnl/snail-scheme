@@ -1,5 +1,5 @@
 (import
- (lofi base)
- (lofi task))
+ (snail-core base)
+ (snail-core task))
 (effect Missing ((missing (-> Unit))))
 (dispatch-local (once (lambda () (missing))))

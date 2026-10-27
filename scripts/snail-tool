@@ -1,0 +1,10 @@
+#!/bin/sh
+# Internal contributor commands; applications use the project CLI.
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+case ${1:-} in
+  serve|watch) exec "${NODE:-node}" --no-warnings "$root/host/native/develop.mjs" "$root" "$@" ;;
+esac
+# Chibi collects the whole heap whenever it grows, so start it large. Stage 0
+# sees only bootstrap/chibi-include, which symlinks exactly the libraries the
+# compiler's load closure reaches.
+exec "${CHIBI:-chibi-scheme}" -h "${SNAIL_HEAP:-2G}" -I "$root/bootstrap/chibi-include" "$root/scripts/snail.scm" "$root" "$@"

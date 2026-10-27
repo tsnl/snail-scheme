@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 
 (: f (-> I32))
 (define (f)

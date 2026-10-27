@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (: head (All (T) (-> (List T) T)))
 (define (head items)

@@ -1,5 +1,5 @@
 (import
- (lofi base)
- (lofi artifact))
+ (snail-core base)
+ (snail-core artifact))
 
 (artifact-bundle "client")

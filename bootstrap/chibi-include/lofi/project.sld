@@ -1,1 +1,0 @@
-../../../src/lofi/project.sld

@@ -21,9 +21,9 @@
    walk-book
    face-region)
   (import
-   (lofi base)
-   (lofi app)
-   (lofi sprite))
+   (snail-core base)
+   (snail-core app)
+   (snail-core sprite))
   (begin
 
     ;; ---- Cells ----

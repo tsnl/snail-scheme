@@ -1,5 +1,5 @@
 (generate-library (legacy parameter-element)
                   (import
-                   (lofi base)
+                   (snail-core base)
                    (scheme compiler))
-                  (scheme->lofi-library (list "legacy" "parameter-element") "(lambda (x 7) x)"))
+                  (scheme->snail-core-library (list "legacy" "parameter-element") "(lambda (x 7) x)"))

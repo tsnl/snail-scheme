@@ -10,7 +10,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {developProject, UnknownRunTarget} from '../host/native/project-develop.mjs';
 import {projectTools} from '../host/native/project.mjs';
 
-const root = process.argv[2], directory = fs.mkdtempSync(join(tmpdir(), 'lofi-development-runs-'));
+const root = process.argv[2], directory = fs.mkdtempSync(join(tmpdir(), 'snail-development-runs-'));
 const project = join(directory, 'project'), gate = join(directory, 'gate');
 fs.mkdirSync(project);
 const write = (name, text) => fs.writeFileSync(join(project, name), text);
@@ -19,7 +19,7 @@ const description = (args = 'configured', includeApp = true) => `(
   (build-target other (program (entry "other.sld")))
   ${includeApp ? `(run-target app (run main (args ("${args}"))))` : ''}
   (run-target side (run other)))`;
-const program = message => `(import (lofi base) (lofi io) (lofi task))
+const program = message => `(import (snail-core base) (snail-core io) (snail-core task))
   (write-line "${message}") (for-each write-line (command-line)) (sleep 600000)`;
 async function until(test) {
   for (let count = 0; count < 1000; count++) { if (test()) return; await delay(20); }
@@ -73,7 +73,7 @@ try {
   assert.equal(app().attempt.pid, firstPid, 'an independent target change leaves this child running');
   let stableSide = side().attempt.pid;
 
-  write('project.datum', description('new arguments')); write('main.sld', '(import (lofi base)) (missing)');
+  write('project.datum', description('new arguments')); write('main.sld', '(import (snail-core base)) (missing)');
   const failed = await settled(accepted.id, 'failed');
   assert.equal(app().attempt.pid, firstPid); assert.equal(side().attempt.pid, stableSide);
   dev.stopRun('app'); await stopped('app'); dead(firstPid);
@@ -100,11 +100,11 @@ try {
   // intent, not the wanted value when this attempt began.
   pipe();
   write('slow.sld', `(generate-library (slow)
-    (import (lofi base) (lofi io) (lofi syntax))
-    (library-syntax (list "slow") (list "message") (list (list "lofi" "base"))
+    (import (snail-core base) (snail-core io) (snail-core syntax))
+    (library-syntax (list "slow") (list "message") (list (list "snail-core" "base"))
       (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
         (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${gate}")))))))`);
-  write('main.sld', '(import (lofi base) (lofi io) (lofi task) (slow)) (write-line message) (sleep 600000)');
+  write('main.sld', '(import (snail-core base) (snail-core io) (snail-core task) (slow)) (write-line message) (sleep 600000)');
   writer = await fsp.open(gate, 'w');
   const stoppedBuild = dev.status.id, beforeStop = app().attempt.pid;
   assert.equal(dev.status.phase, 'building'); dev.stopRun('app'); await stopped('app'); dead(beforeStop);
@@ -145,7 +145,7 @@ try {
   dev.restartRun('app'); await until(() => app().attempt.pid !== restartPid); await ready('app', 'newest\n'); dead(restartPid);
   assert.equal(app().attempt.build, accepted.published.id);
 
-  write('main.sld', '(import (lofi base) (lofi io)) (write-line "done")');
+  write('main.sld', '(import (snail-core base) (snail-core io)) (write-line "done")');
   accepted = await settled(accepted.id); await ready('app', 'done\n'); await stopped('app');
   const exitedPid = app().attempt.pid;
   dev.startRun('app'); await delay(50);

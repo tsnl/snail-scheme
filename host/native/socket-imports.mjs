@@ -22,7 +22,7 @@ function address(api, endpoint) {
 export function socketImports(program, scheduler, tcp, udp) {
   const helpers = () => {
     const current = program();
-    return current.names ? current.linked.get('lofi.socket').exports : current.runtime.exports;
+    return current.names ? current.linked.get('snail-core.socket').exports : current.runtime.exports;
   };
 
   // Socket successes never use strings; a string is an error code.
@@ -42,7 +42,7 @@ export function socketImports(program, scheduler, tcp, udp) {
     const result = await wait(operation, value => { if (typeof value !== 'string') owner.close(value.handle); });
     if (typeof result === 'string') return failure(errorCode(api, result));
     // Delivery transfers native ownership. If constructing the managed
-    // wrapper traps, no Lofi code received the handle and it must be closed.
+    // wrapper traps, no Snail-Core code received the handle and it must be closed.
     try { return success(result); }
     catch (error) { owner.close(result.handle); throw error; }
   }

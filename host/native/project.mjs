@@ -18,15 +18,15 @@ function run(command, args) {
 }
 
 export function projectTools(root) {
-  return JSON.parse(run(join(root, 'scripts/lofi-tool'), ['project-tools']));
+  return JSON.parse(run(join(root, 'scripts/snail-tool'), ['project-tools']));
 }
 
 export function editorTools(root) {
-  return JSON.parse(run(join(root, 'scripts/lofi-tool'), ['editor-tools']));
+  return JSON.parse(run(join(root, 'scripts/snail-tool'), ['editor-tools']));
 }
 
 function link(root, text, output, mode) {
-  run(process.env.CHIBI || 'chibi-scheme', ['-h', process.env.LOFI_HEAP || '2G',
+  run(process.env.CHIBI || 'chibi-scheme', ['-h', process.env.SNAIL_HEAP || '2G',
     '-I', join(root, 'bootstrap/chibi-include'), join(root, 'scripts/link.scm'), root, text, output, mode]);
 }
 
@@ -70,7 +70,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
         if (status(output)) throw new Error('compiler requested an already provided generated library');
         scratch(producer => {
           const program = staticProgram(join(working, `${request.key}.sld`), libraries, producer, 'debug', artifact);
-          run(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), program, output]);
+          run(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), program, output]);
         });
         if (!status(output)) throw new Error('the producer did not write its generated library');
         return inputs;
@@ -109,9 +109,9 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       scratch(working => withInputs(inputs => compiler.check(inputs, source, working, libraries), working, libraries, artifact));
     }
 
-    function build(description, names = null, mode = 'development', prefix = '.lofi-') {
+    function build(description, names = null, mode = 'development', prefix = '.snail-') {
       if (!['debug', 'release', 'development', 'check'].includes(mode)) throw new Error(`unknown build mode ${mode}`);
-      if (!prefix.startsWith('.lofi-') || prefix !== basename(prefix)) throw new Error('invalid project generation prefix');
+      if (!prefix.startsWith('.snail-') || prefix !== basename(prefix)) throw new Error('invalid project generation prefix');
       const filename = join(project, 'project.datum'), outputMode = mode === 'check' ? 'debug' : mode;
       for (const name of sessions.keys()) if (!description.builds.some(target => target.name === name)) sessions.delete(name);
       const active = [], completed = new Map(), targets = [];
@@ -185,7 +185,7 @@ function packageBrowser(root, project, target, output, mode) {
   if (target.public !== null) copyPublic(publicDirectory(project, target.public), output);
   const page = join(output, 'index.html');
   if (mode === 'development' && status(page)) {
-    writeFileSync(page, `${readFileSync(page, 'utf8')}\n<meta name="lofi-modules" content="./modules.json">\n`);
+    writeFileSync(page, `${readFileSync(page, 'utf8')}\n<meta name="snail-modules" content="./modules.json">\n`);
   }
 }
 
@@ -212,7 +212,7 @@ function publicDirectory(project, path) {
 function copyPublic(source, output) {
   for (const name of directoryNames(source)) {
     const from = join(source, name), to = join(output, name), entry = status(from);
-    if (status(to) || name === '.lofi-publish') throw new Error(`public file conflicts with a build artifact: ${from}`);
+    if (status(to) || name === '.snail-publish') throw new Error(`public file conflicts with a build artifact: ${from}`);
     if (entry?.isSymbolicLink()) throw new Error(`public files cannot be symbolic links: ${from}`);
     if (entry?.isDirectory()) { mkdirSync(to); copyPublic(from, to); }
     else if (entry?.isFile()) copyFileSync(from, to);
@@ -223,7 +223,7 @@ function copyPublic(source, output) {
 function generationFiles(directory, relative = '') {
   const files = [];
   for (const name of directoryNames(join(directory, relative))) {
-    if (!relative && name === '.lofi-target') continue;
+    if (!relative && name === '.snail-target') continue;
     const file = relative ? `${relative}/${name}` : name, path = join(directory, file), entry = status(path);
     if (entry?.isDirectory()) files.push(...generationFiles(directory, file));
     else if (entry?.isFile()) files.push([file, path]);
@@ -250,8 +250,8 @@ function checkOutput(output, name) {
   const entry = status(output);
   if (!entry) return;
   if (entry.isSymbolicLink()) {
-    const link = readlinkSync(output), marker = join(output, '.lofi-target');
-    if (link.startsWith('.lofi-') && link === basename(link) && status(marker)?.isFile() && readFileSync(marker, 'utf8') === name) return;
+    const link = readlinkSync(output), marker = join(output, '.snail-target');
+    if (link.startsWith('.snail-') && link === basename(link) && status(marker)?.isFile() && readFileSync(marker, 'utf8') === name) return;
   }
   throw new Error(`refusing to replace an unmanaged project output: ${output}`);
 }
@@ -262,7 +262,7 @@ function prepareGeneration(project, name, prefix) {
   mkdirSync(build, {recursive: true});
   checkOutput(join(build, name), name);
   const directory = mkdtempSync(join(build, prefix));
-  try { writeFileSync(join(directory, '.lofi-target'), name); }
+  try { writeFileSync(join(directory, '.snail-target'), name); }
   catch (error) { try { rmSync(directory, {recursive: true, force: true}); } catch {} throw error; }
   return directory;
 }
@@ -276,10 +276,10 @@ export function publishProject(candidate) {
   try {
     for (const {name, directory} of targets) {
       checkOutput(join(project, 'build', name), name);
-      symlinkSync(basename(directory), join(directory, '.lofi-publish'));
+      symlinkSync(basename(directory), join(directory, '.snail-publish'));
     }
     for (const {name, directory} of targets) {
-      renameSync(join(directory, '.lofi-publish'), join(project, 'build', name));
+      renameSync(join(directory, '.snail-publish'), join(project, 'build', name));
       published++;
     }
   } catch (error) {

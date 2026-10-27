@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi task)
- (lofi app))
+ (snail-core base)
+ (snail-core task)
+ (snail-core app))
 
 ;; Each task retains the private handler across storage and event suspension.
 ;; Its host default lets the runner detect a leaked handler between turns.

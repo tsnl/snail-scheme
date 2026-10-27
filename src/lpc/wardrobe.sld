@@ -15,9 +15,9 @@
    walk-picture
    portrait)
   (import
-   (lofi base)
-   (lofi wire)
-   (lofi app)
+   (snail-core base)
+   (snail-core wire)
+   (snail-core app)
    (lpc layout)
    (lpc catalog))
   (begin

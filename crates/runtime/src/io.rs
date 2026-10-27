@@ -1,8 +1,8 @@
-//! Scalar file services for the Lofi library: text by Unicode scalar, binary
+//! Scalar file services for the Snail-Core library: text by Unicode scalar, binary
 //! files by byte.
 //!
 //! Rust owns files, never managed values. IDs are issued once and never reused.
-//! Lofi closes explicitly; the invocation host calls close-all after a trap.
+//! Snail-Core closes explicitly; the invocation host calls close-all after a trap.
 //! A trapped instance is terminal. There is no GC finalization of these files.
 //! Standard streams have reserved borrowed IDs, outside the owned-file registry.
 
@@ -140,10 +140,10 @@ fn write_character(port: &mut Port, code: u32) -> Result<(), String> {
 
 // ---- Staged text ----
 
-// Rust cannot read Lofi's managed strings, so a call that takes text is
-// preceded by `stage`: Lofi copies the scalars, four bytes each, to the address
+// Rust cannot read Snail-Core's managed strings, so a call that takes text is
+// preceded by `stage`: Snail-Core copies the scalars, four bytes each, to the address
 // it returns, and the call receives their count. The address is valid until
-// the next `stage`, and Lofi stages just before the call that reads it. The
+// the next `stage`, and Snail-Core stages just before the call that reads it. The
 // buffer only grows, so zeroing it costs no more than the longest text.
 thread_local! {
     static STAGED: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
@@ -199,7 +199,7 @@ pub extern "C" fn console_read() -> i32 {
 
 // ---- Command-line arguments ----
 
-// The arguments never change during an invocation, so Lofi reads them as
+// The arguments never change during an invocation, so Snail-Core reads them as
 // total functions: a count, then each argument one scalar at a time.
 fn argument(index: i32) -> Result<String, String> {
     usize::try_from(index)
@@ -285,7 +285,7 @@ pub extern "C" fn close_all() -> i32 {
     match release_all() {
         Ok(()) => 0,
         Err(error) => {
-            eprintln!("lofi: {error}");
+            eprintln!("snail: {error}");
             1
         }
     }

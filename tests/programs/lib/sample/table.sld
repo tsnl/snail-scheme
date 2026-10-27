@@ -2,10 +2,10 @@
 ;; library is built, and the recipe returns the library as syntax.
 (generate-library (sample table)
                   (import
-                   (lofi base)
-                   (lofi syntax))
+                   (snail-core base)
+                   (snail-core syntax))
                   (library-syntax (list "sample" "table")
                                   (list "squares")
-                                  (list (list "lofi" "base"))
+                                  (list (list "snail-core" "base"))
                                   (list (form "define"
                                               (list (SymbolSyntax "squares") (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))

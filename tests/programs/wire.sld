@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi wire))
+ (snail-core base)
+ (snail-core io)
+ (snail-core wire))
 
 (struct Point
   ((x I64)

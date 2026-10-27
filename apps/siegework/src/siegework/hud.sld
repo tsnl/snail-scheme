@@ -13,8 +13,8 @@
   (export
    game-hud)
   (import
-   (lofi base)
-   (lofi app)
+   (snail-core base)
+   (snail-core app)
    (siegework grid)
    (siegework terrain)
    (siegework world)

@@ -6,7 +6,7 @@ import {syncBuiltinESMExports} from 'node:module';
 const readdir = fs.readdirSync;
 fs.readdirSync = function(path, ...options) {
   const names = readdir.call(this, path, ...options);
-  if (String(path).startsWith(process.env.LOFI_TEST_DIRECTORY_FAILURE)) {
+  if (String(path).startsWith(process.env.SNAIL_TEST_DIRECTORY_FAILURE)) {
     throw Object.assign(new Error('injected directory read failure'), {code: 'EIO'});
   }
   return names;

@@ -1,9 +1,9 @@
 ;; What pointer events mean: pointing, a tap, a drag past eight pixels, a
 ;; two-finger pinch and a cancelled touch.
 (import
- (lofi base)
- (lofi io)
- (lofi app))
+ (snail-core base)
+ (snail-core io)
+ (snail-core app))
 
 (: gesture-text (-> Gesture String))
 (define (gesture-text gesture)

@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi artifact))
+ (snail-core base)
+ (snail-core artifact))
 
 (: bundle-for (-> String ArtifactBundle))
 (define (bundle-for name)

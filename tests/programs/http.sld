@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi http))
+ (snail-core base)
+ (snail-core io)
+ (snail-core http))
 
 (: ascii (-> String Bytes))
 (define (ascii text)

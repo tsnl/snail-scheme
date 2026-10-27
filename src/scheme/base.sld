@@ -1,6 +1,6 @@
-;; R7RS names for Lofi. Programs keep Lofi's types and fixed arities: a list
+;; R7RS names for Snail-Core. Programs keep Snail-Core's types and fixed arities: a list
 ;; holds one type of element, `if` tests a Bool, and `car` of an empty list
-;; panics. Chibi never loads this library; it is on Lofi's search path only.
+;; panics. Chibi never loads this library; it is on Snail-Core's search path only.
 (define-library (scheme base)
   (export
    define lambda if begin let let* letrec cond case when unless and or do
@@ -12,8 +12,8 @@
    string->list list->string char->integer integer->char char=? char<?
    display newline write-string write-char)
   (import
-   (lofi base)
-   (lofi io))
+   (snail-core base)
+   (snail-core io))
   (begin
 
     ;; ---- Pairs ----

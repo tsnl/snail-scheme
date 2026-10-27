@@ -13,11 +13,11 @@ Whichever you pick, finish with [the first run](#the-first-run).
 
 | Tool | CI's version | Used for |
 | --- | --- | --- |
-| Git, a POSIX shell and GNU Make | | The checkout, `./lofi` and the Makefile. |
+| Git, a POSIX shell and GNU Make | | The checkout, `./snail` and the Makefile. |
 | Chibi Scheme, with its libraries | 0.12 | Running the compiler's source for the first bootstrap, and the build scripts. |
 | Binaryen | 132 | `wasm-as`, `wasm-opt` and `wasm-merge` assemble, optimize and link modules. |
 | Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
-| Node.js | 26 | Running programs under WASI, and `./scripts/lofi-tool serve` and `./scripts/lofi-tool watch`. Node 26's V8 enables JavaScript Promise Integration (JSPI). |
+| Node.js | 26 | Running programs under WASI, and `./scripts/snail-tool serve` and `./scripts/snail-tool watch`. Node 26's V8 enables JavaScript Promise Integration (JSPI). |
 | Emacs | 31 | The Scheme formatter, which `make check` runs and `make test` tests. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |
@@ -176,8 +176,8 @@ From the checkout:
 
 ```sh
 make fetch
-./scripts/lofi-tool run examples/fibonacci.sld
-./scripts/lofi-tool run examples/scheme-fibonacci.sld
+./scripts/snail-tool run examples/fibonacci.sld
+./scripts/snail-tool run examples/scheme-fibonacci.sld
 ```
 
 `make fetch` downloads the Rust crates in each `Cargo.lock` once; builds and
@@ -201,5 +201,5 @@ make test-browser  # hot reload and the IDE in headless Chromium
 
 CI runs the first four, and `cargo fmt --check` on both crates. A change to
 the compiler also needs `make test-chibi` and `make bootstrap`, and a change
-to the browser host or the IDE `make test-browser`. The [tour](book/lofi/compilers.md)
+to the browser host or the IDE `make test-browser`. The [tour](book/snail-core/compilers.md)
 introduces the compiler.

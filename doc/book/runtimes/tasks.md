@@ -1,6 +1,6 @@
 # Task operations
 
-`(lofi task)` exposes the runtime-owned `tasks` control effect:
+`(snail-core task)` exposes the runtime-owned `tasks` control effect:
 
 | Operation | Meaning |
 | --- | --- |
@@ -10,9 +10,9 @@
 
 ```scheme
 (import
- (lofi base)
- (lofi io)
- (lofi task))
+ (snail-core base)
+ (snail-core io)
+ (snail-core task))
 
 (dispatch-local
  (once (lambda ()
@@ -30,7 +30,7 @@ initializer runs.
 `dispatch-local` returns `Unit`, not an actor or an application object.
 Its argument is consumed. There are no mailboxes, request/reply protocols
 or supervisors. The runtime's host API can cancel individual tasks or
-close the runtime; this first Lofi API does not expose task handles.
+close the runtime; this first Snail-Core API does not expose task handles.
 
 ## Effects and locality
 
@@ -59,7 +59,7 @@ does not by itself suspend. The runtime does not preempt a CPU loop.
 Wasm passes the host an opaque owner cell and invocation and discard
 function references. The invocation entry takes and clears that cell
 before executing the thunk. The discard entry clears queued work without
-running it. JavaScript neither inspects the closure nor constructs Lofi
+running it. JavaScript neither inspects the closure nor constructs Snail-Core
 objects. These entries also enforce one-shot use at the trusted host
 boundary.
 

@@ -1,8 +1,8 @@
 (generate-library (legacy characters)
                   (import
-                   (lofi base)
+                   (snail-core base)
                    (scheme compiler))
-                  (scheme->lofi-library
+                  (scheme->snail-core-library
                    (list "legacy" "characters")
                    "(write (list (char-upcase #\\a) (char-downcase #\\A) (char-foldcase #\\A))) (newline)
 (write (list (char-upcase #\\λ) (char-downcase #\\Λ) (char-foldcase #\\Σ))) (newline)
