@@ -9,26 +9,21 @@ const assemble = await createAssembler(await readFile(process.argv[2]));
 const module = await WebAssembly.compile(assemble(`(module
   (import "host" "wait" (func $wait (param i32) (result i32)))
   (import "host" "spawn" (func $spawn (param i32)))
-  (import "host" "record" (func $record (param i32 externref i32)))
-  (global $handler (export "handler.test") (mut externref) (ref.null extern))
+  (import "host" "record" (func $record (param i32 i32)))
   (func $body (export "child") (param $key i32) (result i32)
     (local $result i32)
-    (call $record (local.get $key) (global.get $handler) (i32.const 0))
+    (call $record (local.get $key) (i32.const 0))
     (local.set $result (call $wait (local.get $key)))
-    (call $record (local.get $key) (global.get $handler) (i32.const 1))
+    (call $record (local.get $key) (i32.const 1))
     (local.get $result))
-  (func (export "run") (param $token externref) (param $key i32) (result i32)
-    (global.set $handler (local.get $token))
+  (func (export "run") (param $key i32) (result i32)
     (call $body (local.get $key)))
-  (func (export "parent") (param $token externref) (param $key i32)
-    (global.set $handler (local.get $token))
+  (func (export "parent") (param $key i32)
     (call $spawn (local.get $key)))
-  (func (export "twice") (param $token externref) (param $key i32)
-    (global.set $handler (local.get $token))
+  (func (export "twice") (param $key i32)
     (drop (call $body (local.get $key)))
     (drop (call $body (i32.add (local.get $key) (i32.const 1)))))
-  (func (export "fail") (param $token externref) (param $key i32)
-    (global.set $handler (local.get $token))
+  (func (export "fail") (param $key i32)
     (drop (call $body (local.get $key)))
     (unreachable)))`));
 
@@ -40,8 +35,7 @@ async function until(predicate) {
 async function fixture({abortable = true, discard = null} = {}) {
   let instance;
   const waits = new Map(), records = [], errors = [], cleaned = [];
-  const scheduler = createScheduler({handlerGlobals: () => instance ? [instance.exports['handler.test']] : [],
-                                     reportError: error => errors.push(error)});
+  const scheduler = createScheduler({reportError: error => errors.push(error)});
   const host = {
     wait: new WebAssembly.Suspending(key => scheduler.suspend(signal => {
       const completion = Promise.withResolvers();
@@ -55,28 +49,27 @@ async function fixture({abortable = true, discard = null} = {}) {
       });
     }, discard)),
     spawn: key => scheduler.dispatch(() => WebAssembly.promising(instance.exports.child)(key)),
-    record: (key, token, phase) => records.push([key, token, phase]),
+    record: (key, phase) => records.push([key, phase]),
   };
   instance = await WebAssembly.instantiate(module, {host});
-  const run = (token, key) => scheduler.start(() => WebAssembly.promising(instance.exports.run)(token, key));
+  const run = key => scheduler.start(() => WebAssembly.promising(instance.exports.run)(key));
   return {scheduler, instance, waits, records, errors, cleaned, run,
-          settled() { assert.equal(scheduler.size, 0); assert.equal(instance.exports['handler.test'].value, null); }};
+          settled() { assert.equal(scheduler.size, 0); }};
 }
 
 async function isolation() {
-  const f = await fixture(), a = {}, b = {};
-  const first = f.run(a, 1), second = f.run(b, 2);
+  const f = await fixture();
+  const first = f.run(1), second = f.run(2);
   await until(() => f.waits.size === 2);
-  assert.equal(f.instance.exports['handler.test'].value, null, 'idle globals hold runtime defaults');
   f.waits.get(2).resolve(20); f.waits.get(1).resolve(10);
   assert.deepEqual(await Promise.all([first.done, second.done]), [10, 20]);
-  assert.deepEqual(f.records, [[1, a, 0], [2, b, 0], [2, b, 1], [1, a, 1]]);
+  assert.deepEqual(f.records, [[1, 0], [2, 0], [2, 1], [1, 1]]);
   await f.scheduler.drain(); f.settled();
 }
 
 async function detachedChild() {
-  const f = await fixture(), token = {};
-  const parent = f.scheduler.start(() => WebAssembly.promising(f.instance.exports.parent)(token, 3));
+  const f = await fixture();
+  const parent = f.scheduler.start(() => WebAssembly.promising(f.instance.exports.parent)(3));
   await parent.done;
   await until(() => f.waits.has(3));
   assert.equal(f.scheduler.size, 1, 'parent completion does not remove its child');
@@ -84,7 +77,7 @@ async function detachedChild() {
   const drain = f.scheduler.drain().then(() => { exhausted = true; });
   await turn(); assert.equal(exhausted, false);
   f.waits.get(3).resolve(30); await drain;
-  assert.deepEqual(f.records, [[3, token, 0], [3, token, 1]], 'ordinary bindings survive parent return');
+  assert.deepEqual(f.records, [[3, 0], [3, 1]], 'a detached child records after its parent returns');
   f.settled();
 }
 
@@ -95,13 +88,13 @@ async function cancellation() {
   queued.cancel(); queued.cancel();
   await assert.rejects(queued.done, {name: 'AbortError'});
   assert.equal(dropped, 1);
-  const waiting = f.run({}, 4);
+  const waiting = f.run(4);
   await until(() => f.waits.has(4));
   waiting.cancel();
   await assert.rejects(waiting.done, {name: 'AbortError'});
   assert.deepEqual(f.cleaned, [4]);
   assert.equal(f.records.length, 1, 'cancelled continuation unwinds without running its next instruction');
-  const ready = f.run({}, 5);
+  const ready = f.run(5);
   await until(() => f.waits.has(5));
   const held = Promise.withResolvers();
   const blocker = f.scheduler.start(() => held.promise);
@@ -112,7 +105,7 @@ async function cancellation() {
   await assert.rejects(ready.done, {name: 'AbortError'});
   assert.equal(f.records.filter(([key]) => key === 5).length, 1);
   assert.deepEqual(discarded, [50], 'cancellation disposes the queued result exactly once');
-  const closing = f.run({}, 9);
+  const closing = f.run(9);
   await until(() => f.waits.has(9));
   const heldOnClose = Promise.withResolvers();
   const blockerOnClose = f.scheduler.start(() => heldOnClose.promise);
@@ -132,7 +125,7 @@ async function cancellation() {
 
 async function cleanupBeforeCompletion() {
   const discarded = [], f = await fixture({abortable: false, discard: value => discarded.push(value)});
-  const task = f.run({}, 6);
+  const task = f.run(6);
   await until(() => f.waits.has(6));
   task.cancel();
   await turn();
@@ -146,15 +139,15 @@ async function cleanupBeforeCompletion() {
 }
 
 async function failure() {
-  const f = await fixture(), goodToken = {};
-  const bad = f.scheduler.dispatch(() => WebAssembly.promising(f.instance.exports.fail)({}, 7));
-  const good = f.run(goodToken, 8);
+  const f = await fixture();
+  const bad = f.scheduler.dispatch(() => WebAssembly.promising(f.instance.exports.fail)(7));
+  const good = f.run(8);
   await until(() => f.waits.size === 2);
   f.waits.get(7).resolve(70); f.waits.get(8).resolve(80);
   await assert.rejects(bad.done, WebAssembly.RuntimeError);
   assert.equal(await good.done, 80);
   assert.equal(f.errors.length, 1);
-  assert.deepEqual(f.records.at(-1), [8, goodToken, 1]);
+  assert.deepEqual(f.records.at(-1), [8, 1]);
   const undefinedFailure = f.scheduler.start(() => f.scheduler.suspend(() => { throw undefined; }));
   assert.deepEqual(await Promise.allSettled([undefinedFailure.done]), [{status: 'rejected', reason: undefined}]);
   f.settled();
@@ -187,8 +180,8 @@ async function failedDiscard() {
 async function failedResultDiscard() {
   const disposed = [], failure = new Error('result disposal failed'), operationFailure = new Error('operation failed');
   const f = await fixture({abortable: false, discard: value => { disposed.push(value); throw failure; }});
-  const bad = f.scheduler.dispatch(() => WebAssembly.promising(f.instance.exports.run)({}, 7));
-  const token = {}, good = f.run(token, 8), rejected = f.run({}, 9);
+  const bad = f.scheduler.dispatch(() => WebAssembly.promising(f.instance.exports.run)(7));
+  const good = f.run(8), rejected = f.run(9);
   await until(() => f.waits.size === 3);
   bad.cancel();
   f.waits.get(7).resolve(70); f.waits.get(8).resolve(80); f.waits.get(9).reject(operationFailure);
@@ -197,35 +190,19 @@ async function failedResultDiscard() {
   await assert.rejects(rejected.done, error => error === operationFailure);
   assert.deepEqual(disposed, [70], 'delivered results and operation failures do not call the disposer');
   assert.deepEqual(f.errors, [failure], 'a disposal failure reports once after the parked stack unwinds');
-  assert.deepEqual(f.records.filter(([key]) => key === 7).map(([, , phase]) => phase), [0]);
-  assert.deepEqual(f.records.at(-1), [8, token, 1]);
+  assert.deepEqual(f.records.filter(([key]) => key === 7).map(([, phase]) => phase), [0]);
+  assert.deepEqual(f.records.at(-1), [8, 1]);
   await f.scheduler.drain(); f.settled();
 }
 
 async function repeatedSuspension() {
-  const f = await fixture(), token = {};
-  const task = f.scheduler.start(() => WebAssembly.promising(f.instance.exports.twice)(token, 10));
+  const f = await fixture();
+  const task = f.scheduler.start(() => WebAssembly.promising(f.instance.exports.twice)(10));
   await until(() => f.waits.has(10)); f.waits.get(10).resolve(100);
   await until(() => f.waits.has(11)); task.cancel();
   await assert.rejects(task.done, {name: 'AbortError'});
-  assert.deepEqual(f.records, [[10, token, 0], [10, token, 1], [11, token, 0]]);
+  assert.deepEqual(f.records, [[10, 0], [10, 1], [11, 0]]);
   assert.deepEqual(f.cleaned, [10, 11]); f.settled();
-}
-
-async function lateHandlers() {
-  const globals = [], token = {}, observed = [];
-  const scheduler = createScheduler({handlerGlobals: () => globals});
-  const parent = scheduler.start(() => {
-    const global = new WebAssembly.Global({value: 'externref', mutable: true}, token);
-    globals.push(global);
-    scheduler.dispatch(async () => {
-      observed.push(global.value);
-      await scheduler.suspend(signal => delay(signal));
-      observed.push(global.value);
-    });
-  });
-  await parent.done; await scheduler.drain();
-  assert.deepEqual(observed, [token, token]); assert.equal(globals[0].value, null);
 }
 
 await isolation();
@@ -237,5 +214,4 @@ await fairness();
 await failedDiscard();
 await failedResultDiscard();
 await repeatedSuspension();
-await lateHandlers();
-console.log('tasks: JSPI bindings, exhaustion, cancellation, cleanup and fairness');
+console.log('tasks: JSPI permits, exhaustion, cancellation, cleanup and fairness');

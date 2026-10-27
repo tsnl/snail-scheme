@@ -5,7 +5,8 @@ import {dirname, resolve} from 'node:path';
 import {createWasi, instantiate, linkProgram, runProgram} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]), work = [], lines = [];
-const host = {'snail.tasks': {dispatch: (run, drop, owner) => work.push({run, drop, owner})}};
+// The host receives the evidence of each dispatch and hands it back to the work.
+const host = {'snail.tasks': {dispatch: (run, drop, owner, evidence) => work.push({run, drop, owner, evidence})}};
 const wasi = createWasi({print: (_, line) => lines.push(line)});
 if (path.endsWith('.json')) {
   const program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, host);
@@ -15,9 +16,9 @@ if (path.endsWith('.json')) {
   wasi.initialize(instance); instance.exports.main();
 }
 assert.equal(work.length, 2);
-await WebAssembly.promising(work[0].run)(work[0].owner);
-await assert.rejects(WebAssembly.promising(work[0].run)(work[0].owner), WebAssembly.RuntimeError);
+await WebAssembly.promising(work[0].run)(work[0].owner, work[0].evidence);
+await assert.rejects(WebAssembly.promising(work[0].run)(work[0].owner, work[0].evidence), WebAssembly.RuntimeError);
 work[1].drop(work[1].owner);
-await assert.rejects(WebAssembly.promising(work[1].run)(work[1].owner), WebAssembly.RuntimeError);
+await assert.rejects(WebAssembly.promising(work[1].run)(work[1].owner, work[1].evidence), WebAssembly.RuntimeError);
 assert.deepEqual(lines, ['ran']);
 console.log('task boundary: invocation and cancellation clear owned work');

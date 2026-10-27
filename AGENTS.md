@@ -46,8 +46,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   is how tasks become effects — and the ownership checker proves it is called
   at most once. Multi-shot continuations are out of scope, since
   they require every frame to be reachable twice and would be paid for by code
-  that never captures one. Today's lowering is still a global handler stack
-  linked through `outer` (`src/snail-core/compiler/wasm.sld:1259`).
+  that never captures one. The lowering is evidence passing today: every
+  function takes `$ev`, the handlers in scope, as its first parameter, and
+  `handle` extends it for its body (`src/snail-core/compiler/wasm.sld`,
+  "Effect handlers"). One-shot `resume` is the next step.
 - Parse, don't validate: turn syntax and external data into structured values
   whose construction establishes the required invariants. Carry that evidence
   forward instead of returning a Boolean and repeatedly checking the same raw

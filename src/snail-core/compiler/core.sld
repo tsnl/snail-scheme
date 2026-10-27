@@ -143,6 +143,7 @@
    fnv-offset
    fnv-step
    fnv-1a
+   type-id
    case-type-id
    any-type-id
    wire-schemas
