@@ -275,11 +275,11 @@
     ;; nothing, so nothing is replayed.
     (: empty-expansion ExpandedProgram)
     (define empty-expansion
-      (ExpandedProgram base-program empty-table 0 0 empty-table))
+      (ExpandedProgram empty-program empty-table 0 0 empty-table))
 
     (: new-context (-> (List String) (-> (List String) (List Syntax) Bytes ! mut fs) Inputs ArtifactSource ExpandedProgram Context ! mut))
     (define (new-context directories generate inputs artifacts predecessor)
-      (Context (ref base-program)
+      (Context (ref empty-program)
                (ref empty-table)
                (ExpandedProgram-libraries predecessor)
                directories
@@ -327,13 +327,16 @@
         ((Some env) env)
         ((None) (panic "internal error: unknown scope"))))
 
-    ;; ---- Builtin libraries ----
+    ;; ---- The core library ----
 
+    ;; (snail-core core) is the one library without a file: the core forms,
+    ;; the builtin types and the effects the compiler itself performs. Every
+    ;; other library, (snail-core primitive) among them, is a file.
     (: core-keywords (List String))
     (define core-keywords
       (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type"
-            "typeclass" "instance" "match" "ann" "extern" "effect" "handle" "expose" "case-id" "type-convert" "type-test" "artifact-files"
-            "link-file"))
+            "typeclass" "instance" "match" "ann" "extern" "primitive" "effect" "handle" "expose" "case-id" "type-convert" "type-test"
+            "artifact-files" "link-file"))
 
     (: core-library (-> Exports))
     (define (core-library)
@@ -342,11 +345,9 @@
                            builtin-types)
                       (list (Pair "mut" (EffectName "mut")) (Pair "tasks" (EffectName "tasks"))))))
 
-    ;; (snail-core primitive) exports each primitive under its own name; their
-    ;; values are in the program every build starts from.
-    (: primitive-library Exports)
-    (define primitive-library
-      (map (lambda (entry) (Pair (Pair-first entry) (Global (primitive-global (Pair-first entry))))) (primitives)))
+    (: builtin-library? (-> String Bool))
+    (define (builtin-library? key)
+      (string=? key "snail-core.core"))
 
     ;; ---- Libraries ----
 
@@ -369,13 +370,12 @@
         (compile-error loc "library name does not match its path")))
 
     ;; A library's exports, resolved when an import asks: the compiler's own
-    ;; for (snail-core core) and (snail-core primitive), else the library as this build
-    ;; expanded it, which happens once.
+    ;; for (snail-core core), else the library as this build expanded it,
+    ;; which happens once.
     (: load-library (-> Context (List String) Loc Exports ! mut fs))
     (define (load-library cx name loc)
       (let ((key (string-join name ".")))
-        (cond ((string=? key "snail-core.core") (core-library))
-              ((string=? key "snail-core.primitive") primitive-library)
+        (cond ((builtin-library? key) (core-library))
               ((member? key (Context-loading cx)) (compile-error loc (string-append "library import cycle through " key)))
               (else (match (table-ref (ref-get (Context-expanded cx)) key)
                       ((Some entry) (Expanded-exports entry))
@@ -612,13 +612,16 @@
 
     ;; The body's items follow those of the library's imports, and the
     ;; program records how many it added, so its items divide back into
-    ;; libraries.
+    ;; libraries. The primitive library's body is its declarations, which
+    ;; add no items, so it records no run and has no module.
     (: expand-library-body (-> Context (List (Pair String (List Syntax))) Env Exports ! mut fs))
     (define (expand-library-body cx sections env)
-      (let ((before (length (program-items (program cx)))))
-        (expand-top-level cx env (section-items sections "begin"))
-        (add-library! (Context-program cx) (Context-prefix cx) (- (length (program-items (program cx))) before))
-        (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export"))))
+      (if (primitive-library? cx)
+          (for-each (lambda (form) (declare-primitive! cx env form)) (section-items sections "begin"))
+          (let ((before (length (program-items (program cx)))))
+            (expand-top-level cx env (section-items sections "begin"))
+            (add-library! (Context-program cx) (Context-prefix cx) (- (length (program-items (program cx))) before))))
+      (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export")))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -733,8 +736,8 @@
         ((Some path) (walk-library walk loading name (Loc path 1 1)))
         ((None) walk)))
 
-    ;; The checks are `load-library`'s, in its order: the compiler's own
-    ;; libraries have no file, and a library already loading is a cycle.
+    ;; The checks are `load-library`'s, in its order: (snail-core core) has
+    ;; no file, and a library already loading is a cycle.
     (: walk-library (-> Walk (List String) (List String) Loc Walk ! fs))
     (define (walk-library walk loading name loc)
       (let ((key (string-join name ".")))
@@ -756,17 +759,13 @@
 
     ;; A library's file as a walk reads it: as `read-library` does, except
     ;; that the files a defined library includes are not read, since they
-    ;; cannot name a library. The compiler's own libraries need nothing.
+    ;; cannot name a library. (snail-core core) needs nothing.
     (: library-file (-> (List String) (List String) Loc LibraryFile ! fs))
     (define (library-file directories name loc)
       (if (builtin-library? (string-join name "."))
           (DefinedLibrary (Nil))
           (let ((path (library-path directories name loc)))
             (file-library name (read-text (read-file path) path) path))))
-
-    (: builtin-library? (-> String Bool))
-    (define (builtin-library? key)
-      (or (string=? key "snail-core.core") (string=? key "snail-core.primitive")))
 
     ;; ---- Discovering artifact uses ----
 
@@ -839,10 +838,17 @@
                               (string-append key stamp)
                               (string-append (interface-hash cx sections) stamp)
                               exports
-                              (program-delta (program cx) (Context-prefix cx))
+                              (library-delta cx)
                               uses
                               links))
         exports))
+
+    ;; What the library added, which a later build replays.
+    (: library-delta (-> Context Program ! mut))
+    (define (library-delta cx)
+      (if (primitive-library? cx)
+          (primitive-delta (program cx))
+          (program-delta (program cx) (Context-prefix cx))))
 
     (: record! (-> Context Expanded Unit ! mut))
     (define (record! cx entry)
@@ -1046,6 +1052,7 @@
         (match (head-binding cx env form)
           ((Some (Core "begin")) (concatenate (map (lambda (item) (scan-top-level cx env item)) (form-tail form))))
           ((Some (Core "define-syntax")) (define-top-macro! cx env form) (Nil))
+          ((Some (Core "primitive")) (compile-error (syntax-loc form) "primitives are declared only in (snail-core primitive)"))
           ((Some (Core "define"))
            (let ((ident (definition-name form)))
              (bind-top! env ident (Global (unique-name cx ident)))
@@ -1529,6 +1536,29 @@
                   (_ (compile-error (syntax-loc operation) "expected (operation \"symbol\")"))))
               (form-items operations "a list of host operations")))
         (_ (compile-error (syntax-loc syntax) "expected (host \"module\" ((operation \"symbol\") ...))"))))
+
+    ;; ---- Primitives ----
+
+    ;; (snail-core primitive) is a library file like any other, whose body
+    ;; holds only primitive declarations. `(primitive name type)` declares an
+    ;; operation the backend implements, as `extern` declares a foreign
+    ;; function: it binds `name` to the global `prim:name`, the name the
+    ;; checker, mono and `emit-primitive` know it by, and the value there is
+    ;; a Primitive of the type's scheme. Elsewhere the form is an error.
+    (: primitive-library? (-> Context Bool))
+    (define (primitive-library? cx)
+      (string=? (Context-prefix cx) "snail-core.primitive"))
+
+    (: declare-primitive! (-> Context Env Syntax Unit ! mut))
+    (define (declare-primitive! cx env form)
+      (unless (core-form? cx env form "primitive")
+        (compile-error (syntax-loc form) "(snail-core primitive) holds only primitive declarations"))
+      (match form
+        ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
+         (let ((global (primitive-global (Ident-name (expect-ident name "a primitive name")))))
+           (bind-top! env name (Global global))
+           (add-value! (Context-program cx) global (Primitive (resolve-scheme cx env type)))))
+        (_ (compile-error (syntax-loc form) "expected (primitive name type)"))))
 
     ;; ---- Types ----
 
@@ -2224,15 +2254,16 @@
       ;; where a producer's imports lead back to the library it makes.
       ;; Discovery finds the uses expansion reaches, in program order, one
       ;; of them in a supplied output, and not one only an unused macro
-      ;; names. The sources are written into `directory`; `library` holds
-      ;; the standard libraries.
+      ;; names. The primitive library is read from its file. The sources are
+      ;; written into `directory`; `library` holds the standard libraries.
       (define (test-expand directory library)
         (write-sources directory)
         (let ((walk (list (string-append directory "/walk") library)) (discover (string-append directory "/discover")))
           (test-library-file walk)
           (test-library-closure walk)
           (test-discovery (list discover library) discover)
-          (test-links (string-append directory "/links"))))
+          (test-links (string-append directory "/links"))
+          (test-primitives (string-append directory "/primitive") library)))
 
       (define (test-library-file directories)
         (let ((loc (Loc "test.sld" 1 1)))
@@ -2303,6 +2334,26 @@
                            (substring message (+ (string-cursor->index message start) 2) (string-length message)))))
           (link-expansion root (string-append "(import (snail-core core)) (link-file \"" path "\")"))
           "accepted"))
+
+      ;; Loading (snail-core primitive) binds each primitive's value under
+      ;; `prim:NAME`, quantified over the variables its declaration names, in
+      ;; their order, and records no run of items, since the library has no
+      ;; module.
+      (define (test-primitives root library)
+        (create-directory* root)
+        (write-file (string-append root "/main.sld") "(import (snail-core primitive)) (unit)")
+        (let ((program (ExpandedProgram-program (expand-program (list root library) (lambda (loading forms) (panic "unexpected producer"))
+                                                                no-inputs (string-append root "/main.sld") empty-expansion))))
+          (expect (primitive-scheme program "vector-ref") (list (list "A") "(-> (Vector A) I64 A)"))
+          (expect (primitive-scheme program "vector-generate") (list (list "A" "e") "(-> I64 (-> I64 A ! e) (Vector A) ! e)"))
+          (expect (primitive-scheme program "ref-get") (list (list "A") "(-> (Ref A) A ! mut)"))
+          (expect (primitive-scheme program "dispatch-local") (list (list "e") "(-> (Once (-> Unit ! e)) Unit ! tasks e)"))
+          (expect (map Pair-first (library-items program (program-items program))) (list "main"))))
+
+      (define (primitive-scheme program name)
+        (match (program-value program (string-append "prim:" name))
+          ((Some (Primitive scheme)) (list (Scheme-vars scheme) (type->string (Scheme-type scheme))))
+          (_ (list))))
 
       (define assets-output
         (string-append "(define-library (sample assets) (export admin-bundle) (import (snail-core base) (snail-core artifact)) "
