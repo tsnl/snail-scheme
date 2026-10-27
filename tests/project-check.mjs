@@ -77,12 +77,20 @@ try {
   };
   syncBuiltinESMExports();
   try {
-    assert.throws(() => builder.check(builder.describe()), /missing-function/);
+    // Checking finds a type error once every dependency is built.
+    write('server.sld', `${server}\n(ann "wrong type" I64)`);
+    assert.throws(() => builder.check(builder.describe()), /expected I64, found String/);
     write('server.sld', server);
     assert.throws(() => builder.check(builder.describe()), /injected generation cleanup failure/);
+    assert.equal(attempts, 4, 'cleanup attempts every dependency, preserving an earlier source failure');
+    // Planning meets an unbound name as soon as the producer has run, so
+    // only client, which the producer embeds, was built: admin, which its
+    // output embeds, never was.
+    write('server.sld', `${server}\n(missing-function)`);
+    assert.throws(() => builder.check(builder.describe()), /missing-function/);
+    assert.equal(attempts, 5, 'an expansion error builds only what planning waited on');
   }
   finally { fs.rmSync = remove; syncBuiltinESMExports(); }
-  assert.equal(attempts, 4, 'cleanup attempts every dependency, preserving an earlier source failure');
   for (const name of inventory()) if (!before.includes(name)) fs.rmSync(join(project, 'build', name), {recursive: true});
 
   write('server.sld', server);

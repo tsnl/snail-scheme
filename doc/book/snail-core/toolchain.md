@@ -40,7 +40,7 @@ does not invent specializations for unused generic definitions.
 
 Generated-library producers execute normally. An artifact reference requires a
 real temporary build, including browser packaging, even if that target's code
-was checked earlier. The same traversal detects cycles through checked roots.
+was checked earlier. The same plan detects cycles through checked roots.
 All temporary artifact generations are discarded when checking ends, including
 on failure; check never publishes them. A root-only check creates no project
 output directory. Artifact dependencies can leave an empty `build` directory.
@@ -79,7 +79,7 @@ resident service. A cold command owns its compiler directly. Development uses
 one persistent compiler worker so synchronous compilation and tool IO cannot
 block the HTTP service or disk observation. The worker retains a successful
 compiler Session per target; changing its entry or ordered library roots starts
-a new Session. Producers run again each attempt. The
+a new Session. Producers run again each attempt, once each. The
 [compiler chapter](compilers.md#separate-compilation) explains reuse: a change
 to a monomorphic function body recompiles its library; an interface change also
 recompiles importers. A cold start has no retained compiler cache.

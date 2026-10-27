@@ -126,24 +126,30 @@ records with relative `path` and immutable `bytes`. `artifact-ref` returns
 transport policy belong to serving code. No special backend representation or
 runtime artifact service is involved.
 
-Requests arise during expression expansion, including macro uses, generated
-libraries and compilation of their producers. An unused macro template makes
-no request. Constructor names retain their definition scope, so importing only
+Uses arise during expression expansion, including macro uses, generated
+libraries and the programs of their producers. An unused macro template makes
+no use. Constructor names retain their definition scope, so importing only
 the macro, renaming it or shadowing constructors does not change its meaning.
 
-The builder discovers dependencies from these requests. It traverses serially,
-reuses completed targets within one invocation and reports an active target as
-a cycle, such as `client -> admin -> client`. Missing or non-browser targets
-fail at the requesting source point. There is no source scanner or second
-dependency graph. Standalone source commands and the older development loop
-cannot resolve project artifacts.
+The compiler plans a build before running any of it
+(`src/snail-core/compiler/plan.sld`): a walk of each program's import closure
+finds the producers it needs, and a discovery expansion, the expander itself
+supplied no files, finds the targets it embeds. There is no source scanner
+that a macro could hide a use from. Each target is built once per invocation,
+before the first phase that embeds it, and a cycle, such as
+`client -> admin -> client`, fails before any phase runs. Generated syntax can
+embed a target that only its producer's output names, so a phase that waits
+for a producer is planned again once the producer has run, and a cycle it
+closes fails then, before anything after it runs. Missing or non-browser
+targets fail at the using source point. Standalone source commands and the
+older development loop cannot resolve project artifacts.
 
 Packaging and enumeration finish before a generation can supply an artifact.
 The inventory contains canonical relative paths sorted by path, including hidden
 and nested files but excluding the root `.snail-target` marker. Unreadable
 directories, symlinks and nonregular entries are rejected. Inventories name files
 in the completed generation directly, never through the replaceable public link.
-Repeated requests therefore use the same bytes throughout one invocation.
+Repeated uses therefore see the same bytes throughout one invocation.
 
 The compiler takes immutable snapshots of those bytes. Its
 [input and cache boundary](compilers.md#compiler-inputs) compares exact evidence

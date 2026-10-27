@@ -39,7 +39,8 @@
    Plan-order
    plan-build
    refine-plan
-   next-phases)
+   next-phases
+   phases-left?)
   (import
    (snail-core base)
    (snail-core table)
@@ -149,6 +150,12 @@
         (Pair (map (lambda (node) (Pair node (Step-phase (vector-ref steps node)))) ready)
               (Plan-steps-set plan (fold-left (lambda (steps node) (vector-set steps node (Step-emitted-set (vector-ref steps node) #t)))
                                               steps ready)))))
+
+    ;; Whether a later wave has phases to hand out, once the producers this
+    ;; one ran have refined the plan.
+    (: phases-left? (-> Plan Bool))
+    (define (phases-left? plan)
+      (any? (lambda (step) (not (Step-emitted step))) (vector->list (Plan-steps plan))))
 
     (: ready-nodes (-> (Vector Step) (List I64) (List I64)))
     (define (ready-nodes steps order)
@@ -485,11 +492,13 @@
           (expect (Step-needs (vector-ref (Plan-steps cold) 0)) (Waiting (list 1) (list 1)))
           (expect (Plan-order cold) (list 2 1 0))
           (expect (wave-names (Pair-first wave)) (list "build client" "produce generated.assets"))
+          (expect (phases-left? (Pair-second wave)) #t)
           (expect (first-line (read-file (Producer-source producer))) "(generating \"generated.assets\")")
           (expect (step-names warm) (list "build server" "produce generated.assets" "build client" "build admin"))
           (expect (Step-needs (vector-ref (Plan-steps warm) 0)) (Known (list 1 3 2)))
           (expect (Plan-order warm) (list 2 1 3 0))
           (expect (wave-names (Pair-first next)) (list "build admin" "build server"))
+          (expect (phases-left? (Pair-second next)) #f)
           (expect (Pair-first (next-phases (Pair-second next))) (list))))
 
       (define (test-check targets scratch)

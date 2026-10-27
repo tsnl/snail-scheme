@@ -153,8 +153,9 @@ the `Ref` is allocated by the pass and never escapes it.
   client`, with any producers on the way. A phase whose closure reaches a
   producer that has not run waits: `next-phases` hands out the steps of the
   order up to the first that waits, and `refine-plan` learns what the waiting
-  steps need once those producers' outputs are supplied. The caller resolves
-  the project's targets; the native builder does not plan yet.
+  steps need once those producers' outputs are supplied. `bootstrap/compiler.sld`
+  resolves the project's targets, and the native builder runs the plan wave by
+  wave.
 - **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text, or to one module's text per library.
 
@@ -282,10 +283,11 @@ key and requests it. `add_generated` in `bootstrap/compiler.sld` reads a
 printed producer back, checks that it has the key it was printed under, and
 adds the output it wrote.
 
-The project implementation owns target lookup, browser-kind checking,
-serial traversal and cycle detection. A missing input records a typed request
-and aborts the invocation. The native builder obtains the request only after
-the compiler stack has unwound.
+The planner owns target lookup, browser-kind checking, ordering and cycle
+detection; the native builder runs the phases it hands out. A missing input
+records a typed request and aborts the invocation. The Chibi driver services
+the request after the compiler stack has unwound; the native builder, whose
+compiles the plan has already supplied, never does.
 
 Each library's expansion records its direct requests and the exact file values
 embedded. Ordinary source/import eligibility is checked before replaying those
@@ -304,9 +306,9 @@ publish no replacement session. This keeps bundle bytes out of string keys
 without trusting a content checksum.
 
 Generated syntax is obtained before deciding whether to replay its library.
-The native project builder uses the same target traversal while compiling
-producer programs. Persistent producer caching remains separate work; current
-producer output lasts only for its enclosing compile.
+The native project builder runs each producer once per build, as a phase of its
+plan, and its output serves every later compile of that build. Persistent
+producer caching remains separate work.
 
 A producer is compiled as a program of its own while the library it generates
 is still loading, so the expander's stack of loading libraries crosses into
@@ -355,35 +357,47 @@ diagnostics. Standalone builds have no artifact resolver or reply accumulation.
 The resident compiler returns the pending request in `CompilerFailure.request`;
 no request file is written or parsed. Each invocation clears pending request and
 diagnostic state before work. Trusted exits preserve the instance but return no
-successor Session. Both cold project builds and `dev` use this boundary.
+successor Session. Cold project builds and `dev` use this boundary, but never
+retry: `host/native/project.mjs` plans the build first, so a request from one of
+its compiles names an input the plan missed, and is an internal error.
 
-Only `host/native/project.mjs` resolves named browser targets, including during
-producer compilation. It passes each completed target's canonical file inventory
-to `addArtifact`, which reads the bytes once and returns opaque immutable
-inputs. A failed read returns no replacement; the preceding inputs remain
-usable. There is no artifact reply manifest or second parsing step.
+The builder passes each completed target's canonical file inventory to
+`addArtifact` before the first phase that embeds it, and each producer's output
+to `addGenerated` once the producer has run. Each reads the bytes once and
+returns opaque immutable inputs. A failed read returns no replacement; the
+preceding inputs remain usable. There is no artifact reply manifest or second
+parsing step.
 
-Each logical compilation retains its table through retries and passes it to
-`check`, `static` or `modules`. Nested producers own separate inputs and scratch while
-sharing the builder's active/completed target traversal. These opaque values
-belong to their originating compiler instance, like Sessions. Successful
-Sessions retain only the per-library evidence already used for cache reuse.
+One table serves every phase of a build, and is passed to each `check`,
+`static`, `modules` and `refine` call. These opaque values belong to their
+originating compiler instance, like Sessions and Plans. Successful Sessions
+retain only the per-library evidence already used for cache reuse.
 Applications embed the bytes and need no runtime file access.
 
 ## Resident compiler boundary
 
 `bootstrap/compiler.sld` exposes this compiler to a resident native caller.
-`host/native/compiler.mjs` owns one Wasm instance and returns parsed project and
-input-request records, static text, or modular text with a successor Session.
-JavaScript retains Sessions and immutable build inputs as opaque typed
-references; it cannot inspect them and must keep them with their originating compiler
+`host/native/compiler.mjs` owns one Wasm instance and returns parsed project,
+plan-phase and input-request records, static text, or modular text with a
+successor Session. JavaScript retains Sessions, Plans and immutable build
+inputs as opaque typed references; it cannot inspect them and must keep them with their originating compiler
 instance. Each operation consumes its staged arguments
 before doing work, and projected records become visible only on success.
 Module text crosses directly through the runtime's existing String staging
 buffer, alongside the other record fields; no temporary WAT files stand between
 the resident compiler and assembler. The host copies each field synchronously
 before another call can reuse the buffer. Generated-library scratch remains
-private to its compilation.
+private to its build.
+
+`plan` takes the project's directory, the standard libraries' directory, the
+scratch directory producers are printed into, `build` or `check`, and the
+roots' names; `refine` takes the plan back with the build's current inputs.
+Each returns an opaque Plan and the wave that can run now, in order: records
+`produce INDEX KEY SOURCE`, `build INDEX NAME ENTRY` and `check INDEX NAME ENTRY`,
+each followed by its library directories and the targets whose files it embeds,
+then `waiting` if the plan goes on once this wave's producers have run. A
+phase is compiled with the directories its record names, the same ones the
+planner keyed its producers under.
 
 Each native call starts with empty diagnostic storage. The trusted compiler's
 code-1 diagnostic exits follow resource cleanup and allow another call with
@@ -396,13 +410,13 @@ storage is terminal too: the worker cannot reuse a retired compiler.
 This explicitly unsafe bridge avoids adding an abort effect to every compiler
 pass; it does not prove the mutation pure. The serial native caller resets the
 request and diagnostic cells before entry, then takes and projects each after a
-trusted exit, before compiling a producer. Reset/projection traps retire
+trusted exit, before any other native work. Reset/projection traps retire
 the instance too. Module initialization precedes the first reset.
 
 Native failures carry `{severity, message, source}`; `source` is null or
 `{file, line, column}`. Lines and Unicode scalar columns start at one. IO and
 producer-input requests have no source record; internal no-location sentinels
-are unlocated. An artifact wrapper preserves a failing child's origin. Printed
+are unlocated. A failing dependency reports its own origin. Printed
 producer programs report their actual scratch source, while decoded generated
 syntax retains the recipe location already established by expansion. No source
 mapping is invented. CLI panic text is unchanged, and the compiler still stops
@@ -425,7 +439,7 @@ discards the IR. It returns no emitted code or publishable candidate.
 | `host/native/run-snail.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading and the task scheduler. JSPI stacks remain finite. |
 | `src/`, `host/chibi/snail-core/`, `bootstrap/chibi-include/` | Every library that ships with the language, the compiler among them, and the separate stage-0 implementations of the three it imports. Stage 0's only search root is `bootstrap/chibi-include/`, one symlink per library the compiler reaches. |
 
-Project traversal and publication belong to the [project builder](projects.md),
+Running project build plans and publication belong to the [project builder](projects.md),
 watching and editor services to the [development toolchain](toolchain.md), and
 suspension/resource ownership to the [runtime](../runtimes/index.md).
 
