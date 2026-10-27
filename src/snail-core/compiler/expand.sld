@@ -777,7 +777,7 @@
         ((Form (Cons _ (Cons name (Cons _ (Nil)))) _) (expect-ident name "a definition name"))
         (_ (compile-error (syntax-loc form) "expected (define name value) or (define (name parameter ...) body ...)"))))
 
-    (: declare! (-> Context (Table (Pair Scheme Loc)) Pending (List (-> Unit ! mut)) ! mut))
+    (: declare! (-> Context (Table (Pair Scheme (Option Loc))) Pending (List (-> Unit ! mut)) ! mut))
     (define (declare! cx signatures pending)
       (let ((form (Pending-form pending)) (env (Pending-env pending)))
         (case (Pending-keyword pending)
@@ -803,11 +803,11 @@
            (_ (compile-error (syntax-loc name) (string-append "only a top-level function can be exposed: " (Ident-name name))))))
         (_ (compile-error (syntax-loc form) "expected (expose name \"symbol\")"))))
 
-    (: define-top-level! (-> Context (Table (Pair Scheme Loc)) Env Syntax Unit ! mut))
+    (: define-top-level! (-> Context (Table (Pair Scheme (Option Loc))) Env Syntax Unit ! mut))
     (define (define-top-level! cx signatures env form)
       (let ((name (global-binding cx env (definition-name form))))
         (add-value! (Context-program cx) name (match (table-ref signatures name)
-                                                ((Some (Pair scheme loc)) (Defined (Some scheme) (Some loc)))
+                                                ((Some (Pair scheme loc)) (Defined (Some scheme) loc))
                                                 ((None) (Defined (None) (None)))))
         (add-item! (Context-program cx) (Define name (definition-value cx env form)))))
 
@@ -1021,14 +1021,19 @@
                                     (Replacer case index (Scheme params (Nil) (TFun (list self type) self empty-row)))))))
                   (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
-    ;; The signatures with the one a `(: name type)` declares, and where.
-    (: with-signature (-> Context (Table (Pair Scheme Loc)) Pending (Table (Pair Scheme Loc)) ! mut))
+    ;; The signatures with the one a `(: name type)` declares, and where it
+    ;; was written. A signature a macro wrote has no place of its own: its
+    ;; row is a contract for every expansion, as a class method's is for
+    ;; every instance, so no one expansion's body is held to it.
+    (: with-signature (-> Context (Table (Pair Scheme (Option Loc))) Pending (Table (Pair Scheme (Option Loc))) ! mut))
     (define (with-signature cx signatures pending)
       (if (string=? (Pending-keyword pending) ":")
           (match (Pending-form pending)
             ((Form (Cons _ (Cons name (Cons type (Nil)))) loc)
              (match (resolve cx (Pending-env pending) (expect-ident name "a name"))
-               ((Some (Global global)) (table-set signatures global (Pair (resolve-scheme cx (Pending-env pending) type) loc)))
+               ((Some (Global global))
+                (table-set signatures global (Pair (resolve-scheme cx (Pending-env pending) type)
+                                                   (match name ((Ident _ (None) _) (Some loc)) (_ (None))))))
                (_ (compile-error (syntax-loc name) (string-append "signature names an undefined top-level definition: "
                                                                   (Ident-name name))))))
             (form (compile-error (syntax-loc form) "expected (: name type)")))

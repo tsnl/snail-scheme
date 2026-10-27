@@ -147,8 +147,10 @@ definition whose signature names an effect, or a tail variable such as `e`,
 that no call in its body performs is an error at the signature, so
 `(: double (-> I64 I64 ! mut))` over a body that never mutates is rejected.
 An instance method keeps its class method's row, which one instance may need
-less of than another, and `extern` declarations, class method signatures and
-definitions whose value is not a lambda have no body to compare.
+less of than another, as a signature a macro writes, such as
+`define-application`'s, is a contract for every expansion; `extern`
+declarations, class method signatures and definitions whose value is not a
+lambda have no body to compare.
 A handler removes its effect. Handler
 implementations return to the operation's caller exactly once, and they run
 in the handler's outer context, so an operation they perform goes to the
