@@ -6,8 +6,8 @@ can be reused. These grades belong to types, not to individual bindings.
 
 ```scheme
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (: greeting (-> String (Once (-> Unit ! console))))
 (define (greeting name)
@@ -66,7 +66,7 @@ work. Concrete record fields can contain `Once` today.
 Affine values cannot be globals, elements of `Ref`, `Array` or `Vector`,
 or payloads erased into `Any`. There are no borrowed references or user
 defined drop operations. The static check establishes ownership within
-Lofi; unsafe foreign code remains a trusted boundary.
+Snail-Core; unsafe foreign code remains a trusted boundary.
 
 Ownership does not establish `Send` or `Sync`. A locally owned work item
 can capture a local mutable cell. Ordinary effect handlers still require

@@ -1,8 +1,8 @@
 ;; `include-bytes` spells a byte vector literal holding a file's bytes; the
 ;; path is relative to this file.
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (define image (include-bytes "data/pixel.png"))
 (display (vector-length image))

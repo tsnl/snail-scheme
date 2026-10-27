@@ -1,13 +1,13 @@
 ;; A compiler running as Wasm supplies immutable artifact inputs. Its
 ;; output exercises both static linking and cached per-library emission.
 (import
- (lofi base)
- (lofi io)
- (lofi table)
- (lofi compiler)
- (lofi compiler session)
- (prefix (lofi compiler read) reader:)
- (prefix (lofi syntax) generated:))
+ (snail-core base)
+ (snail-core io)
+ (snail-core table)
+ (snail-core compiler)
+ (snail-core compiler session)
+ (prefix (snail-core compiler read) reader:)
+ (prefix (snail-core syntax) generated:))
 
 (: inputs (-> Bytes (Table (List (Pair String Bytes)))))
 (define (inputs client)
@@ -18,7 +18,7 @@
 (define (generate forms)
   (generated:syntax->bytes
    (generated:library-syntax
-    (list "generated" "assets") (list "generated-bundle") (list (list "lofi" "base") (list "lofi" "artifact"))
+    (list "generated" "assets") (list "generated-bundle") (list (list "snail-core" "base") (list "snail-core" "artifact"))
     (list (generated:form ":" (list (generated:SymbolSyntax "generated-bundle") (generated:SymbolSyntax "ArtifactBundle")))
           (generated:form "define" (list (generated:SymbolSyntax "generated-bundle")
                                          (generated:form "artifact-bundle" (list (generated:StringSyntax "client")))))))))

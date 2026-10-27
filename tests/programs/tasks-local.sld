@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi task))
+ (snail-core base)
+ (snail-core io)
+ (snail-core task))
 (let ((cell (ref (ann 0 I64))))
   (dispatch-local
    (once (lambda ()

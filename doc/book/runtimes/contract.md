@@ -111,5 +111,5 @@ useful during browser hot reload. They are an application protocol on top of tas
 not the definition of a task. Reload waits for the old computation to
 settle before relinking its modules.
 
-The [typed state proposal](../lofi/state.md) would replace application handover
+The [typed state proposal](../snail-core/state.md) would replace application handover
 with durable records and disposable views; that API remains under review.

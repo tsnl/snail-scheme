@@ -1,6 +1,6 @@
-//! Scalar host services linked into Lofi's Wasm programs.
+//! Scalar host services linked into Snail-Core's Wasm programs.
 //!
-//! Managed values remain in compiled Lofi. Rust owns streams behind scalar
+//! Managed values remain in compiled Snail-Core. Rust owns streams behind scalar
 //! IDs and synchronous text-conversion scratch; it never holds guest GC roots.
 
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
@@ -17,7 +17,7 @@ mod unicode;
 
 // Export a reactor initializer so wasm-ld does not wrap each exported function
 // in constructor/destructor calls. The linked Wasm entry calls it once, before
-// Lofi or Rust runs. All callable Rust services share this runtime.
+// Snail-Core or Rust runs. All callable Rust services share this runtime.
 #[cfg(target_arch = "wasm32")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _initialize() {
@@ -41,12 +41,12 @@ fn fail_message(message: &str) -> ! {
     }
     #[cfg(all(not(target_arch = "wasm32"), not(test)))]
     {
-        eprintln!("lofi: {message}");
+        eprintln!("snail: {message}");
         io::close_all();
         std::process::exit(1)
     }
     #[cfg(all(not(target_arch = "wasm32"), test))]
-    panic!("lofi: {message}")
+    panic!("snail: {message}")
 }
 
 /// Print a diagnostic borrowed from the linked runtime's shared linear memory.
@@ -56,7 +56,7 @@ fn fail_message(message: &str) -> ! {
 #[unsafe(export_name = "snail:report-error")]
 pub unsafe extern "C" fn report_error(pointer: *const u8, length: usize) {
     let bytes = unsafe { std::slice::from_raw_parts(pointer, length) };
-    eprintln!("lofi: {}", String::from_utf8_lossy(bytes));
+    eprintln!("snail: {}", String::from_utf8_lossy(bytes));
     std::process::exit(1)
 }
 

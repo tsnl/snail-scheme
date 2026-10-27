@@ -3,8 +3,8 @@
 ;; pylon. Energy always equals the starting
 ;; energy plus what was produced minus what was spent, net of refunds.
 (import
- (lofi base)
- (lofi io)
+ (snail-core base)
+ (snail-core io)
  (siegework grid)
  (only (siegework terrain) Land-starter)
  (siegework world)

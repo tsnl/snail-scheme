@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 ;; A recursive local function returned as a value.
 (: make-counter (-> (-> I64 I64)))

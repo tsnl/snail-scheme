@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi app))
+ (snail-core base)
+ (snail-core app))
 
 (: initial (-> I32 I32 I32 I64))
 (define (initial seed width height)

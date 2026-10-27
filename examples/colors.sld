@@ -1,7 +1,7 @@
 ;; Structs, enums, typeclasses and pattern matching.
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (struct (Vec3 T)
   ((x T)

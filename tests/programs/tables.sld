@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi table))
+ (snail-core base)
+ (snail-core io)
+ (snail-core table))
 
 (define table (fold-left (lambda (table i) (table-set table (string-append "key" (show i)) (* i i))) empty-table (iota 1000)))
 (define updated (table-set table "key7" -1))

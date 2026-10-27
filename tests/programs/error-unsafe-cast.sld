@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi wasm))
+ (snail-core base)
+ (snail-core io)
+ (snail-core wasm))
 
 (: count (-> Module I64 ! wasm))
 (define (count module)

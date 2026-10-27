@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 ;; Two class parameters, chosen together.
 (typeclass (Convert A B)

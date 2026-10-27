@@ -1,5 +1,5 @@
 //! Unicode scalar services with scalar C signatures for Wasm.
-//! These calls retain no Lofi values, roots or callback state. Malformed raw
+//! These calls retain no Snail-Core values, roots or callback state. Malformed raw
 //! scalars take the ordinary terminal cleanup path before reporting an error.
 
 use crate::unicode;
@@ -53,7 +53,7 @@ pub extern "C" fn uppercase(code: u32) -> i32 {
     i32::from(character(code).is_uppercase())
 }
 
-// The digit's value, or -1 when the character is not a decimal digit: Lofi
+// The digit's value, or -1 when the character is not a decimal digit: Snail-Core
 // reads the tag rather than a sentinel it could confuse with a value.
 #[unsafe(export_name = "snail:text/digit-value")]
 pub extern "C" fn digit_value(code: u32) -> i32 {

@@ -1,10 +1,10 @@
 # Draft mixed memory and continuations
 
-**Status: proposed.** Lofi will keep one backend that emits WebAssembly
+**Status: proposed.** Snail-Core will keep one backend that emits WebAssembly
 directly. Types will select GC references or owned linear-memory storage;
 the compiler will lower control effects into explicit continuations. This
 allows Scheme graphs to retain automatic cycle collection while eligible
-Lofi tasks execute across workers using shared linear memory.
+Snail-Core tasks execute across workers using shared linear memory.
 
 The implemented baseline is [affine one-shot work](ownership.md),
 compiler-owned structural `Send` and `Sync` checks, and [local tasks](tasks.md)
@@ -14,7 +14,7 @@ proposed contracts; their surface syntax is not settled.
 
 ## Scope
 
-Ownership, continuation management and scheduling move into Lofi libraries;
+Ownership, continuation management and scheduling move into Snail-Core libraries;
 Rust and JavaScript supply allocation, foreign services, startup and callbacks.
 The existing frontend, Chibi bootstrap and separate compilation remain the
 foundation. This uses one Wasm emitter, without Emscripten. The earlier
@@ -132,7 +132,7 @@ not account for saved reusable continuations. Initially reject them in a
 reload handover; supporting that handover later requires retaining or
 explicitly migrating their code and captured state.
 
-The Lofi scheduler owns queues of affine thunks. A task start and a bound
+The Snail-Core scheduler owns queues of affine thunks. A task start and a bound
 continuation invocation use the same work representation. Invoking a
 reusable continuation creates one affine work item while retaining the
 continuation for another invocation. Suspended work is owned by its
@@ -232,7 +232,7 @@ discarding one reference does not cancel every retained invocation or
 destroy resources still reachable through another reference.
 
 Foreign callbacks return normally. They copy transient inputs or transfer
-an explicitly owned buffer, settle a registration and enqueue Lofi work.
+an explicitly owned buffer, settle a registration and enqueue Snail-Core work.
 They do not capture a foreign stack as part of a continuation. Browser
 operations that need an immediate response, such as event suppression,
 keep that decision in the synchronous adapter.
@@ -254,18 +254,18 @@ same compiler sources, with compiler-used primitives supplied by its host.
 
 | Component | Proposed responsibility |
 | --- | --- |
-| Lofi compiler | Reference representations, layouts, unsafe memory and atomic primitives, control lowering, ownership glue and foreign ABI checks. |
-| Lofi libraries | Box/Arc/Weak, collections, continuations, handler contexts, dynamic wind, queues, synchronization and task lifecycle policy. |
-| Rust services | Allocation and operations obtained from foreign libraries or the host; preserve existing behavior while portable algorithms migrate to Lofi. |
+| Snail-Core compiler | Reference representations, layouts, unsafe memory and atomic primitives, control lowering, ownership glue and foreign ABI checks. |
+| Snail-Core libraries | Box/Arc/Weak, collections, continuations, handler contexts, dynamic wind, queues, synchronization and task lifecycle policy. |
+| Rust services | Allocation and operations obtained from foreign libraries or the host; preserve existing behavior while portable algorithms migrate to Snail-Core. |
 | JavaScript host | Module and worker startup, browser/Node API calls, DOM and WebGPU integration, and completion delivery. |
 
 Use an explicit foreign mechanism, including `extern "C"` for Rust and
 other Wasm libraries with a compatible ABI. Declare pointer width,
 alignment, ownership and callback lifetime at the boundary. Rust's private
-`Vec` and Arc layouts are not the Lofi ABI. Atomics can lower directly to
+`Vec` and Arc layouts are not the Snail-Core ABI. Atomics can lower directly to
 Wasm instructions.
 
-Move portable policy into Lofi incrementally, preserving bootstrap-visible
+Move portable policy into Snail-Core incrementally, preserving bootstrap-visible
 behavior. The new representation need not wait for every scalar service to move.
 
 ## Validation boundary
@@ -294,7 +294,7 @@ backend fixture when shared execution is implemented.
   callbacks cross typed code that has live affine owners.
 - The representation of task-local dynamic contexts and which local
   handler forms the Scheme layer needs alongside existing transferable
-  ordinary Lofi handlers. Representation-aware checks will reject some GC
+  ordinary Snail-Core handlers. Representation-aware checks will reject some GC
   captures accepted today; specify how those handler environments migrate.
 - Address width and the foreign ABI for the first delivery. Mixed heaps
   do not require memory64. The current Rust runtime targets

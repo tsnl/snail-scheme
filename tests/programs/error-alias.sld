@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 
 (type Ping Pong)
 (type Pong Ping)

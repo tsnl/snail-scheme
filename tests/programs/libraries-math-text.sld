@@ -1,8 +1,8 @@
 (import
- (lofi base)
- (lofi io)
- (lofi math)
- (lofi text))
+ (snail-core base)
+ (snail-core io)
+ (snail-core math)
+ (snail-core text))
 
 (display (round (* 1000.0 (sin (/ pi 2.0)))))
 (newline)

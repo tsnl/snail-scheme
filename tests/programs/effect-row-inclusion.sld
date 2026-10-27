@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (effect Value
   ((value (-> I64))))

@@ -1,8 +1,8 @@
 (import
- (lofi base)
- (lofi io)
- (only (lofi artifact) ArtifactBundle ArtifactBundle-files ArtifactFile-path ArtifactFile-bytes)
- (rename (only (lofi artifact) artifact-bundle) (artifact-bundle bundle))
+ (snail-core base)
+ (snail-core io)
+ (only (snail-core artifact) ArtifactBundle ArtifactBundle-files ArtifactFile-path ArtifactFile-bytes)
+ (rename (only (snail-core artifact) artifact-bundle) (artifact-bundle bundle))
  (generated assets)
  (sample consumer)
  (sample generic))
