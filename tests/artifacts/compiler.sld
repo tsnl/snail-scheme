@@ -32,7 +32,7 @@
 
 (match (command-line)
   ((Cons _ (Cons source (Cons output directories)))
-   (write-file (string-append output "/program.wat") (source->wat directories source generate (inputs #u8(65 0 255))))
+   (write-file (string-append output "/program.wat") (WholeProgram-text (source->wat directories source generate (inputs #u8(65 0 255)))))
    (let* ((first (build-session (make-session directories) source generate (inputs #u8(65 0 255))))
           (unchanged (build-session (Pair-second first) source generate (inputs #u8(65 0 255)))))
      (write-build (string-append output "/first") (Pair-first first))

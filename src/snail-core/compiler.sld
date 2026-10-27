@@ -6,9 +6,19 @@
 ;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (snail-core compiler)
   (export
+   WholeProgram
+   WholeProgram-text
+   WholeProgram-links
    source->wat
    source->modules
    source->schemas
+   Built
+   Built-name
+   Built-text
+   Built-links
+   LinkedFile
+   LinkedFile-name
+   LinkedFile-path
    no-inputs)
   (import
    (snail-core base)
@@ -23,35 +33,39 @@
    (snail-core compiler session))
   (begin
 
-    ;; The front of every compile: the program a source path reads, expanded
-    ;; and type-checked. `generate` runs the producer program of a
-    ;; `generate-library`, given the libraries loading when it was reached,
-    ;; and returns the bytes of the syntax it writes.
-    (: source->typed (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs Typed ! mut fs))
-    (define (source->typed directories source generate inputs)
-      (let* ((expanded (expand-program directories generate inputs source empty-expansion))
-             (program (ExpandedProgram-program expanded)))
-        (check-program program)))
+    ;; The front of every compile: the program a source path reads, expanded.
+    ;; `generate` runs the producer program of a `generate-library`, given
+    ;; the libraries loading when it was reached, and returns the bytes of
+    ;; the syntax it writes.
+    (: source->expanded (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs ExpandedProgram ! mut fs))
+    (define (source->expanded directories source generate inputs)
+      (expand-program directories generate inputs source empty-expansion))
 
-    (: source->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
+    ;; A program compiled to one module: its text, and the files it links,
+    ;; which ship beside it.
+    (struct WholeProgram
+      ((text String)
+       (links (List LinkedFile))))
+
+    (: source->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs WholeProgram ! mut fs))
     (define (source->wat directories source generate inputs)
-      (let* ((typed (source->typed directories source generate inputs))
+      (let* ((expanded (source->expanded directories source generate inputs))
+             (typed (check-program (ExpandedProgram-program expanded)))
              (mono (monomorphize typed))
              (module (emit-module mono)))
-        (wat->string module)))
+        (WholeProgram (wat->string module) (program-links expanded))))
 
     ;; One module of text per library, and one for the program, in program
-    ;; order: each comes after the modules it imports from. This is a
-    ;; session's build with nothing kept from before.
-    (: source->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs (List (Pair String String)) ! mut fs))
+    ;; order: each comes after the modules it imports from, with the files
+    ;; its library links. This is a session's build with nothing kept from
+    ;; before.
+    (: source->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs (List Built) ! mut fs))
     (define (source->modules directories source generate inputs)
-      (let* ((built (build-session (make-session directories) source generate inputs))
-             (modules (Pair-first built)))
-        (map (lambda (module) (Pair (Built-name module) (Built-text module))) modules)))
+      (Pair-first (build-session (make-session directories) source generate inputs)))
 
     (: source->schemas (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
     (define (source->schemas directories source generate inputs)
-      (let ((typed (source->typed directories source generate inputs)))
+      (let ((typed (check-program (ExpandedProgram-program (source->expanded directories source generate inputs)))))
         (wire-schemas (Typed-program typed))))
 
     ))

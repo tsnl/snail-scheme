@@ -74,9 +74,11 @@ duplicate target errors identify both declarations, duplicate fields the second.
 ## Output directories
 
 Each build target produces one directory at `PROJECT/build/TARGET`. A static
-program contains `program.wasm`. A browser build adds the shared browser host
+program contains `program.wasm`, and each file its libraries link at
+`resources/NAME` ([linked files](types.md#linked-files)). A browser build adds the shared browser host
 and recursively copies `public`, if specified. Supply `index.html` there; no page
-is generated. Browser pages load `./program.wasm` through `host.mjs`.
+is generated. Browser pages load `./program.wasm` through `host.mjs`, which
+fetches the linked files beside it before the program starts.
 
 Public files cannot overwrite generated files or the root `.snail-target`
 ownership marker. `.snail-publish` is reserved at every depth. Public trees must
@@ -100,7 +102,9 @@ not discard it again. These guarantees concern complete outputs, not an atomic
 source snapshot or power-loss durability.
 
 Development builds contain per-library modules, `modules.json` and `runtime.wasm`
-instead of linked `program.wasm`. Each generation is self-contained. Existing
+instead of linked `program.wasm`, with the same `resources/`. Each generation is
+self-contained: a linked file is copied into every generation, so editing one
+compiles nothing again, yet the next generation holds and reads its new bytes. Existing
 browser pages receive the module-manifest meta tag understood by `host.mjs`;
 the builder still does not invent a page.
 

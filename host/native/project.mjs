@@ -5,7 +5,7 @@ import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync,
   readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
-import {basename, join, resolve} from 'node:path';
+import {basename, dirname, join, resolve} from 'node:path';
 import {createAssembler} from './assemble.mjs';
 import {CompilerFailure, createCompiler} from './compiler.mjs';
 
@@ -64,17 +64,22 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       }
     }
 
+    // The linked module in `working`, and the files it links.
     function staticProgram(source, libraries, working, mode, inputs) {
       const text = join(working, 'program.wat'), output = join(working, 'program.wasm');
-      planned(() => compiler.static(inputs, source, text, working, libraries));
+      const links = planned(() => compiler.static(inputs, source, text, working, libraries));
       link(root, text, output, mode);
-      return output;
+      return {output, links};
     }
 
+    // Editing a linked file compiles nothing, so the files are placed from
+    // every module, compiled in this build or not.
     function compile(phase, generation, mode, inputs) {
       return scratch(working => {
         if (mode !== 'development') {
-          copyFileSync(staticProgram(phase.entry, phase.directories, working, mode, inputs), join(generation, 'program.wasm'));
+          const {output, links} = staticProgram(phase.entry, phase.directories, working, mode, inputs);
+          copyFileSync(output, join(generation, 'program.wasm'));
+          placeLinks(generation, links);
           return {compiled: 1, modules: 1};
         }
         const settings = JSON.stringify([phase.entry, phase.directories]);
@@ -83,6 +88,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
         const built = planned(() => compiler.modules(session, inputs, phase.entry, working));
         sessions.set(phase.name, {settings, session: built.session});
         writeModules(generation, built.modules, tools.runtime, assemble);
+        placeLinks(generation, built.modules.flatMap(module => module.links));
         return {compiled: built.modules.filter(module => module.compiled).length, modules: built.modules.length};
       });
     }
@@ -91,7 +97,9 @@ export async function createProjectBuilder({root, project, tools, directory}) {
     // to write its library's syntax, which the inputs supply from then on.
     function produce(phase, inputs) {
       return scratch(working => {
-        const program = staticProgram(phase.source, phase.directories, working, 'debug', inputs), output = join(working, 'output.syntax');
+        const {output: program, links} = staticProgram(phase.source, phase.directories, working, 'debug', inputs);
+        const output = join(working, 'output.syntax');
+        placeLinks(working, links);
         run(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), program, output]);
         if (!status(output)) throw new Error('the producer did not write its generated library');
         return compiler.addGenerated(inputs, phase.key, phase.source, output, phase.directories);
@@ -179,6 +187,17 @@ function writeModules(directory, modules, runtime, assemble) {
   });
   copyFileSync(runtime, join(directory, 'runtime.wasm'));
   writeFileSync(join(directory, 'modules.json'), JSON.stringify({runtime: 'runtime.wasm', modules: files}));
+}
+
+// Each file the program links goes to resources/NAME beside its payload,
+// where both hosts read it before the program starts. A file the compiler
+// found but the build cannot read fails the build, naming the file.
+function placeLinks(directory, links) {
+  for (const {name, file} of links) {
+    const to = join(directory, 'resources', name);
+    try { mkdirSync(dirname(to), {recursive: true}); copyFileSync(file, to); }
+    catch (error) { throw new Error(`cannot place the linked file ${name} from ${file}: ${error.message}`, {cause: error}); }
+  }
 }
 
 const browserFiles = ['host.mjs', 'runtime.mjs', 'tasks.mjs', 'entry.mjs', 'renderer.mjs', 'hud.mjs', 'pictures.mjs', 'storage.mjs', 'load.mjs', 'style.css'];

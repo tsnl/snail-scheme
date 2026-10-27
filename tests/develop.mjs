@@ -10,8 +10,9 @@
 // over the state as a page does (host/browser/host.mjs). Only the modules of the
 // last two builds stay. A broken edit reports a failed build that keeps the
 // last good manifest. An application with a `generate-library` builds, its
-// producer running in every build. Then `./scripts/snail-tool watch` runs a
-// program again after an edit.
+// producer running in every build. An application that links a file reads
+// it, and reads it again after an edit, which compiles nothing. Then
+// `./scripts/snail-tool watch` runs a program again after an edit.
 import assert from 'node:assert/strict';
 import {execFileSync, spawn} from 'node:child_process';
 import {once} from 'node:events';
@@ -213,6 +214,47 @@ async function testGenerated(directory) {
   }
 }
 
+// ---- Linked files ----
+
+// The counter's greeting is the text of a file a library links. The page
+// reads it before the program starts; editing the file compiles nothing,
+// yet renames the linking library's module, so the page relinks from it
+// and reads the new bytes.
+async function testLinked(directory) {
+  const app = join(directory, 'linked'), source = join(app, 'main.sld'), banner = join(app, 'src/sample/banner.txt');
+  await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
+  await mkdir(join(app, 'src/sample'), {recursive: true});
+  await writeFile(banner, 'linked');
+  await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export banner)
+    (import (snail-core base) (snail-core resource))
+    (begin (: banner Resource) (define banner (link-bytes "banner.txt"))))`);
+  const program = (await readFile(source, 'utf8')).replace('(snail-core app))', '(snail-core app)\n (snail-core resource)\n (sample banner))');
+  await writeFile(source, program.replace('(define greeting "hello")',
+    '(define greeting (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner)))))'));
+  const server = start(['serve', '--port', '0', app]);
+  try {
+    const base = await until(() => server.text.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server', 300);
+    const events = await listen(new URL('.snail/events', base));
+    const built = await nextBuild(events, 0);
+    assert.equal(built.kind, 'built', built.message);
+    assert.equal(await (await fetch(new URL('resources/sample.banner/banner.txt', base))).text(), 'linked', 'the server serves the linked file');
+    const page = await linkPage(base, built.manifest);
+    page.runtime.send(PRESS, 1);
+    await new Promise(setImmediate);
+    assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['linked', '1']);
+    const from = events.length;
+    await writeFile(banner, 'linked again');
+    const rebuilt = await nextBuild(events, from);
+    assert.equal(rebuilt.kind, 'built', rebuilt.message);
+    await until(() => new RegExp(`0 of ${built.manifest.modules.length} modules compiled`).test(server.text), 'nothing compiles again');
+    assert.deepEqual(await relink(page, rebuilt.manifest), {from: 'sample.banner', passed: 'adopted'});
+    assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['linked again', '1'], 'the relinked module reads the file again');
+    await page.runtime.stop();
+  } finally {
+    await stop(server);
+  }
+}
+
 // ---- Watching ----
 
 async function testWatch(directory) {
@@ -290,9 +332,10 @@ const directory = await mkdtemp(join(tmpdir(), 'snail-develop-'));
 try {
   await testServe(directory);
   await testGenerated(directory);
+  await testLinked(directory);
   await testWatch(directory);
   await testBusyCompiler(directory);
-  console.log('develop: worker, serve, generated libraries and watch passed');
+  console.log('develop: worker, serve, generated libraries, linked files and watch passed');
 } finally {
   await rm(directory, {recursive: true, force: true});
 }

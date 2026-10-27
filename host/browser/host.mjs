@@ -6,7 +6,7 @@ import {createRenderer} from './renderer.mjs';
 import {createHud} from './hud.mjs';
 import {createPictures} from './pictures.mjs';
 import {loadSave, storeSave} from './storage.mjs';
-import {createWasi, instantiate, linkProgram, relinkProgram, runProgram} from './load.mjs';
+import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram, runProgram} from './load.mjs';
 import {createRuntime, applicationEntry, HIDDEN} from './runtime.mjs';
 
 // ---- Input encoding ----
@@ -148,7 +148,8 @@ export const running = [];
 // page that `./scripts/snail-tool serve` serves names its modules.json in a meta tag, and
 // the browser IDE passes one with a `read` that fetches from its toolchain.
 // Without one the page is published, and loads one linked module from
-// `url`, which a manifest makes the page ignore.
+// `url`, which a manifest makes the page ignore. Either way the files the
+// program links are fetched from resources/ beside it before it starts.
 export async function startApplication({url, canvas, overlay, storageKey, manifest, read}) {
   const pictures = createPictures();
   const application = {canvas, program: null, errors: [], capture: null, pictures,
@@ -177,7 +178,9 @@ function applicationImports(application) {
 
 async function instantiateApplication(application, url) {
   const wasi = createWasi({print: printer(application)});
-  const instance = await instantiate(await WebAssembly.compileStreaming(fetch(url)), {...wasi.getImportObject(), ...applicationImports(application)});
+  const module = await WebAssembly.compileStreaming(fetch(url));
+  const linked = await linkedFileImports(fetchRead(url), module);
+  const instance = await instantiate(module, {...wasi.getImportObject(), ...applicationImports(application), ...linked});
   wasi.initialize(instance);
   instance.exports.main();
   application.program = instance;
@@ -210,9 +213,14 @@ function reportApplicationError(error) {
   dispatchEvent(new ErrorEvent('error', {message: error.message, error}));
 }
 
-// A file's bytes, by its path relative to the manifest's, uncached.
-function fetchRead(manifest) {
-  return async file => new Uint8Array(await (await fetch(new URL(file, new URL(manifest, location.href)), {cache: 'no-store'})).arrayBuffer());
+// A file's bytes, by its path relative to the manifest's or the module's,
+// uncached. A file the server does not have is an error, not its error page.
+function fetchRead(base) {
+  return async file => {
+    const response = await fetch(new URL(file, new URL(base, location.href)), {cache: 'no-store'});
+    if (!response.ok) throw new Error(`${response.status} fetching ${file}`);
+    return new Uint8Array(await response.arrayBuffer());
+  };
 }
 
 // Lines the program writes go to the console. The last twenty it writes to

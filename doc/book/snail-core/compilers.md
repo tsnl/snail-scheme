@@ -63,6 +63,17 @@ the `Ref` is allocated by the pass and never escapes it.
   of its declarations with its imports' interfaces, lets a session replay
   it.
 
+  The core form `link-file`, which `link-bytes` in `(snail-core resource)`
+  wraps, parses its path against the directory of the file it is written in
+  and records a `LinkedFile` on the library: the name the payload ships it
+  under, the library's key and the canonical path, and where the build finds
+  it. Its value is a call to an import from `snail.link` under that name,
+  which answers the file's handle, so each module records the files it links
+  where its host must see them. Once a library's body has expanded, each of
+  its files must exist, or the build fails naming the library and the path.
+  `library-links` and `program-links` give a build's files by library and in
+  program order.
+
   The expander reads each library's file into a `LibraryFile`: a defined
   library's sections, or a generated library's producer program. The same
   reading serves `library-closure`, a walk that finds the generated
@@ -142,7 +153,8 @@ the `Ref` is allocated by the pass and never escapes it.
   their monomorphic items so handler capture proofs can be rechecked against
   current helper bodies without regenerating unchanged Wasm text. Input
   generators and immutable build inputs are passed to each build; sessions
-  retain only compilation evidence.
+  retain only compilation evidence. Each `Built` module carries the files its
+  library links, compiled this build or not, so a build places them all.
 - **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/plan.sld)** orders a project build's
   phases before any of them runs: building a target, and running a
   producer. A phase needs the producers its program's closure reaches, then
@@ -158,7 +170,10 @@ the `Ref` is allocated by the pass and never escapes it.
   wave. The development loop plans with no targets, which needs no discovery,
   and runs only the producers.
 - **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler.sld)** composes the passes, from a
-  program's path to WebAssembly text, or to one module's text per library.
+  program's path to WebAssembly text with the files it links, a
+  `WholeProgram`, or to one module's text per library. The driver writes the
+  files a compile links to `links.datum` in the compile's directory, one
+  `("NAME" "PATH")` per file, for the Chibi build to place.
 
 ## Separate compilation
 
@@ -375,6 +390,19 @@ originating compiler instance, like Sessions and Plans. Successful Sessions
 retain only the per-library evidence already used for cache reuse.
 Applications embed the bytes and need no runtime file access.
 
+### Linked files
+
+A linked file is an input of the build, but not of the compile: the module
+depends on its name, which the source text spells and the build key already
+holds, and on its presence, never on its bytes. A replayed library first
+checks that each file it linked still exists; a missing one expands the
+library again, which fails with the library and the path. Editing a linked
+file therefore compiles nothing, while every build places every file from the
+modules it returns, compiled or replayed: a project build copies them into its
+new generation, and the development loop copies a file whose digest changed
+and names each module's file for its text and its files' digests, so the page
+relinks from the module that links the edited file and reads it again.
+
 ## Resident compiler boundary
 
 `bootstrap/compiler.sld` exposes this compiler to a resident native caller.
@@ -386,8 +414,11 @@ instance. Each operation consumes its staged arguments
 before doing work, and projected records become visible only on success.
 Module text crosses directly through the runtime's existing String staging
 buffer, alongside the other record fields; no temporary WAT files stand between
-the resident compiler and assembler. The host copies each field synchronously
-before another call can reuse the buffer. Generated-library scratch remains
+the resident compiler and assembler. A `module` record ends with the name and
+path of each file its library links, and `static` answers a `link` record for
+each file the program links, which the builder places beside the payload. The
+host copies each field synchronously before another call can reuse the
+buffer. Generated-library scratch remains
 private to its build.
 
 `plan` takes the project's directory, the standard libraries' directory, the

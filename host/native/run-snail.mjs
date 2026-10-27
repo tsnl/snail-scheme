@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
-import {linkProgram, wasmImports} from '../browser/load.mjs';
+import {linkedFileImports, linkProgram, wasmImports} from '../browser/load.mjs';
 import {createScheduler, taskImports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
@@ -16,7 +16,8 @@ import {socketImports} from './socket-imports.mjs';
 // program compiled one library at a time (host/browser/load.mjs). Either may
 // load modules while it runs, through (snail-core wasm); a linked module links
 // only against what the program kept exported, which for one linked module
-// is nothing of the runtime's.
+// is nothing of the runtime's. The files a program links are read from
+// resources/ beside it before it starts.
 
 function resultStatus(value) {
   if (value === undefined) return 0;
@@ -55,8 +56,10 @@ async function run(filename, arguments_) {
 }
 
 async function loadProgram(filename, wasi, host) {
-  if (filename.endsWith('.json')) return linkProgram(file => readFile(resolve(dirname(filename), file)), filename, wasi, host);
-  const {instance: runtime} = await WebAssembly.instantiate(await readFile(filename), {...wasi.getImportObject(), ...host});
+  const read = file => readFile(resolve(dirname(filename), file));
+  if (filename.endsWith('.json')) return linkProgram(read, filename, wasi, host);
+  const module = await WebAssembly.compile(await readFile(filename));
+  const runtime = await WebAssembly.instantiate(module, {...wasi.getImportObject(), ...host, ...await linkedFileImports(read, module)});
   wasi.initialize(runtime);
   return {runtime, host, linked: new Map()};
 }

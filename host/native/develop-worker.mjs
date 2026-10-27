@@ -2,8 +2,8 @@
 // helpers run here; watcher/server/process commands go to the parent.
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, writeFileSync, writeSync} from 'node:fs';
-import {join} from 'node:path';
+import {copyFileSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, writeFileSync, writeSync} from 'node:fs';
+import {dirname, join} from 'node:path';
 import {WASI} from 'node:wasi';
 import {parentPort, workerData} from 'node:worker_threads';
 import {commandImports} from '../browser/load.mjs';
@@ -79,6 +79,16 @@ function commands(loop) {
     'make-directory'([directory]) { mkdirSync(directory, {recursive: true}); },
     'remove-file'([path]) { rmSync(path, {force: true}); },
     'rename-file'([from, to]) { renameSync(from, to); },
+    // A page may be reading the file being replaced; it sees all of one.
+    'copy-file'([from, to]) {
+      try {
+        mkdirSync(dirname(to), {recursive: true});
+        copyFileSync(from, `${to}.next`);
+        renameSync(`${to}.next`, to);
+        return 0;
+      }
+      catch (error) { console.error(error.message); return 1; }
+    },
     // A producer runs to completion before the build goes on. What it
     // printed on failure joins the loop's diagnostics, ahead of its panic.
     produce([manifest, output]) {
