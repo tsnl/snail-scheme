@@ -1786,7 +1786,7 @@
     ;; declared the same way everywhere. Cases of one enum with the same
     ;; fields may share a type, since a match tests the tag before it casts.
     ;; Types are numbered in the order of their names.
-    (: type-groups (-> (List Wat) (List Wat) ! mut))
+    (: type-groups (-> (List Wat) (List Wat)))
     (define (type-groups definitions)
       (let* ((named (fold-left (lambda (table definition) (table-set table (type-definition-name definition) definition))
                                empty-table definitions))

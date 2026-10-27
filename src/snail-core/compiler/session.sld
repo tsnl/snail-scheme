@@ -218,7 +218,7 @@
 
       (define (test-handler-revalidation directory)
         (let ((main (string-append directory "/main.sld")))
-          (write-handler-helper directory "(ann 1 I64)")
+          (write-handler-helper directory "(ref-get (ref (ann 1 I64)))")
           (write-file (string-append directory "/sample/b.sld")
                       "(define-library (sample b) (export run) (import (snail-core core) (snail-core primitive) (sample a)) (begin (effect Counter ((tick (-> I64)))) (: run (-> I64 ! mut)) (define (run) (handle Counter ((tick (lambda () (helper)))) (tick)))))")
           (write-file main "(import (snail-core core) (snail-core primitive) (sample b)) (run)")

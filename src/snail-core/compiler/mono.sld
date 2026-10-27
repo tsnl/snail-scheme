@@ -193,7 +193,7 @@
     (: reference (-> State String (List Type) (List Evidence) Type Loc Expr ! mut))
     (define (reference state name types evidence type loc)
       (match (program-value (program-of state) name)
-        ((Some (Defined _)) (definition-reference state name types evidence type loc))
+        ((Some (Defined _ _)) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
          (match evidence
            ((Cons (EvInstance instance instance-types subs) rest)

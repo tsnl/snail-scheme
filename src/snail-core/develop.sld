@@ -181,7 +181,7 @@
 
     ;; Pages are served before the first build, from a placeholder that
     ;; waits for it, so a first build that fails is shown like any other.
-    (: start-loop! (-> Loop Unit ! mut fs console develop))
+    (: start-loop! (-> Loop Unit ! mut fs develop))
     (define (start-loop! loop)
       (make-directory! (string-append (Loop-output loop) "/modules"))
       (match (Loop-request loop)
@@ -192,7 +192,7 @@
       ;; event to its compiler worker. No startup handshake is needed.
       (schedule! 0))
 
-    (: new-session (-> String Request Session ! mut))
+    (: new-session (-> String Request Session))
     (define (new-session root request)
       (make-session (match request
                       ((Serve _ app) (list (string-append app "/src") (string-append root "/src")))
@@ -290,7 +290,7 @@
     ;; Writes each module that changed, assembled, and modules.json, which
     ;; names them in program order. Returns each library's name with its
     ;; module's location.
-    (: write-modules! (-> Loop (List Built) (List (Pair String String)) ! mut fs develop))
+    (: write-modules! (-> Loop (List Built) (List (Pair String String)) ! fs develop))
     (define (write-modules! loop builds)
       (let ((modules (map (lambda (built) (Pair (Built-name built) (module-file! loop built))) builds)))
         (write-published-file! (manifest-path loop) (modules-json (runtime-path loop) modules))
@@ -462,7 +462,7 @@
 
     ;; The loop is kept before it starts, so a first build that panics
     ;; leaves it ready for the next event.
-    (: start-development! (-> Unit ! mut fs console develop))
+    (: start-development! (-> Unit ! mut fs develop))
     (define (start-development!)
       (match (command-line)
         ((Cons _ arguments)
