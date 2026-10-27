@@ -1,8 +1,8 @@
 # One-shot work and ownership
 
-`Once` gives a zero-argument procedure grade `1`: it may be consumed at
-most once. Ordinary procedures and ordinary data have grade `omega` and
-can be reused. These grades belong to types, not to individual bindings.
+`Once` gives a procedure grade `1`: it may be consumed at most once.
+Ordinary procedures and ordinary data have grade `omega` and can be
+reused. These grades belong to types, not to individual bindings.
 
 ```scheme
 (import
@@ -17,8 +17,11 @@ can be reused. These grades belong to types, not to individual bindings.
   (call-once work))
 ```
 
-`call-once` consumes the work item before entering its body. Calling it
-again is a compile error. Moving it to another binding, argument, result
+`call-once` consumes the work item before entering its body, and so does
+calling it directly, as `(work)`. Calling it again is a compile error. A
+`Once` may hold a procedure of any arity, such as `(Once (-> I64 I64))`;
+`once` builds only thunks, and a one-shot continuation is the other kind.
+Moving it to another binding, argument, result
 or one-shot closure consumes the old binding. Both alternatives of an
 `if` may consume the same value, because only one runs; consuming it again
 after that `if` is rejected.

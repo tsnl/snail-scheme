@@ -903,6 +903,22 @@
     ;; variable read.
     (: closure-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
     (define (closure-call fn callee args tail?)
+      (match (Expr-type callee)
+        ((TCon "Once" (Cons procedure (Nil))) (once-call fn callee procedure args tail?))
+        (_ (plain-closure-call fn callee args tail?))))
+
+    ;; Calling a `Once` takes its procedure out of the owner, which traps if
+    ;; it was taken already, and calls it.
+    (: once-call (-> Fn Expr Type (List Expr) Bool (List Wat) ! mut))
+    (define (once-call fn callee procedure args tail?)
+      (let* ((m (Fn-module fn)) (signature (function-signature m procedure))
+             (base (closure-type m (Pair-first signature) (Pair-second signature)))
+             (owner (emit1 fn callee)) (arguments (emit-args fn args)) (temp (declare-temp! fn (rep->wat (Reference base)))))
+        (list (wat "local.set" (id temp) (wat "ref.cast" (wat "ref" (id base)) (wat "call" (id (take-owned-helper m)) owner)))
+              (closure-call-wat m base (wat "local.get" (id temp)) (Cons (Fn-evidence fn) arguments) tail?))))
+
+    (: plain-closure-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
+    (define (plain-closure-call fn callee args tail?)
       (let* ((m (Fn-module fn)) (signature (function-signature m (Expr-type callee)))
              (base (closure-type m (Pair-first signature) (Pair-second signature))) (value (emit1 fn callee)))
         (if (variable-read? value)
