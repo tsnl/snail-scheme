@@ -144,13 +144,12 @@
        (types (Ref (List Wat)))
        (imports (Ref (List Wat)))
        (globals (Ref (List Wat)))
-       (functions (Ref (List String)))
+       (functions (Ref (List (Pair String String))))
        (declared (Ref (List String)))
        (exports (Ref (List Wat)))
        (data (Ref (List Wat)))
        (memo (Ref (Table Wat)))
-       (helpers (Ref (Table String)))
-       (counter (Ref I64))))
+       (helpers (Ref (Table String)))))
 
     (: push! (All (T) (-> (Ref (List T)) T Unit ! mut)))
     (define (push! cell value)
@@ -164,15 +163,9 @@
     ;; A function is written out as soon as it is emitted. The module's
     ;; functions are most of its text, and holding their trees until the end
     ;; made every collection copy them.
-    (: push-function! (-> Module Wat Unit ! mut))
-    (define (push-function! m function)
-      (push! (Module-functions m) (field->string function)))
-
-    (: next-number! (-> Module I64 ! mut))
-    (define (next-number! m)
-      (let ((count (+ (ref-get (Module-counter m)) 1)))
-        (ref-set! (Module-counter m) count)
-        count))
+    (: push-function! (-> Module String Wat Unit ! mut))
+    (define (push-function! m name function)
+      (push! (Module-functions m) (Pair name (field->string function))))
 
     (: memoize! (-> Module String (-> Wat ! mut) Wat ! mut))
     (define (memoize! m key make)
@@ -223,9 +216,57 @@
     (define (wasm-id text)
       (string-append "$" (mangle text)))
 
-    (: fresh-id (-> Module String String ! mut))
-    (define (fresh-id m prefix)
-      (wasm-id (string-append prefix "." (i64->string (next-number! m)))))
+    ;; A name derived from what it names, so the text comes out the same
+    ;; whichever order a host evaluated the emission in: the prefix, then
+    ;; FNV-1a of the key. Declarations are kept once per full key, so two
+    ;; keys with one hash would surface as a duplicate declaration the
+    ;; assembler rejects, never as wrong code.
+    (: keyed-id (-> String String String))
+    (define (keyed-id prefix key)
+      (wasm-id (string-append prefix "." (i64->string (fnv-1a key)))))
+
+    ;; A name that extends another's: a closure's global extends its code.
+    (: derived-id (-> String String String))
+    (define (derived-id prefix id)
+      (wasm-id (string-append prefix "." (substring id 1 (string-length id)))))
+
+    ;; FNV-1a over a tree's words in order, with a separator per word and
+    ;; per node, so `(a b)` and `(a (b))` differ.
+    (: wat-hash (-> I64 Wat I64))
+    (define (wat-hash hash tree)
+      (match tree
+        ((Word text) (vector-fold (lambda (h c) (fnv-step h (char->integer c))) (fnv-step hash 32) (string->vector text)))
+        ((Node items) (fold-left wat-hash (fnv-step hash 40) items))))
+
+    (: wat=? (-> Wat Wat Bool))
+    (define (wat=? a b)
+      (match (Pair a b)
+        ((Pair (Word x) (Word y)) (string=? x y))
+        ((Pair (Node xs) (Node ys))
+         (and (= (length xs) (length ys)) (every? (lambda (pair) (wat=? (Pair-first pair) (Pair-second pair))) (zip xs ys))))
+        (_ #f)))
+
+    (: wat-rename (-> String String Wat Wat))
+    (define (wat-rename from to tree)
+      (match tree
+        ((Word text) (if (string=? text from) (Word to) tree))
+        ((Node items) (Node (map (lambda (item) (wat-rename from to item)) items)))))
+
+    ;; A declaration's name: an export's exported name, else its first `$id`.
+    (: declaration-id (-> Wat String))
+    (define (declaration-id declaration)
+      (match declaration
+        ((Node (Cons (Word "export") (Cons (Word name) _))) name)
+        (_ (match (first-id declaration)
+             ((Some name) name)
+             ((None) (panic "internal error: a declaration without a name"))))))
+
+    (: first-id (-> Wat (Option String)))
+    (define (first-id tree)
+      (match tree
+        ((Word text) (if (and (> (string-length text) 0) (char=? (string-ref text 0) #\$)) (Some text) (None)))
+        ((Node items)
+         (fold-left (lambda (found item) (match found ((Some _) found) ((None) (first-id item)))) (ann (None) (Option String)) items))))
 
     (: id (-> String Wat))
     (define (id name)
@@ -442,11 +483,20 @@
        (locals (Ref (List Wat)))
        (access (Ref (Table Wat)))
        (reps (Ref (Table Rep)))
-       (self (Option (Pair String String)))))
+       (self (Option (Pair String String)))
+       (names (Ref I64))))
 
     (: new-fn (-> Module Fn ! mut))
     (define (new-fn m)
-      (Fn m (ref (Nil)) (ref empty-table) (ref empty-table) (None)))
+      (Fn m (ref (Nil)) (ref empty-table) (ref empty-table) (None) (ref 0)))
+
+    ;; Temporaries and labels are numbered within their function, so a name
+    ;; depends on nothing outside the body it appears in.
+    (: local-id (-> Fn String String ! mut))
+    (define (local-id fn prefix)
+      (let ((count (+ (ref-get (Fn-names fn)) 1)))
+        (ref-set! (Fn-names fn) count)
+        (wasm-id (string-append prefix "." (i64->string count)))))
 
     (: bind-local! (-> Fn String Wat Rep Unit ! mut))
     (define (bind-local! fn name read rep)
@@ -463,7 +513,7 @@
     ;; A temporary takes any value type, including a nullable reference.
     (: declare-temp! (-> Fn Wat String ! mut))
     (define (declare-temp! fn type)
-      (let ((local (fresh-id (Fn-module fn) "tmp")))
+      (let ((local (local-id fn "tmp")))
         (push! (Fn-locals fn) (wat "local" (id local) type))
         local))
 
@@ -501,7 +551,7 @@
          (let* ((fn (new-fn m)) (signature (function-signature m (Expr-type function))) (reps (Pair-first signature)))
            (bind-params! fn params reps)
            (let ((code (emit fn body #t)))
-             (push-function! m (function-wat fn (wasm-id name) (param-wats params reps) (Pair-second signature) code)))))
+             (push-function! m (wasm-id name) (function-wat fn (wasm-id name) (param-wats params reps) (Pair-second signature) code)))))
         (_ (panic "internal error: not a function"))))
 
     ;; ---- Expressions ----
@@ -516,10 +566,10 @@
           ((Lambda _ _) (list (closure fn expr (None))))
           ((App callee args) (emit-call fn expr callee args tail?))
           ((If test then otherwise)
-           (list (wat "if" (wat "result" (rep->wat (fn-rep fn type))) (emit1 fn test)
-                      (wat* "then" (emit fn then tail?)) (wat* "else" (emit fn otherwise tail?)))))
+           (let* ((test-code (emit1 fn test)) (then-code (emit fn then tail?)) (else-code (emit fn otherwise tail?)))
+             (list (wat "if" (wat "result" (rep->wat (fn-rep fn type))) test-code (wat* "then" then-code) (wat* "else" else-code)))))
           ((Let name value body) (emit-let fn name value body tail?))
-          ((Seq first rest) (Cons (wat "drop" (emit1 fn first)) (emit fn rest tail?)))
+          ((Seq first rest) (let ((first-code (emit1 fn first))) (Cons (wat "drop" first-code) (emit fn rest tail?))))
           ((Match scrutinee clauses) (emit-match fn expr scrutinee clauses tail?))
           ((Handle effect implementations body) (emit-handle fn expr effect implementations body))
           ((Convert inner target) (emit-convert fn inner target (Expr-loc expr)))
@@ -566,7 +616,7 @@
     (define (string-literal m text)
       (memoize! m (string-append "string:" text)
                 (lambda ()
-                  (let ((global (fresh-id m "string")) (array (array-type m (Scalar "i32"))))
+                  (let ((global (keyed-id "string" text)) (array (array-type m (Scalar "i32"))))
                     (push! (Module-globals m)
                            (wat "global" (id global) (wat "ref" (id array))
                                 (wat* "array.new_fixed"
@@ -581,10 +631,13 @@
     ;; a fresh array; a top-level definition evaluates once.
     (: bytes-literal (-> Module Bytes Wat ! mut))
     (define (bytes-literal m bytes)
-      (let ((segment (fresh-id m "bytes")))
-        (push! (Module-data m) (wat "data" (id segment) (Word (bytes-wat-string bytes))))
-        (wat "array.new_data" (id (array-type m (Scalar "i8"))) (id segment) (wat "i32.const" (int 0))
-             (wat "i32.const" (int (vector-length bytes))))))
+      (let ((text (bytes-wat-string bytes)))
+        (memoize! m (string-append "bytes:" text)
+                  (lambda ()
+                    (let ((segment (keyed-id "bytes" text)))
+                      (push! (Module-data m) (wat "data" (id segment) (Word text)))
+                      (wat "array.new_data" (id (array-type m (Scalar "i8"))) (id segment) (wat "i32.const" (int 0))
+                           (wat "i32.const" (int (vector-length bytes)))))))))
 
     ;; Every byte is a two-digit escape, so the text is three characters per
     ;; byte, generated in one pass: images make literals of millions of
@@ -702,23 +755,35 @@
     (define (closure-value m function self)
       (let* ((signature (function-signature m (Expr-type function)))
              (base (closure-type m (Pair-first signature) (Pair-second signature)))
-             (code (lambda-function! m function self (Nil) base))
-             (global (fresh-id m "closure")))
-        (push! (Module-globals m) (wat "global" (id global) (wat "ref" (id base)) (wat "struct.new" (id base) (wat "ref.func" (id code)))))
-        (wat "global.get" (id global))))
+             (code (lambda-function! m function self (Nil) base)))
+        (memoize! m (string-append "closure-value:" code)
+                  (lambda ()
+                    (let ((global (derived-id "closure" code)))
+                      (push! (Module-globals m) (wat "global" (id global) (wat "ref" (id base)) (wat "struct.new" (id base) (wat "ref.func" (id code)))))
+                      (wat "global.get" (id global)))))))
 
     (: closure-with-captures (-> Fn Expr (Option String) (List String) Wat ! mut))
     (define (closure-with-captures fn function self captured)
       (let* ((m (Fn-module fn)) (signature (function-signature m (Expr-type function)))
-             (base (closure-type m (Pair-first signature) (Pair-second signature))) (subtype (fresh-id m "closure"))
-             (reps (map (lambda (name) (capture-rep fn name)) captured)))
-        (register-type! m subtype subtype
-                        (wat "type" (id subtype)
-                             (wat "sub" (Word "final") (id base)
-                                  (wat* "struct" (Cons (wat "field" (wat "ref" (id (code-type m base))))
-                                                       (map (lambda (r) (wat "field" (rep->wat r))) reps))))))
-        (let ((code (lambda-function! m function self (zip captured reps) subtype)))
-          (wat* "struct.new" (Cons (id subtype) (Cons (wat "ref.func" (id code)) (map (lambda (name) (variable fn name unchecked)) captured)))))))
+             (base (closure-type m (Pair-first signature) (Pair-second signature)))
+             (reps (map (lambda (name) (capture-rep fn name)) captured))
+             (subtype (capture-type m base reps))
+             (code (lambda-function! m function self (zip captured reps) subtype)))
+        (wat* "struct.new" (Cons (id subtype) (Cons (wat "ref.func" (id code)) (map (lambda (name) (variable fn name unchecked)) captured))))))
+
+    ;; The captures extend the base struct with their fields. Closures with
+    ;; one base and one list of representations share the subtype.
+    (: capture-type (-> Module String (List Rep) String ! mut))
+    (define (capture-type m base reps)
+      (let ((name (wasm-id (string-append (substring base 1 (string-length base)) "+" (string-join (map rep-key reps) ",")))))
+        (match (known-type m name)
+          ((Some type) type)
+          ((None)
+           (register-type! m name name
+                           (wat "type" (id name)
+                                (wat "sub" (Word "final") (id base)
+                                     (wat* "struct" (Cons (wat "field" (wat "ref" (id (code-type m base))))
+                                                          (map (lambda (r) (wat "field" (rep->wat r))) reps))))))))))
 
     (: capture-rep (-> Fn String Rep ! mut))
     (define (capture-rep fn name)
@@ -731,20 +796,36 @@
       (match (Expr-term function)
         ((Lambda params body)
          (let* ((signature (function-signature m (Expr-type function))) (reps (Pair-first signature))
-                (function-id (fresh-id m "lambda")) (base (closure-type m reps (Pair-second signature)))
-                (fn (lambda-fn m self function-id base)))
-           (push! (Module-declared m) function-id)
+                (base (closure-type m reps (Pair-second signature)))
+                (fn (lambda-fn m self "$lambda.self" base)))
            (bind-params! fn params reps)
-           (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t)))
-             ;; The function's type must be the closure's code type itself,
-             ;; not a structurally equal one, for `ref.func` to fit the field.
-             (push-function! m
-                             (function-wat fn function-id
-                                           (Cons (wat "type" (id (code-type m base)))
-                                                 (Cons (wat "param" (Word "$closure") (wat "ref" (id base))) (param-wats params reps)))
-                                           (Pair-second signature) (append loads code)))
-             function-id)))
+           (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t))
+                  ;; The function's type must be the closure's code type itself,
+                  ;; not a structurally equal one, for `ref.func` to fit the field.
+                  (draft (function-wat fn "$lambda.self"
+                                       (Cons (wat "type" (id (code-type m base)))
+                                             (Cons (wat "param" (Word "$closure") (wat "ref" (id base))) (param-wats params reps)))
+                                       (Pair-second signature) (append loads code))))
+             (lambda-id m draft 0))))
         (_ (panic "internal error: not a lambda"))))
+
+    ;; A lambda is named by the hash of its own text, written with its name
+    ;; as a placeholder, so identical lambdas share one function and a name
+    ;; depends on nothing but the body. Two different lambdas with one hash
+    ;; take the next salt, the one place a name can still depend on the
+    ;; order of emission.
+    (: lambda-id (-> Module Wat I64 String ! mut))
+    (define (lambda-id m draft salt)
+      (let* ((hash (i64->string (wat-hash fnv-offset draft)))
+             (name (wasm-id (string-append "lambda." hash (if (= salt 0) "" (string-append "." (i64->string salt))))))
+             (key (string-append "lambda:" name)))
+        (match (table-ref (ref-get (Module-memo m)) key)
+          ((Some stored) (if (wat=? stored draft) name (lambda-id m draft (+ salt 1))))
+          ((None)
+           (put! (Module-memo m) key draft)
+           (push! (Module-declared m) name)
+           (push-function! m name (wat-rename "$lambda.self" name draft))
+           name))))
 
     ;; A recursive lambda reads its own name as its closure.
     (: lambda-fn (-> Module (Option String) String String Fn ! mut))
@@ -855,12 +936,13 @@
 
     (: singleton (-> Module Type Case Wat ! mut))
     (define (singleton m type case)
-      (memoize! m (string-append "singleton:" (type-key type) ":" (Case-name case))
-                (lambda ()
-                  (let ((global (fresh-id m "value")) (base (data-type m type)))
-                    (push! (Module-globals m)
-                           (wat "global" (id global) (wat "ref" (id base)) (wat "struct.new" (id base) (wat "i32.const" (int (Case-tag case))))))
-                    (wat "global.get" (id global))))))
+      (let ((key (string-append (type-key type) ":" (Case-name case))))
+        (memoize! m (string-append "singleton:" key)
+                  (lambda ()
+                    (let ((global (keyed-id "value" key)) (base (data-type m type)))
+                      (push! (Module-globals m)
+                             (wat "global" (id global) (wat "ref" (id base)) (wat "struct.new" (id base) (wat "i32.const" (int (Case-tag case))))))
+                      (wat "global.get" (id global)))))))
 
     (: field-access (-> Fn Case I64 Expr Wat ! mut))
     (define (field-access fn case index value)
@@ -936,7 +1018,7 @@
     (: import! (-> Module Import (List Rep) (Option Rep) String ! mut))
     (define (import! m import params result)
       (import-once! m (string-append "import:" (Import-module import) ":" (Import-symbol import))
-                    (fresh-id m "import")
+                    (wasm-id (string-append "import." (Import-module import) ":" (Import-symbol import)))
                     (lambda (function-id)
                       (wat "import" (wat-string (Import-module import)) (wat-string (Import-symbol import))
                            (wat* "func" (Cons (id function-id)
@@ -988,13 +1070,13 @@
 
     (: handover-wrapper! (-> Module String (List Type) Type String ! mut))
     (define (handover-wrapper! m name params result)
-      (let* ((fn (new-fn m)) (wrapper (fresh-id m "exposed")) (names (map (lambda (i) (string-append "$arg." (i64->string i))) (iota (length params))))
+      (let* ((fn (new-fn m)) (wrapper (wasm-id (string-append "exposed." name))) (names (map (lambda (i) (string-append "$arg." (i64->string i))) (iota (length params))))
              (args (map (lambda (pair) (import-handover fn (Pair-first pair) (wat "local.get" (id (Pair-second pair))))) (zip params names)))
              (value (export-handover fn result (wat* "call" (Cons (id (wasm-id name)) args)))))
-        (push-function! m (wat* "func" (Cons (id wrapper)
-                                             (append (map (lambda (pair) (wat "param" (id (Pair-second pair)) (exposed-value-type m (Pair-first pair)))) (zip params names))
-                                                     (Cons (wat "result" (exposed-value-type m result))
-                                                           (append (reverse (ref-get (Fn-locals fn))) (list value)))))))
+        (push-function! m wrapper (wat* "func" (Cons (id wrapper)
+                                                     (append (map (lambda (pair) (wat "param" (id (Pair-second pair)) (exposed-value-type m (Pair-first pair)))) (zip params names))
+                                                             (Cons (wat "result" (exposed-value-type m result))
+                                                                   (append (reverse (ref-get (Fn-locals fn))) (list value)))))))
         wrapper))
 
     ;; ---- Pattern matching ----
@@ -1003,8 +1085,9 @@
     ;; tests branch out of; a matching clause branches to `done` with its value.
     (: emit-match (-> Fn Expr Expr (List Clause) Bool (List Wat) ! mut))
     (define (emit-match fn expr scrutinee clauses tail?)
-      (let* ((m (Fn-module fn)) (value (declare-temp! fn (rep->wat (fn-rep fn (Expr-type scrutinee))))) (done (fresh-id m "match")))
-        (list (wat "local.set" (id value) (emit1 fn scrutinee))
+      (let* ((value (declare-temp! fn (rep->wat (fn-rep fn (Expr-type scrutinee))))) (done (local-id fn "match"))
+             (scrutinee-code (emit1 fn scrutinee)))
+        (list (wat "local.set" (id value) scrutinee-code)
               (wat* "block"
                     (Cons (id done)
                           (Cons (wat "result" (rep->wat (fn-rep fn (Expr-type expr))))
@@ -1014,7 +1097,7 @@
     ;; The pattern declares the locals its body reads.
     (: clause-block (-> Fn Clause String String Bool Wat ! mut))
     (define (clause-block fn clause value done tail?)
-      (let* ((next (fresh-id (Fn-module fn) "clause"))
+      (let* ((next (local-id fn "clause"))
              (pattern (Clause-pattern clause))
              (tests (if (affine-type? (program-of (Fn-module fn)) (pattern-type pattern))
                         (let ((plan (owned-pattern fn pattern (wat "local.get" (id value)) next)))
@@ -1534,9 +1617,9 @@
         (match (table-ref (ref-get (Module-helpers m)) full-key)
           ((Some function-id) function-id)
           ((None)
-           (let ((function-id (fresh-id m prefix)))
+           (let ((function-id (wasm-id (string-append prefix "." key))))
              (put! (Module-helpers m) full-key function-id)
-             (push-function! m (make function-id))
+             (push-function! m function-id (make function-id))
              function-id)))))
 
     (: template-helper! (-> Module String String String (List (Pair String String)) String ! mut))
@@ -1791,7 +1874,7 @@
     (: new-module (-> Mono (Option String) Module ! mut))
     (define (new-module mono owner)
       (Module (Mono-program mono) (item-definitions (Mono-items mono)) owner (Mono-externals mono) (ref empty-table) (ref (Nil))
-              (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table) (ref 0)))
+              (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table)))
 
     (: emit-items! (-> Module (List Item) Unit ! mut))
     (define (emit-items! m items)
@@ -1814,24 +1897,47 @@
     ;; code and the data segments of byte literals. Every module imports the
     ;; runtime's linear memory, where staged text goes; once linked, the two
     ;; share it.
+    ;; Declarations are listed by name, so the text is the same whichever
+    ;; order they were emitted in. Only the types constrain their order, and
+    ;; `type-groups` settles it.
     (: module-wat (-> Module Wat ! mut))
     (define (module-wat m)
-      (let ((declared (reverse (ref-get (Module-declared m)))))
+      (let ((declared (sort-strings (delete-duplicates string=? (ref-get (Module-declared m))))))
         (wat* "module"
               (concatenate
                (list (type-groups (reverse (ref-get (Module-types m))))
                      (Cons (wat "import" (wat-string "snail.library") (wat-string "memory") (wat "memory" (int 0)))
-                           (reverse (ref-get (Module-imports m))))
-                     (reverse (ref-get (Module-globals m)))
+                           (sorted-declarations (ref-get (Module-imports m))))
+                     (sorted-declarations (ref-get (Module-globals m)))
                      (if (null? declared) (Nil) (list (wat* "elem" (Cons (Word "declare") (Cons (Word "func") (map id declared))))))
-                     (reverse (ref-get (Module-exports m)))
-                     (map Word (reverse (ref-get (Module-functions m))))
-                     (reverse (ref-get (Module-data m))))))))
+                     (sorted-declarations (ref-get (Module-exports m)))
+                     (map (lambda (entry) (Word (Pair-second entry))) (sort-named (ref-get (Module-functions m))))
+                     (sorted-declarations (ref-get (Module-data m))))))))
+
+    (: sorted-declarations (-> (List Wat) (List Wat)))
+    (define (sorted-declarations declarations)
+      (map (lambda (entry) (Pair-second entry))
+           (sort-named (map (lambda (declaration) (Pair (declaration-id declaration) declaration)) declarations))))
+
+    (: sort-named (All (A) (-> (List (Pair String A)) (List (Pair String A)))))
+    (define (sort-named entries)
+      (let ((count (length entries)))
+        (if (< count 2)
+            entries
+            (merge-named (sort-named (take entries (quotient count 2))) (sort-named (drop entries (quotient count 2)))))))
+
+    (: merge-named (All (A) (-> (List (Pair String A)) (List (Pair String A)) (List (Pair String A)))))
+    (define (merge-named a b)
+      (match (Pair a b)
+        ((Pair (Nil) _) b)
+        ((Pair _ (Nil)) a)
+        ((Pair (Cons x xs) (Cons y ys))
+         (if (string<? (Pair-first y) (Pair-first x)) (Cons y (merge-named a ys)) (Cons x (merge-named xs b))))))
 
     (: emit-main! (-> Module (List Item) Unit ! mut))
     (define (emit-main! m items)
       (let* ((fn (new-fn m)) (code (concatenate (map (lambda (item) (main-item-code m fn item)) items))))
-        (push-function! m
+        (push-function! m "$main"
                         (wat* "func" (Cons (Word "$main")
                                            (Cons (wat "export" (wat-string "main"))
                                                  (Cons (wat "result" (Word "i32"))
