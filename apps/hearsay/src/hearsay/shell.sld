@@ -11,9 +11,9 @@
    shell-save
    shell-restore)
   (import
-   (lofi base)
-   (lofi wire)
-   (lofi app)
+   (snail-core base)
+   (snail-core wire)
+   (snail-core app)
    (hearsay mill)
    (hearsay mill-screen)
    (hearsay ledger-screen)

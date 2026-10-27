@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi socket))
+ (snail-core base)
+ (snail-core socket))
 
 (: transfer (All (T) (requires (Send T)) (-> T T)))
 (define (transfer value) value)

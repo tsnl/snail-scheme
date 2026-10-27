@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 
 ;; An operation could hand the cell to a handler outside the call.
 (effect Stash

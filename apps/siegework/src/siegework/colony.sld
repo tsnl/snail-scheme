@@ -33,8 +33,8 @@
    work
    produce)
   (import
-   (lofi base)
-   (lofi wire)
+   (snail-core base)
+   (snail-core wire)
    (siegework grid)
    (siegework terrain)
    (siegework world))

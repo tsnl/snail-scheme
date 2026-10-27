@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi socket))
+ (snail-core base)
+ (snail-core io)
+ (snail-core socket))
 
 (: require (All (T) (-> (Result T SocketError) T)))
 (define (require result)

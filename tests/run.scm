@@ -15,16 +15,16 @@
  (scheme write)
  (chibi filesystem)
  (chibi process)
- (lofi process)
+ (snail-core process)
  (only (chibi string) string-contains string-split string-suffix?)
  (srfi 1)
- (lofi build)
- (only (lofi compiler read) test-read)
- (only (lofi compiler inputs) test-inputs)
- (only (lofi compiler core) test-core)
- (only (lofi compiler wasm) test-wasm)
- (only (lofi compiler session) test-session)
- (only (lofi project) test-project))
+ (snail-core build)
+ (only (snail-core compiler read) test-read)
+ (only (snail-core compiler inputs) test-inputs)
+ (only (snail-core compiler core) test-core)
+ (only (snail-core compiler wasm) test-wasm)
+ (only (snail-core compiler session) test-session)
+ (only (snail-core project) test-project))
 
 ;; ---- Cases ----
 
@@ -182,7 +182,7 @@
   (let ((source (path-join root "build/tests/type-ids/main.sld")) (marker "(struct.new $any (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
     (call-with-output-file source
-      (lambda (port) (write-string (string-append "(import (lofi base))\n(enum Phase " cases ")\n(type-convert (Day) Any)\n") port)))
+      (lambda (port) (write-string (string-append "(import (snail-core base))\n(enum Phase " cases ")\n(type-convert (Day) Any)\n") port)))
     (let* ((text (program->wat root (standard-directories root) source)) (start (+ (text-index text marker 0) (string-length marker))))
       (substring text start (text-index text ")" start)))))
 
@@ -191,7 +191,7 @@
         ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
         (else (text-index text pattern (+ from 1)))))
 
-;; The IDE's formatter, (lofi format) as a program, leaves every Scheme
+;; The IDE's formatter, (snail-core format) as a program, leaves every Scheme
 ;; file in the repository as the Emacs formatter that `make check` runs
 ;; left it.
 (define (compile-formatter root)
@@ -206,16 +206,16 @@
       (create-directory* (path-join root "build/tests/formatter"))
       (link-wat root text program #f)
       (let ((result (capture-process
-                     (append (list "node" "--no-warnings" (path-join root "host/native/run-lofi.mjs") program "--check")
+                     (append (list "node" "--no-warnings" (path-join root "host/native/run-snail.mjs") program "--check")
                              (map (lambda (file) (path-join root file)) (delete "" (string-split (car files) #\newline)))))))
         (or (and (zero? (caddr result)) (string=? (car result) ""))
             (report "formatter" "formats differently from Emacs" (string-append (car result) (cadr result))))))))
 
 ;; The internal compiler driver: printing text and running a program.
 (define (run-command-line root)
-  (let ((wat (capture-process (list (path-join root "scripts/lofi-tool") "wat" (path-join root "examples/fibonacci.sld"))))
-        (run (capture-process (list (path-join root "scripts/lofi-tool") "run" (path-join root "examples/fibonacci.sld"))))
-        (failed (capture-process (list (path-join root "scripts/lofi-tool") "run" (path-join root "tests/tasks/failure.sld")))))
+  (let ((wat (capture-process (list (path-join root "scripts/snail-tool") "wat" (path-join root "examples/fibonacci.sld"))))
+        (run (capture-process (list (path-join root "scripts/snail-tool") "run" (path-join root "examples/fibonacci.sld"))))
+        (failed (capture-process (list (path-join root "scripts/snail-tool") "run" (path-join root "tests/tasks/failure.sld")))))
     (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main"))) (report "compiler wat" "no module text" (cadr wat)))
           ((not (equal? (car run) "832040\n")) (report "compiler run" "wrong output" (string-append (car run) (cadr run))))
           ((not (and (not (zero? (caddr failed))) (equal? (car failed) "survived\n")))
@@ -323,7 +323,7 @@
 ;; ---- Linked modules ----
 
 ;; Programs compiled one library at a time and linked when they run, by
-;; host/native/run-lofi.mjs and the loader in host/browser/load.mjs, must print what
+;; host/native/run-snail.mjs and the loader in host/browser/load.mjs, must print what
 ;; their statically linked builds print. A sample of the suites covers each
 ;; kind of definition crossing a module boundary, and Siegework covers an
 ;; application. Building runs the compiler, so these run after the others.
@@ -385,7 +385,7 @@
 
 ;; ---- Development loop ----
 
-;; `lofi-tool serve` and `lofi-tool watch` build while they run, and the check waits
+;; `snail-tool serve` and `snail-tool watch` build while they run, and the check waits
 ;; for their builds with a timeout, so it runs alone, after the others,
 ;; rather than competing with them.
 (define (run-develop root)

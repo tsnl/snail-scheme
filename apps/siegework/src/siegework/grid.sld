@@ -20,8 +20,8 @@
    crossing-path
    distance-field)
   (import
-   (lofi base)
-   (lofi wire))
+   (snail-core base)
+   (snail-core wire))
   (begin
 
     ;; ---- Cells ----

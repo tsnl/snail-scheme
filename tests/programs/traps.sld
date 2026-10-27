@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 ;; Integer arithmetic wraps; division by zero traps.
 (display (* 4611686018427387904 2))

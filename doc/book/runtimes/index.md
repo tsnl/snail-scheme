@@ -1,6 +1,6 @@
 # Runtimes
 
-Lofi's shipping target is WebAssembly GC with JavaScript Promise Integration
+Snail-Core's shipping target is WebAssembly GC with JavaScript Promise Integration
 (JSPI). A runtime supplies platform effects and owns the computations that
 use them. The language's intended concurrency contract permits multiple
 threads; the shipping runtime uses one JavaScript execution agent.
@@ -8,13 +8,13 @@ threads; the shipping runtime uses one JavaScript execution agent.
 The **host** is the surrounding platform, such as Node or a browser. A runtime
 owns language tasks; an OS process owns its platform execution environment.
 A compiler session is cached compiler work, not an application runtime.
-The [toolchain terms](../lofi/terms.md#toolchain-terms) keep these boundaries
+The [toolchain terms](../snail-core/terms.md#toolchain-terms) keep these boundaries
 distinct in the project and development design.
 
 The [task contract](contract.md) specifies the replacement for
 the actor API. It separates scheduling, handler installations and owned
 values. The actor request/reply API has been removed. [Task operations](tasks.md)
-run in the CLI and GUI. [Applications](../lofi/applications.md) describes
+run in the CLI and GUI. [Applications](../snail-core/applications.md) describes
 checkpoint handover and reload on that runtime. [One-shot work and
 ownership](ownership.md) describes the implemented affine subset.
 The [socket effects](networking.md) bind typed, interceptable TCP and UDP operations
@@ -45,9 +45,9 @@ reverse proxy can load-balance several processes. Each instance has its own
 managed heap; communication uses an explicit external protocol.
 
 [workerd](https://github.com/cloudflare/workerd) is a possible host to
-investigate, not a currently supported Lofi deployment target. Its isolates
+investigate, not a currently supported Snail-Core deployment target. Its isolates
 are not synonymous with OS processes. Its WasmGC, JSPI and import support
-must be checked before promising compatibility. Lofi does not need a second
+must be checked before promising compatibility. Snail-Core does not need a second
 compiler backend to use multiple independently hosted instances.
 
 ## Future work
@@ -55,7 +55,7 @@ compiler backend to use multiple independently hosted instances.
 [Mixed memory and continuations](memory-and-continuations.md) proposes
 type-directed GC and owned linear storage in the existing Wasm backend,
 explicit affine and reusable continuations, and a scheduler written in
-Lofi. Transferable linear-memory tasks could then run across workers while
+Snail-Core. Transferable linear-memory tasks could then run across workers while
 ordinary GC references remain local. These changes are not implemented.
 
 [Continuations and parallel execution](future.md) retains the earlier

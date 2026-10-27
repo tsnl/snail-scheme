@@ -1,4 +1,4 @@
-;; The IDE's formatter, (lofi format) as a program. In a page, the source
+;; The IDE's formatter, (snail-core format) as a program. In a page, the source
 ;; arrives a character at a time through `format_character`; `format_whole`
 ;; formats it, `format_indent` reindents some of its lines and
 ;; `format_highlight` classes each character for coloring, and each returns
@@ -10,9 +10,9 @@
 ;; prints the first line that formatting would change in each file, which is
 ;; how the tests hold the formatter to the repository's Emacs formatting.
 (import
- (lofi base)
- (lofi io)
- (lofi format))
+ (snail-core base)
+ (snail-core io)
+ (snail-core format))
 
 ;; ---- In a page ----
 

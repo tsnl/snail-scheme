@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (rename (lofi socket)
+ (snail-core base)
+ (rename (snail-core socket)
          (send udp-send)
          (receive udp-receive)))
 

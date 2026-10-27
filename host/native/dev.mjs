@@ -11,7 +11,7 @@ function options(arguments_) {
     if (!/^\d+$/.test(text ?? '') || Number(text) > 65535) throw new Error('port must be an integer from 0 to 65535');
     port = Number(text); arguments_ = arguments_.slice(2);
   }
-  if (arguments_.length !== 1 || arguments_[0].startsWith('-')) throw new Error('usage: lofi dev [--port PORT] PROJECT');
+  if (arguments_.length !== 1 || arguments_[0].startsWith('-')) throw new Error('usage: snail dev [--port PORT] PROJECT');
   return {project: resolve(arguments_[0]), port};
 }
 
@@ -23,6 +23,6 @@ try {
   console.log(`editing ${chosen.project} at ${service.url}/`);
   await service.closed;
 } catch (error) {
-  console.error(`lofi dev: ${error.message}`);
+  console.error(`snail dev: ${error.message}`);
   process.exitCode = 1;
 }

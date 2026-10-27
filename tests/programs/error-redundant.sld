@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 
 (: f (-> Bool I64))
 (define (f x)

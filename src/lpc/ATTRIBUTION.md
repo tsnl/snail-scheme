@@ -7,7 +7,7 @@ as it was published, without the macOS metadata (`__MACOSX/` and
 repository's Apache license. Each pack keeps its own license and credits,
 listed below and in the files named.
 
-The Lofi libraries beside these folders, such as `(lpc catalog)`, read
+The Snail-Core libraries beside these folders, such as `(lpc catalog)`, read
 the packs. Programs embed what they draw by compiling a `generate-library`
 that reads the image files, so a built program carries those images, and
 any picture it composes from them is a derivative of the art. Whoever

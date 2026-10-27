@@ -1,0 +1,26 @@
+Usage: snail build [--release] PROJECT BUILD-TARGET
+       snail run PROJECT RUN-TARGET [ARGUMENT ...]
+       snail check PROJECT
+       snail dev [--port PORT] PROJECT
+
+build reads PROJECT/project.datum and publishes the named target into
+PROJECT/build/TARGET. Each output directory is a link to a completed
+generation; earlier generations remain until explicitly removed. --release
+requests full optimization. Browser targets package their program, browser
+runtime and public directory. Put index.html in public; no page is generated.
+
+run builds the named run-target's program and executes that completed generation
+in the current directory. Configured arguments precede ARGUMENTs. The command
+becomes the application process, retaining terminal IO, exit status and signals.
+
+check checks every declared build target's code through specialization and
+ownership checking. Required generators execute and artifact dependencies build
+temporarily. Their outputs are discarded; check does not publish build outputs.
+
+dev keeps one native project compiler running, watches disk and serves an
+editor at http://127.0.0.1:PORT/ (8000 by default, 0 chooses a free port).
+Save writes disk; the shared watcher triggers compilation. External edits
+update clean editor buffers and report conflicts for unsaved buffers.
+Application launching/reloading is not integrated into dev yet.
+
+  -h, --help       Show this help.

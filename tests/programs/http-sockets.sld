@@ -1,10 +1,10 @@
 (import
- (lofi base)
- (lofi io)
- (lofi task)
- (lofi socket)
- (lofi http)
- (lofi http exchange))
+ (snail-core base)
+ (snail-core io)
+ (snail-core task)
+ (snail-core socket)
+ (snail-core http)
+ (snail-core http exchange))
 
 (: require (All (T) (-> (Result T SocketError) T)))
 (define (require result)

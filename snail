@@ -1,0 +1,9 @@
+#!/bin/sh
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+case ${1:-} in
+  -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
+  dev) shift; exec "${NODE:-node}" --no-warnings "$root/host/native/dev.mjs" "$root" "$@" ;;
+  # Keep the old build worker's 384 MiB young generation and 4 MiB stack less 192 KiB native overhead.
+  build|run|check) exec "${NODE:-node}" --no-warnings --max-semi-space-size=128 --stack-size=3904 "$root/host/native/project-cli.mjs" "$root" "$@" ;;
+  *) printf 'snail: expected build, run, check or dev; use --help\n' >&2; exit 2 ;;
+esac

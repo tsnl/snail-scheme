@@ -2,11 +2,11 @@
 
 Each application is a project with an inert `project.datum`, a `main.sld`
 program, its own libraries under `src/`, files including `index.html` under
-`public/`, and tests. `lofi build --release apps/NAME site` selects the `site`
+`public/`, and tests. `snail build --release apps/NAME site` selects the `site`
 target and packages it with the shared browser host from `host/browser` into
 `apps/NAME/build/site`. `make site` builds both applications this way.
 
-`./scripts/lofi-tool serve apps/siegework` builds the same program one library at a
+`./scripts/snail-tool serve apps/siegework` builds the same program one library at a
 time into `build/serve/siegework`, serves it, and relinks each rebuilt
 module into the open page, keeping its state. It cannot build Hearsay yet,
 whose art comes from `generate-library` recipes.

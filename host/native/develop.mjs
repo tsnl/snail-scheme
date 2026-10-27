@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The native host owns watchers, timers, HTTP/SSE and application children.
-// A persistent worker owns (lofi develop), its synchronous Wasm compiler,
+// A persistent worker owns (snail-core develop), its synchronous Wasm compiler,
 // assembler and file helpers. Compiler work never occupies this event loop.
 //
 //   develop.mjs ROOT serve [--port PORT] APP-DIRECTORY
@@ -11,7 +11,7 @@ import {createServer} from 'node:http';
 import {extname, join, relative, resolve} from 'node:path';
 import {Worker} from 'node:worker_threads';
 
-const usage = 'usage: ./scripts/lofi-tool serve [--port PORT] APP-DIRECTORY | ./scripts/lofi-tool watch [-I DIRECTORY] SOURCE [ARGUMENT ...]';
+const usage = 'usage: ./scripts/snail-tool serve [--port PORT] APP-DIRECTORY | ./scripts/snail-tool watch [-I DIRECTORY] SOURCE [ARGUMENT ...]';
 
 // ---- Requests ----
 
@@ -33,7 +33,7 @@ function loopRequest([command, ...rest]) {
 // The loop, the reload client, the runtime and the assembler, which the
 // driver builds when their sources change.
 function buildTools(root) {
-  const result = spawnSync(join(root, 'scripts/lofi-tool'), ['tools'], {encoding: 'utf8'});
+  const result = spawnSync(join(root, 'scripts/snail-tool'), ['tools'], {encoding: 'utf8'});
   if (result.status !== 0) throw new Error(result.stderr.trim());
   return JSON.parse(result.stdout);
 }
@@ -49,7 +49,7 @@ function startLoop(root, tools, request) {
   try {
     loop.worker = new Worker(new URL('./develop-worker.mjs', import.meta.url), {
       workerData: {root, tools, request, errors: join(directory, 'errors.txt')},
-      resourceLimits: {maxYoungGenerationSizeMb: 384}, name: 'lofi-compiler',
+      resourceLimits: {maxYoungGenerationSizeMb: 384}, name: 'snail-compiler',
     });
   } catch (error) { rmSync(directory, {recursive: true, force: true}); throw error; }
   loop.worker.on('message', command => {
@@ -61,7 +61,7 @@ function startLoop(root, tools, request) {
   return loop;
 }
 
-// The loop's events, numbered as `deliver-event!` in src/lofi/develop.sld
+// The loop's events, numbered as `deliver-event!` in src/snail-core/develop.sld
 // numbers them. The worker serializes calls into its one Wasm instance.
 const CHANGED = 1, TIMER = 2;
 
@@ -71,7 +71,7 @@ function send(loop, kind, text) {
 
 // ---- Commands ----
 
-// Only commands whose results the Lofi loop discards cross this boundary.
+// Only commands whose results the Snail-Core loop discards cross this boundary.
 // Immediate filesystem/assembler results stay beside their Wasm caller.
 function perform(loop, {command, args, number}) {
   switch (command) {
@@ -148,7 +148,7 @@ function runProgram(loop, manifest, args) {
   const previous = loop.child;
   loop.next = () => {
     if (loop.stopping) return;
-    const child = spawn(process.env.NODE ?? 'node', ['--no-warnings', join(loop.root, 'host/native/run-lofi.mjs'), manifest, ...args], {stdio: 'inherit'});
+    const child = spawn(process.env.NODE ?? 'node', ['--no-warnings', join(loop.root, 'host/native/run-snail.mjs'), manifest, ...args], {stdio: 'inherit'});
     child.on('error', error => fail(loop, error));
     child.on('exit', (code, signal) => { if (!signal) console.error(`\x1b[2m-- exited with status ${code}\x1b[0m`); });
     loop.child = child;
@@ -161,7 +161,7 @@ function runProgram(loop, manifest, args) {
 
 function fail(loop, error) {
   if (loop.stopping) return;
-  console.error(`lofi: ${error.message}`);
+  console.error(`snail: ${error.message}`);
   void stop(loop, 1);
 }
 
@@ -194,6 +194,6 @@ try {
   process.on('SIGINT', () => { void stop(loop, 130); });
   process.on('SIGTERM', () => { void stop(loop, 143); });
 } catch (error) {
-  console.error(`lofi: ${error.message}`);
+  console.error(`snail: ${error.message}`);
   process.exitCode = 1;
 }

@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 
 (effect Store
   ((load (-> I64))

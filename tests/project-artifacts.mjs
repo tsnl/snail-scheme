@@ -9,17 +9,17 @@ import {promisify} from 'node:util';
 import {pathToFileURL} from 'node:url';
 
 const execute = promisify(execFile), root = process.argv[2];
-const project = await mkdtemp(join(tmpdir(), 'lofi-project-artifacts-'));
+const project = await mkdtemp(join(tmpdir(), 'snail-project-artifacts-'));
 const output = name => join(project, 'build', name);
-const build = (name, env = process.env) => execute(join(root, 'lofi'), ['build', project, name], {env, maxBuffer: 4 * 1024 * 1024});
-const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), path]);
-const artifact = name => `(import (lofi base) (lofi artifact))\n(artifact-bundle "${name}")\n`;
+const build = (name, env = process.env) => execute(join(root, 'snail'), ['build', project, name], {env, maxBuffer: 4 * 1024 * 1024});
+const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
+const artifact = name => `(import (snail-core base) (snail-core artifact))\n(artifact-bundle "${name}")\n`;
 
 async function generations() {
   const counts = {};
   for (const name of await readdir(join(project, 'build'))) {
-    if (!name.startsWith('.lofi-')) continue;
-    const target = await readFile(join(project, 'build', name, '.lofi-target'), 'utf8');
+    if (!name.startsWith('.snail-')) continue;
+    const target = await readFile(join(project, 'build', name, '.snail-target'), 'utf8');
     counts[target] = (counts[target] ?? 0) + 1;
   }
   return counts;
@@ -31,9 +31,9 @@ async function checkProgram(program, value) {
   assert.deepEqual(paths, [...paths].sort(), 'relative file names are sorted');
   assert.equal(new Set(paths).size, paths.length);
   assert.ok(paths.includes('program.wasm') && paths.includes('host.mjs') && paths.includes('index.html'));
-  assert.ok(paths.includes('nested/.lofi-target'), 'only the root ownership marker is excluded');
+  assert.ok(paths.includes('nested/.snail-target'), 'only the root ownership marker is excluded');
   assert.ok(paths.includes('.hidden') && paths.includes('quote".txt'));
-  assert.ok(!paths.includes('.lofi-target') && !paths.includes('.lofi-publish'));
+  assert.ok(!paths.includes('.snail-target') && !paths.includes('.snail-publish'));
   assert.deepEqual(lines.slice(1), [`${value},0,255,`, `${value},0,255,`, '99,', `${value},0,255,`]);
 }
 
@@ -42,7 +42,7 @@ try {
   await mkdir(join(project, 'client-public/nested'), {recursive: true});
   await mkdir(join(project, 'admin-public'));
   await writeFile(join(project, 'client-public/nested/data.bin'), Buffer.from([65, 0, 255]));
-  await writeFile(join(project, 'client-public/nested/.lofi-target'), 'ordinary nested file');
+  await writeFile(join(project, 'client-public/nested/.snail-target'), 'ordinary nested file');
   await writeFile(join(project, 'client-public/.hidden'), 'hidden');
   await writeFile(join(project, 'client-public/quote".txt'), 'quoted');
   await writeFile(join(project, 'client-public/index.html'), '<!doctype html><title>client</title>');
@@ -63,9 +63,9 @@ try {
   assert.deepEqual(await generations(), {client: 2, admin: 2, server: 2}, 'each invocation regenerates dependencies and producers');
 
   const clientBeforeFailure = await realpath(output('client'));
-  for (const prefix of [join(project, 'client-public'), join(project, 'build/.lofi-')]) {
+  for (const prefix of [join(project, 'client-public'), join(project, 'build/.snail-')]) {
     const preload = pathToFileURL(join(root, 'tests/compiler-inputs/directory-failure.mjs')).href;
-    await assert.rejects(build('client', {...process.env, LOFI_TEST_DIRECTORY_FAILURE: prefix,
+    await assert.rejects(build('client', {...process.env, SNAIL_TEST_DIRECTORY_FAILURE: prefix,
       NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${preload}`].filter(Boolean).join(' ')}), /cannot read directory/);
     assert.equal(await realpath(output('client')), clientBeforeFailure, 'read failure never publishes a partial public tree or bundle');
   }
@@ -79,11 +79,11 @@ try {
   await writeFile(join(project, 'client.sld'), artifact('client'));
   await assert.rejects(build('client'), /client -> client/);
   await writeFile(join(project, 'client.sld'), artifact('admin'));
-  await writeFile(join(project, 'admin.sld'), '(import (lofi base) (generated assets))\n(unit)\n');
+  await writeFile(join(project, 'admin.sld'), '(import (snail-core base) (generated assets))\n(unit)\n');
   await assert.rejects(build('client'), /client -> admin -> client/, 'cycle discovered while compiling a producer');
 
-  await writeFile(join(project, 'client.sld'), '(import (lofi base)) (unit)\n');
-  await writeFile(join(project, 'admin.sld'), '(import (lofi base)) (unit)\n');
+  await writeFile(join(project, 'client.sld'), '(import (snail-core base)) (unit)\n');
+  await writeFile(join(project, 'admin.sld'), '(import (snail-core base)) (unit)\n');
   await writeFile(join(project, 'server.sld'), `${source}\n(missing-function)\n`);
   const priorClient = await realpath(output('client'));
   await assert.rejects(build('server'), /missing-function/);

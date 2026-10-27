@@ -12,11 +12,11 @@
    view-mill-screen
    mill-screen-hud)
   (import
-   (lofi base)
-   (lofi wire)
-   (lofi app)
-   (lofi math)
-   (lofi sprite)
+   (snail-core base)
+   (snail-core wire)
+   (snail-core app)
+   (snail-core math)
+   (snail-core sprite)
    (only (lpc layout) Stand Stroll walk-book)
    (lpc wardrobe)
    (hearsay mill)

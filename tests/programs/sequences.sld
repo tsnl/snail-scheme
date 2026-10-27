@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (define v (vector-generate 5 (lambda (i) (* i i))))
 (display (vector-ref v 3))

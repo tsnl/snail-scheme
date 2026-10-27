@@ -1,7 +1,7 @@
 # Siegework
 
 Explore a seeded map, wire an energy network across it, and destroy three
-nests before their attacks destroy your hub. The whole game is Lofi; the
+nests before their attacks destroy your hub. The whole game is Snail-Core; the
 browser only forwards input, draws frames and the HUD, and stores the save.
 
 **[Play online](https://tsnl.github.io/snail-scheme/play/siegework/)** ·

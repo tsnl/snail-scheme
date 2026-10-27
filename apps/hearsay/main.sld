@@ -2,8 +2,8 @@
 ;; the favor ledger. See prototypes.md for their rules. The cast's LPC
 ;; sheets are embedded through (hearsay art); see src/lpc/ATTRIBUTION.md.
 (import
- (lofi base)
- (lofi app)
+ (snail-core base)
+ (snail-core app)
  (hearsay shell)
  (hearsay art))
 

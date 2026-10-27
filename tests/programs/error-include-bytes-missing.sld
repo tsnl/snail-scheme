@@ -1,4 +1,4 @@
 (import
- (lofi base))
+ (snail-core base))
 
 (define image (include-bytes "data/missing.png"))

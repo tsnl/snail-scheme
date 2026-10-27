@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (: describe (-> (Option (Option I64)) String))
 (define (describe value)

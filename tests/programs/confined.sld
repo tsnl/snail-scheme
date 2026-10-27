@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 ;; The counter is allocated inside and never leaves, so `sum` may be total.
 (: sum (-> (List I64) I64))

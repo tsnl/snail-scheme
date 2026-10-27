@@ -65,10 +65,10 @@
    InspectMap
    press-code)
   (import
-   (lofi base)
-   (lofi wire)
-   (lofi app)
-   (lofi math)
+   (snail-core base)
+   (snail-core wire)
+   (snail-core app)
+   (snail-core math)
    (siegework grid)
    (only (siegework terrain) Land-starter)
    (siegework world)

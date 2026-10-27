@@ -8,15 +8,15 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createProjectBuilder, discardProject, projectTools, publishProject} from '../host/native/project.mjs';
 
-const root = process.argv[2], project = fs.mkdtempSync(join(tmpdir(), 'lofi-project-development-'));
-const working = fs.mkdtempSync(join(tmpdir(), 'lofi-project-worker-'));
+const root = process.argv[2], project = fs.mkdtempSync(join(tmpdir(), 'snail-project-development-'));
+const working = fs.mkdtempSync(join(tmpdir(), 'snail-project-worker-'));
 const tools = projectTools(root);
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
 const output = name => fs.realpathSync(join(project, 'build', name));
 const target = (candidate, name) => candidate.targets.find(target => target.name === name);
 
 function execute(directory) {
-  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
+  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, '');
   return result.stdout;
@@ -59,7 +59,7 @@ try {
   fs.renameSync(join(project, 'client-public/nested/renamed.bin'), join(project, 'client-public/nested/data.bin'));
 
   const beforeFailure = output('server'), beforeDirectories = fs.readdirSync(join(project, 'build')).sort();
-  write('client.sld', '(import (lofi base)) (ann 42 I64)');
+  write('client.sld', '(import (snail-core base)) (ann 42 I64)');
   write('client-public/nested/data.bin', Buffer.from([90, 0, 255]));
   write('server.sld', `${source}\n(missing-function)\n`);
   assert.throws(() => builder.build(builder.describe(), ['server']), /missing-function/);
@@ -67,7 +67,7 @@ try {
   assert.deepEqual(fs.readdirSync(join(project, 'build')).sort(), beforeDirectories, 'failed traversal removes every private generation');
 
   const remove = fs.rmSync;
-  write('server.sld', '(import (lofi base)) (missing-function)');
+  write('server.sld', '(import (snail-core base)) (missing-function)');
   fs.rmSync = function(path, options) {
     if (options?.recursive && String(path).startsWith(join(working, 'compile-'))) throw new Error('injected cleanup failure');
     return remove(path, options);
@@ -103,8 +103,8 @@ try {
   // Library-root changes recreate a target's Session. Public settings do not
   // participate in that decision; the compiler checks artifact bytes itself.
   const description = libraries => `((build-target server (program (entry "main.sld") (library-roots ("${libraries}")))))`;
-  write('main.sld', '(import (lofi base) (lofi io) (sample message)) (write-line message)');
-  const library = value => `(define-library (sample message) (export message) (import (lofi base)) (begin (: message String) (define message "${value}")))`;
+  write('main.sld', '(import (snail-core base) (snail-core io) (sample message)) (write-line message)');
+  const library = value => `(define-library (sample message) (export message) (import (snail-core base)) (begin (: message String) (define message "${value}")))`;
   write('one/sample/message.sld', library('one'));
   write('two/sample/message.sld', library('two'));
   for (const name of ['one', 'two']) {
@@ -118,8 +118,8 @@ try {
   // producer execution must happen in every logical compilation.
   write('message.txt', 'generated first');
   write('two/sample/message.sld', `(generate-library (sample message)
-    (import (lofi base) (lofi io) (lofi syntax))
-    (library-syntax (list "sample" "message") (list "message") (list (list "lofi" "base"))
+    (import (snail-core base) (snail-core io) (snail-core syntax))
+    (library-syntax (list "sample" "message") (list "message") (list (list "snail-core" "base"))
       (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
         (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${project}/message.txt")))))))`);
   const generated = builder.build(builder.describe());
@@ -133,8 +133,8 @@ try {
   // The manifest owns library names; content filenames need not repeat them
   // and exceed the filesystem limit for an otherwise valid source filename.
   const longName = 'x'.repeat(200);
-  write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (lofi base)) (begin (: message String) (define message "long name")))`);
-  write('main.sld', `(import (lofi base) (lofi io) (${longName})) (write-line message)`);
+  write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail-core base)) (begin (: message String) (define message "long name")))`);
+  write('main.sld', `(import (snail-core base) (snail-core io) (${longName})) (write-line message)`);
   const longLibrary = builder.build(builder.describe());
   assert.equal(execute(longLibrary.targets[0].directory), 'long name\n');
   discardProject(longLibrary);

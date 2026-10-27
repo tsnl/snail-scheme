@@ -107,7 +107,7 @@ export function projectFiles(project) {
     const build = join(project, 'build'), stat = lstatSync(build, {throwIfNoEntry: false});
     if (stat && !stat.isDirectory()) throw new ProjectFileError('project build output must be a directory, not a link');
     mkdirSync(build, {recursive: true});
-    return mkdtempSync(join(build, '.lofi-edit-'));
+    return mkdtempSync(join(build, '.snail-edit-'));
   }
 
   // No source/public temporary files: the existing build exclusion also keeps

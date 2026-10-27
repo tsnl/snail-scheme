@@ -4,7 +4,7 @@
 ;; swapping each color for the one at the same place.
 (generate-library (lpc skins)
                   (import
-                   (lofi base)
-                   (lofi io)
+                   (snail-core base)
+                   (snail-core io)
                    (lpc embed))
                   (ramps-library (list "lpc" "skins") "src/lpc/lpc-character-bases-v3_1/_build/palettes/skin.json"))

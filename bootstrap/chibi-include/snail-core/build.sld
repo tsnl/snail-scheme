@@ -1,0 +1,1 @@
+../../../host/chibi/snail-core/build.sld

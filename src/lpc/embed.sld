@@ -9,9 +9,9 @@
    embed-library
    ramps-library)
   (import
-   (lofi base)
-   (lofi io)
-   (lofi syntax))
+   (snail-core base)
+   (snail-core io)
+   (snail-core syntax))
   (begin
 
     ;; `(: name (-> String result))` and `(define (name key) (cond ...))`,
@@ -36,7 +36,7 @@
     ;; other path. The paths' files are read now, as bytes.
     (: embed-library (-> (List String) I32 (List String) Syntax ! fs))
     (define (embed-library name first-key paths)
-      (library-syntax name (list "art") (list (list "lofi" "base") (list "lofi" "app"))
+      (library-syntax name (list "art") (list (list "snail-core" "base") (list "snail-core" "app"))
                       (append (lookup-definitions "art" (form "Option" (list (SymbolSyntax "Source")))
                                                   (map-indexed (lambda (index path) (art-entry first-key index path)) paths) (form "None" (Nil)))
                               (concatenate (map-indexed image-definitions paths)))))
@@ -65,7 +65,7 @@
     ;; palettes. A missing ramp is empty.
     (: ramps-library (-> (List String) String Syntax ! fs))
     (define (ramps-library name path)
-      (library-syntax name (list "ramp") (list (list "lofi" "base"))
+      (library-syntax name (list "ramp") (list (list "snail-core" "base"))
                       (lookup-definitions "ramp" (form "List" (list (SymbolSyntax "I32"))) (map ramp-entry (json-ramps (read-file path)))
                                           (form "Nil" (Nil)))))
 

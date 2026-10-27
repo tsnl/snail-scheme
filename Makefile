@@ -10,7 +10,7 @@ MDBOOK ?= mdbook
 SCHEME_SOURCES = '*.scm' '*.sld'
 # Stage 0 sees only bootstrap/chibi-include: one symlink per library the
 # compiler's own load closure reaches, so no other library under src/ can
-# enter the bootstrap by accident. tests/ supplies (lofi testing).
+# enter the bootstrap by accident. tests/ supplies (snail-core testing).
 CHIBI_PATH = -I tests -I bootstrap/chibi-include
 
 # Downloads the Rust crates in each Cargo.lock, which the tests and every
@@ -27,7 +27,7 @@ test:
 
 # The suite with the compiler's source running on Chibi instead of as Wasm.
 test-chibi:
-	LOFI_STAGE0=chibi "$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
+	SNAIL_STAGE0=chibi "$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
 
 # Live reload and the browser IDE in headless Chromium, which CI does not
 # have; CHROMIUM names the browser.
@@ -39,7 +39,7 @@ test-browser:
 # Rebuilds the compiler from its source on Chibi, then to a fixpoint.
 bootstrap:
 	rm -rf build/compiler
-	./scripts/lofi-tool bootstrap
+	./scripts/snail-tool bootstrap
 
 format:
 	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --write
@@ -51,16 +51,16 @@ check:
 
 # The native project service and browser editor for Siegework.
 ide:
-	CHIBI="$(CHIBI)" LOFI_HEAP="$(HEAP)" ./lofi dev apps/siegework
+	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail dev apps/siegework
 
 # Each application's project describes its site target, in APP/build/site.
 site: siegework hearsay
 
 siegework:
-	CHIBI="$(CHIBI)" LOFI_HEAP="$(HEAP)" ./lofi build --release apps/siegework site
+	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail build --release apps/siegework site
 
 hearsay:
-	CHIBI="$(CHIBI)" LOFI_HEAP="$(HEAP)" ./lofi build --release apps/hearsay site
+	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail build --release apps/hearsay site
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
 # play/siegework/. Hearsay stays unpublished: its LPC art must be credited

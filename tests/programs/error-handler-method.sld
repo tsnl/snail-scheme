@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 (effect Counter ((tick (-> I64))))
 (struct Number
   ((value I64)))

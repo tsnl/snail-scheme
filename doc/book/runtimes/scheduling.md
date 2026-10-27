@@ -1,7 +1,7 @@
 # Scheduling and suspension
 
 `host/browser/tasks.mjs` implements the scheduler shared by runtime adapters.
-The [Lofi task API](tasks.md) and application event and storage waits use
+The [Snail-Core task API](tasks.md) and application event and storage waits use
 it in the CLI and browser. It uses one JavaScript execution agent and shipping
 JSPI; it does not create workers.
 
@@ -61,7 +61,7 @@ once and rejects the parked invocation. It does not dispose delivered results or
 operation failures. A disposer failure also rejects the parked invocation, so
 Wasm still unwinds before task completion.
 
-The disposer must not suspend or reenter Lofi. If it starts OS resource closure,
+The disposer must not suspend or reenter Snail-Core. If it starts OS resource closure,
 the native owner awaits that remaining cleanup during shutdown.
 Work must return its complete invocation Promise, and
 suspending imports must return or await their gate; abandoning either loses the

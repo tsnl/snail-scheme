@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 
 (struct Work
   ((run (Once (-> Unit)))))

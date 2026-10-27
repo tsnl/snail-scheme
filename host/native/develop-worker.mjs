@@ -22,7 +22,7 @@ async function startLoop({root, tools, request, errors: filename}) {
   return loop;
 }
 
-// Text enters before its event, as the existing exposed Lofi API requires.
+// Text enters before its event, as the existing exposed Snail-Core API requires.
 function deliver(loop, kind, text) {
   for (const character of text) loop.exports.develop_character(character.codePointAt(0));
   loop.exports.develop_event(kind);
@@ -31,7 +31,7 @@ function deliver(loop, kind, text) {
 function enter(loop, call) {
   try { call(); }
   catch (error) {
-    const message = printErrors(loop).trim().replace(/^lofi: /, '') || error?.message;
+    const message = printErrors(loop).trim().replace(/^snail: /, '') || error?.message;
     // A compiler panic preserves the instance/session. Failure of this
     // report is a broken worker and escapes to the parent's fatal path.
     deliver(loop, 3, message || 'the build failed');

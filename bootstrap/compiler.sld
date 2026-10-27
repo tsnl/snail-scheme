@@ -3,15 +3,15 @@
 ;; parsed records. Missing inputs are projected only
 ;; after the compiler unwinds, before native work starts.
 (import
- (lofi base)
- (lofi io)
- (lofi table)
- (lofi project)
- (lofi compiler)
- (lofi compiler read)
- (lofi compiler inputs)
- (lofi compiler session)
- (only (lofi compiler expand) ArtifactInputs))
+ (snail-core base)
+ (snail-core io)
+ (snail-core table)
+ (snail-core project)
+ (snail-core compiler)
+ (snail-core compiler read)
+ (snail-core compiler inputs)
+ (snail-core compiler session)
+ (only (snail-core compiler expand) ArtifactInputs))
 
 ;; ---- Arguments and records ----
 
@@ -46,7 +46,7 @@
    (output-generate (-> Unit))
    (output-artifact (-> I64 I64 Unit))
    (output-diagnostic (-> I64 I64 Unit)))
-  (host "lofi.compiler"
+  (host "snail-core.compiler"
         ((output-text "text")
          (output-program "program")
          (output-browser "browser")

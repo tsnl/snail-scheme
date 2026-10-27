@@ -8,10 +8,10 @@ import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {applicationProcess} from '../host/native/application-process.mjs';
 
-const root = process.argv[2], directory = mkdtempSync(join(tmpdir(), 'lofi-application-process-'));
+const root = process.argv[2], directory = mkdtempSync(join(tmpdir(), 'snail-application-process-'));
 const fixture = join(directory, 'fixture'), cwd = join(directory, 'caller'), owners = [];
 mkdirSync(join(fixture, 'host/native'), {recursive: true}); mkdirSync(cwd);
-writeFileSync(join(fixture, 'host/native/run-lofi.mjs'), `
+writeFileSync(join(fixture, 'host/native/run-snail.mjs'), `
 import {existsSync, readFileSync} from 'node:fs';
 import {basename} from 'node:path';
 const mode = basename(process.argv[2]);
@@ -138,8 +138,8 @@ try {
 
   const project = join(directory, 'project'); mkdirSync(project);
   writeFileSync(join(project, 'project.datum'), '((build-target app (program (entry "main.sld"))))');
-  writeFileSync(join(project, 'main.sld'), '(import (lofi base) (lofi io)) (for-each write-line (command-line)) (write-file "application-cwd.txt" "saved")');
-  execFileSync(join(root, 'lofi'), ['build', project, 'app'], {stdio: 'pipe'});
+  writeFileSync(join(project, 'main.sld'), '(import (snail-core base) (snail-core io)) (for-each write-line (command-line)) (write-file "application-cwd.txt" "saved")');
+  execFileSync(join(root, 'snail'), ['build', project, 'app'], {stdio: 'pipe'});
   const native = owner({root}), entry = join(realpathSync(join(project, 'build/app')), 'program.wasm');
   native.request({build: 1, entry, args: ['ordinary argument']}); await exited(native);
   assert.equal(native.status.attempt.code, 0, native.status.attempt.stderr);

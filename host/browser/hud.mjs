@@ -6,7 +6,7 @@
 // image draws a region of a picture, crisply scaled, once the picture is
 // ready.
 
-// The numbers src/lofi/app.sld sends: corners as `corner-index`, tones as
+// The numbers src/snail-core/app.sld sends: corners as `corner-index`, tones as
 // `tone-index` and controls as `control-index` number them; places and
 // widget kinds as `render-panel` and `render-widget` do, a corner's column
 // being place 0 and a label kind 0.

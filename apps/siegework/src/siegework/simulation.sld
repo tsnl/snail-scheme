@@ -12,8 +12,8 @@
    command
    replay)
   (import
-   (lofi base)
-   (lofi wire)
+   (snail-core base)
+   (snail-core wire)
    (siegework world)
    (siegework colony)
    (siegework siege))

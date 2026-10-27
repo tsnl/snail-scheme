@@ -1,7 +1,7 @@
 # Games
 
-Games are complete Lofi applications: the rules, the scene and the HUD are
-all Lofi, and the browser only forwards input, draws frames and stores the
+Games are complete Snail-Core applications: the rules, the scene and the HUD are
+all Snail-Core, and the browser only forwards input, draws frames and stores the
 save.
 
 - [Siegework](siegework.md): explore a seeded map, wire an energy network

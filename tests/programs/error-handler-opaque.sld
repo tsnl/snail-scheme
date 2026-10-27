@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 (effect Counter ((tick (-> I64))))
 (: apply-handler (-> (-> I64) I64))
 (define (apply-handler callback)

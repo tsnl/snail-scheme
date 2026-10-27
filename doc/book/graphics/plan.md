@@ -1,6 +1,6 @@
 # WebGPU and graphics libraries
 
-**Proposed.** The [application loop](../lofi/applications.md) and
+**Proposed.** The [application loop](../snail-core/applications.md) and
 [task runtime](../runtimes/index.md) already execute on JSPI. Applications still
 send `Frame` values to `host/browser/renderer.mjs`; this design replaces that renderer
 with a concrete GPU effect and libraries of pipelines and packers. Delivery is
@@ -110,7 +110,7 @@ G-buffer fills the default 32. Texture heaps start uncompressed; a later
 
 
 - Images are decoded by the browser behind `decode-image`, a suspending
-  import, rather than in Lofi.
+  import, rather than in Snail-Core.
 - `update` stays total: prefetching happens from `view`.
 - Open: shader sources as S-expression files compiled by recipes, the
-  default here, or as S-expressions built in Lofi code.
+  default here, or as S-expressions built in Snail-Core code.

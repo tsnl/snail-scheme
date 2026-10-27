@@ -6,4 +6,4 @@ text
 #t
 #f
 #t
-lofi: type-convert: the value is not a I64
+snail: type-convert: the value is not a I64

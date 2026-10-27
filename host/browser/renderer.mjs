@@ -1,4 +1,4 @@
-// A small WebGPU renderer for (lofi app) frames. Meshes and sprites are both
+// A small WebGPU renderer for (snail-core app) frames. Meshes and sprites are both
 // instances drawn by one shader in the metallic-roughness model: each has a
 // position, scale, yaw, color, glow, metalness, roughness and a region of a
 // texture (a 1x1 white one when it has none), and an upright instance also
@@ -168,7 +168,7 @@ function quad() {
   return {vertices, indices};
 }
 
-// The order matches `mesh-index` in src/lofi/app.sld.
+// The order matches `mesh-index` in src/snail-core/app.sld.
 const meshes = [prism(4, true), prism(4, false), prism(6, true), sphere(), tile(), tetrahedron(), octahedron(), quad()];
 
 // ---- Matrices ----
@@ -179,7 +179,7 @@ function lookAt(eye, target) {
   const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   // Looking straight down, the top of the screen is -z, as `screen-axes`
-  // in src/lofi/app.sld says.
+  // in src/snail-core/app.sld says.
   const f = norm(sub(target, eye)), sky = Math.abs(f[1]) > 0.999 ? [0, 0, -1] : [0, 1, 0];
   const r = norm(cross(f, sky)), u = cross(r, f);
   return [r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, r[2], u[2], -f[2], 0, -dot(r, eye), -dot(u, eye), dot(f, eye), 1];
@@ -204,7 +204,7 @@ function multiply(a, b) {
 }
 
 // A camera's kind is 0 for perspective and 1 for orthographic, as
-// `render-camera` in src/lofi/app.sld numbers them. An orthographic camera
+// `render-camera` in src/snail-core/app.sld numbers them. An orthographic camera
 // sees everything between a plane behind the eye and one well past the
 // target, so zooming never clips the ground.
 function projection(camera, aspect) {

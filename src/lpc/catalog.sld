@@ -73,9 +73,9 @@
    hair-sheet
    garment-sheet)
   (import
-   (lofi base)
-   (lofi wire)
-   (lofi app)
+   (snail-core base)
+   (snail-core wire)
+   (snail-core app)
    (lpc layout)
    (lpc skins))
   (begin

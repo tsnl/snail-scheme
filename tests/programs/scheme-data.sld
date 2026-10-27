@@ -1,9 +1,9 @@
 (import
- (lofi base)
- (lofi io)
- (lofi datum)
- (lofi read)
- (lofi write))
+ (snail-core base)
+ (snail-core io)
+ (snail-core datum)
+ (snail-core read)
+ (snail-core write))
 
 (: round-trip (-> String Unit ! console))
 (define (round-trip text)

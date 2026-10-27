@@ -66,7 +66,7 @@ export function applicationProcess({root, target, cwd = process.cwd()}) {
       done: Promise.withResolvers(), stdout: Buffer.alloc(0), stderr: Buffer.alloc(0)};
     attempt = run; // Own the attempt even when spawning fails synchronously.
     try {
-      run.child = spawn(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), request.entry, ...request.args],
+      run.child = spawn(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), request.entry, ...request.args],
         {cwd, stdio: ['ignore', 'pipe', 'pipe']});
     } catch (failure) {
       run.finished = true; run.done.resolve(); error(run, failure);

@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (rename (lofi artifact) (artifact-bundle bundle))
+ (snail-core base)
+ (snail-core io)
+ (rename (snail-core artifact) (artifact-bundle bundle))
  (generated assets))
 
 (define-syntax client-snapshot

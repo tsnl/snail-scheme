@@ -1,1 +1,0 @@
-../../../host/chibi/lofi/base.sld

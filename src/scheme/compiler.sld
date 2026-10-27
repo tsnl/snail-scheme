@@ -1,12 +1,12 @@
-;; Scheme to Lofi: R7RS source text becomes the syntax of a Lofi library
+;; Scheme to Snail-Core: R7RS source text becomes the syntax of a Snail-Core library
 ;; whose top level runs the program. Every value is a Datum and every
 ;; variable a cell holding one, named with a leading `%` so no Scheme name
-;; meets a Lofi one; (scheme runtime) supplies the standard procedures. A
+;; meets a Snail-Core one; (scheme runtime) supplies the standard procedures. A
 ;; recipe runs the translator when a library is built:
 ;;
 ;;   (generate-library (legacy hello)
-;;                     (import (lofi base) (lofi io) (scheme compiler))
-;;                     (scheme->lofi-library (list "legacy" "hello") (read-file "hello.scm")))
+;;                     (import (snail-core base) (snail-core io) (scheme compiler))
+;;                     (scheme->snail-core-library (list "legacy" "hello") (read-file "hello.scm")))
 ;;
 ;; The supported forms are define, lambda (with rest parameters), if, set!,
 ;; quote, let (and named let), let*, letrec, letrec*, begin, cond (with
@@ -14,23 +14,23 @@
 ;; continuations and mutable pairs are not supported.
 (define-library (scheme compiler)
   (export
-   scheme->lofi-library)
+   scheme->snail-core-library)
   (import
-   (lofi base)
-   (lofi number)
-   (lofi datum)
-   (lofi read)
-   (lofi write)
-   (lofi syntax))
+   (snail-core base)
+   (snail-core number)
+   (snail-core datum)
+   (snail-core read)
+   (snail-core write)
+   (snail-core syntax))
   (begin
 
     ;; ---- Programs ----
 
-    (: scheme->lofi-library (-> (List String) String Syntax))
-    (define (scheme->lofi-library name source)
+    (: scheme->snail-core-library (-> (List String) String Syntax))
+    (define (scheme->snail-core-library name source)
       (match (read-datums source)
         ((Ok forms)
-         (library-syntax name (Nil) (list (list "lofi" "base") (list "lofi" "datum") (list "scheme" "runtime"))
+         (library-syntax name (Nil) (list (list "snail-core" "base") (list "snail-core" "datum") (list "scheme" "runtime"))
                          (map translate-top forms)))
         ((Err message) (panic (string-append "scheme: " message)))))
 
@@ -271,7 +271,7 @@
 
     ;; ---- Data ----
 
-    ;; A datum as the Lofi expression that builds it.
+    ;; A datum as the Snail-Core expression that builds it.
     (: quoted (-> Datum Syntax))
     (define (quoted datum)
       (match datum

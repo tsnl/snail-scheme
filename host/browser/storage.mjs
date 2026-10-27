@@ -2,7 +2,7 @@
 
 function open() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('lofi-applications', 1);
+    const request = indexedDB.open('snail-applications', 1);
     request.onupgradeneeded = () => request.result.createObjectStore('saves');
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);

@@ -88,7 +88,7 @@ export async function createCompiler(program, diagnostics) {
       if (!count) throw new Error('cannot read compiler diagnostics');
       read += count;
     }
-    return bytes.toString().trim().replace(/^lofi: /, '');
+    return bytes.toString().trim().replace(/^snail: /, '');
   }
 
   function close() {
@@ -140,7 +140,7 @@ export async function createCompiler(program, diagnostics) {
   try {
     const wasi = new WASI({version: 'preview1', args: [program],
       env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, stderr: errors});
-    const imports = {...wasi.getImportObject(), 'lofi.compiler': recordImports(record => records.push(record), () => api.memory)};
+    const imports = {...wasi.getImportObject(), 'snail-core.compiler': recordImports(record => records.push(record), () => api.memory)};
     imports.wasi_snapshot_preview1.proc_exit = code => { exitCode = code; throw exited; };
     const {instance} = await WebAssembly.instantiate(readFileSync(program), imports);
     api = instance.exports;

@@ -27,7 +27,7 @@ function call(formatter, text, entry) {
     for (let index = 0, length = entry(exports); index < length; index++) result += String.fromCodePoint(exports.format_result(index));
     return result;
   } catch (error) {
-    const message = formatter.errors.join('\n').replace(/^lofi: /, '') || error.message;
+    const message = formatter.errors.join('\n').replace(/^snail: /, '') || error.message;
     start(formatter.module).then(fresh => Object.assign(formatter, fresh));
     throw new Error(message);
   }

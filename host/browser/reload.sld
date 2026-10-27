@@ -1,4 +1,4 @@
-;; The reload client: the part of a page that `./scripts/lofi-tool serve` adds. It compares
+;; The reload client: the part of a page that `./scripts/snail-tool serve` adds. It compares
 ;; the manifest of the build the page runs with the one each of the
 ;; server's events carries, and decides what the page does: fetch a style
 ;; sheet again, relink the program from the first module that changed,
@@ -7,10 +7,10 @@
 ;; page's manifest and each event, a character at a time, and
 ;; host/browser/reload-client.mjs performs the `page` effect's commands.
 (import
- (lofi base)
- (lofi datum)
- (lofi read)
- (lofi write))
+ (snail-core base)
+ (snail-core datum)
+ (snail-core read)
+ (snail-core write))
 
 ;; ---- Page commands ----
 

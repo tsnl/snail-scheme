@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 (struct Bad
   ((work (Ref (Once (-> Unit))))))
 (unit)

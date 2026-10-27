@@ -1,8 +1,8 @@
 (generate-library (legacy parameters)
                   (import
-                   (lofi base)
+                   (snail-core base)
                    (scheme compiler))
-                  (scheme->lofi-library
+                  (scheme->snail-core-library
                    (list "legacy" "parameters")
                    "(write ((lambda () 'empty))) (newline)
 (write ((lambda (x . ()) x) 'fixed)) (newline)

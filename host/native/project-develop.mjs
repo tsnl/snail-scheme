@@ -31,7 +31,7 @@ function reserve(project) {
   const build = join(project, 'build');
   if (lstatSync(build, {throwIfNoEntry: false})?.isSymbolicLink()) throw new Error(`project build directory cannot be a symbolic link: ${build}`);
   mkdirSync(build, {recursive: true});
-  return mkdtempSync(join(build, '.lofi-attempt-'));
+  return mkdtempSync(join(build, '.snail-attempt-'));
 }
 
 // Sweep unpublished namespaces only after a reply relinquishes the attempt or
@@ -48,14 +48,14 @@ function abandon(project, attempt) {
 
 export function developProject({root, project, tools}) {
   root = realpathSync(root); project = realpathSync(project);
-  mkdirSync(join(root, 'build/lofi-run'), {recursive: true});
-  const directory = mkdtempSync(join(root, 'build/lofi-run/project-'));
+  mkdirSync(join(root, 'build/snail-run'), {recursive: true});
+  const directory = mkdtempSync(join(root, 'build/snail-run/project-'));
   const files = watchProject({roots: [project, join(root, 'src'), join(root, 'host/browser')],
     exclude: [join(project, 'build'), join(project, '.git'), join(root, 'build')]});
   let worker;
   try {
     worker = new Worker(new URL('./project-worker.mjs', import.meta.url), {
-      workerData: {root, project, tools, directory}, name: 'lofi-project-compiler',
+      workerData: {root, project, tools, directory}, name: 'snail-project-compiler',
       resourceLimits: {maxYoungGenerationSizeMb: 384},
     });
   } catch (error) { void files.close(); rmSync(directory, {recursive: true, force: true}); throw error; }

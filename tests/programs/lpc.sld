@@ -3,10 +3,10 @@
 ;; in drawing order, heads are recolored ramp for ramp, and a pose picks the
 ;; strip a viewer should see.
 (import
- (lofi base)
- (lofi io)
- (lofi app)
- (lofi sprite)
+ (snail-core base)
+ (snail-core io)
+ (snail-core app)
+ (snail-core sprite)
  (lpc layout)
  (lpc catalog)
  (lpc wardrobe))

@@ -8,7 +8,7 @@ compiler emits, including recursion groups of GC types, casts and tail
 calls.
 
 The crate is built for `wasm32-wasip1` as a reactor, apart from the runtime,
-so programs never carry it. `build-crate` in `host/chibi/lofi/build.sld`
+so programs never carry it. `build-crate` in `host/chibi/snail-core/build.sld`
 builds it, and `host/native/assemble.mjs` drives it through four exports over
 its linear memory:
 

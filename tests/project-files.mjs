@@ -8,7 +8,7 @@ import {join} from 'node:path';
 import {FileConflict, ProjectFileError, projectFiles} from '../host/native/project-files.mjs';
 import {watchProject} from '../host/native/watch.mjs';
 
-const parent = fs.mkdtempSync(join(tmpdir(), 'lofi-project-files-')), project = join(parent, 'project');
+const parent = fs.mkdtempSync(join(tmpdir(), 'snail-project-files-')), project = join(parent, 'project');
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
 write('project.datum', '()');
 write('main.sld', '\ufeff(hello 😀)\r\nno final newline');
@@ -68,7 +68,7 @@ try {
   assert.throws(() => files.save('main.sld', saved.revision, 'a\0b'), /NUL/);
   await observer.reconcile();
   assert.ok(events.some(event => event.kind === 'changed' && event.paths.includes(path)), 'the existing observer sees the committed save');
-  assert.ok(events.every(event => event.kind !== 'changed' || event.paths.every(path => !path.includes('.lofi-edit-'))));
+  assert.ok(events.every(event => event.kind !== 'changed' || event.paths.every(path => !path.includes('.snail-edit-'))));
   assert.deepEqual(fs.readdirSync(join(project, 'build')), ['hidden.sld']);
 
   // Replacing identical bytes still changes the file the buffer was based on.

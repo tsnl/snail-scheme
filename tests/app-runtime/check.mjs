@@ -180,7 +180,7 @@ async function checkUpdateTrap() {
   await turn();
   runtime.send(PRESS, 2); runtime.send(PRESS, 1);
   const failure = await run.done;
-  assert.ok(failure.error, 'a Lofi panic rejects the JSPI entry');
+  assert.ok(failure.error, 'a Snail-Core panic rejects the JSPI entry');
   assert.equal(entry.exports.count(failure.state), 1n);
   app.settled();
   const handover = await runtime.stop();

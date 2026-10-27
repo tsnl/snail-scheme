@@ -1,9 +1,9 @@
-// The JavaScript side of running Lofi, the same in Node and in a browser:
+// The JavaScript side of running Snail-Core, the same in Node and in a browser:
 // the WASI a module that opens no files needs, linking a program compiled
-// one library at a time and relinking it from a rebuilt library, how Lofi
+// one library at a time and relinking it from a rebuilt library, how Snail-Core
 // passes a host strings and commands, and reading what the development loop
 // tells pages. It decides nothing about what a program is for: the browser
-// host (host.mjs), the development loop's hosts and host/native/run-lofi.mjs
+// host (host.mjs), the development loop's hosts and host/native/run-snail.mjs
 // build on it.
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
@@ -179,7 +179,7 @@ export async function relinkProgram(program, from) {
 
 // ---- Loading while the program runs ----
 
-// The `wasm` effect of (lofi wasm). A program loads a module from a file,
+// The `wasm` effect of (snail-core wasm). A program loads a module from a file,
 // linked as its own modules are, after them and the modules it loaded
 // before, and takes the functions the module exports. The program waits
 // for both, so they are synchronous, and `read` gives a file's bytes at
@@ -208,11 +208,11 @@ export function wasmImports(program, read) {
 
 // ---- Host commands ----
 
-// Lofi passes a host strings a character at a time, each ended by
+// Snail-Core passes a host strings a character at a time, each ended by
 // `argument-end`. A command's strings are its name and its arguments:
 // `command` calls the function `commands` has under the name with the
 // arguments and a number, and answers with its result, or 0. The `develop`
-// effect of src/lofi/develop.sld and the `page` effect of
+// effect of src/snail-core/develop.sld and the `page` effect of
 // host/browser/reload.sld are bound this way.
 export function commandImports(commands) {
   const strings = stagedStrings();

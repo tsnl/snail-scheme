@@ -13,7 +13,7 @@ import {CompilerCrashed, CompilerFailure, createCompiler} from '../host/native/c
 
 const [program, assembler, runtime] = process.argv.slice(2);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const directory = mkdtempSync(join(tmpdir(), 'lofi-compiler-'));
+const directory = mkdtempSync(join(tmpdir(), 'snail-compiler-'));
 const assemble = await createAssembler(readFileSync(assembler));
 const compiler = await createCompiler(program, join(directory, 'errors'));
 const empty = compiler.inputs();
@@ -30,7 +30,7 @@ function execute(modules, expected, args = []) {
     return {name, file: wasm};
   });
   writeFileSync(manifest, JSON.stringify({runtime, modules: files}));
-  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), manifest, ...args], {encoding: 'utf8'});
+  const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), manifest, ...args], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout + result.stderr, expected);
 }
@@ -42,7 +42,7 @@ function failure(call, pattern) {
 }
 
 try {
-  // Lofi parses forward run references, path fields and escaped strings.
+  // Snail-Core parses forward run references, path fields and escaped strings.
   const project = join(directory, 'project λ😀.datum');
   write(project, String.raw`((run-target dev (run server (args ("" "λ😀" "quote\"\\\n"))))
     (build-target client (browser (entry "client λ.sld") (library-roots ("." "src")) (public "public")))
@@ -62,10 +62,10 @@ try {
 
   // A genuine Session survives success, cache reuse, a failed edit and repair.
   const source = join(directory, 'main.sld'), helper = join(directory, 'sample/value.sld');
-  const value = number => `(define-library (sample value) (export value) (import (lofi base))
+  const value = number => `(define-library (sample value) (export value) (import (snail-core base))
     (begin (: value (-> I64)) (define (value) ${number})))`;
   write(helper, value(42));
-  write(source, '(import (lofi base) (lofi io) (sample value)) (write-line (i64->string (value)))');
+  write(source, '(import (snail-core base) (snail-core io) (sample value)) (write-line (i64->string (value)))');
   const first = compiler.modules(compiler.session(libraries), empty, source, fresh());
   execute(first.modules, '42\n');
   const second = compiler.modules(first.session, empty, source, fresh());
@@ -88,7 +88,7 @@ try {
   // Missing inputs unwind before native work. A new logical compilation
   // requests generated syntax again, even with its last successful Session.
   const generated = join(directory, 'generated.sld'), scratch = fresh();
-  write(generated, '(import (lofi base) (lofi io) (sample table)) (write-line (i64->string (length squares)))');
+  write(generated, '(import (snail-core base) (snail-core io) (sample table)) (write-line (i64->string (length squares)))');
   const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'src')];
   const previous = compiler.session(generatedLibraries);
   const missing = failure(() => compiler.modules(previous, empty, generated, scratch), /compiler requires an input/);
@@ -97,7 +97,7 @@ try {
   assert.equal(existsSync(join(scratch, 'request.datum')), false);
   assert.equal(failure(() => compiler.static(empty, join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).request, null);
   const malformed = join(directory, 'malformed.sld');
-  write(malformed, '(import (lofi base)) (');
+  write(malformed, '(import (snail-core base)) (');
   const syntaxFailure = failure(() => compiler.static(empty, malformed, wat, fresh(), libraries), /unclosed list/);
   assert.equal(syntaxFailure.request, null);
   assert.equal(syntaxFailure.diagnostic.source.file, malformed);
@@ -137,11 +137,11 @@ try {
   assert.deepEqual(compiler.project(project), {builds: [], runs: []});
   assert.equal(readFileSync(join(directory, 'errors'), 'utf8'), '', 'successful calls start with fresh diagnostics');
 
-  const unicode = '(import (lofi base))\n(: greeting String)\n(define greeting (if #t "😀" 5))';
+  const unicode = '(import (snail-core base))\n(: greeting String)\n(define greeting (if #t "😀" 5))';
   write(source, unicode);
   const point = failure(() => compiler.static(empty, source, wat, fresh(), libraries), /does not fit String/).diagnostic;
   assert.deepEqual(point.source, {file: source, line: 3, column: Array.from(unicode.split('\n')[2].split('5')[0]).length + 1});
-  write(source, '(import (lofi base))\n(');
+  write(source, '(import (snail-core base))\n(');
   assert.deepEqual(failure(() => compiler.static(empty, source, wat, fresh(), libraries), /unclosed list/).diagnostic.source, {file: source, line: 2, column: 1});
 
   // Session and artifact references keep distinct Wasm types. Passing one
@@ -158,7 +158,7 @@ try {
   // with the trusted compiler's resource-cleaning diagnostic exit.
   const trapping = join(directory, 'trapping.wasm');
   write(trapping, assemble(`(module
-    (import "lofi.compiler" "text" (func $text (param i32 i32)))
+    (import "snail-core.compiler" "text" (func $text (param i32 i32)))
     (memory (export "memory") 1)
     (func (export "_initialize")) (func (export "main")) (func (export "reset"))
     (func (export "input_character") (param i32) (i32.store (i32.const 0) (i32.const 1114112)) (call $text (i32.const 0) (i32.const 1)))
@@ -176,8 +176,8 @@ try {
     const fixture = join(directory, `${stage}.wasm`);
     write(fixture, assemble(`(module
       (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
-      (import "lofi.compiler" "text" (func $text (param i32 i32)))
-      (import "lofi.compiler" "diagnostic" (func $diagnostic (param i64 i64)))
+      (import "snail-core.compiler" "text" (func $text (param i32 i32)))
+      (import "snail-core.compiler" "diagnostic" (func $diagnostic (param i64 i64)))
       (memory (export "memory") 1)
       (func (export "_initialize")) (func (export "main"))
       (func (export "input_character") (param i32) ${stage === 'argument-exit' ? '(call $exit (i32.const 1))' : ''})

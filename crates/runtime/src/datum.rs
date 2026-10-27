@@ -1,11 +1,11 @@
-//! Synchronous real-number conversion. Lofi parses integers and ratios;
+//! Synchronous real-number conversion. Snail-Core parses integers and ratios;
 //! Rust supplies correctly rounded parsing and float formatting.
 
 use std::cell::{Cell, RefCell};
 
 // ---- Conversion scratch ----
 
-// A runtime instance owns these results. The private Lofi wrappers read a
+// A runtime instance owns these results. The private Snail-Core wrappers read a
 // successful parse or copy the entire formatted text before returning; neither
 // operation invokes user code. No result needs a handle or resource cleanup.
 thread_local! {
@@ -48,7 +48,7 @@ pub extern "C" fn real_text(value: f64) -> u32 {
     REAL_TEXT.with_borrow_mut(|text| {
         *text = crate::float_text(value);
         // A formatted F64 is bounded ASCII, so bytes are scalars and its
-        // length fits the signed I32 index used by Lofi.
+        // length fits the signed I32 index used by Snail-Core.
         text.len() as u32
     })
 }

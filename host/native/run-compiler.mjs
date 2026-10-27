@@ -32,5 +32,5 @@ try {
   const [filename, ...args] = process.argv.slice(2);
   process.exitCode = await compile(filename, args);
 } catch (error) {
-  if (error instanceof Error) console.error(`lofi: ${error.message}`);
+  if (error instanceof Error) console.error(`snail: ${error.message}`);
 }

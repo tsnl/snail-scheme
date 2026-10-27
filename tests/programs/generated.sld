@@ -1,8 +1,8 @@
 ;; Libraries a program generates: squares computed when the library is
 ;; built, and a PNG's bytes embedded as a byte vector literal.
 (import
- (lofi base)
- (lofi io)
+ (snail-core base)
+ (snail-core io)
  (sample table)
  (sample blob))
 

@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi integer))
+ (snail-core base)
+ (snail-core io)
+ (snail-core integer))
 
 (: parse (-> String Integer))
 (define (parse text)

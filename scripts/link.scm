@@ -2,7 +2,7 @@
 (import
  (scheme base)
  (scheme process-context)
- (lofi build))
+ (snail-core build))
 
 (let ((arguments (cdr (command-line))))
   (unless (= (length arguments) 4) (error "usage: link ROOT INPUT.wat OUTPUT.wasm debug|release"))

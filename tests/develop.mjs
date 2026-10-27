@@ -2,14 +2,14 @@
 //
 //   node tests/develop.mjs ROOT
 //
-// `./scripts/lofi-tool serve` builds a copy of tests/apps/counter, one module per library,
+// `./scripts/snail-tool serve` builds a copy of tests/apps/counter, one module per library,
 // and serves it with the reload client. The test plays the page's part with
 // the browser host's own code: it links the modules (host/browser/load.mjs),
 // adds to the counter, edits the greeting, sees from the event that only
 // the program's own module was compiled again, relinks from it and hands
 // over the state as a page does (host/browser/host.mjs). Only the modules of the
 // last two builds stay. A broken edit reports a failed build that keeps the
-// last good manifest. Then `./scripts/lofi-tool watch` runs a program again after an edit.
+// last good manifest. Then `./scripts/snail-tool watch` runs a program again after an edit.
 import assert from 'node:assert/strict';
 import {execFileSync, spawn} from 'node:child_process';
 import {once} from 'node:events';
@@ -28,7 +28,7 @@ const root = process.argv[2];
 
 // ---- Processes ----
 
-// Starts `lofi COMMAND ...` and collects what it prints, so a test can wait
+// Starts `snail COMMAND ...` and collects what it prints, so a test can wait
 // for a line to appear.
 function start(args, env = process.env) {
   const child = spawn('node', ['--no-warnings', join(root, 'host/native/develop.mjs'), root, ...args], {env, stdio: ['ignore', 'pipe', 'pipe']});
@@ -114,20 +114,20 @@ async function testServe(directory) {
   await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
   const gate = join(directory, 'publication');
   const preload = pathToFileURL(join(root, 'tests/compiler-inputs/publication-gate.mjs')).href;
-  const server = start(['serve', '--port', '0', app], {...process.env, LOFI_TEST_PUBLICATION_GATE: gate,
-    LOFI_TEST_PUBLICATION_PATH: join(root, 'build/serve/counter/modules.json'),
+  const server = start(['serve', '--port', '0', app], {...process.env, SNAIL_TEST_PUBLICATION_GATE: gate,
+    SNAIL_TEST_PUBLICATION_PATH: join(root, 'build/serve/counter/modules.json'),
     NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${preload}`].filter(Boolean).join(' ')});
   try {
     const base = await until(() => server.text.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server', 300);
-    const events = await listen(new URL('.lofi/events', base));
+    const events = await listen(new URL('.snail/events', base));
     const initial = await nextBuild(events, 0);
     assert.equal(initial.kind, 'built', initial.message);
     const html = await (await fetch(base)).text();
-    assert.match(html, /<script type="module" src="\/\.lofi\/reload\.mjs"><\/script>/);
-    assert.match(html, /<meta name="lofi-modules" content="\/modules\.json">/);
-    const manifest = readManifest(html.match(/id="lofi-manifest">([^<]*)<\/script>/)[1]);
+    assert.match(html, /<script type="module" src="\/\.snail\/reload\.mjs"><\/script>/);
+    assert.match(html, /<meta name="snail-modules" content="\/modules\.json">/);
+    const manifest = readManifest(html.match(/id="snail-manifest">([^<]*)<\/script>/)[1]);
     assert.match(manifest.modules.at(-1).join(' '), /^main \/modules\/main-\d+\.wasm$/);
-    assert.equal((await fetch(new URL('.lofi/reload.wasm', base))).headers.get('content-type'), 'application/wasm');
+    assert.equal((await fetch(new URL('.snail/reload.wasm', base))).headers.get('content-type'), 'application/wasm');
 
     const page = await linkPage(base, manifest);
     page.runtime.send(PRESS, 1);
@@ -158,7 +158,7 @@ async function testServe(directory) {
     assert.equal(failed.kind, 'failed');
     assert.match(failed.message, /main\.sld:\d+:\d+: /);
     assert.deepEqual(failed.manifest, built.manifest, 'a failed build keeps the last good manifest');
-    const late = await listen(new URL('.lofi/events', base));
+    const late = await listen(new URL('.snail/events', base));
     await until(() => late.length, 'the latest event');
     assert.equal(readEvent(late[0]).kind, 'failed', 'a page that connects later sees the failure');
     await writeFile(source, (await readFile(source, 'utf8')).replace('(define greeting 5)', '(define greeting "repaired")'));
@@ -177,7 +177,7 @@ async function testServe(directory) {
 
 async function testWatch(directory) {
   const source = join(directory, 'hello.sld');
-  const program = message => `(import (lofi base) (lofi io) (lofi task))\n(write-string "${message}\\n")\n(sleep 60000)\n`;
+  const program = message => `(import (snail-core base) (snail-core io) (snail-core task))\n(write-string "${message}\\n")\n(sleep 60000)\n`;
   await writeFile(source, program('first run'));
   const watcher = start(['watch', source]);
   let child;
@@ -228,7 +228,7 @@ async function testBusyCompiler(directory) {
     const response = await fetch(base, {signal: AbortSignal.timeout(2000)});
     assert.equal(response.status, 200);
     assert.match(await response.text(), /Building/);
-    const events = await listen(new URL('.lofi/events', base));
+    const events = await listen(new URL('.snail/events', base));
     await until(() => events.some(event => readEvent(event).kind === 'building'), 'build notification while the compiler is busy', 2);
     await rm(source);
     await writeFile(source, original.replace('"hello"', '"edited while compiling"'));
@@ -246,7 +246,7 @@ async function testBusyCompiler(directory) {
   }
 }
 
-const directory = await mkdtemp(join(tmpdir(), 'lofi-develop-'));
+const directory = await mkdtemp(join(tmpdir(), 'snail-develop-'));
 try {
   await testServe(directory);
   await testWatch(directory);

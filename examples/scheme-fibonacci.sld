@@ -1,4 +1,4 @@
-;; The same program through (scheme base): Scheme names, Lofi types.
+;; The same program through (scheme base): Scheme names, Snail-Core types.
 (import
  (scheme base))
 

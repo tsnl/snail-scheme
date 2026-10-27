@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 
 (: magic? (-> Bytes Bool))
 (define (magic? bytes)
