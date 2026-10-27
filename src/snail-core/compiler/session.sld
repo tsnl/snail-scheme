@@ -32,6 +32,7 @@
    (snail-core compiler check)
    (snail-core compiler mono)
    (snail-core compiler handlers)
+   (snail-core compiler control)
    (snail-core compiler wasm))
   (begin
 
@@ -84,7 +85,18 @@
              (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))
              (checked (check-libraries (Session-compiled session) expansion libraries))
              (built (emit-libraries expansion (Pair-second checked) (Pair-first checked) libraries)))
-        (Pair (Pair-first built) (Session (Session-directories session) expansion (Pair-second built)))))
+        (Pair (append (control-modules session program) (Pair-first built)) (Session (Session-directories session) expansion (Pair-second built)))))
+
+    ;; A program with control effects links the control module first: it
+    ;; holds the yield record that the program's modules share. Its text is
+    ;; fixed, so a build compiles it only when the build before had none. It
+    ;; links no files.
+    (: control-modules (-> Session Program (List Built) ! mut))
+    (define (control-modules session program)
+      (if (null? (control-effects program))
+          (Nil)
+          (list (Built "snail.control" (wat->string (emit-control-module program))
+                       (null? (control-effects (ExpandedProgram-program (Session-expansion session)))) (Nil)))))
 
     ;; Checks each library whose expansion changed, after the schemes of the
     ;; libraries before it, and returns the whole program checked, with each
@@ -130,7 +142,7 @@
                   (loop rest compiled (Cons (Built name (Emission-text emission) #f (library-links expansion name)) built)))
                  ((None)
                   (let* ((mono (monomorphize-library input name (Compiled-items before)))
-                         (text (wat->string (emit-library mono name)))
+                         (text (wat->string (emit-library (name-yield-points mono) name)))
                          (emission (Emission text (Mono-items mono))))
                     (loop rest (table-set compiled name (Compiled-emission-set before (Some emission)))
                           (Cons (Built name text #t (library-links expansion name)) built)))))))

@@ -4,11 +4,14 @@
 ;; sequences are GC arrays, and functions are closures holding a typed
 ;; function reference. Calls in tail position become `return_call`. A whole
 ;; program becomes one module; one library becomes a module that imports
-;; what it uses from the modules of other libraries.
+;; what it uses from the modules of other libraries. A control operation
+;; leaves a record in one global, which each caller tests after a call that
+;; may yield, back to the handle it is aimed at.
 (define-library (snail-core compiler wasm)
   (export
    emit-module
    emit-library
+   emit-control-module
    wat->string)
   (import
    (snail-core base)
@@ -16,7 +19,8 @@
    (snail-core compiler read)
    (snail-core compiler core)
    (snail-core compiler capabilities)
-   (snail-core compiler mono))
+   (snail-core compiler mono)
+   (snail-core compiler control))
   (begin
 
     ;; ---- Text ----
@@ -134,7 +138,9 @@
     ;; other fields as trees. `memo` caches closures for global functions, singletons and
     ;; string literals; `helpers` caches imports and helper functions by key.
     ;; A library's module names its `owner`, and `externals` holds the other
-    ;; libraries' definitions it imports.
+    ;; libraries' definitions it imports. `callees` describes what the
+    ;; module's calls reach when the program has control effects, so that
+    ;; some call may yield.
     (struct Module
       ((program Program)
        (definitions (Table Expr))
@@ -149,7 +155,8 @@
        (exports (Ref (List Wat)))
        (data (Ref (List Wat)))
        (memo (Ref (Table Wat)))
-       (helpers (Ref (Table String)))))
+       (helpers (Ref (Table String)))
+       (callees (Option Callees))))
 
     (: push! (All (T) (-> (Ref (List T)) T Unit ! mut)))
     (define (push! cell value)
@@ -479,6 +486,7 @@
     ;; `access` maps each visible local name to the instruction that reads it,
     ;; and `reps` to its representation. In a recursive lambda, `self` pairs
     ;; its own name with its Wasm function, so it can call itself directly.
+    ;; `exit` is where a yield leaves the code being emitted (see Control).
     (struct Fn
       ((module Module)
        (locals (Ref (List Wat)))
@@ -486,13 +494,14 @@
        (reps (Ref (Table Rep)))
        (self (Option (Pair String String)))
        (names (Ref I64))
-       (evidence Wat)))
+       (evidence Wat)
+       (exit (Option Exit))))
 
     ;; A function's evidence is its `$ev` parameter, the handlers in scope at
     ;; the call; a `handle` body reads the node it installed instead.
     (: new-fn (-> Module Fn ! mut))
     (define (new-fn m)
-      (Fn m (ref (Nil)) (ref empty-table) (ref empty-table) (None) (ref 0) (wat "local.get" (Word "$ev"))))
+      (Fn m (ref (Nil)) (ref empty-table) (ref empty-table) (None) (ref 0) (wat "local.get" (Word "$ev")) (None)))
 
     ;; Temporaries and labels are numbered within their function, so a name
     ;; depends on nothing outside the body it appears in.
@@ -552,7 +561,8 @@
     (define (emit-function! m name function)
       (match (Expr-term function)
         ((Lambda params body)
-         (let* ((fn (new-fn m)) (signature (function-signature m (Expr-type function))) (reps (Pair-first signature)))
+         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (Expr-type function)))) (signature (function-signature m (Expr-type function)))
+                (reps (Pair-first signature)))
            (bind-params! fn params reps)
            (let ((code (emit fn body #t)))
              (push-function! m (wasm-id name)
@@ -663,11 +673,14 @@
     (define (hex-char value)
       (string-ref "0123456789abcdef" value))
 
+    ;; A let whose value may yield tests for the yield before its body.
     (: emit-let (-> Fn String Expr Expr Bool (List Wat) ! mut))
     (define (emit-let fn name value body tail?)
       (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value))) (closure fn value (Some name)) (emit1 fn value)))
-             (local (declare-local! fn name (fn-rep fn (Expr-type value)))))
-        (Cons (wat "local.set" (id local) code) (emit fn body tail?))))
+             (local (declare-local! fn name (fn-rep fn (Expr-type value))))
+             (test (yield-test fn value))
+             (rest (emit fn body tail?)))
+        (Cons (wat "local.set" (id local) code) (append test rest))))
 
     ;; ---- Variables ----
 
@@ -802,7 +815,7 @@
         ((Lambda params body)
          (let* ((signature (function-signature m (Expr-type function))) (reps (Pair-first signature))
                 (base (closure-type m reps (Pair-second signature)))
-                (fn (lambda-fn m self "$lambda.self" base)))
+                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base) (function-exit (Expr-type function)))))
            (bind-params! fn params reps)
            (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t))
                   ;; The function's type must be the closure's code type itself,
@@ -889,9 +902,7 @@
           ((Some (Accessor case index _)) (list (field-access fn case index (first-arg args))))
           ((Some (Replacer case index _)) (list (replace-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (Expr-type expr)))
-          ((Some (Operation effect _))
-           (when (member? name (Effect-control (program-effect (program-of m) effect))) (control-not-compiled (Expr-loc expr)))
-           (list (wat* "call" (Cons (id (performer m effect name)) (Cons (Fn-evidence fn) (emit-args fn args))))))
+          ((Some (Operation effect _)) (list (wat* "call" (Cons (id (performer m effect name)) (Cons (Fn-evidence fn) (emit-args fn args))))))
           ((Some (Foreign import scheme)) (host-call m import (Scheme-type scheme) (emit-args fn args) (Expr-loc expr)))
           (_ (panic (string-append "internal error: cannot call " name))))))
 
@@ -1415,9 +1426,17 @@
         (match (known-type m key)
           ((Some type) type)
           ((None)
-           (let ((fields (map (lambda (operation) (wat "field" (rep->wat (rep m (operation-type m operation)))))
-                              (Effect-operations (program-effect (program-of m) effect)))))
+           (let* ((info (program-effect (program-of m) effect))
+                  (fields (map (lambda (operation) (wat "field" (implementation-field m info operation))) (Effect-operations info))))
              (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat* "struct" fields))))))))
+
+    ;; A control implementation's type depends on its handle's result, and
+    ;; only its handle site calls it, so its field holds any reference.
+    (: implementation-field (-> Module Effect String Wat ! mut))
+    (define (implementation-field m info operation)
+      (if (member? operation (Effect-control info))
+          (wat "ref" (Word "any"))
+          (rep->wat (rep m (operation-type m operation)))))
 
     (: operation-type (-> Module String Type))
     (define (operation-type m operation)
@@ -1425,33 +1444,50 @@
         ((Some (Operation _ (Scheme _ _ (TFun params result _)))) (TFun params result empty-row))
         (_ (panic "internal error: not an operation"))))
 
-    ;; The implementations are values of the surrounding evidence; the body
-    ;; runs with the new node as its evidence.
-    ;; The checker accepts control operations; their translation, which
-    ;; captures the rest of the handled body, is not written yet.
-    (: control-not-compiled (All (A) (-> Loc A)))
-    (define (control-not-compiled loc)
-      (compile-error loc "control operations are not compiled yet"))
+    (: operation-result (-> Module String Type))
+    (define (operation-result m operation)
+      (match (operation-type m operation)
+        ((TFun _ result _) result)
+        (_ (panic "internal error: an operation is a function"))))
 
+    ;; The implementations are values of the surrounding evidence; the body
+    ;; runs with the new node as its evidence. A handle of a control effect
+    ;; also catches the yields aimed at its node (see Control).
     (: emit-handle (-> Fn Expr String (List (Pair String Expr)) Expr (List Wat) ! mut))
     (define (emit-handle fn expr effect implementations body)
-      (unless (null? (Effect-control (program-effect (program-of (Fn-module fn)) effect))) (control-not-compiled (Expr-loc expr)))
+      (if (null? (Effect-control (program-effect (program-of (Fn-module fn)) effect)))
+          (emit-returning-handle fn expr effect implementations body)
+          (emit-control-handle fn expr effect implementations body)))
+
+    (: emit-returning-handle (-> Fn Expr String (List (Pair String Expr)) Expr (List Wat) ! mut))
+    (define (emit-returning-handle fn expr effect implementations body)
+      (let* ((installed (install-handler fn effect implementations)) (node (Pair-first installed)))
+        (list (Pair-second installed)
+              (move-value (Fn-module fn) (fn-rep fn (Expr-type expr)) (emit1 (Fn-evidence-set fn (wat "local.get" (id node))) body)))))
+
+    ;; A new evidence node in a local: the local's name, and the instruction
+    ;; that sets it to the node holding the handler.
+    (: install-handler (-> Fn String (List (Pair String Expr)) (Pair String Wat) ! mut))
+    (define (install-handler fn effect implementations)
       (let* ((m (Fn-module fn)) (type-id (handler-type m effect)) (node (local-id fn "ev"))
              (handler (wat* "struct.new"
                             (Cons (id type-id)
-                                  (map (lambda (operation)
-                                         (match (assoc-ref implementations operation)
-                                           ((Some implementation) (emit1 fn implementation))
-                                           ((None) (panic "internal error: missing implementation"))))
+                                  (map (lambda (operation) (emit1 fn (handler-implementation implementations operation)))
                                        (Effect-operations (program-effect (program-of m) effect)))))))
         (push! (Fn-locals fn) (wat "local" (id node) (evidence-ref m)))
-        (list (wat "local.set" (id node) (wat "struct.new" (id (evidence-type m)) (effect-label effect) handler (Fn-evidence fn)))
-              (move-value m (fn-rep fn (Expr-type expr)) (emit1 (Fn-evidence-set fn (wat "local.get" (id node))) body)))))
+        (Pair node (wat "local.set" (id node) (wat "struct.new" (id (evidence-type m)) (effect-label effect) handler (Fn-evidence fn))))))
+
+    (: handler-implementation (-> (List (Pair String Expr)) String Expr))
+    (define (handler-implementation implementations operation)
+      (match (assoc-ref implementations operation)
+        ((Some implementation) implementation)
+        ((None) (panic "internal error: missing implementation"))))
 
     ;; Each operation is one function, so its call sites are ordinary calls.
     ;; It walks the evidence for its effect's node and calls that handler's
     ;; implementation with the evidence outside it; with no node it uses the
-    ;; host default.
+    ;; host default. A control operation records a yield at the node
+    ;; instead (see Control).
     (: performer (-> Module String String String ! mut))
     (define (performer m effect operation)
       (helper! m "perform" operation
@@ -1477,9 +1513,18 @@
       (let ((node (wat "local.get" (Word "$node"))) (evidence (evidence-type m)))
         (list (wat "if" (wat "ref.is_null" node) (wat "then" (wat* "return" (host-default m info operation names))))
               (wat "if" (wat "i32.eq" (wat "struct.get" (id evidence) (int 0) node) (effect-label (Effect-name info)))
-                   (wat "then" (wat "return" (implementation-call m info operation names params result))))
+                   (wat* "then" (at-handler m info operation names params result)))
               (wat "local.set" (Word "$node") (wat "struct.get" (id evidence) (int 2) node))
               (wat "br" (Word "$walk")))))
+
+    ;; At the effect's node an ordinary operation calls the implementation
+    ;; there and returns its result; a control operation records the yield
+    ;; and returns a placeholder.
+    (: at-handler (-> Module Effect String (List String) (List Rep) Rep (List Wat) ! mut))
+    (define (at-handler m info operation names params result)
+      (if (member? operation (Effect-control info))
+          (list (record-yield m info operation names params) (wat "return" (placeholder m (operation-result m operation) no-loc)))
+          (list (wat "return" (implementation-call m info operation names params result)))))
 
     (: implementation-call (-> Module Effect String (List String) (List Rep) Rep Wat ! mut))
     (define (implementation-call m info operation names params result)
@@ -1504,6 +1549,267 @@
           ((None)
            (list (wat "call" (id (panic-helper m)) (string-literal m (string-append "unhandled effect operation " (short-name operation))))
                  (wat "unreachable"))))))
+
+    ;; ---- Control ----
+
+    ;; A control operation aborts, for now: its implementation may not use
+    ;; `resume`. Performing one records the yield in one global: the node
+    ;; of the handler it is aimed at, the operation's index in its effect,
+    ;; and its arguments. The performer then returns a placeholder of its
+    ;; result type. Each call that may yield is the value of a let, as
+    ;; (snail-core compiler control) arranges, and after that let the
+    ;; record is tested: while it is set, a function returns a placeholder
+    ;; and a handle body branches to the end of its block with one, until
+    ;; the handle whose node the record names. That handle clears the
+    ;; record and calls the operation's implementation in its own context,
+    ;; with the recorded arguments and a `resume` that holds nothing, and
+    ;; the implementation's result is the handle's. A call whose value flows
+    ;; straight out needs no test, so a tail call stays a tail call.
+    ;; Nothing reads a placeholder, since every caller tests first and
+    ;; leaves too. The record is clear whenever Snail-Core code runs outside
+    ;; a yield, so none is live across a host suspension.
+
+    ;; Where a yield leaves the code being emitted: the end of the block
+    ;; of the handle body it is in, by the block's label, or else the
+    ;; function, for its caller; either way with a placeholder of `result`.
+    (struct Exit
+      ((label (Option String))
+       (result Type)))
+
+    (: function-exit (-> Type (Option Exit)))
+    (define (function-exit type)
+      (match type
+        ((TFun _ result _) (Some (Exit (None) result)))
+        (_ (panic "internal error: not a function type"))))
+
+    (: yield-type (-> Module String ! mut))
+    (define (yield-type m)
+      (match (known-type m "yield")
+        ((Some type) type)
+        ((None)
+         (register-type! m "yield" "$yield"
+                         (wat "type" (id "$yield")
+                              (wat "struct" (wat "field" (evidence-ref m)) (wat "field" (Word "i32")) (wat "field" (Word "anyref"))))))))
+
+    ;; The global holding the record, null while nothing yields. A whole
+    ;; program declares it. A library's module imports it from the control
+    ;; module, which a library build links first, so every module of a
+    ;; program shares one.
+    (: yielding (-> Module String ! mut))
+    (define (yielding m)
+      (let ((type (wat "mut" (wat "ref" (Word "null") (id (yield-type m))))))
+        (match (Module-owner m)
+          ((Some _)
+           (import-once! m "yielding" "$yielding"
+                         (lambda (global) (wat "import" (wat-string "snail.control") (wat-string "yielding") (wat "global" (id global) type)))))
+          ((None)
+           (unless (table-contains? (ref-get (Module-helpers m)) "yielding")
+             (put! (Module-helpers m) "yielding" "$yielding")
+             (push! (Module-globals m) (wat "global" (id "$yielding") type (wat "ref.null" (id "$yield")))))
+           "$yielding"))))
+
+    ;; The module a library build links first when its program has control
+    ;; effects: it declares the record's global and exports it, and its
+    ;; text never changes.
+    (: emit-control-module (-> Program Wat ! mut))
+    (define (emit-control-module program)
+      (let ((m (new-module (Mono program (Nil) empty-table (Nil)) (None))))
+        (push! (Module-exports m) (wat "export" (wat-string "yielding") (wat "global" (id (yielding m)))))
+        (emit-main! m (Nil))
+        (module-wat m)))
+
+    ;; After a let's value that may yield: leave while the record is set.
+    (: yield-test (-> Fn Expr (List Wat) ! mut))
+    (define (yield-test fn value)
+      (let ((m (Fn-module fn)))
+        (match (Module-callees m)
+          ((Some callees)
+           (if (null? (yields callees value))
+               (Nil)
+               (list (wat "if" (wat "i32.eqz" (wat "ref.is_null" (wat "global.get" (id (yielding m))))) (wat "then" (leave fn (Expr-loc value)))))))
+          ((None) (Nil)))))
+
+    (: leave (-> Fn Loc Wat ! mut))
+    (define (leave fn loc)
+      (match (Fn-exit fn)
+        ((Some (Exit (Some label) result)) (wat "br" (id label) (placeholder (Fn-module fn) result loc)))
+        ((Some (Exit (None) result)) (wat "return" (placeholder (Fn-module fn) result loc)))
+        ((None) (panic "internal error: a yield outside any function"))))
+
+    ;; ---- Placeholders ----
+
+    ;; A value of `type` to leave with. Nothing reads it, so any value of
+    ;; its representation will do: zero, an empty array, an enum's base
+    ;; with no case's tag, a closure whose code is unreachable, a struct of
+    ;; placeholders, each kept in a global. An owner is a fresh one with a
+    ;; payload, since moving a value out of an owner, as a handle site and
+    ;; a drop do, requires one.
+    (: placeholder (-> Module Type Loc Wat ! mut))
+    (define (placeholder m type loc)
+      (match (rep m type)
+        ((Reference "$owned") (fresh-owner m))
+        ((Reference representation)
+         (memoize! m (string-append "placeholder:" (type-key type))
+                   (lambda ()
+                     (let ((global (keyed-id "placeholder" (type-key type))))
+                       (push! (Module-globals m) (wat "global" (id global) (wat "ref" (id representation)) (placeholder-value m type (Nil) loc)))
+                       (wat "global.get" (id global))))))
+        (scalar (default-value scalar))))
+
+    ;; A constant expression for a placeholder; `seen` holds the structs it
+    ;; is inside.
+    (: placeholder-value (-> Module Type (List String) Loc Wat ! mut))
+    (define (placeholder-value m type seen loc)
+      (match (rep m type)
+        ((Scalar name) (default-value (Scalar name)))
+        ((Reference "$owned") (fresh-owner m))
+        ((Reference representation)
+         (match type
+           ((TCon "Any" _) (wat "struct.new" (id representation) (wat "i32.const" (int -1)) (wat "ref.null" (Word "any"))))
+           ((TCon "Ref" (Cons content _)) (wat "struct.new" (id representation) (placeholder-value m content seen loc)))
+           ((TCon name _)
+            (if (member? name (list "String" "Array" "Vector"))
+                (wat "array.new_fixed" (id representation) (int 0))
+                (data-placeholder m type seen loc)))
+           (_ (wat "struct.new" (id representation) (wat "ref.func" (id (unreachable-code m type representation)))))))))
+
+    ;; A struct that contains itself has no placeholder.
+    (: data-placeholder (-> Module Type (List String) Loc Wat ! mut))
+    (define (data-placeholder m type seen loc)
+      (let ((data (data-type-of m (type-name type))) (key (type-key type)))
+        (cond ((DataType-enum? data) (wat "struct.new" (id (data-type m type)) (wat "i32.const" (int -1))))
+              ((member? key seen)
+               (compile-error loc (string-append "a call that may yield here cannot return " (type->string type) ", which contains itself")))
+              (else
+               (match (DataType-cases data)
+                 ((Cons case _)
+                  (wat* "struct.new" (Cons (id (data-type m type))
+                                           (map (lambda (field) (placeholder-value m field (Cons key seen) loc)) (case-field-types m type case)))))
+                 ((Nil) (panic "internal error: a struct has one case")))))))
+
+    (: unreachable-code (-> Module Type String String ! mut))
+    (define (unreachable-code m type base)
+      (let ((signature (function-signature m type)))
+        (helper! m "unreachable" base
+                 (lambda (function-id)
+                   (push! (Module-declared m) function-id)
+                   (wat* "func" (concatenate (list (list (id function-id) (wat "type" (id (code-type m base))) (wat "param" (wat "ref" (id base)))
+                                                         (evidence-param m))
+                                                   (map (lambda (param) (wat "param" (rep->wat param))) (Pair-first signature))
+                                                   (list (wat "result" (rep->wat (Pair-second signature))) (wat "unreachable")))))))))
+
+    (: fresh-owner (-> Module Wat ! mut))
+    (define (fresh-owner m)
+      (wat "struct.new" (id (owned-type m)) (wat "ref.i31" (wat "i32.const" (int 0)))))
+
+    ;; ---- Performing and catching ----
+
+    ;; The yield of `operation` at the node the performer's walk is on.
+    (: record-yield (-> Module Effect String (List String) (List Rep) Wat ! mut))
+    (define (record-yield m info operation names params)
+      (wat "global.set" (id (yielding m))
+           (wat "struct.new" (id (yield-type m)) (wat "ref.as_non_null" (wat "local.get" (Word "$node")))
+                (wat "i32.const" (int (operation-index info operation)))
+                (wat* "struct.new" (Cons (id (arguments-type m operation params)) (map (lambda (name) (wat "local.get" (id name))) names))))))
+
+    (: operation-index (-> Effect String I64))
+    (define (operation-index info operation)
+      (match (list-index (lambda (o) (string=? o operation)) (Effect-operations info))
+        ((Some index) index)
+        ((None) (panic "internal error: unknown operation"))))
+
+    ;; An operation's arguments, as the record holds them.
+    (: arguments-type (-> Module String (List Rep) String ! mut))
+    (define (arguments-type m operation params)
+      (let ((key (string-append "arguments." operation)))
+        (match (known-type m key)
+          ((Some type) type)
+          ((None)
+           (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat* "struct" (map (lambda (param) (wat "field" (rep->wat param))) params))))))))
+
+    ;; Resumption is not compiled yet, so a control implementation must drop
+    ;; `resume`, its last parameter. Ownership drops each owned parameter
+    ;; that the body never uses before anything else runs.
+    (: check-abortive (-> Expr Unit))
+    (define (check-abortive implementation)
+      (unless (match (Expr-term implementation)
+                ((Lambda params body)
+                 (match (last params)
+                   ((Some resume) (drops-first? body resume))
+                   ((None) #f)))
+                (_ #f))
+        (compile-error (Expr-loc implementation) "resumption is not compiled yet: a control implementation must not use resume")))
+
+    (: drops-first? (-> Expr String Bool))
+    (define (drops-first? body name)
+      (match (Expr-term body)
+        ((Seq (Expr (App (Expr (Var "prim:drop-owned" _ _) _ _) (Cons (Expr (Var dropped _ _) _ _) (Nil))) _ _) rest)
+         (or (string=? dropped name) (drops-first? rest name)))
+        (_ #f)))
+
+    ;; A handle of a control effect runs its body in a block, which a yield
+    ;; leaves by branching to its end with a placeholder. There the handle
+    ;; catches a yield aimed at its own node; any other yield leaves the
+    ;; placeholder as the handle's value, and the record set for its caller.
+    (: emit-control-handle (-> Fn Expr String (List (Pair String Expr)) Expr (List Wat) ! mut))
+    (define (emit-control-handle fn expr effect implementations body)
+      (let ((info (program-effect (program-of (Fn-module fn)) effect)))
+        (for-each (lambda (operation) (check-abortive (handler-implementation implementations operation))) (Effect-control info))
+        (let* ((installed (install-handler fn effect implementations)) (label (local-id fn "handle"))
+               (handled (handled-body fn expr info (Pair-first installed) label implementations body)))
+          (Cons (Pair-second installed) handled))))
+
+    ;; The body's value, or the implementation's when the handle catches.
+    (: handled-body (-> Fn Expr Effect String String (List (Pair String Expr)) Expr (List Wat) ! mut))
+    (define (handled-body fn expr info node label implementations body)
+      (let* ((m (Fn-module fn)) (result (fn-rep fn (Expr-type expr))) (value (declare-temp! fn (rep->wat result)))
+             (code (emit (Fn-exit-set (Fn-evidence-set fn (wat "local.get" (id node))) (Some (Exit (Some label) (Expr-type expr)))) body #f))
+             (catch (catch-yield fn info node value result implementations)))
+        (list (wat "local.set" (id value) (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat result)) code))))
+              catch
+              (move-value m result (wat "local.get" (id value))))))
+
+    ;; When the record names the handle's node: clear it, and run the
+    ;; implementation of the operation it names.
+    (: catch-yield (-> Fn Effect String String Rep (List (Pair String Expr)) Wat ! mut))
+    (define (catch-yield fn info node value result implementations)
+      (let* ((m (Fn-module fn)) (current (wat "global.get" (id (yielding m)))) (record (declare-temp! fn (rep->wat (Reference (yield-type m)))))
+             (done (local-id fn "dispatch"))
+             (cases (map (lambda (operation) (dispatch-case fn info node record done operation (handler-implementation implementations operation)))
+                         (Effect-control info))))
+        (wat "if" (wat "i32.eqz" (wat "ref.is_null" current))
+             (wat "then"
+                  (wat "if" (wat "ref.eq" (wat "struct.get" (id (yield-type m)) (int 0) (wat "ref.as_non_null" current)) (wat "local.get" (id node)))
+                       (wat "then"
+                            (wat "local.set" (id value)
+                                 (wat* "block" (concatenate (list (list (id done) (wat "result" (rep->wat result))
+                                                                        (wat "local.set" (id record) (wat "ref.as_non_null" current))
+                                                                        (wat "global.set" (id (yielding m)) (wat "ref.null" (id (yield-type m)))))
+                                                                  cases (list (wat "unreachable"))))))))))))
+
+    ;; The implementation of a control operation, if the record names it,
+    ;; taken from the handler at the node and called in the handle's
+    ;; context with the recorded arguments and a `resume` that holds no
+    ;; procedure, which the implementation drops.
+    (: dispatch-case (-> Fn Effect String String String String Expr Wat ! mut))
+    (define (dispatch-case fn info node record done operation implementation)
+      (let* ((m (Fn-module fn)) (index (operation-index info operation)) (signature (function-signature m (Expr-type implementation)))
+             (base (closure-type m (Pair-first signature) (Pair-second signature))) (closure (declare-temp! fn (rep->wat (Reference base))))
+             (arguments (recorded-arguments m operation (wat "local.get" (id record)))))
+        (wat "if" (wat "i32.eq" (wat "struct.get" (id (yield-type m)) (int 1) (wat "local.get" (id record))) (wat "i32.const" (int index)))
+             (wat "then" (wat "local.set" (id closure) (wat "ref.cast" (wat "ref" (id base)) (handler-field m info node index)))
+                  (wat "br" (id done) (closure-call-wat m base (wat "local.get" (id closure)) (Cons (Fn-evidence fn) (append arguments (list (fresh-owner m)))) #f))))))
+
+    (: handler-field (-> Module Effect String I64 Wat ! mut))
+    (define (handler-field m info node index)
+      (let ((handler (handler-type m (Effect-name info))))
+        (wat "struct.get" (id handler) (int index) (wat "ref.cast" (wat "ref" (id handler)) (wat "struct.get" (id (evidence-type m)) (int 1) (wat "local.get" (id node)))))))
+
+    (: recorded-arguments (-> Module String Wat (List Wat) ! mut))
+    (define (recorded-arguments m operation record)
+      (let* ((params (Pair-first (function-signature m (operation-type m operation)))) (type (arguments-type m operation params))
+             (held (wat "ref.cast" (wat "ref" (id type)) (wat "struct.get" (id (yield-type m)) (int 2) record))))
+        (map-indexed (lambda (index param) (wat "struct.get" (id type) (int index) held)) params)))
 
     ;; ---- Primitives ----
 
@@ -1928,7 +2234,8 @@
     (: new-module (-> Mono (Option String) Module ! mut))
     (define (new-module mono owner)
       (Module (Mono-program mono) (item-definitions (Mono-items mono)) owner (Mono-externals mono) (ref empty-table) (ref (Nil))
-              (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table)))
+              (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table)
+              (let ((control (control-effects (Mono-program mono)))) (if (null? control) (None) (Some (module-callees mono control))))))
 
     (: emit-items! (-> Module (List Item) Unit ! mut))
     (define (emit-items! m items)

@@ -12,30 +12,28 @@ dispatched work remains live. `drain()` resolves when the set is empty.
 Work dispatched after exhaustion begins another interval of activity.
 
 The ready queue contains starts and resumptions. An execution permit
-allows only one of them to use a program's dynamic handler globals.
+allows only one of them to run at a time.
 Short tasks normally advance through microtasks; a bounded number of
 steps yields an event-loop turn so input is not starved. A CPU loop that
 does not suspend still monopolizes this execution agent.
 
 ## Handler bindings
 
-Ordinary handlers are reusable and satisfy `Send + Sync`. Dispatch copies
-the current binding vector and gives it to the child. The implementations
-may be shared, but the vector belongs to that task. This is why a child
-can keep using a handler after its parent returns. Root entries start
-with runtime defaults.
+Ordinary handlers are reusable and satisfy `Send + Sync`. Handlers are
+evidence: every function takes the list of handlers in scope as a
+parameter, so a task's handlers live on its own Wasm stack. Dispatch
+hands the host the evidence in scope at `dispatch-local` along with the
+work, and the host passes it back when the work runs, so a child keeps
+using its parent's handlers after the parent returns. Root entries start
+with the empty list, where every operation reaches its runtime default.
 
-Wasm handler globals act as the executing task's registers. At a JSPI
-wait, the runtime saves them, restores the defaults and releases the
-permit. I/O completion only makes a resumption ready. The scheduler later
-installs that task's bindings and resolves or rejects its wait Promise.
-It keeps the permit until the resumed Wasm suspends again or settles;
-resolving the Promise alone does not establish that Wasm has run yet.
-
-One scheduler owns each program and all its handler globals. Runtime
-authors must route suspending imports through its suspension bridge.
-Dynamically loaded modules must appear in the handler-global enumeration
-too. Their compiler-generated handler globals initially contain null.
+Because nothing about handlers is global, a JSPI wait saves and restores
+nothing: the runtime releases the permit, and I/O completion only makes a
+resumption ready. The scheduler later resolves or rejects its wait
+Promise. It keeps the permit until the resumed Wasm suspends again or
+settles; resolving the Promise alone does not establish that Wasm has run
+yet. One scheduler owns each program; runtime authors must route
+suspending imports through its suspension bridge.
 
 ## Cancellation and adapters
 

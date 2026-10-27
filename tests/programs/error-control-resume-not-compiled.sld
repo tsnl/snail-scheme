@@ -2,8 +2,9 @@
  (snail-core base)
  (snail-core io))
 
-;; A control operation type-checks, with `resume` handed to its
-;; implementation; the backend does not compile it yet.
+;; A control implementation that drops `resume` compiles; one that calls
+;; it does not yet, since resuming the rest of the handled body is not
+;; compiled.
 (effect Gen
   ((ctl next (-> I64 Unit))))
 

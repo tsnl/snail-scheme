@@ -1,0 +1,13 @@
+visit 3
+visit 8
+first above 6: 8
+visit 3
+visit 8
+visit 5
+visit 12
+visit 7
+first above 20: -1
+sum: -12
+cleanup ran
+guarded: 0
+guarded: -2

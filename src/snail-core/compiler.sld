@@ -29,6 +29,7 @@
    (snail-core compiler expand)
    (snail-core compiler check)
    (snail-core compiler mono)
+   (snail-core compiler control)
    (snail-core compiler wasm)
    (snail-core compiler session))
   (begin
@@ -51,7 +52,7 @@
     (define (source->wat directories source generate inputs)
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (ExpandedProgram-program expanded)))
-             (mono (monomorphize typed))
+             (mono (name-yield-points (monomorphize typed)))
              (module (emit-module mono)))
         (WholeProgram (wat->string module) (program-links expanded))))
 
