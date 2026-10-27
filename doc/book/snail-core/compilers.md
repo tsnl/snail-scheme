@@ -143,6 +143,18 @@ the `Ref` is allocated by the pass and never escapes it.
   current helper bodies without regenerating unchanged Wasm text. Input
   generators and immutable build inputs are passed to each build; sessions
   retain only compilation evidence.
+- **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/plan.sld)** orders a project build's
+  phases before any of them runs: building or checking a target, and running
+  a producer. A phase needs the producers its program's closure reaches, then
+  the targets a discovery expansion finds it embeds. Nodes number in
+  depth-first pre-order from the roots, `strong-components` puts each phase
+  after what it needs, and a cycle is an error naming the targets around it
+  from the one declared first, `artifact dependency cycle: client -> admin ->
+  client`, with any producers on the way. A phase whose closure reaches a
+  producer that has not run waits: `next-phases` hands out the steps of the
+  order up to the first that waits, and `refine-plan` learns what the waiting
+  steps need once those producers' outputs are supplied. The caller resolves
+  the project's targets; the native builder does not plan yet.
 - **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text, or to one module's text per library.
 

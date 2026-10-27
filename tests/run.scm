@@ -26,6 +26,7 @@
  (only (snail-core compiler check) test-check)
  (only (snail-core compiler wasm) test-wasm)
  (only (snail-core compiler session) test-session)
+ (only (snail-core compiler plan) test-plan)
  (only (snail-core project) test-project))
 
 ;; ---- Cases ----
@@ -453,6 +454,7 @@
   (test-wasm)
   (test-expand (path-join root "build/tests/expand") (path-join root "src"))
   (test-session (path-join root "build/tests/session") (path-join root "src"))
+  (test-plan (path-join root "build/tests/plan") (path-join root "src"))
   (test-project)
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root "tests/programs" '("tests/programs" "tests/programs/lib") selected)

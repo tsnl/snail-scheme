@@ -23,6 +23,7 @@
    take-input-request!
    publish-input-request!
    generated-syntax
+   print-producer
    printed-producer-text
    generating-stack)
   (import
@@ -168,8 +169,14 @@
       (let* ((key (producer-key (producer-text directories forms))) (output (string-append directory "/" key ".syntax")))
         (if (file-exists? output)
             (read-bytes output)
-            (begin (write-file (string-append directory "/" key ".sld") (string-append (generating-line loading) "\n" (program-text forms)))
+            (begin (print-producer (string-append directory "/" key ".sld") loading forms)
                    (request-input! (GenerateInput key))))))
+
+    ;; Prints the producer `forms` as the program at `path`, beginning with
+    ;; the libraries `loading` when it was reached.
+    (: print-producer (-> String (List String) (List Syntax) Unit ! fs))
+    (define (print-producer path loading forms)
+      (write-file path (string-append (generating-line loading) "\n" (program-text forms))))
 
     ;; The text of the producer printed at `path`, as `producer-text` gave
     ;; it for the forms it was printed from.
