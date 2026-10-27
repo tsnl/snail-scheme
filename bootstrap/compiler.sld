@@ -1,5 +1,5 @@
 ;; A resident compiler's native boundary. JavaScript retains Session values
-;; and immutable artifact inputs as opaque typed references. It receives only
+;; and immutable build inputs as opaque typed references. It receives only
 ;; parsed records. Missing inputs are projected only
 ;; after the compiler unwinds, before native work starts.
 (import
@@ -10,8 +10,7 @@
  (snail-core compiler)
  (snail-core compiler read)
  (snail-core compiler inputs)
- (snail-core compiler session)
- (only (snail-core compiler expand) ArtifactInputs))
+ (snail-core compiler session))
 
 ;; ---- Arguments and records ----
 
@@ -117,25 +116,26 @@
 (define (session!)
   (make-session (take-arguments!)))
 
-(: static! (-> ArtifactInputs Unit ! mut fs))
+(: static! (-> Inputs Unit ! mut fs))
 (define (static! inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch directories)))
-     (write-file output (compile->wat directories source (lambda (loading forms) (generated-syntax scratch loading forms)) inputs)))
+     (write-file output (compile->wat directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
 
-(: check! (-> ArtifactInputs Unit ! mut fs))
+(: check! (-> Inputs Unit ! mut fs))
 (define (check! inputs)
   (match (take-arguments!)
     ((Cons source (Cons scratch directories))
-     (check-source directories source (lambda (loading forms) (generated-syntax scratch loading forms)) inputs))
+     (check-source directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs))
     (_ (panic "compiler check: expected source, scratch and library directories"))))
 
-(: modules! (-> Session ArtifactInputs Session ! mut fs compiler-output))
+(: modules! (-> Session Inputs Session ! mut fs compiler-output))
 (define (modules! previous inputs)
   (match (take-arguments!)
     ((Cons source (Cons scratch (Nil)))
-     (let ((built (build-session previous source (lambda (loading forms) (generated-syntax scratch loading forms)) inputs)))
+     (let* ((directories (Session-directories previous))
+            (built (build-session previous source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
        (for-each send-module (Pair-first built))
        (Pair-second built)))
     (_ (panic "compiler modules: expected source and scratch directory"))))
@@ -162,21 +162,21 @@
      (output-artifact (Loc-line loc) (Loc-column loc)))
     ((None) (unit))))
 
-;; ---- Immutable artifact inputs ----
+;; ---- Immutable build inputs ----
 
-(: inputs (-> ArtifactInputs))
+(: inputs (-> Inputs))
 (define (inputs)
-  no-artifacts)
+  no-inputs)
 
 ;; The caller owns a canonical ordered inventory of completed output files.
-;; Read them once; only a successful call exposes the replacement table.
-(: add-artifact! (-> ArtifactInputs ArtifactInputs ! mut fs))
+;; Read them once; only a successful call exposes the replacement inputs.
+(: add-artifact! (-> Inputs Inputs ! mut fs))
 (define (add-artifact! previous)
   (match (take-arguments!)
     ((Cons name files)
-     (match (table-ref previous name)
+     (match (table-ref (Inputs-artifacts previous) name)
        ((Some _) (panic "compiler artifact: already provided"))
-       ((None) (table-set previous name (snapshot-files files)))))
+       ((None) (supply-artifact previous name (snapshot-files files)))))
     (_ (panic "compiler artifact: expected name and file pairs"))))
 
 (: snapshot-files (-> (List String) (List (Pair String Bytes)) ! fs))
@@ -187,6 +187,21 @@
      (let ((bytes (read-bytes path)))
        (Cons (Pair relative bytes) (snapshot-files rest))))
     (_ (panic "compiler artifact: expected relative and backing path pairs"))))
+
+;; What the producer printed at `source` wrote to `output`, when its imports
+;; resolve in the library directories after them. The producer is read back
+;; from its printed source, so the entry holds the text a compile looks it
+;; up by, and `key` must be the key it was printed under.
+(: add-generated! (-> Inputs Inputs ! mut fs))
+(define (add-generated! previous)
+  (match (take-arguments!)
+    ((Cons key (Cons source (Cons output directories)))
+     (let ((text (printed-producer-text directories source)))
+       (unless (string=? (producer-key text) key) (panic "compiler generated: the key does not name this producer"))
+       (match (generated-output previous text)
+         ((Some _) (panic "compiler generated: already provided"))
+         ((None) (supply-generated previous text (read-bytes output))))))
+    (_ (panic "compiler generated: expected key, source, output and library directories"))))
 
 (expose diagnostic! "diagnostic")
 (expose input-character! "input_character")
@@ -200,3 +215,4 @@
 (expose request! "request")
 (expose inputs "inputs")
 (expose add-artifact! "add_artifact")
+(expose add-generated! "add_generated")

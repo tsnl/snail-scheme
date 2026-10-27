@@ -62,6 +62,17 @@ the `Ref` is allocated by the pass and never escapes it.
   become core `Expr`s with unique names. Each library's build key, the text
   of its declarations with its imports' interfaces, lets a session replay
   it.
+
+  The expander reads each library's file into a `LibraryFile`: a defined
+  library's sections, or a generated library's producer program. The same
+  reading serves `library-closure`, a walk that finds the generated
+  libraries a program's imports reach without expanding anything. It
+  follows imports as the expander loads them, adds the implicit libraries
+  deriving loads, and reads on through each producer output the build
+  supplied. Which targets a program embeds cannot be read that way, since
+  macros may name them, so `discover-artifacts` runs the expander itself
+  with no target files supplied and records each `artifact-files` use as
+  expansion reaches it, in program order.
 - **[`check.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/check.sld)** is Hindley-Milner inference
   with effect rows. Unannotated top-level definitions are checked in
   dependency order (core's `strong-components`). Each instantiation records its type
@@ -130,8 +141,20 @@ the `Ref` is allocated by the pass and never escapes it.
   changed are checked, specialized and emitted again. Cached emissions keep
   their monomorphic items so handler capture proofs can be rechecked against
   current helper bodies without regenerating unchanged Wasm text. Input
-  generators and immutable artifact inputs are passed to each build; sessions
+  generators and immutable build inputs are passed to each build; sessions
   retain only compilation evidence.
+- **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/plan.sld)** orders a project build's
+  phases before any of them runs: building or checking a target, and running
+  a producer. A phase needs the producers its program's closure reaches, then
+  the targets a discovery expansion finds it embeds. Nodes number in
+  depth-first pre-order from the roots, `strong-components` puts each phase
+  after what it needs, and a cycle is an error naming the targets around it
+  from the one declared first, `artifact dependency cycle: client -> admin ->
+  client`, with any producers on the way. A phase whose closure reaches a
+  producer that has not run waits: `next-phases` hands out the steps of the
+  order up to the first that waits, and `refine-plan` learns what the waiting
+  steps need once those producers' outputs are supplied. The caller resolves
+  the project's targets; the native builder does not plan yet.
 - **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text, or to one module's text per library.
 
@@ -230,18 +253,34 @@ synchronous, and a page reads files asynchronously.
 
 The compiler entry points and `build-session` take the current generated-library
 provider, which receives each producer with the libraries loading when it was
-reached, and an `ArtifactInputs` value. `make-session` takes only library
-directories; a retained session owns evidence, never a provider closure:
+reached, and an `Inputs` value, what the build supplies to each of its
+compiles. `make-session` takes only library directories; a retained session
+owns evidence, never a provider closure:
 
 ```scheme
-(Table (List (Pair String Bytes)))
+(struct Generated ((text String) (bytes Bytes)))
+(struct Inputs ((artifacts (Table ArtifactFiles)) (generated (Table Generated))))
 ```
 
-The table maps target names to ordered file snapshots. The native builder establishes
+`artifacts` maps target names to ordered file snapshots, each a
+`(List (Pair String Bytes))`. The native builder establishes
 unique, canonical relative paths sorted by path, with bytes loaded from one
 completed immutable output. Artifact expansion performs only memory lookups;
 it has no filesystem capability. Inputs belong to the current invocation, not
-the retained session. `no-artifacts` is an empty input table.
+the retained session. `no-inputs` supplies nothing.
+
+`generated` maps a producer's key to what it wrote. The key hashes the
+producer's text, `producer-text` in `(snail-core compiler inputs)`: the
+library directories its imports resolve in, then its program. One table can
+serve every target of a build, and two targets with different directories may
+resolve the same recipe's imports to different libraries, so the directories
+belong to the producer. The entry keeps that text beside the bytes and a
+lookup compares it, so a collision of keys is a miss, never another
+producer's output. The expander looks a producer up there first; only a miss
+reaches the provider, which prints the producer into scratch under the same
+key and requests it. `add_generated` in `bootstrap/compiler.sld` reads a
+printed producer back, checks that it has the key it was printed under, and
+adds the output it wrote.
 
 The project implementation owns target lookup, browser-kind checking,
 serial traversal and cycle detection. A missing input records a typed request
@@ -283,8 +322,8 @@ with those libraries loading:
 A producer that imports, along any chain, the library it generates is then an
 import cycle, `library import cycle through sample.knot`, rather than producers
 nesting without end; `tests/programs/error-generated-cycle.sld` is that case.
-The producer's key hashes its text without the `generating` line, since what it
-writes does not depend on the chain that reached it. The Chibi driver also
+The producer's key leaves the `generating` line out, since what it writes does
+not depend on the chain that reached it. The Chibi driver also
 refuses a producer requested while it is being built, a backstop should the
 stack ever miss a cycle.
 
@@ -320,8 +359,8 @@ successor Session. Both cold project builds and `dev` use this boundary.
 
 Only `host/native/project.mjs` resolves named browser targets, including during
 producer compilation. It passes each completed target's canonical file inventory
-to `addArtifact`, which reads the bytes once and returns an opaque immutable
-input table. A failed read returns no replacement; the preceding table remains
+to `addArtifact`, which reads the bytes once and returns opaque immutable
+inputs. A failed read returns no replacement; the preceding inputs remain
 usable. There is no artifact reply manifest or second parsing step.
 
 Each logical compilation retains its table through retries and passes it to
@@ -336,7 +375,7 @@ Applications embed the bytes and need no runtime file access.
 `bootstrap/compiler.sld` exposes this compiler to a resident native caller.
 `host/native/compiler.mjs` owns one Wasm instance and returns parsed project and
 input-request records, static text, or modular text with a successor Session.
-JavaScript retains Sessions and immutable artifact inputs as opaque typed
+JavaScript retains Sessions and immutable build inputs as opaque typed
 references; it cannot inspect them and must keep them with their originating compiler
 instance. Each operation consumes its staged arguments
 before doing work, and projected records become visible only on success.
