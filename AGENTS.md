@@ -6,11 +6,13 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- Languages are libraries. Every library that ships with the language lives
-  under `src/`, with paths matching library names and `.sld` sources: Lofi's
-  own under `src/lofi/`, Scheme's under `src/scheme/`, and the compiler among
-  them at `src/lofi/compiler/`, written in typed Lofi importing only
-  `(lofi base)`, `(lofi table)` and `(lofi io)`, so it compiles itself.
+- A language on Lofi is a set of libraries that expand into it: Scheme is
+  macros and libraries over the typed language, not a second compiler.
+  Every library that ships lives under `src/`, with paths matching library
+  names and `.sld` sources: Lofi's own under `src/lofi/`, Scheme's under
+  `src/scheme/`, and the compiler among them at `src/lofi/compiler/`, written
+  in typed Lofi importing only `(lofi base)`, `(lofi table)` and `(lofi io)`,
+  so it compiles itself.
   Host-specific code lives only under `host/`: `chibi/` for stage 0,
   `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
   crates live in `crates/`. Surface macros expand away before checking. See
@@ -30,10 +32,34 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   evidence about representations, ownership, effects and foreign boundaries
   through lowering, so later passes can act on established facts. Keep runtime
   checks where those facts cannot be proved statically.
+- Effect handlers are headed for generalized evidence passing, as Koka does:
+  a handler becomes evidence threaded as a parameter, the way a class
+  constraint already is, and an operation becomes an ordinary call through it.
+  This is deliberately not stack switching. JSPI is a browser mechanism with
+  no native counterpart, so building on it would give the two hosts different
+  semantics for the same program; evidence passing is a translation, needs no
+  runtime support, and reuses machinery the compiler already has for
+  typeclasses. The consequence is the continuation tier: one-shot and
+  delimited by its handler, with `resume` a form rather than a value, usable
+  only in the handler's body, so it cannot be stored, returned or called
+  twice. Multi-shot continuations are out of scope, since
+  they require every frame to be reachable twice and would be paid for by code
+  that never captures one. Today's lowering is still a global handler stack
+  linked through `outer` (`src/lofi/compiler/wasm.sld:1259`).
 - Parse, don't validate: turn syntax and external data into structured values
   whose construction establishes the required invariants. Carry that evidence
   forward instead of returning a Boolean and repeatedly checking the same raw
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
+- Avoid mutable state. Thread a value through the functions that change it
+  and return the new one, so a signature without `! mut` is a proof that the
+  pass is a function of its input, and a reader can never be looking at a
+  stale cell. `Ref` and `! mut` are for mutation that genuinely belongs to a
+  boundary — the runtime, a host, a cache with one owner — not for the
+  convenience of a pass that could carry its state. When threading would
+  nest a function six deep, name the sequence with a local binding form, as
+  `learning` does in `src/lofi/compiler/check.sld`, rather than reaching for
+  a cell. The checker went from 58 `! mut` signatures to none at no cost in
+  speed; the count per module is worth watching.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
 - Put each Scheme import specification and struct field on its own line.
