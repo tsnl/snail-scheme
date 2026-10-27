@@ -284,7 +284,7 @@
     (: next-build! (-> Loop String (List Built) ! mut fs))
     (define (next-build! loop source)
       (match (build-session (ref-get (Loop-session loop)) source
-                            (lambda (forms) (panic "the development loop cannot build a generate-library yet")) no-artifacts)
+                            (lambda (loading forms) (panic "the development loop cannot build a generate-library yet")) no-artifacts)
         ((Pair builds session) (ref-set! (Loop-session loop) session) builds)))
 
     ;; Writes each module that changed, assembled, and modules.json, which

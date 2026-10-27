@@ -14,8 +14,8 @@
   (table-set (table-set no-artifacts "client" (list (Pair "client.dat" client)))
              "admin" (list (Pair "admin.dat" #u8(99)))))
 
-(: generate (-> (List reader:Syntax) Bytes ! mut fs))
-(define (generate forms)
+(: generate (-> (List String) (List reader:Syntax) Bytes ! mut fs))
+(define (generate loading forms)
   (generated:syntax->bytes
    (generated:library-syntax
     (list "generated" "assets") (list "generated-bundle") (list (list "snail-core" "base") (list "snail-core" "artifact"))
