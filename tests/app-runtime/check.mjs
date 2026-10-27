@@ -77,9 +77,11 @@ async function application(options = {}) {
     program = await instantiate(await WebAssembly.compile(await readFile(path)), {...wasi.getImportObject(), ...imports});
     wasi.initialize(program); program.exports.main();
   }
-  const entry = applicationEntry(program), initialHandlers = entry.handlers.map(global => global.value);
+  const entry = applicationEntry(program);
+  // Handlers are evidence on each task's own stack, so nothing dynamic
+  // remains to return to an entry value; only the private reset handler
+  // leaves a trace.
   function settled() {
-    assert.deepEqual(entry.handlers.map(global => global.value), initialHandlers, 'all dynamic handlers return to their entry values');
     assert.equal(entry.exports.marker(), -9, 'the private reset handler has been removed');
   }
   return {observed, runtime, entry, settled};
@@ -93,8 +95,6 @@ async function checkSuspension() {
   const run = runtime.start(entry);
   runtime.send(PRESS, 1); runtime.send(PRESS, 1);
   await turn();
-  const installed = entry.handlers.map(global => global.value);
-  assert.ok(installed.every(value => value === null), 'parked tasks leave runtime defaults in the handler globals');
   assert.equal(run.scheduler.size, 2, 'the root and its sleeping child both remain live');
   assert.equal(observed.frames, 0);
   assert.throws(() => runtime.start(entry), /overlap/);
@@ -102,7 +102,6 @@ async function checkSuspension() {
   assert.equal(await run.ready.promise, 2);
   await turn();
   assert.equal(observed.count, '2', 'input received during startup follows initial presentation');
-  assert.deepEqual(entry.handlers.map(global => global.value), installed, 'handler registers are restored between task turns');
   runtime.send(HIDDEN);
   await turn();
   assert.equal(saves, 1);

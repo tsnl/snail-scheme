@@ -1,15 +1,11 @@
-// Wasm entry points and their dynamically installed effect handlers.
+// Wasm entry points.
 import {programExports} from './load.mjs';
 
 // ---- Wasm entries ----
 
 export function programEntry(program, name = 'app_main') {
   const exports = program.names ? programExports(program) : program.exports ?? program.runtime.exports;
-  return {exports, main: exports[name], memory: program.linked ? program.runtime.exports.memory : exports.memory,
-          get handlers() {
-            const modules = program.linked ? [program.runtime.exports, ...[...program.linked.values()].map(instance => instance.exports)] : [program.exports];
-            return modules.flatMap(exports => Object.entries(exports).filter(([name]) => name.startsWith('handler.')).map(([, value]) => value));
-          }};
+  return {exports, main: exports[name], memory: program.linked ? program.runtime.exports.memory : exports.memory};
 }
 
 // A foreign Bytes argument borrows staging memory. Own its bytes before any
