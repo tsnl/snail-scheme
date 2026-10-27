@@ -56,7 +56,8 @@
        (specialized (Ref (Table (List Item))))
        (pending (Ref (List Request)))
        (owner (Option String))
-       (externals (Ref (Table Expr)))))
+       (externals (Ref (Table Expr)))
+       (control (List String))))
 
     (struct Request
       ((name String)
@@ -66,9 +67,12 @@
 
     ;; The types and evidence that replace a definition's quantified variables
     ;; and requirements while it is copied.
+    ;; `control` names the program's control effects, the ones a ground row
+    ;; keeps, in order of their names.
     (struct Instantiation
       ((vars Substitution)
-       (evidence (List Evidence))))
+       (evidence (List Evidence))
+       (control (List String))))
 
     (: program-of (-> State Program))
     (define (program-of state)
@@ -90,7 +94,7 @@
     ;; instances the types determine the evidence.
     (: request! (-> State String (List Type) (List Evidence) String ! mut))
     (define (request! state name types evidence)
-      (let ((spec (if (null? types) name (string-append name "<" (string-join (map type-key types) ",") ">"))))
+      (let ((spec (if (null? types) name (string-append name "<" (string-join (map spec-key types) ",") ">"))))
         (unless (table-contains? (ref-get (State-done state)) spec)
           (ref-set! (State-done state) (table-set (ref-get (State-done state)) spec spec))
           (ref-set! (State-pending state) (Cons (Request name spec types evidence) (ref-get (State-pending state)))))
@@ -109,7 +113,7 @@
     (define (specialize-request! state request)
       (let* ((name (Request-name request))
              (scheme (scheme-of state name))
-             (inst (Instantiation (zip (Scheme-vars scheme) (Request-types request)) (Request-evidence request)))
+             (inst (Instantiation (zip (Scheme-vars scheme) (Request-types request)) (Request-evidence request) (State-control state)))
              (value (copy-expr state inst (definition state name)))
              (copies (copies-of state name)))
         (ref-set! (State-specialized state)
@@ -123,18 +127,51 @@
 
     ;; ---- Copying ----
 
-    ;; Effects are erased here: specializations differ only by their types.
+    ;; Effects are erased here except control effects, because a call that
+    ;; may reach a control operation compiles differently from one that
+    ;; cannot; specializations differ by their types and their control rows.
     (: ground (-> Instantiation Type Type))
     (define (ground inst type)
-      (erase-rows (substitute (Instantiation-vars inst) type)))
+      (erase-rows (Instantiation-control inst) (substitute (Instantiation-vars inst) type)))
 
-    (: erase-rows (-> Type Type))
-    (define (erase-rows type)
+    (: erase-rows (-> (List String) Type Type))
+    (define (erase-rows control type)
       (match type
-        ((TCon name args) (TCon name (map erase-rows args)))
-        ((TFun params result _) (TFun (map erase-rows params) (erase-rows result) empty-row))
-        ((TRow _ _) empty-row)
+        ((TCon name args) (TCon name (map (lambda (arg) (erase-rows control arg)) args)))
+        ((TFun params result row)
+         (TFun (map (lambda (param) (erase-rows control param)) params) (erase-rows control result) (control-row control row)))
+        ((TRow _ _) (control-row control type))
         (_ type)))
+
+    ;; The control effects a row names, in the order of `control`, closed.
+    (: control-row (-> (List String) Type Type))
+    (define (control-row control row)
+      (let ((labels (row-labels row)))
+        (TRow (filter (lambda (effect) (member? effect labels)) control) (None))))
+
+    (: row-labels (-> Type (List String)))
+    (define (row-labels row)
+      (match row
+        ((TRow labels (Some tail)) (append labels (row-labels tail)))
+        ((TRow labels (None)) labels)
+        (_ (Nil))))
+
+    ;; A specialization's name keys its types as `type-key` does, plus the
+    ;; control effects in their rows. A row without one keys as before, so
+    ;; code that cannot reach a control operation keeps its names.
+    (: spec-key (-> Type String))
+    (define (spec-key type)
+      (match type
+        ((TCon name (Nil)) name)
+        ((TCon name args) (string-append name "<" (string-join (map spec-key args) ",") ">"))
+        ((TFun params result row)
+         (string-append "fn<" (string-join (map spec-key params) ",") "->" (spec-key result) ">" (control-suffix row)))
+        ((TRow _ _) (string-append "row" (control-suffix type)))
+        (_ (type-key type))))
+
+    (: control-suffix (-> Type String))
+    (define (control-suffix row)
+      (string-concatenate (map (lambda (effect) (string-append "!" effect)) (row-labels row))))
 
     (: ground-evidence (-> Instantiation Evidence Evidence))
     (define (ground-evidence inst evidence)
@@ -221,7 +258,7 @@
         (match (Expr-term value)
           ((Var _ _ _)
            (let ((scheme (scheme-of state name)))
-             (copy-expr state (Instantiation (zip (Scheme-vars scheme) types) evidence) value)))
+             (copy-expr state (Instantiation (zip (Scheme-vars scheme) types) evidence (State-control state)) value)))
           (_ (if (external? state name types)
                  (begin (ref-set! (State-externals state) (table-set (ref-get (State-externals state)) name value))
                         (Expr (Var name (Nil) (Nil)) type loc))
@@ -237,7 +274,24 @@
 
     (: new-state (-> Specialization (Option String) State ! mut))
     (define (new-state input owner)
-      (State input (ref empty-table) (ref empty-table) (ref (Nil)) owner (ref empty-table)))
+      (State input (ref empty-table) (ref empty-table) (ref (Nil)) owner (ref empty-table)
+             (control-effects (Typed-program (Specialization-typed input)))))
+
+    ;; The effects with a control operation, in order of their names.
+    (: control-effects (-> Program (List String)))
+    (define (control-effects program)
+      (sort-names (map Effect-name (filter (lambda (effect) (not (null? (Effect-control effect))))
+                                           (table-values (Program-effects program))))))
+
+    (: sort-names (-> (List String) (List String)))
+    (define (sort-names names)
+      (fold-left (lambda (sorted name) (insert-name name sorted)) (Nil) names))
+
+    (: insert-name (-> String (List String) (List String)))
+    (define (insert-name name sorted)
+      (match sorted
+        ((Cons first rest) (if (string<? first name) (Cons first (insert-name name rest)) (Cons name sorted)))
+        ((Nil) (list name))))
 
     ;; Statements and monomorphic top-level values are roots, so their
     ;; initializers run even when nothing refers to them. Functions are
@@ -295,7 +349,7 @@
     (define (root-item state item)
       (match item
         ((Expose name _ _) (request! state name (Nil) (Nil)) (None))
-        ((Do expr) (Some (Do (copy-expr state (Instantiation (Nil) (Nil)) expr))))
+        ((Do expr) (Some (Do (copy-expr state (Instantiation (Nil) (Nil) (State-control state)) expr))))
         ((Define name value)
          (let ((scheme (scheme-of state name)))
            (if (and (null? (Scheme-vars scheme)) (not (lambda-expr? value)) (not (alias-expr? value)))
@@ -316,4 +370,36 @@
         ((Var _ _ _) #t)
         (_ #f)))
 
-    ))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-mono)
+    (import
+     (snail-core testing))
+    (begin
+      (define (test-mono)
+        (test-control-rows)
+        (test-spec-keys))
+
+      ;; Grounding keeps a row's control effects, in name order, and drops
+      ;; the rest, wherever the row sits.
+      (define (test-control-rows)
+        (let ((row (TRow (list "mut" "gen") (Some (TRow (list "abort" "console") (None)))))
+              (control (list "abort" "gen")))
+          (expect (erase-rows control row) (TRow (list "abort" "gen") (None)))
+          (expect (erase-rows (Nil) row) empty-row)
+          (expect (erase-rows control (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) row))
+                  (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) (TRow (list "abort" "gen") (None))))))
+
+      ;; Without control effects a name is what `type-key` gives, so pure
+      ;; code keeps its names; with one, the name says so.
+      (define (test-spec-keys)
+        (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) empty-row))
+              (control (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) (TRow (list "gen") (None)))))
+          (expect (spec-key pure) (type-key pure))
+          (expect (spec-key (TCon "List" (list pure))) (type-key (TCon "List" (list pure))))
+          (expect (spec-key control) "fn<I64->I64>!gen")
+          (expect (spec-key empty-row) "row")))))))

@@ -159,6 +159,16 @@ not be imported. Effects with host defaults, such as `console` and `fs` from
 `(snail-core io)`, need no handler at the top level of a program, and a test can
 handle `fs` to serve files from memory.
 
+**Proposed: control operations.** An effect may declare an operation with
+`ctl`, as in `(effect Gen ((ctl next (-> I64 Unit))))`. Its implementation
+receives one more argument, `resume`, the rest of the handled body: calling
+`(resume answer)` runs it, under the handler again, to the handler's result,
+which the implementation returns. `resume` is a `Once`, so the checker
+rejects calling it twice, and it may be stored and called later. A control
+operation has no host default, since the host cannot be handed the rest of a
+computation. The checker accepts all of this today; the backend reports
+"control operations are not compiled yet" until the translation lands.
+
 `extern` declares a total foreign function; the declaration is the boundary's
 unsafe assumption.
 
