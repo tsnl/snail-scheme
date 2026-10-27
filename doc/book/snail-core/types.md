@@ -142,6 +142,13 @@ Rows are inferred by unification, Koka-style. A call requires its callee's
 effects to fit the current row. With a shared quantified tail, `e` fits
 `console e`, and `fs e` fits `console fs e`; the reverse inclusion does not
 hold. This permission check does not change equality of function types.
+A signature may not claim more than its body does either: a top-level
+definition whose signature names an effect, or a tail variable such as `e`,
+that no call in its body performs is an error at the signature, so
+`(: double (-> I64 I64 ! mut))` over a body that never mutates is rejected.
+An instance method keeps its class method's row, which one instance may need
+less of than another, and `extern` declarations, class method signatures and
+definitions whose value is not a lambda have no body to compare.
 A handler removes its effect. Handler
 implementations return to the operation's caller exactly once, and they run
 in the handler's outer context, so an operation they perform goes to the

@@ -529,10 +529,14 @@
        (operations (List String))
        (host (List (Pair String Import)))))
 
-    ;; What a unique value name denotes.
+    ;; What a unique value name denotes. A definition's scheme is its
+    ;; signature's, or none until it is inferred, and `signature` is where
+    ;; that `(: name type)` was written. An instance method has its class
+    ;; method's scheme and no signature of its own.
     (enum Value
       (Defined
-        ((scheme (Option Scheme))))
+        ((scheme (Option Scheme))
+         (signature (Option Loc))))
       (Constructor
        ((case Case)
         (scheme Scheme)))
@@ -561,7 +565,7 @@
     (: value-scheme (-> Value (Option Scheme)))
     (define (value-scheme value)
       (match value
-        ((Defined scheme) scheme)
+        ((Defined scheme _) scheme)
         ((Constructor _ scheme) (Some scheme))
         ((Accessor _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
