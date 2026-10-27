@@ -102,6 +102,12 @@
     (define (digest path)
       (host-command "digest" (list path) 0))
 
+    ;; Copies a file, making the directory it goes to, and replacing what
+    ;; was there at once: whether it could.
+    (: copy-file! (-> String String Bool ! develop))
+    (define (copy-file! from to)
+      (= (host-command "copy-file" (list from to) 0) 0))
+
     (: now (-> I32 ! develop))
     (define (now)
       (host-command "now" (Nil) 0))
@@ -277,11 +283,11 @@
 
     ;; ---- Builds ----
 
-    ;; A build writes its modules and modules.json, then shows the pages the
-    ;; new build or runs the program again, and only then removes the module
-    ;; files no page can still be loading. A build that fails to compile or
-    ;; assemble stops before modules.json, the page or any file a page may
-    ;; still load changes.
+    ;; A build places the files the program links, writes its modules and
+    ;; modules.json, then shows the pages the new build or runs the program
+    ;; again, and only then removes the module files no page can still be
+    ;; loading. A build that fails to compile or assemble stops before
+    ;; modules.json, the page or any module a page may still load changes.
     (: build! (-> Loop Unit ! mut fs console develop))
     (define (build! loop)
       (let ((started (now)))
@@ -321,11 +327,12 @@
     (define (unplanned-producer loading forms)
       (panic "internal error: the build plan did not run this producer"))
 
-    ;; Writes each module that changed, assembled, and modules.json, which
-    ;; names them in program order. Returns each library's name with its
-    ;; module's location.
+    ;; Places the files the program links, then writes each module that
+    ;; changed, assembled, and modules.json, which names them in program
+    ;; order. Returns each library's name with its module's location.
     (: write-modules! (-> Loop (List Built) (List (Pair String String)) ! fs develop))
     (define (write-modules! loop builds)
+      (place-links! (Loop-output loop) builds)
       (let ((modules (map (lambda (built) (Pair (Built-name built) (module-file! loop built))) builds)))
         (write-published-file! (manifest-path loop) (modules-json (runtime-path loop) modules))
         modules))
@@ -334,17 +341,21 @@
     (define (manifest-path loop)
       (string-append (Loop-output loop) "/modules.json"))
 
-    ;; A module's file is named for its text, so a page fetches it again
-    ;; only when it changed.
+    ;; A module's file is named for what it loads, so a page fetches it
+    ;; again only when that changed.
     (: module-file! (-> Loop Built String ! fs develop))
     (define (module-file! loop built)
       (module-url loop (string-append "modules/" (assembled-module! (string-append (Loop-output loop) "/modules") built))))
 
-    ;; The name of a library's module file in `directory`, named for its
-    ;; text, which is assembled there unless it already is.
+    ;; The name of a library's module file in `directory`, which is
+    ;; assembled there unless it already is. It is named for the module's
+    ;; text and the contents of the files the library links, so the page
+    ;; relinks from the module when either changed, and relinking a module
+    ;; reads its files again.
     (: assembled-module! (-> String Built String ! fs develop))
     (define (assembled-module! directory built)
-      (let* ((file (string-append (Built-name built) "-" (i64->string (fnv-1a (Built-text built))) ".wasm"))
+      (let* ((stamp (string-concatenate (map (lambda (link) (string-append "\n" (i32->string (digest (LinkedFile-path link))))) (Built-links built))))
+             (file (string-append (Built-name built) "-" (i64->string (fnv-1a (string-append (Built-text built) stamp))) ".wasm"))
              (path (string-append directory "/" file)))
         (unless (file-exists? path)
           (write-file (string-append path ".wat") (Built-text built))
@@ -408,10 +419,28 @@
       (let* ((directory (producers-directory loop))
              (built (build-session (make-session (Producer-directories producer)) (Producer-source producer) unplanned-producer inputs))
              (manifest (string-append directory "/" (Producer-key producer) ".json")))
+        (place-links! directory (Pair-first built))
         (write-file manifest (modules-json (Loop-runtime loop)
                                            (map (lambda (module) (Pair (Built-name module) (string-append directory "/" (assembled-module! directory module))))
                                                 (Pair-first built))))
         manifest))
+
+    ;; ---- Linked files ----
+
+    ;; Each file the program links goes to resources/NAME in `directory`,
+    ;; beside the manifest it runs from, where pages and programs read it
+    ;; before they start. Editing a linked file recompiles nothing, so every
+    ;; build places them, copying a file only when it changed.
+    (: place-links! (-> String (List Built) Unit ! fs develop))
+    (define (place-links! directory builds)
+      (for-each (lambda (link) (place-link! directory link)) (concatenate (map Built-links builds))))
+
+    (: place-link! (-> String LinkedFile Unit ! fs develop))
+    (define (place-link! directory link)
+      (let ((from (LinkedFile-path link)) (to (string-append directory "/resources/" (LinkedFile-name link))))
+        (unless (and (file-exists? to) (= (digest to) (digest from)))
+          (unless (copy-file! from to)
+            (panic (string-append "cannot place the linked file " (LinkedFile-name link) " from " from))))))
 
     ;; ---- Pages ----
 
@@ -479,10 +508,11 @@
 
     ;; A request is served from the first route with the file: its exact
     ;; path, then each directory whose prefix the path starts with, in
-    ;; order. The page, the modules and the runtime come from the build; any
-    ;; file of the browser host comes from its directory, at the root for
-    ;; the application's page and under /.snail/ for the reload client; and
-    ;; the application's public files come from its public/.
+    ;; order. The page, the modules, the linked files and the runtime come
+    ;; from the build; any file of the browser host comes from its
+    ;; directory, at the root for the application's page and under /.snail/
+    ;; for the reload client; and the application's public files come from
+    ;; its public/.
     (: routes-json (-> Loop String String))
     (define (routes-json loop app)
       (let ((output (Loop-output loop)) (host (string-append (host-directory (Loop-root loop)) "/")))
@@ -495,6 +525,7 @@
                            (Pair "/.snail/reload.wasm" (Loop-client loop))))
          ", \"directories\": "
          (json-pairs (list (Pair "/modules/" (string-append output "/modules/"))
+                           (Pair "/resources/" (string-append output "/resources/"))
                            (Pair "/.snail/" host)
                            (Pair "/" host)
                            (Pair "/" (string-append app "/public/"))))

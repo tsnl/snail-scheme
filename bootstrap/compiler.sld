@@ -1,8 +1,9 @@
 ;; A resident compiler's native boundary. JavaScript retains Session values,
 ;; build plans and immutable build inputs as opaque typed references. It
 ;; receives only parsed records: a project's targets, a plan's phases, a
-;; compile's modules. A compile the plan supplied needs no input it lacks;
-;; one that asks anyway is projected only after the compiler unwinds.
+;; compile's modules and the files they link. A compile the plan supplied
+;; needs no input it lacks; one that asks anyway is projected only after the
+;; compiler unwinds.
 (import
  (snail-core base)
  (snail-core io)
@@ -44,6 +45,7 @@
    (output-browser (-> Unit))
    (output-run (-> Unit))
    (output-module (-> Bool Unit))
+   (output-link (-> Unit))
    (output-generate (-> Unit))
    (output-artifact (-> I64 I64 Unit))
    (output-diagnostic (-> I64 I64 Unit))
@@ -56,6 +58,7 @@
          (output-browser "browser")
          (output-run "run")
          (output-module "module")
+         (output-link "link")
          (output-generate "generate")
          (output-artifact "artifact")
          (output-diagnostic "diagnostic")
@@ -216,12 +219,20 @@
 (define (session!)
   (make-session (take-arguments!)))
 
-(: static! (-> Inputs Unit ! mut fs))
+(: static! (-> Inputs Unit ! mut fs compiler-output))
 (define (static! inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch directories)))
-     (write-file output (source->wat directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
+     (let ((program (source->wat directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
+       (write-file output (WholeProgram-text program))
+       (for-each send-link (WholeProgram-links program))))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
+
+;; A file the program links: its name and where the build finds it.
+(: send-link (-> LinkedFile Unit ! compiler-output))
+(define (send-link link)
+  (send-strings (list (LinkedFile-name link) (LinkedFile-path link)))
+  (output-link))
 
 (: modules! (-> Session Inputs Session ! mut fs compiler-output))
 (define (modules! previous inputs)
@@ -233,9 +244,12 @@
        (Pair-second built)))
     (_ (panic "compiler modules: expected source and scratch directory"))))
 
+;; A module's record: its library's name, its text, then the name and path
+;; of each file the library links.
 (: send-module (-> Built Unit ! compiler-output))
 (define (send-module module)
-  (send-strings (list (Built-name module) (Built-text module)))
+  (send-strings (append (list (Built-name module) (Built-text module))
+                        (concatenate (map (lambda (link) (list (LinkedFile-name link) (LinkedFile-path link))) (Built-links module)))))
   (output-module (Built-compiled? module)))
 
 ;; ---- Typed input protocol ----
