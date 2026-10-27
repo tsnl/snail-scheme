@@ -889,7 +889,9 @@
           ((Some (Accessor case index _)) (list (field-access fn case index (first-arg args))))
           ((Some (Replacer case index _)) (list (replace-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (Expr-type expr)))
-          ((Some (Operation effect _)) (list (wat* "call" (Cons (id (performer m effect name)) (Cons (Fn-evidence fn) (emit-args fn args))))))
+          ((Some (Operation effect _))
+           (when (member? name (Effect-control (program-effect (program-of m) effect))) (control-not-compiled (Expr-loc expr)))
+           (list (wat* "call" (Cons (id (performer m effect name)) (Cons (Fn-evidence fn) (emit-args fn args))))))
           ((Some (Foreign import scheme)) (host-call m import (Scheme-type scheme) (emit-args fn args) (Expr-loc expr)))
           (_ (panic (string-append "internal error: cannot call " name))))))
 
@@ -1425,8 +1427,15 @@
 
     ;; The implementations are values of the surrounding evidence; the body
     ;; runs with the new node as its evidence.
+    ;; The checker accepts control operations; their translation, which
+    ;; captures the rest of the handled body, is not written yet.
+    (: control-not-compiled (All (A) (-> Loc A)))
+    (define (control-not-compiled loc)
+      (compile-error loc "control operations are not compiled yet"))
+
     (: emit-handle (-> Fn Expr String (List (Pair String Expr)) Expr (List Wat) ! mut))
     (define (emit-handle fn expr effect implementations body)
+      (unless (null? (Effect-control (program-effect (program-of (Fn-module fn)) effect))) (control-not-compiled (Expr-loc expr)))
       (let* ((m (Fn-module fn)) (type-id (handler-type m effect)) (node (local-id fn "ev"))
              (handler (wat* "struct.new"
                             (Cons (id type-id)

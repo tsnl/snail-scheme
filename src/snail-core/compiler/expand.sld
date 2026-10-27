@@ -1057,8 +1057,9 @@
           ((Cons operations _)
            (for-each (lambda (operation)
                        (match operation
+                         ((Form (Cons (Ident "ctl" _ _) (Cons operation-name (Cons _ (Nil)))) _) (bind-member! cx env operation-name))
                          ((Form (Cons operation-name _) _) (bind-member! cx env operation-name))
-                         (_ (compile-error (syntax-loc operation) "expected (operation type)"))))
+                         (_ (compile-error (syntax-loc operation) "expected (operation type) or (ctl operation type)"))))
                      (form-items operations "a list of operations")))
           (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))")))))
 
@@ -1362,36 +1363,49 @@
     (define (declare-effect! cx env form)
       (match form
         ((Form (Cons _ (Cons name (Cons operations host))) _)
-         (let ((id (match (resolve cx env name) ((Some (EffectName id)) id) (_ (panic "internal error: effect")))))
+         (let* ((id (match (resolve cx env name) ((Some (EffectName id)) id) (_ (panic "internal error: effect"))))
+                (declared (map (lambda (operation) (declare-operation! cx env id operation)) (form-items operations "a list of operations")))
+                (control (map Pair-first (filter Pair-second declared))))
            (add-effect! (Context-program cx)
-                        (Effect id
-                                (map (lambda (operation) (declare-operation! cx env id operation))
-                                     (form-items operations "a list of operations"))
+                        (Effect id (map Pair-first declared) control
                                 (match host
-                                  ((Cons clause (Nil)) (host-defaults cx env clause))
+                                  ((Cons clause (Nil)) (host-defaults cx env clause control))
                                   (_ (Nil)))))))
         (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))"))))
 
-    (: declare-operation! (-> Context Env String Syntax String ! mut))
+    ;; `(name type)` declares an operation whose implementation returns to
+    ;; its caller, `(ctl name type)` one whose implementation is handed the
+    ;; rest of the handled computation as `resume`. The global name, and
+    ;; whether it is a control operation.
+    (: declare-operation! (-> Context Env String Syntax (Pair String Bool) ! mut))
     (define (declare-operation! cx env effect operation)
       (match operation
-        ((Form (Cons name (Cons type (Nil))) _)
-         (match (resolve-scheme cx env type)
-           ((Scheme vars constraints (TFun params result (TRow (Nil) (None))))
-            (let ((global (global-binding cx env name)))
-              (add-value! (Context-program cx) global
-                          (Operation effect (Scheme vars constraints (TFun params result (TRow (list effect) (None))))))
-              global))
-           (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
-        (_ (compile-error (syntax-loc operation) "expected (operation type)"))))
+        ((Form (Cons (Ident "ctl" _ _) (Cons name (Cons type (Nil)))) _) (Pair (declare-operation-type! cx env effect name type) #t))
+        ((Form (Cons name (Cons type (Nil))) _) (Pair (declare-operation-type! cx env effect name type) #f))
+        (_ (compile-error (syntax-loc operation) "expected (operation type) or (ctl operation type)"))))
 
-    (: host-defaults (-> Context Env Syntax (List (Pair String Import)) ! mut))
-    (define (host-defaults cx env syntax)
+    (: declare-operation-type! (-> Context Env String Syntax Syntax String ! mut))
+    (define (declare-operation-type! cx env effect name type)
+      (match (resolve-scheme cx env type)
+        ((Scheme vars constraints (TFun params result (TRow (Nil) (None))))
+         (let ((global (global-binding cx env name)))
+           (add-value! (Context-program cx) global
+                       (Operation effect (Scheme vars constraints (TFun params result (TRow (list effect) (None))))))
+           global))
+        (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
+
+    (: host-defaults (-> Context Env Syntax (List String) (List (Pair String Import)) ! mut))
+    ;; A control operation has no host default: the host cannot be handed
+    ;; the rest of a computation, so a control effect must be handled.
+    (define (host-defaults cx env syntax control)
       (match syntax
         ((Form (Cons (Ident "host" _ _) (Cons (Atom (DString module) _) (Cons operations (Nil)))) _)
          (map (lambda (operation)
                 (match operation
-                  ((Form (Cons name (Cons (Atom (DString symbol) _) (Nil))) _) (Pair (global-binding cx env name) (Import module symbol)))
+                  ((Form (Cons name (Cons (Atom (DString symbol) _) (Nil))) _)
+                   (let ((global (global-binding cx env name)))
+                     (when (member? global control) (compile-error (syntax-loc operation) "a control operation has no host default"))
+                     (Pair global (Import module symbol))))
                   (_ (compile-error (syntax-loc operation) "expected (operation \"symbol\")"))))
               (form-items operations "a list of host operations")))
         (_ (compile-error (syntax-loc syntax) "expected (host \"module\" ((operation \"symbol\") ...))"))))

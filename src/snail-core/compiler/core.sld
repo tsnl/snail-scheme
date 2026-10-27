@@ -98,6 +98,7 @@
    Effect
    Effect-name
    Effect-operations
+   Effect-control
    Effect-host
    Value
    Defined
@@ -525,9 +526,13 @@
        (symbol String)))
 
     ;; Host defaults map operation names to Wasm imports.
+    ;; `control` names the operations whose implementations receive the rest
+    ;; of the handled computation as `resume`; the others return to their
+    ;; caller.
     (struct Effect
       ((name String)
        (operations (List String))
+       (control (List String))
        (host (List (Pair String Import)))))
 
     ;; What a unique value name denotes. A definition's scheme is its
