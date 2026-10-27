@@ -8,7 +8,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {watchProject} from '../host/native/watch.mjs';
 
-const parent = fs.mkdtempSync(join(tmpdir(), 'lofi-watcher-'));
+const parent = fs.mkdtempSync(join(tmpdir(), 'snail-watcher-'));
 const project = join(parent, 'project'), external = join(parent, 'library');
 const write = (path, text = 'source') => { fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));

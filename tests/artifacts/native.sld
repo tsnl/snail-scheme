@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi artifact))
+ (snail-core base)
+ (snail-core io)
+ (snail-core artifact))
 
 (define bundle (artifact-bundle "client"))
 (for-each (lambda (file)

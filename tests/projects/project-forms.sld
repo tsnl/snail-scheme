@@ -1,9 +1,9 @@
 ;; Exercise the same located project parser as linked Wasm, with a forward
 ;; run reference and independent build/run name spaces.
 (import
- (lofi base)
- (lofi io)
- (lofi project))
+ (snail-core base)
+ (snail-core io)
+ (snail-core project))
 
 (define project
   (parse-project

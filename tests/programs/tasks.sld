@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi task))
+ (snail-core base)
+ (snail-core io)
+ (snail-core task))
 
 (effect Label ((label (-> String))))
 

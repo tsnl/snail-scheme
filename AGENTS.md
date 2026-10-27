@@ -1,4 +1,4 @@
-# Working on Lofi
+# Working on Snail-Core
 
 `CLAUDE.md` is a symlink to this file; edit `AGENTS.md`.
 
@@ -6,17 +6,18 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- A language on Lofi is a set of libraries that expand into it: Scheme is
+- A language on Snail-Core is a set of libraries that expand into it: Scheme is
   macros and libraries over the typed language, not a second compiler.
   Every library that ships lives under `src/`, with paths matching library
-  names and `.sld` sources: Lofi's own under `src/lofi/`, Scheme's under
-  `src/scheme/`, and the compiler among them at `src/lofi/compiler/`, written
-  in typed Lofi importing only `(lofi base)`, `(lofi table)` and `(lofi io)`,
-  so it compiles itself.
+  names and `.sld` sources: Snail-Core's own under `src/snail-core/`,
+  Scheme's under `src/scheme/`, and the compiler among them at
+  `src/snail-core/compiler/`, written in typed Snail-Core importing only
+  `(snail-core base)`, `(snail-core table)` and `(snail-core io)`, so it
+  compiles itself.
   Host-specific code lives only under `host/`: `chibi/` for stage 0,
   `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
   crates live in `crates/`. Surface macros expand away before checking. See
-  [the language chapters](doc/book/lofi/index.md).
+  [the language chapters](doc/book/snail-core/index.md).
 
 - Stage 0 sees `bootstrap/chibi-include/` and nothing else: one symlink per
   library the compiler's load closure actually reaches — `host/chibi/`'s
@@ -46,7 +47,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   at most once. Multi-shot continuations are out of scope, since
   they require every frame to be reachable twice and would be paid for by code
   that never captures one. Today's lowering is still a global handler stack
-  linked through `outer` (`src/lofi/compiler/wasm.sld:1259`).
+  linked through `outer` (`src/snail-core/compiler/wasm.sld:1259`).
 - Parse, don't validate: turn syntax and external data into structured values
   whose construction establishes the required invariants. Carry that evidence
   forward instead of returning a Boolean and repeatedly checking the same raw
@@ -58,9 +59,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   boundary — the runtime, a host, a cache with one owner — not for the
   convenience of a pass that could carry its state. When threading would
   nest a function six deep, name the sequence with a local binding form, as
-  `learning` does in `src/lofi/compiler/check.sld`, rather than reaching for
-  a cell. The checker went from 58 `! mut` signatures to none at no cost in
-  speed; the count per module is worth watching.
+  `learning` does in `src/snail-core/compiler/check.sld`, rather than
+  reaching for a cell. The checker went from 58 `! mut` signatures to none
+  at no cost in speed; the count per module is worth watching.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
 - Put each Scheme import specification and struct field on its own line.
@@ -71,9 +72,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   case and a blank line on each side.
   Keep unit tests in a final `Tests` section of their implementation module.
   Each tested compiler module exports one `test-<module>` entry point under
-  the `snail-tests` feature; test cases and helpers stay private. Test Lofi
-  libraries with programs and their expected output. Keep integration
-  fixtures, runners, and shared assertion support in `tests/`.
+  the `snail-tests` feature; test cases and helpers stay private. Test
+  Snail-Core libraries with programs and their expected output. Keep
+  integration fixtures, runners, and shared assertion support in `tests/`.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
   atomic VM transitions, and tests may be longer when keeping them together
@@ -95,8 +96,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   source, so the compiler avoids behavior the two hosts would disagree on,
   such as integer overflow and the order of table keys.
 - Update the relevant [book chapter](doc/book/SUMMARY.md) when contracts or
-  module responsibilities change; the [compiler tour](doc/book/lofi/compilers.md)
-  lives there. Track open work in [GitHub issues](https://github.com/tsnl/snail-scheme/issues).
+  module responsibilities change; the
+  [compiler tour](doc/book/snail-core/compilers.md) lives there. Track open
+  work in [GitHub issues](https://github.com/tsnl/snail-scheme/issues).
   Keep proposed APIs explicitly distinct from implemented behavior. Do not
   duplicate the book in proposal documents or progress trackers.
 
@@ -113,41 +115,43 @@ driver rebuilds the compiled compiler whenever the compiler's source
 changes; compiler changes must also pass `make test-chibi`, which runs the
 source on Chibi, and `make bootstrap`, which rebuilds from Chibi alone.
 Backend changes should execute linked Wasm; compilation alone does not test
-target behavior. `(lofi format)` reproduces `scripts/format-scheme` for the
-IDE, and `make test` checks it on every tracked Scheme file; when Emacs's
+target behavior. `(snail-core format)` reproduces `scripts/format-scheme` for
+the IDE, and `make test` checks it on every tracked Scheme file; when Emacs's
 rules change, change it to match. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
 
 ## Live reload
 
-Iterate on applications with `./scripts/lofi-tool serve apps/NAME`, left running. It
-rebuilds only the libraries an edit reaches, about 100 ms for a function
-body in Siegework, and relinks them into each open page, keeping the running
-state; point `tests/browser/page.mjs` at the served URL to see an edit land.
-It cannot build a `generate-library` recipe yet, so build Hearsay with
-`make site`. The book's [application model](doc/book/lofi/applications.md)
-gives the reload rules; what matters when writing code:
+Iterate on applications with `./scripts/snail-tool serve apps/NAME`, left
+running. It rebuilds only the libraries an edit reaches, about 100 ms for a
+function body in Siegework, and relinks them into each open page, keeping the
+running state; point `tests/browser/page.mjs` at the served URL to see an edit
+land. It cannot build a `generate-library` recipe yet, so build Hearsay with
+`make site`. The book's
+[application model](doc/book/snail-core/applications.md) gives the reload
+rules; what matters when writing code:
 
 - Module globals start over on a relink; only the application's state
   crosses, as it is while its type is unchanged and through `save` and
   `restore` otherwise, so keep what should survive an edit in the Save.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give constants their signatures.
-- `./scripts/lofi-tool watch SOURCE [ARGUMENT ...]` is the same loop for programs.
-  `./lofi dev PROJECT` runs the native project compiler and browser editor;
-  `make ide` starts it for Siegework. Save writes disk; the shared watcher
-  drives compiler and editor updates. Its application controls launch named
-  program targets and replace affected processes after accepted builds. Browser
-  reload still uses internal `serve` until durable-state/bundle integration lands.
-- Builds in one checkout keep private compiler scratch under `build/lofi-run/`.
-  Public `lofi run` executes its completed project generation in the caller's
+- `./scripts/snail-tool watch SOURCE [ARGUMENT ...]` is the same loop for
+  programs. `./snail dev PROJECT` runs the native project compiler and browser
+  editor; `make ide` starts it for Siegework. Save writes disk; the shared
+  watcher drives compiler and editor updates. Its application controls launch
+  named program targets and replace affected processes after accepted builds.
+  Browser reload still uses internal `serve` until durable-state/bundle
+  integration lands.
+- Builds in one checkout keep private compiler scratch under `build/snail-run/`.
+  Public `snail run` executes its completed project generation in the caller's
   working directory after removing build scratch. Rebuilding the compiled
   compiler or development tools takes an exclusive lock on `build/lock`, so
   `make test` may run beside a server.
-- The existing application loop is `src/lofi/develop.sld` on the native
+- The existing application loop is `src/snail-core/develop.sld` on the native
   `host/native/develop.mjs` host; the page's reload client is `host/browser/reload.sld`,
   `relinkProgram` in `host/browser/load.mjs` relinks after the JSPI loop in
   `host/browser/runtime.mjs` saves, returns its state and settles. `tests/develop.mjs` (in
   `make test`) and `tests/browser/reload.mjs` and `tests/browser/ide.mjs`
   (`make test-browser`, needs `CHROMIUM`) cover them. See
-  [the development toolchain](doc/book/lofi/toolchain.md).
+  [the development toolchain](doc/book/snail-core/toolchain.md).

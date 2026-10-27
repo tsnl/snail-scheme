@@ -1,7 +1,7 @@
 (define-library (handler helper)
   (export answer)
   (import
-   (lofi base))
+   (snail-core base))
   (begin
     ;; Linked code retains its selected Num evidence in the typed body.
     (: answer (-> I64))

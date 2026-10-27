@@ -75,8 +75,8 @@
    liabilities
    forecast)
   (import
-   (lofi base)
-   (lofi wire))
+   (snail-core base)
+   (snail-core wire))
   (begin
 
     ;; ---- Town ----

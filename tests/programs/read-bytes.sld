@@ -1,7 +1,7 @@
 ;; Reads a binary file, a PNG whose bytes are not text, as bytes.
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (define image (read-bytes "tests/programs/data/pixel.png"))
 (display (vector-length image))

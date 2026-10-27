@@ -3,8 +3,8 @@
 ;; follow, commands that cannot be done, and the final standings. The board
 ;; is printed from the queries the screen shows.
 (import
- (lofi base)
- (lofi io)
+ (snail-core base)
+ (snail-core io)
  (hearsay ledger))
 
 ;; ---- Printing ----

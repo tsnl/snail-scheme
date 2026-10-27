@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (define-syntax my-or
   (syntax-rules ()

@@ -6,7 +6,7 @@
    distance-squared
    swap!)
   (import
-   (lofi base))
+   (snail-core base))
   (begin
 
     (struct Point

@@ -13,9 +13,9 @@
   (export
    view-game)
   (import
-   (lofi base)
-   (lofi app)
-   (lofi math)
+   (snail-core base)
+   (snail-core app)
+   (snail-core math)
    (siegework grid)
    (siegework terrain)
    (siegework world)

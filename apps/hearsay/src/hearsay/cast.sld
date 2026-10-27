@@ -11,8 +11,8 @@
    person-picture
    rival-picture)
   (import
-   (lofi base)
-   (lofi random)
+   (snail-core base)
+   (snail-core random)
    (lpc catalog)
    (lpc wardrobe)
    (only (hearsay mill) person-count audience-of)

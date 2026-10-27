@@ -11,9 +11,9 @@
    view-ledger-screen
    ledger-screen-hud)
   (import
-   (lofi base)
-   (lofi wire)
-   (lofi app)
+   (snail-core base)
+   (snail-core wire)
+   (snail-core app)
    (lpc wardrobe)
    (hearsay ledger)
    (hearsay cast)

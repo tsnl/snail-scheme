@@ -1,5 +1,5 @@
 (generate-library (legacy parameter-duplicate)
                   (import
-                   (lofi base)
+                   (snail-core base)
                    (scheme compiler))
-                  (scheme->lofi-library (list "legacy" "parameter-duplicate") "(lambda (x x) x)"))
+                  (scheme->snail-core-library (list "legacy" "parameter-duplicate") "(lambda (x x) x)"))

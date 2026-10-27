@@ -1,5 +1,5 @@
 ;; The fixture compiler supplies this recipe's generated library syntax.
 (generate-library (generated assets)
                   (import
-                   (lofi base))
+                   (snail-core base))
                   (unit))

@@ -1,5 +1,5 @@
 (import
- (lofi base))
+ (snail-core base))
 
 (: use (-> (Once (-> Unit)) Unit))
 (define (use work)

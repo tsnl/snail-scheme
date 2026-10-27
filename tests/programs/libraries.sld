@@ -1,6 +1,6 @@
 (import
- (lofi base)
- (lofi io)
+ (snail-core base)
+ (snail-core io)
  (prefix (sample geometry) geo:))
 
 (display (geo:distance-squared (geo:Point 0 0) (geo:Point 3 4)))

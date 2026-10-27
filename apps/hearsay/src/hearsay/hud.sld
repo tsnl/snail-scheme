@@ -21,8 +21,8 @@
    backdrop
    empty-frame)
   (import
-   (lofi base)
-   (lofi app))
+   (snail-core base)
+   (snail-core app))
   (begin
 
     ;; ---- Widgets ----

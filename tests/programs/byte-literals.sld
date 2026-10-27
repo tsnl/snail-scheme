@@ -1,8 +1,8 @@
 ;; Byte vector literals: every byte value, the bytes WAT strings escape, an
 ;; empty literal, and a literal evaluated inside a function.
 (import
- (lofi base)
- (lofi io))
+ (snail-core base)
+ (snail-core io))
 
 (: checksum (-> Bytes I64))
 (define (checksum bytes)

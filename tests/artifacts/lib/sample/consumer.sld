@@ -3,8 +3,8 @@
 (define-library (sample consumer)
   (export client-bundle)
   (import
-   (lofi base)
-   (lofi artifact)
+   (snail-core base)
+   (snail-core artifact)
    (sample generic))
   (begin
 

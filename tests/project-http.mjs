@@ -7,9 +7,9 @@ import {join} from 'node:path';
 import {serveProject} from '../host/native/project-http.mjs';
 import {projectTools} from '../host/native/project.mjs';
 
-const root = process.argv[2], project = fs.mkdtempSync(join(tmpdir(), 'lofi-project-http-'));
+const root = process.argv[2], project = fs.mkdtempSync(join(tmpdir(), 'snail-project-http-'));
 const source = join(project, 'main.sld'), pipe = join(project, 'slow.sld');
-const program = text => `(import (lofi base) (lofi io)) (write-line "${text}")`;
+const program = text => `(import (snail-core base) (snail-core io)) (write-line "${text}")`;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Waiting costs what the service costs: wake on each development snapshot,
@@ -168,7 +168,7 @@ try {
 
   await until(() => service.development.status.phase === 'succeeded');
   assert.equal(spawnSync('mkfifo', [pipe]).status, 0);
-  fs.writeFileSync(source, '(import (lofi base) (lofi io) (slow)) (write-line message)');
+  fs.writeFileSync(source, '(import (snail-core base) (snail-core io) (slow)) (write-line message)');
   // A missing reader must fail on a deadline rather than hang the suite.
   await until(() => {
     try { writer = fs.openSync(pipe, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK); return true; }
@@ -180,11 +180,11 @@ try {
   assert.equal((await get('/api/file?path=slow.sld')).status, 400);
   const during = await read();
   assert.equal((await save(during.revision, program('edited during compilation'))).status, 200);
-  fs.writeFileSync(writer, '(define-library (slow) (export message) (import (lofi base)) (begin (: message String) (define message "blocked")))');
+  fs.writeFileSync(writer, '(define-library (slow) (export message) (import (snail-core base)) (begin (: message String) (define message "blocked")))');
   fs.closeSync(writer); writer = null;
   await until(() => service.development.status.id > blocked && service.development.status.phase === 'succeeded');
   const manifest = join(service.development.status.published.targets[0].directory, 'modules.json');
-  const executed = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-lofi.mjs'), manifest], {encoding: 'utf8'});
+  const executed = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), manifest], {encoding: 'utf8'});
   assert.equal(executed.status, 0, executed.stderr);
   assert.equal(executed.stdout, 'edited during compilation\n');
 
@@ -226,7 +226,7 @@ try {
   assert.equal((await control('stop')).status, 204);
   before = service.development.status.id;
   fs.writeFileSync(join(project, 'project.datum'), config);
-  fs.writeFileSync(source, '(import (lofi base) (lofi io) (lofi task)) (write-line "running") (sleep 600000)');
+  fs.writeFileSync(source, '(import (snail-core base) (snail-core io) (snail-core task)) (write-line "running") (sleep 600000)');
   await until(() => service.development.status.id > before && service.development.status.phase === 'succeeded');
   assert.equal(run().wanted, false);
   assert.equal((await control('start')).status, 204);
@@ -240,7 +240,7 @@ try {
   await runReconnect.close();
 
   before = service.development.status.id;
-  fs.writeFileSync(source, '(import (lofi base)) (missing)');
+  fs.writeFileSync(source, '(import (snail-core base)) (missing)');
   await until(() => service.development.status.id > before && service.development.status.phase === 'failed');
   assert.equal(run().attempt.pid, livePid);
   assert.equal((await control('restart')).status, 204, 'a compiler failure does not disable accepted controls');
@@ -264,7 +264,7 @@ try {
   await service.closed;
   await assert.rejects(get('/api/project'));
 } finally {
-  if (writer !== null) { fs.writeFileSync(writer, '(define-library (slow) (export) (import (lofi base)) (begin))'); fs.closeSync(writer); }
+  if (writer !== null) { fs.writeFileSync(writer, '(define-library (slow) (export) (import (snail-core base)) (begin))'); fs.closeSync(writer); }
   await stream.close();
   await service.close();
   fs.rmSync(project, {recursive: true, force: true});

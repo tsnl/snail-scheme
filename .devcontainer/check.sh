@@ -10,6 +10,6 @@ set -euo pipefail
 bash -c "$(node -p "require('./.devcontainer/devcontainer.json').postCreateCommand ?? 'true'")"
 cargo test --offline --manifest-path crates/runtime/Cargo.toml
 cargo test --offline --manifest-path crates/assembler/Cargo.toml
-output=$(./scripts/lofi-tool run examples/fibonacci.sld)
+output=$(./scripts/snail-tool run examples/fibonacci.sld)
 [ "$output" = "$(cat examples/fibonacci.out)" ] || { echo "fibonacci printed: $output" >&2; exit 1; }
 timeout 120 node tests/browser/page.mjs about:blank "$(mktemp -d)/page.png" 1

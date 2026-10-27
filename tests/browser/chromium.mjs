@@ -39,7 +39,7 @@ function printEvent(message) {
 }
 
 export async function openBrowser() {
-  const profile = await mkdtemp(join(tmpdir(), 'lofi-page-'));
+  const profile = await mkdtemp(join(tmpdir(), 'snail-page-'));
   const port = 9300 + Math.floor(Math.random() * 500);
   const browser = spawn(process.env.CHROMIUM ?? 'chromium', ['--headless=new', '--no-sandbox', `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`, '--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-vulkan=swiftshader',

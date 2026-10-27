@@ -107,9 +107,9 @@ continuation closures on the yielding path. A yielding flag distinguishes
 ordinary return values from suspension. Capture does work along the
 continuation's path, whereas native stack switching can retain the stack
 without rebuilding that path as closures. These are different cost models;
-neither establishes a performance result for Lofi without measurement.
+neither establishes a performance result for Snail-Core without measurement.
 
-Koka supports multiple resumptions. Restricting Lofi to affine resumptions
+Koka supports multiple resumptions. Restricting Snail-Core to affine resumptions
 would simplify ownership, but the follow-on draft plans both grades. A C
 backend would still need closure conversion, effect lowering, a
 managed-memory strategy, a foreign ABI and a portable runtime.

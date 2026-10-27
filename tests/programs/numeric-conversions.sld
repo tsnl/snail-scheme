@@ -1,7 +1,7 @@
 (import
- (lofi base)
- (lofi io)
- (lofi number))
+ (snail-core base)
+ (snail-core io)
+ (snail-core number))
 
 (: real (-> String F64))
 (define (real text)

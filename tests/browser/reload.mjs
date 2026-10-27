@@ -1,4 +1,4 @@
-// Live reload in a real page: `./scripts/lofi-tool serve` serves a copy of
+// Live reload in a real page: `./scripts/snail-tool serve` serves a copy of
 // tests/apps/counter, and headless Chromium adds to the counter while the
 // test edits the source. A new greeting arrives with the count kept, the
 // state passing as it is; a broken edit is shown over the page; a changed
@@ -29,7 +29,7 @@ const addStateField = (source, field) => edit(source, /\(height I32\)((?:\n   \(
   /\(Counter \(Counter-count counter\) width height((?: 0)*)\)/, '(Counter (Counter-count counter) width height$1 0)',
   /\(Counter \(Save-count saved\) 0 0((?: 0)*)\)/, '(Counter (Save-count saved) 0 0$1 0)');
 
-const directory = await mkdtemp(join(tmpdir(), 'lofi-reload-'));
+const directory = await mkdtemp(join(tmpdir(), 'snail-reload-'));
 const app = join(directory, 'counter'), source = join(app, 'main.sld');
 await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
 const server = spawn('node', [join(root, 'host/native/develop.mjs'), root, 'serve', '--port', '0', app], {stdio: ['ignore', 'pipe', 'inherit']});

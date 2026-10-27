@@ -85,14 +85,14 @@
    %vector-length
    %error)
   (import
-   (lofi base)
-   (lofi io)
-   (lofi number)
-   (lofi integer)
-   (lofi rational)
-   (lofi datum)
-   (lofi text)
-   (lofi write))
+   (snail-core base)
+   (snail-core io)
+   (snail-core number)
+   (snail-core integer)
+   (snail-core rational)
+   (snail-core datum)
+   (snail-core text)
+   (snail-core write))
   (begin
 
     ;; ---- Calls ----
@@ -130,7 +130,7 @@
         ((PairDatum head tail) (or (datum=? head item) (member-datum? item tail)))
         (_ #f)))
 
-    ;; Procedures of fixed arity, from Lofi functions.
+    ;; Procedures of fixed arity, from Snail-Core functions.
     (: procedure1 (-> (-> Datum Datum ! console mut) (Ref Datum) ! mut))
     (define (procedure1 f)
       (ref (ProcedureDatum (lambda (arguments) (arity! arguments 1 #f) (f (list-ref arguments 0))))))
@@ -385,7 +385,7 @@
     ;; ---- Characters ----
 
     ;; Scheme's character procedures are Unicode's, from the runtime's
-    ;; tables through (lofi text): `char-upcase` maps the full repertoire,
+    ;; tables through (snail-core text): `char-upcase` maps the full repertoire,
     ;; `char-numeric?` holds for any script's decimal digits, and
     ;; `string-foldcase` may expand a scalar, as "ß" into "ss", so
     ;; `string-ci=?` compares folded text rather than scalar by scalar.
