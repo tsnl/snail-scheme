@@ -62,6 +62,17 @@ the `Ref` is allocated by the pass and never escapes it.
   become core `Expr`s with unique names. Each library's build key, the text
   of its declarations with its imports' interfaces, lets a session replay
   it.
+
+  The expander reads each library's file into a `LibraryFile`: a defined
+  library's sections, or a generated library's producer program. The same
+  reading serves `library-closure`, a walk that finds the generated
+  libraries a program's imports reach without expanding anything. It
+  follows imports as the expander loads them, adds the implicit libraries
+  deriving loads, and reads on through each producer output the build
+  supplied. Which targets a program embeds cannot be read that way, since
+  macros may name them, so `discover-artifacts` runs the expander itself
+  with no target files supplied and records each `artifact-files` use as
+  expansion reaches it, in program order.
 - **[`check.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/check.sld)** is Hindley-Milner inference
   with effect rows. Unannotated top-level definitions are checked in
   dependency order (core's `strong-components`). Each instantiation records its type

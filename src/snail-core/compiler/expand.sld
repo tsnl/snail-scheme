@@ -8,7 +8,23 @@
    ExpandedProgram-program
    empty-expansion
    library-key
-   expand-program)
+   expand-program
+   ArtifactUse
+   ArtifactUse-name
+   ArtifactUse-loc
+   discover-artifacts
+   LibraryFile
+   DefinedLibrary
+   GeneratedLibrary
+   library-file
+   program-imports
+   implicit-libraries
+   Reached
+   Reached-library
+   Reached-forms
+   Reached-loc
+   Reached-loading
+   library-closure)
   (import
    (snail-core base)
    (snail-core table)
@@ -161,11 +177,12 @@
     ;; that marks refer to. `aliases` names the type aliases whose bodies are
     ;; being resolved, innermost first, so an alias that refers to itself is
     ;; caught. `inputs` holds what the build supplies in memory: completed
-    ;; targets' files, of which each library records its own uses, and
-    ;; producers' outputs. `generate` runs a producer program the build did
-    ;; not supply for `generate-library`, given the libraries loading when it
-    ;; was reached, and returns the bytes of the syntax it writes; the driver
-    ;; supplies it, because running a program means compiling one.
+    ;; targets' files and producers' outputs. `generate` runs a producer
+    ;; program the build did not supply for `generate-library`, given the
+    ;; libraries loading when it was reached, and returns the bytes of the
+    ;; syntax it writes; the driver supplies it, because running a program
+    ;; means compiling one. `artifacts` says where an `artifact-files` use
+    ;; finds its files, and each library records its own uses.
     (struct Context
       ((program (Ref Program))
        (expanded (Ref (Table Expanded)))
@@ -173,6 +190,7 @@
        (directories (List String))
        (generate (-> (List String) (List Syntax) Bytes ! mut fs))
        (inputs Inputs)
+       (artifacts ArtifactSource)
        (artifact-uses (Ref (List ArtifactUse)))
        (prefix String)
        (loading (List String))
@@ -191,11 +209,27 @@
        (loc Loc)
        (files ArtifactFiles)))
 
+    ;; Where an expanded `artifact-files` use finds its target's files. A
+    ;; compile is supplied them in its inputs. A discovery expansion, which
+    ;; learns what targets a program embeds before any is built, is supplied
+    ;; none: it records each use as expansion reaches it and expands it with
+    ;; no files. That expands the same uses, since the files become a
+    ;; literal no macro inspects.
+    (enum ArtifactSource
+      (Supplied)
+      (Discovering
+       ((uses (Ref (List ArtifactUse))))))
+
     (: artifact-files (-> Context String Loc ArtifactFiles ! mut))
     (define (artifact-files cx name loc)
-      (match (table-ref (Inputs-artifacts (Context-inputs cx)) name)
-        ((Some files) files)
-        ((None) (request-input! (ArtifactInput name loc)))))
+      (match (Context-artifacts cx)
+        ((Supplied)
+         (match (table-ref (Inputs-artifacts (Context-inputs cx)) name)
+           ((Some files) files)
+           ((None) (request-input! (ArtifactInput name loc)))))
+        ((Discovering uses)
+         (ref-set! uses (Cons (ArtifactUse name loc (Nil)) (ref-get uses)))
+         (Nil))))
 
     ;; A library as a build expanded it: its build key, the canonical text
     ;; of its declarations with the interfaces of its imports, which decides
@@ -225,14 +259,15 @@
     (define empty-expansion
       (ExpandedProgram base-program empty-table 0 0 empty-table))
 
-    (: new-context (-> (List String) (-> (List String) (List Syntax) Bytes ! mut fs) Inputs ExpandedProgram Context ! mut))
-    (define (new-context directories generate inputs predecessor)
+    (: new-context (-> (List String) (-> (List String) (List Syntax) Bytes ! mut fs) Inputs ArtifactSource ExpandedProgram Context ! mut))
+    (define (new-context directories generate inputs artifacts predecessor)
       (Context (ref base-program)
                (ref empty-table)
                (ExpandedProgram-libraries predecessor)
                directories
                generate
                inputs
+               artifacts
                (ref (Nil))
                ""
                (Nil)
@@ -328,27 +363,62 @@
 
     (: read-library (-> Context (List String) Loc Exports ! mut fs))
     (define (read-library cx name loc)
+      (let ((path (library-path (Context-directories cx) name loc)))
+        (expand-library-file cx name (file-library name (read-source path) path))))
+
+    ;; Where a library's source is: the first search directory holding it.
+    (: find-library (-> (List String) (List String) (Option String) ! fs))
+    (define (find-library directories name)
       (let ((relative (string-append (string-join name "/") ".sld")))
-        (match (find file-exists? (map (lambda (directory) (string-append directory "/" relative)) (Context-directories cx)))
-          ((Some path) (library-from-forms cx name (read-source path) path))
-          ((None) (compile-error loc (string-append "library not found: (" (string-join name " ") ")"))))))
+        (find file-exists? (map (lambda (directory) (string-append directory "/" relative)) directories))))
+
+    (: library-path (-> (List String) (List String) Loc String ! fs))
+    (define (library-path directories name loc)
+      (match (find-library directories name)
+        ((Some path) path)
+        ((None) (compile-error loc (string-append "library not found: (" (string-join name " ") ")")))))
+
+    ;; What a library's file declares, read but not expanded: a defined
+    ;; library's sections, through its `cond-expand`s, or a generated
+    ;; library's producer program, with the location of the recipe's
+    ;; expression, where the producer's output is placed. The expander and
+    ;; the closure walk both read files through this.
+    (enum LibraryFile
+      (DefinedLibrary
+        ((sections (List (Pair String (List Syntax))))))
+      (GeneratedLibrary
+       ((forms (List Syntax))
+        (loc Loc))))
 
     ;; A library file holds one `define-library`, or one `generate-library`
     ;; whose program writes the library's `define-library` form as syntax.
-    (: library-from-forms (-> Context (List String) (List Syntax) String Exports ! mut fs))
-    (define (library-from-forms cx name forms path)
+    (: file-library (-> (List String) (List Syntax) String LibraryFile ! fs))
+    (define (file-library name forms path)
       (match forms
         ((Cons (Form (Cons (Ident "define-library" _ _) (Cons declared declarations)) loc) (Nil))
          (check-library-name declared name loc)
-         (expand-library cx name declarations))
+         (DefinedLibrary (concatenate (map library-sections declarations))))
         ((Cons (Form (Cons (Ident "generate-library" _ _)
                            (Cons declared (Cons (Form (Cons (Ident "import" _ _) imports) _) (Cons expression (Nil)))))
                      loc)
                (Nil))
          (check-library-name declared name loc)
-         (let ((bytes (generated-bytes cx (producer imports expression loc))))
-           (library-from-forms cx name (list (with-included-bytes (decode-syntax bytes (syntax-loc expression)))) path)))
+         (GeneratedLibrary (producer (map with-included-bytes imports) (with-included-bytes expression) loc) (syntax-loc expression)))
         (_ (compile-error (Loc path 1 1) "expected exactly one define-library or generate-library form"))))
+
+    ;; The library a producer's output declares, as if it were written at
+    ;; `loc` in the recipe's file.
+    (: output-library-file (-> (List String) Bytes Loc LibraryFile ! fs))
+    (define (output-library-file name bytes loc)
+      (file-library name (list (with-included-bytes (decode-syntax bytes loc))) (Loc-file loc)))
+
+    ;; A defined library expands its sections; a generated one expands the
+    ;; library its producer's output declares.
+    (: expand-library-file (-> Context (List String) LibraryFile Exports ! mut fs))
+    (define (expand-library-file cx name file)
+      (match file
+        ((DefinedLibrary sections) (expand-sections (Context-prefix-set cx (string-join name ".")) sections))
+        ((GeneratedLibrary forms loc) (expand-library-file cx name (output-library-file name (generated-bytes cx forms) loc)))))
 
     ;; What a producer wrote: the output the build supplied for it, or else
     ;; what the driver's provider makes of it. The producer is compiled while
@@ -407,10 +477,6 @@
             (cond ((= end 0) path)
                   ((char=? (string-ref file (- end 1)) #\/) (string-append (substring file 0 end) path))
                   (else (loop (- end 1)))))))
-
-    (: expand-library (-> Context (List String) (List Syntax) Exports ! mut fs))
-    (define (expand-library cx name declarations)
-      (expand-sections (Context-prefix-set cx (string-join name ".")) (concatenate (map library-sections declarations))))
 
     ;; Loads the imports, then replays the library from the build before if
     ;; its declarations and its imports' interfaces are unchanged, or expands
@@ -480,14 +546,128 @@
     ;; that form names, so one that leads back to them is a cycle.
     (: expand-program (-> (List String) (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ExpandedProgram ExpandedProgram ! mut fs))
     (define (expand-program directories generate inputs path predecessor)
-      (let* ((source (generating-stack (read-source path)))
-             (cx (Context-loading-set (Context-prefix-set (new-context directories generate inputs predecessor) "main") (Pair-first source))))
-        (let loop ((forms (Pair-second source)) (specs (Nil)))
-          (match forms
-            ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
-            (_ (expand-sections cx (list (Pair "import" specs) (Pair "begin" forms)))
-               (ExpandedProgram (program cx) (ref-get (Context-expanded cx)) (ref-get (Context-counter cx)) (ref-get (Context-scope-count cx))
-                                (ref-get (Context-scopes cx))))))))
+      (expand-source (new-context directories generate inputs (Supplied) predecessor) path))
+
+    (: expand-source (-> Context String ExpandedProgram ! mut fs))
+    (define (expand-source cx path)
+      (let* ((source (generating-stack (read-source path))) (parts (program-parts (Pair-second source)))
+             (cx (Context-loading-set (Context-prefix-set cx "main") (Pair-first source))))
+        (expand-sections cx (list (Pair "import" (Pair-first parts)) (Pair "begin" (Pair-second parts))))
+        (ExpandedProgram (program cx) (ref-get (Context-expanded cx)) (ref-get (Context-counter cx)) (ref-get (Context-scope-count cx))
+                         (ref-get (Context-scopes cx)))))
+
+    ;; A program's leading `import` forms' specs, and the body after them.
+    (: program-parts (-> (List Syntax) (Pair (List Syntax) (List Syntax))))
+    (define (program-parts forms)
+      (match forms
+        ((Cons (Form (Cons (Ident "import" _ _) specs) _) rest)
+         (let ((parts (program-parts rest)))
+           (Pair (append specs (Pair-first parts)) (Pair-second parts))))
+        (_ (Pair (Nil) forms))))
+
+    ;; The import specs of a program's leading `import` forms.
+    (: program-imports (-> (List Syntax) (List Syntax)))
+    (define (program-imports forms)
+      (Pair-first (program-parts forms)))
+
+    ;; ---- Library closures ----
+
+    ;; A generated library a walk reached: its producer program, where the
+    ;; producer's output is placed, and the libraries loading when the walk
+    ;; reached it, innermost first, itself among them, as `load-library`
+    ;; would have them loading while the producer runs.
+    (struct Reached
+      ((library (List String))
+       (forms (List Syntax))
+       (loc Loc)
+       (loading (List String))))
+
+    ;; What a walk carries: where libraries are found, the producers'
+    ;; outputs it may read on through, the libraries it has visited, and the
+    ;; generated libraries it reached, latest first.
+    (struct Walk
+      ((directories (List String))
+       (inputs Inputs)
+       (visited (Table Bool))
+       (reached (List Reached))))
+
+    ;; The generated libraries a program's import specs reach, with
+    ;; `loading` loading as it starts, in the order a depth-first walk first
+    ;; reaches them. The walk reads files and follows imports as the
+    ;; expander loads them, then the implicit libraries, where they exist,
+    ;; and reads on through each output `inputs` supplies; beyond a generated
+    ;; library without one, nothing is known yet. Like `load-library`, it
+    ;; fails at an import that leads back to a library still loading.
+    (: library-closure (-> (List String) Inputs (List String) (List Syntax) (List Reached) ! fs))
+    (define (library-closure directories inputs loading imports)
+      (let* ((walk (walk-imports (Walk directories inputs empty-table (Nil)) loading imports))
+             (walk (fold-left (lambda (walk name) (walk-implicit walk loading name)) walk implicit-libraries)))
+        (reverse (Walk-reached walk))))
+
+    (: walk-imports (-> Walk (List String) (List Syntax) Walk ! fs))
+    (define (walk-imports walk loading specs)
+      (fold-left (lambda (walk spec) (walk-library walk loading (library-name (spec-library spec)) (syntax-loc spec))) walk specs))
+
+    ;; Only a library that derives loads these, so one need not exist.
+    (: walk-implicit (-> Walk (List String) (List String) Walk ! fs))
+    (define (walk-implicit walk loading name)
+      (match (find-library (Walk-directories walk) name)
+        ((Some path) (walk-library walk loading name (Loc path 1 1)))
+        ((None) walk)))
+
+    ;; The checks are `load-library`'s, in its order: the compiler's own
+    ;; libraries have no file, and a library already loading is a cycle.
+    (: walk-library (-> Walk (List String) (List String) Loc Walk ! fs))
+    (define (walk-library walk loading name loc)
+      (let ((key (string-join name ".")))
+        (cond ((builtin-library? key) walk)
+              ((member? key loading) (compile-error loc (string-append "library import cycle through " key)))
+              ((table-contains? (Walk-visited walk) key) walk)
+              (else (walk-file (Walk-visited-set walk (table-set (Walk-visited walk) key #t)) (Cons key loading) name
+                               (library-file (Walk-directories walk) name loc))))))
+
+    (: walk-file (-> Walk (List String) (List String) LibraryFile Walk ! fs))
+    (define (walk-file walk loading name file)
+      (match file
+        ((DefinedLibrary sections) (walk-imports walk loading (section-items sections "import")))
+        ((GeneratedLibrary forms loc)
+         (let ((walk (Walk-reached-set walk (Cons (Reached name forms loc loading) (Walk-reached walk)))))
+           (match (generated-output (Walk-inputs walk) (producer-text (Walk-directories walk) forms))
+             ((Some bytes) (walk-file walk loading name (output-library-file name bytes loc)))
+             ((None) walk))))))
+
+    ;; A library's file as a walk reads it: as `read-library` does, except
+    ;; that the files a defined library includes are not read, since they
+    ;; cannot name a library. The compiler's own libraries need nothing.
+    (: library-file (-> (List String) (List String) Loc LibraryFile ! fs))
+    (define (library-file directories name loc)
+      (if (builtin-library? (string-join name "."))
+          (DefinedLibrary (Nil))
+          (let ((path (library-path directories name loc)))
+            (file-library name (read-text (read-file path) path) path))))
+
+    (: builtin-library? (-> String Bool))
+    (define (builtin-library? key)
+      (or (string=? key "snail-core.core") (string=? key "snail-core.primitive")))
+
+    ;; ---- Discovering artifact uses ----
+
+    ;; The targets whose files the program at `path` embeds: each
+    ;; `artifact-files` use, once for each library that makes it, in the
+    ;; order expansion reaches it. This is the expander itself, supplied no
+    ;; target's files, so a use that only an unexpanded macro template
+    ;; names is no use. Each producer the program reaches must have its
+    ;; output in `inputs`: discovery is for a program whose closure waits
+    ;; for nothing.
+    (: discover-artifacts (-> (List String) Inputs String (List ArtifactUse) ! mut fs))
+    (define (discover-artifacts directories inputs path)
+      (let ((uses (ref (Nil))))
+        (expand-source (new-context directories unsupplied-producer inputs (Discovering uses) empty-expansion) path)
+        (reverse (ref-get uses))))
+
+    (: unsupplied-producer (-> (List String) (List Syntax) Bytes ! mut fs))
+    (define (unsupplied-producer loading forms)
+      (panic "internal error: discovery reached a producer whose output was not supplied"))
 
     ;; ---- Replaying libraries ----
 
@@ -1523,8 +1703,11 @@
 
     ;; Derived instances are ordinary instance declarations, built as syntax.
     ;; Identifiers they introduce are marked to resolve in an environment of
-    ;; (snail-core core), (snail-core primitive) and (snail-core wire), whatever the declaring
-    ;; library imports.
+    ;; the implicit libraries, whatever the declaring library imports.
+    (: implicit-libraries (List (List String)))
+    (define implicit-libraries
+      (list (list "snail-core" "core") (list "snail-core" "primitive") (list "snail-core" "wire")))
+
     (: derived-instances (-> Context Syntax Bool (List Syntax) ! mut fs))
     (define (derived-instances cx form enum?)
       (let* ((head (declaration-head form)) (loc (syntax-loc form))
@@ -1548,8 +1731,7 @@
       (match (ref-get (Context-deriving cx))
         ((Some scope) scope)
         ((None)
-         (let* ((exports (concatenate (map (lambda (name) (load-library cx name loc))
-                                           (list (list "snail-core" "core") (list "snail-core" "primitive") (list "snail-core" "wire")))))
+         (let* ((exports (concatenate (map (lambda (name) (load-library cx name loc)) implicit-libraries)))
                 (table (fold-left (lambda (table entry) (table-set table (Pair-first entry) (Pair-second entry))) empty-table exports))
                 (env (Top (ref table) (None))))
            (let ((scope (register-scope! cx env)))
@@ -1887,4 +2069,96 @@
              (Some (Mark (string-append (ident-key ident) "%" (Expansion-stamp expansion)) ident (Expansion-scope expansion)))
              (Expansion-loc expansion)))
 
-    ))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-expand)
+    (import
+     (only (scheme base) guard error-object? error-object-message)
+     (only (chibi filesystem) create-directory*)
+     (only (chibi string) string-contains)
+     (snail-core testing)
+     (only (snail-core compiler inputs) no-inputs supply-generated))
+    (begin
+
+      ;; A walk reads imports through `cond-expand`, stops at a producer
+      ;; whose output is missing, reads on through one supplied, and fails
+      ;; where a producer's imports lead back to the library it makes.
+      ;; Discovery finds the uses expansion reaches, in program order, one
+      ;; of them in a supplied output, and not one only an unused macro
+      ;; names. The sources are written into `directory`; `library` holds
+      ;; the standard libraries.
+      (define (test-expand directory library)
+        (write-sources directory)
+        (let ((walk (list (string-append directory "/walk") library)) (discover (string-append directory "/discover")))
+          (test-library-file walk)
+          (test-library-closure walk)
+          (test-discovery (list discover library) discover)))
+
+      (define (test-library-file directories)
+        (let ((loc (Loc "test.sld" 1 1)))
+          (expect (library-file directories (list "snail-core" "core") loc) (DefinedLibrary (Nil)))
+          (expect (map syntax->string (section-items (DefinedLibrary-sections (library-file directories (list "sample" "top") loc)) "import"))
+                  (list "(sample made)"))
+          (expect (map syntax->string (GeneratedLibrary-forms (library-file directories (list "sample" "made") loc)))
+                  (list "(import (snail-core base) (sample helper) (only (snail-core syntax) write-generated-library))"
+                        "(write-generated-library (unit))"))))
+
+      (define (test-library-closure directories)
+        (let* ((imports (program-imports (read-text "(import (sample top)) (unit)" "main.sld")))
+               (cold (library-closure directories no-inputs (Nil) imports))
+               (made (list-ref cold 0))
+               (inputs (supply-generated no-inputs (producer-text directories (Reached-forms made))
+                                         (generated-library-bytes "(define-library (sample made) (export) (import (sample inner)) (begin))")))
+               (warm (library-closure directories inputs (Nil) imports)))
+          (expect (map Reached-library cold) (list (list "sample" "made")))
+          (expect (Reached-loading made) (list "sample.made" "sample.top"))
+          (expect (map Reached-library warm) (list (list "sample" "made") (list "sample" "inner")))
+          (expect (Reached-loading (list-ref warm 1)) (list "sample.inner" "sample.made" "sample.top"))
+          (expect (closure-error directories made) #t)))
+
+      ;; The producer of (sample made) imports (sample helper), which
+      ;; imports (sample made) while it is still loading.
+      (define (closure-error directories made)
+        (guard (failure ((error-object? failure)
+                         (let ((message (error-object-message failure)))
+                           (and (string-contains message "helper.sld:1:")
+                                (string-contains message "library import cycle through sample.made")
+                                #t))))
+          (library-closure directories no-inputs (Reached-loading made) (program-imports (Reached-forms made)))
+          #f))
+
+      (define (test-discovery directories root)
+        (let* ((assets (library-file directories (list "sample" "assets") (Loc "test.sld" 1 1)))
+               (inputs (supply-generated no-inputs (producer-text directories (GeneratedLibrary-forms assets)) (generated-library-bytes assets-output)))
+               (uses (discover-artifacts directories inputs (string-append root "/main.sld"))))
+          (expect (map ArtifactUse-name uses) (list "admin" "client"))
+          (expect (map (lambda (use) (Loc-file (ArtifactUse-loc use))) uses)
+                  (list (string-append root "/sample/assets.sld") (string-append root "/main.sld")))))
+
+      (define assets-output
+        (string-append "(define-library (sample assets) (export admin-bundle) (import (snail-core base) (snail-core artifact)) "
+                       "(begin (: admin-bundle ArtifactBundle) (define admin-bundle (artifact-bundle \"admin\"))))"))
+
+      (define (write-sources directory)
+        (create-directory* (string-append directory "/walk/sample"))
+        (create-directory* (string-append directory "/discover/sample"))
+        (for-each (lambda (source) (write-file (string-append directory "/" (Pair-first source)) (Pair-second source)))
+                  (list (Pair "walk/sample/top.sld"
+                              "(define-library (sample top) (export) (cond-expand ((not snail-core) (import (sample never))) (else (import (sample made)))) (begin))")
+                        (Pair "walk/sample/made.sld" "(generate-library (sample made) (import (snail-core base) (sample helper)) (unit))")
+                        (Pair "walk/sample/helper.sld" "(define-library (sample helper) (export) (import (sample made)) (begin))")
+                        (Pair "walk/sample/inner.sld" "(generate-library (sample inner) (import (snail-core base)) (unit))")
+                        (Pair "discover/sample/assets.sld" "(generate-library (sample assets) (import (snail-core base)) (unit))")
+                        (Pair "discover/main.sld" discovery-main))))
+
+      (define discovery-main
+        (string-append "(import (snail-core base) (rename (snail-core artifact) (artifact-bundle bundle)) (sample assets))\n"
+                       "(define-syntax client-snapshot (syntax-rules () ((_) (bundle \"client\"))))\n"
+                       "(define-syntax unused (syntax-rules () ((_) (bundle \"does-not-exist\"))))\n"
+                       "(define snapshot (client-snapshot))\n"
+                       "(define again (client-snapshot))\n"))))
+   (else)))
