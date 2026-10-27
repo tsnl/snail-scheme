@@ -5,7 +5,6 @@ import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {linkProgram, wasmImports} from '../browser/load.mjs';
-import {programEntry} from '../browser/entry.mjs';
 import {createScheduler, taskImports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
@@ -32,9 +31,8 @@ async function run(filename, arguments_) {
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
   let program, failed = false, status = 1;
   const tcp = createTcp(), udp = createUdp();
-  const scheduler = createScheduler({handlerGlobals: () => program ? programEntry(program, 'main').handlers : [],
-    // WASI exits throw an opaque sentinel after printing their diagnostic.
-    reportError: error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); }});
+  // WASI exits throw an opaque sentinel after printing their diagnostic.
+  const scheduler = createScheduler({reportError: error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); }});
   const host = {'snail.wasm': wasmImports(() => program, file => readFileSync(file)), 'snail.tasks': taskImports(() => scheduler),
                 'snail.socket': socketImports(() => program, scheduler, tcp, udp)};
   // A parked JSPI stack is live work even when no OS handle keeps Node alive.
