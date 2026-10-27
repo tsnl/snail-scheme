@@ -117,9 +117,8 @@ export async function createProjectBuilder({root, project, tools, directory}) {
     // with them names the next. A phase is first given the files of each
     // target it embeds, all built in an earlier phase.
     function build(description, names = null, mode = 'development', prefix = '.snail-') {
-      if (!['debug', 'release', 'development', 'check'].includes(mode)) throw new Error(`unknown build mode ${mode}`);
+      if (!['debug', 'release', 'development'].includes(mode)) throw new Error(`unknown build mode ${mode}`);
       if (!prefix.startsWith('.snail-') || prefix !== basename(prefix)) throw new Error('invalid project generation prefix');
-      const outputMode = mode === 'check' ? 'debug' : mode;
       for (const name of sessions.keys()) if (!description.builds.some(target => target.name === name)) sessions.delete(name);
       const outputs = new Map(), completed = new Map(), supplied = new Set();
       const execute = (phase, inputs) => {
@@ -129,15 +128,13 @@ export async function createProjectBuilder({root, project, tools, directory}) {
           supplied.add(name);
         }
         if (phase.kind === 'produce') return produce(phase, inputs);
-        if (phase.kind === 'check') scratch(working => planned(() => compiler.check(inputs, phase.entry, working, phase.directories)));
-        else completed.set(phase.name, buildTarget(phase, described(description, phase.name), outputs, outputMode, prefix, inputs));
+        completed.set(phase.name, buildTarget(phase, described(description, phase.name), outputs, mode, prefix, inputs));
         return inputs;
       };
       try {
         scratch(planning => {
           let inputs = compiler.inputs();
-          let wave = compiler.plan(inputs, project, join(root, 'src'), planning, mode === 'check' ? 'check' : 'build',
-            names ?? description.builds.map(target => target.name));
+          let wave = compiler.plan(inputs, project, join(root, 'src'), planning, names ?? description.builds.map(target => target.name));
           for (;;) {
             for (const phase of wave.phases) inputs = execute(phase, inputs);
             if (!wave.waiting) return;
@@ -153,9 +150,7 @@ export async function createProjectBuilder({root, project, tools, directory}) {
       }
     }
 
-    return {describe: () => compiler.project(join(project, 'project.datum')), build,
-      check: description => discardProject(build(description, null, 'check')),
-      close: () => compiler.close()};
+    return {describe: () => compiler.project(join(project, 'project.datum')), build, close: () => compiler.close()};
   } catch (error) {
     try { compiler.close(); } catch {}
     throw error;

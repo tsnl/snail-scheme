@@ -74,10 +74,6 @@ function recordImports(receive, memory) {
       const [name, entry, ...rest] = take();
       receive({kind: 'build', index: Number(index), name, entry, ...phaseInputs(rest, count)});
     },
-    check(index, count) {
-      const [name, entry, ...rest] = take();
-      receive({kind: 'check', index: Number(index), name, entry, ...phaseInputs(rest, count)});
-    },
     waiting() { receive({kind: 'waiting'}); },
   };
 }
@@ -182,7 +178,6 @@ export async function createCompiler(program, diagnostics) {
     },
     session(directories) { return invoke('session', directories).value; },
     static(inputs, source, output, scratch, directories) { invoke('static', [source, output, scratch, ...directories], inputs); },
-    check(inputs, source, scratch, directories) { invoke('check', [source, scratch, ...directories], inputs); },
     modules(previous, inputs, source, scratch) {
       const {value: session, records: modules} = invoke('modules', [source, scratch], previous, inputs);
       return {session, modules};
@@ -192,8 +187,8 @@ export async function createCompiler(program, diagnostics) {
     addGenerated(inputs, key, source, output, directories) {
       return invoke('add_generated', [key, source, output, ...directories], inputs).value;
     },
-    plan(inputs, project, standard, scratch, mode, names) {
-      return wave(invoke('plan', [project, standard, scratch, mode, ...names], inputs));
+    plan(inputs, project, standard, scratch, names) {
+      return wave(invoke('plan', [project, standard, scratch, ...names], inputs));
     },
     refine(plan, inputs) { return wave(invoke('refine', [], plan, inputs)); },
     close,

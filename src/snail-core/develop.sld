@@ -300,7 +300,7 @@
     (define (next-build! loop source)
       (let* ((session (ref-get (Loop-session loop)))
              (program (Target "main" (serving? (Loop-request loop)) source (Session-directories session)))
-             (inputs (produced! loop (plan-build (Nil) (list (BuildPhase program)) no-inputs (producers-directory loop)) no-inputs)))
+             (inputs (produced! loop (plan-build (Nil) (list program) no-inputs (producers-directory loop)) no-inputs)))
         (match (build-session session source unplanned-producer inputs)
           ((Pair builds next) (ref-set! (Loop-session loop) next) builds))))
 

@@ -26,7 +26,6 @@
    Producer-loc
    Phase
    BuildPhase
-   CheckPhase
    ProducePhase
    Needs
    Known
@@ -76,12 +75,9 @@
        (loading (List String))
        (loc Loc)))
 
-    ;; Building a target makes its files. Checking one runs the compiler's
-    ;; semantic passes and makes nothing, so a checked root whose files
-    ;; another phase embeds is also built, as a phase of its own.
+    ;; A phase builds a target, making its files, or runs a producer.
     (enum Phase
       (BuildPhase ((target Target)))
-      (CheckPhase ((target Target)))
       (ProducePhase ((producer Producer))))
 
     ;; The nodes a step needs, in the order it first needs them. A step that
@@ -101,31 +97,30 @@
        (needs Needs)
        (emitted Bool)))
 
-    ;; The targets declared, in declaration order; the phases the caller
-    ;; asked for; where producers are printed; a step for each node; and the
-    ;; nodes in an order in which each follows what it needs.
+    ;; The targets declared, in declaration order; the targets the caller
+    ;; asked to build; where producers are printed; a step for each node;
+    ;; and the nodes in an order in which each follows what it needs.
     (struct Plan
       ((targets (List Target))
-       (roots (List Phase))
+       (roots (List Target))
        (scratch String)
        (steps (Vector Step))
        (order (List I64))))
 
-    ;; A phase's identity: a target is built, or checked, once, and a
-    ;; producer runs once for its key.
+    ;; A phase's identity: a target is built once, and a producer runs
+    ;; once for its key.
     (: phase-key (-> Phase String))
     (define (phase-key phase)
       (match phase
         ((BuildPhase target) (string-append "build " (Target-name target)))
-        ((CheckPhase target) (string-append "check " (Target-name target)))
         ((ProducePhase producer) (string-append "produce " (Producer-key producer)))))
 
     ;; ---- Planning ----
 
-    ;; The plan for building or checking `roots`, its nodes numbered in
-    ;; depth-first pre-order from the roots in order. Each producer is
-    ;; printed into `scratch` when it is planned, and compiled from there.
-    (: plan-build (-> (List Target) (List Phase) Inputs String Plan ! mut fs))
+    ;; The plan for building `roots`, its nodes numbered in depth-first
+    ;; pre-order from the roots in order. Each producer is printed into
+    ;; `scratch` when it is planned, and compiled from there.
+    (: plan-build (-> (List Target) (List Target) Inputs String Plan ! mut fs))
     (define (plan-build targets roots inputs scratch)
       (refine-plan (Plan targets roots scratch (list->vector (Nil)) (Nil)) inputs))
 
@@ -135,7 +130,7 @@
     ;; needs were known keeps them, since its closure waited for nothing.
     (: refine-plan (-> Plan Inputs Plan ! mut fs))
     (define (refine-plan plan inputs)
-      (let* ((growth (fold-left (lambda (growth root) (Pair-second (visit growth root))) (plan-growth plan inputs) (Plan-roots plan)))
+      (let* ((growth (fold-left (lambda (growth root) (Pair-second (visit growth (BuildPhase root)))) (plan-growth plan inputs) (Plan-roots plan)))
              (steps (Growth-steps growth)))
         (Plan-order-set (Plan-steps-set plan steps) (checked-order (Plan-targets plan) steps))))
 
@@ -301,7 +296,6 @@
     (define (phase-program phase)
       (match phase
         ((BuildPhase target) (entry-program target))
-        ((CheckPhase target) (entry-program target))
         ((ProducePhase producer)
          (PhaseProgram (Producer-source producer) (Producer-directories producer) (Producer-loading producer)
                        (program-imports (Producer-forms producer))))))
@@ -404,7 +398,6 @@
     (define (step-target step)
       (match (Step-phase step)
         ((BuildPhase target) (Some target))
-        ((CheckPhase target) (Some target))
         ((ProducePhase _) (None))))
 
     (: step-producer (-> Step Producer))
@@ -472,22 +465,22 @@
       ;; A server whose producer embeds client, and whose generated syntax
       ;; embeds admin, is planned in waves: client and the producer first,
       ;; then, once the producer's output refines the plan, admin and
-      ;; server. Checking every root also builds the one whose files the
-      ;; producer embeds. Cycles through targets and through producers fail
-      ;; with the texts the native builder and the expander use, and a build
-      ;; that declares no targets runs no discovery. Sources are
+      ;; server. Several roots share one graph, so a root the producer
+      ;; embeds is built once. Cycles through targets and through producers
+      ;; fail with the texts the native builder and the expander use, and a
+      ;; build that declares no targets runs no discovery. Sources are
       ;; written into `directory`; `library` holds the standard libraries.
       (define (test-plan directory library)
         (let ((targets (project-targets directory library)) (scratch (string-append directory "/scratch")))
           (write-project directory)
           (create-directory* scratch)
           (test-waves targets scratch)
-          (test-check targets scratch)
+          (test-roots targets scratch)
           (test-cycles directory targets scratch)))
 
       (define (test-waves targets scratch)
         (let* ((server (list-ref targets 2))
-               (cold (plan-build targets (list (BuildPhase server)) no-inputs scratch))
+               (cold (plan-build targets (list server) no-inputs scratch))
                (wave (next-phases cold))
                (producer (wave-producer (Pair-first wave)))
                (output (generated-library-bytes assets-output))
@@ -507,13 +500,13 @@
           (expect (phases-left? (Pair-second next)) #f)
           (expect (Pair-first (next-phases (Pair-second next))) (list))))
 
-      (define (test-check targets scratch)
-        (let ((plan (plan-build targets (map (lambda (target) (CheckPhase target)) (take targets 3)) no-inputs scratch)))
-          (expect (step-names plan) (list "check client" "check admin" "check server" "produce generated.assets" "build client"))
-          (expect (wave-names (Pair-first (next-phases plan))) (list "check client" "check admin" "build client" "produce generated.assets"))))
+      (define (test-roots targets scratch)
+        (let ((plan (plan-build targets (take targets 3) no-inputs scratch)))
+          (expect (step-names plan) (list "build client" "build admin" "build server" "produce generated.assets"))
+          (expect (wave-names (Pair-first (next-phases plan))) (list "build client" "build admin" "produce generated.assets"))))
 
       (define (test-cycles directory targets scratch)
-        (let ((client (list (BuildPhase (list-ref targets 0)))) (server (list (BuildPhase (list-ref targets 2)))))
+        (let ((client (list (list-ref targets 0))) (server (list (list-ref targets 2))))
           (write-file (string-append directory "/client.sld") (embedding "client"))
           (expect (plan-error targets client scratch) "artifact dependency cycle: client -> client")
           (expect (step-names (plan-build (Nil) client no-inputs scratch)) (list "build client"))
@@ -524,7 +517,7 @@
           (expect (located? (plan-error targets server scratch) "server.sld:2:" "unknown project build target missing") #t)
           (write-file (string-append directory "/server.sld") (embedding "server"))
           (expect (located? (plan-error targets server scratch) "server.sld:2:" "artifact target must be a browser build: server") #t)
-          (expect (located? (plan-error targets (list (BuildPhase (list-ref targets 3))) scratch) "knot-helper.sld:1:" "library import cycle through sample.knot")
+          (expect (located? (plan-error targets (list (list-ref targets 3)) scratch) "knot-helper.sld:1:" "library import cycle through sample.knot")
                   #t)))
 
       (define (plan-error targets roots scratch)
@@ -550,7 +543,6 @@
       (define (phase-name phase)
         (match phase
           ((BuildPhase target) (string-append "build " (Target-name target)))
-          ((CheckPhase target) (string-append "check " (Target-name target)))
           ((ProducePhase producer) (string-append "produce " (string-join (Producer-library producer) ".")))))
 
       (define (wave-producer wave)

@@ -111,6 +111,9 @@ try {
     assert.equal(await realpath(output('server')), second);
   }
 
+  // The last cycle shows only once client is built and the producer has
+  // run; that generation goes with the failed build.
+  const beforeCycles = await generations();
   await writeFile(join(project, 'client.sld'), artifact('client'));
   await assert.rejects(build('client'), /client -> client/);
   await writeFile(join(project, 'client.sld'), artifact('admin'));
@@ -118,6 +121,7 @@ try {
   await assert.rejects(build('client'), /client -> admin -> client/, 'cycle discovered while compiling a producer');
   await writeFile(join(project, 'client.sld'), '(import (snail-core base)) (unit)\n');
   await assert.rejects(build('admin'), /artifact dependency cycle: admin -> admin/, 'cycle introduced by generated syntax');
+  assert.deepEqual(await generations(), beforeCycles, 'a rejected cycle removes the generations its build created');
 
   await writeFile(join(project, 'client.sld'), '(import (snail-core base)) (unit)\n');
   await writeFile(join(project, 'admin.sld'), '(import (snail-core base)) (unit)\n');
