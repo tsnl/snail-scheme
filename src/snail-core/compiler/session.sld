@@ -9,8 +9,9 @@
 (define-library (snail-core compiler session)
   (export
    Session
+   Session-directories
    make-session
-   no-artifacts
+   no-inputs
    Built
    Built-name
    Built-text
@@ -21,6 +22,7 @@
    (snail-core table)
    (snail-core io)
    (snail-core compiler read)
+   (only (snail-core compiler inputs) Inputs no-inputs)
    (snail-core compiler core)
    (snail-core compiler expand)
    (snail-core compiler check)
@@ -48,7 +50,7 @@
        (items (List Item))))
 
     ;; Where libraries are found, the last expansion and each library as
-    ;; last compiled. Generators and artifact inputs belong to one invocation.
+    ;; last compiled. Generators and build inputs belong to one invocation.
     (struct Session
       ((directories (List String))
        (expansion ExpandedProgram)
@@ -68,11 +70,11 @@
     ;; ---- Builds ----
 
     ;; The modules of the program at `source`, in program order, and the
-    ;; session after the build. Artifact snapshots belong to this invocation,
-    ;; never to the retained session.
-    (: build-session (-> Session String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs (Pair (List Built) Session) ! mut fs))
-    (define (build-session session source generate artifacts)
-      (let* ((expansion (expand-program (Session-directories session) generate artifacts source (Session-expansion session)))
+    ;; session after the build. Artifact snapshots and producer outputs
+    ;; belong to this invocation, never to the retained session.
+    (: build-session (-> Session String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs (Pair (List Built) Session) ! mut fs))
+    (define (build-session session source generate inputs)
+      (let* ((expansion (expand-program (Session-directories session) generate inputs source (Session-expansion session)))
              (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))
              (checked (check-libraries (Session-compiled session) expansion libraries))
              (built (emit-libraries (Pair-second checked) (Pair-first checked) libraries)))
@@ -158,7 +160,7 @@
      (only (chibi string) string-contains)
      (only (scheme base) guard error-object? error-object-message)
      (snail-core testing)
-     (only (snail-core compiler inputs) take-input-request! ArtifactInput))
+     (only (snail-core compiler inputs) take-input-request! ArtifactInput supply-artifact))
     (begin
 
       ;; A session rebuilds only what an edit changed: a body edit under a
@@ -172,10 +174,10 @@
           (write-sample-a directory "(i64-add x x)" "")
           (write-file (string-append directory "/sample/b.sld") sample-b)
           (write-file main "(import (snail-core core) (snail-core primitive) (sample b)) (four)")
-          (let* ((first (build-session (make-session (list directory)) main no-generation no-artifacts))
-                 (unchanged (build-session (Pair-second first) main no-generation no-artifacts))
-                 (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main no-generation no-artifacts)))
-                 (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main no-generation no-artifacts))))
+          (let* ((first (build-session (make-session (list directory)) main no-generation no-inputs))
+                 (unchanged (build-session (Pair-second first) main no-generation no-inputs))
+                 (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main no-generation no-inputs)))
+                 (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main no-generation no-inputs))))
             (expect (compiled-names first) (list "sample.a" "sample.b" "main"))
             (expect (compiled-names unchanged) (list))
             (expect (compiled-names body) (list "sample.a"))
@@ -192,15 +194,15 @@
               (files (list (Pair "page.html" (list->vector (list (i32->u8 1)))))))
           (write-artifact-source directory "(artifact-bundle \"client\")")
           (write-file main "(import (snail-core base) (sample assets)) (bundle)")
-          (let* ((inputs (table-set no-artifacts "client" files))
+          (let* ((inputs (supply-artifact no-inputs "client" files))
                  (first (build-session (make-session (list directory library)) main no-generation inputs))
-                 (unchanged (build-session (Pair-second first) main no-generation (table-set no-artifacts "client" files)))
-                 (empty (build-session (Pair-second first) main no-generation (table-set no-artifacts "client" (Nil)))))
+                 (unchanged (build-session (Pair-second first) main no-generation (supply-artifact no-inputs "client" files)))
+                 (empty (build-session (Pair-second first) main no-generation (supply-artifact no-inputs "client" (Nil)))))
             (expect (compiled-names unchanged) (Nil))
             (expect (compiled-names empty) (list "sample.assets" "main"))
             (expect (artifact-replay-error (Pair-second empty) main) #t)
             (write-artifact-source directory "(ArtifactBundle (Nil))")
-            (expect (compiled-names (build-session (Pair-second empty) main no-generation no-artifacts)) (list "sample.assets" "main")))))
+            (expect (compiled-names (build-session (Pair-second empty) main no-generation no-inputs)) (list "sample.assets" "main")))))
 
       (define (artifact-replay-error session main)
         (guard (failure
@@ -208,7 +210,7 @@
                  (match (take-input-request!)
                    ((Some (ArtifactInput "client" _)) #t)
                    (_ #f))))
-          (build-session session main no-generation no-artifacts)
+          (build-session session main no-generation no-inputs)
           #f))
 
       (define (write-artifact-source directory body)
@@ -222,14 +224,14 @@
           (write-file (string-append directory "/sample/b.sld")
                       "(define-library (sample b) (export run) (import (snail-core core) (snail-core primitive) (sample a)) (begin (effect Counter ((tick (-> I64)))) (: run (-> I64 ! mut)) (define (run) (handle Counter ((tick (lambda () (helper)))) (tick)))))")
           (write-file main "(import (snail-core core) (snail-core primitive) (sample b)) (run)")
-          (let* ((first (build-session (make-session (list directory)) main no-generation no-artifacts))
+          (let* ((first (build-session (make-session (list directory)) main no-generation no-inputs))
                  (session (Pair-second first)))
-            (expect (compiled-names (build-session session main no-generation no-artifacts)) (list))
+            (expect (compiled-names (build-session session main no-generation no-inputs)) (list))
             (write-handler-helper directory "(ref-get cell)")
             (expect (guard (failure
                             ((error-object? failure)
                              (if (string-contains (error-object-message failure) "a handler and its captures must satisfy") #t #f)))
-                      (build-session session main no-generation no-artifacts)
+                      (build-session session main no-generation no-inputs)
                       #f)
                     #t))))
 

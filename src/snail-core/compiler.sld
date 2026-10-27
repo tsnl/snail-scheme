@@ -10,11 +10,12 @@
    compile->wat
    compile->modules
    compile->schemas
-   no-artifacts)
+   no-inputs)
   (import
    (snail-core base)
    (snail-core io)
    (snail-core compiler read)
+   (only (snail-core compiler inputs) Inputs)
    (snail-core compiler core)
    (snail-core compiler expand)
    (snail-core compiler check)
@@ -25,27 +26,27 @@
 
     ;; Specialization also proves concrete handler captures and affine uses.
     ;; Checking stops before emission, retaining no backend result.
-    (: check-source (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs Unit ! mut fs))
-    (define (check-source directories source generate artifacts)
-      (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate artifacts source empty-expansion))))
+    (: check-source (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs Unit ! mut fs))
+    (define (check-source directories source generate inputs)
+      (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate inputs source empty-expansion))))
       (unit))
 
     ;; `generate` runs the producer program of a `generate-library`, given
     ;; the libraries loading when it was reached, and returns the bytes of
     ;; the syntax it writes.
-    (: compile->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs String ! mut fs))
-    (define (compile->wat directories source generate artifacts)
-      (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate artifacts source empty-expansion)))))))
+    (: compile->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
+    (define (compile->wat directories source generate inputs)
+      (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate inputs source empty-expansion)))))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from. This is a
     ;; session's build with nothing kept from before.
-    (: compile->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs (List (Pair String String)) ! mut fs))
-    (define (compile->modules directories source generate artifacts)
-      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories) source generate artifacts))))
+    (: compile->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs (List (Pair String String)) ! mut fs))
+    (define (compile->modules directories source generate inputs)
+      (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories) source generate inputs))))
 
-    (: compile->schemas (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs String ! mut fs))
-    (define (compile->schemas directories source generate artifacts)
-      (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate artifacts source empty-expansion))))))
+    (: compile->schemas (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
+    (define (compile->schemas directories source generate inputs)
+      (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate inputs source empty-expansion))))))
 
     ))
