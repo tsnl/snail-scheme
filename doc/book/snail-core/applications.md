@@ -112,6 +112,8 @@ the new program:
   keeps running, and the page offers to start the new one over.
 
 A failed build is shown over the page, and the old program keeps running.
+A changed [linked file](types.md#linked-files) compiles nothing, but relinks
+the page from the module that links it, which reads the file again.
 A changed stylesheet is fetched again; a changed page or host script reloads
 the page after saving. The [event and reload boundaries](#event-and-reload-boundaries)
 below define checkpoint recovery, acceptance and manifest reconciliation.

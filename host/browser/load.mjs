@@ -1,10 +1,10 @@
 // The JavaScript side of running Snail-Core, the same in Node and in a browser:
-// the WASI a module that opens no files needs, linking a program compiled
-// one library at a time and relinking it from a rebuilt library, how Snail-Core
-// passes a host strings and commands, and reading what the development loop
-// tells pages. It decides nothing about what a program is for: the browser
-// host (host.mjs), the development loop's hosts and host/native/run-snail.mjs
-// build on it.
+// the WASI a module that opens no files needs, the files a program links,
+// linking a program compiled one library at a time and relinking it from a
+// rebuilt library, how Snail-Core passes a host strings and commands, and
+// reading what the development loop tells pages. It decides nothing about
+// what a program is for: the browser host (host.mjs), the development loop's
+// hosts and host/native/run-snail.mjs build on it.
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 
@@ -82,6 +82,42 @@ function withStubs(module, imports, stubbed, stub) {
   return complete;
 }
 
+// ---- Linked files ----
+
+// A module asks for each file it links, `link-bytes` in (snail-core
+// resource), by importing a function from "snail.link" named for the file,
+// which answers the file's handle. The host reads every file a module
+// names before it instantiates the module, from resources/NAME beside the
+// payload, so reading one is a synchronous lookup on both hosts, and a
+// payload whose file cannot be read fails to load, not when the program
+// first reads it. Handles index `files`, which only grows: a module
+// instantiated again reads its files again, so it sees them as they are
+// now, while a module kept linked keeps the bytes it was linked with.
+async function linkImports(read, modules, files) {
+  const names = [...new Set(modules.flatMap(module => WebAssembly.Module.imports(module)
+    .filter(entry => entry.module === 'snail.link').map(entry => entry.name)))];
+  const handles = await Promise.all(names.map(async name => files.push(await readLinked(read, name)) - 1));
+  return Object.fromEntries(names.map((name, index) => [name, () => handles[index]]));
+}
+
+async function readLinked(read, name) {
+  try { return new Uint8Array(await read(`resources/${name}`)); }
+  catch (error) { throw new Error(`cannot read the linked file ${name}: ${error.message}`, {cause: error}); }
+}
+
+// The `resource` effect of (snail-core resource): a file's length and its
+// bytes, by handle.
+function resourceImports(files) {
+  return {length: handle => files[handle].length, byte: (handle, index) => files[handle][index]};
+}
+
+// What a single linked module needs for the files it links, read through
+// `read` by their paths beside the payload.
+export async function linkedFileImports(read, module) {
+  const files = [];
+  return {'snail.link': await linkImports(read, [module], files), 'snail.resource': resourceImports(files)};
+}
+
 // ---- Linking ----
 
 // A program compiled one library at a time is named by its modules.json:
@@ -97,12 +133,13 @@ function readModules(bytes) {
 // its path, which may be relative to the manifest's. The modules'
 // initializations wait for runProgram, so the caller can keep the program
 // first. A program is the runtime instance, the host's imports, each
-// library's instance by name, and the library names in program order.
+// library's instance by name, the library names in program order, and the
+// files its modules link, read before any of them is instantiated.
 export async function linkProgram(read, manifest, wasi, host) {
   const {runtime, modules} = readModules(await read(manifest));
   const [runtimeModule, compiled] = await Promise.all([compileFile(read, runtime), compileModules(read, modules)]);
   const program = {read, manifest, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
-                   names: modules.map(entry => entry.name)};
+                   names: modules.map(entry => entry.name), files: [], links: {}};
   await linkModules(program, compiled);
   return program;
 }
@@ -137,8 +174,10 @@ async function instantiateRuntime(module, wasi) {
 }
 
 // Instantiates the modules in order into the program's instances, where a
-// module may take the place of one of the same name.
+// module may take the place of one of the same name, once the files they
+// link are read.
 async function linkModules(program, modules) {
+  program.links = await linkImports(program.read, modules.map(entry => entry.module), program.files);
   const libraries = new Set(['snail.library', ...program.linked.keys(), ...modules.map(entry => entry.name)]);
   for (const {name, module} of modules) program.linked.set(name, await WebAssembly.instantiate(module, moduleImports(program, libraries, module)));
 }
@@ -151,7 +190,8 @@ async function linkModules(program, modules) {
 // left it out. A missing import from the runtime or a library's module
 // still fails to link.
 function moduleImports(program, libraries, module) {
-  const imports = {...program.host, 'snail.library': program.runtime.exports};
+  const imports = {...program.host, 'snail.library': program.runtime.exports, 'snail.link': program.links ?? {},
+                   'snail.resource': resourceImports(program.files ?? [])};
   for (const [library, instance] of program.linked) imports[library] = instance.exports;
   const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(from => !libraries.has(from));
   return withStubs(module, imports, hosted, missingHost);
@@ -163,9 +203,10 @@ const missingHost = (from, name) => () => { throw new Error(`this host does not 
 
 // Links the program again from library `from`, by its modules.json as it
 // is now. The modules before `from` cannot import from it, so their
-// instances stay; `from` and every module after it are linked anew and
-// initialized, so their globals start over. Returns the new program and
-// leaves the old one as it was, so a relink that fails leaves it running.
+// instances stay; `from` and every module after it are linked anew, reading
+// the files they link again, and initialized, so their globals start over.
+// Returns the new program and leaves the old one as it was, so a relink that
+// fails leaves it running.
 export async function relinkProgram(program, from) {
   const {modules} = readModules(await program.read(program.manifest));
   const start = Math.max(0, modules.findIndex(entry => entry.name === from));

@@ -295,9 +295,13 @@ The [application chapter](applications.md#hot-reload) defines current reload beh
 `develop-worker.mjs` owns the compiled loop, assembler, immediate filesystem
 helpers and the synchronous `produce MANIFEST OUTPUT` command that runs a
 producer. Watch, schedule, serve, broadcast and run commands cross to the parent.
-Watches are installed before the first compile. HTML, manifests and module bytes
-are staged beside their destinations and renamed, providing complete individual
-files rather than the project builder's generation publication. The loop keeps
+Watches are installed before the first compile. HTML, manifests, module bytes
+and linked files are staged beside their destinations and renamed, providing
+complete individual files rather than the project builder's generation
+publication. Each build copies the files the program links into `resources/`
+beside `modules.json`, served at `/resources/`, when their digests changed, and
+names each module's file for its text and its linked files' digests, so an
+edited file relinks the page from the module that links it. The loop keeps
 its latest and previous module sets. Shutdown closes native resources and the
 worker and prevents late commands from starting replacement children.
 

@@ -51,7 +51,8 @@ function recordImports(receive, memory) {
       const [name, build, location, ...args] = take();
       receive({kind: 'run', name, build, location, args});
     },
-    module(compiled) { const [name, text] = take(); receive({name, text, compiled: !!compiled}); },
+    module(compiled) { const [name, text, ...links] = take(); receive({name, text, compiled: !!compiled, links: linkPairs(links)}); },
+    link() { receive({kind: 'link', ...linkPairs(take())[0]}); },
     generate() { const [key] = take(); receive({kind: 'generate', key}); },
     diagnostic(line, column) {
       const [message, file] = take();
@@ -76,6 +77,13 @@ function recordImports(receive, memory) {
     },
     waiting() { receive({kind: 'waiting'}); },
   };
+}
+
+// Each file a library links: the name it ships under, and where it is.
+function linkPairs(fields) {
+  const links = [];
+  for (let index = 0; index < fields.length; index += 2) links.push({name: fields[index], file: fields[index + 1]});
+  return links;
 }
 
 // A phase's library directories, counted, then the targets it embeds.
@@ -177,7 +185,11 @@ export async function createCompiler(program, diagnostics) {
       return {builds: records.filter(record => record.kind !== 'run'), runs: records.filter(record => record.kind === 'run')};
     },
     session(directories) { return invoke('session', directories).value; },
-    static(inputs, source, output, scratch, directories) { invoke('static', [source, output, scratch, ...directories], inputs); },
+    // The files the program links, which ship beside its module.
+    static(inputs, source, output, scratch, directories) {
+      const {records} = invoke('static', [source, output, scratch, ...directories], inputs);
+      return records.filter(record => record.kind === 'link').map(({name, file}) => ({name, file}));
+    },
     modules(previous, inputs, source, scratch) {
       const {value: session, records: modules} = invoke('modules', [source, scratch], previous, inputs);
       return {session, modules};
