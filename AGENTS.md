@@ -6,11 +6,13 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- Languages are libraries. Every library that ships with the language lives
-  under `src/`, with paths matching library names and `.sld` sources: Lofi's
-  own under `src/lofi/`, Scheme's under `src/scheme/`, and the compiler among
-  them at `src/lofi/compiler/`, written in typed Lofi importing only
-  `(lofi base)`, `(lofi table)` and `(lofi io)`, so it compiles itself.
+- A language on Lofi is a set of libraries that expand into it: Scheme is
+  macros and libraries over the typed language, not a second compiler.
+  Every library that ships lives under `src/`, with paths matching library
+  names and `.sld` sources: Lofi's own under `src/lofi/`, Scheme's under
+  `src/scheme/`, and the compiler among them at `src/lofi/compiler/`, written
+  in typed Lofi importing only `(lofi base)`, `(lofi table)` and `(lofi io)`,
+  so it compiles itself.
   Host-specific code lives only under `host/`: `chibi/` for stage 0,
   `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
   crates live in `crates/`. Surface macros expand away before checking. See
