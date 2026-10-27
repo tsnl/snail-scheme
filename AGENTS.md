@@ -49,6 +49,16 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   whose construction establishes the required invariants. Carry that evidence
   forward instead of returning a Boolean and repeatedly checking the same raw
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
+- Avoid mutable state. Thread a value through the functions that change it
+  and return the new one, so a signature without `! mut` is a proof that the
+  pass is a function of its input, and a reader can never be looking at a
+  stale cell. `Ref` and `! mut` are for mutation that genuinely belongs to a
+  boundary — the runtime, a host, a cache with one owner — not for the
+  convenience of a pass that could carry its state. When threading would
+  nest a function six deep, name the sequence with a local binding form, as
+  `learning` does in `src/lofi/compiler/check.sld`, rather than reaching for
+  a cell. The checker went from 58 `! mut` signatures to none at no cost in
+  speed; the count per module is worth watching.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
 - Put each Scheme import specification and struct field on its own line.
