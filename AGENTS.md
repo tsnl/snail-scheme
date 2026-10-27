@@ -40,8 +40,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   semantics for the same program; evidence passing is a translation, needs no
   runtime support, and reuses machinery the compiler already has for
   typeclasses. The consequence is the continuation tier: one-shot and
-  delimited by its handler, with `resume` affine like `Once` and forbidden to
-  outlive the handler's body. Multi-shot continuations are out of scope, since
+  delimited by its handler, with `resume` a form rather than a value, usable
+  only in the handler's body, so it cannot be stored, returned or called
+  twice. Multi-shot continuations are out of scope, since
   they require every frame to be reachable twice and would be paid for by code
   that never captures one. Today's lowering is still a global handler stack
   linked through `outer` (`src/lofi/compiler/wasm.sld:1259`).
