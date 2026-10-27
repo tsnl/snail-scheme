@@ -109,9 +109,13 @@ the `Ref` is allocated by the pass and never escapes it.
   no fields is an `i32`; other data are GC structs, and enum cases are final
   subtypes of a base holding the tag. Sequences are GC arrays. Functions are
   closures: a struct whose first field is a typed function reference, with
-  captured variables in a subtype. Tail calls become `return_call`. Each
-  effect has a global handler stack. Each GC type sits in the smallest
-  recursion group it can, ordered by name, so modules that declare the same
+  captured variables in a subtype. Tail calls become `return_call`. Every
+  function takes the handlers in scope as its first parameter, a list of
+  evidence nodes; `handle` extends the list for its body, and an operation
+  walks it for its effect's node and runs the implementation with the list
+  outside that node, or the host default past the last. Each GC type sits in
+  the smallest recursion group it can, ordered by name, so modules that
+  declare the same
   type declare the same group. Compiled one library at a time, a module
   exports its monomorphic definitions under their global names and imports
   other libraries' definitions. At the host boundary it

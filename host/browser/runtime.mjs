@@ -148,7 +148,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     if (current && !current.queue.closed) throw new Error('application entries must not overlap');
     if (!transfer) stopping = null;
     const ready = Promise.withResolvers(), queue = createEventQueue(transfer ? null : frames);
-    const scheduler = createScheduler({handlerGlobals: () => entry.handlers, reportError});
+    const scheduler = createScheduler({reportError});
     const run = {entry, ready, queue, restore, scheduler, accepted: false, saved: null, loaded: null,
                  event: null, boot: null, root: null, done: null};
     ready.promise.catch(() => {});

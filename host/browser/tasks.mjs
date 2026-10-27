@@ -2,24 +2,12 @@
 // A parked JSPI invocation stays live until its operation, cleanup and unwind
 // finish. Only the scheduler releases its resumption Promise.
 // The host's reporting hook must not throw. One scheduler owns each program.
-export function createScheduler({handlerGlobals = () => [], reportError = () => {}} = {}) {
-  const live = new Set(), ready = [], baseline = new Map(), drains = [];
+// A task's effect handlers are evidence on its own Wasm stack, so nothing
+// is saved or restored around a switch.
+export function createScheduler({reportError = () => {}} = {}) {
+  const live = new Set(), ready = [], drains = [];
   let active = null, scheduled = false, closed = false, steps = 0;
 
-  // Dynamically loaded modules may introduce handler globals. The compiler
-  // initializes each to null; new globals observed during an invocation must
-  // not make that invocation's installed handler the runtime default.
-  function discover() {
-    for (const global of handlerGlobals()) if (!baseline.has(global)) baseline.set(global, active ? null : global.value);
-  }
-  function snapshot() {
-    discover();
-    return new Map([...baseline.keys()].map(global => [global, global.value]));
-  }
-  function install(bindings) {
-    discover();
-    for (const [global, fallback] of baseline) global.value = bindings.has(global) ? bindings.get(global) : fallback;
-  }
   function schedule() {
     if (scheduled || active || !ready.length) return;
     scheduled = true;
@@ -34,7 +22,6 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
   }
   function release(task) {
     if (active !== task) return;
-    install(baseline);
     active = null;
     schedule();
   }
@@ -45,7 +32,6 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
     while ((task = ready.shift()) && !live.has(task)) {}
     if (!task) return;
     active = task;
-    install(task.bindings);
     const next = task.next;
     task.next = null;
     try { next(); }
@@ -54,7 +40,6 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
   function finish(task, ok, result) {
     if (!live.delete(task)) return;
     release(task);
-    task.bindings.clear();
     task.work = task.discard = task.next = null;
     if (ok && task.controller.signal.aborted) { ok = false; result = task.controller.signal.reason; }
     if (ok) task.completion.resolve(result);
@@ -77,9 +62,7 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
   }
   function spawn(work, discard, detached) {
     if (closed) throw new Error('the task runtime has closed');
-    discover();
-    const task = {work, discard, detached, bindings: detached && active ? snapshot() : new Map(baseline), controller: new AbortController(),
-                  completion: Promise.withResolvers(), next: null};
+    const task = {work, discard, detached, controller: new AbortController(), completion: Promise.withResolvers(), next: null};
     task.completion.promise.catch(() => {});
     live.add(task); // Reserve before the dispatching task can return.
     enqueue(task, () => {
@@ -105,7 +88,6 @@ export function createScheduler({handlerGlobals = () => [], reportError = () => 
     let pending;
     try { pending = operation(task.controller.signal); }
     catch (error) { pending = Promise.reject(error); }
-    task.bindings = snapshot();
     release(task);
     function completed(ok, result) {
       enqueue(task, () => {
@@ -158,8 +140,10 @@ export function delay(signal, milliseconds = 0) {
 // once a call starts, its task and AbortSignal belong to that invocation.
 export function taskImports(scheduler) {
   return {
-    dispatch(run, drop, owner) {
-      scheduler().dispatch(() => WebAssembly.promising(run)(owner), () => drop(owner));
+    // The work runs with the evidence of its dispatch: the handlers in
+    // scope where `dispatch-local` was called.
+    dispatch(run, drop, owner, evidence) {
+      scheduler().dispatch(() => WebAssembly.promising(run)(owner, evidence), () => drop(owner));
     },
     yield: new WebAssembly.Suspending(() => scheduler().suspend(signal => delay(signal))),
     sleep: new WebAssembly.Suspending(milliseconds => scheduler().suspend(signal => {
