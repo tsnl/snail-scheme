@@ -18,7 +18,7 @@
       (take-input-request!)
       (match (command-line)
         ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
-         (let ((generate (lambda (forms) (generated-syntax generated forms))))
+         (let ((generate (lambda (loading forms) (generated-syntax generated loading forms))))
            (cond ((string=? mode "schema") (write-file output (compile->schemas directories source generate no-artifacts)))
                  ((string=? mode "modules") (write-modules output (compile->modules directories source generate no-artifacts)))
                  (else (write-file output (compile->wat directories source generate no-artifacts))))))

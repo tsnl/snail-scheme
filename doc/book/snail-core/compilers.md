@@ -223,7 +223,8 @@ synchronous, and a page reads files asynchronously.
 ## Compiler inputs
 
 The compiler entry points and `build-session` take the current generated-library
-provider and an `ArtifactInputs` value. `make-session` takes only library
+provider, which receives each producer with the libraries loading when it was
+reached, and an `ArtifactInputs` value. `make-session` takes only library
 directories; a retained session owns evidence, never a provider closure:
 
 ```scheme
@@ -261,6 +262,25 @@ Generated syntax is obtained before deciding whether to replay its library.
 The native project builder uses the same target traversal while compiling
 producer programs. Persistent producer caching remains separate work; current
 producer output lasts only for its enclosing compile.
+
+A producer is compiled as a program of its own while the library it generates
+is still loading, so the expander's stack of loading libraries crosses into
+that compile. `generated-syntax` prints it as the producer's first form,
+innermost first, and `expand-program` starts a program that begins with it
+with those libraries loading:
+
+```scheme
+(generating "sample.knot")
+(import (snail-core base) (snail-core syntax) (sample knot-helper) ...)
+```
+
+A producer that imports, along any chain, the library it generates is then an
+import cycle, `library import cycle through sample.knot`, rather than producers
+nesting without end; `tests/programs/error-generated-cycle.sld` is that case.
+The producer's key hashes its text without the `generating` line, since what it
+writes does not depend on the chain that reached it. The Chibi driver also
+refuses a producer requested while it is being built, a backstop should the
+stack ever miss a cycle.
 
 ### Missing inputs and retry
 

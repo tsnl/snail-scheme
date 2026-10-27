@@ -10,7 +10,8 @@
    request-input!
    take-input-request!
    publish-input-request!
-   generated-syntax)
+   generated-syntax
+   generating-stack)
   (import
    (snail-core base)
    (snail-core io)
@@ -83,14 +84,40 @@
 
     ;; ---- Invocation inputs ----
 
-    (: generated-syntax (-> String (List Syntax) Bytes ! mut fs))
-    (define (generated-syntax directory forms)
+    ;; A producer is compiled as a program of its own while the library it
+    ;; generates is loading, so its printed source begins with the libraries
+    ;; loading then, innermost first: `(generating "sample.knot" ...)`. Its
+    ;; expansion starts with them loading, which makes a producer that
+    ;; imports, along any chain, the library it generates an import cycle.
+    ;; The key hashes the producer without that line, since what the
+    ;; producer writes does not depend on the chain that reached it.
+    (: generated-syntax (-> String (List String) (List Syntax) Bytes ! mut fs))
+    (define (generated-syntax directory loading forms)
       (let* ((text (string-join (map syntax->string forms) "\n")) (key (i64->string (fnv-1a text)))
              (output (string-append directory "/" key ".syntax")))
         (if (file-exists? output)
             (read-bytes output)
-            (begin (write-file (string-append directory "/" key ".sld") text)
+            (begin (write-file (string-append directory "/" key ".sld") (string-append (generating-line loading) "\n" text))
                    (request-input! (GenerateInput key))))))
+
+    (: generating-line (-> (List String) String))
+    (define (generating-line loading)
+      (string-append "(generating" (string-concatenate (map (lambda (key) (string-append " " (quoted key))) loading)) ")"))
+
+    ;; The libraries a program's first form says were loading when it was
+    ;; printed, and the forms after it. A program that does not begin with
+    ;; `generating` starts with nothing loading.
+    (: generating-stack (-> (List Syntax) (Pair (List String) (List Syntax))))
+    (define (generating-stack forms)
+      (match forms
+        ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest) (Pair (map loading-key keys) rest))
+        (_ (Pair (Nil) forms))))
+
+    (: loading-key (-> Syntax String))
+    (define (loading-key key)
+      (match key
+        ((Atom (DString text) _) text)
+        (_ (compile-error (syntax-loc key) "expected a library key string"))))
 
     )
 
@@ -117,5 +144,16 @@
                     (expect (if (string-contains (input-error text) "input.datum:") "rejected" "accepted") "rejected"))
                   '("" "(generate \"\")" "(generate \"../x\")" "(generate \"-1\")" "(generate 123)"
                     "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"
-                    "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)")))))
+                    "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)"))
+        (test-generating-stack))
+
+      ;; The printed stack reads back as the same keys, ahead of the
+      ;; producer's own forms; a program without one has nothing loading.
+      (define (test-generating-stack)
+        (let ((printed (generating-stack (read-text (string-append (generating-line (list "sample.knot" "odd\"key")) "\n(unit)") "producer.sld")))
+              (plain (generating-stack (read-text "(unit)" "program.sld"))))
+          (expect (Pair-first printed) (list "sample.knot" "odd\"key"))
+          (expect (length (Pair-second printed)) 1)
+          (expect (Pair-first plain) (list))
+          (expect (length (Pair-second plain)) 1)))))
    (else)))

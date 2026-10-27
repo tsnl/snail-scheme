@@ -17,7 +17,7 @@
    (snail-core table)
    (snail-core io)
    (snail-core compiler read)
-   (only (snail-core compiler inputs) ArtifactInput request-input!)
+   (only (snail-core compiler inputs) ArtifactInput request-input! generating-stack)
    (snail-core compiler core)
    (snail-core compiler capabilities))
   (begin
@@ -163,16 +163,17 @@
     ;; it loads is part of an import cycle. `scopes` numbers the environments
     ;; that marks refer to. `aliases` names the type aliases whose bodies are
     ;; being resolved, innermost first, so an alias that refers to itself is
-    ;; caught. `generate` runs a producer program for `generate-library` and
-    ;; returns the bytes of the syntax it writes; the driver supplies it,
-    ;; because running a program means compiling one. `artifacts` supplies
-    ;; completed target files in memory; each library records its own uses.
+    ;; caught. `generate` runs a producer program for `generate-library`,
+    ;; given the libraries loading when it was reached, and returns the bytes
+    ;; of the syntax it writes; the driver supplies it, because running a
+    ;; program means compiling one. `artifacts` supplies completed target
+    ;; files in memory; each library records its own uses.
     (struct Context
       ((program (Ref Program))
        (expanded (Ref (Table Expanded)))
        (predecessor (Table Expanded))
        (directories (List String))
-       (generate (-> (List Syntax) Bytes ! mut fs))
+       (generate (-> (List String) (List Syntax) Bytes ! mut fs))
        (artifacts ArtifactInputs)
        (artifact-uses (Ref (List ArtifactUse)))
        (prefix String)
@@ -233,7 +234,7 @@
     (define empty-expansion
       (ExpandedProgram base-program empty-table 0 0 empty-table))
 
-    (: new-context (-> (List String) (-> (List Syntax) Bytes ! mut fs) ArtifactInputs ExpandedProgram Context ! mut))
+    (: new-context (-> (List String) (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs ExpandedProgram Context ! mut))
     (define (new-context directories generate artifacts predecessor)
       (Context (ref base-program)
                (ref empty-table)
@@ -343,6 +344,8 @@
 
     ;; A library file holds one `define-library`, or one `generate-library`
     ;; whose program writes the library's `define-library` form as syntax.
+    ;; That program is compiled while this library loads, so it is given the
+    ;; loading stack, which `load-library` began with this library's key.
     (: library-from-forms (-> Context (List String) (List Syntax) String Exports ! mut fs))
     (define (library-from-forms cx name forms path)
       (match forms
@@ -354,7 +357,7 @@
                      loc)
                (Nil))
          (check-library-name declared name loc)
-         (let ((bytes ((Context-generate cx) (producer imports expression loc))))
+         (let ((bytes ((Context-generate cx) (Context-loading cx) (producer imports expression loc))))
            (library-from-forms cx name (list (with-included-bytes (decode-syntax bytes (syntax-loc expression)))) path)))
         (_ (compile-error (Loc path 1 1) "expected exactly one define-library or generate-library form"))))
 
@@ -473,11 +476,14 @@
 
     ;; A program is a sequence of imports followed by a body, which counts as
     ;; a library named `main` that exports nothing. A build replays what it
-    ;; can of `predecessor`, the build before.
-    (: expand-program (-> (List String) (-> (List Syntax) Bytes ! mut fs) ArtifactInputs String ExpandedProgram ExpandedProgram ! mut fs))
+    ;; can of `predecessor`, the build before. A producer program begins
+    ;; with `(generating ...)`, and its imports load inside the libraries
+    ;; that form names, so one that leads back to them is a cycle.
+    (: expand-program (-> (List String) (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs String ExpandedProgram ExpandedProgram ! mut fs))
     (define (expand-program directories generate artifacts path predecessor)
-      (let ((cx (Context-prefix-set (new-context directories generate artifacts predecessor) "main")))
-        (let loop ((forms (read-source path)) (specs (Nil)))
+      (let* ((source (generating-stack (read-source path)))
+             (cx (Context-loading-set (Context-prefix-set (new-context directories generate artifacts predecessor) "main") (Pair-first source))))
+        (let loop ((forms (Pair-second source)) (specs (Nil)))
           (match forms
             ((Cons (Form (Cons (Ident "import" _ _) more) _) rest) (loop rest (append specs more)))
             (_ (expand-sections cx (list (Pair "import" specs) (Pair "begin" forms)))

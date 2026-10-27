@@ -70,7 +70,7 @@
     ;; The modules of the program at `source`, in program order, and the
     ;; session after the build. Artifact snapshots belong to this invocation,
     ;; never to the retained session.
-    (: build-session (-> Session String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs (Pair (List Built) Session) ! mut fs))
+    (: build-session (-> Session String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs (Pair (List Built) Session) ! mut fs))
     (define (build-session session source generate artifacts)
       (let* ((expansion (expand-program (Session-directories session) generate artifacts source (Session-expansion session)))
              (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))
@@ -183,7 +183,7 @@
         (test-handler-revalidation directory)
         (test-artifact-replay directory library))
 
-      (define (no-generation forms) (panic "unexpected generated library"))
+      (define (no-generation loading forms) (panic "unexpected generated library"))
 
       ;; Unchanged bytes preserve emission. Missing inputs invalidate even
       ;; a replay, but removing the invocation must not demand its old input.
