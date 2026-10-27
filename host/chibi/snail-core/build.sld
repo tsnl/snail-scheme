@@ -149,12 +149,22 @@
     ;; A producer may read files the key does not cover, so nothing produced
     ;; outlives the compile that needed it.
     (define (produce! root directories generated key)
-      (let* ((source (path-join generated (string-append key ".sld")))
-             (program (path-join generated (string-append key ".wasm")))
-             (output (path-join generated (string-append key ".syntax")))
-             (result (begin (build-program root directories source program #f) (run-wasm root program (list output)))))
-        (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))
-        (unless (file-exists? output) (error "the producer did not write its generated library" source))))
+      (when (member key (producing)) (error "generated library cycle through the producer" key))
+      (parameterize ((producing (cons key (producing))))
+        (let* ((source (path-join generated (string-append key ".sld")))
+               (program (path-join generated (string-append key ".wasm")))
+               (output (path-join generated (string-append key ".syntax")))
+               (result (begin (build-program root directories source program #f) (run-wasm root program (list output)))))
+          (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))
+          (unless (file-exists? output) (error "the producer did not write its generated library" source)))))
+
+    ;; The keys of the producers being built, innermost first. The compiler
+    ;; reports a producer that leads back to the library it generates as an
+    ;; import cycle, through the `(generating ...)` stack it prints. Each
+    ;; nested compile has scratch of its own, so were that check missed, the
+    ;; same producer would be requested inside itself without end; this
+    ;; makes it an error instead.
+    (define producing (make-parameter '()))
 
     ;; ---- The build lock ----
 

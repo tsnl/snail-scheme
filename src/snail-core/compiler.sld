@@ -25,25 +25,26 @@
 
     ;; Specialization also proves concrete handler captures and affine uses.
     ;; Checking stops before emission, retaining no backend result.
-    (: check-source (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs Unit ! mut fs))
+    (: check-source (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs Unit ! mut fs))
     (define (check-source directories source generate artifacts)
       (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate artifacts source empty-expansion))))
       (unit))
 
-    ;; `generate` runs the producer program of a `generate-library` and
-    ;; returns the bytes of the syntax it writes.
-    (: compile->wat (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs String ! mut fs))
+    ;; `generate` runs the producer program of a `generate-library`, given
+    ;; the libraries loading when it was reached, and returns the bytes of
+    ;; the syntax it writes.
+    (: compile->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs String ! mut fs))
     (define (compile->wat directories source generate artifacts)
       (wat->string (emit-module (monomorphize (check-program (ExpandedProgram-program (expand-program directories generate artifacts source empty-expansion)))))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from. This is a
     ;; session's build with nothing kept from before.
-    (: compile->modules (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs (List (Pair String String)) ! mut fs))
+    (: compile->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs (List (Pair String String)) ! mut fs))
     (define (compile->modules directories source generate artifacts)
       (map (lambda (built) (Pair (Built-name built) (Built-text built))) (Pair-first (build-session (make-session directories) source generate artifacts))))
 
-    (: compile->schemas (-> (List String) String (-> (List Syntax) Bytes ! mut fs) ArtifactInputs String ! mut fs))
+    (: compile->schemas (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) ArtifactInputs String ! mut fs))
     (define (compile->schemas directories source generate artifacts)
       (wire-schemas (Typed-program (check-program (ExpandedProgram-program (expand-program directories generate artifacts source empty-expansion))))))
 
