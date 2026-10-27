@@ -973,9 +973,15 @@
     ;; Only the loop calls application messages. The cell is the last state
     ;; whose entire event succeeded; a trap never publishes its candidate.
     ;; States must be immutable data, so a handed-over checkpoint stays reusable.
+    ;; The loop itself performs `mut screen events storage`. A reset binder
+    ;; that performs more, such as one that dispatches tasks, names those
+    ;; effects with `effects:`, because the checker holds `app-main`'s row to
+    ;; what its body performs.
     (define-syntax define-application
-      (syntax-rules (reset: init: update: view: hud: save: restore:)
-        ((_ State (reset: reset-run) (init: initialize) (update: step) (view: draw)
+      (syntax-rules (reset: effects: init: update: view: hud: save: restore:)
+        ((_ State (reset: reset-run) (init: initialize) more ...)
+         (define-application State (reset: reset-run) (effects:) (init: initialize) more ...))
+        ((_ State (reset: reset-run) (effects: effect ...) (init: initialize) (update: step) (view: draw)
             (hud: panels) (save: save-state) (restore: restore-state))
          (begin
            (define current (ref (ann (None) (Option State))))
@@ -1035,7 +1041,7 @@
 
            ;; The host's first Resize and Frame(0) own initial presentation.
            ;; reset installs its handlers around this monomorphic run.
-           (: app-main (-> (Option Any) (Option Any) ! mut screen events storage tasks))
+           (: app-main (-> (Option Any) (Option Any) ! mut screen events storage effect ...))
            (define (app-main handover)
              ((reset-run)
               (lambda ()

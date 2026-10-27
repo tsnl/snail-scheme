@@ -46,10 +46,11 @@ Because time is input, an application decides how time passes and can stop
 it at any frame. Browser applications and headless tests need JSPI; the
 pinned Node 26 runs both packaging modes.
 
-The loop and locally dispatched work share one runtime. The reset binder
-may dispatch background tasks; the root admits the `tasks` effect as well
-as `mut`, `screen`, `events` and `storage`. Suspensions preserve each
-task's handlers. Reload lets the loop save and return, then cancels and
+The loop and locally dispatched work share one runtime. The root performs
+`mut`, `screen`, `events` and `storage`; a reset binder that performs more,
+such as one that dispatches background tasks, names those effects with
+`(effects: tasks)`, since a signature may not claim effects its body never
+performs. Suspensions preserve each task's handlers. Reload lets the loop save and return, then cancels and
 drains remaining work before relinking. Module globals still initialize
 synchronously; dispatch application work from the reset binder or the
 running entry. See [runtimes](https://tsnl.github.io/snail-scheme/runtimes/index.html).

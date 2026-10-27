@@ -1202,9 +1202,9 @@
                   (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
     ;; The signatures with the one a `(: name type)` declares, and where it
-    ;; was written. A signature a macro wrote has no place of its own: its
-    ;; row is a contract for every expansion, as a class method's is for
-    ;; every instance, so no one expansion's body is held to it.
+    ;; was written. A signature a macro writes is held to each expansion's
+    ;; body like any other, so a macro that cannot know the row takes it as
+    ;; an argument.
     (: with-signature (-> Context (Table (Pair Scheme (Option Loc))) Pending (Table (Pair Scheme (Option Loc))) ! mut))
     (define (with-signature cx signatures pending)
       (if (string=? (Pending-keyword pending) ":")
@@ -1212,8 +1212,7 @@
             ((Form (Cons _ (Cons name (Cons type (Nil)))) loc)
              (match (resolve cx (Pending-env pending) (expect-ident name "a name"))
                ((Some (Global global))
-                (table-set signatures global (Pair (resolve-scheme cx (Pending-env pending) type)
-                                                   (match name ((Ident _ (None) _) (Some loc)) (_ (None))))))
+                (table-set signatures global (Pair (resolve-scheme cx (Pending-env pending) type) (Some loc))))
                (_ (compile-error (syntax-loc name) (string-append "signature names an undefined top-level definition: "
                                                                   (Ident-name name))))))
             (form (compile-error (syntax-loc form) "expected (: name type)")))

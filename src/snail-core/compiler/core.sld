@@ -538,8 +538,7 @@
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
     ;; that `(: name type)` was written. An instance method has its class
-    ;; method's scheme and no signature of its own, and neither has a
-    ;; definition whose signature a macro wrote.
+    ;; method's scheme and no signature of its own.
     (enum Value
       (Defined
         ((scheme (Option Scheme))

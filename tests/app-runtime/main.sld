@@ -128,6 +128,7 @@
 
 (define-application Counter
   (reset: reset-test)
+  (effects: tasks)
   (init: initial)
   (update: step)
   (view: draw)
