@@ -153,23 +153,48 @@ definitions whose value is not a lambda have no body to compare. A signature
 a macro writes is held to each expansion, so a macro that cannot know a row,
 as `define-application` cannot know what its reset binder performs, takes
 the effects as an argument.
-A handler removes its effect. Handler
-implementations return to the operation's caller exactly once, and they run
-in the handler's outer context, so an operation they perform goes to the
-next handler out. A handler names operations within its effect, so they need
-not be imported. Effects with host defaults, such as `console` and `fs` from
+A handler removes its effect. The implementation
+of an ordinary operation returns to the operation's caller exactly once, and
+every implementation runs in the handler's outer context, so an operation it
+performs goes to the next handler out. A handler names operations within its
+effect, so they need not be imported. Effects with host defaults, such as `console` and `fs` from
 `(snail-core io)`, need no handler at the top level of a program, and a test can
 handle `fs` to serve files from memory.
 
-**Proposed: control operations.** An effect may declare an operation with
-`ctl`, as in `(effect Gen ((ctl next (-> I64 Unit))))`. Its implementation
-receives one more argument, `resume`, the rest of the handled body: calling
-`(resume answer)` runs it, under the handler again, to the handler's result,
-which the implementation returns. `resume` is a `Once`, so the checker
-rejects calling it twice, and it may be stored and called later. A control
+**Control operations.** An effect may declare an operation with `ctl`, as
+in `(effect Raise ((ctl raise (-> String I64))))`. Its implementation
+receives one more argument, `resume`, the rest of the handled body, and
+returns the handler's result, the type of the `handle` expression. A control
 operation has no host default, since the host cannot be handed the rest of a
-computation. The checker accepts all of this today; the backend reports
-"control operations are not compiled yet" until the translation lands.
+computation. An implementation that drops `resume` aborts: performing the
+operation abandons the rest of the handled body, the implementation runs in
+the handler's outer context, and its result is the handler's:
+
+```scheme
+(: parse-or (-> String I64 I64 ! console))
+(define (parse-or text default)
+  (handle Raise
+      ((raise (lambda (message resume) (write-line message) default)))
+    (number text)))
+```
+
+Nothing after the operation runs, so a `Once` held across it is dropped and
+never called. Of two handlers of one effect the inner one catches, and an
+implementation that performs the effect again reaches the outer one. A control row cannot reach a `vector-generate` or
+`string-generate` callback, an `unsafe-total` thunk, `dispatch-local` work,
+or the implementation of an operation declared without `ctl`, which returns
+into a handled body that does not expect it to abort; each is an error after
+specialization. A generic function used where a control operation may be
+performed is specialized at that row, so its callback rows name the effect
+too: `vector-map`, which calls `vector-generate`, cannot be used in such a
+body even with a callback that cannot abort.
+
+**Proposed: resumption.** Calling `(resume answer)` would run the rest of the
+handled body, under the handler again, to the handler's result, which the
+implementation returns. `resume` is a `Once`, so the checker rejects calling
+it twice, and it may be stored and called later. The checker accepts this
+today; the backend reports "resumption is not compiled yet" for an
+implementation that uses `resume`.
 
 `extern` declares a total foreign function; the declaration is the boundary's
 unsafe assumption.

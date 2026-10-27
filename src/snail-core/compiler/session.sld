@@ -85,7 +85,18 @@
              (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))
              (checked (check-libraries (Session-compiled session) expansion libraries))
              (built (emit-libraries expansion (Pair-second checked) (Pair-first checked) libraries)))
-        (Pair (Pair-first built) (Session (Session-directories session) expansion (Pair-second built)))))
+        (Pair (append (control-modules session program) (Pair-first built)) (Session (Session-directories session) expansion (Pair-second built)))))
+
+    ;; A program with control effects links the control module first: it
+    ;; holds the yield record that the program's modules share. Its text is
+    ;; fixed, so a build compiles it only when the build before had none. It
+    ;; links no files.
+    (: control-modules (-> Session Program (List Built) ! mut))
+    (define (control-modules session program)
+      (if (null? (control-effects program))
+          (Nil)
+          (list (Built "snail.control" (wat->string (emit-control-module program))
+                       (null? (control-effects (ExpandedProgram-program (Session-expansion session)))) (Nil)))))
 
     ;; Checks each library whose expansion changed, after the schemes of the
     ;; libraries before it, and returns the whole program checked, with each

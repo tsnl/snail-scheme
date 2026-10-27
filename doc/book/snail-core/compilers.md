@@ -152,7 +152,15 @@ the `Ref` is allocated by the pass and never escapes it.
   function takes the handlers in scope as its first parameter, a list of
   evidence nodes; `handle` extends the list for its body, and an operation
   walks it for its effect's node and runs the implementation with the list
-  outside that node, or the host default past the last. Each GC type sits in
+  outside that node, or the host default past the last. A control operation
+  instead leaves a yield record in one global: the node it is aimed at, the
+  operation and its arguments, and returns a placeholder of its result type.
+  After each let whose value may yield the record is tested, and while it is
+  set each function returns a placeholder and each handle body branches to
+  its handle site, until the handle whose node the record names clears it
+  and runs the implementation, whose result becomes the handle's. Nothing
+  reads a placeholder, and a program without control effects declares no
+  record and tests nothing. Each GC type sits in
   the smallest recursion group it can, ordered by name, so modules that
   declare the same
   type declare the same group. Compiled one library at a time, a module
@@ -204,8 +212,12 @@ The unit of compilation is a library (`source->modules` in
   every translation unit that uses it;
 - each monomorphic definition of another library is imported from that
   library's module;
-- each effect's stack of handlers is a global that the declaring library's
-  module exports and the others import.
+- handlers travel as evidence, so no handler crosses a module boundary as a
+  global; the one global modules share is the yield record of control
+  operations, which a fixed module, `snail.control`, declares and exports.
+  A build links it first when the program has control effects, and every
+  module that tests or sets the record imports it, so a yield crosses
+  modules as it crosses functions.
 
 The checker settles each library's types before it checks the libraries
 that import it, so a definition's type comes from its own library and not
