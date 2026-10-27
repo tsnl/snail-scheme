@@ -62,7 +62,7 @@
         ((None)
          (match (program-value (Context-program cx) name)
            ((Some (Method class _)) (shared-method? cx class name evidence visiting))
-           ((Some (Defined _)) #f)
+           ((Some (Defined _ _)) #f)
            ((Some _) #t) ;; Constructors, operations, primitives and trusted FFI.
            ((None) #f)))))
 
