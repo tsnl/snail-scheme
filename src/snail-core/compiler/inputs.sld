@@ -1,7 +1,19 @@
-;; Concrete missing-input requests. A resident caller consumes the typed value;
-;; a process caller publishes and parses its datum after compilation unwinds.
+;; What a build supplies to its compiles, and the requests a compile makes
+;; for what it was not supplied. A resident caller consumes a request's typed
+;; value; a process caller publishes and parses its datum after compilation
+;; unwinds.
 (define-library (snail-core compiler inputs)
   (export
+   ArtifactFiles
+   Generated
+   Inputs
+   Inputs-artifacts
+   no-inputs
+   supply-artifact
+   supply-generated
+   producer-text
+   producer-key
+   generated-output
    CompilerRequest
    GenerateInput
    ArtifactInput
@@ -11,13 +23,70 @@
    take-input-request!
    publish-input-request!
    generated-syntax
+   printed-producer-text
    generating-stack)
   (import
    (snail-core base)
+   (snail-core table)
    (snail-core io)
    (snail-core compiler read)
    (only (snail-core compiler core) fnv-1a))
   (begin
+
+    ;; ---- Build inputs ----
+
+    ;; An immutable snapshot of a completed target's files: relative paths
+    ;; with their bytes, in path order. The host loads the files before
+    ;; expansion starts, and uses retain these same vectors as exact cache
+    ;; evidence, without copying.
+    (type ArtifactFiles (List (Pair String Bytes)))
+
+    ;; What a producer wrote, beside the text its key hashes. A lookup
+    ;; compares that text, so producers whose keys collide are never
+    ;; confused.
+    (struct Generated
+      ((text String)
+       (bytes Bytes)))
+
+    ;; Everything one build supplies to the compiles it runs: each completed
+    ;; target's files by target name, and each producer's output by its key.
+    (struct Inputs
+      ((artifacts (Table ArtifactFiles))
+       (generated (Table Generated))))
+
+    (: no-inputs Inputs)
+    (define no-inputs (Inputs empty-table empty-table))
+
+    (: supply-artifact (-> Inputs String ArtifactFiles Inputs))
+    (define (supply-artifact inputs name files)
+      (Inputs-artifacts-set inputs (table-set (Inputs-artifacts inputs) name files)))
+
+    (: supply-generated (-> Inputs String Bytes Inputs))
+    (define (supply-generated inputs text bytes)
+      (Inputs-generated-set inputs (table-set (Inputs-generated inputs) (producer-key text) (Generated text bytes))))
+
+    ;; A producer as a build tells it apart: the library directories its
+    ;; imports resolve in, then its program. One table serves every target
+    ;; of a build, and two targets with different directories may resolve
+    ;; the same recipe's imports to different libraries.
+    (: producer-text (-> (List String) (List Syntax) String))
+    (define (producer-text directories forms)
+      (string-append (string-join (map quoted directories) " ") "\n" (program-text forms)))
+
+    (: producer-key (-> String String))
+    (define (producer-key text)
+      (i64->string (fnv-1a text)))
+
+    (: program-text (-> (List Syntax) String))
+    (define (program-text forms)
+      (string-join (map syntax->string forms) "\n"))
+
+    ;; The output supplied for the producer with this text, if any.
+    (: generated-output (-> Inputs String (Option Bytes)))
+    (define (generated-output inputs text)
+      (match (table-ref (Inputs-generated inputs) (producer-key text))
+        ((Some generated) (if (string=? (Generated-text generated) text) (Some (Generated-bytes generated)) (None)))
+        ((None) (None))))
 
     ;; ---- Requests ----
 
@@ -82,23 +151,31 @@
     (define (quoted text)
       (datum->string (DString text)))
 
-    ;; ---- Invocation inputs ----
+    ;; ---- Producer programs ----
 
-    ;; A producer is compiled as a program of its own while the library it
-    ;; generates is loading, so its printed source begins with the libraries
-    ;; loading then, innermost first: `(generating "sample.knot" ...)`. Its
-    ;; expansion starts with them loading, which makes a producer that
-    ;; imports, along any chain, the library it generates an import cycle.
-    ;; The key hashes the producer without that line, since what the
-    ;; producer writes does not depend on the chain that reached it.
-    (: generated-syntax (-> String (List String) (List Syntax) Bytes ! mut fs))
-    (define (generated-syntax directory loading forms)
-      (let* ((text (string-join (map syntax->string forms) "\n")) (key (i64->string (fnv-1a text)))
-             (output (string-append directory "/" key ".syntax")))
+    ;; A producer the build did not supply, printed into the compile's
+    ;; scratch `directory` and requested, or its output once the host has
+    ;; written it there. The producer is compiled as a program of its own
+    ;; while the library it generates is loading, so its printed source
+    ;; begins with the libraries loading then, innermost first:
+    ;; `(generating "sample.knot" ...)`. Its expansion starts with them
+    ;; loading, which makes a producer that imports, along any chain, the
+    ;; library it generates an import cycle. The key is the one the build's
+    ;; inputs use, which leaves that line out, since what the producer writes
+    ;; does not depend on the chain that reached it.
+    (: generated-syntax (-> String (List String) (List String) (List Syntax) Bytes ! mut fs))
+    (define (generated-syntax directory directories loading forms)
+      (let* ((key (producer-key (producer-text directories forms))) (output (string-append directory "/" key ".syntax")))
         (if (file-exists? output)
             (read-bytes output)
-            (begin (write-file (string-append directory "/" key ".sld") (string-append (generating-line loading) "\n" text))
+            (begin (write-file (string-append directory "/" key ".sld") (string-append (generating-line loading) "\n" (program-text forms)))
                    (request-input! (GenerateInput key))))))
+
+    ;; The text of the producer printed at `path`, as `producer-text` gave
+    ;; it for the forms it was printed from.
+    (: printed-producer-text (-> (List String) String String ! fs))
+    (define (printed-producer-text directories path)
+      (producer-text directories (Pair-second (generating-stack (read-text (read-file path) path)))))
 
     (: generating-line (-> (List String) String))
     (define (generating-line loading)
@@ -145,7 +222,8 @@
                   '("" "(generate \"\")" "(generate \"../x\")" "(generate \"-1\")" "(generate 123)"
                     "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"
                     "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)"))
-        (test-generating-stack))
+        (test-generating-stack)
+        (test-generated-inputs))
 
       ;; The printed stack reads back as the same keys, ahead of the
       ;; producer's own forms; a program without one has nothing loading.
@@ -155,5 +233,21 @@
           (expect (Pair-first printed) (list "sample.knot" "odd\"key"))
           (expect (length (Pair-second printed)) 1)
           (expect (Pair-first plain) (list))
-          (expect (length (Pair-second plain)) 1)))))
+          (expect (length (Pair-second plain)) 1)))
+
+      ;; A supplied output is found by its producer's text, which reads back
+      ;; from the printed producer unchanged. The same program under other
+      ;; directories is another producer, and an entry whose text differs
+      ;; is never taken for it, even under its key.
+      (define (test-generated-inputs)
+        (let* ((forms (read-text "(import (snail-core base) (srfi 1)) (write \"a\\\"b\\nc\" #u8(1 2) 1.50 #\\x)" "producer.sld"))
+               (printed (string-append (generating-line (list "sample.knot")) "\n" (program-text forms)))
+               (text (producer-text (list "/project/src" "/root/src") forms))
+               (output (list->vector (list (i32->u8 1) (i32->u8 2))))
+               (inputs (supply-generated no-inputs text output)))
+          (expect (producer-text (list "/project/src" "/root/src") (Pair-second (generating-stack (read-text printed "printed.sld")))) text)
+          (expect (generated-output inputs text) (Some output))
+          (expect (generated-output inputs (producer-text (list "/root/src") forms)) (None))
+          (expect (generated-output (Inputs empty-table (table-set empty-table (producer-key text) (Generated "other" output))) text)
+                  (None))))))
    (else)))
