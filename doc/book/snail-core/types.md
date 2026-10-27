@@ -225,9 +225,9 @@ returning `(Option Any)` still expects its ordinary enum. Constructors for a
 typed host operation should return its whole result, such as `(Result Bytes E)`.
 Resolve helpers from their library instance in separate builds and the combined
 instance in static builds. After a wait, the runtime must reacquire the execution
-permit before invoking a constructor or returning to Wasm. Programs export their
-dynamic handler globals as `handler.NAME`; the scheduler preserves each task's
-bindings across suspension. See [scheduling](https://tsnl.github.io/snail-scheme/runtimes/scheduling.html).
+permit before invoking a constructor or returning to Wasm. A task's handlers are
+evidence on its own stack, so nothing about them is saved or restored across a
+suspension. See [scheduling](https://tsnl.github.io/snail-scheme/runtimes/scheduling.html).
 
 A function whose signature has no `mut` may still mutate storage that it
 allocates and that nothing keeps after it returns:

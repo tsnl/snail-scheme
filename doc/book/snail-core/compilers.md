@@ -169,8 +169,8 @@ the `Ref` is allocated by the pass and never escapes it.
   stages final String and Bytes arguments and wraps exposed `(Option Any)`
   as a nullable opaque handover. Other exposed managed values keep their normal
   representation; the checker rejects affine parameters/results at that boundary.
-  Dynamic handler globals are exported so
-  the runtime can restore each task's context across suspension.
+  The host passes no evidence, so every exposed function has a wrapper that
+  calls the definition with the empty evidence list.
 - **[`session.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/session.sld)** keeps the compiler
   running between builds: the expander replays libraries whose declarations
   and imports' interfaces are unchanged, and only libraries whose expansion
