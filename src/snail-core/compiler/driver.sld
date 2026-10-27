@@ -19,9 +19,9 @@
       (match (command-line)
         ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
          (let ((generate (lambda (loading forms) (generated-syntax generated directories loading forms))))
-           (cond ((string=? mode "schema") (write-file output (compile->schemas directories source generate no-inputs)))
-                 ((string=? mode "modules") (write-modules output (compile->modules directories source generate no-inputs)))
-                 (else (write-file output (compile->wat directories source generate no-inputs))))))
+           (cond ((string=? mode "schema") (write-file output (source->schemas directories source generate no-inputs)))
+                 ((string=? mode "modules") (write-modules output (source->modules directories source generate no-inputs)))
+                 (else (write-file output (source->wat directories source generate no-inputs))))))
         (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
 
     (: write-modules (-> String (List (Pair String String)) Unit ! fs))

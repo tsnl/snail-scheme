@@ -226,7 +226,7 @@
 (define (static! inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch directories)))
-     (write-file output (compile->wat directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
+     (write-file output (source->wat directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
 
 (: check! (-> Inputs Unit ! mut fs))

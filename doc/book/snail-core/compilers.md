@@ -162,7 +162,7 @@ the `Ref` is allocated by the pass and never escapes it.
 
 ## Separate compilation
 
-The unit of compilation is a library (`compile->modules` in
+The unit of compilation is a library (`source->modules` in
 `src/snail-core/compiler.sld`). In its module:
 
 - each monomorphic definition is exported under its global name, as in
