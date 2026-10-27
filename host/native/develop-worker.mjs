@@ -1,7 +1,9 @@
 // One persistent Wasm development loop and compiler. Immediate native
 // helpers run here; watcher/server/process commands go to the parent.
+import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, writeFileSync} from 'node:fs';
+import {fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, writeFileSync, writeSync} from 'node:fs';
+import {join} from 'node:path';
 import {WASI} from 'node:wasi';
 import {parentPort, workerData} from 'node:worker_threads';
 import {commandImports} from '../browser/load.mjs';
@@ -13,7 +15,7 @@ async function startLoop({root, tools, request, errors: filename}) {
   const errors = openSync(filename, 'w+');
   const wasi = new WASI({version: 'preview1', args: ['develop', root, tools.runtime, tools.client, ...request], env: process.env,
     preopens: {'/': '/'}, returnOnExit: true, stderr: errors});
-  const loop = {errors, read: 0, exports: null, assemble: await createAssembler(readFileSync(tools.assembler))};
+  const loop = {root, errors, read: 0, exports: null, assemble: await createAssembler(readFileSync(tools.assembler))};
   const imports = {...wasi.getImportObject(), 'snail.develop': commandImports(commands(loop))};
   const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), imports);
   loop.exports = instance.exports;
@@ -77,6 +79,15 @@ function commands(loop) {
     'make-directory'([directory]) { mkdirSync(directory, {recursive: true}); },
     'remove-file'([path]) { rmSync(path, {force: true}); },
     'rename-file'([from, to]) { renameSync(from, to); },
+    // A producer runs to completion before the build goes on. What it
+    // printed on failure joins the loop's diagnostics, ahead of its panic.
+    produce([manifest, output]) {
+      const result = spawnSync(process.execPath, ['--no-warnings', join(loop.root, 'host/native/run-snail.mjs'), manifest, output],
+        {encoding: 'utf8', maxBuffer: 16 * 1024 * 1024});
+      if (result.status === 0) return 0;
+      writeSync(loop.errors, result.stderr || `${result.error?.message ?? `the producer exited with ${result.signal}`}\n`);
+      return 1;
+    },
   };
 }
 
