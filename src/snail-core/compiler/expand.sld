@@ -1323,7 +1323,8 @@
           ((Form (Cons head args) loc)
            (match (head-binding cx env syntax)
              ((Some (Core keyword)) (expand-core cx env keyword (Form-items syntax) loc))
-             (_ (expr (App (expand-expr cx env head) (map (lambda (arg) (expand-expr cx env arg)) args)) loc)))))))
+             (_ (let* ((callee (expand-expr cx env head)) (arguments (map (lambda (arg) (expand-expr cx env arg)) args)))
+                  (expr (App callee arguments) loc))))))))
 
     (: expand-reference (-> Context Env Syntax Loc Expr ! mut))
     (define (expand-reference cx env ident loc)
@@ -1345,9 +1346,11 @@
         (("if")
          (match items
            ((Cons _ (Cons test (Cons then (Cons otherwise (Nil)))))
-            (expr (If (expand-expr cx env test) (expand-expr cx env then) (expand-expr cx env otherwise)) loc))
+            (let* ((test (expand-expr cx env test)) (then (expand-expr cx env then)) (otherwise (expand-expr cx env otherwise)))
+              (expr (If test then otherwise) loc)))
            ((Cons _ (Cons test (Cons then (Nil))))
-            (expr (If (expand-expr cx env test) (expand-expr cx env then) (expr (Lit (DUnit)) loc)) loc))
+            (let* ((test (expand-expr cx env test)) (then (expand-expr cx env then)))
+              (expr (If test then (expr (Lit (DUnit)) loc)) loc)))
            (_ (compile-error loc "expected (if test then [else])"))))
         (("begin") (expand-body cx env (list-tail items 1) loc))
         (("let") (expand-let cx env items loc))
@@ -1449,12 +1452,10 @@
 
     (: expand-named-let (-> Context Env Syntax (List Syntax) (List Syntax) Loc Expr ! mut))
     (define (expand-named-let cx env ident bindings body loc)
-      (let* ((name (fresh cx (Ident-name ident))) (scope (extend env ident (Local name))))
-        (expr (Let name (expand-lambda cx scope (map binding-name bindings) body loc)
-                   (expr (App (expr (Var name (Nil) (Nil)) loc)
-                              (map (lambda (binding) (expand-expr cx env (binding-value binding))) bindings))
-                         loc))
-              loc)))
+      (let* ((name (fresh cx (Ident-name ident))) (scope (extend env ident (Local name)))
+             (loop (expand-lambda cx scope (map binding-name bindings) body loc))
+             (initial (map (lambda (binding) (expand-expr cx env (binding-value binding))) bindings)))
+        (expr (Let name loop (expr (App (expr (Var name (Nil) (Nil)) loc) initial) loc)) loc)))
 
     (: expand-plain-let (-> Context Env (List Syntax) (List Syntax) Loc Expr ! mut))
     (define (expand-plain-let cx env bindings body loc)
@@ -1482,14 +1483,13 @@
          (let ((id (match (resolve cx env (expect-ident effect "an effect name"))
                      ((Some (EffectName id)) id)
                      (_ (compile-error (syntax-loc effect) (string-append "not an effect: " (Ident-name effect)))))))
-           (expr (Handle id
-                         (map (lambda (implementation)
-                                (match implementation
-                                  ((Form (Cons name (Cons value (Nil))) _) (Pair (operation-name cx id name) (expand-expr cx env value)))
-                                  (_ (compile-error (syntax-loc implementation) "expected (operation implementation)"))))
-                              implementations)
-                         (expand-body cx env body loc))
-                 loc)))
+           (let* ((implementations (map (lambda (implementation)
+                                          (match implementation
+                                            ((Form (Cons name (Cons value (Nil))) _) (Pair (operation-name cx id name) (expand-expr cx env value)))
+                                            (_ (compile-error (syntax-loc implementation) "expected (operation implementation)"))))
+                                        implementations))
+                  (body (expand-body cx env body loc)))
+             (expr (Handle id implementations body) loc))))
         (_ (compile-error loc "expected (handle Effect ((operation implementation) ...) body ...)"))))
 
     ;; A handler names operations by their names within the effect, so they
@@ -1613,7 +1613,8 @@
     (define (expand-match cx env items loc)
       (match items
         ((Cons _ (Cons scrutinee clauses))
-         (expr (Match (expand-expr cx env scrutinee) (map (lambda (clause) (expand-clause cx env clause)) clauses)) loc))
+         (let* ((scrutinee (expand-expr cx env scrutinee)) (clauses (map (lambda (clause) (expand-clause cx env clause)) clauses)))
+           (expr (Match scrutinee clauses) loc)))
         (_ (compile-error loc "expected (match expression clause ...)"))))
 
     ;; A clause binds its pattern's variables first, so the pattern itself
@@ -1622,8 +1623,10 @@
     (define (expand-clause cx env clause)
       (match (form-items clause "a match clause")
         ((Cons pattern body)
-         (let ((scope (Pair-first (bind-locals cx env (pattern-variables pattern)))))
-           (Clause (expand-pattern cx env scope pattern) (expand-body cx scope body (syntax-loc clause)))))
+         (let* ((scope (Pair-first (bind-locals cx env (pattern-variables pattern))))
+                (pattern (expand-pattern cx env scope pattern))
+                (body (expand-body cx scope body (syntax-loc clause))))
+           (Clause pattern body)))
         ((Nil) (compile-error (syntax-loc clause) "expected (pattern body ...)"))))
 
     ;; The variables of a pattern, in order, each named once.
