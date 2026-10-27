@@ -221,23 +221,35 @@
     (define (bootstrap! root)
       (with-build-lock root (lambda () (rebuild-compiler! root))))
 
+    ;; Stage 1 is the source's output for its own entry program, from the
+    ;; previous compiler when one works and from Chibi otherwise; stage 2 is
+    ;; stage 1's, and stage 3 is stage 2's. Stage 2 must reproduce its own
+    ;; text. When Chibi produced stage 1, both hosts ran the same source on
+    ;; the same input, so stage 1 must be that text as well: the two hosts
+    ;; agree, or the build says where they differ.
     (define (rebuild-compiler! root)
       (let* ((directory (path-join root "build/compiler")) (entry (path-join root "bootstrap/compile.sld"))
              (stage1 (path-join directory "stage1.wasm")) (stage2 (path-join directory "stage2.wasm"))
              (stage3 (path-join directory "stage3.wat")) (sources (standard-directories root)))
         (create-directory* directory)
-        (link-wat root (stage1-text root entry) stage1 #f)
-        (link-wat root (run-compiler root (compiler-command root stage1) "wat" sources entry) stage2 #f)
-        (write-file stage3 (run-compiler root (compiler-command root stage2) "wat" sources entry))
-        (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
-          (error "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
-        (rename-file stage2 (compiler-path root))))
+        (let ((first (stage1-text root entry)))
+          (link-wat root (cdr first) stage1 #f)
+          (link-wat root (run-compiler root (compiler-command root stage1) "wat" sources entry) stage2 #f)
+          (write-file stage3 (run-compiler root (compiler-command root stage2) "wat" sources entry))
+          (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
+            (error "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
+          (when (and (car first) (not (equal? (cdr first) (read-file (string-append stage2 ".wat")))))
+            (error "bootstrap: the source on Chibi and its compiled form emit different text; compare build/compiler/stage1.wasm.wat with stage2.wasm.wat"))
+          (rename-file stage2 (compiler-path root)))))
 
+    ;; Whether Chibi produced the text, and the text.
     (define (stage1-text root entry)
-      (let ((previous (compiler-path root)) (sources (standard-directories root)))
-        (or (and (file-exists? previous)
-                 (guard (failure (#t #f)) (run-compiler root (compiler-command root previous) "wat" sources entry)))
-            (run-compiler root (chibi-compiler root) "wat" sources entry))))
+      (let* ((previous (compiler-path root)) (sources (standard-directories root))
+             (reused (and (file-exists? previous)
+                          (guard (failure (#t #f)) (run-compiler root (compiler-command root previous) "wat" sources entry)))))
+        (if reused
+            (cons #f reused)
+            (cons #t (run-compiler root (chibi-compiler root) "wat" sources entry)))))
 
     ;; ---- Files and commands ----
 
