@@ -665,7 +665,7 @@
         (expand-source (new-context directories unsupplied-producer inputs (Discovering uses) empty-expansion) path)
         (reverse (ref-get uses))))
 
-    (: unsupplied-producer (-> (List String) (List Syntax) Bytes ! mut fs))
+    (: unsupplied-producer (-> (List String) (List Syntax) Bytes))
     (define (unsupplied-producer loading forms)
       (panic "internal error: discovery reached a producer whose output was not supplied"))
 
