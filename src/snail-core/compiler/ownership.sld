@@ -22,8 +22,8 @@
       (match type
         ((TCon "Once" args)
          (match args
-           ((Cons (TFun (Nil) (TCon "Unit" (Nil)) _) (Nil)) (unit))
-           (_ (compile-error loc "Once requires a zero-argument procedure returning Unit"))))
+           ((Cons (TFun params result _) (Nil)) (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
+           (_ (compile-error loc "Once requires a procedure type"))))
         ((TCon _ args)
          (for-each (lambda (arg)
                      (when (affine-type? program arg)
