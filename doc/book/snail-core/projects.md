@@ -27,15 +27,14 @@ supply the server and routes; project metadata does not infer them.
 ```sh
 ./snail build --release apps/siegework site
 python3 -m http.server 4191 --directory apps/siegework/build/site
-./snail check apps/siegework
 ./snail dev apps/siegework
 ```
 
 `snail build [--release] PROJECT BUILD-TARGET` publishes one selected target and
 its required artifacts. `snail run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
-runs a named program. `snail check PROJECT` checks all declared entries.
-`snail dev [--port PORT] PROJECT` retains compiler sessions and serves the editor.
-The [toolchain](toolchain.md) describes command lifetimes, checking and development,
+runs a named program. `snail dev [--port PORT] PROJECT` retains compiler
+sessions and serves the editor.
+The [toolchain](toolchain.md) describes command lifetimes and development,
 including the editor's application controls. Durable application data and browser
 reload integration remain in progress.
 
