@@ -149,15 +149,18 @@
         (write-bytes staging (read-bytes from))
         (checked "place" to (rename-file staging to))))
 
-    ;; A digest of a file's bytes, which changes when the file does: their
-    ;; SHA-256, or "none" where no file is, as for a directory in public/.
+    ;; A digest of the bytes a read of `path` gives, which changes when they
+    ;; do: their SHA-256, or "none" for what no read gives, as for a
+    ;; directory in public/. place-file! and the server read through
+    ;; symbolic links, so the digest follows them too, and an edit to the
+    ;; file a link names changes it. Every path digested was just listed or
+    ;; checked, so one that is not there is a link to nothing, which fails
+    ;; the build, naming the link.
     (: digest (-> String String ! fs))
     (define (digest path)
-      (match (file-status path)
-        ((Ok status) (match (FileStatus-kind status)
-                       ((RegularFile) (bytes->hex (sha256 (read-bytes path))))
-                       (_ "none")))
-        ((Err _) "none")))
+      (match (FileStatus-kind (checked "read" path (followed-status path)))
+        ((RegularFile) (bytes->hex (sha256 (read-bytes path))))
+        (_ "none")))
 
     ;; Milliseconds since `started`, a reading of the monotonic clock.
     (: milliseconds-since (-> I64 String ! clock))
@@ -293,12 +296,18 @@
 
     (: ignored? (-> String String Bool))
     (define (ignored? root path)
-      (let ((name (base-name path)))
-        (or (starts-with? path (string-append root "/build/")) (contains-segment? path ".git")
-            (starts-with? name ".")
-            (starts-with? name "#")
-            (ends-with? name "~")
-            (all-digits? name))))
+      (or (starts-with? path (string-append root "/build/")) (contains-segment? path ".git")
+          (temporary? (base-name path))))
+
+    ;; An editor's temporary file: a lock, an autosave or a swap file, a
+    ;; backup, or the numbered file Vim writes to test a directory. An
+    ;; Emacs lock is a symbolic link to nothing.
+    (: temporary? (-> String Bool))
+    (define (temporary? name)
+      (or (starts-with? name ".")
+          (starts-with? name "#")
+          (ends-with? name "~")
+          (all-digits? name)))
 
     ;; A build that panics, with the compiler's message, which the host
     ;; caught; the pages keep the build they have.
@@ -320,20 +329,22 @@
 
     ;; ---- Builds ----
 
-    ;; A build places the files the program links, writes its modules and
-    ;; modules.json, then shows the pages the new build or runs the program
-    ;; again, and only then removes the module files no page can still be
-    ;; loading. A build that fails to compile or assemble stops before
-    ;; modules.json, the page or any module a page may still load changes.
+    ;; A build digests the pages' files, places the files the program
+    ;; links, writes its modules and modules.json, then shows the pages the
+    ;; new build or runs the program again, and only then removes the module
+    ;; files no page can still be loading. A build that fails to compile or
+    ;; assemble, or finds a link to nothing, stops before modules.json, the
+    ;; page or any module a page may still load changes.
     (: build! (-> Loop Unit ! mut fs console clock develop))
     (define (build! loop)
       (let ((started (monotonic-nanoseconds)))
         (broadcast! (string-append "(building " (ref-get (Loop-manifest loop)) ")"))
         (let* ((builds (next-build! loop (main-source (Loop-request loop))))
+               (files (page-files loop))
                (modules (write-modules! loop builds)))
           (match (Loop-request loop)
             ((Serve _ app)
-             (publish-pages! loop app modules started)
+             (publish-pages! loop app files modules started)
              (report-built! app builds started))
             ((Watch _ _ arguments) (run! (manifest-path loop) arguments)))
           (remove-old-modules! loop
@@ -515,9 +526,11 @@
     ;; ---- Pages ----
 
     ;; Writes the page for the new build and tells every open page about it.
-    (: publish-pages! (-> Loop String (List (Pair String String)) I64 Unit ! mut fs clock develop))
-    (define (publish-pages! loop app modules started)
-      (let ((manifest (page-manifest loop app modules)))
+    (: publish-pages!
+       (-> Loop String (List (Pair String String)) (List (Pair String String)) I64 Unit
+           ! mut fs clock develop))
+    (define (publish-pages! loop app files modules started)
+      (let ((manifest (page-manifest files modules)))
         (write-published-file! (string-append (Loop-output loop) "/index.html")
                                (string-append (app-page app) (page-client manifest)))
         (ref-set! (Loop-manifest loop) manifest)
@@ -535,10 +548,10 @@
     ;; What a page runs, which its reload client compares with each event's
     ;; to learn what changed: every file it loads with a digest, and the
     ;; modules in program order.
-    (: page-manifest (-> Loop String (List (Pair String String)) String ! fs))
-    (define (page-manifest loop app modules)
+    (: page-manifest (-> (List (Pair String String)) (List (Pair String String)) String))
+    (define (page-manifest files modules)
       (string-append "(files"
-                     (quoted-pairs (page-files loop app))
+                     (quoted-pairs files)
                      ") (modules"
                      (quoted-pairs modules)
                      ")"))
@@ -554,18 +567,24 @@
                                pairs)))
 
     ;; Each page file's name and digest: the page itself, every file of the
-    ;; browser host, and the application's public files.
-    (: page-files (-> Loop String (List (Pair String String)) ! fs))
-    (define (page-files loop app)
-      (Cons (Pair "index.html" (i64->string (fnv-1a (app-page app))))
-            (append (file-digests (host-directory (Loop-root loop)))
-                    (filter (lambda (file) (not (string=? (Pair-first file) "index.html")))
-                            (file-digests (string-append app "/public"))))))
+    ;; browser host, and the application's public files. A program has no
+    ;; pages.
+    (: page-files (-> Loop (List (Pair String String)) ! fs))
+    (define (page-files loop)
+      (match (Loop-request loop)
+        ((Serve _ app)
+         (Cons (Pair "index.html" (i64->string (fnv-1a (app-page app))))
+               (append (file-digests (host-directory (Loop-root loop)))
+                       (filter (lambda (file) (not (string=? (Pair-first file) "index.html")))
+                               (file-digests (string-append app "/public"))))))
+        ((Watch _ _ _) (Nil))))
 
+    ;; Editors' temporary files are left out: no page loads one, and
+    ;; digesting an Emacs lock would fail the build.
     (: file-digests (-> String (List (Pair String String)) ! fs))
     (define (file-digests directory)
       (map (lambda (name) (Pair name (digest (string-append directory "/" name))))
-           (directory-names directory)))
+           (filter (lambda (name) (not (temporary? name))) (directory-names directory))))
 
     ;; The application's page, or an empty one for a project without it,
     ;; as the IDE may open.

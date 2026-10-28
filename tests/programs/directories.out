@@ -29,6 +29,11 @@ link again -> error: it already exists
 status of the link -> ok link of 7 bytes, modified after 1970
 read the link -> ok a/B.txt
 read through the link -> four
+followed status of the link -> ok file of 4 bytes, modified after 1970
+link to nothing -> ok
+status of the link to nothing -> ok link of 7 bytes, modified after 1970
+followed status of the link to nothing -> error: no such file or directory
+remove the link to nothing -> ok
 read a file as a link -> error: invalid path
 remove the link -> ok
 its target remains -> #t

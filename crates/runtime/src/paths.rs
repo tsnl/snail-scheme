@@ -17,7 +17,7 @@
 use crate::io::{checked, resolved, staged_path, staged_text};
 use std::{
     cell::{Cell, RefCell},
-    fs::FileType,
+    fs::{FileType, Metadata},
     io::ErrorKind,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -149,15 +149,16 @@ pub extern "C" fn list_directory(count: u32) -> i32 {
 
 // ---- Status ----
 
-// `file-status` answers a path's kind and leaves its size and modification
-// time here for the two reads that follow it, as a reply is left: scratch
-// owned by the runtime instance, replaced by the next status.
+// `file-status` and `followed-status` answer a path's kind and leave its
+// size and modification time here for the two reads that follow, as a reply
+// is left: scratch owned by the runtime instance, replaced by the next
+// status.
 thread_local! {
     static STATUS: Cell<(i64, i64)> = const { Cell::new((0, 0)) };
 }
 
-/// A kind as `FileKind` numbers it. A link is never followed, so it is its
-/// own kind rather than its target's.
+/// A kind as `FileKind` numbers it. Only `file-status` sees a link as its
+/// own kind; `followed-status` sees what the link names.
 fn kind(file_type: FileType) -> i32 {
     if file_type.is_symlink() {
         2
@@ -178,16 +179,33 @@ fn nanoseconds(time: SystemTime) -> i64 {
     }
 }
 
-fn status(path: &str) -> Result<i32, PathError> {
-    let metadata = std::fs::symlink_metadata(path)?;
+fn recorded(metadata: Metadata) -> Result<i32, PathError> {
     let size = i64::try_from(metadata.len()).unwrap_or(i64::MAX);
     STATUS.set((size, nanoseconds(metadata.modified()?)));
     Ok(kind(metadata.file_type()))
 }
 
+/// The path itself, a link included (`path_filestat_get` without
+/// `SYMLINK_FOLLOW`).
+fn status(path: &str) -> Result<i32, PathError> {
+    recorded(std::fs::symlink_metadata(path)?)
+}
+
+/// What opening the path finds, following each link to the file it names
+/// (`path_filestat_get` with `SYMLINK_FOLLOW`). A link to nothing is
+/// `NotFound`, though `status` finds the link.
+fn followed(path: &str) -> Result<i32, PathError> {
+    recorded(std::fs::metadata(path)?)
+}
+
 #[unsafe(export_name = "snail:io/file-status")]
 pub extern "C" fn file_status(count: u32) -> i32 {
     answer(status(&checked(staged_path(count))))
+}
+
+#[unsafe(export_name = "snail:io/followed-status")]
+pub extern "C" fn followed_status(count: u32) -> i32 {
+    answer(followed(&checked(staged_path(count))))
 }
 
 #[unsafe(export_name = "snail:io/status-size")]
@@ -340,6 +358,24 @@ mod tests {
             status(&text(&directory.join("missing"))),
             Err(PathError::NotFound)
         );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn followed_status_sees_what_a_link_names() {
+        let directory = scratch("followed");
+        std::fs::write(directory.join("file"), "four").unwrap();
+        let link = |target: &str, name: &str| make_link(target.into(), text(&directory.join(name)));
+        assert_eq!(link("file", "link"), Ok(0));
+        assert_eq!(link("link", "chain"), Ok(0));
+        assert_eq!(link(".", "here"), Ok(0));
+        assert_eq!(link("missing", "dangling"), Ok(0));
+        assert_eq!(followed(&text(&directory.join("chain"))), Ok(0));
+        assert_eq!(status_size(), 4);
+        assert_eq!(followed(&text(&directory.join("here"))), Ok(1));
+        let dangling = text(&directory.join("dangling"));
+        assert_eq!(followed(&dangling), Err(PathError::NotFound));
+        assert_eq!(status(&dangling), Ok(2));
         std::fs::remove_dir_all(directory).unwrap();
     }
 

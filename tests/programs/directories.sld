@@ -98,6 +98,12 @@
 (report "status of the link" (answer status-text (file-status (at "link"))))
 (report "read the link" (answer (lambda (target) target) (read-symbolic-link (at "link"))))
 (report "read through the link" (read-file (at "link")))
+(report "followed status of the link" (answer status-text (followed-status (at "link"))))
+(report "link to nothing" (answer done (make-symbolic-link "missing" (at "dangling"))))
+(report "status of the link to nothing" (answer status-text (file-status (at "dangling"))))
+(report "followed status of the link to nothing"
+        (answer status-text (followed-status (at "dangling"))))
+(report "remove the link to nothing" (answer done (remove-file (at "dangling"))))
 (report "read a file as a link"
         (answer (lambda (target) target) (read-symbolic-link (at "a/B.txt"))))
 (report "remove the link" (answer done (remove-file (at "link"))))
