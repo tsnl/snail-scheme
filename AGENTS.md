@@ -42,8 +42,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   semantics for the same program; evidence passing is a translation, needs no
   runtime support, and reuses machinery the compiler already has for
   typeclasses. The consequence is the continuation tier: one-shot and
-  delimited by its handler. `resume` is an affine closure, `Once`, so it is
-  first-class — a scheduler can hold it and call it later as a thunk, which
+  delimited by its handler. `resume` is an affine closure, `Once` (linear
+  under the ownership plan, #550), so it is first-class — a scheduler can hold it and call it later as a thunk, which
   is how tasks become effects — and the ownership checker proves it is called
   at most once. Multi-shot continuations are out of scope, since
   they require every frame to be reachable twice and would be paid for by code
