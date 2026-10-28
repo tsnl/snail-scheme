@@ -7,11 +7,3 @@ export function programEntry(program, name = 'app_main') {
   const exports = program.names ? programExports(program) : program.exports ?? program.runtime.exports;
   return {exports, main: exports[name], memory: program.linked ? program.runtime.exports.memory : exports.memory};
 }
-
-// A foreign Bytes argument borrows staging memory. Own its bytes before any
-// await or another Wasm call can overwrite or grow the buffer.
-export function byteSnapshot(memory, address) {
-  const pointer = address >>> 0, buffer = memory.buffer;
-  const length = new DataView(buffer).getUint32(pointer, true);
-  return new Uint8Array(buffer, pointer + 4, length).slice();
-}

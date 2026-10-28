@@ -1217,15 +1217,27 @@
           (("expression") (Pair (list (lambda (cx) (expanding cx ((value (expand-expr env form))) (add-item cx (Do value))))) cx))
           (else (Pair (Nil) cx)))))
 
-    ;; `(expose name "symbol")` exports a top-level function to the host.
+    ;; `(expose name "symbol")` exports a top-level function to the host;
+    ;; `(expose name "symbol" dynamic)` exports it for programs that load it
+    ;; while they run, through (snail-core wasm).
     (: expose-item (-> Context Env Syntax Item))
     (define (expose-item cx env form)
       (match form
-        ((Form (Cons _ (Cons name (Cons (Atom (DString symbol) _) (Nil)))) loc)
+        ((Form (Cons _ (Cons name (Cons (Atom (DString symbol) _) flags))) loc)
          (match (resolve cx env (expect-ident name "a function name"))
-           ((Some (Global global)) (Expose global symbol loc))
+           ((Some (Global global)) (Expose global symbol (dynamic-flag? form flags) loc))
            (_ (compile-error (syntax-loc name) (string-append "only a top-level function can be exposed: " (Ident-name name))))))
-        (_ (compile-error (syntax-loc form) "expected (expose name \"symbol\")"))))
+        (_ (compile-error (syntax-loc form) expose-usage))))
+
+    (: dynamic-flag? (-> Syntax (List Syntax) Bool))
+    (define (dynamic-flag? form flags)
+      (match flags
+        ((Nil) #f)
+        ((Cons (Ident "dynamic" _ _) (Nil)) #t)
+        (_ (compile-error (syntax-loc form) expose-usage))))
+
+    (: expose-usage String)
+    (define expose-usage "expected (expose name \"symbol\") or (expose name \"symbol\" dynamic)")
 
     (: define-top-level (-> Context (Table (Pair Scheme (Option Loc))) Env Syntax Context))
     (define (define-top-level cx signatures env form)

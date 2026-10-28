@@ -3,8 +3,13 @@
  (snail-core io)
  (snail-core wasm))
 
-(: count (-> Module I64 ! wasm))
-(define (count module)
-  (unsafe-cast (module-export module "count")))
+(: count (-> Funcref I64))
+(define (count function)
+  (unsafe-cast function))
 
-(display (count (load-module "counter" "counter.wasm")))
+(match (load-module "counter" "counter.wasm")
+  ((Ok module)
+   (match (module-export module "count")
+     ((Ok function) (display (count function)))
+     ((Err _) (unit))))
+  ((Err _) (unit)))

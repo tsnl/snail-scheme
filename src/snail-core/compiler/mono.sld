@@ -360,7 +360,7 @@
     (: root-item (-> State Item (Option Item) ! mut))
     (define (root-item state item)
       (match item
-        ((Expose name _ _) (request! state name (Nil) (Nil)) (None))
+        ((Expose name _ _ _) (request! state name (Nil) (Nil)) (None))
         ((Do expr) (Some (Do (copy-expr state (Instantiation (Nil) (Nil) (State-control state)) expr))))
         ((Define name value)
          (let ((scheme (scheme-of state name)))
@@ -374,7 +374,7 @@
       (match item
         ((Define name _) (copies-of state name))
         ((Do _) (match statement ((Some statement) (list statement)) ((None) (Nil))))
-        ((Expose _ _ _) (list item))))
+        ((Expose _ _ _ _) (list item))))
 
     (: alias-expr? (-> Expr Bool))
     (define (alias-expr? expr)

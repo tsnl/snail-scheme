@@ -1,2 +1,7 @@
 42
 6
+nothing is exported as subtract
+a module named adder is linked already
+cannot read build/tests/missing.wasm
+build/tests/adder.txt is not a WebAssembly module
+the module mislinked imports what nothing provides at its type

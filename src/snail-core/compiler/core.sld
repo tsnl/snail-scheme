@@ -151,6 +151,8 @@
    type-id
    case-type-id
    any-type-id
+   wide-hash
+   wide-type-id
    wire-schemas
    strong-components)
   (import
@@ -611,7 +613,9 @@
         (_ (Nil))))
 
     ;; Top-level items run in order when the program starts. An exposed
-    ;; function is exported to the host under `symbol`.
+    ;; function is exported to the host under `symbol`; a `dynamic` one is
+    ;; exported instead for programs that load it while they run, behind a
+    ;; wrapper that takes and returns Any values, beside its signature.
     (enum Item
       (Define
         ((name String)
@@ -621,6 +625,7 @@
       (Expose
        ((name String)
         (symbol String)
+        (dynamic Bool)
         (loc Loc))))
 
     ;; The value of each definition among `items`, by name.
@@ -824,7 +829,34 @@
     ;; with such a change cannot take an old value for a new one.
     (: any-type-id (-> Program Type I64))
     (define (any-type-id program type)
-      (type-id (string-append (type-key type) "\n" (type-schema program type (Nil) (Nil)))))
+      (type-id (type-identity program type)))
+
+    ;; The same identity in 64 bits, for a dynamic export's signature: it is
+    ;; compared once, when a program looks the function up, rather than
+    ;; carried by every value.
+    (: wide-type-id (-> Program Type I64))
+    (define (wide-type-id program type)
+      (wide-hash (type-identity program type)))
+
+    (: type-identity (-> Program Type String))
+    (define (type-identity program type)
+      (string-append (type-key type) "\n" (type-schema program type (Nil) (Nil))))
+
+    ;; FNV-1a in 64 bits over the code points, as a signed I64. The state is
+    ;; two unsigned 32-bit halves, high and low, so that every product stays
+    ;; below 2^42 and both hosts compute the same value; the prime is
+    ;; 2^40 + 435, whose 2^40 shifts the low half eight bits into the high.
+    (: wide-hash (-> String I64))
+    (define (wide-hash text)
+      (let ((state (vector-fold (lambda (state c) (wide-step state (char->integer c))) (Pair 3421674724 2216829733) (string->vector text))))
+        (+ (* (if (>= (Pair-first state) 2147483648) (- (Pair-first state) 4294967296) (Pair-first state)) 4294967296)
+           (Pair-second state))))
+
+    (: wide-step (-> (Pair I64 I64) I64 (Pair I64 I64)))
+    (define (wide-step state code)
+      (let* ((low (i64-xor (Pair-second state) code)) (product (* low 435)))
+        (Pair (i64-and (+ (+ (* (Pair-first state) 435) (quotient product 4294967296)) (* (i64-and low 16777215) 256)) 4294967295)
+              (i64-and product 4294967295))))
 
     (: case-schema (-> Program Case (List String) String))
     (define (case-schema program case visiting)
@@ -1015,5 +1047,8 @@
     (begin
       (define (test-core)
         (expect (short-name "snail-core.base:map") "map")
-        (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d")))))
+        (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d"))
+        (expect (wide-hash "") -3750763034362895579)
+        (expect (wide-hash "a") -5808556873153909620)
+        (expect (wide-hash "foobar") -8821353812377114648))))
    (else)))

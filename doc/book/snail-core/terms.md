@@ -68,6 +68,7 @@ datum into syntax. Every generated form is located at the recipe.
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
 | `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail-core primitive)`. |
 | `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
+| `(expose name "symbol" dynamic)` | Exports it instead for programs that load it as a plugin's (`plugin-function` in `(snail-core wasm)`): behind a wrapper of `Any` values, beside `"symbol:signature"`. Its arguments and result must be data, with no function or `Any` inside, and it must be pure ([plugins](compilers.md#plugins)). |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
 `(snail-core base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,

@@ -12,7 +12,7 @@
 ;; everything else is total, though some can trap.
 (define-library (snail-core primitive)
   (export
-   unit panic unsafe-total unsafe-cast
+   unit panic unsafe-total unsafe-cast dynamic-cast
    once call-once drop-owned dispatch-local yield-task sleep-task park-task unpark-task current-task
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
@@ -40,11 +40,17 @@
     ;; mutation stays in storage the function allocates. `unsafe-cast` makes
     ;; a function of whatever type is expected from a Funcref, a function
     ;; another module exports (`(snail-core wasm)`), checking only its Wasm
-    ;; type.
+    ;; type. `dynamic-cast` is its checked counterpart, for a function exposed
+    ;; with `dynamic`: it calls the importer's policy with the signature the
+    ;; expected type has, and makes the function only if the policy accepts
+    ;; it, as a vector of one; otherwise the vector is empty, since Option is
+    ;; declared later, in (snail-core base). The function checks the TypeId
+    ;; of each value it receives.
     (primitive unit (-> Unit))
     (primitive panic (All (A) (-> String A)))
     (primitive unsafe-total (All (A e) (-> (-> A ! e) A)))
     (primitive unsafe-cast (All (A) (-> Funcref A)))
+    (primitive dynamic-cast (All (A) (-> Funcref (-> (Vector I64) Bool) (Vector A))))
 
     ;; ---- Once and tasks ----
 

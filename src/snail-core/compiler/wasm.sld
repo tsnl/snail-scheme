@@ -1320,6 +1320,8 @@
     ;; Wasm type of a function of the expected type and calls it. The cast is
     ;; the only check: the engine traps if the function's Wasm type differs,
     ;; and nothing compares Snail-Core types, which is what makes the cast unsafe.
+    ;; That type is a Snail-Core function's, which takes the evidence first,
+    ;; so the held function is one another module compiled from Snail-Core.
     (: funcref-closure (-> Module Type Wat Wat ! mut))
     (define (funcref-closure m type reference)
       (match type
@@ -1339,9 +1341,9 @@
                            (wat "type" (id (wasm-id key))
                                 (wat "sub" (Word "final") (id base) (wat "struct" (wat "field" (wat "ref" (id (code-type m base)))) (wat "field" (Word "funcref"))))))))))
 
-    ;; The code takes the closure and the arguments, and calls the function
-    ;; the closure holds with the arguments, at that function's own type,
-    ;; which takes no closure.
+    ;; The code takes the closure, the evidence and the arguments, and calls
+    ;; the function the closure holds with the evidence and the arguments, at
+    ;; that function's own type, which takes no closure.
     (: funcref-code (-> Module (Pair (List Rep) Rep) String String String ! mut))
     (define (funcref-code m signature base holder)
       (let ((params (Pair-first signature)) (result (Pair-second signature)))
@@ -1353,17 +1355,18 @@
                                                    (map (lambda (param) (wat "param" (rep->wat param))) params)
                                                    (list (wat "result" (rep->wat result)) (held-call m params result holder)))))))))
 
-    ;; The held function is foreign and takes no evidence; the parameters
-    ;; follow the closure and the evidence.
+    ;; The held function runs under the handlers in scope where the closure
+    ;; is called: the code passes on its own evidence, local 1, and the
+    ;; parameters that follow it.
     (: held-call (-> Module (List Rep) Rep String Wat ! mut))
     (define (held-call m params result holder)
       (let ((own (funcref-type m params result))
             (held (wat "struct.get" (id holder) (int 1) (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0))))))
-        (wat* "call_ref" (append (Cons (id own) (map (lambda (index) (wat "local.get" (int (+ index 2)))) (iota (length params))))
+        (wat* "call_ref" (append (Cons (id own) (map (lambda (index) (wat "local.get" (int (+ index 1)))) (iota (+ (length params) 1))))
                                  (list (wat "ref.cast" (wat "ref" (id own)) held))))))
 
-    ;; The Wasm type of the function a Funcref refers to, which takes no
-    ;; closure.
+    ;; The Wasm type of the function a Funcref refers to, which takes the
+    ;; evidence and no closure.
     (: funcref-type (-> Module (List Rep) Rep String ! mut))
     (define (funcref-type m params result)
       (let ((key (string-append "funcref." (string-join (map rep-key params) ",") "->" (rep-key result))))
@@ -1372,7 +1375,146 @@
           ((None)
            (register-type! m key (wasm-id key)
                            (wat "type" (id (wasm-id key))
-                                (wat* "func" (append (map (lambda (param) (wat "param" (rep->wat param))) params) (list (wat "result" (rep->wat result)))))))))))
+                                (wat* "func" (append (Cons (wat "param" (evidence-ref m)) (map (lambda (param) (wat "param" (rep->wat param))) params))
+                                                     (list (wat "result" (rep->wat result)))))))))))
+
+    ;; ---- Dynamic functions ----
+
+    ;; `(expose name "symbol" dynamic)` exports a function for programs that
+    ;; load it while they run, in two parts: "symbol", which takes the
+    ;; evidence and an Any for each parameter and returns an Any, and
+    ;; "symbol:signature", which returns the function's signature: its
+    ;; arity, then the 64-bit identity of each parameter's type and of the
+    ;; result's (`wide-type-id`). The checker has made sure each is data,
+    ;; which its identity names all of, and that the function is pure. A
+    ;; program that loads the function compares the signature once, when it
+    ;; looks it up, and `dynamic-cast` holds the export in a closure of the
+    ;; plain type. Values cross by reference: one declaration is one GC type
+    ;; in every module that declares it.
+    (: signature-words (-> Module Type (List I64)))
+    (define (signature-words m type)
+      (match type
+        ((TFun params result _) (Cons (length params) (map (lambda (t) (wide-type-id (program-of m) t)) (append params (list result)))))
+        (_ (panic "internal error: a dynamic function has a function type"))))
+
+    (: signature-wat (-> Module Type Wat ! mut))
+    (define (signature-wat m type)
+      (let ((words (signature-words m type)))
+        (wat* "array.new_fixed"
+              (Cons (id (array-type m (Scalar "i64"))) (Cons (int (length words)) (map (lambda (word) (wat "i64.const" (int word))) words))))))
+
+    ;; The Wasm type of a dynamic export of `arity` parameters.
+    (: dynamic-type (-> Module I64 String ! mut))
+    (define (dynamic-type m arity)
+      (let ((key (string-append "dynamic." (i64->string arity))) (any (wat "ref" (id (any-type m)))))
+        (match (known-type m key)
+          ((Some type) type)
+          ((None)
+           (register-type! m key (wasm-id key)
+                           (wat "type" (id (wasm-id key))
+                                (wat* "func" (append (Cons (wat "param" (evidence-ref m)) (map (lambda (index) (wat "param" any)) (iota arity)))
+                                                     (list (wat "result" any))))))))))
+
+    ;; Both exports of `name`, whose definition has `type`.
+    (: export-dynamic! (-> Module String String Type Unit ! mut))
+    (define (export-dynamic! m name symbol type)
+      (push! (Module-exports m) (wat "export" (wat-string symbol) (wat "func" (id (dynamic-wrapper! m name type)))))
+      (push! (Module-exports m)
+             (wat "export" (wat-string (string-append symbol ":signature")) (wat "func" (id (signature-function! m name type))))))
+
+    ;; The wrapper takes each argument out of its Any, which checks its
+    ;; TypeId, and calls the definition with the empty evidence list, as an
+    ;; exposed function's does: the loading program's handlers are not
+    ;; passed on, and the checker has made the function pure.
+    (: dynamic-wrapper! (-> Module String Type String ! mut))
+    (define (dynamic-wrapper! m name type)
+      (match type
+        ((TFun params result _)
+         (let* ((fn (new-fn m)) (wrapper (wasm-id (string-append "dynamic-export." name)))
+                (names (map (lambda (index) (string-append "$any." (i64->string index))) (iota (length params))))
+                (args (map (lambda (pair) (from-any fn (Pair-first pair) (wat "local.get" (id (Pair-second pair))))) (zip params names)))
+                (value (to-any m result (wat* "call" (Cons (id (wasm-id name)) (Cons (evidence-none m) args))))))
+           (push-function! m wrapper
+                           (function-wat fn wrapper
+                                         (Cons (wat "type" (id (dynamic-type m (length params))))
+                                               (Cons (evidence-param m) (map (lambda (param) (wat "param" (id param) (wat "ref" (id (any-type m))))) names)))
+                                         (Reference (any-type m)) (list value)))
+           wrapper))
+        (_ (panic "internal error: a dynamic export is a function"))))
+
+    ;; The signature takes the evidence, as every Snail-Core function does,
+    ;; so a program that loads it calls it as a function of no arguments.
+    (: signature-function! (-> Module String Type String ! mut))
+    (define (signature-function! m name type)
+      (let ((function-id (wasm-id (string-append "dynamic-signature." name))))
+        (push-function! m function-id
+                        (wat "func" (id function-id) (evidence-param m) (wat "result" (wat "ref" (id (array-type m (Scalar "i64")))))
+                             (signature-wat m type)))
+        function-id))
+
+    ;; `dynamic-cast` calls the policy with the signature of the function
+    ;; type the context expects and, if the policy accepts it, holds the
+    ;; Funcref in a closure of that type, in a vector of one; otherwise the
+    ;; vector is empty. Both operands are evaluated first, in order.
+    (: dynamic-cast (-> Fn Type Type Wat Wat Wat ! mut))
+    (define (dynamic-cast fn type policy-type reference policy)
+      (let* ((m (Fn-module fn)) (vector (reference-type (fn-rep fn type))) (base (reference-type (fn-rep fn policy-type)))
+             (held (declare-temp! fn (Word "funcref"))) (accepts (declare-temp! fn (rep->wat (Reference base)))))
+        (wat "block" (wat "result" (wat "ref" (id vector)))
+             (wat "local.set" (id held) reference)
+             (wat "local.set" (id accepts) policy)
+             (wat "if" (wat "result" (wat "ref" (id vector)))
+                  (closure-call-wat m base (wat "local.get" (id accepts)) (list (Fn-evidence fn) (signature-wat m (vector-element type))) #f)
+                  (wat "then" (wat "array.new_fixed" (id vector) (int 1) (dynamic-closure m (vector-element type) (wat "local.get" (id held)))))
+                  (wat "else" (wat "array.new_fixed" (id vector) (int 0)))))))
+
+    (: vector-element (-> Type Type))
+    (define (vector-element type)
+      (match type
+        ((TCon "Vector" (Cons element (Nil))) element)
+        (_ (panic "internal error: not a vector type"))))
+
+    ;; The expected type is a function of data, as a dynamic export's is, or
+    ;; no signature could be its.
+    (: dynamic-closure (-> Module Type Wat Wat ! mut))
+    (define (dynamic-closure m type reference)
+      (match type
+        ((TFun params result _)
+         (unless (every? (lambda (t) (first-order-type? (program-of m) t)) (Cons result params))
+           (panic (string-append "dynamic-cast makes a function of data, not a " (type->string type))))
+         (let* ((signature (function-signature m type)) (base (closure-type m (Pair-first signature) (Pair-second signature)))
+                (holder (funcref-holder-type m base)))
+           (wat "struct.new" (id holder) (wat "ref.func" (id (dynamic-code m type base holder))) reference)))
+        (_ (panic (string-append "dynamic-cast makes a function, not a " (type->string type))))))
+
+    ;; The code passes the closure's arguments as Any values, with its own
+    ;; evidence, to the export it holds, and takes the result out of the Any
+    ;; that returns, which checks its TypeId. TypeIds depend on the
+    ;; Snail-Core types and not only on their representations, so the code
+    ;; is kept per type.
+    (: dynamic-code (-> Module Type String String String ! mut))
+    (define (dynamic-code m type base holder)
+      (helper! m "dynamic-call" (type-key type)
+               (lambda (function-id)
+                 (push! (Module-declared m) function-id)
+                 (let ((fn (new-fn m)) (signature (function-signature m type)))
+                   (function-wat fn function-id
+                                 (append (list (wat "type" (id (code-type m base))) (wat "param" (wat "ref" (id base))) (wat "param" (evidence-ref m)))
+                                         (map (lambda (param) (wat "param" (rep->wat param))) (Pair-first signature)))
+                                 (Pair-second signature) (list (dynamic-call fn type holder)))))))
+
+    ;; The export takes the evidence, local 1, then an Any for each of the
+    ;; parameters that follow it.
+    (: dynamic-call (-> Fn Type String Wat ! mut))
+    (define (dynamic-call fn type holder)
+      (match type
+        ((TFun params result _)
+         (let* ((m (Fn-module fn)) (export (dynamic-type m (length params)))
+                (held (wat "struct.get" (id holder) (int 1) (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0)))))
+                (anys (map-indexed (lambda (index param) (to-any m param (wat "local.get" (int (+ index 2))))) params)))
+           (from-any fn result (wat* "call_ref" (append (Cons (id export) (Cons (wat "local.get" (int 1)) anys))
+                                                        (list (wat "ref.cast" (wat "ref" (id export)) held)))))))
+        (_ (panic "internal error: not a function type"))))
 
     ;; ---- Effect handlers ----
 
@@ -2395,6 +2537,7 @@
                      (wat "drop" (arg 0))) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
+          (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
           (("bool->i32" "char->i32" "i32->char" "string->vector" "vector->string" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))
@@ -2832,7 +2975,8 @@
                                                        (append (reverse (ref-get (Fn-locals fn))) (append code (list (wat "i32.const" (int 0))))))))))))
 
     ;; A value becomes a mutable global set at startup; a statement runs and
-    ;; its value is dropped; an exposed function is exported.
+    ;; its value is dropped; an exposed function is exported, behind the
+    ;; wrapper the host or a loading program calls.
     (: main-item-code (-> Module Fn Item (List Wat) ! mut))
     (define (main-item-code m fn item)
       (match item
@@ -2843,12 +2987,14 @@
                (push! (Module-globals m) (wat "global" (id (wasm-id name)) (wat "mut" (nullable r)) (default-value r)))
                (list (wat "global.set" (id (wasm-id name)) (emit1 fn value))))))
         ((Do expr) (list (wat "drop" (emit1 fn expr))))
-        ((Expose name symbol loc)
+        ((Expose name symbol dynamic loc)
          (match (definition-of m name)
            ((Some definition)
             (unless (lambda-expr? definition) (compile-error loc "an exposed function must be defined with lambda"))
-            (push! (Module-exports m)
-                   (wat "export" (wat-string symbol) (wat "func" (id (exposed-function m name (Expr-type definition)))))))
+            (if dynamic
+                (export-dynamic! m name symbol (Expr-type definition))
+                (push! (Module-exports m)
+                       (wat "export" (wat-string symbol) (wat "func" (id (exposed-function m name (Expr-type definition))))))))
            ((None) (compile-error loc "an exposed function must be defined")))
          (Nil))))
 

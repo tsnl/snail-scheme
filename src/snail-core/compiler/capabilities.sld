@@ -2,7 +2,7 @@
 ;; from sharing even while its managed, aliased mutable containers permit
 ;; neither. A procedure's arrow does not describe its captured environment.
 (define-library (snail-core compiler capabilities)
-  (export capability-class? capability-type? affine-type?)
+  (export capability-class? capability-type? affine-type? first-order-type?)
   (import
    (snail-core base)
    (snail-core compiler core))
@@ -40,6 +40,41 @@
                              (Case-fields case)))
                    (DataType-cases data))))
         (_ #f)))
+
+    ;; ---- Data ----
+
+    ;; A type is first-order data when nothing inside it, through type
+    ;; arguments and declared fields, is a function, a Funcref or an Any.
+    ;; Its TypeId then names all of it: a function type's says only that it
+    ;; is one, and an Any's nothing of what it holds. The search returns the
+    ;; declarations it has entered, each once, as the search for affine
+    ;; fields below does, or None once it finds something that is not data.
+    (: first-order-type? (-> Program Type Bool))
+    (define (first-order-type? program type)
+      (match (first-order-search program type (Some (Nil)))
+        ((Some _) #t)
+        ((None) #f)))
+
+    ;; Arguments are searched before a recursive declaration is cut by name.
+    (: first-order-search (-> Program Type (Option (List String)) (Option (List String))))
+    (define (first-order-search program type entered)
+      (match (Pair type entered)
+        ((Pair _ (None)) (None))
+        ((Pair (TCon name args) _)
+         (match (fold-left (lambda (found arg) (first-order-search program arg found)) entered args)
+           ((Some names)
+            (cond ((member? name (list "Any" "Funcref")) (None))
+                  ((or (member? name names) (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types)) (Some names))
+                  (else (first-order-fields program name args (Cons name names)))))
+           ((None) (None))))
+        ((Pair (TRow _ _) _) entered)
+        (_ (None))))
+
+    (: first-order-fields (-> Program String (List Type) (List String) (Option (List String))))
+    (define (first-order-fields program name args entered)
+      (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
+        (fold-left (lambda (found field) (first-order-search program (substitute bindings (Field-type field)) found))
+                   (Some entered) (concatenate (map Case-fields (DataType-cases data))))))
 
     ;; ---- Type grades ----
 

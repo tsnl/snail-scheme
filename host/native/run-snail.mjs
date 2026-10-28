@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import {readFileSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
@@ -36,7 +35,7 @@ async function run(filename, arguments_, termination) {
   const tcp = createTcp(), udp = createUdp(), processes = createProcesses();
   // WASI exits throw an opaque sentinel after printing their diagnostic.
   const scheduler = createScheduler({reportError: error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); }});
-  const host = {'snail.wasm': wasmImports(() => program, file => readFileSync(file)), 'snail.tasks': taskImports(() => scheduler),
+  const host = {'snail.wasm': wasmImports(() => program), 'snail.tasks': taskImports(() => scheduler),
                 'snail.socket': socketImports(() => program, scheduler, tcp, udp),
                 'snail.process': processImports(() => program, scheduler, processes, termination)};
   // A parked JSPI stack is live work even when no OS handle keeps Node alive.

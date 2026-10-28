@@ -1,7 +1,7 @@
 // The native process effect boundary, bound as socket-imports.mjs binds
 // sockets. Managed construction happens while the resumed task owns the
 // scheduler permit; pending I/O touches native data only.
-import {byteSnapshot} from '../browser/entry.mjs';
+import {byteSnapshot} from '../browser/load.mjs';
 
 const coded = error => error instanceof Error && typeof error.code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(error.code);
 
