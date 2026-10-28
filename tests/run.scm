@@ -443,16 +443,21 @@
 ;; ---- Loading while a program runs ----
 
 ;; A host program, linked when it runs, loads what other builds hold
-;; through (snail-core wasm): the module of a library from another
-;; program's build, whose exported function it casts and calls.
+;; through (snail-core wasm): the module of a library from a plugin's
+;; build, whose exported function it casts and calls, and the plugin
+;; itself, whose dynamic function it calls on values of a library both
+;; import. The plugin is built twice, the second time from a stale
+;; declaration of that library, whose function the host must refuse.
 (define (run-dynamic-loading root)
   (guard (failure (#t (report "dynamic loading" "build failed" (error-text failure))))
-    (let ((source (lambda (name) (path-join root "tests/dynamic" name)))
-          (output (lambda (name) (path-join root "build/tests/dynamic" name)))
-          (directories (cons (path-join root "tests/dynamic/lib") (standard-directories root))))
+    (let* ((source (lambda (name) (path-join root "tests/dynamic" name)))
+           (output (lambda (name) (path-join root "build/tests/dynamic" name)))
+           (directories (cons (source "lib") (standard-directories root))))
       (build-modules root directories (source "plugin.sld") (output "plugin"))
+      (build-modules root (cons (source "stale") directories) (source "plugin.sld") (output "stale"))
       (build-modules root directories (source "host.sld") (output "host"))
-      (let ((printed (run-wasm root (path-join (output "host") "modules.json") (path-join (output "plugin") "cell.wasm")))
+      (let ((printed (run-wasm root (path-join (output "host") "modules.json") (path-join (output "plugin") "cell.wasm")
+                               (path-join (output "plugin") "modules.json") (path-join (output "stale") "modules.json")))
             (expected (read-file (source "host.out"))))
         (or (equal? printed expected) (report "dynamic loading" "wrong output" (string-append printed "\nexpected:\n" expected)))))))
 

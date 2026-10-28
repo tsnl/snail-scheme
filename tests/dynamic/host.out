@@ -1,1 +1,6 @@
 42
+summary of the project Atlas: 3 tasks, 13 days
+summarize was compiled with other types than this program's
+nothing is exported as missing
+main is not exposed with dynamic
+cannot read build/tests/dynamic/missing/modules.json
