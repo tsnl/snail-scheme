@@ -1,7 +1,8 @@
 # HTTP protocol
 
-`(snail-core http)` implements a pure, bounded request-head parser and response
-serializer, importing only `(snail-core base)`. `(snail-core http exchange)` reads one complete
+`(snail-core http)` implements a pure, bounded request-head parser, a
+request-target decoder and response serializers, importing only
+`(snail-core base)` and `(snail-core utf8)`. `(snail-core http exchange)` reads one complete
 request, calls application code and writes its response over the concrete
 [socket effects](../runtimes/networking.md). Applications own accepting and
 scheduling connections; the library supplies no router or server framework.
@@ -36,6 +37,28 @@ Each `Header` contains a lowercase name and a value with surrounding spaces/tabs
 removed. Ordinary occurrences retain their order and are not merged.
 `header-values` takes the parsed headers and a case-insensitive name, returning
 all matching values. It expects the normalized names produced by the parser.
+
+## Request targets
+
+```scheme
+(parse-target (RequestHead-target head))
+;; Result Target HttpError
+```
+
+`parse-target` decodes an origin-form target as `new URL` and
+`URLSearchParams` read it. `Target-path` is the segments after the first `/`,
+split before decoding, so `/` is `("")` and `/a%2Fb/` is `("a/b" "")`. Dot
+segments are resolved after decoding, `%2e%2e` included, as the URL standard
+does: `/a/b/..` is `("a" "")`. `Target-query` is the query's name and value
+pairs in order: `&` separates pairs, empty pieces are skipped, the first `=`
+ends a name, and `+` is a space before decoding, so `%2B` stays a plus.
+`assoc-ref` finds a name's first value, as `URLSearchParams.get` does.
+
+Decoding is strict where the URL standard is lenient. A `%` without two hex
+digits, a character outside the target's URI characters, and escaped bytes
+that are not UTF-8 are all `Malformed`; Node keeps a bad escape as text and
+replaces bad UTF-8 with U+FFFD. Targets that `encodeURIComponent` builds always
+decode. A target without a leading `/` is `Unsupported`.
 
 Exactly one Host is required. This implementation accepts a nonempty name made
 of ASCII letters, digits, `.`, `-` and `_`, optionally followed by a decimal port
@@ -82,6 +105,22 @@ content framing; header strings cannot inject another field or status line.
 Status rules take precedence over HEAD. Response representations are not subject
 to the request-body bound. The caller still has to write all head/body bytes and
 close appropriately; successful encoding is not delivery.
+
+## Stream heads
+
+```scheme
+(encode-stream-head status headers)
+;; Result Bytes HttpError
+```
+
+A stream's head has no Content-Length: its body is every byte written after
+it, ending when the server closes the connection
+([RFC 9112 §6.3](https://www.rfc-editor.org/rfc/rfc9112.html#section-6.3),
+rule 8). This is how an event stream is framed in this subset, which has no
+chunked coding. The head is checked as `encode-response` checks one, with the
+same `Connection: close` and framing rules. Statuses that forbid a body, 204,
+205 and 304, have no stream; a HEAD request is answered with
+`encode-response` instead.
 
 ## One exchange
 
@@ -134,9 +173,16 @@ on an unrelated effect cannot execute the Snail-Core cleanup branch; runtime shu
 cleans the remaining native resource. `serve-one` does not introduce a task scope
 or stronger unwinding guarantee.
 
+`read-request` and `respond` are the exchange's two halves, exported for a
+server that decides between reading a request and answering it. `serve-one`
+is them with one handler between, closing the connection when either fails;
+called directly, a failure from either leaves the connection open, and the
+caller closes it.
+
 ## Remaining integration
 
-Artifact serving, explicit streaming/SSE, connection scheduling and deadline policy
-remain [networking work](https://github.com/tsnl/snail-scheme/issues/457). Existing
+Artifact serving, writing event streams after their heads, connection scheduling
+and deadline policy remain
+[networking work](https://github.com/tsnl/snail-scheme/issues/457). Existing
 project file, status and origin policies remain in the native project service.
 Persistent connections, pipelining and streaming uploads are not implemented.

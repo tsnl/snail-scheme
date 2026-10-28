@@ -1,10 +1,14 @@
 ;; One complete request/response exchange over the concrete TCP effect.
+;; `serve-one` is the whole exchange with one handler. A server that decides
+;; between reading and answering calls its halves, `read-request` and
+;; `respond`, itself; a failure either returns leaves the connection open,
+;; and the caller closes it, as `serve-one` does.
 (define-library (snail-core http exchange)
   (export
    Request Request-head Request-body
    Response Response-status Response-headers Response-body
    ExchangeError ProtocolFailure TransportFailure TruncatedHead TruncatedBody ApplicationFailure
-   serve-one)
+   read-request respond serve-one)
   (import
    (snail-core base)
    (snail-core http)
@@ -138,6 +142,8 @@
               ((Err error) (Err (TransportFailure error)))
               ((Ok _) (Ok (unit)))))))))
 
+    ;; Nothing is written unless the whole response encodes. After the
+    ;; head and body, the connection finishes within `grace` milliseconds.
     (: respond (All (E) (-> Connection I32 Request Response (Result Unit (ExchangeError E)) ! tcp)))
     (define (respond connection grace request response)
       (match (encode-response (RequestHead-method (Request-head request)) (Response-status response)

@@ -157,3 +157,49 @@
   (let ((many (map (lambda (_) (Header "x" "")) (iota (quotient (- head-limit (string-length base)) 5)))))
     (assert (<= (vector-length (ResponseParts-head (encoded "GET" 200 many #u8()))) head-limit))))
 (write-line "safe output")
+
+;; Targets decode as `new URL` reads them: the path's segments, each
+;; decoded, with dot segments resolved, and the query as URLSearchParams
+;; pairs. The expected lines for well-formed targets were produced once by
+;; Node from `new URL(target, base)`, splitting its pathname at `/` before
+;; decoding each segment. Malformed escapes and text that is not UTF-8,
+;; which Node passes through or replaces, are errors here.
+(: target-text (-> String String))
+(define (target-text source)
+  (match (parse-target source)
+    ((Err error) (string-append source " -> error " (kind error)))
+    ((Ok target)
+     (string-join (Cons (string-append source " -> " (string-concatenate (map (lambda (segment) (string-append "[" segment "]")) (Target-path target))))
+                        (map (lambda (pair) (string-append (Pair-first pair) "=" (Pair-second pair))) (Target-query target)))
+                  " "))))
+
+(for-each (lambda (source) (write-line (target-text source)))
+          (list "/" "/api/file?path=src%2Fmain.sld" "/api/file?path=a+b%2Bc%20d" "/api/file?path=%CE%BB%F0%9F%98%80.sld"
+                "/api/run/start?target=web&target=other&&x&=y" "/a%2Fb/c/" "/a/./b/../c" "/a/b/.." "/a/%2e%2E/b" "/.." "/a/."
+                "/api//file" "/x?a=b=c&q=%3F%26%3D" "/x?" "/caf%C3%A9?%C3%A9=%C3%A9" "/x?path=%2e%2e/secret"
+                "/bad%GG" "/bad%4" "/x?path=%" "/%FF" "/x?path=%C0%AF" "/x?path=%ED%A0%80" "/a b" "/a#frag" "/λ"
+                "api/file" "" "*"))
+(match (parse-request-head (ascii "GET /api/file?path=%CE%BB HTTP/1.1\r\nHost: a\r\n\r\n"))
+  ((Ok (Some parsed))
+   (match (parse-target (RequestHead-target (ParsedHead-request parsed)))
+     ((Ok target) (assert (match (assoc-ref (Target-query target) "path") ((Some path) (string=? path "λ")) ((None) #f))))
+     ((Err _) (panic "rejected a parsed target"))))
+  (_ (panic "rejected test head")))
+(write-line "request targets")
+
+;; A stream's head has no Content-Length: the body ends when the
+;; connection closes.
+(: stream-head (-> I32 (List Header) String))
+(define (stream-head status headers)
+  (match (encode-stream-head status headers)
+    ((Ok head) (text head))
+    ((Err error) (string-append "error " (kind error)))))
+
+(assert (string=? (stream-head 200 (list (Header "Content-Type" "text/event-stream") (Header "Cache-Control" "no-store")))
+                  "HTTP/1.1 200 \r\nConnection: close\r\ncontent-type: text/event-stream\r\ncache-control: no-store\r\n\r\n"))
+(assert (string=? (stream-head 503 (Nil)) "HTTP/1.1 503 \r\nConnection: close\r\n\r\n"))
+(for-each (lambda (status) (assert (string=? (stream-head status (Nil)) "error response"))) (list 199 204 205 304 600))
+(for-each (lambda (header) (assert (string=? (stream-head 200 (list header)) "error response")))
+          (list (Header "Content-Length" "0") (Header "Transfer-Encoding" "chunked") (Header "X" "bad\r\nInjected: value")))
+(assert (string=? (stream-head 200 (list (Header "X" (make-string head-limit #\x)))) "error head-limit"))
+(write-line "stream heads")
