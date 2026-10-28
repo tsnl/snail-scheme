@@ -2,8 +2,28 @@
 ;; and the immutable collections. Mutable arrays and cells perform `mut`.
 (define-library (snail-core base)
   (export
-   define lambda if begin let define-syntax syntax-rules quote : struct enum type
-   typeclass instance match ann type-convert type-test extern effect handle expose
+   define
+   lambda
+   if
+   begin
+   let
+   define-syntax
+   syntax-rules
+   quote
+   :
+   struct
+   enum
+   type
+   typeclass
+   instance
+   match
+   ann
+   type-convert
+   type-test
+   extern
+   effect
+   handle
+   expose
    Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes Once mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
@@ -13,29 +33,85 @@
    Ord = < <= > >= min max
    Integral quotient remainder modulo
    Fractional / sqrt floor ceiling round truncate
-   i32->i64 i64->i32 i64->f64 f64->i64 i32->f64 f64->i32 f32->f64 f64->f32 i64->f32 f32->i64
+   i32->i64
+   i64->i32
+   i64->f64
+   f64->i64
+   i32->f64
+   f64->i32
+   f32->f64
+   f64->f32
+   i64->f32
+   f32->i64
    i32->f32 f32->i32
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
    Option Some None Result Ok Err Pair Pair-first Pair-second
-   List Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
+   List
+   Cons
+   Nil
+   list
+   null?
+   length
+   reverse
+   append
+   map
+   map-indexed
+   for-each
+   filter
+   fold-left
+   fold-right
    list-ref list-tail any? every? find member? iota concatenate
    delete-duplicates take drop last list-index assoc-ref zip
    i32-and i32-or i32-xor i32-shift-left i32-shift-right i32-shift-right/logical
    i64-and i64-or i64-xor i64-shift-left i64-shift-right i64-shift-right/logical
-   char->integer integer->char char->i32 i32->char char-whitespace? char-numeric? char-alphabetic? digit-value
+   char->integer
+   integer->char
+   char->i32
+   i32->char
+   char-whitespace?
+   char-numeric?
+   char-alphabetic?
+   digit-value
    char=? char<?
-   string string-length string-ref string-append substring string=? string<? make-string
-   string->list list->string string-join string-concatenate string-generate string-index
+   string
+   string-length
+   string-ref
+   string-append
+   substring
+   string=?
+   string<?
+   make-string
+   string->list
+   list->string
+   string-join
+   string-concatenate
+   string-generate
+   string-index
    string->vector vector->string
-   vector-length vector-ref make-vector vector-generate vector-set vector-append vector-concatenate subvector
+   vector-length
+   vector-ref
+   make-vector
+   vector-generate
+   vector-set
+   vector-append
+   vector-concatenate
+   subvector
    vector-map vector-for-each vector-fold vector->list list->vector
-   make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
+   make-array
+   array-length
+   array-ref
+   array-set!
+   array->vector
+   vector->array
+   array-copy!
+   vector-copy!
    ref ref-get ref-set!)
   (import
    (snail-core core)
    (snail-core primitive)
-   (rename (only (snail-core primitive) string-append) (string-append append-two-strings)))
+   (rename (only (snail-core primitive) string-append)
+           (string-append append-two-strings)))
   (begin
 
     ;; ---- Capabilities ----
@@ -50,27 +126,33 @@
     (define-syntax let*
       (syntax-rules ()
         ((_ () body ...) (let () body ...))
-        ((_ ((name value) binding ...) body ...) (let ((name value)) (let* (binding ...) body ...)))))
+        ((_ ((name value) binding ...) body ...)
+         (let ((name value)) (let* (binding ...) body ...)))))
 
     (define-syntax letrec
       (syntax-rules ()
-        ((_ ((name value) ...) body ...) (let () (define name value) ... (let () body ...)))))
+        ((_ ((name value) ...) body ...)
+         (let () (define name value) ... (let () body ...)))))
 
     (define-syntax cond
       (syntax-rules (else)
         ((_ (else body ...)) (begin body ...))
-        ((_ (test body ...) clause ...) (if test (begin body ...) (cond clause ...)))))
+        ((_ (test body ...) clause ...)
+         (if test (begin body ...) (cond clause ...)))))
 
     ;; `case` compares with `=`; its last clause must be `else`.
     (define-syntax case
       (syntax-rules (else)
-        ((_ key clause ...) (let ((value key)) (case-clauses value clause ...)))))
+        ((_ key clause ...)
+         (let ((value key)) (case-clauses value clause ...)))))
 
     (define-syntax case-clauses
       (syntax-rules (else)
         ((_ value (else body ...)) (begin body ...))
         ((_ value ((datum ...) body ...) clause ...)
-         (if (or (= value datum) ...) (begin body ...) (case-clauses value clause ...)))))
+         (if (or (= value datum) ...)
+             (begin body ...)
+             (case-clauses value clause ...)))))
 
     ;; The body's last expression is a Unit, and stays in tail position, so
     ;; a loop written with `when` runs in constant space.
@@ -99,7 +181,9 @@
       (syntax-rules ()
         ((_ ((name init step) ...) (test result ...) body ...)
          (let loop ((name init) ...)
-           (if test (begin (unit) result ...) (begin body ... (loop step ...)))))))
+           (if test
+               (begin (unit) result ...)
+               (begin body ... (loop step ...)))))))
 
     ;; `string-append` takes any number of strings.
     (define-syntax string-append
@@ -236,14 +320,18 @@
       (define remainder i32-remainder)
       (define (modulo a b)
         (let ((r (i32-remainder a b)))
-          (if (and (not (i32-eq r 0)) (not (= (i32-lt r 0) (i32-lt b 0)))) (i32-add r b) r))))
+          (if (and (not (i32-eq r 0)) (not (= (i32-lt r 0) (i32-lt b 0))))
+              (i32-add r b)
+              r))))
 
     (instance (Integral I64)
       (define quotient i64-quotient)
       (define remainder i64-remainder)
       (define (modulo a b)
         (let ((r (i64-remainder a b)))
-          (if (and (not (i64-eq r 0)) (not (= (i64-lt r 0) (i64-lt b 0)))) (i64-add r b) r))))
+          (if (and (not (i64-eq r 0)) (not (= (i64-lt r 0) (i64-lt b 0))))
+              (i64-add r b)
+              r))))
 
     (instance (Fractional F32)
       (define / f32-div)
@@ -325,14 +413,16 @@
 
     (: map (All (A B e) (-> (-> A B ! e) (List A) (List B) ! e)))
     (define (map f items)
-      (reverse (fold-left (lambda (mapped item) (Cons (f item) mapped)) (Nil) items)))
+      (reverse
+       (fold-left (lambda (mapped item) (Cons (f item) mapped)) (Nil) items)))
 
     (: map-indexed (All (A B e) (-> (-> I64 A B ! e) (List A) (List B) ! e)))
     (define (map-indexed f items)
       (let loop ((items items) (index 0) (mapped (Nil)))
         (match items
           ((Nil) (reverse mapped))
-          ((Cons item rest) (loop rest (+ index 1) (Cons (f index item) mapped))))))
+          ((Cons item rest)
+           (loop rest (+ index 1) (Cons (f index item) mapped))))))
 
     (: for-each (All (A e) (-> (-> A Unit ! e) (List A) Unit ! e)))
     (define (for-each f items)
@@ -342,7 +432,10 @@
 
     (: filter (All (A e) (-> (-> A Bool ! e) (List A) (List A) ! e)))
     (define (filter keep? items)
-      (reverse (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
+      (reverse
+       (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept))
+                  (Nil)
+                  items)))
 
     (: fold-left (All (A B e) (-> (-> B A B ! e) B (List A) B ! e)))
     (define (fold-left f initial items)
@@ -352,7 +445,9 @@
 
     (: fold-right (All (A B e) (-> (-> A B B ! e) B (List A) B ! e)))
     (define (fold-right f initial items)
-      (fold-left (lambda (result item) (f item result)) initial (reverse items)))
+      (fold-left (lambda (result item) (f item result))
+                 initial
+                 (reverse items)))
 
     (: list-tail (All (T) (-> (List T) I64 (List T))))
     (define (list-tail items index)
@@ -391,16 +486,23 @@
       (any? (lambda (item) (= item value)) items))
 
     ;; Keeps the first of each group of equal items.
-    (: delete-duplicates (All (A e) (-> (-> A A Bool ! e) (List A) (List A) ! e)))
+    (: delete-duplicates
+       (All (A e) (-> (-> A A Bool ! e) (List A) (List A) ! e)))
     (define (delete-duplicates same? items)
-      (reverse (fold-left (lambda (kept item) (if (any? (lambda (other) (same? other item)) kept) kept (Cons item kept)))
+      (reverse (fold-left (lambda (kept item)
+                            (if (any? (lambda (other) (same? other item)) kept)
+                                kept
+                                (Cons item kept)))
                           (Nil) items)))
 
     (: take (All (T) (-> (List T) I64 (List T))))
     (define (take items count)
       (let loop ((items items) (count count) (taken (Nil)))
         (match items
-          ((Cons item rest) (if (= count 0) (reverse taken) (loop rest (- count 1) (Cons item taken))))
+          ((Cons item rest)
+           (if (= count 0)
+               (reverse taken)
+               (loop rest (- count 1) (Cons item taken))))
           ((Nil) (reverse taken)))))
 
     (: drop (All (T) (-> (List T) I64 (List T))))
@@ -423,14 +525,19 @@
       (let loop ((items items) (index 0))
         (match items
           ((Nil) (None))
-          ((Cons item rest) (if (test item) (Some index) (loop rest (+ index 1)))))))
+          ((Cons item rest)
+           (if (test item) (Some index) (loop rest (+ index 1)))))))
 
     ;; The value paired with the first occurrence of `key`.
-    (: assoc-ref (All (K V) (requires (Ord K)) (-> (List (Pair K V)) K (Option V))))
+    (: assoc-ref
+       (All (K V) (requires (Ord K)) (-> (List (Pair K V)) K (Option V))))
     (define (assoc-ref entries key)
       (match entries
         ((Nil) (None))
-        ((Cons entry rest) (if (= (Pair-first entry) key) (Some (Pair-second entry)) (assoc-ref rest key)))))
+        ((Cons entry rest)
+         (if (= (Pair-first entry) key)
+             (Some (Pair-second entry))
+             (assoc-ref rest key)))))
 
     ;; Pairs the items of two lists, stopping at the end of the shorter.
     (: zip (All (A B) (-> (List A) (List B) (List (Pair A B)))))
@@ -441,7 +548,8 @@
           ((Cons a more-as)
            (match bs
              ((Nil) (reverse pairs))
-             ((Cons b more-bs) (loop more-as more-bs (Cons (Pair a b) pairs))))))))
+             ((Cons b more-bs)
+              (loop more-as more-bs (Cons (Pair a b) pairs))))))))
 
     (: iota (-> I64 (List I64)))
     (define (iota count)
@@ -452,7 +560,8 @@
 
     (: vector-map (All (A B e) (-> (-> A B ! e) (Vector A) (Vector B) ! e)))
     (define (vector-map f items)
-      (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
+      (vector-generate (vector-length items)
+                       (lambda (index) (f (vector-ref items index)))))
 
     (: vector-for-each (All (A e) (-> (-> A Unit ! e) (Vector A) Unit ! e)))
     (define (vector-for-each f items)
@@ -471,16 +580,22 @@
     (: vector->list (All (T) (-> (Vector T) (List T))))
     (define (vector->list items)
       (let loop ((index (- (vector-length items) 1)) (result (Nil)))
-        (if (< index 0) result (loop (- index 1) (Cons (vector-ref items index) result)))))
+        (if (< index 0)
+            result
+            (loop (- index 1) (Cons (vector-ref items index) result)))))
 
     ;; The array is local to this call, so the conversion is total.
     (: list->vector (All (T) (-> (List T) (Vector T))))
     (define (list->vector items)
       (match items
-        ((Nil) (vector-generate 0 (lambda (index) (panic "list->vector: empty"))))
+        ((Nil)
+         (vector-generate 0 (lambda (index) (panic "list->vector: empty"))))
         ((Cons first _)
          (let ((array (make-array (length items) first)))
-           (fold-left (lambda (index item) (array-set! array index item) (+ index 1)) 0 items)
+           (fold-left
+            (lambda (index item) (array-set! array index item) (+ index 1))
+            0
+            items)
            (array->vector array)))))
 
     ;; Copies each vector once into one array of the total length, which is
@@ -491,7 +606,11 @@
       (match (find (lambda (items) (> (vector-length items) 0)) vectors)
         ((None) (list->vector (Nil)))
         ((Some first)
-         (let ((all (make-array (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors) (vector-ref first 0))))
+         (let ((all (make-array (fold-left (lambda (total items)
+                                             (+ total (vector-length items)))
+                                           0
+                                           vectors)
+                                (vector-ref first 0))))
            (fold-left (lambda (offset items)
                         (vector-copy! all offset items 0 (vector-length items))
                         (+ offset (vector-length items)))
@@ -539,7 +658,9 @@
     (: string->list (-> String (List Char)))
     (define (string->list text)
       (let loop ((index (- (string-length text) 1)) (chars (Nil)))
-        (if (< index 0) chars (loop (- index 1) (Cons (string-ref text index) chars)))))
+        (if (< index 0)
+            chars
+            (loop (- index 1) (Cons (string-ref text index) chars)))))
 
     (: list->string (-> (List Char) String))
     (define (list->string chars)
@@ -549,9 +670,17 @@
     ;; is local to this call.
     (: string-concatenate (-> (List String) String))
     (define (string-concatenate texts)
-      (let ((chars (make-array (fold-left (lambda (total text) (+ total (string-length text))) 0 texts) #\space)))
+      (let ((chars (make-array (fold-left (lambda (total text)
+                                            (+ total (string-length text)))
+                                          0
+                                          texts)
+                               #\space)))
         (fold-left (lambda (offset text)
-                     (vector-copy! chars offset (string->vector text) 0 (string-length text))
+                     (vector-copy! chars
+                                   offset
+                                   (string->vector text)
+                                   0
+                                   (string-length text))
                      (+ offset (string-length text)))
                    0 texts)
         (vector->string (array->vector chars))))
@@ -561,7 +690,12 @@
       (match texts
         ((Nil) "")
         ((Cons first rest)
-         (string-concatenate (Cons first (fold-right (lambda (text joined) (Cons separator (Cons text joined))) (Nil) rest))))))
+         (string-concatenate (Cons first
+                                   (fold-right (lambda (text joined)
+                                                 (Cons separator
+                                                       (Cons text joined)))
+                                               (Nil)
+                                               rest))))))
 
     (: string-index (-> String Char (Option I64)))
     (define (string-index text char)
@@ -584,23 +718,38 @@
             (else (let loop ((n n) (digits (Nil)))
                     (if (= n 0)
                         (list->string digits)
-                        (loop (quotient n 10) (Cons (integer->char (+ 48 (remainder n 10))) digits)))))))
+                        (loop (quotient n 10)
+                              (Cons (integer->char (+ 48 (remainder n 10)))
+                                    digits)))))))
 
     ;; An optionally signed decimal integer, or None if the text is not one
     ;; or does not fit in 64 bits. Digits accumulate negatively, since the
     ;; most negative value has no positive counterpart.
     (: string->i64 (-> String (Option I64)))
     (define (string->i64 text)
-      (let* ((length (string-length text)) (negative (and (> length 0) (= (string-ref text 0) #\-)))
-             (start (if (and (> length 0) (or negative (= (string-ref text 0) #\+))) 1 0)))
+      (let* ((length (string-length text))
+             (negative (and (> length 0) (= (string-ref text 0) #\-)))
+             (start
+              (if (and (> length 0) (or negative (= (string-ref text 0) #\+)))
+                  1
+                  0)))
         (if (= start length)
             (None)
             (let loop ((index start) (value 0))
-              (cond ((= index length) (if negative (Some value) (if (= value -9223372036854775808) (None) (Some (negate value)))))
+              (cond ((= index length)
+                     (if negative
+                         (Some value)
+                         (if (= value -9223372036854775808)
+                             (None)
+                             (Some (negate value)))))
                     ((not (char-numeric? (string-ref text index))) (None))
                     ((< value -922337203685477580) (None))
-                    ((> (- (* value 10) (digit-value (string-ref text index))) (* value 10)) (None))
-                    (else (loop (+ index 1) (- (* value 10) (digit-value (string-ref text index))))))))))
+                    ((> (- (* value 10) (digit-value (string-ref text index)))
+                        (* value 10))
+                     (None))
+                    (else (loop (+ index 1)
+                                (- (* value 10)
+                                   (digit-value (string-ref text index))))))))))
 
     (instance (Show I64)
       (define show i64->string))
@@ -626,7 +775,8 @@
     (instance (Show (List T))
       (requires (Show T))
       (define (show items)
-        (string-append "(" (string-append (string-join (map show items) " ") ")"))))
+        (string-append "("
+                       (string-append (string-join (map show items) " ") ")"))))
 
     (instance (Show (Option T))
       (requires (Show T))
@@ -644,7 +794,10 @@
     ;; Copy the runtime's scratch text before returning. string-generate calls
     ;; only this private reader, so no user conversion can overwrite it.
     (extern real-text "snail.library" "snail:datum/real-text" (-> F64 I32))
-    (extern text-character "snail.library" "snail:datum/text-character" (-> I32 Char))
+    (extern text-character
+            "snail.library"
+            "snail:datum/text-character"
+            (-> I32 Char))
 
     (: f64->string (-> F64 String))
     (define (f64->string value)

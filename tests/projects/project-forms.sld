@@ -12,11 +12,15 @@
      (build-target café.v2 (program (entry \"server/main.sld\") (library-roots (\"src\")))))"
    "project.datum"))
 
-(for-each (lambda (target) (write-line (target-name target))) (Project-builds project))
+(for-each (lambda (target) (write-line (target-name target)))
+          (Project-builds project))
 (for-each
  (lambda (run)
-   (write-line (string-append (RunTarget-name run) " -> " (ProgramBuild-name (RunTarget-program run))))
+   (write-line (string-append (RunTarget-name run)
+                              " -> "
+                              (ProgramBuild-name (RunTarget-program run))))
    (write-line (ProjectPath-text (ProgramBuild-entry (RunTarget-program run))))
    (write-line (string-join (RunTarget-arguments run) "|"))
-   (for-each (lambda (path) (write-line (ProjectPath-text path))) (ProgramBuild-libraries (RunTarget-program run))))
+   (for-each (lambda (path) (write-line (ProjectPath-text path)))
+             (ProgramBuild-libraries (RunTarget-program run))))
  (Project-runs project))

@@ -14,6 +14,7 @@
 
     (: greeting-text (-> String ! resource))
     (define (greeting-text)
-      (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource greeting)))))
+      (list->string (map (lambda (byte) (i32->char (u8->i32 byte)))
+                         (vector->list (read-resource greeting)))))
 
     ))

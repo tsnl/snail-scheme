@@ -35,5 +35,6 @@
 (newline)
 (loudly (lambda ()
           (handle Log
-              ((log (lambda (message) (log (string-append "outer sees " message)))))
+              ((log
+                (lambda (message) (log (string-append "outer sees " message)))))
             (log "inner"))))

@@ -21,8 +21,16 @@
 
     (: shared-type? (-> Context Type Bool))
     (define (shared-type? cx type)
-      (and (capability-type? (Context-program cx) "snail-core.base:Send" type (Nil) (Nil))
-           (capability-type? (Context-program cx) "snail-core.base:Sync" type (Nil) (Nil))))
+      (and (capability-type? (Context-program cx)
+                             "snail-core.base:Send"
+                             type
+                             (Nil)
+                             (Nil))
+           (capability-type? (Context-program cx)
+                             "snail-core.base:Sync"
+                             type
+                             (Nil)
+                             (Nil))))
 
     ;; An ordinary arrow carries no capture proof. Recover only concrete
     ;; lambdas and aliases; an opaque callback or function-returning call fails.
@@ -31,7 +39,10 @@
     (define (shared-value? cx locals value visiting)
       (or (shared-type? cx (Expr-type value))
           (match (Expr-term value)
-            ((Lambda _ _) (every? (lambda (reference) (shared-reference? cx locals reference visiting)) (outside-reads value)))
+            ((Lambda _ _)
+             (every? (lambda (reference)
+                       (shared-reference? cx locals reference visiting))
+                     (outside-reads value)))
             ((Var _ _ _) (shared-reference? cx locals value visiting))
             (_ #f))))
 
@@ -43,7 +54,8 @@
            ((Some value)
             (if (same-reference? name value)
                 (shared-type? cx (Expr-type value))
-                (or (member? name visiting) (shared-value? cx locals value (Cons name visiting)))))
+                (or (member? name visiting)
+                    (shared-value? cx locals value (Cons name visiting)))))
            ((None) (shared-global? cx name evidence visiting))))
         (_ #f)))
 
@@ -58,21 +70,27 @@
     (: shared-global? (-> Context String (List Evidence) (List String) Bool))
     (define (shared-global? cx name evidence visiting)
       (match (table-ref (Context-definitions cx) name)
-        ((Some value) (or (member? name visiting) (shared-value? cx empty-table value (Cons name visiting))))
+        ((Some value)
+         (or (member? name visiting)
+             (shared-value? cx empty-table value (Cons name visiting))))
         ((None)
          (match (program-value (Context-program cx) name)
-           ((Some (Method class _)) (shared-method? cx class name evidence visiting))
+           ((Some (Method class _))
+            (shared-method? cx class name evidence visiting))
            ((Some (Defined _ _)) #f)
            ((Some _) #t) ;; Constructors, operations, primitives and trusted FFI.
            ((None) #f)))))
 
     ;; Imported monomorphic code may still name methods in its typed body.
     ;; Its selected evidence is a dependency, never a proof of safe captures.
-    (: shared-method? (-> Context String String (List Evidence) (List String) Bool))
+    (: shared-method?
+       (-> Context String String (List Evidence) (List String) Bool))
     (define (shared-method? cx class method evidence visiting)
       (match evidence
         ((Cons (EvInstance name _ _) _)
-         (match (find (lambda (instance) (string=? name (Instance-name instance))) (class-instances (Context-program cx) class))
+         (match (find
+                 (lambda (instance) (string=? name (Instance-name instance)))
+                 (class-instances (Context-program cx) class))
            ((Some instance)
             (match (assoc-ref (Instance-methods instance) method)
               ((Some global) (shared-global? cx global (Nil) visiting))
@@ -86,7 +104,8 @@
         ((App callee args) (Cons callee args))
         ((If test then otherwise) (list test then otherwise))
         ((Seq first rest) (list first rest))
-        ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))
+        ((Handle _ implementations body)
+         (append (map Pair-second implementations) (list body)))
         ((Ann inner _) (list inner))
         ((Convert inner _) (list inner))
         ((TypeTest inner _) (list inner))
@@ -96,17 +115,25 @@
 
     ;; A parameter is represented by its own typed reference: its data type
     ;; may prove sharing, but its ordinary function type cannot prove captures.
-    (: bind-parameters (-> (Table Expr) (List String) (List Type) Loc (Table Expr)))
+    (: bind-parameters
+       (-> (Table Expr) (List String) (List Type) Loc (Table Expr)))
     (define (bind-parameters locals names types loc)
       (fold-left (lambda (scope entry)
-                   (table-set scope (Pair-first entry) (Expr (Var (Pair-first entry) (Nil) (Nil)) (Pair-second entry) loc)))
+                   (table-set scope
+                              (Pair-first entry)
+                              (Expr (Var (Pair-first entry) (Nil) (Nil))
+                                    (Pair-second entry)
+                                    loc)))
                  locals (zip names types)))
 
     (: bind-pattern (-> (Table Expr) Pattern Loc (Table Expr)))
     (define (bind-pattern locals pattern loc)
       (match pattern
         ((PVar name type) (bind-parameters locals (list name) (list type) loc))
-        ((PCon _ args _) (fold-left (lambda (scope arg) (bind-pattern scope arg loc)) locals args))
+        ((PCon _ args _)
+         (fold-left (lambda (scope arg) (bind-pattern scope arg loc))
+                    locals
+                    args))
         (_ locals)))
 
     (: check-expression (-> Context (Table Expr) Expr Unit))
@@ -114,7 +141,13 @@
       (match (Expr-term expr)
         ((Lambda params body)
          (match (Expr-type expr)
-           ((TFun types _ _) (check-expression cx (bind-parameters locals params types (Expr-loc expr)) body))
+           ((TFun types _ _)
+            (check-expression cx
+                              (bind-parameters locals
+                                               params
+                                               types
+                                               (Expr-loc expr))
+                              body))
            (_ (panic "internal error: untyped handler closure"))))
         ((Let name value body)
          (let ((scope (table-set locals name value)))
@@ -122,15 +155,23 @@
            (check-expression cx scope body)))
         ((Match value clauses)
          (check-expression cx locals value)
-         (for-each (lambda (clause) (check-expression cx (bind-pattern locals (Clause-pattern clause) (Expr-loc expr)) (Clause-body clause))) clauses))
+         (for-each (lambda (clause)
+                     (check-expression cx
+                                       (bind-pattern locals
+                                                     (Clause-pattern clause)
+                                                     (Expr-loc expr))
+                                       (Clause-body clause)))
+                   clauses))
         ((Handle _ implementations body)
          (for-each (lambda (entry)
                      (let ((value (Pair-second entry)))
                        (unless (shared-value? cx locals value (Nil))
-                         (compile-error (Expr-loc value) "a handler and its captures must satisfy Send + Sync and be reusable"))
+                         (compile-error (Expr-loc value)
+                                        "a handler and its captures must satisfy Send + Sync and be reusable"))
                        (check-expression cx locals value))) implementations)
          (check-expression cx locals body))
-        (_ (for-each (lambda (child) (check-expression cx locals child)) (children expr)))))
+        (_ (for-each (lambda (child) (check-expression cx locals child))
+                     (children expr)))))
 
     (: check-handlers (-> Program (Table Expr) (List Item) Unit))
     (define (check-handlers program definitions items)

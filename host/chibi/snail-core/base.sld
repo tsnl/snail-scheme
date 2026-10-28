@@ -12,13 +12,64 @@
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Pair Pair-first Pair-second
-   Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
-   list-ref list-tail any? every? find member? iota concatenate delete-duplicates take drop last list-index assoc-ref zip
-   char->integer integer->char char=? char<? char-whitespace? char-numeric? char-alphabetic?
-   string string-length string-ref string-append substring string=? string<? make-string
-   string->list list->string string-join string-concatenate string-generate string-index
+   Cons
+   Nil
+   list
+   null?
+   length
+   reverse
+   append
+   map
+   map-indexed
+   for-each
+   filter
+   fold-left
+   fold-right
+   list-ref
+   list-tail
+   any?
+   every?
+   find
+   member?
+   iota
+   concatenate
+   delete-duplicates
+   take
+   drop
+   last
+   list-index
+   assoc-ref
+   zip
+   char->integer
+   integer->char
+   char=?
+   char<?
+   char-whitespace?
+   char-numeric?
+   char-alphabetic?
+   string
+   string-length
+   string-ref
+   string-append
+   substring
+   string=?
+   string<?
+   make-string
+   string->list
+   list->string
+   string-join
+   string-concatenate
+   string-generate
+   string-index
    string->vector vector->string
-   vector-length vector-ref make-vector vector-generate vector-set vector-append vector-concatenate subvector
+   vector-length
+   vector-ref
+   make-vector
+   vector-generate
+   vector-set
+   vector-append
+   vector-concatenate
+   subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array
    ref ref-get ref-set!)
@@ -36,13 +87,16 @@
     ;; Snail-Core's `case` compares keys with `=`, which on strings is `string=?`.
     (define-syntax case
       (syntax-rules (else)
-        ((_ key clause ...) (let ((value key)) (case-clauses value clause ...)))))
+        ((_ key clause ...)
+         (let ((value key)) (case-clauses value clause ...)))))
 
     (define-syntax case-clauses
       (syntax-rules (else)
         ((_ value (else body ...)) (begin body ...))
         ((_ value ((datum ...) body ...) clause ...)
-         (if (member value (list datum ...)) (begin body ...) (case-clauses value clause ...)))))
+         (if (member value (list datum ...))
+             (begin body ...)
+             (case-clauses value clause ...)))))
 
     ;; ---- Values ----
 
@@ -67,7 +121,9 @@
     (define (u8->i32 n) n)
     (define (i32->u8 n) (modulo n 256))
     (define (i32->i64 n) n)
-    (define (i64->i32 n) (let ((low (modulo n 4294967296))) (if (>= low 2147483648) (- low 4294967296) low)))
+    (define (i64->i32 n)
+      (let ((low (modulo n 4294967296)))
+        (if (>= low 2147483648) (- low 4294967296) low)))
 
     ;; None unless the whole text is an optionally signed decimal integer.
     (define (string->i64 text)
@@ -90,22 +146,30 @@
     ;; Snail-Core's `map` takes one list and calls `f` from left to right.
     (define (map f items)
       (let loop ((items items) (out '()))
-        (if (null? items) (reverse out) (loop (cdr items) (cons (f (car items)) out)))))
+        (if (null? items)
+            (reverse out)
+            (loop (cdr items) (cons (f (car items)) out)))))
 
     (define (zip as bs)
       (let loop ((as as) (bs bs) (out '()))
-        (if (or (null? as) (null? bs)) (reverse out) (loop (cdr as) (cdr bs) (cons (Pair (car as) (car bs)) out)))))
+        (if (or (null? as) (null? bs))
+            (reverse out)
+            (loop (cdr as) (cdr bs) (cons (Pair (car as) (car bs)) out)))))
 
     (define (map-indexed f items)
       (let loop ((items items) (index 0) (out '()))
-        (if (null? items) (reverse out) (loop (cdr items) (+ index 1) (cons (f index (car items)) out)))))
+        (if (null? items)
+            (reverse out)
+            (loop (cdr items) (+ index 1) (cons (f index (car items)) out)))))
 
     (define (fold-left f initial items)
       (let loop ((items items) (result initial))
         (if (null? items) result (loop (cdr items) (f result (car items))))))
 
     (define (fold-right f initial items)
-      (fold-left (lambda (result item) (f item result)) initial (reverse items)))
+      (fold-left (lambda (result item) (f item result))
+                 initial
+                 (reverse items)))
 
     (define (any? test items) (if (any test items) #t #f))
     (define (every? test items) (if (every test items) #t #f))
@@ -121,7 +185,10 @@
     (define (concatenate lists) (fold-right append '() lists))
 
     (define (delete-duplicates same? items)
-      (reverse (fold-left (lambda (kept item) (if (any (lambda (other) (same? other item)) kept) kept (cons item kept)))
+      (reverse (fold-left (lambda (kept item)
+                            (if (any (lambda (other) (same? other item)) kept)
+                                kept
+                                (cons item kept)))
                           '() items)))
 
     (define (last items)
@@ -130,7 +197,8 @@
     (define (assoc-ref entries key)
       (let loop ((entries entries))
         (cond ((null? entries) (None))
-              ((equal? (Pair-first (car entries)) key) (Some (Pair-second (car entries))))
+              ((equal? (Pair-first (car entries)) key)
+               (Some (Pair-second (car entries))))
               (else (loop (cdr entries))))))
 
     (define (list-index test items)
@@ -144,7 +212,10 @@
     (define (string-join texts separator)
       (if (null? texts)
           ""
-          (fold-left (lambda (joined text) (string-append joined separator text)) (car texts) (cdr texts))))
+          (fold-left
+           (lambda (joined text) (string-append joined separator text))
+           (car texts)
+           (cdr texts))))
 
     ;; Without `apply`, which would push every string onto Chibi's stack.
     (define (string-concatenate texts)
@@ -179,8 +250,15 @@
 
     ;; Without `apply`, as `string-concatenate`.
     (define (vector-concatenate vectors)
-      (let ((all (make-vector (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors))))
-        (fold-left (lambda (offset items) (vector-copy! all offset items) (+ offset (vector-length items))) 0 vectors)
+      (let ((all (make-vector (fold-left (lambda (total items)
+                                           (+ total (vector-length items)))
+                                         0
+                                         vectors))))
+        (fold-left (lambda (offset items)
+                     (vector-copy! all offset items)
+                     (+ offset (vector-length items)))
+                   0
+                   vectors)
         all))
 
     (define (vector-fold f initial items)

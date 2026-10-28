@@ -19,12 +19,16 @@
                           (if (> column board-size)
                               (reverse found)
                               (collect (+ column 1)
-                                       (if (safe? column placed) (cons (cons column placed) found) found)))))
+                                       (if (safe? column placed)
+                                           (cons (cons column placed) found)
+                                           found)))))
                       smaller)))))
   (place board-size))
 
 (define solutions (queens 6))
-(display "6 queens: ") (display (length solutions)) (display " solutions, first ")
+(display "6 queens: ")
+(display (length solutions))
+(display " solutions, first ")
 (write (car solutions)) (newline)
 
 (define counter
@@ -32,7 +36,9 @@
     (lambda () (set! count (+ count 1)) count)))
 (counter) (counter)
 (display (list 'counter (counter) (/ 1 3) (* 1.5 2) "text" #\a)) (newline)
-(display (case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8 9) 'composite) (else 'other))) (newline)
+(display
+ (case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8 9) 'composite) (else 'other)))
+(newline)
 (for-each (lambda (x) (display (* x x)) (display " ")) '(1 2 3))
 (newline)
 (define (small? n) (and (< n 3) (* n 10)))

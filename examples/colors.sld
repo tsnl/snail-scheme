@@ -23,7 +23,8 @@
 (: channel-hex (-> I64 String))
 (define (channel-hex value)
   (let ((digits "0123456789abcdef"))
-    (string (string-ref digits (quotient value 16)) (string-ref digits (remainder value 16)))))
+    (string (string-ref digits (quotient value 16))
+            (string-ref digits (remainder value 16)))))
 
 (instance (ToHex PrimaryColor)
   (define (to-hex color)
@@ -34,7 +35,10 @@
 
 (instance (ToHex (Vec3 I64))
   (define (to-hex v)
-    (string-append "#" (channel-hex (Vec3-x v)) (channel-hex (Vec3-y v)) (channel-hex (Vec3-z v)))))
+    (string-append "#"
+                   (channel-hex (Vec3-x v))
+                   (channel-hex (Vec3-y v))
+                   (channel-hex (Vec3-z v)))))
 
 (instance (ToHex Color)
   (define (to-hex color)

@@ -10,7 +10,9 @@
    write-line
    newline)
   (import
-   (rename (scheme base) (write-string scheme-write-string) (newline scheme-newline))
+   (rename (scheme base)
+           (write-string scheme-write-string)
+           (newline scheme-newline))
    (scheme file)
    (scheme process-context))
   (begin
@@ -20,20 +22,26 @@
         (lambda (port)
           (let loop ((chunks '()))
             (let ((chunk (read-string 65536 port)))
-              (if (eof-object? chunk) (apply string-append (reverse chunks)) (loop (cons chunk chunks))))))))
+              (if (eof-object? chunk)
+                  (apply string-append (reverse chunks))
+                  (loop (cons chunk chunks))))))))
 
     ;; Snail-Core's Bytes are vectors of integers on this host.
     (define (read-bytes path)
-      (let* ((bytes (call-with-port (open-binary-input-file path) read-all-bytes))
+      (let* ((bytes
+              (call-with-port (open-binary-input-file path) read-all-bytes))
              (vector (make-vector (bytevector-length bytes))))
         (do ((index 0 (+ index 1))) ((= index (vector-length vector)) vector)
           (vector-set! vector index (bytevector-u8-ref bytes index)))))
     (define (read-all-bytes port)
       (let loop ((chunks '()))
         (let ((chunk (read-bytevector 65536 port)))
-          (if (eof-object? chunk) (apply bytevector-append (reverse chunks)) (loop (cons chunk chunks))))))
+          (if (eof-object? chunk)
+              (apply bytevector-append (reverse chunks))
+              (loop (cons chunk chunks))))))
     (define (write-file path text)
-      (call-with-output-file path (lambda (port) (scheme-write-string text port))))
+      (call-with-output-file path
+        (lambda (port) (scheme-write-string text port))))
 
     (define (write-string text) (scheme-write-string text))
 

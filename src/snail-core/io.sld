@@ -41,7 +41,8 @@
       (let loop ((chars (Nil)))
         (let ((code (console-read)))
           (cond ((and (= code -1) (null? chars)) (None))
-                ((or (= code -1) (= code 10)) (Some (list->string (reverse chars))))
+                ((or (= code -1) (= code 10))
+                 (Some (list->string (reverse chars))))
                 (else (loop (Cons (i32->char code) chars)))))))
 
     ;; ---- Text output ----
@@ -102,7 +103,11 @@
     (: read-file (-> String String ! fs))
     (define (read-file path)
       (let ((port (open-input path)))
-        (let ((chars (drain (lambda () (let ((code (port-read port))) (if (= code -1) (None) (Some (i32->char code))))))))
+        (let ((chars (drain (lambda ()
+                              (let ((code (port-read port)))
+                                (if (= code -1)
+                                    (None)
+                                    (Some (i32->char code))))))))
           (port-close port)
           (vector->string chars))))
 
@@ -110,7 +115,11 @@
     (: read-bytes (-> String Bytes ! fs))
     (define (read-bytes path)
       (let ((port (open-input path)))
-        (let ((bytes (drain (lambda () (let ((byte (port-read-byte port))) (if (= byte -1) (None) (Some (i32->u8 byte))))))))
+        (let ((bytes (drain (lambda ()
+                              (let ((byte (port-read-byte port)))
+                                (if (= byte -1)
+                                    (None)
+                                    (Some (i32->u8 byte))))))))
           (port-close port)
           bytes)))
 
@@ -158,16 +167,27 @@
 
     ;; The program's arguments, starting with its own path. They never change
     ;; while it runs, so reading them is total.
-    (extern argument-count "snail.library" "snail:process/argument-count" (-> I32))
-    (extern argument-length "snail.library" "snail:process/argument-length" (-> I32 I32))
-    (extern argument-character "snail.library" "snail:process/argument-character" (-> I32 I32 Char))
+    (extern argument-count
+            "snail.library"
+            "snail:process/argument-count"
+            (-> I32))
+    (extern argument-length
+            "snail.library"
+            "snail:process/argument-length"
+            (-> I32 I32))
+    (extern argument-character
+            "snail.library"
+            "snail:process/argument-character"
+            (-> I32 I32 Char))
 
     (: command-line (-> (List String)))
     (define (command-line)
       (map (lambda (index)
              (let ((argument (i64->i32 index)))
                (string-generate (i32->i64 (argument-length argument))
-                                (lambda (position) (argument-character argument (i64->i32 position))))))
+                                (lambda (position)
+                                  (argument-character argument
+                                                      (i64->i32 position))))))
            (iota (i32->i64 (argument-count)))))
 
     ))

@@ -30,10 +30,12 @@
 (newline)
 (display (tree-sum (ann (deserialize bytes) (Tree I64))))
 (newline)
-(define shapes (list (Circle (Point 1 2) 0.5) (Polygon (list (Point 0 0) (Point 10 -4)))))
+(define shapes
+  (list (Circle (Point 1 2) 0.5) (Polygon (list (Point 0 0) (Point 10 -4)))))
 (define copy (ann (deserialize (serialize shapes)) (List Shape)))
 (match copy
-  ((Cons (Circle (Point x y) r) (Cons (Polygon (Cons _ (Cons (Point px py) _))) _))
+  ((Cons (Circle (Point x y) r)
+         (Cons (Polygon (Cons _ (Cons (Point px py) _))) _))
    (display (list x y px py))
    (newline)
    (display r)

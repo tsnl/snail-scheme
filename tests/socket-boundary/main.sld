@@ -118,7 +118,8 @@
 (define (packet-port result) (Endpoint-port (Datagram-peer (require result))))
 
 (: packet-size (-> (Result Datagram SocketError) I32))
-(define (packet-size result) (i64->i32 (vector-length (Datagram-bytes (require result)))))
+(define (packet-size result)
+  (i64->i32 (vector-length (Datagram-bytes (require result)))))
 
 (: packet-byte (-> (Result Datagram SocketError) I32 I32))
 (define (packet-byte result index)

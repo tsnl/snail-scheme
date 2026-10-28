@@ -18,6 +18,7 @@
     ;; the action saves belong to other libraries' modules.
     (: all-signals (-> (-> Unit ! Signal console) (List I64) ! console))
     (define (all-signals action)
-      (handle Signal ((signal (lambda (value resume) (Cons value (resume (unit))))))
+      (handle Signal ((signal
+                       (lambda (value resume) (Cons value (resume (unit))))))
         (action)
         (Nil)))))

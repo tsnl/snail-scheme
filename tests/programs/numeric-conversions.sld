@@ -16,7 +16,9 @@
 (write-line (show (= (real "+nan.0") (real "+nan.0"))))
 (write-line (show (f64->bits (real "-0.0"))))
 (write-line (show (f64->bits (real "4.9406564584124654e-324"))))
-(write-line (show (f64->bits (real "1.00000000000000011102230246251565404236316680908203125"))))
+(write-line
+ (show
+  (f64->bits (real "1.00000000000000011102230246251565404236316680908203125"))))
 
 ;; Returned strings own their characters after the next conversion.
 (: first String)

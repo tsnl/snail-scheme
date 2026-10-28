@@ -107,8 +107,24 @@
     (: keywords (List String))
     (define keywords
       (append core-keywords
-              (list "let*" "letrec" "cond" "case" "when" "unless" "and" "or" "do" "else"
-                    "define-library" "import" "export" "only" "except" "prefix" "rename" "cond-expand"
+              (list "let*"
+                    "letrec"
+                    "cond"
+                    "case"
+                    "when"
+                    "unless"
+                    "and"
+                    "or"
+                    "do"
+                    "else"
+                    "define-library"
+                    "import"
+                    "export"
+                    "only"
+                    "except"
+                    "prefix"
+                    "rename"
+                    "cond-expand"
                     "ctl" "All" "requires" "deriving" "host" "->" "!"
                     "define-application" "define-record-type" "guard")))
 
@@ -143,7 +159,8 @@
       (let ((source (make-source "" text)))
         (let loop ((index 0) (naming (Plain)) (tokens (Nil)))
           (match (next-token source index naming)
-            ((Some (Pair token next)) (loop (Token-end token) next (Cons token tokens)))
+            ((Some (Pair token next))
+             (loop (Token-end token) next (Cons token tokens)))
             ((None) (reverse tokens))))))
 
     ;; The token at `index` and the naming after it, or nothing at the end of
@@ -152,14 +169,17 @@
     (: next-token (-> Source I64 Naming (Option (Pair Token Naming))))
     (define (next-token source index naming)
       (match (atmosphere-at source index)
-        ((Some (Pair (DatumComment) end)) (Some (Pair (Token index (datum-end source end) (Comment)) naming)))
-        ((Some (Pair atmosphere end)) (Some (Pair (Token index end (atmosphere-class atmosphere)) naming)))
+        ((Some (Pair (DatumComment) end))
+         (Some (Pair (Token index (datum-end source end) (Comment)) naming)))
+        ((Some (Pair atmosphere end))
+         (Some (Pair (Token index end (atmosphere-class atmosphere)) naming)))
         ((None)
          (match (lexeme-at source index)
            ((Pair (EndOfText) _) (None))
            ((Pair lexeme end)
             (let ((classified (lexeme-class source index end lexeme naming)))
-              (Some (Pair (Token index end (Pair-first classified)) (Pair-second classified)))))))))
+              (Some (Pair (Token index end (Pair-first classified))
+                          (Pair-second classified)))))))))
 
     (: atmosphere-class (-> Atmosphere Class))
     (define (atmosphere-class atmosphere)
@@ -171,7 +191,9 @@
     (: lexeme-class (-> Source I64 I64 Lexeme Naming (Pair Class Naming)))
     (define (lexeme-class source start end lexeme naming)
       (match lexeme
-        ((ListOpen _) (Pair (Punctuation) (match naming ((Defining) (Defining)) (_ (Opened)))))
+        ((ListOpen _)
+         (Pair (Punctuation)
+               (match naming ((Defining) (Defining)) (_ (Opened)))))
         ((ListClose _) (Pair (Punctuation) (Plain)))
         ((QuoteMark) (Pair (Punctuation) naming))
         ((BytesOpen) (Pair (Punctuation) (Plain)))
@@ -194,7 +216,10 @@
     (define (name-class name naming)
       (match naming
         ((Defining) (Pair (DefinedName) (Plain)))
-        ((Opened) (if (member? name defining-forms) (Pair (Keyword) (Defining)) (Pair (plain-name-class name) (Plain))))
+        ((Opened)
+         (if (member? name defining-forms)
+             (Pair (Keyword) (Defining))
+             (Pair (plain-name-class name) (Plain))))
         ((Plain) (Pair (plain-name-class name) (Plain)))))
 
     ;; A type's name starts with a capital letter.
@@ -202,7 +227,8 @@
     (define (plain-name-class name)
       (let ((first (string-ref name 0)))
         (cond ((member? name keywords) (Keyword))
-              ((and (not (char<? first #\A)) (not (char<? #\Z first))) (TypeName))
+              ((and (not (char<? first #\A)) (not (char<? #\Z first)))
+               (TypeName))
               (else (Identifier)))))
 
     ;; ---- Datum comments ----
@@ -215,7 +241,9 @@
     ;; the end of the text.
     (: datum-end (-> Source I64 I64))
     (define (datum-end source index)
-      (let* ((start (atmosphere-end source index)) (lexeme (lexeme-at source start)) (end (Pair-second lexeme)))
+      (let* ((start (atmosphere-end source index))
+             (lexeme (lexeme-at source start))
+             (end (Pair-second lexeme)))
         (match (Pair-first lexeme)
           ((EndOfText) start)
           ((ListClose _) start)
@@ -228,7 +256,8 @@
     ;; `index`.
     (: items-end (-> Source I64 I64))
     (define (items-end source index)
-      (let* ((start (atmosphere-end source index)) (lexeme (lexeme-at source start)))
+      (let* ((start (atmosphere-end source index))
+             (lexeme (lexeme-at source start)))
         (match (Pair-first lexeme)
           ((EndOfText) start)
           ((ListClose _) (Pair-second lexeme))
@@ -238,7 +267,8 @@
     (: atmosphere-end (-> Source I64 I64))
     (define (atmosphere-end source index)
       (match (atmosphere-at source index)
-        ((Some (Pair (DatumComment) end)) (atmosphere-end source (datum-end source end)))
+        ((Some (Pair (DatumComment) end))
+         (atmosphere-end source (datum-end source end)))
         ((Some (Pair _ end)) (atmosphere-end source end))
         ((None) index)))
 

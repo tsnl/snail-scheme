@@ -11,7 +11,8 @@
 (newline)
 (display (vector->list (vector-set v 0 100)))
 (newline)
-(display (vector->list (vector-append (subvector v 1 3) (list->vector (list 7 8)))))
+(display
+ (vector->list (vector-append (subvector v 1 3) (list->vector (list 7 8)))))
 (newline)
 (define a (make-array 3 0))
 (array-set! a 1 42)

@@ -20,12 +20,16 @@
 
 (: number (-> String I64 ! Fail))
 (define (number text)
-  (fold-left (lambda (total c) (+ (* total 10) (digit c))) 0 (string->list text)))
+  (fold-left (lambda (total c) (+ (* total 10) (digit c)))
+             0
+             (string->list text)))
 
 ;; Each bad digit counts as the default, and parsing goes on.
 (: parse-with (-> String I64 I64 ! console))
 (define (parse-with text default)
-  (handle Fail ((fail (lambda (message resume) (write-line message) (resume default))))
+  (handle Fail ((fail (lambda (message resume)
+                        (write-line message)
+                        (resume default))))
     (number text)))
 
 (display (parse-with "123" 0))
@@ -36,10 +40,14 @@
 ;; Of two handlers of one effect, the inner one catches the body's `fail`.
 ;; Its implementation runs outside it, so its own `fail` reaches the outer
 ;; handler, which resumes it; the inner one then resumes the body.
-(display (handle Fail ((fail (lambda (message resume) (write-line (string-append "outer: " message)) (resume 100))))
+(display (handle Fail ((fail (lambda (message resume)
+                               (write-line (string-append "outer: " message))
+                               (resume 100))))
            (handle Fail ((fail (lambda (message resume)
                                  (write-line (string-append "inner: " message))
-                                 (+ 1 (resume (fail (string-append "again " message)))))))
+                                 (+ 1
+                                    (resume (fail (string-append "again "
+                                                                 message)))))))
              (+ (fail "boom") 1))))
 (newline)
 
@@ -56,12 +64,15 @@
 
 (: logged (-> (-> I64 ! Log) I64 ! console))
 (define (logged body)
-  (handle Log ((log (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
+  (handle Log ((log (lambda (line resume)
+                      (write-line (string-append "log: " line))
+                      (resume (unit)))))
     (body)))
 
 (display (logged (lambda ()
                    (handle Fail ((fail (lambda (message resume)
-                                         (log (string-append "recovering from " message))
+                                         (log (string-append "recovering from "
+                                                             message))
                                          (* 2 (resume 5)))))
                      (+ (checked "4z") (checked "7"))))))
 (newline)

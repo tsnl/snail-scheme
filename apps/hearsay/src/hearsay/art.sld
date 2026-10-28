@@ -8,4 +8,9 @@
                    (lpc embed)
                    (lpc wardrobe)
                    (hearsay cast))
-                  (embed-library (list "hearsay" "art") 1000 (delete-duplicates string=? (concatenate (map character-paths everyone)))))
+                  (embed-library (list "hearsay" "art")
+                                 1000
+                                 (delete-duplicates string=?
+                                                    (concatenate
+                                                     (map character-paths
+                                                          everyone)))))
