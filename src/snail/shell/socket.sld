@@ -50,7 +50,7 @@
        (finish-connection (-> Connection I32 (Result Unit SocketError)))
        (close-listener (-> Listener (Result Unit SocketError)))
        (close-connection (-> Connection (Result Unit SocketError))))
-      (host "snail.socket"
+      (host "snail.runtime.native.socket"
             ((listen "listen")
              (connect "connect")
              (accept "accept")
@@ -65,7 +65,7 @@
        (send (-> UdpSocket Endpoint Bytes (Result I32 SocketError)))
        (receive (-> UdpSocket I32 (Result Datagram SocketError)))
        (close-udp (-> UdpSocket (Result Unit SocketError))))
-      (host "snail.socket"
+      (host "snail.runtime.native.socket"
             ((bind "bind")
              (send "send")
              (receive "receive")

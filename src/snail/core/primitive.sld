@@ -8,8 +8,12 @@
 ;;
 ;; A generic type quantifies its variables in the order they first occur,
 ;; A for a type and e for the rest of a row. `mut` marks operations on
-;; mutable storage and `tasks` those that reach the runtime's scheduler;
-;; everything else is total, though some can trap.
+;; mutable storage and `tasks` those that reach the runtime's scheduler,
+;; imported from `snail.runtime.tasks`; everything else is total, though
+;; some can trap. The task operations are primitives, not a runtime
+;; library's externs, because `dispatch-local` hands the host an owner cell
+;; and function references no signature names, and all six give way to a
+;; `tasks` effect when tasks become effects (#511).
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast dynamic-cast

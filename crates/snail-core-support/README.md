@@ -1,6 +1,6 @@
 # Wasm scalar services
 
-`snail-runtime` supplies scalar math, Unicode properties, float text, console
+`snail-core-support` supplies scalar math, Unicode properties, float text, console
 and file I/O, directory and path operations, a monotonic clock, and panic
 reporting. Snail-Core's managed values stay in WasmGC; Rust
 retains external resources behind scalar handles and never stores guest GC
@@ -20,8 +20,8 @@ WASI and the browser host in `host/browser/host.mjs` supply the platform
 operations.
 
 ```sh
-cargo test --manifest-path crates/runtime/Cargo.toml --offline
-cargo fmt --manifest-path crates/runtime/Cargo.toml --all -- --check
+cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline
+cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check
 ```
 
 Host compilation is used for unit tests.

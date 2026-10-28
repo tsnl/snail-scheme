@@ -169,7 +169,7 @@
                            "--no-warnings"
                            (path-join root "tests/assembler.mjs")
                            (build-crate root "assembler")
-                           (build-crate root "runtime")
+                           (build-crate root "snail-core-support")
                            wat
                            (path-join root "examples/fibonacci.out")))))
         (or (zero? (caddr result))
@@ -252,7 +252,7 @@
                  (list "node"
                        "--no-warnings"
                        (path-join root "tests/numeric.mjs")
-                       (build-crate root "runtime")))))
+                       (build-crate root "snail-core-support")))))
     (or (zero? (caddr result))
         (report "numeric runtime" "conversion failed" (string-append (car result) (cadr result))))))
 
@@ -548,7 +548,7 @@
         (let ((result (capture-process
                        (list "node" "--no-warnings" (path-join root "tests/artifacts/check.mjs")
                              (build-crate root "assembler")
-                             (build-crate root "runtime")
+                             (build-crate root "snail-core-support")
                              output
                              (path-join root "tests/artifacts/main.out")))))
           (or (zero? (caddr result))
@@ -569,7 +569,8 @@
                             "--max-semi-space-size=384"
                             (path-join root "tests/compiler.mjs")
                             linked
-                            (build-crate root "assembler") (build-crate root "runtime")))))
+                            (build-crate root "assembler")
+                            (build-crate root "snail-core-support")))))
         (or (zero? (caddr result))
             (report "resident compiler" "failed" (string-append (car result) (cadr result))))))))
 

@@ -16,7 +16,7 @@ async function startLoop({root, tools, request, errors: filename}) {
   const wasi = new WASI({version: 'preview1', args: ['develop', root, tools.runtime, tools.client, ...request],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true, stderr: errors});
   const loop = {root, errors, read: 0, exports: null, assemble: await createAssembler(readFileSync(tools.assembler))};
-  const imports = {...wasi.getImportObject(), 'snail.develop': commandImports(commands(loop))};
+  const imports = {...wasi.getImportObject(), 'snail.runtime.native.develop': commandImports(commands(loop))};
   const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), imports);
   loop.exports = instance.exports;
   wasi.initialize(instance);

@@ -118,8 +118,8 @@ when it is 0 to 255, and 1 otherwise; a WASI exit is its own status.
 `close-resources`, or the runtime's `snail:io/close-all`, runs whatever
 happened, and a nonzero answer fails a run that succeeded. A trap or a
 failure of the host is status 2, with V8's message after `snail: ` and the
-Wasm frames after it. A module that imports `snail.tasks`, `snail.socket`
-or `snail.process` is refused before it is compiled: Node's event loop
+Wasm frames after it. A module that imports `snail.runtime.tasks`, `snail.runtime.native.socket`
+or `snail.runtime.native.process` is refused before it is compiled: Node's event loop
 schedules those until tasks become effects
 ([#511](https://github.com/tsnl/snail-scheme/issues/511)).
 

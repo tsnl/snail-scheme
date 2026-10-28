@@ -160,8 +160,8 @@
            ((Some n) (Some (number-from-integer n)))
            ((None) (runtime-real text))))))
 
-    (extern parse-real "snail.library" "snail:datum/parse-real" (-> String I32))
-    (extern parsed-real "snail.library" "snail:datum/parsed-real" (-> F64))
+    (extern parse-real "snail.core.support" "snail:datum/parse-real" (-> String I32))
+    (extern parsed-real "snail.core.support" "snail:datum/parsed-real" (-> F64))
 
     ;; Read the scratch result only on success, before returning to user code.
     (: runtime-real (-> String (Option Number)))

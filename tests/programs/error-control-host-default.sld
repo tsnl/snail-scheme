@@ -5,7 +5,7 @@
 ;; operation has no host default.
 (effect Gen
   ((ctl next (-> I64 Unit)))
-  (host "snail.library"
+  (host "snail.core.support"
         ((next "snail:test/next"))))
 
 (unit)

@@ -4,7 +4,7 @@
 //
 // The assembler, itself running as Wasm, turns the compiler's text into a
 // module; the module runs with the Rust runtime as a separate instance,
-// which it imports as snail.library, and must print what the program's
+// which it imports as snail.core.support, and must print what the program's
 // expected output says. Broken text must fail with its line and column.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';

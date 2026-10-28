@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "snail-runtime"
+name = "snail-core-support"
 version = "0.1.0"

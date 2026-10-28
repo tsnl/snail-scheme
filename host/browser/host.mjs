@@ -173,7 +173,7 @@ export async function startApplication({url, canvas, overlay, storageKey, manife
 }
 
 function applicationImports(application) {
-  return {...application.runtime.imports, 'snail.screen': screenImports(application.renderer, application.pictures, application.hud)};
+  return {...application.runtime.imports, 'snail.runtime.browser.screen': screenImports(application.renderer, application.pictures, application.hud)};
 }
 
 async function instantiateApplication(application, url) {

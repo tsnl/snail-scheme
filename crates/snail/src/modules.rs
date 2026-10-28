@@ -7,7 +7,7 @@
 //! `{"runtime": FILE, "modules": [{"name": LIBRARY, "file": FILE}, ...]}`,
 //! the libraries in program order. The Rust runtime is instantiated and
 //! initialized first; then each library's module, which sees the runtime
-//! as "snail.library", the modules before it under their library names,
+//! as "snail.core.support", the modules before it under their library names,
 //! and the host's modules. Each module's `main` then runs in program order
 //! (program.rs).
 
@@ -45,8 +45,20 @@ impl Manifest {
         let directory = path.parent().unwrap_or(Path::new(""));
         let json = serde_json::from_str(&text).ok();
         let manifest = json.and_then(|json| Manifest::described(&json, directory));
-        manifest
-            .ok_or_else(|| format_err!("{} is not the modules.json of a program", path.display()))
+        let manifest = manifest.ok_or_else(|| {
+            format_err!("{} is not the modules.json of a program", path.display())
+        })?;
+        if let Some(library) = manifest
+            .libraries
+            .iter()
+            .find(|library| host_provided(&library.name))
+        {
+            bail!(
+                "no library may be linked as {}, which the host provides",
+                library.name
+            )
+        }
+        Ok(manifest)
     }
 
     // The manifest `json` describes, its files in `directory`, if it
@@ -162,7 +174,7 @@ fn report_error(mut caller: Caller<'_, Host>, pointer: i32, length: i32) -> wasm
 
 // A library's module and a module loaded while the program runs link the
 // same way, as host/browser/load.mjs's `moduleImports` links both. A module
-// in `namespace` sees the runtime as "snail.library", the modules of its
+// in `namespace` sees the runtime as "snail.core.support", the modules of its
 // namespace under their library names, and the host's `wasm` effect; in the
 // program's namespace, also the files the program links. A function it
 // imports from any other module links to one that fails if called: a
@@ -268,7 +280,7 @@ impl Loading {
         }
     }
 
-    /// The instance holding the runtime: a loaded module's "snail.library",
+    /// The instance holding the runtime: a loaded module's "snail.core.support",
     /// and the memory that holds the bytes `compile` is given.
     pub fn set_runtime(&mut self, runtime: Instance) {
         self.runtime = Some(runtime);
@@ -317,7 +329,7 @@ impl Loading {
     // The instance a module in `namespace` imports from as `from`: the
     // runtime, or one of the namespace's modules.
     fn library(&self, namespace: usize, from: &str) -> Option<Instance> {
-        if from == "snail.library" {
+        if from == "snail.core.support" {
             self.runtime
         } else {
             self.namespaces[namespace].get(from).copied()
@@ -327,8 +339,9 @@ impl Loading {
     // The host's imports, when `from` is one of the host's modules a
     // loaded module in `namespace` sees.
     fn host(&self, namespace: usize, from: &str) -> Option<Arc<Linker<Host>>> {
-        let files = from == "snail.link" || from == "snail.resource";
-        (from == "snail.wasm" || (namespace == 0 && files)).then(|| Arc::clone(&self.linker))
+        let files = from == "snail.runtime.link" || from == "snail.runtime.resource";
+        (from == "snail.runtime.wasm" || (namespace == 0 && files))
+            .then(|| Arc::clone(&self.linker))
     }
 
     // The instance's handle, once it is in its namespace under `name`.
@@ -355,7 +368,7 @@ impl Loading {
 
 pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
     linker.func_wrap(
-        "snail.wasm",
+        "snail.runtime.wasm",
         "argument-character",
         |mut caller: Caller<'_, Host>, code: u32| {
             let character =
@@ -365,19 +378,23 @@ pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
         },
     )?;
     linker.func_wrap(
-        "snail.wasm",
+        "snail.runtime.wasm",
         "argument-end",
         |mut caller: Caller<'_, Host>| caller.data_mut().loading.stage(),
     )?;
-    linker.func_wrap("snail.wasm", "compile", compile)?;
-    linker.func_wrap("snail.wasm", "namespace", |mut caller: Caller<'_, Host>| {
-        let namespaces = &mut caller.data_mut().loading.namespaces;
-        namespaces.push(HashMap::new());
-        i32::try_from(namespaces.len() - 1).unwrap_or(i32::MAX)
-    })?;
-    linker.func_wrap("snail.wasm", "instantiate", instantiate)?;
+    linker.func_wrap("snail.runtime.wasm", "compile", compile)?;
     linker.func_wrap(
-        "snail.wasm",
+        "snail.runtime.wasm",
+        "namespace",
+        |mut caller: Caller<'_, Host>| {
+            let namespaces = &mut caller.data_mut().loading.namespaces;
+            namespaces.push(HashMap::new());
+            i32::try_from(namespaces.len() - 1).unwrap_or(i32::MAX)
+        },
+    )?;
+    linker.func_wrap("snail.runtime.wasm", "instantiate", instantiate)?;
+    linker.func_wrap(
+        "snail.runtime.wasm",
         "has-export",
         |mut caller: Caller<'_, Host>, handle: i32| {
             let instance = caller.data().loading.instance(handle)?;
@@ -386,7 +403,7 @@ pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
         },
     )?;
     linker.func_wrap(
-        "snail.wasm",
+        "snail.runtime.wasm",
         "export-function",
         |mut caller: Caller<'_, Host>, handle: i32| {
             let instance = caller.data().loading.instance(handle)?;
@@ -395,6 +412,14 @@ pub fn define_loading(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
         },
     )?;
     Ok(())
+}
+
+// The names only a host or the runtime gives a module: the runtime
+// interfaces, `snail.runtime.…`, and the Rust support module. A library
+// linked under one would take the place of what every module imports from
+// there, so none may be.
+pub fn host_provided(name: &str) -> bool {
+    name.starts_with("snail.runtime.") || name == "snail.core.support"
 }
 
 fn compile(mut caller: Caller<'_, Host>, address: u32) -> wasmtime::Result<i32> {
@@ -428,7 +453,7 @@ fn byte_snapshot(caller: &mut Caller<'_, Host>, address: u32) -> wasmtime::Resul
 fn instantiate(mut caller: Caller<'_, Host>, namespace: i32, module: i32) -> wasmtime::Result<i32> {
     let name = caller.data_mut().loading.take_name()?;
     let (namespace, module) = caller.data().loading.target(namespace, module)?;
-    if caller.data().loading.namespaces[namespace].contains_key(&name) {
+    if caller.data().loading.namespaces[namespace].contains_key(&name) || host_provided(&name) {
         return Ok(NAME_TAKEN);
     }
     let Some(instance) = link_loaded(&mut caller, namespace, &module)? else {
@@ -486,8 +511,8 @@ mod tests {
     // A library whose main fails unless the runtime was initialized, and
     // which imports a host service it never calls.
     const LIBRARY: &str = r#"(module
-        (import "snail.library" "initialized" (func $initialized (result i32)))
-        (import "snail.screen" "draw" (func (param i32)))
+        (import "snail.core.support" "initialized" (func $initialized (result i32)))
+        (import "snail.runtime.browser.screen" "draw" (func (param i32)))
         (func (export "main") (result i32)
           (if (i32.eqz (call $initialized)) (then (unreachable)))
           (i32.const 0))
@@ -534,6 +559,23 @@ mod tests {
         std::fs::write(&manifest, r#"{"runtime": "runtime.wasm"}"#).unwrap();
         let error = Manifest::read(&manifest).err().unwrap().to_string();
         assert!(error.ends_with("modules.json is not the modules.json of a program"));
+    }
+
+    #[test]
+    fn no_library_may_take_a_name_the_host_provides() {
+        let manifest = build("reserved", &runtime(0));
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(
+            &manifest,
+            text.replace(r#""name": "lib""#, r#""name": "snail.runtime.wasm""#),
+        )
+        .unwrap();
+        let error = Manifest::read(&manifest).err().unwrap().to_string();
+        assert_eq!(
+            error,
+            "no library may be linked as snail.runtime.wasm, which the host provides"
+        );
+        assert!(host_provided("snail.core.support") && !host_provided("snail.core.control"));
     }
 
     #[test]
