@@ -19,7 +19,8 @@
 (while (< (ref-get counter) 5) (ref-set! counter (+ (ref-get counter) 1)))
 (display (ref-get counter))
 (newline)
-(display (case (* 2 3) ((2 3 5 7) "prime") ((1 4 6 8 9) "composite") (else "other")))
+(display
+ (case (* 2 3) ((2 3 5 7) "prime") ((1 4 6 8 9) "composite") (else "other")))
 (newline)
 (display (cond ((> 1 2) "a") ((> 2 1) "b") (else "c")))
 (newline)

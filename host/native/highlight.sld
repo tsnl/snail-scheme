@@ -25,7 +25,8 @@
 (define (highlight-html)
   (let ((text (list->string (reverse (ref-get input)))))
     (ref-set! input (Nil))
-    (ref-set! result (tokens-html (string->vector text) (highlight-tokens text)))
+    (ref-set! result
+              (tokens-html (string->vector text) (highlight-tokens text)))
     (i64->i32 (string-length (ref-get result)))))
 
 (: highlight-result (-> I32 I32 ! mut))
@@ -44,10 +45,15 @@
 
 (: token-html (-> (Vector Char) Token String))
 (define (token-html chars token)
-  (let ((text (escape-html (subvector chars (Token-start token) (Token-end token)))))
+  (let ((text
+         (escape-html (subvector chars (Token-start token) (Token-end token)))))
     (match (Token-class token)
       ((Blank) text)
-      (class (string-append "<span class=\"tok-" (class-name class) "\">" text "</span>")))))
+      (class (string-append "<span class=\"tok-"
+                            (class-name class)
+                            "\">"
+                            text
+                            "</span>")))))
 
 ;; Text as HTML shows it: `&`, `<` and `>` become character references.
 (: escape-html (-> (Vector Char) String))

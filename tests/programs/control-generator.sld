@@ -18,7 +18,9 @@
 
 (: tree Tree)
 (define tree
-  (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf))) 5 (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
+  (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf)))
+        5
+        (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
 
 ;; Every value the body yields, then the body's own result.
 (: collect (-> (-> I64 ! Gen) (List I64)))
@@ -99,19 +101,24 @@
        (yield item)
        (+ half (halves rest))))))
 
-(write-line (show (handle Gen ((yield (lambda (value resume) (resume (unit))))) (halves (list 1 2 4)))))
+(write-line (show (handle Gen ((yield (lambda (value resume) (resume (unit)))))
+                    (halves (list 1 2 4)))))
 
-(show-all (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
-            (let ((after (once (lambda () (write-line "after the yield")))))
-              (yield 1)
-              (after)
-              (list 2))))
+(show-all
+ (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
+   (let ((after (once (lambda () (write-line "after the yield")))))
+     (yield 1)
+     (after)
+     (list 2))))
 
 ;; The handler can stop resuming, dropping the rest of the walk: the
 ;; values up to the first above the limit.
 (: until-above (-> I64 (-> I64 ! Gen) (List I64)))
 (define (until-above limit body)
-  (handle Gen ((yield (lambda (value resume) (if (> value limit) (list value) (Cons value (resume (unit)))))))
+  (handle Gen ((yield (lambda (value resume)
+                        (if (> value limit)
+                            (list value)
+                            (Cons value (resume (unit)))))))
     (body)
     (Nil)))
 

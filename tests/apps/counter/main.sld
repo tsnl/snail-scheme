@@ -39,13 +39,20 @@
          (rgb 16 20 28)
          1.0
          (list (Batch 1 (i64->i32 (Counter-count counter)) (Solid)
-                      (lambda () (list (item (Box) (Vec3 0.0 0.0 0.0) (Vec3 1.0 1.0 1.0) 0.0 (rgb 143 209 143))))))
+                      (lambda ()
+                        (list (item (Box)
+                                    (Vec3 0.0 0.0 0.0)
+                                    (Vec3 1.0 1.0 1.0)
+                                    0.0
+                                    (rgb 143 209 143))))))
          (Nil)))
 
 (: panels (-> Counter (List Panel)))
 (define (panels counter)
   (list (Panel "counter" (At (TopLeft) 0)
-               (list (label "greeting" greeting) (label "count" (i64->string (Counter-count counter))) (button "add" "Add" add-action)))))
+               (list (label "greeting" greeting)
+                     (label "count" (i64->string (Counter-count counter)))
+                     (button "add" "Add" add-action)))))
 
 (: save (-> Counter Save))
 (define (save counter)

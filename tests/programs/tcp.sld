@@ -15,12 +15,14 @@
   (let loop ((bytes #u8()))
     (if (= (vector-length bytes) 4)
         bytes
-        (match (require (read connection (i64->i32 (- 4 (vector-length bytes)))))
+        (match (require
+                (read connection (i64->i32 (- 4 (vector-length bytes)))))
           ((Some chunk) (loop (vector-append bytes chunk)))
           ((None) (panic "unexpected EOF"))))))
 
 (let* ((listener (require (listen (Endpoint "127.0.0.1" 0))))
-       (client (require (connect (Endpoint "127.0.0.1" (Listener-port listener)))))
+       (client
+        (require (connect (Endpoint "127.0.0.1" (Listener-port listener)))))
        (server (require (accept listener))))
   (require (close-listener listener))
   (require (close-listener listener))
@@ -48,7 +50,8 @@
 (require (listen (Endpoint "127.0.0.1" 0)))
 
 (let* ((listener (require (listen (Endpoint "127.0.0.1" 0))))
-       (client (require (connect (Endpoint "127.0.0.1" (Listener-port listener)))))
+       (client
+        (require (connect (Endpoint "127.0.0.1" (Listener-port listener)))))
        (server (require (accept listener))))
   (require (close-listener listener))
   (dispatch-local (once (lambda () (require (finish-connection server 1000)))))

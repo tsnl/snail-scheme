@@ -95,7 +95,8 @@
 (: parse-manifest (-> (List Datum) Manifest))
 (define (parse-manifest data)
   (match data
-    ((Cons files (Cons modules (Nil))) (Manifest (string-pairs files) (string-pairs modules)))
+    ((Cons files (Cons modules (Nil)))
+     (Manifest (string-pairs files) (string-pairs modules)))
     (_ (panic "reload: a manifest is (files ...) (modules ...)"))))
 
 (: string-pairs (-> Datum (List (Pair String String))))
@@ -107,8 +108,10 @@
 (: string-pair (-> Datum (Pair String String)))
 (define (string-pair datum)
   (match datum
-    ((PairDatum (StringDatum name) (PairDatum (StringDatum value) (NullDatum))) (Pair name value))
-    (_ (panic (string-append "reload: expected (NAME VALUE), got " (datum->string datum))))))
+    ((PairDatum (StringDatum name) (PairDatum (StringDatum value) (NullDatum)))
+     (Pair name value))
+    (_ (panic (string-append "reload: expected (NAME VALUE), got "
+                             (datum->string datum))))))
 
 ;; `(building MANIFEST)`, `(built MILLISECONDS MANIFEST)` or
 ;; `(failed MESSAGE MANIFEST)`.
@@ -117,9 +120,13 @@
   (match (read-datums text)
     ((Ok (Cons event (Nil)))
      (match (datum->list event)
-       ((Some (Cons (SymbolDatum "building") manifest)) (Building (parse-manifest manifest)))
-       ((Some (Cons (SymbolDatum "built") (Cons milliseconds manifest))) (Built (datum->display-string milliseconds) (parse-manifest manifest)))
-       ((Some (Cons (SymbolDatum "failed") (Cons (StringDatum message) manifest))) (Failed message (parse-manifest manifest)))
+       ((Some (Cons (SymbolDatum "building") manifest))
+        (Building (parse-manifest manifest)))
+       ((Some (Cons (SymbolDatum "built") (Cons milliseconds manifest)))
+        (Built (datum->display-string milliseconds) (parse-manifest manifest)))
+       ((Some
+         (Cons (SymbolDatum "failed") (Cons (StringDatum message) manifest)))
+        (Failed message (parse-manifest manifest)))
        (_ (panic (string-append "reload: an unknown event " text)))))
     (_ (panic (string-append "reload: an unreadable event " text)))))
 
@@ -131,13 +138,18 @@
 
 (: same-manifest? (-> Manifest Manifest Bool))
 (define (same-manifest? a b)
-  (and (same-pairs? (Manifest-files a) (Manifest-files b)) (same-pairs? (Manifest-modules a) (Manifest-modules b))))
+  (and (same-pairs? (Manifest-files a) (Manifest-files b))
+       (same-pairs? (Manifest-modules a) (Manifest-modules b))))
 
-(: same-pairs? (-> (List (Pair String String)) (List (Pair String String)) Bool))
+(: same-pairs?
+   (-> (List (Pair String String)) (List (Pair String String)) Bool))
 (define (same-pairs? a b)
   (and (= (length a) (length b))
-       (every? (lambda (pair) (and (string=? (Pair-first (Pair-first pair)) (Pair-first (Pair-second pair)))
-                                   (string=? (Pair-second (Pair-first pair)) (Pair-second (Pair-second pair)))))
+       (every? (lambda (pair)
+                 (and (string=? (Pair-first (Pair-first pair))
+                                (Pair-first (Pair-second pair)))
+                      (string=? (Pair-second (Pair-first pair))
+                                (Pair-second (Pair-second pair)))))
                (zip a b))))
 
 (: event-manifest (-> Event Manifest))
@@ -153,14 +165,19 @@
 (: changed-files (-> Manifest Manifest (List String)))
 (define (changed-files old new)
   (delete-duplicates string=?
-                     (append (differing (Manifest-files old) (Manifest-files new)) (differing (Manifest-files new) (Manifest-files old)))))
+                     (append
+                      (differing (Manifest-files old) (Manifest-files new))
+                      (differing (Manifest-files new) (Manifest-files old)))))
 
-(: differing (-> (List (Pair String String)) (List (Pair String String)) (List String)))
+(: differing
+   (-> (List (Pair String String)) (List (Pair String String)) (List String)))
 (define (differing these those)
-  (map Pair-first (filter (lambda (entry) (match (assoc-ref those (Pair-first entry))
-                                            ((Some digest) (not (string=? digest (Pair-second entry))))
-                                            ((None) #t)))
-                          these)))
+  (map Pair-first
+       (filter (lambda (entry) (match (assoc-ref those (Pair-first entry))
+                                 ((Some digest)
+                                  (not (string=? digest (Pair-second entry))))
+                                 ((None) #t)))
+               these)))
 
 ;; The first module, in program order, whose file differs; the modules
 ;; before it cannot import from it, so they stay linked.
@@ -171,7 +188,9 @@
       ((Cons (Pair name file) rest)
        (match old
          ((Cons (Pair old-name old-file) old-rest)
-          (if (and (string=? name old-name) (string=? file old-file)) (loop old-rest rest) (Some name)))
+          (if (and (string=? name old-name) (string=? file old-file))
+              (loop old-rest rest)
+              (Some name)))
          ((Nil) (Some name))))
       ((Nil) (None)))))
 
@@ -213,13 +232,21 @@
 
 (: apply-event! (-> Event Unit ! mut page))
 (define (apply-event! event)
-  (let* ((manifest (event-manifest event)) (files (changed-files (ref-get loaded) manifest)))
+  (let* ((manifest (event-manifest event))
+         (files (changed-files (ref-get loaded) manifest)))
     (cond ((refused? manifest) (unit))
-          ((any? (lambda (file) (not (style-sheet? file))) files) (reload-page!))
-          (else (for-each (lambda (file) (restyle! file (digest-of manifest file))) files)
-                (match (first-changed-module (ref-get loaded) manifest)
-                  ((Some module) (ref-set! relinking (Some manifest)) (relink! module #f))
-                  ((None) (ref-set! loaded manifest) (show! event (not (null? files)))))))))
+          ((any? (lambda (file) (not (style-sheet? file))) files)
+           (reload-page!))
+          (else
+           (for-each (lambda (file) (restyle! file (digest-of manifest file)))
+                     files)
+           (match (first-changed-module (ref-get loaded) manifest)
+             ((Some module)
+              (ref-set! relinking (Some manifest))
+              (relink! module #f))
+             ((None)
+              (ref-set! loaded manifest)
+              (show! event (not (null? files)))))))))
 
 (: refused? (-> Manifest Bool ! mut))
 (define (refused? manifest)
@@ -259,9 +286,15 @@
     ((Some target)
      (ref-set! relinking (None))
      (if ok
-         (begin (ref-set! loaded target) (ref-set! refused (None)) (notice! (reloaded) brief))
+         (begin
+           (ref-set! loaded target)
+           (ref-set! refused (None))
+           (notice! (reloaded) brief))
          (begin (ref-set! refused (Some target))
-                (offer-fresh-start! (string-append "The new program could not take over the running state; the old one is still running.\n\n" message)))))
+                (offer-fresh-start!
+                 (string-append
+                  "The new program could not take over the running state; the old one is still running.\n\n"
+                  message)))))
     ((None) (unit)))
   (apply-pending!))
 
@@ -277,7 +310,9 @@
   (match (Pair (ref-get refused) (ref-get relinking))
     ((Pair (Some target) (None))
      (match (Manifest-modules target)
-       ((Cons (Pair first _) _) (ref-set! relinking (Some target)) (relink! first #t))
+       ((Cons (Pair first _) _)
+        (ref-set! relinking (Some target))
+        (relink! first #t))
        ((Nil) (unit))))
     (_ (unit))))
 
@@ -288,7 +323,8 @@
 (: page-error! (-> String Bool Unit ! page))
 (define (page-error! message stopped)
   (notice! (if stopped
-               (string-append message "\n\nThe application stopped. Fix it and save: the next build resumes from the state before the trap.")
+               (string-append message
+                              "\n\nThe application stopped. Fix it and save: the next build resumes from the state before the trap.")
                message)
            failure))
 

@@ -30,16 +30,25 @@
 (define (adder) (let ((z (abort 5))) (lambda (y) (* y z))))
 
 (: later (-> (Once (-> Unit ! console)) ! Abort))
-(define (later) (let ((value (abort 6))) (once (lambda () (write-line (show value))))))
+(define (later)
+  (let ((value (abort 6))) (once (lambda () (write-line (show value))))))
 
-(display (handle Abort ((abort (lambda (value resume) (* value 1000)))) (+ (Point-x (point)) 1)))
+(display (handle Abort ((abort (lambda (value resume) (* value 1000))))
+           (+ (Point-x (point)) 1)))
 (newline)
-(display (handle Abort ((abort (lambda (value resume) value))) (match (shape) ((Dot) 0) ((Box width) width))))
+(display (handle Abort ((abort (lambda (value resume) value)))
+           (match (shape) ((Dot) 0) ((Box width) width))))
 (newline)
-(write-line (handle Abort ((abort (lambda (value resume) (show value)))) (string-append (text) "!")))
-(display ((handle Abort ((abort (lambda (value resume) (lambda (y) (+ y value))))) (adder)) 1))
+(write-line (handle Abort ((abort (lambda (value resume) (show value))))
+              (string-append (text) "!")))
+(display
+ ((handle Abort ((abort (lambda (value resume) (lambda (y) (+ y value)))))
+    (adder))
+  1))
 (newline)
-((handle Abort ((abort (lambda (value resume) (once (lambda () (write-line "from the handler")))))) (later)))
+((handle Abort ((abort (lambda (value resume)
+                         (once (lambda () (write-line "from the handler"))))))
+   (later)))
 
 ;; A handler of an ordinary operation inside the handle is left behind with
 ;; the rest of the body; an effect may mix both kinds of operation.
@@ -55,6 +64,7 @@
              (log "before")
              (+ 1 (abort 4)))))
 (newline)
-(display (handle Probe ((peek (lambda () 7)) (bail (lambda (value resume) (+ value 100))))
+(display (handle Probe ((peek (lambda () 7))
+                        (bail (lambda (value resume) (+ value 100))))
            (let ((x (peek))) (if (> x 5) (begin (bail x) 0) x))))
 (newline)

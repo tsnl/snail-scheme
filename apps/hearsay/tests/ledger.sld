@@ -12,11 +12,14 @@
 (: show-lines (-> String (List String) Unit ! console))
 (define (show-lines title lines)
   (write-line title)
-  (for-each (lambda (line) (write-line (string-append "  " line))) (if (null? lines) (list "none") lines)))
+  (for-each (lambda (line) (write-line (string-append "  " line)))
+            (if (null? lines) (list "none") lines)))
 
 (: choice-lines (-> (List Choice) (List String)))
 (define (choice-lines choices)
-  (map (lambda (choice) (string-append (Choice-text choice) ", " (Choice-caption choice))) choices))
+  (map (lambda (choice)
+         (string-append (Choice-text choice) ", " (Choice-caption choice)))
+       choices))
 
 ;; Each fixer's standing and holdings; while the game is on, every choice
 ;; and the promises owed you, and once it is over, the result; then what
@@ -24,7 +27,10 @@
 (: show-board (-> Ledger Unit ! console))
 (define (show-board ledger)
   (write-line (ledger-header ledger))
-  (for-each (lambda (who) (show-lines (string-append (fixer-name who) ": " (fixer-stats ledger who)) (fixer-holdings ledger who)))
+  (for-each (lambda (who)
+              (show-lines
+               (string-append (fixer-name who) ": " (fixer-stats ledger who))
+               (fixer-holdings ledger who)))
             (list you vee kit))
   (if (ledger-over? ledger)
       (write-line (ledger-result ledger))
@@ -32,7 +38,9 @@
              (show-lines "Jobs" (choice-lines (job-choices ledger)))
              (show-lines "Vee offers" (choice-lines (offer-choices ledger vee)))
              (show-lines "Kit offers" (choice-lines (offer-choices ledger kit)))
-             (show-lines "Promises" (append (choice-lines (promise-choices ledger)) (owed-lines ledger)))))
+             (show-lines "Promises"
+                         (append (choice-lines (promise-choices ledger))
+                                 (owed-lines ledger)))))
   (show-lines "Last round" (Ledger-last-round ledger))
   (write-line ""))
 
@@ -49,7 +57,9 @@
     ((Run text command)
      (write-line (string-append "> " text))
      (match (ledger-act ledger command)
-       ((Ok result) (for-each write-line (Pair-second result)) (Pair-first result))
+       ((Ok result)
+        (for-each write-line (Pair-second result))
+        (Pair-first result))
        ((Err message) (write-line message) ledger)))
     ((Board) (show-board ledger) ledger)))
 
@@ -58,5 +68,20 @@
 (let ((ledger (new-ledger 7)))
   (show-board ledger)
   (show-board (fold-left run-step ledger
-                         (list (Run "job 2" (Work 2)) (Run "meet ivo" (Meet 0)) (Run "accept 4" (Accept 4)) (Run "accept 7" (Accept 7))
-                               end (Run "honor 2" (Honor 2)) (Run "accept 99" (Accept 99)) end end (Board) end end end end end end end))))
+                         (list (Run "job 2" (Work 2))
+                               (Run "meet ivo" (Meet 0))
+                               (Run "accept 4" (Accept 4))
+                               (Run "accept 7" (Accept 7))
+                               end
+                               (Run "honor 2" (Honor 2))
+                               (Run "accept 99" (Accept 99))
+                               end
+                               end
+                               (Board)
+                               end
+                               end
+                               end
+                               end
+                               end
+                               end
+                               end))))

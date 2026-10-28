@@ -36,9 +36,23 @@
     (define (command-button look-of text caption command rejection)
       (let ((code (press-code command)))
         (match rejection
-          ((Some why) (Button (Look-tone-set (Look-help-set look-of (rejection-text why)) (if (later? why) (Warning) (Muted)))
-                              text caption (Pair-first code) (Pair-second code) (Disabled) -1.0))
-          ((None) (Button look-of text caption (Pair-first code) (Pair-second code) (Enabled) -1.0)))))
+          ((Some why)
+           (Button (Look-tone-set (Look-help-set look-of (rejection-text why))
+                                  (if (later? why) (Warning) (Muted)))
+                   text
+                   caption
+                   (Pair-first code)
+                   (Pair-second code)
+                   (Disabled)
+                   -1.0))
+          ((None)
+           (Button look-of
+                   text
+                   caption
+                   (Pair-first code)
+                   (Pair-second code)
+                   (Enabled)
+                   -1.0)))))
 
     (: plain-button (-> Look String Command Widget))
     (define (plain-button look-of text command)
@@ -47,7 +61,13 @@
     (: toggle-button (-> Look String String Command Bool Widget))
     (define (toggle-button look-of text caption command on)
       (let ((code (press-code command)))
-        (Button look-of text caption (Pair-first code) (Pair-second code) (if on (Selected) (Enabled)) -1.0)))
+        (Button look-of
+                text
+                caption
+                (Pair-first code)
+                (Pair-second code)
+                (if on (Selected) (Enabled))
+                -1.0)))
 
     (: side (-> Game Corner))
     (define (side game)
@@ -64,7 +84,10 @@
     (: clock-text (-> I64 String))
     (define (clock-text ticks)
       (let ((total (quotient ticks 10)))
-        (string-append (show (quotient total 60)) ":" (if (< (remainder total 60) 10) "0" "") (show (remainder total 60)))))
+        (string-append (show (quotient total 60))
+                       ":"
+                       (if (< (remainder total 60) 10) "0" "")
+                       (show (remainder total 60)))))
 
     ;; ---- Dock ----
 
@@ -73,24 +96,54 @@
     (: readouts (-> Game Panel))
     (define (readouts game)
       (let* ((world (Game-world game)) (hub (World-hub world))
-             (tier (difficulty-tier (threat-tick world))) (until (- (next-attack-tick (World-tick world)) (World-tick world))))
+             (tier (difficulty-tier (threat-tick world)))
+             (until
+              (- (next-attack-tick (World-tick world)) (World-tick world))))
         (Panel "readouts" (At (side game) 0)
-               (list (Dial (Look "health" "health" "Hub health" (if (< (* 10 (Hub-health hub)) (* 3 hub-health)) (Danger) (Good)) "")
-                           (show (Hub-health hub)) (/ (i64->f32 (Hub-health hub)) (i64->f32 hub-health)))
-                     (Dial (face "energy" "energy" "Energy stored in the network") (show (World-energy world))
-                           (min 1.0 (/ (i64->f32 (World-energy world)) 400.0)))
-                     (Dial (Look "threat" "threat" (string-append "Strength " (show tier) "; next attack in " (seconds until))
-                                 (if (< until 100) (Warning) (Plain)) (seconds until))
-                           (string-append "T" (show tier)) (/ (i64->f32 (remainder (threat-tick world) difficulty-step)) (i64->f32 difficulty-step)))))))
+               (list (Dial (Look "health"
+                                 "health"
+                                 "Hub health"
+                                 (if
+                                  (< (* 10 (Hub-health hub)) (* 3 hub-health))
+                                  (Danger)
+                                  (Good))
+                                 "")
+                           (show (Hub-health hub))
+                           (/ (i64->f32 (Hub-health hub))
+                              (i64->f32 hub-health)))
+                     (Dial
+                      (face "energy" "energy" "Energy stored in the network")
+                      (show (World-energy world))
+                      (min 1.0 (/ (i64->f32 (World-energy world)) 400.0)))
+                     (Dial (Look "threat"
+                                 "threat"
+                                 (string-append "Strength "
+                                                (show tier)
+                                                "; next attack in "
+                                                (seconds until))
+                                 (if (< until 100) (Warning) (Plain))
+                                 (seconds until))
+                           (string-append "T" (show tier))
+                           (/ (i64->f32
+                               (remainder (threat-tick world) difficulty-step))
+                              (i64->f32 difficulty-step)))))))
 
     ;; The menu, or the results once the game is decided, then turning.
     (: controls (-> Game Panel))
     (define (controls game)
       (let ((decided (not (playing? (Game-world game)))))
         (Panel "controls" (At (side game) 1)
-               (list (plain-button (face "pause" (if decided "results" "pause") (if decided "Results" "Pause")) "P" (if decided (ShowResults) (OpenMenu)))
-                     (plain-button (face "turn-left" "turn-left" "Turn left") "Q" (Turn -1))
-                     (plain-button (face "turn-right" "turn-right" "Turn right") "E" (Turn 1))))))
+               (list (plain-button (face "pause"
+                                         (if decided "results" "pause")
+                                         (if decided "Results" "Pause"))
+                                   "P"
+                                   (if decided (ShowResults) (OpenMenu)))
+                     (plain-button (face "turn-left" "turn-left" "Turn left")
+                                   "Q"
+                                   (Turn -1))
+                     (plain-button (face "turn-right" "turn-right" "Turn right")
+                                   "E"
+                                   (Turn 1))))))
 
     ;; ---- Construction ----
 
@@ -101,13 +154,21 @@
     (: construction (-> Game (List Panel)))
     (define (construction game)
       (match (Game-selected game)
-        ((Some cell) (list (Panel "construction" (At (side game) 0) (append (build-menu game cell) (Cons (label "divider" "") (care game cell))))))
+        ((Some cell)
+         (list (Panel "construction"
+                      (At (side game) 0)
+                      (append (build-menu game cell)
+                              (Cons (label "divider" "") (care game cell))))))
         ((None) (Nil))))
 
     (: build-menu (-> Game Cell (List Widget)))
     (define (build-menu game cell)
-      (list (build-button game cell (Pylon)) (build-button game cell (Turret)) (build-button game cell (Extractor))
-            (upgrade-button game cell) (rush-button game cell) (plain-button (face "close" "close" "Close") "5" (CloseCard))))
+      (list (build-button game cell (Pylon))
+            (build-button game cell (Turret))
+            (build-button game cell (Extractor))
+            (upgrade-button game cell)
+            (rush-button game cell)
+            (plain-button (face "close" "close" "Close") "5" (CloseCard))))
 
     (: kind-icon (-> Kind String))
     (define (kind-icon kind)
@@ -126,24 +187,42 @@
     (: build-button (-> Game Cell Kind Widget))
     (define (build-button game cell kind)
       (let ((price (* (raise-cost kind 0) (if (Game-rush game) 5 1))))
-        (command-button (Look (string-append "build-" (kind-icon kind)) (kind-icon kind)
-                              (string-append (kind-name kind) ": " (show (quotient (raise-duration kind 0) 10)) "s to build")
-                              (if (opening-move? (Game-world game) kind) (Suggested) (Plain)) "")
-                        (kind-key kind) (show price) (BuildAt kind cell) (check (Game-world game) (Build kind cell (Game-rush game))))))
+        (command-button
+         (Look (string-append "build-" (kind-icon kind)) (kind-icon kind)
+               (string-append (kind-name kind)
+                              ": "
+                              (show (quotient (raise-duration kind 0) 10))
+                              "s to build")
+               (if (opening-move? (Game-world game) kind) (Suggested) (Plain))
+               "")
+         (kind-key kind)
+         (show price)
+         (BuildAt kind cell)
+         (check (Game-world game) (Build kind cell (Game-rush game))))))
 
     ;; What the next level of the selected building, or the hub's next build
     ;; slot, costs.
     (: upgrade-button (-> Game Cell Widget))
     (define (upgrade-button game cell)
-      (command-button (face "upgrade" "upgrade" "Upgrade") "U" (match (upgrade-cost (Game-world game) cell) ((Some cost) (show cost)) ((None) ""))
-                      (UpgradeAt cell) (check (Game-world game) (Upgrade cell))))
+      (command-button (face "upgrade" "upgrade" "Upgrade")
+                      "U"
+                      (match (upgrade-cost (Game-world game) cell)
+                        ((Some cost) (show cost))
+                        ((None) ""))
+                      (UpgradeAt cell)
+                      (check (Game-world game) (Upgrade cell))))
 
     (: upgrade-cost (-> World Cell (Option I64)))
     (define (upgrade-cost world cell)
       (cond ((hub-cell? (World-hub world) cell)
-             (let ((slots (Hub-slots (World-hub world)))) (if (< slots maximum-slots) (Some (slot-cost slots)) (None))))
+             (let ((slots (Hub-slots (World-hub world))))
+               (if (< slots maximum-slots) (Some (slot-cost slots)) (None))))
             (else (match (building-at world cell)
-                    ((Some b) (if (and (built? b) (< (Building-level b) maximum-level)) (Some (raise-cost (Building-kind b) (Building-level b))) (None)))
+                    ((Some b)
+                     (if (and (built? b) (< (Building-level b) maximum-level))
+                         (Some
+                          (raise-cost (Building-kind b) (Building-level b)))
+                         (None)))
                     ((None) (None))))))
 
     ;; Work on the selected cell is rushed to its end; otherwise the button
@@ -151,8 +230,20 @@
     (: rush-button (-> Game Cell Widget))
     (define (rush-button game cell)
       (match (cell-work (Game-world game) cell)
-        ((Some work) (command-button (face "rush" "rush" "Rush: finish the work now") "4" (show (rush-price work)) (RushAt cell) (check (Game-world game) (Rush cell))))
-        ((None) (toggle-button (face "rush-orders" "rush" "Rush new buildings: ready at once for five times the price") "4" "×5" (ToggleRush) (Game-rush game)))))
+        ((Some work)
+         (command-button (face "rush" "rush" "Rush: finish the work now")
+                         "4"
+                         (show (rush-price work))
+                         (RushAt cell)
+                         (check (Game-world game) (Rush cell))))
+        ((None)
+         (toggle-button (face "rush-orders"
+                              "rush"
+                              "Rush new buildings: ready at once for five times the price")
+                        "4"
+                        "×5"
+                        (ToggleRush)
+                        (Game-rush game)))))
 
     (: cell-work (-> World Cell (Option Work)))
     (define (cell-work world cell)
@@ -167,24 +258,40 @@
     (: care (-> Game Cell (List Widget)))
     (define (care game cell)
       (list (cancel-button game cell)
-            (if (hub-cell? (World-hub (Game-world game)) cell) (repair-button game) (scavenge-button game cell))))
+            (if (hub-cell? (World-hub (Game-world game)) cell)
+                (repair-button game)
+                (scavenge-button game cell))))
 
     (: cancel-button (-> Game Cell Widget))
     (define (cancel-button game cell)
-      (command-button (face "cancel" "cancel" "Cancel the work and refund it") "C"
-                      (match (cell-work (Game-world game) cell) ((Some w) (string-append "+" (show (work-refund w)))) ((None) ""))
+      (command-button (face "cancel" "cancel" "Cancel the work and refund it")
+                      "C"
+                      (match (cell-work (Game-world game) cell)
+                        ((Some w) (string-append "+" (show (work-refund w))))
+                        ((None) ""))
                       (CancelAt cell) (check (Game-world game) (Cancel cell))))
 
     (: scavenge-button (-> Game Cell Widget))
     (define (scavenge-button game cell)
-      (command-button (face "scavenge" "scavenge" "Scavenge: remove it for a fifth of its cost") "X"
-                      (match (building-at (Game-world game) cell) ((Some b) (string-append "+" (show (quotient (invested b) 5)))) ((None) ""))
-                      (ScavengeAt cell) (check (Game-world game) (Scavenge cell))))
+      (command-button (face "scavenge"
+                            "scavenge"
+                            "Scavenge: remove it for a fifth of its cost")
+                      "X"
+                      (match (building-at (Game-world game) cell)
+                        ((Some b)
+                         (string-append "+" (show (quotient (invested b) 5))))
+                        ((None) ""))
+                      (ScavengeAt cell)
+                      (check (Game-world game) (Scavenge cell))))
 
     (: repair-button (-> Game Widget))
     (define (repair-button game)
       (let ((world (Game-world game)))
-        (command-button (face "repair" "repair" "Repair the hub to full health") "F" (show (repair-price (World-hub world))) (RepairHub) (check world (Repair)))))
+        (command-button (face "repair" "repair" "Repair the hub to full health")
+                        "F"
+                        (show (repair-price (World-hub world)))
+                        (RepairHub)
+                        (check world (Repair)))))
 
     ;; ---- Queue ----
 
@@ -196,15 +303,33 @@
         (if (null? all)
             (Nil)
             (list (Panel "queue" (At (side game) 1)
-                         (append (map-indexed (lambda (index task) (queue-chip world index task)) shown)
-                                 (if (> (length all) 6) (list (label "queue-more" (string-append "+" (show (- (length all) 6))))) (Nil))))))))
+                         (append (map-indexed (lambda (index task)
+                                                (queue-chip world index task))
+                                              shown)
+                                 (if (> (length all) 6)
+                                     (list (label "queue-more"
+                                                  (string-append "+"
+                                                                 (show
+                                                                  (- (length
+                                                                      all)
+                                                                     6)))))
+                                     (Nil))))))))
 
     (: queue-chip (-> World I64 Task Widget))
     (define (queue-chip world index task)
-      (let* ((work (Task-work task)) (cell (task-cell world task)) (code (press-code (Locate cell))))
-        (Button (Look (string-append "queue-" (show index)) (task-icon task) (task-help task) (if (Task-supplied task) (Plain) (Muted)) (if (Task-supplied task) "" "!"))
+      (let* ((work (Task-work task))
+             (cell (task-cell world task))
+             (code (press-code (Locate cell))))
+        (Button (Look (string-append "queue-" (show index))
+                      (task-icon task)
+                      (task-help task)
+                      (if (Task-supplied task) (Plain) (Muted))
+                      (if (Task-supplied task) "" "!"))
                 "" "" (Pair-first code) (Pair-second code) (Enabled)
-                (if (Task-active task) (/ (i64->f32 (Work-progress work)) (i64->f32 (Work-duration work))) -1.0))))
+                (if (Task-active task)
+                    (/ (i64->f32 (Work-progress work))
+                       (i64->f32 (Work-duration work)))
+                    -1.0))))
 
     (: task-cell (-> World Task Cell))
     (define (task-cell world task)
@@ -216,14 +341,19 @@
     (define (task-icon task)
       (match (Task-owner task)
         ((OfHub) "slots")
-        ((OfBuilding b) (if (built? b) "upgrade" (kind-icon (Building-kind b))))))
+        ((OfBuilding b)
+         (if (built? b) "upgrade" (kind-icon (Building-kind b))))))
 
     (: task-help (-> Task String))
     (define (task-help task)
       (string-append (match (Task-owner task)
                        ((OfHub) "Build slot")
-                       ((OfBuilding b) (string-append (kind-name (Building-kind b)) (if (built? b) " upgrade" ""))))
-                     (cond ((not (Task-supplied task)) ", unpowered") ((Task-active task) ", building") (else ", waiting"))))
+                       ((OfBuilding b)
+                        (string-append (kind-name (Building-kind b))
+                                       (if (built? b) " upgrade" ""))))
+                     (cond ((not (Task-supplied task)) ", unpowered")
+                           ((Task-active task) ", building")
+                           (else ", waiting"))))
 
     ;; ---- Opening ----
 
@@ -237,7 +367,11 @@
           (list (Panel "opening" (Banner)
                        (list (label "opening-title" "Siegework")
                              (opening-step game)
-                             (Link (face "how-to-play" "" "The rules and controls, in the Snail-Scheme book") "How to play" guide-url))))
+                             (Link (face "how-to-play"
+                                         ""
+                                         "The rules and controls, in the Snail-Scheme book")
+                                   "How to play"
+                                   guide-url))))
           (Nil)))
 
     ;; The step points to the glowing crystals, then to the build button;
@@ -245,17 +379,26 @@
     (: opening-step (-> Game Widget))
     (define (opening-step game)
       (if (extractor-offered? game)
-          (Text (look "opening-build") (list (Normal "Click the ") (Strong "build button") (Normal " to continue")))
-          (Text (look "opening-crystal") (list (Normal "Click the ") (Strong "glowing crystal")))))
+          (Text (look "opening-build")
+                (list (Normal "Click the ")
+                      (Strong "build button")
+                      (Normal " to continue")))
+          (Text (look "opening-crystal")
+                (list (Normal "Click the ") (Strong "glowing crystal")))))
 
     (: guide-url String)
-    (define guide-url "https://tsnl.github.io/snail-scheme/games/siegework.html")
+    (define guide-url
+      "https://tsnl.github.io/snail-scheme/games/siegework.html")
 
     ;; Whether the selected cell would take an extractor now.
     (: extractor-offered? (-> Game Bool))
     (define (extractor-offered? game)
       (match (Game-selected game)
-        ((Some cell) (match (check (Game-world game) (Build (Extractor) cell (Game-rush game))) ((Some _) #f) ((None) #t)))
+        ((Some cell)
+         (match (check (Game-world game)
+                       (Build (Extractor) cell (Game-rush game)))
+           ((Some _) #f)
+           ((None) #t)))
         ((None) #f)))
 
     (: opening-move? (-> World Kind Bool))
@@ -269,7 +412,12 @@
     (define (objective game)
       (let ((world (Game-world game)))
         (Panel "objective" (At (far-side game) 0)
-               (list (label "nests" (list->string (map (lambda (nest) (if (= (Nest-health nest) 0) #\★ #\☆)) (World-nests world))))
+               (list (label "nests"
+                            (list->string (map (lambda (nest)
+                                                 (if (= (Nest-health nest) 0)
+                                                     #\★
+                                                     #\☆))
+                                               (World-nests world))))
                      (label "elapsed" (clock-text (World-tick world)))))))
 
     ;; ---- Notices ----
@@ -285,9 +433,17 @@
     (: attack-alert (-> Game (List Panel)))
     (define (attack-alert game)
       (let ((world (Game-world game)))
-        (match (find (lambda (a) (< (- (World-tick world) (Alert-tick a)) 80)) (World-alerts world))
+        (match (find (lambda (a) (< (- (World-tick world) (Alert-tick a)) 80))
+                     (World-alerts world))
           ((Some alert) (list (Panel "alert" (At (far-side game) 0)
-                                     (list (plain-button (Look "attack" "danger" "Under attack: go there" (Danger) "") "" (Locate (Alert-cell alert)))))))
+                                     (list (plain-button (Look "attack"
+                                                               "danger"
+                                                               "Under attack: go there"
+                                                               (Danger)
+                                                               "")
+                                                         ""
+                                                         (Locate (Alert-cell
+                                                                  alert)))))))
           ((None) (Nil)))))
 
     (: refusal (-> Game (List Panel)))
@@ -295,7 +451,11 @@
       (match (Game-selected game)
         ((Some _) (if (string=? (Game-message game) "")
                       (Nil)
-                      (list (Panel "message" (At (far-side game) 0) (list (Label (Look "message" "" "" (Danger) "") (Game-message game)))))))
+                      (list (Panel "message"
+                                   (At (far-side game) 0)
+                                   (list
+                                    (Label (Look "message" "" "" (Danger) "")
+                                           (Game-message game)))))))
         ((None) (Nil))))
 
     ;; ---- Dialogs ----
@@ -305,8 +465,16 @@
       (match (Game-menu game)
         ((Closed) (Nil))
         ((Paused) (list (pause-dialog game)))
-        ((Restarting) (list (confirm-dialog "restart" "Restart on a new map?" "Restart" (NewMap))))
-        ((Resigning) (list (confirm-dialog "resign" "Resign this colony? The map is revealed." "Resign" (ConfirmResign))))
+        ((Restarting)
+         (list (confirm-dialog "restart"
+                               "Restart on a new map?"
+                               "Restart"
+                               (NewMap))))
+        ((Resigning)
+         (list (confirm-dialog "resign"
+                               "Resign this colony? The map is revealed."
+                               "Resign"
+                               (ConfirmResign))))
         ((Results) (list (results-dialog game)))))
 
     (: pause-dialog (-> Game Panel))
@@ -314,40 +482,103 @@
       (Panel "pause" (Dialog (Pair-first (press-code (Resume))))
              (list (label "pause-title" "Paused")
                    (plain-button (face "resume" "" "Resume") "Resume" (Resume))
-                   (plain-button (face "restart" "" "Restart on a new map") "Restart…" (AskRestart))
-                   (plain-button (face "resign" "" "Resign this colony") "Resign…" (AskResign))
-                   (toggle-button (face "right-handed" "" "Controls on the right") "Right-handed" "" (Hand #f) (not (Game-left-handed game)))
-                   (toggle-button (face "left-handed" "" "Controls on the left") "Left-handed" "" (Hand #t) (Game-left-handed game)))))
+                   (plain-button (face "restart" "" "Restart on a new map")
+                                 "Restart…"
+                                 (AskRestart))
+                   (plain-button (face "resign" "" "Resign this colony")
+                                 "Resign…"
+                                 (AskResign))
+                   (toggle-button
+                    (face "right-handed" "" "Controls on the right")
+                    "Right-handed"
+                    ""
+                    (Hand #f)
+                    (not (Game-left-handed game)))
+                   (toggle-button (face "left-handed" "" "Controls on the left")
+                                  "Left-handed"
+                                  ""
+                                  (Hand #t)
+                                  (Game-left-handed game)))))
 
     (: confirm-dialog (-> String String String Command Panel))
     (define (confirm-dialog key question answer command)
       (Panel key (Dialog (Pair-first (press-code (OpenMenu))))
              (list (label (string-append key "-title") question)
-                   (plain-button (Look (string-append "accept-" key) "" question (Danger) "") answer command)
-                   (plain-button (face "back" "" "Back to the menu") "Back" (OpenMenu)))))
+                   (plain-button
+                    (Look (string-append "accept-" key) "" question (Danger) "")
+                    answer
+                    command)
+                   (plain-button (face "back" "" "Back to the menu")
+                                 "Back"
+                                 (OpenMenu)))))
 
     ;; Time, combat, energy, buildings, nests and the seed, from the world.
     (: results-dialog (-> Game Panel))
     (define (results-dialog game)
       (let* ((world (Game-world game)) (ledger (World-ledger world)))
         (Panel "results" (Dialog (Pair-first (press-code (InspectMap))))
-               (list (label "results-title" (match (World-outcome world) ((Won) "Victory") ((Lost) "Defeat") ((Resigned) "Resigned") ((Playing) "In play")))
+               (list (label "results-title"
+                            (match (World-outcome world)
+                              ((Won) "Victory")
+                              ((Lost) "Defeat")
+                              ((Resigned) "Resigned")
+                              ((Playing) "In play")))
                      (label "results-statistics"
-                            (string-join (list (string-append "Time " (clock-text (World-tick world)))
-                                               (string-append "Enemies destroyed " (show (Ledger-kills ledger)))
-                                               (string-append "Energy produced " (show (Ledger-produced ledger)) ", spent " (show (Ledger-spent ledger)))
-                                               (string-append "Buildings standing " (show (length (filter built? (World-buildings world)))) ", lost " (show (Ledger-lost ledger)))
-                                               (string-append "Nests destroyed " (show (- 3 (length (living-nests world)))) " of 3")
-                                               (string-append "Map " (show (World-seed world)) ", " (biome-name (Land-biome (World-land world)))))
+                            (string-join (list (string-append "Time "
+                                                              (clock-text
+                                                               (World-tick
+                                                                world)))
+                                               (string-append
+                                                "Enemies destroyed "
+                                                (show (Ledger-kills ledger)))
+                                               (string-append "Energy produced "
+                                                              (show
+                                                               (Ledger-produced
+                                                                ledger))
+                                                              ", spent "
+                                                              (show
+                                                               (Ledger-spent
+                                                                ledger)))
+                                               (string-append
+                                                "Buildings standing "
+                                                (show (length (filter built?
+                                                                      (World-buildings
+                                                                       world))))
+                                                ", lost "
+                                                (show (Ledger-lost ledger)))
+                                               (string-append "Nests destroyed "
+                                                              (show (- 3
+                                                                       (length
+                                                                        (living-nests
+                                                                         world))))
+                                                              " of 3")
+                                               (string-append "Map "
+                                                              (show (World-seed
+                                                                     world))
+                                                              ", "
+                                                              (biome-name
+                                                               (Land-biome
+                                                                (World-land
+                                                                 world)))))
                                          "\n"))
-                     (plain-button (face "inspect" "" "Look over the map") "Map" (InspectMap))
-                     (plain-button (face "new-map" "" "Start a new map") "New map" (NewMap))))))
+                     (plain-button (face "inspect" "" "Look over the map")
+                                   "Map"
+                                   (InspectMap))
+                     (plain-button (face "new-map" "" "Start a new map")
+                                   "New map"
+                                   (NewMap))))))
 
     ;; ---- HUD ----
 
     (: game-hud (-> Game (List Panel)))
     (define (game-hud game)
-      (concatenate (list (list (readouts game)) (construction game) (list (controls game)) (queue game) (list (objective game)) (notices game) (opening game)
+      (concatenate (list (list (readouts game))
+                         (construction game)
+                         (list (controls game))
+                         (queue game)
+                         (list (objective game))
+                         (notices game)
+                         (opening game)
                          (dialogs game))))
 
     ))

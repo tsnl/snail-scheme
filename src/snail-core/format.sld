@@ -64,9 +64,14 @@
     ;; A final newline leaves a final empty line.
     (: split-lines (-> String (List String)))
     (define (split-lines text)
-      (let loop ((index (- (string-length text) 1)) (end (string-length text)) (out (Nil)))
+      (let loop ((index (- (string-length text) 1))
+                 (end (string-length text))
+                 (out (Nil)))
         (cond ((< index 0) (Cons (substring text 0 end) out))
-              ((= (string-ref text index) #\newline) (loop (- index 1) index (Cons (substring text (+ index 1) end) out)))
+              ((= (string-ref text index) #\newline)
+               (loop (- index 1)
+                     index
+                     (Cons (substring text (+ index 1) end) out)))
               (else (loop (- index 1) end out)))))
 
     ;; One step of lexing: the offset after what it read, the mode after
@@ -104,11 +109,15 @@
       (let ((c (string-ref line offset)) (after (+ offset 1)))
         (cond ((char-whitespace? c) (Step after (Code) (None)))
               ((= c #\;) (Step (string-length line) (Code) (None)))
-              ((or (= c #\() (= c #\[)) (code-token after (Open offset (spaced? line after))))
+              ((or (= c #\() (= c #\[))
+               (code-token after (Open offset (spaced? line after))))
               ((or (= c #\)) (= c #\])) (code-token after (Close offset)))
-              ((= c #\") (Step-token-set (lex-string line after) (Some (Text offset))))
+              ((= c #\")
+               (Step-token-set (lex-string line after) (Some (Text offset))))
               ((or (= c #\') (= c #\`)) (code-token after (Prefix offset)))
-              ((= c #\,) (code-token (if (at? line after "@") (+ after 1) after) (Prefix offset)))
+              ((= c #\,)
+               (code-token (if (at? line after "@") (+ after 1) after)
+                           (Prefix offset)))
               ((= c #\#) (lex-hash line offset))
               (else (lex-atom line offset offset)))))
 
@@ -125,7 +134,8 @@
         (cond ((at? line after "(") (code-token after (Prefix offset)))
               ((at? line after "|") (lex-comment line (+ after 1) 1))
               ((at? line after ";") (code-token (+ after 1) (Prefix offset)))
-              ((at? line after "\\") (lex-atom line offset (min (+ after 2) (string-length line))))
+              ((at? line after "\\")
+               (lex-atom line offset (min (+ after 2) (string-length line))))
               (else (lex-atom line offset after)))))
 
     (: lex-atom (-> String I64 I64 Step))
@@ -135,40 +145,48 @@
 
     (: atom-end (-> String I64 I64))
     (define (atom-end line offset)
-      (if (or (>= offset (string-length line)) (delimiter? (string-ref line offset)))
+      (if (or (>= offset (string-length line))
+              (delimiter? (string-ref line offset)))
           offset
           (atom-end line (+ offset 1))))
 
     (: delimiter? (-> Char Bool))
     (define (delimiter? c)
-      (or (char-whitespace? c) (member? c (list #\( #\) #\[ #\] #\" #\; #\' #\` #\,))))
+      (or (char-whitespace? c)
+          (member? c (list #\( #\) #\[ #\] #\" #\; #\' #\` #\,))))
 
     ;; Inside a string, past its closing quote, or to the end of the line,
     ;; which the string continues beyond.
     (: lex-string (-> String I64 Step))
     (define (lex-string line offset)
       (cond ((>= offset (string-length line)) (Step offset (InString) (None)))
-            ((= (string-ref line offset) #\\) (lex-string line (min (+ offset 2) (string-length line))))
+            ((= (string-ref line offset) #\\)
+             (lex-string line (min (+ offset 2) (string-length line))))
             ((= (string-ref line offset) #\") (Step (+ offset 1) (Code) (None)))
             (else (lex-string line (+ offset 1)))))
 
     ;; Inside a block comment, which nests.
     (: lex-comment (-> String I64 I64 Step))
     (define (lex-comment line offset depth)
-      (cond ((>= offset (string-length line)) (Step offset (InComment depth) (None)))
-            ((at? line offset "|#")
-             (if (= depth 1) (Step (+ offset 2) (Code) (None)) (lex-comment line (+ offset 2) (- depth 1))))
-            ((at? line offset "#|") (lex-comment line (+ offset 2) (+ depth 1)))
-            (else (lex-comment line (+ offset 1) depth))))
+      (cond
+       ((>= offset (string-length line)) (Step offset (InComment depth) (None)))
+       ((at? line offset "|#")
+        (if (= depth 1)
+            (Step (+ offset 2) (Code) (None))
+            (lex-comment line (+ offset 2) (- depth 1))))
+       ((at? line offset "#|") (lex-comment line (+ offset 2) (+ depth 1)))
+       (else (lex-comment line (+ offset 1) depth))))
 
     (: spaced? (-> String I64 Bool))
     (define (spaced? line offset)
-      (and (< offset (string-length line)) (member? (string-ref line offset) (list #\space #\tab))))
+      (and (< offset (string-length line))
+           (member? (string-ref line offset) (list #\space #\tab))))
 
     (: at? (-> String I64 String Bool))
     (define (at? line offset text)
       (and (<= (+ offset (string-length text)) (string-length line))
-           (string=? (substring line offset (+ offset (string-length text))) text)))
+           (string=? (substring line offset (+ offset (string-length text)))
+                     text)))
 
     ;; ---- Open lists ----
 
@@ -225,25 +243,93 @@
     (define rules
       (concatenate
        (list (map (lambda (name) (Pair name (Special 0)))
-                  (list "begin" "delay" "make-environment" "match-lambda" "match-lambda*" "sequence" "with-output-to-string"))
+                  (list "begin"
+                        "delay"
+                        "make-environment"
+                        "match-lambda"
+                        "match-lambda*"
+                        "sequence"
+                        "with-output-to-string"))
              (map (lambda (name) (Pair name (Special 1)))
-                  (list "access-components" "and-let*" "assignment-components" "call-with-input-file" "call-with-output-file"
-                        "call-with-port" "call-with-values" "case" "combination-components" "comment-components"
-                        "conditional-components" "declaration-components" "define-library" "define-record-type"
-                        "define-values" "definition-components" "delay-components" "disjunction-components" "element"
-                        "eval-when" "fluid-let" "in-package" "in-package-components" "lambda" "lambda-components"
-                        "lambda-components*" "lambda-components**" "let*" "letrec" "letrec*" "letrec-syntax" "let-syntax"
-                        "let*-values" "let-values" "library" "list-search-negative" "list-search-positive"
-                        "list-transform-negative" "list-transform-positive" "local-declare" "macro" "make" "match-let*"
-                        "match-letrec" "mode" "named-lambda" "open-block-components" "parameterize" "pathname-components"
-                        "procedure-components" "root" "sequence-components" "style" "unassigned?-components"
-                        "unbound?-components" "unless" "using-syntax" "variable-components" "when" "with-input-from-file"
-                        "with-input-from-port" "with-input-from-string" "with-mode" "with-output-to-file"
+                  (list "access-components"
+                        "and-let*"
+                        "assignment-components"
+                        "call-with-input-file"
+                        "call-with-output-file"
+                        "call-with-port"
+                        "call-with-values"
+                        "case"
+                        "combination-components"
+                        "comment-components"
+                        "conditional-components"
+                        "declaration-components"
+                        "define-library"
+                        "define-record-type"
+                        "define-values"
+                        "definition-components"
+                        "delay-components"
+                        "disjunction-components"
+                        "element"
+                        "eval-when"
+                        "fluid-let"
+                        "in-package"
+                        "in-package-components"
+                        "lambda"
+                        "lambda-components"
+                        "lambda-components*"
+                        "lambda-components**"
+                        "let*"
+                        "letrec"
+                        "letrec*"
+                        "letrec-syntax"
+                        "let-syntax"
+                        "let*-values"
+                        "let-values"
+                        "library"
+                        "list-search-negative"
+                        "list-search-positive"
+                        "list-transform-negative"
+                        "list-transform-positive"
+                        "local-declare"
+                        "macro"
+                        "make"
+                        "match-let*"
+                        "match-letrec"
+                        "mode"
+                        "named-lambda"
+                        "open-block-components"
+                        "parameterize"
+                        "pathname-components"
+                        "procedure-components"
+                        "root"
+                        "sequence-components"
+                        "style"
+                        "unassigned?-components"
+                        "unbound?-components"
+                        "unless"
+                        "using-syntax"
+                        "variable-components"
+                        "when"
+                        "with-input-from-file"
+                        "with-input-from-port"
+                        "with-input-from-string"
+                        "with-mode"
+                        "with-output-to-file"
                         "with-output-to-port" "with-syntax" "with-values" "λ"))
-             (map (lambda (name) (Pair name (Special 2))) (list "do" "receive" "syntax-case" "syntax-table-define"))
-             (list (Pair "dynamic-wind" (Special 3)) (Pair "let" (LetRule)) (Pair "match-let" (LetRule))
+             (map (lambda (name) (Pair name (Special 2)))
+                  (list "do" "receive" "syntax-case" "syntax-table-define"))
+             (list (Pair "dynamic-wind" (Special 3))
+                   (Pair "let" (LetRule))
+                   (Pair "match-let" (LetRule))
                    (Pair "syntax-rules" (Definition)))
-             (map (lambda (name) (Pair name (Special 1))) (list "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
+             (map (lambda (name) (Pair name (Special 1)))
+                  (list "struct"
+                        "enum"
+                        "typeclass"
+                        "instance"
+                        "effect"
+                        "match"
+                        "guard"))
              (list (Pair "handle" (Special 2))))))
 
     ;; A name without a rule that starts with `def` and is longer than
@@ -253,12 +339,19 @@
     (define (indent-rule name)
       (match (assoc-ref rules name)
         ((Some rule) rule)
-        ((None) (if (and (> (string-length name) 3) (def-prefix? name)) (Definition) (Call)))))
+        ((None)
+         (if (and (> (string-length name) 3) (def-prefix? name))
+             (Definition)
+             (Call)))))
 
     (: def-prefix? (-> String Bool))
     (define (def-prefix? name)
-      (every? (lambda (pair) (member? (string-ref name (Pair-first pair)) (Pair-second pair)))
-              (list (Pair 0 (list #\d #\D)) (Pair 1 (list #\e #\E)) (Pair 2 (list #\f #\F)))))
+      (every? (lambda (pair)
+                (member? (string-ref name (Pair-first pair))
+                         (Pair-second pair)))
+              (list (Pair 0 (list #\d #\D))
+                    (Pair 1 (list #\e #\E))
+                    (Pair 2 (list #\f #\F)))))
 
     ;; ---- Indentation ----
 
@@ -269,8 +362,10 @@
       (match (Frame-elements frame)
         ((Some elements)
          (match (Element-head (Elements-head elements))
-           ((Named name) (named-indent frame elements name (normal-indent frame elements)))
-           (_ (unnamed-indent (Elements-head elements) (Elements-last elements)))))
+           ((Named name)
+            (named-indent frame elements name (normal-indent frame elements)))
+           (_ (unnamed-indent (Elements-head elements)
+                              (Elements-last elements)))))
         ((None) (+ (Frame-column frame) 1))))
 
     ;; On the head's line, align under the first argument, or the head when
@@ -279,7 +374,8 @@
     (: normal-indent (-> Frame Elements I64))
     (define (normal-indent frame elements)
       (let ((head (Elements-head elements)) (last (Elements-last elements)))
-        (cond ((not (= (Element-line last) (Element-line head))) (Element-first last))
+        (cond ((not (= (Element-line last) (Element-line head)))
+               (Element-first last))
               ((Frame-spaced frame) (Element-column head))
               (else (match (Elements-first elements)
                       ((Some argument) (Element-column argument))
@@ -289,38 +385,53 @@
     ;; elements share the head's line.
     (: unnamed-indent (-> Element Element I64))
     (define (unnamed-indent head last)
-      (if (= (Element-line last) (Element-line head)) (Element-column head) (Element-first last)))
+      (if (= (Element-line last) (Element-line head))
+          (Element-column head)
+          (Element-first last)))
 
     (: named-indent (-> Frame Elements String I64 I64))
     (define (named-indent frame elements name normal)
       (match (indent-rule name)
         ((Call) normal)
         ((Definition)
-         (if (= (Element-line (Elements-last elements)) (Frame-line frame)) (+ (Frame-column frame) 2) normal))
-        ((Special distinguished) (special-indent frame distinguished (Elements-count elements) normal))
-        ((LetRule) (special-indent frame (if (names-loop? elements) 2 1) (Elements-count elements) normal))))
+         (if (= (Element-line (Elements-last elements)) (Frame-line frame))
+             (+ (Frame-column frame) 2)
+             normal))
+        ((Special distinguished)
+         (special-indent frame distinguished (Elements-count elements) normal))
+        ((LetRule)
+         (special-indent frame
+                         (if (names-loop? elements) 2 1)
+                         (Elements-count elements)
+                         normal))))
 
     ;; Emacs's `lisp-indent-specform`. A distinguished argument goes in by
     ;; four columns when it is one of the first two; the first body form goes
     ;; in by two, unless the line above sits further left.
     (: special-indent (-> Frame I64 I64 I64 I64))
     (define (special-indent frame distinguished arguments normal)
-      (let ((left (- distinguished arguments)) (body (+ (Frame-column frame) 2)))
-        (cond ((> left 0) (if (<= arguments 1) (+ (Frame-column frame) 4) normal))
-              ((or (and (= distinguished 0) (= arguments 0)) (and (= left 0) (<= body normal))) body)
-              (else normal))))
+      (let ((left (- distinguished arguments))
+            (body (+ (Frame-column frame) 2)))
+        (cond
+         ((> left 0) (if (<= arguments 1) (+ (Frame-column frame) 4) normal))
+         ((or (and (= distinguished 0) (= arguments 0))
+              (and (= left 0) (<= body normal)))
+          body)
+         (else normal))))
 
     ;; A named `let`: a name follows `let` on its line.
     (: names-loop? (-> Elements Bool))
     (define (names-loop? elements)
       (match elements
         ((Elements head (Some (Element (Named name) _ line _)) _ _)
-         (and (= line (Element-line head)) (member? (string-ref name 0) loop-name-starts)))
+         (and (= line (Element-line head))
+              (member? (string-ref name 0) loop-name-starts)))
         (_ #f)))
 
     (: loop-name-starts (List Char))
     (define loop-name-starts
-      (string->list "-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+*/?!@$%^&_:~"))
+      (string->list
+       "-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+*/?!@$%^&_:~"))
 
     ;; ---- Indenting lines ----
 
@@ -332,8 +443,14 @@
       (let loop ((lines (lex text)) (index 0) (frames (Nil)) (out (Nil)))
         (match lines
           ((Cons line rest)
-           (match (if (and (<= first index) (<= index last)) (reindent line frames) (Pair (Line-text line) 0))
-             ((Pair indented shift) (loop rest (+ index 1) (scan-line frames (Line-tokens line) shift index) (Cons indented out)))))
+           (match (if (and (<= first index) (<= index last))
+                      (reindent line frames)
+                      (Pair (Line-text line) 0))
+             ((Pair indented shift)
+              (loop rest
+                    (+ index 1)
+                    (scan-line frames (Line-tokens line) shift index)
+                    (Cons indented out)))))
           ((Nil) (string-join (reverse out) "\n")))))
 
     ;; A line's new text, and how far its tokens moved. A blank line
@@ -341,17 +458,23 @@
     ;; starts with three semicolons, stays as it is.
     (: reindent (-> Line (List Frame) (Pair String I64)))
     (define (reindent line frames)
-      (let* ((text (Line-text line)) (start (indentation text)) (rest (substring text start (string-length text))))
+      (let* ((text (Line-text line))
+             (start (indentation text))
+             (rest (substring text start (string-length text))))
         (cond ((not (code-mode? (Line-mode line))) (Pair text 0))
               ((string=? rest "") (Pair "" 0))
               ((at? rest 0 ";;;") (Pair text 0))
               (else (let ((column (stack-indent frames)))
-                      (Pair (string-append (make-string column #\space) rest) (- column start)))))))
+                      (Pair (string-append (make-string column #\space) rest)
+                            (- column start)))))))
 
     (: indentation (-> String I64))
     (define (indentation text)
       (let loop ((index 0))
-        (if (and (< index (string-length text)) (member? (string-ref text index) (list #\space #\tab))) (loop (+ index 1)) index)))
+        (if (and (< index (string-length text))
+                 (member? (string-ref text index) (list #\space #\tab)))
+            (loop (+ index 1))
+            index)))
 
     (: code-mode? (-> Mode Bool))
     (define (code-mode? mode)
@@ -378,18 +501,26 @@
     ;; their offsets.
     (: scan-line (-> (List Frame) (List Token) I64 I64 (List Frame)))
     (define (scan-line frames tokens shift line)
-      (Scan-frames (fold-left (lambda (scan token) (scan-token scan token shift line)) (Scan frames (None) (None)) tokens)))
+      (Scan-frames
+       (fold-left (lambda (scan token) (scan-token scan token shift line))
+                  (Scan frames (None) (None))
+                  tokens)))
 
     (: scan-token (-> Scan Token I64 I64 Scan))
     (define (scan-token scan token shift line)
       (match token
         ((Open offset spaced)
          (let ((added (add-expression scan (Listed) (+ offset shift) line)))
-           (Scan-frames-set added (Cons (Frame (+ offset shift) line spaced (None)) (Scan-frames added)))))
+           (Scan-frames-set added
+                            (Cons (Frame (+ offset shift) line spaced (None))
+                                  (Scan-frames added)))))
         ((Close _) (Scan-frames-set scan (drop (Scan-frames scan) 1)))
-        ((Prefix offset) (Scan (Scan-frames scan) (Some (or-else (Scan-first scan) (+ offset shift)))
-                               (Some (or-else (Scan-prefix scan) (+ offset shift)))))
-        ((Atom offset text) (add-expression scan (atom-head text) (+ offset shift) line))
+        ((Prefix offset)
+         (Scan (Scan-frames scan)
+               (Some (or-else (Scan-first scan) (+ offset shift)))
+               (Some (or-else (Scan-prefix scan) (+ offset shift)))))
+        ((Atom offset text)
+         (add-expression scan (atom-head text) (+ offset shift) line))
         ((Text offset) (add-expression scan (Other) (+ offset shift) line))))
 
     ;; A character is not a name.
@@ -401,14 +532,20 @@
     ;; element of the innermost list.
     (: add-expression (-> Scan Head I64 I64 Scan))
     (define (add-expression scan head column line)
-      (let* ((start (or-else (Scan-prefix scan) column)) (first (or-else (Scan-first scan) start)))
-        (Scan (add-element (Scan-frames scan) (Element head start line first)) (Some first) (None))))
+      (let* ((start (or-else (Scan-prefix scan) column))
+             (first (or-else (Scan-first scan) start)))
+        (Scan (add-element (Scan-frames scan) (Element head start line first))
+              (Some first)
+              (None))))
 
     (: add-element (-> (List Frame) Element (List Frame)))
     (define (add-element frames element)
       (match frames
         ((Cons frame rest)
-         (Cons (Frame-elements-set frame (Some (extend (Frame-elements frame) element))) rest))
+         (Cons (Frame-elements-set frame
+                                   (Some
+                                    (extend (Frame-elements frame) element)))
+               rest))
         ((Nil) (Nil))))
 
     ;; The first element is the head; each later one is the latest argument,
@@ -418,7 +555,10 @@
       (match elements
         ((None) (Elements element (None) element 0))
         ((Some (Elements head first _ count))
-         (Elements head (match first ((None) (Some element)) (_ first)) element (+ count 1)))))
+         (Elements head
+                   (match first ((None) (Some element)) (_ first))
+                   element
+                   (+ count 1)))))
 
     (: or-else (-> (Option I64) I64 I64))
     (define (or-else value default)
@@ -435,7 +575,10 @@
 
     (: placed-tokens (-> (List Line) (Vector Placed)))
     (define (placed-tokens lines)
-      (list->vector (concatenate (map-indexed (lambda (index line) (map (lambda (token) (Placed index token)) (Line-tokens line)))
+      (list->vector (concatenate (map-indexed (lambda (index line)
+                                                (map (lambda (token)
+                                                       (Placed index token))
+                                                     (Line-tokens line)))
                                               lines))))
 
     (: token-offset (-> Token I64))
@@ -487,9 +630,13 @@
     (: form-name (-> (Vector Placed) I64 (Option String)))
     (define (form-name tokens index)
       (if (and (open-at? tokens index) (< (+ index 1) (vector-length tokens)))
-          (match (Pair (vector-ref tokens index) (vector-ref tokens (+ index 1)))
-            ((Pair (Placed line (Open offset _)) (Placed next-line (Atom next-offset name)))
-             (if (and (= line next-line) (= next-offset (+ offset 1))) (Some name) (None)))
+          (match (Pair (vector-ref tokens index)
+                       (vector-ref tokens (+ index 1)))
+            ((Pair (Placed line (Open offset _))
+                   (Placed next-line (Atom next-offset name)))
+             (if (and (= line next-line) (= next-offset (+ offset 1)))
+                 (Some name)
+                 (None)))
             (_ (None)))
           (None)))
 
@@ -511,7 +658,9 @@
 
     (: break-before (-> (Vector Placed) I64 (List Placed) (List Placed)))
     (define (break-before tokens index breaks)
-      (if (or (= index 0) (not (= (Placed-line (vector-ref tokens (- index 1))) (Placed-line (vector-ref tokens index)))))
+      (if (or (= index 0)
+              (not (= (Placed-line (vector-ref tokens (- index 1)))
+                      (Placed-line (vector-ref tokens index)))))
           breaks
           (Cons (vector-ref tokens index) breaks)))
 
@@ -522,7 +671,9 @@
       (match (skip-expressions tokens (+ index 1) 2)
         ((Some fields)
          (if (open-at? tokens fields)
-             (break-fields tokens (+ fields 1) (break-before tokens fields breaks))
+             (break-fields tokens
+                           (+ fields 1)
+                           (break-before tokens fields breaks))
              breaks))
         ((None) breaks)))
 
@@ -552,10 +703,15 @@
             (match (form-name tokens index)
               ((Some "import")
                (match (break-entries tokens (+ index 2) breaks)
-                 ((Found found #t) (loop (or-else (expression-end tokens index) (vector-length tokens)) found))
+                 ((Found found #t)
+                  (loop (or-else (expression-end tokens index)
+                                 (vector-length tokens))
+                        found))
                  ((Found found #f) (reverse found))))
-              ((Some "struct") (loop (+ index 2) (break-struct tokens index breaks)))
-              ((Some "define-record-type") (loop (+ index 2) (break-record tokens index breaks)))
+              ((Some "struct")
+               (loop (+ index 2) (break-struct tokens index breaks)))
+              ((Some "define-record-type")
+               (loop (+ index 2) (break-record tokens index breaks)))
               (_ (loop (+ index 1) breaks))))))
 
     ;; The lines with a break before each token in `breaks`, which are in
@@ -566,27 +722,40 @@
         (match lines
           ((Cons line rest)
            (let ((here (line-offsets breaks index)))
-             (loop rest (+ index 1) (drop breaks (length here)) (append (reverse (split-line (Line-text line) here)) out))))
+             (loop rest
+                   (+ index 1)
+                   (drop breaks (length here))
+                   (append (reverse (split-line (Line-text line) here)) out))))
           ((Nil) (reverse out)))))
 
     (: line-offsets (-> (List Placed) I64 (List I64)))
     (define (line-offsets breaks index)
       (match breaks
         ((Cons placed rest)
-         (if (= (Placed-line placed) index) (Cons (token-offset (Placed-token placed)) (line-offsets rest index)) (Nil)))
+         (if (= (Placed-line placed) index)
+             (Cons (token-offset (Placed-token placed))
+                   (line-offsets rest index))
+             (Nil)))
         ((Nil) (Nil))))
 
     (: split-line (-> String (List I64) (List String)))
     (define (split-line text offsets)
       (let loop ((start 0) (offsets offsets) (out (Nil)))
         (match offsets
-          ((Cons offset rest) (loop offset rest (Cons (trim-right (substring text start offset)) out)))
-          ((Nil) (reverse (Cons (substring text start (string-length text)) out))))))
+          ((Cons offset rest)
+           (loop offset
+                 rest
+                 (Cons (trim-right (substring text start offset)) out)))
+          ((Nil)
+           (reverse (Cons (substring text start (string-length text)) out))))))
 
     (: trim-right (-> String String))
     (define (trim-right text)
       (let loop ((end (string-length text)))
-        (if (and (> end 0) (member? (string-ref text (- end 1)) (list #\space #\tab))) (loop (- end 1)) (substring text 0 end))))
+        (if (and (> end 0)
+                 (member? (string-ref text (- end 1)) (list #\space #\tab)))
+            (loop (- end 1))
+            (substring text 0 end))))
 
     ;; ---- Long lines ----
 

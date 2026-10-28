@@ -43,8 +43,13 @@
 
     (: strip-texture (All (M) (-> (Spritebook M) Strip Texture)))
     (define (strip-texture book strip)
-      (let ((width (Spritebook-cell-width book)) (height (Spritebook-cell-height book)))
-        (Texture (Spritebook-picture book) (Rect (* width (Strip-column strip)) (* height (Strip-row strip)) width height)
+      (let ((width (Spritebook-cell-width book))
+            (height (Spritebook-cell-height book)))
+        (Texture (Spritebook-picture book)
+                 (Rect (* width (Strip-column strip))
+                       (* height (Strip-row strip))
+                       width
+                       height)
                  (Strip-frames strip) (Strip-period strip))))
 
     ;; ---- Headings ----
@@ -60,10 +65,15 @@
     ;; or steep camera would shrink.
     (: heading (-> I64 Vec3 Camera I64))
     (define (heading count facing camera)
-      (let* ((right (Pair-first (screen-axes camera))) (rx (f32->f64 (Vec3-x right))) (rz (f32->f64 (Vec3-z right)))
+      (let* ((right (Pair-first (screen-axes camera)))
+             (rx (f32->f64 (Vec3-x right)))
+             (rz (f32->f64 (Vec3-z right)))
              (x (f32->f64 (Vec3-x facing))) (z (f32->f64 (Vec3-z facing)))
              (step (/ (* 2.0 pi) (i64->f64 count))))
-        (modulo (f64->i64 (round (/ (atan2 (+ (* x rx) (* z rz)) (- (* z rx) (* x rz))) step))) count)))
+        (modulo
+         (f64->i64 (round (/ (atan2 (+ (* x rx) (* z rz)) (- (* z rx) (* x rz)))
+                             step)))
+         count)))
 
     ;; ---- Poses ----
 
@@ -72,21 +82,31 @@
     ;; at `position`. Its width keeps the cells' proportions.
     (: pose (All (M) (-> (Spritebook M) M Vec3 Vec3 F32 Camera Item)))
     (define (pose book motion position facing height camera)
-      (sprite (posed-texture book motion facing camera) position (cell-width-for book height) height))
+      (sprite (posed-texture book motion facing camera)
+              position
+              (cell-width-for book height)
+              height))
 
     ;; The same, lying flat on the ground for a camera looking straight
     ;; down: a figure on a 2D map.
     (: pose-flat (All (M) (-> (Spritebook M) M Vec3 Vec3 F32 Camera Item)))
     (define (pose-flat book motion position facing height camera)
-      (flat-sprite (posed-texture book motion facing camera) position (cell-width-for book height) height))
+      (flat-sprite (posed-texture book motion facing camera)
+                   position
+                   (cell-width-for book height)
+                   height))
 
     (: posed-texture (All (M) (-> (Spritebook M) M Vec3 Camera Texture)))
     (define (posed-texture book motion facing camera)
-      (strip-texture book ((Spritebook-strip book) motion (heading (Spritebook-headings book) facing camera))))
+      (strip-texture book
+                     ((Spritebook-strip book)
+                      motion
+                      (heading (Spritebook-headings book) facing camera))))
 
     ;; The width that keeps a cell's proportions at `height`.
     (: cell-width-for (All (M) (-> (Spritebook M) F32 F32)))
     (define (cell-width-for book height)
-      (/ (* height (i32->f32 (Spritebook-cell-width book))) (i32->f32 (Spritebook-cell-height book))))
+      (/ (* height (i32->f32 (Spritebook-cell-width book)))
+         (i32->f32 (Spritebook-cell-height book))))
 
     ))

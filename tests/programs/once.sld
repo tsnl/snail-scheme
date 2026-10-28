@@ -38,6 +38,7 @@
   ((Full (Job work) 1) (call-once work))
   (_ (write-line "wildcard")))
 (drain (Link (message "first") (Link (message "last") (End))))
-(let ((unused (Job (handle Probe ((ping (lambda () (unit)))) (message "must not run")))))
+(let ((unused (Job (handle Probe ((ping (lambda () (unit))))
+                     (message "must not run")))))
   (write-line "handled drop"))
 (call-once ((preserve message) "specialized"))
