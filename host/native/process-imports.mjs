@@ -28,7 +28,7 @@ function commandParts(api, command) {
   return texts;
 }
 
-export function processImports(program, scheduler, processes) {
+export function processImports(program, scheduler, processes, termination) {
   const helpers = () => {
     const current = program();
     return current.names ? current.linked.get('snail-core.process').exports : current.runtime.exports;
@@ -88,6 +88,11 @@ export function processImports(program, scheduler, processes) {
       const api = helpers(), id = api['process:handle'](child), exit = await suspended(signal => processes.wait(signal, id));
       if (typeof exit === 'string') return api['process:exit-error'](errorCode(api, exit));
       return 'code' in exit ? api['process:exited'](exit.code) : api['process:signaled'](buffer(api, new TextEncoder().encode(exit.signal)));
+    }),
+    // The signal's number is delivered once the waiting task holds the permit again.
+    termination: new WebAssembly.Suspending(async () => {
+      const number = await scheduler.suspend(signal => termination.wait(signal));
+      return helpers()['process:received-signal'](number);
     }),
     'close-process': child => immediately(api => {
       const id = api['process:handle'](child);

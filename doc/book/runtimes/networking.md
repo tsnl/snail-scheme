@@ -255,6 +255,37 @@ again succeeds. A `Process` carries an `Any` token belonging to its handler,
 and a different handler's token reaching the native binding is `EBADF`.
 `tests/programs/process.sld` runs `/bin/sh` through each operation.
 
+### Termination
+
+The `signals` effect, also in `(snail-core process)`, has one operation,
+`(termination)`, which waits for SIGINT or SIGTERM and returns
+`(Interrupt)` or `(Terminate)`. A program opts in by waiting: a signal that
+arrives while tasks wait in `termination` is the result of every such wait,
+and one that arrives while none waits ends the program, as it always has.
+A service runs a task that waits for termination and then shuts down in
+order, here by terminating a child and waiting for it:
+
+```scheme
+(dispatch-local
+ (once (lambda ()
+         (termination)
+         (send-signal child (Terminate))
+         (wait-exit child))))
+```
+
+A wait ends with its signal, so a second Ctrl-C during that shutdown ends
+the program at once, unless a task waits again. There is no window between
+a task's starting to wait and the signal's reaching it: in Node only the
+main thread receives signals, and the program runs on a worker, so the
+worker counts its waiters in shared memory and the main thread reads the
+count when a signal arrives. With waiters it forwards the signal to the
+worker; without, it removes its handlers and raises the signal again, so
+the process ends by that signal, with the status Node's default gives. A
+signal forwarded to a worker whose last waiter was cancelled on the way is
+raised again the same way. `tests/termination/check.mjs` sends SIGTERM and
+SIGINT to a waiting program, which observes each and exits cleanly, and
+SIGTERM to one that does not wait, which it ends.
+
 ### The process boundary
 
 `createProcesses()` in `host/native/process.mjs` owns one set of children
@@ -275,6 +306,12 @@ reacquires the execution permit, as `socket-imports.mjs` does.
 | `wait(signal, handle)` | `{code}` or `{signal}` once the child exits. |
 | `close(handle)` | Revokes the handle, kills a running child and destroys its pipes. |
 | `shutdown()` | Rejects new spawns, closes every child and waits until each has exited. |
+
+`createTermination(waiting)` in the same file holds the termination waiters
+and publishes their number in `waiting`, the shared `Int32Array` the main
+thread reads: `wait(signal)`
+resolves with the signal's number, 2 or 15, and `deliver(name)` resolves
+every waiter, or raises the signal again when there is none.
 
 Node discards a child's output when it exits unless a `'readable'` listener
 is waiting for it, so each output stream keeps one, and its bytes wait in

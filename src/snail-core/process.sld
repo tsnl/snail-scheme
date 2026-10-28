@@ -5,6 +5,7 @@
 (define-library (snail-core process)
   (export
    process spawn read-output write-input close-input send-signal wait-exit close-process
+   signals termination
    Command Command-program Command-arguments Command-directory
    Process Process-token Process-id
    Stream Stdout Stderr
@@ -74,6 +75,20 @@
              (wait-exit "wait-exit")
              (close-process "close-process"))))
 
+    ;; ---- Termination ----
+
+    ;; SIGINT and SIGTERM, as values the program can wait for. A program
+    ;; opts in by waiting: a signal that arrives while tasks wait in
+    ;; `termination` is the result of every such wait, (Interrupt) or
+    ;; (Terminate), and one that arrives while none waits ends the program
+    ;; as it always has. A wait ends with its signal, so a second signal
+    ;; during an orderly shutdown still ends the program at once, unless a
+    ;; task waits again.
+    (effect signals
+      ((termination (-> Signal)))
+      (host "snail.process"
+            ((termination "termination"))))
+
     ;; ---- Native tokens ----
 
     ;; Private to the native binding: a token from another handler reaching
@@ -127,6 +142,13 @@
     (expose part-character "process:part-character")
     (expose stream-descriptor "process:stream-descriptor")
     (expose signal-number "process:signal-number")
+
+    ;; Only SIGINT (2) and SIGTERM (15) are delivered to `termination`.
+    (: received-signal (-> I32 Signal))
+    (define (received-signal number)
+      (if (= number 2) (Interrupt) (Terminate)))
+
+    (expose received-signal "process:received-signal")
 
     ;; ---- Host result construction ----
 

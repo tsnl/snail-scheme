@@ -1,5 +1,5 @@
-// Concrete Node child-process ownership. Scalar handles never retain managed wrappers.
-// Close revokes aliases and kills a running child now; shutdown waits for every exit.
+// Concrete Node child-process ownership, and the termination signals the
+// main thread forwards. Scalar handles never retain managed wrappers.
 import {spawn as startChild} from 'node:child_process';
 import {on, once} from 'node:events';
 
@@ -24,6 +24,9 @@ function settled(promise, signal) {
   });
 }
 
+// ---- Children ----
+
+// Close revokes aliases and kills a running child now; shutdown waits for every exit.
 export function createProcesses() {
   // Native ownership lasts from spawn until the child has exited and its
   // pipes have closed. A public handle exists only between a successful
@@ -166,4 +169,45 @@ export function createProcesses() {
 
   return {spawn, read, write, closeInput, kill, wait, shutdown,
     close(id) { const resource = handles.get(id); if (resource) closeResource(resource); }};
+}
+
+// ---- Termination ----
+
+// SIGINT and SIGTERM, for the tasks waiting for them. The main thread owns
+// the signal handlers (host/native/run-snail.mjs); when a signal arrives it
+// reads `waiting`, shared memory holding the number of waiters, and forwards
+// the signal here only if a task waits. The number is written before a wait
+// suspends, so no signal can arrive in between and miss it.
+const terminationNumbers = new Map([['SIGINT', 2], ['SIGTERM', 15]]);
+
+export function createTermination(waiting) {
+  const waiters = new Set();
+  const publish = () => Atomics.store(waiting, 0, waiters.size);
+
+  function remove(waiter) {
+    waiters.delete(waiter);
+    publish();
+    waiter.signal.removeEventListener('abort', waiter.abort);
+  }
+
+  function wait(signal) {
+    signal.throwIfAborted();
+    return new Promise((resolve, reject) => {
+      const waiter = {signal, resolve, abort: () => { remove(waiter); reject(signal.reason); }};
+      waiters.add(waiter);
+      publish();
+      signal.addEventListener('abort', waiter.abort, {once: true});
+    });
+  }
+
+  // A signal reaches every task waiting when it arrives, and each wait
+  // ends: a second signal ends the process unless a task waits again. One
+  // whose waiter was cancelled on its way here is raised again, and the
+  // main thread, seeing no waiter, ends the process by it.
+  function deliver(name) {
+    if (!waiters.size) { process.kill(process.pid, name); return; }
+    for (const waiter of [...waiters]) { remove(waiter); waiter.resolve(terminationNumbers.get(name)); }
+  }
+
+  return {wait, deliver};
 }

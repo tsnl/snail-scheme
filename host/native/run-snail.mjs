@@ -9,7 +9,7 @@ import {createScheduler, taskImports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
 import {socketImports} from './socket-imports.mjs';
-import {createProcesses} from './process.mjs';
+import {createProcesses, createTermination} from './process.mjs';
 import {processImports} from './process-imports.mjs';
 
 // ---- One reactor initialization and one program invocation ----
@@ -29,7 +29,7 @@ function resultStatus(value) {
   return 1;
 }
 
-async function run(filename, arguments_) {
+async function run(filename, arguments_, termination) {
   const wasi = new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
   let program, failed = false, status = 1;
@@ -38,7 +38,7 @@ async function run(filename, arguments_) {
   const scheduler = createScheduler({reportError: error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); }});
   const host = {'snail.wasm': wasmImports(() => program, file => readFileSync(file)), 'snail.tasks': taskImports(() => scheduler),
                 'snail.socket': socketImports(() => program, scheduler, tcp, udp),
-                'snail.process': processImports(() => program, scheduler, processes)};
+                'snail.process': processImports(() => program, scheduler, processes, termination)};
   // A parked JSPI stack is live work even when no OS handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
   try {
@@ -77,6 +77,26 @@ async function runInitializers(program, scheduler) {
   return result;
 }
 
+// ---- Termination signals ----
+
+// SIGINT and SIGTERM reach only the main thread. They go to the program's
+// tasks waiting in `termination`, (snail-core process); with none waiting,
+// they end the process as Node's default does, by the same signal. The
+// worker counts its waiters in shared memory, read when the signal
+// arrives, so no message is in flight while a new waiter could miss it.
+// Raising a signal again restores the default only because these are the
+// main thread's only listeners for it.
+const terminations = ['SIGINT', 'SIGTERM'];
+
+function forwardTerminations(worker, waiting) {
+  function forward(name) {
+    if (Atomics.load(waiting, 0) > 0) { worker.postMessage(name); return; }
+    for (const each of terminations) process.removeListener(each, forward);
+    process.kill(process.pid, name);
+  }
+  for (const name of terminations) process.on(name, forward);
+}
+
 // ---- A worker with room to allocate ----
 
 // A small young generation copies long lists repeatedly. Keep the heap
@@ -86,14 +106,19 @@ const limits = {maxYoungGenerationSizeMb: 384};
 
 if (isMainThread) {
   process.exitCode = 1;
-  const worker = new Worker(new URL(import.meta.url), {workerData: process.argv.slice(2), resourceLimits: limits});
+  const waiting = new Int32Array(new SharedArrayBuffer(4));
+  const worker = new Worker(new URL(import.meta.url), {workerData: {arguments: process.argv.slice(2), waiting}, resourceLimits: limits});
+  forwardTerminations(worker, waiting);
   worker.on('message', status => { process.exitCode = status; });
   worker.on('error', error => console.error(`snail: ${error.message}`));
 } else {
-  const [filename, ...arguments_] = workerData;
+  const {arguments: [filename, ...arguments_], waiting} = workerData, termination = createTermination(waiting);
+  // Forwarded signals must not keep a finished program alive.
+  parentPort.on('message', name => termination.deliver(name));
+  parentPort.unref();
   try {
     if (!filename) throw new Error('usage: run-snail.mjs MODULE.wasm [ARGUMENT ...]');
-    parentPort.postMessage(await run(filename, arguments_));
+    parentPort.postMessage(await run(filename, arguments_, termination));
   } catch (error) {
     // A WASI exit unwinds as a non-Error value after its message is printed.
     if (error instanceof Error) console.error(`snail: ${error.message}`);

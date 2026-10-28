@@ -10,7 +10,7 @@
 | `(snail-core io)` | The `console`, `fs` and `clock` effects: text output, lines of input, files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock. |
 | `(snail-core resource)` | Files a library links rather than embeds: `link-bytes`, the `Resource` handle, and `read-resource` through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail-core task)` | One-shot local dispatch, cooperative yield, timer waits, and `Mailbox` queues between tasks, through the runtime-owned `tasks` effect ([task operations](../runtimes/tasks.md)). |
-| `(snail-core process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit ([child processes](../runtimes/networking.md#child-processes)). |
+| `(snail-core process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
 | `(snail-core table)` | Immutable tables from strings to values. |
 | `(snail-core math)` | Elementary functions on `F64`. |
 | `(snail-core text)` | Unicode character properties, case mapping and decimal digit values, from the runtime's tables. `(scheme runtime)` is built on it, so Scheme's character procedures are Unicode's. |

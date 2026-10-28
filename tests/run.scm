@@ -326,6 +326,19 @@
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/socket-boundary/check.mjs") program))))
     (or (zero? (caddr result)) (report "socket boundary" "failed" (string-append (car result) (cadr result))))))
 
+;; SIGTERM and SIGINT reach a program waiting for them as values, and end
+;; one that does not wait, as they always have.
+(define (compile-termination root)
+  (let ((text (program->wat root (standard-directories root) (path-join root "tests/termination/main.sld"))))
+    (lambda ()
+      (let ((program (path-join root "build/tests/termination.wasm")))
+        (link-wat root text program #f)
+        (check-termination root program)))))
+
+(define (check-termination root program)
+  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/termination/check.mjs") program))))
+    (or (zero? (caddr result)) (report "termination" "failed" (string-append (car result) (cadr result))))))
+
 ;; A compiler running as Wasm resolves concrete file snapshots, then emits
 ;; static and cached library builds whose current bytes are executed.
 (define (compile-artifacts root)
@@ -492,7 +505,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-host-agreement root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-application-process root)) (lambda () (check-project-failures root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-resources root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-development-runs root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root) (compile-book-highlighter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-host-agreement root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-application-process root)) (lambda () (check-project-failures root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-resources root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-development-runs root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-termination root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root) (compile-book-highlighter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))
