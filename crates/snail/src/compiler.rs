@@ -135,6 +135,16 @@ mod tests {
     }
 
     #[test]
+    fn a_failed_compile_is_told_over_a_failure_to_close() {
+        let path = module_file("both", &compiler("(unreachable)", 1));
+        let error = compile(&path, &[]).unwrap_err();
+        assert_eq!(
+            *error.downcast_ref::<Trap>().unwrap(),
+            Trap::UnreachableCodeReached
+        );
+    }
+
+    #[test]
     fn a_trap_is_status_2() {
         assert_eq!(
             run(&module_file("trapping", &compiler("(unreachable)", 0)), &[]),

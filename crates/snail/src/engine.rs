@@ -30,15 +30,13 @@ pub fn engine() -> wasmtime::Result<Engine> {
     config
         .wasm_gc(true)
         .wasm_function_references(true)
-        .wasm_tail_call(true);
-    config
+        .wasm_tail_call(true)
         .wasm_exceptions(false)
-        .collector(Collector::DeferredReferenceCounting);
-    config
+        .collector(Collector::DeferredReferenceCounting)
         .max_wasm_stack(WASM_STACK)
-        .async_stack_size(WASM_STACK);
-    config.wasm_backtrace_max_frames(NonZeroUsize::new(32));
-    config.cranelift_opt_level(OptLevel::Speed);
+        .async_stack_size(WASM_STACK)
+        .wasm_backtrace_max_frames(NonZeroUsize::new(32))
+        .cranelift_opt_level(OptLevel::Speed);
     Engine::new(&config)
 }
 
@@ -61,11 +59,14 @@ pub fn load(engine: &Engine, path: &str) -> wasmtime::Result<Module> {
 // Compiling the compiler takes Cranelift most of a second, which every
 // compile would otherwise pay again. A `.cwasm` file is specific to this
 // binary's wasmtime version and configuration and to the CPU, so it is a
-// build output beside its module and is never committed.
+// build output beside its module and is never committed. It is written
+// beside OUTPUT and renamed into place, so no run loads half of one.
 pub fn precompile(module: &str, output: &str) -> u8 {
     let written = engine().and_then(|engine| {
         let code = engine.precompile_module(&std::fs::read(module)?)?;
-        Ok(std::fs::write(output, code)?)
+        let partial = format!("{output}.{}.partial", std::process::id());
+        std::fs::write(&partial, code)?;
+        Ok(std::fs::rename(&partial, output)?)
     });
     match written {
         Ok(()) => 0,

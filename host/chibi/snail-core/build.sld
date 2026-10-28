@@ -56,9 +56,28 @@
             (path-join root "host/native/run-snail.mjs")
             program))
 
+    ;; The command that runs the compiled compiler `program`. Node runs it
+    ;; by default, through host/native/run-compiler.mjs; with
+    ;; SNAIL_ENGINE=wasmtime, build/snail does, by the same protocol. The
+    ;; native executable stays an opt-in because wasmtime's collector makes
+    ;; a compile 9 to 37 times slower than on V8 (see "The native
+    ;; executable" in doc/book/snail-core/bootstrap.md).
+    (define (compiler-command root program)
+      (if (wasmtime-engine?)
+          (list (snail-binary root) "run-compiler" program)
+          (node-compiler-command root program)))
+
+    ;; SNAIL_ENGINE names the engine, so a misspelled one is an error rather
+    ;; than Node without a word.
+    (define (wasmtime-engine?)
+      (let ((engine (get-environment-variable "SNAIL_ENGINE")))
+        (cond ((member engine '(#f "" "node")) #f)
+              ((equal? engine "wasmtime") #t)
+              (else (error "SNAIL_ENGINE must be node or wasmtime" engine)))))
+
     ;; The compiler is synchronous and has no application scheduler. Keep
     ;; the previous compiler worker's heap and native stack allowance.
-    (define (compiler-command root program)
+    (define (node-compiler-command root program)
       (list (or (get-environment-variable "NODE") "node")
             "--no-warnings"
             "--max-semi-space-size=128"
@@ -79,12 +98,12 @@
             (path-join root "host/chibi/compile.scm")))
 
     ;; The command that runs a compiler. The compiled compiler is rebuilt
-    ;; first when its source has changed; SNAIL_STAGE0=chibi runs the source
-    ;; on Chibi instead.
+    ;; first when its source has changed, and on wasmtime it runs from its
+    ;; machine code; SNAIL_STAGE0=chibi runs the source on Chibi instead.
     (define (selected-compiler root)
-      (if (equal? (get-environment-variable "SNAIL_STAGE0") "chibi")
-          (chibi-compiler root)
-          (compiler-command root (current-compiler root))))
+      (cond ((equal? (get-environment-variable "SNAIL_STAGE0") "chibi") (chibi-compiler root))
+            ((wasmtime-engine?) (compiler-command root (precompiled-compiler root)))
+            (else (compiler-command root (current-compiler root)))))
 
     (define (program->wat root directories source)
       (run-compiler root (selected-compiler root) "wat" directories source))
@@ -291,8 +310,22 @@
                                 "src/snail-core/primitive.sld"))
                          (lambda () (rebuild-compiler! root))))
 
+    ;; The native executable is built first, so that the bootstrap's stages
+    ;; can run on it and the suite can compare it with Node.
     (define (bootstrap! root)
+      (snail-binary root)
       (with-build-lock root (lambda () (rebuild-compiler! root))))
+
+    ;; The current compiler as machine code for build/snail's engine, which
+    ;; saves each compile the most of a second Cranelift takes to compile
+    ;; it. It is rebuilt when the compiler or the executable is newer;
+    ;; `precompile` renames it into place, so a compile never loads half of one.
+    (define (precompiled-compiler root)
+      (let ((module (current-compiler root))
+            (binary (snail-binary root))
+            (code (path-join root "build/compiler/snailc.cwasm")))
+        (rebuild-if-stale! root code (list module binary)
+                           (lambda () (run-command (list binary "precompile" module code))))))
 
     ;; Stage 1 is the source's output for its own entry program, from the
     ;; previous compiler when one works and from Chibi otherwise; stage 2 is
@@ -372,10 +405,12 @@
     ;; Runs a command, raising its standard error if it fails. Tools can be
     ;; overridden by environment variables such as WASM_OPT.
     (define (run-tool variable default . arguments)
-      (let* ((tool (or (get-environment-variable variable) default))
-             (result (capture-process (cons tool arguments))))
+      (run-command (cons (or (get-environment-variable variable) default) arguments)))
+
+    (define (run-command command)
+      (let ((result (capture-process command)))
         (unless (zero? (caddr result))
-          (error (string-append tool " failed:\n" (cadr result))))
+          (error (string-append (car command) " failed:\n" (cadr result))))
         (car result)))
 
     (define wasm-features
@@ -467,6 +502,25 @@
                "--remove-exports"
                "--pass-arg=remove-exports@snail:*,diagnostics/*"
                (optimization release?))))
+
+    ;; ---- The native executable ----
+
+    ;; build/snail: crates/snail built for this machine, an executable that
+    ;; embeds wasmtime and runs the compiled compiler as Node does. Cargo
+    ;; decides whether it is stale, once per process, since every compile
+    ;; asks; build/snail links to its output.
+    (define snail-built? #f)
+
+    (define (snail-binary root)
+      (let ((link (path-join root "build/snail")))
+        (unless snail-built?
+          (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
+                    "build" "--quiet" "--offline" "--release"
+                    "--manifest-path" (path-join root "crates/snail/Cargo.toml")
+                    "--target-dir" (path-join root "build/native-snail"))
+          (unless (file-link-status link) (symbolic-link-file "native-snail/release/snail" link))
+          (set! snail-built? #t))
+        link))
 
     ;; ---- Artifacts ----
 
