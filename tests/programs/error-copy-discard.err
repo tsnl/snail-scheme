@@ -1,0 +1,1 @@
+a wildcard cannot discard a linear value; bind it and use it (its type is linear unless the definition requires (Copy B))

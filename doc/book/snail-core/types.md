@@ -24,6 +24,10 @@ and row variables and lists its class requirements:
 (: sum (All (T) (requires (Num T)) (-> (List T) T T)))
 ```
 
+A type variable is linear unless the signature requires `(Copy T)`, which
+a body needs to use a `T` twice or to discard one
+([ownership](ownership.md)).
+
 Integer literals check against any integer or float type and are
 range-checked; float literals check against `F32` or `F64`. A literal whose
 type nothing determines defaults to `I64` or `F64`. Values never convert
