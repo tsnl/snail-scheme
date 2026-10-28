@@ -1373,7 +1373,33 @@
                                     pending)))
                    (expanding cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
                                                 pending)))
+                              (check-buildable-structs cx pending)
                               (fold-left (lambda (cx body) (body cx)) cx (concatenate bodies))))))
+
+    ;; A struct whose every value would contain another value of itself,
+    ;; through struct fields and cell contents only, can never be built: no
+    ;; finite program constructs one. The backend relies on the rule, since
+    ;; a call that may yield returns a placeholder of its type, a constant
+    ;; it could not write for such a struct. Once every declaration of the
+    ;; library is in, each struct is checked where it is declared. An empty
+    ;; type is an enum with no cases.
+    (: check-buildable-structs (-> Context (List Pending) Unit))
+    (define (check-buildable-structs cx pending)
+      (for-each (lambda (entry)
+                  (when (string=? (Pending-keyword entry) "struct") (check-buildable cx entry)))
+                pending))
+
+    (: check-buildable (-> Context Pending Unit))
+    (define (check-buildable cx entry)
+      (let ((name (declared-name (declaration-head (Pending-form entry)))))
+        (match (resolve cx (Pending-env entry) name)
+          ((Some (TypeName id _ _))
+           (when (contains-itself? (Context-program cx) (program-type (Context-program cx) id))
+             (compile-error (syntax-loc name)
+                            (string-append "the struct "
+                                           (Ident-name name)
+                                           " can never be built: each of its values would contain another"))))
+          (_ (panic "internal error: struct")))))
 
     (: scan-top-level (-> Context Env Syntax (Pair (List Pending) Context) ! fs))
     (define (scan-top-level cx env form)
@@ -1970,10 +1996,31 @@
                            (Cons (Atom (DString module) _)
                                  (Cons (Atom (DString symbol) _) (Cons type (Nil))))))
                _)
-         (add-value cx
-                    (global-binding cx env name)
-                    (Foreign (Import module symbol) (mono-scheme (resolve-type cx env type)))))
+         (let ((resolved (resolve-type cx env type)))
+           (check-host-parameters resolved (syntax-loc type))
+           (add-value cx
+                      (global-binding cx env name)
+                      (Foreign (Import module symbol) (mono-scheme resolved)))))
         (_ (compile-error (syntax-loc form) "expected (extern name \"module\" \"symbol\" type)"))))
+
+    ;; The host reads only scalars, and one String or Bytes argument, which
+    ;; the caller stages in the runtime's buffer just before the call; so a
+    ;; host function may take a buffer only as its last argument.
+    (: check-host-parameters (-> Type Loc Unit))
+    (define (check-host-parameters type loc)
+      (match type
+        ((TFun params _ _)
+         (unless (staged-last? params)
+           (compile-error loc
+                          "a host function can take a String or Bytes only as its last argument")))
+        (_ (unit))))
+
+    (: staged-last? (-> (List Type) Bool))
+    (define (staged-last? params)
+      (match params
+        ((Cons param (Cons next rest))
+         (and (not (buffer-type? param)) (staged-last? (Cons next rest))))
+        (_ #t)))
 
     ;; Operations perform their effect. Clauses after them give defaults: a
     ;; `host` clause names Wasm imports, and a `default` clause names
@@ -2105,6 +2152,10 @@
                      (when (member? global control)
                        (compile-error (syntax-loc operation)
                                       "a control operation has no host default"))
+                     (match (program-value (Context-program cx) global)
+                       ((Some (Operation _ scheme))
+                        (check-host-parameters (Scheme-type scheme) (syntax-loc operation)))
+                       (_ (unit)))
                      (Pair global (HostDefault (Import module symbol)))))
                   (_ (compile-error (syntax-loc operation) "expected (operation \"symbol\")"))))
               (form-items operations "a list of host operations")))

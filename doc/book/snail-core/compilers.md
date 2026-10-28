@@ -188,6 +188,9 @@ function of the expander has `mut` in its row — and where it does not, the
   later on a task's own stack; and in the implementation of an operation
   declared without `ctl`, which returns into a handled body that tests for
   a yield there only to the control effects the operation's type names.
+  It checks, too, the one rule the backend relies on that needs
+  specialized definitions: an exposed function's definition, this
+  library's or an imported one, has a lambda as its value.
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
@@ -230,6 +233,12 @@ function of the expander has `mut` in its row — and where it does not, the
   stages final String and Bytes arguments and wraps exposed `(Option Any)`
   as a nullable opaque handover. Other exposed managed values keep their normal
   representation; the checker rejects affine parameters/results at that boundary.
+  The backend reports no source errors, since each rule it relies on is
+  checked before it runs. The expander makes sure a host function takes a
+  String or Bytes argument only last, and that no struct contains itself,
+  so every placeholder is a finite constant. The checker makes sure a
+  conversion goes to or from Any, and that an exposure names a
+  definition.
   The host passes no evidence, so every exposed function has a wrapper that
   calls the definition with the empty evidence list; a function exposed with
   `dynamic` has a wrapper of `Any` values and a signature instead
