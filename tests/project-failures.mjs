@@ -1,6 +1,7 @@
 // A project build that fails reports the error it met and keeps nothing it
 // made: the generations it created are discarded, even when that cleanup
-// fails too, and the outputs of earlier builds stay published.
+// fails too, and the outputs of earlier builds stay published. `snail build`
+// shows all but the failing cleanup from outside.
 //   node tests/project-failures.mjs ROOT
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
@@ -17,9 +18,10 @@ const working = fs.mkdtempSync(join(tmpdir(), 'snail-failures-compiler-'));
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
 const build = target => execute(join(root, 'snail'), ['build', project, target], {timeout: 120_000, killSignal: 'SIGKILL'});
 const inventory = () => fs.readdirSync(join(project, 'build')).sort();
-let builder;
 
-try {
+// ---- Through the command line ----
+
+async function throughTheCommandLine() {
   // Specialization finds unsafe handler captures and affine uses; those
   // errors reach the user through a build as a plain type error does.
   write('project.datum', '((build-target main (program (entry "main.sld"))))');
@@ -54,14 +56,20 @@ try {
   await assert.rejects(build('main'), /unknown-generated-name/);
   assert.deepEqual(inventory(), [published, 'main'], 'a failed build leaves the published generation');
   assert.equal(fs.readlinkSync(join(project, 'build/main')), published);
+}
 
-  // Cleanup that fails still attempts every generation the build created,
-  // and the error the build met is the one reported.
+// ---- In process until step 7 ----
+
+// Cleanup that fails still attempts every generation the build created, and
+// the error the build met is the one reported. Only a patch in this process
+// can make the builder's removals fail; step 7 replaces this builder with the
+// resident compiler's build library, which takes the case with it.
+async function inProcess() {
   fs.cpSync(join(root, 'tests/artifacts/project'), project, {recursive: true});
   write('client-public/nested/data.bin', Buffer.from([65, 0, 255]));
   write('admin-public/admin.bin', Buffer.from([99]));
   const server = fs.readFileSync(join(project, 'server.sld'), 'utf8');
-  builder = await createProjectBuilder({root, project, tools: projectTools(root), directory: working});
+  const builder = await createProjectBuilder({root, project, tools: projectTools(root), directory: working});
   const remove = fs.rmSync;
   let attempts = 0;
   fs.rmSync = function(path, options) {
@@ -84,10 +92,16 @@ try {
     write('server.sld', `${server}\n(missing-function)`);
     assert.throws(() => builder.build(builder.describe(), ['server']), /missing-function/);
     assert.equal(attempts, 4, 'an expansion error builds only what planning waited on');
+  } finally {
+    fs.rmSync = remove; syncBuiltinESMExports();
+    builder.close();
   }
-  finally { fs.rmSync = remove; syncBuiltinESMExports(); }
+}
+
+try {
+  await throughTheCommandLine();
+  await inProcess();
 } finally {
-  builder?.close();
   fs.rmSync(project, {recursive: true, force: true});
   fs.rmSync(working, {recursive: true, force: true});
 }

@@ -102,7 +102,8 @@ keeps distinct observed paths only for the active attempt, including paths outsi
 the previous project's public inputs. A reply carries the newly parsed description
 even after a later build failure. The parent reconciles disk, tests those paths
 against the new description, and publishes synchronously only if no observed input
-change superseded it. Otherwise it discards and coalesces a successor. Successful
+change, and no Build requested meanwhile, superseded it. Otherwise it discards and
+coalesces a successor, so the attempt that answers a Build began after it. Successful
 compiler cache entries remain useful in either case; accepted application files
 remain available after a failed build.
 
@@ -217,12 +218,18 @@ today, and is `null` once it has exited. `runs` is the stream's `runs`.
 
 The development loop's tests (`tests/project-http.mjs`,
 `tests/project-attempts.mjs`, `tests/development-runs.mjs`,
+`tests/project-development.mjs`, `tests/project-resources.mjs`,
 `tests/browser/ide.mjs` and `tests/browser/ide-runs.mjs`) spawn `snail dev
 --port 0` and observe it only through the URL it prints, this snapshot, the
 event stream, the files on disk and process IDs, so nothing they check
 depends on how the service is written; `tests/development-service.mjs` is
-that client. The few cases that must act within one turn of the session, or
-kill its compiler worker, still run it in process and say why.
+that client. A case about compiler sessions asks for each attempt with
+Build, as the editor does, and reads what each target compiled and its digest
+from the snapshot. The tests of `snail build` and `snail run` likewise see
+only the command's exit status, its output and the build directory. The few
+cases that must act within one turn of the session, kill its compiler worker,
+make one of the builder's removals or renames fail, or read its private
+scratch still run it in process and say why.
 
 Request bodies are framed by Content-Length alone, as in the
 [Snail HTTP library](http.md): a request naming a Transfer-Encoding is
