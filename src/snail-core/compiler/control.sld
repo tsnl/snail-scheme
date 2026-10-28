@@ -58,9 +58,10 @@
     ;; What calling `callee` may yield to. The checker opens the row of each
     ;; use of a global to its context's, so a global's own definition or
     ;; declaration says instead: a constructor, an accessor or a foreign
-    ;; function yields nothing, an operation yields to its effect if that
-    ;; is a control effect, and a primitive yields only through a row
-    ;; variable, as call-once does through its procedure's.
+    ;; function yields nothing, an operation yields to the control effects
+    ;; among its effect and its latent row, which its implementation may
+    ;; yield to, and a primitive yields only through a row variable, as
+    ;; call-once does through its procedure's.
     (: callee-row (-> Callees Expr (List String)))
     (define (callee-row callees callee)
       (match (Expr-term callee)
@@ -76,13 +77,17 @@
     (: declared-row (-> Callees String Type (List String)))
     (define (declared-row callees name type)
       (match (program-value (Callees-program callees) name)
-        ((Some (Operation effect _)) (if (member? effect (Callees-control callees)) (list effect) (Nil)))
+        ((Some (Operation effect scheme)) (operation-row callees effect scheme))
         ((Some (Primitive scheme)) (if (closed-row? (Scheme-type scheme)) (Nil) (call-row type)))
         ((Some (Foreign _ _)) (Nil))
         ((Some (Constructor _ _)) (Nil))
         ((Some (Accessor _ _ _)) (Nil))
         ((Some (Replacer _ _ _)) (Nil))
         (_ (call-row type))))
+
+    (: operation-row (-> Callees String Scheme (List String)))
+    (define (operation-row callees effect scheme)
+      (filter (lambda (label) (member? label (Callees-control callees))) (Cons effect (operation-latent effect scheme))))
 
     (: closed-row? (-> Type Bool))
     (define (closed-row? type)
@@ -179,8 +184,9 @@
     ;; A restricted primitive called directly is judged by the procedure it
     ;; is given, and one used as a value by its type. An implementation of
     ;; an operation declared without ctl returns to its caller in the
-    ;; handled body, which does not test for a yield after an operation that
-    ;; cannot yield.
+    ;; handled body, which tests for a yield after the operation only when
+    ;; the operation's type names a control effect: the implementation may
+    ;; yield to those its latent row names, and to no other.
     (: check-restrictions (-> Callees Expr Unit))
     (define (check-restrictions callees expr)
       (match (Expr-term expr)
@@ -203,10 +209,20 @@
       (let ((control (Effect-control (program-effect (Callees-program callees) effect))))
         (for-each (lambda (entry)
                     (unless (member? (Pair-first entry) control)
-                      (refuse-yield callees (Pair-second entry)
-                                    (string-append "the implementation of " (short-name (Pair-first entry)) ", which is not declared with ctl,")
-                                    (Expr-loc (Pair-second entry)))))
+                      (check-implementation callees (Pair-first entry) (Pair-second entry))))
                   implementations)))
+
+    (: check-implementation (-> Callees String Expr Unit))
+    (define (check-implementation callees operation implementation)
+      (match (program-value (Callees-program callees) operation)
+        ((Some (Operation effect scheme))
+         (let ((labels (label-difference (procedure-yields callees implementation) (operation-latent effect scheme))))
+           (unless (null? labels)
+             (compile-error (Expr-loc implementation)
+                            (string-append "the implementation of " (short-name operation)
+                                           " can yield only to the control effects its operation's type names; it may yield to"
+                                           (labels->string labels))))))
+        (_ (panic "internal error: not an operation"))))
 
     (: refuse-yield (-> Callees Expr String Loc Unit))
     (define (refuse-yield callees procedure what loc)
@@ -426,7 +442,8 @@
         (test-flow)
         (test-unchanged)
         (test-holds)
-        (test-restrictions))
+        (test-restrictions)
+        (test-latent))
 
       (define i64 (TCon "I64" (Nil)))
       (define bool (TCon "Bool" (Nil)))
@@ -442,9 +459,18 @@
       (define predicate (local "predicate" (TFun (list) bool abort-row)))
       (define add (local "add" (TFun (list i64 i64) i64 empty-row)))
 
+      ;; Abort is a control effect; Log and Io are not, but Io's fetch names
+      ;; Abort in its type.
+      (define (operation effect latent)
+        (Operation effect (Scheme (Nil) (Nil) (TFun (list i64) i64 (TRow (Cons effect latent) (None))))))
+
       (define program
-        (program-with-effect (program-with-effect empty-program (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil)))
-                             (Effect "t:Log" (list "t:log") (Nil) (Nil))))
+        (fold-left (lambda (program entry) (program-with-value program (Pair-first entry) (Pair-second entry)))
+                   (fold-left program-with-effect empty-program
+                              (list (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil)) (Effect "t:Log" (list "t:log") (Nil) (Nil))
+                                    (Effect "t:Io" (list "t:fetch") (Nil) (Nil))))
+                   (list (Pair "t:abort" (operation "t:Abort" (Nil))) (Pair "t:log" (operation "t:Log" (Nil)))
+                         (Pair "t:fetch" (operation "t:Io" (list "t:Abort"))))))
 
       (define callees (Callees program (list "t:Abort") empty-table empty-table))
 
@@ -531,7 +557,16 @@
           (expect (refused? (call total (list (local "thunk" thunk-type)))) "an unsafe-total thunk cannot reach a control operation")
           (expect (refused? (call total (list (Expr (Lambda (Nil) (number 1)) thunk-type loc)))) #f)
           (expect (refused? (Expr (Handle "t:Log" (list (Pair "t:log" log)) (number 1)) i64 loc))
-                  "the implementation of log, which is not declared with ctl, cannot reach a control operation")))
+                  "the implementation of log can yield only to the control effects its operation's type names")))
+
+      ;; Calling an operation whose type names Abort may yield to Abort, and
+      ;; its implementation may.
+      (define (test-latent)
+        (let ((fetch (local "t:fetch" (TFun (list i64) i64 empty-row)))
+              (yielding (Expr (Lambda (list "n.1") (call f (list (number 1)))) (TFun (list i64) i64 abort-row) loc)))
+          (expect (yields callees (call fetch (list (number 1)))) (list "t:Abort"))
+          (expect (yields callees (call (local "t:log" (TFun (list i64) i64 empty-row)) (list (number 1)))) (Nil))
+          (expect (refused? (Expr (Handle "t:Io" (list (Pair "t:fetch" yielding)) (number 1)) i64 loc)) #f)))
 
       ;; The start of the diagnostic `expr` is refused with, or #f.
       (define (refused? expr)

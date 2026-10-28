@@ -156,8 +156,9 @@ the effects as an argument.
 A handler removes its effect. The implementation
 of an ordinary operation returns to the operation's caller exactly once, and
 every implementation runs in the handler's outer context, so an operation it
-performs goes to the next handler out. A handler names operations within its
-effect, so they need not be imported. Effects with host defaults, such as `console` and `fs` from
+performs goes to the next handler out, unless the operation's latent row
+names its effect (below). A handler names operations within its
+effect, so they need not be imported. Effects with defaults, such as `console` and `fs` from
 `(snail-core io)`, need no handler at the top level of a program, and a test can
 handle `fs` to serve files from memory.
 
@@ -165,8 +166,8 @@ handle `fs` to serve files from memory.
 in `(effect Gen ((ctl yield (-> I64 Unit))))`. Its implementation receives
 one more argument, `resume`, the rest of the handled body, and returns the
 handler's result, the type of the `handle` expression. A control operation
-has no host default, since the host cannot be handed the rest of a
-computation. The implementation runs in the handler's outer context.
+has no default: a default runs where no handler is, and nothing there can
+be handed the rest of a computation. The implementation runs in the handler's outer context.
 Calling `(resume answer)` runs the rest of the handled body, with `answer`
 as the operation's result, to the handler's result, which the
 implementation may return or build on:
@@ -204,11 +205,59 @@ one effect the inner one catches, and an implementation that performs the
 effect again reaches the outer one. A control row cannot reach a `vector-generate` or
 `string-generate` callback, an `unsafe-total` thunk, `dispatch-local` work,
 or the implementation of an operation declared without `ctl`, which returns
-into a handled body that does not expect it to abort; each is an error after
+into a handled body that expects it to abort only to the control effects
+the operation's type names; each is an error after
 specialization. A generic function used where a control operation may be
 performed is specialized at that row, so its callback rows name the effect
 too: `vector-map`, which calls `vector-generate`, cannot be used in such a
 body even with a callback that cannot abort.
+
+**Latent rows.** An ordinary operation's type may name effects besides its
+own, its latent row: those its implementations perform where it is
+performed, as `fetch` names the control effect `Async`:
+
+```scheme
+(effect Async
+  ((ctl await (-> I64 I64))))
+
+(effect Io
+  ((fetch (-> I64 I64 ! Async))))
+```
+
+Performing `fetch` charges the caller `Io` and `Async`, so the call may
+yield. An implementation of `fetch` may perform `Async`, and those
+operations go to the handlers in scope where `fetch` was performed, while
+its other operations go to the handlers outside `Io`'s: the performer was
+charged `Async`, so its handler is the one every frame between the two is
+compiled to yield to. A yield leaves the implementation through the
+performer, and `resume` comes back into it. An `Io` handler installed
+outside a scheduler's per-task handlers therefore still waits on the task
+that performed `fetch`, as `tests/programs/control-latent.sld` shows. An
+ordinary effect in a latent row goes to the performer's handler the same
+way. An implementation may yield only to the control effects its
+operation's type names. A control operation has no latent row, since its
+implementation runs where its handler is, once the body has unwound to it,
+and no latent row names its operation's own effect.
+
+**Defaults.** After its operations, an effect's declaration may give a
+`host` clause, naming Wasm imports, and a `default` clause, which
+implements operations in Snail-Core as a handler does:
+
+```scheme
+(effect Clock
+  ((now (-> I64))
+   (sleep-until (-> I64 I64 ! Async)))
+  (default
+    ((now (lambda () 1000))
+     (sleep-until wait-for))))
+```
+
+A default runs when no handler of its effect is in scope, under the
+handlers in scope where its operation is performed, so `sleep-until`'s
+default, `wait-for`, awaits on its caller's `Async` handler. A default has
+its operation's type without the operation's own effect, so it performs at
+most the latent row. It is a lambda or a function's name; an operation has
+at most one default, and a control operation has none.
 
 `extern` declares a total foreign function; the declaration is the boundary's
 unsafe assumption.

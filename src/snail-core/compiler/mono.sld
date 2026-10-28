@@ -239,7 +239,18 @@
               (definition-reference state (instance-method state instance name) (append instance-types (drop types class-arity))
                 (append subs rest) type loc)))
            (_ (panic "internal error: a method needs instance evidence"))))
+        ((Some (Operation effect _)) (operation-reference state effect name type loc))
         (_ (Expr (Var name (Nil) (Nil)) type loc))))
+
+    ;; Performing an operation runs its Snail-Core default when no handler
+    ;; is in scope, so a use of the operation reaches the default too, which
+    ;; is copied, or imported from the effect's library, under its own name.
+    (: operation-reference (-> State String String Type Loc Expr ! mut))
+    (define (operation-reference state effect name type loc)
+      (match (assoc-ref (Effect-defaults (program-effect (program-of state) effect)) name)
+        ((Some (SnailDefault function)) (definition-reference state function (Nil) (Nil) (Scheme-type (scheme-of state function)) loc) (unit))
+        (_ (unit)))
+      (Expr (Var name (Nil) (Nil)) type loc))
 
     (: instance-method (-> State String String String))
     (define (instance-method state instance method)
