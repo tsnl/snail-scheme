@@ -300,6 +300,35 @@
     (define (program cx)
       (ref-get (Context-program cx)))
 
+    ;; Each addition replaces the program built so far with a larger one.
+    (: add-value! (-> Context String Value Unit ! mut))
+    (define (add-value! cx name value)
+      (ref-set! (Context-program cx) (program-with-value (program cx) name value)))
+
+    (: add-type! (-> Context DataType Unit ! mut))
+    (define (add-type! cx data)
+      (ref-set! (Context-program cx) (program-with-type (program cx) data)))
+
+    (: add-class! (-> Context Class Unit ! mut))
+    (define (add-class! cx class)
+      (ref-set! (Context-program cx) (program-with-class (program cx) class)))
+
+    (: add-instance! (-> Context Instance Unit ! mut))
+    (define (add-instance! cx instance)
+      (ref-set! (Context-program cx) (program-with-instance (program cx) instance)))
+
+    (: add-effect! (-> Context Effect Unit ! mut))
+    (define (add-effect! cx effect)
+      (ref-set! (Context-program cx) (program-with-effect (program cx) effect)))
+
+    (: add-item! (-> Context Item Unit ! mut))
+    (define (add-item! cx item)
+      (ref-set! (Context-program cx) (program-with-item (program cx) item)))
+
+    (: add-library! (-> Context String I64 Unit ! mut))
+    (define (add-library! cx name count)
+      (ref-set! (Context-program cx) (program-with-library (program cx) name count)))
+
     (: fresh (-> Context String String ! mut))
     (define (fresh cx base)
       (let ((count (+ (ref-get (Context-counter cx)) 1)))
@@ -515,7 +544,7 @@
          (let* ((relative (linked-path path path-loc))
                 (name (record-link! cx relative path-loc))
                 (handle (global-name cx (string-append "%link " relative))))
-           (add-value! (Context-program cx) handle (Foreign (Import "snail.link" name) (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) empty-row))))
+           (add-value! cx handle (Foreign (Import "snail.link" name) (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) empty-row))))
            (expr (App (expr (Var handle (Nil) (Nil)) loc) (Nil)) loc)))
         (_ (compile-error loc "link-bytes expects a literal relative path"))))
 
@@ -615,7 +644,7 @@
           (for-each (lambda (form) (declare-primitive! cx env form)) (section-items sections "begin"))
           (let ((before (length (program-items (program cx)))))
             (expand-top-level cx env (section-items sections "begin"))
-            (add-library! (Context-program cx) (Context-prefix cx) (- (length (program-items (program cx))) before))))
+            (add-library! cx (Context-prefix cx) (- (length (program-items (program cx))) before))))
       (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export")))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
@@ -1091,8 +1120,8 @@
           (("extern") (declare-extern! cx env form) (Nil))
           (("effect") (declare-effect! cx env form) (Nil))
           (("define") (list (lambda () (define-top-level! cx signatures env form))))
-          (("expose") (list (lambda () (add-item! (Context-program cx) (expose-item cx env form)))))
-          (("expression") (list (lambda () (add-item! (Context-program cx) (Do (expand-expr cx env form))))))
+          (("expose") (list (lambda () (add-item! cx (expose-item cx env form)))))
+          (("expression") (list (lambda () (add-item! cx (Do (expand-expr cx env form))))))
           (else (Nil)))))
 
     ;; `(expose name "symbol")` exports a top-level function to the host.
@@ -1108,10 +1137,10 @@
     (: define-top-level! (-> Context (Table (Pair Scheme (Option Loc))) Env Syntax Unit ! mut))
     (define (define-top-level! cx signatures env form)
       (let ((name (global-binding cx env (definition-name form))))
-        (add-value! (Context-program cx) name (match (table-ref signatures name)
-                                                ((Some (Pair scheme loc)) (Defined (Some scheme) loc))
-                                                ((None) (Defined (None) (None)))))
-        (add-item! (Context-program cx) (Define name (definition-value cx env form)))))
+        (add-value! cx name (match (table-ref signatures name)
+                              ((Some (Pair scheme loc)) (Defined (Some scheme) loc))
+                              ((None) (Defined (None) (None)))))
+        (add-item! cx (Define name (definition-value cx env form)))))
 
     (: definition-value (-> Context Env Syntax Expr ! mut))
     (define (definition-value cx env form)
@@ -1285,7 +1314,7 @@
                         (list (Cons (declared-name head) (declaration-body form)))))
              (data (DataType id (map Ident-name params) (map-indexed (lambda (tag case) (resolve-case cx scope case id tag)) cases)
                              enum?)))
-        (add-type! (Context-program cx) data)
+        (add-type! cx data)
         (for-each (lambda (case) (declare-case-values! cx data case (not enum?))) (DataType-cases data))))
 
     (: resolve-case (-> Context Env (List Syntax) String I64 Case ! mut))
@@ -1314,13 +1343,13 @@
     (define (declare-case-values! cx data case setters?)
       (let* ((params (DataType-params data)) (self (TCon (DataType-name data) (map TRigid params)))
              (name (Case-name case)))
-        (add-value! (Context-program cx) name (Constructor case (Scheme params (Nil) (TFun (map Field-type (Case-fields case)) self empty-row))))
+        (add-value! cx name (Constructor case (Scheme params (Nil) (TFun (map Field-type (Case-fields case)) self empty-row))))
         (for-each (lambda (indexed)
                     (let* ((index (Pair-first indexed)) (field (Pair-second indexed)) (type (Field-type field))
                            (accessor (string-append name "-" (Field-name field))))
-                      (add-value! (Context-program cx) accessor (Accessor case index (Scheme params (Nil) (TFun (list self) type empty-row))))
+                      (add-value! cx accessor (Accessor case index (Scheme params (Nil) (TFun (list self) type empty-row))))
                       (when setters?
-                        (add-value! (Context-program cx) (string-append accessor "-set")
+                        (add-value! cx (string-append accessor "-set")
                                     (Replacer case index (Scheme params (Nil) (TFun (list self type) self empty-row)))))))
                   (zip (iota (length (Case-fields case))) (Case-fields case)))))
 
@@ -1347,7 +1376,7 @@
              (id (match (resolve cx env (declared-name head)) ((Some (ClassName id)) id) (_ (panic "internal error: class"))))
              (scope (type-scope env params))
              (self (Constraint id (map (lambda (param) (TRigid (Ident-name param))) params))))
-        (add-class! (Context-program cx)
+        (add-class! cx
                     (Class id (map Ident-name params)
                            (map (lambda (signature) (declare-method! cx env scope id params self signature))
                                 (match (form-tail form) ((Cons _ signatures) signatures) ((Nil) (Nil))))))))
@@ -1357,7 +1386,7 @@
       (match signature
         ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
          (let ((own (resolve-scheme cx scope type)) (global (global-binding cx env name)))
-           (add-value! (Context-program cx) global
+           (add-value! cx global
                        (Method class (Scheme (append (map Ident-name params) (Scheme-vars own)) (Cons self (Scheme-constraints own))
                                              (Scheme-type own))))
            global))
@@ -1375,7 +1404,7 @@
                 (methods (map (lambda (definition) (instance-method cx env class instance definition)) (Pair-second parts))))
            (check-instance-methods class methods loc)
            (check-overlap (program cx) instance loc)
-           (add-instance! (Context-program cx)
+           (add-instance! cx
                           (Instance-methods-set instance
                                                 (map (lambda (method) (Pair (MethodDefinition-method method) (MethodDefinition-global method)))
                                                      methods)))
@@ -1419,8 +1448,8 @@
                        ((Some method) method)
                        ((None) (compile-error (syntax-loc ident) (string-append "not a method of this class: " (Ident-name ident))))))
              (global (fresh-global cx (short-name method))))
-        (add-value! (Context-program cx) global (Defined (Some (instance-method-scheme (program cx) class method instance)) (None)))
-        (MethodDefinition method global (lambda () (add-item! (Context-program cx) (Define global (definition-value cx env definition)))))))
+        (add-value! cx global (Defined (Some (instance-method-scheme (program cx) class method instance)) (None)))
+        (MethodDefinition method global (lambda () (add-item! cx (Define global (definition-value cx env definition)))))))
 
     (: instance-method-scheme (-> Program Class String Instance Scheme))
     (define (instance-method-scheme program class method instance)
@@ -1476,7 +1505,7 @@
     (define (declare-extern! cx env form)
       (match form
         ((Form (Cons _ (Cons name (Cons (Atom (DString module) _) (Cons (Atom (DString symbol) _) (Cons type (Nil)))))) _)
-         (add-value! (Context-program cx) (global-binding cx env name)
+         (add-value! cx (global-binding cx env name)
                      (Foreign (Import module symbol) (mono-scheme (resolve-type cx env type)))))
         (_ (compile-error (syntax-loc form) "expected (extern name \"module\" \"symbol\" type)"))))
 
@@ -1488,7 +1517,7 @@
          (let* ((id (match (resolve cx env name) ((Some (EffectName id)) id) (_ (panic "internal error: effect"))))
                 (declared (map (lambda (operation) (declare-operation! cx env id operation)) (form-items operations "a list of operations")))
                 (control (map Pair-first (filter Pair-second declared))))
-           (add-effect! (Context-program cx)
+           (add-effect! cx
                         (Effect id (map Pair-first declared) control
                                 (match host
                                   ((Cons clause (Nil)) (host-defaults cx env clause control))
@@ -1511,7 +1540,7 @@
       (match (resolve-scheme cx env type)
         ((Scheme vars constraints (TFun params result (TRow (Nil) (None))))
          (let ((global (global-binding cx env name)))
-           (add-value! (Context-program cx) global
+           (add-value! cx global
                        (Operation effect (Scheme vars constraints (TFun params result (TRow (list effect) (None))))))
            global))
         (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
@@ -1552,7 +1581,7 @@
         ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
          (let ((global (primitive-global (Ident-name (expect-ident name "a primitive name")))))
            (bind-top! env name (Global global))
-           (add-value! (Context-program cx) global (Primitive (resolve-scheme cx env type)))))
+           (add-value! cx global (Primitive (resolve-scheme cx env type)))))
         (_ (compile-error (syntax-loc form) "expected (primitive name type)"))))
 
     ;; ---- Types ----
