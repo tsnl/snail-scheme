@@ -22,12 +22,13 @@ const inventory = () => fs.readdirSync(join(project, 'build')).sort();
 // ---- Through the command line ----
 
 async function throughTheCommandLine() {
-  // Specialization finds unsafe handler captures and affine uses; those
-  // errors reach the user through a build as a plain type error does.
+  // The passes after specialization find control effects an
+  // implementation may not yield to, and affine uses; those errors reach
+  // the user through a build as a plain type error does.
   write('project.datum', '((build-target main (program (entry "main.sld"))))');
   write('main.sld', '(import (snail-core base)) (ann "wrong type" I64)');
   await assert.rejects(build('main'), /expected I64, found String/);
-  for (const name of ['error-handler-method', 'error-once-capture']) {
+  for (const name of ['error-control-implementation', 'error-once-capture']) {
     write('main.sld', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
     const expected = fs.readFileSync(join(root, `tests/programs/${name}.err`), 'utf8').trim();
     await assert.rejects(build('main'), error => error.stderr.includes(expected));

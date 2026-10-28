@@ -80,8 +80,8 @@ check existence and enforce deletion policy in the same write transaction.
 Rows are a deliberately limited data subset: scalars, text, immutable vectors,
 structs and enums composed of supported data. No procedures, mutable references,
 opaque managed values or platform handles. Durable keys/rows additionally need
-codecs. `Serialize`, `Send` and `Sync` each serve their existing purpose; none
-alone is a certificate for this complete storage contract. This does not add
+codecs. `Serialize` serves its existing purpose; it alone is not a
+certificate for this complete storage contract. This does not add
 a general-purpose `Immutable` marker.
 
 ## Reads and writes have scopes, not exposed tokens

@@ -9,7 +9,6 @@
    Typed-items
    definition-scheme
    Typed-schemes
-   outside-reads
    check-program
    check-library)
   (import
@@ -1142,31 +1141,8 @@
             (None)
             (match (given-evidence (Constraint-class constraint) types givens)
               ((Some evidence) (Some evidence))
-              ((None) (Some (if (capability-class? (Constraint-class constraint))
-                                (capability-evidence ck
-                                                     (Constraint-class constraint)
-                                                     types
-                                                     givens
-                                                     loc)
-                                (instance-evidence ck
-                                                   (Constraint-class constraint)
-                                                   types
-                                                   givens
-                                                   loc))))))))
-
-    (: capability-evidence (-> Checker String (List Type) (List Constraint) Loc Evidence))
-    (define (capability-evidence ck property types givens loc)
-      (match types
-        ((Cons type (Nil))
-         (unless (capability-type? (program-of ck) property type givens (Nil))
-           (compile-error loc
-                          (string-append "no "
-                                         (short-name property)
-                                         " evidence for "
-                                         (type->string type))))
-         ;; Marker evidence has no methods and generates no dictionary code.
-         (EvInstance property types (Nil)))
-        (_ (compile-error loc "Send and Sync each require one type"))))
+              ((None)
+               (Some (instance-evidence ck (Constraint-class constraint) types givens loc)))))))
 
     (: given-evidence (-> String (List Type) (List Constraint) (Option Evidence)))
     (define (given-evidence class types givens)

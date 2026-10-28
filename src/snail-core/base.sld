@@ -8,7 +8,6 @@
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total once call-once
-   Send Sync
    Num + - * negate abs
    Ord = < <= > >= min max
    Integral quotient remainder modulo
@@ -64,13 +63,6 @@
    (snail-core primitive)
    (rename (only (snail-core primitive) string-append) (string-append append-two-strings)))
   (begin
-
-    ;; ---- Capabilities ----
-
-    ;; The compiler supplies these proofs from representations. User instances
-    ;; cannot assert that an aliased cell or an opaque closure is thread-safe.
-    (typeclass (Send T))
-    (typeclass (Sync T))
 
     ;; ---- Derived syntax ----
 

@@ -74,11 +74,9 @@ passing instead ([control handlers](../snail-core/effects.md#control-handlers)).
 [Future work](future.md) records research on continuations and parallel
 execution.
 
-Local dispatch may capture a mutable `Ref`, because the work stays on
-this execution agent. This does not certify the closure as `Send` or
-`Sync`. Ordinary handlers still require both properties and grade `omega`.
-An eventual API that can choose any worker must establish transfer safety
-for the complete environment.
+Local dispatch may capture a mutable `Ref`, because the work stays in
+this instance, which is single-threaded. Work for another instance travels
+as bytes through a queue, never as a closure ([#553](https://github.com/tsnl/snail-scheme/issues/553), proposed).
 
 Only explicit waits release the execution permit. Existing scalar console
 and filesystem services remain synchronous; performing an arbitrary effect
