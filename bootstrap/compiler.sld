@@ -170,7 +170,7 @@
 
 ;; The plan again, now that `inputs` holds the outputs of the producers the
 ;; waiting phases waited for. Sends the next wave.
-(: refine! (-> Plan Inputs Plan ! mut fs compiler-output))
+(: refine! (-> Plan Inputs Plan ! fs compiler-output))
 (define (refine! plan inputs)
   (send-wave (refine-plan plan inputs)))
 
