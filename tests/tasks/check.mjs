@@ -224,6 +224,25 @@ async function parking() {
   assert.equal(scheduler.size, 0);
 }
 
+// A relink closes one scheduler and makes another, while a Mailbox in the
+// application's state keeps the ids of the tasks parked on it. None of
+// them names a task of the new scheduler.
+async function parkingAcrossRelink() {
+  const before = createScheduler();
+  let stale;
+  const old = before.start(() => { stale = before.current(); return before.park(); });
+  await turn();
+  await before.close(new DOMException('relinked', 'AbortError'));
+  await assert.rejects(old.done, {name: 'AbortError'});
+  const after = createScheduler(), ids = [];
+  const parked = [0, 1].map(() => after.start(() => { ids.push(after.current()); return after.park().then(() => 'woken'); }));
+  await turn();
+  assert.equal(ids.includes(stale), false, 'a new scheduler reuses no id of the one before');
+  assert.equal(after.unpark(stale), false, 'an id from before the relink wakes nothing');
+  for (const id of ids) assert.equal(after.unpark(id), true);
+  assert.deepEqual(await Promise.all(parked.map(task => task.done)), ['woken', 'woken']);
+}
+
 await isolation();
 await detachedChild();
 await cancellation();
@@ -234,4 +253,5 @@ await failedDiscard();
 await failedResultDiscard();
 await repeatedSuspension();
 await parking();
-console.log('tasks: JSPI permits, exhaustion, cancellation, cleanup, fairness and parking');
+await parkingAcrossRelink();
+console.log('tasks: JSPI permits, exhaustion, cancellation, cleanup, fairness, parking and relinks');
