@@ -369,7 +369,8 @@
 (define linked-cases
   '(("examples" "fibonacci") ("examples" "effects") ("examples" "colors") ("examples" "scheme-fibonacci")
     ("tests/programs" "closures") ("tests/programs" "classes-advanced") ("tests/programs" "data") ("tests/programs" "dynamic")
-    ("tests/programs" "wire") ("tests/programs" "tables") ("tests/programs" "libraries") ("tests/programs" "generated") ("tests/programs" "wasm")
+    ("tests/programs" "wire") ("tests/programs" "deriving-libraries") ("tests/programs" "tables") ("tests/programs" "libraries")
+    ("tests/programs" "generated") ("tests/programs" "wasm")
     ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once") ("tests/programs" "tasks")
     ("tests/programs" "effect-row-inclusion") ("tests/programs" "link-bytes") ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library") ("tests/programs" "control-placeholders") ("tests/programs" "control-generator")
