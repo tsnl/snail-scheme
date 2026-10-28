@@ -92,7 +92,7 @@ function withStubs(module, imports, stubbed, stub) {
 // ---- Linked files ----
 
 // A module asks for each file it links, `link-bytes` in (snail shell
-// resource), by importing a function from "snail.link" named for the file,
+// resource), by importing a function from "snail.runtime.link" named for the file,
 // which answers the file's handle. The host reads every file a module
 // names before it instantiates the module, from resources/NAME beside the
 // payload, so reading one is a synchronous lookup on both hosts, and a
@@ -102,7 +102,7 @@ function withStubs(module, imports, stubbed, stub) {
 // now, while a module kept linked keeps the bytes it was linked with.
 async function linkImports(read, modules, files) {
   const names = [...new Set(modules.flatMap(module => WebAssembly.Module.imports(module)
-    .filter(entry => entry.module === 'snail.link').map(entry => entry.name)))];
+    .filter(entry => entry.module === 'snail.runtime.link').map(entry => entry.name)))];
   const handles = await Promise.all(names.map(async name => files.push(await readLinked(read, name)) - 1));
   return Object.fromEntries(names.map((name, index) => [name, () => handles[index]]));
 }
@@ -122,7 +122,7 @@ function resourceImports(files) {
 // `read` by their paths beside the payload.
 export async function linkedFileImports(read, module) {
   const files = [];
-  return {'snail.link': await linkImports(read, [module], files), 'snail.resource': resourceImports(files)};
+  return {'snail.runtime.link': await linkImports(read, [module], files), 'snail.runtime.resource': resourceImports(files)};
 }
 
 // ---- Linking ----
@@ -180,12 +180,20 @@ async function instantiateRuntime(module, wasi) {
   return runtime;
 }
 
+// The names only a host or the runtime gives a module: the runtime
+// interfaces, `snail.runtime.…`, and the Rust support module. A library
+// linked under one would take the place of what every module imports from
+// there, so none may be.
+export const hostProvided = name => name.startsWith('snail.runtime.') || name === 'snail.core.support';
+
 // Instantiates the modules in order into the program's instances, where a
 // module may take the place of one of the same name, once the files they
 // link are read.
 async function linkModules(program, modules) {
+  const reserved = modules.find(entry => hostProvided(entry.name));
+  if (reserved) throw new Error(`no library may be linked as ${reserved.name}, which the host provides`);
   program.links = await linkImports(program.read, modules.map(entry => entry.module), program.files);
-  const libraries = new Set(['snail.library', ...program.linked.keys(), ...modules.map(entry => entry.name)]);
+  const libraries = new Set(['snail.core.support', ...program.linked.keys(), ...modules.map(entry => entry.name)]);
   for (const {name, module} of modules) program.linked.set(name, await WebAssembly.instantiate(module, moduleImports(program, libraries, module)));
 }
 
@@ -197,8 +205,8 @@ async function linkModules(program, modules) {
 // left it out. A missing import from the runtime or a library's module
 // still fails to link.
 function moduleImports(program, libraries, module) {
-  const imports = {...program.host, 'snail.library': program.runtime.exports, 'snail.link': program.links ?? {},
-                   'snail.resource': resourceImports(program.files ?? [])};
+  const imports = {...program.host, 'snail.core.support': program.runtime.exports, 'snail.runtime.link': program.links ?? {},
+                   'snail.runtime.resource': resourceImports(program.files ?? [])};
   for (const [library, instance] of program.linked) imports[library] = instance.exports;
   const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(from => !libraries.has(from));
   return withStubs(module, imports, hosted, missingHost);
@@ -257,7 +265,7 @@ export function wasmImports(program) {
     namespace: () => namespaces.push(new Map()),
     instantiate(handle, module) {
       const [name] = strings.take(), linked = namespace(handle);
-      if (linked.has(name)) return NAME_TAKEN;
+      if (linked.has(name) || hostProvided(name)) return NAME_TAKEN;
       const instance = linkedInstance(handle === 0 ? program() : {...program(), linked, links: {}, files: []}, modules[module]);
       if (!instance) return LINK_FAILED;
       linked.set(name, instance);
@@ -272,7 +280,7 @@ export function wasmImports(program) {
 // An instance of the module, linked as a module of `program` is, or null
 // if an import has no provider of its type.
 function linkedInstance(program, module) {
-  try { return new WebAssembly.Instance(module, moduleImports(program, new Set(['snail.library', ...program.linked.keys()]), module)); }
+  try { return new WebAssembly.Instance(module, moduleImports(program, new Set(['snail.core.support', ...program.linked.keys()]), module)); }
   catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return null; throw error; }
 }
 

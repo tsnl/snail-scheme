@@ -49,7 +49,7 @@
       ((argument-character (-> Char Unit))
        (argument-end (-> Unit))
        (command (-> I32 I32)))
-      (host "snail.develop"
+      (host "snail.runtime.native.develop"
             ((argument-character "argument-character")
              (argument-end "argument-end")
              (command "command"))))

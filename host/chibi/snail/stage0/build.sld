@@ -78,7 +78,8 @@
 
     ;; The host modules only Node provides; `run-wasm` refuses a program
     ;; that imports one (crates/snail/src/program.rs).
-    (define node-hosted-modules '("snail.tasks" "snail.socket" "snail.process"))
+    (define node-hosted-modules
+      '("snail.runtime.tasks" "snail.runtime.native.socket" "snail.runtime.native.process"))
 
     (define (node-hosted? imports)
       (and (pair? imports)
@@ -483,26 +484,32 @@
     ;; diagnostics and exports the cleanup entry point the host calls.
     (define adapter-text
       "(module
-  (import \"snail.library\" \"snail:report-error\" (func $report (param i32 i32)))
-  (import \"snail.library\" \"snail:io/close-all\" (func $close (result i32)))
+  (import \"snail.core.support\" \"snail:report-error\" (func $report (param i32 i32)))
+  (import \"snail.core.support\" \"snail:io/close-all\" (func $close (result i32)))
   (export \"diagnostics/report-error\" (func $report))
   (export \"close-resources\" (func $close)))\n")
 
-    ;; The crate src/NAME, "runtime" or "assembler", built for WASI into
-    ;; build/wasm-NAME; Cargo decides whether it is stale. The in-process
-    ;; assembler is a reactor too: text in, a binary module out, for a
-    ;; toolchain that runs as Wasm without Binaryen. host/native/assemble.mjs
-    ;; drives it.
+    ;; The crate crates/NAME, "snail-core-support" or "assembler", built for
+    ;; WASI into build/wasm-NAME; Cargo decides whether it is stale, and
+    ;; names the module after the crate's package, with `_` for `-`. The
+    ;; in-process assembler is a reactor too: text in, a binary module out,
+    ;; for a toolchain that runs as Wasm without Binaryen.
+    ;; host/native/assemble.mjs drives it.
     (define (build-crate root name)
-      (let ((target (path-join root (string-append "build/wasm-" name))))
+      (let ((target (path-join root (string-append "build/wasm-" name)))
+            (manifest (path-join root "crates" name "Cargo.toml")))
         (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
                   "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
                   "--target"
                   "wasm32-wasip1"
                   "--manifest-path"
-                  (path-join root "crates" name "Cargo.toml")
+                  manifest
                   "--target-dir" target)
-        (path-join target "wasm32-wasip1/release" (string-append "snail_" name ".wasm"))))
+        (path-join target
+                   "wasm32-wasip1/release"
+                   (string-append (string-map (lambda (c) (if (char=? c #\-) #\_ c))
+                                              (quoted-value (read-file manifest) "name"))
+                                  ".wasm"))))
 
     ;; rustup resolves a toolchain from the working directory, which belongs
     ;; to whoever ran the command: building a project in another directory
@@ -537,7 +544,7 @@
                        (list module
                              "snail.abi"
                              runtime
-                             "snail.library"
+                             "snail.core.support"
                              adapter
                              "snail.platform"
                              "-o"
@@ -583,7 +590,7 @@
       (let ((raw (string-append output ".raw.wasm")) (module (string-append output ".module.wasm")))
         (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list wat "-o" raw)))
         (apply wasm-opt raw module (optimization release?))
-        (link module output (build-crate root "runtime") release?)
+        (link module output (build-crate root "snail-core-support") release?)
         output))
 
     (define (build-program root directories source output release?)
@@ -658,7 +665,7 @@
                                               (read-links generated))))
              (names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble (path-join output name))) names)
-        (copy-file! (build-crate root "runtime") (path-join output "runtime.wasm"))
+        (copy-file! (build-crate root "snail-core-support") (path-join output "runtime.wasm"))
         (write-file (path-join output "modules.json") (modules-json names))
         (place-links! links output)
         output))
@@ -717,7 +724,7 @@
                                 (path-join root "host/browser/reload.sld")
                                 (path-join directory "reload.wasm")
                                 (standard-directories root)))
-              (cons "runtime" (build-crate root "runtime"))
+              (cons "runtime" (build-crate root "snail-core-support"))
               (cons "assembler" (build-crate root "assembler")))))
 
     ;; The shared native project builder uses the resident compiler boundary.
@@ -728,7 +735,7 @@
                               (path-join root "bootstrap/compiler.sld")
                               (path-join root "build/project/compiler.wasm")
                               (standard-directories root)))
-            (cons "runtime" (build-crate root "runtime"))
+            (cons "runtime" (build-crate root "snail-core-support"))
             (cons "assembler" (build-crate root "assembler"))))
 
     ;; The editor adds only its formatter to the native project tools.

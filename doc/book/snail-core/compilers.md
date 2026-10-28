@@ -114,7 +114,7 @@ function of the expander has `mut` in its row — and where it does not, the
   wraps, parses its path against the directory of the file it is written in
   and records a `LinkedFile` on the library: the name the payload ships it
   under, the library's key and the canonical path, and where the build finds
-  it. Its value is a call to an import from `snail.link` under that name,
+  it. Its value is a call to an import from `snail.runtime.link` under that name,
   which answers the file's handle, so each module records the files it links
   where its host must see them. Once a library's body has expanded, each of
   its files must exist, or the build fails naming the library and the path.
@@ -292,7 +292,7 @@ The unit of compilation is a library (`source->modules` in
   library's module;
 - handlers travel as evidence, so no handler crosses a module boundary as a
   global; the one global modules share is the yield record of control
-  operations, which a fixed module, `snail.control`, declares and exports.
+  operations, which a fixed module, `snail.core.control`, declares and exports.
   A build links it first when the program has control effects, and every
   module that tests or sets the record imports it, so a yield crosses
   modules as it crosses functions.
@@ -477,6 +477,21 @@ asynchronously. `tests/dynamic/host.sld` loads a library's module from a
 plugin's build, and the plugin itself built twice, once from a stale
 declaration of the type it takes; `tests/programs/wasm.sld` loads modules
 it writes itself.
+
+Every import module a host provides is named for the runtime interface it
+implements, `snail.runtime.…` (#566): `snail.runtime.tasks`,
+`snail.runtime.link` and `snail.runtime.resource` on every host,
+`snail.runtime.wasm`, `snail.runtime.native.socket`,
+`snail.runtime.native.process` and `snail.runtime.native.develop` on Node,
+and `snail.runtime.browser.screen`, `.events` and `.storage` on the page.
+The Rust support module, built from `crates/snail-core-support`, is
+`snail.core.support`, and the compiler's control module
+`snail.core.control`. A library named under `(snail runtime …)`, or
+`(snail core support)`, would have one of the hosts' names as its module
+key, and the program's modules would import it in place of the host's
+interface, so a loader refuses a library linked under such a name, at
+startup and when the program loads one (`hostProvided` in `load.mjs`,
+`host_provided` in `crates/snail/src/modules.rs`).
 
 ## Compiler inputs
 
@@ -692,7 +707,7 @@ the compiler still stops at its first error. These operations are implemented an
 | `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs the compiled compiler by `run-compiler.mjs`'s protocol, and programs that need only WASI, linked files and module loading by `run-snail.mjs`'s, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
 | `host/chibi/snail/stage0/build.sld`, `scripts/link.scm` | Bootstrap, standalone generated libraries, tool builds and Binaryen/runtime linking policy. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
 | `host/chibi/snail/stage0/process.sld` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. This avoids Chibi 0.12 pipe-finalizer and sequential pipe-draining failures. |
-| `crates/runtime/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. |
+| `crates/snail-core-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. |
 | `crates/assembler/`, `host/native/assemble.mjs` | The `wat` crate compiled to Wasm for in-process text assembly. Programs do not carry the assembler. |
 | `host/native/run-snail.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading and the task scheduler. JSPI stacks remain finite. |
 | `src/`, `host/chibi/snail/`, `bootstrap/chibi-include/` | Every library that ships with the language, the compiler among them, and the separate stage-0 implementations of the three it imports. Stage 0's only search root is `bootstrap/chibi-include/`, one symlink per library the compiler reaches. |

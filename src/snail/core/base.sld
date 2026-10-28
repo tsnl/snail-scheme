@@ -692,8 +692,8 @@
 
     ;; Copy the runtime's scratch text before returning. string-generate calls
     ;; only this private reader, so no user conversion can overwrite it.
-    (extern real-text "snail.library" "snail:datum/real-text" (-> F64 I32))
-    (extern text-character "snail.library" "snail:datum/text-character" (-> I32 Char))
+    (extern real-text "snail.core.support" "snail:datum/real-text" (-> F64 I32))
+    (extern text-character "snail.core.support" "snail:datum/text-character" (-> I32 Char))
 
     (: f64->string (-> F64 String))
     (define (f64->string value)

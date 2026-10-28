@@ -42,7 +42,7 @@
     (effect resource
       ((resource-length (-> I32 I32))
        (resource-byte (-> I32 I32 U8)))
-      (host "snail.resource"
+      (host "snail.runtime.resource"
             ((resource-length "length")
              (resource-byte "byte"))))
 

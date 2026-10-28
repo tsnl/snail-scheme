@@ -332,5 +332,5 @@ input, since the bytes may be partly written. The runner shuts the owner down
 with the socket owners when a program ends, so no child outlives a program
 that ends normally. Only the child is killed: a process it started, as a
 shell does for a command it does not `exec`, is the child's to end. No native record retains a managed wrapper. The browser has
-no processes and no `snail.process` imports, so a program performing
+no processes and no `snail.runtime.native.process` imports, so a program performing
 `process` links only on the native runner.

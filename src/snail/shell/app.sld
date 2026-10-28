@@ -684,7 +684,7 @@
        (field (-> I32 Unit))
        (text-character (-> Char Unit))
        (hud-end (-> Unit)))
-      (host "snail.screen"
+      (host "snail.runtime.browser.screen"
             ((frame-begin "frame-begin")
              (camera "camera")
              (light "light")
@@ -1057,7 +1057,7 @@
        (canvas-width (-> I32))
        (canvas-height (-> I32))
        (report-boot (-> I32 Unit)))
-      (host "snail.events"
+      (host "snail.runtime.browser.events"
             ((poll-event "poll")
              (wait-event "wait")
              (event-field "field")
@@ -1085,7 +1085,7 @@
       ((load-count (-> I32))
        (loaded-byte (-> I32 U8))
        (store-save (-> Bytes Unit)))
-      (host "snail.storage"
+      (host "snail.runtime.browser.storage"
             ((load-count "load")
              (loaded-byte "byte")
              (store-save "store"))))

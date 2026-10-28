@@ -32,10 +32,10 @@ async function instantiateGame(path, host, saved) {
   const wasi = createWasi({print: (fd, line) => console.log(line)});
   let program;
   if (path.endsWith('.json')) {
-    program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, {...runtime.imports, 'snail.screen': host.imports});
+    program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, {...runtime.imports, 'snail.runtime.browser.screen': host.imports});
     runProgram(program);
   } else {
-    program = await instantiate(await WebAssembly.compile(await readFile(path)), {...wasi.getImportObject(), ...runtime.imports, 'snail.screen': host.imports});
+    program = await instantiate(await WebAssembly.compile(await readFile(path)), {...wasi.getImportObject(), ...runtime.imports, 'snail.runtime.browser.screen': host.imports});
     wasi.initialize(program);
     program.exports.main();
   }

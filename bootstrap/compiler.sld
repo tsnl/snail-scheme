@@ -70,7 +70,7 @@
 ;; Reserve before the String argument is staged. Staging that same scalar
 ;; count cannot grow or move the buffer, so the pointer reaches the leaf host
 ;; import with its text. The host copies it before another call can stage.
-(extern stage-text "snail.library" "snail:io/stage" (-> I32 I32))
+(extern stage-text "snail.core.support" "snail:io/stage" (-> I32 I32))
 
 (: send-strings (-> (List String) Unit ! compiler-output))
 (define (send-strings strings)

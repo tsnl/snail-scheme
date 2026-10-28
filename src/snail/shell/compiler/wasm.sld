@@ -2217,7 +2217,7 @@
            (import-once! m "yielding" "$yielding"
                          (lambda (global)
                            (wat "import"
-                                (wat-string "snail.control")
+                                (wat-string "snail.core.control")
                                 (wat-string "yielding")
                                 (wat "global" (id global) type)))))
           ((None)
@@ -3453,7 +3453,7 @@
     (: dispatch-work (-> Module Wat Wat (List Wat) ! mut))
     (define (dispatch-work m owner evidence)
       (let* ((run (call-once-helper m)) (drop (drop-owned-helper m))
-             (host (import! m (Import "snail.tasks" "dispatch")
+             (host (import! m (Import "snail.runtime.tasks" "dispatch")
                             (list (Scalar "funcref")
                                   (Scalar "funcref")
                                   (Reference (owned-type m))
@@ -3465,12 +3465,12 @@
          (wat "call" (id host) (wat "ref.func" (id run)) (wat "ref.func" (id drop)) owner evidence)
          (wat "i32.const" (int 0)))))
 
-    ;; The scheduler's waits and wakes are imports of "snail.tasks", each
+    ;; The scheduler's waits and wakes are imports of "snail.runtime.tasks", each
     ;; named by its primitive without "-task": `yield`, `sleep`, `park`,
     ;; `unpark` and `current`.
     (: task-import (-> String Import))
     (define (task-import operation)
-      (Import "snail.tasks" (substring operation 0 (- (string-length operation) 5))))
+      (Import "snail.runtime.tasks" (substring operation 0 (- (string-length operation) 5))))
 
     (: drop-owned-helper (-> Module String ! mut))
     (define (drop-owned-helper m)
@@ -3614,7 +3614,7 @@
     (: stage-helper (-> Module Bool String ! mut))
     (define (stage-helper m bytes?)
       (let ((stage (import! m
-                            (Import "snail.library" "snail:io/stage")
+                            (Import "snail.core.support" "snail:io/stage")
                             (list (Scalar "i32"))
                             (Some (Scalar "i32")))))
         (template-helper! m (if bytes? "stage.bytes" "stage.text") ""
@@ -3658,10 +3658,10 @@
     (: panic-helper (-> Module String ! mut))
     (define (panic-helper m)
       (let ((character (import! m
-                                (Import "snail.library" "snail:panic/character")
+                                (Import "snail.core.support" "snail:panic/character")
                                 (list (Scalar "i32"))
                                 (None)))
-            (raise (import! m (Import "snail.library" "snail:panic/raise") (Nil) (None))))
+            (raise (import! m (Import "snail.core.support" "snail:panic/raise") (Nil) (None))))
         (template-helper! m "panic" ""
                           "(func {id} (param $message (ref {array}))
     (local $index i32)
@@ -3836,7 +3836,7 @@
               (concatenate
                (list (type-groups (reverse (ref-get (Module-types m))))
                      (Cons (wat "import"
-                                (wat-string "snail.library")
+                                (wat-string "snail.core.support")
                                 (wat-string "memory")
                                 (wat "memory" (int 0)))
                            (sorted-declarations (ref-get (Module-imports m))))

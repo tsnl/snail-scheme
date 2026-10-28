@@ -23,8 +23,8 @@
 
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
-(extern background-boot "snail.events" "boot" (-> I32 Unit ! events))
-(extern background-poll "snail.events" "poll" (-> I32 ! events))
+(extern background-boot "snail.runtime.browser.events" "boot" (-> I32 Unit ! events))
+(extern background-poll "snail.runtime.browser.events" "poll" (-> I32 ! events))
 (: background-main (-> (Option Any) (Option Any) ! tasks events))
 (define (background-main handover)
   (background-boot 2)

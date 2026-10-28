@@ -91,7 +91,7 @@ async function linkPage(base, manifest) {
   const screen = screenImports({hasBatch: () => false, draw() {}}, {has: () => true},
                                {update: panels => { page.widgets = panels.flatMap(panel => panel.widgets); }});
   const read = async file => new Uint8Array(await (await fetch(new URL(file, base))).arrayBuffer());
-  page.program = await linkProgram(read, '/modules.json', createWasi({print: (fd, line) => console.log(line)}), {...page.runtime.imports, 'snail.screen': screen});
+  page.program = await linkProgram(read, '/modules.json', createWasi({print: (fd, line) => console.log(line)}), {...page.runtime.imports, 'snail.runtime.browser.screen': screen});
   runProgram(page.program);
   await page.runtime.start(applicationEntry(page.program)).ready.promise;
   return page;

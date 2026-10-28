@@ -90,8 +90,8 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     return current;
   }
   const imports = {
-    'snail.tasks': taskImports(() => current.scheduler),
-    'snail.events': {
+    'snail.runtime.tasks': taskImports(() => current.scheduler),
+    'snail.runtime.browser.events': {
       poll() {
         const run = applicationRun();
         if (!run.accepted && run.event?.[0] === FRAME) {
@@ -116,7 +116,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       height: () => size()[1],
       boot: kind => { applicationRun().boot = kind; },
     },
-    'snail.storage': {
+    'snail.runtime.browser.storage': {
       load: new WebAssembly.Suspending(() => {
         const run = applicationRun();
         return run.scheduler.suspend(async signal => {

@@ -6,7 +6,7 @@ import {createWasi, instantiate, linkProgram, runProgram} from '../../host/brows
 
 const path = resolve(process.argv[2]), work = [], lines = [];
 // The host receives the evidence of each dispatch and hands it back to the work.
-const host = {'snail.tasks': {dispatch: (run, drop, owner, evidence) => work.push({run, drop, owner, evidence})}};
+const host = {'snail.runtime.tasks': {dispatch: (run, drop, owner, evidence) => work.push({run, drop, owner, evidence})}};
 const wasi = createWasi({print: (_, line) => lines.push(line)});
 if (path.endsWith('.json')) {
   const program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, host);

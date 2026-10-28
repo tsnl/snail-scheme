@@ -680,7 +680,7 @@
     ;; file ships under a name made from the library and the path, the same
     ;; on every host and in every build: `data/pixel.png` in (sample assets)
     ;; is `sample.assets/data/pixel.png`. The handle is what an import from
-    ;; "snail.link" under that name returns, so the module records the
+    ;; "snail.runtime.link" under that name returns, so the module records the
     ;; files it links where its host must see them: a host reads each before
     ;; it instantiates the module, and a module cannot be instantiated
     ;; without its files. Only the name enters the build key; the file's
@@ -696,7 +696,7 @@
                         (Pair (expr (App (expr (Var handle (Nil) (Nil)) loc) (Nil)) loc)
                               (add-value cx
                                          handle
-                                         (Foreign (Import "snail.link" name)
+                                         (Foreign (Import "snail.runtime.link" name)
                                                   (mono-scheme
                                                    (TFun (Nil) (TCon "I32" (Nil)) empty-row)))))))))
         (_ (compile-error loc "link-bytes expects a literal relative path"))))
