@@ -1,9 +1,11 @@
 # Runtimes
 
-Snail-Core's shipping target is WebAssembly GC with JavaScript Promise Integration
-(JSPI). A runtime supplies platform effects and owns the computations that
-use them. The language's intended concurrency contract permits multiple
-threads; the shipping runtime uses one JavaScript execution agent.
+Snail-Core's shipping target is WebAssembly GC, with JavaScript Promise
+Integration (JSPI) suspending tasks until tasks become effects. A runtime
+supplies platform effects and owns the computations that use them. Each
+instance of a program is single-threaded; parallel work runs as several
+instances, which will talk through queues and shared memory
+([instances](instances.md), proposed).
 
 The **host** is the surrounding platform, such as Node or a browser. A runtime
 owns language tasks; an OS process owns its platform execution environment.
@@ -53,11 +55,8 @@ compiler backend to use multiple independently hosted instances.
 
 ## Future work
 
-[Mixed memory and continuations](memory-and-continuations.md) proposes
-type-directed GC and owned linear storage in the existing Wasm backend,
-explicit affine and reusable continuations, and a scheduler written in
-Snail-Core. Transferable linear-memory tasks could then run across workers while
-ordinary GC references remain local. These changes are not implemented.
-
-[Continuations and parallel execution](future.md) retains the earlier
-backend research. Neither native alternative is part of the draft plan.
+[Instances, queues and shared memory](instances.md) proposes how several
+single-threaded instances will cooperate. [Tasks as effects](https://github.com/tsnl/snail-scheme/issues/511)
+will replace JSPI with a scheduler written in Snail-Core, using one-shot
+continuations. [Continuations and parallel execution](future.md) retains
+the earlier backend research.
