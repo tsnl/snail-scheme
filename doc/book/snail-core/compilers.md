@@ -150,7 +150,11 @@ function of the expander has `mut` in its row — and where it does not, the
   It also decides where a function may mutate at all: a function whose type
   forbids `mut` may still mutate storage it allocates, provided nothing it
   can reach from outside — its parameters, its result, or a name it reads —
-  can hold mutable storage.
+  can hold mutable storage. And once a library's types are final, it
+  refuses a `type-convert` or `type-test` whose types hold a function that
+  performs effects, or a type variable (core's `hidden-effects`): an `Any`'s
+  TypeId keys its type without rows, and mono erases the ordinary ones
+  next, so this is the last pass that could tell.
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/capabilities.sld)** establishes
   structural `Send` and `Sync` evidence from types and declared fields.
   The checker resolves these compiler-owned markers; user instances cannot

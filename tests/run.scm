@@ -338,10 +338,19 @@
           (else #t))))
 
 ;; The compiled compiler and its source on Chibi must emit the same text
-;; for the same program; `make bootstrap` checks the compiler itself.
+;; for the same program; `make bootstrap` checks the compiler itself. The
+;; control programs reach the backend of control effects too: its A-normal
+;; form, frames, rebasing and latent forwarding.
+(define host-agreement-programs
+  '("examples/fibonacci.sld" "tests/programs/control-latent.sld"
+    "tests/programs/control-stored-resume.sld"))
+
 (define (check-host-agreement root)
+  (every (lambda (program) (check-host-agreement-on root program)) host-agreement-programs))
+
+(define (check-host-agreement-on root program)
   (let* ((tool (path-join root "scripts/snail-tool"))
-         (source (path-join root "examples/fibonacci.sld"))
+         (source (path-join root program))
          (compiled (capture-process (list tool "wat" source)))
          (interpreted (capture-process (list "env" "SNAIL_STAGE0=chibi" tool "wat" source))))
     (cond ((not (zero? (caddr compiled)))
@@ -350,7 +359,7 @@
            (report "host agreement" "the source on Chibi failed" (cadr interpreted)))
           ((not (equal? (car compiled) (car interpreted)))
            (report "host agreement"
-                   "the two hosts emit different text for examples/fibonacci.sld"
+                   (string-append "the two hosts emit different text for " program)
                    ""))
           (else #t))))
 
