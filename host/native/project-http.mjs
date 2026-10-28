@@ -34,20 +34,24 @@ function expectedRevision(request) {
   return match[1];
 }
 
+// Content-Length is the only body framing this service reads, as in the Snail
+// HTTP library: a request naming a Transfer-Encoding is refused before routing.
+// (Node's parser answers 400 itself when one comes with a Content-Length.) It
+// then delivers exactly the stated length, so the head bounds every body.
+function refuseTransferEncoding(request) {
+  if (request.headers['transfer-encoding'] !== undefined) throw new HttpError(411, 'requests must give a Content-Length, not a Transfer-Encoding');
+}
+
 function emptyBody(request) {
-  if (Number(request.headers['content-length']) || request.headers['transfer-encoding']) throw new HttpError(400, 'command takes no request body');
+  if (Number(request.headers['content-length'])) throw new HttpError(400, 'command takes no request body');
 }
 
 async function readText(request) {
   if (!/^text\/plain(?:\s*;\s*charset=utf-8)?$/i.test(request.headers['content-type'] ?? '')) throw new HttpError(415, 'save requires UTF-8 text/plain');
   if (Number(request.headers['content-length']) > bodyLimit) throw new HttpError(413, 'request exceeds 8 MiB');
-  const chunks = []; let length = 0;
-  for await (const chunk of request.iterator({destroyOnReturn: false})) {
-    length += chunk.length;
-    if (length > bodyLimit) throw new HttpError(413, 'request exceeds 8 MiB');
-    chunks.push(chunk);
-  }
-  try { return decoder.decode(Buffer.concat(chunks, length)); }
+  const chunks = [];
+  for await (const chunk of request.iterator({destroyOnReturn: false})) chunks.push(chunk);
+  try { return decoder.decode(Buffer.concat(chunks)); }
   catch { throw new HttpError(400, 'save requires valid UTF-8'); }
 }
 
@@ -63,6 +67,15 @@ function errorStatus(error) {
 
 const frame = (kind, value) => `event: ${kind}\ndata: ${JSON.stringify(value)}\n\n`;
 const editorStatus = ({phase, id, diagnostics}) => ({phase, id, diagnostics});
+
+// All a client can observe of the session in one snapshot: the attempt the
+// editor sees, the generation each published target names, the compiler's
+// identity and the run targets. Node reports a worker that has exited as -1.
+function serviceStatus(status) {
+  const {published, worker, runs} = status, target = ({name, directory, digest, compiled}) => ({name, directory, digest, compiled});
+  return {...editorStatus(status), published: published && {id: published.id, targets: published.targets.map(target)},
+    compiler: worker < 0 ? null : {worker}, runs};
+}
 
 // Only trusted editor assets share the file API's origin. Project HTML and
 // arbitrary paths are never served here; application serving is separate.
@@ -119,6 +132,7 @@ export async function serveProject({root, project, tools, port = 0}) {
 
   async function route(request, response) {
     if (stopping) throw new HttpError(503, 'project development is closing');
+    refuseTransferEncoding(request);
     const base = origin();
     const url = new URL(request.url, base), path = url.searchParams.get('path');
     if (url.origin !== base) throw new HttpError(403, 'unexpected request origin');
@@ -128,6 +142,7 @@ export async function serveProject({root, project, tools, port = 0}) {
     switch (`${request.method} ${url.pathname}`) {
       case 'GET /api/project': return json(response, 200, {name: basename(files.project), directory: files.project, files: files.list(await development.files.reconcile())});
       case 'GET /api/file': return json(response, 200, files.read(path));
+      case 'GET /api/status': return json(response, 200, serviceStatus(development.status));
       case 'GET /api/events': return events(response);
       case 'POST /api/build':
         emptyBody(request);

@@ -1,13 +1,12 @@
-// The native project service in a real browser. Disk edits, compiler updates
-// and file saves are independent; delayed HTTP replies must not erase typing.
+// `snail dev` in a real browser, observed from outside the service
+// (tests/development-service.mjs). Disk edits, compiler updates and file
+// saves are independent; delayed HTTP replies must not erase typing.
 // CHROMIUM=... node tests/browser/ide.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
 import {mkdtemp, readFile, rm, unlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {serveProject} from '../../host/native/project-http.mjs';
-import {editorTools} from '../../host/native/project.mjs';
+import {startDevelopment} from '../development-service.mjs';
 import {openBrowser, sleep, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2), project = await mkdtemp(join(tmpdir(), 'snail-ide-'));
@@ -16,8 +15,7 @@ const config = '((build-target main (program (entry "main.sld"))))';
 const program = text => `(import (snail-core base) (snail-core io))\n(: greeting String)\n(define greeting "${text}")\n(write-line greeting)\n`;
 await writeFile(description, config); await writeFile(source, program('hello'));
 await writeFile(join(project, 'notes.txt'), 'plain text\r\n');
-const tools = editorTools(root), service = await serveProject({root, project, tools});
-const browser = await openBrowser();
+const service = await startDevelopment(root, project), browser = await openBrowser();
 const text = () => browser.evaluate('document.querySelector(".pane.active textarea").value');
 const title = () => browser.evaluate('document.querySelector(".pane.active .pane-title").textContent');
 const problem = () => browser.evaluate('document.querySelector(".pane.active .pane-problem").textContent');
@@ -28,12 +26,12 @@ const type = (from, to) => browser.evaluate(`(() => { const t = document.querySe
 const select = path => browser.evaluate(`document.querySelector('.file[data-path=${JSON.stringify(path)}]').click()`);
 const built = () => browser.evaluate('document.getElementById("status").dataset.state === "built"');
 const saved = () => until(async () => !(await title()).includes('●') && !(await problem()), 'saved baseline');
-let cli = null;
+const attemptShown = async () => Number(await browser.evaluate('document.getElementById("status").dataset.attempt'));
 try {
   await browser.navigate(service.url + '/');
   await until(async () => (await text())?.includes('"hello"') && await built(), 'initial native project');
   assert.equal(await title(), 'main.sld');
-  const attempt = service.development.status.id;
+  const attempt = (await service.status()).id;
   // A failed save remains visible after its successful follow-up read.
   assert.ok(await type('"hello"', '"hello draft"'));
   await browser.evaluate(`window.actualFetch = window.fetch;
@@ -50,7 +48,7 @@ try {
   await until(async () => (await text()).includes('"hello"') && !(await problem()), 'failed-save recovery');
   assert.ok(await type('"hello"', '5'));
   await sleep(500);
-  assert.equal(service.development.status.id, attempt, 'typing does not compile unsaved text');
+  assert.equal((await service.status()).id, attempt, 'typing does not compile unsaved text');
   assert.match(await readFile(source, 'utf8'), /"hello"/);
   await click('save');
   await until(() => browser.evaluate('document.getElementById("diagnostics").textContent.includes("does not fit String")'), 'fresh compiler diagnostic');
@@ -79,11 +77,13 @@ try {
       if (window.holdSource && String(args[0]).startsWith('/api/file?path=main.sld') && !args[1]?.method)
         await new Promise(resolve => window.sourceReads.push(resolve));
       return response; };`);
-  const beforeUnicode = service.development.status.id;
+  const beforeUnicode = (await service.status()).id;
   await writeFile(source, unicode);
-  await until(async () => service.development.status.id > beforeUnicode && service.development.status.phase === 'failed' &&
-    Number(await browser.evaluate('document.getElementById("status").dataset.attempt')) === service.development.status.id &&
-    await browser.evaluate('window.sourceReads.length > 0'), 'failure before its source reads');
+  await until(async () => {
+    const current = await service.status();
+    return current.id > beforeUnicode && current.phase === 'failed' && await attemptShown() === current.id &&
+      await browser.evaluate('window.sourceReads.length > 0');
+  }, 'failure before its source reads');
   assert.match(await text(), /unformatted/);
   assert.equal(await browser.evaluate('document.querySelector(".pane.active .squiggle")'), null);
   await browser.evaluate('window.holdSource = false; for (const release of window.sourceReads) release(); window.fetch = window.actualFetch');
@@ -213,7 +213,7 @@ try {
   await sleep(300);
   await browser.send('Network.emulateNetworkConditions', {offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1});
   await until(async () => (await text()).includes('"while disconnected"'), 'event reconnection');
-  await until(async () => Number(await browser.evaluate('document.getElementById("status").dataset.attempt')) === service.development.status.id && await built(), 'current attempt after reconnect');
+  await until(async () => await attemptShown() === (await service.status()).id && await built(), 'current attempt after reconnect');
 
   await select('notes.txt');
   await until(async () => (await text()) === 'plain text\n', 'plain text file');
@@ -228,8 +228,13 @@ try {
   await click('save');
   await until(() => browser.evaluate('!document.getElementById("save").disabled'), 'deleted save rejection');
   await assert.rejects(readFile(source), {code: 'ENOENT'});
+  // Discard removes the deleted file's buffer for good. The empty pane is not
+  // a lasting state: the deletion's own project listing, which reconciles the
+  // whole observed tree, can land after the discard and open the next file
+  // (#536). So wait until no pane and no file entry names main.sld.
   await click('reload');
-  await until(async () => (await title()) === 'Choose a file', 'discard deleted draft');
+  await until(() => browser.evaluate(`![...document.querySelectorAll('.pane-title')].some(title => title.textContent.startsWith('main.sld'))
+    && !document.querySelector('.file[data-path="main.sld"]')`), 'discard deleted draft');
   await unlink(description);
   await until(() => browser.evaluate('document.querySelectorAll(".file").length === 0'), 'empty project');
   await browser.navigate(service.url + '/');
@@ -237,23 +242,19 @@ try {
 
   await writeFile(description, config); await writeFile(source, program('restored'));
   await until(async () => (await text())?.includes('"restored"') && await built(), 'project restored from disk');
-  const previous = service.development.status.id;
+  const previous = (await service.status()).id;
   await click('build');
-  await until(() => service.development.status.id > previous && service.development.status.phase === 'succeeded', 'manual Build');
-  await service.close();
+  await until(async () => {
+    const current = await service.status();
+    return current.id > previous && current.phase === 'succeeded';
+  }, 'manual Build');
 
-  // The command owns the same service and releases it on an ordinary signal.
-  cli = spawn(join(root, 'snail'), ['dev', '--port', '0', project], {stdio: ['ignore', 'pipe', 'pipe']});
-  let output = '', errors = '';
-  cli.stdout.on('data', bytes => output += bytes); cli.stderr.on('data', bytes => errors += bytes);
-  const exited = new Promise(resolve => cli.once('exit', (code, signal) => resolve({code, signal})));
-  const address = await until(() => /at (http:\/\/127\.0\.0\.1:\d+)\//.exec(output)?.[1], 'dev command address');
-  assert.equal((await fetch(address + '/api/project')).status, 200);
-  cli.kill('SIGTERM');
-  assert.deepEqual(await exited, {code: 0, signal: null}, errors);
+  // The command releases the service on an ordinary signal.
+  const {code, signal, stderr} = await service.stop();
+  assert.deepEqual({code, signal}, {code: 0, signal: null}, stderr);
   console.log('ide: native save/build, external edits, conflicts, delayed replies, deletion, reconnect and dev shutdown');
 } finally {
-  cli?.kill('SIGTERM'); browser.close();
-  await service.close();
+  browser.close();
+  await service.stop();
   await rm(project, {recursive: true, force: true});
 }
