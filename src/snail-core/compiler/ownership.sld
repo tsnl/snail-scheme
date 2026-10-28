@@ -252,11 +252,17 @@
 
     ;; The checker already proved representability. Specialization substitutes
     ;; only unrestricted types and erases rows, so that proof still holds here.
+    ;; Every top-level statement and value runs in one function, `main`, so
+    ;; the items share one counter: names an item invents for owners must not
+    ;; repeat another item's.
     (: own-items (-> Program (List Item) (List Item) ! mut))
     (define (own-items program items)
-      (map (lambda (item)
-             (let ((scope (Scope program empty-table (ref (Nil)) (ref 0))))
-               (match item
-                 ((Define name value) (Define name (own scope value (Nil))))
-                 ((Do value) (let ((value (own scope value (Nil)))) (Do (if (owned? scope (Expr-type value)) (discard value) value))))
-                 (_ item)))) items))))
+      (let ((counter (ref 0)))
+        (map (lambda (item) (own-item (Scope program empty-table (ref (Nil)) counter) item)) items)))
+
+    (: own-item (-> Scope Item Item ! mut))
+    (define (own-item scope item)
+      (match item
+        ((Define name value) (Define name (own scope value (Nil))))
+        ((Do value) (let ((value (own scope value (Nil)))) (Do (if (owned? scope (Expr-type value)) (discard value) value))))
+        (_ item)))))
