@@ -60,7 +60,9 @@
 
     ;; A type variable is linear unless `copy` names it, as a signature's
     ;; `(requires (Copy A))` does. Concrete fields can make a record linear;
-    ;; ordinary arrows never describe owned captures.
+    ;; ordinary arrows never describe owned captures. A Ref is a shared
+    ;; handle whatever it holds: its content moves only through
+    ;; `ref-replace!`, so sharing the handle never duplicates it.
     (: linear-type? (-> Program (List String) Type Bool))
     (define (linear-type? program copy type)
       (Linearity-found? (linear-search program copy type (Nil))))
@@ -69,6 +71,7 @@
     (define (linear-search program copy type entered)
       (match type
         ((TCon "Once" _) (Linearity #t entered))
+        ((TCon "Ref" _) (Linearity #f entered))
         ((TCon name args)
          (let ((found (linear-any program copy args entered)))
            (cond ((Linearity-found? found) found)

@@ -1,3 +1,3 @@
 (import
  (snail core base))
-(ref (once (lambda () (unit))))
+(make-array 1 (once (lambda () (unit))))
