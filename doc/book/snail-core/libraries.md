@@ -49,6 +49,7 @@ program can act on is a value: `(Err (NotFound))` for a missing path,
 | `(remove-tree path)` | What is at `path` and everything in it, never following a link. |
 | `(list-directory path)` | The names in a directory, without `.` and `..`, in scalar order whatever the host's order. |
 | `(file-status path)` | A `FileStatus`: the `FileKind` (`RegularFile`, `Directory`, `SymbolicLink` or `OtherKind`), the size in bytes and the modification time in nanoseconds since the Unix epoch, without following a link. |
+| `(followed-status path)` | The `FileStatus` of what a read of `path` finds, following each link to the file it names, so never `SymbolicLink`; a link to nothing is `NotFound`, though `file-status` finds the link. |
 | `(make-symbolic-link target path)`, `(read-symbolic-link path)` | A link and its target, kept as given. |
 
 A `FileError` is `NotFound`, `AlreadyExists`, `NotEmpty`, `NotADirectory`,

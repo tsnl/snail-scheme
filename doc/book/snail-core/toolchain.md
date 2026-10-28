@@ -381,9 +381,17 @@ complete individual files rather than the project builder's generation
 publication. Each build copies the files the program links into `resources/`
 beside `modules.json`, served at `/resources/`, when their digests changed, and
 names each module's file for its text and its linked files' digests, so an
-edited file relinks the page from the module that links it. The loop keeps
-its latest and previous module sets. Shutdown closes native resources and the
-worker and prevents late commands from starting replacement children.
+edited file relinks the page from the module that links it. The page's
+manifest digests each file of the browser host and of `public/`, leaving out
+editors' temporary files, which the watches ignore too. A digest is of what a
+read finds: the copy, the server and the digest all follow a symbolic link, so
+editing the file a linked or public link names counts as editing the link,
+and a link to nothing fails the build, naming the link, before `modules.json`
+changes. Only an edit under the watched directories starts a build, so an
+edit to a file a link names outside them waits for a build another edit
+starts. The loop keeps its latest and previous module sets. Shutdown closes
+native resources and the worker and prevents late commands from starting
+replacement children.
 
 ## Application and networking integration
 

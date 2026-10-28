@@ -11,13 +11,15 @@
 // last two builds stay. A broken edit reports a failed build that keeps the
 // last good manifest. An application with a `generate-library` builds, its
 // producer running in every build. An application that links a file reads
-// it, and reads it again after an edit, which compiles nothing. Then
+// it, and reads it again after an edit, which compiles nothing, and so it
+// does when that file and a public file are symbolic links. Then
 // `./scripts/snail-tool watch` runs a program again after an edit.
 import assert from 'node:assert/strict';
 import {execFileSync, spawn} from 'node:child_process';
 import {once} from 'node:events';
+import {createHash} from 'node:crypto';
 import {constants} from 'node:fs';
-import {cp, mkdir, mkdtemp, open, readFile, readdir, rm, writeFile} from 'node:fs/promises';
+import {cp, mkdir, mkdtemp, open, readFile, readdir, rm, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -216,21 +218,28 @@ async function testGenerated(directory) {
 
 // ---- Linked files ----
 
-// The counter's greeting is the text of a file a library links. The page
-// reads it before the program starts; editing the file compiles nothing,
-// yet renames the linking library's module, so the page relinks from it
-// and reads the new bytes.
-async function testLinked(directory) {
-  const app = join(directory, 'linked'), source = join(app, 'main.sld'), banner = join(app, 'src/sample/banner.txt');
+// The counter, its greeting the text of the file (sample banner) links:
+// src/sample/banner.txt, which the caller makes.
+async function linkedCounter(app) {
+  const source = join(app, 'main.sld');
   await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
   await mkdir(join(app, 'src/sample'), {recursive: true});
-  await writeFile(banner, 'linked');
   await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export banner)
     (import (snail-core base) (snail-core resource))
     (begin (: banner Resource) (define banner (link-bytes "banner.txt"))))`);
   const program = (await readFile(source, 'utf8')).replace('(snail-core app))', '(snail-core app)\n (snail-core resource)\n (sample banner))');
   await writeFile(source, program.replace('(define greeting "hello")',
     '(define greeting (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner)))))'));
+}
+
+// The counter's greeting is the text of a file a library links. The page
+// reads it before the program starts; editing the file compiles nothing,
+// yet renames the linking library's module, so the page relinks from it
+// and reads the new bytes.
+async function testLinked(directory) {
+  const app = join(directory, 'linked'), banner = join(app, 'src/sample/banner.txt');
+  await linkedCounter(app);
+  await writeFile(banner, 'linked');
   const server = start(['serve', '--port', '0', app]);
   try {
     const base = await until(() => server.text.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server', 300);
@@ -249,6 +258,74 @@ async function testLinked(directory) {
     await until(() => new RegExp(`0 of ${built.manifest.modules.length} modules compiled`).test(server.text), 'nothing compiles again');
     assert.deepEqual(await relink(page, rebuilt.manifest), {from: 'sample.banner', passed: 'adopted'});
     assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['linked again', '1'], 'the relinked module reads the file again');
+    await page.runtime.stop();
+  } finally {
+    await stop(server);
+  }
+}
+
+// ---- Symbolic links ----
+
+// The linked file and a public file are symbolic links to files elsewhere
+// in the application. Reads follow a link, and so do digests: editing the
+// file the linked link names relinks the page from the linking library's
+// module, and editing the one the public link names changes its digest in
+// the page's manifest, which the reload client compares. An editor's lock,
+// a link to nothing, is no page file; any other link to nothing fails the
+// build, naming the link.
+async function testSymlinked(directory) {
+  const app = join(directory, 'symlinked'), files = join(app, 'files');
+  const banner = join(files, 'banner.txt'), notes = join(files, 'notes.txt');
+  const sha256 = text => createHash('sha256').update(text).digest('hex');
+  const digestOf = (manifest, name) => manifest.files.find(([file]) => file === name)?.[1];
+  await linkedCounter(app);
+  await mkdir(files);
+  await writeFile(banner, 'linked');
+  await writeFile(notes, 'first notes');
+  await symlink('../../files/banner.txt', join(app, 'src/sample/banner.txt'));
+  await symlink('../files/notes.txt', join(app, 'public/notes.txt'));
+  await symlink('someone@host.1:1', join(app, 'public/.#notes.txt'));
+  const server = start(['serve', '--port', '0', app]);
+  try {
+    const base = await until(() => server.text.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server', 300);
+    const events = await listen(new URL('.snail/events', base));
+    const built = await nextBuild(events, 0);
+    assert.equal(built.kind, 'built', built.message);
+    assert.equal(digestOf(built.manifest, 'notes.txt'), sha256('first notes'), 'a public link is digested as the file it names');
+    assert.equal(digestOf(built.manifest, '.#notes.txt'), undefined, 'an editor\'s lock is no page file');
+    const page = await linkPage(base, built.manifest);
+    assert.equal(text(page, 'greeting'), 'linked');
+
+    let from = events.length;
+    await writeFile(banner, 'linked again');
+    const relinked = await nextBuild(events, from);
+    assert.equal(relinked.kind, 'built', relinked.message);
+    assert.notDeepEqual(relinked.manifest.modules, built.manifest.modules, 'editing what a linked link names renames the module that links it');
+    assert.deepEqual(await relink(page, relinked.manifest), {from: 'sample.banner', passed: 'adopted'});
+    assert.equal(text(page, 'greeting'), 'linked again', 'the relinked module reads the new bytes through the link');
+
+    from = events.length;
+    await writeFile(notes, 'second notes');
+    const edited = await nextBuild(events, from);
+    assert.equal(edited.kind, 'built', edited.message);
+    assert.equal(digestOf(edited.manifest, 'notes.txt'), sha256('second notes'), 'editing what a public link names changes its digest');
+    assert.deepEqual(edited.manifest.modules, relinked.manifest.modules, 'and nothing else');
+    assert.equal(await (await fetch(new URL('notes.txt', base))).text(), 'second notes');
+
+    from = events.length;
+    await rm(notes);
+    const dangling = await nextBuild(events, from);
+    assert.equal(dangling.kind, 'failed');
+    assert.match(dangling.message, /cannot read \S*\/public\/notes\.txt: no such file or directory/);
+    assert.deepEqual(dangling.manifest, edited.manifest, 'a link to nothing keeps the last good manifest');
+    from = events.length;
+    await writeFile(notes, 'notes again');
+    assert.equal((await nextBuild(events, from)).kind, 'built');
+    from = events.length;
+    await rm(banner);
+    const unlinked = await nextBuild(events, from);
+    assert.equal(unlinked.kind, 'failed');
+    assert.match(unlinked.message, /links banner\.txt, but there is no file at \S*\/src\/sample\/banner\.txt/);
     await page.runtime.stop();
   } finally {
     await stop(server);
@@ -333,9 +410,10 @@ try {
   await testServe(directory);
   await testGenerated(directory);
   await testLinked(directory);
+  await testSymlinked(directory);
   await testWatch(directory);
   await testBusyCompiler(directory);
-  console.log('develop: worker, serve, generated libraries, linked files and watch passed');
+  console.log('develop: worker, serve, generated libraries, linked files, symbolic links and watch passed');
 } finally {
   await rm(directory, {recursive: true, force: true});
 }
