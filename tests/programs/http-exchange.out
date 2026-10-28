@@ -1,4 +1,5 @@
 fragmented request and partial response
+read-request and respond
 HEAD suppression
 bounded heads and declared bodies
 binary body across transfer bounds

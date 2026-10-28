@@ -1,0 +1,27 @@
+null
+true
+false
+0
+-1
+42
+9007199254740991
+-9007199254740991
+""
+"plain"
+"quote \" backslash \\ slash / tab\tend"
+"\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f"
+"λ € 😀     ﻿"
+"a\ud800b"
+"\udfff"
+"\ude00\ud83d"
+[]
+{}
+[1,[2,[]],{}]
+{"b":1,"a":[true,null]}
+{"k\"\n":"v","":"empty name"}
+{"phase":"failed","id":3,"diagnostics":[{"message":"unbound name: x","line":12}],"published":null,"runs":[]}
+1064962
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nbbbb
+{"a":1,"a":2}
+9223372036854775807
+-9223372036854775808
