@@ -451,12 +451,46 @@
         ((Lambda _ _) #t)
         (_ #f)))
 
+    ;; ---- Exposures ----
+
+    ;; An exposed function is exported through a wrapper that calls its code
+    ;; directly, so the definition the checker found, this library's or an
+    ;; imported one, must have a lambda as its value. Only here, after
+    ;; specialization, is an imported definition's value at hand.
+    (: check-exposures (-> Mono Unit))
+    (define (check-exposures mono)
+      (let ((callees (module-callees mono (Nil))))
+        (for-each (lambda (item)
+                    (match item
+                      ((Expose name _ _ loc) (check-exposure callees name loc))
+                      (_ (unit))))
+                  (Mono-items mono))))
+
+    (: check-exposure (-> Callees String Loc Unit))
+    (define (check-exposure callees name loc)
+      (match (callee-definition callees name)
+        ((Some definition)
+         (unless (lambda-expr? definition)
+           (compile-error loc "an exposed function must be defined with lambda")))
+        ((None) (panic "internal error: an exposed function has no definition"))))
+
+    ;; A global's definition, in this library or another, as the backend
+    ;; finds it.
+    (: callee-definition (-> Callees String (Option Expr)))
+    (define (callee-definition callees name)
+      (match (table-ref (Callees-definitions callees) name)
+        ((Some definition) (Some definition))
+        ((None) (table-ref (Callees-externals callees) name))))
+
     ;; ---- Programs ----
 
     ;; Each item with its yield points named, after the restrictions are
-    ;; checked everywhere.
+    ;; checked everywhere. Every program passes through here, so the one
+    ;; rule the backend relies on that needs specialized definitions is
+    ;; checked here too, and the backend reports no source errors.
     (: name-yield-points (-> Mono Mono))
     (define (name-yield-points mono)
+      (check-exposures mono)
       (let ((control (control-effects (Mono-program mono))))
         (if (null? control)
             mono

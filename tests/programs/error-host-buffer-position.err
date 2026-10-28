@@ -1,0 +1,1 @@
+a host function can take a String or Bytes only as its last argument

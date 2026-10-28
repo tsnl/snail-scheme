@@ -71,13 +71,14 @@
     ;; ---- Phases ----
 
     ;; A project build target, as the caller resolved it: its name, whether
-    ;; it is a browser build, its entry program's path, and the directories
-    ;; its libraries are found in.
+    ;; it is a browser build, its entry program's path, the directories its
+    ;; libraries are found in, and where it is declared.
     (struct Target
       ((name String)
        (browser? Bool)
        (entry String)
-       (directories (List String))))
+       (directories (List String))
+       (loc Loc)))
 
     ;; A producer to run: the program a `generate-library` recipe makes,
     ;; under the key the build's inputs keep its output by, printed at
@@ -435,12 +436,18 @@
     ;; cycle, which no order runs.
     (: checked-order (-> (List Target) (Vector Step) (List I64)))
     (define (checked-order targets steps)
-      (let* ((edges (vector-map (lambda (step) (needs-nodes (Step-needs step))) steps))
+      (let* ((edges (step-edges steps))
              (components (strong-components edges)))
         (for-each (lambda (component)
                     (when (cyclic? edges component) (cycle-error targets steps edges component)))
                   components)
         (concatenate components)))
+
+    ;; Each step's edges, the nodes it needs. A pure helper, as `vector-map`'s
+    ;; procedure must be.
+    (: step-edges (-> (Vector Step) (Vector (List I64))))
+    (define (step-edges steps)
+      (vector-map (lambda (step) (needs-nodes (Step-needs step))) steps))
 
     (: cyclic? (-> (Vector (List I64)) (List I64) Bool))
     (define (cyclic? edges component)
@@ -449,17 +456,18 @@
         (_ #t)))
 
     ;; A cycle through a target names the targets around it, from the one
-    ;; declared first, then the producers on the way. A cycle of producers
-    ;; alone is an import cycle, reported as the expander reports one, at
-    ;; the producer planned first.
+    ;; declared first, at its declaration, then the producers on the way. A
+    ;; cycle of producers alone is an import cycle, reported as the expander
+    ;; reports one, at the producer planned first.
     (: cycle-error (All (A) (-> (List Target) (Vector Step) (Vector (List I64)) (List I64) A)))
     (define (cycle-error targets steps edges component)
       (match (first-declared targets steps component)
         ((Some start)
          (let ((path (cycle-path edges component start)))
-           (panic (string-append "artifact dependency cycle: "
-                                 (string-join (path-targets steps path) " -> ")
-                                 (path-producers steps path)))))
+           (compile-error (Target-loc (step-built (vector-ref steps start)))
+                          (string-append "artifact dependency cycle: "
+                                         (string-join (path-targets steps path) " -> ")
+                                         (path-producers steps path)))))
         ((None)
          (let ((producer
                 (step-producer (vector-ref steps (fold-left min (vector-length steps) component)))))
@@ -488,6 +496,12 @@
       (match (Step-phase step)
         ((BuildPhase target) (Some target))
         ((ProducePhase _) (None))))
+
+    (: step-built (-> Step Target))
+    (define (step-built step)
+      (match (Step-phase step)
+        ((BuildPhase target) target)
+        (_ (panic "internal error: not a build"))))
 
     (: step-producer (-> Step Producer))
     (define (step-producer step)
@@ -614,13 +628,14 @@
       (define (test-cycles directory targets scratch)
         (let ((client (list (list-ref targets 0))) (server (list (list-ref targets 2))))
           (write-file (string-append directory "/client.sld") (embedding "client"))
-          (expect (plan-error targets client scratch) "artifact dependency cycle: client -> client")
+          (expect (plan-error targets client scratch)
+                  "project.datum:2:2: artifact dependency cycle: client -> client")
           (expect (step-names (plan-build (Nil) client no-inputs scratch)) (list "build client"))
           (write-file (string-append directory "/client.sld") (embedding "admin"))
           (write-file (string-append directory "/admin.sld")
                       "(import (snail core base) (generated assets)) (unit)")
           (expect (plan-error targets client scratch)
-                  "artifact dependency cycle: client -> admin -> client through the producer of (generated assets)")
+                  "project.datum:2:2: artifact dependency cycle: client -> admin -> client through the producer of (generated assets)")
           (write-file (string-append directory "/server.sld") (embedding "missing"))
           (expect (located? (plan-error targets server scratch)
                             "server.sld:2:"
@@ -671,12 +686,16 @@
 
       (define (project-targets directory library)
         (let ((directories (list (string-append directory "/lib") library)))
-          (map (lambda (entry)
-                 (Target (Pair-first entry)
-                         (Pair-second entry)
-                         (string-append directory "/" (Pair-first entry) ".sld")
-                         directories))
-               (list (Pair "client" #t) (Pair "admin" #t) (Pair "server" #f) (Pair "knot" #f)))))
+          (map-indexed (lambda (index entry)
+                         (Target (Pair-first entry)
+                                 (Pair-second entry)
+                                 (string-append directory "/" (Pair-first entry) ".sld")
+                                 directories
+                                 (Loc "project.datum" (+ index 2) 2)))
+                       (list (Pair "client" #t)
+                             (Pair "admin" #t)
+                             (Pair "server" #f)
+                             (Pair "knot" #f)))))
 
       (define assets-output
         (string-append
