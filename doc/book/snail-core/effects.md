@@ -343,6 +343,40 @@ and nothing there can be handed the rest of a computation
 (`tests/programs/error-control-host-default.sld`). Its implementation runs
 in the handler's outer context, like an ordinary one.
 
+### Operations that never return
+
+An exception's implementation never calls `resume`, but nothing in
+`raise`'s type says so. An operation can say it: one that answers `Never`,
+the type with no values in `(snail core base)`, cannot return to its
+performer, so its implementation takes the operation's arguments alone
+(`tests/programs/control-abortive.sld`):
+
+```scheme
+{{#include ../../../tests/programs/control-abortive.sld:fail}}
+```
+
+```text
+added 1
+added 2
+added 3
+6
+added 1
+failed: negative: -2
+```
+
+`(absurd never)`, of type `(All (A) (-> Never A))`, gives the call whatever
+type the code around it needs, here `checked`'s `I64`. It is a `match` with
+no clauses, which only a value of a type with no cases may have
+(`tests/programs/error-match-empty.sld`). An implementation of such an
+operation that takes `resume` is a type error
+(`tests/programs/error-control-never-resume.sld`).
+
+Since nothing resumes them, these operations cost less. A call that may
+yield only to effects whose control operations all answer `Never` saves no
+frame when it yields, and no code is compiled for resuming what follows
+it. A failure inside a resumed computation still unwinds through every
+handler between it and its own, as the fixture's generator shows.
+
 ### Resuming
 
 `(resume answer)` runs the rest of the handled body, with `answer` as the
