@@ -1,0 +1,34 @@
+[package]
+name = "snail"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+# Wasmtime 48 is the newest release that builds with the toolchain
+# rust-toolchain.toml pins; 49 needs Rust 1.96. Its features are trimmed to
+# what running core modules takes: Cranelift, compiling functions in
+# parallel, the runtime, GC with the deferred reference-counting collector,
+# and backtraces with demangled names. There is no cache, no text format, no
+# pooling allocator and no profiler. wasmtime-wasi builds its preview 1 on
+# its preview 2, which turns on wasmtime's component model and async
+# support; nothing here uses either.
+[dependencies]
+wasmtime = { version = "=48.0.7", default-features = false, features = [
+    "backtrace",
+    "cranelift",
+    "demangle",
+    "gc",
+    "gc-drc",
+    "parallel-compilation",
+    "runtime",
+    "std",
+] }
+wasmtime-wasi = { version = "=48.0.7", default-features = false, features = ["p1"] }
+
+# Tests assemble their modules from text.
+[dev-dependencies]
+wat = "=1.262.0"
+
+[profile.release]
+strip = "debuginfo"

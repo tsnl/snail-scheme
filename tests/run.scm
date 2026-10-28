@@ -363,6 +363,27 @@
                    ""))
           (else #t))))
 
+;; The compiled compiler must emit the same text on V8 and on wasmtime, the
+;; engines it runs on (build/snail). The integer and GC subset the backend
+;; uses is deterministic by the spec; only NaN payloads could differ.
+;; Siegework is large enough to reach most of the compiler.
+(define (check-engine-agreement root)
+  (let* ((tool (path-join root "scripts/snail-tool"))
+         (wat (list "wat"
+                    "-I"
+                    (path-join root "apps/siegework/src")
+                    (path-join root "apps/siegework/main.sld")))
+         (v8 (capture-process (append (list "env" "SNAIL_STAGE0=" "SNAIL_ENGINE=node" tool) wat)))
+         (wasmtime (capture-process
+                    (append (list "env" "SNAIL_STAGE0=" "SNAIL_ENGINE=wasmtime" tool) wat))))
+    (cond
+     ((not (zero? (caddr v8))) (report "engine agreement" "the compiler on V8 failed" (cadr v8)))
+     ((not (zero? (caddr wasmtime)))
+      (report "engine agreement" "the compiler on wasmtime failed" (cadr wasmtime)))
+     ((not (equal? (car v8) (car wasmtime)))
+      (report "engine agreement" "V8 and wasmtime emit different text for Siegework" ""))
+     (else #t))))
+
 (define (check-project-builds root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/project-builds.mjs") root))))
@@ -766,6 +787,11 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
+                        ;; Comparing V8 with wasmtime needs the native executable, built
+                        ;; only when SNAIL_ENGINE=wasmtime selects it (make test-wasmtime).
+                        (if (and (null? selected) (wasmtime-engine?))
+                            (list (lambda () (check-engine-agreement root)))
+                            '())
                         (if (null? selected)
                             (list (lambda () (run-command-line root))
                                   (lambda () (check-host-agreement root))

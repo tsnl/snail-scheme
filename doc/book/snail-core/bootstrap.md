@@ -52,7 +52,9 @@ or emits sibling subexpressions sequences them rather than letting the host
 choose. Declarations are listed by name. So the two hosts emit the same text
 for the same program, and the build checks it: `make test` compares them on
 `examples/fibonacci.sld`, and `make bootstrap` compares them on the compiler
-itself.
+itself. The compiled compiler runs on two engines, V8 and wasmtime, and
+`make test-wasmtime`, which runs the suite on wasmtime, compares those on
+Siegework.
 
 **Bootstrap.**
 
@@ -67,3 +69,61 @@ itself.
 The driver repeats this whenever the compiler's source changes, so a pinned
 Wasm build bootstraps without Chibi. Chibi remains the host of the first
 bootstrap and of `make test-chibi`.
+
+## The native executable
+
+`crates/snail` builds `build/snail`, a native executable that embeds
+[wasmtime](https://wasmtime.dev) 48 and runs the compiled compiler without
+Node. The compiler needs nothing else: the Rust runtime is merged into
+`snailc.wasm`, so its only imports are 21 `wasi_snapshot_preview1`
+functions. `build/snail run-compiler MODULE ARGUMENT ...` follows the
+protocol `host/native/run-compiler.mjs` follows on Node:
+
+1. WASI gets the module as its first argument, the environment with
+   `SNAIL_CWD` naming the working directory, and the host's `/` preopened.
+2. The module is instantiated, and `_initialize`, `main` and
+   `compiler-compile` are called in turn.
+3. A WASI exit with status 1 ends a failed compile and one that needs an
+   input alike; then `compiler-request` publishes the pending request, after
+   the stack that asked has unwound.
+4. `close-resources` runs whatever happened. A nonzero answer, a trap or a
+   failure of the host is status 2; a trap prints its Wasm frames.
+
+`build/snail precompile MODULE OUTPUT` writes Cranelift's machine code for
+a module as a `.cwasm` file, which loads in place of compiling the module:
+the driver keeps `build/compiler/snailc.cwasm` beside the compiler, which
+saves each compile about 0.7 s. The file belongs to one wasmtime version,
+configuration and CPU, so it is a build output and is never committed.
+
+Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
+on `build/snail` instead, the bootstrap's stages included; the driver builds
+the executable with Cargo when it is stale, and `make bootstrap` builds it
+first. Compiled programs still run on Node either way.
+
+The engine is opt-in because it is slow. Wasmtime's one working collector,
+deferred reference counting, collects whenever its list of possible stack
+roots doubles past 1,024 entries, a constant in the code Cranelift
+generates. Each collection walks every global of a GC type, resolving its
+type, and the compiler has 1,539 of them; that and the collector's
+free-list allocator take most of a compile. Warm, in seconds:
+
+| Compile | Node | wasmtime | wasmtime, no collector |
+| --- | --- | --- | --- |
+| `tests/programs/wire.sld` | 0.10 | 0.94 | 0.08 |
+| `tests/programs/http.sld` | 0.14 | 2.0 | 0.15 |
+| Siegework | 0.36 | 10.1 | 0.87 |
+| The compiler itself | 1.31 | 47 | 4.75 |
+
+Without collecting at all, wasmtime matches Node on small compiles but takes
+3.6 times as long on the compiler, since each allocation and each read of a
+function reference stored in a GC object is a call into the runtime; it then
+needs 2.2 GB, of a GC heap wasmtime addresses with 32 bits. Switching the
+default waits for a compile within three times Node's, the gate
+[#562](https://github.com/tsnl/snail-scheme/issues/562) sets. The
+backend emitting fewer globals of GC types would cut each collection's cost
+directly.
+
+**Proposed** in #562, not implemented: running WASI-only programs on
+`build/snail`, then one `snail` executable that embeds the compiler and the
+project builder as precompiled images, replacing the shell, Node and Chibi
+chain for `snail build` and `snail run`, with Chibi kept for stage 0.
