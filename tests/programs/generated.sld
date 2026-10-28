@@ -10,5 +10,6 @@
 (newline)
 (display (vector-length pixel))
 (newline)
-(display (string-join (map (lambda (index) (show (u8->i32 (vector-ref pixel index)))) (iota 8)) " "))
+(display
+ (string-join (map (lambda (index) (show (u8->i32 (vector-ref pixel index)))) (iota 8)) " "))
 (newline)

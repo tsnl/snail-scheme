@@ -79,13 +79,26 @@
     ;; The modules of the program at `source`, in program order, and the
     ;; session after the build. Artifact snapshots and producer outputs
     ;; belong to this invocation, never to the retained session.
-    (: build-session (-> Session String (-> (List String) (List Syntax) Bytes ! fs) Inputs (Pair (List Built) Session) ! mut fs))
+    (: build-session
+       (-> Session
+           String
+           (-> (List String) (List Syntax) Bytes ! fs)
+           Inputs
+           (Pair (List Built) Session)
+           ! mut fs))
     (define (build-session session source generate inputs)
-      (let* ((expansion (expand-program (Session-directories session) generate inputs source (Session-expansion session)))
-             (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))
+      (let* ((expansion (expand-program (Session-directories session)
+                                        generate
+                                        inputs
+                                        source
+                                        (Session-expansion session)))
+             (program (ExpandedProgram-program expansion))
+             (libraries (library-items program (program-items program)))
              (checked (check-libraries (Session-compiled session) expansion libraries))
-             (built (emit-libraries expansion (Pair-second checked) (Pair-first checked) libraries)))
-        (Pair (append (control-modules session program) (Pair-first built)) (Session (Session-directories session) expansion (Pair-second built)))))
+             (built
+              (emit-libraries expansion (Pair-second checked) (Pair-first checked) libraries)))
+        (Pair (append (control-modules session program) (Pair-first built))
+              (Session (Session-directories session) expansion (Pair-second built)))))
 
     ;; A program with control effects links the control module first: it
     ;; holds the yield record that the program's modules share. Its text is
@@ -96,38 +109,60 @@
       (if (null? (control-effects program))
           (Nil)
           (list (Built "snail.control" (wat->string (emit-control-module program))
-                       (null? (control-effects (ExpandedProgram-program (Session-expansion session)))) (Nil)))))
+                       (null?
+                        (control-effects (ExpandedProgram-program (Session-expansion session))))
+                       (Nil)))))
 
     ;; Checks each library whose expansion changed, after the schemes of the
     ;; libraries before it, and returns the whole program checked, with each
     ;; library as compiled now.
-    (: check-libraries (-> (Table Compiled) ExpandedProgram (List (Pair String (List Item))) (Pair Typed (Table Compiled))))
+    (: check-libraries
+       (-> (Table Compiled)
+           ExpandedProgram
+           (List (Pair String (List Item)))
+           (Pair Typed (Table Compiled))))
     (define (check-libraries compiled expansion libraries)
       (let loop ((libraries libraries) (compiled compiled) (items (Nil)) (schemes empty-table))
         (match libraries
           ((Cons library rest)
            (let ((checked (checked-library compiled expansion schemes library)))
-             (loop rest (table-set compiled (Pair-first library) checked) (append items (Compiled-items checked))
+             (loop rest
+                   (table-set compiled (Pair-first library) checked)
+                   (append items (Compiled-items checked))
                    (table-union schemes (Compiled-schemes checked)))))
           ((Nil) (Pair (Typed (ExpandedProgram-program expansion) items schemes) compiled)))))
 
     ;; A library as compiled before, if made from its current expansion, or
     ;; checked again.
-    (: checked-library (-> (Table Compiled) ExpandedProgram (Table Scheme) (Pair String (List Item)) Compiled))
+    (: checked-library
+       (-> (Table Compiled) ExpandedProgram (Table Scheme) (Pair String (List Item)) Compiled))
     (define (checked-library compiled expansion schemes library)
       (let ((key (library-key expansion (Pair-first library))))
         (match (table-ref compiled (Pair-first library))
-          ((Some before) (if (string=? (Compiled-key before) key) before (check-anew expansion schemes library key)))
+          ((Some before)
+           (if (string=? (Compiled-key before) key)
+               before
+               (check-anew expansion schemes library key)))
           ((None) (check-anew expansion schemes library key)))))
 
     (: check-anew (-> ExpandedProgram (Table Scheme) (Pair String (List Item)) String Compiled))
     (define (check-anew expansion schemes library key)
-      (let ((typed (check-library (ExpandedProgram-program expansion) schemes (Pair-second library))))
-        (Compiled key (Typed-items typed) (own-schemes (Typed-schemes typed) (Typed-items typed)) (None))))
+      (let ((typed
+             (check-library (ExpandedProgram-program expansion) schemes (Pair-second library))))
+        (Compiled key
+                  (Typed-items typed)
+                  (own-schemes (Typed-schemes typed) (Typed-items typed))
+                  (None))))
 
     ;; Each library's module: the one emitted before, or, for a library just
     ;; checked, a new one, which this build compiled.
-    (: emit-libraries (-> ExpandedProgram (Table Compiled) Typed (List (Pair String (List Item))) (Pair (List Built) (Table Compiled)) ! mut))
+    (: emit-libraries
+       (-> ExpandedProgram
+           (Table Compiled)
+           Typed
+           (List (Pair String (List Item)))
+           (Pair (List Built) (Table Compiled))
+           ! mut))
     (define (emit-libraries expansion compiled typed libraries)
       (let ((input (prepare-specialization typed)))
         (let loop ((libraries libraries) (compiled compiled) (built (Nil)))
@@ -137,14 +172,20 @@
                (match (Compiled-emission before)
                  ((Some emission)
                   (check-handlers (Typed-program typed)
-                                  (table-union (Specialization-definitions input) (item-definitions (Emission-items emission)))
+                                  (table-union (Specialization-definitions input)
+                                               (item-definitions (Emission-items emission)))
                                   (Emission-items emission))
-                  (loop rest compiled (Cons (Built name (Emission-text emission) #f (library-links expansion name)) built)))
+                  (loop rest
+                        compiled
+                        (Cons
+                         (Built name (Emission-text emission) #f (library-links expansion name))
+                         built)))
                  ((None)
                   (let* ((mono (monomorphize-library input name (Compiled-items before)))
                          (text (wat->string (emit-library (name-yield-points mono) name)))
                          (emission (Emission text (Mono-items mono))))
-                    (loop rest (table-set compiled name (Compiled-emission-set before (Some emission)))
+                    (loop rest
+                          (table-set compiled name (Compiled-emission-set before (Some emission)))
                           (Cons (Built name text #t (library-links expansion name)) built)))))))
             ((Nil) (Pair (reverse built) compiled))))))
 
@@ -194,10 +235,17 @@
           (write-sample-a directory "(i64-add x x)" "")
           (write-file (string-append directory "/sample/b.sld") sample-b)
           (write-file main "(import (snail-core core) (snail-core primitive) (sample b)) (four)")
-          (let* ((first (build-session (make-session (list directory library)) main no-generation no-inputs))
+          (let* ((first (build-session (make-session (list directory library))
+                                       main
+                                       no-generation
+                                       no-inputs))
                  (unchanged (build-session (Pair-second first) main no-generation no-inputs))
-                 (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main no-generation no-inputs)))
-                 (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main no-generation no-inputs))))
+                 (body (begin
+                         (write-sample-a directory "(i64-mul x 2)" "")
+                         (build-session (Pair-second unchanged) main no-generation no-inputs)))
+                 (interface (begin
+                              (write-sample-a directory "(i64-mul x 2)" "(define zero 0)")
+                              (build-session (Pair-second body) main no-generation no-inputs))))
             (expect (compiled-names first) (list "sample.a" "sample.b" "main"))
             (expect (compiled-names unchanged) (list))
             (expect (compiled-names body) (list "sample.a"))
@@ -216,37 +264,59 @@
           (write-artifact-source directory "(artifact-bundle \"client\")")
           (write-file main "(import (snail-core base) (sample assets)) (bundle)")
           (let* ((inputs (supply-artifact no-inputs "client" files))
-                 (first (build-session (make-session (list directory library)) main no-generation inputs))
-                 (unchanged (build-session (Pair-second first) main no-generation (supply-artifact no-inputs "client" files)))
-                 (empty (build-session (Pair-second first) main no-generation (supply-artifact no-inputs "client" (Nil)))))
+                 (first
+                  (build-session (make-session (list directory library)) main no-generation inputs))
+                 (unchanged (build-session (Pair-second first)
+                                           main
+                                           no-generation
+                                           (supply-artifact no-inputs "client" files)))
+                 (empty (build-session (Pair-second first)
+                                       main
+                                       no-generation
+                                       (supply-artifact no-inputs "client" (Nil)))))
             (expect (compiled-names unchanged) (Nil))
             (expect (compiled-names empty) (list "sample.assets" "main"))
             (expect (artifact-replay-error (Pair-second empty) main) #t)
             (write-artifact-source directory "(ArtifactBundle (Nil))")
-            (expect (compiled-names (build-session (Pair-second empty) main no-generation no-inputs)) (list "sample.assets" "main")))))
+            (expect
+             (compiled-names (build-session (Pair-second empty) main no-generation no-inputs))
+             (list "sample.assets" "main")))))
 
       ;; A linked file's bytes are no build key: editing it compiles
       ;; nothing, though every build still reports it. Removing it fails
       ;; even a replay, naming the library and the path.
       (define (test-link-replay directory library)
-        (let ((main (string-append directory "/linked.sld")) (data (string-append directory "/sample/data.bin")))
+        (let ((main (string-append directory "/linked.sld"))
+              (data (string-append directory "/sample/data.bin")))
           (write-file data "first")
           (write-file (string-append directory "/sample/linked.sld")
-                      (string-append "(define-library (sample linked) (export data) (import (snail-core core) (snail-core primitive)) "
-                                     "(begin (: data I32) (define data (link-file \"./data.bin\"))))"))
+                      (string-append
+                       "(define-library (sample linked) (export data) (import (snail-core core) (snail-core primitive)) "
+                       "(begin (: data I32) (define data (link-file \"./data.bin\"))))"))
           (write-file main "(import (snail-core core) (snail-core primitive) (sample linked)) data")
-          (let* ((first (build-session (make-session (list directory library)) main no-generation no-inputs))
-                 (edited (begin (write-file data "second") (build-session (Pair-second first) main no-generation no-inputs))))
+          (let* ((first (build-session (make-session (list directory library))
+                                       main
+                                       no-generation
+                                       no-inputs))
+                 (edited (begin
+                           (write-file data "second")
+                           (build-session (Pair-second first) main no-generation no-inputs))))
             (expect (compiled-names edited) (Nil))
-            (expect (map (lambda (built) (map LinkedFile-name (Built-links built))) (Pair-first edited)) (list (list "sample.linked/data.bin") (Nil)))
-            (expect (map LinkedFile-path (Built-links (list-ref (Pair-first edited) 0))) (list (string-append directory "/sample/data.bin")))
+            (expect
+             (map (lambda (built) (map LinkedFile-name (Built-links built))) (Pair-first edited))
+             (list (list "sample.linked/data.bin") (Nil)))
+            (expect (map LinkedFile-path (Built-links (list-ref (Pair-first edited) 0)))
+                    (list (string-append directory "/sample/data.bin")))
             (delete-file data)
             (expect (link-missing? (Pair-second edited) main) #t))))
 
       (define (link-missing? session main)
         (guard (failure
                 ((error-object? failure)
-                 (if (string-contains (error-object-message failure) "the library sample.linked links data.bin, but there is no file at") #t #f)))
+                 (if (string-contains (error-object-message failure)
+                                      "the library sample.linked links data.bin, but there is no file at")
+                     #t
+                     #f)))
           (build-session session main no-generation no-inputs)
           #f))
 
@@ -261,8 +331,9 @@
 
       (define (write-artifact-source directory body)
         (write-file (string-append directory "/sample/assets.sld")
-                    (string-append "(define-library (sample assets) (export bundle) (import (snail-core base) (snail-core artifact)) "
-                                   "(begin (: bundle (-> ArtifactBundle)) (define (bundle) " body ")))")))
+                    (string-append
+                     "(define-library (sample assets) (export bundle) (import (snail-core base) (snail-core artifact)) "
+                     "(begin (: bundle (-> ArtifactBundle)) (define (bundle) " body ")))")))
 
       (define (test-handler-revalidation directory library)
         (let ((main (string-append directory "/main.sld")))
@@ -270,27 +341,35 @@
           (write-file (string-append directory "/sample/b.sld")
                       "(define-library (sample b) (export run) (import (snail-core core) (snail-core primitive) (sample a)) (begin (effect Counter ((tick (-> I64)))) (: run (-> I64 ! mut)) (define (run) (handle Counter ((tick (lambda () (helper)))) (tick)))))")
           (write-file main "(import (snail-core core) (snail-core primitive) (sample b)) (run)")
-          (let* ((first (build-session (make-session (list directory library)) main no-generation no-inputs))
+          (let* ((first (build-session (make-session (list directory library))
+                                       main
+                                       no-generation
+                                       no-inputs))
                  (session (Pair-second first)))
             (expect (compiled-names (build-session session main no-generation no-inputs)) (list))
             (write-handler-helper directory "(ref-get cell)")
             (expect (guard (failure
                             ((error-object? failure)
-                             (if (string-contains (error-object-message failure) "a handler and its captures must satisfy") #t #f)))
+                             (if (string-contains (error-object-message failure)
+                                                  "a handler and its captures must satisfy")
+                                 #t
+                                 #f)))
                       (build-session session main no-generation no-inputs)
                       #f)
                     #t))))
 
       (define (write-handler-helper directory body)
         (write-file (string-append directory "/sample/a.sld")
-                    (string-append "(define-library (sample a) (export helper) (import (snail-core core) (snail-core primitive)) (begin "
-                                   "(: cell (Ref I64)) (define cell (ref (ann 9 I64))) "
-                                   "(: helper (-> I64 ! mut)) (define (helper) " body ")))")))
+                    (string-append
+                     "(define-library (sample a) (export helper) (import (snail-core core) (snail-core primitive)) (begin "
+                     "(: cell (Ref I64)) (define cell (ref (ann 9 I64))) "
+                     "(: helper (-> I64 ! mut)) (define (helper) " body ")))")))
 
       (define (write-sample-a directory body more)
         (write-file (string-append directory "/sample/a.sld")
-                    (string-append "(define-library (sample a) (export twice) (import (snail-core core) (snail-core primitive)) (begin "
-                                   "(: twice (-> I64 I64)) (define (twice x) " body ") " more "))")))
+                    (string-append
+                     "(define-library (sample a) (export twice) (import (snail-core core) (snail-core primitive)) (begin "
+                     "(: twice (-> I64 I64)) (define (twice x) " body ") " more "))")))
 
       (define sample-b
         "(define-library (sample b) (export four) (import (snail-core core) (snail-core primitive) (sample a)) (begin (: four (-> I64)) (define (four) (twice 2))))")

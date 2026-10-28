@@ -58,7 +58,10 @@
 (: class-letters (-> (List Token) String))
 (define (class-letters tokens)
   (string-concatenate
-   (map (lambda (token) (make-string (- (Token-end token) (Token-start token)) (class-letter (Token-class token)))) tokens)))
+   (map (lambda (token)
+          (make-string (- (Token-end token) (Token-start token))
+                       (class-letter (Token-class token))))
+        tokens)))
 
 (: class-letter (-> Class Char))
 (define (class-letter class)

@@ -30,24 +30,35 @@
 (: tiles? (-> (List Token) I64 I64 Bool))
 (define (tiles? tokens index end)
   (match tokens
-    ((Cons token rest) (and (= (Token-start token) index) (< index (Token-end token)) (tiles? rest (Token-end token) end)))
+    ((Cons token rest)
+     (and (= (Token-start token) index)
+          (< index (Token-end token))
+          (tiles? rest (Token-end token) end)))
     ((Nil) (= index end))))
 
 (: show-tokens (-> String Unit ! console))
 (define (show-tokens text)
   (let* ((chars (string->vector text)) (tokens (highlight-tokens text)))
     (unless (and (tiles? tokens 0 (vector-length chars))
-                 (string=? (string-concatenate (map (lambda (token) (token-text chars token)) tokens)) text))
+                 (string=?
+                  (string-concatenate (map (lambda (token) (token-text chars token)) tokens))
+                  text))
       (panic (string-append "the tokens do not tile " (quoted text))))
     (write-line (quoted text))
-    (write-line (string-append "  " (string-join (map (lambda (token) (string-append (class-name (Token-class token)) ":" (quoted (token-text chars token))))
-                                                      tokens)
-                                                 " ")))))
+    (write-line (string-append "  "
+                               (string-join (map (lambda (token)
+                                                   (string-append (class-name (Token-class token))
+                                                                  ":"
+                                                                  (quoted
+                                                                   (token-text chars token))))
+                                                 tokens)
+                                            " ")))))
 
 (: show-reading (-> String Unit ! console))
 (define (show-reading text)
   (show-tokens text)
-  (write-line (string-append "  read: " (string-join (map syntax->string (read-text text "sample.sld")) " "))))
+  (write-line
+   (string-append "  read: " (string-join (map syntax->string (read-text text "sample.sld")) " "))))
 
 ;; ---- Samples ----
 

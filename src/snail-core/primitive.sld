@@ -22,9 +22,27 @@
    f32-sqrt f32-abs f32-negate f32-floor f32-ceiling f32-truncate f32-round
    f64-add f64-sub f64-mul f64-div f64-min f64-max f64-eq f64-lt f64-le f64-gt f64-ge
    f64-sqrt f64-abs f64-negate f64-floor f64-ceiling f64-truncate f64-round
-   i32->i64 i64->i32 i64->f64 f64->i64 i32->f64 f64->i32 i32->f32 f32->i32 i64->f32 f32->i64 f32->f64 f64->f32
+   i32->i64
+   i64->i32
+   i64->f64
+   f64->i64
+   i32->f64
+   f64->i32
+   i32->f32
+   f32->i32
+   i64->f32
+   f32->i64
+   f32->f64
+   f64->f32
    f32->bits bits->f32 f64->bits bits->f64 bool->i32 i32->bool u8->i32 i32->u8 char->i32 i32->char
-   string-length string-ref string-append substring string=? string-compare make-string string-generate
+   string-length
+   string-ref
+   string-append
+   substring
+   string=?
+   string-compare
+   make-string
+   string-generate
    string->vector vector->string
    vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
    make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!

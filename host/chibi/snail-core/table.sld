@@ -31,7 +31,9 @@
         (let loop ((table table))
           (cond ((null? table) #f)
                 ((leaf? table) (and (= (vector-ref table 1) hash) (assoc key (vector-ref table 2))))
-                (else (loop (if (zero? (bitwise-and hash (vector-ref table 2))) (vector-ref table 3) (vector-ref table 4))))))))
+                (else (loop (if (zero? (bitwise-and hash (vector-ref table 2)))
+                                (vector-ref table 3)
+                                (vector-ref table 4))))))))
 
     (define (table-ref table key)
       (let ((found (entry table key)))
@@ -46,13 +48,24 @@
           (cond ((null? table) leaf)
                 ((leaf? table)
                  (if (= (vector-ref table 1) hash)
-                     (vector 'leaf hash (cons (cons key value) (remove-key key (vector-ref table 2))))
+                     (vector 'leaf
+                             hash
+                             (cons (cons key value) (remove-key key (vector-ref table 2))))
                      (join hash leaf (vector-ref table 1) table)))
                 (else
                  (let ((prefix (vector-ref table 1)) (bit (vector-ref table 2)))
                    (cond ((not (= (below hash bit) prefix)) (join hash leaf prefix table))
-                         ((zero? (bitwise-and hash bit)) (vector 'branch prefix bit (insert (vector-ref table 3)) (vector-ref table 4)))
-                         (else (vector 'branch prefix bit (vector-ref table 3) (insert (vector-ref table 4)))))))))))
+                         ((zero? (bitwise-and hash bit))
+                          (vector 'branch
+                                  prefix
+                                  bit
+                                  (insert (vector-ref table 3))
+                                  (vector-ref table 4)))
+                         (else (vector 'branch
+                                       prefix
+                                       bit
+                                       (vector-ref table 3)
+                                       (insert (vector-ref table 4)))))))))))
 
     (define (remove-key key entries)
       (cond ((null? entries) '())
@@ -74,8 +87,10 @@
 
     (define (table-count table) (table-fold (lambda (count entry) (+ count 1)) 0 table))
 
-    (define (table-keys table) (reverse (table-fold (lambda (keys entry) (cons (car entry) keys)) '() table)))
+    (define (table-keys table)
+      (reverse (table-fold (lambda (keys entry) (cons (car entry) keys)) '() table)))
 
-    (define (table-values table) (reverse (table-fold (lambda (values entry) (cons (cdr entry) values)) '() table)))
+    (define (table-values table)
+      (reverse (table-fold (lambda (values entry) (cons (cdr entry) values)) '() table)))
 
     ))

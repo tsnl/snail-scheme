@@ -11,8 +11,13 @@
                      (list "producer-bytes" "admin-bundle")
                      (list (list "snail-core" "base") (list "snail-core" "artifact"))
                      (list (form "define" (list (SymbolSyntax "producer-bytes")
-                                                (BytesSyntax (match (artifact-ref client "nested/data.bin")
-                                                               ((Some bytes) bytes)
-                                                               ((None) (panic "missing client data"))))))
-                           (form ":" (list (SymbolSyntax "admin-bundle") (SymbolSyntax "ArtifactBundle")))
-                           (form "define" (list (SymbolSyntax "admin-bundle") (form "artifact-bundle" (list (StringSyntax "admin")))))))))
+                                                (BytesSyntax
+                                                 (match (artifact-ref client "nested/data.bin")
+                                                   ((Some bytes) bytes)
+                                                   ((None) (panic "missing client data"))))))
+                           (form ":"
+                                 (list (SymbolSyntax "admin-bundle")
+                                       (SymbolSyntax "ArtifactBundle")))
+                           (form "define"
+                                 (list (SymbolSyntax "admin-bundle")
+                                       (form "artifact-bundle" (list (StringSyntax "admin")))))))))

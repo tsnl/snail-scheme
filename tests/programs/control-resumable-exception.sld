@@ -36,7 +36,9 @@
 ;; Of two handlers of one effect, the inner one catches the body's `fail`.
 ;; Its implementation runs outside it, so its own `fail` reaches the outer
 ;; handler, which resumes it; the inner one then resumes the body.
-(display (handle Fail ((fail (lambda (message resume) (write-line (string-append "outer: " message)) (resume 100))))
+(display (handle Fail ((fail (lambda (message resume)
+                               (write-line (string-append "outer: " message))
+                               (resume 100))))
            (handle Fail ((fail (lambda (message resume)
                                  (write-line (string-append "inner: " message))
                                  (+ 1 (resume (fail (string-append "again " message)))))))
@@ -56,7 +58,8 @@
 
 (: logged (-> (-> I64 ! Log) I64 ! console))
 (define (logged body)
-  (handle Log ((log (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
+  (handle Log ((log
+                (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
     (body)))
 
 (display (logged (lambda ()

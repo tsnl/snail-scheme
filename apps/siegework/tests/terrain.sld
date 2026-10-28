@@ -22,18 +22,36 @@
 
 (: count-ground (-> Land Ground I64))
 (define (count-ground land wanted)
-  (vector-fold (lambda (total ground) (if (char=? (ground-char ground) (ground-char wanted)) (+ total 1) total)) 0 (Land-ground land)))
+  (vector-fold
+   (lambda (total ground) (if (char=? (ground-char ground) (ground-char wanted)) (+ total 1) total))
+   0
+   (Land-ground land)))
 
 (: describe (-> I64 Unit ! console))
 (define (describe seed)
   (let ((land (new-land seed)))
-    (write-line (string-append "seed " (show seed) ", " (biome-name (Land-biome land)) ": hub " (cell-text (Land-hub land))
+    (write-line (string-append "seed "
+                               (show seed)
+                               ", "
+                               (biome-name (Land-biome land))
+                               ": hub "
+                               (cell-text (Land-hub land))
                                ", fronts " (string-join (map cell-text (Land-fronts land)) " ")
-                               ", open " (show (count-ground land (Open))) ", rock " (show (count-ground land (Rock)))
-                               ", water " (show (count-ground land (Water))) ", ice " (show (count-ground land (Ice)))))
-    (write-line (string-append "  sites " (string-join (map (lambda (site) (string-append (cell-text (Site-cell site)) "x" (show (Site-rate site))))
-                                                            (Land-sites land))
-                                                       " ")))))
+                               ", open "
+                               (show (count-ground land (Open)))
+                               ", rock "
+                               (show (count-ground land (Rock)))
+                               ", water "
+                               (show (count-ground land (Water)))
+                               ", ice "
+                               (show (count-ground land (Ice)))))
+    (write-line (string-append "  sites "
+                               (string-join (map (lambda (site)
+                                                   (string-append (cell-text (Site-cell site))
+                                                                  "x"
+                                                                  (show (Site-rate site))))
+                                                 (Land-sites land))
+                                            " ")))))
 
 ;; Each row of the map: . open, # rock, ~ water, = ice, H the hub, N a
 ;; nest, * a crystal.
@@ -59,20 +77,30 @@
 (: nest-distances (-> Land String))
 (define (nest-distances land)
   (let ((field (steps-from-hub land walkable?)))
-    (string-join (map (lambda (front) (show (vector-ref field (cell-index front)))) (Land-fronts land)) " ")))
+    (string-join
+     (map (lambda (front) (show (vector-ref field (cell-index front)))) (Land-fronts land))
+     " ")))
 
 ;; Every nest can walk to the hub, and every crystal is on open ground the
 ;; hub can wire toward without crossing rock.
 (: playable? (-> Land Bool))
 (define (playable? land)
-  (let ((walk (steps-from-hub land walkable?)) (wire (steps-from-hub land (lambda (g) (match g ((Rock) #f) (_ #t))))))
+  (let ((walk (steps-from-hub land walkable?))
+        (wire (steps-from-hub land (lambda (g) (match g ((Rock) #f) (_ #t))))))
     (and (every? (lambda (front) (>= (vector-ref walk (cell-index front)) 0)) (Land-fronts land))
-         (every? (lambda (site) (and (char=? (ground-char (ground-at land (Site-cell site))) #\.) (>= (vector-ref wire (cell-index (Site-cell site))) 0)))
+         (every? (lambda (site)
+                   (and (char=? (ground-char (ground-at land (Site-cell site))) #\.)
+                        (>= (vector-ref wire (cell-index (Site-cell site))) 0)))
                  (Land-sites land)))))
 
 (: biome-count (-> (List Land) Biome String))
 (define (biome-count lands biome)
-  (string-append (biome-name biome) " " (show (length (filter (lambda (land) (string=? (biome-name (Land-biome land)) (biome-name biome))) lands)))))
+  (string-append (biome-name biome)
+                 " "
+                 (show (length (filter (lambda (land)
+                                         (string=? (biome-name (Land-biome land))
+                                                   (biome-name biome)))
+                                       lands)))))
 
 (: show-map (-> Land Unit ! console))
 (define (show-map land)
@@ -83,14 +111,25 @@
 (: first-of (-> Biome I64 Land))
 (define (first-of biome seed)
   (let ((land (new-land seed)))
-    (if (string=? (biome-name (Land-biome land)) (biome-name biome)) land (first-of biome (+ seed 1)))))
+    (if (string=? (biome-name (Land-biome land)) (biome-name biome))
+        land
+        (first-of biome (+ seed 1)))))
 
 (for-each describe (list 1 2 3 4 5 6 7 8))
 (let ((lands (map (lambda (i) (new-land (+ i 1))) (iota 64))))
-  (write-line (string-append "biomes on seeds 1 to 64: " (string-join (map (lambda (b) (biome-count lands b)) (list (Meadow) (Desert) (Tundra) (Archipelago))) ", ")))
+  (write-line (string-append "biomes on seeds 1 to 64: "
+                             (string-join (map (lambda (b) (biome-count lands b))
+                                               (list (Meadow) (Desert) (Tundra) (Archipelago)))
+                                          ", ")))
   (write-line (string-append "seeds where a nest cannot walk in or a crystal cannot be wired: "
                              (let ((broken (filter (lambda (land) (not (playable? land))) lands)))
-                               (if (null? broken) "none" (string-join (map (lambda (land) (show (Land-seed land))) broken) " "))))))
-(for-each (lambda (biome) (show-map (first-of biome 1))) (list (Meadow) (Desert) (Tundra) (Archipelago)))
-(write-line (string-append "line (0,0)-(3,1): " (string-join (map cell-text (line-cells (Cell 0 0) (Cell 3 1))) " ")))
-(write-line (string-append "line (0,0)-(2,2): " (string-join (map cell-text (line-cells (Cell 0 0) (Cell 2 2))) " ")))
+                               (if (null? broken)
+                                   "none"
+                                   (string-join (map (lambda (land) (show (Land-seed land))) broken)
+                                                " "))))))
+(for-each (lambda (biome) (show-map (first-of biome 1)))
+          (list (Meadow) (Desert) (Tundra) (Archipelago)))
+(write-line (string-append "line (0,0)-(3,1): "
+                           (string-join (map cell-text (line-cells (Cell 0 0) (Cell 3 1))) " ")))
+(write-line (string-append "line (0,0)-(2,2): "
+                           (string-join (map cell-text (line-cells (Cell 0 0) (Cell 2 2))) " ")))

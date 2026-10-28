@@ -102,30 +102,132 @@
 
     (: skins (List Skin))
     (define skins
-      (map Skin (list "amber" "black" "blue" "bright_green" "bronze" "brown" "dark_green" "fur_black" "fur_brown" "fur_copper"
-                      "fur_gold" "fur_grey" "fur_tan" "fur_white" "green" "lavender" "light" "olive" "pale_green" "taupe"
-                      "zombie_green")))
+      (map Skin
+           (list "amber"
+                 "black"
+                 "blue"
+                 "bright_green"
+                 "bronze"
+                 "brown"
+                 "dark_green"
+                 "fur_black"
+                 "fur_brown"
+                 "fur_copper"
+                 "fur_gold"
+                 "fur_grey"
+                 "fur_tan"
+                 "fur_white"
+                 "green"
+                 "lavender"
+                 "light"
+                 "olive"
+                 "pale_green"
+                 "taupe"
+                 "zombie_green")))
 
     (: hair-styles (List HairStyle))
     (define hair-styles
-      (map HairStyle (list "afro" "balding" "bangs_bun" "bob" "bob_side_part" "braid" "braid2" "buzzcut" "cornrows" "cowlick"
-                           "cowlick_tall" "curly_long" "curly_short" "curtains" "curtains_long" "dreadlocks_long"
-                           "dreadlocks_short" "flat_top_fade" "flat_top_straight" "half_up" "halfmessy" "high_and_tight"
-                           "high_ponytail" "idol" "lob" "long_band" "long_center_part" "long_messy" "long_messy2" "long_tied"
-                           "messy3" "mop" "natural" "part2" "pigtails" "pigtails_bangs" "sara" "spiked" "spiked2"
-                           "spiked_beehive" "spiked_liberty" "spiked_liberty2" "spiked_porcupine" "twists_fade"
-                           "twists_straight")))
+      (map HairStyle
+           (list "afro"
+                 "balding"
+                 "bangs_bun"
+                 "bob"
+                 "bob_side_part"
+                 "braid"
+                 "braid2"
+                 "buzzcut"
+                 "cornrows"
+                 "cowlick"
+                 "cowlick_tall"
+                 "curly_long"
+                 "curly_short"
+                 "curtains"
+                 "curtains_long"
+                 "dreadlocks_long"
+                 "dreadlocks_short"
+                 "flat_top_fade"
+                 "flat_top_straight"
+                 "half_up"
+                 "halfmessy"
+                 "high_and_tight"
+                 "high_ponytail"
+                 "idol"
+                 "lob"
+                 "long_band"
+                 "long_center_part"
+                 "long_messy"
+                 "long_messy2"
+                 "long_tied"
+                 "messy3"
+                 "mop"
+                 "natural"
+                 "part2"
+                 "pigtails"
+                 "pigtails_bangs"
+                 "sara"
+                 "spiked"
+                 "spiked2"
+                 "spiked_beehive"
+                 "spiked_liberty"
+                 "spiked_liberty2"
+                 "spiked_porcupine"
+                 "twists_fade"
+                 "twists_straight")))
 
     (: hair-colors (List HairColor))
     (define hair-colors
-      (map HairColor (list "ash" "black" "blonde" "blue" "carrot" "chestnut" "dark_brown" "dark_gray" "ginger" "gold" "gray"
-                           "green" "light_brown" "navy" "orange" "pink" "platinum" "purple" "raven" "red" "redhead" "rose"
-                           "sandy" "strawberry" "violet" "white")))
+      (map HairColor
+           (list "ash"
+                 "black"
+                 "blonde"
+                 "blue"
+                 "carrot"
+                 "chestnut"
+                 "dark_brown"
+                 "dark_gray"
+                 "ginger"
+                 "gold"
+                 "gray"
+                 "green"
+                 "light_brown"
+                 "navy"
+                 "orange"
+                 "pink"
+                 "platinum"
+                 "purple"
+                 "raven"
+                 "red"
+                 "redhead"
+                 "rose"
+                 "sandy" "strawberry" "violet" "white")))
 
     (: dyes (List Dye))
     (define dyes
-      (map Dye (list "black" "blue" "bluegray" "brown" "charcoal" "forest" "gray" "green" "lavender" "leather" "maroon" "navy"
-                     "orange" "pink" "purple" "red" "rose" "sky" "slate" "tan" "teal" "walnut" "white" "yellow")))
+      (map Dye
+           (list "black"
+                 "blue"
+                 "bluegray"
+                 "brown"
+                 "charcoal"
+                 "forest"
+                 "gray"
+                 "green"
+                 "lavender"
+                 "leather"
+                 "maroon"
+                 "navy"
+                 "orange"
+                 "pink"
+                 "purple"
+                 "red"
+                 "rose"
+                 "sky"
+                 "slate"
+                 "tan"
+                 "teal"
+                 "walnut"
+                 "white"
+                 "yellow")))
 
     ;; ---- Bodies and heads ----
 
@@ -169,7 +271,14 @@
 
     (: heads (List Head))
     (define heads
-      (list (HumanMale) (HumanFemale) (HumanMaleElderly) (HumanFemaleElderly) (OrcMale) (OrcFemale) (LizardMale) (LizardFemale)
+      (list (HumanMale)
+            (HumanFemale)
+            (HumanMaleElderly)
+            (HumanFemaleElderly)
+            (OrcMale)
+            (OrcFemale)
+            (LizardMale)
+            (LizardFemale)
             (WolfMale) (WolfFemale) (Boarman) (Minotaur)))
 
     ;; A head's folder, and the skin ramp its walking sheet is drawn in.
@@ -208,7 +317,8 @@
 
     (: body-sheet (-> Build Skin Sheet))
     (define (body-sheet build skin)
-      (universal (string-append bases "/bodies/" (build-name build) "/universal/" (Skin-name skin) ".png")))
+      (universal
+       (string-append bases "/bodies/" (build-name build) "/universal/" (Skin-name skin) ".png")))
 
     ;; Each color of the head's own ramp becomes the color at the same place
     ;; in `skin`'s; a head already in that skin needs no swaps.
@@ -224,7 +334,13 @@
     (: hair-sheet (-> Build HairStyle HairColor Sheet))
     (define (hair-sheet build style color)
       (let ((cut (match build ((Female) "female") ((Pregnant) "female") (_ "male"))))
-        (universal (string-append "src/lpc/lpc-hair/hair/" (HairStyle-name style) "/" cut "/" (HairColor-name color) ".png"))))
+        (universal (string-append "src/lpc/lpc-hair/hair/"
+                                  (HairStyle-name style)
+                                  "/"
+                                  cut
+                                  "/"
+                                  (HairColor-name color)
+                                  ".png"))))
 
     ;; ---- Garments ----
 
@@ -248,7 +364,17 @@
 
     (: garments (List Garment))
     (define garments
-      (list (Longsleeve) (Shortsleeve) (Blouse) (Tunic) (Tanktop) (ScoopShirt) (Sleeveless) (Overalls) (Tabard) (Pants) (Skirt)
+      (list (Longsleeve)
+            (Shortsleeve)
+            (Blouse)
+            (Tunic)
+            (Tanktop)
+            (ScoopShirt)
+            (Sleeveless)
+            (Overalls)
+            (Tabard)
+            (Pants)
+            (Skirt)
             (Leggings) (Shoes) (Boots) (Sandals)))
 
     ;; Where a garment is worn.
@@ -292,7 +418,8 @@
 
     ;; Male pants come from wulax's original sprites, which draw them in one
     ;; greenish color on a sheet of walking rows alone.
-    (define male-pants (Sheet "src/lpc/lpc_entry/png/walkcycle/LEGS_pants_greenish.png" (Rect 0 0 576 256) (Nil)))
+    (define male-pants
+      (Sheet "src/lpc/lpc_entry/png/walkcycle/LEGS_pants_greenish.png" (Rect 0 0 576 256) (Nil)))
 
     ;; No pack draws teen footwear, but a teen's feet stand close enough to
     ;; a man's that the male sheets fit.
@@ -315,7 +442,8 @@
       (match (Pair garment build)
         ((Pair (Pants) (Male)) (Some (Single (Dye "green") male-pants)))
         (_ (let ((folder (garment-folder garment)) (drawn (drawn-build garment build)))
-             (if (any? (lambda (other) (string=? (build-name other) (build-name drawn))) (Pair-second folder))
+             (if (any? (lambda (other) (string=? (build-name other) (build-name drawn)))
+                       (Pair-second folder))
                  (Some (Dyed (Pair-first folder) drawn))
                  (None))))))
 
@@ -338,9 +466,16 @@
       (match (garment-drawing build garment)
         ((Some (Dyed folder drawn))
          (if (any? (lambda (other) (string=? (Dye-name other) (Dye-name dye))) dyes)
-             (Some (universal (string-append "src/lpc/lpc-clothing-updates/spritesheets/" folder "/" (build-name drawn) "/" (Dye-name dye) ".png")))
+             (Some (universal (string-append "src/lpc/lpc-clothing-updates/spritesheets/"
+                                             folder
+                                             "/"
+                                             (build-name drawn)
+                                             "/"
+                                             (Dye-name dye)
+                                             ".png")))
              (None)))
-        ((Some (Single only sheet)) (if (string=? (Dye-name only) (Dye-name dye)) (Some sheet) (None)))
+        ((Some (Single only sheet))
+         (if (string=? (Dye-name only) (Dye-name dye)) (Some sheet) (None)))
         ((None) (None))))
 
     ))

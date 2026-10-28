@@ -48,7 +48,10 @@
 
     (: in-bounds? (-> Cell Bool))
     (define (in-bounds? cell)
-      (and (<= 0 (Cell-x cell)) (< (Cell-x cell) map-size) (<= 0 (Cell-y cell)) (< (Cell-y cell) map-size)))
+      (and (<= 0 (Cell-x cell))
+           (< (Cell-x cell) map-size)
+           (<= 0 (Cell-y cell))
+           (< (Cell-y cell) map-size)))
 
     (: distance-squared (-> Cell Cell I64))
     (define (distance-squared a b)
@@ -78,7 +81,8 @@
     (: neighbors (-> Cell (List Cell)))
     (define (neighbors cell)
       (let ((x (Cell-x cell)) (y (Cell-y cell)))
-        (filter in-bounds? (list (Cell (+ x 1) y) (Cell (- x 1) y) (Cell x (+ y 1)) (Cell x (- y 1))))))
+        (filter in-bounds?
+                (list (Cell (+ x 1) y) (Cell (- x 1) y) (Cell x (+ y 1)) (Cell x (- y 1))))))
 
     ;; ---- Straight lines ----
 
@@ -98,7 +102,11 @@
             (cond ((and (= x (Cell-x b)) (= y (Cell-y b))) (reverse cells))
                   ((< order 0) (walk x (+ y sy) nx (+ ny 2) cells))
                   ((> order 0) (walk (+ x sx) y (+ nx 2) ny cells))
-                  (else (walk (+ x sx) (+ y sy) (+ nx 2) (+ ny 2) (Cons (Cell x (+ y sy)) (Cons (Cell (+ x sx) y) cells)))))))))
+                  (else (walk (+ x sx)
+                              (+ y sy)
+                              (+ nx 2)
+                              (+ ny 2)
+                              (Cons (Cell x (+ y sy)) (Cons (Cell (+ x sx) y) cells)))))))))
 
     ;; ---- Passes ----
 
@@ -119,14 +127,21 @@
              (match current
                ((Nil) (if (null? next)
                           (let back ((index (cell-index start)) (closed (Nil)))
-                            (let ((closed (if (vector-ref open index) closed (Cons (index-cell index) closed))))
-                              (if (= (array-ref from index) index) closed (back (array-ref from index) closed))))
+                            (let ((closed (if (vector-ref open index)
+                                              closed
+                                              (Cons (index-cell index) closed))))
+                              (if (= (array-ref from index) index)
+                                  closed
+                                  (back (array-ref from index) closed))))
                           (round next (Nil))))
                ((Cons cell rest)
-                (let ((reached (filter (lambda (n) (= (array-ref from (cell-index n)) -1)) (neighbors cell))))
+                (let ((reached (filter (lambda (n) (= (array-ref from (cell-index n)) -1))
+                                       (neighbors cell))))
                   (for-each (lambda (n) (array-set! from (cell-index n) (cell-index cell))) reached)
-                  (round (append (filter (lambda (n) (vector-ref open (cell-index n))) reached) rest)
-                         (append (filter (lambda (n) (not (vector-ref open (cell-index n)))) reached) next))))))))))
+                  (round
+                   (append (filter (lambda (n) (vector-ref open (cell-index n))) reached) rest)
+                   (append (filter (lambda (n) (not (vector-ref open (cell-index n)))) reached)
+                           next))))))))))
 
     ;; ---- Distance fields ----
 
@@ -147,8 +162,11 @@
                 (let ((steps (+ (array-ref distance (cell-index cell)) 1)))
                   (loop rest (fold-left (lambda (queued neighbor)
                                           (let ((index (cell-index neighbor)))
-                                            (if (and (vector-ref open index) (= (array-ref distance index) -1))
-                                                (begin (array-set! distance index steps) (Cons neighbor queued))
+                                            (if (and (vector-ref open index)
+                                                     (= (array-ref distance index) -1))
+                                                (begin
+                                                  (array-set! distance index steps)
+                                                  (Cons neighbor queued))
                                                 queued)))
                                         next (neighbors cell)))))))))))
 

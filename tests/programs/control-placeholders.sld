@@ -34,12 +34,15 @@
 
 (display (handle Abort ((abort (lambda (value resume) (* value 1000)))) (+ (Point-x (point)) 1)))
 (newline)
-(display (handle Abort ((abort (lambda (value resume) value))) (match (shape) ((Dot) 0) ((Box width) width))))
+(display (handle Abort ((abort (lambda (value resume) value)))
+           (match (shape) ((Dot) 0) ((Box width) width))))
 (newline)
-(write-line (handle Abort ((abort (lambda (value resume) (show value)))) (string-append (text) "!")))
+(write-line
+ (handle Abort ((abort (lambda (value resume) (show value)))) (string-append (text) "!")))
 (display ((handle Abort ((abort (lambda (value resume) (lambda (y) (+ y value))))) (adder)) 1))
 (newline)
-((handle Abort ((abort (lambda (value resume) (once (lambda () (write-line "from the handler")))))) (later)))
+((handle Abort ((abort (lambda (value resume) (once (lambda () (write-line "from the handler"))))))
+   (later)))
 
 ;; A handler of an ordinary operation inside the handle is left behind with
 ;; the rest of the body; an effect may mix both kinds of operation.

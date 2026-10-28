@@ -18,17 +18,44 @@
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
    Option Some None Result Ok Err Pair Pair-first Pair-second
-   List Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
+   List
+   Cons
+   Nil
+   list
+   null?
+   length
+   reverse
+   append
+   map
+   map-indexed
+   for-each
+   filter
+   fold-left
+   fold-right
    list-ref list-tail any? every? find member? iota concatenate
    delete-duplicates take drop last list-index assoc-ref zip
    i32-and i32-or i32-xor i32-shift-left i32-shift-right i32-shift-right/logical
    i64-and i64-or i64-xor i64-shift-left i64-shift-right i64-shift-right/logical
-   char->integer integer->char char->i32 i32->char char-whitespace? char-numeric? char-alphabetic? digit-value
+   char->integer
+   integer->char
+   char->i32
+   i32->char
+   char-whitespace?
+   char-numeric?
+   char-alphabetic?
+   digit-value
    char=? char<?
    string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
    string->vector vector->string
-   vector-length vector-ref make-vector vector-generate vector-set vector-append vector-concatenate subvector
+   vector-length
+   vector-ref
+   make-vector
+   vector-generate
+   vector-set
+   vector-append
+   vector-concatenate
+   subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
    ref ref-get ref-set!)
@@ -50,7 +77,8 @@
     (define-syntax let*
       (syntax-rules ()
         ((_ () body ...) (let () body ...))
-        ((_ ((name value) binding ...) body ...) (let ((name value)) (let* (binding ...) body ...)))))
+        ((_ ((name value) binding ...) body ...)
+         (let ((name value)) (let* (binding ...) body ...)))))
 
     (define-syntax letrec
       (syntax-rules ()
@@ -342,7 +370,8 @@
 
     (: filter (All (A e) (-> (-> A Bool ! e) (List A) (List A) ! e)))
     (define (filter keep? items)
-      (reverse (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
+      (reverse
+       (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
 
     (: fold-left (All (A B e) (-> (-> B A B ! e) B (List A) B ! e)))
     (define (fold-left f initial items)
@@ -393,14 +422,18 @@
     ;; Keeps the first of each group of equal items.
     (: delete-duplicates (All (A e) (-> (-> A A Bool ! e) (List A) (List A) ! e)))
     (define (delete-duplicates same? items)
-      (reverse (fold-left (lambda (kept item) (if (any? (lambda (other) (same? other item)) kept) kept (Cons item kept)))
+      (reverse (fold-left (lambda (kept item)
+                            (if (any? (lambda (other) (same? other item)) kept)
+                                kept
+                                (Cons item kept)))
                           (Nil) items)))
 
     (: take (All (T) (-> (List T) I64 (List T))))
     (define (take items count)
       (let loop ((items items) (count count) (taken (Nil)))
         (match items
-          ((Cons item rest) (if (= count 0) (reverse taken) (loop rest (- count 1) (Cons item taken))))
+          ((Cons item rest)
+           (if (= count 0) (reverse taken) (loop rest (- count 1) (Cons item taken))))
           ((Nil) (reverse taken)))))
 
     (: drop (All (T) (-> (List T) I64 (List T))))
@@ -430,7 +463,8 @@
     (define (assoc-ref entries key)
       (match entries
         ((Nil) (None))
-        ((Cons entry rest) (if (= (Pair-first entry) key) (Some (Pair-second entry)) (assoc-ref rest key)))))
+        ((Cons entry rest)
+         (if (= (Pair-first entry) key) (Some (Pair-second entry)) (assoc-ref rest key)))))
 
     ;; Pairs the items of two lists, stopping at the end of the shorter.
     (: zip (All (A B) (-> (List A) (List B) (List (Pair A B)))))
@@ -491,7 +525,9 @@
       (match (find (lambda (items) (> (vector-length items) 0)) vectors)
         ((None) (list->vector (Nil)))
         ((Some first)
-         (let ((all (make-array (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors) (vector-ref first 0))))
+         (let ((all (make-array
+                     (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors)
+                     (vector-ref first 0))))
            (fold-left (lambda (offset items)
                         (vector-copy! all offset items 0 (vector-length items))
                         (+ offset (vector-length items)))
@@ -549,7 +585,9 @@
     ;; is local to this call.
     (: string-concatenate (-> (List String) String))
     (define (string-concatenate texts)
-      (let ((chars (make-array (fold-left (lambda (total text) (+ total (string-length text))) 0 texts) #\space)))
+      (let ((chars
+             (make-array (fold-left (lambda (total text) (+ total (string-length text))) 0 texts)
+                         #\space)))
         (fold-left (lambda (offset text)
                      (vector-copy! chars offset (string->vector text) 0 (string-length text))
                      (+ offset (string-length text)))
@@ -561,7 +599,11 @@
       (match texts
         ((Nil) "")
         ((Cons first rest)
-         (string-concatenate (Cons first (fold-right (lambda (text joined) (Cons separator (Cons text joined))) (Nil) rest))))))
+         (string-concatenate (Cons first
+                                   (fold-right
+                                    (lambda (text joined) (Cons separator (Cons text joined)))
+                                    (Nil)
+                                    rest))))))
 
     (: string-index (-> String Char (Option I64)))
     (define (string-index text char)
@@ -584,7 +626,8 @@
             (else (let loop ((n n) (digits (Nil)))
                     (if (= n 0)
                         (list->string digits)
-                        (loop (quotient n 10) (Cons (integer->char (+ 48 (remainder n 10))) digits)))))))
+                        (loop (quotient n 10)
+                              (Cons (integer->char (+ 48 (remainder n 10))) digits)))))))
 
     ;; An optionally signed decimal integer, or None if the text is not one
     ;; or does not fit in 64 bits. Digits accumulate negatively, since the
@@ -596,11 +639,15 @@
         (if (= start length)
             (None)
             (let loop ((index start) (value 0))
-              (cond ((= index length) (if negative (Some value) (if (= value -9223372036854775808) (None) (Some (negate value)))))
+              (cond ((= index length)
+                     (if negative
+                         (Some value)
+                         (if (= value -9223372036854775808) (None) (Some (negate value)))))
                     ((not (char-numeric? (string-ref text index))) (None))
                     ((< value -922337203685477580) (None))
                     ((> (- (* value 10) (digit-value (string-ref text index))) (* value 10)) (None))
-                    (else (loop (+ index 1) (- (* value 10) (digit-value (string-ref text index))))))))))
+                    (else
+                     (loop (+ index 1) (- (* value 10) (digit-value (string-ref text index))))))))))
 
     (instance (Show I64)
       (define show i64->string))

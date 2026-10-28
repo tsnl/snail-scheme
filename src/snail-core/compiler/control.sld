@@ -43,7 +43,10 @@
 
     (: module-callees (-> Mono (List String) Callees))
     (define (module-callees mono control)
-      (Callees (Mono-program mono) control (item-definitions (Mono-items mono)) (Mono-externals mono)))
+      (Callees (Mono-program mono)
+               control
+               (item-definitions (Mono-items mono))
+               (Mono-externals mono)))
 
     ;; The control effects a value of a procedure type may yield to when
     ;; called: those its row names. Calling a `Once` calls the procedure it
@@ -69,14 +72,17 @@
            ((Some definition) (call-row (Expr-type definition)))
            ((None)
             (match (table-ref (Callees-externals callees) name)
-              ((Some definition) (filter (lambda (label) (member? label (Callees-control callees))) (call-row (Expr-type definition))))
+              ((Some definition)
+               (filter (lambda (label) (member? label (Callees-control callees)))
+                       (call-row (Expr-type definition))))
               ((None) (declared-row callees name (Expr-type callee)))))))
         (_ (call-row (Expr-type callee)))))
 
     (: declared-row (-> Callees String Type (List String)))
     (define (declared-row callees name type)
       (match (program-value (Callees-program callees) name)
-        ((Some (Operation effect _)) (if (member? effect (Callees-control callees)) (list effect) (Nil)))
+        ((Some (Operation effect _))
+         (if (member? effect (Callees-control callees)) (list effect) (Nil)))
         ((Some (Primitive scheme)) (if (closed-row? (Scheme-type scheme)) (Nil) (call-row type)))
         ((Some (Foreign _ _)) (Nil))
         ((Some (Constructor _ _)) (Nil))
@@ -96,21 +102,28 @@
     ;; implementations itself, once the body has unwound to it.
     (: yields (-> Callees Expr (List String)))
     (define (yields callees expr)
-      (let ((all (lambda (exprs) (fold-left (lambda (labels expr) (label-union labels (yields callees expr))) (Nil) exprs))))
+      (let ((all (lambda (exprs)
+                   (fold-left (lambda (labels expr) (label-union labels (yields callees expr)))
+                              (Nil)
+                              exprs))))
         (match (Expr-term expr)
           ((Lambda _ _) (Nil))
           ((App callee args) (label-union (callee-row callees callee) (all (Cons callee args))))
           ((Handle effect implementations body)
            (label-union (all (map Pair-second implementations))
                         (label-union (label-difference (yields callees body) (list effect))
-                                     (control-implementation-yields callees effect implementations))))
+                                     (control-implementation-yields callees
+                                                                    effect
+                                                                    implementations))))
           (_ (all (subexpressions expr))))))
 
     (: control-implementation-yields (-> Callees String (List (Pair String Expr)) (List String)))
     (define (control-implementation-yields callees effect implementations)
       (let ((control (Effect-control (program-effect (Callees-program callees) effect))))
         (fold-left (lambda (labels entry)
-                     (if (member? (Pair-first entry) control) (label-union labels (procedure-yields callees (Pair-second entry))) labels))
+                     (if (member? (Pair-first entry) control)
+                         (label-union labels (procedure-yields callees (Pair-second entry)))
+                         labels))
                    (Nil) implementations)))
 
     ;; What calling a procedure may yield to: what a lambda's body may, and
@@ -138,7 +151,8 @@
     (define (holds-yield-point? callees expr)
       (match (Expr-term expr)
         ((Lambda _ _) #f)
-        ((Let _ value body) (or (not (null? (yields callees value))) (holds-yield-point? callees body)))
+        ((Let _ value body)
+         (or (not (null? (yields callees value))) (holds-yield-point? callees body)))
         (_ (any? (lambda (child) (holds-yield-point? callees child)) (subexpressions expr)))))
 
     (: subexpressions (-> Expr (List Expr)))
@@ -186,12 +200,16 @@
       (match (Expr-term expr)
         ((App callee args)
          (match (restriction callee)
-           ((Some (Pair index what)) (refuse-yield callees (list-ref args index) what (Expr-loc expr)))
+           ((Some (Pair index what))
+            (refuse-yield callees (list-ref args index) what (Expr-loc expr)))
            ((None) (check-restrictions callees callee)))
          (for-each (lambda (arg) (check-restrictions callees arg)) args))
         ((Var _ _ _)
          (match (restriction expr)
-           ((Some (Pair index what)) (refuse-labels (call-row (list-ref (function-params (Expr-type expr)) index)) what (Expr-loc expr)))
+           ((Some (Pair index what))
+            (refuse-labels (call-row (list-ref (function-params (Expr-type expr)) index))
+                           what
+                           (Expr-loc expr)))
            ((None) (unit))))
         ((Handle effect implementations _)
          (check-implementations callees effect implementations)
@@ -204,7 +222,9 @@
         (for-each (lambda (entry)
                     (unless (member? (Pair-first entry) control)
                       (refuse-yield callees (Pair-second entry)
-                                    (string-append "the implementation of " (short-name (Pair-first entry)) ", which is not declared with ctl,")
+                                    (string-append "the implementation of "
+                                                   (short-name (Pair-first entry))
+                                                   ", which is not declared with ctl,")
                                     (Expr-loc (Pair-second entry)))))
                   implementations)))
 
@@ -215,7 +235,10 @@
     (: refuse-labels (-> (List String) String Loc Unit))
     (define (refuse-labels labels what loc)
       (unless (null? labels)
-        (compile-error loc (string-append what " cannot reach a control operation; it may yield to" (labels->string labels)))))
+        (compile-error loc
+                       (string-append what
+                                      " cannot reach a control operation; it may yield to"
+                                      (labels->string labels)))))
 
     (: function-params (-> Type (List Type)))
     (define (function-params type)
@@ -258,36 +281,57 @@
     (define (normal count callees expr)
       (let ((rebuild (lambda (term) (Expr term (Expr-type expr) (Expr-loc expr)))))
         (match (Expr-term expr)
-          ((Lambda params body) (naming count ((body (normal callees body))) (Pair (rebuild (Lambda params body)) count)))
+          ((Lambda params body)
+           (naming count ((body (normal callees body)))
+                   (Pair (rebuild (Lambda params body)) count)))
           ((App callee args) (normal-call count callees expr callee args))
           ((If test then otherwise)
-           (naming count ((test (normal callees test)) (then (normal callees then)) (otherwise (normal callees otherwise)))
+           (naming count ((test (normal callees test))
+                          (then (normal callees then))
+                          (otherwise (normal callees otherwise)))
                    (named count callees test (lambda (test) (rebuild (If test then otherwise))))))
           ((Let name value body)
-           (naming count ((value (normal callees value)) (body (normal callees body))) (Pair (rebuild (Let name value body)) count)))
-          ((Seq first rest) (naming count ((first (normal callees first)) (rest (normal callees rest))) (sequence count callees expr first rest)))
+           (naming count ((value (normal callees value))
+                          (body (normal callees body)))
+                   (Pair (rebuild (Let name value body)) count)))
+          ((Seq first rest)
+           (naming count ((first (normal callees first))
+                          (rest (normal callees rest)))
+                   (sequence count callees expr first rest)))
           ((Match scrutinee clauses)
-           (naming count ((scrutinee (normal callees scrutinee)) (clauses (normal-clauses callees clauses)))
-                   (named count callees scrutinee (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
-          ((Ann inner type) (naming count ((inner (normal callees inner))) (Pair (rebuild (Ann inner type)) count)))
+           (naming count ((scrutinee (normal callees scrutinee))
+                          (clauses (normal-clauses callees clauses)))
+                   (named count
+                          callees
+                          scrutinee
+                          (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
+          ((Ann inner type)
+           (naming count ((inner (normal callees inner))) (Pair (rebuild (Ann inner type)) count)))
           ((Convert inner target)
-           (naming count ((inner (normal callees inner))) (named count callees inner (lambda (inner) (rebuild (Convert inner target))))))
+           (naming count ((inner (normal callees inner)))
+                   (named count callees inner (lambda (inner) (rebuild (Convert inner target))))))
           ((TypeTest inner target)
-           (naming count ((inner (normal callees inner))) (named count callees inner (lambda (inner) (rebuild (TypeTest inner target))))))
-          ((Handle effect implementations body) (normal-handle count callees expr effect implementations body))
+           (naming count ((inner (normal callees inner)))
+                   (named count callees inner (lambda (inner) (rebuild (TypeTest inner target))))))
+          ((Handle effect implementations body)
+           (normal-handle count callees expr effect implementations body))
           (_ (Pair expr count)))))
 
     (: normal-all (-> I64 Callees (List Expr) (Pair (List Expr) I64)))
     (define (normal-all count callees exprs)
       (match exprs
-        ((Cons expr rest) (naming count ((expr (normal callees expr)) (rest (normal-all callees rest))) (Pair (Cons expr rest) count)))
+        ((Cons expr rest)
+         (naming count ((expr (normal callees expr))
+                        (rest (normal-all callees rest)))
+                 (Pair (Cons expr rest) count)))
         ((Nil) (Pair (Nil) count))))
 
     (: normal-clauses (-> I64 Callees (List Clause) (Pair (List Clause) I64)))
     (define (normal-clauses count callees clauses)
       (match clauses
         ((Cons clause rest)
-         (naming count ((body (normal callees (Clause-body clause))) (rest (normal-clauses callees rest)))
+         (naming count ((body (normal callees (Clause-body clause)))
+                        (rest (normal-clauses callees rest)))
                  (Pair (Cons (Clause (Clause-pattern clause) body) rest) count)))
         ((Nil) (Pair (Nil) count))))
 
@@ -309,9 +353,12 @@
 
     (: normal-call (-> I64 Callees Expr Expr (List Expr) (Pair Expr I64)))
     (define (normal-call count callees expr callee args)
-      (naming count ((operands (normal-all callees (Cons callee args))) (bound (bind-operands callees operands)))
+      (naming count ((operands (normal-all callees (Cons callee args)))
+                     (bound (bind-operands callees operands)))
               (match (Bound-operands bound)
-                ((Cons callee args) (Pair (wrap-lets bound (Expr (App callee args) (Expr-type expr) (Expr-loc expr))) count))
+                ((Cons callee args)
+                 (Pair (wrap-lets bound (Expr (App callee args) (Expr-type expr) (Expr-loc expr)))
+                       count))
                 ((Nil) (panic "internal error: a call without a callee")))))
 
     ;; A handle evaluates its implementations in its effect's operation
@@ -319,9 +366,16 @@
     (: normal-handle (-> I64 Callees Expr String (List (Pair String Expr)) Expr (Pair Expr I64)))
     (define (normal-handle count callees expr effect implementations body)
       (let* ((operations (Effect-operations (program-effect (Callees-program callees) effect)))
-             (values (map (lambda (operation) (implementation-of implementations operation)) operations)))
-        (naming count ((values (normal-all callees values)) (bound (bind-operands callees values)) (body (normal callees body)))
-                (Pair (wrap-lets bound (Expr (Handle effect (zip operations (Bound-operands bound)) body) (Expr-type expr) (Expr-loc expr))) count))))
+             (values
+              (map (lambda (operation) (implementation-of implementations operation)) operations)))
+        (naming count ((values (normal-all callees values))
+                       (bound (bind-operands callees values))
+                       (body (normal callees body)))
+                (Pair (wrap-lets bound
+                                 (Expr (Handle effect (zip operations (Bound-operands bound)) body)
+                                       (Expr-type expr)
+                                       (Expr-loc expr)))
+                      count))))
 
     (: implementation-of (-> (List (Pair String Expr)) String Expr))
     (define (implementation-of implementations operation)
@@ -341,11 +395,16 @@
 
     (: wrap-lets (-> Bound Expr Expr))
     (define (wrap-lets bound body)
-      (fold-right (lambda (entry body) (bind (Pair-first entry) (Pair-second entry) body)) body (Bound-lets bound)))
+      (fold-right (lambda (entry body) (bind (Pair-first entry) (Pair-second entry) body))
+                  body
+                  (Bound-lets bound)))
 
     (: bind-operands (-> I64 Callees (List Expr) (Pair Bound I64)))
     (define (bind-operands count callees operands)
-      (let ((final (fold-left (lambda (final entry) (if (null? (yields callees (Pair-second entry))) final (Pair-first entry)))
+      (let ((final (fold-left (lambda (final entry)
+                                (if (null? (yields callees (Pair-second entry)))
+                                    final
+                                    (Pair-first entry)))
                               -1 (zip (iota (length operands)) operands))))
         (bind-from count final 0 operands)))
 
@@ -356,9 +415,12 @@
          (if (and (<= index final) (or (= index final) (not (inert? operand))))
              (let ((name (temporary-name count)) (next (+ count 1)))
                (naming next ((bound (bind-from final (+ index 1) rest)))
-                       (Pair (Bound (Cons (Pair name operand) (Bound-lets bound)) (Cons (temporary name operand) (Bound-operands bound))) next)))
+                       (Pair (Bound (Cons (Pair name operand) (Bound-lets bound))
+                                    (Cons (temporary name operand) (Bound-operands bound)))
+                             next)))
              (naming count ((bound (bind-from final (+ index 1) rest)))
-                     (Pair (Bound (Bound-lets bound) (Cons operand (Bound-operands bound))) count))))
+                     (Pair (Bound (Bound-lets bound) (Cons operand (Bound-operands bound)))
+                           count))))
         ((Nil) (Pair (Bound (Nil) (Nil)) count))))
 
     ;; Evaluating a literal, a variable or a lambda has no effect a yield
@@ -381,7 +443,9 @@
       (let ((control (control-effects (Mono-program mono))))
         (if (null? control)
             mono
-            (Mono (Mono-program mono) (control-items 0 (module-callees mono control) (Mono-items mono)) (Mono-externals mono)
+            (Mono (Mono-program mono)
+                  (control-items 0 (module-callees mono control) (Mono-items mono))
+                  (Mono-externals mono)
                   (Mono-exported mono)))))
 
     ;; Temporaries are numbered within the Wasm function they land in: a
@@ -390,7 +454,9 @@
     (: control-items (-> I64 Callees (List Item) (List Item)))
     (define (control-items count callees items)
       (match items
-        ((Cons item rest) (naming count ((item (control-item callees item))) (Cons item (control-items count callees rest))))
+        ((Cons item rest)
+         (naming count ((item (control-item callees item)))
+                 (Cons item (control-items count callees rest))))
         ((Nil) (Nil))))
 
     (: control-item (-> I64 Callees Item (Pair Item I64)))
@@ -399,7 +465,8 @@
         ((Define name value)
          (if (lambda-expr? value)
              (Pair (Define name (Pair-first (control-expr 0 callees value))) count)
-             (naming count ((value (control-expr callees value))) (Pair (Define name value) count))))
+             (naming count ((value (control-expr callees value)))
+                     (Pair (Define name value) count))))
         ((Do expr) (naming count ((expr (control-expr callees expr))) (Pair (Do expr) count)))
         (_ (Pair item count))))
 
@@ -443,7 +510,11 @@
       (define add (local "add" (TFun (list i64 i64) i64 empty-row)))
 
       (define program
-        (program-with-effect (program-with-effect empty-program (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil)))
+        (program-with-effect (program-with-effect empty-program
+                                                  (Effect "t:Abort"
+                                                          (list "t:abort")
+                                                          (list "t:abort")
+                                                          (Nil)))
                              (Effect "t:Log" (list "t:log") (Nil) (Nil))))
 
       (define callees (Callees program (list "t:Abort") empty-table empty-table))
@@ -456,31 +527,45 @@
           ((Lit (DInt n)) (i64->string n))
           ((Var name _ _) name)
           ((Lambda params body) (string-append "(lambda " (shape body) ")"))
-          ((App callee args) (string-append "(" (string-join (map shape (Cons callee args)) " ") ")"))
-          ((If test then otherwise) (string-append "(if " (shape test) " " (shape then) " " (shape otherwise) ")"))
-          ((Let name value body) (string-append "(let " name " " (shape value) " " (shape body) ")"))
+          ((App callee args)
+           (string-append "(" (string-join (map shape (Cons callee args)) " ") ")"))
+          ((If test then otherwise)
+           (string-append "(if " (shape test) " " (shape then) " " (shape otherwise) ")"))
+          ((Let name value body)
+           (string-append "(let " name " " (shape value) " " (shape body) ")"))
           ((Seq first rest) (string-append "(begin " (shape first) " " (shape rest) ")"))
           ((Handle effect _ body) (string-append "(handle " effect " " (shape body) ")"))
           (_ "?")))
 
       (define (handle-abort body)
-        (Expr (Handle "t:Abort" (list (Pair "t:abort" (local "catch" (TFun (list i64) i64 empty-row)))) body) i64 loc))
+        (Expr (Handle "t:Abort"
+                      (list (Pair "t:abort" (local "catch" (TFun (list i64) i64 empty-row))))
+                      body)
+              i64
+              loc))
 
       ;; A call yields what its callee's row names, a lambda yields nothing
       ;; until called, and a handle keeps what its body yields to other
       ;; effects.
       (define (test-yields)
         (expect (yields callees (call g (list (number 1)))) (Nil))
-        (expect (yields callees (call add (list (number 1) (call f (list (number 2)))))) (list "t:Abort"))
-        (expect (yields callees (Expr (Lambda (list "x") (call f (list (number 1)))) (Expr-type f) loc)) (Nil))
+        (expect (yields callees (call add (list (number 1) (call f (list (number 2))))))
+                (list "t:Abort"))
+        (expect
+         (yields callees (Expr (Lambda (list "x") (call f (list (number 1)))) (Expr-type f) loc))
+         (Nil))
         (expect (yields callees (handle-abort (call f (list (number 1))))) (Nil)))
 
       ;; A global's definition says what calling it may yield to, not the
       ;; row the checker opened to its context at the use.
       (define (test-globals)
         (let* ((opened (local "t:pure" (TFun (list i64) i64 abort-row)))
-               (pure (Expr (Lambda (list "x.1") (local "x.1" i64)) (TFun (list i64) i64 empty-row) loc))
-               (defined (Callees program (list "t:Abort") (table-set empty-table "t:pure" pure) empty-table)))
+               (pure
+                (Expr (Lambda (list "x.1") (local "x.1" i64)) (TFun (list i64) i64 empty-row) loc))
+               (defined (Callees program
+                                 (list "t:Abort")
+                                 (table-set empty-table "t:pure" pure)
+                                 empty-table)))
           (expect (yields defined (call opened (list (number 1)))) (Nil))
           (expect (yields callees (call opened (list (number 1)))) (list "t:Abort"))))
 
@@ -490,20 +575,31 @@
       (define (test-operands)
         (expect (normalized (call add (list (call g (list (number 1))) (call f (list (number 2))))))
                 "(let %control.0% (g 1) (let %control.1% (f 2) (add %control.0% %control.1%)))")
-        (expect (normalized (call add (list (number 1) (call f (list (number 2)))))) "(let %control.0% (f 2) (add 1 %control.0%))")
-        (expect (normalized (call add (list (call f (list (number 1))) (call g (list (number 2)))))) "(let %control.0% (f 1) (add %control.0% (g 2)))")
-        (expect (normalized (call g (list (call f (list (call f (list (number 1)))))))) "(let %control.1% (let %control.0% (f 1) (f %control.0%)) (g %control.1%))"))
+        (expect (normalized (call add (list (number 1) (call f (list (number 2))))))
+                "(let %control.0% (f 2) (add 1 %control.0%))")
+        (expect (normalized (call add (list (call f (list (number 1))) (call g (list (number 2))))))
+                "(let %control.0% (f 1) (add %control.0% (g 2)))")
+        (expect (normalized (call g (list (call f (list (call f (list (number 1))))))))
+                "(let %control.1% (let %control.0% (f 1) (f %control.0%)) (g %control.1%))"))
 
       ;; A call whose value flows out stays where it is: in tail position,
       ;; in a branch, in a let's value. A test or a sequence's first part
       ;; that may yield is named.
       (define (test-flow)
         (expect (normalized (call f (list (call g (list (number 1)))))) "(f (g 1))")
-        (expect (normalized (Expr (If (call predicate (Nil)) (call f (list (number 1))) (number 2)) i64 loc))
+        (expect (normalized
+                 (Expr (If (call predicate (Nil)) (call f (list (number 1))) (number 2)) i64 loc))
                 "(let %control.0% (predicate) (if %control.0% (f 1) 2))")
-        (expect (normalized (Expr (Seq (call f (list (number 1))) (number 2)) i64 loc)) "(let %control.0% (f 1) 2)")
-        (expect (normalized (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64)))) i64 loc)) "(let x.1 (f 1) (g x.1))")
-        (expect (normalized (Expr (Lambda (list "x.1") (call g (list (call f (list (number 1)))))) (Expr-type g) loc))
+        (expect (normalized (Expr (Seq (call f (list (number 1))) (number 2)) i64 loc))
+                "(let %control.0% (f 1) 2)")
+        (expect
+         (normalized (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
+                           i64
+                           loc))
+         "(let x.1 (f 1) (g x.1))")
+        (expect (normalized (Expr (Lambda (list "x.1") (call g (list (call f (list (number 1))))))
+                                  (Expr-type g)
+                                  loc))
                 "(lambda (let %control.0% (f 1) (g %control.0%)))"))
 
       ;; An item without a call that may yield is returned itself.
@@ -515,11 +611,16 @@
       ;; lambdas, binds a value that may yield; a call that may yield is not
       ;; one, since the let it is the value of tests it.
       (define (test-holds)
-        (let ((inner (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64)))) i64 loc)))
+        (let ((inner (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
+                           i64
+                           loc)))
           (expect (holds-yield-point? callees inner) #t)
-          (expect (holds-yield-point? callees (Expr (If (local "c.1" bool) inner (number 2)) i64 loc)) #t)
+          (expect
+           (holds-yield-point? callees (Expr (If (local "c.1" bool) inner (number 2)) i64 loc))
+           #t)
           (expect (holds-yield-point? callees (call f (list (number 1)))) #f)
-          (expect (holds-yield-point? callees (Expr (Lambda (list "y.1") inner) (Expr-type g) loc)) #f)))
+          (expect (holds-yield-point? callees (Expr (Lambda (list "y.1") inner) (Expr-type g) loc))
+                  #f)))
 
       ;; A thunk unsafe-total calls cannot yield, but a lambda whose row
       ;; names Abort and whose body yields nothing can be called anywhere;
@@ -527,8 +628,11 @@
       (define (test-restrictions)
         (let* ((thunk-type (TFun (list) i64 abort-row))
                (total (local "prim:unsafe-total" (TFun (list thunk-type) i64 empty-row)))
-               (log (Expr (Lambda (list "m.1") (call f (list (number 1)))) (TFun (list i64) i64 empty-row) loc)))
-          (expect (refused? (call total (list (local "thunk" thunk-type)))) "an unsafe-total thunk cannot reach a control operation")
+               (log (Expr (Lambda (list "m.1") (call f (list (number 1))))
+                          (TFun (list i64) i64 empty-row)
+                          loc)))
+          (expect (refused? (call total (list (local "thunk" thunk-type))))
+                  "an unsafe-total thunk cannot reach a control operation")
           (expect (refused? (call total (list (Expr (Lambda (Nil) (number 1)) thunk-type loc)))) #f)
           (expect (refused? (Expr (Handle "t:Log" (list (Pair "t:log" log)) (number 1)) i64 loc))
                   "the implementation of log, which is not declared with ctl, cannot reach a control operation")))
@@ -537,11 +641,15 @@
       (define (refused? expr)
         (guard (failure ((error-object? failure)
                          (let ((message (error-object-message failure)))
-                           (substring message (+ (string-index-of message ": ") 2) (string-index-of message ";")))))
+                           (substring message
+                                      (+ (string-index-of message ": ") 2)
+                                      (string-index-of message ";")))))
           (check-restrictions callees expr)
           #f))
 
       (define (string-index-of text pattern)
         (let loop ((index 0))
-          (if (string=? (substring text index (+ index (string-length pattern))) pattern) index (loop (+ index 1)))))))
+          (if (string=? (substring text index (+ index (string-length pattern))) pattern)
+              index
+              (loop (+ index 1)))))))
    (else)))
