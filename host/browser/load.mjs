@@ -16,7 +16,8 @@ const EBADF = 8, ENOSYS = 52;
 // is, so a host passes either: `getImportObject()` gives the imports, and
 // `initialize(instance)` finds the memory and runs the module's
 // initialization. The module gets `args`, an empty environment, randomness,
-// and no preopened directories, which wasi-libc learns from EBADF. What it
+// the clocks, and no preopened directories, which wasi-libc learns from
+// EBADF, so every path operation fails before it asks the host. What it
 // writes reaches `print(fd, line)` a line at a time; exiting throws.
 // `instantiate` answers every other function with ENOSYS.
 export function createWasi({args = [], print}) {
@@ -41,6 +42,12 @@ export function createWasi({args = [], print}) {
     environ_sizes_get(count, size) { view().setUint32(count, 0, true); view().setUint32(size, 0, true); return 0; },
     environ_get: () => 0,
     random_get(pointer, length) { crypto.getRandomValues(bytes(pointer, length)); return 0; },
+    // Nanoseconds: clock 0 is the time of day, and the others count from
+    // when the page started, never backwards.
+    clock_time_get(clock, precision, time) {
+      view().setBigUint64(time, BigInt(Math.round((clock === 0 ? Date.now() : performance.now()) * 1e6)), true);
+      return 0;
+    },
     fd_prestat_get: () => EBADF,
     fd_prestat_dir_name: () => EBADF,
     fd_write(fd, iovs, count, written) {

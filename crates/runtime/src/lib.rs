@@ -1,7 +1,8 @@
 //! Scalar host services linked into Snail-Core's Wasm programs.
 //!
 //! Managed values remain in compiled Snail-Core. Rust owns streams behind scalar
-//! IDs and synchronous text-conversion scratch; it never holds guest GC roots.
+//! IDs and synchronous text-conversion and path-reply scratch; it never holds
+//! guest GC roots.
 
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -10,6 +11,7 @@ mod datum;
 mod host;
 mod io;
 mod math;
+mod paths;
 mod text;
 mod unicode;
 
@@ -81,6 +83,21 @@ pub extern "C" fn panic_raise() {
     fail_message(&message)
 }
 
+// ---- Monotonic clock ----
+
+thread_local! {
+    static ORIGIN: std::cell::OnceCell<std::time::Instant> = const { std::cell::OnceCell::new() };
+}
+
+/// Nanoseconds since the instance first read this clock, through WASI's
+/// monotonic `clock_time_get`. Only differences mean anything, and later
+/// readings are never smaller.
+#[unsafe(export_name = "snail:clock/monotonic")]
+pub extern "C" fn monotonic() -> i64 {
+    let elapsed = ORIGIN.with(|origin| origin.get_or_init(std::time::Instant::now).elapsed());
+    i64::try_from(elapsed.as_nanos()).unwrap_or(i64::MAX)
+}
+
 // ---- Floating-point text ----
 
 fn parse_float(text: &str) -> Option<f64> {
@@ -137,5 +154,13 @@ mod tests {
         assert_eq!(parse_float("3"), None);
         assert_eq!(parse_float("3.5"), Some(3.5));
         assert_eq!(parse_float("+INF.0"), Some(f64::INFINITY));
+    }
+
+    #[test]
+    fn the_monotonic_clock_starts_near_zero_and_never_runs_back() {
+        let first = monotonic();
+        let second = monotonic();
+        assert!((0..1_000_000_000).contains(&first));
+        assert!(second >= first);
     }
 }
