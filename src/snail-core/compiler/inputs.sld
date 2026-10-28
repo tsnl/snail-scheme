@@ -102,10 +102,17 @@
     (: pending-request (Ref (Option CompilerRequest)))
     (define pending-request (ref (None)))
 
-    (: request-input! (All (A) (-> CompilerRequest A ! mut)))
+    ;; A request is a non-returning exit, as `compile-error` is, and records
+    ;; its value through the same unsafe bridge, so a pass that may need an
+    ;; input, such as the expander at an `artifact-files` use, keeps a pure
+    ;; signature. The cell is observable only at the trusted terminal exit
+    ;; that takes it, after the invocation is abandoned; it is not pure.
+    (: request-input! (All (A) (-> CompilerRequest A)))
     (define (request-input! request)
-      (ref-set! pending-request (Some request))
-      (panic "compiler requires an input"))
+      (unsafe-total
+       (lambda ()
+         (ref-set! pending-request (Some request))
+         (panic "compiler requires an input"))))
 
     (: take-input-request! (-> (Option CompilerRequest) ! mut))
     (define (take-input-request!)
@@ -164,7 +171,7 @@
     ;; library it generates an import cycle. The key is the one the build's
     ;; inputs use, which leaves that line out, since what the producer writes
     ;; does not depend on the chain that reached it.
-    (: generated-syntax (-> String (List String) (List String) (List Syntax) Bytes ! mut fs))
+    (: generated-syntax (-> String (List String) (List String) (List Syntax) Bytes ! fs))
     (define (generated-syntax directory directories loading forms)
       (let* ((key (producer-key (producer-text directories forms))) (output (string-append directory "/" key ".syntax")))
         (if (file-exists? output)

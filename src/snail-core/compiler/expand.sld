@@ -216,7 +216,7 @@
     (struct Context
       ((predecessor (Table Expanded))
        (directories (List String))
-       (generate (-> (List String) (List Syntax) Bytes ! mut fs))
+       (generate (-> (List String) (List Syntax) Bytes ! fs))
        (inputs Inputs)
        (prefix String)
        (loading (List String))
@@ -302,7 +302,7 @@
       (Discovering
        ((uses (List ArtifactUse)))))
 
-    (: artifact-files (-> Context String Loc (Pair ArtifactFiles Context) ! mut))
+    (: artifact-files (-> Context String Loc (Pair ArtifactFiles Context)))
     (define (artifact-files cx name loc)
       (match (Context-artifacts cx)
         ((Supplied)
@@ -344,7 +344,7 @@
     (define empty-expansion
       (ExpandedProgram empty-program empty-table 0 0 empty-table empty-table 0))
 
-    (: new-context (-> (List String) (-> (List String) (List Syntax) Bytes ! mut fs) Inputs ArtifactSource ExpandedProgram Context))
+    (: new-context (-> (List String) (-> (List String) (List Syntax) Bytes ! fs) Inputs ArtifactSource ExpandedProgram Context))
     (define (new-context directories generate inputs artifacts predecessor)
       (Context (ExpandedProgram-libraries predecessor) directories generate inputs "" (Nil) (Nil) (Nil) (Nil) empty-program
                empty-table artifacts (ExpandedProgram-counter predecessor) (ExpandedProgram-scopes predecessor)
@@ -455,7 +455,7 @@
     ;; for (snail-core core), else the library as this build expanded it,
     ;; which happens once, under the library's own scope, resumed in the
     ;; importer's.
-    (: load-library (-> Context (List String) Loc (Pair Exports Context) ! mut fs))
+    (: load-library (-> Context (List String) Loc (Pair Exports Context) ! fs))
     (define (load-library cx name loc)
       (let ((key (string-join name ".")))
         (cond ((builtin-library? key) (Pair (core-library) cx))
@@ -466,7 +466,7 @@
                        (match (read-library (Context-loading-set cx (Cons key (Context-loading cx))) name loc)
                          ((Pair exports loaded) (Pair exports (resumed cx loaded))))))))))
 
-    (: read-library (-> Context (List String) Loc (Pair Exports Context) ! mut fs))
+    (: read-library (-> Context (List String) Loc (Pair Exports Context) ! fs))
     (define (read-library cx name loc)
       (let ((path (library-path (Context-directories cx) name loc)))
         (expand-library-file cx name (file-library name (read-source path) path))))
@@ -519,7 +519,7 @@
 
     ;; A defined library expands its sections; a generated one expands the
     ;; library its producer's output declares.
-    (: expand-library-file (-> Context (List String) LibraryFile (Pair Exports Context) ! mut fs))
+    (: expand-library-file (-> Context (List String) LibraryFile (Pair Exports Context) ! fs))
     (define (expand-library-file cx name file)
       (match file
         ((DefinedLibrary sections) (expand-sections (Context-prefix-set cx (string-join name ".")) sections))
@@ -529,7 +529,7 @@
     ;; what the driver's provider makes of it. The producer is compiled while
     ;; this library loads, so the provider is given the loading stack, which
     ;; `load-library` began with this library's key.
-    (: generated-bytes (-> Context (List Syntax) Bytes ! mut fs))
+    (: generated-bytes (-> Context (List Syntax) Bytes ! fs))
     (define (generated-bytes cx forms)
       (match (generated-output (Context-inputs cx) (producer-text (Context-directories cx) forms))
         ((Some bytes) bytes)
@@ -682,7 +682,7 @@
     ;; where it may, or expands it; either way the library is recorded for
     ;; the next build. Its uses and links start empty, after its imports
     ;; have loaded with their own.
-    (: expand-sections (-> Context (List (Pair String (List Syntax))) (Pair Exports Context) ! mut fs))
+    (: expand-sections (-> Context (List (Pair String (List Syntax))) (Pair Exports Context) ! fs))
     (define (expand-sections cx sections)
       (expanding cx ((env (import-env (section-items sections "import"))))
                  (let* ((key (sections-key cx sections)) (cx (Context-links-set (Context-artifact-uses-set cx (Nil)) (Nil))))
@@ -693,7 +693,7 @@
 
     ;; The primitive library's body is its declarations, which add no items,
     ;; so it records no run and has no module.
-    (: expand-library-body (-> Context (List (Pair String (List Syntax))) Env (Pair Exports Context) ! mut fs))
+    (: expand-library-body (-> Context (List (Pair String (List Syntax))) Env (Pair Exports Context) ! fs))
     (define (expand-library-body cx sections env)
       (let* ((forms (section-items sections "begin"))
              (cx (if (primitive-library? cx)
@@ -704,7 +704,7 @@
     ;; The body's items follow those of the library's imports, and the
     ;; program records how many it added, so its items divide back into
     ;; libraries.
-    (: expand-library-run (-> Context Env (List Syntax) Context ! mut fs))
+    (: expand-library-run (-> Context Env (List Syntax) Context ! fs))
     (define (expand-library-run cx env forms)
       (let* ((before (length (program-items (Context-program cx)))) (cx (expand-top-level cx env forms))
              (count (- (length (program-items (Context-program cx))) before)))
@@ -752,11 +752,11 @@
     ;; can of `predecessor`, the build before. A producer program begins
     ;; with `(generating ...)`, and its imports load inside the libraries
     ;; that form names, so one that leads back to them is a cycle.
-    (: expand-program (-> (List String) (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ExpandedProgram ExpandedProgram ! mut fs))
+    (: expand-program (-> (List String) (-> (List String) (List Syntax) Bytes ! fs) Inputs String ExpandedProgram ExpandedProgram ! fs))
     (define (expand-program directories generate inputs path predecessor)
       (expanded-program (expand-source (new-context directories generate inputs (Supplied) predecessor) path)))
 
-    (: expand-source (-> Context String Context ! mut fs))
+    (: expand-source (-> Context String Context ! fs))
     (define (expand-source cx path)
       (let* ((source (generating-stack (read-source path))) (parts (program-parts (Pair-second source)))
              (cx (Context-loading-set (Context-prefix-set cx "main") (Pair-first source))))
@@ -861,7 +861,7 @@
     ;; names is no use. Each producer the program reaches must have its
     ;; output in `inputs`: discovery is for a program whose closure waits
     ;; for nothing.
-    (: discover-artifacts (-> (List String) Inputs String (List ArtifactUse) ! mut fs))
+    (: discover-artifacts (-> (List String) Inputs String (List ArtifactUse) ! fs))
     (define (discover-artifacts directories inputs path)
       (match (Context-artifacts (expand-source (new-context directories unsupplied-producer inputs (Discovering (Nil)) empty-expansion) path))
         ((Discovering uses) (reverse uses))
@@ -877,7 +877,7 @@
     ;; a changed body may have removed an old dependency. Every candidate
     ;; replay still requires the recorded inputs and compares exact file
     ;; contents. Removing an invocation must not require its obsolete input.
-    (: artifacts-current? (-> Context (List ArtifactUse) (Pair Bool Context) ! mut))
+    (: artifacts-current? (-> Context (List ArtifactUse) (Pair Bool Context)))
     (define (artifacts-current? cx uses)
       (match uses
         ((Nil) (Pair #t cx))
@@ -896,7 +896,7 @@
     ;; The library as the build before expanded it, if this build may replay
     ;; it: its declarations and its imports' interfaces are unchanged, its
     ;; embedded files current and its linked files present.
-    (: replayable (-> Context String (Pair (Option Expanded) Context) ! mut fs))
+    (: replayable (-> Context String (Pair (Option Expanded) Context) ! fs))
     (define (replayable cx key)
       (match (table-ref (Context-predecessor cx) (Context-prefix cx))
         ((Some entry)
@@ -925,7 +925,7 @@
     (define (artifact-stamp cx uses)
       (if (null? uses) (Pair "" cx) (fresh cx " artifact-")))
 
-    (: expand-recorded (-> Context (List (Pair String (List Syntax))) Env String (Pair Exports Context) ! mut fs))
+    (: expand-recorded (-> Context (List (Pair String (List Syntax))) Env String (Pair Exports Context) ! fs))
     (define (expand-recorded cx sections env key)
       (expanding cx ((exports (expand-library-body sections env)))
                  (let ((uses (Context-artifact-uses cx)) (links (reverse (Context-links cx))))
@@ -1036,7 +1036,7 @@
 
     ;; A top level over the bindings the specs provide, each loaded and
     ;; merged in turn.
-    (: import-env (-> Context (List Syntax) (Pair Env Context) ! mut fs))
+    (: import-env (-> Context (List Syntax) (Pair Env Context) ! fs))
     (define (import-env cx specs)
       (let loop ((cx cx) (specs specs) (imports empty-table))
         (match specs
@@ -1055,7 +1055,7 @@
         ((None) (table-set imports (Pair-first entry) (Pair-second entry)))))
 
     ;; The (name . binding) entries an import set provides.
-    (: import-set (-> Context Syntax (Pair Exports Context) ! mut fs))
+    (: import-set (-> Context Syntax (Pair Exports Context) ! fs))
     (define (import-set cx spec)
       (match spec
         ((Form (Cons (Ident "only" _ _) (Cons inner idents)) _)
@@ -1080,7 +1080,7 @@
                             cx))))
         (_ (load-library cx (library-name spec) (syntax-loc spec)))))
 
-    (: checked-import-set (-> Context Syntax (List Syntax) (Pair Exports Context) ! mut fs))
+    (: checked-import-set (-> Context Syntax (List Syntax) (Pair Exports Context) ! fs))
     (define (checked-import-set cx spec idents)
       (expanding cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
@@ -1142,7 +1142,7 @@
     (define declaration-keywords
       (list ":" "struct" "enum" "type" "typeclass" "instance" "extern" "effect" "expose"))
 
-    (: expand-top-level (-> Context Env (List Syntax) Context ! mut fs))
+    (: expand-top-level (-> Context Env (List Syntax) Context ! fs))
     (define (expand-top-level cx env forms)
       (expanding cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms)))
                  (let* ((pending (concatenate scanned))
@@ -1150,7 +1150,7 @@
                    (expanding cx ((bodies (each (lambda (cx entry) (declare cx signatures entry)) pending)))
                               (fold-left (lambda (cx body) (body cx)) cx (concatenate bodies))))))
 
-    (: scan-top-level (-> Context Env Syntax (Pair (List Pending) Context) ! mut fs))
+    (: scan-top-level (-> Context Env Syntax (Pair (List Pending) Context) ! fs))
     (define (scan-top-level cx env form)
       (expanding cx ((form (expand-head env form)))
                  (match (head-binding cx env form)
@@ -1170,7 +1170,7 @@
 
     ;; A declaration binds its names, then the instances a struct or enum
     ;; derives are scanned after it.
-    (: scan-declared (-> Context Env String Syntax (Pair (List Pending) Context) ! mut fs))
+    (: scan-declared (-> Context Env String Syntax (Pair (List Pending) Context) ! fs))
     (define (scan-declared cx env keyword form)
       (expanding cx ((then (scan-declaration env keyword form)))
                  (if (or (string=? keyword "struct") (string=? keyword "enum"))
@@ -1186,7 +1186,7 @@
         ((Form (Cons _ (Cons name (Cons _ (Nil)))) _) (expect-ident name "a definition name"))
         (_ (compile-error (syntax-loc form) "expected (define name value) or (define (name parameter ...) body ...)"))))
 
-    (: declare (-> Context (Table (Pair Scheme (Option Loc))) Pending (Pair (List (-> Context Context ! mut)) Context)))
+    (: declare (-> Context (Table (Pair Scheme (Option Loc))) Pending (Pair (List (-> Context Context)) Context)))
     (define (declare cx signatures pending)
       (let ((form (Pending-form pending)) (env (Pending-env pending)))
         (case (Pending-keyword pending)
@@ -1212,7 +1212,7 @@
            (_ (compile-error (syntax-loc name) (string-append "only a top-level function can be exposed: " (Ident-name name))))))
         (_ (compile-error (syntax-loc form) "expected (expose name \"symbol\")"))))
 
-    (: define-top-level (-> Context (Table (Pair Scheme (Option Loc))) Env Syntax Context ! mut))
+    (: define-top-level (-> Context (Table (Pair Scheme (Option Loc))) Env Syntax Context))
     (define (define-top-level cx signatures env form)
       (let ((name (global-binding cx env (definition-name form))))
         (expanding cx ((then (add-value name (match (table-ref signatures name)
@@ -1221,7 +1221,7 @@
                        (value (definition-value env form)))
                    (add-item cx (Define name value)))))
 
-    (: definition-value (-> Context Env Syntax (Pair Expr Context) ! mut))
+    (: definition-value (-> Context Env Syntax (Pair Expr Context)))
     (define (definition-value cx env form)
       (match form
         ((Form (Cons _ (Cons (Form (Cons _ params) _) body)) loc) (expand-lambda cx env params body loc))
@@ -1473,7 +1473,7 @@
         (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
 
     ;; Returns one step per method, which expands its definition.
-    (: declare-instance (-> Context Env Syntax (Pair (List (-> Context Context ! mut)) Context)))
+    (: declare-instance (-> Context Env Syntax (Pair (List (-> Context Context)) Context)))
     (define (declare-instance cx env form)
       (match form
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
@@ -1522,7 +1522,7 @@
     (struct MethodDefinition
       ((method String)
        (global String)
-       (expand (-> Context Context ! mut))))
+       (expand (-> Context Context))))
 
     (: instance-method (-> Context Env Class Instance Syntax (Pair MethodDefinition Context)))
     (define (instance-method cx env class instance definition)
@@ -1740,7 +1740,7 @@
     ;; Only an expanded use requests files. Unused macro templates cannot
     ;; trigger a build. The public macro supplies marked constructor names,
     ;; so ordinary expansion/typing constructs the value hygienically.
-    (: expand-artifact-files (-> Context Env (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-artifact-files (-> Context Env (List Syntax) Loc (Pair Expr Context)))
     (define (expand-artifact-files cx env items loc)
       (match items
         ((Cons _ (Cons (Atom (DString name) _) (Cons file (Cons cons (Cons nil (Nil))))))
@@ -1754,7 +1754,7 @@
     ;; Each library owns its uses, including when expansion loads another
     ;; library during deriving. Record an actual invocation once; unused
     ;; macro templates never enter this accumulator.
-    (: resolve-artifact-files (-> Context String Loc (Pair ArtifactFiles Context) ! mut))
+    (: resolve-artifact-files (-> Context String Loc (Pair ArtifactFiles Context)))
     (define (resolve-artifact-files cx name loc)
       (match (find (lambda (use) (string=? name (ArtifactUse-name use))) (Context-artifact-uses cx))
         ((Some use) (Pair (ArtifactUse-files use) cx))
@@ -1775,7 +1775,7 @@
     (define (expr term loc)
       (Expr term unchecked loc))
 
-    (: expand-expr (-> Context Env Syntax (Pair Expr Context) ! mut))
+    (: expand-expr (-> Context Env Syntax (Pair Expr Context)))
     (define (expand-expr cx env syntax)
       (expanding cx ((syntax (expand-head env syntax)))
                  (match syntax
@@ -1788,7 +1788,7 @@
                       (_ (expanding cx ((callee (expand-expr env head)) (arguments (expand-each env args)))
                                     (Pair (expr (App callee arguments) loc) cx))))))))
 
-    (: expand-each (-> Context Env (List Syntax) (Pair (List Expr) Context) ! mut))
+    (: expand-each (-> Context Env (List Syntax) (Pair (List Expr) Context)))
     (define (expand-each cx env forms)
       (each cx (lambda (cx form) (expand-expr cx env form)) forms))
 
@@ -1802,7 +1802,7 @@
         ((None) (compile-error loc (string-append "unbound identifier " (Ident-name ident))))
         (_ (compile-error loc (string-append "syntax used as a value: " (Ident-name ident))))))
 
-    (: expand-core (-> Context Env String (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-core (-> Context Env String (List Syntax) Loc (Pair Expr Context)))
     (define (expand-core cx env keyword items loc)
       (case keyword
         (("lambda")
@@ -1852,7 +1852,7 @@
            (_ (compile-error loc "only literals can be quoted"))))
         (else (compile-error loc (string-append "this form is only valid as a definition: " keyword)))))
 
-    (: expand-lambda (-> Context Env (List Syntax) (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-lambda (-> Context Env (List Syntax) (List Syntax) Loc (Pair Expr Context)))
     (define (expand-lambda cx env params body loc)
       (expanding cx ((locals (bind-locals env params)) (body (expand-body (Pair-first locals) body loc)))
                  (Pair (expr (Lambda (Pair-second locals) body) loc) cx)))
@@ -1865,7 +1865,7 @@
                  (Pair (Pair (fold-left (lambda (env bound) (extend env (Pair-first bound) (Local (Pair-second bound)))) env (zip idents names)) names)
                        cx)))
 
-    (: expand-body (-> Context Env (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-body (-> Context Env (List Syntax) Loc (Pair Expr Context)))
     (define (expand-body cx env forms loc)
       (when (null? forms) (compile-error loc "empty body"))
       (expand-body-forms cx env forms (None) loc))
@@ -1873,7 +1873,7 @@
     ;; A local body is sequential: each definition is visible to the forms
     ;; after it, and a function definition is also visible to itself. A
     ;; signature annotates the definition that follows it.
-    (: expand-body-forms (-> Context Env (List Syntax) (Option (Pair String Type)) Loc (Pair Expr Context) ! mut))
+    (: expand-body-forms (-> Context Env (List Syntax) (Option (Pair String Type)) Loc (Pair Expr Context)))
     (define (expand-body-forms cx scope forms signature loc)
       (match forms
         ((Nil) (compile-error loc "a body must end with an expression"))
@@ -1898,7 +1898,7 @@
          (Pair (Ident-name (expect-ident name "a name")) (Scheme-type (resolve-scheme cx scope type))))
         (_ (compile-error (syntax-loc form) "expected (: name type)"))))
 
-    (: expand-local-definition (-> Context Env Syntax (List Syntax) (Option (Pair String Type)) Loc (Pair Expr Context) ! mut))
+    (: expand-local-definition (-> Context Env Syntax (List Syntax) (Option (Pair String Type)) Loc (Pair Expr Context)))
     (define (expand-local-definition cx scope form rest signature loc)
       (let ((ident (definition-name form)))
         (expanding cx ((name (fresh (Ident-name ident))))
@@ -1920,7 +1920,7 @@
         ((None) value)))
 
     ;; `(let ((name value) ...) body ...)` or the named-let loop form.
-    (: expand-let (-> Context Env (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-let (-> Context Env (List Syntax) Loc (Pair Expr Context)))
     (define (expand-let cx env items loc)
       (match items
         ((Cons _ (Cons head (Cons more body)))
@@ -1930,14 +1930,14 @@
            (_ (compile-error loc "expected (let ((name value) ...) body ...)"))))
         (_ (compile-error loc "expected (let ((name value) ...) body ...)"))))
 
-    (: expand-named-let (-> Context Env Syntax (List Syntax) (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-named-let (-> Context Env Syntax (List Syntax) (List Syntax) Loc (Pair Expr Context)))
     (define (expand-named-let cx env ident bindings body loc)
       (expanding cx ((name (fresh (Ident-name ident)))
                      (loop (expand-lambda (extend env ident (Local name)) (map binding-name bindings) body loc))
                      (initial (each (lambda (cx binding) (expand-expr cx env (binding-value binding))) bindings)))
                  (Pair (expr (Let name loop (expr (App (expr (Var name (Nil) (Nil)) loc) initial) loc)) loc) cx)))
 
-    (: expand-plain-let (-> Context Env (List Syntax) (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-plain-let (-> Context Env (List Syntax) (List Syntax) Loc (Pair Expr Context)))
     (define (expand-plain-let cx env bindings body loc)
       (expanding cx ((values (each (lambda (cx binding) (expand-expr cx env (binding-value binding))) bindings))
                      (locals (bind-locals env (map binding-name bindings)))
@@ -1957,7 +1957,7 @@
         ((Form (Cons _ (Cons value (Nil))) _) value)
         (_ (compile-error (syntax-loc binding) "expected (name value)"))))
 
-    (: expand-handle (-> Context Env (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-handle (-> Context Env (List Syntax) Loc (Pair Expr Context)))
     (define (expand-handle cx env items loc)
       (match items
         ((Cons _ (Cons effect (Cons (Form implementations _) body)))
@@ -1969,7 +1969,7 @@
                       (Pair (expr (Handle id implementations body) loc) cx))))
         (_ (compile-error loc "expected (handle Effect ((operation implementation) ...) body ...)"))))
 
-    (: expand-implementation (-> Context Env String Syntax (Pair (Pair String Expr) Context) ! mut))
+    (: expand-implementation (-> Context Env String Syntax (Pair (Pair String Expr) Context)))
     (define (expand-implementation cx env effect implementation)
       (match implementation
         ((Form (Cons name (Cons value (Nil))) _)
@@ -2002,7 +2002,7 @@
     (define implicit-libraries
       (list (list "snail-core" "core") (list "snail-core" "primitive") (list "snail-core" "wire")))
 
-    (: derived-instances (-> Context Syntax Bool (Pair (List Syntax) Context) ! mut fs))
+    (: derived-instances (-> Context Syntax Bool (Pair (List Syntax) Context) ! fs))
     (define (derived-instances cx form enum?)
       (let* ((head (declaration-head form)) (loc (syntax-loc form))
              (cases (if enum?
@@ -2021,7 +2021,7 @@
                   (_ (compile-error (syntax-loc class) "only Serialize and Deserialize can be derived"))))
               (derived-classes form))))
 
-    (: deriving-scope (-> Context Loc (Pair I64 Context) ! mut fs))
+    (: deriving-scope (-> Context Loc (Pair I64 Context) ! fs))
     (define (deriving-scope cx loc)
       (match (Context-deriving cx)
         ((Some scope) (Pair scope cx))
@@ -2059,7 +2059,7 @@
                     (list (f d (Cons (w d "requires") (map (lambda (param) (f d (list (w d class) param))) params))))))))
 
     ;; Each case writes its TypeId, then its fields in order.
-    (: serialize-instance (-> Context Syntax (List (Pair Syntax I64)) Loc (Pair Syntax Context) ! mut fs))
+    (: serialize-instance (-> Context Syntax (List (Pair Syntax I64)) Loc (Pair Syntax Context) ! fs))
     (define (serialize-instance cx head cases loc)
       (expanding cx ((scope (deriving-scope loc)))
                  (let* ((d (Deriver scope loc)) (value (w d "value")) (encoder (w d "encoder")))
@@ -2078,7 +2078,7 @@
                                  (list (f d (list (w d "unit"))))))))))
 
     ;; The TypeId read selects the case; an unknown one is a schema mismatch.
-    (: deserialize-instance (-> Context Syntax (List (Pair Syntax I64)) Loc (Pair Syntax Context) ! mut fs))
+    (: deserialize-instance (-> Context Syntax (List (Pair Syntax I64)) Loc (Pair Syntax Context) ! fs))
     (define (deserialize-instance cx head cases loc)
       (expanding cx ((scope (deriving-scope loc)))
                  (let* ((d (Deriver scope loc)) (decoder (w d "decoder")) (id (w d "id")))
@@ -2101,7 +2101,7 @@
 
     ;; ---- Patterns ----
 
-    (: expand-match (-> Context Env (List Syntax) Loc (Pair Expr Context) ! mut))
+    (: expand-match (-> Context Env (List Syntax) Loc (Pair Expr Context)))
     (define (expand-match cx env items loc)
       (match items
         ((Cons _ (Cons scrutinee clauses))
@@ -2111,7 +2111,7 @@
 
     ;; A clause binds its pattern's variables first, so the pattern itself
     ;; only looks names up.
-    (: expand-clause (-> Context Env Syntax (Pair Clause Context) ! mut))
+    (: expand-clause (-> Context Env Syntax (Pair Clause Context)))
     (define (expand-clause cx env clause)
       (match (form-items clause "a match clause")
         ((Cons pattern body)
