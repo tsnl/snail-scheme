@@ -394,7 +394,7 @@ returned:
 `start` runs a generator to its first `yield`, and the implementation
 returns the value with `resume` instead of calling it. `interleave` calls
 each `next` long after `start` returned. A `Step` that holds a `Once` is
-affine itself, used at most once ([one-shot work](../runtimes/ownership.md)).
+affine itself, used at most once ([ownership](ownership.md)).
 
 The handler is deep: resuming re-installs it around the rest of the body,
 so the generator's next `yield` reaches the same implementation, and
