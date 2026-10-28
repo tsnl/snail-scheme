@@ -41,10 +41,10 @@
     (: source->expanded
        (-> (List String)
            String
-           (-> (List String) (List Syntax) Bytes ! fs)
+           (-> (List String) (List Syntax) Bytes ! fs compile)
            Inputs
            ExpandedProgram
-           ! fs))
+           ! fs compile))
     (define (source->expanded directories source generate inputs)
       (expand-program directories generate inputs source empty-expansion))
 
@@ -57,10 +57,10 @@
     (: source->wat
        (-> (List String)
            String
-           (-> (List String) (List Syntax) Bytes ! fs)
+           (-> (List String) (List Syntax) Bytes ! fs compile)
            Inputs
            WholeProgram
-           ! mut fs))
+           ! mut fs compile))
     (define (source->wat directories source generate inputs)
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (ExpandedProgram-program expanded)))
@@ -75,15 +75,20 @@
     (: source->modules
        (-> (List String)
            String
-           (-> (List String) (List Syntax) Bytes ! fs)
+           (-> (List String) (List Syntax) Bytes ! fs compile)
            Inputs
            (List Built)
-           ! mut fs))
+           ! mut fs compile))
     (define (source->modules directories source generate inputs)
       (Pair-first (build-session (make-session directories) source generate inputs)))
 
     (: source->schemas
-       (-> (List String) String (-> (List String) (List Syntax) Bytes ! fs) Inputs String ! fs))
+       (-> (List String)
+           String
+           (-> (List String) (List Syntax) Bytes ! fs compile)
+           Inputs
+           String
+           ! fs compile))
     (define (source->schemas directories source generate inputs)
       (let ((typed (check-program (ExpandedProgram-program
                                    (source->expanded directories source generate inputs)))))

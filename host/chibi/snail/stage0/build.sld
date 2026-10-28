@@ -43,7 +43,10 @@
    (chibi process)
    (snail stage0 process)
    (only (snail core base) match)
-   (only (snail shell compiler read) compile-error)
+   (only (snail shell compiler read)
+         compile-error
+         GenerateInput
+         ArtifactInput)
    (snail shell compiler inputs)
    (only (chibi string) string-contains string-cursor->index string-suffix?))
   (begin
@@ -794,7 +797,9 @@
           (expect (if (string-contains actual wanted) wanted actual) wanted)))
 
       ;; Exercise the real stage-0 unwind wrapper: uncaught Chibi errors use
-      ;; exit 70, so re-raising would silently break the exit-1 protocol.
+      ;; exit 70, so re-raising would silently break the exit-1 protocol. A
+      ;; request that cannot be written is an ordinary failure, status 1
+      ;; with a diagnostic naming the file, and leaves no request behind.
       (define (test-source-request-status root)
         (with-private-directory root
                                 (lambda (directory)
@@ -811,7 +816,11 @@
                                               ((ArtifactInput "client" _) #t) (_ #f)) #t)
                                     (delete-file request)
                                     (create-directory request)
-                                    (expect (caddr (capture-process command)) 512)))))
+                                    (let ((failed (capture-process command)))
+                                      (expect (caddr failed) 256)
+                                      (expect
+                                       (and (string-contains (cadr failed) "request.datum") #t)
+                                       #t))))))
 
       (define (test-build root)
         (test-source-request-status root)

@@ -2,8 +2,8 @@
 ;; build plans and immutable build inputs as opaque typed references. It
 ;; receives only parsed records: a project's targets, a plan's phases, a
 ;; compile's modules and the files they link. A compile the plan supplied
-;; needs no input it lacks; one that asks anyway is projected only after the
-;; compiler unwinds.
+;; needs no input it lacks; one that asks anyway sends its request's record
+;; and returns what its entry was given.
 (import
  (snail core base)
  (snail core io)
@@ -244,13 +244,15 @@
 (define (static! inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch directories)))
-     (let ((program (source->wat directories
-                                 source
-                                 (lambda (loading forms)
-                                   (generated-syntax scratch directories loading forms))
-                                 inputs)))
-       (write-file output (WholeProgram-text program))
-       (for-each send-link (WholeProgram-links program))))
+     (resident (lambda ()
+                 (let ((program (source->wat directories
+                                             source
+                                             (lambda (loading forms)
+                                               (generated-syntax scratch directories loading forms))
+                                             inputs)))
+                   (write-file output (WholeProgram-text program))
+                   (for-each send-link (WholeProgram-links program))))
+               (unit)))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
 
 ;; A file the program links: its name and where the build finds it.
@@ -263,14 +265,19 @@
 (define (modules! previous inputs)
   (match (take-arguments!)
     ((Cons source (Cons scratch (Nil)))
-     (let* ((directories (Session-directories previous))
-            (built (build-session previous
-                                  source
-                                  (lambda (loading forms)
-                                    (generated-syntax scratch directories loading forms))
-                                  inputs)))
-       (for-each send-module (Pair-first built))
-       (Pair-second built)))
+     (let ((directories (Session-directories previous)))
+       (resident (lambda ()
+                   (let ((built (build-session previous
+                                               source
+                                               (lambda (loading forms)
+                                                 (generated-syntax scratch
+                                                                   directories
+                                                                   loading
+                                                                   forms))
+                                               inputs)))
+                     (for-each send-module (Pair-first built))
+                     (Pair-second built)))
+                 previous)))
     (_ (panic "compiler modules: expected source and scratch directory"))))
 
 ;; A module's record: its library's name, its text, then the name and path
@@ -288,17 +295,27 @@
 (: reset! (-> Unit ! mut))
 (define (reset!)
   (clear-compile-error!)
-  (take-input-request!)
   (unit))
 
-(: request! (-> Unit ! mut compiler-output))
-(define (request!)
-  (match (take-input-request!)
-    ((Some (GenerateInput key)) (send-strings (list key)) (output-generate))
-    ((Some (ArtifactInput name loc))
+;; A compile run by an entry: its value, or, when it needs an input it was
+;; not supplied, `given` after its request's record is sent, so that the
+;; host, which finds the record, can supply the input and call again with
+;; what it had. A source error goes on as it came.
+(: resident (All (T e) (-> (-> T ! compile e) T T ! compiler-output e)))
+(define (resident work given)
+  (match (compiling work)
+    ((Ok value) value)
+    ((Err (Requested request)) (send-request request) given)
+    ((Err (Failed diagnostic))
+     (compile-error (SourceDiagnostic-loc diagnostic) (SourceDiagnostic-message diagnostic)))))
+
+(: send-request (-> CompilerRequest Unit ! compiler-output))
+(define (send-request request)
+  (match request
+    ((GenerateInput key) (send-strings (list key)) (output-generate))
+    ((ArtifactInput name loc)
      (send-strings (list name (Loc-file loc)))
-     (output-artifact (Loc-line loc) (Loc-column loc)))
-    ((None) (unit))))
+     (output-artifact (Loc-line loc) (Loc-column loc)))))
 
 ;; ---- Immutable build inputs ----
 
@@ -350,7 +367,6 @@
 (expose static! "static")
 (expose modules! "modules")
 (expose reset! "reset")
-(expose request! "request")
 (expose inputs "inputs")
 (expose add-artifact! "add_artifact")
 (expose add-generated! "add_generated")
