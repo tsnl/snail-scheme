@@ -17,8 +17,9 @@ The [task contract](contract.md) specifies the replacement for
 the actor API. It separates scheduling, handler installations and owned
 values. The actor request/reply API has been removed. [Task operations](tasks.md)
 run in the CLI and GUI. [Applications](../snail-core/applications.md) describes
-checkpoint handover and reload on that runtime. [One-shot work and
-ownership](ownership.md) describes the implemented affine subset.
+checkpoint handover and reload on that runtime.
+[Ownership](../snail-core/ownership.md) describes the implemented affine
+subset, and the linear design that replaces it.
 The [socket effects](networking.md) bind typed, interceptable TCP and UDP operations
 to native Node resources, with cancellation and shutdown owned by the runtime, and the
 [process effect](networking.md#child-processes) binds child processes the same way.
