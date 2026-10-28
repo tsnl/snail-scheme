@@ -778,10 +778,14 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
+                        ;; Comparing V8 with wasmtime needs the native executable, built
+                        ;; only when SNAIL_ENGINE=wasmtime selects it (make test-wasmtime).
+                        (if (and (null? selected) (wasmtime-engine?))
+                            (list (lambda () (check-engine-agreement root)))
+                            '())
                         (if (null? selected)
                             (list (lambda () (run-command-line root))
                                   (lambda () (check-host-agreement root))
-                                  (lambda () (check-engine-agreement root))
                                   (lambda () (check-project-builds root))
                                   (lambda () (check-project-run root))
                                   (lambda () (check-application-process root))

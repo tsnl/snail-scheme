@@ -115,7 +115,8 @@ that time for a worse report. Push when a change is verified, not to find out.
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path crates/runtime/Cargo.toml --offline`, and
 `cargo fmt --manifest-path crates/runtime/Cargo.toml --all -- --check`, and the
-same two for `crates/assembler`. The
+same two for `crates/assembler` and `crates/snail`. Changes to the native
+executable or to how compiles run must also pass `make test-wasmtime`. The
 driver rebuilds the compiled compiler whenever the compiler's source
 changes; compiler changes must also pass `make test-chibi`, which runs the
 source on Chibi, and `make bootstrap`, which rebuilds from Chibi alone.

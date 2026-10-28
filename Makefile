@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-chibi test-browser bootstrap ide site siegework hearsay pages
+.PHONY: format check fetch test test-wasmtime test-chibi test-browser bootstrap ide site siegework hearsay pages
 
 CHIBI ?= chibi-scheme
 # Chibi collects the whole heap whenever it grows, so start it large.
@@ -25,6 +25,11 @@ fetch:
 test:
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
+
+# The suite with every compile on the native executable's wasmtime instead of
+# Node, plus the check that both engines emit the same text.
+test-wasmtime:
+	SNAIL_ENGINE=wasmtime $(MAKE) test
 
 # The suite with the compiler's source running on Chibi instead of as Wasm.
 test-chibi:

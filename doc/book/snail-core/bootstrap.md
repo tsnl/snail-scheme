@@ -53,7 +53,8 @@ choose. Declarations are listed by name. So the two hosts emit the same text
 for the same program, and the build checks it: `make test` compares them on
 `examples/fibonacci.sld`, and `make bootstrap` compares them on the compiler
 itself. The compiled compiler runs on two engines, V8 and wasmtime, and
-`make test` compares those on Siegework.
+`make test-wasmtime`, which runs the suite on wasmtime, compares those on
+Siegework.
 
 **Bootstrap.**
 

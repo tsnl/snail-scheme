@@ -24,6 +24,7 @@
    standard-directories
    with-private-directory
    node-command
+   wasmtime-engine?
    path-join
    absolute
    read-file
@@ -312,8 +313,10 @@
 
     ;; The native executable is built first, so that the bootstrap's stages
     ;; can run on it and the suite can compare it with Node.
+    ;; The native executable is built only for the engine that runs on it:
+    ;; with Node the default, a bootstrap never waits on a wasmtime build.
     (define (bootstrap! root)
-      (snail-binary root)
+      (when (wasmtime-engine?) (snail-binary root))
       (with-build-lock root (lambda () (rebuild-compiler! root))))
 
     ;; The current compiler as machine code for build/snail's engine, which
