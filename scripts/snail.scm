@@ -83,7 +83,7 @@
 
 ;; The program inherits standard input and output; its status is returned.
 (define (run-program root program arguments)
-  (let ((status (cadr (apply system (append (node-command root program) arguments)))))
+  (let ((status (cadr (apply system (append (program-command root program) arguments)))))
     (quotient status 256)))
 
 ;; The tools the development server runs, built if needed, as JSON for

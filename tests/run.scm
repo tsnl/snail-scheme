@@ -17,7 +17,7 @@
  (only (chibi pathname) path-directory)
  (chibi process)
  (snail-core process)
- (only (chibi string) string-contains string-split string-suffix?)
+ (only (chibi string) string-contains string-cursor->index string-split string-suffix?)
  (srfi 1)
  (snail-core build)
  (only (snail-core compiler read) test-read)
@@ -69,9 +69,18 @@
 
 ;; ---- Programs ----
 
+;; What a program prints, its standard output then its standard error, on
+;; the host `program-command` chooses (host/chibi/snail-core/build.sld).
 (define (run-wasm root program . arguments)
-  (let ((result (capture-process (append (node-command root program) arguments))))
-    (string-append (car result) (cadr result))))
+  (let ((result (capture-process (append (program-command root program) arguments))))
+    (string-append (car result) (without-backtrace (cadr result)))))
+
+;; Wasmtime tells a trap with the Wasm frames after its message, which name
+;; the functions the compiler chose; a case's expected output ends with the
+;; message.
+(define (without-backtrace text)
+  (let ((cursor (string-contains text "error while executing at wasm backtrace:\n")))
+    (if cursor (substring text 0 (string-cursor->index text cursor)) text)))
 
 ;; Compiles a case. A case that expects a diagnostic is decided here; any
 ;; other becomes the check that links its program, places the files it
@@ -281,11 +290,8 @@
       (create-directory* (path-join root "build/tests/formatter"))
       (link-wat root text program #f)
       (let ((result (capture-process
-                     (append (list "node"
-                                   "--no-warnings"
-                                   (path-join root "host/native/run-snail.mjs")
-                                   program
-                                   "--check")
+                     (append (program-command root program)
+                             (list "--check")
                              (map (lambda (file) (path-join root file))
                                   (delete "" (string-split (car files) #\newline)))))))
         (or (and (zero? (caddr result)) (string=? (car result) ""))
@@ -530,7 +536,7 @@
 
 (define (check-artifacts root output compiler)
   (let ((compiled (capture-process
-                   (append (node-command root compiler)
+                   (append (program-command root compiler)
                            (append (list (path-join root "tests/artifacts/main.sld") output)
                                    (standard-directories root)
                                    (list (path-join root "tests/artifacts/lib")))))))

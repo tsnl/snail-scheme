@@ -1124,6 +1124,8 @@ dependencies = [
 name = "snail"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
+ "wasmparser 0.254.2",
  "wasmtime",
  "wasmtime-wasi",
  "wat",
