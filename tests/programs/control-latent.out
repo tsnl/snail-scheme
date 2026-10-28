@@ -1,0 +1,14 @@
+task 1 fetches 10
+task 2 fetches 20
+waiting on 10
+fetched 101
+task 1 fetches 11
+waiting on 20
+fetched 201
+task 2 fetches 21
+waiting on 11
+waiting on 21
+done with 212
+done with 412
+outer log: before
+inner log: note inside

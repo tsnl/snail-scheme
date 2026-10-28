@@ -1487,8 +1487,9 @@
 
     ;; Each operation is one function, so its call sites are ordinary calls.
     ;; It walks the evidence for its effect's node and calls that handler's
-    ;; implementation with the evidence outside it; with no node it uses the
-    ;; host default. A control operation records a yield at the node
+    ;; implementation with the evidence outside it, which forwards the
+    ;; effects its latent row names (see Latent effects); with no node it
+    ;; uses the default. A control operation records a yield at the node
     ;; instead (see Control).
     (: performer (-> Module String String String ! mut))
     (define (performer m effect operation)
@@ -1499,58 +1500,67 @@
                         (names (map (lambda (index) (string-append "$argument." (i64->string index))) (iota (length params))))
                         (info (program-effect (program-of m) effect)))
                    (wat* "func"
-                         (append (Cons (id function-id)
-                                       (Cons (evidence-param m)
-                                             (map (lambda (pair) (wat "param" (id (Pair-first pair)) (rep->wat (Pair-second pair)))) (zip names params))))
-                                 (list (wat "result" (rep->wat result))
-                                       (wat "local" (Word "$node") (wat "ref" (Word "null") (id (evidence-type m))))
-                                       (wat "local.set" (Word "$node") (wat "local.get" (Word "$ev")))
-                                       (wat* "loop" (Cons (Word "$walk") (handler-search m info operation names params result)))
-                                       (wat "unreachable"))))))))
+                         (concatenate
+                          (list (Cons (id function-id)
+                                      (Cons (evidence-param m)
+                                            (map (lambda (pair) (wat "param" (id (Pair-first pair)) (rep->wat (Pair-second pair)))) (zip names params))))
+                                (list (wat "result" (rep->wat result))
+                                      (wat "local" (Word "$node") (wat "ref" (Word "null") (id (evidence-type m)))))
+                                (forwarding-locals m operation result)
+                                (list (wat "local.set" (Word "$node") (wat "local.get" (Word "$ev")))
+                                      (wat* "loop" (Cons (Word "$walk") (handler-search m info operation names params result)))
+                                      (wat "unreachable")))))))))
 
-    ;; One step of the walk: the host default past the last node, the
+    ;; One step of the walk: the default past the last node, the
     ;; implementation at the effect's node, else the next node out.
     (: handler-search (-> Module Effect String (List String) (List Rep) Rep (List Wat) ! mut))
     (define (handler-search m info operation names params result)
       (let ((node (wat "local.get" (Word "$node"))) (evidence (evidence-type m)))
-        (list (wat "if" (wat "ref.is_null" node) (wat "then" (wat* "return" (host-default m info operation names))))
+        (list (wat "if" (wat "ref.is_null" node) (wat* "then" (default-call m info operation names)))
               (wat "if" (wat "i32.eq" (wat "struct.get" (id evidence) (int 0) node) (effect-label (Effect-name info)))
                    (wat* "then" (at-handler m info operation names params result)))
               (wat "local.set" (Word "$node") (wat "struct.get" (id evidence) (int 2) node))
               (wat "br" (Word "$walk")))))
 
     ;; At the effect's node an ordinary operation calls the implementation
-    ;; there and returns its result; a control operation records the yield
-    ;; and returns a placeholder.
+    ;; there and returns its result, under forwarding nodes when its latent
+    ;; row names effects with operations; a control operation records the
+    ;; yield and returns a placeholder.
     (: at-handler (-> Module Effect String (List String) (List Rep) Rep (List Wat) ! mut))
     (define (at-handler m info operation names params result)
-      (if (member? operation (Effect-control info))
-          (list (record-yield m info operation names params) (wat "return" (placeholder m (operation-result m operation) no-loc)))
-          (list (wat "return" (implementation-call m info operation names params result)))))
+      (cond ((member? operation (Effect-control info))
+             (list (record-yield m info operation names params) (wat "return" (placeholder m (operation-result m operation) no-loc))))
+            ((null? (forwarded-effects m operation))
+             (list (wat "return" (implementation-call m info operation names params result (node-outside m (wat "local.get" (Word "$node")))))))
+            (else (forwarding-call m info operation names params result))))
 
-    (: implementation-call (-> Module Effect String (List String) (List Rep) Rep Wat ! mut))
-    (define (implementation-call m info operation names params result)
-      (let* ((handler-id (handler-type m (Effect-name info))) (base (closure-type m params result)) (evidence (evidence-type m))
-             (node (wat "local.get" (Word "$node")))
-             (index (match (list-index (lambda (o) (string=? o operation)) (Effect-operations info))
-                      ((Some index) index)
-                      ((None) (panic "internal error: unknown operation"))))
-             (implementation (wat "struct.get" (id handler-id) (int index)
-                                  (wat "ref.cast" (wat "ref" (id handler-id)) (wat "struct.get" (id evidence) (int 1) node))))
-             (outer (wat "ref.as_non_null" (wat "struct.get" (id evidence) (int 2) node))))
+    ;; The implementation at the walk's node, called under `evidence`.
+    (: implementation-call (-> Module Effect String (List String) (List Rep) Rep Wat Wat ! mut))
+    (define (implementation-call m info operation names params result evidence)
+      (let* ((handler-id (handler-type m (Effect-name info))) (base (closure-type m params result))
+             (implementation (wat "struct.get" (id handler-id) (int (operation-index info operation))
+                                  (wat "ref.cast" (wat "ref" (id handler-id)) (wat "struct.get" (id (evidence-type m)) (int 1) (wat "local.get" (Word "$node")))))))
         (wat* "call_ref" (Cons (id (code-type m base))
                                (Cons implementation
-                                     (Cons outer (append (map (lambda (name) (wat "local.get" (id name))) names)
-                                                         (list (wat "struct.get" (id base) (int 0) implementation)))))))))
+                                     (Cons evidence (append (map (lambda (name) (wat "local.get" (id name))) names)
+                                                            (list (wat "struct.get" (id base) (int 0) implementation)))))))))
 
-    (: host-default (-> Module Effect String (List String) (List Wat) ! mut))
-    (define (host-default m info operation names)
-      (let ((type (operation-type m operation)))
-        (match (assoc-ref (Effect-host info) operation)
-          ((Some import) (host-call m import type (map (lambda (name) (wat "local.get" (id name))) names) no-loc))
+    ;; The evidence outside a node.
+    (: node-outside (-> Module Wat Wat ! mut))
+    (define (node-outside m node)
+      (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 2) node)))
+
+    ;; Past the last node: the host import, or the Snail-Core function,
+    ;; called under the performer's evidence, or a trap.
+    (: default-call (-> Module Effect String (List String) (List Wat) ! mut))
+    (define (default-call m info operation names)
+      (let ((arguments (map (lambda (name) (wat "local.get" (id name))) names)))
+        (match (assoc-ref (Effect-defaults info) operation)
+          ((Some (HostDefault import)) (list (wat* "return" (host-call m import (operation-type m operation) arguments no-loc))))
+          ((Some (SnailDefault function)) (list (wat* "return_call" (Cons (id (function-id m function)) (Cons (wat "local.get" (Word "$ev")) arguments)))))
           ((None)
-           (list (wat "call" (id (panic-helper m)) (string-literal m (string-append "unhandled effect operation " (short-name operation))))
-                 (wat "unreachable"))))))
+           (list (wat "return" (wat "call" (id (panic-helper m)) (string-literal m (string-append "unhandled effect operation " (short-name operation))))
+                      (wat "unreachable")))))))
 
     ;; ---- Control ----
 
@@ -1921,7 +1931,7 @@
     (: pass-on (-> Module Effect Type Loc Wat ! mut))
     (define (pass-on m info type loc)
       (let ((node (wat "local.get" (Word "$node"))))
-        (wat "if" (wat "i32.eqz" (aimed-at? m node)) (wat "then" (enclose m info type node loc) (wat "return" (placeholder m type loc))))))
+        (wat "if" (wat "i32.eqz" (aimed-at? m node)) (wat "then" (enclose m (Handling info loc) type node) (wat "return" (placeholder m type loc))))))
 
     (: dispatch-locals (-> Module Effect Type (List Wat) ! mut))
     (define (dispatch-locals m info type)
@@ -2030,15 +2040,43 @@
   (return_call {rehandle} (struct.get {resume} 1 (ref.cast (ref {resume}) (local.get $closure))) (local.get $ev) {boxed}))"
                                (list (Pair "id" function-id) (Pair "code" (code-type m base)) (Pair "base" base) (Pair "evidence" (evidence-type m))
                                      (Pair "answer" (wat->text (rep->wat (rep m (operation-result m operation))))) (Pair "result" (wat->text (rep->wat (rep m type))))
-                                     (Pair "rehandle" (rehandler m info type loc)) (Pair "resume" resume)
+                                     (Pair "rehandle" (rehandler m (Handling info loc) type)) (Pair "resume" resume)
                                      (Pair "boxed" (wat->text (box-value m (operation-result m operation) (wat "local.get" (Word "$answer"))))))))))))
 
-    ;; The handle again, for one effect and handle result type: the
+    ;; Where a handle's saved frames end when a yield reaches them: at an
+    ;; effect's handler, which catches the yields aimed at its node, or at
+    ;; a forwarding node's catch, which re-aims them (see Latent effects).
+    ;; Each has its own helpers, named by the effect and the handle's type.
+    (enum Catch
+      (Handling
+       ((info Effect)
+        (loc Loc)))
+      (Forwarding
+       ((info Effect))))
+
+    (: catch-helper (-> Module Catch Type String ! mut))
+    (define (catch-helper m catch type)
+      (match catch
+        ((Handling info loc) (catcher m info type loc))
+        ((Forwarding info) (forwarder m info type))))
+
+    (: catch-prefix (-> Catch String String))
+    (define (catch-prefix catch prefix)
+      (match catch
+        ((Handling _ _) prefix)
+        ((Forwarding _) (string-append "forward-" prefix))))
+
+    (: catch-key (-> Catch Type String))
+    (define (catch-key catch type)
+      (let ((info (match catch ((Handling info _) info) ((Forwarding info) info))))
+        (string-append (Effect-name info) " " (type-key type))))
+
+    ;; The handle again, for one catch and handle result type: the
     ;; continuation run on a boxed value under `$ev`, ending, if a yield
     ;; reaches it, in the handle's catch, in tail position.
-    (: rehandler (-> Module Effect Type Loc String ! mut))
-    (define (rehandler m info type loc)
-      (helper! m "rehandle" (string-append (Effect-name info) " " (type-key type))
+    (: rehandler (-> Module Catch Type String ! mut))
+    (define (rehandler m catch type)
+      (helper! m (catch-prefix catch "rehandle") (catch-key catch type)
                (lambda (function-id)
                  (Word (fill "(func {id} (param $continuation (ref {continuation})) (param $ev (ref {evidence})) (param $value anyref) (result {result})
   (local.set $value (call {continue} (local.get $continuation) (local.get $ev) (local.get $value)))
@@ -2046,7 +2084,7 @@
   {unboxed})"
                              (list (Pair "id" function-id) (Pair "continuation" (continuation-type m)) (Pair "evidence" (evidence-type m))
                                    (Pair "result" (wat->text (rep->wat (rep m type)))) (Pair "continue" (continue-helper m))
-                                   (Pair "yielding" (wat->text (yielding? m))) (Pair "catch" (catcher m info type loc))
+                                   (Pair "yielding" (wat->text (yielding? m))) (Pair "catch" (catch-helper m catch type))
                                    (Pair "unboxed" (wat->text (unbox-value m type (wat "local.get" (Word "$value")))))))))))
 
     ;; A handle that a yield leaves, saved as a frame: the frames saved
@@ -2065,9 +2103,9 @@
                                 (wat "sub" (Word "final") (id frame)
                                      (wat "struct" (wat "field" (wat "ref" (id (code-type m frame)))) (wat "field" (wat "ref" (id (continuation-type m))))))))))))
 
-    (: handled-code (-> Module Effect Type Loc String ! mut))
-    (define (handled-code m info type loc)
-      (helper! m "handled" (string-append (Effect-name info) " " (type-key type))
+    (: handled-code (-> Module Catch Type String ! mut))
+    (define (handled-code m catch type)
+      (helper! m (catch-prefix catch "handled") (catch-key catch type)
                (lambda (function-id)
                  (let ((frame (frame-type m)) (continuation (continuation-type m)))
                    (push! (Module-declared m) function-id)
@@ -2077,15 +2115,15 @@
   {boxed})"
                                (list (Pair "id" function-id) (Pair "code" (code-type m frame)) (Pair "frame" frame) (Pair "continuation" continuation)
                                      (Pair "handled" (handled-type m))
-                                     (Pair "boxed" (wat->text (box-value m type (wat "call" (id (rehandler m info type loc)) (wat "local.get" (Word "$continuation"))
+                                     (Pair "boxed" (wat->text (box-value m type (wat "call" (id (rehandler m catch type)) (wat "local.get" (Word "$continuation"))
                                                                                      (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 2) (wat "struct.get" (id continuation) (int 1) (wat "local.get" (Word "$continuation")))))
                                                                                      (wat "local.get" (Word "$value")))))))))))))
 
     ;; Saves the handle at `node`, which a yield is leaving, as one frame
     ;; in place of the frames saved inside its body.
-    (: enclose (-> Module Effect Type Wat Loc Wat ! mut))
-    (define (enclose m info type node loc)
-      (wat "call" (id (enclose-helper m)) node (wat "ref.func" (id (handled-code m info type loc)))))
+    (: enclose (-> Module Catch Type Wat Wat ! mut))
+    (define (enclose m catch type node)
+      (wat "call" (id (enclose-helper m)) node (wat "ref.func" (id (handled-code m catch type)))))
 
     (: enclose-helper (-> Module String ! mut))
     (define (enclose-helper m)
@@ -2145,6 +2183,155 @@
       (br $next)))
   (local.get $reversed))"
                         (list (Pair "frames" (frames-type m)))))
+
+    ;; ---- Latent effects ----
+
+    ;; An ordinary operation's implementation runs under the handlers
+    ;; outside its own, except for the effects its latent row names, which
+    ;; go to the handlers in scope where the operation was performed: the
+    ;; performer was charged those, so they are the ones every frame between
+    ;; the two tests for. The performer therefore calls the implementation
+    ;; under a forwarding node for each such effect, over the evidence
+    ;; outside its handler. A forwarding node's handler holds the
+    ;; performer's evidence in each control field, and in each ordinary
+    ;; field a closure that performs the operation again under it. A yield
+    ;; aimed at a forwarding node is caught as the call returns, re-aimed
+    ;; at the first node for its effect in the performer's evidence, and
+    ;; passed on, with the forwarding node's catch saved as a frame, so a
+    ;; yield after the implementation is resumed is re-aimed too. Resumed
+    ;; elsewhere, the implementation keeps the evidence outside its handler,
+    ;; whose handles may have returned; that is sound because its yields go
+    ;; only to forwarded effects (see control.sld), so only ordinary
+    ;; operations reach that evidence. The builtin effects, mut and tasks,
+    ;; which no evidence carries, need no node.
+    (: forwarded-effects (-> Module String (List Effect)))
+    (define (forwarded-effects m operation)
+      (match (program-value (program-of m) operation)
+        ((Some (Operation effect scheme))
+         (map (lambda (label) (program-effect (program-of m) label))
+              (filter (lambda (label) (table-contains? (Program-effects (program-of m)) label)) (operation-latent effect scheme))))
+        (_ (panic "internal error: not an operation"))))
+
+    ;; The performer's locals for forwarding: the result, and a node per
+    ;; forwarded effect.
+    (: forwarding-locals (-> Module String Rep (List Wat) ! mut))
+    (define (forwarding-locals m operation result)
+      (let ((effects (forwarded-effects m operation)))
+        (if (null? effects)
+            (Nil)
+            (Cons (wat "local" (Word "$forwarded") (rep->wat result))
+                  (map (lambda (index) (wat "local" (latent-local index) (evidence-ref m))) (iota (length effects)))))))
+
+    (: latent-local (-> I64 Wat))
+    (define (latent-local index)
+      (Word (string-append "$latent." (i64->string index))))
+
+    ;; At the effect's node: a forwarding node per forwarded effect, each
+    ;; over the one before and the first over the evidence outside the
+    ;; node; the implementation called under the last; then the catch of
+    ;; each node of a control effect, innermost first.
+    (: forwarding-call (-> Module Effect String (List String) (List Rep) Rep (List Wat) ! mut))
+    (define (forwarding-call m info operation names params result)
+      (let* ((effects (forwarded-effects m operation)) (last-node (wat "local.get" (latent-local (- (length effects) 1))))
+             (outside (lambda (index) (if (= index 0) (node-outside m (wat "local.get" (Word "$node"))) (wat "local.get" (latent-local (- index 1)))))))
+        (concatenate
+         (list (map-indexed (lambda (index effect) (wat "local.set" (latent-local index) (forwarding-node m effect (outside index)))) effects)
+               (list (wat "local.set" (Word "$forwarded") (implementation-call m info operation names params result last-node)))
+               (reverse (forwarding-catches m effects (operation-result m operation)))
+               (list (wat "return" (wat "local.get" (Word "$forwarded"))))))))
+
+    (: forwarding-catches (-> Module (List Effect) Type (List Wat) ! mut))
+    (define (forwarding-catches m effects type)
+      (concatenate (map-indexed (lambda (index effect)
+                                  (if (null? (Effect-control effect))
+                                      (Nil)
+                                      (list (wat "if" (yielding? m)
+                                                 (wat "then" (wat "local.set" (Word "$forwarded")
+                                                                  (wat "call" (id (forwarder m effect type)) (wat "local.get" (latent-local index)))))))))
+                                effects)))
+
+    ;; A forwarding node for an effect over `outside`, whose handler sends
+    ;; each of the effect's operations to the performer's evidence, `$ev`.
+    (: forwarding-node (-> Module Effect Wat Wat ! mut))
+    (define (forwarding-node m info outside)
+      (wat "struct.new" (id (evidence-type m)) (effect-label (Effect-name info))
+           (wat* "struct.new" (Cons (id (handler-type m (Effect-name info))) (map (lambda (operation) (forwarding-field m info operation)) (Effect-operations info))))
+           outside))
+
+    (: forwarding-field (-> Module Effect String Wat ! mut))
+    (define (forwarding-field m info operation)
+      (if (member? operation (Effect-control info))
+          (wat "local.get" (Word "$ev"))
+          (wat "struct.new" (id (forwarding-closure m operation)) (wat "ref.func" (id (forwarding-code m info operation))) (wat "local.get" (Word "$ev")))))
+
+    ;; An ordinary operation's closure that holds the evidence to perform it
+    ;; under.
+    (: forwarding-closure (-> Module String String ! mut))
+    (define (forwarding-closure m operation)
+      (let ((signature (function-signature m (operation-type m operation))))
+        (capture-type m (closure-type m (Pair-first signature) (Pair-second signature)) (list (evidence-rep m)))))
+
+    ;; Its code: the operation performed under the evidence it holds.
+    (: forwarding-code (-> Module Effect String String ! mut))
+    (define (forwarding-code m info operation)
+      (helper! m "forward" operation
+               (lambda (function-id)
+                 (let* ((signature (function-signature m (operation-type m operation))) (closure (forwarding-closure m operation))
+                        (base (closure-type m (Pair-first signature) (Pair-second signature)))
+                        (names (map (lambda (index) (string-append "$argument." (i64->string index))) (iota (length (Pair-first signature)))))
+                        (held (wat "struct.get" (id closure) (int 1) (wat "ref.cast" (wat "ref" (id closure)) (wat "local.get" (Word "$closure"))))))
+                   (push! (Module-declared m) function-id)
+                   (wat* "func" (concatenate (list (list (id function-id) (wat "type" (id (code-type m base))) (wat "param" (Word "$closure") (wat "ref" (id base)))
+                                                         (evidence-param m))
+                                                   (map (lambda (pair) (wat "param" (id (Pair-first pair)) (rep->wat (Pair-second pair)))) (zip names (Pair-first signature)))
+                                                   (list (wat "result" (rep->wat (Pair-second signature)))
+                                                         (wat* "return_call" (Cons (id (performer m (Effect-name info) operation))
+                                                                                   (Cons held (map (lambda (name) (wat "local.get" (id name))) names))))))))))))
+
+    ;; A forwarding node's catch: a yield aimed at the node is re-aimed at
+    ;; the performer's handler. Either way the yield leaves, and the node's
+    ;; catch is saved as a frame (see Resuming).
+    (: forwarder (-> Module Effect Type String ! mut))
+    (define (forwarder m info type)
+      (helper! m "forward-catch" (string-append (Effect-name info) " " (type-key type))
+               (lambda (function-id)
+                 (let ((node (wat "local.get" (Word "$node"))))
+                   (wat "func" (id function-id) (wat "param" (Word "$node") (evidence-ref m)) (wat "result" (rep->wat (rep m type)))
+                        (wat "if" (aimed-at? m node) (wat "then" (wat "call" (id (retargeter m info)) node)))
+                        (enclose m (Forwarding info) type node)
+                        (placeholder m type no-loc))))))
+
+    ;; Sets the record, aimed at a forwarding node, to aim at the first node
+    ;; for the node's effect in the performer's evidence, which the node's
+    ;; handler holds, with the same operation, arguments and frames.
+    (: retargeter (-> Module Effect String ! mut))
+    (define (retargeter m info)
+      (template-helper! m "retarget" (Effect-name info)
+                        "(func {id} (param $node (ref {evidence}))
+  (local $record (ref {yield}))
+  (local $target (ref null {evidence}))
+  (local.set $record (ref.as_non_null (global.get {yielding})))
+  (local.set $target (ref.cast (ref {evidence}) (struct.get {handler} {index} (ref.cast (ref {handler}) (struct.get {evidence} 1 (local.get $node))))))
+  (loop $walk
+    (if (ref.is_null (local.get $target)) (then (call {panic} {message}) (unreachable)))
+    (if (i32.eq (struct.get {evidence} 0 (local.get $target)) {label})
+      (then (global.set {yielding} (struct.new {yield} (ref.as_non_null (local.get $target)) (struct.get {yield} 1 (local.get $record))
+                                     (struct.get {yield} 2 (local.get $record)) (struct.get {yield} 3 (local.get $record))))
+            (return)))
+    (local.set $target (struct.get {evidence} 2 (local.get $target)))
+    (br $walk)))"
+                        (list (Pair "evidence" (evidence-type m)) (Pair "yield" (yield-type m)) (Pair "yielding" (yielding m))
+                              (Pair "handler" (handler-type m (Effect-name info)))
+                              (Pair "index" (i64->string (operation-index info (first-control info))))
+                              (Pair "panic" (panic-helper m))
+                              (Pair "message" (wat->text (string-literal m (string-append "unhandled effect " (short-name (Effect-name info))))))
+                              (Pair "label" (wat->text (effect-label (Effect-name info)))))))
+
+    (: first-control (-> Effect String))
+    (define (first-control info)
+      (match (Effect-control info)
+        ((Cons operation _) operation)
+        ((Nil) (panic "internal error: not a control effect"))))
 
     ;; ---- Primitives ----
 

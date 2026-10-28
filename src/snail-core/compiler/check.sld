@@ -734,21 +734,30 @@
        (result Type)
        (rest Type)))
 
+    ;; An implementation may perform its operation's latent row, which its
+    ;; performer is charged; what else it performs, its context must allow.
     (: infer-implementation (-> Checker (Pair String Expr) Answer Type Loc (Pair (Pair String Expr) Checker)))
     (define (infer-implementation ck entry answer row loc)
-      (match (global-scheme ck (Pair-first entry))
-        ((Some scheme)
+      (match (program-value (program-of ck) (Pair-first entry))
+        ((Some (Operation effect scheme))
          (learning ck ((use (instantiate scheme loc)))
                    (match (Instantiated-type use)
                      ((TFun params result _)
-                      (learning ck ((latent (fresh-meta))
-                                    (value (infer-implementation-value (Pair-second entry)
-                                                                       (implementation-type (Pair-first entry) answer params result latent) row))
-                                    (then (unify (implementation-type (Pair-first entry) answer params result latent) (Expr-type value) (Expr-loc value)))
-                                    (then (perform latent row (Expr-loc value))))
-                                (Pair (Pair (Pair-first entry) value) ck)))
+                      (learning ck ((rest (fresh-meta)))
+                                (let ((expected (implementation-type (Pair-first entry) answer params result
+                                                                     (latent-row (operation-latent effect scheme) rest))))
+                                  (learning ck ((value (infer-implementation-value (Pair-second entry) expected row))
+                                                (then (unify expected (Expr-type value) (Expr-loc value)))
+                                                (then (perform rest row (Expr-loc value))))
+                                            (Pair (Pair (Pair-first entry) value) ck)))))
                      (_ (panic "internal error: an operation is a function")))))
-        ((None) (panic "internal error: unknown operation"))))
+        (_ (panic "internal error: unknown operation"))))
+
+    ;; The row an implementation may perform: the latent labels, open to
+    ;; `rest`, or `rest` alone.
+    (: latent-row (-> (List String) Type Type))
+    (define (latent-row labels rest)
+      (if (null? labels) rest (TRow labels (Some rest))))
 
     ;; An implementation that is a lambda takes its parameter types from the
     ;; operation, so its body knows `resume` is one-shot when it calls it.
@@ -1516,13 +1525,14 @@
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
-    ;; Effects performed at program start need host implementations.
+    ;; Effects performed at program start need defaults for every
+    ;; operation.
     (: check-host-effects (-> Checker Type Loc Checker))
     (define (check-host-effects ck row loc)
       (for-each (lambda (label)
                   (unless (or (member? label (list "mut" "tasks"))
                               (let ((effect (program-effect (program-of ck) label)))
-                                (= (length (Effect-host effect)) (length (Effect-operations effect)))))
+                                (= (length (Effect-defaults effect)) (length (Effect-operations effect)))))
                     (compile-error loc (string-append "the effect " (short-name label) " has no host implementation here"))))
                 (Pair-first (flatten-row (solution ck) row)))
       ck)

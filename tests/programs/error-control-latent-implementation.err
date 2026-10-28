@@ -1,0 +1,1 @@
+the implementation of ask can yield only to the control effects its operation's type names; it may yield to Abort
