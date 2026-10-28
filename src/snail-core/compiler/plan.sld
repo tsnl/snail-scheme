@@ -120,7 +120,7 @@
     ;; The plan for building `roots`, its nodes numbered in depth-first
     ;; pre-order from the roots in order. Each producer is printed into
     ;; `scratch` when it is planned, and compiled from there.
-    (: plan-build (-> (List Target) (List Target) Inputs String Plan ! mut fs))
+    (: plan-build (-> (List Target) (List Target) Inputs String Plan ! fs))
     (define (plan-build targets roots inputs scratch)
       (refine-plan (Plan targets roots scratch (list->vector (Nil)) (Nil)) inputs))
 
@@ -128,7 +128,7 @@
     ;; step that waited learns what it needs now, which may add steps at the
     ;; next nodes, and the order and its cycles are found anew. A step whose
     ;; needs were known keeps them, since its closure waited for nothing.
-    (: refine-plan (-> Plan Inputs Plan ! mut fs))
+    (: refine-plan (-> Plan Inputs Plan ! fs))
     (define (refine-plan plan inputs)
       (let* ((growth (fold-left (lambda (growth root) (Pair-second (visit growth (BuildPhase root)))) (plan-growth plan inputs) (Plan-roots plan)))
              (steps (Growth-steps growth)))
@@ -200,14 +200,14 @@
     ;; graph takes the next node, so nodes number in pre-order. A new phase,
     ;; or one that waited, learns what it needs now; one whose needs were
     ;; known keeps them, but they are visited, since one of them may wait.
-    (: visit (-> Growth Phase (Pair I64 Growth) ! mut fs))
+    (: visit (-> Growth Phase (Pair I64 Growth) ! fs))
     (define (visit growth phase)
       (let ((key (phase-key phase)))
         (match (table-ref (Growth-nodes growth) key)
           ((Some node) (if (table-contains? (Growth-visited growth) key) (Pair node growth) (revisit (mark-visited growth key) node)))
           ((None) (learn (add-phase (mark-visited growth key) key phase) (vector-length (Growth-steps growth)))))))
 
-    (: revisit (-> Growth I64 (Pair I64 Growth) ! mut fs))
+    (: revisit (-> Growth I64 (Pair I64 Growth) ! fs))
     (define (revisit growth node)
       (match (Step-needs (step-at growth node))
         ((Known nodes) (Pair node (Pair-second (visit-all growth (map (lambda (need) (Step-phase (step-at growth need))) nodes)))))
@@ -215,7 +215,7 @@
 
     ;; Finds what the phase at `node` needs, visits those phases, and
     ;; records their nodes as its needs.
-    (: learn (-> Growth I64 (Pair I64 Growth) ! mut fs))
+    (: learn (-> Growth I64 (Pair I64 Growth) ! fs))
     (define (learn growth node)
       (let* ((demand (phase-demand growth (Step-phase (step-at growth node))))
              (visited (visit-all growth (Demand-needs demand)))
@@ -224,7 +224,7 @@
         (Pair node (with-needs growth node (if (null? missing) (Known (Pair-first visited)) (Waiting (Pair-first visited) missing))))))
 
     ;; Visits each phase in turn, and returns their nodes in the same order.
-    (: visit-all (-> Growth (List Phase) (Pair (List I64) Growth) ! mut fs))
+    (: visit-all (-> Growth (List Phase) (Pair (List I64) Growth) ! fs))
     (define (visit-all growth phases)
       (let ((visited (fold-left (lambda (visited phase)
                                   (let ((result (visit (Pair-second visited) phase)))
@@ -271,7 +271,7 @@
     ;; The producers its program's closure reaches come first. Once they
     ;; have all run, a discovery expansion adds the targets whose files the
     ;; program embeds; until then, those are unknown.
-    (: phase-demand (-> Growth Phase Demand ! mut fs))
+    (: phase-demand (-> Growth Phase Demand ! fs))
     (define (phase-demand growth phase)
       (let* ((program (phase-program phase)) (producers (reached-producers growth program))
              (missing (filter (lambda (producer) (not (supplied? (Growth-inputs growth) producer))) producers)))
@@ -331,7 +331,7 @@
     ;; discovery first meets them. A build that declares no targets, as
     ;; the development loop's, has none to embed: a use there can only
     ;; fail, and the compile that meets it fails, so no discovery runs.
-    (: embedded-targets (-> Growth PhaseProgram (List Phase) ! mut fs))
+    (: embedded-targets (-> Growth PhaseProgram (List Phase) ! fs))
     (define (embedded-targets growth program)
       (if (null? (Growth-targets growth))
           (Nil)

@@ -38,7 +38,7 @@
     ;; `generate` runs the producer program of a `generate-library`, given
     ;; the libraries loading when it was reached, and returns the bytes of
     ;; the syntax it writes.
-    (: source->expanded (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs ExpandedProgram ! mut fs))
+    (: source->expanded (-> (List String) String (-> (List String) (List Syntax) Bytes ! fs) Inputs ExpandedProgram ! fs))
     (define (source->expanded directories source generate inputs)
       (expand-program directories generate inputs source empty-expansion))
 
@@ -48,7 +48,7 @@
       ((text String)
        (links (List LinkedFile))))
 
-    (: source->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs WholeProgram ! mut fs))
+    (: source->wat (-> (List String) String (-> (List String) (List Syntax) Bytes ! fs) Inputs WholeProgram ! mut fs))
     (define (source->wat directories source generate inputs)
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (ExpandedProgram-program expanded)))
@@ -60,11 +60,11 @@
     ;; order: each comes after the modules it imports from, with the files
     ;; its library links. This is a session's build with nothing kept from
     ;; before.
-    (: source->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs (List Built) ! mut fs))
+    (: source->modules (-> (List String) String (-> (List String) (List Syntax) Bytes ! fs) Inputs (List Built) ! mut fs))
     (define (source->modules directories source generate inputs)
       (Pair-first (build-session (make-session directories) source generate inputs)))
 
-    (: source->schemas (-> (List String) String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs String ! mut fs))
+    (: source->schemas (-> (List String) String (-> (List String) (List Syntax) Bytes ! fs) Inputs String ! fs))
     (define (source->schemas directories source generate inputs)
       (let ((typed (check-program (ExpandedProgram-program (source->expanded directories source generate inputs)))))
         (wire-schemas (Typed-program typed))))

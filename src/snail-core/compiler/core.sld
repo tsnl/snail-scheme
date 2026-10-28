@@ -130,13 +130,13 @@
    program-class
    program-effect
    class-instances
-   add-value!
-   add-type!
-   add-class!
-   add-instance!
-   add-effect!
-   add-item!
-   add-library!
+   program-with-value
+   program-with-type
+   program-with-class
+   program-with-instance
+   program-with-effect
+   program-with-item
+   program-with-library
    program-delta
    program-with
    table-union
@@ -613,12 +613,13 @@
 
     ;; ---- Programs ----
 
-    ;; A program is a value: the expander builds it up in one cell, and the
-    ;; later passes only read it. Items are kept newest first. `libraries`
-    ;; names each library, newest first, with the number of items it added;
-    ;; the program's own body counts as a library named `main`. A library's
-    ;; items are contiguous, after those of the libraries it imports, so the
-    ;; program's items divide into one run per library.
+    ;; A program is a value: the expander threads it through expansion,
+    ;; handing each addition the newest, and the later passes only read it.
+    ;; Items are kept newest first. `libraries` names each library, newest
+    ;; first, with the number of items it added; the program's own body
+    ;; counts as a library named `main`. A library's items are contiguous,
+    ;; after those of the libraries it imports, so the program's items
+    ;; divide into one run per library.
     (struct Program
       ((values (Table Value))
        (types (Table DataType))
@@ -662,46 +663,41 @@
         ((Some instances) instances)
         ((None) (Nil))))
 
-    ;; Each addition replaces the expander's program with a larger one.
-    (: add-value! (-> (Ref Program) String Value Unit ! mut))
-    (define (add-value! cell name value)
-      (let ((program (ref-get cell)))
-        (ref-set! cell (Program-values-set program (table-set (Program-values program) name value)))))
+    ;; Each addition is a larger program, sharing everything else with the
+    ;; one it was given.
+    (: program-with-value (-> Program String Value Program))
+    (define (program-with-value program name value)
+      (Program-values-set program (table-set (Program-values program) name value)))
 
-    (: add-type! (-> (Ref Program) DataType Unit ! mut))
-    (define (add-type! cell data)
-      (let ((program (ref-get cell)))
-        (ref-set! cell (Program-types-set program (table-set (Program-types program) (DataType-name data) data)))))
+    (: program-with-type (-> Program DataType Program))
+    (define (program-with-type program data)
+      (Program-types-set program (table-set (Program-types program) (DataType-name data) data)))
 
-    (: add-class! (-> (Ref Program) Class Unit ! mut))
-    (define (add-class! cell class)
-      (let ((program (ref-get cell)))
-        (ref-set! cell (Program-classes-set program (table-set (Program-classes program) (Class-name class) class)))))
+    (: program-with-class (-> Program Class Program))
+    (define (program-with-class program class)
+      (Program-classes-set program (table-set (Program-classes program) (Class-name class) class)))
 
-    (: add-instance! (-> (Ref Program) Instance Unit ! mut))
-    (define (add-instance! cell instance)
-      (let* ((program (ref-get cell)) (class (Instance-class instance)))
-        (ref-set! cell (Program-instances-set program (table-set (Program-instances program) class
-                                                                 (append (class-instances program class) (list instance)))))))
+    (: program-with-instance (-> Program Instance Program))
+    (define (program-with-instance program instance)
+      (let ((class (Instance-class instance)))
+        (Program-instances-set program (table-set (Program-instances program) class
+                                                  (append (class-instances program class) (list instance))))))
 
-    (: add-effect! (-> (Ref Program) Effect Unit ! mut))
-    (define (add-effect! cell effect)
-      (let ((program (ref-get cell)))
-        (ref-set! cell (Program-effects-set program (table-set (Program-effects program) (Effect-name effect) effect)))))
+    (: program-with-effect (-> Program Effect Program))
+    (define (program-with-effect program effect)
+      (Program-effects-set program (table-set (Program-effects program) (Effect-name effect) effect)))
 
-    (: add-item! (-> (Ref Program) Item Unit ! mut))
-    (define (add-item! cell item)
-      (let ((program (ref-get cell)))
-        (ref-set! cell (Program-items-set program (Cons item (Program-items program))))))
+    (: program-with-item (-> Program Item Program))
+    (define (program-with-item program item)
+      (Program-items-set program (Cons item (Program-items program))))
 
     (: program-items (-> Program (List Item)))
     (define (program-items program)
       (reverse (Program-items program)))
 
-    (: add-library! (-> (Ref Program) String I64 Unit ! mut))
-    (define (add-library! cell name count)
-      (let ((program (ref-get cell)))
-        (ref-set! cell (Program-libraries-set program (Cons (Pair name count) (Program-libraries program))))))
+    (: program-with-library (-> Program String I64 Program))
+    (define (program-with-library program name count)
+      (Program-libraries-set program (Cons (Pair name count) (Program-libraries program))))
 
     ;; What the newest library added: the globals named for it, and its run
     ;; of items, which are the newest. A later build replays it with
