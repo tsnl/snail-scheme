@@ -139,7 +139,6 @@
    program-with-class
    program-with-instance
    program-with-effect
-   program-with-item
    program-with-library
    program-delta
    program-with
@@ -639,9 +638,9 @@
     ;; handing each addition the newest, and the later passes only read it.
     ;; Items are kept newest first. `libraries` names each library, newest
     ;; first, with the number of items it added; the program's own body
-    ;; counts as a library named `main`. A library's items are contiguous,
-    ;; after those of the libraries it imports, so the program's items
-    ;; divide into one run per library.
+    ;; counts as a library named `main`. A library's items join the program
+    ;; as one run, after those of every library loaded before it, so the
+    ;; program's items divide into one run per library.
     (struct Program
       ((values (Table Value))
        (types (Table DataType))
@@ -709,17 +708,18 @@
     (define (program-with-effect program effect)
       (Program-effects-set program (table-set (Program-effects program) (Effect-name effect) effect)))
 
-    (: program-with-item (-> Program Item Program))
-    (define (program-with-item program item)
-      (Program-items-set program (Cons item (Program-items program))))
-
     (: program-items (-> Program (List Item)))
     (define (program-items program)
       (reverse (Program-items program)))
 
-    (: program-with-library (-> Program String I64 Program))
-    (define (program-with-library program name count)
-      (Program-libraries-set program (Cons (Pair name count) (Program-libraries program))))
+    ;; A library's run joins the program whole: its items, newest first,
+    ;; become the program's newest, and the count it records is theirs. A
+    ;; library loaded while another expands joins first, so it can never be
+    ;; counted in the other's run.
+    (: program-with-library (-> Program String (List Item) Program))
+    (define (program-with-library program name items)
+      (Program-libraries-set (Program-items-set program (append items (Program-items program)))
+                             (Cons (Pair name (length items)) (Program-libraries program))))
 
     ;; What the newest library added: the globals named for it, and its run
     ;; of items, which are the newest. A later build replays it with
