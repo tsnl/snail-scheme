@@ -211,7 +211,13 @@ bytes it was linked with. Loading on demand waits for tasks to become effects.
 ## Dynamic values
 
 `Any` holds an unrestricted value together with its type's identity.
-Affine values cannot cross this boundary.
+Affine values cannot cross this boundary. Nor can a function that performs
+effects, wherever it sits in the value's type, or a value of a type
+variable, which may be one: a type's identity has no effect rows, so such a
+function could come back out claiming to perform nothing, and run where
+nothing handles what it does (`tests/programs/error-any-control-function.sld`).
+`type-convert` and `type-test` refuse these types when they are written, so
+an `Any` never holds a function with effects.
 `(type-convert e Any)` wraps a value; `(type-convert e T)` unwraps an `Any`,
 panicking if it does not hold a `T`, and `(type-test e T)` asks whether it
 does. A type's identity describes its structure, its fields and cases, so a

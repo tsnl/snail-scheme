@@ -24,6 +24,7 @@
    Substitution
    type->string
    type-key
+   hidden-effects
    labels->string
    type=?
    types=?
@@ -334,6 +335,36 @@
         ((TRow _ _) "row")
         ((TRigid name) name)
         ((TVar id) (string-append "?" (i64->string id)))))
+
+    ;; The first part of a solved type whose effects `type-key`, and so an
+    ;; Any's TypeId, would hide: a function or a row argument that may
+    ;; perform something, or a type variable, which may stand for either. A
+    ;; data type's fields keep the rows they were declared with, so only the
+    ;; type's own structure is searched.
+    (: hidden-effects (-> Type (Option Type)))
+    (define (hidden-effects type)
+      (match type
+        ((TFun params result row)
+         (if (empty-row? row) (first-hidden-effects (Cons result params)) (Some type)))
+        ((TCon _ args) (first-hidden-effects args))
+        ((TRow _ _) (if (empty-row? type) (None) (Some type)))
+        ((TRigid _) (Some type))
+        ((TVar _) (panic "internal error: an unsolved type in a conversion"))))
+
+    (: first-hidden-effects (-> (List Type) (Option Type)))
+    (define (first-hidden-effects types)
+      (match types
+        ((Cons type rest)
+         (match (hidden-effects type)
+           ((Some part) (Some part))
+           ((None) (first-hidden-effects rest))))
+        ((Nil) (None))))
+
+    (: empty-row? (-> Type Bool))
+    (define (empty-row? row)
+      (match (row-parts row (Nil))
+        ((Pair (Nil) (None)) #t)
+        (_ #f)))
 
     ;; Structural equality of types without bound metavariables.
     (: type=? (-> Type Type Bool))
@@ -1152,5 +1183,24 @@
         (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d"))
         (expect (wide-hash "") -3750763034362895579)
         (expect (wide-hash "a") -5808556873153909620)
-        (expect (wide-hash "foobar") -8821353812377114648))))
+        (expect (wide-hash "foobar") -8821353812377114648)
+        (test-hidden-effects))
+
+      ;; A total function hides nothing; an effectful one is found at any
+      ;; depth of the type, and a type variable may be one.
+      (define (test-hidden-effects)
+        (let* ((i64 (TCon "I64" (Nil)))
+               (total (TFun (Nil) i64 empty-row))
+               (logging (TFun (Nil) i64 (TRow (list "t:Log") (None))))
+               (open (TFun (Nil) i64 (TRow (Nil) (Some (TRigid "e"))))))
+          (expect (hidden-effects (TCon "List" (list total))) (None))
+          (expect (hidden-effects (TFun (list total) i64 empty-row)) (None))
+          (expect (hidden-effects logging) (Some logging))
+          (expect (hidden-effects open) (Some open))
+          (expect (hidden-effects (TCon "List" (list logging))) (Some logging))
+          (expect (hidden-effects (TFun (list logging) i64 empty-row)) (Some logging))
+          (expect (hidden-effects (TCon "Task" (list (TRow (list "t:Log") (None)))))
+                  (Some (TRow (list "t:Log") (None))))
+          (expect (hidden-effects (TCon "Task" (list empty-row))) (None))
+          (expect (hidden-effects (TCon "Holder" (list (TRigid "A")))) (Some (TRigid "A")))))))
    (else)))

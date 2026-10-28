@@ -455,6 +455,13 @@ operation may be performed is specialized at that row, so its callback rows
 name the effect too: `vector-map`, which calls `vector-generate`, cannot be
 used in such a body even with a callback that cannot abort.
 
+Nor can a control row pass through `Any`, whose TypeId records no rows: a
+yielding function converted to `Any` and back could be called as a total
+one, with no test for its yield. No function that performs effects, of any
+kind, converts to `Any`
+(`tests/programs/error-any-control-function.sld`,
+[dynamic values](types.md#dynamic-values)).
+
 ## Latent handlers
 
 ### One handler for every task

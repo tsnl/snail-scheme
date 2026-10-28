@@ -1513,6 +1513,47 @@
         ((TypeTest inner _) (list inner))
         ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
 
+    ;; ---- Conversions ----
+
+    ;; An Any's TypeId keys its type without rows, so converting a function
+    ;; that performs effects would let a caller forget them: a call through
+    ;; the converted function would be charged nothing, and never tested for
+    ;; a yield. Once a library's types are final, and before specialization
+    ;; erases ordinary effects, each conversion refuses such a type, so an
+    ;; Any never holds a function with effects and the rows a TypeId leaves
+    ;; out are empty.
+    (: check-conversions (-> Item Unit))
+    (define (check-conversions item)
+      (match item
+        ((Define _ value) (check-expression-conversions value))
+        ((Do value) (check-expression-conversions value))
+        (_ (unit))))
+
+    (: check-expression-conversions (-> Expr Unit))
+    (define (check-expression-conversions expr)
+      (match (Expr-term expr)
+        ((Convert inner target)
+         (refuse-hidden-effects "type-convert" (Expr-type inner) (Expr-loc expr))
+         (refuse-hidden-effects "type-convert" target (Expr-loc expr)))
+        ((TypeTest _ target) (refuse-hidden-effects "type-test" target (Expr-loc expr)))
+        (_ (unit)))
+      (for-each check-expression-conversions (subexpressions expr)))
+
+    (: refuse-hidden-effects (-> String Type Loc Unit))
+    (define (refuse-hidden-effects form type loc)
+      (match (hidden-effects type)
+        ((Some part)
+         (compile-error loc
+                        (string-append "an Any does not record what a function performs, so "
+                                       form
+                                       " cannot take "
+                                       (type->string type)
+                                       (match part
+                                         ((TRigid name)
+                                          (string-append ", since " name " may stand for one"))
+                                         (_ "")))))
+        ((None) (unit))))
+
     ;; ---- Definitions ----
 
     ;; An unannotated group of mutually recursive definitions is inferred
@@ -1796,6 +1837,7 @@
                   (let ((result
                          (Typed program (map (lambda (item) (zonk-item (solution ck) item)) typed)
                                 (final-schemes ck items))))
+                    (for-each check-conversions (Typed-items result))
                     (check-owned-types program (Typed-items result))
                     (for-each
                      (lambda (function) (check-confined result (zonk-expr (solution ck) function)))
