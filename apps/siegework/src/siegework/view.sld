@@ -13,9 +13,9 @@
   (export
    view-game)
   (import
-   (snail-core base)
-   (snail-core app)
-   (snail-core math)
+   (snail core base)
+   (snail shell app)
+   (snail shell math)
    (siegework grid)
    (siegework terrain)
    (siegework world)

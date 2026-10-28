@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; unsafe-total discards its thunk's row, so nothing after it would test
 ;; for a yield.

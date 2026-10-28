@@ -1,8 +1,8 @@
 ;; Siegework: explore a seeded map, wire an energy network across it, and
 ;; destroy three nests before their attacks destroy your hub.
 (import
- (snail-core base)
- (snail-core app)
+ (snail core base)
+ (snail shell app)
  (siegework game)
  (siegework view)
  (siegework hud))

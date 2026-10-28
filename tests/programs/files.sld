@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core text))
+ (snail core base)
+ (snail core io)
+ (snail shell text))
 
 ;; Files through the host, with a path whose scalars are not all ASCII.
 (define path "build/tests/files-λ😀.txt")

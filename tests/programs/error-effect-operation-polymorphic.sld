@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A handler implements an operation once, so the operation has one type.
 ;; Were it polymorphic, its implementation would be checked at whatever

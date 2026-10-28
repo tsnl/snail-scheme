@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (rename (snail-core socket)
+ (snail core base)
+ (rename (snail shell socket)
          (send udp-send)
          (receive udp-receive)))
 

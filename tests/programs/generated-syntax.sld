@@ -1,11 +1,11 @@
 ;; The syntax a `generate-library` recipe returns, and the bytes its
 ;; producer writes for the compiler.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core number)
- (snail-core datum)
- (snail-core syntax))
+ (snail core base)
+ (snail core io)
+ (snail shell number)
+ (snail shell datum)
+ (snail shell syntax))
 
 (define (bytes-text bytes)
   (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list bytes)) " "))

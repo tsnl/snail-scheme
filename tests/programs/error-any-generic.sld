@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A type variable may stand for a function that performs effects, and
 ;; specialization erases an ordinary effect before the backend sees it, so

@@ -1,4 +1,4 @@
 (import
- (snail-core base))
+ (snail core base))
 (define work (once (lambda () (unit))))
 (call-once work)

@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io)
+ (snail core base)
+ (snail core io)
  (control catch)
  (control search))
 

@@ -86,7 +86,7 @@ a general-purpose `Immutable` marker.
 
 ## Reads and writes have scopes, not exposed tokens
 
-The examples use the existing `(Result A E)` from `(snail-core base)`, with `(Ok A)`
+The examples use the existing `(Result A E)` from `(snail core base)`, with `(Ok A)`
 and `(Err E)`.
 The following signatures are schematic generated API contracts:
 

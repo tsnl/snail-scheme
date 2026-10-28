@@ -12,8 +12,8 @@
    string->list list->string char->integer integer->char char=? char<?
    display newline write-string write-char)
   (import
-   (snail-core base)
-   (snail-core io))
+   (snail core base)
+   (snail core io))
   (begin
 
     ;; ---- Pairs ----

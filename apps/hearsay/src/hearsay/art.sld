@@ -4,7 +4,7 @@
 ;; src/lpc/ATTRIBUTION.md for the licenses and credits of these images.
 (generate-library (hearsay art)
                   (import
-                   (snail-core base)
+                   (snail core base)
                    (lpc embed)
                    (lpc wardrobe)
                    (hearsay cast))

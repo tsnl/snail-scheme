@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; The examples of "Handlers" in the book's chapter on effects and
 ;; handlers, doc/book/snail-core/effects.md, which includes the parts

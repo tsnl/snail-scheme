@@ -85,14 +85,14 @@
    %vector-length
    %error)
   (import
-   (snail-core base)
-   (snail-core io)
-   (snail-core number)
-   (snail-core integer)
-   (snail-core rational)
-   (snail-core datum)
-   (snail-core text)
-   (snail-core write))
+   (snail core base)
+   (snail core io)
+   (snail shell number)
+   (snail shell integer)
+   (snail shell rational)
+   (snail shell datum)
+   (snail shell text)
+   (snail shell write))
   (begin
 
     ;; ---- Calls ----
@@ -439,7 +439,7 @@
     ;; ---- Characters ----
 
     ;; Scheme's character procedures are Unicode's, from the runtime's
-    ;; tables through (snail-core text): `char-upcase` maps the full repertoire,
+    ;; tables through (snail shell text): `char-upcase` maps the full repertoire,
     ;; `char-numeric?` holds for any script's decimal digits, and
     ;; `string-foldcase` may expand a scalar, as "ß" into "ss", so
     ;; `string-ci=?` compares folded text rather than scalar by scalar.

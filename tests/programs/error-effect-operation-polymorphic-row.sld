@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A row variable is refused as a type variable is. Here the
 ;; implementation could call the thunk it is given, whose effects no

@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; An operation's default may be a Snail-Core function, which runs when no
 ;; handler of its effect is in scope, under the handlers in scope where the

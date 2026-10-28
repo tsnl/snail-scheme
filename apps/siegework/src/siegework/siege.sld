@@ -29,7 +29,7 @@
    threat-tick
    living-nests)
   (import
-   (snail-core base)
+   (snail core base)
    (siegework grid)
    (siegework terrain)
    (siegework world))

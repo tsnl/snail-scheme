@@ -1,5 +1,5 @@
 (import
- (snail-core base)
+ (snail core base)
  (boundary value))
 
 (extern note-text "snail.test" "text" (-> String I32))

@@ -6,8 +6,8 @@ reused. These grades belong to types, not to individual bindings.
 
 ```scheme
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 (: greeting (-> String (Once (-> Unit ! console))))
 (define (greeting name)

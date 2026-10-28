@@ -11,8 +11,8 @@
    person-picture
    rival-picture)
   (import
-   (snail-core base)
-   (snail-core random)
+   (snail core base)
+   (snail shell random)
    (lpc catalog)
    (lpc wardrobe)
    (only (hearsay mill) person-count audience-of)

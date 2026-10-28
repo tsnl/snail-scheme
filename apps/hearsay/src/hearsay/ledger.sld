@@ -36,9 +36,9 @@
    owed-lines
    ledger-result)
   (import
-   (snail-core base)
-   (snail-core wire)
-   (snail-core random))
+   (snail core base)
+   (snail shell wire)
+   (snail shell random))
   (begin
 
     ;; ---- Pieces ----

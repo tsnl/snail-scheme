@@ -1,8 +1,8 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core utf8)
- (snail-core process))
+ (snail core base)
+ (snail core io)
+ (snail shell utf8)
+ (snail shell process))
 
 (: require (All (T) (-> (Result T ProcessError) T)))
 (define (require result)

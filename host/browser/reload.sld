@@ -7,10 +7,10 @@
 ;; page's manifest and each event, a character at a time, and
 ;; host/browser/reload-client.mjs performs the `page` effect's commands.
 (import
- (snail-core base)
- (snail-core datum)
- (snail-core read)
- (snail-core write))
+ (snail core base)
+ (snail shell datum)
+ (snail shell read)
+ (snail shell write))
 
 ;; ---- Page commands ----
 

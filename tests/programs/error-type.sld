@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 (: f (-> I64 I64))
 (define (f x)

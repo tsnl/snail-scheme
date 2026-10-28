@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; Loops written with `when` run in constant stack space.
 (define counter (ref 0))

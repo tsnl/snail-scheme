@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; The implementation performs a control effect, Log, which `resume`
 ;; performs too, since each later yield runs the implementation again

@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 (define (f x)
   (+ x undefined-name))

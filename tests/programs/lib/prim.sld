@@ -1,7 +1,7 @@
 (define-library (prim)
   (export once)
   (import
-   (snail-core base))
+   (snail core base))
   (begin
     (: once (-> (-> Unit) (-> Unit)))
     (define (once work) work)))

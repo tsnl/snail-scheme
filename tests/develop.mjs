@@ -190,11 +190,11 @@ async function testGenerated(directory) {
   await mkdir(join(app, 'src/sample'), {recursive: true});
   await writeFile(message, 'generated');
   await writeFile(join(app, 'src/sample/greeting.sld'), `(generate-library (sample greeting)
-    (import (snail-core base) (snail-core io) (snail-core syntax))
-    (library-syntax (list "sample" "greeting") (list "greeting") (list (list "snail-core" "base"))
+    (import (snail core base) (snail core io) (snail shell syntax))
+    (library-syntax (list "sample" "greeting") (list "greeting") (list (list "snail" "core" "base"))
       (list (form ":" (list (SymbolSyntax "greeting") (SymbolSyntax "String")))
             (form "define" (list (SymbolSyntax "greeting") (StringSyntax (read-file "${message}")))))))`);
-  const program = (await readFile(source, 'utf8')).replace('(snail-core app))', '(snail-core app)\n (sample greeting))');
+  const program = (await readFile(source, 'utf8')).replace('(snail shell app))', '(snail shell app)\n (sample greeting))');
   await writeFile(source, program.replace('(: greeting String)\n(define greeting "hello")\n', ''));
   const server = start(['serve', '--port', '0', app]);
   try {
@@ -225,9 +225,9 @@ async function linkedCounter(app) {
   await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
   await mkdir(join(app, 'src/sample'), {recursive: true});
   await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export banner)
-    (import (snail-core base) (snail-core resource))
+    (import (snail core base) (snail shell resource))
     (begin (: banner Resource) (define banner (link-bytes "banner.txt"))))`);
-  const program = (await readFile(source, 'utf8')).replace('(snail-core app))', '(snail-core app)\n (snail-core resource)\n (sample banner))');
+  const program = (await readFile(source, 'utf8')).replace('(snail shell app))', '(snail shell app)\n (snail shell resource)\n (sample banner))');
   await writeFile(source, program.replace('(define greeting "hello")',
     '(define greeting (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner)))))'));
 }
@@ -336,7 +336,7 @@ async function testSymlinked(directory) {
 
 async function testWatch(directory) {
   const source = join(directory, 'hello.sld');
-  const program = message => `(import (snail-core base) (snail-core io) (snail-core task))\n(write-string "${message}\\n")\n(sleep 60000)\n`;
+  const program = message => `(import (snail core base) (snail core io) (snail shell task))\n(write-string "${message}\\n")\n(sleep 60000)\n`;
   await writeFile(source, program('first run'));
   const watcher = start(['watch', source]);
   let child;

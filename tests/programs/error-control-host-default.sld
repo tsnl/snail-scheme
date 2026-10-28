@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; The host cannot be handed the rest of a computation, so a control
 ;; operation has no host default.

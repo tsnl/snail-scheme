@@ -1,4 +1,4 @@
-/* Layout for (snail-core app) pages: a full-window canvas, HUD panels stacked in
+/* Layout for (snail shell app) pages: a full-window canvas, HUD panels stacked in
    columns from the screen's corners, banners across the top that let
    input through, and dialogs over a backdrop. An
    application's own stylesheet colors widgets by their data-key, data-icon,

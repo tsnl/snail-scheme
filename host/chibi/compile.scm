@@ -2,8 +2,8 @@
 (import
  (scheme base)
  (scheme process-context)
- (only (snail-core build) report-failure)
- (snail-core compiler driver))
+ (only (snail stage0 build) report-failure)
+ (snail shell compiler driver))
 
 (guard (failure
         (else

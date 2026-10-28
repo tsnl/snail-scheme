@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A Holder is affine: it has a Once field. Matching it with `_` for that
 ;; field names an owner for the wildcard, so it can be dropped.

@@ -1,8 +1,8 @@
 ;; The compiled compiler's synchronous entry and its post-exit request hook.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core compiler driver))
+ (snail core base)
+ (snail core io)
+ (snail shell compiler driver))
 
 (: publish-request (-> Unit ! mut fs))
 (define (publish-request)

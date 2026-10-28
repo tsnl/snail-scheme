@@ -1,4 +1,4 @@
 (import
- (snail-core base))
+ (snail core base))
 
 (type-convert "text" I64)

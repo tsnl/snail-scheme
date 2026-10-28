@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core wire))
+ (snail core base)
+ (snail core io)
+ (snail shell wire))
 
 (struct Old
   ((count I64))

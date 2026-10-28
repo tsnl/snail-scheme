@@ -31,7 +31,7 @@ function commandParts(api, command) {
 export function processImports(program, scheduler, processes, termination) {
   const helpers = () => {
     const current = program();
-    return current.names ? current.linked.get('snail-core.process').exports : current.runtime.exports;
+    return current.names ? current.linked.get('snail.shell.process').exports : current.runtime.exports;
   };
 
   // Process successes never use strings; a string is an error code.

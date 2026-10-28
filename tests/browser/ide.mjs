@@ -12,7 +12,7 @@ import {openBrowser, sleep, until} from './chromium.mjs';
 const [root, screenshot] = process.argv.slice(2), project = await mkdtemp(join(tmpdir(), 'snail-ide-'));
 const source = join(project, 'main.sld'), description = join(project, 'project.datum');
 const config = '((build-target main (program (entry "main.sld"))))';
-const program = text => `(import (snail-core base) (snail-core io))\n(: greeting String)\n(define greeting "${text}")\n(write-line greeting)\n`;
+const program = text => `(import (snail core base) (snail core io))\n(: greeting String)\n(define greeting "${text}")\n(write-line greeting)\n`;
 await writeFile(description, config); await writeFile(source, program('hello'));
 await writeFile(join(project, 'notes.txt'), 'plain text\r\n');
 const service = await startDevelopment(root, project), browser = await openBrowser();
@@ -69,7 +69,7 @@ try {
   await browser.evaluate('document.execCommand = window.insertCommand');
   assert.match(await readFile(source, 'utf8'), /          "unformatted"/);
 
-  const unicode = '(import (snail-core base))\r\n(: greeting String)\r\n(define greeting (if #t "😀" 5))\r\n';
+  const unicode = '(import (snail core base))\r\n(: greeting String)\r\n(define greeting (if #t "😀" 5))\r\n';
   // A diagnostic can arrive before its source GETs. Keep the old editor text
   // visible, but do not apply the new point to that older baseline.
   await browser.evaluate(`window.actualFetch = window.fetch; window.sourceReads = []; window.holdSource = true;

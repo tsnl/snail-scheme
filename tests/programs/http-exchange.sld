@@ -1,10 +1,10 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core task)
- (snail-core socket)
- (snail-core http)
- (snail-core http exchange))
+ (snail core base)
+ (snail core io)
+ (snail shell task)
+ (snail shell socket)
+ (snail shell http)
+ (snail shell http exchange))
 
 (: assert (-> Bool Unit))
 (define (assert condition) (unless condition (panic "HTTP exchange assertion failed")))

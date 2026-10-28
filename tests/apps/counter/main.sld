@@ -2,8 +2,8 @@
 ;; greeting. The development server's test (tests/develop.mjs) edits the
 ;; greeting while the counter runs and checks that the count survives.
 (import
- (snail-core base)
- (snail-core app))
+ (snail core base)
+ (snail shell app))
 
 (struct Counter
   ((count I64)

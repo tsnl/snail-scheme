@@ -5,9 +5,9 @@
               (Cons i acc))
         acc)))
 (import
- (snail-core base)
- (snail-core io)
- (only (snail-core table) empty-table))
+ (snail core base)
+ (snail core io)
+ (only (snail core table) empty-table))
 (struct Point
   ((x F64)
    (y F64)) (deriving Show))

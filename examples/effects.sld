@@ -1,8 +1,8 @@
 ;; Effect rows and handlers. `log` performs Log; a handler decides what
 ;; logging means, and the type system tracks which code may perform it.
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 (effect Log
   ((log (-> String Unit))))

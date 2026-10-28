@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A function left by a yield returns a placeholder of its result type,
 ;; which no caller reads: each representation has one. The handler's

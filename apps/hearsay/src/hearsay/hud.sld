@@ -21,8 +21,8 @@
    backdrop
    empty-frame)
   (import
-   (snail-core base)
-   (snail-core app))
+   (snail core base)
+   (snail shell app))
   (begin
 
     ;; ---- Widgets ----

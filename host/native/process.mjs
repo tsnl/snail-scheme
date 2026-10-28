@@ -6,7 +6,7 @@ import {on, once} from 'node:events';
 const chunkSize = 64 * 1024;
 const fault = (code, message) => Object.assign(new Error(message), {code});
 const closedError = () => fault('EBADF', 'process handle is closed');
-// The numbers (snail-core process) gives Terminate, Kill and Interrupt.
+// The numbers (snail shell process) gives Terminate, Kill and Interrupt.
 const signalNames = new Map([[15, 'SIGTERM'], [9, 'SIGKILL'], [2, 'SIGINT']]);
 
 // Node's event helpers wrap abort reasons. Preserve the task's exact reason so

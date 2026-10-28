@@ -4,7 +4,7 @@
   (export
    run)
   (import
-   (snail-core base))
+   (snail core base))
   (begin
 
     (: run (-> I64 I64))

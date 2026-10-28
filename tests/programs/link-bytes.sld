@@ -3,9 +3,9 @@
 ;; `read-resource`. A library links files beside its own source, and the
 ;; program beside its own.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core resource)
+ (snail core base)
+ (snail core io)
+ (snail shell resource)
  (sample linked))
 
 (: image Resource)

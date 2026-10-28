@@ -1,9 +1,9 @@
 //! Linking modules, as host/browser/load.mjs does on Node and in the page:
 //! a program compiled one library at a time, linked when it starts, and
-//! modules a program loads while it runs, through (snail-core wasm).
+//! modules a program loads while it runs, through (snail shell wasm).
 //!
 //! A per-library build is named by its modules.json, which `build-modules`
-//! in host/chibi/snail-core/build.sld writes beside the modules:
+//! in host/chibi/snail/stage0/build.sld writes beside the modules:
 //! `{"runtime": FILE, "modules": [{"name": LIBRARY, "file": FILE}, ...]}`,
 //! the libraries in program order. The Rust runtime is instantiated and
 //! initialized first; then each library's module, which sees the runtime
@@ -226,7 +226,7 @@ fn missing_host(from: &str, name: &str) -> String {
 
 // ---- Loading while the program runs ----
 
-// The `wasm` effect of (snail-core wasm), which reads the files and decides
+// The `wasm` effect of (snail shell wasm), which reads the files and decides
 // what to link; the host only does what it cannot. `compile` takes the
 // bytes of a module, `namespace` makes an empty namespace, `instantiate`
 // links a module in one under a library name and runs its main, and
@@ -237,7 +237,7 @@ fn missing_host(from: &str, name: &str) -> String {
 // instance they have. Another namespace holds a plugin's modules: each sees
 // the modules before it there, then the runtime and the host's modules, as
 // a child-first class loader resolves, and none of the files the program
-// links. A failure answers a negative code, which (snail-core wasm) names;
+// links. A failure answers a negative code, which (snail shell wasm) names;
 // a trap in a module's main still ends the program.
 const INVALID_MODULE: i32 = -1;
 const NAME_TAKEN: i32 = -1;

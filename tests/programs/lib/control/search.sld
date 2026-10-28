@@ -2,8 +2,8 @@
   (export
    signal-negative)
   (import
-   (snail-core base)
-   (snail-core io)
+   (snail core base)
+   (snail core io)
    (control signal))
   (begin
     ;; Signals each negative item, after reporting each item it passes; a
