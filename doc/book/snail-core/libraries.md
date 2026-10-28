@@ -15,6 +15,7 @@
 | `(snail-core text)` | Unicode character properties, case mapping and decimal digit values, from the runtime's tables. `(scheme runtime)` is built on it, so Scheme's character procedures are Unicode's. |
 | `(snail-core random)` | A deterministic generator as a value. |
 | `(snail-core wire)` | `Serialize`, `Deserialize` and the byte encoding. |
+| `(snail-core utf8)` | `string->utf8`, and `utf8->string`, which rejects ill-formed bytes as a fatal `TextDecoder` does, giving the offset of the first bad sequence. |
 | `(snail-core app)` | Applications, frames, pictures, materials and sprites, and the `screen` effect. |
 | `(snail-core wasm)` | Loading WebAssembly modules while a program runs, and `unsafe-cast`. |
 | `(snail-core sprite)` | Spritebooks: animations on sheets of equal cells, posed as sprites facing the camera. |
