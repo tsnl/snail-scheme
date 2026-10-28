@@ -339,8 +339,6 @@
                                 "src/snail-core/primitive.sld"))
                          (lambda () (rebuild-compiler! root))))
 
-    ;; The native executable is built first, so that the bootstrap's stages
-    ;; can run on it and the suite can compare it with Node.
     ;; The native executable is built only for the engine that runs on it:
     ;; with Node the default, a bootstrap never waits on a wasmtime build.
     (define (bootstrap! root)
