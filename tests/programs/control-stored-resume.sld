@@ -42,7 +42,8 @@
 (: begin-both (-> Pair-of-steps ! console))
 (define (begin-both)
   (handle Log ((log (lambda (line) (write-line (string-append "first log: " line)))))
-    (Pair-of-steps (start (lambda () (count-from "a" 1 3))) (start (lambda () (count-from "b" 10 2))))))
+    (Pair-of-steps (start (lambda () (count-from "a" 1 3)))
+                   (start (lambda () (count-from "b" 10 2))))))
 
 ;; The rest alternates between them, long after their handlers returned,
 ;; under another log: each resumed step logs to the handler in scope here.

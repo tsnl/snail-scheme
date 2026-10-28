@@ -67,9 +67,13 @@
          (let loop ((next 1) (code (Lead-bits lead)))
            (if (= next (Lead-width lead))
                (Some (Pair (i32->char code) (+ index next)))
-               (match (continuation bytes (+ index next) (if (= next 1) (Lead-low lead) 128) (if (= next 1) (Lead-high lead) 191))
+               (match (continuation bytes
+                                    (+ index next)
+                                    (if (= next 1) (Lead-low lead) 128)
+                                    (if (= next 1) (Lead-high lead) 191))
                  ((None) (None))
-                 ((Some byte) (loop (+ next 1) (i32-or (i32-shift-left code 6) (i32-and byte 63))))))))))
+                 ((Some byte)
+                  (loop (+ next 1) (i32-or (i32-shift-left code 6) (i32-and byte 63))))))))))
 
     ;; A text has at most as many scalars as its bytes, so one array of
     ;; that length, local to this call, holds them all.
@@ -118,14 +122,17 @@
     (: encoded-byte (-> I32 I64 I64 U8))
     (define (encoded-byte code width position)
       (let ((bits (i32-shift-right/logical code (i64->i32 (* 6 (- (- width 1) position))))))
-        (i32->u8 (if (= position 0) (i32-or (lead-marker width) bits) (i32-or 128 (i32-and bits 63))))))
+        (i32->u8
+         (if (= position 0) (i32-or (lead-marker width) bits) (i32-or 128 (i32-and bits 63))))))
 
     ;; The scalars are measured first, so the bytes fill one array of the
     ;; exact length, local to this call.
     (: string->utf8 (-> String Bytes))
     (define (string->utf8 text)
       (let* ((codes (vector-map scalar (string->vector text)))
-             (bytes (make-array (vector-fold (lambda (total code) (+ total (encoded-width code))) 0 codes) (ann 0 U8))))
+             (bytes
+              (make-array (vector-fold (lambda (total code) (+ total (encoded-width code))) 0 codes)
+                          (ann 0 U8))))
         (let loop ((index 0) (offset 0))
           (if (= index (vector-length codes))
               (array->vector bytes)

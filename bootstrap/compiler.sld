@@ -73,7 +73,8 @@
 
 (: send-strings (-> (List String) Unit ! compiler-output))
 (define (send-strings strings)
-  (for-each (lambda (text) (output-text (stage-text (i64->i32 (string-length text))) text)) strings))
+  (for-each (lambda (text) (output-text (stage-text (i64->i32 (string-length text))) text))
+            strings))
 
 ;; ---- Source failures ----
 
@@ -104,15 +105,19 @@
 (define (send-build target)
   (match target
     ((ProgramTarget program)
-     (send-strings (append (list (ProgramBuild-name program) (ProjectPath-text (ProgramBuild-entry program))
-                                 (loc->string (ProgramBuild-loc program)))
-                           (map ProjectPath-text (ProgramBuild-libraries program))))
+     (send-strings
+      (append (list (ProgramBuild-name program) (ProjectPath-text (ProgramBuild-entry program))
+                    (loc->string (ProgramBuild-loc program)))
+              (map ProjectPath-text (ProgramBuild-libraries program))))
      (output-program))
     ((BrowserTarget browser)
-     (send-strings (append (list (BrowserBuild-name browser) (ProjectPath-text (BrowserBuild-entry browser))
-                                 (loc->string (BrowserBuild-loc browser))
-                                 (match (BrowserBuild-public browser) ((Some path) (ProjectPath-text path)) ((None) "")))
-                           (map ProjectPath-text (BrowserBuild-libraries browser))))
+     (send-strings
+      (append (list (BrowserBuild-name browser) (ProjectPath-text (BrowserBuild-entry browser))
+                    (loc->string (BrowserBuild-loc browser))
+                    (match (BrowserBuild-public browser)
+                      ((Some path) (ProjectPath-text path))
+                      ((None) "")))
+              (map ProjectPath-text (BrowserBuild-libraries browser))))
      (output-browser))))
 
 (: send-run (-> RunTarget Unit ! compiler-output))
@@ -133,16 +138,22 @@
   (map (lambda (target)
          (match target
            ((ProgramTarget program)
-            (Target (ProgramBuild-name program) #f (in-project directory (ProgramBuild-entry program))
+            (Target (ProgramBuild-name program)
+                    #f
+                    (in-project directory (ProgramBuild-entry program))
                     (library-directories directory standard (ProgramBuild-libraries program))))
            ((BrowserTarget browser)
-            (Target (BrowserBuild-name browser) #t (in-project directory (BrowserBuild-entry browser))
+            (Target (BrowserBuild-name browser)
+                    #t
+                    (in-project directory (BrowserBuild-entry browser))
                     (library-directories directory standard (BrowserBuild-libraries browser))))))
        (Project-builds project)))
 
 (: in-project (-> String ProjectPath String))
 (define (in-project directory path)
-  (if (string=? (ProjectPath-text path) ".") directory (string-append directory "/" (ProjectPath-text path))))
+  (if (string=? (ProjectPath-text path) ".")
+      directory
+      (string-append directory "/" (ProjectPath-text path))))
 
 (: library-directories (-> String String (List ProjectPath) (List String)))
 (define (library-directories directory standard roots)
@@ -165,7 +176,10 @@
     ((Cons directory (Cons standard (Cons scratch names)))
      (let* ((file (string-append directory "/project.datum"))
             (targets (plan-targets directory standard (parse-project (read-file file) file))))
-       (send-wave (plan-build targets (map (lambda (name) (root-target targets file name)) names) inputs scratch))))
+       (send-wave (plan-build targets
+                              (map (lambda (name) (root-target targets file name)) names)
+                              inputs
+                              scratch))))
     (_ (panic "compiler plan: expected project and standard directories, scratch and root names"))))
 
 ;; The plan again, now that `inputs` holds the outputs of the producers the
@@ -180,7 +194,8 @@
 (: send-wave (-> Plan Plan ! compiler-output))
 (define (send-wave plan)
   (let* ((wave (next-phases plan)) (next (Pair-second wave)))
-    (for-each (lambda (entry) (send-phase next (Pair-first entry) (Pair-second entry))) (Pair-first wave))
+    (for-each (lambda (entry) (send-phase next (Pair-first entry) (Pair-second entry)))
+              (Pair-first wave))
     (when (phases-left? next) (output-waiting))
     next))
 
@@ -192,10 +207,14 @@
   (let ((embeds (embedded-names plan node)))
     (match phase
       ((ProducePhase producer)
-       (send-strings (Cons (Producer-key producer) (Cons (Producer-source producer) (append (Producer-directories producer) embeds))))
+       (send-strings (Cons (Producer-key producer)
+                           (Cons (Producer-source producer)
+                                 (append (Producer-directories producer) embeds))))
        (output-produce node (length (Producer-directories producer))))
       ((BuildPhase target)
-       (send-strings (Cons (Target-name target) (Cons (Target-entry target) (append (Target-directories target) embeds))))
+       (send-strings (Cons (Target-name target)
+                           (Cons (Target-entry target)
+                                 (append (Target-directories target) embeds))))
        (output-build node (length (Target-directories target)))))))
 
 ;; The targets whose files the phase at `node` embeds: the builds among
@@ -223,7 +242,11 @@
 (define (static! inputs)
   (match (take-arguments!)
     ((Cons source (Cons output (Cons scratch directories)))
-     (let ((program (source->wat directories source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
+     (let ((program (source->wat directories
+                                 source
+                                 (lambda (loading forms)
+                                   (generated-syntax scratch directories loading forms))
+                                 inputs)))
        (write-file output (WholeProgram-text program))
        (for-each send-link (WholeProgram-links program))))
     (_ (panic "compiler static: expected source, output, scratch and library directories"))))
@@ -239,7 +262,11 @@
   (match (take-arguments!)
     ((Cons source (Cons scratch (Nil)))
      (let* ((directories (Session-directories previous))
-            (built (build-session previous source (lambda (loading forms) (generated-syntax scratch directories loading forms)) inputs)))
+            (built (build-session previous
+                                  source
+                                  (lambda (loading forms)
+                                    (generated-syntax scratch directories loading forms))
+                                  inputs)))
        (for-each send-module (Pair-first built))
        (Pair-second built)))
     (_ (panic "compiler modules: expected source and scratch directory"))))
@@ -249,7 +276,9 @@
 (: send-module (-> Built Unit ! compiler-output))
 (define (send-module module)
   (send-strings (append (list (Built-name module) (Built-text module))
-                        (concatenate (map (lambda (link) (list (LinkedFile-name link) (LinkedFile-path link))) (Built-links module)))))
+                        (concatenate
+                         (map (lambda (link) (list (LinkedFile-name link) (LinkedFile-path link)))
+                              (Built-links module)))))
   (output-module (Built-compiled? module)))
 
 ;; ---- Typed input protocol ----
@@ -304,7 +333,8 @@
   (match (take-arguments!)
     ((Cons key (Cons source (Cons output directories)))
      (let ((text (printed-producer-text directories source)))
-       (unless (string=? (producer-key text) key) (panic "compiler generated: the key does not name this producer"))
+       (unless (string=? (producer-key text) key)
+         (panic "compiler generated: the key does not name this producer"))
        (match (generated-output previous text)
          ((Some _) (panic "compiler generated: already provided"))
          ((None) (supply-generated previous text (read-bytes output))))))

@@ -99,7 +99,8 @@
        (yield item)
        (+ half (halves rest))))))
 
-(write-line (show (handle Gen ((yield (lambda (value resume) (resume (unit))))) (halves (list 1 2 4)))))
+(write-line
+ (show (handle Gen ((yield (lambda (value resume) (resume (unit))))) (halves (list 1 2 4)))))
 
 (show-all (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
             (let ((after (once (lambda () (write-line "after the yield")))))
@@ -111,7 +112,8 @@
 ;; values up to the first above the limit.
 (: until-above (-> I64 (-> I64 ! Gen) (List I64)))
 (define (until-above limit body)
-  (handle Gen ((yield (lambda (value resume) (if (> value limit) (list value) (Cons value (resume (unit)))))))
+  (handle Gen ((yield (lambda (value resume)
+                        (if (> value limit) (list value) (Cons value (resume (unit)))))))
     (body)
     (Nil)))
 

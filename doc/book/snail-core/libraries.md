@@ -24,7 +24,7 @@
 | `(snail-core app)` | Applications, frames, pictures, materials and sprites, and the `screen` effect. |
 | `(snail-core wasm)` | Loading WebAssembly modules and plugins while a program runs ([below](#loading-webassembly)). |
 | `(snail-core sprite)` | Spritebooks: animations on sheets of equal cells, posed as sprites facing the camera. |
-| `(snail-core format)` | Indenting and formatting Lisp source as `scripts/format-scheme` does. |
+| `(snail-core format)` | Indenting and formatting Lisp source as `scripts/format-scheme` does: Emacs's indentation, each import and field on its own line, and each line whose code runs past 100 columns broken, a call before its arguments and a binding form before each binding and body form. It never joins lines. |
 | `(snail-core highlight)` | Source text as tokens that tile it, classed for coloring by the compiler reader's lexical rules ([code highlighting](toolchain.md#code-highlighting)). |
 | `(snail-core integer)`, `(snail-core rational)`, `(snail-core number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(snail-core datum)`, `(snail-core read)`, `(snail-core write)` | Scheme data and its external representation. |

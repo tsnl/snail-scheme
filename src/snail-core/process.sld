@@ -107,7 +107,8 @@
     ;; program, then its arguments.
     (: command-parts (-> Command (Vector String)))
     (define (command-parts command)
-      (list->vector (Cons (Command-directory command) (Cons (Command-program command) (Command-arguments command)))))
+      (list->vector (Cons (Command-directory command)
+                          (Cons (Command-program command) (Command-arguments command)))))
 
     (: part-count (-> (Vector String) I32))
     (define (part-count parts)

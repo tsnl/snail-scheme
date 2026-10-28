@@ -49,7 +49,9 @@
     (define (library-syntax name exports imports definitions)
       (let ((library-name (lambda (parts) (ListSyntax (map SymbolSyntax parts)))))
         (form "define-library"
-              (list (library-name name) (form "export" (map SymbolSyntax exports)) (form "import" (map library-name imports))
+              (list (library-name name)
+                    (form "export" (map SymbolSyntax exports))
+                    (form "import" (map library-name imports))
                     (form "begin" definitions)))))
 
     ;; ---- Encoding ----
@@ -77,7 +79,10 @@
     (: encode (-> Syntax (List Bytes) (List Bytes)))
     (define (encode syntax pieces)
       (match syntax
-        ((ListSyntax items) (fold-left (lambda (pieces item) (encode item pieces)) (Cons (counted 0 (length items)) pieces) items))
+        ((ListSyntax items)
+         (fold-left (lambda (pieces item) (encode item pieces))
+                    (Cons (counted 0 (length items)) pieces)
+                    items))
         ((SymbolSyntax name) (Cons (text-piece 1 name) pieces))
         ((IntegerSyntax value) (Cons (text-piece 2 (i64->string value)) pieces))
         ((FloatSyntax text) (Cons (text-piece 2 text) pieces))
@@ -95,13 +100,16 @@
     (: text-piece (-> I32 String Bytes))
     (define (text-piece tag text)
       (list->vector (Cons (i32->u8 tag) (append (count-bytes (string-length text))
-                                                (concatenate (map (lambda (c) (count-bytes (char->integer c))) (string->list text)))))))
+                                                (concatenate
+                                                 (map (lambda (c) (count-bytes (char->integer c)))
+                                                      (string->list text)))))))
 
     (: count-bytes (-> I64 (List U8)))
     (define (count-bytes count)
       (if (< count 128)
           (list (i32->u8 (i64->i32 count)))
-          (Cons (i32->u8 (i64->i32 (+ 128 (remainder count 128)))) (count-bytes (quotient count 128)))))
+          (Cons (i32->u8 (i64->i32 (+ 128 (remainder count 128))))
+                (count-bytes (quotient count 128)))))
 
     ;; ---- Producers ----
 

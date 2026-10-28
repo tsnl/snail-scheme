@@ -6,10 +6,11 @@
 ;; the length of the result, which `format_result` gives back a character at
 ;; a time. On the command line,
 ;;
-;;   format --check FILE ...
+;;   format [--width COLUMNS] --check FILE ...
 ;;
 ;; prints the first line that formatting would change in each file, which is
 ;; how the tests hold the formatter to the repository's Emacs formatting.
+;; Lines break past `format-width` columns, or past COLUMNS when given.
 (import
  (snail-core base)
  (snail-core io)
@@ -41,7 +42,7 @@
 
 (: format-whole (-> I32 ! mut))
 (define (format-whole)
-  (keep-result (format-source (take-input))))
+  (keep-result (format-source (take-input) format-width)))
 
 ;; Lines `first` to `last`, counting from 0.
 (: format-indent (-> I32 I32 I32 ! mut))
@@ -57,7 +58,10 @@
 (: class-letters (-> (List Token) String))
 (define (class-letters tokens)
   (string-concatenate
-   (map (lambda (token) (make-string (- (Token-end token) (Token-start token)) (class-letter (Token-class token)))) tokens)))
+   (map (lambda (token)
+          (make-string (- (Token-end token) (Token-start token))
+                       (class-letter (Token-class token))))
+        tokens)))
 
 (: class-letter (-> Class Char))
 (define (class-letter class)
@@ -87,10 +91,12 @@
 
 ;; ---- On the command line ----
 
-(: check-file (-> String Unit ! fs console))
-(define (check-file path)
+(: check-file (-> I64 String Unit ! fs console))
+(define (check-file width path)
   (let ((text (read-file path)))
-    (match (first-difference (lines-of text) (lines-of (format-source text)) 1)
+    (match (first-difference (lines-of text)
+                             (lines-of (format-source text width))
+                             1)
       ((Some report) (write-line (string-append path ":" report)))
       ((None) (unit)))))
 
@@ -113,6 +119,14 @@
          (Some (string-append (i64->string number) ": needs formatting\n  was: " a "\n  now: " b))))
     (_ (Some (string-append (i64->string number) ": needs formatting: the line count changes")))))
 
+(: check-files (-> I64 (List String) Unit ! fs console))
+(define (check-files width paths)
+  (for-each (lambda (path) (check-file width path)) paths))
+
 (match (command-line)
-  ((Cons _ (Cons "--check" paths)) (for-each check-file paths))
+  ((Cons _ (Cons "--width" (Cons columns (Cons "--check" paths))))
+   (match (string->i64 columns)
+     ((Some width) (check-files width paths))
+     ((None) (write-line "format: --width takes a number of columns"))))
+  ((Cons _ (Cons "--check" paths)) (check-files format-width paths))
   (_ (unit)))

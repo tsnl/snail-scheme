@@ -34,8 +34,9 @@
      (match (summarizer plugin name)
        ((Ok summarize)
         (let ((report (summarize project)))
-          (write-line (string-append (Report-name report) ": " (i64->string (Report-tasks report)) " tasks, "
-                                     (i64->string (Report-days report)) " days"))))
+          (write-line
+           (string-append (Report-name report) ": " (i64->string (Report-tasks report)) " tasks, "
+                          (i64->string (Report-days report)) " days"))))
        ((Err error) (write-line (load-error-message error)))))
     ((Err error) (write-line (load-error-message error)))))
 

@@ -23,7 +23,8 @@
     (define (string->json text)
       (let ((chars (string->vector text)))
         (match (read-value chars (skip-space chars 0))
-          ((Some (Pair value end)) (if (= (skip-space chars end) (vector-length chars)) (Some value) (None)))
+          ((Some (Pair value end))
+           (if (= (skip-space chars end) (vector-length chars)) (Some value) (None)))
           ((None) (None)))))
 
     ;; The value of an object's first member named `name`.
@@ -37,7 +38,8 @@
 
     (: skip-space (-> (Vector Char) I64 I64))
     (define (skip-space chars index)
-      (if (and (< index (vector-length chars)) (member? (vector-ref chars index) (list #\space #\tab #\newline (integer->char 13))))
+      (if (and (< index (vector-length chars))
+               (member? (vector-ref chars index) (list #\space #\tab #\newline (integer->char 13))))
           (skip-space chars (+ index 1))
           index))
 
@@ -58,7 +60,8 @@
     (: read-word (-> (Vector Char) I64 String Json (Option (Pair Json I64))))
     (define (read-word chars index word value)
       (let ((end (+ index (string-length word))))
-        (if (and (<= end (vector-length chars)) (string=? (vector->string (subvector chars index end)) word))
+        (if (and (<= end (vector-length chars))
+                 (string=? (vector->string (subvector chars index end)) word))
             (Some (Pair value end))
             (None))))
 
@@ -67,13 +70,17 @@
     (: read-integer (-> (Vector Char) I64 (Option (Pair Json I64))))
     (define (read-integer chars index)
       (let ((end (digits-end chars (if (at? chars index #\-) (+ index 1) index))))
-        (match (if (any? (lambda (char) (at? chars end char)) (list #\. #\e #\E)) (None) (string->i64 (vector->string (subvector chars index end))))
+        (match (if (any? (lambda (char) (at? chars end char)) (list #\. #\e #\E))
+                   (None)
+                   (string->i64 (vector->string (subvector chars index end))))
           ((Some number) (Some (Pair (JsonInteger number) end)))
           ((None) (None)))))
 
     (: digits-end (-> (Vector Char) I64 I64))
     (define (digits-end chars index)
-      (if (and (< index (vector-length chars)) (char-numeric? (vector-ref chars index))) (digits-end chars (+ index 1)) index))
+      (if (and (< index (vector-length chars)) (char-numeric? (vector-ref chars index)))
+          (digits-end chars (+ index 1))
+          index))
 
     ;; An array's items after its `[`; `items` holds those read so far,
     ;; newest first.
@@ -97,9 +104,10 @@
           (match (read-member chars index)
             ((Some (Pair member end))
              (let ((next (skip-space chars end)) (members (Cons member members)))
-               (cond ((at? chars next #\,) (read-members chars (skip-space chars (+ next 1)) members))
-                     ((at? chars next #\}) (Some (Pair (JsonObject (reverse members)) (+ next 1))))
-                     (else (None)))))
+               (cond
+                ((at? chars next #\,) (read-members chars (skip-space chars (+ next 1)) members))
+                ((at? chars next #\}) (Some (Pair (JsonObject (reverse members)) (+ next 1))))
+                (else (None)))))
             ((None) (None)))))
 
     ;; A member's name, a colon and its value.
@@ -108,7 +116,9 @@
       (match (if (at? chars index #\") (read-string chars (+ index 1) (Nil)) (None))
         ((Some (Pair name end))
          (let ((colon (skip-space chars end)))
-           (match (if (at? chars colon #\:) (read-value chars (skip-space chars (+ colon 1))) (None))
+           (match (if (at? chars colon #\:)
+                      (read-value chars (skip-space chars (+ colon 1)))
+                      (None))
              ((Some (Pair value after)) (Some (Pair (Pair name value) after)))
              ((None) (None)))))
         ((None) (None))))
@@ -137,7 +147,11 @@
 
     (: short-escapes (List (Pair Char Char)))
     (define short-escapes
-      (list (Pair #\" #\") (Pair #\\ #\\) (Pair #\/ #\/) (Pair #\b (integer->char 8)) (Pair #\f (integer->char 12))
+      (list (Pair #\" #\")
+            (Pair #\\ #\\)
+            (Pair #\/ #\/)
+            (Pair #\b (integer->char 8))
+            (Pair #\f (integer->char 12))
             (Pair #\n #\newline) (Pair #\r (integer->char 13)) (Pair #\t #\tab)))
 
     ;; The character an escape names, after its backslash.
@@ -145,7 +159,9 @@
     (define (read-escape chars index)
       (if (at? chars index #\u)
           (read-unicode chars (+ index 1))
-          (match (if (< index (vector-length chars)) (assoc-ref short-escapes (vector-ref chars index)) (None))
+          (match (if (< index (vector-length chars))
+                     (assoc-ref short-escapes (vector-ref chars index))
+                     (None))
             ((Some char) (Some (Pair char (+ index 1))))
             ((None) (None)))))
 
@@ -156,21 +172,31 @@
       (match (hex-value chars index)
         ((Some code)
          (match (low-surrogate chars (+ index 4) code)
-           ((Some low) (Some (Pair (i32->char (+ (+ 65536 (* (- code 55296) 1024)) (- low 56320))) (+ index 10))))
+           ((Some low)
+            (Some
+             (Pair (i32->char (+ (+ 65536 (* (- code 55296) 1024)) (- low 56320))) (+ index 10))))
            ((None) (Some (Pair (i32->char code) (+ index 4))))))
         ((None) (None))))
 
     ;; The low surrogate escaped at `index`, when `high` is a high one.
     (: low-surrogate (-> (Vector Char) I64 I32 (Option I32)))
     (define (low-surrogate chars index high)
-      (match (if (and (>= high 55296) (<= high 56319) (at? chars index #\\) (at? chars (+ index 1) #\u)) (hex-value chars (+ index 2)) (None))
+      (match (if (and (>= high 55296)
+                      (<= high 56319)
+                      (at? chars index #\\)
+                      (at? chars (+ index 1) #\u))
+                 (hex-value chars (+ index 2))
+                 (None))
         ((Some low) (if (and (>= low 56320) (<= low 57343)) (Some low) (None)))
         ((None) (None))))
 
     (: hex-value (-> (Vector Char) I64 (Option I32)))
     (define (hex-value chars index)
       (fold-left (lambda (value offset)
-                   (match (Pair value (if (< (+ index offset) (vector-length chars)) (hex-digit (vector-ref chars (+ index offset))) (None)))
+                   (match (Pair value
+                                (if (< (+ index offset) (vector-length chars))
+                                    (hex-digit (vector-ref chars (+ index offset)))
+                                    (None)))
                      ((Pair (Some total) (Some digit)) (Some (+ (* total 16) digit)))
                      (_ (None))))
                  (ann (Some 0) (Option I32)) (iota 4)))

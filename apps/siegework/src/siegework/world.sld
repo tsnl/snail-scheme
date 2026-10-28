@@ -284,7 +284,10 @@
     ;; Everything paid for the levels a building has reached.
     (: invested (-> Building I64))
     (define (invested building)
-      (fold-left + 0 (map (lambda (level) (raise-cost (Building-kind building) level)) (iota (Building-level building)))))
+      (fold-left +
+                 0
+                 (map (lambda (level) (raise-cost (Building-kind building) level))
+                      (iota (Building-level building)))))
 
     ;; ---- Work ----
 
@@ -297,7 +300,8 @@
     ;; times the price in all, and rushing later costs less.
     (: rush-price (-> Work I64))
     (define (rush-price work)
-      (quotient (+ (* 4 (* (Work-cost work) (remaining-work work))) (- (Work-duration work) 1)) (Work-duration work)))
+      (quotient (+ (* 4 (* (Work-cost work) (remaining-work work))) (- (Work-duration work) 1))
+                (Work-duration work)))
 
     ;; Cancelling returns the whole cost.
     (: work-refund (-> Work I64))
@@ -333,7 +337,8 @@
 
     (: hub-cell? (-> Hub Cell Bool))
     (define (hub-cell? hub cell)
-      (and (<= (abs (- (Cell-x cell) (Cell-x (Hub-cell hub)))) 1) (<= (abs (- (Cell-y cell) (Cell-y (Hub-cell hub)))) 1)))
+      (and (<= (abs (- (Cell-x cell) (Cell-x (Hub-cell hub)))) 1)
+           (<= (abs (- (Cell-y cell) (Cell-y (Hub-cell hub)))) 1)))
 
     ;; ---- Crystals and nests ----
 
@@ -492,11 +497,33 @@
     (: first-world (-> I64 World))
     (define (first-world seed)
       (let ((land (new-land (land-seed seed))) (cells (* map-size map-size)))
-        (rewire (World seed land 0 #f (Playing) starting-energy (Hub (Land-hub land) hub-health 1 (None)) (Nil)
-                       (append (map site-crystal (Land-sites land)) (map nest-crystal (Land-fronts land)))
-                       (map-indexed (lambda (front cell) (Nest front cell nest-health)) (Land-fronts land))
-                       (Nil) (Nil) (make-vector cells #f) (Nil) (Nil) (Nil) (Ledger 0 0 0 0) 1 1 (Network (Nil) (Nil))
-                       (make-vector cells #f) (make-vector cells #f) (Reveal (make-vector cells #f) (Land-hub land) 0 0) 0 0))))
+        (rewire (World seed
+                       land
+                       0
+                       #f
+                       (Playing)
+                       starting-energy
+                       (Hub (Land-hub land) hub-health 1 (None))
+                       (Nil)
+                       (append (map site-crystal (Land-sites land))
+                               (map nest-crystal (Land-fronts land)))
+                       (map-indexed (lambda (front cell) (Nest front cell nest-health))
+                                    (Land-fronts land))
+                       (Nil)
+                       (Nil)
+                       (make-vector cells #f)
+                       (Nil)
+                       (Nil)
+                       (Nil)
+                       (Ledger 0 0 0 0)
+                       1
+                       1
+                       (Network (Nil) (Nil))
+                       (make-vector cells #f)
+                       (make-vector cells #f)
+                       (Reveal (make-vector cells #f) (Land-hub land) 0 0)
+                       0
+                       0))))
 
     (: site-crystal (-> Site Crystal))
     (define (site-crystal site)
@@ -534,11 +561,16 @@
 
     (: put-building (-> World Building World))
     (define (put-building world building)
-      (World-buildings-set world (map (lambda (b) (if (= (Building-id b) (Building-id building)) building b)) (World-buildings world))))
+      (World-buildings-set world
+                           (map
+                            (lambda (b) (if (= (Building-id b) (Building-id building)) building b))
+                            (World-buildings world))))
 
     (: remove-building (-> World I64 World))
     (define (remove-building world id)
-      (rewire (World-buildings-set world (filter (lambda (b) (not (= (Building-id b) id))) (World-buildings world)))))
+      (rewire (World-buildings-set world
+                                   (filter (lambda (b) (not (= (Building-id b) id)))
+                                           (World-buildings world)))))
 
     (: crystal-at (-> World Cell (Option Crystal)))
     (define (crystal-at world cell)
@@ -546,7 +578,10 @@
 
     (: put-crystal (-> World Crystal World))
     (define (put-crystal world crystal)
-      (World-crystals-set world (map (lambda (c) (if (cell=? (Crystal-cell c) (Crystal-cell crystal)) crystal c)) (World-crystals world))))
+      (World-crystals-set world
+                          (map (lambda (c)
+                                 (if (cell=? (Crystal-cell c) (Crystal-cell crystal)) crystal c))
+                               (World-crystals world))))
 
     (: nest-at (-> World Cell (Option Nest)))
     (define (nest-at world cell)
@@ -560,19 +595,23 @@
     ;; Opening rock changes every route and may clear wires and shots.
     (: open-rock (-> World Cell World))
     (define (open-rock world cell)
-      (rewire (World-routes-set (World-opened-set world (vector-set (World-opened world) (cell-index cell) #t)) (Nil))))
+      (rewire (World-routes-set
+               (World-opened-set world (vector-set (World-opened world) (cell-index cell) #t))
+               (Nil))))
 
     ;; Spending and earning keep energy and the ledger in step; a refund is
     ;; negative spending.
     (: spend (-> World I64 World))
     (define (spend world amount)
       (World-ledger-set (World-energy-set world (- (World-energy world) amount))
-                        (Ledger-spent-set (World-ledger world) (+ (Ledger-spent (World-ledger world)) amount))))
+                        (Ledger-spent-set (World-ledger world)
+                                          (+ (Ledger-spent (World-ledger world)) amount))))
 
     (: earn (-> World I64 World))
     (define (earn world amount)
       (World-ledger-set (World-energy-set world (+ (World-energy world) amount))
-                        (Ledger-produced-set (World-ledger world) (+ (Ledger-produced (World-ledger world)) amount))))
+                        (Ledger-produced-set (World-ledger world)
+                                             (+ (Ledger-produced (World-ledger world)) amount))))
 
     (: structures-changed (-> World World))
     (define (structures-changed world)
@@ -583,7 +622,9 @@
     ;; Wires, shots and sight lines cross everything but intact rock.
     (: clear-line? (-> World Cell Cell Bool))
     (define (clear-line? world from to)
-      (every? (lambda (cell) (match (ground-at (World-land world) cell) ((Rock) (opened? world cell)) (_ #t))) (line-cells from to)))
+      (every? (lambda (cell)
+                (match (ground-at (World-land world) cell) ((Rock) (opened? world cell)) (_ #t)))
+              (line-cells from to)))
 
     ;; A wire reaches as far as the longer reach of its two ends.
     (: wire-reaches? (-> World Cell I64 Cell I64 Bool))
@@ -596,7 +637,8 @@
 
     (: building-nodes (-> World (List Node)))
     (define (building-nodes world)
-      (map (lambda (b) (Node (Building-id b) (Building-cell b) (building-reach b))) (filter built? (World-buildings world))))
+      (map (lambda (b) (Node (Building-id b) (Building-cell b) (building-reach b)))
+           (filter built? (World-buildings world))))
 
     ;; A pair of nodes a wire could join, by their places in the list of
     ;; nodes, with the squared length that ranks it.
@@ -609,7 +651,8 @@
     (: links (-> World (Vector Node) (List Link)))
     (define (links world nodes)
       (concatenate (map (lambda (i)
-                          (filter-map (lambda (k) (link world nodes i (+ k (+ i 1)))) (iota (- (vector-length nodes) (+ i 1)))))
+                          (filter-map (lambda (k) (link world nodes i (+ k (+ i 1))))
+                                      (iota (- (vector-length nodes) (+ i 1)))))
                         (iota (vector-length nodes)))))
 
     (: link (-> World (Vector Node) I64 I64 (Option Link)))
@@ -630,16 +673,34 @@
       (let loop ((inside (make-vector (vector-length nodes) #f)) (wires (Nil)) (powered (None)))
         (match (find (lambda (i) (not (vector-ref inside i))) (iota (vector-length nodes)))
           ((Some root)
-           (match (grow nodes links (vector-set inside root #t) wires (list (vector-ref nodes root)))
-             ((Pair (Pair inside wires) tree) (loop inside wires (match powered ((None) (Some (reverse tree))) (_ powered))))))
+           (match (grow nodes
+                        links
+                        (vector-set inside root #t)
+                        wires
+                        (list (vector-ref nodes root)))
+             ((Pair (Pair inside wires) tree)
+              (loop inside wires (match powered ((None) (Some (reverse tree))) (_ powered))))))
           ((None) (Pair (match powered ((Some tree) tree) ((None) (Nil))) (reverse wires))))))
 
     ;; Adds the shortest link from the tree to a new node until none is left.
-    (: grow (-> (Vector Node) (List Link) (Vector Bool) (List Wire) (List Node) (Pair (Pair (Vector Bool) (List Wire)) (List Node))))
+    (: grow
+       (-> (Vector Node)
+           (List Link)
+           (Vector Bool)
+           (List Wire)
+           (List Node)
+           (Pair (Pair (Vector Bool) (List Wire)) (List Node))))
     (define (grow nodes links inside wires tree)
       (match (shortest-crossing links inside)
-        ((Some l) (let* ((outward (vector-ref inside (Link-a l))) (from (if outward (Link-a l) (Link-b l))) (to (if outward (Link-b l) (Link-a l))))
-                    (grow nodes links (vector-set inside to #t) (Cons (Wire (vector-ref nodes from) (vector-ref nodes to)) wires) (Cons (vector-ref nodes to) tree))))
+        ((Some l)
+         (let* ((outward (vector-ref inside (Link-a l)))
+                (from (if outward (Link-a l) (Link-b l)))
+                (to (if outward (Link-b l) (Link-a l))))
+           (grow nodes
+                 links
+                 (vector-set inside to #t)
+                 (Cons (Wire (vector-ref nodes from) (vector-ref nodes to)) wires)
+                 (Cons (vector-ref nodes to) tree))))
         ((None) (Pair (Pair inside wires) tree))))
 
     ;; The first of the shortest links with one end inside, so ties go to
@@ -647,7 +708,8 @@
     (: shortest-crossing (-> (List Link) (Vector Bool) (Option Link)))
     (define (shortest-crossing links inside)
       (fold-left (lambda (best l)
-                   (if (and (not (eq-bool? (vector-ref inside (Link-a l)) (vector-ref inside (Link-b l))))
+                   (if (and (not (eq-bool? (vector-ref inside (Link-a l))
+                                           (vector-ref inside (Link-b l))))
                             (match best ((Some b) (< (Link-cost l) (Link-cost b))) ((None) #t)))
                        (Some l)
                        best))
@@ -659,7 +721,10 @@
 
     (: filter-map (All (A B) (-> (-> A (Option B)) (List A) (List B))))
     (define (filter-map f items)
-      (fold-right (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept))) (Nil) items))
+      (fold-right
+       (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
+       (Nil)
+       items))
 
     (: powered? (-> World I64 Bool))
     (define (powered? world id)
@@ -701,18 +766,30 @@
     ;; cell once visible stays explored.
     (: rewire (-> World World))
     (define (rewire world)
-      (let* ((nodes (list->vector (Cons (hub-node world) (building-nodes world)))) (spanned (span nodes (links world nodes))))
-        (explore (structures-changed (World-visible-set (World-network-set world (Network (Pair-second spanned) (Pair-first spanned)))
+      (let* ((nodes (list->vector (Cons (hub-node world) (building-nodes world))))
+             (spanned (span nodes (links world nodes))))
+        (explore (structures-changed (World-visible-set (World-network-set world
+                                                                           (Network
+                                                                            (Pair-second spanned)
+                                                                            (Pair-first spanned)))
                                                         (lit-cells (Pair-first spanned)))))))
 
     (: explore (-> World World))
     (define (explore world)
       (let* ((explored (World-explored world)) (visible (World-visible world))
-             (fresh (filter (lambda (index) (and (vector-ref visible index) (not (vector-ref explored index)))) (iota (vector-length visible)))))
+             (fresh (filter (lambda (index)
+                              (and (vector-ref visible index) (not (vector-ref explored index))))
+                            (iota (vector-length visible)))))
         (if (null? fresh)
             world
             (World-explored-version-set
-             (World-reveal-set (World-explored-set world (vector-generate (vector-length visible) (lambda (index) (or (vector-ref explored index) (vector-ref visible index)))))
+             (World-reveal-set (World-explored-set world
+                                                   (vector-generate (vector-length visible)
+                                                                    (lambda (index)
+                                                                      (or
+                                                                       (vector-ref explored index)
+                                                                       (vector-ref visible
+                                                                                   index)))))
                                (reveal-around explored (map index-cell fresh) (World-tick world)))
              (+ (World-explored-version world) 1)))))
 
@@ -720,16 +797,25 @@
     (: reveal-around (-> (Vector Bool) (List Cell) I64 Reveal))
     (define (reveal-around before cells tick)
       (let* ((count (length cells))
-             (center (Cell (quotient (fold-left + 0 (map Cell-x cells)) count) (quotient (fold-left + 0 (map Cell-y cells)) count))))
-        (Reveal before center (+ 1 (integer-sqrt (fold-left max 0 (map (lambda (cell) (distance-squared cell center)) cells)))) tick)))
+             (center (Cell (quotient (fold-left + 0 (map Cell-x cells)) count)
+                           (quotient (fold-left + 0 (map Cell-y cells)) count))))
+        (Reveal before
+                center
+                (+ 1
+                   (integer-sqrt
+                    (fold-left max 0 (map (lambda (cell) (distance-squared cell center)) cells))))
+                tick)))
 
     ;; A decided game shows the whole map for inspection, at once: the world
     ;; is still, so nothing could unveil.
     (: uncover (-> World World))
     (define (uncover world)
       (let ((everything (make-vector (* map-size map-size) #t)) (reveal (World-reveal world)))
-        (structures-changed (World-explored-version-set (World-reveal-set (World-visible-set (World-explored-set world everything) everything)
-                                                                          (Reveal-tick-set reveal -1000))
-                                                        (+ (World-explored-version world) 1)))))
+        (structures-changed
+         (World-explored-version-set (World-reveal-set (World-visible-set (World-explored-set world
+                                                                                              everything)
+                                                                          everything)
+                                                       (Reveal-tick-set reveal -1000))
+                                     (+ (World-explored-version world) 1)))))
 
     ))

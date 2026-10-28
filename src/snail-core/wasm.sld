@@ -115,10 +115,12 @@
         ((InvalidManifest file) (string-append file " is not the modules.json of a program"))
         ((InvalidModule file) (string-append file " is not a WebAssembly module"))
         ((NameTaken name) (string-append "a module named " name " is linked already"))
-        ((LinkFailed name) (string-append "the module " name " imports what nothing provides at its type"))
+        ((LinkFailed name)
+         (string-append "the module " name " imports what nothing provides at its type"))
         ((MissingExport name) (string-append "nothing is exported as " name))
         ((NotDynamic name) (string-append name " is not exposed with dynamic"))
-        ((SignatureMismatch name) (string-append name " was compiled with other types than this program's"))))
+        ((SignatureMismatch name)
+         (string-append name " was compiled with other types than this program's"))))
 
     ;; ---- Modules ----
 
@@ -238,7 +240,8 @@
         ((Cons (Some program) libraries)
          (fold-left (lambda (manifest entry)
                       (match (Pair manifest entry)
-                        ((Pair (Some (Manifest modules program)) (Some module)) (Some (Manifest (Cons module modules) program)))
+                        ((Pair (Some (Manifest modules program)) (Some module))
+                         (Some (Manifest (Cons module modules) program)))
                         (_ (None))))
                     (Some (Manifest (Nil) program)) libraries))
         (_ (None))))
@@ -259,7 +262,9 @@
 
     (: relative-to (-> String String String))
     (define (relative-to directory file)
-      (if (and (> (string-length file) 0) (char=? (string-ref file 0) #\/)) file (string-append directory file)))
+      (if (and (> (string-length file) 0) (char=? (string-ref file 0) #\/))
+          file
+          (string-append directory file)))
 
     ;; ---- Plugin functions ----
 
@@ -271,8 +276,10 @@
     (: plugin-function (All (A) (-> Plugin String (Result A LoadError) ! wasm)))
     (define (plugin-function plugin name)
       (let ((program (Plugin-program plugin)))
-        (match (Pair (module-export program name) (module-export program (string-append name ":signature")))
-          ((Pair (Ok function) (Ok signature)) (checked-function name function (descriptor signature)))
+        (match (Pair (module-export program name)
+                     (module-export program (string-append name ":signature")))
+          ((Pair (Ok function) (Ok signature))
+           (checked-function name function (descriptor signature)))
           ((Pair (Ok _) (Err _)) (Err (NotDynamic name)))
           ((Pair (Err error) _) (Err error)))))
 
@@ -286,7 +293,8 @@
 
     (: checked-function (All (A) (-> String Funcref (Vector I64) (Result A LoadError))))
     (define (checked-function name function signature)
-      (match (vector->list (dynamic-cast function (lambda (expected) (same-signature? signature expected))))
+      (match (vector->list
+              (dynamic-cast function (lambda (expected) (same-signature? signature expected))))
         ((Cons typed _) (Ok typed))
         ((Nil) (Err (SignatureMismatch name)))))
 
@@ -296,4 +304,5 @@
     (: same-signature? (-> (Vector I64) (Vector I64) Bool))
     (define (same-signature? offered expected)
       (and (= (vector-length offered) (vector-length expected))
-           (every? (lambda (index) (= (vector-ref offered index) (vector-ref expected index))) (iota (vector-length offered)))))))
+           (every? (lambda (index) (= (vector-ref offered index) (vector-ref expected index)))
+                   (iota (vector-length offered)))))))

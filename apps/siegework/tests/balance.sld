@@ -44,13 +44,24 @@
 
 (: reinforce (-> World World))
 (define (reinforce world)
-  (try (fold-left (lambda (world d) (try world (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
-                  world (list (Pair -2 0) (Pair 0 2) (Pair 2 0) (Pair 0 -2) (Pair -2 2) (Pair 2 -2) (Pair 2 2) (Pair -2 -2)))
+  (try (fold-left (lambda (world d)
+                    (try world (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
+                  world
+                  (list (Pair -2 0)
+                        (Pair 0 2)
+                        (Pair 2 0)
+                        (Pair 0 -2)
+                        (Pair -2 2)
+                        (Pair 2 -2)
+                        (Pair 2 2)
+                        (Pair -2 -2)))
        (Upgrade (offset world 0 0))))
 
 (: defend (-> World I64 World))
 (define (defend world ticks)
-  (if (or (<= ticks 0) (not (playing? world))) world (defend (run (reinforce world) 100) (- ticks 100))))
+  (if (or (<= ticks 0) (not (playing? world)))
+      world
+      (defend (run (reinforce world) 100) (- ticks 100))))
 
 (: built-count (-> World I64))
 (define (built-count world)
@@ -59,7 +70,9 @@
 (: ready-for-first-attack? (-> I64 Bool))
 (define (ready-for-first-attack? seed)
   (let ((world (started seed)))
-    (= (built-count (run (try world (Build (Turret) (offset world -2 0) #f)) (- (next-attack-tick 0) 1))) 2)))
+    (= (built-count
+        (run (try world (Build (Turret) (offset world -2 0) #f)) (- (next-attack-tick 0) 1)))
+       2)))
 
 (: undefended-falls? (-> I64 Bool))
 (define (undefended-falls? seed)
@@ -75,7 +88,12 @@
 (: check (-> String (-> I64 Bool) Unit ! console))
 (define (check claim holds?)
   (let ((broken (filter (lambda (seed) (not (holds? seed))) seeds)))
-    (write-line (string-append claim ": " (if (null? broken) "#t" (string-append "broken on seeds " (string-join (map show broken) " ")))))))
+    (write-line (string-append claim
+                               ": "
+                               (if (null? broken)
+                                   "#t"
+                                   (string-append "broken on seeds "
+                                                  (string-join (map show broken) " ")))))))
 
 (check "an extractor and a turret are ready before the first attack" ready-for-first-attack?)
 (check "an undefended hub falls before tick 1000" undefended-falls?)

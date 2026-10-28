@@ -4,4 +4,5 @@
                    (snail-core base)
                    (snail-core io)
                    (scheme compiler))
-                  (scheme->snail-core-library (list "legacy" "queens") (read-file "tests/programs/scheme/queens.scm")))
+                  (scheme->snail-core-library (list "legacy" "queens")
+                                              (read-file "tests/programs/scheme/queens.scm")))

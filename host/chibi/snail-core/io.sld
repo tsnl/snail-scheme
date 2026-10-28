@@ -20,7 +20,9 @@
         (lambda (port)
           (let loop ((chunks '()))
             (let ((chunk (read-string 65536 port)))
-              (if (eof-object? chunk) (apply string-append (reverse chunks)) (loop (cons chunk chunks))))))))
+              (if (eof-object? chunk)
+                  (apply string-append (reverse chunks))
+                  (loop (cons chunk chunks))))))))
 
     ;; Snail-Core's Bytes are vectors of integers on this host.
     (define (read-bytes path)
@@ -31,7 +33,9 @@
     (define (read-all-bytes port)
       (let loop ((chunks '()))
         (let ((chunk (read-bytevector 65536 port)))
-          (if (eof-object? chunk) (apply bytevector-append (reverse chunks)) (loop (cons chunk chunks))))))
+          (if (eof-object? chunk)
+              (apply bytevector-append (reverse chunks))
+              (loop (cons chunk chunks))))))
     (define (write-file path text)
       (call-with-output-file path (lambda (port) (scheme-write-string text port))))
 
