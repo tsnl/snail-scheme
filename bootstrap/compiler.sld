@@ -141,12 +141,14 @@
             (Target (ProgramBuild-name program)
                     #f
                     (in-project directory (ProgramBuild-entry program))
-                    (library-directories directory standard (ProgramBuild-libraries program))))
+                    (library-directories directory standard (ProgramBuild-libraries program))
+                    (ProgramBuild-loc program)))
            ((BrowserTarget browser)
             (Target (BrowserBuild-name browser)
                     #t
                     (in-project directory (BrowserBuild-entry browser))
-                    (library-directories directory standard (BrowserBuild-libraries browser))))))
+                    (library-directories directory standard (BrowserBuild-libraries browser))
+                    (BrowserBuild-loc browser)))))
        (Project-builds project)))
 
 (: in-project (-> String ProjectPath String))

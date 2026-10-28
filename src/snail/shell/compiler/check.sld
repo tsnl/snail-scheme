@@ -1520,10 +1520,24 @@
       (match (Expr-term expr)
         ((Convert inner target)
          (refuse-hidden-effects "type-convert" (Expr-type inner) (Expr-loc expr))
-         (refuse-hidden-effects "type-convert" target (Expr-loc expr)))
+         (refuse-hidden-effects "type-convert" target (Expr-loc expr))
+         (check-through-any (Expr-type inner) target (Expr-loc expr)))
         ((TypeTest _ target) (refuse-hidden-effects "type-test" target (Expr-loc expr)))
         (_ (unit)))
       (for-each check-expression-conversions (subexpressions expr)))
+
+    ;; A conversion changes nothing, or boxes into Any, or checks a value out
+    ;; of it: there is no other representation change for it to make.
+    (: check-through-any (-> Type Type Loc Unit))
+    (define (check-through-any source target loc)
+      (unless (or (string=? (type-key source) (type-key target))
+                  (any-type? source)
+                  (any-type? target))
+        (compile-error loc
+                       (string-append "type-convert converts to or from Any, not from "
+                                      (type->string source)
+                                      " to "
+                                      (type->string target)))))
 
     (: refuse-hidden-effects (-> String Type Loc Unit))
     (define (refuse-hidden-effects form type loc)
@@ -1736,8 +1750,13 @@
     ;; The host may retain unrestricted values, holding managed references
     ;; opaquely. Affine ownership cannot cross this unrestricted boundary.
     ;; The trusted host respects Snail-Core types and implements the declared effects.
+    ;; What is exposed is a definition's code: a foreign function, a
+    ;; constructor or an operation has none.
     (: check-exposed (-> Checker String Bool Loc Checker))
     (define (check-exposed ck name dynamic loc)
+      (match (program-value (program-of ck) name)
+        ((Some (Defined _ _)) (unit))
+        (_ (compile-error loc "an exposed function must be defined")))
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) (TFun params result row)))
          (when (any? (lambda (type) (affine? ck type)) (Cons result params))

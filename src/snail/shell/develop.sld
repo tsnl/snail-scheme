@@ -20,7 +20,9 @@
    (snail core base)
    (snail core io)
    (snail shell sha256)
-   (only (snail shell compiler read) Syntax)
+   (only (snail shell compiler read)
+         Loc
+         Syntax)
    (only (snail shell compiler core) fnv-1a)
    (only (snail shell compiler inputs) Inputs supply-generated producer-text)
    (snail shell compiler session)
@@ -357,8 +359,11 @@
     (: next-build! (-> Loop String (List Built) ! mut fs develop))
     (define (next-build! loop source)
       (let* ((session (ref-get (Loop-session loop)))
-             (program
-              (Target "main" (serving? (Loop-request loop)) source (Session-directories session)))
+             (program (Target "main"
+                              (serving? (Loop-request loop))
+                              source
+                              (Session-directories session)
+                              (Loc source 1 1)))
              (inputs (produced! loop
                                 (plan-build (Nil)
                                             (list program)

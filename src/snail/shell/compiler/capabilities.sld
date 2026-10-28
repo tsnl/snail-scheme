@@ -1,8 +1,9 @@
 ;; Compiler-owned properties of types, found from their structure: whether a
-;; type is first-order data, and whether it is affine. A procedure's arrow
-;; does not describe its captured environment.
+;; type is first-order data, whether it is affine, and whether a struct
+;; contains itself. A procedure's arrow does not describe its captured
+;; environment.
 (define-library (snail shell compiler capabilities)
-  (export affine-type? first-order-type?)
+  (export affine-type? first-order-type? contains-itself?)
   (import
    (snail core base)
    (snail shell compiler core))
@@ -97,4 +98,44 @@
     (define (affine-case program bindings case found)
       (fold-left
        (lambda (found field) (affine-next program (substitute bindings (Field-type field)) found))
-       found (Case-fields case)))))
+       found (Case-fields case)))
+
+    ;; ---- Buildable structs ----
+
+    ;; Whether every value of the struct `data` would hold another of
+    ;; itself. The search follows struct fields and cell contents, and stops
+    ;; at every other type, each of which has a value that holds no struct:
+    ;; an enum's tag, an empty array or string, an Any, a function. A
+    ;; declaration is entered once per path: one that reached its own name
+    ;; would itself contain itself, and the expander refuses it where it is
+    ;; declared.
+    (: contains-itself? (-> Program DataType Bool))
+    (define (contains-itself? program data)
+      (any? (lambda (field) (reaches? program (DataType-name data) field (Nil)))
+            (struct-field-types data (map TRigid (DataType-params data)))))
+
+    (: reaches? (-> Program String Type (List String) Bool))
+    (define (reaches? program target type entered)
+      (match type
+        ((TCon "Ref" (Cons content _)) (reaches? program target content entered))
+        ((TCon name args)
+         (cond ((string=? name target) #t)
+               ((or (member? name entered)
+                    (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+                #f)
+               (else (let ((data (program-type program name)))
+                       (and (not (DataType-enum? data))
+                            (any?
+                             (lambda (field) (reaches? program target field (Cons name entered)))
+                             (struct-field-types data args)))))))
+        (_ #f)))
+
+    ;; The field types of a struct's one case, with its parameters bound to
+    ;; `args`.
+    (: struct-field-types (-> DataType (List Type) (List Type)))
+    (define (struct-field-types data args)
+      (let ((bindings (zip (DataType-params data) args)))
+        (match (DataType-cases data)
+          ((Cons case _)
+           (map (lambda (field) (substitute bindings (Field-type field))) (Case-fields case)))
+          ((Nil) (panic "internal error: a struct has one case")))))))

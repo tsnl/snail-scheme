@@ -1194,29 +1194,14 @@
            (if (unit-type? type) (list call (wat "i32.const" (int 0))) (list call))))
         (_ (panic "internal error: a host function needs a function type"))))
 
-    (: string-type? (-> Type Bool))
-    (define (string-type? type)
-      (match type
-        ((TCon "String" (Nil)) #t)
-        (_ #f)))
-
-    (: bytes-type? (-> Type Bool))
-    (define (bytes-type? type)
-      (match type
-        ((TCon "Vector" (Cons (TCon "U8" (Nil)) (Nil))) #t)
-        (_ #f)))
-
-    (: buffer-type? (-> Type Bool))
-    (define (buffer-type? type)
-      (or (string-type? type) (bytes-type? type)))
-
     (: host-params (-> Module (List Type) Loc (List Rep) ! mut))
     (define (host-params m params loc)
       (map-indexed (lambda (index param)
                      (cond ((not (buffer-type? param)) (rep m param))
                            ((= index (- (length params) 1)) (Scalar "i32"))
-                           (else (compile-error loc
-                                                "a host function can take a String or Bytes only as its last argument"))))
+                           (else
+                            (panic
+                             "internal error: a host function's buffer is not its last argument"))))
                    params))
 
     (: host-args (-> Module (List Type) (List Wat) (List Wat) ! mut))
@@ -1539,12 +1524,6 @@
                                 (id (wasm-id key))
                                 (wat "struct" (wat "field" (rep->wat r)))))))))
 
-    (: any-type? (-> Type Bool))
-    (define (any-type? type)
-      (match type
-        ((TCon "Any" (Nil)) #t)
-        (_ #f)))
-
     ;; To Any boxes; from Any checks the TypeId and panics on a mismatch. A
     ;; downcast of a value just upcast from the same type is removed. Keys
     ;; and TypeIds leave rows out, which is exact only because the checker
@@ -1561,11 +1540,7 @@
                  (_ (Nil))))
               ((any-type? target) (list (to-any m source (emit1 fn inner))))
               ((any-type? source) (list (from-any fn target (emit1 fn inner))))
-              (else (compile-error loc
-                                   (string-append "type-convert converts to or from Any, not from "
-                                                  (type->string source)
-                                                  " to "
-                                                  (type->string target)))))))
+              (else (panic "internal error: a conversion neither to nor from Any")))))
 
     (: to-any (-> Module Type Wat Wat ! mut))
     (define (to-any m type value)
@@ -2517,11 +2492,7 @@
       (let ((data (data-type-of m (type-name type))) (key (type-key type)))
         (cond ((DataType-enum? data)
                (wat "struct.new" (id (data-type m type)) (wat "i32.const" (int -1))))
-              ((member? key seen)
-               (compile-error loc
-                              (string-append "a call that may yield here cannot return "
-                                             (type->string type)
-                                             ", which contains itself")))
+              ((member? key seen) (panic "internal error: a struct that contains itself"))
               (else
                (match (DataType-cases data)
                  ((Cons case _)
@@ -3902,14 +3873,14 @@
          (match (definition-of m name)
            ((Some definition)
             (unless (lambda-expr? definition)
-              (compile-error loc "an exposed function must be defined with lambda"))
+              (panic "internal error: an exposed function is not a lambda"))
             (if dynamic
                 (export-dynamic! m name symbol (Expr-type definition))
                 (push! (Module-exports m)
                        (wat "export"
                             (wat-string symbol)
                             (wat "func" (id (exposed-function m name (Expr-type definition))))))))
-           ((None) (compile-error loc "an exposed function must be defined")))
+           ((None) (panic "internal error: an exposed function has no definition")))
          (Nil))))
 
     )

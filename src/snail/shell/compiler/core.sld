@@ -24,6 +24,10 @@
    Substitution
    type->string
    type-key
+   any-type?
+   string-type?
+   bytes-type?
+   buffer-type?
    hidden-effects
    labels->string
    type=?
@@ -321,6 +325,31 @@
         ((TRow more (Some tail)) (row-parts tail (label-union labels more)))
         ((TRow more (None)) (Pair (label-union labels more) (None)))
         (_ (Pair labels (Some row)))))
+
+    ;; Types the backend gives a representation of their own: Any boxes a
+    ;; TypeId with its value, and a String or Bytes argument to a host
+    ;; function is staged into the runtime's buffer, so it can come only last.
+    (: any-type? (-> Type Bool))
+    (define (any-type? type)
+      (match type
+        ((TCon "Any" (Nil)) #t)
+        (_ #f)))
+
+    (: string-type? (-> Type Bool))
+    (define (string-type? type)
+      (match type
+        ((TCon "String" (Nil)) #t)
+        (_ #f)))
+
+    (: bytes-type? (-> Type Bool))
+    (define (bytes-type? type)
+      (match type
+        ((TCon "Vector" (Cons (TCon "U8" (Nil)) (Nil))) #t)
+        (_ #f)))
+
+    (: buffer-type? (-> Type Bool))
+    (define (buffer-type? type)
+      (or (string-type? type) (bytes-type? type)))
 
     ;; A unique text for a ground type, with full names; it names
     ;; specializations and Wasm types. A row argument, as in (Task e), does
