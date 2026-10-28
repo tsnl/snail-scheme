@@ -212,7 +212,6 @@
     (import
      (only (chibi filesystem) create-directory*)
      (only (chibi string) string-contains)
-     (only (scheme base) guard error-object? error-object-message)
      (only (scheme file) delete-file)
      (snail stage0 testing)
      (only (snail shell compiler inputs) supply-artifact))
@@ -306,14 +305,12 @@
             (expect (link-missing? (Pair-second edited) main) #t))))
 
       (define (link-missing? session main)
-        (guard (failure
-                ((error-object? failure)
-                 (if (string-contains (error-object-message failure)
-                                      "the library sample.linked links data.bin, but there is no file at")
-                     #t
-                     #f)))
-          (build-session session main no-generation no-inputs)
-          #f))
+        (let ((message
+               (compile-failure (lambda () (build-session session main no-generation no-inputs)))))
+          (and message
+               (string-contains message
+                                "the library sample.linked links data.bin, but there is no file at")
+               #t)))
 
       (define (artifact-replay-error session main)
         (match (compiling (lambda () (build-session session main no-generation no-inputs)))

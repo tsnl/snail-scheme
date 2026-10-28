@@ -293,14 +293,12 @@
    (snail-tests
     (export test-project)
     (import
-     (only (scheme base) car cdr guard error-object-message)
+     (only (scheme base) car cdr)
      (only (chibi string) string-contains)
      (snail stage0 testing))
     (begin
       (define (project-error text)
-        (guard (failure (#t (error-object-message failure)))
-          (parse-project text "project.datum")
-          "accepted"))
+        (or (compile-failure (lambda () (parse-project text "project.datum"))) "accepted"))
 
       (define (test-project)
         (let* ((text

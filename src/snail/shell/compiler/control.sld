@@ -534,7 +534,7 @@
    (snail-tests
     (export test-control)
     (import
-     (only (scheme base) eq? guard error-object? error-object-message)
+     (only (scheme base) eq?)
      (snail stage0 testing))
     (begin
       (define (test-control)
@@ -715,13 +715,11 @@
 
       ;; The start of the diagnostic `expr` is refused with, or #f.
       (define (refused? expr)
-        (guard (failure ((error-object? failure)
-                         (let ((message (error-object-message failure)))
-                           (substring message
-                                      (+ (string-index-of message ": ") 2)
-                                      (string-index-of message ";")))))
-          (check-restrictions callees expr)
-          #f))
+        (let ((message (compile-failure (lambda () (check-restrictions callees expr)))))
+          (and message
+               (substring message
+                          (+ (string-index-of message ": ") 2)
+                          (string-index-of message ";")))))
 
       (define (string-index-of text pattern)
         (let loop ((index 0))

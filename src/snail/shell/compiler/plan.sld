@@ -566,7 +566,7 @@
    (snail-tests
     (export test-plan)
     (import
-     (only (scheme base) guard error error-object? error-object-message)
+     (only (scheme base) error)
      (only (chibi filesystem) create-directory*)
      (only (chibi string) string-contains string-split)
      (snail stage0 testing)
@@ -652,9 +652,7 @@
                   #t)))
 
       (define (plan-error targets roots scratch)
-        (guard (failure ((error-object? failure) (error-object-message failure)))
-          (plan-build targets roots no-inputs scratch)
-          "planned"))
+        (or (compile-failure (lambda () (plan-build targets roots no-inputs scratch))) "planned"))
 
       (define (first-line text)
         (list-ref (string-split text #\newline) 0))
