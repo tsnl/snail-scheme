@@ -66,7 +66,7 @@ nested ordinary calls. We would either transform every potentially
 suspending path or supply a stack-switching runtime. The
 `coro.id.retcon.once` convention describes a coroutine yielding once; it
 does not by itself implement our rule that each captured resumption is
-consumed at most once.
+consumed exactly once.
 
 The substantial work is making the runtime correct:
 
@@ -109,8 +109,8 @@ continuation's path, whereas native stack switching can retain the stack
 without rebuilding that path as closures. These are different cost models;
 neither establishes a performance result for Snail-Core without measurement.
 
-Koka supports multiple resumptions. Restricting Snail-Core to affine resumptions
-would simplify ownership, but the follow-on draft plans both grades. A C
+Koka supports multiple resumptions. Snail-Core restricts them to one: `resume`
+is linear, so it is called or dropped exactly once. A C
 backend would still need closure conversion, effect lowering, a
 managed-memory strategy, a foreign ABI and a portable runtime.
 Adopting this technique does not mean embedding Koka or obtaining those
@@ -133,8 +133,7 @@ lowering strategy, not proof that `ctl` is impossible on today's Wasm.
 ## Handler ownership and scheduling
 
 An unrestricted handler implementation may be invoked repeatedly and
-concurrently. In an affine-resumption design, each invocation receives its
-own affine resumption.
+concurrently. Each invocation receives its own linear resumption.
 That does not make the installation, delimiter or captured resources
 unrestricted. A continuation must retain the bindings and resources it
 needs; cancellation must release them without retaining managed wrappers

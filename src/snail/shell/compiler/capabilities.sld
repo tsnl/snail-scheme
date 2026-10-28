@@ -1,9 +1,9 @@
 ;; Compiler-owned properties of types, found from their structure: whether a
-;; type is first-order data, whether it is affine, and whether a struct
+;; type is first-order data, whether it is linear, and whether a struct
 ;; contains itself. A procedure's arrow does not describe its captured
 ;; environment.
 (define-library (snail shell compiler capabilities)
-  (export affine-type? first-order-type? contains-itself?)
+  (export linear-type? first-order-type? contains-itself?)
   (import
    (snail core base)
    (snail shell compiler core))
@@ -15,7 +15,7 @@
     ;; arguments and declared fields, is a function, a Funcref or an Any.
     ;; Its TypeId then names all of it: a function type's says only that it
     ;; is one, and an Any's nothing of what it holds. The search returns the
-    ;; declarations it has entered, each once, as the search for affine
+    ;; declarations it has entered, each once, as the search for linear
     ;; fields below does, or None once it finds something that is not data.
     (: first-order-type? (-> Program Type Bool))
     (define (first-order-type? program type)
@@ -49,55 +49,55 @@
 
     ;; ---- Type grades ----
 
-    ;; One query's progress: whether it has found an affine field yet, and
+    ;; One query's progress: whether it has found a linear field yet, and
     ;; which declarations it has entered. A declaration is entered once per
     ;; query, including across sibling fields, because re-exploring a
     ;; recursive graph by every path is exponential. Carrying the set rather
     ;; than mutating one keeps the query a function of its arguments.
-    (struct Affinity
+    (struct Linearity
       ((found? Bool)
        (entered (List String))))
 
     ;; Type variables range over unrestricted values. Concrete fields can
-    ;; make a record affine; ordinary arrows never describe owned captures.
-    (: affine-type? (-> Program Type Bool))
-    (define (affine-type? program type)
-      (Affinity-found? (affine-search program type (Nil))))
+    ;; make a record linear; ordinary arrows never describe owned captures.
+    (: linear-type? (-> Program Type Bool))
+    (define (linear-type? program type)
+      (Linearity-found? (linear-search program type (Nil))))
 
-    (: affine-search (-> Program Type (List String) Affinity))
-    (define (affine-search program type entered)
+    (: linear-search (-> Program Type (List String) Linearity))
+    (define (linear-search program type entered)
       (match type
-        ((TCon "Once" _) (Affinity #t entered))
+        ((TCon "Once" _) (Linearity #t entered))
         ((TCon name args)
-         (let ((found (affine-any program args entered)))
-           (cond ((Affinity-found? found) found)
-                 ((or (member? name (Affinity-entered found))
+         (let ((found (linear-any program args entered)))
+           (cond ((Linearity-found? found) found)
+                 ((or (member? name (Linearity-entered found))
                       (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
                   found)
-                 (else (affine-fields program name args (Cons name (Affinity-entered found)))))))
-        (_ (Affinity #f entered))))
+                 (else (linear-fields program name args (Cons name (Linearity-entered found)))))))
+        (_ (Linearity #f entered))))
 
     ;; Arguments are searched before a recursive declaration is cut by name.
     ;; Thus List<Ref<I64>> cannot pass because List has been entered already.
-    (: affine-any (-> Program (List Type) (List String) Affinity))
-    (define (affine-any program types entered)
-      (fold-left (lambda (found type) (affine-next program type found))
-                 (Affinity #f entered) types))
+    (: linear-any (-> Program (List Type) (List String) Linearity))
+    (define (linear-any program types entered)
+      (fold-left (lambda (found type) (linear-next program type found))
+                 (Linearity #f entered) types))
 
-    (: affine-next (-> Program Type Affinity Affinity))
-    (define (affine-next program type found)
-      (if (Affinity-found? found) found (affine-search program type (Affinity-entered found))))
+    (: linear-next (-> Program Type Linearity Linearity))
+    (define (linear-next program type found)
+      (if (Linearity-found? found) found (linear-search program type (Linearity-entered found))))
 
-    (: affine-fields (-> Program String (List Type) (List String) Affinity))
-    (define (affine-fields program name args entered)
+    (: linear-fields (-> Program String (List Type) (List String) Linearity))
+    (define (linear-fields program name args entered)
       (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
-        (fold-left (lambda (found case) (affine-case program bindings case found))
-                   (Affinity #f entered) (DataType-cases data))))
+        (fold-left (lambda (found case) (linear-case program bindings case found))
+                   (Linearity #f entered) (DataType-cases data))))
 
-    (: affine-case (-> Program Substitution Case Affinity Affinity))
-    (define (affine-case program bindings case found)
+    (: linear-case (-> Program Substitution Case Linearity Linearity))
+    (define (linear-case program bindings case found)
       (fold-left
-       (lambda (found field) (affine-next program (substitute bindings (Field-type field)) found))
+       (lambda (found field) (linear-next program (substitute bindings (Field-type field)) found))
        found (Case-fields case)))
 
     ;; ---- Buildable structs ----

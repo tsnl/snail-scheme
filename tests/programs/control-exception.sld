@@ -22,7 +22,7 @@
 ;; The handler's answer is a default, after reporting the message.
 (: parse-or (-> String I64 I64 ! console))
 (define (parse-or text default)
-  (handle Raise ((raise (lambda (message resume) (write-line message) default)))
+  (handle Raise ((raise (lambda (message resume) (drop resume) (write-line message) default)))
     (number text)))
 
 (display (parse-or "123" 0))
@@ -35,14 +35,26 @@
 ;; implementation runs in the outer context, so raising there reaches the
 ;; outer handler, which answers for everything inside it.
 (display
- (handle Raise ((raise (lambda (message resume) (write-line (string-append "outer: " message)) 0)))
+ (handle Raise ((raise (lambda (message resume)
+                         (drop resume)
+                         (write-line (string-append "outer: " message))
+                         0)))
    (+ 100
       (handle Raise ((raise
-                      (lambda (message resume) (write-line (string-append "inner: " message)) 1)))
+                      (lambda (message resume)
+                        (drop resume)
+                        (write-line (string-append "inner: " message))
+                        1)))
         (raise "boom")))))
 (newline)
 (display
- (handle Raise ((raise (lambda (message resume) (write-line (string-append "outer: " message)) 0)))
-   (+ 100 (handle Raise ((raise (lambda (message resume) (raise (string-append "again " message)))))
-            (raise "boom")))))
+ (handle Raise ((raise (lambda (message resume)
+                         (drop resume)
+                         (write-line (string-append "outer: " message))
+                         0)))
+   (+ 100
+      (handle Raise ((raise (lambda (message resume)
+                              (drop resume)
+                              (raise (string-append "again " message)))))
+        (raise "boom")))))
 (newline)

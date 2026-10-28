@@ -48,7 +48,9 @@
        (let ((step (next 10)))
          (write-line "after next")
          (match step
-           ((Yielded value _) (write-line (string-append "got " (show value))))
+           ((Yielded value rest)
+            (drop rest)
+            (write-line (string-append "got " (show value))))
            ((Done) (write-line "done")))))
       ((Done) (write-line "done at once")))))
 

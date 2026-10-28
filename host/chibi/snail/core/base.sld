@@ -8,7 +8,7 @@
    define-syntax syntax-rules quote else => _ ...
    : type ann type-convert struct enum match effect handle
    + - * quotient remainder modulo = < <= > >= negate abs min max not
-   unit panic
+   unit panic drop
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Result Ok Err Never absurd Pair Pair-first Pair-second
@@ -23,7 +23,7 @@
    concatenate
    delete-duplicates
    take
-   drop
+   list-drop
    last
    list-index
    assoc-ref
@@ -47,7 +47,7 @@
    (rename (scheme base) (case scheme-case))
    (only (chibi) _ ...)
    (scheme char)
-   (srfi 1)
+   (rename (srfi 1) (drop list-drop))
    (srfi 151)
    (snail stage0 forms))
   (begin
@@ -70,6 +70,10 @@
     (define (unit) (if #f #f))
 
     (define (panic message) (error message))
+
+    ;; Stage 0 has no Once: the `resume` its handlers are handed cannot
+    ;; resume (see (snail stage0 forms)), so dropping one releases nothing.
+    (define (drop owned) (unit))
 
     (define (negate n) (- 0 n))
 

@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-;; `resume` is one-shot: an implementation may call it at most once.
+;; `resume` is linear: an implementation calls it, or drops it, exactly once.
 (effect Choose
   ((ctl choose (-> Bool))))
 

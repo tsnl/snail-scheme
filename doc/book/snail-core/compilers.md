@@ -161,18 +161,21 @@ function of the expander has `mut` in its row — and where it does not, the
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds two
   structural properties of types from their declared fields: whether a
   type is first-order data, which dynamic exports require, and whether it
-  is affine, which ownership uses. Ordinary arrows say nothing about their
+  is linear, which ownership uses. Ordinary arrows say nothing about their
   captures.
+- **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** checks each
+  library's linear values once its types are final, before
+  specialization. It follows each path through a body: a use consumes a
+  linear local, and a second use, or one still live where its scope ends,
+  is an error. Alternatives must consume the same values, except those
+  that panic or reach `Never`, which never return. It inserts nothing.
+  Only one-shot closures can own linear captures. Concrete records inherit
+  their fields' grade; generic parameters remain unrestricted.
 - **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
   names, and definitions that only rename another, such as
   `(define + i64-add)`, are replaced by their target.
-- **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** consumes affine
-  locals once per path after specialization. Branches fork and intersect
-  their live owners; a path drops a value when it has no remaining use.
-  Only one-shot closures can own affine captures. Concrete records inherit
-  their fields' grade; existing generic parameters remain unrestricted.
 - **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/control.sld)** prepares the calls
   that may yield to a control handler. After specialization a row keeps
   only control effects, so a call may yield exactly when its callee's row
@@ -238,7 +241,7 @@ function of the expander has `mut` in its row — and where it does not, the
   other libraries' definitions. At the host boundary it
   stages final String and Bytes arguments and wraps exposed `(Option Any)`
   as a nullable opaque handover. Other exposed managed values keep their normal
-  representation; the checker rejects affine parameters/results at that boundary.
+  representation; the checker rejects linear parameters/results at that boundary.
   The backend reports no source errors, since each rule it relies on is
   checked before it runs. The expander makes sure a host function takes a
   String or Bytes argument only last, and that no struct contains itself,

@@ -166,7 +166,7 @@
            ((Err error) (Err (ApplicationFailure error)))
            ((Ok response) (respond connection grace request response))))))
 
-    ;; Exclusive use is a calling convention, not an affine socket guarantee.
+    ;; Exclusive use is a calling convention, not a linear socket guarantee.
     ;; Returned failures close here. Traps and cancellation in an unrelated
     ;; handler effect cannot unwind through this code; runtime shutdown owns
     ;; their remaining native resources. Active native I/O cancels its socket.

@@ -10,7 +10,7 @@
     ;; The value signalled first, or 0 when the action finishes.
     (: first-signal (-> (-> Unit ! Signal console) I64 ! console))
     (define (first-signal action)
-      (handle Signal ((signal (lambda (value resume) value)))
+      (handle Signal ((signal (lambda (value resume) (drop resume) value)))
         (action)
         0))
 

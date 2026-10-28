@@ -22,9 +22,9 @@ const inventory = () => fs.readdirSync(join(project, 'build')).sort();
 // ---- Through the command line ----
 
 async function throughTheCommandLine() {
-  // The passes after specialization find control effects an
-  // implementation may not yield to, and affine uses; those errors reach
-  // the user through a build as a plain type error does.
+  // The checker finds a linear value's misuse, and the passes after
+  // specialization the control effects an implementation may not yield
+  // to; those errors reach the user through a build as a type error does.
   write('project.datum', '((build-target main (program (entry "main.sld"))))');
   write('main.sld', '(import (snail core base)) (ann "wrong type" I64)');
   await assert.rejects(build('main'), /expected I64, found String/);

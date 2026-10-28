@@ -137,7 +137,7 @@
           ((Cons #\{ rest)
            (let ((name (list->string (take-until rest #\}))))
              (match (assoc-ref bindings name)
-               ((Some value) (loop (drop rest (+ (string-length name) 1)) (Cons value pieces)))
+               ((Some value) (loop (list-drop rest (+ (string-length name) 1)) (Cons value pieces)))
                ((None) (loop rest (Cons "{" pieces))))))
           ((Cons c rest) (loop rest (Cons (list->string (list c)) pieces))))))
 
@@ -345,7 +345,7 @@
 
     (: rep (-> Module Type Rep ! mut))
     (define (rep m type)
-      (if (affine-type? (program-of m) type)
+      (if (linear-type? (program-of m) type)
           (Reference (owned-type m))
           (unrestricted-rep m type)))
 
@@ -1117,7 +1117,7 @@
     (: construct (-> Fn Case Type (List Wat) Wat ! mut))
     (define (construct fn case type args)
       (let ((value (construct-data fn case type args)))
-        (if (affine-type? (program-of (Fn-module fn)) type)
+        (if (linear-type? (program-of (Fn-module fn)) type)
             (wat "struct.new" (id (owned-type (Fn-module fn))) value)
             value)))
 
@@ -1344,7 +1344,7 @@
     (define (clause-block fn clause value done tail?)
       (let* ((next (local-id fn "clause"))
              (pattern (Clause-pattern clause))
-             (tests (if (affine-type? (program-of (Fn-module fn)) (pattern-type pattern))
+             (tests (if (linear-type? (program-of (Fn-module fn)) (pattern-type pattern))
                         (let ((plan (owned-pattern fn pattern (wat "local.get" (id value)) next)))
                           (append (Pair-first plan) (Pair-second plan)))
                         (pattern-code fn pattern (wat "local.get" (id value)) next)))
@@ -1385,7 +1385,7 @@
              (case (match (program-value (program-of m) constructor)
                      ((Some (Constructor case _)) case)
                      (_ (panic "internal error: not a constructor"))))
-             (owned (affine-type? (program-of m) type))
+             (owned (linear-type? (program-of m) type))
              (raw (if owned (wat "ref.cast" (wat "ref" (id (data-type m type)))
                                  (wat "struct.get" (id (owned-type m)) (int 0) value)) value))
              (plan (data-pattern fn case args type raw fail)))
@@ -3335,10 +3335,7 @@
           (("dispatch-local") (dispatch-work m (arg 0) (Fn-evidence fn)))
           (("yield-task" "sleep-task" "park-task" "unpark-task" "current-task")
            (host-call m (task-import operation) (TFun types type empty-row) code no-loc))
-          (("drop-owned")
-           (list (if (affine-type? (program-of m) (first-type types))
-                     (clear-owner m (arg 0))
-                     (wat "drop" (arg 0))) (wat "i32.const" (int 0))))
+          (("drop") (list (clear-owner m (arg 0)) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))
@@ -3397,7 +3394,7 @@
 
     ;; ---- Owned values ----
 
-    ;; Every affine value is a cell with a nullable payload. A move clears
+    ;; Every linear value is a cell with a nullable payload. A move clears
     ;; its source and allocates a fresh cell, so stale locals and captures
     ;; cannot retain owned descendants after the new owner drops them.
     ;; This is shallow transfer, not a deep copy or a GC timing promise.
@@ -3452,7 +3449,7 @@
     ;; to Any and no host needs to inspect a closure display.
     (: dispatch-work (-> Module Wat Wat (List Wat) ! mut))
     (define (dispatch-work m owner evidence)
-      (let* ((run (call-once-helper m)) (drop (drop-owned-helper m))
+      (let* ((run (call-once-helper m)) (release (drop-owned-helper m))
              (host (import! m (Import "snail.runtime.tasks" "dispatch")
                             (list (Scalar "funcref")
                                   (Scalar "funcref")
@@ -3460,9 +3457,14 @@
                                   (evidence-rep m))
                             (None))))
         (push! (Module-declared m) run)
-        (push! (Module-declared m) drop)
+        (push! (Module-declared m) release)
         (list
-         (wat "call" (id host) (wat "ref.func" (id run)) (wat "ref.func" (id drop)) owner evidence)
+         (wat "call"
+              (id host)
+              (wat "ref.func" (id run))
+              (wat "ref.func" (id release))
+              owner
+              evidence)
          (wat "i32.const" (int 0)))))
 
     ;; The scheduler's waits and wakes are imports of "snail.runtime.tasks", each
@@ -3753,7 +3755,7 @@
         (if (< count 2)
             strings
             (merge-strings (sort-strings (take strings (quotient count 2)))
-                           (sort-strings (drop strings (quotient count 2)))))))
+                           (sort-strings (list-drop strings (quotient count 2)))))))
 
     (: merge-strings (-> (List String) (List String) (List String)))
     (define (merge-strings a b)
@@ -3863,7 +3865,7 @@
         (if (< count 2)
             entries
             (merge-named (sort-named (take entries (quotient count 2)))
-                         (sort-named (drop entries (quotient count 2)))))))
+                         (sort-named (list-drop entries (quotient count 2)))))))
 
     (: merge-named
        (All (A) (-> (List (Pair String A)) (List (Pair String A)) (List (Pair String A)))))
