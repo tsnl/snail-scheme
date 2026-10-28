@@ -118,8 +118,9 @@
    Expose
    item-definitions
    Program
-   base-program
+   empty-program
    primitive-global
+   primitive-delta
    Program-instances
    Program-types
    Program-effects
@@ -140,7 +141,6 @@
    table-union
    program-items
    library-items
-   primitives
    fnv-offset
    fnv-step
    fnv-1a
@@ -960,127 +960,21 @@
 
     ;; ---- Primitives ----
 
-    ;; Operations the backend implements directly, with their signatures in
-    ;; Snail-Core type syntax: the variables are A, B and C, and the row variable e.
-    ;; `mut` marks operations on mutable storage; everything else is total,
-    ;; though some can trap. `unsafe-total` calls a thunk and discards its
-    ;; effects, unchecked: the standard library uses it where the checker
-    ;; cannot confirm that mutation stays in storage the function allocates.
-    ;; `unsafe-cast` makes a function of whatever type is expected from a
-    ;; Funcref, a function another module exports (`(snail-core wasm)`), checking
-    ;; only its Wasm type.
-    (: primitive-signatures (List String))
-    (define primitive-signatures
-      (list
-       "(unit (-> Unit)) (panic (-> String A)) (unsafe-total (-> (-> A ! e) A)) (unsafe-cast (-> Funcref A))"
-       "(once (-> (-> Unit ! e) (Once (-> Unit ! e)))) (call-once (-> (Once (-> Unit ! e)) Unit ! e))"
-       "(drop-owned (-> A Unit))"
-       "(dispatch-local (-> (Once (-> Unit ! e)) Unit ! tasks e))"
-       "(yield-task (-> Unit ! tasks)) (sleep-task (-> I64 Unit ! tasks))"
-       "(i32-add (-> I32 I32 I32)) (i32-sub (-> I32 I32 I32)) (i32-mul (-> I32 I32 I32))"
-       "(i32-quotient (-> I32 I32 I32)) (i32-remainder (-> I32 I32 I32))"
-       "(i32-and (-> I32 I32 I32)) (i32-or (-> I32 I32 I32)) (i32-xor (-> I32 I32 I32))"
-       "(i32-shift-left (-> I32 I32 I32)) (i32-shift-right (-> I32 I32 I32))"
-       "(i32-shift-right/logical (-> I32 I32 I32))"
-       "(i32-eq (-> I32 I32 Bool)) (i32-lt (-> I32 I32 Bool)) (i32-le (-> I32 I32 Bool))"
-       "(i32-gt (-> I32 I32 Bool)) (i32-ge (-> I32 I32 Bool))"
-       "(i64-add (-> I64 I64 I64)) (i64-sub (-> I64 I64 I64)) (i64-mul (-> I64 I64 I64))"
-       "(i64-quotient (-> I64 I64 I64)) (i64-remainder (-> I64 I64 I64))"
-       "(i64-and (-> I64 I64 I64)) (i64-or (-> I64 I64 I64)) (i64-xor (-> I64 I64 I64))"
-       "(i64-shift-left (-> I64 I64 I64)) (i64-shift-right (-> I64 I64 I64))"
-       "(i64-shift-right/logical (-> I64 I64 I64))"
-       "(i64-eq (-> I64 I64 Bool)) (i64-lt (-> I64 I64 Bool)) (i64-le (-> I64 I64 Bool))"
-       "(i64-gt (-> I64 I64 Bool)) (i64-ge (-> I64 I64 Bool))"
-       "(f32-add (-> F32 F32 F32)) (f32-sub (-> F32 F32 F32)) (f32-mul (-> F32 F32 F32))"
-       "(f32-div (-> F32 F32 F32)) (f32-min (-> F32 F32 F32)) (f32-max (-> F32 F32 F32))"
-       "(f32-eq (-> F32 F32 Bool)) (f32-lt (-> F32 F32 Bool)) (f32-le (-> F32 F32 Bool))"
-       "(f32-gt (-> F32 F32 Bool)) (f32-ge (-> F32 F32 Bool))"
-       "(f32-sqrt (-> F32 F32)) (f32-abs (-> F32 F32)) (f32-negate (-> F32 F32))"
-       "(f32-floor (-> F32 F32)) (f32-ceiling (-> F32 F32)) (f32-truncate (-> F32 F32))"
-       "(f32-round (-> F32 F32))"
-       "(f64-add (-> F64 F64 F64)) (f64-sub (-> F64 F64 F64)) (f64-mul (-> F64 F64 F64))"
-       "(f64-div (-> F64 F64 F64)) (f64-min (-> F64 F64 F64)) (f64-max (-> F64 F64 F64))"
-       "(f64-eq (-> F64 F64 Bool)) (f64-lt (-> F64 F64 Bool)) (f64-le (-> F64 F64 Bool))"
-       "(f64-gt (-> F64 F64 Bool)) (f64-ge (-> F64 F64 Bool))"
-       "(f64-sqrt (-> F64 F64)) (f64-abs (-> F64 F64)) (f64-negate (-> F64 F64))"
-       "(f64-floor (-> F64 F64)) (f64-ceiling (-> F64 F64)) (f64-truncate (-> F64 F64))"
-       "(f64-round (-> F64 F64))"
-       "(i32->i64 (-> I32 I64)) (i64->i32 (-> I64 I32)) (i64->f64 (-> I64 F64))"
-       "(f64->i64 (-> F64 I64)) (i32->f64 (-> I32 F64)) (f64->i32 (-> F64 I32))"
-       "(i32->f32 (-> I32 F32)) (f32->i32 (-> F32 I32)) (i64->f32 (-> I64 F32)) (f32->i64 (-> F32 I64))"
-       "(f32->f64 (-> F32 F64)) (f64->f32 (-> F64 F32))"
-       "(f32->bits (-> F32 I32)) (bits->f32 (-> I32 F32)) (f64->bits (-> F64 I64)) (bits->f64 (-> I64 F64))"
-       "(bool->i32 (-> Bool I32)) (i32->bool (-> I32 Bool)) (u8->i32 (-> U8 I32)) (i32->u8 (-> I32 U8))"
-       "(char->i32 (-> Char I32)) (i32->char (-> I32 Char))"
-       "(string-length (-> String I64)) (string-ref (-> String I64 Char))"
-       "(string-append (-> String String String)) (substring (-> String I64 I64 String))"
-       "(string=? (-> String String Bool)) (string-compare (-> String String I32))"
-       "(make-string (-> I64 Char String))"
-       "(string->vector (-> String (Vector Char))) (vector->string (-> (Vector Char) String))"
-       "(vector-length (-> (Vector A) I64)) (vector-ref (-> (Vector A) I64 A))"
-       "(vector-append (-> (Vector A) (Vector A) (Vector A))) (subvector (-> (Vector A) I64 I64 (Vector A)))"
-       "(make-vector (-> I64 A (Vector A))) (vector-set (-> (Vector A) I64 A (Vector A)))"
-       "(vector-generate (-> I64 (-> I64 A ! e) (Vector A) ! e))"
-       "(string-generate (-> I64 (-> I64 Char ! e) String ! e))"
-       "(make-array (-> I64 A (Array A) ! mut)) (array-length (-> (Array A) I64))"
-       "(array-ref (-> (Array A) I64 A ! mut)) (array-set! (-> (Array A) I64 A Unit ! mut))"
-       "(array->vector (-> (Array A) (Vector A) ! mut)) (vector->array (-> (Vector A) (Array A) ! mut))"
-       "(array-copy! (-> (Array A) I64 (Array A) I64 I64 Unit ! mut))"
-       "(vector-copy! (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut))"
-       "(ref (-> A (Ref A) ! mut)) (ref-get (-> (Ref A) A ! mut)) (ref-set! (-> (Ref A) A Unit ! mut))"))
-
-    ;; Each primitive's name and scheme, quantified over every variable it uses.
-    (: primitives (-> (List (Pair String Scheme))))
-    (define (primitives)
-      (map (lambda (form)
-             (match form
-               ((Form (Cons (Ident name _ _) (Cons signature (Nil))) _)
-                (let ((type (signature->type signature)))
-                  (Pair name (Scheme (delete-duplicates string=? (rigid-names type)) (Nil) type))))
-               (_ (panic "internal error: malformed primitive signature"))))
-           (read-text (string-join primitive-signatures " ") "primitives")))
-
-    (: signature->type (-> Syntax Type))
-    (define (signature->type syntax)
-      (match syntax
-        ((Ident name _ _) (if (member? name (list "A" "B" "C" "e")) (TRigid name) (TCon name (Nil))))
-        ((Form (Cons (Ident "->" _ _) items) _) (arrow->type items (Nil)))
-        ((Form (Cons (Ident name _ _) args) _) (TCon name (map signature->type args)))
-        (_ (panic "internal error: malformed primitive type"))))
-
-    ;; `(-> A B R)` or `(-> A B R ! label ... [e])`.
-    (: arrow->type (-> (List Syntax) (List Type) Type))
-    (define (arrow->type items params)
-      (match items
-        ((Cons result (Nil)) (TFun (reverse params) (signature->type result) empty-row))
-        ((Cons result (Cons (Ident "!" _ _) labels))
-         (let ((names (map (lambda (label) (match label ((Ident name _ _) name) (_ "?"))) labels)))
-           (TFun (reverse params) (signature->type result)
-                 (TRow (filter (lambda (name) (not (string=? name "e"))) names)
-                       (if (member? "e" names) (Some (TRigid "e")) (None))))))
-        ((Cons param rest) (arrow->type rest (Cons (signature->type param) params)))
-        ((Nil) (panic "internal error: an arrow needs a result"))))
-
-    (: rigid-names (-> Type (List String)))
-    (define (rigid-names type)
-      (match type
-        ((TRigid name) (list name))
-        ((TCon _ args) (concatenate (map rigid-names args)))
-        ((TFun params result row) (append (concatenate (map rigid-names params)) (append (rigid-names result) (rigid-names row))))
-        ((TRow _ (Some tail)) (rigid-names tail))
-        (_ (Nil))))
-
+    ;; Operations the backend implements directly. (snail-core primitive)
+    ;; declares each with its type, and the program holds its value under
+    ;; `prim:NAME`, the name the checker, mono and the backend know it by.
+    ;; Its owner is `prim`, which no library may be named, rather than the
+    ;; library that declares it.
     (: primitive-global (-> String String))
     (define (primitive-global name)
       (string-append "prim:" name))
 
-    ;; The program every expansion starts from: each primitive's value, under
-    ;; the global name (snail-core primitive) exports it as.
-    (: base-program Program)
-    (define base-program
-      (Program-values-set empty-program
-                          (fold-left (lambda (values entry) (table-set values (primitive-global (Pair-first entry)) (Primitive (Pair-second entry))))
-                                     empty-table (primitives))))
+    ;; What the primitive library adds to a program, for a later build to
+    ;; replay: its values alone. It has no module, since the backend
+    ;; implements everything it declares, so it records no run of items.
+    (: primitive-delta (-> Program Program))
+    (define (primitive-delta program)
+      (Program-values-set empty-program (owned (Program-values program) "prim")))
 
     )
 
@@ -1092,13 +986,7 @@
     (import
      (snail-core testing))
     (begin
-      (define (primitive-type name)
-        (match (find (lambda (entry) (string=? (Pair-first entry) name)) (primitives))
-          ((Some entry) (Scheme-type (Pair-second entry)))))
       (define (test-core)
-        (expect (type->string (primitive-type "vector-ref")) "(-> (Vector A) I64 A)")
-        (expect (type->string (primitive-type "vector-generate")) "(-> I64 (-> I64 A ! e) (Vector A) ! e)")
-        (expect (type->string (primitive-type "ref-get")) "(-> (Ref A) A ! mut)")
         (expect (short-name "snail-core.base:map") "map")
         (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d")))))
    (else)))
