@@ -18,6 +18,7 @@ CHIBI_PATH = -I tests -I bootstrap/chibi-include
 fetch:
 	cargo fetch --locked --manifest-path crates/runtime/Cargo.toml
 	cargo fetch --locked --manifest-path crates/assembler/Cargo.toml
+	cargo fetch --locked --manifest-path crates/snail/Cargo.toml
 
 # The formatter's tests, the compiler's unit tests, the examples and test
 # programs, both games' tests, Siegework headless, and the development loop.

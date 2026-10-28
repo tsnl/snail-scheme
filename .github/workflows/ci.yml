@@ -52,6 +52,8 @@ jobs:
           cargo fmt --manifest-path crates/runtime/Cargo.toml --all -- --check
           cargo test --manifest-path crates/assembler/Cargo.toml --offline
           cargo fmt --manifest-path crates/assembler/Cargo.toml --all -- --check
+          cargo test --manifest-path crates/snail/Cargo.toml --offline
+          cargo fmt --manifest-path crates/snail/Cargo.toml --all -- --check
           make test
       - name: Retain build evidence
         if: failure()
