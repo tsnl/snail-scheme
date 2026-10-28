@@ -5,8 +5,8 @@
 // A task's effect handlers are evidence on its own Wasm stack, so nothing
 // is saved or restored around a switch.
 export function createScheduler({reportError = () => {}} = {}) {
-  const live = new Set(), ready = [], drains = [];
-  let active = null, scheduled = false, closed = false, steps = 0;
+  const live = new Set(), ready = [], drains = [], parked = new Map();
+  let active = null, scheduled = false, closed = false, steps = 0, ids = 0;
 
   function schedule() {
     if (scheduled || active || !ready.length) return;
@@ -62,7 +62,7 @@ export function createScheduler({reportError = () => {}} = {}) {
   }
   function spawn(work, discard, detached) {
     if (closed) throw new Error('the task runtime has closed');
-    const task = {work, discard, detached, controller: new AbortController(), completion: Promise.withResolvers(), next: null};
+    const task = {id: ++ids, work, discard, detached, controller: new AbortController(), completion: Promise.withResolvers(), next: null};
     task.completion.promise.catch(() => {});
     live.add(task); // Reserve before the dispatching task can return.
     enqueue(task, () => {
@@ -103,6 +103,30 @@ export function createScheduler({reportError = () => {}} = {}) {
     Promise.resolve(pending).then(value => completed(true, value), error => completed(false, error));
     return gate.promise;
   }
+  // A parked task waits for `unpark` to name its id. Waking a task that is
+  // not parked does nothing and answers false, so a stale id, such as one
+  // whose task was cancelled while parked, never wakes another task. Only
+  // the parking task's own Wasm decides when it parks, so a queue it
+  // checked before parking cannot change before it is parked.
+  function park() {
+    const id = active?.id;
+    return suspend(signal => new Promise((resolve, reject) => {
+      const abort = () => { parked.delete(id); reject(signal.reason); };
+      parked.set(id, () => { signal.removeEventListener('abort', abort); resolve(); });
+      signal.addEventListener('abort', abort, {once: true});
+    }));
+  }
+  function unpark(id) {
+    const wake = parked.get(id);
+    if (!wake) return false;
+    parked.delete(id);
+    wake();
+    return true;
+  }
+  function current() {
+    if (!active) throw new Error('a task id requires a running task');
+    return active.id;
+  }
   function drain() {
     return live.size ? new Promise(resolve => drains.push(resolve)) : Promise.resolve();
   }
@@ -110,6 +134,9 @@ export function createScheduler({reportError = () => {}} = {}) {
     start: work => spawn(work, null, false),
     dispatch: (work, discard = null) => spawn(work, discard, true),
     suspend,
+    park,
+    unpark,
+    current,
     drain,
     close(reason) {
       closed = true;
@@ -150,5 +177,9 @@ export function taskImports(scheduler) {
       if (milliseconds < 0n || milliseconds > 2147483647n) throw new RangeError('sleep expects 0..2147483647 milliseconds');
       return delay(signal, Number(milliseconds));
     })),
+    // Task ids are I64s in Snail-Core, so they cross as BigInts.
+    park: new WebAssembly.Suspending(() => scheduler().park()),
+    unpark: id => scheduler().unpark(Number(id)) ? 1 : 0,
+    current: () => BigInt(scheduler().current()),
   };
 }

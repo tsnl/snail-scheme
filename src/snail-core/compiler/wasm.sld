@@ -2387,10 +2387,8 @@
           (("once") (list (wat "struct.new" (id (owned-type m)) (arg 0))))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
           (("dispatch-local") (dispatch-work m (arg 0) (Fn-evidence fn)))
-          (("yield-task" "sleep-task")
-           (let ((host (import! m (Import "snail.tasks" (if (string=? operation "yield-task") "yield" "sleep"))
-                                (map (lambda (type) (rep m type)) types) (None))))
-             (list (wat* "call" (Cons (id host) code)) (wat "i32.const" (int 0)))))
+          (("yield-task" "sleep-task" "park-task" "unpark-task" "current-task")
+           (host-call m (task-import operation) (TFun types type empty-row) code no-loc))
           (("drop-owned")
            (list (if (affine-type? (program-of m) (first-type types))
                      (clear-owner m (arg 0))
@@ -2484,6 +2482,13 @@
         (push! (Module-declared m) drop)
         (list (wat "call" (id host) (wat "ref.func" (id run)) (wat "ref.func" (id drop)) owner evidence)
               (wat "i32.const" (int 0)))))
+
+    ;; The scheduler's waits and wakes are imports of "snail.tasks", each
+    ;; named by its primitive without "-task": `yield`, `sleep`, `park`,
+    ;; `unpark` and `current`.
+    (: task-import (-> String Import))
+    (define (task-import operation)
+      (Import "snail.tasks" (substring operation 0 (- (string-length operation) 5))))
 
     (: drop-owned-helper (-> Module String ! mut))
     (define (drop-owned-helper m)

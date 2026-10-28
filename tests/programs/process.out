@@ -1,0 +1,16 @@
+exited 3
+out
+err
+has a process id
+12
+echoed back
+exited 0
+EPIPE
+signaled SIGTERM
+signaled SIGKILL
+ESRCH
+ENOENT
+ENOENT
+EBADF
+EBADF
+EBADF

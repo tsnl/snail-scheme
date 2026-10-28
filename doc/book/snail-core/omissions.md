@@ -20,8 +20,9 @@ each can return if a program needs it.
 - **The WGSL backend.** The renderer's shaders are WGSL text that shares no
   structs with Snail-Core code beyond fixed instance and material layouts. The
   runtime and graphics plan proposes shaders written as S-expressions.
-- **Actor destinations.** Tasks schedule one-shot closures. Mailboxes,
-  request/reply protocols and network transports are application concerns.
+- **Actor destinations.** Tasks schedule one-shot closures and share
+  `Mailbox` queues, which are values, not addresses of tasks. Request/reply
+  protocols and network transports are application concerns.
 
 ## Simplifications made on the way
 
