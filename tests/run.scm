@@ -372,6 +372,7 @@
     ("tests/programs" "wire") ("tests/programs" "deriving-libraries") ("tests/programs" "tables") ("tests/programs" "libraries")
     ("tests/programs" "generated") ("tests/programs" "wasm")
     ("tests/programs" "capabilities") ("tests/programs" "handler-captures") ("tests/programs" "once") ("tests/programs" "tasks")
+    ("tests/programs" "mailbox")
     ("tests/programs" "effect-row-inclusion") ("tests/programs" "link-bytes") ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library") ("tests/programs" "control-placeholders") ("tests/programs" "control-generator")
     ("tests/programs" "control-resumable-exception") ("tests/programs" "control-stored-resume") ("tests/programs" "control-tail-loop")

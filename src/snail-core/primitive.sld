@@ -13,7 +13,7 @@
 (define-library (snail-core primitive)
   (export
    unit panic unsafe-total unsafe-cast
-   once call-once drop-owned dispatch-local yield-task sleep-task
+   once call-once drop-owned dispatch-local yield-task sleep-task park-task unpark-task current-task
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -58,6 +58,14 @@
     (primitive dispatch-local (All (e) (-> (Once (-> Unit ! e)) Unit ! tasks e)))
     (primitive yield-task (-> Unit ! tasks))
     (primitive sleep-task (-> I64 Unit ! tasks))
+
+    ;; A parked task waits until `unpark-task` names its `current-task` id;
+    ;; unparking answers whether that task was parked. They are the wait
+    ;; and the wake a queue kept in Snail-Core needs, as `(snail-core task)`'s
+    ;; Mailbox keeps one.
+    (primitive park-task (-> Unit ! tasks))
+    (primitive unpark-task (-> I64 Bool ! tasks))
+    (primitive current-task (-> I64 ! tasks))
 
     ;; ---- Integers ----
 
