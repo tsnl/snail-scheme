@@ -46,6 +46,7 @@
    remove-tree
    list-directory
    file-status
+   followed-status
    make-symbolic-link
    read-symbolic-link
    clock
@@ -127,6 +128,7 @@
        (path-remove-directory (-> String I32))
        (path-list (-> String I32))
        (path-status (-> String I32))
+       (path-followed-status (-> String I32))
        (path-make-link (-> String I32))
        (path-read-link (-> String I32))
        (reply-character (-> I32 Char))
@@ -147,6 +149,7 @@
              (path-remove-directory "snail:io/remove-directory")
              (path-list "snail:io/list-directory")
              (path-status "snail:io/file-status")
+             (path-followed-status "snail:io/followed-status")
              (path-make-link "snail:io/make-symbolic-link")
              (path-read-link "snail:io/read-symbolic-link")
              (reply-character "snail:io/reply-character")
@@ -254,9 +257,8 @@
       (SymbolicLink)
       (OtherKind))
 
-    ;; What is at a path, without following it if it is a symbolic link:
-    ;; its kind, its size in bytes, and when its contents last changed, in
-    ;; nanoseconds since the Unix epoch.
+    ;; What is at a path: its kind, its size in bytes, and when its
+    ;; contents last changed, in nanoseconds since the Unix epoch.
     (struct FileStatus
       ((kind FileKind)
        (size I64)
@@ -387,9 +389,22 @@
     (define (reply-text count)
       (string-generate (i32->i64 count) (lambda (index) (reply-character (i64->i32 index)))))
 
+    ;; The status of the path itself: a symbolic link is a SymbolicLink,
+    ;; whatever it names.
     (: file-status (-> String (Result FileStatus FileError) ! fs))
     (define (file-status path)
-      (match (path-result (path-status path))
+      (status-result (path-status path)))
+
+    ;; The status of what a read of `path` finds, following each symbolic
+    ;; link to the file it names, so never a SymbolicLink. A link that names
+    ;; nothing is NotFound here, though file-status finds the link.
+    (: followed-status (-> String (Result FileStatus FileError) ! fs))
+    (define (followed-status path)
+      (status-result (path-followed-status path)))
+
+    (: status-result (-> I32 (Result FileStatus FileError) ! fs))
+    (define (status-result code)
+      (match (path-result code)
         ((Ok kind) (Ok (FileStatus (file-kind kind) (status-size) (status-modified))))
         ((Err error) (Err error))))
 

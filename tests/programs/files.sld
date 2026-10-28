@@ -30,6 +30,7 @@
             (path-remove-directory (lambda (name) -1))
             (path-list (lambda (name) (if (string=? name "λ") 3 -1)))
             (path-status (lambda (name) -1))
+            (path-followed-status (lambda (name) -1))
             (path-make-link (lambda (names) -1))
             (path-read-link (lambda (name) -1))
             (reply-character
