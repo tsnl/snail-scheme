@@ -1,9 +1,9 @@
-// One persistent Wasm development loop and compiler. Immediate native
-// helpers run here; watcher/server/process commands go to the parent.
+// One persistent Wasm development loop and compiler, which does its own
+// file work through the runtime's WASI. The assembler and producer runs are
+// immediate here; watcher/server/process commands go to the parent.
 import {spawnSync} from 'node:child_process';
-import {createHash} from 'node:crypto';
-import {copyFileSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, writeFileSync, writeSync} from 'node:fs';
-import {dirname, join} from 'node:path';
+import {fstatSync, openSync, readFileSync, readSync, renameSync, writeFileSync, writeSync} from 'node:fs';
+import {join} from 'node:path';
 import {WASI} from 'node:wasi';
 import {parentPort, workerData} from 'node:worker_threads';
 import {commandImports} from '../browser/load.mjs';
@@ -13,8 +13,8 @@ import {createAssembler} from './assemble.mjs';
 
 async function startLoop({root, tools, request, errors: filename}) {
   const errors = openSync(filename, 'w+');
-  const wasi = new WASI({version: 'preview1', args: ['develop', root, tools.runtime, tools.client, ...request], env: process.env,
-    preopens: {'/': '/'}, returnOnExit: true, stderr: errors});
+  const wasi = new WASI({version: 'preview1', args: ['develop', root, tools.runtime, tools.client, ...request],
+    env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true, stderr: errors});
   const loop = {root, errors, read: 0, exports: null, assemble: await createAssembler(readFileSync(tools.assembler))};
   const imports = {...wasi.getImportObject(), 'snail.develop': commandImports(commands(loop))};
   const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), imports);
@@ -63,28 +63,6 @@ function commands(loop) {
       try {
         writeFileSync(`${module}.next`, loop.assemble(readFileSync(text, 'utf8')));
         renameSync(`${module}.next`, module);
-        return 0;
-      }
-      catch (error) { console.error(error.message); return 1; }
-    },
-    digest([path]) {
-      try { return createHash('sha256').update(readFileSync(path)).digest().readInt32LE(0); } catch { return 0; }
-    },
-    now: () => Math.round(performance.now()) | 0,
-    'list-directory'([directory, output]) {
-      let names = [];
-      try { names = readdirSync(directory); } catch {}
-      writeFileSync(output, names.join('\n'));
-    },
-    'make-directory'([directory]) { mkdirSync(directory, {recursive: true}); },
-    'remove-file'([path]) { rmSync(path, {force: true}); },
-    'rename-file'([from, to]) { renameSync(from, to); },
-    // A page may be reading the file being replaced; it sees all of one.
-    'copy-file'([from, to]) {
-      try {
-        mkdirSync(dirname(to), {recursive: true});
-        copyFileSync(from, `${to}.next`);
-        renameSync(`${to}.next`, to);
         return 0;
       }
       catch (error) { console.error(error.message); return 1; }
