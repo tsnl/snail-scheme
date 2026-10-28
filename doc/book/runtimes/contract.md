@@ -84,8 +84,10 @@ It does not establish rules for cloning future control delimiters.
 Runtime event waits are control operations: the runtime retains a one-shot
 resumption and later makes it ready with a result or cancellation. JSPI
 implements this restricted control boundary today. User-defined `ctl`
-handlers and first-class continuations are deferred. Ordinary handlers
-remain tail-resumptive: their result returns once to the operation caller.
+operations compile instead to evidence passing, with a one-shot,
+first-class `resume` (see [types](../snail-core/types.md)), and never reach
+the host. Ordinary handlers remain tail-resumptive: their result returns
+once to the operation caller.
 
 ## Events and application state
 
