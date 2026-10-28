@@ -116,10 +116,11 @@ Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path crates/runtime/Cargo.toml --offline`, and
 `cargo fmt --manifest-path crates/runtime/Cargo.toml --all -- --check`, and the
 same two for `crates/assembler` and `crates/snail`. Changes to the native
-executable or to how compiles run must also pass `make test-wasmtime`. The
-driver rebuilds the compiled compiler whenever the compiler's source
-changes; compiler changes must also pass `make test-chibi`, which runs the
-source on Chibi, and `make bootstrap`, which rebuilds from Chibi alone.
+executable or to how compiles and programs run must also pass
+`make test-wasmtime`. The driver rebuilds the compiled compiler whenever the
+compiler's source changes; compiler changes must also pass `make test-chibi`,
+which runs the source on Chibi, and `make bootstrap`, which rebuilds from
+Chibi alone.
 Backend changes should execute linked Wasm; compilation alone does not test
 target behavior. `(snail-core format)` reproduces `scripts/format-scheme` for
 the IDE, and `make test` checks it on every tracked Scheme file; when Emacs's

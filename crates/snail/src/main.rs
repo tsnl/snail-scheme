@@ -8,6 +8,13 @@
 //! - `snail precompile MODULE OUTPUT` writes Cranelift's machine code for a
 //!   module as a `.cwasm` file, which `run-compiler` loads in place of
 //!   compiling the module again (`engine.rs`).
+//! - `snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program, one
+//!   linked module or a per-library build's modules.json, as
+//!   host/native/run-snail.mjs does on Node, when it needs no tasks,
+//!   sockets or processes (`program.rs`, with `links.rs` for the files it
+//!   links and `modules.rs` for linking modules).
+//! - `snail imports PROGRAM` lists the modules a program imports from, so
+//!   the build driver can tell whether `run-wasm` runs it (`program.rs`).
 //!
 //! `engine.rs` holds what every subcommand shares: the engine's
 //! configuration, loading a module, the WASI context, and how a failure
@@ -17,11 +24,16 @@ use std::process::ExitCode;
 
 mod compiler;
 mod engine;
+mod links;
+mod modules;
+mod program;
 
 // ---- Command line ----
 
 const USAGE: &str = "usage: snail run-compiler MODULE [ARGUMENT ...]
-       snail precompile MODULE OUTPUT";
+       snail precompile MODULE OUTPUT
+       snail run-wasm PROGRAM [ARGUMENT ...]
+       snail imports PROGRAM";
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().collect();
@@ -34,6 +46,8 @@ fn dispatch(arguments: &[String]) -> u8 {
         [_, command, module, output] if command == "precompile" => {
             engine::precompile(module, output)
         }
+        [_, command, program, rest @ ..] if command == "run-wasm" => program::run(program, rest),
+        [_, command, program] if command == "imports" => program::imports(program),
         _ => {
             eprintln!("{USAGE}");
             2
