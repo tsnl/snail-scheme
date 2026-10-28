@@ -94,8 +94,8 @@ protocol `host/native/run-compiler.mjs` follows on Node:
 2. The module is instantiated, and `_initialize`, `main` and
    `compiler-compile` are called in turn.
 3. A WASI exit with status 1 ends a failed compile and one that needs an
-   input alike; then `compiler-request` publishes the pending request, after
-   the stack that asked has unwound.
+   input alike; the compile wrote that one's `request.datum` before it
+   exited.
 4. `close-resources` runs whatever happened. A nonzero answer, a trap or a
    failure of the host is status 2; a trap prints its Wasm frames.
 

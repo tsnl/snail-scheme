@@ -1,5 +1,5 @@
-// A synchronous compiler invocation. Only a trusted exit can publish the
-// pending input request; publication runs after the original stack unwinds.
+// A synchronous compiler invocation. A compile that needs an input writes
+// its request.datum and exits with status 1, as a failed compile does.
 import {readFileSync} from 'node:fs';
 import {WASI} from 'node:wasi';
 
@@ -13,12 +13,9 @@ async function compile(filename, args) {
   const api = instance.exports;
   try {
     wasi.initialize(instance);
-    api.main(); // Initialize request state before any fallible source loading.
+    api.main(); // Initialize module state before any fallible source loading.
     try { api['compiler-compile'](); }
-    catch (error) {
-      if (error !== exited) throw error;
-      if (status === 1) api['compiler-request']();
-    }
+    catch (error) { if (error !== exited) throw error; }
     completed = true;
   } finally {
     try { if (api['close-resources']() !== 0) status = 2; }

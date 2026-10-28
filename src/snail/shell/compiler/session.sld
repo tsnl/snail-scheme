@@ -81,10 +81,10 @@
     (: build-session
        (-> Session
            String
-           (-> (List String) (List Syntax) Bytes ! fs)
+           (-> (List String) (List Syntax) Bytes ! fs compile)
            Inputs
            (Pair (List Built) Session)
-           ! mut fs))
+           ! mut fs compile))
     (define (build-session session source generate inputs)
       (let* ((expansion (expand-program (Session-directories session)
                                         generate
@@ -215,7 +215,7 @@
      (only (scheme base) guard error-object? error-object-message)
      (only (scheme file) delete-file)
      (snail stage0 testing)
-     (only (snail shell compiler inputs) take-input-request! ArtifactInput supply-artifact))
+     (only (snail shell compiler inputs) supply-artifact))
     (begin
 
       ;; A session rebuilds only what an edit changed: a body edit under a
@@ -316,13 +316,9 @@
           #f))
 
       (define (artifact-replay-error session main)
-        (guard (failure
-                ((error-object? failure)
-                 (match (take-input-request!)
-                   ((Some (ArtifactInput "client" _)) #t)
-                   (_ #f))))
-          (build-session session main no-generation no-inputs)
-          #f))
+        (match (compiling (lambda () (build-session session main no-generation no-inputs)))
+          ((Err (Requested (ArtifactInput "client" _))) #t)
+          (_ #f)))
 
       (define (write-artifact-source directory body)
         (write-file (string-append directory "/sample/assets.sld")

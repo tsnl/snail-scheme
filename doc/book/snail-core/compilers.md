@@ -556,17 +556,28 @@ stack ever miss a cycle.
 
 ### Missing inputs and retry
 
-The compiler cannot start a producer or build another project target. It records
-one pending `CompilerRequest` in memory and exits immediately, recording it
-through the same unsafe bridge `compile-error` uses, so a pass that may need an
-input keeps a pure signature. Artifact expansion and request signaling have no
-filesystem effects; library loading and generated-source IO still do. The host
-consumes the request after the compiler stack has unwound.
+The compiler cannot start a producer or build another project target. A pass
+that needs an input it was not supplied performs `need`, an operation of the
+`compile` effect in `(snail shell compiler read)`, with its `CompilerRequest`.
+The operation answers `Never`, so nothing after it runs and its yields save no
+frames. Each signature on the way from the request to an entry point names
+`compile`, and each entry point handles it with `compiling`, which turns the
+compile into a `Result`, here `(Err (Requested request))`
+([#552](https://github.com/tsnl/snail-scheme/issues/552) moves source errors
+onto the same effect's `fail`). Artifact expansion and request signaling have
+no filesystem effects; library loading and generated-source IO still do.
+
+A compile with no one to supply an input runs under `unsupplied`: a discovery
+expansion, which records artifact uses instead of asking for them, and the
+development loop, whose plan has run every producer its program reaches. There
+a producer request is an internal error, and an artifact request is the
+program's own error at its use, as in a standalone build.
 
 Standalone source builds service generated-library requests and reject artifact
-requests with their source location: an artifact needs a project build. Chibi
-and Node compiler entries publish the pending request in `request.datum` after
-unwinding. `(snail shell compiler inputs)` owns this grammar:
+requests with their source location: an artifact needs a project build. The
+command-line driver, `(snail shell compiler driver)`, writes its request to
+`request.datum` in the compile's generated directory, then exits with status 1.
+`(snail shell compiler inputs)` owns this grammar:
 
 ```scheme
 (generate "123456")
@@ -574,15 +585,19 @@ unwinding. `(snail shell compiler inputs)` owns this grammar:
 ```
 
 Each attempt deletes the preceding request before starting the compiler. Only
-exit status 1 permits a request. Publication failures use status 2; any other
-exit or signal cannot fulfill work from a leftover file. Success with a pending
+exit status 1 permits a request. A request that cannot be written is an
+ordinary failure, status 1 with a diagnostic naming the file and no request
+left behind; any other exit or signal cannot fulfill work from a leftover
+file. Success with a pending
 request and a request already answered are errors. Scratch directories are
 created exclusively, so stale files cannot become inputs. Stderr carries only
 diagnostics. Standalone builds have no artifact resolver or reply accumulation.
 
-The resident compiler returns the pending request in `CompilerFailure.request`;
-no request file is written or parsed. Each invocation clears pending request and
-diagnostic state before work. Trusted exits preserve the instance but return no
+The resident compiler's entries handle `compile` too: a request sends its
+`generate` or `artifact` record and the entry returns what it was given, so
+`host/native/compiler.mjs` finds the record after a normal return and throws
+`CompilerFailure` with it as `request`. No request file is written or parsed,
+and nothing traps. Each invocation clears diagnostic state before work. Trusted exits preserve the instance but return no
 successor Session. Cold project builds and `dev` use this boundary, but never
 retry: `host/native/project.mjs` plans the build first, so a request from one of
 its compiles names an input the plan missed, and is an internal error.
@@ -651,8 +666,8 @@ storage is terminal too: the worker cannot reuse a retired compiler.
 `Loc` and message in a compiler-private cell before the existing terminal panic.
 This explicitly unsafe bridge avoids adding an abort effect to every compiler
 pass; it does not prove the mutation pure. The serial native caller resets the
-request and diagnostic cells before entry, then takes and projects each after a
-trusted exit, before any other native work. Reset/projection traps retire
+diagnostic cell before entry, then takes and projects it after a trusted exit,
+before any other native work. Reset/projection traps retire
 the instance too. Module initialization precedes the first reset.
 
 Native failures carry `{severity, message, source}`; `source` is null or

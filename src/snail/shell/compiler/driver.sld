@@ -1,13 +1,22 @@
-;; One compiler invocation, shared by the Chibi and Wasm entry programs.
-;; The host calls the request publisher only after a failed invocation exits.
+;; One compiler invocation, shared by the Chibi and Wasm entry programs. A
+;; compile that needs an input publishes its request beside the libraries
+;; its producers generate, then exits with status 1, as a failed one does.
 (define-library (snail shell compiler driver)
   (export
-   compile-command-line
-   publish-compiler-request!)
+   compile-command-line)
   (import
    (snail core base)
    (snail core io)
-   (only (snail shell compiler read) DString datum->string)
+   (only (snail shell compiler read)
+         DString
+         datum->string
+         compile
+         compiling
+         Failed
+         Requested
+         SourceDiagnostic-loc
+         SourceDiagnostic-message
+         compile-error)
    (snail shell compiler)
    (snail shell compiler inputs))
   (begin
@@ -16,21 +25,33 @@
 
     (: compile-command-line (-> Unit ! mut fs))
     (define (compile-command-line)
-      (take-input-request!)
       (match (command-line)
         ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
-         (let ((generate
-                (lambda (loading forms) (generated-syntax generated directories loading forms))))
-           (cond ((string=? mode "schema")
-                  (write-file output (source->schemas directories source generate no-inputs)))
-                 ((string=? mode "modules")
-                  (write-modules output
-                                 generated
-                                 (source->modules directories source generate no-inputs)))
-                 (else (write-program output
-                                      generated
-                                      (source->wat directories source generate no-inputs))))))
+         (match (compiling (lambda () (compile-mode mode source output generated directories)))
+           ((Ok _) (unit))
+           ((Err (Requested request))
+            (publish-request generated request)
+            (panic "compiler requires an input"))
+           ((Err (Failed diagnostic))
+            (compile-error (SourceDiagnostic-loc diagnostic)
+                           (SourceDiagnostic-message diagnostic)))))
         (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
+
+    ;; Writes what `mode` asks for: the program's schemas, a module for each
+    ;; library, or the whole program.
+    (: compile-mode (-> String String String String (List String) Unit ! mut fs compile))
+    (define (compile-mode mode source output generated directories)
+      (let ((generate
+             (lambda (loading forms) (generated-syntax generated directories loading forms))))
+        (cond ((string=? mode "schema")
+               (write-file output (source->schemas directories source generate no-inputs)))
+              ((string=? mode "modules")
+               (write-modules output
+                              generated
+                              (source->modules directories source generate no-inputs)))
+              (else (write-program output
+                                   generated
+                                   (source->wat directories source generate no-inputs))))))
 
     (: write-program (-> String String WholeProgram Unit ! fs))
     (define (write-program output generated program)
@@ -66,14 +87,5 @@
                                                              (DString (LinkedFile-path link)))
                                                             ")\n"))
                                            links))))
-
-    ;; ---- Request publication ----
-
-    (: publish-compiler-request! (-> Unit ! mut fs))
-    (define (publish-compiler-request!)
-      (match (command-line)
-        ((Cons _ (Cons _ (Cons _ (Cons _ (Cons directory _)))))
-         (publish-input-request! directory))
-        (_ (unit))))
 
     ))

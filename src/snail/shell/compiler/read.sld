@@ -4,7 +4,9 @@
 ;; Its lexical rules, the "Lexemes" section, are exported, and
 ;; (snail shell highlight) classifies text with them. The syntax a
 ;; `generate-library` producer writes arrives as bytes instead, and is
-;; decoded without passing through text.
+;; decoded without passing through text. Every pass reads locations from
+;; here, so the "Source failures" section also declares how any pass stops
+;; a compile: the `compile` effect.
 (define-library (snail shell compiler read)
   (export
    Loc
@@ -42,6 +44,16 @@
    SourceDiagnostic
    SourceDiagnostic-loc
    SourceDiagnostic-message
+   CompilerRequest
+   GenerateInput
+   ArtifactInput
+   compile
+   fail
+   need
+   Stop
+   Failed
+   Requested
+   compiling
    clear-compile-error!
    take-compile-error!
    read-text
@@ -214,6 +226,36 @@
        (lambda ()
          (ref-set! source-diagnostic (Some (SourceDiagnostic loc message)))
          (panic (string-append (loc->string loc) ": " message)))))
+
+    ;; What a compile asks its caller for when it was not supplied it: the
+    ;; output of the producer printed under `key`, or a project target's
+    ;; files, for the `artifact-files` use at `source`.
+    (enum CompilerRequest
+      (GenerateInput ((key String)))
+      (ArtifactInput
+       ((name String)
+        (source Loc))))
+
+    ;; A compile stops, short of its result, when the source is wrong or
+    ;; when it needs an input it was not supplied. Neither operation returns
+    ;; to the pass that performs it, so a yield to this effect saves no
+    ;; frames, and each entry point handles it with `compiling`, which
+    ;; turns the compile into a Result. Requests use it so far; source
+    ;; errors still go through `compile-error`'s unsafe bridge (#552).
+    (effect compile
+      ((ctl fail (-> SourceDiagnostic Never))
+       (ctl need (-> CompilerRequest Never))))
+
+    (enum Stop
+      (Failed ((diagnostic SourceDiagnostic)))
+      (Requested ((request CompilerRequest))))
+
+    (: compiling (All (T e) (-> (-> T ! compile e) (Result T Stop) ! e)))
+    (define (compiling work)
+      (handle compile
+          ((fail (lambda (diagnostic) (Err (Failed diagnostic))))
+           (need (lambda (request) (Err (Requested request)))))
+        (Ok (work))))
 
     ;; ---- Line table ----
 

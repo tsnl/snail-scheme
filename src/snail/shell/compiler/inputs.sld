@@ -1,7 +1,7 @@
 ;; What a build supplies to its compiles, and the requests a compile makes
-;; for what it was not supplied. A resident caller consumes a request's typed
-;; value; a process caller publishes and parses its datum after compilation
-;; unwinds.
+;; for what it was not supplied. A request is the `compile` effect's `need`
+;; (snail shell compiler read): a resident caller is sent its record, and a
+;; process caller finds its datum, which this library prints and parses.
 (define-library (snail shell compiler inputs)
   (export
    ArtifactFiles
@@ -14,14 +14,11 @@
    producer-text
    producer-key
    generated-output
-   CompilerRequest
-   GenerateInput
-   ArtifactInput
    request->string
    parse-request
-   request-input!
-   take-input-request!
-   publish-input-request!
+   request-input
+   publish-request
+   unsupplied
    generated-syntax
    print-producer
    printed-producer-text
@@ -95,41 +92,36 @@
 
     ;; ---- Requests ----
 
-    (enum CompilerRequest
-      (GenerateInput ((key String)))
-      (ArtifactInput
-       ((name String)
-        (source Loc))))
+    ;; A pass that needs an input it was not supplied, such as the expander
+    ;; at an `artifact-files` use, asks for it by performing `need`. Nothing
+    ;; after the call runs: the entry point's handler takes the request and
+    ;; hands it to its caller.
+    (: request-input (All (A) (-> CompilerRequest A ! compile)))
+    (define (request-input request)
+      (absurd (need request)))
 
-    ;; Private control state for one compiler invocation. A request exits
-    ;; immediately; its host consumes it only after the stack has unwound.
-    (: pending-request (Ref (Option CompilerRequest)))
-    (define pending-request (ref (None)))
+    ;; A process caller finds a request as a datum in the compile's
+    ;; generated directory once the compiler has exited with status 1.
+    (: publish-request (-> String CompilerRequest Unit ! fs))
+    (define (publish-request directory request)
+      (write-file (string-append directory "/request.datum") (request->string request)))
 
-    ;; A request is a non-returning exit, as `compile-error` is, and records
-    ;; its value through the same unsafe bridge, so a pass that may need an
-    ;; input, such as the expander at an `artifact-files` use, keeps a pure
-    ;; signature. The cell is observable only at the trusted terminal exit
-    ;; that takes it, after the invocation is abandoned; it is not pure.
-    (: request-input! (All (A) (-> CompilerRequest A)))
-    (define (request-input! request)
-      (unsafe-total
-       (lambda ()
-         (ref-set! pending-request (Some request))
-         (panic "compiler requires an input"))))
-
-    (: take-input-request! (-> (Option CompilerRequest) ! mut))
-    (define (take-input-request!)
-      (let ((request (ref-get pending-request)))
-        (ref-set! pending-request (None))
-        request))
-
-    (: publish-input-request! (-> String Unit ! mut fs))
-    (define (publish-input-request! directory)
-      (match (take-input-request!)
-        ((Some request)
-         (write-file (string-append directory "/request.datum") (request->string request)))
-        ((None) (unit))))
+    ;; A compile whose caller can supply nothing, as a discovery expansion
+    ;; or the development loop's: its plan has run every producer it reaches,
+    ;; so asking for one's output is an internal error, and only a project
+    ;; build has targets whose files a program could embed. A source error
+    ;; goes on as it came.
+    (: unsupplied (All (T e) (-> (-> T ! compile e) T ! e)))
+    (define (unsupplied work)
+      (match (compiling work)
+        ((Ok value) value)
+        ((Err (Requested (GenerateInput key)))
+         (panic (string-append "internal error: the plan did not run the producer " key)))
+        ((Err (Requested (ArtifactInput name loc)))
+         (compile-error loc
+                        (string-append "artifact-bundle requires a project build resolver: " name)))
+        ((Err (Failed diagnostic))
+         (compile-error (SourceDiagnostic-loc diagnostic) (SourceDiagnostic-message diagnostic)))))
 
     (: request->string (-> CompilerRequest String))
     (define (request->string request)
@@ -184,14 +176,14 @@
     ;; library it generates an import cycle. The key is the one the build's
     ;; inputs use, which leaves that line out, since what the producer writes
     ;; does not depend on the chain that reached it.
-    (: generated-syntax (-> String (List String) (List String) (List Syntax) Bytes ! fs))
+    (: generated-syntax (-> String (List String) (List String) (List Syntax) Bytes ! fs compile))
     (define (generated-syntax directory directories loading forms)
       (let* ((key (producer-key (producer-text directories forms)))
              (output (string-append directory "/" key ".syntax")))
         (if (file-exists? output)
             (read-bytes output)
             (begin (print-producer (string-append directory "/" key ".sld") loading forms)
-                   (request-input! (GenerateInput key))))))
+                   (request-input (GenerateInput key))))))
 
     ;; Prints the producer `forms` as the program at `path`, beginning with
     ;; the libraries `loading` when it was reached.

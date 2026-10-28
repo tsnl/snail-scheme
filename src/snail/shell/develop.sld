@@ -24,7 +24,11 @@
          Loc
          Syntax)
    (only (snail shell compiler core) fnv-1a)
-   (only (snail shell compiler inputs) Inputs supply-generated producer-text)
+   (only (snail shell compiler inputs)
+         Inputs
+         supply-generated
+         producer-text
+         unsupplied)
    (snail shell compiler session)
    (snail shell compiler plan))
   (begin
@@ -370,7 +374,7 @@
                                             no-inputs
                                             (producers-directory loop))
                                 no-inputs)))
-        (match (build-session session source unplanned-producer inputs)
+        (match (unsupplied (lambda () (build-session session source unplanned-producer inputs)))
           ((Pair builds next) (ref-set! (Loop-session loop) next) builds))))
 
     ;; Runs the producers of each wave, refining the plan with what they
@@ -494,10 +498,11 @@
     (: producer-manifest! (-> Loop Producer Inputs String ! mut fs develop))
     (define (producer-manifest! loop producer inputs)
       (let* ((directory (producers-directory loop))
-             (built (build-session (make-session (Producer-directories producer))
-                                   (Producer-source producer)
-                                   unplanned-producer
-                                   inputs))
+             (built (unsupplied (lambda ()
+                                  (build-session (make-session (Producer-directories producer))
+                                                 (Producer-source producer)
+                                                 unplanned-producer
+                                                 inputs))))
              (manifest (string-append directory "/" (Producer-key producer) ".json")))
         (place-links! directory (Pair-first built))
         (write-file manifest (modules-json (Loop-runtime loop)
