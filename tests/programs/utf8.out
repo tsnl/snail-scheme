@@ -1,0 +1,51 @@
+000000: 00
+000041: 41
+00007f: 7f
+000080: c2 80
+0003bb: ce bb
+0007ff: df bf
+000800: e0 a0 80
+0020ac: e2 82 ac
+00d7ff: ed 9f bf
+00d800: ef bf bd
+00dc00: ef bf bd
+00dfff: ef bf bd
+00e000: ee 80 80
+00feff: ef bb bf
+00ffff: ef bf bf
+010000: f0 90 80 80
+01f600: f0 9f 98 80
+10ffff: f4 8f bf bf
+110000: ef bf bd
+empty: []
+61 ce bb e2 82 ac f0 9f 98 80 7a
+ -> ok
+00 41 7f -> ok 000000 000041 00007f
+ef bb bf 41 -> ok 00feff 000041
+c2 80 df bf -> ok 000080 0007ff
+e0 a0 80 ed 9f bf ee 80 80 ef bf bf -> ok 000800 00d7ff 00e000 00ffff
+f0 90 80 80 f4 8f bf bf -> ok 010000 10ffff
+f0 9f 98 80 -> ok 01f600
+80 -> error at 0
+41 bf -> error at 1
+c0 80 -> error at 0
+c1 bf -> error at 0
+e0 80 80 -> error at 0
+e0 9f bf -> error at 0
+f0 80 80 80 -> error at 0
+f0 8f bf bf -> error at 0
+ed a0 80 -> error at 0
+ed bf bf -> error at 0
+f4 90 80 80 -> error at 0
+f5 80 80 80 -> error at 0
+fe -> error at 0
+ff -> error at 0
+e2 41 -> error at 0
+e2 82 41 -> error at 0
+f0 9f 98 41 -> error at 0
+c2 -> error at 0
+e2 82 -> error at 0
+61 62 f0 9f 98 -> error at 2
+ce bb ff -> error at 2
+ce bb e2 82 ac ed a0 80 -> error at 5
+#t

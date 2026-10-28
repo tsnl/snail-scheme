@@ -6,3 +6,33 @@ framing errors
 exact limits
 response framing
 safe output
+/ -> []
+/api/file?path=src%2Fmain.sld -> [api][file] path=src/main.sld
+/api/file?path=a+b%2Bc%20d -> [api][file] path=a b+c d
+/api/file?path=%CE%BB%F0%9F%98%80.sld -> [api][file] path=λ😀.sld
+/api/run/start?target=web&target=other&&x&=y -> [api][run][start] target=web target=other x= =y
+/a%2Fb/c/ -> [a/b][c][]
+/a/./b/../c -> [a][c]
+/a/b/.. -> [a][]
+/a/%2e%2E/b -> [b]
+/.. -> []
+/a/. -> [a][]
+/api//file -> [api][][file]
+/x?a=b=c&q=%3F%26%3D -> [x] a=b=c q=?&=
+/x? -> [x]
+/caf%C3%A9?%C3%A9=%C3%A9 -> [café] é=é
+/x?path=%2e%2e/secret -> [x] path=../secret
+/bad%GG -> error malformed
+/bad%4 -> error malformed
+/x?path=% -> error malformed
+/%FF -> error malformed
+/x?path=%C0%AF -> error malformed
+/x?path=%ED%A0%80 -> error malformed
+/a b -> error malformed
+/a#frag -> error malformed
+/λ -> error malformed
+api/file -> error unsupported
+ -> error unsupported
+* -> error unsupported
+request targets
+stream heads
