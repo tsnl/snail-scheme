@@ -46,11 +46,11 @@ the `Ref` is allocated by the pass and never escapes it.
 - **[`core.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
-  `Instance`, `Effect`), the `Program`, the primitive table, TypeIds for
-  wire cases and `Any` values from one FNV-1a hash, and the strongly
-  connected components that the checker and the backend share. A `Program`
-  is a value: the expander builds it in one cell, and the later passes read
-  it without effects.
+  `Instance`, `Effect`), the `Program`, the global names of primitives,
+  TypeIds for wire cases and `Any` values from one FNV-1a hash, and the
+  strongly connected components that the checker and the backend share. A
+  `Program` is a value: the expander builds it in one cell, and the later
+  passes read it without effects.
 - **[`expand.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/expand.sld)** is the only pass that
   knows binding forms. It loads libraries, replacing each `include-bytes`
   with the byte vector literal of its file, resolves every identifier through
@@ -63,6 +63,19 @@ the `Ref` is allocated by the pass and never escapes it.
   become core `Expr`s with unique names. Each library's build key, the text
   of its declarations with its imports' interfaces, lets a session replay
   it.
+
+  Every library is a file but `(snail-core core)`, which the expander
+  serves from memory: the core forms, the builtin types, and the `mut` and
+  `tasks` effects. The operations the backend implements directly are
+  declared in
+  [`src/snail-core/primitive.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/primitive.sld),
+  read and resolved like any library. `(primitive i32-add (-> I32 I32 I32))`
+  declares one, as `extern` declares a foreign function: it binds the name to
+  the global `prim:i32-add`, the name the checker, mono and `emit-primitive`
+  know it by, whose value is a `Primitive` of the declared scheme. A generic
+  primitive names its variables, `(All (A) (-> (Vector A) I64 A))`. The form
+  is accepted only in that library, whose body holds nothing else, so it
+  adds no items and has no module; a session replays its values.
 
   The core form `link-file`, which `link-bytes` in `(snail-core resource)`
   wraps, parses its path against the directory of the file it is written in

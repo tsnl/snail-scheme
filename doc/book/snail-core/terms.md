@@ -66,6 +66,7 @@ datum into syntax. Every generated form is located at the recipe.
 | `(effect Name ((operation type) ...) [(host "module" ((operation "symbol") ...))])` | Effect with operations and optional host defaults. |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
+| `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail-core primitive)`. |
 | `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
