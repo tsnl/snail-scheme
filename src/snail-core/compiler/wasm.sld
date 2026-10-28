@@ -1546,7 +1546,9 @@
         (_ #f)))
 
     ;; To Any boxes; from Any checks the TypeId and panics on a mismatch. A
-    ;; downcast of a value just upcast from the same type is removed.
+    ;; downcast of a value just upcast from the same type is removed. Keys
+    ;; and TypeIds leave rows out, which is exact only because the checker
+    ;; refuses a conversion whose types hold a function with effects.
     (: emit-convert (-> Fn Expr Type Loc (List Wat) ! mut))
     (define (emit-convert fn inner target loc)
       (let ((source (Expr-type inner)) (m (Fn-module fn)))

@@ -439,8 +439,10 @@
         ((Nil) (Pair (Bound (Nil) (Nil)) count))))
 
     ;; Evaluating a literal, a variable or a lambda has no effect a yield
-    ;; could reorder; moving an owned variable is unobservable on a path
-    ;; that yields, since that path never reads it again.
+    ;; could reorder. Reading an owned variable moves it out of its owner,
+    ;; and left in place it is read after the operand that yields. On that
+    ;; path the frame moves the value into itself first, and the resumed
+    ;; frame reads it from there, so the call still receives the value.
     (: inert? (-> Expr Bool))
     (define (inert? expr)
       (match (Expr-term expr)

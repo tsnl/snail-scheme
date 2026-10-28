@@ -2029,12 +2029,19 @@
     ;; operation's type writes is its latent row: the effects its
     ;; implementations may perform where it is performed, which its callers
     ;; are charged too. A control operation's implementation runs where its
-    ;; handler is instead, so its type is total.
+    ;; handler is instead, so its type is total. A handler implements an
+    ;; operation once, at one type, so the type quantifies nothing: an
+    ;; implementation checked at one instance would serve callers at
+    ;; others, and a row variable would let it perform what no caller is
+    ;; charged.
     (: declare-operation-type
        (-> Context Env String Syntax Syntax Bool (Pair (Pair String Bool) Context)))
     (define (declare-operation-type cx env effect name type control?)
       (match (resolve-scheme cx env type)
         ((Scheme vars constraints (TFun params result (TRow latent (None))))
+         (unless (and (null? vars) (null? constraints))
+           (compile-error (syntax-loc type)
+                          "an operation's type cannot be polymorphic: a handler implements it once, at one type"))
          (when (and control? (not (null? latent)))
            (compile-error (syntax-loc type)
                           "a control operation has a total function type; its effect is implied"))
@@ -2045,11 +2052,10 @@
                  (add-value cx
                             global
                             (Operation effect
-                                       (Scheme vars
-                                               constraints
-                                               (TFun params
-                                                     result
-                                                     (TRow (Cons effect latent) (None)))))))))
+                                       (mono-scheme
+                                        (TFun params
+                                              result
+                                              (TRow (Cons effect latent) (None)))))))))
         (_ (compile-error (syntax-loc type)
                           "an operation has a function type with a closed row; its effect is implied"))))
 
