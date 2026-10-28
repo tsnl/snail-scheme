@@ -95,7 +95,11 @@ Parking needs two more imports and a third to name the task. `park`
 suspends the running task until `unpark` is called with its id, which
 `current` gives as an `I64`. `unpark` returns whether a task with that id
 was parked, and wakes nothing otherwise, so an id left behind by a
-cancelled task cannot wake a different task. Parking is safe without a
+cancelled task cannot wake a different task. In the browser, ids are
+numbered across the whole page, not per scheduler: a relink makes a new
+scheduler while a `Mailbox` in the application's state keeps the ids of
+the tasks the old one cancelled, and those must not name new tasks
+(`tests/tasks/check.mjs`). Parking is safe without a
 lock because a task runs until it waits: nothing else runs between a
 receiver's finding the queue empty and its parking. The queue the waits
 serve stays in Snail-Core; the host keeps only the parked tasks. When

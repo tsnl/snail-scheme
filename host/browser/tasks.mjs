@@ -4,9 +4,17 @@
 // The host's reporting hook must not throw. One scheduler owns each program.
 // A task's effect handlers are evidence on its own Wasm stack, so nothing
 // is saved or restored around a switch.
+//
+// Task ids are numbered across every scheduler of the page. A relink makes
+// a new scheduler while the application's state crosses unchanged, so a
+// Mailbox kept in it still lists the ids of tasks the old scheduler
+// cancelled. Unparking one of those must wake nothing, so that the Mailbox
+// moves on to its next receiver, as it does for any stale id.
+let lastTaskId = 0;
+
 export function createScheduler({reportError = () => {}} = {}) {
   const live = new Set(), ready = [], drains = [], parked = new Map();
-  let active = null, scheduled = false, closed = false, steps = 0, ids = 0;
+  let active = null, scheduled = false, closed = false, steps = 0;
 
   function schedule() {
     if (scheduled || active || !ready.length) return;
@@ -62,7 +70,7 @@ export function createScheduler({reportError = () => {}} = {}) {
   }
   function spawn(work, discard, detached) {
     if (closed) throw new Error('the task runtime has closed');
-    const task = {id: ++ids, work, discard, detached, controller: new AbortController(), completion: Promise.withResolvers(), next: null};
+    const task = {id: ++lastTaskId, work, discard, detached, controller: new AbortController(), completion: Promise.withResolvers(), next: null};
     task.completion.promise.catch(() => {});
     live.add(task); // Reserve before the dispatching task can return.
     enqueue(task, () => {
