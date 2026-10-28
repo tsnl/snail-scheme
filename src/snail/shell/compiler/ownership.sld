@@ -17,7 +17,7 @@
 
     ;; ---- Representable ownership ----
 
-    (: check-type (-> Program Type Loc Unit))
+    (: check-type (-> Program Type Loc Unit ! compile))
     (define (check-type program type loc)
       (match type
         ((TCon "Once" args)
@@ -35,7 +35,7 @@
          (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
         (_ (unit))))
 
-    (: check-owned-types (-> Program (List Item) Unit))
+    (: check-owned-types (-> Program (List Item) Unit ! compile))
     (define (check-owned-types program items)
       (for-each (lambda (data)
                   (for-each (lambda (case)
@@ -52,7 +52,7 @@
                     ((Do value) (check-expression-types program value))
                     (_ (unit)))) items))
 
-    (: check-expression-types (-> Program Expr Unit))
+    (: check-expression-types (-> Program Expr Unit ! compile))
     (define (check-expression-types program expr)
       (check-type program (Expr-type expr) (Expr-loc expr))
       (for-each (lambda (child) (check-expression-types program child)) (children expr)))
@@ -94,7 +94,7 @@
              (Scope-live scope)
              (Scope-counter scope)))
 
-    (: consume! (-> Scope String Loc Unit ! mut))
+    (: consume! (-> Scope String Loc Unit ! mut compile))
     (define (consume! scope name loc)
       (unless (member? name (ref-get (Scope-live scope)))
         (compile-error loc (string-append "affine value used more than once: " (short-name name))))
@@ -114,7 +114,7 @@
 
     ;; A dropped name is no longer live before the remaining expression is
     ;; checked. `future` consists of later uses in the same activation.
-    (: own (-> Scope Expr (List String) Expr ! mut))
+    (: own (-> Scope Expr (List String) Expr ! mut compile))
     (define (own scope expr future)
       (let* ((needed (append (expr-references expr) future))
              (dead
@@ -131,7 +131,7 @@
                           ((None) (panic "internal error: owner has no type"))))
                       value dead))))
 
-    (: own-list (-> Scope (List Expr) (List String) (List Expr) ! mut))
+    (: own-list (-> Scope (List Expr) (List String) (List Expr) ! mut compile))
     (define (own-list scope values future)
       (match values
         ((Nil) (Nil))
@@ -141,7 +141,7 @@
 
     ;; ---- Closures and alternatives ----
 
-    (: own-lambda (-> Scope Expr Bool Expr ! mut))
+    (: own-lambda (-> Scope Expr Bool Expr ! mut compile))
     (define (own-lambda scope expr once?)
       (match (Expr-term expr)
         ((Lambda params body)
@@ -188,7 +188,7 @@
                                   branches))
                         (ref-get (Scope-live scope)))))
 
-    (: own-if (-> Scope Expr Expr Expr Expr (List String) Expr ! mut))
+    (: own-if (-> Scope Expr Expr Expr Expr (List String) Expr ! mut compile))
     (define (own-if scope expr test then otherwise future)
       (let* ((test (own scope
                         test
@@ -220,7 +220,7 @@
         ((PCon _ args _) (fold-left bind-pattern scope args))
         (_ scope)))
 
-    (: own-match (-> Scope Expr Expr (List Clause) (List String) Expr ! mut))
+    (: own-match (-> Scope Expr Expr (List Clause) (List String) Expr ! mut compile))
     (define (own-match scope expr value clauses future)
       (let* ((value (own scope
                          value
@@ -239,7 +239,7 @@
 
     ;; ---- Expression transitions ----
 
-    (: check-reference (-> Scope Expr String Unit ! mut))
+    (: check-reference (-> Scope Expr String Unit ! mut compile))
     (define (check-reference scope expr name)
       (when (owned? scope (Expr-type expr)) (consume! scope name (Expr-loc expr)))
       (match (program-value (Scope-program scope) name)
@@ -247,7 +247,7 @@
         ((Some (Replacer _ _ _)) (check-accessor scope expr))
         (_ (unit))))
 
-    (: check-accessor (-> Scope Expr Unit))
+    (: check-accessor (-> Scope Expr Unit ! compile))
     (define (check-accessor scope expr)
       (match (Expr-type expr)
         ((TFun (Cons type _) _ _)
@@ -256,7 +256,7 @@
                           "destructure an affine record with match; accessors would duplicate ownership")))
         (_ (unit))))
 
-    (: own-term (-> Scope Expr (List String) Expr ! mut))
+    (: own-term (-> Scope Expr (List String) Expr ! mut compile))
     (define (own-term scope expr future)
       (match (Expr-term expr)
         ((Var name _ _) (check-reference scope expr name) expr)
@@ -294,7 +294,7 @@
         ((TypeTest inner target) (own-conversion scope expr inner target future #t))
         (_ expr)))
 
-    (: own-conversion (-> Scope Expr Expr Type (List String) Bool Expr ! mut))
+    (: own-conversion (-> Scope Expr Expr Type (List String) Bool Expr ! mut compile))
     (define (own-conversion scope expr inner target future test?)
       (when (or (owned? scope (Expr-type inner)) (owned? scope target))
         (compile-error (Expr-loc expr) "an affine value cannot cross a dynamic type boundary"))
@@ -306,13 +306,13 @@
     ;; Every top-level statement and value runs in one function, `main`, so
     ;; the items share one counter: names an item invents for owners must not
     ;; repeat another item's.
-    (: own-items (-> Program (List Item) (List Item) ! mut))
+    (: own-items (-> Program (List Item) (List Item) ! mut compile))
     (define (own-items program items)
       (let ((counter (ref 0)))
         (map (lambda (item) (own-item (Scope program empty-table (ref (Nil)) counter) item))
              items)))
 
-    (: own-item (-> Scope Item Item ! mut))
+    (: own-item (-> Scope Item Item ! mut compile))
     (define (own-item scope item)
       (match item
         ((Define name value) (Define name (own scope value (Nil))))

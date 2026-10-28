@@ -44,9 +44,12 @@ function of the expander has `mut` in its row — and where it does not, the
   it ends, never fail, and the reader reports what it rejects in them;
   `(snail shell highlight)` classifies text with the same functions. It also
   decodes the bytes a `generate-library` producer writes, the encoding
-  `(snail shell syntax)` defines, straight into `Syntax`. `compile-error`
-  preserves the source point and message at terminal failure; the resident
-  caller resets and consumes this private diagnostic cell.
+  `(snail shell syntax)` defines, straight into `Syntax`. It declares how
+  any pass stops a compile: the `compile` effect, whose `fail` takes a
+  `SourceDiagnostic`, a location and a message, and whose `need` takes a
+  request for an input. `compile-error` performs `fail`, and each entry point
+  handles the effect with `compiling`, which turns the compile into a
+  `Result`.
 - **[`core.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
@@ -562,16 +565,18 @@ that needs an input it was not supplied performs `need`, an operation of the
 The operation answers `Never`, so nothing after it runs and its yields save no
 frames. Each signature on the way from the request to an entry point names
 `compile`, and each entry point handles it with `compiling`, which turns the
-compile into a `Result`, here `(Err (Requested request))`
-([#552](https://github.com/tsnl/snail-scheme/issues/552) moves source errors
-onto the same effect's `fail`). Artifact expansion and request signaling have
-no filesystem effects; library loading and generated-source IO still do.
+compile into a `Result`, here `(Err (Requested request))`, as it does a
+source error into `(Err (Failed diagnostic))`. Artifact expansion and request
+signaling have no filesystem effects; library loading and generated-source IO
+still do.
 
 A compile with no one to supply an input runs under `unsupplied`: a discovery
 expansion, which records artifact uses instead of asking for them, and the
 development loop, whose plan has run every producer its program reaches. There
 a producer request is an internal error, and an artifact request is the
-program's own error at its use, as in a standalone build.
+program's own error at its use, as in a standalone build; a source error goes
+on to the caller's handler. The development loop's `build!` reports one as a
+failed build, as it does a panic the host caught.
 
 Standalone source builds service generated-library requests and reject artifact
 requests with their source location: an artifact needs a project build. The
@@ -656,19 +661,17 @@ then `waiting` if the plan goes on once this wave's producers have run. A
 phase is compiled with the directories its record names, the same ones the
 planner keyed its producers under.
 
-Each native call starts with empty diagnostic storage. The trusted compiler's
-code-1 diagnostic exits follow resource cleanup and allow another call with
-the last successful Session. Arbitrary Wasm or imported-function traps retire
-the instance. This distinction comes from the runtime exit path, not from
-finding a familiar string or a diagnostic record. Failure to read diagnostic
-storage is terminal too: the worker cannot reuse a retired compiler.
-`compile-error` keeps its
-`Loc` and message in a compiler-private cell before the existing terminal panic.
-This explicitly unsafe bridge avoids adding an abort effect to every compiler
-pass; it does not prove the mutation pure. The serial native caller resets the
-diagnostic cell before entry, then takes and projects it after a trusted exit,
-before any other native work. Reset/projection traps retire
-the instance too. Module initialization precedes the first reset.
+A source error is the `compile` effect's `fail`, which each entry handles:
+it sends the diagnostic's record and returns what it was given, so
+`host/native/compiler.mjs` finds the record after a normal return and throws
+`CompilerFailure` with it as `diagnostic`, and nothing traps. The compiler's
+own exit 1, from a panic or a checked IO path, follows resource cleanup too,
+and allows another call with the last successful Session; it carries the
+message the compiler printed and no diagnostic record. Arbitrary Wasm or
+imported-function traps retire the instance. This distinction comes from the
+runtime exit path, not from finding a familiar string. Failure to read the
+printed diagnostics is terminal too: the worker cannot reuse a retired
+compiler.
 
 Native failures carry `{severity, message, source}`; `source` is null or
 `{file, line, column}`. Lines and Unicode scalar columns start at one. IO and
@@ -676,8 +679,9 @@ producer-input requests have no source record; internal no-location sentinels
 are unlocated. A failing dependency reports its own origin. Printed
 producer programs report their actual scratch source, while decoded generated
 syntax retains the recipe location already established by expansion. No source
-mapping is invented. CLI panic text is unchanged, and the compiler still stops
-at its first error. These operations are implemented and tested.
+mapping is invented. The command-line driver prints a diagnostic as the
+compiler always has, `FILE:LINE:COLUMN: MESSAGE`, and exits with status 1, and
+the compiler still stops at its first error. These operations are implemented and tested.
 
 ## Supporting modules
 

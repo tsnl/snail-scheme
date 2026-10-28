@@ -119,7 +119,7 @@
        (-> (Table Compiled)
            ExpandedProgram
            (List (Pair String (List Item)))
-           (Pair Typed (Table Compiled))))
+           (Pair Typed (Table Compiled)) ! compile))
     (define (check-libraries compiled expansion libraries)
       (let loop ((libraries libraries) (compiled compiled) (items (Nil)) (schemes empty-table))
         (match libraries
@@ -134,7 +134,12 @@
     ;; A library as compiled before, if made from its current expansion, or
     ;; checked again.
     (: checked-library
-       (-> (Table Compiled) ExpandedProgram (Table Scheme) (Pair String (List Item)) Compiled))
+       (-> (Table Compiled)
+           ExpandedProgram
+           (Table Scheme)
+           (Pair String (List Item))
+           Compiled
+           ! compile))
     (define (checked-library compiled expansion schemes library)
       (let ((key (library-key expansion (Pair-first library))))
         (match (table-ref compiled (Pair-first library))
@@ -144,7 +149,8 @@
                (check-anew expansion schemes library key)))
           ((None) (check-anew expansion schemes library key)))))
 
-    (: check-anew (-> ExpandedProgram (Table Scheme) (Pair String (List Item)) String Compiled))
+    (: check-anew
+       (-> ExpandedProgram (Table Scheme) (Pair String (List Item)) String Compiled ! compile))
     (define (check-anew expansion schemes library key)
       (let ((typed
              (check-library (ExpandedProgram-program expansion) schemes (Pair-second library))))
@@ -161,7 +167,7 @@
            Typed
            (List (Pair String (List Item)))
            (Pair (List Built) (Table Compiled))
-           ! mut))
+           ! mut compile))
     (define (emit-libraries expansion compiled typed libraries)
       (let ((input (prepare-specialization typed)))
         (let loop ((libraries libraries) (compiled compiled) (built (Nil)))

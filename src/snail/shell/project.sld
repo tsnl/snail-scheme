@@ -103,7 +103,7 @@
         (and (>= (string-length name) (string-length prefix))
              (string=? (substring name 0 (string-length prefix)) prefix))))
 
-    (: parse-name (-> Syntax String))
+    (: parse-name (-> Syntax String ! compile))
     (define (parse-name syntax)
       (match syntax
         ((Ident name _ loc)
@@ -116,13 +116,13 @@
                             "a target name must be one path component outside the reserved .snail-* names")))
         (_ (compile-error (syntax-loc syntax) "expected a literal target name"))))
 
-    (: literal-string (-> Syntax String))
+    (: literal-string (-> Syntax String ! compile))
     (define (literal-string syntax)
       (match syntax
         ((Atom (DString text) _) text)
         (_ (compile-error (syntax-loc syntax) "expected a literal string"))))
 
-    (: literal-list (-> Syntax (List Syntax)))
+    (: literal-list (-> Syntax (List Syntax) ! compile))
     (define (literal-list syntax)
       (match syntax
         ((Form items _) items)
@@ -137,7 +137,7 @@
                    (or (= end (string-length text)) (loop (+ end 1) (+ end 1)))))
             (loop start (+ end 1)))))
 
-    (: parse-path (-> Syntax ProjectPath))
+    (: parse-path (-> Syntax ProjectPath ! compile))
     (define (parse-path syntax)
       (let ((text (literal-string syntax)) (loc (syntax-loc syntax)))
         (unless (and (> (string-length text) 0)
@@ -147,7 +147,7 @@
                          "expected a project-relative path using /, without empty, . or .. components, backslash, colon or NUL"))
         (ProjectPath text loc)))
 
-    (: entry-path (-> Syntax ProjectPath))
+    (: entry-path (-> Syntax ProjectPath ! compile))
     (define (entry-path syntax)
       (let ((path (parse-path syntax)))
         (when (string=? (ProjectPath-text path) ".")
@@ -157,7 +157,7 @@
 
     ;; ---- Build options ----
 
-    (: duplicate (All (A) (-> String String Loc Loc A)))
+    (: duplicate (All (A) (-> String String Loc Loc A ! compile)))
     (define (duplicate kind name here previous)
       (compile-error here
                      (string-append "duplicate "
@@ -167,13 +167,13 @@
                                     "; first declared at "
                                     (loc->string previous))))
 
-    (: unique-field (All (T) (-> String Loc (Option T) T (Option T))))
+    (: unique-field (All (T) (-> String Loc (Option T) T (Option T) ! compile)))
     (define (unique-field name loc previous value)
       (match previous
         ((Some _) (compile-error loc (string-append "duplicate option " name)))
         ((None) (Some value))))
 
-    (: build-fields (-> Bool String Loc (List Syntax) BuildTarget))
+    (: build-fields (-> Bool String Loc (List Syntax) BuildTarget ! compile))
     (define (build-fields browser? name declaration forms)
       (let loop ((forms forms) (entry (ann (None) (Option ProjectPath)))
                  (libraries (ann (None) (Option (List ProjectPath))))
@@ -203,7 +203,7 @@
                (else (compile-error loc (string-append "unknown build option " key)))))
              (_ (compile-error (syntax-loc form) "expected a (key value) build option")))))))
 
-    (: parse-build (-> String Syntax Loc BuildTarget))
+    (: parse-build (-> String Syntax Loc BuildTarget ! compile))
     (define (parse-build name syntax declaration)
       (match syntax
         ((Form (Cons (Ident kind _ _) forms) loc)
@@ -214,7 +214,7 @@
 
     ;; ---- Runs and declarations ----
 
-    (: run-arguments (-> (List Syntax) (List String)))
+    (: run-arguments (-> (List Syntax) (List String) ! compile))
     (define (run-arguments forms)
       (let loop ((forms forms) (arguments (ann (None) (Option (List String)))))
         (match forms
@@ -224,7 +224,7 @@
                  (unique-field "args" loc arguments (map literal-string (literal-list value)))))
           ((Cons form _) (compile-error (syntax-loc form) "expected (args (STRING ...))")))))
 
-    (: resolve-program (-> (List BuildTarget) Syntax ProgramBuild))
+    (: resolve-program (-> (List BuildTarget) Syntax ProgramBuild ! compile))
     (define (resolve-program builds syntax)
       (let ((name (parse-name syntax)) (loc (syntax-loc syntax)))
         (match (find-target builds name)
@@ -233,7 +233,7 @@
            (compile-error loc "a run target must reference a program build"))
           ((None) (compile-error loc (string-append "unknown build target " name))))))
 
-    (: parse-run (-> (List BuildTarget) String Syntax Loc RunTarget))
+    (: parse-run (-> (List BuildTarget) String Syntax Loc RunTarget ! compile))
     (define (parse-run builds name syntax declaration)
       (match syntax
         ((Form (Cons (Ident "run" _ _) (Cons target forms)) _)
@@ -242,7 +242,7 @@
 
     ;; The reader's syntax already retains forward references. Collect builds,
     ;; then resolve runs directly; no second declaration tree is needed.
-    (: collect-builds (-> (List Syntax) (List BuildTarget)))
+    (: collect-builds (-> (List Syntax) (List BuildTarget) ! compile))
     (define (collect-builds declarations)
       (let loop ((rest declarations) (builds (ann (Nil) (List BuildTarget))))
         (match rest
@@ -257,7 +257,7 @@
           ((Cons form _)
            (compile-error (syntax-loc form) "expected a build-target or run-target declaration")))))
 
-    (: collect-runs (-> (List Syntax) (List BuildTarget) (List RunTarget)))
+    (: collect-runs (-> (List Syntax) (List BuildTarget) (List RunTarget) ! compile))
     (define (collect-runs declarations builds)
       (let loop ((rest declarations) (runs (ann (Nil) (List RunTarget))))
         (match rest
@@ -273,7 +273,7 @@
                ((None) (loop tail (Cons target runs))))))
           ((Cons form _) (compile-error (syntax-loc form) "expected a run-target declaration")))))
 
-    (: parse-project (-> String String Project))
+    (: parse-project (-> String String Project ! compile))
     (define (parse-project text file)
       (match (read-text text file)
         ((Cons (Form declarations _) (Nil))
