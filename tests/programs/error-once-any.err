@@ -1,1 +1,1 @@
-an affine value cannot cross a dynamic type boundary
+a linear value cannot cross a dynamic type boundary

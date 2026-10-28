@@ -21,8 +21,7 @@
    (snail core table)
    (snail shell compiler read)
    (snail shell compiler core)
-   (snail shell compiler check)
-   (snail shell compiler ownership))
+   (snail shell compiler check))
   (begin
 
     ;; ---- Specialization state ----
@@ -273,7 +272,7 @@
             (let ((class-arity (length (Class-params (program-class (program-of state) class)))))
               (definition-reference state
                 (instance-method state instance name)
-                (append instance-types (drop types class-arity))
+                (append instance-types (list-drop types class-arity))
                 (append subs rest) type loc)))
            (_ (panic "internal error: a method needs instance evidence"))))
         ((Some (Operation effect _)) (operation-reference state effect name type loc))
@@ -359,7 +358,7 @@
     ;; Statements and monomorphic top-level values are roots, so their
     ;; initializers run even when nothing refers to them. Functions are
     ;; copied only when reached.
-    (: monomorphize (-> Typed Mono ! mut compile))
+    (: monomorphize (-> Typed Mono ! mut))
     (define (monomorphize typed)
       (let* ((items (Typed-items typed)) (state (new-state (prepare-specialization typed) (None)))
              (statements (map (lambda (item) (root-item state item)) items)))
@@ -373,7 +372,7 @@
     ;; definition is a root, since any module may import it. Copies of other
     ;; libraries' definitions, the generic ones this library uses, come first,
     ;; in program order, as those libraries come before it.
-    (: monomorphize-library (-> Specialization String (List Item) Mono ! mut compile))
+    (: monomorphize-library (-> Specialization String (List Item) Mono ! mut))
     (define (monomorphize-library input owner items)
       (let* ((typed (Specialization-typed input))
              (state (new-state input (Some owner)))
@@ -390,10 +389,10 @@
                                                (zip items statements))))
                      exported)))
 
-    (: finish-mono (-> State (List Item) (List String) Mono ! mut compile))
+    (: finish-mono (-> State (List Item) (List String) Mono ! mut))
     (define (finish-mono state items exported)
       (Mono (program-of state)
-            (own-items (program-of state) items)
+            items
             (ref-get (State-externals state))
             exported))
 

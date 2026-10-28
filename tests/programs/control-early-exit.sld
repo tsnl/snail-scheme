@@ -33,7 +33,7 @@
 
 (: first-where (-> (-> I64 Bool) I64 ! console))
 (define (first-where wanted)
-  (handle Found ((found (lambda (value resume) value)))
+  (handle Found ((found (lambda (value resume) (drop resume) value)))
     (walk wanted tree)
     -1))
 
@@ -50,14 +50,15 @@
      (+ (sum left) (+ (if (= value 12) (begin (found value) 0) value) (sum right))))))
 
 (write-line (string-append "sum: "
-                           (show (handle Found ((found (lambda (value resume) (- 0 value))))
+                           (show (handle Found ((found
+                                                 (lambda (value resume) (drop resume) (- 0 value))))
                                    (sum tree)))))
 
 ;; A `Once` held across the operation is dropped with the frame that held
 ;; it, and never runs.
 (: guarded (-> (List I64) I64 ! console))
 (define (guarded items)
-  (handle Found ((found (lambda (value resume) value)))
+  (handle Found ((found (lambda (value resume) (drop resume) value)))
     (let ((cleanup (once (lambda () (write-line "cleanup ran")))))
       (for-each (lambda (item) (when (< item 0) (found item))) items)
       (cleanup)

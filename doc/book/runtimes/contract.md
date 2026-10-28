@@ -26,15 +26,17 @@ dispatch without letting the runtime exit early.
 
 ## Grades and transfer
 
-Grades belong to types. Grade `1` means **at most once**, not exactly once;
-grade `omega` permits repeated use. Moving an affine value transfers its
-ownership. Alternatives in a branch may each consume it; two uses along
-one execution path may not. Capturing it moves it into the closure, and
-requires a one-shot closure. Records containing an affine field are affine.
+Grades belong to types. A **linear** value is used exactly once on every
+path that returns; grade `omega` permits repeated use and discarding.
+Moving a linear value transfers its ownership. The alternatives of a
+branch must consume the same linear values, and two uses along one
+execution path may not. Capturing it moves it into the closure, and
+requires a one-shot closure. Records containing a linear field are linear.
 This is an ownership check, not a borrow checker.
 
-An owned value's lifetime ends at its last use, not the enclosing lexical
-scope. Moving into a task keeps it alive in that task. Deterministic
+An owned value's lifetime ends where it is consumed: by a call, by an
+explicit `drop`, or by a match that moves its fields out. Moving into a
+task keeps it alive in that task. Deterministic
 resource cleanup is separate from tracing the managed storage: abandoning a
 pending one-shot continuation must disarm its operation and initiate cancellation,
 not merely release the allocation holding its captures. Unrestricted
@@ -59,14 +61,14 @@ platform resource.
 Every ordinary handler implementation must be grade `omega`, because a
 deep handler runs it again for each operation. Ordinary closures always
 are: they cannot capture a one-shot value. A handler may capture mutable
-state. Its individual invocations may also own affine arguments and
+state. Its individual invocations may also own linear arguments and
 allocate local mutable storage.
 
 A handler implementation is distinct from an **installation** of that
 handler. Installations and their outer bindings belong to a computation.
 Suspending and resuming a computation preserves those bindings. Reusing
 handler code does not duplicate a control delimiter or permit two resumes
-of one affine continuation. Newly dispatched tasks inherit the current ordinary
+of one linear continuation. Newly dispatched tasks inherit the current ordinary
 bindings. Each task owns its binding vector; the reusable implementations
 may be shared. This preserves the dispatched closure's declared effects.
 It does not establish rules for cloning future control delimiters.

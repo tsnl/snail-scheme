@@ -1,9 +1,13 @@
-;; Affine values have one owner on each execution path. This pass consumes
-;; local names, joins alternatives, and inserts drops where a path has no
-;; remaining use. Ordinary arrows stay unrestricted; only an immediate
-;; `once` lambda may move owned captures into its environment.
+;; Linear values are used exactly once on every path that returns. This
+;; check follows each path through a checked body: a use of a linear name
+;; consumes it, a second use is an error, and so is a name still live at
+;; the end of the scope that bound it; alternatives must consume the same
+;; names. It inserts nothing. A value is released by a call someone wrote,
+;; such as `drop` or `call-once`, or by a match that moves its fields out.
+;; Ordinary arrows stay unrestricted; only an immediate `once` lambda may
+;; move linear captures into its environment.
 (define-library (snail shell compiler ownership)
-  (export own-items check-owned-types)
+  (export check-ownership check-owned-types)
   (import
    (snail core base)
    (snail core table)
@@ -27,9 +31,9 @@
            (_ (compile-error loc "Once requires a procedure type"))))
         ((TCon _ args)
          (for-each (lambda (arg)
-                     (when (affine-type? program arg)
+                     (when (linear-type? program arg)
                        (compile-error loc
-                                      "a type argument must be unrestricted; use a concrete affine field"))
+                                      "a type argument must be unrestricted; use a concrete linear field"))
                      (check-type program arg loc)) args))
         ((TFun params result _)
          (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
@@ -46,8 +50,8 @@
       (for-each (lambda (item)
                   (match item
                     ((Define _ value)
-                     (when (affine-type? program (Expr-type value))
-                       (compile-error (Expr-loc value) "an affine value cannot be a global"))
+                     (when (linear-type? program (Expr-type value))
+                       (compile-error (Expr-loc value) "a linear value cannot be a global"))
                      (check-expression-types program value))
                     ((Do value) (check-expression-types program value))
                     (_ (unit)))) items))
@@ -72,251 +76,200 @@
         ((TypeTest inner _) (list inner))
         (_ (Nil))))
 
-    ;; ---- Owners and last uses ----
+    ;; ---- Paths ----
 
-    ;; Branches share immutable types and the unique-name counter, but fork
-    ;; the live owners. Names disappear on a move or drop, never on a read.
-    (struct Scope
+    ;; One path through a body, as far as the check has followed it: the
+    ;; linear names still live on it, and whether it can still return.
+    ;; Names are unique, so a name's liveness needs no scoping. A path that
+    ;; reaches a panic or a value of type Never cannot return, so it never
+    ;; reaches the end of a scope: what it leaves live is abandoned, as a
+    ;; dropped `resume` abandons its frames.
+    (struct Path
       ((program Program)
-       (types (Table Type))
-       (live (Ref (List String)))
-       (counter (Ref I64))))
+       (live (List String))
+       (returns Bool)))
 
-    (: owned? (-> Scope Type Bool))
-    (define (owned? scope type) (affine-type? (Scope-program scope) type))
+    (: linear? (-> Path Type Bool))
+    (define (linear? path type)
+      (linear-type? (Path-program path) type))
 
-    (: bind (-> Scope String Type Scope ! mut))
-    (define (bind scope name type)
-      (when (owned? scope type)
-        (ref-set! (Scope-live scope) (Cons name (ref-get (Scope-live scope)))))
-      (Scope (Scope-program scope)
-             (table-set (Scope-types scope) name type)
-             (Scope-live scope)
-             (Scope-counter scope)))
+    ;; A linear name is live from its binding until it is consumed.
+    (: bind (-> Path String Type Path))
+    (define (bind path name type)
+      (if (linear? path type) (Path-live-set path (Cons name (Path-live path))) path))
 
-    (: consume! (-> Scope String Loc Unit ! mut compile))
-    (define (consume! scope name loc)
-      (unless (member? name (ref-get (Scope-live scope)))
-        (compile-error loc (string-append "affine value used more than once: " (short-name name))))
-      (ref-set! (Scope-live scope)
-                (filter (lambda (live) (not (string=? live name))) (ref-get (Scope-live scope)))))
+    (: consume (-> Path String Loc Path ! compile))
+    (define (consume path name loc)
+      (unless (member? name (Path-live path))
+        (compile-error loc (string-append "linear value used more than once: " (local-name name))))
+      (Path-live-set path (filter (lambda (live) (not (string=? live name))) (Path-live path))))
 
-    (: rebuild (-> Expr Term Expr))
-    (define (rebuild expr term) (Expr term (Expr-type expr) (Expr-loc expr)))
+    ;; The end of a scope opened on `outer`: if the path returns, it has
+    ;; consumed each linear name the scope bound.
+    (: close-scope (-> Path Path Loc Path ! compile))
+    (define (close-scope outer inner loc)
+      (let ((outside? (lambda (name) (member? name (Path-live outer)))))
+        (match (filter (lambda (name) (not (outside? name))) (Path-live inner))
+          ((Cons name _)
+           (when (Path-returns inner)
+             (compile-error loc
+                            (string-append "linear value never consumed: "
+                                           (local-name name)
+                                           "; use it once, or drop it"))))
+          ((Nil) (unit)))
+        (Path-live-set inner (filter outside? (Path-live inner)))))
 
-    (: discard (-> Expr Expr))
-    (define (discard value)
-      (let* ((unit-type (TCon "Unit" (Nil)))
-             (callee (Expr (Var "prim:drop-owned" (Nil) (Nil))
-                           (TFun (list (Expr-type value)) unit-type empty-row)
-                           (Expr-loc value))))
-        (Expr (App callee (list value)) unit-type (Expr-loc value))))
+    ;; Alternatives start from one path. Those that return must leave the
+    ;; same names live; if none returns, neither does the whole.
+    (: join (-> Path (List Path) Loc Path ! compile))
+    (define (join path branches loc)
+      (match (filter Path-returns branches)
+        ((Cons first rest)
+         (for-each (lambda (branch) (agree first branch loc)) rest)
+         (Path-live-set path (Path-live first)))
+        ((Nil) (Path-returns-set path #f))))
 
-    ;; A dropped name is no longer live before the remaining expression is
-    ;; checked. `future` consists of later uses in the same activation.
-    (: own (-> Scope Expr (List String) Expr ! mut compile))
-    (define (own scope expr future)
-      (let* ((needed (append (expr-references expr) future))
-             (dead
-              (filter (lambda (name) (not (member? name needed))) (ref-get (Scope-live scope)))))
-        (for-each (lambda (name) (consume! scope name (Expr-loc expr))) dead)
-        (let ((value (own-term scope expr future)))
-          (fold-right (lambda (name rest)
-                        (match (table-ref (Scope-types scope) name)
-                          ((Some type)
-                           (rebuild rest
-                                    (Seq
-                                     (discard (Expr (Var name (Nil) (Nil)) type (Expr-loc expr)))
-                                     rest)))
-                          ((None) (panic "internal error: owner has no type"))))
-                      value dead))))
+    (: agree (-> Path Path Loc Unit ! compile))
+    (define (agree one other loc)
+      (for-each (lambda (name)
+                  (unless (and (member? name (Path-live one)) (member? name (Path-live other)))
+                    (compile-error loc
+                                   (string-append
+                                    "alternatives must consume the same linear values: "
+                                    (local-name name)))))
+                (append (Path-live one) (Path-live other))))
 
-    (: own-list (-> Scope (List Expr) (List String) (List Expr) ! mut compile))
-    (define (own-list scope values future)
-      (match values
-        ((Nil) (Nil))
-        ((Cons value rest)
-         (let ((value (own scope value (append (concatenate (map expr-references rest)) future))))
-           (Cons value (own-list scope rest future))))))
+    ;; ---- Expressions ----
 
-    ;; ---- Closures and alternatives ----
+    (: check (-> Path Expr Path ! compile))
+    (define (check path expr)
+      (let ((path (check-term path expr)))
+        (if (never-type? (Expr-type expr)) (Path-returns-set path #f) path)))
 
-    (: own-lambda (-> Scope Expr Bool Expr ! mut compile))
-    (define (own-lambda scope expr once?)
-      (match (Expr-term expr)
-        ((Lambda params body)
-         (let ((captured (filter (lambda (name) (table-contains? (Scope-types scope) name))
-                                 (expr-references expr))))
-           (for-each (lambda (name)
-                       (match (table-ref (Scope-types scope) name)
-                         ((Some type)
-                          (when (owned? scope type)
-                            (unless once?
-                              (compile-error (Expr-loc expr)
-                                             "an unrestricted procedure cannot capture an affine value"))
-                            (consume! scope name (Expr-loc expr))))
-                         (_ (unit)))) captured)
-           (let* ((inner
-                   (Scope (Scope-program scope) empty-table (ref (Nil)) (Scope-counter scope)))
-                  (inner (fold-left (lambda (inner name)
-                                      (match (table-ref (Scope-types scope) name)
-                                        ((Some type) (bind inner name type)) (_ inner)))
-                                    inner
-                                    captured)))
-             (match (Expr-type expr)
-               ((TFun types _ _)
-                (let ((inner (fold-left (lambda (inner pair)
-                                          (bind inner (Pair-first pair) (Pair-second pair)))
-                                        inner
-                                        (zip params types))))
-                  (rebuild expr (Lambda params (own inner body (Nil))))))
-               (_ (panic "internal error: untyped owned closure"))))))
-        (_ (own scope expr (Nil)))))
+    (: check-all (-> Path (List Expr) Path ! compile))
+    (define (check-all path exprs)
+      (fold-left check path exprs))
 
-    (: fork (-> Scope Scope ! mut))
-    (define (fork scope)
-      (Scope (Scope-program scope)
-             (Scope-types scope)
-             (ref (ref-get (Scope-live scope)))
-             (Scope-counter scope)))
+    (: check-term (-> Path Expr Path ! compile))
+    (define (check-term path expr)
+      (let ((loc (Expr-loc expr)))
+        (match (Expr-term expr)
+          ((Lit _) path)
+          ((Var name _ _) (check-reference path expr name))
+          ((Lambda _ _) (check-lambda path expr #f))
+          ((App callee args) (check-call path callee args))
+          ((If test then otherwise)
+           (let ((path (check path test)))
+             (join path (list (check path then) (check path otherwise)) loc)))
+          ((Let name value body)
+           (let ((path (check path value)))
+             (close-scope path (check (bind path name (Expr-type value)) body) loc)))
+          ((Seq first rest)
+           (when (linear? path (Expr-type first))
+             (compile-error (Expr-loc first) "a linear value cannot be discarded; drop it"))
+           (check (check path first) rest))
+          ((Match value clauses)
+           (let ((path (check path value)))
+             (join path (map (lambda (clause) (check-clause path clause loc)) clauses) loc)))
+          ((Handle _ implementations body)
+           (check (check-all path (map Pair-second implementations)) body))
+          ((Ann inner _) (check path inner))
+          ((Convert inner target) (check-conversion path expr inner target))
+          ((TypeTest inner target) (check-conversion path expr inner target)))))
 
-    (: join! (-> Scope (List Scope) Unit ! mut))
-    (define (join! scope branches)
-      (ref-set! (Scope-live scope)
-                (filter (lambda (name)
-                          (every? (lambda (branch) (member? name (ref-get (Scope-live branch))))
-                                  branches))
-                        (ref-get (Scope-live scope)))))
+    ;; A use of a linear name consumes it. A linear record's accessors and
+    ;; replacements would give its fields a second owner.
+    (: check-reference (-> Path Expr String Path ! compile))
+    (define (check-reference path expr name)
+      (match (program-value (Path-program path) name)
+        ((Some (Accessor _ _ _)) (check-accessor path expr))
+        ((Some (Replacer _ _ _)) (check-accessor path expr))
+        (_ (unit)))
+      (if (linear? path (Expr-type expr)) (consume path name (Expr-loc expr)) path))
 
-    (: own-if (-> Scope Expr Expr Expr Expr (List String) Expr ! mut compile))
-    (define (own-if scope expr test then otherwise future)
-      (let* ((test (own scope
-                        test
-                        (append (expr-references then)
-                                (append (expr-references otherwise) future))))
-             (left (fork scope)) (right (fork scope))
-             (then (own left then future)) (otherwise (own right otherwise future)))
-        (join! scope (list left right))
-        (rebuild expr (If test then otherwise))))
-
-    ;; Owned wildcards become named owners, so the same last-use rule drops
-    ;; them before the chosen clause runs. Failed tests do not bind owners.
-    (: own-pattern (-> Scope Pattern Pattern ! mut))
-    (define (own-pattern scope pattern)
-      (match pattern
-        ((PWild type)
-         (if (owned? scope type)
-             (let ((next (+ 1 (ref-get (Scope-counter scope)))))
-               (ref-set! (Scope-counter scope) next)
-               ;; Source locals end in .digits; globals contain a colon.
-               (PVar (string-append "%owned." (i64->string next) "%") type)) pattern))
-        ((PCon name args type) (PCon name (map (lambda (arg) (own-pattern scope arg)) args) type))
-        (_ pattern)))
-
-    (: bind-pattern (-> Scope Pattern Scope ! mut))
-    (define (bind-pattern scope pattern)
-      (match pattern
-        ((PVar name type) (bind scope name type))
-        ((PCon _ args _) (fold-left bind-pattern scope args))
-        (_ scope)))
-
-    (: own-match (-> Scope Expr Expr (List Clause) (List String) Expr ! mut compile))
-    (define (own-match scope expr value clauses future)
-      (let* ((value (own scope
-                         value
-                         (append
-                          (concatenate (map (lambda (clause) (expr-references (Clause-body clause)))
-                                            clauses))
-                          future)))
-             (branches (map (lambda (clause)
-                              (let* ((pattern (own-pattern scope (Clause-pattern clause)))
-                                     (branch (bind-pattern (fork scope) pattern)))
-                                (Pair branch
-                                      (Clause pattern (own branch (Clause-body clause) future)))))
-                            clauses)))
-        (join! scope (map Pair-first branches))
-        (rebuild expr (Match value (map Pair-second branches)))))
-
-    ;; ---- Expression transitions ----
-
-    (: check-reference (-> Scope Expr String Unit ! mut compile))
-    (define (check-reference scope expr name)
-      (when (owned? scope (Expr-type expr)) (consume! scope name (Expr-loc expr)))
-      (match (program-value (Scope-program scope) name)
-        ((Some (Accessor _ _ _)) (check-accessor scope expr))
-        ((Some (Replacer _ _ _)) (check-accessor scope expr))
-        (_ (unit))))
-
-    (: check-accessor (-> Scope Expr Unit ! compile))
-    (define (check-accessor scope expr)
+    (: check-accessor (-> Path Expr Unit ! compile))
+    (define (check-accessor path expr)
       (match (Expr-type expr)
         ((TFun (Cons type _) _ _)
-         (when (owned? scope type)
+         (when (linear? path type)
            (compile-error (Expr-loc expr)
-                          "destructure an affine record with match; accessors would duplicate ownership")))
+                          "destructure a linear record with match; accessors would duplicate ownership")))
         (_ (unit))))
 
-    (: own-term (-> Scope Expr (List String) Expr ! mut compile))
-    (define (own-term scope expr future)
-      (match (Expr-term expr)
-        ((Var name _ _) (check-reference scope expr name) expr)
-        ((Lambda _ _) (own-lambda scope expr #f))
-        ((App callee args)
-         (match (Expr-term callee)
-           ((Var "prim:once" _ _)
-            (let ((value (list-ref args 0)))
-              (rebuild expr
-                       (App callee
-                            (list (if (lambda-expr? value)
-                                      (own-lambda scope value #t)
-                                      (own scope value future)))))))
-           (_ (let ((values (own-list scope (Cons callee args) future)))
-                (match values ((Cons callee args) (rebuild expr (App callee args))) (_ expr))))))
-        ((Let name value body)
-         (let* ((value (own scope value (append (expr-references body) future)))
-                (inner (bind scope name (Expr-type value))))
-           (rebuild expr (Let name value (own inner body future)))))
-        ((Seq first rest)
-         (let ((first (own scope first (append (expr-references rest) future))))
-           (rebuild expr
-                    (Seq (if (owned? scope (Expr-type first)) (discard first) first)
-                         (own scope rest future)))))
-        ((If test then otherwise) (own-if scope expr test then otherwise future))
-        ((Match value clauses) (own-match scope expr value clauses future))
-        ((Handle effect implementations body)
-         (let* ((values (own-list scope
-                                  (map Pair-second implementations)
-                                  (append (expr-references body) future)))
-                (body (own scope body future)))
-           (rebuild expr (Handle effect (zip (map Pair-first implementations) values) body))))
-        ((Ann inner type) (rebuild expr (Ann (own scope inner future) type)))
-        ((Convert inner target) (own-conversion scope expr inner target future #f))
-        ((TypeTest inner target) (own-conversion scope expr inner target future #t))
-        (_ expr)))
+    ;; `once` may move a lambda's linear captures into it. A panic never
+    ;; returns.
+    (: check-call (-> Path Expr (List Expr) Path ! compile))
+    (define (check-call path callee args)
+      (match (Pair (Expr-term callee) args)
+        ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
+         (if (lambda-expr? value) (check-lambda path value #t) (check path value)))
+        ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
+        (_ (check-all path (Cons callee args)))))
 
-    (: own-conversion (-> Scope Expr Expr Type (List String) Bool Expr ! mut compile))
-    (define (own-conversion scope expr inner target future test?)
-      (when (or (owned? scope (Expr-type inner)) (owned? scope target))
-        (compile-error (Expr-loc expr) "an affine value cannot cross a dynamic type boundary"))
-      (let ((inner (own scope inner future)))
-        (rebuild expr (if test? (TypeTest inner target) (Convert inner target)))))
+    ;; A closure's body is a path of its own, which starts with the linear
+    ;; names it captures and its linear parameters live, and must consume
+    ;; them all. Creating the closure moves the captures into it. It
+    ;; captures the live names it refers to; one consumed already is not
+    ;; live in the body either, so the body's use of it is a second use.
+    (: check-lambda (-> Path Expr Bool Path ! compile))
+    (define (check-lambda path expr once?)
+      (match (Pair (Expr-term expr) (Expr-type expr))
+        ((Pair (Lambda params body) (TFun types _ _))
+         (let ((captured (filter (lambda (name) (member? name (Path-live path)))
+                                 (expr-references expr)))
+               (loc (Expr-loc expr)))
+           (unless (or once? (null? captured))
+             (compile-error loc "an unrestricted procedure cannot capture a linear value"))
+           (let* ((empty (Path (Path-program path) (Nil) #t))
+                  (start (fold-left (lambda (inner pair)
+                                      (bind inner (Pair-first pair) (Pair-second pair)))
+                                    (Path-live-set empty captured)
+                                    (zip params types))))
+             (close-scope empty (check start body) loc)
+             (fold-left (lambda (path name) (consume path name loc)) path captured))))
+        (_ (panic "internal error: untyped closure"))))
 
-    ;; The checker already proved representability. Specialization substitutes
-    ;; only unrestricted types and erases rows, so that proof still holds here.
-    ;; Every top-level statement and value runs in one function, `main`, so
-    ;; the items share one counter: names an item invents for owners must not
-    ;; repeat another item's.
-    (: own-items (-> Program (List Item) (List Item) ! mut compile))
-    (define (own-items program items)
-      (let ((counter (ref 0)))
-        (map (lambda (item) (own-item (Scope program empty-table (ref (Nil)) counter) item))
-             items)))
+    ;; A clause's pattern binds the fields it names. A wildcard cannot
+    ;; discard a linear one.
+    (: check-clause (-> Path Clause Loc Path ! compile))
+    (define (check-clause path clause loc)
+      (let ((body (Clause-body clause)))
+        (close-scope path
+                     (check (bind-pattern path (Clause-pattern clause) loc) body)
+                     (Expr-loc body))))
 
-    (: own-item (-> Scope Item Item ! mut compile))
-    (define (own-item scope item)
+    (: bind-pattern (-> Path Pattern Loc Path ! compile))
+    (define (bind-pattern path pattern loc)
+      (match pattern
+        ((PWild type)
+         (when (linear? path type)
+           (compile-error loc "a wildcard cannot discard a linear value; bind it and use it"))
+         path)
+        ((PVar name type) (bind path name type))
+        ((PLit _ _) path)
+        ((PCon _ args _) (fold-left (lambda (path arg) (bind-pattern path arg loc)) path args))))
+
+    (: check-conversion (-> Path Expr Expr Type Path ! compile))
+    (define (check-conversion path expr inner target)
+      (when (or (linear? path (Expr-type inner)) (linear? path target))
+        (compile-error (Expr-loc expr) "a linear value cannot cross a dynamic type boundary"))
+      (check path inner))
+
+    ;; ---- Items ----
+
+    ;; Each item is a path of its own: no linear value is a global, and a
+    ;; statement cannot discard one.
+    (: check-ownership (-> Program (List Item) Unit ! compile))
+    (define (check-ownership program items)
+      (for-each (lambda (item) (check-item (Path program (Nil) #t) item)) items))
+
+    (: check-item (-> Path Item Unit ! compile))
+    (define (check-item path item)
       (match item
-        ((Define name value) (Define name (own scope value (Nil))))
+        ((Define _ value) (check path value) (unit))
         ((Do value)
-         (let ((value (own scope value (Nil))))
-           (Do (if (owned? scope (Expr-type value)) (discard value) value))))
-        (_ item)))))
+         (when (linear? path (Expr-type value))
+           (compile-error (Expr-loc value) "a linear value cannot be discarded; drop it"))
+         (check path value)
+         (unit))
+        (_ (unit))))))

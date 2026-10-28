@@ -354,7 +354,8 @@
     (: dot-step (-> String Bool (List String) (List String)))
     (define (dot-step segment final segments)
       (cond ((string=? segment ".") (if final (Cons "" segments) segments))
-            ((string=? segment "..") (if final (Cons "" (drop segments 1)) (drop segments 1)))
+            ((string=? segment "..")
+             (if final (Cons "" (list-drop segments 1)) (list-drop segments 1)))
             (else (Cons segment segments))))
 
     (: path-segments (-> String (Result (List String) HttpError)))

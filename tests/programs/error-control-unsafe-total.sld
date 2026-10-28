@@ -10,5 +10,5 @@
 (define (run thunk)
   (unsafe-total thunk))
 
-(handle Abort ((abort (lambda (value resume) value)))
+(handle Abort ((abort (lambda (value resume) (drop resume) value)))
   (run (lambda () (abort 1))))

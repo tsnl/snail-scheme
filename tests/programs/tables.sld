@@ -23,5 +23,5 @@
 (newline)
 (display (delete-duplicates string=? (list "a" "b" "a" "c" "b")))
 (newline)
-(display (list (take (iota 5) 2) (drop (iota 5) 3)))
+(display (list (take (iota 5) 2) (list-drop (iota 5) 3)))
 (newline)

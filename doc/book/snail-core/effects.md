@@ -314,8 +314,9 @@ is a lambda or a function's name, and an operation has at most one.
 
 An ordinary operation always returns to its caller. An operation declared
 with `ctl` need not. Its implementation receives one more argument,
-`resume`, the rest of the handled body, and decides what to do with it. The
-simplest choice is to drop it, as an exception does
+`resume`, the rest of the handled body, and decides what to do with it.
+`resume` is linear, so the implementation uses it exactly once. The
+simplest choice is to drop it, with `(drop resume)`, as an exception does
 (`tests/programs/control-exception.sld`):
 
 ```scheme
@@ -412,7 +413,7 @@ choose, value by value, whether to resume:
 
 ### Storing `resume`
 
-`resume` is a `Once`: a function that may be called at most once. It is
+`resume` is a `Once`: a function that is called, or dropped, exactly once. It is
 also first-class. An implementation may return it inside a value, and
 whoever holds that value may call it later, after the `handle` has
 returned:
@@ -428,7 +429,7 @@ returned:
 `start` runs a generator to its first `yield`, and the implementation
 returns the value with `resume` instead of calling it. `interleave` calls
 each `next` long after `start` returned. A `Step` that holds a `Once` is
-affine itself, used at most once ([ownership](ownership.md)).
+linear itself, used exactly once ([ownership](ownership.md)).
 
 The handler is deep: resuming re-installs it around the rest of the body,
 so the generator's next `yield` reaches the same implementation, and

@@ -166,7 +166,7 @@ reset that loses the response; see
 [RFC 9112 §9.6](https://www.rfc-editor.org/rfc/rfc9112.html#section-9.6).
 This grace is for completion only. There is no request-idle deadline yet.
 
-Exclusive use is a calling convention, not affine ownership. The caller must not
+Exclusive use is a calling convention, not linear ownership. The caller must not
 use another alias during the exchange. Cancellation of active native socket I/O
 closes that socket. An uncatchable trap or cancellation while the callback waits
 on an unrelated effect cannot execute the Snail-Core cleanup branch; runtime shutdown

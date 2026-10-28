@@ -17,7 +17,7 @@
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast dynamic-cast
-   once call-once drop-owned dispatch-local yield-task sleep-task park-task unpark-task current-task
+   once call-once drop dispatch-local yield-task sleep-task park-task unpark-task current-task
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -76,13 +76,13 @@
 
     ;; ---- Once and tasks ----
 
-    ;; A Once owns a thunk that runs at most once. `drop-owned` takes any
-    ;; value, affine ones included, unchecked: the ownership pass calls it
-    ;; where a path drops a value it owns, and it releases what an affine
-    ;; value holds.
+    ;; A Once owns a procedure that runs once: it is linear, so each one is
+    ;; called or dropped exactly once. `once` makes one from a thunk, and a
+    ;; control handler is handed `resume` as another. `drop` releases one
+    ;; without calling it.
     (primitive once (All (e) (-> (-> Unit ! e) (Once (-> Unit ! e)))))
     (primitive call-once (All (e) (-> (Once (-> Unit ! e)) Unit ! e)))
-    (primitive drop-owned (All (A) (-> A Unit)))
+    (primitive drop (All (F) (-> (Once F) Unit)))
     (primitive dispatch-local (All (e) (-> (Once (-> Unit ! e)) Unit ! tasks e)))
     (primitive yield-task (-> Unit ! tasks))
     (primitive sleep-task (-> I64 Unit ! tasks))

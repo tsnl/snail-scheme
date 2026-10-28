@@ -472,7 +472,7 @@
            (Scan-frames-set added
                             (Cons (Frame (+ offset shift) line spaced (None))
                                   (Scan-frames added)))))
-        ((Close _) (Scan-frames-set scan (drop (Scan-frames scan) 1)))
+        ((Close _) (Scan-frames-set scan (list-drop (Scan-frames scan) 1)))
         ((Prefix offset)
          (Scan (Scan-frames scan) (Some (or-else (Scan-first scan) (+ offset shift)))
                (Some (or-else (Scan-prefix scan) (+ offset shift)))))
@@ -662,7 +662,7 @@
            (let ((here (line-offsets breaks index)))
              (loop rest
                    (+ index 1)
-                   (drop breaks (length here))
+                   (list-drop breaks (length here))
                    (append (reverse (split-line (Line-text line) here)) out))))
           ((Nil) (reverse out)))))
 
@@ -925,7 +925,7 @@
       (match arrival
         ((Some (Arrival group candidates _))
          (Breaking scan
-                   (Cons group (drop (Breaking-groups breaking) 1))
+                   (Cons group (list-drop (Breaking-groups breaking) 1))
                    (append candidates (Breaking-candidates breaking))))
         ((None) (Breaking-scan-set breaking scan))))
 

@@ -39,7 +39,12 @@
 (: first-above (-> I64 (-> Unit ! Gen) I64))
 (define (first-above limit body)
   (handle Gen
-      ((yield (lambda (value resume) (if (> value limit) value (resume (unit))))))
+      ((yield (lambda (value resume)
+                (if (> value limit)
+                    (begin
+                      (drop resume)
+                      value)
+                    (resume (unit))))))
     (body)
     -1))
 

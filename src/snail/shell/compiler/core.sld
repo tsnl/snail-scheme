@@ -26,6 +26,7 @@
    type-key
    any-type?
    never-type?
+   local-name
    string-type?
    bytes-type?
    buffer-type?
@@ -270,6 +271,20 @@
                 ((char=? (vector-ref chars index) #\:)
                  (substring name (+ index 1) (string-length name)))
                 (else (loop (- index 1)))))))
+
+    ;; A local's source name: its unique name without the `.N` suffix.
+    (: local-name (-> String String))
+    (define (local-name name)
+      (match (last-dot name)
+        ((Some index) (substring name 0 index))
+        ((None) name)))
+
+    (: last-dot (-> String (Option I64)))
+    (define (last-dot name)
+      (let loop ((index (- (string-length name) 1)))
+        (cond ((< index 0) (None))
+              ((char=? (string-ref name index) #\.) (Some index))
+              (else (loop (- index 1))))))
 
     ;; The library that defines a global: its name up to the first colon.
     (: name-owner (-> String String))

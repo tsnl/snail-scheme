@@ -113,7 +113,11 @@
 (: until-above (-> I64 (-> I64 ! Gen) (List I64)))
 (define (until-above limit body)
   (handle Gen ((yield (lambda (value resume)
-                        (if (> value limit) (list value) (Cons value (resume (unit)))))))
+                        (if (> value limit)
+                            (begin
+                              (drop resume)
+                              (list value))
+                            (Cons value (resume (unit)))))))
     (body)
     (Nil)))
 
