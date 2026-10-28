@@ -1320,6 +1320,8 @@
     ;; Wasm type of a function of the expected type and calls it. The cast is
     ;; the only check: the engine traps if the function's Wasm type differs,
     ;; and nothing compares Snail-Core types, which is what makes the cast unsafe.
+    ;; That type is a Snail-Core function's, which takes the evidence first,
+    ;; so the held function is one another module compiled from Snail-Core.
     (: funcref-closure (-> Module Type Wat Wat ! mut))
     (define (funcref-closure m type reference)
       (match type
@@ -1339,9 +1341,9 @@
                            (wat "type" (id (wasm-id key))
                                 (wat "sub" (Word "final") (id base) (wat "struct" (wat "field" (wat "ref" (id (code-type m base)))) (wat "field" (Word "funcref"))))))))))
 
-    ;; The code takes the closure and the arguments, and calls the function
-    ;; the closure holds with the arguments, at that function's own type,
-    ;; which takes no closure.
+    ;; The code takes the closure, the evidence and the arguments, and calls
+    ;; the function the closure holds with the evidence and the arguments, at
+    ;; that function's own type, which takes no closure.
     (: funcref-code (-> Module (Pair (List Rep) Rep) String String String ! mut))
     (define (funcref-code m signature base holder)
       (let ((params (Pair-first signature)) (result (Pair-second signature)))
@@ -1353,17 +1355,18 @@
                                                    (map (lambda (param) (wat "param" (rep->wat param))) params)
                                                    (list (wat "result" (rep->wat result)) (held-call m params result holder)))))))))
 
-    ;; The held function is foreign and takes no evidence; the parameters
-    ;; follow the closure and the evidence.
+    ;; The held function runs under the handlers in scope where the closure
+    ;; is called: the code passes on its own evidence, local 1, and the
+    ;; parameters that follow it.
     (: held-call (-> Module (List Rep) Rep String Wat ! mut))
     (define (held-call m params result holder)
       (let ((own (funcref-type m params result))
             (held (wat "struct.get" (id holder) (int 1) (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0))))))
-        (wat* "call_ref" (append (Cons (id own) (map (lambda (index) (wat "local.get" (int (+ index 2)))) (iota (length params))))
+        (wat* "call_ref" (append (Cons (id own) (map (lambda (index) (wat "local.get" (int (+ index 1)))) (iota (+ (length params) 1))))
                                  (list (wat "ref.cast" (wat "ref" (id own)) held))))))
 
-    ;; The Wasm type of the function a Funcref refers to, which takes no
-    ;; closure.
+    ;; The Wasm type of the function a Funcref refers to, which takes the
+    ;; evidence and no closure.
     (: funcref-type (-> Module (List Rep) Rep String ! mut))
     (define (funcref-type m params result)
       (let ((key (string-append "funcref." (string-join (map rep-key params) ",") "->" (rep-key result))))
@@ -1372,7 +1375,8 @@
           ((None)
            (register-type! m key (wasm-id key)
                            (wat "type" (id (wasm-id key))
-                                (wat* "func" (append (map (lambda (param) (wat "param" (rep->wat param))) params) (list (wat "result" (rep->wat result)))))))))))
+                                (wat* "func" (append (Cons (wat "param" (evidence-ref m)) (map (lambda (param) (wat "param" (rep->wat param))) params))
+                                                     (list (wat "result" (rep->wat result)))))))))))
 
     ;; ---- Effect handlers ----
 

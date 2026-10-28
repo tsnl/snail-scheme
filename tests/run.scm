@@ -64,8 +64,8 @@
 
 ;; ---- Programs ----
 
-(define (run-wasm root program)
-  (let ((result (capture-process (node-command root program))))
+(define (run-wasm root program . arguments)
+  (let ((result (capture-process (append (node-command root program) arguments))))
     (string-append (car result) (cadr result))))
 
 ;; Compiles a case. A case that expects a diagnostic is decided here; any
@@ -423,7 +423,7 @@
 (define (run-linked-cases root)
   (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
           (list (run-linked-siegework root) (run-linked-app-runtime root) (run-linked-task-boundary root) (run-linked-host-boundary root)
-                (run-linked-socket-boundary root))))
+                (run-linked-socket-boundary root) (run-dynamic-loading root))))
 
 (define (run-linked-socket-boundary root)
   (let ((output (path-join root "build/tests/linked/socket-boundary")))
@@ -439,6 +439,22 @@
   (let ((output (path-join root "build/tests/linked/task-boundary")))
     (build-modules root (standard-directories root) (path-join root "tests/tasks/boundary.sld") output)
     (check-task-boundary root (path-join output "modules.json"))))
+
+;; ---- Loading while a program runs ----
+
+;; A host program, linked when it runs, loads what other builds hold
+;; through (snail-core wasm): the module of a library from another
+;; program's build, whose exported function it casts and calls.
+(define (run-dynamic-loading root)
+  (guard (failure (#t (report "dynamic loading" "build failed" (error-text failure))))
+    (let ((source (lambda (name) (path-join root "tests/dynamic" name)))
+          (output (lambda (name) (path-join root "build/tests/dynamic" name)))
+          (directories (cons (path-join root "tests/dynamic/lib") (standard-directories root))))
+      (build-modules root directories (source "plugin.sld") (output "plugin"))
+      (build-modules root directories (source "host.sld") (output "host"))
+      (let ((printed (run-wasm root (path-join (output "host") "modules.json") (path-join (output "plugin") "cell.wasm")))
+            (expected (read-file (source "host.out"))))
+        (or (equal? printed expected) (report "dynamic loading" "wrong output" (string-append printed "\nexpected:\n" expected)))))))
 
 ;; ---- Development loop ----
 

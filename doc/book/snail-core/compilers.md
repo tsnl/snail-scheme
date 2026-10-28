@@ -347,11 +347,14 @@ loaded before it, by name. A function the module exports comes out as a
 ```
 
 `unsafe-cast` is a primitive. It wraps the reference in a closure whose
-code casts it to the WebAssembly type of a function of the expected type
-and calls it. The cast is the only check: the engine traps when the
-WebAssembly types differ, and nothing compares Snail-Core types, so the unsafe
-assumption is visible where it is made. `tests/programs/wasm.sld` loads a
-module it writes itself.
+code casts it to the WebAssembly type of a Snail-Core function of the
+expected type, which takes the evidence first, and calls it with the
+handlers in scope where the closure is called. The cast is the only check:
+the engine traps when the WebAssembly types differ, and nothing compares
+Snail-Core types, so the unsafe assumption is visible where it is made.
+`tests/dynamic/host.sld` runs this example on a module from another
+program's build, and `tests/programs/wasm.sld` loads a module it writes
+itself.
 
 The Node runner provides the `wasm` effect for both builds. A statically
 linked program exports nothing of its runtime, so what it loads can link
