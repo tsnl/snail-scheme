@@ -32,11 +32,15 @@
 ;; Of two handlers of one effect, the inner one catches; its
 ;; implementation runs in the outer context, so raising there reaches the
 ;; outer handler, which answers for everything inside it.
-(display (handle Raise ((raise (lambda (message resume) (write-line (string-append "outer: " message)) 0)))
-           (+ 100 (handle Raise ((raise (lambda (message resume) (write-line (string-append "inner: " message)) 1)))
-                    (raise "boom")))))
+(display
+ (handle Raise ((raise (lambda (message resume) (write-line (string-append "outer: " message)) 0)))
+   (+ 100
+      (handle Raise ((raise
+                      (lambda (message resume) (write-line (string-append "inner: " message)) 1)))
+        (raise "boom")))))
 (newline)
-(display (handle Raise ((raise (lambda (message resume) (write-line (string-append "outer: " message)) 0)))
-           (+ 100 (handle Raise ((raise (lambda (message resume) (raise (string-append "again " message)))))
-                    (raise "boom")))))
+(display
+ (handle Raise ((raise (lambda (message resume) (write-line (string-append "outer: " message)) 0)))
+   (+ 100 (handle Raise ((raise (lambda (message resume) (raise (string-append "again " message)))))
+            (raise "boom")))))
 (newline)

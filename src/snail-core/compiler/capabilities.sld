@@ -21,7 +21,8 @@
           (match type
             ((TCon name args)
              (and (not (member? name (list "Ref" "Array" "Any" "Funcref")))
-                  (every? (lambda (arg) (capability-type? program property arg givens visiting)) args)
+                  (every? (lambda (arg) (capability-type? program property arg givens visiting))
+                          args)
                   (or (member? name visiting)
                       (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types)
                       (capability-fields? program property type givens (Cons name visiting)))))
@@ -36,7 +37,12 @@
         ((TCon name args)
          (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
            (every? (lambda (case)
-                     (every? (lambda (field) (capability-type? program property (substitute bindings (Field-type field)) givens visiting))
+                     (every? (lambda (field)
+                               (capability-type? program
+                                                 property
+                                                 (substitute bindings (Field-type field))
+                                                 givens
+                                                 visiting))
                              (Case-fields case)))
                    (DataType-cases data))))
         (_ #f)))
@@ -90,5 +96,6 @@
 
     (: affine-case (-> Program Substitution Case Affinity Affinity))
     (define (affine-case program bindings case found)
-      (fold-left (lambda (found field) (affine-next program (substitute bindings (Field-type field)) found))
-                 found (Case-fields case)))))
+      (fold-left
+       (lambda (found field) (affine-next program (substitute bindings (Field-type field)) found))
+       found (Case-fields case)))))

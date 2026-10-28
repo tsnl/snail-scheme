@@ -12,7 +12,8 @@
 
 (handle udp
     ((bind (lambda (endpoint)
-             (Ok (UdpSocket (type-convert (ref (Datagram endpoint #u8())) Any) (Endpoint-port endpoint)))))
+             (Ok (UdpSocket (type-convert (ref (Datagram endpoint #u8())) Any)
+                            (Endpoint-port endpoint)))))
      (send (lambda (socket peer bytes)
              (sleep 1)
              (ref-set! (type-convert (UdpSocket-token socket) (Ref Datagram)) (Datagram peer bytes))

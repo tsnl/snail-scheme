@@ -30,7 +30,8 @@
 
     (: artifact-ref (-> ArtifactBundle String (Option Bytes)))
     (define (artifact-ref bundle path)
-      (match (find (lambda (file) (string=? (ArtifactFile-path file) path)) (ArtifactBundle-files bundle))
+      (match (find (lambda (file) (string=? (ArtifactFile-path file) path))
+                   (ArtifactBundle-files bundle))
         ((Some file) (Some (ArtifactFile-bytes file)))
         ((None) (None))))
 
