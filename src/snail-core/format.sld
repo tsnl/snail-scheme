@@ -599,7 +599,7 @@
     ;; it fits or nothing on it can break.
 
     (: format-width I64)
-    (define format-width 80)
+    (define format-width 100)
 
     ;; How a list breaks, by its head. A call breaks before each argument
     ;; after its first, or before its first when no other is on the line. A

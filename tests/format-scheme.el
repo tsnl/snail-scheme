@@ -168,10 +168,10 @@ last\")
 "))
 
 (ert-deftest snail-format-width ()
-  ;; Without --width, code may reach column 80 and no further.
-  (let ((fits (concat "(list \"" (make-string 69 ?x) "\" b)\n"))
-        (long (concat "(list \"" (make-string 70 ?x) "\" b)\n")))
-    (should (= 81 (length fits)))
+  ;; Without --width, code may reach column 100 and no further.
+  (let ((fits (concat "(list \"" (make-string 89 ?x) "\" b)\n"))
+        (long (concat "(list \"" (make-string 90 ?x) "\" b)\n")))
+    (should (= 101 (length fits)))
     (should (equal fits (snail-test-format fits)))
-    (should (equal (concat "(list \"" (make-string 70 ?x) "\"\n      b)\n")
+    (should (equal (concat "(list \"" (make-string 90 ?x) "\"\n      b)\n")
                    (snail-test-format long)))))
