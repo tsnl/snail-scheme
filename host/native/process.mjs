@@ -177,11 +177,14 @@ export function createProcesses() {
 // the signal handlers (host/native/run-snail.mjs); when a signal arrives it
 // reads `waiting`, shared memory holding the number of waiters, and forwards
 // the signal here only if a task waits. The number is written before a wait
-// suspends, so no signal can arrive in between and miss it.
+// suspends, so no signal can arrive in between and miss it. The second slot
+// counts the deliveries that ended waits, and the main thread stamps each
+// signal it forwards with the count it read.
 const terminationNumbers = new Map([['SIGINT', 2], ['SIGTERM', 15]]);
 
 export function createTermination(waiting) {
   const waiters = new Set();
+  let held = null;
   const publish = () => Atomics.store(waiting, 0, waiters.size);
 
   function remove(waiter) {
@@ -192,6 +195,7 @@ export function createTermination(waiting) {
 
   function wait(signal) {
     signal.throwIfAborted();
+    if (held !== null) { const number = held; held = null; return Promise.resolve(number); }
     return new Promise((resolve, reject) => {
       const waiter = {signal, resolve, abort: () => { remove(waiter); reject(signal.reason); }};
       waiters.add(waiter);
@@ -201,12 +205,19 @@ export function createTermination(waiting) {
   }
 
   // A signal reaches every task waiting when it arrives, and each wait
-  // ends: a second signal ends the process unless a task waits again. One
-  // whose waiter was cancelled on its way here is raised again, and the
-  // main thread, seeing no waiter, ends the process by it.
-  function deliver(name) {
-    if (!waiters.size) { process.kill(process.pid, name); return; }
-    for (const waiter of [...waiters]) { remove(waiter); waiter.resolve(terminationNumbers.get(name)); }
+  // ends: a second signal ends the process unless a task waits again. A
+  // signal that finds no waiter here arrived while tasks waited, since the
+  // main thread forwarded it. If a delivery has ended their wait since it
+  // was stamped, it arrived alongside that delivery, as a quick second
+  // Ctrl-C does, and it is kept for the next wait, at most one. Otherwise
+  // its waiter was cancelled on the way, and it is raised again: the main
+  // thread, seeing no waiter, ends the process by it.
+  function deliver({name, deliveries}) {
+    if (waiters.size) {
+      for (const waiter of [...waiters]) { remove(waiter); waiter.resolve(terminationNumbers.get(name)); }
+      Atomics.add(waiting, 1, 1);
+    } else if (Atomics.load(waiting, 1) > deliveries) held ??= terminationNumbers.get(name);
+    else process.kill(process.pid, name);
   }
 
   return {wait, deliver};

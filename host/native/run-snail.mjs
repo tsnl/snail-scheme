@@ -82,14 +82,15 @@ async function runInitializers(program, scheduler) {
 // tasks waiting in `termination`, (snail shell process); with none waiting,
 // they end the process as Node's default does, by the same signal. The
 // worker counts its waiters in shared memory, read when the signal
-// arrives, so no message is in flight while a new waiter could miss it.
+// arrives, so no message is in flight while a new waiter could miss it,
+// and its deliveries beside them, which each forwarded signal carries.
 // Raising a signal again restores the default only because these are the
 // main thread's only listeners for it.
 const terminations = ['SIGINT', 'SIGTERM'];
 
 function forwardTerminations(worker, waiting) {
   function forward(name) {
-    if (Atomics.load(waiting, 0) > 0) { worker.postMessage(name); return; }
+    if (Atomics.load(waiting, 0) > 0) { worker.postMessage({name, deliveries: Atomics.load(waiting, 1)}); return; }
     for (const each of terminations) process.removeListener(each, forward);
     process.kill(process.pid, name);
   }
@@ -105,7 +106,7 @@ const limits = {maxYoungGenerationSizeMb: 384};
 
 if (isMainThread) {
   process.exitCode = 1;
-  const waiting = new Int32Array(new SharedArrayBuffer(4));
+  const waiting = new Int32Array(new SharedArrayBuffer(8));
   const worker = new Worker(new URL(import.meta.url), {workerData: {arguments: process.argv.slice(2), waiting}, resourceLimits: limits});
   forwardTerminations(worker, waiting);
   worker.on('message', status => { process.exitCode = status; });
@@ -113,7 +114,7 @@ if (isMainThread) {
 } else {
   const {arguments: [filename, ...arguments_], waiting} = workerData, termination = createTermination(waiting);
   // Forwarded signals must not keep a finished program alive.
-  parentPort.on('message', name => termination.deliver(name));
+  parentPort.on('message', signal => termination.deliver(signal));
   parentPort.unref();
   try {
     if (!filename) throw new Error('usage: run-snail.mjs MODULE.wasm [ARGUMENT ...]');
