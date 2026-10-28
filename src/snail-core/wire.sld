@@ -65,7 +65,9 @@
        (lambda ()
          (let ((encoder (Encoder (ref (make-array 64 (ann 0 U8))) (ref 0))))
            (encode value encoder)
-           (subvector (array->vector (ref-get (Encoder-bytes encoder))) 0 (ref-get (Encoder-size encoder)))))))
+           (subvector (array->vector (ref-get (Encoder-bytes encoder)))
+                      0
+                      (ref-get (Encoder-size encoder)))))))
 
     ;; Panics if the bytes were not written for this type. The decoder's
     ;; position is local to this call.
@@ -186,7 +188,10 @@
     (instance (Deserialize String)
       (define (decode decoder)
         (let ((count (decode-unsigned decoder)))
-          (vector->string (decode-elements decoder count (lambda (decoder) (integer->char (decode-unsigned decoder))))))))
+          (vector->string (decode-elements decoder
+                                           count
+                                           (lambda (decoder)
+                                             (integer->char (decode-unsigned decoder))))))))
 
     (instance (Serialize (Vector T))
       (requires (Serialize T))

@@ -22,21 +22,26 @@
       (match type
         ((TCon "Once" args)
          (match args
-           ((Cons (TFun params result _) (Nil)) (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
+           ((Cons (TFun params result _) (Nil))
+            (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
            (_ (compile-error loc "Once requires a procedure type"))))
         ((TCon _ args)
          (for-each (lambda (arg)
                      (when (affine-type? program arg)
-                       (compile-error loc "a type argument must be unrestricted; use a concrete affine field"))
+                       (compile-error loc
+                                      "a type argument must be unrestricted; use a concrete affine field"))
                      (check-type program arg loc)) args))
-        ((TFun params result _) (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
+        ((TFun params result _)
+         (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
         (_ (unit))))
 
     (: check-owned-types (-> Program (List Item) Unit))
     (define (check-owned-types program items)
       (for-each (lambda (data)
                   (for-each (lambda (case)
-                              (for-each (lambda (field) (check-type program (Field-type field) no-loc)) (Case-fields case)))
+                              (for-each
+                               (lambda (field) (check-type program (Field-type field) no-loc))
+                               (Case-fields case)))
                             (DataType-cases data))) (table-values (Program-types program)))
       (for-each (lambda (item)
                   (match item
@@ -82,14 +87,19 @@
 
     (: bind (-> Scope String Type Scope ! mut))
     (define (bind scope name type)
-      (when (owned? scope type) (ref-set! (Scope-live scope) (Cons name (ref-get (Scope-live scope)))))
-      (Scope (Scope-program scope) (table-set (Scope-types scope) name type) (Scope-live scope) (Scope-counter scope)))
+      (when (owned? scope type)
+        (ref-set! (Scope-live scope) (Cons name (ref-get (Scope-live scope)))))
+      (Scope (Scope-program scope)
+             (table-set (Scope-types scope) name type)
+             (Scope-live scope)
+             (Scope-counter scope)))
 
     (: consume! (-> Scope String Loc Unit ! mut))
     (define (consume! scope name loc)
       (unless (member? name (ref-get (Scope-live scope)))
         (compile-error loc (string-append "affine value used more than once: " (short-name name))))
-      (ref-set! (Scope-live scope) (filter (lambda (live) (not (string=? live name))) (ref-get (Scope-live scope)))))
+      (ref-set! (Scope-live scope)
+                (filter (lambda (live) (not (string=? live name))) (ref-get (Scope-live scope)))))
 
     (: rebuild (-> Expr Term Expr))
     (define (rebuild expr term) (Expr term (Expr-type expr) (Expr-loc expr)))
@@ -97,7 +107,9 @@
     (: discard (-> Expr Expr))
     (define (discard value)
       (let* ((unit-type (TCon "Unit" (Nil)))
-             (callee (Expr (Var "prim:drop-owned" (Nil) (Nil)) (TFun (list (Expr-type value)) unit-type empty-row) (Expr-loc value))))
+             (callee (Expr (Var "prim:drop-owned" (Nil) (Nil))
+                           (TFun (list (Expr-type value)) unit-type empty-row)
+                           (Expr-loc value))))
         (Expr (App callee (list value)) unit-type (Expr-loc value))))
 
     ;; A dropped name is no longer live before the remaining expression is
@@ -105,12 +117,17 @@
     (: own (-> Scope Expr (List String) Expr ! mut))
     (define (own scope expr future)
       (let* ((needed (append (expr-references expr) future))
-             (dead (filter (lambda (name) (not (member? name needed))) (ref-get (Scope-live scope)))))
+             (dead
+              (filter (lambda (name) (not (member? name needed))) (ref-get (Scope-live scope)))))
         (for-each (lambda (name) (consume! scope name (Expr-loc expr))) dead)
         (let ((value (own-term scope expr future)))
           (fold-right (lambda (name rest)
                         (match (table-ref (Scope-types scope) name)
-                          ((Some type) (rebuild rest (Seq (discard (Expr (Var name (Nil) (Nil)) type (Expr-loc expr))) rest)))
+                          ((Some type)
+                           (rebuild rest
+                                    (Seq
+                                     (discard (Expr (Var name (Nil) (Nil)) type (Expr-loc expr)))
+                                     rest)))
                           ((None) (panic "internal error: owner has no type"))))
                       value dead))))
 
@@ -128,38 +145,55 @@
     (define (own-lambda scope expr once?)
       (match (Expr-term expr)
         ((Lambda params body)
-         (let ((captured (filter (lambda (name) (table-contains? (Scope-types scope) name)) (expr-references expr))))
+         (let ((captured (filter (lambda (name) (table-contains? (Scope-types scope) name))
+                                 (expr-references expr))))
            (for-each (lambda (name)
                        (match (table-ref (Scope-types scope) name)
                          ((Some type)
                           (when (owned? scope type)
-                            (unless once? (compile-error (Expr-loc expr) "an unrestricted procedure cannot capture an affine value"))
+                            (unless once?
+                              (compile-error (Expr-loc expr)
+                                             "an unrestricted procedure cannot capture an affine value"))
                             (consume! scope name (Expr-loc expr))))
                          (_ (unit)))) captured)
-           (let* ((inner (Scope (Scope-program scope) empty-table (ref (Nil)) (Scope-counter scope)))
+           (let* ((inner
+                   (Scope (Scope-program scope) empty-table (ref (Nil)) (Scope-counter scope)))
                   (inner (fold-left (lambda (inner name)
                                       (match (table-ref (Scope-types scope) name)
-                                        ((Some type) (bind inner name type)) (_ inner))) inner captured)))
+                                        ((Some type) (bind inner name type)) (_ inner)))
+                                    inner
+                                    captured)))
              (match (Expr-type expr)
                ((TFun types _ _)
-                (let ((inner (fold-left (lambda (inner pair) (bind inner (Pair-first pair) (Pair-second pair))) inner (zip params types))))
+                (let ((inner (fold-left (lambda (inner pair)
+                                          (bind inner (Pair-first pair) (Pair-second pair)))
+                                        inner
+                                        (zip params types))))
                   (rebuild expr (Lambda params (own inner body (Nil))))))
                (_ (panic "internal error: untyped owned closure"))))))
         (_ (own scope expr (Nil)))))
 
     (: fork (-> Scope Scope ! mut))
     (define (fork scope)
-      (Scope (Scope-program scope) (Scope-types scope) (ref (ref-get (Scope-live scope))) (Scope-counter scope)))
+      (Scope (Scope-program scope)
+             (Scope-types scope)
+             (ref (ref-get (Scope-live scope)))
+             (Scope-counter scope)))
 
     (: join! (-> Scope (List Scope) Unit ! mut))
     (define (join! scope branches)
       (ref-set! (Scope-live scope)
-                (filter (lambda (name) (every? (lambda (branch) (member? name (ref-get (Scope-live branch)))) branches))
+                (filter (lambda (name)
+                          (every? (lambda (branch) (member? name (ref-get (Scope-live branch))))
+                                  branches))
                         (ref-get (Scope-live scope)))))
 
     (: own-if (-> Scope Expr Expr Expr Expr (List String) Expr ! mut))
     (define (own-if scope expr test then otherwise future)
-      (let* ((test (own scope test (append (expr-references then) (append (expr-references otherwise) future))))
+      (let* ((test (own scope
+                        test
+                        (append (expr-references then)
+                                (append (expr-references otherwise) future))))
              (left (fork scope)) (right (fork scope))
              (then (own left then future)) (otherwise (own right otherwise future)))
         (join! scope (list left right))
@@ -188,11 +222,18 @@
 
     (: own-match (-> Scope Expr Expr (List Clause) (List String) Expr ! mut))
     (define (own-match scope expr value clauses future)
-      (let* ((value (own scope value (append (concatenate (map (lambda (clause) (expr-references (Clause-body clause))) clauses)) future)))
+      (let* ((value (own scope
+                         value
+                         (append
+                          (concatenate (map (lambda (clause) (expr-references (Clause-body clause)))
+                                            clauses))
+                          future)))
              (branches (map (lambda (clause)
                               (let* ((pattern (own-pattern scope (Clause-pattern clause)))
                                      (branch (bind-pattern (fork scope) pattern)))
-                                (Pair branch (Clause pattern (own branch (Clause-body clause) future))))) clauses)))
+                                (Pair branch
+                                      (Clause pattern (own branch (Clause-body clause) future)))))
+                            clauses)))
         (join! scope (map Pair-first branches))
         (rebuild expr (Match value (map Pair-second branches)))))
 
@@ -210,7 +251,9 @@
     (define (check-accessor scope expr)
       (match (Expr-type expr)
         ((TFun (Cons type _) _ _)
-         (when (owned? scope type) (compile-error (Expr-loc expr) "destructure an affine record with match; accessors would duplicate ownership")))
+         (when (owned? scope type)
+           (compile-error (Expr-loc expr)
+                          "destructure an affine record with match; accessors would duplicate ownership")))
         (_ (unit))))
 
     (: own-term (-> Scope Expr (List String) Expr ! mut))
@@ -222,7 +265,11 @@
          (match (Expr-term callee)
            ((Var "prim:once" _ _)
             (let ((value (list-ref args 0)))
-              (rebuild expr (App callee (list (if (lambda-expr? value) (own-lambda scope value #t) (own scope value future)))))))
+              (rebuild expr
+                       (App callee
+                            (list (if (lambda-expr? value)
+                                      (own-lambda scope value #t)
+                                      (own scope value future)))))))
            (_ (let ((values (own-list scope (Cons callee args) future)))
                 (match values ((Cons callee args) (rebuild expr (App callee args))) (_ expr))))))
         ((Let name value body)
@@ -231,11 +278,15 @@
            (rebuild expr (Let name value (own inner body future)))))
         ((Seq first rest)
          (let ((first (own scope first (append (expr-references rest) future))))
-           (rebuild expr (Seq (if (owned? scope (Expr-type first)) (discard first) first) (own scope rest future)))))
+           (rebuild expr
+                    (Seq (if (owned? scope (Expr-type first)) (discard first) first)
+                         (own scope rest future)))))
         ((If test then otherwise) (own-if scope expr test then otherwise future))
         ((Match value clauses) (own-match scope expr value clauses future))
         ((Handle effect implementations body)
-         (let* ((values (own-list scope (map Pair-second implementations) (append (expr-references body) future)))
+         (let* ((values (own-list scope
+                                  (map Pair-second implementations)
+                                  (append (expr-references body) future)))
                 (body (own scope body future)))
            (rebuild expr (Handle effect (zip (map Pair-first implementations) values) body))))
         ((Ann inner type) (rebuild expr (Ann (own scope inner future) type)))
@@ -258,11 +309,14 @@
     (: own-items (-> Program (List Item) (List Item) ! mut))
     (define (own-items program items)
       (let ((counter (ref 0)))
-        (map (lambda (item) (own-item (Scope program empty-table (ref (Nil)) counter) item)) items)))
+        (map (lambda (item) (own-item (Scope program empty-table (ref (Nil)) counter) item))
+             items)))
 
     (: own-item (-> Scope Item Item ! mut))
     (define (own-item scope item)
       (match item
         ((Define name value) (Define name (own scope value (Nil))))
-        ((Do value) (let ((value (own scope value (Nil)))) (Do (if (owned? scope (Expr-type value)) (discard value) value))))
+        ((Do value)
+         (let ((value (own scope value (Nil))))
+           (Do (if (owned? scope (Expr-type value)) (discard value) value))))
         (_ item)))))

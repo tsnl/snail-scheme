@@ -14,6 +14,8 @@
 
 (: summarize (-> Project Report))
 (define (summarize project)
-  (Report (string-append label " " (Project-name project)) (length (Project-estimates project)) (fold-left + 0 (Project-estimates project))))
+  (Report (string-append label " " (Project-name project))
+          (length (Project-estimates project))
+          (fold-left + 0 (Project-estimates project))))
 
 (expose summarize "summarize" dynamic)

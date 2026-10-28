@@ -21,7 +21,8 @@
           (match type
             ((TCon name args)
              (and (not (member? name (list "Ref" "Array" "Any" "Funcref")))
-                  (every? (lambda (arg) (capability-type? program property arg givens visiting)) args)
+                  (every? (lambda (arg) (capability-type? program property arg givens visiting))
+                          args)
                   (or (member? name visiting)
                       (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types)
                       (capability-fields? program property type givens (Cons name visiting)))))
@@ -36,7 +37,12 @@
         ((TCon name args)
          (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
            (every? (lambda (case)
-                     (every? (lambda (field) (capability-type? program property (substitute bindings (Field-type field)) givens visiting))
+                     (every? (lambda (field)
+                               (capability-type? program
+                                                 property
+                                                 (substitute bindings (Field-type field))
+                                                 givens
+                                                 visiting))
                              (Case-fields case)))
                    (DataType-cases data))))
         (_ #f)))
@@ -64,7 +70,9 @@
          (match (fold-left (lambda (found arg) (first-order-search program arg found)) entered args)
            ((Some names)
             (cond ((member? name (list "Any" "Funcref")) (None))
-                  ((or (member? name names) (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types)) (Some names))
+                  ((or (member? name names)
+                       (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+                   (Some names))
                   (else (first-order-fields program name args (Cons name names)))))
            ((None) (None))))
         ((Pair (TRow _ _) _) entered)
@@ -73,7 +81,8 @@
     (: first-order-fields (-> Program String (List Type) (List String) (Option (List String))))
     (define (first-order-fields program name args entered)
       (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
-        (fold-left (lambda (found field) (first-order-search program (substitute bindings (Field-type field)) found))
+        (fold-left (lambda (found field)
+                     (first-order-search program (substitute bindings (Field-type field)) found))
                    (Some entered) (concatenate (map Case-fields (DataType-cases data))))))
 
     ;; ---- Type grades ----
@@ -125,5 +134,6 @@
 
     (: affine-case (-> Program Substitution Case Affinity Affinity))
     (define (affine-case program bindings case found)
-      (fold-left (lambda (found field) (affine-next program (substitute bindings (Field-type field)) found))
-                 found (Case-fields case)))))
+      (fold-left
+       (lambda (found field) (affine-next program (substitute bindings (Field-type field)) found))
+       found (Case-fields case)))))

@@ -13,7 +13,8 @@
 (: noisy-sum (-> (List I64) I64 ! console))
 (define (noisy-sum items)
   (let ((total (ref 0)))
-    (for-each (lambda (item) (write-line (show item)) (ref-set! total (+ (ref-get total) item))) items)
+    (for-each (lambda (item) (write-line (show item)) (ref-set! total (+ (ref-get total) item)))
+              items)
     (ref-get total)))
 
 ;; Passing a cell around without mutating it needs no check.

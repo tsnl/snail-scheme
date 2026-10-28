@@ -39,7 +39,11 @@
       (string-generate 4
                        (lambda (index)
                          (string-ref "0123456789abcdef"
-                                     (i32->i64 (i32-and (i32-shift-right/logical code (i64->i32 (* 4 (- 3 index)))) 15))))))
+                                     (i32->i64 (i32-and (i32-shift-right/logical code
+                                                                                 (i64->i32 (* 4
+                                                                                              (- 3
+                                                                                                 index))))
+                                                        15))))))
 
     ;; `JSON.stringify`'s escapes: the quote and the backslash, the five
     ;; controls with short forms, and every other control as \u and four
@@ -57,7 +61,8 @@
               ((= code 10) (Some "\\n"))
               ((= code 12) (Some "\\f"))
               ((= code 13) (Some "\\r"))
-              ((or (< code 32) (and (>= code 55296) (<= code 57343))) (Some (string-append "\\u" (hex4 code))))
+              ((or (< code 32) (and (>= code 55296) (<= code 57343)))
+               (Some (string-append "\\u" (hex4 code))))
               (else (None)))))
 
     ;; Each run of characters between escapes is copied as one substring,
@@ -69,7 +74,10 @@
             (Cons "\"" (Cons (substring text start index) pieces))
             (match (escape (string-ref text index))
               ((None) (loop start (+ index 1) pieces))
-              ((Some escaped) (loop (+ index 1) (+ index 1) (Cons escaped (Cons (substring text start index) pieces))))))))
+              ((Some escaped)
+               (loop (+ index 1)
+                     (+ index 1)
+                     (Cons escaped (Cons (substring text start index) pieces))))))))
 
     ;; ---- Writing ----
 
@@ -90,11 +98,15 @@
       (value-pieces (Pair-second member) (Cons ":" (string-pieces (Pair-first member) pieces))))
 
     ;; Items with a comma between each two, and no spaces anywhere.
-    (: separated (All (T) (-> (-> T (List String) (List String)) (List T) (List String) (List String))))
+    (: separated
+       (All (T) (-> (-> T (List String) (List String)) (List T) (List String) (List String))))
     (define (separated write items pieces)
       (match items
         ((Nil) pieces)
-        ((Cons first rest) (fold-left (lambda (pieces item) (write item (Cons "," pieces))) (write first pieces) rest))))
+        ((Cons first rest)
+         (fold-left (lambda (pieces item) (write item (Cons "," pieces)))
+                    (write first pieces)
+                    rest))))
 
     (: json->string (-> Json String))
     (define (json->string value)

@@ -8,4 +8,7 @@
                                   (list "squares")
                                   (list (list "snail-core" "base"))
                                   (list (form "define"
-                                              (list (SymbolSyntax "squares") (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))
+                                              (list (SymbolSyntax "squares")
+                                                    (form "list"
+                                                          (map (lambda (i) (IntegerSyntax (* i i)))
+                                                               (iota 6))))))))

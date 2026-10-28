@@ -29,14 +29,29 @@
     ;; `moves` lists what may happen in a state, `step` applies one, and
     ;; `invariant` explains why a state is wrong, if it is.
     (: explore (All (S M) (requires (Serialize S))
-                    (-> S (-> S (List M)) (-> S M S) (-> S (Option String)) I64 (Option (Violation S M)))))
+                    (-> S
+                        (-> S (List M))
+                        (-> S M S)
+                        (-> S (Option String))
+                        I64
+                        (Option (Violation S M)))))
     (define (explore initial moves step invariant depth)
-      (search (list (Visit initial (Nil))) moves step invariant depth (table-set empty-table (state-key initial) #t)))
+      (search (list (Visit initial (Nil)))
+              moves
+              step
+              invariant
+              depth
+              (table-set empty-table (state-key initial) #t)))
 
     ;; Checks one frontier, then the states its moves reach for the first
     ;; time. `seen` holds every state reached so far.
     (: search (All (S M) (requires (Serialize S))
-                   (-> (List (Visit S M)) (-> S (List M)) (-> S M S) (-> S (Option String)) I64 (Table Bool)
+                   (-> (List (Visit S M))
+                       (-> S (List M))
+                       (-> S M S)
+                       (-> S (Option String))
+                       I64
+                       (Table Bool)
                        (Option (Violation S M)))))
     (define (search frontier moves step invariant depth seen)
       (match (first-violation frontier invariant)
@@ -47,28 +62,38 @@
              (match (successors frontier moves step seen)
                ((Pair next seen) (search next moves step invariant (- depth 1) seen)))))))
 
-    (: first-violation (All (S M) (-> (List (Visit S M)) (-> S (Option String)) (Option (Violation S M)))))
+    (: first-violation
+       (All (S M) (-> (List (Visit S M)) (-> S (Option String)) (Option (Violation S M)))))
     (define (first-violation frontier invariant)
       (match frontier
         ((Nil) (None))
         ((Cons visit rest)
          (match (invariant (Visit-state visit))
-           ((Some reason) (Some (Violation reason (reverse (Visit-path visit)) (Visit-state visit))))
+           ((Some reason)
+            (Some (Violation reason (reverse (Visit-path visit)) (Visit-state visit))))
            ((None) (first-violation rest invariant))))))
 
     ;; The states the frontier reaches for the first time, with `seen`
     ;; grown by them.
     (: successors (All (S M) (requires (Serialize S))
-                       (-> (List (Visit S M)) (-> S (List M)) (-> S M S) (Table Bool) (Pair (List (Visit S M)) (Table Bool)))))
+                       (-> (List (Visit S M))
+                           (-> S (List M))
+                           (-> S M S)
+                           (Table Bool)
+                           (Pair (List (Visit S M)) (Table Bool)))))
     (define (successors frontier moves step seen)
       (match (fold-left (lambda (found visit)
                           (fold-left (lambda (found move)
-                                       (let* ((state (step (Visit-state visit) move)) (key (state-key state)))
+                                       (let* ((state (step (Visit-state visit) move))
+                                              (key (state-key state)))
                                          (match found
                                            ((Pair next seen)
                                             (if (table-contains? seen key)
                                                 found
-                                                (Pair (Cons (Visit state (Cons move (Visit-path visit))) next) (table-set seen key #t)))))))
+                                                (Pair
+                                                 (Cons (Visit state (Cons move (Visit-path visit)))
+                                                       next)
+                                                 (table-set seen key #t)))))))
                                      found (moves (Visit-state visit))))
                         (Pair (Nil) seen) frontier)
         ((Pair next seen) (Pair (reverse next) seen))))
@@ -77,6 +102,7 @@
     (: state-key (All (S) (requires (Serialize S)) (-> S String)))
     (define (state-key state)
       (let ((bytes (serialize state)))
-        (string-generate (vector-length bytes) (lambda (index) (i32->char (u8->i32 (vector-ref bytes index)))))))
+        (string-generate (vector-length bytes)
+                         (lambda (index) (i32->char (u8->i32 (vector-ref bytes index)))))))
 
     ))

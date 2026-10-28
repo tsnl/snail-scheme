@@ -14,7 +14,8 @@
 (: answer (All (T) (-> (-> T String) (Result T FileError) String)))
 (define (answer describe result)
   (match result
-    ((Ok value) (let ((text (describe value))) (if (string=? text "") "ok" (string-append "ok " text))))
+    ((Ok value)
+     (let ((text (describe value))) (if (string=? text "") "ok" (string-append "ok " text))))
     ((Err error) (string-append "error: " (show error)))))
 
 (: done (-> Unit String))
@@ -73,7 +74,8 @@
 (report "rename" (answer done (rename-file (at "a/four.txt") (at "a/renamed.txt"))))
 (report "old name exists" (show (file-exists? (at "a/four.txt"))))
 (report "new name reads" (read-file (at "a/renamed.txt")))
-(report "rename over an existing file" (answer done (rename-file (at "a/renamed.txt") (at "a/B.txt"))))
+(report "rename over an existing file"
+        (answer done (rename-file (at "a/renamed.txt") (at "a/B.txt"))))
 (report "replaced file reads" (read-file (at "a/B.txt")))
 (report "rename a missing path" (answer done (rename-file (at "missing") (at "a/elsewhere"))))
 (make-directory (at "full"))
@@ -96,7 +98,8 @@
 (report "status of the link" (answer status-text (file-status (at "link"))))
 (report "read the link" (answer (lambda (target) target) (read-symbolic-link (at "link"))))
 (report "read through the link" (read-file (at "link")))
-(report "read a file as a link" (answer (lambda (target) target) (read-symbolic-link (at "a/B.txt"))))
+(report "read a file as a link"
+        (answer (lambda (target) target) (read-symbolic-link (at "a/B.txt"))))
 (report "remove the link" (answer done (remove-file (at "link"))))
 (report "its target remains" (show (file-exists? (at "a/B.txt"))))
 

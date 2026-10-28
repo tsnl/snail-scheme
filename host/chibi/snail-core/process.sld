@@ -21,7 +21,10 @@
     (define (capture-directory)
       (set! capture-count (+ capture-count 1))
       (let ((directory (string-append (or (get-environment-variable "TMPDIR") "/tmp")
-                                      "/snail-command-" (number->string (current-process-id)) "-" (number->string capture-count))))
+                                      "/snail-command-"
+                                      (number->string (current-process-id))
+                                      "-"
+                                      (number->string capture-count))))
         (cond ((create-directory directory #o700) directory)
               ((file-link-status directory) (capture-directory))
               (else (error "cannot create tool capture directory" directory)))))
@@ -42,7 +45,8 @@
                  (and (not (zero? (char->integer (string-ref value index)))) (loop (+ index 1)))))))
 
     (define (capture-process arguments)
-      (unless (and (list? arguments) (pair? arguments)) (error "expected a nonempty tool argument list" arguments))
+      (unless (and (list? arguments) (pair? arguments))
+        (error "expected a nonempty tool argument list" arguments))
       (for-each (lambda (argument)
                   (unless (tool-argument? argument)
                     (error "expected a tool argument without NUL" argument)))
@@ -53,7 +57,9 @@
        (lambda (directory)
          (let* ((out (string-append directory "/stdout")) (err (string-append directory "/stderr"))
                 (status (capture-status arguments out err)))
-           (list (call-with-input-file out port->string) (call-with-input-file err port->string) status)))))
+           (list (call-with-input-file out port->string)
+                 (call-with-input-file err port->string)
+                 status)))))
 
     ;; ---- Child process ----
 
@@ -73,7 +79,10 @@
               ((zero? pid)
                ;; Never unwind through the parent's directory cleanup.
                (guard (failure (else (emergency-exit 127)))
-                 (execute "/bin/sh" (append (list "sh" "-c" redirect-script "snail-capture" output error-output) arguments))
+                 (execute "/bin/sh"
+                          (append
+                           (list "sh" "-c" redirect-script "snail-capture" output error-output)
+                           arguments))
                  (emergency-exit 127)))
               (else (wait-for-tool pid)))))
 
@@ -98,16 +107,24 @@
       ;; owned by both used and discarded pipe ends.
       (define (expect-open-readers file text count ports)
         (if (zero? count)
-            (begin (gc) (for-each (lambda (in) (expect (equal? (read-string (string-length text) in) text) #t)) ports))
+            (begin
+              (gc)
+              (for-each
+               (lambda (in) (expect (equal? (read-string (string-length text) in) text) #t))
+               ports))
             (call-with-input-file file
               (lambda (in) (expect-open-readers file text (- count 1) (cons in ports))))))
 
       (define (test-process root)
         (let ((fixture (string-append root "/tests/process-capture.mjs")))
-          (expect (capture-process (list "node" fixture "args" "a b" "it's \"quoted\"" "" "$(false); `false`"))
+          (expect (capture-process
+                   (list "node" fixture "args" "a b" "it's \"quoted\"" "" "$(false); `false`"))
                   (list "a b\nit's \"quoted\"\n\n$(false); `false`" "" 0))
-          (expect (capture-process (list "node" fixture "streams")) (list "stdin EOF; no newline" (make-string 1048576 #\e) (* 7 256)))
-          (expect (guard (failure (else 'rejected)) (capture-process (list "true" (string #\a (integer->char 0) #\b)))) 'rejected)
+          (expect (capture-process (list "node" fixture "streams"))
+                  (list "stdin EOF; no newline" (make-string 1048576 #\e) (* 7 256)))
+          (expect (guard (failure (else 'rejected))
+                    (capture-process (list "true" (string #\a (integer->char 0) #\b))))
+                  'rejected)
           (expect (caddr (capture-process '("/snail-core/nonexistent/tool"))) (* 127 256))
           (with-capture-directory
            (lambda (directory)

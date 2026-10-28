@@ -2,4 +2,5 @@
                   (import
                    (snail-core base)
                    (scheme compiler))
-                  (scheme->snail-core-library (list "legacy" "parameter-tail") "(lambda (x . 7) x)"))
+                  (scheme->snail-core-library (list "legacy" "parameter-tail")
+                                              "(lambda (x . 7) x)"))

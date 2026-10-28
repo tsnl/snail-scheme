@@ -28,7 +28,11 @@
                                    (string-append "energy " (show (World-energy world)))
                                    (string-append "produced " (show (Ledger-produced ledger)))
                                    (string-append "spent " (show (Ledger-spent ledger)))
-                                   (string-append "balanced " (show (= (World-energy world) (- (+ starting-energy (Ledger-produced ledger)) (Ledger-spent ledger))))))
+                                   (string-append "balanced "
+                                                  (show (= (World-energy world)
+                                                           (- (+ starting-energy
+                                                                 (Ledger-produced ledger))
+                                                              (Ledger-spent ledger))))))
                              ", "))))
 
 (: reserve (-> World Cell I64))
@@ -41,9 +45,13 @@
   (define world (new-world 3))
   (define starter (Land-starter (World-land world)))
   (report world)
-  (write-line (string-append "advancing before the first order changes nothing: " (show (= (World-tick (run world 50)) 0))))
+  (write-line (string-append "advancing before the first order changes nothing: "
+                             (show (= (World-tick (run world 50)) 0))))
   (define world (order world (Build (Extractor) starter #f)))
-  (write-line (string-append "the first extractor is ready at once: " (show (match (building-at world starter) ((Some b) (built? b)) ((None) #f)))))
+  (write-line (string-append "the first extractor is ready at once: "
+                             (show (match (building-at world starter)
+                                     ((Some b) (built? b))
+                                     ((None) #f)))))
   (define world (run world 100))
   (report world)
   (write-line (string-append "starter reserve " (show (reserve world starter))))
@@ -60,5 +68,6 @@
   (write-line (string-append "buildings " (show (length (World-buildings world)))))
   (define damaged (World-hub-set world (Hub-health-set (World-hub world) 421)))
   (define repaired (order damaged (Repair)))
-  (write-line (string-append "repair restores the hub from 421 to " (show (Hub-health (World-hub repaired)))
-                             " for " (show (- (World-energy damaged) (World-energy repaired))) " energy")))
+  (write-line
+   (string-append "repair restores the hub from 421 to " (show (Hub-health (World-hub repaired)))
+                  " for " (show (- (World-energy damaged) (World-energy repaired))) " energy")))

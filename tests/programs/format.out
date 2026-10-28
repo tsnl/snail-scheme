@@ -30,6 +30,46 @@ b")
 (let* ((a 1)
        (b 2))
   (+ a b))
+(define (f x)
+  (let* ((a (foo x))
+         (b (bar a))
+         (c (baz b)))
+    (+ a b c)))
+(define (make-thing alpha
+                    beta
+                    gamma
+                    delta)
+  (list alpha beta))
+(string-append "first part"
+               (symbol->string name)
+               "last part")
+(error
+ "a message that is long enough to matter")
+(match option
+  ((Some value)
+   (display
+    (string-append "found " value)))
+  ((None) (display "nothing")))
+(foo alpha beta gamma delta epsilon) ; fits: the comment does not count
+(foo alpha
+     beta
+     gamma
+     delta
+     epsilon
+     zeta) ; stays on the last line
+(define message
+  "a string much longer than forty columns cannot break")
+(: run
+   (-> Config
+       (List String)
+       Status
+       ! fs console))
+(bytes
+ #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
+(display "one")
+(display "two")
+(display "three")
+idempotent
 (foo bar
      baz
   qux)

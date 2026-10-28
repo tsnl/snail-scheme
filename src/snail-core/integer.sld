@@ -93,13 +93,15 @@
 
     (: integer->f64 (-> Integer F64))
     (define (integer->f64 n)
-      (let ((magnitude (vector-fold (lambda (total limb) (+ (* total 1000000000.0) (i64->f64 limb))) 0.0
-                                    (reverse-vector (Integer-limbs n)))))
+      (let ((magnitude
+             (vector-fold (lambda (total limb) (+ (* total 1000000000.0) (i64->f64 limb))) 0.0
+                          (reverse-vector (Integer-limbs n)))))
         (if (Integer-negative n) (negate magnitude) magnitude)))
 
     (: reverse-vector (-> (Vector I64) (Vector I64)))
     (define (reverse-vector items)
-      (vector-generate (vector-length items) (lambda (index) (vector-ref items (- (- (vector-length items) 1) index)))))
+      (vector-generate (vector-length items)
+                       (lambda (index) (vector-ref items (- (- (vector-length items) 1) index)))))
 
     (: integer->string (-> Integer String))
     (define (integer->string n)
@@ -121,7 +123,8 @@
     (: string->integer (-> String (Option Integer)))
     (define (string->integer text)
       (let* ((negative (and (> (string-length text) 0) (= (string-ref text 0) #\-)))
-             (start (if (and (> (string-length text) 0) (or negative (= (string-ref text 0) #\+))) 1 0))
+             (start
+              (if (and (> (string-length text) 0) (or negative (= (string-ref text 0) #\+))) 1 0))
              (digits (substring text start (string-length text))))
         (if (and (> (string-length digits) 0) (every? char-numeric? (string->list digits)))
             (Some (canonical negative (decimal-limbs digits)))
@@ -132,7 +135,8 @@
       (let ((count (quotient (+ (string-length digits) 8) 9)))
         (vector-generate count
                          (lambda (index)
-                           (let* ((end (- (string-length digits) (* 9 index))) (start (max 0 (- end 9))))
+                           (let* ((end (- (string-length digits) (* 9 index)))
+                                  (start (max 0 (- end 9))))
                              (fold-left (lambda (value char) (+ (* value 10) (digit-value char))) 0
                                         (string->list (substring digits start end))))))))
 
@@ -166,7 +170,8 @@
     ;; Requires |a| >= |b|.
     (: subtract-magnitudes (-> (Vector I64) (Vector I64) (Vector I64)))
     (define (subtract-magnitudes a b)
-      (carry-limbs (vector-generate (vector-length a) (lambda (index) (- (limb a index) (limb b index))))))
+      (carry-limbs
+       (vector-generate (vector-length a) (lambda (index) (- (limb a index) (limb b index))))))
 
     ;; Moves each limb's excess, positive or negative, into the next limb, in
     ;; a copy local to this call.
@@ -185,8 +190,10 @@
       (cond ((= (bool->sign (Integer-negative a)) (bool->sign (Integer-negative b)))
              (canonical (Integer-negative a) (add-magnitudes (Integer-limbs a) (Integer-limbs b))))
             ((>= (compare-magnitudes (Integer-limbs a) (Integer-limbs b)) 0)
-             (canonical (Integer-negative a) (subtract-magnitudes (Integer-limbs a) (Integer-limbs b))))
-            (else (canonical (Integer-negative b) (subtract-magnitudes (Integer-limbs b) (Integer-limbs a))))))
+             (canonical (Integer-negative a)
+                        (subtract-magnitudes (Integer-limbs a) (Integer-limbs b))))
+            (else (canonical (Integer-negative b)
+                             (subtract-magnitudes (Integer-limbs b) (Integer-limbs a))))))
 
     (: bool->sign (-> Bool I64))
     (define (bool->sign negative)
@@ -207,7 +214,8 @@
          (lambda (i)
            (let loop ((j 0) (carry 0))
              (if (< j (vector-length b))
-                 (let ((value (+ (array-ref product (+ i j)) (+ (* (vector-ref a i) (vector-ref b j)) carry))))
+                 (let ((value (+ (array-ref product (+ i j))
+                                 (+ (* (vector-ref a i) (vector-ref b j)) carry))))
                    (array-set! product (+ i j) (remainder value base))
                    (loop (+ j 1) (quotient value base)))
                  (array-set! product (+ i j) (+ (array-ref product (+ i j)) carry)))))
@@ -228,10 +236,22 @@
       (let loop ((index (- (vector-length a) 1)) (remainder no-limbs) (quotient (Nil)))
         (if (< index 0)
             (Pair (list->vector quotient) remainder)
-            (let* ((current (Integer-limbs (canonical #f (vector-append (vector-generate 1 (lambda (i) (vector-ref a index))) remainder))))
+            (let* ((current (Integer-limbs (canonical #f
+                                                      (vector-append (vector-generate 1
+                                                                                      (lambda (i)
+                                                                                        (vector-ref
+                                                                                         a
+                                                                                         index)))
+                                                                     remainder))))
                    (digit (quotient-limb current b)))
               (loop (- index 1)
-                    (Integer-limbs (canonical #f (subtract-magnitudes current (multiply-magnitudes b (vector-generate 1 (lambda (i) digit))))))
+                    (Integer-limbs (canonical #f
+                                              (subtract-magnitudes current
+                                                                   (multiply-magnitudes b
+                                                                                        (vector-generate
+                                                                                         1
+                                                                                         (lambda (i)
+                                                                                           digit))))))
                     (Cons digit quotient))))))
 
     ;; The largest d in [0, base) with b * d <= current.
@@ -241,7 +261,14 @@
         (if (= low high)
             low
             (let ((middle (quotient (+ (+ low high) 1) 2)))
-              (if (<= (compare-magnitudes (Integer-limbs (canonical #f (multiply-magnitudes b (vector-generate 1 (lambda (i) middle))))) current) 0)
+              (if (<= (compare-magnitudes (Integer-limbs (canonical #f
+                                                                    (multiply-magnitudes b
+                                                                                         (vector-generate
+                                                                                          1
+                                                                                          (lambda (i)
+                                                                                            middle)))))
+                                          current)
+                      0)
                   (search middle high)
                   (search low (- middle 1)))))))
 
@@ -255,13 +282,15 @@
     (: integer-remainder (-> Integer Integer Integer))
     (define (integer-remainder a b)
       (when (integer-zero? b) (panic "integer division by zero"))
-      (canonical (Integer-negative a) (Pair-second (divide-magnitudes (Integer-limbs a) (Integer-limbs b)))))
+      (canonical (Integer-negative a)
+                 (Pair-second (divide-magnitudes (Integer-limbs a) (Integer-limbs b)))))
 
     ;; The remainder with the sign of the divisor.
     (: integer-modulo (-> Integer Integer Integer))
     (define (integer-modulo a b)
       (let ((r (integer-remainder a b)))
-        (if (and (not (integer-zero? r)) (not (= (bool->sign (Integer-negative r)) (bool->sign (Integer-negative b)))))
+        (if (and (not (integer-zero? r))
+                 (not (= (bool->sign (Integer-negative r)) (bool->sign (Integer-negative b)))))
             (integer-add r b)
             r)))
 
@@ -272,7 +301,8 @@
     (: integer-expt (-> Integer I64 Integer))
     (define (integer-expt n power)
       (cond ((= power 0) (integer-from-i64 1))
-            ((= (remainder power 2) 0) (let ((half (integer-expt n (quotient power 2)))) (integer-multiply half half)))
+            ((= (remainder power 2) 0)
+             (let ((half (integer-expt n (quotient power 2)))) (integer-multiply half half)))
             (else (integer-multiply n (integer-expt n (- power 1))))))
 
     ;; ---- Classes ----

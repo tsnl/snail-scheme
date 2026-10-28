@@ -68,11 +68,15 @@
     (define (open shell action argument)
       (let ((index (i32->i64 argument)) (opened (+ (Shell-opened shell) 1)))
         (cond ((= action action-ledger)
-               (show-opened (Shell-ledger-guided-set shell #t) (Favors (new-ledger-screen (+ (Shell-seed shell) opened)))
+               (show-opened (Shell-ledger-guided-set shell #t)
+                            (Favors (new-ledger-screen (+ (Shell-seed shell) opened)))
                             (Shell-ledger-guided shell)))
               ((and (= action action-scenario) (>= index 0) (< index (length scenarios)))
                (show-opened (Shell-mill-guided-set shell #t)
-                            (Rumors (new-mill-screen (list-ref scenarios index) (* opened 1000) (Shell-width shell) (Shell-height shell)))
+                            (Rumors (new-mill-screen (list-ref scenarios index)
+                                                     (* opened 1000)
+                                                     (Shell-width shell)
+                                                     (Shell-height shell)))
                             (Shell-mill-guided shell)))
               (else shell))))
 
@@ -100,7 +104,8 @@
     (define (update-shell shell input)
       (match input
         ((Press action argument) (press shell action argument))
-        ((Resize width height) (forward (Shell-height-set (Shell-width-set shell width) height) input))
+        ((Resize width height)
+         (forward (Shell-height-set (Shell-width-set shell width) height) input))
         (_ (forward shell input))))
 
     ;; ---- View ----
@@ -124,11 +129,21 @@
                                 (label "heading-rumors" "The rumor mill: is steering belief fun?"))
                           (map-indexed (lambda (index scenario)
                                          (let ((rules (scenario-rules scenario)))
-                                           (Button (look (string-append "scenario-" (show index))) (Rules-name rules) (Rules-pitch rules)
-                                                   action-scenario (i64->i32 index) (Enabled) -1.0)))
+                                           (Button (look (string-append "scenario-" (show index)))
+                                                   (Rules-name rules)
+                                                   (Rules-pitch rules)
+                                                   action-scenario
+                                                   (i64->i32 index)
+                                                   (Enabled)
+                                                   -1.0)))
                                        scenarios)
-                          (list (label "heading-favors" "The favor ledger: do favors trade, or get hoarded?")
-                                (Button (look "ledger") "Favor ledger" "Trade markers and promises with two rival fixers." action-ledger 0
+                          (list (label "heading-favors"
+                                       "The favor ledger: do favors trade, or get hoarded?")
+                                (Button (look "ledger")
+                                        "Favor ledger"
+                                        "Trade markers and promises with two rival fixers."
+                                        action-ledger
+                                        0
                                         (Enabled) -1.0)))))))
 
     ;; Each prototype puts the Menu and Guide buttons first in the top-right
@@ -136,7 +151,8 @@
     (: menu-button (List Panel))
     (define menu-button
       (list (Panel "back" (At (TopRight) 0)
-                   (list (button "back" "Menu" action-menu) (button "open-guide" "Guide" guide-open)))))
+                   (list (button "back" "Menu" action-menu)
+                         (button "open-guide" "Guide" guide-open)))))
 
     (: shell-hud (-> Shell (List Panel)))
     (define (shell-hud shell)

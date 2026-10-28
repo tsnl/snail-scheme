@@ -53,12 +53,18 @@
     ;; the legs, the torso, the head, and the hair over the head.
     (: dress (-> Build Head Skin Outfit (Option Character)))
     (define (dress build head skin outfit)
-      (match (list (worn-sheets build (Feet) (Outfit-feet outfit)) (worn-sheets build (Legs) (Outfit-legs outfit))
+      (match (list (worn-sheets build (Feet) (Outfit-feet outfit))
+                   (worn-sheets build (Legs) (Outfit-legs outfit))
                    (worn-sheets build (Torso) (Outfit-torso outfit)))
         ((Cons (Some feet) (Cons (Some legs) (Cons (Some torso) (Nil))))
-         (Some (Character (concatenate (list (list (body-sheet build skin)) feet legs torso (list (head-sheet head skin))
+         (Some (Character (concatenate (list (list (body-sheet build skin))
+                                             feet
+                                             legs
+                                             torso
+                                             (list (head-sheet head skin))
                                              (match (Outfit-hair outfit)
-                                               ((Some (Hair style color)) (list (hair-sheet build style color)))
+                                               ((Some (Hair style color))
+                                                (list (hair-sheet build style color)))
                                                ((None) (Nil))))))))
         (_ (None))))
 
@@ -95,12 +101,15 @@
     ;; differs.
     (: fingerprint (-> Character I32))
     (define (fingerprint who)
-      (fold-left (lambda (hash word) (* (i32-xor hash word) 16777619)) -2128831035 (concatenate (map sheet-words (Character-sheets who)))))
+      (fold-left (lambda (hash word) (* (i32-xor hash word) 16777619))
+                 -2128831035
+                 (concatenate (map sheet-words (Character-sheets who)))))
 
     (: sheet-words (-> Sheet (List I32)))
     (define (sheet-words sheet)
       (append (map char->i32 (string->list (Sheet-path sheet)))
-              (concatenate (map (lambda (swap) (list (Pair-first swap) (Pair-second swap))) (Sheet-swaps sheet)))))
+              (concatenate (map (lambda (swap) (list (Pair-first swap) (Pair-second swap)))
+                                (Sheet-swaps sheet)))))
 
     ;; The character's walking rows as picture `key`, from the sources `art`
     ;; finds for each sheet. Its version is the character's fingerprint, so
@@ -113,7 +122,8 @@
                  (concatenate
                   (map (lambda (sheet)
                          (match (art (Sheet-path sheet))
-                           ((Some source) (list (Layer source (Sheet-from sheet) 0 0 (Sheet-swaps sheet))))
+                           ((Some source)
+                            (list (Layer source (Sheet-from sheet) 0 0 (Sheet-swaps sheet))))
                            ((None) (Nil))))
                        (Character-sheets who))))))
 
