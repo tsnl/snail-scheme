@@ -66,7 +66,8 @@
     (define (split-lines text)
       (let loop ((index (- (string-length text) 1)) (end (string-length text)) (out (Nil)))
         (cond ((< index 0) (Cons (substring text 0 end) out))
-              ((= (string-ref text index) #\newline) (loop (- index 1) index (Cons (substring text (+ index 1) end) out)))
+              ((= (string-ref text index) #\newline)
+               (loop (- index 1) index (Cons (substring text (+ index 1) end) out)))
               (else (loop (- index 1) end out)))))
 
     ;; One step of lexing: the offset after what it read, the mode after
@@ -148,7 +149,8 @@
     (: lex-string (-> String I64 Step))
     (define (lex-string line offset)
       (cond ((>= offset (string-length line)) (Step offset (InString) (None)))
-            ((= (string-ref line offset) #\\) (lex-string line (min (+ offset 2) (string-length line))))
+            ((= (string-ref line offset) #\\)
+             (lex-string line (min (+ offset 2) (string-length line))))
             ((= (string-ref line offset) #\") (Step (+ offset 1) (Code) (None)))
             (else (lex-string line (+ offset 1)))))
 
@@ -157,7 +159,9 @@
     (define (lex-comment line offset depth)
       (cond ((>= offset (string-length line)) (Step offset (InComment depth) (None)))
             ((at? line offset "|#")
-             (if (= depth 1) (Step (+ offset 2) (Code) (None)) (lex-comment line (+ offset 2) (- depth 1))))
+             (if (= depth 1)
+                 (Step (+ offset 2) (Code) (None))
+                 (lex-comment line (+ offset 2) (- depth 1))))
             ((at? line offset "#|") (lex-comment line (+ offset 2) (+ depth 1)))
             (else (lex-comment line (+ offset 1) depth))))
 
@@ -225,25 +229,87 @@
     (define rules
       (concatenate
        (list (map (lambda (name) (Pair name (Special 0)))
-                  (list "begin" "delay" "make-environment" "match-lambda" "match-lambda*" "sequence" "with-output-to-string"))
+                  (list "begin"
+                        "delay"
+                        "make-environment"
+                        "match-lambda"
+                        "match-lambda*"
+                        "sequence"
+                        "with-output-to-string"))
              (map (lambda (name) (Pair name (Special 1)))
-                  (list "access-components" "and-let*" "assignment-components" "call-with-input-file" "call-with-output-file"
-                        "call-with-port" "call-with-values" "case" "combination-components" "comment-components"
-                        "conditional-components" "declaration-components" "define-library" "define-record-type"
-                        "define-values" "definition-components" "delay-components" "disjunction-components" "element"
-                        "eval-when" "fluid-let" "in-package" "in-package-components" "lambda" "lambda-components"
-                        "lambda-components*" "lambda-components**" "let*" "letrec" "letrec*" "letrec-syntax" "let-syntax"
-                        "let*-values" "let-values" "library" "list-search-negative" "list-search-positive"
-                        "list-transform-negative" "list-transform-positive" "local-declare" "macro" "make" "match-let*"
-                        "match-letrec" "mode" "named-lambda" "open-block-components" "parameterize" "pathname-components"
-                        "procedure-components" "root" "sequence-components" "style" "unassigned?-components"
-                        "unbound?-components" "unless" "using-syntax" "variable-components" "when" "with-input-from-file"
-                        "with-input-from-port" "with-input-from-string" "with-mode" "with-output-to-file"
+                  (list "access-components"
+                        "and-let*"
+                        "assignment-components"
+                        "call-with-input-file"
+                        "call-with-output-file"
+                        "call-with-port"
+                        "call-with-values"
+                        "case"
+                        "combination-components"
+                        "comment-components"
+                        "conditional-components"
+                        "declaration-components"
+                        "define-library"
+                        "define-record-type"
+                        "define-values"
+                        "definition-components"
+                        "delay-components"
+                        "disjunction-components"
+                        "element"
+                        "eval-when"
+                        "fluid-let"
+                        "in-package"
+                        "in-package-components"
+                        "lambda"
+                        "lambda-components"
+                        "lambda-components*"
+                        "lambda-components**"
+                        "let*"
+                        "letrec"
+                        "letrec*"
+                        "letrec-syntax"
+                        "let-syntax"
+                        "let*-values"
+                        "let-values"
+                        "library"
+                        "list-search-negative"
+                        "list-search-positive"
+                        "list-transform-negative"
+                        "list-transform-positive"
+                        "local-declare"
+                        "macro"
+                        "make"
+                        "match-let*"
+                        "match-letrec"
+                        "mode"
+                        "named-lambda"
+                        "open-block-components"
+                        "parameterize"
+                        "pathname-components"
+                        "procedure-components"
+                        "root"
+                        "sequence-components"
+                        "style"
+                        "unassigned?-components"
+                        "unbound?-components"
+                        "unless"
+                        "using-syntax"
+                        "variable-components"
+                        "when"
+                        "with-input-from-file"
+                        "with-input-from-port"
+                        "with-input-from-string"
+                        "with-mode"
+                        "with-output-to-file"
                         "with-output-to-port" "with-syntax" "with-values" "λ"))
-             (map (lambda (name) (Pair name (Special 2))) (list "do" "receive" "syntax-case" "syntax-table-define"))
-             (list (Pair "dynamic-wind" (Special 3)) (Pair "let" (LetRule)) (Pair "match-let" (LetRule))
+             (map (lambda (name) (Pair name (Special 2)))
+                  (list "do" "receive" "syntax-case" "syntax-table-define"))
+             (list (Pair "dynamic-wind" (Special 3))
+                   (Pair "let" (LetRule))
+                   (Pair "match-let" (LetRule))
                    (Pair "syntax-rules" (Definition)))
-             (map (lambda (name) (Pair name (Special 1))) (list "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
+             (map (lambda (name) (Pair name (Special 1)))
+                  (list "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
              (list (Pair "handle" (Special 2))))))
 
     ;; A name without a rule that starts with `def` and is longer than
@@ -296,9 +362,13 @@
       (match (indent-rule name)
         ((Call) normal)
         ((Definition)
-         (if (= (Element-line (Elements-last elements)) (Frame-line frame)) (+ (Frame-column frame) 2) normal))
-        ((Special distinguished) (special-indent frame distinguished (Elements-count elements) normal))
-        ((LetRule) (special-indent frame (if (names-loop? elements) 2 1) (Elements-count elements) normal))))
+         (if (= (Element-line (Elements-last elements)) (Frame-line frame))
+             (+ (Frame-column frame) 2)
+             normal))
+        ((Special distinguished)
+         (special-indent frame distinguished (Elements-count elements) normal))
+        ((LetRule)
+         (special-indent frame (if (names-loop? elements) 2 1) (Elements-count elements) normal))))
 
     ;; Emacs's `lisp-indent-specform`. A distinguished argument goes in by
     ;; four columns when it is one of the first two; the first body form goes
@@ -307,7 +377,8 @@
     (define (special-indent frame distinguished arguments normal)
       (let ((left (- distinguished arguments)) (body (+ (Frame-column frame) 2)))
         (cond ((> left 0) (if (<= arguments 1) (+ (Frame-column frame) 4) normal))
-              ((or (and (= distinguished 0) (= arguments 0)) (and (= left 0) (<= body normal))) body)
+              ((or (and (= distinguished 0) (= arguments 0)) (and (= left 0) (<= body normal)))
+               body)
               (else normal))))
 
     ;; A named `let`: a name follows `let` on its line.
@@ -332,8 +403,14 @@
       (let loop ((lines (lex text)) (index 0) (frames (Nil)) (out (Nil)))
         (match lines
           ((Cons line rest)
-           (match (if (and (<= first index) (<= index last)) (reindent line frames) (Pair (Line-text line) 0))
-             ((Pair indented shift) (loop rest (+ index 1) (scan-line frames (Line-tokens line) shift index) (Cons indented out)))))
+           (match (if (and (<= first index) (<= index last))
+                      (reindent line frames)
+                      (Pair (Line-text line) 0))
+             ((Pair indented shift)
+              (loop rest
+                    (+ index 1)
+                    (scan-line frames (Line-tokens line) shift index)
+                    (Cons indented out)))))
           ((Nil) (string-join (reverse out) "\n")))))
 
     ;; A line's new text, and how far its tokens moved. A blank line
@@ -341,7 +418,9 @@
     ;; starts with three semicolons, stays as it is.
     (: reindent (-> Line (List Frame) (Pair String I64)))
     (define (reindent line frames)
-      (let* ((text (Line-text line)) (start (indentation text)) (rest (substring text start (string-length text))))
+      (let* ((text (Line-text line))
+             (start (indentation text))
+             (rest (substring text start (string-length text))))
         (cond ((not (code-mode? (Line-mode line))) (Pair text 0))
               ((string=? rest "") (Pair "" 0))
               ((at? rest 0 ";;;") (Pair text 0))
@@ -351,7 +430,10 @@
     (: indentation (-> String I64))
     (define (indentation text)
       (let loop ((index 0))
-        (if (and (< index (string-length text)) (member? (string-ref text index) (list #\space #\tab))) (loop (+ index 1)) index)))
+        (if
+         (and (< index (string-length text)) (member? (string-ref text index) (list #\space #\tab)))
+         (loop (+ index 1))
+         index)))
 
     (: code-mode? (-> Mode Bool))
     (define (code-mode? mode)
@@ -378,17 +460,22 @@
     ;; their offsets.
     (: scan-line (-> (List Frame) (List Token) I64 I64 (List Frame)))
     (define (scan-line frames tokens shift line)
-      (Scan-frames (fold-left (lambda (scan token) (scan-token scan token shift line)) (Scan frames (None) (None)) tokens)))
+      (Scan-frames (fold-left (lambda (scan token) (scan-token scan token shift line))
+                              (Scan frames (None) (None))
+                              tokens)))
 
     (: scan-token (-> Scan Token I64 I64 Scan))
     (define (scan-token scan token shift line)
       (match token
         ((Open offset spaced)
          (let ((added (add-expression scan (Listed) (+ offset shift) line)))
-           (Scan-frames-set added (Cons (Frame (+ offset shift) line spaced (None)) (Scan-frames added)))))
+           (Scan-frames-set added
+                            (Cons (Frame (+ offset shift) line spaced (None))
+                                  (Scan-frames added)))))
         ((Close _) (Scan-frames-set scan (drop (Scan-frames scan) 1)))
-        ((Prefix offset) (Scan (Scan-frames scan) (Some (or-else (Scan-first scan) (+ offset shift)))
-                               (Some (or-else (Scan-prefix scan) (+ offset shift)))))
+        ((Prefix offset)
+         (Scan (Scan-frames scan) (Some (or-else (Scan-first scan) (+ offset shift)))
+               (Some (or-else (Scan-prefix scan) (+ offset shift)))))
         ((Atom offset text) (add-expression scan (atom-head text) (+ offset shift) line))
         ((Text offset) (add-expression scan (Other) (+ offset shift) line))))
 
@@ -402,7 +489,9 @@
     (: add-expression (-> Scan Head I64 I64 Scan))
     (define (add-expression scan head column line)
       (let* ((start (or-else (Scan-prefix scan) column)) (first (or-else (Scan-first scan) start)))
-        (Scan (add-element (Scan-frames scan) (Element head start line first)) (Some first) (None))))
+        (Scan (add-element (Scan-frames scan) (Element head start line first))
+              (Some first)
+              (None))))
 
     (: add-element (-> (List Frame) Element (List Frame)))
     (define (add-element frames element)
@@ -435,7 +524,9 @@
 
     (: placed-tokens (-> (List Line) (Vector Placed)))
     (define (placed-tokens lines)
-      (list->vector (concatenate (map-indexed (lambda (index line) (map (lambda (token) (Placed index token)) (Line-tokens line)))
+      (list->vector (concatenate (map-indexed (lambda (index line)
+                                                (map (lambda (token) (Placed index token))
+                                                     (Line-tokens line)))
                                               lines))))
 
     (: token-offset (-> Token I64))
@@ -511,7 +602,9 @@
 
     (: break-before (-> (Vector Placed) I64 (List Placed) (List Placed)))
     (define (break-before tokens index breaks)
-      (if (or (= index 0) (not (= (Placed-line (vector-ref tokens (- index 1))) (Placed-line (vector-ref tokens index)))))
+      (if (or (= index 0)
+              (not (= (Placed-line (vector-ref tokens (- index 1)))
+                      (Placed-line (vector-ref tokens index)))))
           breaks
           (Cons (vector-ref tokens index) breaks)))
 
@@ -552,7 +645,8 @@
             (match (form-name tokens index)
               ((Some "import")
                (match (break-entries tokens (+ index 2) breaks)
-                 ((Found found #t) (loop (or-else (expression-end tokens index) (vector-length tokens)) found))
+                 ((Found found #t)
+                  (loop (or-else (expression-end tokens index) (vector-length tokens)) found))
                  ((Found found #f) (reverse found))))
               ((Some "struct") (loop (+ index 2) (break-struct tokens index breaks)))
               ((Some "define-record-type") (loop (+ index 2) (break-record tokens index breaks)))
@@ -566,27 +660,35 @@
         (match lines
           ((Cons line rest)
            (let ((here (line-offsets breaks index)))
-             (loop rest (+ index 1) (drop breaks (length here)) (append (reverse (split-line (Line-text line) here)) out))))
+             (loop rest
+                   (+ index 1)
+                   (drop breaks (length here))
+                   (append (reverse (split-line (Line-text line) here)) out))))
           ((Nil) (reverse out)))))
 
     (: line-offsets (-> (List Placed) I64 (List I64)))
     (define (line-offsets breaks index)
       (match breaks
         ((Cons placed rest)
-         (if (= (Placed-line placed) index) (Cons (token-offset (Placed-token placed)) (line-offsets rest index)) (Nil)))
+         (if (= (Placed-line placed) index)
+             (Cons (token-offset (Placed-token placed)) (line-offsets rest index))
+             (Nil)))
         ((Nil) (Nil))))
 
     (: split-line (-> String (List I64) (List String)))
     (define (split-line text offsets)
       (let loop ((start 0) (offsets offsets) (out (Nil)))
         (match offsets
-          ((Cons offset rest) (loop offset rest (Cons (trim-right (substring text start offset)) out)))
+          ((Cons offset rest)
+           (loop offset rest (Cons (trim-right (substring text start offset)) out)))
           ((Nil) (reverse (Cons (substring text start (string-length text)) out))))))
 
     (: trim-right (-> String String))
     (define (trim-right text)
       (let loop ((end (string-length text)))
-        (if (and (> end 0) (member? (string-ref text (- end 1)) (list #\space #\tab))) (loop (- end 1)) (substring text 0 end))))
+        (if (and (> end 0) (member? (string-ref text (- end 1)) (list #\space #\tab)))
+            (loop (- end 1))
+            (substring text 0 end))))
 
     ;; ---- Long lines ----
 

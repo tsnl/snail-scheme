@@ -155,7 +155,8 @@
          (match (string->i64 port)
            ((Some number) (Serve (i64->i32 number) app))
            ((None) (panic "usage: serve PORT APP-DIRECTORY"))))
-        ((Cons "watch" (Cons source rest)) (Watch source (take-while-not "--" rest) (after "--" rest)))
+        ((Cons "watch" (Cons source rest))
+         (Watch source (take-while-not "--" rest) (after "--" rest)))
         (_ (panic "usage: serve PORT APP-DIRECTORY | watch SOURCE DIRECTORY ... -- ARGUMENT ..."))))
 
     (: take-while-not (-> String (List String) (List String)))
@@ -193,7 +194,13 @@
       (match arguments
         ((Cons root (Cons runtime (Cons client words)))
          (let ((request (parse-request words)))
-           (Loop root runtime client request (ref (new-session root request)) (output root request) (ref "(files) (modules)")
+           (Loop root
+                 runtime
+                 client
+                 request
+                 (ref (new-session root request))
+                 (output root request)
+                 (ref "(files) (modules)")
                  (ref (Nil)))))
         (_ (panic "usage: develop ROOT RUNTIME CLIENT REQUEST ..."))))
 
@@ -215,7 +222,8 @@
     (define (new-session root request)
       (make-session (match request
                       ((Serve _ app) (list (string-append app "/src") (string-append root "/src")))
-                      ((Watch _ directories _) (append directories (list (string-append root "/src")))))))
+                      ((Watch _ directories _)
+                       (append directories (list (string-append root "/src")))))))
 
     (: output (-> String Request String))
     (define (output root request)
@@ -262,13 +270,17 @@
     (define (ignored? root path)
       (let ((name (base-name path)))
         (or (starts-with? path (string-append root "/build/")) (contains-segment? path ".git")
-            (starts-with? name ".") (starts-with? name "#") (ends-with? name "~") (all-digits? name))))
+            (starts-with? name ".")
+            (starts-with? name "#")
+            (ends-with? name "~")
+            (all-digits? name))))
 
     ;; A build that panics, with the compiler's message, which the host
     ;; caught; the pages keep the build they have.
     (: build-failed! (-> Loop String Unit ! mut develop))
     (define (build-failed! loop message)
-      (broadcast! (string-append "(failed " (quoted message) " " (ref-get (Loop-manifest loop)) ")")))
+      (broadcast!
+       (string-append "(failed " (quoted message) " " (ref-get (Loop-manifest loop)) ")")))
 
     ;; The host's events, by number, as both hosts send them: 1 is a changed
     ;; file, with its path; 2 the timer the loop asked for; 3 a build that
@@ -292,11 +304,15 @@
     (define (build! loop)
       (let ((started (now)))
         (broadcast! (string-append "(building " (ref-get (Loop-manifest loop)) ")"))
-        (let* ((builds (next-build! loop (main-source (Loop-request loop)))) (modules (write-modules! loop builds)))
+        (let* ((builds (next-build! loop (main-source (Loop-request loop))))
+               (modules (write-modules! loop builds)))
           (match (Loop-request loop)
-            ((Serve _ app) (publish-pages! loop app modules started) (report-built! app builds started))
+            ((Serve _ app)
+             (publish-pages! loop app modules started)
+             (report-built! app builds started))
             ((Watch _ _ arguments) (run! (manifest-path loop) arguments)))
-          (remove-old-modules! loop (map (lambda (module) (base-name (Pair-second module))) modules)))))
+          (remove-old-modules! loop
+                               (map (lambda (module) (base-name (Pair-second module))) modules)))))
 
     ;; Builds through the loop's session, which the build replaces with the
     ;; session the next build starts from, once the plan has run the
@@ -305,8 +321,14 @@
     (: next-build! (-> Loop String (List Built) ! mut fs develop))
     (define (next-build! loop source)
       (let* ((session (ref-get (Loop-session loop)))
-             (program (Target "main" (serving? (Loop-request loop)) source (Session-directories session)))
-             (inputs (produced! loop (plan-build (Nil) (list program) no-inputs (producers-directory loop)) no-inputs)))
+             (program
+              (Target "main" (serving? (Loop-request loop)) source (Session-directories session)))
+             (inputs (produced! loop
+                                (plan-build (Nil)
+                                            (list program)
+                                            no-inputs
+                                            (producers-directory loop))
+                                no-inputs)))
         (match (build-session session source unplanned-producer inputs)
           ((Pair builds next) (ref-set! (Loop-session loop) next) builds))))
 
@@ -320,7 +342,9 @@
                                     ((ProducePhase producer) (produce! loop producer inputs))
                                     (_ inputs)))
                                 inputs (Pair-first wave))))
-        (if (phases-left? (Pair-second wave)) (produced! loop (refine-plan (Pair-second wave) inputs) inputs) inputs)))
+        (if (phases-left? (Pair-second wave))
+            (produced! loop (refine-plan (Pair-second wave) inputs) inputs)
+            inputs)))
 
     ;; Every compile runs after the plan has run each producer it reaches.
     (: unplanned-producer (-> (List String) (List Syntax) Bytes))
@@ -333,7 +357,8 @@
     (: write-modules! (-> Loop (List Built) (List (Pair String String)) ! fs develop))
     (define (write-modules! loop builds)
       (place-links! (Loop-output loop) builds)
-      (let ((modules (map (lambda (built) (Pair (Built-name built) (module-file! loop built))) builds)))
+      (let ((modules
+             (map (lambda (built) (Pair (Built-name built) (module-file! loop built))) builds)))
         (write-published-file! (manifest-path loop) (modules-json (runtime-path loop) modules))
         modules))
 
@@ -345,7 +370,10 @@
     ;; again only when that changed.
     (: module-file! (-> Loop Built String ! fs develop))
     (define (module-file! loop built)
-      (module-url loop (string-append "modules/" (assembled-module! (string-append (Loop-output loop) "/modules") built))))
+      (module-url loop
+                  (string-append "modules/"
+                                 (assembled-module! (string-append (Loop-output loop) "/modules")
+                                                    built))))
 
     ;; The name of a library's module file in `directory`, which is
     ;; assembled there unless it already is. It is named for the module's
@@ -354,8 +382,15 @@
     ;; reads its files again.
     (: assembled-module! (-> String Built String ! fs develop))
     (define (assembled-module! directory built)
-      (let* ((stamp (string-concatenate (map (lambda (link) (string-append "\n" (i32->string (digest (LinkedFile-path link))))) (Built-links built))))
-             (file (string-append (Built-name built) "-" (i64->string (fnv-1a (string-append (Built-text built) stamp))) ".wasm"))
+      (let* ((stamp (string-concatenate (map (lambda (link)
+                                               (string-append "\n"
+                                                              (i32->string
+                                                               (digest (LinkedFile-path link)))))
+                                             (Built-links built))))
+             (file (string-append (Built-name built)
+                                  "-"
+                                  (i64->string (fnv-1a (string-append (Built-text built) stamp)))
+                                  ".wasm"))
              (path (string-append directory "/" file)))
         (unless (file-exists? path)
           (write-file (string-append path ".wat") (Built-text built))
@@ -366,7 +401,9 @@
     ;; Pages fetch from the server's root; a program reads files.
     (: module-url (-> Loop String String))
     (define (module-url loop file)
-      (if (serving? (Loop-request loop)) (string-append "/" file) (string-append (Loop-output loop) "/" file)))
+      (if (serving? (Loop-request loop))
+          (string-append "/" file)
+          (string-append (Loop-output loop) "/" file)))
 
     (: runtime-path (-> Loop String))
     (define (runtime-path loop)
@@ -379,8 +416,10 @@
     ;; the text each module was assembled from.
     (: remove-old-modules! (-> Loop (List String) Unit ! mut fs develop))
     (define (remove-old-modules! loop current)
-      (let ((directory (string-append (Loop-output loop) "/modules")) (kept (append current (ref-get (Loop-previous loop)))))
-        (for-each (lambda (name) (unless (member? name kept) (remove-file! (string-append directory "/" name))))
+      (let ((directory (string-append (Loop-output loop) "/modules"))
+            (kept (append current (ref-get (Loop-previous loop)))))
+        (for-each (lambda (name)
+                    (unless (member? name kept) (remove-file! (string-append directory "/" name))))
                   (directory-names loop directory))
         (ref-set! (Loop-previous loop) current)))
 
@@ -405,23 +444,37 @@
     (: produce! (-> Loop Producer Inputs Inputs ! mut fs develop))
     (define (produce! loop producer inputs)
       (let ((manifest (producer-manifest! loop producer inputs))
-            (output (string-append (producers-directory loop) "/" (Producer-key producer) ".syntax"))
-            (name (string-append "the producer of (" (string-join (Producer-library producer) " ") ")")))
+            (output
+             (string-append (producers-directory loop) "/" (Producer-key producer) ".syntax"))
+            (name
+             (string-append "the producer of (" (string-join (Producer-library producer) " ") ")")))
         (remove-file! output)
         (cond ((not (produce-command! manifest output)) (panic (string-append name " failed")))
-              ((not (file-exists? output)) (panic (string-append name " did not write its generated library")))
-              (else (supply-generated inputs (producer-text (Producer-directories producer) (Producer-forms producer)) (read-bytes output))))))
+              ((not (file-exists? output))
+               (panic (string-append name " did not write its generated library")))
+              (else (supply-generated inputs
+                                      (producer-text (Producer-directories producer)
+                                                     (Producer-forms producer))
+                                      (read-bytes output))))))
 
     ;; Compiles the producer afresh from the source the plan printed, and
     ;; writes the manifest it runs from.
     (: producer-manifest! (-> Loop Producer Inputs String ! mut fs develop))
     (define (producer-manifest! loop producer inputs)
       (let* ((directory (producers-directory loop))
-             (built (build-session (make-session (Producer-directories producer)) (Producer-source producer) unplanned-producer inputs))
+             (built (build-session (make-session (Producer-directories producer))
+                                   (Producer-source producer)
+                                   unplanned-producer
+                                   inputs))
              (manifest (string-append directory "/" (Producer-key producer) ".json")))
         (place-links! directory (Pair-first built))
         (write-file manifest (modules-json (Loop-runtime loop)
-                                           (map (lambda (module) (Pair (Built-name module) (string-append directory "/" (assembled-module! directory module))))
+                                           (map (lambda (module)
+                                                  (Pair (Built-name module)
+                                                        (string-append directory
+                                                                       "/"
+                                                                       (assembled-module! directory
+                                                                                          module))))
                                                 (Pair-first built))))
         manifest))
 
@@ -433,14 +486,19 @@
     ;; build places them, copying a file only when it changed.
     (: place-links! (-> String (List Built) Unit ! fs develop))
     (define (place-links! directory builds)
-      (for-each (lambda (link) (place-link! directory link)) (concatenate (map Built-links builds))))
+      (for-each (lambda (link) (place-link! directory link))
+                (concatenate (map Built-links builds))))
 
     (: place-link! (-> String LinkedFile Unit ! fs develop))
     (define (place-link! directory link)
-      (let ((from (LinkedFile-path link)) (to (string-append directory "/resources/" (LinkedFile-name link))))
+      (let ((from (LinkedFile-path link))
+            (to (string-append directory "/resources/" (LinkedFile-name link))))
         (unless (and (file-exists? to) (= (digest to) (digest from)))
           (unless (copy-file! from to)
-            (panic (string-append "cannot place the linked file " (LinkedFile-name link) " from " from))))))
+            (panic (string-append "cannot place the linked file "
+                                  (LinkedFile-name link)
+                                  " from "
+                                  from))))))
 
     ;; ---- Pages ----
 
@@ -448,26 +506,40 @@
     (: publish-pages! (-> Loop String (List (Pair String String)) I32 Unit ! mut fs develop))
     (define (publish-pages! loop app modules started)
       (let ((manifest (page-manifest loop app modules)))
-        (write-published-file! (string-append (Loop-output loop) "/index.html") (string-append (app-page app) (page-client manifest)))
+        (write-published-file! (string-append (Loop-output loop) "/index.html")
+                               (string-append (app-page app) (page-client manifest)))
         (ref-set! (Loop-manifest loop) manifest)
         (broadcast! (string-append "(built " (i32->string (- (now) started)) " " manifest ")"))))
 
     (: report-built! (-> String (List Built) I32 Unit ! console develop))
     (define (report-built! app builds started)
-      (write-line (string-append "built " (base-name app) " in " (i32->string (- (now) started)) " ms: "
-                                 (i64->string (length (filter Built-compiled? builds))) " of " (i64->string (length builds))
-                                 " modules compiled")))
+      (write-line
+       (string-append "built " (base-name app) " in " (i32->string (- (now) started)) " ms: "
+                      (i64->string (length (filter Built-compiled? builds)))
+                      " of "
+                      (i64->string (length builds))
+                      " modules compiled")))
 
     ;; What a page runs, which its reload client compares with each event's
     ;; to learn what changed: every file it loads with a digest, and the
     ;; modules in program order.
     (: page-manifest (-> Loop String (List (Pair String String)) String ! fs develop))
     (define (page-manifest loop app modules)
-      (string-append "(files" (quoted-pairs (page-files loop app)) ") (modules" (quoted-pairs modules) ")"))
+      (string-append "(files"
+                     (quoted-pairs (page-files loop app))
+                     ") (modules"
+                     (quoted-pairs modules)
+                     ")"))
 
     (: quoted-pairs (-> (List (Pair String String)) String))
     (define (quoted-pairs pairs)
-      (string-concatenate (map (lambda (pair) (string-append " (" (quoted (Pair-first pair)) " " (quoted (Pair-second pair)) ")")) pairs)))
+      (string-concatenate (map (lambda (pair)
+                                 (string-append " ("
+                                                (quoted (Pair-first pair))
+                                                " "
+                                                (quoted (Pair-second pair))
+                                                ")"))
+                               pairs)))
 
     ;; Each page file's name and digest: the page itself, every file of the
     ;; browser host, and the application's public files.
@@ -480,7 +552,8 @@
 
     (: file-digests (-> Loop String (List (Pair String String)) ! fs develop))
     (define (file-digests loop directory)
-      (map (lambda (name) (Pair name (i32->string (digest (string-append directory "/" name))))) (directory-names loop directory)))
+      (map (lambda (name) (Pair name (i32->string (digest (string-append directory "/" name)))))
+           (directory-names loop directory)))
 
     ;; The application's page, or an empty one for a project without it,
     ;; as the IDE may open.
@@ -493,7 +566,9 @@
     ;; reads it.
     (: page-client (-> String String))
     (define (page-client manifest)
-      (string-append "<script type=\"application/snail-manifest\" id=\"snail-manifest\">" manifest "</script>"
+      (string-append "<script type=\"application/snail-manifest\" id=\"snail-manifest\">"
+                     manifest
+                     "</script>"
                      "<meta name=\"snail-modules\" content=\"/modules.json\">"
                      "<script type=\"module\" src=\"/.snail/reload.mjs\"></script>\n"))
 
@@ -502,7 +577,9 @@
     (define (serve-pages! loop port app)
       (let ((routes (string-append (Loop-output loop) "/routes.json")))
         (write-published-file! (string-append (Loop-output loop) "/index.html")
-                               (string-append "<!doctype html>\n<meta charset=\"utf-8\">\n<title>Building</title>\n" (page-client (ref-get (Loop-manifest loop)))))
+                               (string-append
+                                "<!doctype html>\n<meta charset=\"utf-8\">\n<title>Building</title>\n"
+                                (page-client (ref-get (Loop-manifest loop)))))
         (write-file routes (routes-json loop app))
         (serve! routes (base-name app) port)))
 
@@ -515,7 +592,8 @@
     ;; its public/.
     (: routes-json (-> Loop String String))
     (define (routes-json loop app)
-      (let ((output (Loop-output loop)) (host (string-append (host-directory (Loop-root loop)) "/")))
+      (let ((output (Loop-output loop))
+            (host (string-append (host-directory (Loop-root loop)) "/")))
         (string-append
          "{\"files\": "
          (json-pairs (list (Pair "/" (string-append output "/index.html"))
@@ -580,7 +658,12 @@
     (: modules-json (-> String (List (Pair String String)) String))
     (define (modules-json runtime modules)
       (string-append "{\"runtime\": " (quoted runtime) ", \"modules\": ["
-                     (string-join (map (lambda (entry) (string-append "{\"name\": " (quoted (Pair-first entry)) ", \"file\": " (quoted (Pair-second entry)) "}"))
+                     (string-join (map (lambda (entry)
+                                         (string-append "{\"name\": "
+                                                        (quoted (Pair-first entry))
+                                                        ", \"file\": "
+                                                        (quoted (Pair-second entry))
+                                                        "}"))
                                        modules)
                                   ", ")
                      "]}\n"))
@@ -588,7 +671,16 @@
     ;; Pairs of strings as a JSON array of two-element arrays.
     (: json-pairs (-> (List (Pair String String)) String))
     (define (json-pairs pairs)
-      (string-append "[" (string-join (map (lambda (pair) (string-append "[" (quoted (Pair-first pair)) ", " (quoted (Pair-second pair)) "]")) pairs) ", ") "]"))
+      (string-append "["
+                     (string-join (map (lambda (pair)
+                                         (string-append "["
+                                                        (quoted (Pair-first pair))
+                                                        ", "
+                                                        (quoted (Pair-second pair))
+                                                        "]"))
+                                       pairs)
+                                  ", ")
+                     "]"))
 
     ;; A string literal, as both Scheme and JSON read it.
     (: quoted (-> String String))
@@ -605,14 +697,16 @@
     (: lines (-> String (List String)))
     (define (lines text)
       (match (string-index text #\newline)
-        ((Some index) (Cons (substring text 0 index) (lines (substring text (+ index 1) (string-length text)))))
+        ((Some index)
+         (Cons (substring text 0 index) (lines (substring text (+ index 1) (string-length text)))))
         ((None) (list text))))
 
     (: base-name (-> String String))
     (define (base-name path)
       (let loop ((index (- (string-length path) 1)))
         (cond ((< index 0) path)
-              ((char=? (string-ref path index) #\/) (substring path (+ index 1) (string-length path)))
+              ((char=? (string-ref path index) #\/)
+               (substring path (+ index 1) (string-length path)))
               (else (loop (- index 1))))))
 
     (: directory-name (-> String String))
@@ -621,12 +715,15 @@
 
     (: starts-with? (-> String String Bool))
     (define (starts-with? text prefix)
-      (and (>= (string-length text) (string-length prefix)) (string=? (substring text 0 (string-length prefix)) prefix)))
+      (and (>= (string-length text) (string-length prefix))
+           (string=? (substring text 0 (string-length prefix)) prefix)))
 
     (: ends-with? (-> String String Bool))
     (define (ends-with? text suffix)
       (and (>= (string-length text) (string-length suffix))
-           (string=? (substring text (- (string-length text) (string-length suffix)) (string-length text)) suffix)))
+           (string=?
+            (substring text (- (string-length text) (string-length suffix)) (string-length text))
+            suffix)))
 
     (: contains-segment? (-> String String Bool))
     (define (contains-segment? path segment)
@@ -635,7 +732,9 @@
     (: split-path (-> String (List String)))
     (define (split-path path)
       (match (string-index path #\/)
-        ((Some index) (Cons (substring path 0 index) (split-path (substring path (+ index 1) (string-length path)))))
+        ((Some index)
+         (Cons (substring path 0 index)
+               (split-path (substring path (+ index 1) (string-length path)))))
         ((None) (list path))))
 
     (: all-digits? (-> String Bool))

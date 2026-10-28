@@ -5,11 +5,13 @@
 
 (: ascii (-> String Bytes))
 (define (ascii text)
-  (vector-generate (string-length text) (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
+  (vector-generate (string-length text)
+                   (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
 
 (: text (-> Bytes String))
 (define (text bytes)
-  (string-generate (vector-length bytes) (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
+  (string-generate (vector-length bytes)
+                   (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
 
 (: assert (-> Bool Unit))
 (define (assert condition) (unless condition (panic "HTTP assertion failed")))
@@ -41,7 +43,8 @@
     ((Ok response) response)
     ((Err _) (panic "rejected test response"))))
 
-(let* ((source "POST /a%2Fb?x=1&x=2 HTTP/1.1\r\nHost: example.test:8080\r\nContent-Length: 3\r\nX-Test: first\r\nx-TEST:\tsecond \t\r\n\r\n")
+(let* ((source
+        "POST /a%2Fb?x=1&x=2 HTTP/1.1\r\nHost: example.test:8080\r\nContent-Length: 3\r\nX-Test: first\r\nx-TEST:\tsecond \t\r\n\r\n")
        (bytes (ascii source))
        (head (parsed (vector-append bytes #u8(0 255 128))))
        (request (ParsedHead-request head)))
@@ -52,7 +55,9 @@
   (for-each write-line (header-values (RequestHead-headers request) "X-Test"))
   (let loop ((count 0))
     (when (< count (vector-length bytes))
-      (assert (match (parse-request-head (subvector bytes 0 count)) ((Ok value) (match value ((None) #t) (_ #f))) (_ #f)))
+      (assert (match (parse-request-head (subvector bytes 0 count))
+                ((Ok value) (match value ((None) #t) (_ #f)))
+                (_ #f)))
       (loop (+ count 1)))))
 
 (let ((response (encoded "HEAD" 200 (list (Header "Content-Type" "text/plain")) #u8(97 98 99))))
@@ -108,13 +113,18 @@
           (list (i32->u8 0) (i32->u8 127) (i32->u8 255)))
 (let* ((prefix "GET / HTTP/1.1\r\nHost: a\r\n")
        (count (quotient (- (- head-limit (string-length prefix)) 2) 4))
-       (source (string-append prefix (string-concatenate (map (lambda (_) "x:\r\n") (iota count))) "\r\n"))
+       (source
+        (string-append prefix (string-concatenate (map (lambda (_) "x:\r\n") (iota count))) "\r\n"))
        (request (ParsedHead-request (parsed (ascii source)))))
   (assert (= (length (RequestHead-headers request)) (+ count 1))))
-(let ((request (ParsedHead-request (parsed (ascii "POST / HTTP/1.1\r\nHost: a:0\r\nContent-Length: 8388608\r\n\r\n")))))
+(let ((request
+       (ParsedHead-request
+        (parsed (ascii "POST / HTTP/1.1\r\nHost: a:0\r\nContent-Length: 8388608\r\n\r\n")))))
   (assert (= (RequestHead-body-length request) body-limit)))
 (reject-head "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 8388609\r\n\r\n" "body-limit")
-(reject-head (string-append "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: " (make-string 1000 #\9) "\r\n\r\n") "body-limit")
+(reject-head
+ (string-append "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: " (make-string 1000 #\9) "\r\n\r\n")
+ "body-limit")
 (write-line "exact limits")
 
 (: check-response (-> String I32 String Bytes Unit))
@@ -122,10 +132,15 @@
   (let ((response (encoded method status (Nil) #u8(0 255 128))))
     (assert (string=? (text (ResponseParts-head response)) head))
     (assert (= (vector-length (ResponseParts-body response)) (vector-length body)))
-    (for-each (lambda (index) (assert (= (vector-ref (ResponseParts-body response) index) (vector-ref body index))))
+    (for-each (lambda (index)
+                (assert
+                 (= (vector-ref (ResponseParts-body response) index) (vector-ref body index))))
               (iota (vector-length body)))))
 
-(check-response "GET" 200 "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 3\r\n\r\n" #u8(0 255 128))
+(check-response "GET"
+                200
+                "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 3\r\n\r\n"
+                #u8(0 255 128))
 (check-response "GET" 204 "HTTP/1.1 204 \r\nConnection: close\r\n\r\n" #u8())
 (check-response "HEAD" 204 "HTTP/1.1 204 \r\nConnection: close\r\n\r\n" #u8())
 (check-response "GET" 205 "HTTP/1.1 205 \r\nConnection: close\r\nContent-Length: 0\r\n\r\n" #u8())
@@ -142,9 +157,15 @@
     ((Ok _) (panic "accepted invalid response"))))
 
 (for-each (lambda (header) (reject-response "GET" 200 (list header) "response"))
-          (list (Header "X" "bad\r\nInjected: value") (Header "X\r\nInjected" "bad") (Header "X" "λ")
-                (Header "Bad Name" "value") (Header "Content-Length" "0") (Header "TRANSFER-ENCODING" "chunked")
-                (Header "Connection" "keep-alive") (Header "Trailer" "X") (Header "Upgrade" "websocket")))
+          (list (Header "X" "bad\r\nInjected: value")
+                (Header "X\r\nInjected" "bad")
+                (Header "X" "λ")
+                (Header "Bad Name" "value")
+                (Header "Content-Length" "0")
+                (Header "TRANSFER-ENCODING" "chunked")
+                (Header "Connection" "keep-alive")
+                (Header "Trailer" "X")
+                (Header "Upgrade" "websocket")))
 (reject-response "GET" 199 (Nil) "response")
 (reject-response "GET" 600 (Nil) "response")
 (reject-response "bad method" 200 (Nil) "response")
@@ -152,8 +173,10 @@
 (let* ((base "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
        (count (- (- head-limit (string-length base)) 5))
        (header (Header "X" (make-string count #\x))))
-  (assert (= (vector-length (ResponseParts-head (encoded "GET" 200 (list header) #u8()))) head-limit))
+  (assert
+   (= (vector-length (ResponseParts-head (encoded "GET" 200 (list header) #u8()))) head-limit))
   (reject-response "GET" 200 (list (Header "X" (make-string (+ count 1) #\x))) "head-limit")
-  (let ((many (map (lambda (_) (Header "x" "")) (iota (quotient (- head-limit (string-length base)) 5)))))
+  (let ((many (map (lambda (_) (Header "x" ""))
+                   (iota (quotient (- head-limit (string-length base)) 5)))))
     (assert (<= (vector-length (ResponseParts-head (encoded "GET" 200 many #u8()))) head-limit))))
 (write-line "safe output")

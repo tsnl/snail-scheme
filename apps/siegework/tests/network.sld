@@ -23,7 +23,8 @@
 (define (order world action)
   (match (act world action)
     ((Ok world) world)
-    ((Err rejection) (begin (write-line (string-append "rejected: " (rejection-text rejection))) world))))
+    ((Err rejection)
+     (begin (write-line (string-append "rejected: " (rejection-text rejection))) world))))
 
 (: visible-count (-> World I64))
 (define (visible-count world)
@@ -31,7 +32,9 @@
 
 (: wire-text (-> Wire String))
 (define (wire-text wire)
-  (string-append (cell-text (Node-cell (Wire-from wire))) "-" (cell-text (Node-cell (Wire-to wire)))))
+  (string-append (cell-text (Node-cell (Wire-from wire)))
+                 "-"
+                 (cell-text (Node-cell (Wire-to wire)))))
 
 (: cell-text (-> Cell String))
 (define (cell-text cell)
@@ -39,15 +42,29 @@
 
 (: report-wires (-> World Unit ! console))
 (define (report-wires world)
-  (write-line (string-append "wires " (string-join (map wire-text (Network-wires (World-network world))) " "))))
+  (write-line (string-append "wires "
+                             (string-join (map wire-text (Network-wires (World-network world)))
+                                          " "))))
 
 (: report (-> World Unit ! console))
 (define (report world)
-  (write-line (string-append "tick " (show (World-tick world)) ", produced " (show (Ledger-produced (World-ledger world)))
+  (write-line (string-append "tick "
+                             (show (World-tick world))
+                             ", produced "
+                             (show (Ledger-produced (World-ledger world)))
                              ", wires " (show (length (Network-wires (World-network world))))
                              ", visible " (show (visible-count world)) ": "
-                             (string-join (map (lambda (b) (string-append (kind-name (Building-kind b)) " " (show (Cell-x (Building-cell b))) "," (show (Cell-y (Building-cell b)))
-                                                                          (cond ((not (built? b)) " unfinished") ((powered? world (Building-id b)) " powered") (else " unpowered"))))
+                             (string-join (map (lambda (b)
+                                                 (string-append (kind-name (Building-kind b))
+                                                                " "
+                                                                (show (Cell-x (Building-cell b)))
+                                                                ","
+                                                                (show (Cell-y (Building-cell b)))
+                                                                (cond
+                                                                 ((not (built? b)) " unfinished")
+                                                                 ((powered? world (Building-id b))
+                                                                  " powered")
+                                                                 (else " unpowered"))))
                                                (World-buildings world))
                                           "; "))))
 

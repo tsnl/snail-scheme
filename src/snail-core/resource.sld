@@ -50,6 +50,7 @@
     (: read-resource (-> Resource Bytes ! resource))
     (define (read-resource linked)
       (let ((handle (LinkedResource-handle linked)))
-        (vector-generate (i32->i64 (resource-length handle)) (lambda (index) (resource-byte handle (i64->i32 index))))))
+        (vector-generate (i32->i64 (resource-length handle))
+                         (lambda (index) (resource-byte handle (i64->i32 index))))))
 
     ))

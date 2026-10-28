@@ -14,7 +14,10 @@
   (match widget
     ((Label face text) (string-append (tone-mark face) text))
     ((Button face text caption action argument control ring)
-     (string-append (match control ((Disabled) "-[") (_ "[")) text (if (string=? caption "") "" (string-append " | " caption)) "]"))
+     (string-append (match control ((Disabled) "-[") (_ "["))
+                    text
+                    (if (string=? caption "") "" (string-append " | " caption))
+                    "]"))
     ((Dial face text fraction) text)
     ((Link face text url) (string-append text " <" url ">"))
     ((Text face spans) (string-concatenate (map span-words spans)))
@@ -42,7 +45,11 @@
 (define (place-name place)
   (match place
     ((At corner column)
-     (string-append (match corner ((TopLeft) "top left") ((TopRight) "top right") ((BottomLeft) "bottom left") ((BottomRight) "bottom right"))
+     (string-append (match corner
+                      ((TopLeft) "top left")
+                      ((TopRight) "top right")
+                      ((BottomLeft) "bottom left")
+                      ((BottomRight) "bottom right"))
                     " " (show column)))
     ((Dialog dismiss) "dialog")
     ((Banner) "banner")))
@@ -52,7 +59,10 @@
   (match frame
     ((Frame camera light background motion batches pictures)
      (write-line (string-append "batches: "
-                                (string-join (map (lambda (batch) (match batch ((Batch key version style items) (show (length (items))))))
+                                (string-join (map (lambda (batch)
+                                                    (match batch
+                                                      ((Batch key version style items)
+                                                       (show (length (items))))))
                                                   batches)
                                              " "))))))
 
@@ -65,7 +75,10 @@
 
 (: click (-> Shell (List (Pair I32 I32)) Shell))
 (define (click shell presses)
-  (fold-left (lambda (shell press) (update-shell shell (Press (Pair-first press) (Pair-second press)))) shell presses))
+  (fold-left
+   (lambda (shell press) (update-shell shell (Press (Pair-first press) (Pair-second press))))
+   shell
+   presses))
 
 (: step (-> Shell String (List (Pair I32 I32)) Shell ! console))
 (define (step shell title presses)
@@ -87,6 +100,15 @@
        (shell (step shell "two faces with its guide open" (list (Pair 9000 0))))
        (shell (step shell "two faces after delivering a job for Mo"
                     (list (Pair guide-close 0) (Pair 112 0) (Pair 3 0) (Pair 9 0))))
-       (shell (step shell "ledger with its guide on the last page" (list (Pair 9999 0) (Pair 9100 0) (Pair guide-next 0) (Pair guide-next 0) (Pair guide-next 0) (Pair guide-next 0))))
-       (shell (step shell "ledger after doing job 2 and ending the round" (list (Pair guide-next 0) (Pair 3 1) (Pair 5 0)))))
+       (shell (step shell
+                    "ledger with its guide on the last page"
+                    (list (Pair 9999 0)
+                          (Pair 9100 0)
+                          (Pair guide-next 0)
+                          (Pair guide-next 0)
+                          (Pair guide-next 0)
+                          (Pair guide-next 0))))
+       (shell (step shell
+                    "ledger after doing job 2 and ending the round"
+                    (list (Pair guide-next 0) (Pair 3 1) (Pair 5 0)))))
   (unit))
