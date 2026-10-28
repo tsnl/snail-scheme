@@ -410,6 +410,47 @@ in scope when it started: `tests/programs/control-stored-resume.sld`
 resumes two logging generators under a different `Log` handler from the
 one they began under.
 
+### The type of `resume`
+
+`resume` takes the operation's result and returns the handler's answer,
+and it performs the row of the code around the `handle`, its **context
+row**. For `(ctl yield (-> I64 I64))` handled in a function of row `Log`,
+whose handler answers `Step`, `resume` is `(Once (-> I64 Step ! Log))`.
+
+Calling `resume` runs under the caller's handlers everything the `handle`
+would perform outward: the rest of the body, and, since the handler is
+deep, each implementation that runs again when the body performs the
+effect once more. Both are in the context row. So a `Step` that stores
+`resume` must name the effects its implementation performs
+(`tests/programs/error-control-resume-row.sld`):
+
+```scheme
+{{#include ../../../tests/programs/error-control-resume-row.sld:step}}
+```
+
+```text
+{{#include ../../../tests/programs/error-control-resume-row.err}}
+```
+
+Typed `(Once (-> I64 Step ! Log))`, the stored `next` is resumed under a
+`Log` handler, the one where it is called
+(`tests/programs/control-resume-row.sld`):
+
+```text
+{{#include ../../../tests/programs/control-resume-row.out}}
+```
+
+The context row over-approximates, as Koka's does: a stored resumption
+demands every effect of the handle's context row, even one that only the
+code around the `handle` performs. And since calling `resume` performs
+that whole row, a function whose control implementation calls `resume`
+counts every effect of its signature as performed, so the
+[unused-effect rule](#claiming-only-what-the-body-performs) cannot flag
+one there. A row of the `handle`'s own, the body's and the
+implementations' effects alone, would need row inclusion that the checker,
+which decides inclusion by unification, cannot state once a rigid tail
+such as `e` is involved.
+
 ### Loops in constant stack
 
 An implementation that calls `resume` in tail position runs in constant

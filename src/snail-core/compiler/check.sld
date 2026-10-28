@@ -758,6 +758,15 @@
     ;; perform the handled effect plus whatever the context allows: its row
     ;; is `{effect | rest}`, and `rest` flows to the outer row. The handler's
     ;; result is the body's, which a control implementation also returns.
+    ;;
+    ;; `resume` performs the outer row, the handle's context, as Koka's
+    ;; does, and not `rest`. Resuming points the handler's outside at the
+    ;; handlers where `resume` is called, and the handler is deep, so the
+    ;; rest of the body and each implementation it reaches again perform
+    ;; there. The context is the row both flow into; their exact union would
+    ;; need an inclusion that unification cannot state once a rigid tail is
+    ;; involved. So a stored resumption names every effect of the code
+    ;; around its handle, even one only that code performs.
     (: infer-handle (-> Checker String (List (Pair String Expr)) Expr Type Loc (Pair Expr Checker)))
     (define (infer-handle ck effect implementations body row loc)
       (when (string=? effect "tasks")
@@ -776,7 +785,7 @@
                        (each (lambda (ck entry)
                                (infer-implementation ck
                                                      entry
-                                                     (Answer (Effect-control info) result rest)
+                                                     (Answer (Effect-control info) result)
                                                      row
                                                      loc))
                              implementations))
@@ -790,8 +799,7 @@
     ;; again, to the handler's result.
     (struct Answer
       ((control (List String))
-       (result Type)
-       (rest Type)))
+       (result Type)))
 
     ;; An implementation may perform its operation's latent row, which its
     ;; performer is charged; what else it performs, its context must allow.
@@ -808,7 +816,8 @@
                                        (implementation-type (Pair-first entry) answer params result
                                                             (latent-row
                                                              (operation-latent effect scheme)
-                                                             rest))))
+                                                             rest)
+                                                            row)))
                                   (learning ck ((value
                                                  (infer-implementation-value (Pair-second entry)
                                                                              expected
@@ -840,15 +849,16 @@
 
     ;; An implementation returns the operation's answer to its caller. A
     ;; control operation's implementation is also handed `resume`, which it
-    ;; may call at most once, and returns the handler's result.
-    (: implementation-type (-> String Answer (List Type) Type Type Type))
-    (define (implementation-type operation answer params result latent)
+    ;; may call at most once, and returns the handler's result. `resume`
+    ;; performs `context`, the row of the code around the handle.
+    (: implementation-type (-> String Answer (List Type) Type Type Type Type))
+    (define (implementation-type operation answer params result latent context)
       (if (member? operation (Answer-control answer))
           (TFun (append params
                         (list (TCon "Once"
                                     (list (TFun (list result)
                                                 (Answer-result answer)
-                                                (Answer-rest answer))))))
+                                                context)))))
                 (Answer-result answer) latent)
           (TFun params result latent)))
 
