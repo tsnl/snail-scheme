@@ -1,1 +1,1 @@
-an exposed function cannot take or return an affine value
+an exposed function cannot take or return a linear value

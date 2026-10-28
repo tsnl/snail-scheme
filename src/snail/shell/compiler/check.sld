@@ -161,11 +161,11 @@
     (define (solution ck)
       (Checker-solution ck))
 
-    ;; An affine query reads a type's structure, so it needs the solution
-    ;; applied first; a metavariable on its own is not known to be affine.
-    (: affine? (-> Checker Type Bool))
-    (define (affine? ck type)
-      (affine-type? (program-of ck) (resolve-type (solution ck) type)))
+    ;; A linear query reads a type's structure, so it needs the solution
+    ;; applied first; a metavariable on its own is not known to be linear.
+    (: linear? (-> Checker Type Bool))
+    (define (linear? ck type)
+      (linear-type? (program-of ck) (resolve-type (solution ck) type)))
 
     (: bind-solved (-> Checker Type Type Checker))
     (define (bind-solved ck meta type)
@@ -875,7 +875,7 @@
 
     ;; An implementation returns the operation's answer to its caller. A
     ;; control operation's implementation returns the handler's result, and
-    ;; is also handed `resume`, which it may call at most once, unless the
+    ;; is also handed `resume`, which it calls or drops exactly once, unless the
     ;; operation answers Never, when nothing could resume it. `resume`
     ;; performs `context`, the row of the code around the handle.
     (: implementation-type (-> String Answer (List Type) Type Type Type Type))
@@ -1087,9 +1087,9 @@
                               (match want
                                 ((WantLiteral value type loc) (check-literal ck value type loc))
                                 ((WantOmega type loc)
-                                 (when (affine? ck type)
+                                 (when (linear? ck type)
                                    (compile-error loc
-                                                  "a type variable requires an unrestricted type; this value is affine")))
+                                                  "a type variable requires an unrestricted type; this value is linear")))
                                 (_ (unit))))
                             pending)
                   (fold-left (lambda (ck want)
@@ -1390,20 +1390,6 @@
                      (string-append
                       "this function's type does not allow mut, so it may mutate only storage it allocates, but "
                       culprit " could hold storage from outside")))
-
-    ;; A local's source name: its unique name without the `.N` suffix.
-    (: local-name (-> String String))
-    (define (local-name name)
-      (match (last-dot name)
-        ((Some index) (substring name 0 index))
-        ((None) name)))
-
-    (: last-dot (-> String (Option I64)))
-    (define (last-dot name)
-      (let loop ((index (- (string-length name) 1)))
-        (cond ((< index 0) (None))
-              ((char=? (string-ref name index) #\.) (Some index))
-              (else (loop (- index 1))))))
 
     ;; A local of an enclosing definition is judged by its type; a global by
     ;; its declared or inferred type, since instantiating a row variable can
@@ -1778,7 +1764,7 @@
                 (Pair (Do value) ck)))
 
     ;; The host may retain unrestricted values, holding managed references
-    ;; opaquely. Affine ownership cannot cross this unrestricted boundary.
+    ;; opaquely. Linear ownership cannot cross this unrestricted boundary.
     ;; The trusted host respects Snail-Core types and implements the declared effects.
     ;; What is exposed is a definition's code: a foreign function, a
     ;; constructor or an operation has none.
@@ -1789,8 +1775,8 @@
         (_ (compile-error loc "an exposed function must be defined")))
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) (TFun params result row)))
-         (when (any? (lambda (type) (affine? ck type)) (Cons result params))
-           (compile-error loc "an exposed function cannot take or return an affine value"))
+         (when (any? (lambda (type) (linear? ck type)) (Cons result params))
+           (compile-error loc "an exposed function cannot take or return a linear value"))
          (when dynamic (check-dynamic ck (Cons result params) row loc))
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
@@ -1874,6 +1860,7 @@
                                 (final-schemes ck items))))
                     (for-each check-conversions (Typed-items result))
                     (check-owned-types program (Typed-items result))
+                    (check-ownership program (Typed-items result))
                     (for-each
                      (lambda (function) (check-confined result (zonk-expr (solution ck) function)))
                      (Checker-confined ck))

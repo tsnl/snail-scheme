@@ -9,7 +9,7 @@
 
 (: start (-> Unit ! tasks))
 (define (start)
-  (handle Abort ((abort (lambda (value resume) (unit))))
+  (handle Abort ((abort (lambda (value resume) (drop resume) (unit))))
     (dispatch-local (once (lambda () (abort 1) (unit))))))
 
 (start)

@@ -12,7 +12,7 @@
   ((log (-> String Unit))))
 
 ;; A step of a generator: done, or a value and the rest, which may be
-;; resumed once. Holding `resume` makes a Step affine.
+;; resumed once. Holding `resume` makes a Step linear.
 (enum Step
   (Done)
   (Yielded

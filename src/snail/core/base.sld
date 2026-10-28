@@ -7,7 +7,7 @@
    Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes Once mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
-   not unit panic unsafe-total once call-once
+   not unit panic unsafe-total once call-once drop
    Num + - * negate abs
    Ord = < <= > >= min max
    Integral quotient remainder modulo
@@ -32,7 +32,7 @@
    fold-left
    fold-right
    list-ref list-tail any? every? find member? iota concatenate
-   delete-duplicates take drop last list-index assoc-ref zip
+   delete-duplicates take list-drop last list-index assoc-ref zip
    i32-and i32-or i32-xor i32-shift-left i32-shift-right i32-shift-right/logical
    i64-and i64-or i64-xor i64-shift-left i64-shift-right i64-shift-right/logical
    char->integer
@@ -438,12 +438,12 @@
            (if (= count 0) (reverse taken) (loop rest (- count 1) (Cons item taken))))
           ((Nil) (reverse taken)))))
 
-    (: drop (All (T) (-> (List T) I64 (List T))))
-    (define (drop items count)
+    (: list-drop (All (T) (-> (List T) I64 (List T))))
+    (define (list-drop items count)
       (if (= count 0)
           items
           (match items
-            ((Cons _ rest) (drop rest (- count 1)))
+            ((Cons _ rest) (list-drop rest (- count 1)))
             ((Nil) (Nil)))))
 
     (: last (All (T) (-> (List T) (Option T))))
