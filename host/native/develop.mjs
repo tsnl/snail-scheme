@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The native host owns watchers, timers, HTTP/SSE and application children.
 // A persistent worker owns (snail-core develop), its synchronous Wasm compiler,
-// assembler and file helpers. Compiler work never occupies this event loop.
+// assembler and producer runs. Compiler work never occupies this event loop.
 //
 //   develop.mjs ROOT serve [--port PORT] APP-DIRECTORY
 //   develop.mjs ROOT watch [-I DIRECTORY] SOURCE [ARGUMENT ...]
@@ -72,7 +72,7 @@ function send(loop, kind, text) {
 // ---- Commands ----
 
 // Only commands whose results the Snail-Core loop discards cross this boundary.
-// Immediate filesystem/assembler results stay beside their Wasm caller.
+// Immediate assembler and producer results stay beside their Wasm caller.
 function perform(loop, {command, args, number}) {
   switch (command) {
     case 'watch': {

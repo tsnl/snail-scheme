@@ -1,0 +1,40 @@
+make root with its parents -> ok
+make root again -> error: it already exists
+make without a parent -> error: no such file or directory
+make with parents -> ok
+make with parents again -> ok
+make with parents over a file -> error: it already exists
+list root -> ok (a)
+list a -> ok (B.txt b four.txt)
+list a missing directory -> error: no such file or directory
+list a file -> error: not a directory
+status of a file -> ok file of 4 bytes, modified after 1970
+status of a directory -> ok directory
+status of a missing path -> error: no such file or directory
+rename -> ok
+old name exists -> #f
+new name reads -> four
+rename over an existing file -> ok
+replaced file reads -> four
+rename a missing path -> error: no such file or directory
+rename over a full directory -> error: the directory is not empty
+rename a file over a directory -> error: it is a directory
+remove a full directory -> error: the directory is not empty
+remove a directory as a file -> error: it is a directory
+remove a missing file -> error: no such file or directory
+remove a file -> ok
+remove the emptied directory -> ok
+link -> ok
+link again -> error: it already exists
+status of the link -> ok link of 7 bytes, modified after 1970
+read the link -> ok a/B.txt
+read through the link -> four
+read a file as a link -> error: invalid path
+remove the link -> ok
+its target remains -> #t
+list root before -> ok (a)
+remove the tree -> ok
+root exists -> #f
+remove the tree again -> error: no such file or directory
+clock never runs back -> #t
+clock from a handler -> 42

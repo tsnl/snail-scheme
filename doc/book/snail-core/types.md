@@ -158,7 +158,7 @@ of an ordinary operation returns to the operation's caller exactly once, and
 every implementation runs in the handler's outer context, so an operation it
 performs goes to the next handler out, unless the operation's latent row
 names its effect (below). A handler names operations within its
-effect, so they need not be imported. Effects with defaults, such as `console` and `fs` from
+effect, so they need not be imported. Effects with defaults, such as `console`, `fs` and `clock` from
 `(snail-core io)`, need no handler at the top level of a program, and a test can
 handle `fs` to serve files from memory.
 

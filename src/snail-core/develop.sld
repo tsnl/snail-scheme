@@ -5,7 +5,8 @@
 ;; A build is planned first (snail-core compiler plan), so the producers of
 ;; the program's generated libraries run before it.
 ;; bootstrap/develop.sld exposes its entry points as WebAssembly under Node.
-;; The host/native/develop.mjs host performs the `develop` commands, such as
+;; The loop does its own file work, through (snail-core io), and the
+;; host/native/develop.mjs host performs the `develop` commands, such as
 ;; watching a directory or serving a page, and reports events. This older
 ;; application loop remains behind serve/watch while native project
 ;; development and the editor use host/native/project-develop.mjs.
@@ -18,6 +19,7 @@
   (import
    (snail-core base)
    (snail-core io)
+   (snail-core sha256)
    (only (snail-core compiler read) Syntax)
    (only (snail-core compiler core) fnv-1a)
    (only (snail-core compiler inputs) Inputs supply-generated producer-text)
@@ -27,10 +29,11 @@
 
     ;; ---- Host commands ----
 
-    ;; What Snail-Core cannot do alone: watch files, keep time, assemble a module,
-    ;; serve pages and run a program. A command is a name with string
-    ;; arguments, sent a character at a time, and a number; the host answers
-    ;; with a number. Each host names its commands as these functions do.
+    ;; What Snail-Core cannot do alone: watch files, schedule a timer,
+    ;; assemble a module, serve pages and run a program. A command is a name
+    ;; with string arguments, sent a character at a time, and a number; the
+    ;; host answers with a number. Each host names its commands as these
+    ;; functions do.
     (effect develop
       ((argument-character (-> Char Unit))
        (argument-end (-> Unit))
@@ -97,47 +100,69 @@
     (define (produce-command! manifest output)
       (= (host-command "produce" (list manifest output) 0) 0))
 
-    ;; A digest of a file's bytes, which change when the file does.
-    (: digest (-> String I32 ! develop))
-    (define (digest path)
-      (host-command "digest" (list path) 0))
+    ;; ---- Files ----
 
-    ;; Copies a file, making the directory it goes to, and replacing what
-    ;; was there at once: whether it could.
-    (: copy-file! (-> String String Bool ! develop))
-    (define (copy-file! from to)
-      (= (host-command "copy-file" (list from to) 0) 0))
+    ;; The loop's own file work. A failure it cannot go on from fails the
+    ;; build, naming the path and the reason, and the pages keep the build
+    ;; they have.
+    (: checked (All (T) (-> String String (Result T FileError) T)))
+    (define (checked doing path result)
+      (match result
+        ((Ok value) value)
+        ((Err error) (panic (string-append "cannot " doing " " path ": " (show error))))))
 
-    (: now (-> I32 ! develop))
-    (define (now)
-      (host-command "now" (Nil) 0))
+    (: make-directories! (-> String Unit ! fs))
+    (define (make-directories! directory)
+      (checked "make the directory" directory (make-directories directory)))
 
-    ;; Writes the names of a directory's files, one to a line, to `output`.
-    (: list-directory! (-> String String Unit ! develop))
-    (define (list-directory! directory output)
-      (host-command "list-directory" (list directory output) 0)
-      (unit))
+    ;; Removes a file if one is there.
+    (: discard-file! (-> String Unit ! fs))
+    (define (discard-file! path)
+      (match (remove-file path)
+        ((Err (NotFound)) (unit))
+        (removed (checked "remove" path removed))))
 
-    ;; Creates a directory and any missing parents.
-    (: make-directory! (-> String Unit ! develop))
-    (define (make-directory! directory)
-      (host-command "make-directory" (list directory) 0)
-      (unit))
-
-    (: remove-file! (-> String Unit ! develop))
-    (define (remove-file! path)
-      (host-command "remove-file" (list path) 0)
-      (unit))
+    ;; The names in a directory, or none if it is missing, as an
+    ;; application's public/ may be.
+    (: directory-names (-> String (List String) ! fs))
+    (define (directory-names directory)
+      (match (list-directory directory)
+        ((Err (NotFound)) (Nil))
+        (listed (checked "list" directory listed))))
 
     ;; The parent may serve a published path while the compiler works. One
     ;; serial writer owns its neighboring staging file; a failed write or
     ;; rename leaves the preceding complete file visible.
-    (: write-published-file! (-> String String Unit ! fs develop))
+    (: write-published-file! (-> String String Unit ! fs))
     (define (write-published-file! path text)
       (let ((staging (string-append path ".next")))
         (write-file staging text)
-        (host-command "rename-file" (list staging path) 0)
-        (unit)))
+        (checked "publish" path (rename-file staging path))))
+
+    ;; Copies a file's bytes, making the directory it goes to, and renames
+    ;; the copy over what was there, so a page reading `to` sees all of one
+    ;; file or of the other.
+    (: place-file! (-> String String Unit ! fs))
+    (define (place-file! from to)
+      (let ((staging (string-append to ".next")))
+        (make-directories! (directory-name to))
+        (write-bytes staging (read-bytes from))
+        (checked "place" to (rename-file staging to))))
+
+    ;; A digest of a file's bytes, which changes when the file does: their
+    ;; SHA-256, or "none" where no file is, as for a directory in public/.
+    (: digest (-> String String ! fs))
+    (define (digest path)
+      (match (file-status path)
+        ((Ok status) (match (FileStatus-kind status)
+                       ((RegularFile) (bytes->hex (sha256 (read-bytes path))))
+                       (_ "none")))
+        ((Err _) "none")))
+
+    ;; Milliseconds since `started`, a reading of the monotonic clock.
+    (: milliseconds-since (-> I64 String ! clock))
+    (define (milliseconds-since started)
+      (i64->string (quotient (- (monotonic-nanoseconds) started) 1000000)))
 
     ;; ---- Requests ----
 
@@ -201,8 +226,8 @@
     ;; waits for it, so a first build that fails is shown like any other.
     (: start-loop! (-> Loop Unit ! mut fs develop))
     (define (start-loop! loop)
-      (make-directory! (string-append (Loop-output loop) "/modules"))
-      (make-directory! (producers-directory loop))
+      (make-directories! (string-append (Loop-output loop) "/modules"))
+      (make-directories! (producers-directory loop))
       (match (Loop-request loop)
         ((Serve port app) (serve-pages! loop port app))
         ((Watch _ _ _) (unit)))
@@ -273,7 +298,7 @@
     ;; The host's events, by number, as both hosts send them: 1 is a changed
     ;; file, with its path; 2 the timer the loop asked for; 3 a build that
     ;; panicked, with the panic's message.
-    (: deliver-event! (-> Loop I32 String Unit ! mut fs console develop))
+    (: deliver-event! (-> Loop I32 String Unit ! mut fs console clock develop))
     (define (deliver-event! loop kind text)
       (case kind
         ((1) (source-changed! loop text))
@@ -288,9 +313,9 @@
     ;; again, and only then removes the module files no page can still be
     ;; loading. A build that fails to compile or assemble stops before
     ;; modules.json, the page or any module a page may still load changes.
-    (: build! (-> Loop Unit ! mut fs console develop))
+    (: build! (-> Loop Unit ! mut fs console clock develop))
     (define (build! loop)
-      (let ((started (now)))
+      (let ((started (monotonic-nanoseconds)))
         (broadcast! (string-append "(building " (ref-get (Loop-manifest loop)) ")"))
         (let* ((builds (next-build! loop (main-source (Loop-request loop)))) (modules (write-modules! loop builds)))
           (match (Loop-request loop)
@@ -354,7 +379,7 @@
     ;; reads its files again.
     (: assembled-module! (-> String Built String ! fs develop))
     (define (assembled-module! directory built)
-      (let* ((stamp (string-concatenate (map (lambda (link) (string-append "\n" (i32->string (digest (LinkedFile-path link))))) (Built-links built))))
+      (let* ((stamp (string-concatenate (map (lambda (link) (string-append "\n" (digest (LinkedFile-path link)))) (Built-links built))))
              (file (string-append (Built-name built) "-" (i64->string (fnv-1a (string-append (Built-text built) stamp))) ".wasm"))
              (path (string-append directory "/" file)))
         (unless (file-exists? path)
@@ -377,19 +402,12 @@
     ;; modules and of the build before it stay, the latter for a page still
     ;; relinking from it, and everything else under modules/ goes, including
     ;; the text each module was assembled from.
-    (: remove-old-modules! (-> Loop (List String) Unit ! mut fs develop))
+    (: remove-old-modules! (-> Loop (List String) Unit ! mut fs))
     (define (remove-old-modules! loop current)
       (let ((directory (string-append (Loop-output loop) "/modules")) (kept (append current (ref-get (Loop-previous loop)))))
-        (for-each (lambda (name) (unless (member? name kept) (remove-file! (string-append directory "/" name))))
-                  (directory-names loop directory))
+        (for-each (lambda (name) (unless (member? name kept) (discard-file! (string-append directory "/" name))))
+                  (directory-names directory))
         (ref-set! (Loop-previous loop) current)))
-
-    ;; The names of a directory's files, through a listing the host writes.
-    (: directory-names (-> Loop String (List String) ! fs develop))
-    (define (directory-names loop directory)
-      (let ((listing (string-append (Loop-output loop) "/listing")))
-        (list-directory! directory listing)
-        (filter (lambda (line) (not (string=? line ""))) (lines (read-file listing)))))
 
     ;; ---- Producers ----
 
@@ -407,7 +425,7 @@
       (let ((manifest (producer-manifest! loop producer inputs))
             (output (string-append (producers-directory loop) "/" (Producer-key producer) ".syntax"))
             (name (string-append "the producer of (" (string-join (Producer-library producer) " ") ")")))
-        (remove-file! output)
+        (discard-file! output)
         (cond ((not (produce-command! manifest output)) (panic (string-append name " failed")))
               ((not (file-exists? output)) (panic (string-append name " did not write its generated library")))
               (else (supply-generated inputs (producer-text (Producer-directories producer) (Producer-forms producer)) (read-bytes output))))))
@@ -431,37 +449,36 @@
     ;; beside the manifest it runs from, where pages and programs read it
     ;; before they start. Editing a linked file recompiles nothing, so every
     ;; build places them, copying a file only when it changed.
-    (: place-links! (-> String (List Built) Unit ! fs develop))
+    (: place-links! (-> String (List Built) Unit ! fs))
     (define (place-links! directory builds)
       (for-each (lambda (link) (place-link! directory link)) (concatenate (map Built-links builds))))
 
-    (: place-link! (-> String LinkedFile Unit ! fs develop))
+    (: place-link! (-> String LinkedFile Unit ! fs))
     (define (place-link! directory link)
       (let ((from (LinkedFile-path link)) (to (string-append directory "/resources/" (LinkedFile-name link))))
-        (unless (and (file-exists? to) (= (digest to) (digest from)))
-          (unless (copy-file! from to)
-            (panic (string-append "cannot place the linked file " (LinkedFile-name link) " from " from))))))
+        (unless (and (file-exists? to) (string=? (digest to) (digest from)))
+          (place-file! from to))))
 
     ;; ---- Pages ----
 
     ;; Writes the page for the new build and tells every open page about it.
-    (: publish-pages! (-> Loop String (List (Pair String String)) I32 Unit ! mut fs develop))
+    (: publish-pages! (-> Loop String (List (Pair String String)) I64 Unit ! mut fs clock develop))
     (define (publish-pages! loop app modules started)
       (let ((manifest (page-manifest loop app modules)))
         (write-published-file! (string-append (Loop-output loop) "/index.html") (string-append (app-page app) (page-client manifest)))
         (ref-set! (Loop-manifest loop) manifest)
-        (broadcast! (string-append "(built " (i32->string (- (now) started)) " " manifest ")"))))
+        (broadcast! (string-append "(built " (milliseconds-since started) " " manifest ")"))))
 
-    (: report-built! (-> String (List Built) I32 Unit ! console develop))
+    (: report-built! (-> String (List Built) I64 Unit ! console clock))
     (define (report-built! app builds started)
-      (write-line (string-append "built " (base-name app) " in " (i32->string (- (now) started)) " ms: "
+      (write-line (string-append "built " (base-name app) " in " (milliseconds-since started) " ms: "
                                  (i64->string (length (filter Built-compiled? builds))) " of " (i64->string (length builds))
                                  " modules compiled")))
 
     ;; What a page runs, which its reload client compares with each event's
     ;; to learn what changed: every file it loads with a digest, and the
     ;; modules in program order.
-    (: page-manifest (-> Loop String (List (Pair String String)) String ! fs develop))
+    (: page-manifest (-> Loop String (List (Pair String String)) String ! fs))
     (define (page-manifest loop app modules)
       (string-append "(files" (quoted-pairs (page-files loop app)) ") (modules" (quoted-pairs modules) ")"))
 
@@ -471,16 +488,16 @@
 
     ;; Each page file's name and digest: the page itself, every file of the
     ;; browser host, and the application's public files.
-    (: page-files (-> Loop String (List (Pair String String)) ! fs develop))
+    (: page-files (-> Loop String (List (Pair String String)) ! fs))
     (define (page-files loop app)
       (Cons (Pair "index.html" (i64->string (fnv-1a (app-page app))))
-            (append (file-digests loop (host-directory (Loop-root loop)))
+            (append (file-digests (host-directory (Loop-root loop)))
                     (filter (lambda (file) (not (string=? (Pair-first file) "index.html")))
-                            (file-digests loop (string-append app "/public"))))))
+                            (file-digests (string-append app "/public"))))))
 
-    (: file-digests (-> Loop String (List (Pair String String)) ! fs develop))
-    (define (file-digests loop directory)
-      (map (lambda (name) (Pair name (i32->string (digest (string-append directory "/" name))))) (directory-names loop directory)))
+    (: file-digests (-> String (List (Pair String String)) ! fs))
+    (define (file-digests directory)
+      (map (lambda (name) (Pair name (digest (string-append directory "/" name)))) (directory-names directory)))
 
     ;; The application's page, or an empty one for a project without it,
     ;; as the IDE may open.
@@ -556,7 +573,7 @@
     (define (develop-character code)
       (ref-set! input (Cons (i32->char code) (ref-get input))))
 
-    (: develop-event (-> I32 Unit ! mut fs console develop))
+    (: develop-event (-> I32 Unit ! mut fs console clock develop))
     (define (develop-event kind)
       (let ((text (list->string (reverse (ref-get input)))))
         (ref-set! input (Nil))
@@ -601,12 +618,6 @@
             ((char=? c #\\) "\\\\")
             ((char=? c #\newline) "\\n")
             (else (list->string (list c)))))
-
-    (: lines (-> String (List String)))
-    (define (lines text)
-      (match (string-index text #\newline)
-        ((Some index) (Cons (substring text 0 index) (lines (substring text (+ index 1) (string-length text)))))
-        ((None) (list text))))
 
     (: base-name (-> String String))
     (define (base-name path)

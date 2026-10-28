@@ -377,7 +377,8 @@
     ("tests/programs" "control-resumable-exception") ("tests/programs" "control-stored-resume") ("tests/programs" "control-tail-loop")
     ("tests/programs" "tcp") ("tests/programs" "tcp-handler")
     ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")
-    ("tests/programs" "http-exchange") ("tests/programs" "http-sockets")))
+    ("tests/programs" "http-exchange") ("tests/programs" "http-sockets")
+    ("tests/programs" "directories")))
 
 (define (suite-libraries suite)
   (if (string=? suite "examples") '("examples") '("tests/programs" "tests/programs/lib")))
