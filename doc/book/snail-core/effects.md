@@ -187,7 +187,10 @@ caller its effect:
 `log`'s type is `(-> String Unit)`, and calling it adds `Log` to the row,
 so `total`'s row is `Log`. `Log` has no default, so something must say what
 logging means before `total` can run. Effects take no type parameters, and
-operations are monomorphic ([notable omissions](omissions.md)).
+operations are monomorphic ([notable omissions](omissions.md)): a handler
+implements an operation once, at one type, so an operation's type may not
+quantify over types or rows
+(`tests/programs/error-effect-operation-polymorphic.sld`).
 
 ### Handling an effect
 
