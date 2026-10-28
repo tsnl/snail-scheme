@@ -2,7 +2,8 @@
  (snail-core base))
 
 ;; An implementation of an operation declared without ctl returns to its
-;; caller in the handled body, which does not expect a yield there.
+;; caller in the handled body, which expects a yield there only to the
+;; control effects the operation's type names, and ask's names none.
 (effect Abort
   ((ctl abort (-> I64 I64))))
 

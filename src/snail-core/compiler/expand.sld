@@ -1196,7 +1196,7 @@
           (("typeclass") (Pair (Nil) (declare-class cx env form)))
           (("instance") (declare-instance cx env form))
           (("extern") (Pair (Nil) (declare-extern cx env form)))
-          (("effect") (Pair (Nil) (declare-effect cx env form)))
+          (("effect") (declare-effect cx env form))
           (("define") (Pair (list (lambda (cx) (define-top-level cx signatures env form))) cx))
           (("expose") (Pair (list (lambda (cx) (add-item cx (expose-item cx env form)))) cx))
           (("expression") (Pair (list (lambda (cx) (expanding cx ((value (expand-expr env form))) (add-item cx (Do value))))) cx))
@@ -1594,18 +1594,20 @@
          (add-value cx (global-binding cx env name) (Foreign (Import module symbol) (mono-scheme (resolve-type cx env type)))))
         (_ (compile-error (syntax-loc form) "expected (extern name \"module\" \"symbol\" type)"))))
 
-    ;; Operations perform their effect; host defaults name Wasm imports.
-    (: declare-effect (-> Context Env Syntax Context))
+    ;; Operations perform their effect. Clauses after them give defaults: a
+    ;; `host` clause names Wasm imports, and a `default` clause names
+    ;; Snail-Core implementations, whose definitions expand with the
+    ;; library's bodies, in the steps this returns.
+    (: declare-effect (-> Context Env Syntax (Pair (List (-> Context Context)) Context)))
     (define (declare-effect cx env form)
       (match form
-        ((Form (Cons _ (Cons name (Cons operations host))) _)
+        ((Form (Cons _ (Cons name (Cons operations clauses))) loc)
          (let ((id (match (resolve cx env name) ((Some (EffectName id)) id) (_ (panic "internal error: effect")))))
            (expanding cx ((declared (each (lambda (cx operation) (declare-operation cx env id operation)) (form-items operations "a list of operations"))))
-                      (let* ((control (map Pair-first (filter Pair-second declared)))
-                             (defaults (match host
-                                         ((Cons clause (Nil)) (host-defaults cx env clause control))
-                                         (_ (Nil)))))
-                        (Context-program-set cx (program-with-effect (Context-program cx) (Effect id (map Pair-first declared) control defaults)))))))
+                      (let ((operations (map Pair-first declared)) (control (map Pair-first (filter Pair-second declared))))
+                        (expanding cx ((snail (snail-defaults env operations control (effect-clauses clauses "default"))))
+                                   (let ((effect (Effect id operations control (effect-defaults cx env clauses control snail loc))))
+                                     (Pair (map DefaultDefinition-expand snail) (Context-program-set cx (program-with-effect (Context-program cx) effect)))))))))
         (_ (compile-error (syntax-loc form) "expected (effect Name ((operation type) ...))"))))
 
     ;; `(name type)` declares an operation whose implementation returns to
@@ -1619,16 +1621,43 @@
         ((Form (Cons name (Cons type (Nil))) _) (declare-operation-type cx env effect name type #f))
         (_ (compile-error (syntax-loc operation) "expected (operation type) or (ctl operation type)"))))
 
+    ;; An operation's type performs its effect. The row an ordinary
+    ;; operation's type writes is its latent row: the effects its
+    ;; implementations may perform where it is performed, which its callers
+    ;; are charged too. A control operation's implementation runs where its
+    ;; handler is instead, so its type is total.
     (: declare-operation-type (-> Context Env String Syntax Syntax Bool (Pair (Pair String Bool) Context)))
     (define (declare-operation-type cx env effect name type control?)
       (match (resolve-scheme cx env type)
-        ((Scheme vars constraints (TFun params result (TRow (Nil) (None))))
+        ((Scheme vars constraints (TFun params result (TRow latent (None))))
+         (when (and control? (not (null? latent))) (compile-error (syntax-loc type) "a control operation has a total function type; its effect is implied"))
+         (when (member? effect latent) (compile-error (syntax-loc type) "an operation's latent row cannot name its own effect"))
          (let ((global (global-binding cx env name)))
            (Pair (Pair global control?)
-                 (add-value cx global (Operation effect (Scheme vars constraints (TFun params result (TRow (list effect) (None)))))))))
-        (_ (compile-error (syntax-loc type) "an operation has a total function type; its effect is implied"))))
+                 (add-value cx global (Operation effect (Scheme vars constraints (TFun params result (TRow (Cons effect latent) (None)))))))))
+        (_ (compile-error (syntax-loc type) "an operation has a function type with a closed row; its effect is implied"))))
 
-    (: host-defaults (-> Context Env Syntax (List String) (List (Pair String Import))))
+    ;; The clauses after an effect's operations that `kind` heads.
+    (: effect-clauses (-> (List Syntax) String (List Syntax)))
+    (define (effect-clauses clauses kind)
+      (filter (lambda (clause)
+                (match clause
+                  ((Form (Cons (Ident head _ _) _) _)
+                   (unless (member? head (list "host" "default")) (compile-error (syntax-loc clause) "expected a host or default clause"))
+                   (string=? head kind))
+                  (_ (compile-error (syntax-loc clause) "expected a host or default clause"))))
+              clauses))
+
+    ;; Every default the clauses give, at most one per operation.
+    (: effect-defaults (-> Context Env (List Syntax) (List String) (List DefaultDefinition) Loc (List (Pair String Default))))
+    (define (effect-defaults cx env clauses control snail loc)
+      (let ((defaults (append (concatenate (map (lambda (clause) (host-defaults cx env clause control)) (effect-clauses clauses "host")))
+                              (map (lambda (d) (Pair (DefaultDefinition-operation d) (SnailDefault (DefaultDefinition-global d)))) snail))))
+        (unless (= (length (delete-duplicates string=? (map Pair-first defaults))) (length defaults))
+          (compile-error loc "an operation has at most one default"))
+        defaults))
+
+    (: host-defaults (-> Context Env Syntax (List String) (List (Pair String Default))))
     ;; A control operation has no host default: the host cannot be handed
     ;; the rest of a computation, so a control effect must be handled.
     (define (host-defaults cx env syntax control)
@@ -1639,10 +1668,75 @@
                   ((Form (Cons name (Cons (Atom (DString symbol) _) (Nil))) _)
                    (let ((global (global-binding cx env name)))
                      (when (member? global control) (compile-error (syntax-loc operation) "a control operation has no host default"))
-                     (Pair global (Import module symbol))))
+                     (Pair global (HostDefault (Import module symbol)))))
                   (_ (compile-error (syntax-loc operation) "expected (operation \"symbol\")"))))
               (form-items operations "a list of host operations")))
         (_ (compile-error (syntax-loc syntax) "expected (host \"module\" ((operation \"symbol\") ...))"))))
+
+    ;; One Snail-Core default: its operation, the global that holds its
+    ;; definition, and the step that expands it.
+    (struct DefaultDefinition
+      ((operation String)
+       (global String)
+       (expand (-> Context Context))))
+
+    ;; `(default ((operation implementation) ...))` defines each
+    ;; implementation as a function of this library whose type is its
+    ;; operation's, latent row included, as an instance method has its
+    ;; class method's. A control operation has none, as it has no host
+    ;; default.
+    (: snail-defaults (-> Context Env (List String) (List String) (List Syntax) (Pair (List DefaultDefinition) Context)))
+    (define (snail-defaults cx env operations control clauses)
+      (each cx (lambda (cx entry) (snail-default cx env operations control entry)) (concatenate (map default-entries clauses))))
+
+    (: default-entries (-> Syntax (List Syntax)))
+    (define (default-entries clause)
+      (match clause
+        ((Form (Cons _ (Cons (Form entries _) (Nil))) _) entries)
+        (_ (compile-error (syntax-loc clause) "expected (default ((operation implementation) ...))"))))
+
+    (: snail-default (-> Context Env (List String) (List String) Syntax (Pair DefaultDefinition Context)))
+    (define (snail-default cx env operations control entry)
+      (match entry
+        ((Form (Cons name (Cons value (Nil))) loc)
+         (let ((operation (named-operation operations name)))
+           (when (member? operation control) (compile-error loc "a control operation has no default"))
+           (expanding cx ((global (fresh-global (string-append (short-name operation) "-default")))
+                          (then (add-value global (Defined (Some (default-scheme cx operation loc)) (None)))))
+                      (Pair (DefaultDefinition operation global (lambda (cx) (expand-default cx env global operation value loc))) cx))))
+        (_ (compile-error (syntax-loc entry) "expected (operation implementation)"))))
+
+    ;; The operation's type without its own effect, which a default cannot
+    ;; perform: no handler of it is in scope where a default runs.
+    (: default-scheme (-> Context String Loc Scheme))
+    (define (default-scheme cx operation loc)
+      (match (program-value (Context-program cx) operation)
+        ((Some (Operation effect scheme))
+         (match scheme
+           ((Scheme (Nil) (Nil) (TFun params result _)) (Scheme (Nil) (Nil) (TFun params result (TRow (operation-latent effect scheme) (None)))))
+           (_ (compile-error loc "an operation with a default must have a monomorphic type"))))
+        (_ (panic "internal error: not an operation"))))
+
+    ;; A default that is not a lambda names a function, which it calls with
+    ;; the operation's arguments.
+    (: expand-default (-> Context Env String String Syntax Loc Context))
+    (define (expand-default cx env global operation syntax loc)
+      (expanding cx ((value (expand-expr env syntax)))
+                 (match (Expr-term value)
+                   ((Lambda _ _) (add-item cx (Define global value)))
+                   ((Var _ _ _) (expanding cx ((value (eta-expand value (operation-arity cx operation) loc))) (add-item cx (Define global value))))
+                   (_ (compile-error loc "a default is a lambda or the name of a function")))))
+
+    (: eta-expand (-> Context Expr I64 Loc (Pair Expr Context)))
+    (define (eta-expand cx function arity loc)
+      (expanding cx ((names (each (lambda (cx index) (fresh cx "argument")) (iota arity))))
+                 (Pair (expr (Lambda names (expr (App function (map (lambda (name) (expr (Var name (Nil) (Nil)) loc)) names)) loc)) loc) cx)))
+
+    (: operation-arity (-> Context String I64))
+    (define (operation-arity cx operation)
+      (match (program-value (Context-program cx) operation)
+        ((Some (Operation _ (Scheme _ _ (TFun params _ _)))) (length params))
+        (_ (panic "internal error: not an operation"))))
 
     ;; ---- Primitives ----
 
@@ -1982,8 +2076,12 @@
     ;; need not be imported.
     (: operation-name (-> Context String Syntax String))
     (define (operation-name cx effect ident)
+      (named-operation (Effect-operations (program-effect (Context-program cx) effect)) ident))
+
+    (: named-operation (-> (List String) Syntax String))
+    (define (named-operation operations ident)
       (let ((name (Ident-name (expect-ident ident "an operation name"))))
-        (match (find (lambda (operation) (string=? (short-name operation) name)) (Effect-operations (program-effect (Context-program cx) effect)))
+        (match (find (lambda (operation) (string=? (short-name operation) name)) operations)
           ((Some operation) operation)
           ((None) (compile-error (syntax-loc ident) (string-append "not an operation of this effect: " name))))))
 
