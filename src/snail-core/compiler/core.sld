@@ -100,7 +100,11 @@
    Effect-name
    Effect-operations
    Effect-control
-   Effect-host
+   Effect-defaults
+   Default
+   HostDefault
+   SnailDefault
+   operation-latent
    Value
    Defined
    Constructor
@@ -534,15 +538,24 @@
       ((module String)
        (symbol String)))
 
-    ;; Host defaults map operation names to Wasm imports.
     ;; `control` names the operations whose implementations receive the rest
     ;; of the handled computation as `resume`; the others return to their
-    ;; caller.
+    ;; caller. `defaults` maps operation names to what performs them when no
+    ;; handler is in scope.
     (struct Effect
       ((name String)
        (operations (List String))
        (control (List String))
-       (host (List (Pair String Import)))))
+       (defaults (List (Pair String Default)))))
+
+    ;; An operation's default: a Wasm import, or a Snail-Core function the
+    ;; effect's declaration defines, which runs under the performer's
+    ;; handlers.
+    (enum Default
+      (HostDefault
+       ((import Import)))
+      (SnailDefault
+       ((function String))))
 
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
@@ -588,6 +601,15 @@
         ((Operation _ scheme) (Some scheme))
         ((Primitive scheme) (Some scheme))
         ((Foreign _ scheme) (Some scheme))))
+
+    ;; The effects an operation's type names besides its own: its latent
+    ;; row, which its callers are charged and its implementations may
+    ;; perform, under the handlers in scope where it is performed.
+    (: operation-latent (-> String Scheme (List String)))
+    (define (operation-latent effect scheme)
+      (match (Scheme-type scheme)
+        ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
+        (_ (Nil))))
 
     ;; Top-level items run in order when the program starts. An exposed
     ;; function is exported to the host under `symbol`.

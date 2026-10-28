@@ -170,7 +170,9 @@ function of the expander has `mut` in its row — and where it does not, the
   that may yield to a control handler. After specialization a row keeps
   only control effects, so a call may yield exactly when its callee's row
   names one, and a handle keeps what its body yields except to its own
-  effect. Such a call stays where it is when its value flows straight out
+  effect. An operation's row is its effect's and its latent row, so
+  performing an operation whose type names a control effect is such a
+  call. Such a call stays where it is when its value flows straight out
   of a function, a handle body or a let's value, so a tail call stays one;
   anywhere else a let names it, with the rest of the expression as the
   let's body, and names first each operand that runs before it, so those
@@ -180,8 +182,8 @@ function of the expander has `mut` in its row — and where it does not, the
   `string-generate` callback, which a WAT loop calls; in an `unsafe-total`
   thunk, whose row the call discards; in `dispatch-local` work, which runs
   later on a task's own stack; and in the implementation of an operation
-  declared without `ctl`, which returns into a handled body that does not
-  test for a yield there.
+  declared without `ctl`, which returns into a handled body that tests for
+  a yield there only to the control effects the operation's type names.
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
@@ -191,7 +193,11 @@ function of the expander has `mut` in its row — and where it does not, the
   function takes the handlers in scope as its first parameter, a list of
   evidence nodes; `handle` extends the list for its body, and an operation
   walks it for its effect's node and runs the implementation with the list
-  outside that node, or the host default past the last. A control operation
+  outside that node, or the default past the last: a host import, or a
+  Snail-Core function run with the performer's list. The implementation of
+  an operation with a latent row runs under a forwarding node for each
+  effect the row names, which sends that effect's operations, and re-aims
+  its yields, to the performer's handlers. A control operation
   instead leaves a yield record in one global: the node it is aimed at, the
   operation and its arguments, and returns a placeholder of its result type.
   After each let whose value may yield the record is tested, and while it is
