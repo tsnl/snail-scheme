@@ -25,6 +25,7 @@
    type->string
    type-key
    any-type?
+   never-type?
    string-type?
    bytes-type?
    buffer-type?
@@ -333,6 +334,14 @@
     (define (any-type? type)
       (match type
         ((TCon "Any" (Nil)) #t)
+        (_ #f)))
+
+    ;; (snail core base)'s type with no values. A control operation that
+    ;; answers it never resumes, so its yield saves nothing.
+    (: never-type? (-> Type Bool))
+    (define (never-type? type)
+      (match type
+        ((TCon "snail.core.base:Never" (Nil)) #t)
         (_ #f)))
 
     (: string-type? (-> Type Bool))

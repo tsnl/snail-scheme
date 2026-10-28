@@ -6,7 +6,7 @@
 | --- | --- |
 | `(snail core forms)` | The core forms, the builtin types, and the `mut` and `tasks` effects. The compiler serves it; it has no file. |
 | `(snail core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail core base)` gives most of them their everyday names. |
-| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, lists, vectors, arrays, strings, `Show`. |
+| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, vectors, arrays, strings, `Show`. |
 | `(snail core io)` | The `console`, `fs` and `clock` effects: text output, lines of input, files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock. |
 | `(snail shell resource)` | Files a library links rather than embeds: `link-bytes`, the `Resource` handle, and `read-resource` through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail shell task)` | One-shot local dispatch, cooperative yield, timer waits, and `Mailbox` queues between tasks, through the runtime-owned `tasks` effect ([task operations](../runtimes/tasks.md)). |

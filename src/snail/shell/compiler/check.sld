@@ -739,9 +739,23 @@
                     (clauses (each (lambda (ck clause)
                                      (infer-clause ck clause (Expr-type scrutinee) result row))
                                    clauses)))
-                (when (null? clauses) (compile-error loc "a match needs at least one clause"))
-                (check-coverage ck (map Clause-pattern clauses) loc)
+                (if (null? clauses)
+                    (check-empty-match ck (Expr-type scrutinee) loc)
+                    (check-coverage ck (map Clause-pattern clauses) loc))
                 (Pair (Expr (Match scrutinee clauses) result loc) ck)))
+
+    ;; A match with no clauses is exhaustive only on a type with no cases,
+    ;; which has no value to reach it with.
+    (: check-empty-match (-> Checker Type Loc Unit))
+    (define (check-empty-match ck type loc)
+      (unless (match (resolve-type (solution ck) type)
+                ((TCon name _)
+                 (match (table-ref (Program-types (program-of ck)) name)
+                   ((Some data) (and (DataType-enum? data) (null? (DataType-cases data))))
+                   ((None) #f)))
+                (_ #f))
+        (compile-error loc
+                       "a match needs at least one clause, unless its value's type has no cases")))
 
     ;; One clause: its pattern binds for its body alone, and every body has
     ;; the match's result type.
@@ -847,19 +861,21 @@
         (_ (infer ck value row))))
 
     ;; An implementation returns the operation's answer to its caller. A
-    ;; control operation's implementation is also handed `resume`, which it
-    ;; may call at most once, and returns the handler's result. `resume`
+    ;; control operation's implementation returns the handler's result, and
+    ;; is also handed `resume`, which it may call at most once, unless the
+    ;; operation answers Never, when nothing could resume it. `resume`
     ;; performs `context`, the row of the code around the handle.
     (: implementation-type (-> String Answer (List Type) Type Type Type Type))
     (define (implementation-type operation answer params result latent context)
-      (if (member? operation (Answer-control answer))
-          (TFun (append params
-                        (list (TCon "Once"
-                                    (list (TFun (list result)
-                                                (Answer-result answer)
-                                                context)))))
-                (Answer-result answer) latent)
-          (TFun params result latent)))
+      (cond ((not (member? operation (Answer-control answer))) (TFun params result latent))
+            ((never-type? result) (TFun params (Answer-result answer) latent))
+            (else (TFun (append params
+                                (list (TCon "Once"
+                                            (list (TFun (list result)
+                                                        (Answer-result answer)
+                                                        context)))))
+                        (Answer-result answer)
+                        latent))))
 
     ;; ---- Patterns ----
 

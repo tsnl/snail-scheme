@@ -1,0 +1,12 @@
+added 1
+added 2
+added 3
+6
+added 1
+failed: negative: -2
+emitted 4
+emitted 5
+emitted 6
+15
+emitted 4
+failed: negative: -5

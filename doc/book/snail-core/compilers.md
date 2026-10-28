@@ -223,6 +223,9 @@ function of the expander has `mut` in its row — and where it does not, the
   and ends in the handle's catch, as the handle site does, so handlers are
   deep and a tail-resumptive implementation runs in constant stack. A
   frame that yields again has the frames after it saved on the new record.
+  A call that may yield only to effects whose control operations all
+  answer `Never` saves no frame: its test only leaves, no join is built for
+  what follows it, and its implementation is handed no `resume`.
   Nothing reads a placeholder, and a program without control effects
   declares no record and tests nothing. Each GC type sits in
   the smallest recursion group it can, ordered by name, so modules that
