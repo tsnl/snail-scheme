@@ -51,12 +51,15 @@ impl Files {
 
 // WASI has no working directory of its own; the host passes it as SNAIL_CWD
 // and relative paths are resolved against it.
-fn staged_path(count: u32) -> Result<String, String> {
-    let path = staged_text(count)?;
-    Ok(match std::env::var("SNAIL_CWD") {
+pub(crate) fn resolved(path: String) -> String {
+    match std::env::var("SNAIL_CWD") {
         Ok(directory) if !path.starts_with('/') => format!("{directory}/{path}"),
         _ => path,
-    })
+    }
+}
+
+pub(crate) fn staged_path(count: u32) -> Result<String, String> {
+    staged_text(count).map(resolved)
 }
 
 // ---- Filesystem operations ----
@@ -266,7 +269,7 @@ fn release_all() -> Result<(), String> {
     result
 }
 
-fn checked<T>(result: Result<T, String>) -> T {
+pub(crate) fn checked<T>(result: Result<T, String>) -> T {
     result.unwrap_or_else(|error| {
         // Every caller ended its RefCell borrow and disposed of removed files.
         // Keep the original failure even if another file also fails to close.
