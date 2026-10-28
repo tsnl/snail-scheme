@@ -196,7 +196,7 @@ try {
     (func (export "_initialize")) (func (export "main")) (func (export "reset"))
     (func (export "input_character") (param i32) (i32.store (i32.const 0) (i32.const 1114112)) (call $text (i32.const 0) (i32.const 1)))
     (func (export "input_end")) (func (export "project"))
-    (func (export "request")) (func (export "diagnostic"))
+    (func (export "diagnostic"))
     (func (export "close-resources") (result i32) (i32.const 0)))`));
   const broken = await createCompiler(trapping, join(directory, 'trapping-errors'));
   assert.throws(() => broken.project(project), error => error instanceof CompilerCrashed && error.cause instanceof RangeError);
@@ -205,7 +205,7 @@ try {
 
   // Diagnostic reset/projection are part of the trusted boundary too. A trap
   // there retires the instance; emitting a record never makes a trap recoverable.
-  for (const stage of ['reset', 'argument-exit', 'request', 'diagnostic', 'after-record']) {
+  for (const stage of ['reset', 'argument-exit', 'diagnostic', 'after-record']) {
     const fixture = join(directory, `${stage}.wasm`);
     write(fixture, assemble(`(module
       (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
@@ -216,7 +216,6 @@ try {
       (func (export "input_character") (param i32) ${stage === 'argument-exit' ? '(call $exit (i32.const 1))' : ''})
       (func (export "input_end"))
       (func (export "reset") ${stage === 'reset' ? 'unreachable' : ''})
-      (func (export "request") ${stage === 'request' ? 'unreachable' : ''})
       (func (export "diagnostic") ${stage === 'diagnostic' ? 'unreachable' : ''})
       (func (export "project") ${stage === 'after-record'
         ? '(call $text (i32.const 0) (i32.const 0)) (call $text (i32.const 0) (i32.const 0)) (call $diagnostic (i64.const 1) (i64.const 1)) unreachable'

@@ -138,7 +138,7 @@ export async function createCompiler(program, diagnostics) {
     let entered = false;
     try {
       ftruncateSync(errors, 0);
-      // main initializes the request and diagnostic cells before reset can run.
+      // main initializes the diagnostic cell before reset can run.
       if (name !== 'main') api.reset();
       for (const text of strings) {
         for (const character of text) api.input_character(character.codePointAt(0));
@@ -146,21 +146,21 @@ export async function createCompiler(program, diagnostics) {
       }
       entered = true;
       const value = api[name](...values);
+      // A compile that needs an input returns, with its request's record.
+      const request = records.find(record => record.kind === 'generate' || record.kind === 'artifact');
+      if (request) throw new CompilerFailure('compiler requires an input', request, null);
       return {value, records};
     } catch (error) {
+      if (error instanceof CompilerFailure) throw error;
       let diagnostic;
       try { diagnostic = readErrors(); }
       catch (failure) { retire(new CompilerCrashed('cannot read compiler diagnostics', {cause: failure})); }
       const message = diagnostic || error?.message || `compiler exited with status ${exitCode}`;
       if (entered && name !== 'main' && error === exited && exitCode === 1) {
         records = [];
-        try { api.request(); }
-        catch (failure) { retire(new CompilerCrashed('cannot read compiler request', {cause: failure})); }
-        const request = records[0] ?? null;
-        records = [];
         try { api.diagnostic(); }
         catch (failure) { retire(new CompilerCrashed('cannot read compiler diagnostic', {cause: failure})); }
-        throw new CompilerFailure(message, request, records[0] ?? null);
+        throw new CompilerFailure(message, null, records[0] ?? null);
       }
       retire(new CompilerCrashed(message, {cause: error}));
     }

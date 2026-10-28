@@ -11,7 +11,7 @@
    unit panic unsafe-total
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
-   Option Some None Pair Pair-first Pair-second
+   Option Some None Result Ok Err Never absurd Pair Pair-first Pair-second
    Cons Nil list null? length reverse append map map-indexed for-each filter fold-left fold-right
    list-ref
    list-tail
@@ -95,6 +95,17 @@
     (define (string->i64 text)
       (let ((n (and (> (string-length text) 0) (string->number text 10))))
         (if (exact-integer? n) (Some n) (None))))
+
+    (enum (Result T E)
+      (Ok ((value T)))
+      (Err ((error E))))
+
+    ;; No value has type Never, so `absurd` is never called: an operation
+    ;; that answers Never escapes to its handler (snail stage0 forms).
+    (enum Never)
+
+    (define (absurd never)
+      (error "absurd: no value has type Never" never))
 
     (enum (Option T)
       (Some ((value T)))
