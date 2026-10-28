@@ -68,7 +68,7 @@ async function application(options = {}) {
     observed.count = panels.flatMap(panel => panel.widgets).find(widget => widget.key === 'count')?.text;
   }});
   const wasi = createWasi({print() {}});
-  const imports = {...runtime.imports, 'snail.screen': screen, 'snail.test': {marker: () => -9}};
+  const imports = {...runtime.imports, 'snail.runtime.browser.screen': screen, 'snail.test': {marker: () => -9}};
   let program;
   if (path.endsWith('.json')) {
     program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, imports);
@@ -262,6 +262,19 @@ async function checkUnpresentedReturn() {
   app.settled();
 }
 
+// A library may not take a name the host provides: the program's modules
+// would import that library in place of the host's interface.
+async function checkReservedName() {
+  if (!path.endsWith('.json')) return;
+  const renamed = async file => {
+    const bytes = await readFile(resolve(dirname(path), file));
+    if (resolve(dirname(path), file) !== path) return bytes;
+    return new TextEncoder().encode(new TextDecoder().decode(bytes).replace(/"name": ?"[^"]+"/, '"name": "snail.runtime.wasm"'));
+  };
+  await assert.rejects(linkProgram(renamed, path, createWasi({print() {}}), {}),
+    /no library may be linked as snail\.runtime\.wasm, which the host provides/);
+}
+
 async function checkProtocolOwnership() {
   const loaded = Promise.withResolvers(), stored = Promise.withResolvers();
   let loads = 0;
@@ -298,6 +311,7 @@ await checkUpdateTrap();
 await checkRefusal();
 await checkStartupFailures();
 await checkStorageFailure();
+await checkReservedName();
 await checkRootReturn();
 await checkUnpresentedReturn();
 await checkProtocolOwnership();

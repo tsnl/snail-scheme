@@ -44,12 +44,13 @@
 ;; Failures are values: a name linked already, a file that is missing, one
 ;; that is not a module, and a module that imports the runtime's memory as
 ;; a function.
-;;   (module (import "snail.library" "memory" (func)))
+;;   (module (import "snail.core.support" "memory" (func)))
 (: mislinked (List I32))
 (define mislinked
   (list 0 97 115 109 1 0 0 0
         1 4 1 96 0 0
-        2 24 1 13 115 110 97 105 108 46 108 105 98 114 97 114 121 6 109 101 109 111 114 121 0 0))
+        2 29 1 18 115 110 97 105 108 46 99 111 114 101 46 115 117 112 112 111 114 116
+        6 109 101 109 111 114 121 0 0))
 
 (define text-path "build/tests/adder.txt")
 (write-file text-path "not a module")

@@ -107,7 +107,7 @@
     (define (control-modules session program)
       (if (null? (control-effects program))
           (Nil)
-          (list (Built "snail.control" (wat->string (emit-control-module program))
+          (list (Built "snail.core.control" (wat->string (emit-control-module program))
                        (null?
                         (control-effects (ExpandedProgram-program (Session-expansion session))))
                        (Nil)))))

@@ -166,7 +166,7 @@ Python's `importlib.resources` addresses a package's data:
   produces one: project program and browser targets, `scripts/snail-tool run`
   and `compile`, and the development loop. A file that is missing fails the
   build with the library and the path. The module itself records what it
-  links: `link-bytes` becomes a call to an import from `snail.link` named for
+  links: `link-bytes` becomes a call to an import from `snail.runtime.link` named for
   the file, so a host cannot instantiate the module without supplying it.
 - **A handle, not the bytes.** `link-bytes` evaluates to a `Resource`, which
   names bytes and nothing more. The type is exported without its constructor,

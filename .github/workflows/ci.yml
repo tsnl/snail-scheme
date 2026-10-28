@@ -48,8 +48,8 @@ jobs:
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
           make check
-          cargo test --manifest-path crates/runtime/Cargo.toml --offline
-          cargo fmt --manifest-path crates/runtime/Cargo.toml --all -- --check
+          cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline
+          cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check
           cargo test --manifest-path crates/assembler/Cargo.toml --offline
           cargo fmt --manifest-path crates/assembler/Cargo.toml --all -- --check
           cargo test --manifest-path crates/snail/Cargo.toml --offline

@@ -66,7 +66,7 @@
        (send-signal (-> Process Signal (Result Unit ProcessError)))
        (wait-exit (-> Process (Result Exit ProcessError)))
        (close-process (-> Process (Result Unit ProcessError))))
-      (host "snail.process"
+      (host "snail.runtime.native.process"
             ((spawn "spawn")
              (read-output "read-output")
              (write-input "write-input")
@@ -86,7 +86,7 @@
     ;; task waits again.
     (effect signals
       ((termination (-> Signal)))
-      (host "snail.process"
+      (host "snail.runtime.native.process"
             ((termination "termination"))))
 
     ;; ---- Native tokens ----

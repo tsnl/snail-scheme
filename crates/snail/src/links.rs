@@ -2,8 +2,8 @@
 //! host/browser/load.mjs gives them on Node and in the page.
 //!
 //! A module asks for each file it links by importing a function from
-//! "snail.link" named for the file, which answers the file's handle, and
-//! reads the file by handle through "snail.resource". Every file the
+//! "snail.runtime.link" named for the file, which answers the file's handle, and
+//! reads the file by handle through "snail.runtime.resource". Every file the
 //! program's modules name is read from `resources/NAME` beside the payload
 //! before any module is instantiated, so reading one is a lookup, and a
 //! payload whose file cannot be read fails to load rather than when the
@@ -51,7 +51,7 @@ pub fn linked_names<'a>(modules: impl IntoIterator<Item = &'a Module>) -> Vec<St
     for module in modules {
         for import in module
             .imports()
-            .filter(|import| import.module() == "snail.link")
+            .filter(|import| import.module() == "snail.runtime.link")
         {
             if !names.iter().any(|name| name == import.name()) {
                 names.push(import.name().to_string());
@@ -63,21 +63,21 @@ pub fn linked_names<'a>(modules: impl IntoIterator<Item = &'a Module>) -> Vec<St
 
 // ---- Imports ----
 
-/// Defines "snail.link" NAME for each of `names`, answering its handle,
+/// Defines "snail.runtime.link" NAME for each of `names`, answering its handle,
 /// and the `resource` effect, a file's length and its bytes by handle,
 /// over the files the store holds.
 pub fn define(linker: &mut Linker<Host>, names: &[String]) -> wasmtime::Result<()> {
     for (handle, name) in (0..).zip(names) {
-        linker.func_wrap("snail.link", name, move || -> i32 { handle })?;
+        linker.func_wrap("snail.runtime.link", name, move || -> i32 { handle })?;
     }
     linker.func_wrap(
-        "snail.resource",
+        "snail.runtime.resource",
         "length",
         |caller: Caller<'_, Host>, handle: i32| {
             Ok(i32::try_from(caller.data().files.get(handle)?.len())?)
         },
     )?;
-    linker.func_wrap("snail.resource", "byte", byte)?;
+    linker.func_wrap("snail.runtime.resource", "byte", byte)?;
     Ok(())
 }
 
@@ -101,11 +101,11 @@ mod tests {
     // A program that links two files, one of them twice, and answers the
     // first's length plus the second's last byte.
     const LINKING: &str = r#"(module
-        (import "snail.link" "main/data/greeting.txt" (func $greeting (result i32)))
-        (import "snail.link" "lib/data/pixel.png" (func $pixel (result i32)))
-        (import "snail.link" "main/data/greeting.txt" (func $again (result i32)))
-        (import "snail.resource" "length" (func $length (param i32) (result i32)))
-        (import "snail.resource" "byte" (func $byte (param i32 i32) (result i32)))
+        (import "snail.runtime.link" "main/data/greeting.txt" (func $greeting (result i32)))
+        (import "snail.runtime.link" "lib/data/pixel.png" (func $pixel (result i32)))
+        (import "snail.runtime.link" "main/data/greeting.txt" (func $again (result i32)))
+        (import "snail.runtime.resource" "length" (func $length (param i32) (result i32)))
+        (import "snail.runtime.resource" "byte" (func $byte (param i32 i32) (result i32)))
         (memory (export "memory") 1)
         (func (export "_initialize"))
         (func (export "main") (result i32)

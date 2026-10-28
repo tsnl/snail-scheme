@@ -191,7 +191,11 @@ fn link_module(
 // ---- Programs this host does not run ----
 
 /// The host modules only Node provides, until tasks become effects (#511).
-pub const NODE_ONLY: [&str; 3] = ["snail.tasks", "snail.socket", "snail.process"];
+pub const NODE_ONLY: [&str; 3] = [
+    "snail.runtime.tasks",
+    "snail.runtime.native.socket",
+    "snail.runtime.native.process",
+];
 
 /// The module in `file`, compiled, unless it imports what only Node
 /// provides; its import section is read first, so a refused module costs
@@ -311,26 +315,26 @@ mod tests {
 
     #[test]
     fn a_program_that_uses_tasks_is_refused_naming_511() {
-        let imports = r#"(import "snail.tasks" "spawn" (func (param i32)))"#;
+        let imports = r#"(import "snail.runtime.tasks" "spawn" (func (param i32)))"#;
         let file = module_file("tasks", &program(imports, "(i32.const 0)", 0));
         let engine = engine().unwrap();
         let error = compile_module(&engine, Path::new(&file))
             .unwrap_err()
             .to_string();
         assert!(error.ends_with(
-            "imports snail.tasks: a program that uses tasks, sockets or processes runs on Node until tasks become effects (#511)"
+            "imports snail.runtime.tasks: a program that uses tasks, sockets or processes runs on Node until tasks become effects (#511)"
         ));
         assert_eq!(run(&file, &[]), 2);
     }
 
     #[test]
     fn imports_are_read_without_compiling() {
-        let imports = r#"(import "snail.socket" "open" (func (result i32)))"#;
+        let imports = r#"(import "snail.runtime.native.socket" "open" (func (result i32)))"#;
         let file = module_file("imports", &program(imports, "(i32.const 0)", 0));
         let read = program_imports(Path::new(&file)).unwrap();
         assert_eq!(
             read.into_iter().collect::<Vec<_>>(),
-            ["snail.socket", "wasi_snapshot_preview1"]
+            ["snail.runtime.native.socket", "wasi_snapshot_preview1"]
         );
     }
 }

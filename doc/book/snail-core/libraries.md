@@ -57,7 +57,7 @@ A `FileError` is `NotFound`, `AlreadyExists`, `NotEmpty`, `NotADirectory`,
 reading a link that is not one), `NotSupported` or `OtherError`, and `show`
 describes it. A relative path is resolved against the working directory the
 host passes. The runtime performs each operation through WASI preview1
-(`crates/runtime/src/paths.rs`); a page has no preopened directory, so every
+(`crates/snail-core-support/src/paths.rs`); a page has no preopened directory, so every
 path operation there fails with `OtherError`. WASI preview1 has no file
 modes or owners; it reports device and inode numbers and a status-change
 time, but Rust's standard library exposes them on WASI only as unstable

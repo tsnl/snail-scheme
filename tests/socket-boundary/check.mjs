@@ -15,7 +15,7 @@ let program, api;
 const tcp = createTcp(), udp = createUdp(), reported = [];
 const scheduler = createScheduler({handlerGlobals: () => program ? programEntry(program, 'main').handlers : [],
                                   reportError: error => reported.push(error)});
-const host = {'snail.socket': socketImports(() => program, scheduler, tcp, udp), 'snail.test': {stage: () => 0}};
+const host = {'snail.runtime.native.socket': socketImports(() => program, scheduler, tcp, udp), 'snail.test': {stage: () => 0}};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
 const invoke = (name, ...args) => scheduler.start(() => WebAssembly.promising(api[name])(...args));
 const helpers = () => program.names ? program.linked.get('snail.shell.socket').exports : program.runtime.exports;

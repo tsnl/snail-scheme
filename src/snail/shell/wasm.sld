@@ -63,7 +63,7 @@
        (instantiate (-> I32 I32 I32))
        (exports-function? (-> I32 Bool))
        (export-function (-> I32 Funcref)))
-      (host "snail.wasm"
+      (host "snail.runtime.wasm"
             ((argument-character "argument-character")
              (argument-end "argument-end")
              (compile "compile")

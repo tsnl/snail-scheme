@@ -114,8 +114,8 @@ a failure as many times as a fix needs; pushing to see what breaks spends
 that time for a worse report. Push when a change is verified, not to find out.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path crates/runtime/Cargo.toml --offline`, and
-`cargo fmt --manifest-path crates/runtime/Cargo.toml --all -- --check`, and the
+`cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline`, and
+`cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check`, and the
 same two for `crates/assembler` and `crates/snail`. Changes to the native
 executable or to how compiles and programs run must also pass
 `make test-wasmtime`. The driver rebuilds the compiled compiler whenever the

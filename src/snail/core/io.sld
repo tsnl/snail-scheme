@@ -61,7 +61,7 @@
     (effect console
       ((console-write (-> Char Unit))
        (console-read (-> I32)))
-      (host "snail.library"
+      (host "snail.core.support"
             ((console-write "snail:io/console-write")
              (console-read "snail:io/console-read"))))
 
@@ -134,7 +134,7 @@
        (reply-character (-> I32 Char))
        (status-size (-> I64))
        (status-modified (-> I64)))
-      (host "snail.library"
+      (host "snail.core.support"
             ((path-exists "snail:io/file-exists")
              (open-input "snail:io/open-input-file")
              (open-output "snail:io/open-output-file")
@@ -264,7 +264,7 @@
        (size I64)
        (modified I64)))
 
-    ;; A code as the runtime answers it. crates/runtime/src/paths.rs gives
+    ;; A code as the runtime answers it. crates/snail-core-support/src/paths.rs gives
     ;; each FileError its number, in this order.
     (: path-result (-> I32 (Result I32 FileError)))
     (define (path-result code)
@@ -436,16 +436,19 @@
     ;; the difference between two readings is the time between them.
     (effect clock
       ((monotonic-nanoseconds (-> I64)))
-      (host "snail.library"
+      (host "snail.core.support"
             ((monotonic-nanoseconds "snail:clock/monotonic"))))
 
     ;; ---- Command line ----
 
     ;; The program's arguments, starting with its own path. They never change
     ;; while it runs, so reading them is total.
-    (extern argument-count "snail.library" "snail:process/argument-count" (-> I32))
-    (extern argument-length "snail.library" "snail:process/argument-length" (-> I32 I32))
-    (extern argument-character "snail.library" "snail:process/argument-character" (-> I32 I32 Char))
+    (extern argument-count "snail.core.support" "snail:process/argument-count" (-> I32))
+    (extern argument-length "snail.core.support" "snail:process/argument-length" (-> I32 I32))
+    (extern argument-character
+            "snail.core.support"
+            "snail:process/argument-character"
+            (-> I32 I32 Char))
 
     (: command-line (-> (List String)))
     (define (command-line)
