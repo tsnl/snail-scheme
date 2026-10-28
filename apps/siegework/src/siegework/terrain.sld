@@ -49,7 +49,7 @@
    nest-rate
    reserve-per-rate)
   (import
-   (snail-core base)
+   (snail core base)
    (siegework grid))
   (begin
 

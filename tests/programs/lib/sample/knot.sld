@@ -3,12 +3,12 @@
 ;; producer.
 (generate-library (sample knot)
                   (import
-                   (snail-core base)
-                   (snail-core syntax)
+                   (snail core base)
+                   (snail shell syntax)
                    (sample knot-helper))
                   (library-syntax (list "sample" "knot")
                                   (list "knot")
-                                  (list (list "snail-core" "base"))
+                                  (list (list "snail" "core" "base"))
                                   (list (form "define"
                                               (list (SymbolSyntax "knot")
                                                     (IntegerSyntax helper))))))

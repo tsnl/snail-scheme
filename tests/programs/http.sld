@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core http))
+ (snail core base)
+ (snail core io)
+ (snail shell http))
 
 (: ascii (-> String Bytes))
 (define (ascii text)

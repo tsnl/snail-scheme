@@ -6,7 +6,7 @@
    distance-squared
    swap!)
   (import
-   (snail-core base))
+   (snail core base))
   (begin
 
     (struct Point

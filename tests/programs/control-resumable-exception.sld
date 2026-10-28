@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A resumable exception: `fail` reports a problem and asks for a value to
 ;; go on with, which the handler supplies by resuming.

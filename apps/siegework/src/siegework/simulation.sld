@@ -12,8 +12,8 @@
    command
    replay)
   (import
-   (snail-core base)
-   (snail-core wire)
+   (snail core base)
+   (snail shell wire)
    (siegework world)
    (siegework colony)
    (siegework siege))

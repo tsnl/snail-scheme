@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 (for-each (lambda (text) (display (string->i64 text)) (newline))
           (list "0"

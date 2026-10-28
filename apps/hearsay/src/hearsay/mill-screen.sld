@@ -12,11 +12,11 @@
    view-mill-screen
    mill-screen-hud)
   (import
-   (snail-core base)
-   (snail-core wire)
-   (snail-core app)
-   (snail-core math)
-   (snail-core sprite)
+   (snail core base)
+   (snail shell wire)
+   (snail shell app)
+   (snail shell math)
+   (snail shell sprite)
    (only (lpc layout) Stand Stroll walk-book)
    (lpc wardrobe)
    (hearsay mill)

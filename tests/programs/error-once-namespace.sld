@@ -1,4 +1,4 @@
 (import
- (snail-core base)
+ (snail core base)
  (rename (prim) (once pretend-once)))
 (unit)

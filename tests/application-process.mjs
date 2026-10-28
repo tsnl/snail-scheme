@@ -138,7 +138,7 @@ try {
 
   const project = join(directory, 'project'); mkdirSync(project);
   writeFileSync(join(project, 'project.datum'), '((build-target app (program (entry "main.sld"))))');
-  writeFileSync(join(project, 'main.sld'), '(import (snail-core base) (snail-core io)) (for-each write-line (command-line)) (write-file "application-cwd.txt" "saved")');
+  writeFileSync(join(project, 'main.sld'), '(import (snail core base) (snail core io)) (for-each write-line (command-line)) (write-file "application-cwd.txt" "saved")');
   execFileSync(join(root, 'snail'), ['build', project, 'app'], {stdio: 'pipe'});
   const native = owner({root}), entry = join(realpathSync(join(project, 'build/app')), 'program.wasm');
   native.request({build: 1, entry, args: ['ordinary argument']}); await exited(native);

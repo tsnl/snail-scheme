@@ -1,4 +1,4 @@
-;; A second library that derives without importing (snail-core wire),
+;; A second library that derives without importing (snail shell wire),
 ;; whose instances use those (sample shape) derives.
 (define-library (sample route)
   (export
@@ -9,7 +9,7 @@
    Route-stops
    Route-length)
   (import
-   (snail-core base)
+   (snail core base)
    (sample shape))
   (begin
 

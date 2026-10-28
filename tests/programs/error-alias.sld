@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 (type Ping Pong)
 (type Pong Ping)

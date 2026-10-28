@@ -9,10 +9,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - A language on Snail-Core is a set of libraries that expand into it: Scheme is
   macros and libraries over the typed language, not a second compiler.
   Every library that ships lives under `src/`, with paths matching library
-  names and `.sld` sources: Snail-Core's own under `src/snail-core/`,
+  names and `.sld` sources: the core under `src/snail/core/`, the shell built
+  on it under `src/snail/shell/` (#566),
   Scheme's under `src/scheme/`, and the compiler among them at
-  `src/snail-core/compiler/`, written in typed Snail-Core importing only
-  `(snail-core base)`, `(snail-core table)` and `(snail-core io)`, so it
+  `src/snail/shell/compiler/`, written in typed Snail-Core importing only
+  `(snail core base)`, `(snail core table)` and `(snail core io)`, so it
   compiles itself.
   Host-specific code lives only under `host/`: `chibi/` for stage 0,
   `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
@@ -48,7 +49,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   they require every frame to be reachable twice and would be paid for by code
   that never captures one. The lowering is evidence passing: every
   function takes `$ev`, the handlers in scope, as its first parameter, and
-  `handle` extends it for its body (`src/snail-core/compiler/wasm.sld`,
+  `handle` extends it for its body (`src/snail/shell/compiler/wasm.sld`,
   "Effect handlers"). One-shot `resume` is implemented on the same
   translation: a yield returns through each frame, saving the rest of it
   as a closure, and calling `resume` runs those closures ("Control",
@@ -64,7 +65,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   boundary — the runtime, a host, a cache with one owner — not for the
   convenience of a pass that could carry its state. When threading would
   nest a function six deep, name the sequence with a local binding form, as
-  `learning` does in `src/snail-core/compiler/check.sld`, rather than
+  `learning` does in `src/snail/shell/compiler/check.sld`, rather than
   reaching for a cell. The checker went from 58 `! mut` signatures to none
   at no cost in speed; the count per module is worth watching.
 - Prefer cohesive single-file modules with named sections. A large file can
@@ -122,7 +123,7 @@ compiler's source changes; compiler changes must also pass `make test-chibi`,
 which runs the source on Chibi, and `make bootstrap`, which rebuilds from
 Chibi alone.
 Backend changes should execute linked Wasm; compilation alone does not test
-target behavior. `(snail-core format)` reproduces `scripts/format-scheme` for
+target behavior. `(snail shell format)` reproduces `scripts/format-scheme` for
 the IDE, and `make test` checks it on every tracked Scheme file; when Emacs's
 rules change, change it to match. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
@@ -156,7 +157,7 @@ rules; what matters when writing code:
   working directory after removing build scratch. Rebuilding the compiled
   compiler or development tools takes an exclusive lock on `build/lock`, so
   `make test` may run beside a server.
-- The existing application loop is `src/snail-core/develop.sld` on the native
+- The existing application loop is `src/snail/shell/develop.sld` on the native
   `host/native/develop.mjs` host; the page's reload client is `host/browser/reload.sld`,
   `relinkProgram` in `host/browser/load.mjs` relinks after the JSPI loop in
   `host/browser/runtime.mjs` saves, returns its state and settles. `tests/develop.mjs` (in

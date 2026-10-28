@@ -20,7 +20,7 @@ const project = join(parent, 'project'), gate = join(parent, 'gate');
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
 const description = path => `((build-target server (program (entry "main.sld") (library-roots ("."))))
   (build-target client (browser (entry "client.sld") (public "${path}"))))`;
-const program = message => `(import (snail-core base) (snail-core io)) (write-line "${message}")`;
+const program = message => `(import (snail core base) (snail core io)) (write-line "${message}")`;
 function execute(directory) {
   const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
@@ -40,7 +40,7 @@ const server = status => status.published.targets.find(target => target.name ===
 async function throughTheService() {
   write('project.datum', description('public'));
   write('main.sld', program('first'));
-  write('client.sld', '(import (snail-core base)) (unit)');
+  write('client.sld', '(import (snail core base)) (unit)');
   write('public/index.html', '<!doctype html><title>first</title>');
   const service = await startDevelopment(root, project), stream = await service.events();
   const phases = id => stream.seen.filter(event => event.kind === 'status' && event.data.id === id).map(event => event.data.phase);
@@ -53,13 +53,13 @@ async function throughTheService() {
     assert.equal(execute(server(first).directory), 'first\n');
     const initial = server(first).directory, observed = invalidations();
 
-    write('main.sld', '(import (snail-core base)) (first-missing)');
+    write('main.sld', '(import (snail core base)) (first-missing)');
     const failed = await service.settled(first.id, 'failed');
     assert.match(failed.diagnostics[0].message, /first-missing/);
     assert.deepEqual(failed.diagnostics[0].source, {file: join(project, 'main.sld'), line: 1, column: 29});
     assert.equal(fs.realpathSync(join(project, 'build/server')), initial, 'failure preserves accepted output');
     assert.equal(server(failed).directory, initial);
-    write('main.sld', '(import (snail-core base)) (second-missing)');
+    write('main.sld', '(import (snail core base)) (second-missing)');
     const failedAgain = await service.settled(failed.id, 'failed');
     assert.match(failedAgain.diagnostics[0].message, /second-missing/);
     assert.doesNotMatch(failedAgain.diagnostics[0].message, /first-missing/);
@@ -70,17 +70,17 @@ async function throughTheService() {
     assert.ok(invalidations() > observed, 'the observer reports the edits to the editor too');
 
     // Artifact context must not overwrite a failing dependency's real source.
-    write('main.sld', '(import (snail-core base) (snail-core artifact)) (artifact-bundle "client")');
-    write('client.sld', '(import (snail-core base)) (child-missing)');
+    write('main.sld', '(import (snail core base) (snail shell artifact)) (artifact-bundle "client")');
+    write('client.sld', '(import (snail core base)) (child-missing)');
     const childFailure = await service.settled(repaired.id, 'failed');
     assert.match(childFailure.diagnostics[0].message, /child-missing/);
     assert.deepEqual(childFailure.diagnostics[0].source, {file: join(project, 'client.sld'), line: 1, column: 29});
 
     // A generated producer is checked in its printed scratch source. Report that
     // origin, never invent a point in the importing application or recipe.
-    write('bad.sld', '(generate-library (bad) (import (snail-core base) (snail-core syntax)) producer-missing)');
-    write('client.sld', '(import (snail-core base)) (unit)');
-    write('main.sld', '(import (snail-core base) (bad)) (unit)');
+    write('bad.sld', '(generate-library (bad) (import (snail core base) (snail shell syntax)) producer-missing)');
+    write('client.sld', '(import (snail core base)) (unit)');
+    write('main.sld', '(import (snail core base) (bad)) (unit)');
     const producerFailure = await service.settled(childFailure.id, 'failed');
     assert.match(producerFailure.diagnostics[0].message, /producer-missing/);
     assert.ok(producerFailure.diagnostics[0].source.file.startsWith(join(root, 'build/snail-run/')));
@@ -116,12 +116,12 @@ async function throughTheService() {
     const beforeBlocked = outputs();
     pipe();
     write('slow.sld', `(generate-library (slow)
-      (import (snail-core base) (snail-core io) (snail-core syntax))
-      (library-syntax (list "slow") (list "message") (list (list "snail-core" "base"))
+      (import (snail core base) (snail core io) (snail shell syntax))
+      (library-syntax (list "slow") (list "message") (list (list "snail" "core" "base"))
         (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
           (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${gate}")))))))`);
     write('next-public/index.html', '<!doctype html><title>before</title>');
-    write('main.sld', '(import (snail-core base) (snail-core io) (slow)) (write-line message)');
+    write('main.sld', '(import (snail core base) (snail core io) (slow)) (write-line message)');
     write('project.datum', description('next-public'));
     writer = await fsp.open(gate, 'w'); // The producer has reached its blocking read.
     const blocked = await service.status();

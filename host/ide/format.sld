@@ -1,5 +1,5 @@
-;; The IDE's formatter, (snail-core format) as a program, with the
-;; classifier the book is colored by, (snail-core highlight). In a page, the
+;; The IDE's formatter, (snail shell format) as a program, with the
+;; classifier the book is colored by, (snail shell highlight). In a page, the
 ;; source arrives a character at a time through `format_character`;
 ;; `format_whole` formats it, `format_indent` reindents some of its lines and
 ;; `format_highlight` classes each character for coloring, and each returns
@@ -12,10 +12,10 @@
 ;; how the tests hold the formatter to the repository's Emacs formatting.
 ;; Lines break past `format-width` columns, or past COLUMNS when given.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core format)
- (snail-core highlight))
+ (snail core base)
+ (snail core io)
+ (snail shell format)
+ (snail shell highlight))
 
 ;; ---- In a page ----
 

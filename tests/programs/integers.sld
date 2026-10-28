@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core integer))
+ (snail core base)
+ (snail core io)
+ (snail shell integer))
 
 (: parse (-> String Integer))
 (define (parse text)

@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core wasm))
+ (snail core base)
+ (snail core io)
+ (snail shell wasm))
 
 ;; A module loaded while the program runs, and the function it exports
 ;; called at the type the program expects. The program writes the module

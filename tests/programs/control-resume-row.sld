@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; `resume` performs the handle's context row, so a stored resumption says
 ;; Log, and is resumed under a Log handler: the one in scope where it is

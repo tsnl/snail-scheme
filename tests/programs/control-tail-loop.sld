@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A hundred thousand yields from a tail-recursive loop, each resumed by
 ;; an implementation that calls `resume` in tail position. Neither the

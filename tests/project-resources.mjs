@@ -52,10 +52,10 @@ async function pageOutput(directory) {
 }
 
 try {
-  await write('src/assets/sprites.sld', `(define-library (assets sprites) (export hero) (import (snail-core base) (snail-core resource))
+  await write('src/assets/sprites.sld', `(define-library (assets sprites) (export hero) (import (snail core base) (snail shell resource))
     (begin (: hero Resource) (define hero (link-bytes "art/hero.bin"))))`);
   await write('src/assets/art/hero.bin', Buffer.from([1, 2, 3, 255]));
-  await write('main.sld', `(import (snail-core base) (snail-core io) (snail-core resource) (assets sprites))
+  await write('main.sld', `(import (snail core base) (snail core io) (snail shell resource) (assets sprites))
 (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource hero))) ","))\n`);
   await write('public/index.html', '<!doctype html><title>Resources</title>');
   await write('project.datum', `((build-target cli (program (entry "main.sld") (library-roots ("src"))))

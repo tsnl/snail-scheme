@@ -65,10 +65,10 @@
    InspectMap
    press-code)
   (import
-   (snail-core base)
-   (snail-core wire)
-   (snail-core app)
-   (snail-core math)
+   (snail core base)
+   (snail shell wire)
+   (snail shell app)
+   (snail shell math)
    (siegework grid)
    (only (siegework terrain) Land-starter)
    (siegework world)

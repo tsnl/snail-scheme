@@ -12,7 +12,7 @@ const root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-'));
 const build = target => execute(join(root, 'snail'), ['build', project, target]);
 const output = target => join(project, 'build', target);
-const source = '(import (snail-core base) (snail-core io) (greeting))\n(display greeting)\n';
+const source = '(import (snail core base) (snail core io) (greeting))\n(display greeting)\n';
 const description = publicPath => `((build-target cli (program (entry "main.sld") (library-roots ("src"))))
  (build-target page (browser (entry "main.sld") (library-roots ("src")) (public "${publicPath}")))
  (build-target occupied (program (entry "main.sld") (library-roots ("src"))))
@@ -21,7 +21,7 @@ const description = publicPath => `((build-target cli (program (entry "main.sld"
 try {
   await mkdir(join(project, 'src'));
   await mkdir(join(project, 'public', 'nested'), {recursive: true});
-  await writeFile(join(project, 'src/greeting.sld'), '(define-library (greeting) (export greeting) (import (snail-core base)) (begin (: greeting String) (define greeting "hello project")))');
+  await writeFile(join(project, 'src/greeting.sld'), '(define-library (greeting) (export greeting) (import (snail core base)) (begin (: greeting String) (define greeting "hello project")))');
   await writeFile(join(project, 'main.sld'), source);
   await writeFile(join(project, 'project.datum'), description('public'));
   await writeFile(join(project, 'public/index.html'), '<!doctype html><title>Project</title>');
@@ -46,7 +46,7 @@ try {
   await assert.rejects(readFile(join(second, 'obsolete.txt')), {code: 'ENOENT'});
   assert.equal(await readFile(join(first, 'obsolete.txt'), 'utf8'), 'first generation', 'old readers keep their complete generation');
 
-  await writeFile(join(project, 'main.sld'), '(import (snail-core base)) (missing-function)');
+  await writeFile(join(project, 'main.sld'), '(import (snail core base)) (missing-function)');
   await assert.rejects(build('page'));
   assert.equal(await realpath(output('page')), second, 'failed compiler attempt leaves output unchanged');
   await writeFile(join(project, 'main.sld'), source);

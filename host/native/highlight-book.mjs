@@ -3,7 +3,7 @@
 // mdbook asks `highlight-book.mjs supports RENDERER` first, then writes
 // [context, book] as JSON to standard input and reads the book back from
 // standard output. Each fenced block whose language is `scheme` becomes the
-// HTML that host/native/highlight.sld, (snail-core highlight) compiled to
+// HTML that host/native/highlight.sld, (snail shell highlight) compiled to
 // Wasm, makes of it by the compiler's own lexical rules; other blocks are
 // left to highlight.js. The program is the one argument, or else
 // `scripts/snail-tool book-tools` builds it when its sources are newer.

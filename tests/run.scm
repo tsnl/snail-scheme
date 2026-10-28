@@ -16,21 +16,21 @@
  (chibi filesystem)
  (only (chibi pathname) path-directory)
  (chibi process)
- (snail-core process)
+ (snail stage0 process)
  (only (chibi string) string-contains string-cursor->index string-split string-suffix?)
  (srfi 1)
- (snail-core build)
- (only (snail-core compiler read) test-read)
- (only (snail-core compiler inputs) test-inputs)
- (only (snail-core compiler expand) test-expand)
- (only (snail-core compiler core) test-core)
- (only (snail-core compiler check) test-check)
- (only (snail-core compiler mono) test-mono)
- (only (snail-core compiler control) test-control)
- (only (snail-core compiler wasm) test-wasm)
- (only (snail-core compiler session) test-session)
- (only (snail-core compiler plan) test-plan)
- (only (snail-core project) test-project))
+ (snail stage0 build)
+ (only (snail shell compiler read) test-read)
+ (only (snail shell compiler inputs) test-inputs)
+ (only (snail shell compiler expand) test-expand)
+ (only (snail shell compiler core) test-core)
+ (only (snail shell compiler check) test-check)
+ (only (snail shell compiler mono) test-mono)
+ (only (snail shell compiler control) test-control)
+ (only (snail shell compiler wasm) test-wasm)
+ (only (snail shell compiler session) test-session)
+ (only (snail shell compiler plan) test-plan)
+ (only (snail shell project) test-project))
 
 ;; ---- Cases ----
 
@@ -70,7 +70,7 @@
 ;; ---- Programs ----
 
 ;; What a program prints, its standard output then its standard error, on
-;; the host `program-command` chooses (host/chibi/snail-core/build.sld).
+;; the host `program-command` chooses (host/chibi/snail/stage0/build.sld).
 (define (run-wasm root program . arguments)
   (let ((result (capture-process (append (program-command root program) arguments))))
     (string-append (car result) (without-backtrace (cadr result)))))
@@ -261,7 +261,7 @@
     (create-directory* (path-join root "build/tests/type-ids"))
     (call-with-output-file source
       (lambda (port)
-        (write-string (string-append "(import (snail-core base))\n(enum Phase "
+        (write-string (string-append "(import (snail core base))\n(enum Phase "
                                      cases
                                      ")\n(type-convert (Day) Any)\n")
                       port)))
@@ -274,7 +274,7 @@
         ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
         (else (text-index text pattern (+ from 1)))))
 
-;; The IDE's formatter, (snail-core format) as a program, leaves every Scheme
+;; The IDE's formatter, (snail shell format) as a program, leaves every Scheme
 ;; file in the repository as the Emacs formatter that `make check` runs
 ;; left it.
 (define (compile-formatter root)
@@ -300,7 +300,7 @@
                     (string-append (car result) (cadr result))))))))
 
 ;; The book's preprocessor, host/native/highlight-book.mjs, run on a small
-;; book with its highlighter, (snail-core highlight) as a program, turns
+;; book with its highlighter, (snail shell highlight) as a program, turns
 ;; each `scheme` block into spans and leaves the rest as it was.
 (define (compile-book-highlighter root)
   (guard (failure (#t (report "book highlighter" "compile failed" (error-text failure))))
@@ -689,7 +689,7 @@
 ;; ---- Loading while a program runs ----
 
 ;; A host program, linked when it runs, loads what other builds hold
-;; through (snail-core wasm): the module of a library from a plugin's
+;; through (snail shell wasm): the module of a library from a plugin's
 ;; build, whose exported function it casts and calls, and the plugin
 ;; itself, whose dynamic function it calls on values of a library both
 ;; import. The plugin is built twice, the second time from a stale

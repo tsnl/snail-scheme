@@ -1,3 +1,3 @@
 (import
- (snail-core base))
+ (snail core base))
 (type-convert (once (lambda () (unit))) Any)

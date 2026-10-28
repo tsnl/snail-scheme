@@ -11,9 +11,9 @@
    shell-save
    shell-restore)
   (import
-   (snail-core base)
-   (snail-core wire)
-   (snail-core app)
+   (snail core base)
+   (snail shell wire)
+   (snail shell app)
    (hearsay mill)
    (hearsay mill-screen)
    (hearsay ledger-screen)

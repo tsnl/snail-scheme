@@ -1,9 +1,9 @@
 ;; What pointer events mean: pointing, a tap, a drag past eight pixels, a
 ;; two-finger pinch and a cancelled touch.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core app))
+ (snail core base)
+ (snail core io)
+ (snail shell app))
 
 (: gesture-text (-> Gesture String))
 (define (gesture-text gesture)

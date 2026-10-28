@@ -11,9 +11,9 @@
    view-ledger-screen
    ledger-screen-hud)
   (import
-   (snail-core base)
-   (snail-core wire)
-   (snail-core app)
+   (snail core base)
+   (snail shell wire)
+   (snail shell app)
    (lpc wardrobe)
    (hearsay ledger)
    (hearsay cast)

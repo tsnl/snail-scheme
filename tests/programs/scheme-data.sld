@@ -1,9 +1,9 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core datum)
- (snail-core read)
- (snail-core write))
+ (snail core base)
+ (snail core io)
+ (snail shell datum)
+ (snail shell read)
+ (snail shell write))
 
 (: round-trip (-> String Unit ! console))
 (define (round-trip text)

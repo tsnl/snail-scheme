@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core app))
+ (snail core base)
+ (snail shell app))
 
 (: initial (-> I32 I32 I32 I64))
 (define (initial seed width height)

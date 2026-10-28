@@ -1,4 +1,4 @@
-;; Derives wire instances without importing (snail-core wire): deriving
+;; Derives wire instances without importing (snail shell wire): deriving
 ;; loads it.
 (define-library (sample shape)
   (export
@@ -7,7 +7,7 @@
    Rectangle
    shape-area)
   (import
-   (snail-core base))
+   (snail core base))
   (begin
 
     (enum Shape

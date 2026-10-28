@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A default has its operation's type: it may perform only the effects
 ;; that type names, which its performer is charged.

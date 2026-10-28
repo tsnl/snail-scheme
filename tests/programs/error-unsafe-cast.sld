@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core wasm))
+ (snail core base)
+ (snail core io)
+ (snail shell wasm))
 
 (: count (-> Funcref I64))
 (define (count function)

@@ -1,14 +1,14 @@
 ;; A compiler running as Wasm supplies immutable artifact inputs. Its
 ;; output exercises both static linking and cached per-library emission.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core table)
- (snail-core compiler)
- (snail-core compiler inputs)
- (snail-core compiler session)
- (prefix (snail-core compiler read) reader:)
- (prefix (snail-core syntax) generated:))
+ (snail core base)
+ (snail core io)
+ (snail core table)
+ (snail shell compiler)
+ (snail shell compiler inputs)
+ (snail shell compiler session)
+ (prefix (snail shell compiler read) reader:)
+ (prefix (snail shell syntax) generated:))
 
 (: inputs (-> Bytes Inputs))
 (define (inputs client)
@@ -21,7 +21,7 @@
    (generated:library-syntax
     (list "generated" "assets")
     (list "generated-bundle")
-    (list (list "snail-core" "base") (list "snail-core" "artifact"))
+    (list (list "snail" "core" "base") (list "snail" "shell" "artifact"))
     (list (generated:form ":"
                           (list (generated:SymbolSyntax "generated-bundle")
                                 (generated:SymbolSyntax "ArtifactBundle")))

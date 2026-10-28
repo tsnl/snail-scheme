@@ -22,7 +22,7 @@ function address(api, endpoint) {
 export function socketImports(program, scheduler, tcp, udp) {
   const helpers = () => {
     const current = program();
-    return current.names ? current.linked.get('snail-core.socket').exports : current.runtime.exports;
+    return current.names ? current.linked.get('snail.shell.socket').exports : current.runtime.exports;
   };
 
   // Socket successes never use strings; a string is an error code.

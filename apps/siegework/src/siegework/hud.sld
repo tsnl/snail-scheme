@@ -13,8 +13,8 @@
   (export
    game-hud)
   (import
-   (snail-core base)
-   (snail-core app)
+   (snail core base)
+   (snail shell app)
    (siegework grid)
    (siegework terrain)
    (siegework world)

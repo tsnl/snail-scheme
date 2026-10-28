@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A search stops at the first value it finds: `found` hands the value to
 ;; its handler, whose implementation drops `resume`, so nothing after the

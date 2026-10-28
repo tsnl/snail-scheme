@@ -11,7 +11,7 @@
    Report-tasks
    Report-days)
   (import
-   (snail-core base))
+   (snail core base))
   (begin
 
     (struct Project

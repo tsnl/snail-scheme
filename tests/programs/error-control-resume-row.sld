@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; The handler is deep and resuming rebases it, so each later yield runs
 ;; the implementation under the handlers where `resume` was called. Its

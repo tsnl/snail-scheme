@@ -5,11 +5,11 @@
 ;; boundaries. The last digest frames a file as the project service's
 ;; generation digest does: its name and length as JSON, then its bytes.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core utf8)
- (snail-core json)
- (snail-core sha256))
+ (snail core base)
+ (snail core io)
+ (snail shell utf8)
+ (snail shell json)
+ (snail shell sha256))
 
 (: digest (-> Bytes Unit ! console))
 (define (digest bytes)

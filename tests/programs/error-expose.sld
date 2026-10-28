@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 (: use (-> (Once (-> Unit)) Unit))
 (define (use work)

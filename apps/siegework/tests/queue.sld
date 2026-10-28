@@ -2,8 +2,8 @@
 ;; they were given. Rushing finishes work at once for four times the share
 ;; of its cost that remains, and cancelling returns the cost.
 (import
- (snail-core base)
- (snail-core io)
+ (snail core base)
+ (snail core io)
  (siegework grid)
  (siegework world)
  (siegework colony)

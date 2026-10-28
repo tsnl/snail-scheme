@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; An implementation of an operation declared without ctl returns to its
 ;; caller in the handled body, which expects a yield there only to the

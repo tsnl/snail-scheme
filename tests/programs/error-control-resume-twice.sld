@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; `resume` is one-shot: an implementation may call it at most once.
 (effect Choose

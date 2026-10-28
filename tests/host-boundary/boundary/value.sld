@@ -1,7 +1,7 @@
 (define-library (boundary value)
   (export Payload Payload-number Payload-bytes)
   (import
-   (snail-core base))
+   (snail core base))
   (begin
 
     (struct Payload

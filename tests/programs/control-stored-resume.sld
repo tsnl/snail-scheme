@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; `resume` is a value: a handler can return it instead of calling it, and
 ;; whoever holds it resumes the computation later, after the handler has

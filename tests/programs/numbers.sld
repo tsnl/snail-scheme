@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core number))
+ (snail core base)
+ (snail core io)
+ (snail shell number))
 
 (: parse (-> String Number))
 (define (parse text)

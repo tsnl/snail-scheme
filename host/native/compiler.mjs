@@ -169,7 +169,7 @@ export async function createCompiler(program, diagnostics) {
   try {
     const wasi = new WASI({version: 'preview1', args: [program],
       env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, stderr: errors});
-    const imports = {...wasi.getImportObject(), 'snail-core.compiler': recordImports(record => records.push(record), () => api.memory)};
+    const imports = {...wasi.getImportObject(), 'snail.records': recordImports(record => records.push(record), () => api.memory)};
     imports.wasi_snapshot_preview1.proc_exit = code => { exitCode = code; throw exited; };
     const {instance} = await WebAssembly.instantiate(readFileSync(program), imports);
     api = instance.exports;

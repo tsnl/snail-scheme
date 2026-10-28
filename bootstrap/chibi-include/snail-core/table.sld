@@ -1,1 +1,0 @@
-../../../host/chibi/snail-core/table.sld

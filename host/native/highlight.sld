@@ -1,4 +1,4 @@
-;; The book's highlighter, (snail-core highlight) as a program for
+;; The book's highlighter, (snail shell highlight) as a program for
 ;; host/native/highlight-book.mjs, the preprocessor mdbook runs. The text of
 ;; a code block arrives a character at a time through `highlight_character`;
 ;; `highlight_html` classifies it and returns the length of its HTML, which
@@ -6,8 +6,8 @@
 ;; whitespace becomes a span whose class, `tok-` and the class's name,
 ;; doc/highlight.css colors.
 (import
- (snail-core base)
- (snail-core highlight))
+ (snail core base)
+ (snail shell highlight))
 
 ;; ---- Crossing ----
 

@@ -10,8 +10,8 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 
 ```scheme
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 (: fibonacci (-> I64 I64))
 (define (fibonacci n)
@@ -25,23 +25,23 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 
 A library file may instead hold a `generate-library` recipe: a program whose
 value is the library's `define-library` form, as a `Syntax` from
-`(snail-core syntax)`. The compiler builds and runs it first:
+`(snail shell syntax)`. The compiler builds and runs it first:
 
 ```scheme
 (generate-library (sample table)
   (import
-   (snail-core base)
-   (snail-core syntax))
+   (snail core base)
+   (snail shell syntax))
   (library-syntax (list "sample" "table")
                   (list "squares")
-                  (list (list "snail-core" "base"))
+                  (list (list "snail" "core" "base"))
                   (list (form "define" (list (SymbolSyntax "squares")
                                              (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))
 ```
 
 The program writes the syntax as bytes that the compiler decodes, so no text
 is printed or parsed in between, and a `BytesSyntax` reaches the compiler
-as the bytes it holds. `datum->syntax` from `(snail-core datum)` turns a Scheme
+as the bytes it holds. `datum->syntax` from `(snail shell datum)` turns a Scheme
 datum into syntax. Every generated form is located at the recipe.
 
 ## Forms
@@ -66,12 +66,12 @@ datum into syntax. Every generated form is located at the recipe.
 | `(effect Name ((operation type) ...) [(host "module" ((operation "symbol") ...))] [(default ((operation implementation) ...))])` | Effect with operations and optional host and Snail-Core defaults; `(ctl operation type)` declares a control operation ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
-| `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail-core primitive)`. |
+| `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail core primitive)`. |
 | `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
-| `(expose name "symbol" dynamic)` | Exports it instead for programs that load it as a plugin's (`plugin-function` in `(snail-core wasm)`): behind a wrapper of `Any` values, beside `"symbol:signature"`. Its arguments and result must be data, with no function or `Any` inside, and it must be pure ([plugins](compilers.md#plugins)). |
+| `(expose name "symbol" dynamic)` | Exports it instead for programs that load it as a plugin's (`plugin-function` in `(snail shell wasm)`): behind a wrapper of `Any` values, beside `"symbol:signature"`. Its arguments and result must be data, with no function or `Any` inside, and it must be pure ([plugins](compilers.md#plugins)). |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
-`(snail-core base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
+`(snail core base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
 `or`, `do`, `list`, `string` and a variadic `string-append` as macros.
 
 ### Bodies and scope

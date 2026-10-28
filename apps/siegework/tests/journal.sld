@@ -4,9 +4,9 @@
 ;; world exactly, even with a rejected order slipped in, and the journal
 ;; must survive its wire encoding.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core wire)
+ (snail core base)
+ (snail core io)
+ (snail shell wire)
  (siegework grid)
  (only (siegework terrain) Land-starter)
  (siegework world)

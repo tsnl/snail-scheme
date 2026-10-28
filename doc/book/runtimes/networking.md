@@ -1,6 +1,6 @@
 # Native networking and processes
 
-`(snail-core socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
+`(snail shell socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
 program runner binds them to `host/native/tcp.mjs` and `host/native/udp.mjs` through JSPI
 and `host/native/socket-imports.mjs`. [Child processes](#child-processes) follow the
 same model, through `host/native/process.mjs` and `host/native/process-imports.mjs`. Static and separately linked programs use the
@@ -11,7 +11,7 @@ remaining work.
 
 ## Snail-Core API
 
-Import `(snail-core socket)` and include `tcp` or `udp` in the effect row of code using it.
+Import `(snail shell socket)` and include `tcp` or `udp` in the effect row of code using it.
 Every operation returns `Result` with a `SocketError` whose `code` is a string
 such as `"EBADF"`, `"EINVAL"` or a native network error code. Cancellation
 unwinds the task; it is not a recoverable `SocketError`. TCP operations are:
@@ -65,7 +65,7 @@ must be reusable, grade `omega`.
 ## Wasm boundary
 
 The binding borrows the program's synchronous constructor/projector exports
-from `(snail-core socket)`. Native I/O runs while the task is suspended. Only after its
+from `(snail shell socket)`. Native I/O runs while the task is suspended. Only after its
 scheduler gate returns the execution permit does the binding enter Wasm to
 construct a typed `Result`. Ordinary JavaScript objects cannot substitute for
 these managed values. Host code remains trusted to use the correct Snail-Core types.
@@ -218,7 +218,7 @@ delivery protocol and retains no managed wrapper.
 
 ## Child processes
 
-`(snail-core process)` provides the `process` effect: child processes with
+`(snail shell process)` provides the `process` effect: child processes with
 their standard streams piped to the program. Import it and include `process`
 in the effect row of code using it. Every operation returns `Result` with a
 `ProcessError` whose `code` is a string such as `"EBADF"` or a native error
@@ -257,7 +257,7 @@ and a different handler's token reaching the native binding is `EBADF`.
 
 ### Termination
 
-The `signals` effect, also in `(snail-core process)`, has one operation,
+The `signals` effect, also in `(snail shell process)`, has one operation,
 `(termination)`, which waits for SIGINT or SIGTERM and returns
 `(Interrupt)` or `(Terminate)`. A program opts in by waiting: a signal that
 arrives while tasks wait in `termination` is the result of every such wait,

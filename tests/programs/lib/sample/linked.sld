@@ -5,8 +5,8 @@
    greeting
    greeting-text)
   (import
-   (snail-core base)
-   (snail-core resource))
+   (snail core base)
+   (snail shell resource))
   (begin
 
     (: greeting Resource)

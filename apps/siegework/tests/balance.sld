@@ -10,8 +10,8 @@
 ;;
 ;; Each check prints #t, or the seeds that break it.
 (import
- (snail-core base)
- (snail-core io)
+ (snail core base)
+ (snail core io)
  (siegework grid)
  (only (siegework terrain) Land-starter)
  (siegework world)

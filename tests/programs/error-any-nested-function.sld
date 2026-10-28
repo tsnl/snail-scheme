@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A TypeId drops rows at every depth, so a list of yielding functions is
 ;; refused as a yielding function is.

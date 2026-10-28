@@ -91,7 +91,7 @@ function withStubs(module, imports, stubbed, stub) {
 
 // ---- Linked files ----
 
-// A module asks for each file it links, `link-bytes` in (snail-core
+// A module asks for each file it links, `link-bytes` in (snail shell
 // resource), by importing a function from "snail.link" named for the file,
 // which answers the file's handle. The host reads every file a module
 // names before it instantiates the module, from resources/NAME beside the
@@ -112,7 +112,7 @@ async function readLinked(read, name) {
   catch (error) { throw new Error(`cannot read the linked file ${name}: ${error.message}`, {cause: error}); }
 }
 
-// The `resource` effect of (snail-core resource): a file's length and its
+// The `resource` effect of (snail shell resource): a file's length and its
 // bytes, by handle.
 function resourceImports(files) {
   return {length: handle => files[handle].length, byte: (handle, index) => files[handle][index]};
@@ -227,7 +227,7 @@ export async function relinkProgram(program, from) {
 
 // ---- Loading while the program runs ----
 
-// The `wasm` effect of (snail-core wasm), which reads the files and decides
+// The `wasm` effect of (snail shell wasm), which reads the files and decides
 // what to link; the host only does what it cannot. `compile` takes the
 // bytes of a module, `namespace` makes an empty namespace, `instantiate`
 // links a module in one under a library name and runs its main, and
@@ -238,7 +238,7 @@ export async function relinkProgram(program, from) {
 // before it there, then the runtime and the host's modules, as a
 // child-first class loader resolves, and none of the files the program
 // links, so a plugin that links files cannot read them yet. A failure
-// answers a negative code, which (snail-core wasm) names; a trap in a
+// answers a negative code, which (snail shell wasm) names; a trap in a
 // module's main still ends the program, and a main cannot wait.
 // The program waits for each operation, so they are synchronous.
 // `program()` gives the program that loads, which the host links after
@@ -282,7 +282,7 @@ function linkedInstance(program, module) {
 // `argument-end`. A command's strings are its name and its arguments:
 // `command` calls the function `commands` has under the name with the
 // arguments and a number, and answers with its result, or 0. The `develop`
-// effect of src/snail-core/develop.sld and the `page` effect of
+// effect of src/snail/shell/develop.sld and the `page` effect of
 // host/browser/reload.sld are bound this way.
 export function commandImports(commands) {
   const strings = stagedStrings();

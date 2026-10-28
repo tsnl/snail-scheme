@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; A control operation's implementation runs where its handler is, after
 ;; the body has unwound to it, so its type cannot name effects to perform

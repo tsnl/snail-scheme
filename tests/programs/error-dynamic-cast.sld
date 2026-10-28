@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core wasm))
+ (snail core base)
+ (snail shell wasm))
 
 ;; A plugin's function is looked up at a function type of data, as only
 ;; such a function can be exposed with `dynamic`.

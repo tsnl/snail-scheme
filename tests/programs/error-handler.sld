@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 (effect Store
   ((load (-> I64))

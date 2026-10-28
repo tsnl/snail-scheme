@@ -1,7 +1,7 @@
 ;; The smallest complete program: a typed recursive function and output.
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 (: fibonacci (-> I64 I64))
 (define (fibonacci n)

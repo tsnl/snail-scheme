@@ -4,9 +4,9 @@
 ;; of the longest prefix such a decoder accepts. Node has no Char beyond
 ;; U+10FFFF, so that one encoding was written by hand.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core utf8))
+ (snail core base)
+ (snail core io)
+ (snail shell utf8))
 
 (: hex-digits (-> I32 I64 String))
 (define (hex-digits value count)

@@ -47,9 +47,9 @@ fails to compile:
 {{#include ../../../tests/programs/error-effect.err}}
 ```
 
-`mut` covers reading and writing `Ref` and `Array`. `(snail-core io)`
+`mut` covers reading and writing `Ref` and `Array`. `(snail core io)`
 declares `console`, `fs` and `clock`, and other libraries declare their own,
-such as `tcp` in `(snail-core socket)`. A program declares more with
+such as `tcp` in `(snail shell socket)`. A program declares more with
 `effect`, in the [next section](#handlers). Traps and non-termination are
 not tracked: a total function may still panic or loop forever.
 
@@ -123,7 +123,7 @@ squared 9
 ```
 
 Here `e` is `console`; with a total `action`, `repeat` is total. `map` in
-`(snail-core base)` has the same shape:
+`(snail core base)` has the same shape:
 `(All (A B e) (-> (-> A B ! e) (List A) (List B) ! e))`.
 
 A row with a tail fits a larger row with the same tail: `e` fits

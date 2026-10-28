@@ -26,14 +26,14 @@ passes. Hosts differ only in library implementations, which is ordinary
 in Scheme, where every implementation provides its own `(scheme base)`:
 
 - **On Snail-Core.** The typed forms are built in, and the compiler's libraries,
-  `(snail-core base)`, `(snail-core table)` and `(snail-core io)`, are Snail-Core libraries backed by
+  `(snail core base)`, `(snail core table)` and `(snail core io)`, are Snail-Core libraries backed by
   WASI.
 - **On Chibi.** `host/chibi/` implements the same three libraries with
-  Chibi's own procedures, and `(snail-core forms)` defines `:`, `struct`, `enum`,
+  Chibi's own procedures, and `(snail stage0 forms)` defines `:`, `struct`, `enum`,
   `type` and `match` as erasing macros. The compiler defines no typeclass
   instances of its own, so nothing dispatches at run time.
 
-The shared driver reads its arguments and files through `(snail-core io)`, and both
+The shared driver reads its arguments and files through `(snail core io)`, and both
 entries publish missing-input requests after unwinding.
 
 Stage 0's only search root is `bootstrap/chibi-include/`: one symlink per
@@ -116,7 +116,7 @@ schedules those until tasks become effects
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
 on `build/snail` instead, the bootstrap's stages included, and every program
 the driver runs that imports none of those three modules: `program-command`
-in `host/chibi/snail-core/build.sld` asks `build/snail imports PROGRAM`,
+in `host/chibi/snail/stage0/build.sld` asks `build/snail imports PROGRAM`,
 which reads the import sections without compiling them, and runs the rest
 on Node. Under that engine the driver builds the executable with Cargo
 when it is stale, and `make bootstrap` builds it first.

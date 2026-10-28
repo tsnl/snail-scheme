@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; An ordinary operation's type may name the control effects its
 ;; implementations perform, as `fetch` names Async: performing it charges

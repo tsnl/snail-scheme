@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A signature may not name an effect its body never performs.
 (: double (-> I64 I64 ! mut))

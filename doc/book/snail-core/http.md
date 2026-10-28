@@ -1,8 +1,8 @@
 # HTTP protocol
 
-`(snail-core http)` implements a pure, bounded request-head parser, a
+`(snail shell http)` implements a pure, bounded request-head parser, a
 request-target decoder and response serializers, importing only
-`(snail-core base)` and `(snail-core utf8)`. `(snail-core http exchange)` reads one complete
+`(snail core base)` and `(snail shell utf8)`. `(snail shell http exchange)` reads one complete
 request, calls application code and writes its response over the concrete
 [socket effects](../runtimes/networking.md). Applications own accepting and
 scheduling connections; the library supplies no router or server framework.
@@ -124,7 +124,7 @@ same `Connection: close` and framing rules. Statuses that forbid a body, 204,
 
 ## One exchange
 
-Import `(snail-core http exchange)` and call `serve-one` with an exclusively used
+Import `(snail shell http exchange)` and call `serve-one` with an exclusively used
 `Connection`, an I32 grace period in milliseconds, and an application function:
 
 ```scheme

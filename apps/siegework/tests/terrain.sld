@@ -3,8 +3,8 @@
 ;; walking distance from its hub to each nest, what holds on every map
 ;; across 64 seeds, and two straight lines.
 (import
- (snail-core base)
- (snail-core io)
+ (snail core base)
+ (snail core io)
  (siegework grid)
  (siegework terrain))
 

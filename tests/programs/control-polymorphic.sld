@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; One generic function used with a callback that may stop it and with one
 ;; that cannot: each use is its own specialization, and only the first

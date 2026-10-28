@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io)
+ (snail core base)
+ (snail core io)
  (handler helper))
 
 (effect Counter ((tick (-> I64))))

@@ -53,7 +53,7 @@ function artifactProject(directory) {
 function gateProducer() {
   const path = join(project, 'src/generated/assets.sld');
   let text = fs.readFileSync(path, 'utf8');
-  for (const [from, to] of [['(snail-core syntax))', '(snail-core syntax)\n (snail-core io))'],
+  for (const [from, to] of [['(snail shell syntax))', '(snail shell syntax)\n (snail core io))'],
     ['(let ((client (artifact-bundle "client")))', `(let ((client (artifact-bundle "client"))\n (held (read-file "${gate}")))`]]) {
     assert.ok(text.includes(from), `the fixture's producer has ${from}`);
     text = text.replace(from, to);
@@ -130,7 +130,7 @@ async function throughTheService() {
     // attempt removes every generation it created.
     const beforeFailure = outputs(), accepted = fs.realpathSync(join(project, 'build/server'));
     write('server.sld', `${source}\n(missing-function)\n`);
-    write('client.sld', '(import (snail-core base)) (ann 42 I64)');
+    write('client.sld', '(import (snail core base)) (ann 42 I64)');
     write('client-public/nested/data.bin', Buffer.from([90, 0, 255]));
     const failed = await service.rebuilt('failed');
     assert.match(failed.diagnostics[0].message, /missing-function/);
@@ -147,8 +147,8 @@ async function throughTheService() {
     // Library-root changes recreate a target's Session. Public settings do not
     // participate in that decision; the compiler checks artifact bytes itself.
     const description = libraries => `((build-target server (program (entry "main.sld") (library-roots ("${libraries}")))))`;
-    const library = value => `(define-library (sample message) (export message) (import (snail-core base)) (begin (: message String) (define message "${value}")))`;
-    write('main.sld', '(import (snail-core base) (snail-core io) (sample message)) (write-line message)');
+    const library = value => `(define-library (sample message) (export message) (import (snail core base)) (begin (: message String) (define message "${value}")))`;
+    write('main.sld', '(import (snail core base) (snail core io) (sample message)) (write-line message)');
     write('one/sample/message.sld', library('one'));
     write('two/sample/message.sld', library('two'));
     for (const name of ['one', 'two']) {
@@ -160,8 +160,8 @@ async function throughTheService() {
     // watches. Build must run the producer again in every logical compilation.
     write('message.txt', 'generated first');
     write('two/sample/message.sld', `(generate-library (sample message)
-      (import (snail-core base) (snail-core io) (snail-core syntax))
-      (library-syntax (list "sample" "message") (list "message") (list (list "snail-core" "base"))
+      (import (snail core base) (snail core io) (snail shell syntax))
+      (library-syntax (list "sample" "message") (list "message") (list (list "snail" "core" "base"))
         (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
           (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${project}/message.txt")))))))`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'generated first\n');
@@ -171,8 +171,8 @@ async function throughTheService() {
     // The manifest owns library names; content filenames need not repeat them
     // and exceed the filesystem limit for an otherwise valid source filename.
     const longName = 'x'.repeat(200);
-    write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail-core base)) (begin (: message String) (define message "long name")))`);
-    write('main.sld', `(import (snail-core base) (snail-core io) (${longName})) (write-line message)`);
+    write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail core base)) (begin (: message String) (define message "long name")))`);
+    write('main.sld', `(import (snail core base) (snail core io) (${longName})) (write-line message)`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'long name\n');
 
     const {code, signal, stderr} = await service.stop();
@@ -204,7 +204,7 @@ async function inProcess() {
     // A compile's scratch that cannot be removed leaves the compiler's
     // diagnostic as the error the build reports.
     const remove = fs.rmSync;
-    write('server.sld', '(import (snail-core base)) (missing-function)', directory);
+    write('server.sld', '(import (snail core base)) (missing-function)', directory);
     fs.rmSync = function(path, options) {
       if (options?.recursive && String(path).startsWith(join(working, 'compile-'))) throw new Error('injected cleanup failure');
       return remove(path, options);

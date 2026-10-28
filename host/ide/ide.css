@@ -70,7 +70,7 @@ button { font: inherit; color: inherit; }
 .highlight, .marks { position: absolute; top: 0; left: 0; pointer-events: none; }
 .highlight { color: var(--text); }
 
-/* One Dark's colors, by the class of each character's token, as (snail-core highlight) and the compiler's reader see it. */
+/* One Dark's colors, by the class of each character's token, as (snail shell highlight) and the compiler's reader see it. */
 .hl-c { color: #7f848e; font-style: italic; }
 .hl-s, .hl-h { color: #98c379; }
 .hl-n, .hl-b { color: #d19a66; }

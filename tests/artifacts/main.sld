@@ -1,12 +1,12 @@
 (import
- (snail-core base)
- (snail-core io)
- (only (snail-core artifact)
+ (snail core base)
+ (snail core io)
+ (only (snail shell artifact)
        ArtifactBundle
        ArtifactBundle-files
        ArtifactFile-path
        ArtifactFile-bytes)
- (rename (only (snail-core artifact) artifact-bundle) (artifact-bundle bundle))
+ (rename (only (snail shell artifact) artifact-bundle) (artifact-bundle bundle))
  (generated assets)
  (sample consumer)
  (sample generic))

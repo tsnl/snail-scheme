@@ -4,9 +4,9 @@
 ;; JavaScript object has, and the I64 extremes, which are beyond its exact
 ;; integers and were written by BigInt's toString.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core json))
+ (snail core base)
+ (snail core io)
+ (snail shell json))
 
 (: chars (-> (List I64) String))
 (define (chars codes)

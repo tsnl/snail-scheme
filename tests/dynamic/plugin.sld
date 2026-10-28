@@ -4,7 +4,7 @@
 ;; imports (cell) only so that its build holds that library's module, which
 ;; the host loads by itself.
 (import
- (snail-core base)
+ (snail core base)
  (cell)
  (project))
 

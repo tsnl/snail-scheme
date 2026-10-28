@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core task))
+ (snail core base)
+ (snail core io)
+ (snail shell task))
 (let ((cell (ref (ann 0 I64))))
   (dispatch-local
    (once (lambda ()

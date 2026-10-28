@@ -73,9 +73,9 @@
    hair-sheet
    garment-sheet)
   (import
-   (snail-core base)
-   (snail-core wire)
-   (snail-core app)
+   (snail core base)
+   (snail shell wire)
+   (snail shell app)
    (lpc layout)
    (lpc skins))
   (begin

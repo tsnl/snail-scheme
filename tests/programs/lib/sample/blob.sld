@@ -3,12 +3,12 @@
 ;; bytes themselves rather than as text.
 (generate-library (sample blob)
                   (import
-                   (snail-core base)
-                   (snail-core io)
-                   (snail-core syntax))
+                   (snail core base)
+                   (snail core io)
+                   (snail shell syntax))
                   (library-syntax (list "sample" "blob")
                                   (list "pixel")
-                                  (list (list "snail-core" "base"))
+                                  (list (list "snail" "core" "base"))
                                   (list (form "define"
                                               (list (SymbolSyntax "pixel")
                                                     (BytesSyntax

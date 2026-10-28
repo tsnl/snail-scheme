@@ -1,6 +1,6 @@
 # Task operations
 
-`(snail-core task)` exposes the runtime-owned `tasks` control effect:
+`(snail shell task)` exposes the runtime-owned `tasks` control effect:
 
 | Operation | Meaning |
 | --- | --- |
@@ -13,9 +13,9 @@
 
 ```scheme
 (import
- (snail-core base)
- (snail-core io)
- (snail-core task))
+ (snail core base)
+ (snail core io)
+ (snail shell task))
 
 (dispatch-local
  (once (lambda ()
@@ -42,7 +42,7 @@ the order they were posted, and receivers are served in the order they
 began to wait. Its queue is Snail-Core data, a pair of lists in one `Ref`:
 tasks share a mailbox, so its contents are the one piece of state this
 library cannot thread through a single task. The name is `mailbox-receive`,
-not `receive`, because `(snail-core socket)` exports UDP's `receive`, and a
+not `receive`, because `(snail shell socket)` exports UDP's `receive`, and a
 program importing both libraries would have conflicting imports.
 
 ```scheme

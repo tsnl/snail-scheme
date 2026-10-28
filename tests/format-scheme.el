@@ -16,7 +16,7 @@
 
 (defun snail-test-breaks (source expected)
   "Formatting SOURCE at 40 columns makes EXPECTED, which it then leaves alone.
-tests/programs/format.sld holds (snail-core format) to the same cases."
+tests/programs/format.sld holds (snail shell format) to the same cases."
   (should (equal expected (snail-test-format source "--width" "40")))
   (should (equal expected (snail-test-format expected "--width" "40"))))
 

@@ -1,9 +1,9 @@
 ;; Exercise the same located project parser as linked Wasm, with a forward
 ;; run reference and independent build/run name spaces.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core project))
+ (snail core base)
+ (snail core io)
+ (snail shell project))
 
 (define project
   (parse-project

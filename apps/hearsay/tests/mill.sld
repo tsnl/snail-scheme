@@ -3,8 +3,8 @@
 ;; witness who is paid to forget and then hears the story back. Each game
 ;; ends with what the screen would show, printed from the same queries.
 (import
- (snail-core base)
- (snail-core io)
+ (snail core base)
+ (snail core io)
  (hearsay mill))
 
 ;; ---- Printing ----

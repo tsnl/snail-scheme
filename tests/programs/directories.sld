@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; Directories, renames, status and links through the runtime, in a scratch
 ;; directory of this program's own whose name is not all ASCII. Each line

@@ -26,7 +26,7 @@ async function throughTheCommandLine() {
   // implementation may not yield to, and affine uses; those errors reach
   // the user through a build as a plain type error does.
   write('project.datum', '((build-target main (program (entry "main.sld"))))');
-  write('main.sld', '(import (snail-core base)) (ann "wrong type" I64)');
+  write('main.sld', '(import (snail core base)) (ann "wrong type" I64)');
   await assert.rejects(build('main'), /expected I64, found String/);
   for (const name of ['error-control-implementation', 'error-once-capture']) {
     write('main.sld', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
@@ -39,11 +39,11 @@ async function throughTheCommandLine() {
   // compiled and run in private compiler scratch, so the project's build
   // directory holds only the target's generation and its link.
   write('project.datum', '((build-target main (program (entry "main.sld") (library-roots (".")))))');
-  write('main.sld', '(import (snail-core base) (generated flag)) (ann value String)');
+  write('main.sld', '(import (snail core base) (generated flag)) (ann value String)');
   write('flag.txt', 'valid');
   write('generated/flag.sld', `(generate-library (generated flag)
-    (import (snail-core base) (snail-core io) (snail-core syntax))
-    (library-syntax (list "generated" "flag") (list "value") (list (list "snail-core" "base"))
+    (import (snail core base) (snail core io) (snail shell syntax))
+    (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
       (list (form ":" (list (SymbolSyntax "value") (SymbolSyntax "String")))
         (form "define" (list (SymbolSyntax "value")
           (if (string=? (read-file "${project}/flag.txt") "valid")

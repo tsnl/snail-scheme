@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; An Any's TypeId has no rows, so a yielding function converted to Any
 ;; could come back as a total one, and a call through it would not be

@@ -6,7 +6,7 @@
 //! `run-compiler MODULE MODE SOURCE OUTPUT GENERATED DIRECTORY ...` exits 0
 //! when OUTPUT is written, and 1 when the compile failed, its diagnostic on
 //! standard error, or wrote GENERATED/request.datum asking the driver for
-//! an input (host/chibi/snail-core/build.sld). Any other failure, of the
+//! an input (host/chibi/snail/stage0/build.sld). Any other failure, of the
 //! host or of the module, is status 2, with the Wasm frames of a trap.
 
 use wasmtime::{Instance, Linker, Store};

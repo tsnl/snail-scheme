@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; An exception is a control operation with a resumable shape: `raise`
 ;; could hand its caller a number, but these handlers drop `resume` and
