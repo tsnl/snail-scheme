@@ -109,9 +109,10 @@
     ;; A compile whose caller can supply nothing, as a discovery expansion
     ;; or the development loop's: its plan has run every producer it reaches,
     ;; so asking for one's output is an internal error, and only a project
-    ;; build has targets whose files a program could embed. A source error
-    ;; goes on as it came.
-    (: unsupplied (All (T e) (-> (-> T ! compile e) T ! e)))
+    ;; build has targets whose files a program could embed, so asking for
+    ;; them is the program's error, at its use. A source error goes on as it
+    ;; came, to the caller's handler.
+    (: unsupplied (All (T e) (-> (-> T ! compile e) T ! compile e)))
     (define (unsupplied work)
       (match (compiling work)
         ((Ok value) value)
@@ -120,8 +121,7 @@
         ((Err (Requested (ArtifactInput name loc)))
          (compile-error loc
                         (string-append "artifact-bundle requires a project build resolver: " name)))
-        ((Err (Failed diagnostic))
-         (compile-error (SourceDiagnostic-loc diagnostic) (SourceDiagnostic-message diagnostic)))))
+        ((Err (Failed diagnostic)) (absurd (fail diagnostic)))))
 
     (: request->string (-> CompilerRequest String))
     (define (request->string request)
@@ -134,7 +134,7 @@
                         (i64->string (Loc-column source))
                         ")\n"))))
 
-    (: parse-request (-> String String CompilerRequest))
+    (: parse-request (-> String String CompilerRequest ! compile))
     (define (parse-request text filename)
       (match (read-text text filename)
         ((Cons (Form (Cons (Ident "generate" _ _) (Cons (Atom (DString key) _) (Nil))) loc) (Nil))
@@ -193,7 +193,7 @@
 
     ;; The text of the producer printed at `path`, as `producer-text` gave
     ;; it for the forms it was printed from.
-    (: printed-producer-text (-> (List String) String String ! fs))
+    (: printed-producer-text (-> (List String) String String ! fs compile))
     (define (printed-producer-text directories path)
       (producer-text directories
                      (Pair-second (generating-stack (read-text (read-file path) path)))))
@@ -208,14 +208,14 @@
     ;; The libraries a program's first form says were loading when it was
     ;; printed, and the forms after it. A program that does not begin with
     ;; `generating` starts with nothing loading.
-    (: generating-stack (-> (List Syntax) (Pair (List String) (List Syntax))))
+    (: generating-stack (-> (List Syntax) (Pair (List String) (List Syntax)) ! compile))
     (define (generating-stack forms)
       (match forms
         ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest)
          (Pair (map loading-key keys) rest))
         (_ (Pair (Nil) forms))))
 
-    (: loading-key (-> Syntax String))
+    (: loading-key (-> Syntax String ! compile))
     (define (loading-key key)
       (match key
         ((Atom (DString text) _) text)

@@ -8,7 +8,13 @@
  (snail core base)
  (snail core io)
  (snail shell highlight)
- (only (snail shell compiler read) read-text syntax->string))
+ (only (snail shell compiler read)
+       read-text
+       syntax->string
+       compiling
+       Failed
+       Requested
+       diagnostic->string))
 
 ;; ---- Printing ----
 
@@ -57,8 +63,15 @@
 (: show-reading (-> String Unit ! console))
 (define (show-reading text)
   (show-tokens text)
-  (write-line
-   (string-append "  read: " (string-join (map syntax->string (read-text text "sample.sld")) " "))))
+  (write-line (string-append "  read: " (reading text))))
+
+;; The forms the reader makes of `text`, or the error it stops with.
+(: reading (-> String String))
+(define (reading text)
+  (match (compiling (lambda () (read-text text "sample.sld")))
+    ((Ok forms) (string-join (map syntax->string forms) " "))
+    ((Err (Failed diagnostic)) (diagnostic->string diagnostic))
+    ((Err (Requested _)) "the reader asked for an input")))
 
 ;; ---- Samples ----
 

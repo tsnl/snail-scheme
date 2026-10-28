@@ -22,7 +22,12 @@
    (snail shell sha256)
    (only (snail shell compiler read)
          Loc
-         Syntax)
+         Syntax
+         compile
+         compiling
+         Failed
+         Requested
+         diagnostic->string)
    (only (snail shell compiler core) fnv-1a)
    (only (snail shell compiler inputs)
          Inputs
@@ -315,8 +320,9 @@
           (ends-with? name "~")
           (all-digits? name)))
 
-    ;; A build that panics, with the compiler's message, which the host
-    ;; caught; the pages keep the build they have.
+    ;; A build that failed, with the compile's diagnostic, or with the
+    ;; message of a panic the host caught; the pages keep the build they
+    ;; have.
     (: build-failed! (-> Loop String Unit ! mut develop))
     (define (build-failed! loop message)
       (broadcast!
@@ -345,22 +351,28 @@
     (define (build! loop)
       (let ((started (monotonic-nanoseconds)))
         (broadcast! (string-append "(building " (ref-get (Loop-manifest loop)) ")"))
-        (let* ((builds (next-build! loop (main-source (Loop-request loop))))
-               (files (page-files loop))
-               (modules (write-modules! loop builds)))
-          (match (Loop-request loop)
-            ((Serve _ app)
-             (publish-pages! loop app files modules started)
-             (report-built! app builds started))
-            ((Watch _ _ arguments) (run! (manifest-path loop) arguments)))
-          (remove-old-modules! loop
-                               (map (lambda (module) (base-name (Pair-second module))) modules)))))
+        (match (compiling (lambda () (next-build! loop (main-source (Loop-request loop)))))
+          ((Ok builds) (built! loop builds started))
+          ((Err (Failed diagnostic)) (build-failed! loop (diagnostic->string diagnostic)))
+          ((Err (Requested _))
+           (panic "internal error: the development loop's compile asked for an input")))))
+
+    (: built! (-> Loop (List Built) I64 Unit ! mut fs console clock develop))
+    (define (built! loop builds started)
+      (let* ((files (page-files loop)) (modules (write-modules! loop builds)))
+        (match (Loop-request loop)
+          ((Serve _ app)
+           (publish-pages! loop app files modules started)
+           (report-built! app builds started))
+          ((Watch _ _ arguments) (run! (manifest-path loop) arguments)))
+        (remove-old-modules! loop
+                             (map (lambda (module) (base-name (Pair-second module))) modules))))
 
     ;; Builds through the loop's session, which the build replaces with the
     ;; session the next build starts from, once the plan has run the
     ;; producers the program reaches. The loop declares no project targets,
     ;; so the plan's one build is the program's own, its last phase.
-    (: next-build! (-> Loop String (List Built) ! mut fs develop))
+    (: next-build! (-> Loop String (List Built) ! mut fs develop compile))
     (define (next-build! loop source)
       (let* ((session (ref-get (Loop-session loop)))
              (program (Target "main"
@@ -379,7 +391,7 @@
 
     ;; Runs the producers of each wave, refining the plan with what they
     ;; wrote, until no phase is left, and returns the inputs that hold it.
-    (: produced! (-> Loop Plan Inputs Inputs ! mut fs develop))
+    (: produced! (-> Loop Plan Inputs Inputs ! mut fs develop compile))
     (define (produced! loop plan inputs)
       (let* ((wave (next-phases plan))
              (inputs (fold-left (lambda (inputs entry)
@@ -477,7 +489,7 @@
 
     ;; A producer is compiled one library at a time, as the program is, and
     ;; run by the host. What it writes is an input of every compile after.
-    (: produce! (-> Loop Producer Inputs Inputs ! mut fs develop))
+    (: produce! (-> Loop Producer Inputs Inputs ! mut fs develop compile))
     (define (produce! loop producer inputs)
       (let ((manifest (producer-manifest! loop producer inputs))
             (output
@@ -495,7 +507,7 @@
 
     ;; Compiles the producer afresh from the source the plan printed, and
     ;; writes the manifest it runs from.
-    (: producer-manifest! (-> Loop Producer Inputs String ! mut fs develop))
+    (: producer-manifest! (-> Loop Producer Inputs String ! mut fs develop compile))
     (define (producer-manifest! loop producer inputs)
       (let* ((directory (producers-directory loop))
              (built (unsupplied (lambda ()

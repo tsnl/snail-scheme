@@ -359,7 +359,7 @@
     ;; Statements and monomorphic top-level values are roots, so their
     ;; initializers run even when nothing refers to them. Functions are
     ;; copied only when reached.
-    (: monomorphize (-> Typed Mono ! mut))
+    (: monomorphize (-> Typed Mono ! mut compile))
     (define (monomorphize typed)
       (let* ((items (Typed-items typed)) (state (new-state (prepare-specialization typed) (None)))
              (statements (map (lambda (item) (root-item state item)) items)))
@@ -373,7 +373,7 @@
     ;; definition is a root, since any module may import it. Copies of other
     ;; libraries' definitions, the generic ones this library uses, come first,
     ;; in program order, as those libraries come before it.
-    (: monomorphize-library (-> Specialization String (List Item) Mono ! mut))
+    (: monomorphize-library (-> Specialization String (List Item) Mono ! mut compile))
     (define (monomorphize-library input owner items)
       (let* ((typed (Specialization-typed input))
              (state (new-state input (Some owner)))
@@ -390,7 +390,7 @@
                                                (zip items statements))))
                      exported)))
 
-    (: finish-mono (-> State (List Item) (List String) Mono ! mut))
+    (: finish-mono (-> State (List Item) (List String) Mono ! mut compile))
     (define (finish-mono state items exported)
       (Mono (program-of state)
             (own-items (program-of state) items)

@@ -44,6 +44,7 @@
    SourceDiagnostic
    SourceDiagnostic-loc
    SourceDiagnostic-message
+   diagnostic->string
    CompilerRequest
    GenerateInput
    ArtifactInput
@@ -54,8 +55,6 @@
    Failed
    Requested
    compiling
-   clear-compile-error!
-   take-compile-error!
    read-text
    decode-syntax
    Source
@@ -200,32 +199,19 @@
       ((loc Loc)
        (message String)))
 
-    (: source-diagnostic (Ref (Option SourceDiagnostic)))
-    (define source-diagnostic (ref (None)))
+    ;; A diagnostic as a person reads it: where, then what.
+    (: diagnostic->string (-> SourceDiagnostic String))
+    (define (diagnostic->string diagnostic)
+      (string-append (loc->string (SourceDiagnostic-loc diagnostic))
+                     ": "
+                     (SourceDiagnostic-message diagnostic)))
 
-    (: clear-compile-error! (-> Unit ! mut))
-    (define (clear-compile-error!)
-      (ref-set! source-diagnostic (None)))
-
-    (: take-compile-error! (-> (Option SourceDiagnostic) ! mut))
-    (define (take-compile-error!)
-      (let ((diagnostic (ref-get source-diagnostic)))
-        (clear-compile-error!)
-        diagnostic))
-
-    ;; Every pass reports a source error here. This unsafe bridge deliberately
-    ;; records a value on a non-returning path without changing every pure
-    ;; pass's signature. The native boundary consumes it after abandoning the
-    ;; invocation; it is observable there (and through Chibi guards), not pure.
-    ;; One serial compiler instance owns the cell. Reset it before each entry;
-    ;; only the trusted terminal exit permits taking it. It never classifies
-    ;; traps or producer requests, and is never an ambient last-syntax pointer.
-    (: compile-error (All (A) (-> Loc String A)))
+    ;; Every pass reports a source error by performing the compile effect's
+    ;; `fail`. Nothing after the call runs: the entry point's handler takes
+    ;; the diagnostic and hands it to its caller.
+    (: compile-error (All (A) (-> Loc String A ! compile)))
     (define (compile-error loc message)
-      (unsafe-total
-       (lambda ()
-         (ref-set! source-diagnostic (Some (SourceDiagnostic loc message)))
-         (panic (string-append (loc->string loc) ": " message)))))
+      (absurd (fail (SourceDiagnostic loc message))))
 
     ;; What a compile asks its caller for when it was not supplied it: the
     ;; output of the producer printed under `key`, or a project target's
@@ -240,8 +226,7 @@
     ;; when it needs an input it was not supplied. Neither operation returns
     ;; to the pass that performs it, so a yield to this effect saves no
     ;; frames, and each entry point handles it with `compiling`, which
-    ;; turns the compile into a Result. Requests use it so far; source
-    ;; errors still go through `compile-error`'s unsafe bridge (#552).
+    ;; turns the compile into a Result.
     (effect compile
       ((ctl fail (-> SourceDiagnostic Never))
        (ctl need (-> CompilerRequest Never))))
@@ -431,7 +416,7 @@
     ;; ---- Data ----
 
     ;; Skips whitespace, comments, and the data that `#;` comments out.
-    (: skip-atmosphere (-> Source I64 I64))
+    (: skip-atmosphere (-> Source I64 I64 ! compile))
     (define (skip-atmosphere source index)
       (match (atmosphere-at source index)
         ((Some (Pair (BlockComment #f) end))
@@ -442,13 +427,13 @@
         ((None) index)))
 
     ;; The datum starting at `index`, and the index after it.
-    (: read-datum (-> Source I64 (Pair Syntax I64)))
+    (: read-datum (-> Source I64 (Pair Syntax I64) ! compile))
     (define (read-datum source index)
       (let ((start (skip-atmosphere source index)))
         (read-lexeme source start (lexeme-at source start))))
 
     ;; The datum that the lexeme at `start` begins, and the index after it.
-    (: read-lexeme (-> Source I64 (Pair Lexeme I64) (Pair Syntax I64)))
+    (: read-lexeme (-> Source I64 (Pair Lexeme I64) (Pair Syntax I64) ! compile))
     (define (read-lexeme source start lexeme)
       (let ((loc (source-loc source start)) (end (Pair-second lexeme)))
         (match (Pair-first lexeme)
@@ -468,7 +453,7 @@
     ;; The bytes of `#u8(...)`, each an integer from 0 to 255. Images make
     ;; literals of millions of bytes, so they gather a chunk at a time into
     ;; packed vectors, which are joined at the closing parenthesis.
-    (: read-bytes (-> Source I64 Loc (List Bytes) (Pair Syntax I64)))
+    (: read-bytes (-> Source I64 Loc (List Bytes) (Pair Syntax I64) ! compile))
     (define (read-bytes source index loc chunks)
       (let* ((chunk (read-byte-chunk source index loc))
              (bytes (Pair-first chunk))
@@ -481,7 +466,7 @@
 
     ;; Up to `byte-chunk` bytes, and the index after them: past the closing
     ;; parenthesis when fewer remain.
-    (: read-byte-chunk (-> Source I64 Loc (Pair Bytes I64)))
+    (: read-byte-chunk (-> Source I64 Loc (Pair Bytes I64) ! compile))
     (define (read-byte-chunk source index loc)
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
@@ -491,7 +476,7 @@
                 (else (let ((end (token-end source start)))
                         (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
 
-    (: byte-token (-> Source I64 I64 U8))
+    (: byte-token (-> Source I64 I64 U8 ! compile))
     (define (byte-token source start end)
       (let loop ((index start) (value 0))
         (cond ((and (= index end) (< start end) (<= value 255)) (i32->u8 (i64->i32 value)))
@@ -503,13 +488,13 @@
                           (+ (* value 10)
                              (digit-value (vector-ref (Source-chars source) index))))))))
 
-    (: read-quote (-> Source I64 Loc (Pair Syntax I64)))
+    (: read-quote (-> Source I64 Loc (Pair Syntax I64) ! compile))
     (define (read-quote source index loc)
       (let ((quoted (read-datum source index)))
         (Pair (Form (list (Ident "quote" (None) loc) (Pair-first quoted)) loc)
               (Pair-second quoted))))
 
-    (: read-list (-> Source I64 Char Loc (List Syntax) (Pair Syntax I64)))
+    (: read-list (-> Source I64 Char Loc (List Syntax) (Pair Syntax I64) ! compile))
     (define (read-list source index close loc items)
       (let* ((start (skip-atmosphere source index)) (lexeme (lexeme-at source start)))
         (match (Pair-first lexeme)
@@ -526,7 +511,7 @@
     ;; The text of a string whose characters run from `start` to its closing
     ;; quote at `close`. A backslash there always has a character after it,
     ;; which the string's lexeme skipped.
-    (: string-value (-> Source I64 I64 Loc String))
+    (: string-value (-> Source I64 I64 Loc String ! compile))
     (define (string-value source start close loc)
       (let loop ((index start) (chars (Nil)))
         (cond ((= index close) (list->string (reverse chars)))
@@ -535,7 +520,7 @@
                  (loop (Pair-second escaped) (Cons (Pair-first escaped) chars))))
               (else (loop (+ index 1) (Cons (peek source index) chars))))))
 
-    (: read-escape (-> Source I64 I64 Loc (Pair Char I64)))
+    (: read-escape (-> Source I64 I64 Loc (Pair Char I64) ! compile))
     (define (read-escape source index close loc)
       (let ((c (peek source index)))
         (cond ((char=? c #\n) (Pair #\newline (+ index 1)))
@@ -547,7 +532,7 @@
               (else (compile-error loc "unknown string escape")))))
 
     ;; `\x41;`: hexadecimal digits and a semicolon, inside the string.
-    (: hex-escape (-> Source I64 I64 Loc (Pair Char I64)))
+    (: hex-escape (-> Source I64 I64 Loc (Pair Char I64) ! compile))
     (define (hex-escape source index close loc)
       (let ((end (scan-until source index close #\;)))
         (if (= end close)
@@ -560,7 +545,7 @@
           index
           (scan-until source (+ index 1) end stop)))
 
-    (: hex-char (-> Source I64 I64 Loc Char))
+    (: hex-char (-> Source I64 I64 Loc Char ! compile))
     (define (hex-char source start end loc)
       (let loop ((index start) (value 0))
         (cond ((and (= index end) (= start end)) (compile-error loc "invalid hexadecimal escape"))
@@ -592,7 +577,7 @@
 
     ;; The character `#\` names from `start` to `end`: one character, `x` and
     ;; hexadecimal digits, or a name.
-    (: character-value (-> Source I64 I64 Loc Char))
+    (: character-value (-> Source I64 I64 Loc Char ! compile))
     (define (character-value source start end loc)
       (let ((name (source-text source start end)))
         (cond ((= (string-length name) 0) (compile-error loc "expected a character after #\\"))
@@ -622,7 +607,7 @@
              (InvalidToken (string-append "unsupported syntax " text)))
             (else (number-kind text))))
 
-    (: token-syntax (-> String Loc Syntax))
+    (: token-syntax (-> String Loc Syntax ! compile))
     (define (token-syntax text loc)
       (match (token-kind text)
         ((BooleanToken value) (Atom (DBool value) loc))
@@ -647,7 +632,7 @@
               (else (NameToken)))))
 
     ;; An integer must fit in 64 bits.
-    (: integer-datum (-> String Loc Datum))
+    (: integer-datum (-> String Loc Datum ! compile))
     (define (integer-datum text loc)
       (match (string->i64 text)
         ((Some value) (DInt value))
@@ -686,7 +671,7 @@
 
     ;; ---- Files ----
 
-    (: read-all (-> Source I64 (List Syntax) (List Syntax)))
+    (: read-all (-> Source I64 (List Syntax) (List Syntax) ! compile))
     (define (read-all source index items)
       (let ((start (skip-atmosphere source index)))
         (if (at-end? source start)
@@ -694,7 +679,7 @@
             (let ((item (read-datum source start)))
               (read-all source (Pair-second item) (Cons (Pair-first item) items))))))
 
-    (: read-text (-> String String (List Syntax)))
+    (: read-text (-> String String (List Syntax) ! compile))
     (define (read-text text file)
       (read-all (make-source file text) 0 (Nil)))
 
@@ -704,14 +689,14 @@
     ;; placed at `loc`, the recipe that produced it. A byte vector is cut
     ;; from the bytes as they are, and a number must read as it would in
     ;; text.
-    (: decode-syntax (-> Bytes Loc Syntax))
+    (: decode-syntax (-> Bytes Loc Syntax ! compile))
     (define (decode-syntax bytes loc)
       (let ((decoded (decode-form bytes 0 loc)))
         (if (= (Pair-second decoded) (vector-length bytes))
             (Pair-first decoded)
             (malformed loc "bytes follow the library"))))
 
-    (: decode-form (-> Bytes I64 Loc (Pair Syntax I64)))
+    (: decode-form (-> Bytes I64 Loc (Pair Syntax I64) ! compile))
     (define (decode-form bytes index loc)
       (let ((tag (byte-at bytes index loc)) (next (+ index 1)))
         (case tag
@@ -727,7 +712,7 @@
           ((7) (decode-bytes bytes next loc))
           (else (malformed loc "an unknown tag")))))
 
-    (: decode-list (-> Bytes I64 Loc (Pair Syntax I64)))
+    (: decode-list (-> Bytes I64 Loc (Pair Syntax I64) ! compile))
     (define (decode-list bytes index loc)
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (Pair-first count)) (index (Pair-second count)) (items (Nil)))
@@ -737,7 +722,7 @@
                 (loop (- left 1) (Pair-second item) (Cons (Pair-first item) items)))))))
 
     ;; A text and the index after it.
-    (: decode-text (-> Bytes I64 Loc (Pair String I64)))
+    (: decode-text (-> Bytes I64 Loc (Pair String I64) ! compile))
     (define (decode-text bytes index loc)
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (Pair-first count)) (index (Pair-second count)) (chars (Nil)))
@@ -749,14 +734,14 @@
                       (Cons (scalar (Pair-first code) loc) chars)))))))
 
     ;; A symbol, a number or a string, as tags 1, 2 and 3 mark them.
-    (: text-syntax (-> I64 String Loc Syntax))
+    (: text-syntax (-> I64 String Loc Syntax ! compile))
     (define (text-syntax tag text loc)
       (case tag
         ((1) (Ident text (None) loc))
         ((2) (Atom (generated-number text loc) loc))
         (else (Atom (DString text) loc))))
 
-    (: decode-bytes (-> Bytes I64 Loc (Pair Syntax I64)))
+    (: decode-bytes (-> Bytes I64 Loc (Pair Syntax I64) ! compile))
     (define (decode-bytes bytes index loc)
       (let* ((count (decode-count bytes index loc))
              (start (Pair-second count))
@@ -767,7 +752,7 @@
 
     ;; Seven bits to a byte, low bits first. Five bytes bound a count well
     ;; inside I64 on every host.
-    (: decode-count (-> Bytes I64 Loc (Pair I64 I64)))
+    (: decode-count (-> Bytes I64 Loc (Pair I64 I64) ! compile))
     (define (decode-count bytes index loc)
       (let loop ((index index) (value 0) (scale 1))
         (let ((byte (byte-at bytes index loc)))
@@ -775,26 +760,26 @@
                 ((= scale 268435456) (malformed loc "a count is too large"))
                 (else (loop (+ index 1) (+ value (* (- byte 128) scale)) (* scale 128)))))))
 
-    (: byte-at (-> Bytes I64 Loc I64))
+    (: byte-at (-> Bytes I64 Loc I64 ! compile))
     (define (byte-at bytes index loc)
       (if (< index (vector-length bytes))
           (i32->i64 (u8->i32 (vector-ref bytes index)))
           (malformed loc "it ends early")))
 
-    (: scalar (-> I64 Loc Char))
+    (: scalar (-> I64 Loc Char ! compile))
     (define (scalar code loc)
       (if (or (< code 55296) (and (> code 57343) (< code 1114112)))
           (integer->char code)
           (malformed loc "a code is not a Unicode scalar")))
 
-    (: generated-number (-> String Loc Datum))
+    (: generated-number (-> String Loc Datum ! compile))
     (define (generated-number text loc)
       (match (if (= (string-length text) 0) (NameToken) (number-kind text))
         ((IntegerToken) (integer-datum text loc))
         ((FloatToken) (DFloat text))
         (_ (malformed loc (string-append "the number " text " does not read as one")))))
 
-    (: malformed (All (A) (-> Loc String A)))
+    (: malformed (All (A) (-> Loc String A ! compile)))
     (define (malformed loc problem)
       (compile-error loc (string-append "malformed generated syntax: " problem)))
 
@@ -808,16 +793,16 @@
      test-read
      compile-failure)
     (import
-     (only (scheme base) car guard error-object? error-object-message)
+     (only (scheme base) car)
      (snail stage0 testing))
     (begin
       ;; The located message of the source error `work` stops with, or #f
       ;; when it completes. Every unit test of a source error goes through
-      ;; here, so the way a compile reports one changes in one place (#552).
+      ;; here.
       (define (compile-failure work)
-        (guard (failure ((error-object? failure) (error-object-message failure)))
-          (work)
-          #f))
+        (match (compiling work)
+          ((Err (Failed diagnostic)) (diagnostic->string diagnostic))
+          (_ #f)))
 
       (define (test-read)
         (expect (map syntax->string
@@ -851,17 +836,13 @@
         (expect (map syntax->string (read-text "\"\\x41;\\\"\" #\\x41 [a]" "t"))
                 (list "\"A\\\"\"" "#\\A" "(a)")))
 
+      ;; A source error stops the compile with its diagnostic, whose column
+      ;; counts Unicode scalars; one that completes stops with nothing.
       (define (test-source-diagnostic)
-        (clear-compile-error!)
-        (expect (compile-failure (lambda () (read-text "😀 )" "λ😀.sld")))
-                "λ😀.sld:1:3: unexpected closing parenthesis")
-        (expect (take-compile-error!)
-                (Some (SourceDiagnostic (Loc "λ😀.sld" 1 3) "unexpected closing parenthesis")))
-        (expect (take-compile-error!) (None))
-        (compile-failure (lambda () (read-text "(" "discarded.sld")))
-        (clear-compile-error!)
-        (read-text "()" "recovered.sld")
-        (expect (take-compile-error!) (None)))
+        (expect (compiling (lambda () (read-text "😀 )" "λ😀.sld")))
+                (Err
+                 (Failed (SourceDiagnostic (Loc "λ😀.sld" 1 3) "unexpected closing parenthesis"))))
+        (expect (compile-failure (lambda () (read-text "()" "recovered.sld"))) #f))
 
       ;; (f "λ" -7 1.5 #\a #t #u8(0 200)), with a two-byte count for λ.
       (define (test-decode-syntax)
@@ -874,8 +855,5 @@
            (compile-failure (lambda () (decode-syntax (list->vector (list 0 2 1 1 102)) loc)))
            "recipe.sld:3:4: malformed generated syntax: it ends early")
           (expect (compile-failure (lambda () (decode-syntax (list->vector (list 2 1 120)) loc)))
-                  "recipe.sld:3:4: malformed generated syntax: the number x does not read as one")
-          (match (take-compile-error!)
-            ((Some diagnostic) (expect (SourceDiagnostic-loc diagnostic) loc))
-            ((None) (expect "missing generated source diagnostic" "diagnostic")))))))
+                  "recipe.sld:3:4: malformed generated syntax: the number x does not read as one")))))
    (else)))

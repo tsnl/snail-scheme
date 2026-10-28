@@ -3,8 +3,10 @@
 import {closeSync, fstatSync, ftruncateSync, openSync, readFileSync, readSync} from 'node:fs';
 import {WASI} from 'node:wasi';
 
-// Only the trusted compiler's diagnostic exit is recoverable. Its panic and
-// checked IO paths release resources before exiting; an arbitrary trap does not.
+// A compile that stops, at a source error or for an input it was not
+// supplied, returns with that record; the compiler's own exit 1, from a panic
+// or a checked IO path, releases resources first and is recoverable too. An
+// arbitrary trap is not.
 export class CompilerFailure extends Error {
   constructor(message, request, diagnostic) {
     super(message); this.request = request; this.diagnostic = diagnostic;
@@ -98,6 +100,18 @@ function wave({value, records}) {
   return {plan: value, phases: records.filter(record => record.kind !== 'waiting'), waiting: records.some(record => record.kind === 'waiting')};
 }
 
+// A compile that stopped returned its diagnostic's record or its request's,
+// and nothing else: the entry sends a stop's record in place of its output.
+function stopped(records) {
+  const diagnostic = records.find(record => record.severity === 'error');
+  if (diagnostic) {
+    const {file, line, column} = diagnostic.source ?? {};
+    throw new CompilerFailure(diagnostic.source ? `${file}:${line}:${column}: ${diagnostic.message}` : diagnostic.message, null, diagnostic);
+  }
+  const request = records.find(record => record.kind === 'generate' || record.kind === 'artifact');
+  if (request) throw new CompilerFailure('compiler requires an input', request, null);
+}
+
 // ---- Instance ownership ----
 
 // The caller owns the diagnostics file's directory; this object owns its fd.
@@ -138,17 +152,13 @@ export async function createCompiler(program, diagnostics) {
     let entered = false;
     try {
       ftruncateSync(errors, 0);
-      // main initializes the diagnostic cell before reset can run.
-      if (name !== 'main') api.reset();
       for (const text of strings) {
         for (const character of text) api.input_character(character.codePointAt(0));
         api.input_end();
       }
       entered = true;
       const value = api[name](...values);
-      // A compile that needs an input returns, with its request's record.
-      const request = records.find(record => record.kind === 'generate' || record.kind === 'artifact');
-      if (request) throw new CompilerFailure('compiler requires an input', request, null);
+      stopped(records);
       return {value, records};
     } catch (error) {
       if (error instanceof CompilerFailure) throw error;
@@ -156,12 +166,8 @@ export async function createCompiler(program, diagnostics) {
       try { diagnostic = readErrors(); }
       catch (failure) { retire(new CompilerCrashed('cannot read compiler diagnostics', {cause: failure})); }
       const message = diagnostic || error?.message || `compiler exited with status ${exitCode}`;
-      if (entered && name !== 'main' && error === exited && exitCode === 1) {
-        records = [];
-        try { api.diagnostic(); }
-        catch (failure) { retire(new CompilerCrashed('cannot read compiler diagnostic', {cause: failure})); }
-        throw new CompilerFailure(message, null, records[0] ?? null);
-      }
+      if (entered && name !== 'main' && error === exited && exitCode === 1)
+        throw new CompilerFailure(message, null, null);
       retire(new CompilerCrashed(message, {cause: error}));
     }
   }
