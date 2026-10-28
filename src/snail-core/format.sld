@@ -6,14 +6,13 @@
 ;; follows Emacs's `calculate-lisp-indent`: it goes under the first argument
 ;; of a call, under the first expression of the line its list's last element
 ;; starts on, or in by two columns for the body of a special form, as the
-;; rule for the form's name says. Highlighting classes each character by the
-;; same lexical rules. The IDE (host/ide/format.sld) formats on save, indents
-;; a line when Tab is pressed, and highlights as the text changes.
+;; rule for the form's name says. The IDE (host/ide/format.sld) formats on
+;; save and indents a line when Tab is pressed; it colors the text with
+;; (snail-core highlight), which follows the compiler's reader.
 (define-library (snail-core format)
   (export
    format-source
-   indent-lines
-   highlight-classes)
+   indent-lines)
   (import
    (snail-core base))
   (begin
@@ -63,12 +62,11 @@
               (else (loop (- index 1) end out)))))
 
     ;; One step of lexing: the offset after what it read, the mode after
-    ;; it, the token it made, if any, and the class of the whole span.
+    ;; it, and the token it made, if any.
     (struct Step
       ((next I64)
        (mode Mode)
-       (token (Option Token))
-       (class Char)))
+       (token (Option Token))))
 
     (: lex-line (-> String Mode (Pair (List Token) Mode)))
     (define (lex-line line mode)
@@ -91,8 +89,8 @@
     (: lex-code (-> String I64 Step))
     (define (lex-code line offset)
       (let ((c (string-ref line offset)) (after (+ offset 1)))
-        (cond ((char-whitespace? c) (Step after (Code) (None) #\.))
-              ((= c #\;) (Step (string-length line) (Code) (None) #\c))
+        (cond ((char-whitespace? c) (Step after (Code) (None)))
+              ((= c #\;) (Step (string-length line) (Code) (None)))
               ((or (= c #\() (= c #\[)) (code-token after (Open offset (spaced? line after))))
               ((or (= c #\)) (= c #\])) (code-token after (Close offset)))
               ((= c #\") (Step-token-set (lex-string line after) (Some (Text offset))))
@@ -103,13 +101,7 @@
 
     (: code-token (-> I64 Token Step))
     (define (code-token next token)
-      (Step next (Code) (Some token)
-            (match token
-              ((Open _ _) #\p)
-              ((Close _) #\p)
-              ((Prefix _) #\q)
-              ((Text _) #\s)
-              ((Atom _ text) (atom-class text)))))
+      (Step next (Code) (Some token)))
 
     ;; `#(` opens a vector, `#|` a block comment, and `#;` comments out the
     ;; next datum, which counts here as a prefix; `#\` starts a character,
@@ -142,17 +134,17 @@
     ;; which the string continues beyond.
     (: lex-string (-> String I64 Step))
     (define (lex-string line offset)
-      (cond ((>= offset (string-length line)) (Step offset (InString) (None) #\s))
+      (cond ((>= offset (string-length line)) (Step offset (InString) (None)))
             ((= (string-ref line offset) #\\) (lex-string line (min (+ offset 2) (string-length line))))
-            ((= (string-ref line offset) #\") (Step (+ offset 1) (Code) (None) #\s))
+            ((= (string-ref line offset) #\") (Step (+ offset 1) (Code) (None)))
             (else (lex-string line (+ offset 1)))))
 
     ;; Inside a block comment, which nests.
     (: lex-comment (-> String I64 I64 Step))
     (define (lex-comment line offset depth)
-      (cond ((>= offset (string-length line)) (Step offset (InComment depth) (None) #\c))
+      (cond ((>= offset (string-length line)) (Step offset (InComment depth) (None)))
             ((at? line offset "|#")
-             (if (= depth 1) (Step (+ offset 2) (Code) (None) #\c) (lex-comment line (+ offset 2) (- depth 1))))
+             (if (= depth 1) (Step (+ offset 2) (Code) (None)) (lex-comment line (+ offset 2) (- depth 1))))
             ((at? line offset "#|") (lex-comment line (+ offset 2) (+ depth 1)))
             (else (lex-comment line (+ offset 1) depth))))
 
@@ -582,107 +574,6 @@
     (define (trim-right text)
       (let loop ((end (string-length text)))
         (if (and (> end 0) (member? (string-ref text (- end 1)) (list #\space #\tab))) (loop (- end 1)) (substring text 0 end))))
-
-    ;; ---- Highlighting ----
-
-    ;; Whether the next name is one a definition introduces: after `(define`,
-    ;; `(define-syntax` or `(:`, the next name, or the first name of the next
-    ;; list.
-    (enum Naming
-      (Plain)
-      (Opened)
-      (Defining)
-      (DefiningList))
-
-    ;; Naming refines the scanner's classes without recognizing tokens again.
-    (struct Color
-      ((class Char)
-       (naming Naming)))
-
-    (struct Highlighted
-      ((classes String)
-       (mode Mode)
-       (naming Naming)))
-
-    ;; Each character's class: comment c, string s, character h, number n,
-    ;; boolean b, keyword k, type t, defined name d, parenthesis p, prefix q,
-    ;; or plain text. Multiline tokens include their physical newlines.
-    (: highlight-classes (-> String String))
-    (define (highlight-classes text)
-      (let loop ((lines (split-lines text)) (mode (Code)) (naming (Plain)) (out (Nil)))
-        (match lines
-          ((Cons line rest)
-           (let* ((result (highlight-line line mode naming))
-                  (newline (if (null? rest) "" (make-string 1 (mode-class (Highlighted-mode result))))))
-             (loop rest (Highlighted-mode result) (Highlighted-naming result)
-                   (Cons (string-append (Highlighted-classes result) newline) out))))
-          ((Nil) (string-concatenate (reverse out))))))
-
-    (: highlight-line (-> String Mode Naming Highlighted))
-    (define (highlight-line line mode naming)
-      (let loop ((offset 0) (mode mode) (naming naming) (out (Nil)))
-        (if (>= offset (string-length line))
-            (Highlighted (string-concatenate (reverse out)) mode naming)
-            (let* ((step (lex-step line offset mode)) (color (highlight-step step naming)))
-              (loop (Step-next step) (Step-mode step) (Color-naming color)
-                    (Cons (make-string (- (Step-next step) offset) (Color-class color)) out))))))
-
-    (: mode-class (-> Mode Char))
-    (define (mode-class mode)
-      (match mode
-        ((Code) #\.)
-        ((InString) #\s)
-        ((InComment _) #\c)))
-
-    (: highlight-step (-> Step Naming Color))
-    (define (highlight-step step naming)
-      (match (Step-token step)
-        ((Some (Atom _ name)) (atom-color name (Step-class step) naming))
-        ((Some (Open _ _)) (Color #\p (if (defining? naming) (DefiningList) (Opened))))
-        ((Some (Close _)) (Color #\p (Plain)))
-        ((Some (Text _)) (Color #\s (Plain)))
-        (_ (Color (Step-class step) naming))))
-
-    (: atom-color (-> String Char Naming Color))
-    (define (atom-color name class naming)
-      (cond ((= class #\h) (Color class (Plain)))
-            ((defining? naming) (Color #\d (Plain)))
-            ((and (opened? naming) (member? name (list "define" "define-syntax" ":"))) (Color #\k (Defining)))
-            (else (Color class (Plain)))))
-
-    (: atom-class (-> String Char))
-    (define (atom-class name)
-      (let ((first (string-ref name 0)))
-        (cond ((at? name 0 "#\\") #\h)
-              ((member? name (list "#t" "#f" "#true" "#false")) #\b)
-              ((or (char-numeric? first) (and (> (string-length name) 1) (member? first (list #\+ #\- #\.))
-                                              (char-numeric? (string-ref name 1))))
-               #\n)
-              ((member? name keywords) #\k)
-              ((and (not (char<? first #\A)) (not (char<? #\Z first))) #\t)
-              (else #\.))))
-
-    ;; The core forms, (snail-core base)'s derived syntax, and the words of
-    ;; libraries, signatures and declarations.
-    (: keywords (List String))
-    (define keywords
-      (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type" "typeclass"
-            "instance" "match" "ann" "type-convert" "extern" "effect" "handle" "expose" "case-id" "let*" "letrec" "cond" "case"
-            "when" "unless" "and" "or" "do" "else" "define-library" "import" "export" "only" "except" "prefix" "rename"
-            "All" "requires" "deriving" "host" "->" "!" "define-application" "define-record-type" "guard"))
-
-    (: defining? (-> Naming Bool))
-    (define (defining? naming)
-      (match naming
-        ((Defining) #t)
-        ((DefiningList) #t)
-        (_ #f)))
-
-    (: opened? (-> Naming Bool))
-    (define (opened? naming)
-      (match naming
-        ((Opened) #t)
-        (_ #f)))
 
     ;; ---- Formatting ----
 

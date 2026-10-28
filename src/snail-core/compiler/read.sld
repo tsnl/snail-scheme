@@ -1,8 +1,10 @@
 ;; Text to located syntax. The reader is a recursive descent over a vector
 ;; of characters; a position is just an index, and line and column are
 ;; recovered from a table of line starts only when a location is needed.
-;; The syntax a `generate-library` producer writes arrives as bytes instead,
-;; and is decoded without passing through text.
+;; Its lexical rules, the "Lexemes" section, are exported, and
+;; (snail-core highlight) classifies text with them. The syntax a
+;; `generate-library` producer writes arrives as bytes instead, and is
+;; decoded without passing through text.
 (define-library (snail-core compiler read)
   (export
    Loc
@@ -43,7 +45,33 @@
    clear-compile-error!
    take-compile-error!
    read-text
-   decode-syntax)
+   decode-syntax
+   Source
+   make-source
+   source-text
+   Atmosphere
+   Whitespace
+   LineComment
+   BlockComment
+   DatumComment
+   atmosphere-at
+   Lexeme
+   ListOpen
+   ListClose
+   QuoteMark
+   BytesOpen
+   StringLexeme
+   CharacterLexeme
+   TokenLexeme
+   EndOfText
+   lexeme-at
+   TokenKind
+   BooleanToken
+   IntegerToken
+   FloatToken
+   NameToken
+   InvalidToken
+   token-kind)
   (import
    (snail-core base))
   (begin
@@ -208,7 +236,7 @@
                     (search middle high)
                     (search low (- middle 1))))))))
 
-    ;; ---- Characters and atmosphere ----
+    ;; ---- Characters ----
 
     ;; The character at `index`, or NUL past the end; scans test `at-end?`
     ;; before they act on a NUL.
@@ -231,51 +259,135 @@
         (or (at-end? source index) (char-whitespace? c) (char=? c #\() (char=? c #\)) (char=? c #\[) (char=? c #\])
             (char=? c #\") (char=? c #\;) (char=? c #\'))))
 
-    ;; Skips whitespace, line comments, nested block comments and datum comments.
-    (: skip-atmosphere (-> Source I64 I64))
-    (define (skip-atmosphere source index)
+    ;; ---- Lexemes ----
+
+    ;; The reader's lexical rules: what starts at an index, and the index
+    ;; after it. (snail-core highlight) classifies text with these same
+    ;; functions, so highlighting cannot disagree with reading. Atmosphere,
+    ;; which the reader skips, is asked for first; anything else starts a
+    ;; datum. Scanning never fails: a string or block comment that the text
+    ;; ends inside runs to the end and says it is not closed, so a highlighter
+    ;; can classify text the reader rejects, and the reader says why.
+
+    ;; What the reader skips between data. `#;` comments out the datum after
+    ;; it, which the reader reads in order to skip it.
+    (enum Atmosphere
+      (Whitespace)
+      (LineComment)
+      (BlockComment ((closed Bool)))
+      (DatumComment))
+
+    ;; What starts a datum. A list closes with the bracket that opened it. A
+    ;; token is any other text up to a delimiter; `token-kind` says what it is.
+    (enum Lexeme
+      (ListOpen ((close Char)))
+      (ListClose ((close Char)))
+      (QuoteMark)
+      (BytesOpen)
+      (StringLexeme ((closed Bool)))
+      (CharacterLexeme)
+      (TokenLexeme)
+      (EndOfText))
+
+    ;; The atmosphere at `index` and the index after it, if any starts there.
+    (: atmosphere-at (-> Source I64 (Option (Pair Atmosphere I64))))
+    (define (atmosphere-at source index)
       (let ((c (peek source index)))
-        (cond ((at-end? source index) index)
-              ((char-whitespace? c) (skip-atmosphere source (+ index 1)))
-              ((char=? c #\;) (skip-atmosphere source (skip-line source index)))
-              ((and (char=? c #\#) (char-is? source (+ index 1) #\|)) (skip-atmosphere source (skip-block source (+ index 2) 1)))
-              ((and (char=? c #\#) (char-is? source (+ index 1) #\;))
-               (skip-atmosphere source (Pair-second (read-datum source (+ index 2)))))
-              (else index))))
+        (cond ((at-end? source index) (None))
+              ((char-whitespace? c) (Some (Pair (Whitespace) (whitespace-end source index))))
+              ((char=? c #\;) (Some (Pair (LineComment) (line-end source index))))
+              ((and (char=? c #\#) (char-is? source (+ index 1) #\|)) (Some (block-comment source (+ index 2) 1)))
+              ((and (char=? c #\#) (char-is? source (+ index 1) #\;)) (Some (Pair (DatumComment) (+ index 2))))
+              (else (None)))))
 
-    (: skip-line (-> Source I64 I64))
-    (define (skip-line source index)
-      (if (or (at-end? source index) (char-is? source index #\newline)) index (skip-line source (+ index 1))))
+    (: whitespace-end (-> Source I64 I64))
+    (define (whitespace-end source index)
+      (if (and (not (at-end? source index)) (char-whitespace? (peek source index))) (whitespace-end source (+ index 1)) index))
 
-    (: skip-block (-> Source I64 I64 I64))
-    (define (skip-block source index depth)
-      (cond ((= depth 0) index)
-            ((at-end? source index) (compile-error (source-loc source index) "unterminated block comment"))
-            ((and (char-is? source index #\|) (char-is? source (+ index 1) #\#)) (skip-block source (+ index 2) (- depth 1)))
-            ((and (char-is? source index #\#) (char-is? source (+ index 1) #\|)) (skip-block source (+ index 2) (+ depth 1)))
-            (else (skip-block source (+ index 1) depth))))
+    ;; A line comment stops before its newline.
+    (: line-end (-> Source I64 I64))
+    (define (line-end source index)
+      (if (or (at-end? source index) (char-is? source index #\newline)) index (line-end source (+ index 1))))
 
-    ;; ---- Data ----
+    ;; Block comments nest.
+    (: block-comment (-> Source I64 I64 (Pair Atmosphere I64)))
+    (define (block-comment source index depth)
+      (cond ((= depth 0) (Pair (BlockComment #t) index))
+            ((at-end? source index) (Pair (BlockComment #f) index))
+            ((and (char-is? source index #\|) (char-is? source (+ index 1) #\#)) (block-comment source (+ index 2) (- depth 1)))
+            ((and (char-is? source index #\#) (char-is? source (+ index 1) #\|)) (block-comment source (+ index 2) (+ depth 1)))
+            (else (block-comment source (+ index 1) depth))))
 
-    ;; The datum starting at `index`, and the index after it.
-    (: read-datum (-> Source I64 (Pair Syntax I64)))
-    (define (read-datum source index)
-      (let* ((start (skip-atmosphere source index)) (loc (source-loc source start)) (c (peek source start)))
-        (cond ((at-end? source start) (compile-error loc "expected a datum before the end of the file"))
-              ((char=? c #\() (read-list source (+ start 1) #\) loc (Nil)))
-              ((char=? c #\[) (read-list source (+ start 1) #\] loc (Nil)))
-              ((or (char=? c #\)) (char=? c #\])) (compile-error loc "unexpected closing parenthesis"))
-              ((char=? c #\") (read-string-literal source (+ start 1) loc (Nil)))
-              ((char=? c #\') (read-quote source (+ start 1) loc))
-              ((and (char=? c #\#) (char-is? source (+ start 1) #\\)) (read-character source (+ start 2) loc))
-              ((bytes-opening? source start) (read-bytes source (+ start 4) loc (Nil)))
-              (else (read-token source start loc)))))
+    ;; The lexeme at `index`, where no atmosphere starts, and the index after
+    ;; it.
+    (: lexeme-at (-> Source I64 (Pair Lexeme I64)))
+    (define (lexeme-at source index)
+      (let ((c (peek source index)) (next (+ index 1)))
+        (cond ((at-end? source index) (Pair (EndOfText) index))
+              ((char=? c #\() (Pair (ListOpen #\)) next))
+              ((char=? c #\[) (Pair (ListOpen #\]) next))
+              ((or (char=? c #\)) (char=? c #\])) (Pair (ListClose c) next))
+              ((char=? c #\") (string-lexeme source next))
+              ((char=? c #\') (Pair (QuoteMark) next))
+              ((and (char=? c #\#) (char-is? source next #\\)) (Pair (CharacterLexeme) (character-end source (+ index 2))))
+              ((bytes-opening? source index) (Pair (BytesOpen) (+ index 4)))
+              (else (Pair (TokenLexeme) (token-end source index))))))
+
+    ;; A string runs to the first quote that a backslash does not escape.
+    (: string-lexeme (-> Source I64 (Pair Lexeme I64)))
+    (define (string-lexeme source index)
+      (cond ((at-end? source index) (Pair (StringLexeme #f) index))
+            ((char-is? source index #\") (Pair (StringLexeme #t) (+ index 1)))
+            ((char-is? source index #\\) (string-lexeme source (min (+ index 2) (vector-length (Source-chars source)))))
+            (else (string-lexeme source (+ index 1)))))
+
+    ;; `#\` takes the character after it, whatever it is, so `#\(` and `#\ `
+    ;; are characters; a name runs on to a delimiter, as in `#\space`.
+    (: character-end (-> Source I64 I64))
+    (define (character-end source index)
+      (if (at-end? source index) index (token-end source (+ index 1))))
 
     ;; `#u8(` opens a byte vector, as in R7RS.
     (: bytes-opening? (-> Source I64 Bool))
     (define (bytes-opening? source index)
       (and (char-is? source index #\#) (char-is? source (+ index 1) #\u) (char-is? source (+ index 2) #\8)
            (char-is? source (+ index 3) #\()))
+
+    (: token-end (-> Source I64 I64))
+    (define (token-end source index)
+      (if (delimiter? source index) index (token-end source (+ index 1))))
+
+    ;; ---- Data ----
+
+    ;; Skips whitespace, comments, and the data that `#;` comments out.
+    (: skip-atmosphere (-> Source I64 I64))
+    (define (skip-atmosphere source index)
+      (match (atmosphere-at source index)
+        ((Some (Pair (BlockComment #f) end)) (compile-error (source-loc source end) "unterminated block comment"))
+        ((Some (Pair (DatumComment) end)) (skip-atmosphere source (Pair-second (read-datum source end))))
+        ((Some (Pair _ end)) (skip-atmosphere source end))
+        ((None) index)))
+
+    ;; The datum starting at `index`, and the index after it.
+    (: read-datum (-> Source I64 (Pair Syntax I64)))
+    (define (read-datum source index)
+      (let ((start (skip-atmosphere source index)))
+        (read-lexeme source start (lexeme-at source start))))
+
+    ;; The datum that the lexeme at `start` begins, and the index after it.
+    (: read-lexeme (-> Source I64 (Pair Lexeme I64) (Pair Syntax I64)))
+    (define (read-lexeme source start lexeme)
+      (let ((loc (source-loc source start)) (end (Pair-second lexeme)))
+        (match (Pair-first lexeme)
+          ((EndOfText) (compile-error loc "expected a datum before the end of the file"))
+          ((ListOpen close) (read-list source end close loc (Nil)))
+          ((ListClose _) (compile-error loc "unexpected closing parenthesis"))
+          ((StringLexeme closed)
+           (if closed (Pair (Atom (DString (string-value source (+ start 1) (- end 1) loc)) loc) end) (compile-error loc "unterminated string")))
+          ((QuoteMark) (read-quote source end loc))
+          ((CharacterLexeme) (Pair (Atom (DChar (character-value source (+ start 2) end loc)) loc) end))
+          ((BytesOpen) (read-bytes source end loc (Nil)))
+          ((TokenLexeme) (Pair (token-syntax (source-text source start end) loc) end)))))
 
     ;; The bytes of `#u8(...)`, each an integer from 0 to 255. Images make
     ;; literals of millions of bytes, so they gather a chunk at a time into
@@ -316,40 +428,52 @@
 
     (: read-list (-> Source I64 Char Loc (List Syntax) (Pair Syntax I64)))
     (define (read-list source index close loc items)
-      (let* ((start (skip-atmosphere source index)) (c (peek source start)))
-        (cond ((at-end? source start) (compile-error loc "unclosed list"))
-              ((char=? c close) (Pair (Form (reverse items) loc) (+ start 1)))
-              ((or (char=? c #\)) (char=? c #\])) (compile-error (source-loc source start) "mismatched closing parenthesis"))
-              (else (let ((item (read-datum source start)))
-                      (read-list source (Pair-second item) close loc (Cons (Pair-first item) items)))))))
+      (let* ((start (skip-atmosphere source index)) (lexeme (lexeme-at source start)))
+        (match (Pair-first lexeme)
+          ((EndOfText) (compile-error loc "unclosed list"))
+          ((ListClose c)
+           (if (char=? c close)
+               (Pair (Form (reverse items) loc) (Pair-second lexeme))
+               (compile-error (source-loc source start) "mismatched closing parenthesis")))
+          (_ (let ((item (read-lexeme source start lexeme)))
+               (read-list source (Pair-second item) close loc (Cons (Pair-first item) items)))))))
 
-    (: read-string-literal (-> Source I64 Loc (List Char) (Pair Syntax I64)))
-    (define (read-string-literal source index loc chars)
-      (let ((c (peek source index)))
-        (cond ((at-end? source index) (compile-error loc "unterminated string"))
-              ((char=? c #\") (Pair (Atom (DString (list->string (reverse chars))) loc) (+ index 1)))
-              ((char=? c #\\)
-               (let ((escaped (read-escape source (+ index 1) loc)))
-                 (read-string-literal source (Pair-second escaped) loc (Cons (Pair-first escaped) chars))))
-              (else (read-string-literal source (+ index 1) loc (Cons c chars))))))
+    ;; ---- Strings and characters ----
 
-    (: read-escape (-> Source I64 Loc (Pair Char I64)))
-    (define (read-escape source index loc)
+    ;; The text of a string whose characters run from `start` to its closing
+    ;; quote at `close`. A backslash there always has a character after it,
+    ;; which the string's lexeme skipped.
+    (: string-value (-> Source I64 I64 Loc String))
+    (define (string-value source start close loc)
+      (let loop ((index start) (chars (Nil)))
+        (cond ((= index close) (list->string (reverse chars)))
+              ((char-is? source index #\\)
+               (let ((escaped (read-escape source (+ index 1) close loc)))
+                 (loop (Pair-second escaped) (Cons (Pair-first escaped) chars))))
+              (else (loop (+ index 1) (Cons (peek source index) chars))))))
+
+    (: read-escape (-> Source I64 I64 Loc (Pair Char I64)))
+    (define (read-escape source index close loc)
       (let ((c (peek source index)))
-        (cond ((at-end? source index) (compile-error loc "unterminated string"))
-              ((char=? c #\n) (Pair #\newline (+ index 1)))
+        (cond ((char=? c #\n) (Pair #\newline (+ index 1)))
               ((char=? c #\t) (Pair #\tab (+ index 1)))
               ((char=? c #\r) (Pair (integer->char 13) (+ index 1)))
               ((char=? c #\0) (Pair (integer->char 0) (+ index 1)))
-              ((char=? c #\x)
-               (let ((end (scan-until source (+ index 1) #\;)))
-                 (Pair (hex-char source (+ index 1) end loc) (+ end 1))))
+              ((char=? c #\x) (hex-escape source (+ index 1) close loc))
               ((or (char=? c #\\) (char=? c #\") (char=? c #\|)) (Pair c (+ index 1)))
               (else (compile-error loc "unknown string escape")))))
 
-    (: scan-until (-> Source I64 Char I64))
-    (define (scan-until source index stop)
-      (if (or (at-end? source index) (char-is? source index stop)) index (scan-until source (+ index 1) stop)))
+    ;; `\x41;`: hexadecimal digits and a semicolon, inside the string.
+    (: hex-escape (-> Source I64 I64 Loc (Pair Char I64)))
+    (define (hex-escape source index close loc)
+      (let ((end (scan-until source index close #\;)))
+        (if (= end close)
+            (compile-error loc "invalid hexadecimal escape")
+            (Pair (hex-char source index end loc) (+ end 1)))))
+
+    (: scan-until (-> Source I64 I64 Char I64))
+    (define (scan-until source index end stop)
+      (if (or (= index end) (char-is? source index stop)) index (scan-until source (+ index 1) end stop)))
 
     (: hex-char (-> Source I64 I64 Loc Char))
     (define (hex-char source start end loc)
@@ -374,52 +498,65 @@
             (Pair "null" (integer->char 0)) (Pair "return" (integer->char 13)) (Pair "alarm" (integer->char 7))
             (Pair "backspace" (integer->char 8)) (Pair "delete" (integer->char 127)) (Pair "escape" (integer->char 27))))
 
-    ;; `#\a`, `#\space` or `#\x41`. The first character is always part of the
-    ;; name, so `#\(` and `#\ ` read as themselves.
-    (: read-character (-> Source I64 Loc (Pair Syntax I64)))
-    (define (read-character source index loc)
-      (let* ((end (token-end source (+ index 1))) (name (source-text source index end)))
-        (cond ((= (string-length name) 1) (Pair (Atom (DChar (string-ref name 0)) loc) end))
-              ((char=? (string-ref name 0) #\x) (Pair (Atom (DChar (hex-char source (+ index 1) end loc)) loc) end))
+    ;; The character `#\` names from `start` to `end`: one character, `x` and
+    ;; hexadecimal digits, or a name.
+    (: character-value (-> Source I64 I64 Loc Char))
+    (define (character-value source start end loc)
+      (let ((name (source-text source start end)))
+        (cond ((= (string-length name) 0) (compile-error loc "expected a character after #\\"))
+              ((= (string-length name) 1) (string-ref name 0))
+              ((char=? (string-ref name 0) #\x) (hex-char source (+ start 1) end loc))
               (else (match (find (lambda (entry) (string=? (Pair-first entry) name)) character-names)
-                      ((Some entry) (Pair (Atom (DChar (Pair-second entry)) loc) end))
+                      ((Some entry) (Pair-second entry))
                       ((None) (compile-error loc (string-append "unknown character name " name))))))))
 
-    (: token-end (-> Source I64 I64))
-    (define (token-end source index)
-      (if (delimiter? source index) index (token-end source (+ index 1))))
+    ;; ---- Tokens ----
 
-    (: read-token (-> Source I64 Loc (Pair Syntax I64)))
-    (define (read-token source start loc)
-      (let ((end (token-end source start)))
-        (Pair (token-syntax (source-text source start end) loc) end)))
+    ;; What the reader makes of a token's text.
+    (enum TokenKind
+      (BooleanToken ((value Bool)))
+      (IntegerToken)
+      (FloatToken)
+      (NameToken)
+      (InvalidToken ((problem String))))
+
+    (: token-kind (-> String TokenKind))
+    (define (token-kind text)
+      (cond ((or (string=? text "#t") (string=? text "#true")) (BooleanToken #t))
+            ((or (string=? text "#f") (string=? text "#false")) (BooleanToken #f))
+            ((string=? text ".") (InvalidToken "dotted lists are not part of Snail-Core"))
+            ((char=? (string-ref text 0) #\#) (InvalidToken (string-append "unsupported syntax " text)))
+            (else (number-kind text))))
 
     (: token-syntax (-> String Loc Syntax))
     (define (token-syntax text loc)
-      (cond ((or (string=? text "#t") (string=? text "#true")) (Atom (DBool #t) loc))
-            ((or (string=? text "#f") (string=? text "#false")) (Atom (DBool #f) loc))
-            ((string=? text ".") (compile-error loc "dotted lists are not part of Snail-Core"))
-            ((char=? (string-ref text 0) #\#) (compile-error loc (string-append "unsupported syntax " text)))
-            (else (match (number-token text loc)
-                    ((Some datum) (Atom datum loc))
-                    ((None) (Ident text (None) loc))))))
+      (match (token-kind text)
+        ((BooleanToken value) (Atom (DBool value) loc))
+        ((IntegerToken) (Atom (integer-datum text loc) loc))
+        ((FloatToken) (Atom (DFloat text) loc))
+        ((NameToken) (Ident text (None) loc))
+        ((InvalidToken problem) (compile-error loc problem))))
 
     ;; ---- Numbers ----
 
-    ;; An optionally signed decimal integer, which must fit in 64 bits, or a
-    ;; decimal float with a point or an exponent.
-    (: number-token (-> String Loc (Option Datum)))
-    (define (number-token text loc)
+    ;; An optionally signed decimal integer, or a decimal float with a point
+    ;; or an exponent. Any other text is a name.
+    (: number-kind (-> String TokenKind))
+    (define (number-kind text)
       (let* ((signed (or (char=? (string-ref text 0) #\-) (char=? (string-ref text 0) #\+)))
              (digits (if signed (substring text 1 (string-length text)) text)))
-        (cond ((= (string-length digits) 0) (None))
-              ((not (or (char-numeric? (string-ref digits 0)) (char=? (string-ref digits 0) #\.))) (None))
-              ((every? char-numeric? (string->list digits))
-               (match (string->i64 text)
-                 ((Some value) (Some (DInt value)))
-                 ((None) (compile-error loc (string-append "the literal " text " does not fit I64")))))
-              ((float-text? digits) (Some (DFloat text)))
-              (else (None)))))
+        (cond ((= (string-length digits) 0) (NameToken))
+              ((not (or (char-numeric? (string-ref digits 0)) (char=? (string-ref digits 0) #\.))) (NameToken))
+              ((every? char-numeric? (string->list digits)) (IntegerToken))
+              ((float-text? digits) (FloatToken))
+              (else (NameToken)))))
+
+    ;; An integer must fit in 64 bits.
+    (: integer-datum (-> String Loc Datum))
+    (define (integer-datum text loc)
+      (match (string->i64 text)
+        ((Some value) (DInt value))
+        ((None) (compile-error loc (string-append "the literal " text " does not fit I64")))))
 
     (: float-text? (-> String Bool))
     (define (float-text? text)
@@ -547,9 +684,10 @@
 
     (: generated-number (-> String Loc Datum))
     (define (generated-number text loc)
-      (match (if (= (string-length text) 0) (None) (number-token text loc))
-        ((Some datum) datum)
-        ((None) (malformed loc (string-append "the number " text " does not read as one")))))
+      (match (if (= (string-length text) 0) (NameToken) (number-kind text))
+        ((IntegerToken) (integer-datum text loc))
+        ((FloatToken) (DFloat text))
+        (_ (malformed loc (string-append "the number " text " does not read as one")))))
 
     (: malformed (All (A) (-> Loc String A)))
     (define (malformed loc problem)
@@ -577,8 +715,19 @@
         (expect (map syntax->string (read-text "#u8(0 137 255) #u8( )" "t")) (list "#u8(0 137 255)" "#u8()"))
         (expect (guard (failure (#t (error-object-message failure))) (read-text "#u8(1 256)" "t"))
                 "t:1:7: a byte is an integer from 0 to 255")
+        (test-unclosed)
         (test-source-diagnostic)
         (test-decode-syntax))
+
+      ;; The lexemes run to the end of the text; the reader says what is
+      ;; missing. A string's escapes stay inside its quotes.
+      (define (test-unclosed)
+        (expect (guard (failure (#t (error-object-message failure))) (read-text "(a \"b" "t")) "t:1:4: unterminated string")
+        (expect (guard (failure (#t (error-object-message failure))) (read-text "a #| #| |#" "t"))
+                "t:1:11: unterminated block comment")
+        (expect (guard (failure (#t (error-object-message failure))) (read-text "#\\" "t")) "t:1:1: expected a character after #\\")
+        (expect (guard (failure (#t (error-object-message failure))) (read-text "\"\\x41\" ;" "t")) "t:1:1: invalid hexadecimal escape")
+        (expect (map syntax->string (read-text "\"\\x41;\\\"\" #\\x41 [a]" "t")) (list "\"A\\\"\"" "#\\A" "(a)")))
 
       (define (test-source-diagnostic)
         (clear-compile-error!)

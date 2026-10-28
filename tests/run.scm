@@ -218,6 +218,22 @@
         (or (and (zero? (caddr result)) (string=? (car result) ""))
             (report "formatter" "formats differently from Emacs" (string-append (car result) (cadr result))))))))
 
+;; The book's preprocessor, host/native/highlight-book.mjs, run on a small
+;; book with its highlighter, (snail-core highlight) as a program, turns
+;; each `scheme` block into spans and leaves the rest as it was.
+(define (compile-book-highlighter root)
+  (guard (failure (#t (report "book highlighter" "compile failed" (error-text failure))))
+    (let ((text (program->wat root (standard-directories root) (path-join root "host/native/highlight.sld"))))
+      (lambda () (check-book-highlighter root text)))))
+
+(define (check-book-highlighter root text)
+  (guard (failure (#t (report "book highlighter" "check failed" (error-text failure))))
+    (let ((program (path-join root "build/tests/book-highlighter/highlight.wasm")))
+      (create-directory* (path-join root "build/tests/book-highlighter"))
+      (link-wat root text program #f)
+      (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/highlight-book.mjs") root program))))
+        (or (zero? (caddr result)) (report "book highlighter" "failed" (string-append (car result) (cadr result))))))))
+
 ;; The internal compiler driver: printing text and running a program.
 (define (run-command-line root)
   (let ((wat (capture-process (list (path-join root "scripts/snail-tool") "wat" (path-join root "examples/fibonacci.sld"))))
@@ -472,7 +488,7 @@
                         (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
                         (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
-                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-host-agreement root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-application-process root)) (lambda () (check-project-failures root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-resources root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-development-runs root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root)) '())))
+                        (if (null? selected) (list (lambda () (run-command-line root)) (lambda () (check-host-agreement root)) (lambda () (check-project-builds root)) (lambda () (check-project-run root)) (lambda () (check-application-process root)) (lambda () (check-project-failures root)) (lambda () (check-project-artifacts root)) (lambda () (check-project-resources root)) (lambda () (check-project-development root)) (lambda () (check-project-watcher root)) (lambda () (check-project-attempts root)) (lambda () (check-development-runs root)) (lambda () (check-project-files root)) (lambda () (check-project-http root)) (lambda () (check-tcp root)) (lambda () (check-udp root)) (lambda () (check-type-ids root)) (lambda () (check-numeric-runtime root)) (lambda () (check-host-boundary root)) (lambda () (check-task-runtime root)) (compile-artifacts root) (compile-native-compiler root) (compile-task-boundary root) (compile-socket-boundary root) (compile-app-runtime root) (compile-siegework root) (compile-assembler root) (compile-formatter root) (compile-book-highlighter root)) '())))
          (results (append (run-checks cases) (if (null? selected) (append (run-linked-cases root) (list (run-develop root))) '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures)) "/" (number->string (length results)) " passed\n"))

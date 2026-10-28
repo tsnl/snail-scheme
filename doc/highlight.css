@@ -1,0 +1,41 @@
+/* Colors for the `scheme` blocks host/native/highlight-book.mjs highlights,
+   by the class (snail-core highlight) gives each token. mdbook names its
+   theme on <html>: light and rust are light themes, coal, navy and ayu dark.
+   The light colors follow mdbook's highlight.css, the dark ones its
+   tomorrow-night.css. */
+:root,
+html.light,
+html.rust {
+  --tok-comment: #575757;
+  --tok-punctuation: #6e6e6e;
+  --tok-string: #008200;
+  --tok-number: #b21e00;
+  --tok-keyword: #9d00ec;
+  --tok-type: #8a5a00;
+  --tok-definition: #0030f2;
+  --tok-invalid: #d70025;
+}
+
+html.coal,
+html.navy,
+html.ayu {
+  --tok-comment: #969896;
+  --tok-punctuation: #9a9a9a;
+  --tok-string: #b5bd68;
+  --tok-number: #de935f;
+  --tok-keyword: #b294bb;
+  --tok-type: #f0c674;
+  --tok-definition: #81a2be;
+  --tok-invalid: #cc6666;
+}
+
+.tok-comment { color: var(--tok-comment); font-style: italic; }
+.tok-punctuation { color: var(--tok-punctuation); }
+.tok-string,
+.tok-character { color: var(--tok-string); }
+.tok-number,
+.tok-boolean { color: var(--tok-number); }
+.tok-keyword { color: var(--tok-keyword); }
+.tok-type { color: var(--tok-type); }
+.tok-definition { color: var(--tok-definition); }
+.tok-invalid { color: var(--tok-invalid); text-decoration: underline wavy; }

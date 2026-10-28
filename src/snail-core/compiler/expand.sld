@@ -329,15 +329,10 @@
 
     ;; ---- The core library ----
 
-    ;; (snail-core core) is the one library without a file: the core forms,
-    ;; the builtin types and the effects the compiler itself performs. Every
-    ;; other library, (snail-core primitive) among them, is a file.
-    (: core-keywords (List String))
-    (define core-keywords
-      (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type"
-            "typeclass" "instance" "match" "ann" "extern" "primitive" "effect" "handle" "expose" "case-id" "type-convert" "type-test"
-            "artifact-files" "link-file"))
-
+    ;; (snail-core core) is the one library without a file: the core forms
+    ;; and the builtin types, both listed in core.sld, and the effects the
+    ;; compiler itself performs. Every other library, (snail-core primitive)
+    ;; among them, is a file.
     (: core-library (-> Exports))
     (define (core-library)
       (append (map (lambda (name) (Pair name (Core name))) core-keywords)

@@ -218,9 +218,11 @@ promise; a failed bind also disposes the session it created.
 ## Browser editor
 
 The editor has a file browser and split panes. `(snail-core format)` runs in the page
-for Scheme highlighting, Tab/Enter indentation and format-on-save (`.sld`, `.scm`
-and `.datum`). Other supported files use ordinary text editing. Browser textareas
-use LF in edited text; the native file API preserves exact bytes until saved.
+for Tab/Enter indentation and format-on-save of Scheme files (`.sld`, `.scm`
+and `.datum`), and `(snail-core highlight)` colors them as the
+[book does](#code-highlighting). Other supported files use ordinary text
+editing. Browser textareas use LF in edited text; the native file API
+preserves exact bytes until saved.
 The browser has no compiler, copied project, directory handles or persistent
 project storage. Closing/reloading a page with drafts asks before discarding them.
 
@@ -274,6 +276,40 @@ invalidation without a replay log. An exact repeat of the retained status keeps
 its diagnostic observations, including invalidation by Save or a changed read.
 It still restores status presentation and refreshes files. Going back online replaces the stream too,
 covering file reads that failed while an existing event connection survived.
+
+## Code highlighting
+
+The book and the editor color code with one classifier, `(snail-core highlight)`.
+It walks text with the compiler reader's own lexical rules, the "Lexemes"
+section of `src/snail-core/compiler/read.sld`: what starts at an index, where
+it ends, and what a token's text is to the reader, a boolean, a number, a name
+or an error. The reader is built on the same functions, so a highlighter
+cannot disagree with it about where a string, a character such as `#\(`, a
+comment or a token ends. The classifier adds what a reader discards, the
+comments and whitespace between data, and it never fails: a string the text
+ends inside is a string to the end, and a token the reader rejects, such as
+`.`, is classed invalid. Its tokens tile the text. The core forms it colors
+as keywords are the compiler's own list, `core-keywords` in `core.sld`; the
+derived forms and declaration words are listed once in the classifier. It
+also marks the name a `define`, `define-syntax` or `:` introduces, and colors
+what `#;` comments out as a comment.
+
+mdbook runs `host/native/highlight-book.mjs` as a preprocessor, which
+`book.toml` registers after the `links` preprocessor has included the
+examples. It replaces each fenced block whose language is `scheme` with a
+`<pre><code class="nohighlight">` of `tok-` spans, one per token but
+whitespace, which `doc/highlight.css` colors for mdbook's light and dark
+themes; highlight.js skips code of class `nohighlight`, and still highlights
+the book's other blocks. The classification is `host/native/highlight.sld`,
+the library compiled to Wasm, which `./scripts/snail-tool book-tools` builds
+when it is stale, so `mdbook build` works from a fresh checkout that can build
+the compiler. `tests/highlight-book.mjs` runs the preprocessor on a small book.
+The editor's formatter, `host/ide/format.sld`, reduces the same tokens to one
+letter per character for its highlight layer.
+
+Proposed: once the book is itself a Snail-Core project, the classifier can run
+in a `generate-library` recipe that writes the highlighted pages, and the mdbook
+preprocessor goes away.
 
 ## Existing application development loop
 

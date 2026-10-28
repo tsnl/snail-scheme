@@ -70,7 +70,7 @@ button { font: inherit; color: inherit; }
 .highlight, .marks { position: absolute; top: 0; left: 0; pointer-events: none; }
 .highlight { color: var(--text); }
 
-/* One Dark's colors, by the class the formatter's lexer gives each character. */
+/* One Dark's colors, by the class of each character's token, as (snail-core highlight) and the compiler's reader see it. */
 .hl-c { color: #7f848e; font-style: italic; }
 .hl-s, .hl-h { color: #98c379; }
 .hl-n, .hl-b { color: #d19a66; }
@@ -78,7 +78,7 @@ button { font: inherit; color: inherit; }
 .hl-t { color: #e5c07b; }
 .hl-d { color: #61afef; }
 .hl-p { color: #7f848e; }
-.hl-q { color: #56b6c2; }
+.hl-e { color: #e06c75; }
 
 .marks { color: transparent; }
 .squiggle { text-decoration: underline wavy var(--error); text-decoration-skip-ink: none; text-underline-offset: 3px; }

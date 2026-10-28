@@ -39,18 +39,22 @@ the `Ref` is allocated by the pass and never escapes it.
 - **[`read.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/read.sld)** turns text into `Syntax`:
   atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
   over a vector of characters; a line table recovers line and column only
-  when a location is needed. It also decodes the bytes a `generate-library`
-  producer writes, the encoding `(snail-core syntax)` defines, straight into
-  `Syntax`. `compile-error` preserves the source point and message at terminal
-  failure; the resident caller resets and consumes this private diagnostic cell.
+  when a location is needed. Its lexemes, what starts at an index and where
+  it ends, never fail, and the reader reports what it rejects in them;
+  `(snail-core highlight)` classifies text with the same functions. It also
+  decodes the bytes a `generate-library` producer writes, the encoding
+  `(snail-core syntax)` defines, straight into `Syntax`. `compile-error`
+  preserves the source point and message at terminal failure; the resident
+  caller resets and consumes this private diagnostic cell.
 - **[`core.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
   `Instance`, `Effect`), the `Program`, the global names of primitives,
-  TypeIds for wire cases and `Any` values from one FNV-1a hash, and the
-  strongly connected components that the checker and the backend share. A
-  `Program` is a value: the expander builds it in one cell, and the later
-  passes read it without effects.
+  TypeIds for wire cases and `Any` values from one FNV-1a hash, the
+  strongly connected components that the checker and the backend share, and
+  the names of the core forms and builtin types that `(snail-core core)`
+  provides. A `Program` is a value: the expander builds it in one cell, and
+  the later passes read it without effects.
 - **[`expand.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/expand.sld)** is the only pass that
   knows binding forms. It loads libraries, replacing each `include-bytes`
   with the byte vector literal of its file, resolves every identifier through

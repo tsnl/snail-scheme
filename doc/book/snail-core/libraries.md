@@ -19,6 +19,7 @@
 | `(snail-core wasm)` | Loading WebAssembly modules while a program runs, and `unsafe-cast`. |
 | `(snail-core sprite)` | Spritebooks: animations on sheets of equal cells, posed as sprites facing the camera. |
 | `(snail-core format)` | Indenting and formatting Lisp source as `scripts/format-scheme` does. |
+| `(snail-core highlight)` | Source text as tokens that tile it, classed for coloring by the compiler reader's lexical rules ([code highlighting](toolchain.md#code-highlighting)). |
 | `(snail-core integer)`, `(snail-core rational)`, `(snail-core number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(snail-core datum)`, `(snail-core read)`, `(snail-core write)` | Scheme data and its external representation. |
 | `(snail-core syntax)` | The syntax a `generate-library` recipe returns, and the bytes its producer writes. |

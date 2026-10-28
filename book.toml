@@ -8,8 +8,17 @@ src = "doc/book"
 build-dir = "build/book"
 create-missing = false
 
+# Colors each `scheme` block by the compiler's own lexical rules, through
+# (snail-core highlight) compiled to Wasm, after `links` has included the
+# examples' text; highlight.js leaves those blocks alone.
+[preprocessor.snail-highlight]
+command = "node host/native/highlight-book.mjs"
+after = ["links"]
+renderers = ["html"]
+
 [output.html]
 site-url = "/snail-scheme/"
+additional-css = ["doc/highlight.css"]
 git-repository-url = "https://github.com/tsnl/snail-scheme"
 edit-url-template = "https://github.com/tsnl/snail-scheme/edit/main/doc/book/{path}"
 

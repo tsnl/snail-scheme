@@ -1,6 +1,7 @@
-;; The IDE's formatter, (snail-core format) as a program. In a page, the source
-;; arrives a character at a time through `format_character`; `format_whole`
-;; formats it, `format_indent` reindents some of its lines and
+;; The IDE's formatter, (snail-core format) as a program, with the
+;; classifier the book is colored by, (snail-core highlight). In a page, the
+;; source arrives a character at a time through `format_character`;
+;; `format_whole` formats it, `format_indent` reindents some of its lines and
 ;; `format_highlight` classes each character for coloring, and each returns
 ;; the length of the result, which `format_result` gives back a character at
 ;; a time. On the command line,
@@ -12,7 +13,8 @@
 (import
  (snail-core base)
  (snail-core io)
- (snail-core format))
+ (snail-core format)
+ (snail-core highlight))
 
 ;; ---- In a page ----
 
@@ -48,7 +50,30 @@
 
 (: format-highlight (-> I32 ! mut))
 (define (format-highlight)
-  (keep-result (highlight-classes (take-input))))
+  (keep-result (class-letters (highlight-tokens (take-input)))))
+
+;; One letter per character, naming its token's class for the editor's
+;; `hl-` styles in host/ide/ide.css. Whitespace and plain names are `.`.
+(: class-letters (-> (List Token) String))
+(define (class-letters tokens)
+  (string-concatenate
+   (map (lambda (token) (make-string (- (Token-end token) (Token-start token)) (class-letter (Token-class token)))) tokens)))
+
+(: class-letter (-> Class Char))
+(define (class-letter class)
+  (match class
+    ((Blank) #\.)
+    ((Comment) #\c)
+    ((Punctuation) #\p)
+    ((StringLiteral) #\s)
+    ((CharacterLiteral) #\h)
+    ((NumberLiteral) #\n)
+    ((BooleanLiteral) #\b)
+    ((Keyword) #\k)
+    ((TypeName) #\t)
+    ((DefinedName) #\d)
+    ((Identifier) #\.)
+    ((Invalid) #\e)))
 
 (: format-result (-> I32 I32 ! mut))
 (define (format-result index)
