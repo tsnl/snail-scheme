@@ -7,8 +7,9 @@
 // browser target each place it at resources/NAME in their output; the
 // program prints the bytes it read, natively and through the browser
 // host's loader fetching the page's files over HTTP. A development build
-// places the file too; editing it compiles nothing again, yet the next
-// generation holds and reads the new bytes.
+// places the file too, seen from outside `snail dev`
+// (tests/development-service.mjs): once the file is edited, the next Build
+// compiles nothing again, yet its generation holds and reads the new bytes.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
@@ -17,11 +18,10 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
 import {createWasi, instantiate, linkedFileImports} from '../host/browser/load.mjs';
-import {createProjectBuilder, discardProject, projectTools} from '../host/native/project.mjs';
+import {startDevelopment} from './development-service.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-resources-'));
-const working = await mkdtemp(join(tmpdir(), 'snail-project-resources-worker-'));
 const build = target => execute(join(root, 'snail'), ['build', project, target]);
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const write = async (name, contents) => { await mkdir(join(project, name, '..'), {recursive: true}); await writeFile(join(project, name), contents); };
@@ -73,21 +73,20 @@ try {
   await assert.rejects(build('cli'), /sprites\.sld:\d+:\d+: the library assets\.sprites links art\/hero\.bin, but there is no file at /);
   await write('src/assets/art/hero.bin', Buffer.from([1, 2, 3, 255]));
 
-  const builder = await createProjectBuilder({root, project, tools: projectTools(root), directory: working});
+  const service = await startDevelopment(root, project);
   try {
-    const first = builder.build(builder.describe(), ['cli']), [output] = first.targets;
+    const output = (await service.settled(0)).published.targets.find(target => target.name === 'cli');
     assert.deepEqual(await resource(output.directory), Buffer.from([1, 2, 3, 255]), 'a development build places the file');
     assert.equal((await run(join(output.directory, 'modules.json'))).stdout, '1,2,3,255\n');
     await write('src/assets/art/hero.bin', Buffer.from([9, 8]));
-    const edited = builder.build(builder.describe(), ['cli']), [next] = edited.targets;
+    const next = (await service.rebuilt()).published.targets.find(target => target.name === 'cli');
     assert.equal(next.compiled, 0, 'a linked file\'s bytes are no build key');
     assert.notEqual(next.digest, output.digest, 'the generation holds the new bytes');
     assert.equal((await run(join(next.directory, 'modules.json'))).stdout, '9,8\n');
-    discardProject(first);
-    discardProject(edited);
-  } finally { builder.close(); }
+    const {code, signal, stderr} = await service.stop();
+    assert.deepEqual({code, signal}, {code: 0, signal: null}, stderr);
+  } finally { await service.stop(); }
   console.log('project resources passed');
 } finally {
   await rm(project, {recursive: true, force: true});
-  await rm(working, {recursive: true, force: true});
 }

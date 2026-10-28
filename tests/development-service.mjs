@@ -133,5 +133,15 @@ export function connect(url) {
     return current.id > after && current.phase === phase && current;
   }, `an attempt after ${after} to reach ${phase}`);
 
-  return {url, get, status, request, command, events, until, settled};
+  // Build, as the editor asks, and the first attempt after it to reach
+  // `phase`. Build marks the session dirty at once, so an attempt already
+  // running is superseded, and the one settled here began after the request:
+  // it read the disk as the caller left it.
+  async function rebuilt(phase = 'succeeded') {
+    const reply = await command('/api/build');
+    assert.equal(reply.status, 202);
+    return settled(JSON.parse(reply.text).id, phase);
+  }
+
+  return {url, get, status, request, command, events, until, settled, rebuilt};
 }
