@@ -31,10 +31,11 @@ forms.
 
 Tables are immutable, so a pass can thread its state as a value rather than
 mutate it. How far each pass has gone differs: checking is a pure function of
-a program, while the expander and the backend still keep what grows over a
-pass in a `Ref`. Where a pass does thread state, its type says so — the
-checker's `check-library` has no `mut` in its row — and where it does not,
-the `Ref` is allocated by the pass and never escapes it.
+a program and expansion a function of the files it reads, while the backend
+still keeps what grows over a pass in a `Ref`. Where a pass does thread
+state, its type says so — neither the checker's `check-library` nor any
+function of the expander has `mut` in its row — and where it does not, the
+`Ref` is allocated by the pass and never escapes it.
 
 - **[`read.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/read.sld)** turns text into `Syntax`:
   atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
@@ -53,8 +54,9 @@ the `Ref` is allocated by the pass and never escapes it.
   TypeIds for wire cases and `Any` values from one FNV-1a hash, the
   strongly connected components that the checker and the backend share, and
   the names of the core forms and builtin types that `(snail-core core)`
-  provides. A `Program` is a value: the expander builds it in one cell, and
-  the later passes read it without effects.
+  provides. A `Program` is a value: the expander threads it through
+  expansion, each addition handing back a larger one, and the later passes
+  read it without effects.
 - **[`expand.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/expand.sld)** is the only pass that
   knows binding forms. It loads libraries, replacing each `include-bytes`
   with the byte vector literal of its file, resolves every identifier through
@@ -67,6 +69,26 @@ the `Ref` is allocated by the pass and never escapes it.
   become core `Expr`s with unique names. Each library's build key, the text
   of its declarations with its imports' interfaces, lets a session replay
   it.
+
+  The pass holds no mutable state. A `Context` is plain data, threaded
+  through: each step takes one and hands back the one it learned in, and a
+  private `expanding` form sequences steps as the checker's `learning` does.
+  Its fields separate what the build is given; scope, which loading a
+  library replaces and the importer gets back — the library's prefix, the
+  libraries loading, the aliases being resolved, and the library's own
+  artifact uses and links; and what the build has learned, which flows
+  forward out of every library — the program, the libraries expanded, the
+  counter behind fresh names, the scopes that marks refer to and the
+  definitions of each top level. One `resumed` says which is which. A top
+  level's definitions are the context's, under the top level's key, so an
+  environment made before the scan bound a name resolves it as well as one
+  made after. Pass 2 adds each declared entity to the program as it meets
+  it, and returns one step for each definition and expression body; a single
+  fold runs the steps in the order the scan found them. The expander's only
+  effect is `fs`: it reads libraries, and the producer runner the driver
+  supplies for `generate-library` reads and writes files. A use of
+  `artifact-files` without its files requests the input, which exits as a
+  compile error does.
 
   Every library is a file but `(snail-core core)`, which the expander
   serves from memory: the core forms, the builtin types, and the `mut` and
@@ -406,10 +428,11 @@ stack ever miss a cycle.
 ### Missing inputs and retry
 
 The compiler cannot start a producer or build another project target. It records
-one pending `CompilerRequest` in memory and exits immediately. Artifact expansion
-and request signaling have no filesystem effects; library loading and
-generated-source IO still do. The host consumes the request after the compiler
-stack has unwound.
+one pending `CompilerRequest` in memory and exits immediately, recording it
+through the same unsafe bridge `compile-error` uses, so a pass that may need an
+input keeps a pure signature. Artifact expansion and request signaling have no
+filesystem effects; library loading and generated-source IO still do. The host
+consumes the request after the compiler stack has unwound.
 
 Standalone source builds service generated-library requests and reject artifact
 requests with their source location: an artifact needs a project build. Chibi

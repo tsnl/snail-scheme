@@ -79,7 +79,7 @@
     ;; The modules of the program at `source`, in program order, and the
     ;; session after the build. Artifact snapshots and producer outputs
     ;; belong to this invocation, never to the retained session.
-    (: build-session (-> Session String (-> (List String) (List Syntax) Bytes ! mut fs) Inputs (Pair (List Built) Session) ! mut fs))
+    (: build-session (-> Session String (-> (List String) (List Syntax) Bytes ! fs) Inputs (Pair (List Built) Session) ! mut fs))
     (define (build-session session source generate inputs)
       (let* ((expansion (expand-program (Session-directories session) generate inputs source (Session-expansion session)))
              (program (ExpandedProgram-program expansion)) (libraries (library-items program (program-items program)))

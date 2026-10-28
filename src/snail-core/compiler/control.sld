@@ -443,10 +443,8 @@
       (define add (local "add" (TFun (list i64 i64) i64 empty-row)))
 
       (define program
-        (let ((cell (ref empty-program)))
-          (add-effect! cell (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil)))
-          (add-effect! cell (Effect "t:Log" (list "t:log") (Nil) (Nil)))
-          (ref-get cell)))
+        (program-with-effect (program-with-effect empty-program (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil)))
+                             (Effect "t:Log" (list "t:log") (Nil) (Nil))))
 
       (define callees (Callees program (list "t:Abort") empty-table empty-table))
 
