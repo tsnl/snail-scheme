@@ -18,7 +18,8 @@ run in the CLI and GUI. [Applications](../snail-core/applications.md) describes
 checkpoint handover and reload on that runtime. [One-shot work and
 ownership](ownership.md) describes the implemented affine subset.
 The [socket effects](networking.md) bind typed, interceptable TCP and UDP operations
-to native Node resources, with cancellation and shutdown owned by the runtime.
+to native Node resources, with cancellation and shutdown owned by the runtime, and the
+[process effect](networking.md#child-processes) binds child processes the same way.
 
 ## Execution and suspension
 

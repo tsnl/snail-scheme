@@ -1,8 +1,9 @@
-# Native networking
+# Native networking and processes
 
 `(snail-core socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
 program runner binds them to `host/native/tcp.mjs` and `host/native/udp.mjs` through JSPI
-and `host/native/socket-imports.mjs`. Static and separately linked programs use the
+and `host/native/socket-imports.mjs`. [Child processes](#child-processes) follow the
+same model, through `host/native/process.mjs` and `host/native/process-imports.mjs`. Static and separately linked programs use the
 same binding. The [HTTP library](../snail-core/http.md) implements one complete
 request/response exchange over TCP. Browser sockets are not implemented.
 [The networking issue](https://github.com/tsnl/snail-scheme/issues/457) tracks the
@@ -214,3 +215,76 @@ is outstanding. Failed bind closes and awaits cleanup before rejecting.
 As for TCP, the scheduler owns successful acquisitions until delivery; the shared
 binding supplies the existing native disposer. The owner adds no second
 delivery protocol and retains no managed wrapper.
+
+## Child processes
+
+`(snail-core process)` provides the `process` effect: child processes with
+their standard streams piped to the program. Import it and include `process`
+in the effect row of code using it. Every operation returns `Result` with a
+`ProcessError` whose `code` is a string such as `"EBADF"` or a native error
+code. As for sockets, cancellation unwinds the task.
+
+| Operation | Success value |
+| --- | --- |
+| `spawn (Command program arguments directory)` | `Process`; `Process-id` is the operating system's process id. |
+| `read-output process stream maximum` | `Some Bytes`, an available nonempty prefix of `(Stdout)` or `(Stderr)`, or `None` at its end. |
+| `write-input process bytes` | `I32` count of bytes the pipe took, at most 65,536. |
+| `close-input process` | `Unit`; the child reads EOF once written bytes drain. |
+| `send-signal process signal` | `Unit` after sending `(Terminate)`, `(Kill)` or `(Interrupt)`. |
+| `wait-exit process` | `(Exited code)`, or `(Signaled name)` with the signal's name, such as `"SIGTERM"`. |
+| `close-process process` | `Unit`. |
+
+A `Command`'s program is found on `PATH` when it has no slash; its
+arguments follow the name it is run as, and it runs in `directory`. The
+program is a field of its own, so no command is empty. A missing executable
+or directory is `ENOENT`, an argument the platform cannot pass (one with a
+NUL) is `EINVAL`, and a signal to a child that has exited is `ESRCH`.
+Writing after `close-input` is `EPIPE`.
+
+Output stays in the pipe until it is read, even after the child exits, so
+waiting first and reading after loses nothing. The pipes keep backpressure,
+though: a child that writes more than a pipe and its stream buffer hold,
+about 64 KiB each, blocks until it is read, so a program expecting more
+output than that reads while it waits. Read limits are 1–65,536
+bytes. There is one pending read per stream and one pending write; a read
+of each stream and a write can overlap, and any number of `wait-exit`s may
+be pending. A write waits until the pipe takes its bytes, so a child that
+does not read holds it. Closing a process that is still running kills it
+with SIGKILL and revokes the handle, as closing a socket does; closing it
+again succeeds. A `Process` carries an `Any` token belonging to its handler,
+and a different handler's token reaching the native binding is `EBADF`.
+`tests/programs/process.sld` runs `/bin/sh` through each operation.
+
+### The process boundary
+
+`createProcesses()` in `host/native/process.mjs` owns one set of children
+behind positive I32 handles, which never repeat within that owner. A child is
+owned from spawn until it has exited and its pipes have closed; its public
+handle exists from a successful spawn until close. `process-imports.mjs`
+reads a command a character at a time through the library's exposed
+projections, and builds every result in Wasm after the waiting task
+reacquires the execution permit, as `socket-imports.mjs` does.
+
+| Operation | Result |
+| --- | --- |
+| `spawn(signal, directory, program, arguments)` | `{handle, pid}` once Node reports the child running. |
+| `read(signal, handle, descriptor, maximum)` | A nonempty prefix of stream 1 or 2, or `null` at its end. |
+| `write(signal, handle, bytes)` | A count after the pipe accepts it. |
+| `closeInput(handle)` | Ends input. |
+| `kill(handle, number)` | Sends signal 15, 9 or 2, the numbers the library gives. |
+| `wait(signal, handle)` | `{code}` or `{signal}` once the child exits. |
+| `close(handle)` | Revokes the handle, kills a running child and destroys its pipes. |
+| `shutdown()` | Rejects new spawns, closes every child and waits until each has exited. |
+
+Node discards a child's output when it exits unless a `'readable'` listener
+is waiting for it, so each output stream keeps one, and its bytes wait in
+the stream until `read`. A successful spawn waiting for delivery belongs to
+the scheduler; if its task is cancelled first, the binding's disposer closes
+the handle, which kills the child. Cancelling a read consumes nothing and
+leaves the process usable; cancelling a pending write destroys the child's
+input, since the bytes may be partly written. The runner shuts the owner down
+with the socket owners when a program ends, so no child outlives a program
+that ends normally. Only the child is killed: a process it started, as a
+shell does for a command it does not `exec`, is the child's to end. No native record retains a managed wrapper. The browser has
+no processes and no `snail.process` imports, so a program performing
+`process` links only on the native runner.

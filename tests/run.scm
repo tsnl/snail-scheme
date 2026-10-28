@@ -376,7 +376,7 @@
     ("tests/programs" "effect-row-inclusion") ("tests/programs" "link-bytes") ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library") ("tests/programs" "control-placeholders") ("tests/programs" "control-generator")
     ("tests/programs" "control-resumable-exception") ("tests/programs" "control-stored-resume") ("tests/programs" "control-tail-loop")
-    ("tests/programs" "tcp") ("tests/programs" "tcp-handler")
+    ("tests/programs" "tcp") ("tests/programs" "tcp-handler") ("tests/programs" "process")
     ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")
     ("tests/programs" "http-exchange") ("tests/programs" "http-sockets")
     ("tests/programs" "directories")))
