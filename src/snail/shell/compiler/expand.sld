@@ -3221,7 +3221,6 @@
    (snail-tests
     (export test-expand)
     (import
-     (only (scheme base) guard error-object? error-object-message)
      (only (chibi filesystem) create-directory*)
      (only (chibi string) string-contains string-cursor->index)
      (snail stage0 testing)
@@ -3281,16 +3280,16 @@
       ;; The producer of (sample made) imports (sample helper), which
       ;; imports (sample made) while it is still loading.
       (define (closure-error directories made)
-        (guard (failure ((error-object? failure)
-                         (let ((message (error-object-message failure)))
-                           (and (string-contains message "helper.sld:1:")
-                                (string-contains message "library import cycle through sample.made")
-                                #t))))
-          (library-closure directories
-                           no-inputs
-                           (Reached-loading made)
-                           (program-imports (Reached-forms made)))
-          #f))
+        (let ((message (compile-failure (lambda ()
+                                          (library-closure directories
+                                                           no-inputs
+                                                           (Reached-loading made)
+                                                           (program-imports
+                                                            (Reached-forms made)))))))
+          (and message
+               (string-contains message "helper.sld:1:")
+               (string-contains message "library import cycle through sample.made")
+               #t)))
 
       (define (test-discovery directories root)
         (let* ((assets (library-file directories (list "sample" "assets") (Loc "test.sld" 1 1)))
@@ -3339,15 +3338,17 @@
                         empty-expansion))
 
       (define (link-error root path)
-        (guard (failure ((error-object? failure)
-                         (let* ((message (error-object-message failure))
-                                (start (string-contains message ": ")))
-                           (substring message
-                                      (+ (string-cursor->index message start) 2)
-                                      (string-length message)))))
-          (link-expansion root
-                          (string-append "(import (snail core forms)) (link-file \"" path "\")"))
-          "accepted"))
+        (let ((message (compile-failure
+                        (lambda ()
+                          (link-expansion root
+                                          (string-append "(import (snail core forms)) (link-file \""
+                                                         path
+                                                         "\")"))))))
+          (if message
+              (substring message
+                         (+ (string-cursor->index message (string-contains message ": ")) 2)
+                         (string-length message))
+              "accepted")))
 
       ;; Loading (snail core primitive) binds each primitive's value under
       ;; `prim:NAME`, quantified over the variables its declaration names, in
