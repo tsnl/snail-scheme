@@ -21,9 +21,42 @@
 
 (define path "build/tests/adder.wasm")
 (write-file path (list->string (map i32->char adder)))
-(let* ((module (load-module "adder" path))
-       (add (ann (unsafe-cast (module-export module "add")) (-> I64 I64 I64))))
-  (display (add 40 2))
-  (newline)
-  (display (fold-left (lambda (total n) (add total n)) 0 (list 1 2 3)))
-  (newline))
+
+(: use-adder (-> Module Unit ! wasm console))
+(define (use-adder module)
+  (match (module-export module "add")
+    ((Ok function)
+     (let ((add (ann (unsafe-cast function) (-> I64 I64 I64))))
+       (display (add 40 2))
+       (newline)
+       (display (fold-left (lambda (total n) (add total n)) 0 (list 1 2 3)))
+       (newline)))
+    ((Err error) (write-line (load-error-message error)))))
+
+(match (load-module "adder" path)
+  ((Ok module)
+   (use-adder module)
+   (match (module-export module "subtract")
+     ((Ok _) (write-line "subtract is exported"))
+     ((Err error) (write-line (load-error-message error)))))
+  ((Err error) (write-line (load-error-message error))))
+
+;; Failures are values: a name linked already, a file that is missing, one
+;; that is not a module, and a module that imports the runtime's memory as
+;; a function.
+;;   (module (import "snail.library" "memory" (func)))
+(: mislinked (List I32))
+(define mislinked
+  (list 0 97 115 109 1 0 0 0
+        1 4 1 96 0 0
+        2 24 1 13 115 110 97 105 108 46 108 105 98 114 97 114 121 6 109 101 109 111 114 121 0 0))
+
+(define text-path "build/tests/adder.txt")
+(write-file text-path "not a module")
+(define mislinked-path "build/tests/mislinked.wasm")
+(write-file mislinked-path (list->string (map i32->char mislinked)))
+(for-each (lambda (entry)
+            (match (load-module (Pair-first entry) (Pair-second entry))
+              ((Ok _) (write-line "loaded"))
+              ((Err error) (write-line (load-error-message error)))))
+          (list (Pair "adder" path) (Pair "missing" "build/tests/missing.wasm") (Pair "text" text-path) (Pair "mislinked" mislinked-path)))

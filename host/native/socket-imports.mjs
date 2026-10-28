@@ -1,6 +1,6 @@
 // The native socket effect boundary. Managed construction happens while the
 // resumed task owns the scheduler permit; pending I/O touches native data only.
-import {byteSnapshot} from '../browser/entry.mjs';
+import {byteSnapshot} from '../browser/load.mjs';
 
 function buffer(api, bytes) {
   const target = api['socket:buffer'](bytes.length);
