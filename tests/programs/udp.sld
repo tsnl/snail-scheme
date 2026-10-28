@@ -27,8 +27,9 @@
   (let ((packet (require (receive second 4))))
     (display (vector->list (Datagram-bytes packet)))
     (newline)
-    (display (and (string=? (Endpoint-address (Datagram-peer packet)) "127.0.0.1")
-                  (= (Endpoint-port (Datagram-peer packet)) (UdpSocket-port first))))
+    (display
+     (and (string=? (Endpoint-address (Datagram-peer packet)) "127.0.0.1")
+          (= (Endpoint-port (Datagram-peer packet)) (UdpSocket-port first))))
     (newline))
   (require (send first peer #u8(1 2)))
   (match (receive second 1)

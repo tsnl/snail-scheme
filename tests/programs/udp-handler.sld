@@ -12,13 +12,16 @@
 
 (handle udp
     ((bind (lambda (endpoint)
-             (Ok (UdpSocket (type-convert (ref (Datagram endpoint #u8())) Any) (Endpoint-port endpoint)))))
+             (Ok (UdpSocket (type-convert (ref (Datagram endpoint #u8())) Any)
+                            (Endpoint-port endpoint)))))
      (send (lambda (socket peer bytes)
              (sleep 1)
-             (ref-set! (type-convert (UdpSocket-token socket) (Ref Datagram)) (Datagram peer bytes))
+             (ref-set! (type-convert (UdpSocket-token socket) (Ref Datagram))
+                       (Datagram peer bytes))
              (Ok (i64->i32 (vector-length bytes)))))
      (receive (lambda (socket _)
-                (Ok (ref-get (type-convert (UdpSocket-token socket) (Ref Datagram))))))
+                (Ok (ref-get
+                     (type-convert (UdpSocket-token socket) (Ref Datagram))))))
      (close-udp (lambda (_) (Ok (unit)))))
   (let ((socket (require (bind (Endpoint "test" 7)))))
     (dispatch-local

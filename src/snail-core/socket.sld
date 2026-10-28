@@ -2,7 +2,15 @@
 ;; the native runner supplies the default implementation through JSPI.
 (define-library (snail-core socket)
   (export
-   tcp listen connect accept read write finish-connection close-listener close-connection
+   tcp
+   listen
+   connect
+   accept
+   read
+   write
+   finish-connection
+   close-listener
+   close-connection
    udp bind send receive close-udp
    Endpoint Endpoint-address Endpoint-port
    Listener Listener-token Listener-port
@@ -139,7 +147,8 @@
     (: ascii-text (-> (Array U8) String ! mut))
     (define (ascii-text bytes)
       (string-generate (array-length bytes)
-                       (lambda (index) (i32->char (u8->i32 (array-ref bytes index))))))
+                       (lambda (index)
+                         (i32->char (u8->i32 (array-ref bytes index))))))
 
     (: error-code (-> (Array U8) SocketError ! mut))
     (define (error-code bytes)
@@ -157,9 +166,11 @@
     (define (bound handle port)
       (Ok (UdpSocket (type-convert (NativeUdpSocket handle) Any) port)))
 
-    (: received-datagram (-> (Array U8) I32 (Array U8) (Result Datagram SocketError) ! mut))
+    (: received-datagram
+       (-> (Array U8) I32 (Array U8) (Result Datagram SocketError) ! mut))
     (define (received-datagram address port bytes)
-      (Ok (Datagram (Endpoint (ascii-text address) port) (array->vector bytes))))
+      (Ok
+       (Datagram (Endpoint (ascii-text address) port) (array->vector bytes))))
 
     (: received (-> (Array U8) (Result (Option Bytes) SocketError) ! mut))
     (define (received bytes)

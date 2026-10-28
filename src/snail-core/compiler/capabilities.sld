@@ -14,29 +14,52 @@
     (define (capability-class? name)
       (member? name (list "snail-core.base:Send" "snail-core.base:Sync")))
 
-    (: capability-type? (-> Program String Type (List Constraint) (List String) Bool))
+    (: capability-type?
+       (-> Program String Type (List Constraint) (List String) Bool))
     (define (capability-type? program property type givens visiting)
-      (or (any? (lambda (given) (and (string=? property (Constraint-class given))
-                                     (types=? (list type) (Constraint-types given)))) givens)
-          (match type
-            ((TCon name args)
-             (and (not (member? name (list "Ref" "Array" "Any" "Funcref")))
-                  (every? (lambda (arg) (capability-type? program property arg givens visiting)) args)
-                  (or (member? name visiting)
-                      (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types)
-                      (capability-fields? program property type givens (Cons name visiting)))))
-            ((TRow _ _) #t)
-            (_ #f))))
+      (or
+       (any? (lambda (given) (and (string=? property (Constraint-class given))
+                                  (types=? (list type)
+                                           (Constraint-types given))))
+             givens)
+       (match type
+         ((TCon name args)
+          (and (not (member? name (list "Ref" "Array" "Any" "Funcref")))
+               (every? (lambda (arg)
+                         (capability-type? program
+                                           property
+                                           arg
+                                           givens
+                                           visiting))
+                       args)
+               (or (member? name visiting)
+                   (any? (lambda (entry) (string=? name (Pair-first entry)))
+                         builtin-types)
+                   (capability-fields? program
+                                       property
+                                       type
+                                       givens
+                                       (Cons name visiting)))))
+         ((TRow _ _) #t)
+         (_ #f))))
 
     ;; Arguments are checked before cutting a recursive declaration by name.
     ;; Thus List<Ref<I64>> cannot pass because List has been visited already.
-    (: capability-fields? (-> Program String Type (List Constraint) (List String) Bool))
+    (: capability-fields?
+       (-> Program String Type (List Constraint) (List String) Bool))
     (define (capability-fields? program property type givens visiting)
       (match type
         ((TCon name args)
-         (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
+         (let* ((data (program-type program name))
+                (bindings (zip (DataType-params data) args)))
            (every? (lambda (case)
-                     (every? (lambda (field) (capability-type? program property (substitute bindings (Field-type field)) givens visiting))
+                     (every? (lambda (field)
+                               (capability-type? program
+                                                 property
+                                                 (substitute bindings
+                                                             (Field-type field))
+                                                 givens
+                                                 visiting))
                              (Case-fields case)))
                    (DataType-cases data))))
         (_ #f)))
@@ -66,9 +89,13 @@
          (let ((found (affine-any program args entered)))
            (cond ((Affinity-found? found) found)
                  ((or (member? name (Affinity-entered found))
-                      (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+                      (any? (lambda (entry) (string=? name (Pair-first entry)))
+                            builtin-types))
                   found)
-                 (else (affine-fields program name args (Cons name (Affinity-entered found)))))))
+                 (else (affine-fields program
+                                      name
+                                      args
+                                      (Cons name (Affinity-entered found)))))))
         (_ (Affinity #f entered))))
 
     ;; Arguments are searched before a recursive declaration is cut by name.
@@ -80,15 +107,22 @@
 
     (: affine-next (-> Program Type Affinity Affinity))
     (define (affine-next program type found)
-      (if (Affinity-found? found) found (affine-search program type (Affinity-entered found))))
+      (if (Affinity-found? found)
+          found
+          (affine-search program type (Affinity-entered found))))
 
     (: affine-fields (-> Program String (List Type) (List String) Affinity))
     (define (affine-fields program name args entered)
-      (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
-        (fold-left (lambda (found case) (affine-case program bindings case found))
-                   (Affinity #f entered) (DataType-cases data))))
+      (let* ((data (program-type program name))
+             (bindings (zip (DataType-params data) args)))
+        (fold-left
+         (lambda (found case) (affine-case program bindings case found))
+         (Affinity #f entered) (DataType-cases data))))
 
     (: affine-case (-> Program Substitution Case Affinity Affinity))
     (define (affine-case program bindings case found)
-      (fold-left (lambda (found field) (affine-next program (substitute bindings (Field-type field)) found))
+      (fold-left (lambda (found field)
+                   (affine-next program
+                                (substitute bindings (Field-type field))
+                                found))
                  found (Case-fields case)))))

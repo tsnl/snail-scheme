@@ -41,8 +41,10 @@
 ;; Both generators take their first step under one log.
 (: begin-both (-> Pair-of-steps ! console))
 (define (begin-both)
-  (handle Log ((log (lambda (line) (write-line (string-append "first log: " line)))))
-    (Pair-of-steps (start (lambda () (count-from "a" 1 3))) (start (lambda () (count-from "b" 10 2))))))
+  (handle Log ((log (lambda (line)
+                      (write-line (string-append "first log: " line)))))
+    (Pair-of-steps (start (lambda () (count-from "a" 1 3)))
+                   (start (lambda () (count-from "b" 10 2))))))
 
 ;; The rest alternates between them, long after their handlers returned,
 ;; under another log: each resumed step logs to the handler in scope here.
@@ -59,7 +61,8 @@
 
 (match (begin-both)
   ((Pair-of-steps left right)
-   (handle Log ((log (lambda (line) (write-line (string-append "second log: " line)))))
+   (handle Log ((log (lambda (line)
+                       (write-line (string-append "second log: " line)))))
      (alternate left right))))
 
 ;; A control effect in the resumed part: the generator asks for a scale
@@ -91,6 +94,7 @@
     ((Finished) (write-line "finished"))
     ((Gave value next)
      (write-line (string-append "gave " (show value)))
-     (drain (handle Ask ((ask (lambda (resume) (resume scale)))) (next (unit))) (* scale 10)))))
+     (drain (handle Ask ((ask (lambda (resume) (resume scale)))) (next (unit)))
+            (* scale 10)))))
 
 (drain (handle Ask ((ask (lambda (resume) (resume 1)))) (scaled 3)) 2)

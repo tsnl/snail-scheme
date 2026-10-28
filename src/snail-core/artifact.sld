@@ -26,11 +26,13 @@
     ;; under another name or expanded beneath shadowing local bindings.
     (define-syntax artifact-bundle
       (syntax-rules ()
-        ((_ name) (ArtifactBundle (artifact-files name ArtifactFile Cons Nil)))))
+        ((_ name)
+         (ArtifactBundle (artifact-files name ArtifactFile Cons Nil)))))
 
     (: artifact-ref (-> ArtifactBundle String (Option Bytes)))
     (define (artifact-ref bundle path)
-      (match (find (lambda (file) (string=? (ArtifactFile-path file) path)) (ArtifactBundle-files bundle))
+      (match (find (lambda (file) (string=? (ArtifactFile-path file) path))
+                   (ArtifactBundle-files bundle))
         ((Some file) (Some (ArtifactFile-bytes file)))
         ((None) (None))))
 

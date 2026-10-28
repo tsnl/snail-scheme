@@ -204,14 +204,49 @@
     ;; (snail-core core) and (snail-core highlight) colors as keywords.
     (: core-keywords (List String))
     (define core-keywords
-      (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type"
-            "typeclass" "instance" "match" "ann" "extern" "primitive" "effect" "handle" "expose" "case-id" "type-convert" "type-test"
+      (list "define"
+            "lambda"
+            "if"
+            "begin"
+            "let"
+            "define-syntax"
+            "syntax-rules"
+            "quote"
+            ":"
+            "struct"
+            "enum"
+            "type"
+            "typeclass"
+            "instance"
+            "match"
+            "ann"
+            "extern"
+            "primitive"
+            "effect"
+            "handle"
+            "expose"
+            "case-id"
+            "type-convert"
+            "type-test"
             "artifact-files" "link-file"))
 
     (: builtin-types (List (Pair String I64)))
     (define builtin-types
-      (list (Pair "Any" 0) (Pair "Funcref" 0) (Pair "U8" 0) (Pair "I32" 0) (Pair "I64" 0) (Pair "F32" 0) (Pair "F64" 0) (Pair "Bool" 0)
-            (Pair "Char" 0) (Pair "Unit" 0) (Pair "String" 0) (Pair "Array" 1) (Pair "Vector" 1) (Pair "Ref" 1) (Pair "Once" 1)))
+      (list (Pair "Any" 0)
+            (Pair "Funcref" 0)
+            (Pair "U8" 0)
+            (Pair "I32" 0)
+            (Pair "I64" 0)
+            (Pair "F32" 0)
+            (Pair "F64" 0)
+            (Pair "Bool" 0)
+            (Pair "Char" 0)
+            (Pair "Unit" 0)
+            (Pair "String" 0)
+            (Pair "Array" 1)
+            (Pair "Vector" 1)
+            (Pair "Ref" 1)
+            (Pair "Once" 1)))
 
     ;; Unique names look like `snail-core.base:map`; diagnostics show the source
     ;; name. Text is scanned as a vector of characters, which both hosts index
@@ -221,7 +256,8 @@
       (let ((chars (string->vector name)))
         (let loop ((index (- (vector-length chars) 1)))
           (cond ((< index 0) name)
-                ((char=? (vector-ref chars index) #\:) (substring name (+ index 1) (string-length name)))
+                ((char=? (vector-ref chars index) #\:)
+                 (substring name (+ index 1) (string-length name)))
                 (else (loop (- index 1)))))))
 
     ;; The library that defines a global: its name up to the first colon.
@@ -245,27 +281,42 @@
     (define (type->string type)
       (match type
         ((TCon name (Nil)) (short-name name))
-        ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
+        ((TCon name args)
+         (string-append "(" (short-name name) (types->string args) ")"))
         ((TFun params result row)
-         (string-append "(->" (types->string params) " " (type->string result) (row->string row) ")"))
+         (string-append "(->"
+                        (types->string params)
+                        " "
+                        (type->string result)
+                        (row->string row)
+                        ")"))
         ((TRow _ _) (string-append "{" (row->string type) " }"))
         ((TVar id) (string-append "?" (i64->string id)))
         ((TRigid name) name)))
 
     (: types->string (-> (List Type) String))
     (define (types->string types)
-      (string-concatenate (map (lambda (type) (string-append " " (type->string type))) types)))
+      (string-concatenate
+       (map (lambda (type) (string-append " " (type->string type))) types)))
 
     (: row->string (-> Type String))
     (define (row->string row)
-      (let* ((parts (row-parts row (Nil))) (labels (Pair-first parts)) (tail (Pair-second parts)))
+      (let* ((parts (row-parts row (Nil)))
+             (labels (Pair-first parts))
+             (tail (Pair-second parts)))
         (match tail
-          ((None) (if (null? labels) "" (string-append " !" (labels->string labels))))
-          ((Some tail) (string-append " !" (labels->string labels) " " (type->string tail))))))
+          ((None)
+           (if (null? labels) "" (string-append " !" (labels->string labels))))
+          ((Some tail)
+           (string-append " !"
+                          (labels->string labels)
+                          " "
+                          (type->string tail))))))
 
     (: labels->string (-> (List String) String))
     (define (labels->string labels)
-      (string-concatenate (map (lambda (label) (string-append " " (short-name label))) labels)))
+      (string-concatenate
+       (map (lambda (label) (string-append " " (short-name label))) labels)))
 
     ;; The labels of a row, following bound tails, and its final tail.
     (: row-parts (-> Type (List String) (Pair (List String) (Option Type))))
@@ -282,8 +333,14 @@
     (define (type-key type)
       (match type
         ((TCon name (Nil)) name)
-        ((TCon name args) (string-append name "<" (string-join (map type-key args) ",") ">"))
-        ((TFun params result _) (string-append "fn<" (string-join (map type-key params) ",") "->" (type-key result) ">"))
+        ((TCon name args)
+         (string-append name "<" (string-join (map type-key args) ",") ">"))
+        ((TFun params result _)
+         (string-append "fn<"
+                        (string-join (map type-key params) ",")
+                        "->"
+                        (type-key result)
+                        ">"))
         ((TRow _ _) "row")
         ((TRigid name) name)
         ((TVar id) (string-append "?" (i64->string id)))))
@@ -294,18 +351,26 @@
       (match a
         ((TCon name args)
          (match b
-           ((TCon other others) (and (string=? name other) (types=? args others)))
+           ((TCon other others)
+            (and (string=? name other) (types=? args others)))
            (_ #f)))
         ((TFun params result row)
          (match b
-           ((TFun others other-result other-row) (and (types=? params others) (type=? result other-result) (type=? row other-row)))
+           ((TFun others other-result other-row)
+            (and (types=? params others)
+                 (type=? result other-result)
+                 (type=? row other-row)))
            (_ #f)))
         ((TRow labels tail)
          (match b
            ((TRow others other-tail)
-            (and (= (length labels) (length others)) (every? (lambda (label) (member? label others)) labels)
+            (and (= (length labels) (length others))
+                 (every? (lambda (label) (member? label others)) labels)
                  (match tail
-                   ((Some tail) (match other-tail ((Some other) (type=? tail other)) ((None) #f)))
+                   ((Some tail)
+                    (match other-tail
+                      ((Some other) (type=? tail other))
+                      ((None) #f)))
                    ((None) (match other-tail ((Some _) #f) ((None) #t))))))
            (_ #f)))
         ((TVar id)
@@ -319,7 +384,9 @@
 
     (: types=? (-> (List Type) (List Type) Bool))
     (define (types=? as bs)
-      (and (= (length as) (length bs)) (every? (lambda (pair) (type=? (Pair-first pair) (Pair-second pair))) (zip as bs))))
+      (and (= (length as) (length bs))
+           (every? (lambda (pair) (type=? (Pair-first pair) (Pair-second pair)))
+                   (zip as bs))))
 
     ;; ---- Label sets ----
 
@@ -354,9 +421,11 @@
          (match (assoc-ref substitution name)
            ((Some replacement) replacement)
            ((None) type)))
-        ((TCon name args) (TCon name (map (lambda (arg) (substitute substitution arg)) args)))
+        ((TCon name args)
+         (TCon name (map (lambda (arg) (substitute substitution arg)) args)))
         ((TFun params result row)
-         (TFun (map (lambda (param) (substitute substitution param)) params) (substitute substitution result)
+         (TFun (map (lambda (param) (substitute substitution param)) params)
+               (substitute substitution result)
                (substitute substitution row)))
         ((TRow labels (Some tail))
          (match (substitute substitution tail)
@@ -367,7 +436,8 @@
     (: substitute-constraint (-> Substitution Constraint Constraint))
     (define (substitute-constraint substitution constraint)
       (Constraint (Constraint-class constraint)
-                  (map (lambda (type) (substitute substitution type)) (Constraint-types constraint))))
+                  (map (lambda (type) (substitute substitution type))
+                       (Constraint-types constraint))))
 
     ;; ---- Class evidence ----
 
@@ -472,28 +542,41 @@
     ;; occurrence. Locals are included, since names are unique.
     (: expr-references (-> Expr (List String)))
     (define (expr-references expr)
-      (reverse (Pair-second (collect-references (Pair empty-table (Nil)) expr))))
+      (reverse
+       (Pair-second (collect-references (Pair empty-table (Nil)) expr))))
 
     ;; Adds the names not yet seen to the found list, newest first, and to
     ;; the seen table.
-    (: collect-references (-> (Pair (Table Bool) (List String)) Expr (Pair (Table Bool) (List String))))
+    (: collect-references
+       (-> (Pair (Table Bool) (List String))
+           Expr
+           (Pair (Table Bool) (List String))))
     (define (collect-references found expr)
       (let ((collect collect-references))
         (match (Expr-term expr)
           ((Lit _) found)
           ((Var name _ _)
            (match found
-             ((Pair seen names) (if (table-contains? seen name) found (Pair (table-set seen name #t) (Cons name names))))))
+             ((Pair seen names)
+              (if (table-contains? seen name)
+                  found
+                  (Pair (table-set seen name #t) (Cons name names))))))
           ((Lambda _ body) (collect found body))
           ((App callee args) (fold-left collect found (Cons callee args)))
-          ((If test then otherwise) (fold-left collect found (list test then otherwise)))
+          ((If test then otherwise)
+           (fold-left collect found (list test then otherwise)))
           ((Let _ value body) (collect (collect found value) body))
           ((Seq first rest) (collect (collect found first) rest))
-          ((Match scrutinee clauses) (fold-left collect (collect found scrutinee) (map Clause-body clauses)))
+          ((Match scrutinee clauses)
+           (fold-left collect
+                      (collect found scrutinee)
+                      (map Clause-body clauses)))
           ((Ann inner _) (collect found inner))
           ((Convert inner _) (collect found inner))
           ((TypeTest inner _) (collect found inner))
-          ((Handle _ implementations body) (collect (fold-left collect found (map Pair-second implementations)) body)))))
+          ((Handle _ implementations body)
+           (collect (fold-left collect found (map Pair-second implementations))
+                    body)))))
 
     ;; ---- Declared entities ----
 
@@ -631,7 +714,13 @@
 
     (: empty-program Program)
     (define empty-program
-      (Program empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
+      (Program empty-table
+               empty-table
+               empty-table
+               empty-table
+               empty-table
+               (Nil)
+               (Nil)))
 
     (: program-value (-> Program String (Option Value)))
     (define (program-value program name)
@@ -667,25 +756,38 @@
     ;; one it was given.
     (: program-with-value (-> Program String Value Program))
     (define (program-with-value program name value)
-      (Program-values-set program (table-set (Program-values program) name value)))
+      (Program-values-set program
+                          (table-set (Program-values program) name value)))
 
     (: program-with-type (-> Program DataType Program))
     (define (program-with-type program data)
-      (Program-types-set program (table-set (Program-types program) (DataType-name data) data)))
+      (Program-types-set program
+                         (table-set (Program-types program)
+                                    (DataType-name data)
+                                    data)))
 
     (: program-with-class (-> Program Class Program))
     (define (program-with-class program class)
-      (Program-classes-set program (table-set (Program-classes program) (Class-name class) class)))
+      (Program-classes-set program
+                           (table-set (Program-classes program)
+                                      (Class-name class)
+                                      class)))
 
     (: program-with-instance (-> Program Instance Program))
     (define (program-with-instance program instance)
       (let ((class (Instance-class instance)))
-        (Program-instances-set program (table-set (Program-instances program) class
-                                                  (append (class-instances program class) (list instance))))))
+        (Program-instances-set program
+                               (table-set (Program-instances program) class
+                                          (append
+                                           (class-instances program class)
+                                           (list instance))))))
 
     (: program-with-effect (-> Program Effect Program))
     (define (program-with-effect program effect)
-      (Program-effects-set program (table-set (Program-effects program) (Effect-name effect) effect)))
+      (Program-effects-set program
+                           (table-set (Program-effects program)
+                                      (Effect-name effect)
+                                      effect)))
 
     (: program-with-item (-> Program Item Program))
     (define (program-with-item program item)
@@ -697,7 +799,9 @@
 
     (: program-with-library (-> Program String I64 Program))
     (define (program-with-library program name count)
-      (Program-libraries-set program (Cons (Pair name count) (Program-libraries program))))
+      (Program-libraries-set program
+                             (Cons (Pair name count)
+                                   (Program-libraries program))))
 
     ;; What the newest library added: the globals named for it, and its run
     ;; of items, which are the newest. A later build replays it with
@@ -707,22 +811,34 @@
       (let ((count (match (Program-libraries program)
                      ((Cons (Pair _ count) _) count)
                      ((Nil) 0))))
-        (Program (owned (Program-values program) owner) (owned (Program-types program) owner) (owned (Program-classes program) owner)
-                 (owned-instances (Program-instances program) owner) (owned (Program-effects program) owner)
-                 (take (Program-items program) count) (take (Program-libraries program) 1))))
+        (Program (owned (Program-values program) owner)
+                 (owned (Program-types program) owner)
+                 (owned (Program-classes program) owner)
+                 (owned-instances (Program-instances program) owner)
+                 (owned (Program-effects program) owner)
+                 (take (Program-items program) count)
+                 (take (Program-libraries program) 1))))
 
     (: owned (All (V) (-> (Table V) String (Table V))))
     (define (owned table owner)
       (fold-left (lambda (result key)
                    (match (table-ref table key)
-                     ((Some value) (if (string=? (name-owner key) owner) (table-set result key value) result))
+                     ((Some value)
+                      (if (string=? (name-owner key) owner)
+                          (table-set result key value)
+                          result))
                      ((None) result)))
                  empty-table (table-keys table)))
 
-    (: owned-instances (-> (Table (List Instance)) String (Table (List Instance))))
+    (: owned-instances
+       (-> (Table (List Instance)) String (Table (List Instance))))
     (define (owned-instances table owner)
       (fold-left (lambda (result class)
-                   (match (filter (lambda (instance) (string=? (name-owner (Instance-name instance)) owner)) (class-list table class))
+                   (match (filter (lambda (instance)
+                                    (string=?
+                                     (name-owner (Instance-name instance))
+                                     owner))
+                                  (class-list table class))
                      ((Nil) result)
                      (instances (table-set result class instances))))
                  empty-table (table-keys table)))
@@ -741,10 +857,18 @@
       (Program (table-union (Program-values program) (Program-values delta))
                (table-union (Program-types program) (Program-types delta))
                (table-union (Program-classes program) (Program-classes delta))
-               (fold-left (lambda (table class) (table-set table class (append (class-list table class) (class-list (Program-instances delta) class))))
-                          (Program-instances program) (table-keys (Program-instances delta)))
+               (fold-left (lambda (table class)
+                            (table-set table
+                                       class
+                                       (append (class-list table class)
+                                               (class-list
+                                                (Program-instances delta)
+                                                class))))
+                          (Program-instances program)
+                          (table-keys (Program-instances delta)))
                (table-union (Program-effects program) (Program-effects delta))
-               (append (Program-items delta) (Program-items program)) (append (Program-libraries delta) (Program-libraries program))))
+               (append (Program-items delta) (Program-items program))
+               (append (Program-libraries delta) (Program-libraries program))))
 
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
@@ -760,9 +884,14 @@
     ;; checked copies, into each library's run.
     (: library-items (-> Program (List Item) (List (Pair String (List Item)))))
     (define (library-items program items)
-      (let loop ((libraries (reverse (Program-libraries program))) (items items) (out (Nil)))
+      (let loop ((libraries (reverse (Program-libraries program)))
+                 (items items)
+                 (out (Nil)))
         (match libraries
-          ((Cons (Pair name count) rest) (loop rest (list-tail items count) (Cons (Pair name (take items count)) out)))
+          ((Cons (Pair name count) rest)
+           (loop rest
+                 (list-tail items count)
+                 (Cons (Pair name (take items count)) out)))
           ((Nil) (reverse out)))))
 
     ;; ---- Wire identities ----
@@ -780,7 +909,9 @@
     ;; FNV-1a over the code points.
     (: fnv-1a (-> String I64))
     (define (fnv-1a text)
-      (vector-fold (lambda (hash c) (fnv-step hash (char->integer c))) fnv-offset (string->vector text)))
+      (vector-fold (lambda (hash c) (fnv-step hash (char->integer c)))
+                   fnv-offset
+                   (string->vector text)))
 
     ;; A TypeId is a hash as a signed 32-bit value, which Wasm's i32 holds.
     (: type-id (-> String I64))
@@ -802,16 +933,24 @@
     ;; with such a change cannot take an old value for a new one.
     (: any-type-id (-> Program Type I64))
     (define (any-type-id program type)
-      (type-id (string-append (type-key type) "\n" (type-schema program type (Nil) (Nil)))))
+      (type-id (string-append (type-key type)
+                              "\n"
+                              (type-schema program type (Nil) (Nil)))))
 
     (: case-schema (-> Program Case (List String) String))
     (define (case-schema program case visiting)
-      (let* ((data (program-type program (Case-type case))) (visiting (Cons (DataType-name data) visiting)))
+      (let* ((data (program-type program (Case-type case)))
+             (visiting (Cons (DataType-name data) visiting)))
         (string-append (Case-name case) "("
                        (string-concatenate
                         (map (lambda (field)
                                (string-append (Field-name field) ":"
-                                              (type-schema program (Field-type field) (DataType-params data) visiting) ";"))
+                                              (type-schema program
+                                                           (Field-type field)
+                                                           (DataType-params
+                                                            data)
+                                                           visiting)
+                                              ";"))
                              (Case-fields case)))
                        ")")))
 
@@ -826,12 +965,26 @@
            ((None) "#?")))
         ((TCon name args)
          (string-append name "<"
-                        (string-concatenate (map (lambda (arg) (string-append (type-schema program arg params visiting) ",")) args))
+                        (string-concatenate (map (lambda (arg)
+                                                   (string-append
+                                                    (type-schema program
+                                                                 arg
+                                                                 params
+                                                                 visiting)
+                                                    ","))
+                                                 args))
                         ">"
-                        (if (or (member? name visiting) (not (table-contains? (Program-types program) name)))
+                        (if (or (member? name visiting)
+                                (not (table-contains? (Program-types program)
+                                                      name)))
                             ""
-                            (string-concatenate (map (lambda (case) (case-schema program case visiting))
-                                                     (DataType-cases (program-type program name)))))))
+                            (string-concatenate (map (lambda (case)
+                                                       (case-schema program
+                                                                    case
+                                                                    visiting))
+                                                     (DataType-cases
+                                                      (program-type program
+                                                                    name)))))))
         (_ "fn")))
 
     ;; ---- Wire schemas ----
@@ -845,7 +998,9 @@
        (map (lambda (instance)
               (match (Instance-types instance)
                 ((Cons (TCon name _) (Nil))
-                 (if (table-contains? (Program-types program) name) (data-schema program (program-type program name)) ""))
+                 (if (table-contains? (Program-types program) name)
+                     (data-schema program (program-type program name))
+                     ""))
                 (_ "")))
             (class-instances program "snail-core.wire:Serialize"))))
 
@@ -855,9 +1010,18 @@
        "(" (DataType-name data)
        (string-concatenate
         (map (lambda (case)
-               (string-append "\n  (" (short-name (Case-name case)) " " (i64->string (case-type-id program case))
+               (string-append "\n  ("
+                              (short-name (Case-name case))
+                              " "
+                              (i64->string (case-type-id program case))
                               (string-concatenate
-                               (map (lambda (field) (string-append " (" (Field-name field) " " (type-key (Field-type field)) ")"))
+                               (map (lambda (field)
+                                      (string-append " ("
+                                                     (Field-name field)
+                                                     " "
+                                                     (type-key
+                                                      (Field-type field))
+                                                     ")"))
                                     (Case-fields case)))
                               ")"))
              (DataType-cases data)))
@@ -887,8 +1051,17 @@
 
     (: strong-components (-> (Vector (List I64)) (List (List I64))))
     (define (strong-components edges)
-      (let ((search (fold-left (lambda (search node) (if (reached? search node) search (visit search node)))
-                               (Search edges empty-table empty-table empty-table (Nil) 0 (Nil))
+      (let ((search (fold-left (lambda (search node)
+                                 (if (reached? search node)
+                                     search
+                                     (visit search node)))
+                               (Search edges
+                                       empty-table
+                                       empty-table
+                                       empty-table
+                                       (Nil)
+                                       0
+                                       (Nil))
                                (iota (vector-length edges)))))
         (reverse (Search-components search))))
 
@@ -906,13 +1079,15 @@
     (define (node-index search node)
       (match (table-ref (Search-index search) (node-key node))
         ((Some number) number)
-        ((None) (panic "internal error: the search has not reached this node"))))
+        ((None)
+         (panic "internal error: the search has not reached this node"))))
 
     (: node-low (-> Search I64 I64))
     (define (node-low search node)
       (match (table-ref (Search-low search) (node-key node))
         ((Some number) number)
-        ((None) (panic "internal error: the search has not reached this node"))))
+        ((None)
+         (panic "internal error: the search has not reached this node"))))
 
     (: open? (-> Search I64 Bool))
     (define (open? search node)
@@ -926,15 +1101,24 @@
     (define (visit search node)
       (let* ((number (Search-count search))
              (entered (Search (Search-edges search)
-                              (table-set (Search-index search) (node-key node) number)
-                              (table-set (Search-low search) (node-key node) number)
-                              (table-set (Search-open search) (node-key node) #t)
+                              (table-set (Search-index search)
+                                         (node-key node)
+                                         number)
+                              (table-set (Search-low search)
+                                         (node-key node)
+                                         number)
+                              (table-set (Search-open search)
+                                         (node-key node)
+                                         #t)
                               (Cons node (Search-stack search))
                               (+ number 1)
                               (Search-components search)))
-             (followed (fold-left (lambda (search next) (follow search node next))
-                                  entered (vector-ref (Search-edges search) node))))
-        (if (= (node-low followed node) number) (pop-component followed node) followed)))
+             (followed
+              (fold-left (lambda (search next) (follow search node next))
+                         entered (vector-ref (Search-edges search) node))))
+        (if (= (node-low followed node) number)
+            (pop-component followed node)
+            followed)))
 
     ;; Lowers `node`'s link through its edge to `next`, visiting `next`
     ;; first if the search has not reached it.
@@ -948,7 +1132,10 @@
 
     (: lower (-> Search I64 I64 Search))
     (define (lower search node number)
-      (Search-low-set search (table-set (Search-low search) (node-key node) (min (node-low search node) number))))
+      (Search-low-set search
+                      (table-set (Search-low search)
+                                 (node-key node)
+                                 (min (node-low search node) number))))
 
     ;; Pops the stack down to `node`; those nodes are one component.
     (: pop-component (-> Search I64 Search))
@@ -957,9 +1144,13 @@
         (match (Search-stack search)
           ((Cons top rest)
            (let ((search (Search-open-set (Search-stack-set search rest)
-                                          (table-set (Search-open search) (node-key top) #f))))
+                                          (table-set (Search-open search)
+                                                     (node-key top)
+                                                     #f))))
              (if (= top node)
-                 (Search-components-set search (Cons (Cons top component) (Search-components search)))
+                 (Search-components-set search
+                                        (Cons (Cons top component)
+                                              (Search-components search)))
                  (loop search (Cons top component)))))
           ((Nil) (panic "internal error: empty search stack")))))
 
@@ -979,7 +1170,8 @@
     ;; implements everything it declares, so it records no run of items.
     (: primitive-delta (-> Program Program))
     (define (primitive-delta program)
-      (Program-values-set empty-program (owned (Program-values program) "prim")))
+      (Program-values-set empty-program
+                          (owned (Program-values program) "prim")))
 
     )
 
@@ -993,5 +1185,6 @@
     (begin
       (define (test-core)
         (expect (short-name "snail-core.base:map") "map")
-        (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d")))))
+        (expect (label-union (list "b" "d") (list "c" "a" "b"))
+                (list "a" "b" "c" "d")))))
    (else)))

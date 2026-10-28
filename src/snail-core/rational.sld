@@ -30,10 +30,14 @@
     ;; Panics on a zero denominator.
     (: make-rational (-> Integer Integer Rational))
     (define (make-rational numerator denominator)
-      (when (integer-zero? denominator) (panic "rational with zero denominator"))
+      (when (integer-zero? denominator)
+        (panic "rational with zero denominator"))
       (let* ((divisor (integer-gcd numerator denominator))
-             (divisor (if (integer-negative? denominator) (integer-negate divisor) divisor)))
-        (Rational (integer-quotient numerator divisor) (integer-quotient denominator divisor))))
+             (divisor (if (integer-negative? denominator)
+                          (integer-negate divisor)
+                          divisor)))
+        (Rational (integer-quotient numerator divisor)
+                  (integer-quotient denominator divisor))))
 
     (: rational-from-integer (-> Integer Rational))
     (define (rational-from-integer n)
@@ -45,34 +49,43 @@
 
     (: rational->f64 (-> Rational F64))
     (define (rational->f64 r)
-      (/ (integer->f64 (Rational-numerator r)) (integer->f64 (Rational-denominator r))))
+      (/ (integer->f64 (Rational-numerator r))
+         (integer->f64 (Rational-denominator r))))
 
     (: rational->string (-> Rational String))
     (define (rational->string r)
       (if (rational-integer? r)
           (integer->string (Rational-numerator r))
-          (string-append (integer->string (Rational-numerator r)) "/" (integer->string (Rational-denominator r)))))
+          (string-append (integer->string (Rational-numerator r))
+                         "/"
+                         (integer->string (Rational-denominator r)))))
 
     (: rational-add (-> Rational Rational Rational))
     (define (rational-add a b)
-      (make-rational (+ (* (Rational-numerator a) (Rational-denominator b)) (* (Rational-numerator b) (Rational-denominator a)))
+      (make-rational (+ (* (Rational-numerator a) (Rational-denominator b))
+                        (* (Rational-numerator b) (Rational-denominator a)))
                      (* (Rational-denominator a) (Rational-denominator b))))
 
     (: rational-subtract (-> Rational Rational Rational))
     (define (rational-subtract a b)
-      (rational-add a (Rational (integer-negate (Rational-numerator b)) (Rational-denominator b))))
+      (rational-add a
+                    (Rational (integer-negate (Rational-numerator b))
+                              (Rational-denominator b))))
 
     (: rational-multiply (-> Rational Rational Rational))
     (define (rational-multiply a b)
-      (make-rational (* (Rational-numerator a) (Rational-numerator b)) (* (Rational-denominator a) (Rational-denominator b))))
+      (make-rational (* (Rational-numerator a) (Rational-numerator b))
+                     (* (Rational-denominator a) (Rational-denominator b))))
 
     (: rational-divide (-> Rational Rational Rational))
     (define (rational-divide a b)
-      (make-rational (* (Rational-numerator a) (Rational-denominator b)) (* (Rational-denominator a) (Rational-numerator b))))
+      (make-rational (* (Rational-numerator a) (Rational-denominator b))
+                     (* (Rational-denominator a) (Rational-numerator b))))
 
     ;; Denominators are positive, so cross-multiplying preserves order.
     (: rational-compare (-> Rational Rational I64))
     (define (rational-compare a b)
-      (integer-compare (* (Rational-numerator a) (Rational-denominator b)) (* (Rational-numerator b) (Rational-denominator a))))
+      (integer-compare (* (Rational-numerator a) (Rational-denominator b))
+                       (* (Rational-numerator b) (Rational-denominator a))))
 
     ))

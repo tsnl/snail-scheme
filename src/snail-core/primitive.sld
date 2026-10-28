@@ -15,19 +15,93 @@
    unit panic unsafe-total unsafe-cast
    once call-once drop-owned dispatch-local yield-task sleep-task
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
-   i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
+   i32-shift-left
+   i32-shift-right
+   i32-shift-right/logical
+   i32-eq
+   i32-lt
+   i32-le
+   i32-gt
+   i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
-   i64-shift-left i64-shift-right i64-shift-right/logical i64-eq i64-lt i64-le i64-gt i64-ge
-   f32-add f32-sub f32-mul f32-div f32-min f32-max f32-eq f32-lt f32-le f32-gt f32-ge
+   i64-shift-left
+   i64-shift-right
+   i64-shift-right/logical
+   i64-eq
+   i64-lt
+   i64-le
+   i64-gt
+   i64-ge
+   f32-add
+   f32-sub
+   f32-mul
+   f32-div
+   f32-min
+   f32-max
+   f32-eq
+   f32-lt
+   f32-le
+   f32-gt
+   f32-ge
    f32-sqrt f32-abs f32-negate f32-floor f32-ceiling f32-truncate f32-round
-   f64-add f64-sub f64-mul f64-div f64-min f64-max f64-eq f64-lt f64-le f64-gt f64-ge
+   f64-add
+   f64-sub
+   f64-mul
+   f64-div
+   f64-min
+   f64-max
+   f64-eq
+   f64-lt
+   f64-le
+   f64-gt
+   f64-ge
    f64-sqrt f64-abs f64-negate f64-floor f64-ceiling f64-truncate f64-round
-   i32->i64 i64->i32 i64->f64 f64->i64 i32->f64 f64->i32 i32->f32 f32->i32 i64->f32 f32->i64 f32->f64 f64->f32
-   f32->bits bits->f32 f64->bits bits->f64 bool->i32 i32->bool u8->i32 i32->u8 char->i32 i32->char
-   string-length string-ref string-append substring string=? string-compare make-string string-generate
+   i32->i64
+   i64->i32
+   i64->f64
+   f64->i64
+   i32->f64
+   f64->i32
+   i32->f32
+   f32->i32
+   i64->f32
+   f32->i64
+   f32->f64
+   f64->f32
+   f32->bits
+   bits->f32
+   f64->bits
+   bits->f64
+   bool->i32
+   i32->bool
+   u8->i32
+   i32->u8
+   char->i32
+   i32->char
+   string-length
+   string-ref
+   string-append
+   substring
+   string=?
+   string-compare
+   make-string
+   string-generate
    string->vector vector->string
-   vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
-   make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
+   vector-length
+   vector-ref
+   vector-append
+   subvector
+   make-vector
+   vector-set
+   vector-generate
+   make-array
+   array-length
+   array-ref
+   array-set!
+   array->vector
+   vector->array
+   array-copy!
+   vector-copy!
    ref ref-get ref-set!)
   (import
    (snail-core core))
@@ -55,7 +129,8 @@
     (primitive once (All (e) (-> (-> Unit ! e) (Once (-> Unit ! e)))))
     (primitive call-once (All (e) (-> (Once (-> Unit ! e)) Unit ! e)))
     (primitive drop-owned (All (A) (-> A Unit)))
-    (primitive dispatch-local (All (e) (-> (Once (-> Unit ! e)) Unit ! tasks e)))
+    (primitive dispatch-local
+               (All (e) (-> (Once (-> Unit ! e)) Unit ! tasks e)))
     (primitive yield-task (-> Unit ! tasks))
     (primitive sleep-task (-> I64 Unit ! tasks))
 
@@ -179,7 +254,8 @@
     (primitive subvector (All (A) (-> (Vector A) I64 I64 (Vector A))))
     (primitive make-vector (All (A) (-> I64 A (Vector A))))
     (primitive vector-set (All (A) (-> (Vector A) I64 A (Vector A))))
-    (primitive vector-generate (All (A e) (-> I64 (-> I64 A ! e) (Vector A) ! e)))
+    (primitive vector-generate
+               (All (A e) (-> I64 (-> I64 A ! e) (Vector A) ! e)))
 
     ;; ---- Mutable storage ----
 
@@ -189,8 +265,10 @@
     (primitive array-set! (All (A) (-> (Array A) I64 A Unit ! mut)))
     (primitive array->vector (All (A) (-> (Array A) (Vector A) ! mut)))
     (primitive vector->array (All (A) (-> (Vector A) (Array A) ! mut)))
-    (primitive array-copy! (All (A) (-> (Array A) I64 (Array A) I64 I64 Unit ! mut)))
-    (primitive vector-copy! (All (A) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))
+    (primitive array-copy!
+               (All (A) (-> (Array A) I64 (Array A) I64 I64 Unit ! mut)))
+    (primitive vector-copy!
+               (All (A) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))
     (primitive ref (All (A) (-> A (Ref A) ! mut)))
     (primitive ref-get (All (A) (-> (Ref A) A ! mut)))
     (primitive ref-set! (All (A) (-> (Ref A) A Unit ! mut)))))

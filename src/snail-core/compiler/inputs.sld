@@ -60,11 +60,15 @@
 
     (: supply-artifact (-> Inputs String ArtifactFiles Inputs))
     (define (supply-artifact inputs name files)
-      (Inputs-artifacts-set inputs (table-set (Inputs-artifacts inputs) name files)))
+      (Inputs-artifacts-set inputs
+                            (table-set (Inputs-artifacts inputs) name files)))
 
     (: supply-generated (-> Inputs String Bytes Inputs))
     (define (supply-generated inputs text bytes)
-      (Inputs-generated-set inputs (table-set (Inputs-generated inputs) (producer-key text) (Generated text bytes))))
+      (Inputs-generated-set inputs
+                            (table-set (Inputs-generated inputs)
+                                       (producer-key text)
+                                       (Generated text bytes))))
 
     ;; A producer as a build tells it apart: the library directories its
     ;; imports resolve in, then its program. One table serves every target
@@ -72,7 +76,9 @@
     ;; the same recipe's imports to different libraries.
     (: producer-text (-> (List String) (List Syntax) String))
     (define (producer-text directories forms)
-      (string-append (string-join (map quoted directories) " ") "\n" (program-text forms)))
+      (string-append (string-join (map quoted directories) " ")
+                     "\n"
+                     (program-text forms)))
 
     (: producer-key (-> String String))
     (define (producer-key text)
@@ -86,7 +92,10 @@
     (: generated-output (-> Inputs String (Option Bytes)))
     (define (generated-output inputs text)
       (match (table-ref (Inputs-generated inputs) (producer-key text))
-        ((Some generated) (if (string=? (Generated-text generated) text) (Some (Generated-bytes generated)) (None)))
+        ((Some generated)
+         (if (string=? (Generated-text generated) text)
+             (Some (Generated-bytes generated))
+             (None)))
         ((None) (None))))
 
     ;; ---- Requests ----
@@ -123,7 +132,9 @@
     (: publish-input-request! (-> String Unit ! mut fs))
     (define (publish-input-request! directory)
       (match (take-input-request!)
-        ((Some request) (write-file (string-append directory "/request.datum") (request->string request)))
+        ((Some request)
+         (write-file (string-append directory "/request.datum")
+                     (request->string request)))
         ((None) (unit))))
 
     (: request->string (-> CompilerRequest String))
@@ -131,29 +142,47 @@
       (match request
         ((GenerateInput key) (string-append "(generate " (quoted key) ")\n"))
         ((ArtifactInput name source)
-         (string-append "(artifact " (quoted name) " " (quoted (Loc-file source)) " "
-                        (i64->string (Loc-line source)) " " (i64->string (Loc-column source)) ")\n"))))
+         (string-append "(artifact "
+                        (quoted name)
+                        " "
+                        (quoted (Loc-file source))
+                        " "
+                        (i64->string (Loc-line source))
+                        " "
+                        (i64->string (Loc-column source))
+                        ")\n"))))
 
     (: parse-request (-> String String CompilerRequest))
     (define (parse-request text filename)
       (match (read-text text filename)
-        ((Cons (Form (Cons (Ident "generate" _ _) (Cons (Atom (DString key) _) (Nil))) loc) (Nil))
-         (unless (generated-key? key) (compile-error loc "expected a nonempty decimal generator key"))
+        ((Cons (Form (Cons (Ident "generate" _ _)
+                           (Cons (Atom (DString key) _) (Nil)))
+                     loc)
+               (Nil))
+         (unless (generated-key? key)
+           (compile-error loc "expected a nonempty decimal generator key"))
          (GenerateInput key))
         ((Cons (Form (Cons (Ident "artifact" _ _)
                            (Cons (Atom (DString name) _)
                                  (Cons (Atom (DString file) _)
-                                       (Cons (Atom (DInt line) _) (Cons (Atom (DInt column) _) (Nil))))))
+                                       (Cons (Atom (DInt line) _)
+                                             (Cons (Atom (DInt column) _)
+                                                   (Nil))))))
                      loc)
                (Nil))
-         (unless (and (> line 0) (> column 0)) (compile-error loc "artifact source positions start at one"))
+         (unless (and (> line 0) (> column 0))
+           (compile-error loc "artifact source positions start at one"))
          (ArtifactInput name (Loc file line column)))
-        (_ (compile-error (Loc filename 1 1) "expected exactly one generate or artifact compiler request"))))
+        (_ (compile-error (Loc filename 1 1)
+                          "expected exactly one generate or artifact compiler request"))))
 
     (: generated-key? (-> String Bool))
     (define (generated-key? key)
       (and (> (string-length key) 0)
-           (every? (lambda (c) (let ((value (char->integer c))) (and (>= value 48) (<= value 57)))) (string->list key))))
+           (every? (lambda (c)
+                     (let ((value (char->integer c)))
+                       (and (>= value 48) (<= value 57))))
+                   (string->list key))))
 
     (: quoted (-> String String))
     (define (quoted text)
@@ -171,29 +200,43 @@
     ;; library it generates an import cycle. The key is the one the build's
     ;; inputs use, which leaves that line out, since what the producer writes
     ;; does not depend on the chain that reached it.
-    (: generated-syntax (-> String (List String) (List String) (List Syntax) Bytes ! fs))
+    (: generated-syntax
+       (-> String (List String) (List String) (List Syntax) Bytes ! fs))
     (define (generated-syntax directory directories loading forms)
-      (let* ((key (producer-key (producer-text directories forms))) (output (string-append directory "/" key ".syntax")))
+      (let* ((key (producer-key (producer-text directories forms)))
+             (output (string-append directory "/" key ".syntax")))
         (if (file-exists? output)
             (read-bytes output)
-            (begin (print-producer (string-append directory "/" key ".sld") loading forms)
-                   (request-input! (GenerateInput key))))))
+            (begin
+              (print-producer (string-append directory "/" key ".sld")
+                              loading
+                              forms)
+              (request-input! (GenerateInput key))))))
 
     ;; Prints the producer `forms` as the program at `path`, beginning with
     ;; the libraries `loading` when it was reached.
     (: print-producer (-> String (List String) (List Syntax) Unit ! fs))
     (define (print-producer path loading forms)
-      (write-file path (string-append (generating-line loading) "\n" (program-text forms))))
+      (write-file path
+                  (string-append (generating-line loading)
+                                 "\n"
+                                 (program-text forms))))
 
     ;; The text of the producer printed at `path`, as `producer-text` gave
     ;; it for the forms it was printed from.
     (: printed-producer-text (-> (List String) String String ! fs))
     (define (printed-producer-text directories path)
-      (producer-text directories (Pair-second (generating-stack (read-text (read-file path) path)))))
+      (producer-text directories
+                     (Pair-second
+                      (generating-stack (read-text (read-file path) path)))))
 
     (: generating-line (-> (List String) String))
     (define (generating-line loading)
-      (string-append "(generating" (string-concatenate (map (lambda (key) (string-append " " (quoted key))) loading)) ")"))
+      (string-append "(generating"
+                     (string-concatenate
+                      (map (lambda (key) (string-append " " (quoted key)))
+                           loading))
+                     ")"))
 
     ;; The libraries a program's first form says were loading when it was
     ;; printed, and the forms after it. A program that does not begin with
@@ -201,7 +244,8 @@
     (: generating-stack (-> (List Syntax) (Pair (List String) (List Syntax))))
     (define (generating-stack forms)
       (match forms
-        ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest) (Pair (map loading-key keys) rest))
+        ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest)
+         (Pair (map loading-key keys) rest))
         (_ (Pair (Nil) forms))))
 
     (: loading-key (-> Syntax String))
@@ -228,21 +272,40 @@
           "accepted"))
 
       (define (test-inputs)
-        (let ((request (ArtifactInput "client\"\n" (Loc "source\\name.sld" 12 7))))
-          (expect (parse-request (request->string request) "request.datum") request)
-          (expect (parse-request "(generate \"123456\")" "request.datum") (GenerateInput "123456")))
+        (let ((request
+               (ArtifactInput "client\"\n" (Loc "source\\name.sld" 12 7))))
+          (expect (parse-request (request->string request) "request.datum")
+                  request)
+          (expect (parse-request "(generate \"123456\")" "request.datum")
+                  (GenerateInput "123456")))
         (for-each (lambda (text)
-                    (expect (if (string-contains (input-error text) "input.datum:") "rejected" "accepted") "rejected"))
-                  '("" "(generate \"\")" "(generate \"../x\")" "(generate \"-1\")" "(generate 123)"
-                    "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"
-                    "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)"))
+                    (expect
+                     (if (string-contains (input-error text) "input.datum:")
+                         "rejected"
+                         "accepted")
+                     "rejected"))
+                  '(""
+                    "(generate \"\")"
+                    "(generate \"../x\")"
+                    "(generate \"-1\")"
+                    "(generate 123)"
+                    "(generate \"123\") ()"
+                    "(generate \"123\" extra)"
+                    "(artifact \"x\")"
+                    "(artifact \"x\" \"file\" 0 1)"
+                    "(artifact \"x\" \"file\" 1 -1)"))
         (test-generating-stack)
         (test-generated-inputs))
 
       ;; The printed stack reads back as the same keys, ahead of the
       ;; producer's own forms; a program without one has nothing loading.
       (define (test-generating-stack)
-        (let ((printed (generating-stack (read-text (string-append (generating-line (list "sample.knot" "odd\"key")) "\n(unit)") "producer.sld")))
+        (let ((printed
+               (generating-stack
+                (read-text (string-append (generating-line (list "sample.knot"
+                                                                 "odd\"key"))
+                                          "\n(unit)")
+                           "producer.sld")))
               (plain (generating-stack (read-text "(unit)" "program.sld"))))
           (expect (Pair-first printed) (list "sample.knot" "odd\"key"))
           (expect (length (Pair-second printed)) 1)
@@ -254,14 +317,30 @@
       ;; directories is another producer, and an entry whose text differs
       ;; is never taken for it, even under its key.
       (define (test-generated-inputs)
-        (let* ((forms (read-text "(import (snail-core base) (srfi 1)) (write \"a\\\"b\\nc\" #u8(1 2) 1.50 #\\x)" "producer.sld"))
-               (printed (string-append (generating-line (list "sample.knot")) "\n" (program-text forms)))
+        (let* ((forms
+                (read-text
+                 "(import (snail-core base) (srfi 1)) (write \"a\\\"b\\nc\" #u8(1 2) 1.50 #\\x)"
+                 "producer.sld"))
+               (printed (string-append (generating-line (list "sample.knot"))
+                                       "\n"
+                                       (program-text forms)))
                (text (producer-text (list "/project/src" "/root/src") forms))
                (output (list->vector (list (i32->u8 1) (i32->u8 2))))
                (inputs (supply-generated no-inputs text output)))
-          (expect (producer-text (list "/project/src" "/root/src") (Pair-second (generating-stack (read-text printed "printed.sld")))) text)
+          (expect (producer-text (list "/project/src" "/root/src")
+                                 (Pair-second
+                                  (generating-stack (read-text printed
+                                                               "printed.sld"))))
+                  text)
           (expect (generated-output inputs text) (Some output))
-          (expect (generated-output inputs (producer-text (list "/root/src") forms)) (None))
-          (expect (generated-output (Inputs empty-table (table-set empty-table (producer-key text) (Generated "other" output))) text)
+          (expect
+           (generated-output inputs (producer-text (list "/root/src") forms))
+           (None))
+          (expect (generated-output (Inputs empty-table
+                                            (table-set empty-table
+                                                       (producer-key text)
+                                                       (Generated "other"
+                                                                  output)))
+                                    text)
                   (None))))))
    (else)))

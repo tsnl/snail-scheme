@@ -23,7 +23,10 @@
       (list->vector (encoded (read (open-input-string text)))))
 
     (define (encoded datum)
-      (cond ((list? datum) (append (list 0) (encoded-count (length datum)) (apply append (map encoded datum))))
+      (cond ((list? datum)
+             (append (list 0)
+                     (encoded-count (length datum))
+                     (apply append (map encoded datum))))
             ((symbol? datum) (encoded-text 1 (symbol->string datum)))
             ((exact-integer? datum) (encoded-text 2 (number->string datum)))
             ((string? datum) (encoded-text 3 datum))
@@ -31,10 +34,15 @@
 
     (define (encoded-text tag text)
       (append (list tag) (encoded-count (string-length text))
-              (apply append (map (lambda (c) (encoded-count (char->integer c))) (string->list text)))))
+              (apply append
+                     (map (lambda (c) (encoded-count (char->integer c)))
+                          (string->list text)))))
 
     ;; Seven bits to a byte, low bits first.
     (define (encoded-count count)
-      (if (< count 128) (list count) (cons (+ 128 (remainder count 128)) (encoded-count (quotient count 128)))))
+      (if (< count 128)
+          (list count)
+          (cons (+ 128 (remainder count 128))
+                (encoded-count (quotient count 128)))))
 
     ))

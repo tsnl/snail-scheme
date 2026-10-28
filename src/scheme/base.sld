@@ -6,7 +6,19 @@
    define lambda if begin let let* letrec cond case when unless and or do
    define-syntax syntax-rules quote
    + - * / = < <= > >= quotient remainder modulo abs min max not
-   cons car cdr null? pair? list length append reverse map for-each list-ref list-tail
+   cons
+   car
+   cdr
+   null?
+   pair?
+   list
+   length
+   append
+   reverse
+   map
+   for-each
+   list-ref
+   list-tail
    vector make-vector vector-ref vector-length vector->list list->vector
    string string-length string-ref string-append substring string=? string<?
    string->list list->string char->integer integer->char char=? char<?

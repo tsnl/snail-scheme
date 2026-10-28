@@ -63,7 +63,9 @@
     (define (joined-name . parts)
       (string->symbol
        (apply string-append
-              (map (lambda (part) (if (symbol? part) (symbol->string part) part)) parts))))
+              (map
+               (lambda (part) (if (symbol? part) (symbol->string part) part))
+               parts))))
 
     (define (record-definitions name fields setters? rename)
       (let ((define* (rename 'define)) (vector-ref* (rename 'vector-ref)))
@@ -71,17 +73,28 @@
           (if (null? fields)
               (reverse out)
               (let* ((field (caar fields))
-                     (accessor `(,define* (,(joined-name name "-" field) value) (,vector-ref* value ,index)))
-                     (setter `(,define* (,(joined-name name "-" field "-set") value replacement)
-                                (,(rename 'let) ((copy (,(rename 'vector-copy) value)))
-                                 (,(rename 'vector-set!) copy ,index replacement)
+                     (accessor `(,define* (,(joined-name name "-" field) value)
+                                  (,vector-ref* value ,index)))
+                     (setter `(,define* (,(joined-name name "-" field "-set")
+                                         value
+                                         replacement)
+                                (,(rename 'let)
+                                 ((copy (,(rename 'vector-copy) value)))
+                                 (,(rename 'vector-set!)
+                                  copy
+                                  ,index
+                                  replacement)
                                  copy))))
                 (loop (cdr fields) (+ index 1)
-                      (if setters? (cons setter (cons accessor out)) (cons accessor out))))))))
+                      (if setters?
+                          (cons setter (cons accessor out))
+                          (cons accessor out))))))))
 
     (define (constructor-definition name fields rename)
       (let ((parameters (map car fields)))
-        `(,(rename 'define) (,name ,@parameters) (,(rename 'vector) ,name ,@parameters))))
+        `(,(rename 'define)
+          (,name ,@parameters)
+          (,(rename 'vector) ,name ,@parameters))))
 
     (define-syntax struct
       (er-macro-transformer
@@ -97,12 +110,19 @@
       (er-macro-transformer
        (lambda (form rename compare)
          `(,(rename 'begin)
-           (,(rename 'define) ,(head-name (cadr form)) ',(head-name (cadr form)))
+           (,(rename 'define)
+            ,(head-name (cadr form))
+            ',(head-name (cadr form)))
            ,@(apply append
                     (map (lambda (case)
-                           (let ((fields (if (pair? (cdr case)) (cadr case) '())))
-                             (cons (constructor-definition (car case) fields rename)
-                                   (record-definitions (car case) fields #f rename))))
+                           (let ((fields
+                                  (if (pair? (cdr case)) (cadr case) '())))
+                             (cons
+                              (constructor-definition (car case) fields rename)
+                              (record-definitions (car case)
+                                                  fields
+                                                  #f
+                                                  rename))))
                          (cddr form)))))))
 
     ;; ---- Pattern matching ----
@@ -113,21 +133,34 @@
     ;; variables name, so matching allocates nothing.
     (define (pattern-test pattern path rename compare)
       (cond ((symbol? pattern) #t)
-            ((and (pair? pattern) (compare (car pattern) (rename 'quote))) `(,(rename 'equal?) ,path ,pattern))
-            ((and (pair? pattern) (eq? (car pattern) 'Nil)) `(,(rename 'null?) ,path))
+            ((and (pair? pattern) (compare (car pattern) (rename 'quote)))
+             `(,(rename 'equal?) ,path ,pattern))
+            ((and (pair? pattern) (eq? (car pattern) 'Nil))
+             `(,(rename 'null?) ,path))
             ((and (pair? pattern) (eq? (car pattern) 'Cons))
              `(,(rename 'and) (,(rename 'pair?) ,path)
-               ,(pattern-test (cadr pattern) `(,(rename 'car) ,path) rename compare)
-               ,(pattern-test (caddr pattern) `(,(rename 'cdr) ,path) rename compare)))
+               ,(pattern-test (cadr pattern)
+                              `(,(rename 'car) ,path)
+                              rename
+                              compare)
+               ,(pattern-test (caddr pattern)
+                              `(,(rename 'cdr) ,path)
+                              rename
+                              compare)))
             ((pair? pattern)
-             `(,(rename 'and) (,(rename 'vector?) ,path) (,(rename 'eq?) (,(rename 'vector-ref) ,path 0) ,(car pattern))
+             `(,(rename 'and)
+               (,(rename 'vector?) ,path)
+               (,(rename 'eq?) (,(rename 'vector-ref) ,path 0) ,(car pattern))
                ,@(field-tests (cdr pattern) path 1 rename compare)))
             (else `(,(rename 'equal?) ,path ,pattern))))
 
     (define (field-tests patterns path index rename compare)
       (if (null? patterns)
           '()
-          (cons (pattern-test (car patterns) `(,(rename 'vector-ref) ,path ,index) rename compare)
+          (cons (pattern-test (car patterns)
+                              `(,(rename 'vector-ref) ,path ,index)
+                              rename
+                              compare)
                 (field-tests (cdr patterns) path (+ index 1) rename compare))))
 
     ;; The (variable path) bindings of a pattern.
@@ -137,16 +170,30 @@
             ((and (pair? pattern) (compare (car pattern) (rename 'quote))) '())
             ((and (pair? pattern) (eq? (car pattern) 'Nil)) '())
             ((and (pair? pattern) (eq? (car pattern) 'Cons))
-             (append (pattern-bindings (cadr pattern) `(,(rename 'car) ,path) rename compare)
-                     (pattern-bindings (caddr pattern) `(,(rename 'cdr) ,path) rename compare)))
-            ((pair? pattern) (field-bindings (cdr pattern) path 1 rename compare))
+             (append (pattern-bindings (cadr pattern)
+                                       `(,(rename 'car) ,path)
+                                       rename
+                                       compare)
+                     (pattern-bindings (caddr pattern)
+                                       `(,(rename 'cdr) ,path)
+                                       rename
+                                       compare)))
+            ((pair? pattern)
+             (field-bindings (cdr pattern) path 1 rename compare))
             (else '())))
 
     (define (field-bindings patterns path index rename compare)
       (if (null? patterns)
           '()
-          (append (pattern-bindings (car patterns) `(,(rename 'vector-ref) ,path ,index) rename compare)
-                  (field-bindings (cdr patterns) path (+ index 1) rename compare))))
+          (append (pattern-bindings (car patterns)
+                                    `(,(rename 'vector-ref) ,path ,index)
+                                    rename
+                                    compare)
+                  (field-bindings (cdr patterns)
+                                  path
+                                  (+ index 1)
+                                  rename
+                                  compare))))
 
     (define-syntax match
       (er-macro-transformer
@@ -156,8 +203,11 @@
              (,(rename 'cond)
               ,@(map (lambda (clause)
                        `(,(pattern-test (car clause) value rename compare)
-                         (,(rename 'let) ,(pattern-bindings (car clause) value rename compare) ,@(cdr clause))))
+                         (,(rename 'let)
+                          ,(pattern-bindings (car clause) value rename compare)
+                          ,@(cdr clause))))
                      (cddr form))
-              (,(rename 'else) (,(rename 'error) "match: no clause matched" ,value))))))))
+              (,(rename 'else)
+               (,(rename 'error) "match: no clause matched" ,value))))))))
 
     ))

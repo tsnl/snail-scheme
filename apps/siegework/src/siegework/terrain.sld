@@ -123,16 +123,32 @@
     (define (new-land seed)
       (let* ((biome (biome-of seed))
              (hub (Cell (spawn-x seed) (spawn-y seed)))
-             (fronts (map (lambda (front) (Cell (front-x seed front) (front-y seed front))) (list 0 1 2)))
-             (ground (passes hub fronts (vector-generate (* map-size map-size) (lambda (index) (first-ground biome seed (index-cell index))))))
+             (fronts (map (lambda (front)
+                            (Cell (front-x seed front) (front-y seed front)))
+                          (list 0 1 2)))
+             (ground (passes hub
+                             fronts
+                             (vector-generate (* map-size map-size)
+                                              (lambda (index)
+                                                (first-ground biome
+                                                              seed
+                                                              (index-cell
+                                                               index))))))
              (starter (starter-cell seed hub)))
-        (Land seed biome hub starter ground (joined ground hub (lambda (g) (match g ((Water) #f) (_ #t))))
-              (Cons (Site starter 2) (crystal-sites seed hub fronts ground)) fronts)))
+        (Land seed
+              biome
+              hub
+              starter
+              ground
+              (joined ground hub (lambda (g) (match g ((Water) #f) (_ #t))))
+              (Cons (Site starter 2) (crystal-sites seed hub fronts ground))
+              fronts)))
 
     ;; The cells joined to the hub through ground that `crosses?` accepts.
     (: joined (-> (Vector Ground) Cell (-> Ground Bool) (Vector Bool)))
     (define (joined ground hub crosses?)
-      (vector-map (lambda (steps) (>= steps 0)) (distance-field (vector-map crosses? ground) (list hub))))
+      (vector-map (lambda (steps) (>= steps 0))
+                  (distance-field (vector-map crosses? ground) (list hub))))
 
     ;; ---- Hashing ----
 
@@ -147,8 +163,10 @@
     (: mix (-> I64 I64))
     (define (mix value)
       (let* ((x (i64-and value 2147483647))
-             (x (i64-and (* (i64-xor x (i64-shift-right/logical x 16)) 73244475) 2147483647))
-             (x (i64-and (* (i64-xor x (i64-shift-right/logical x 16)) 73244475) 2147483647)))
+             (x (i64-and (* (i64-xor x (i64-shift-right/logical x 16)) 73244475)
+                         2147483647))
+             (x (i64-and (* (i64-xor x (i64-shift-right/logical x 16)) 73244475)
+                         2147483647)))
         (i64-xor x (i64-shift-right/logical x 16))))
 
     ;; A value for (x, y) under the seed and a key naming its use.
@@ -159,7 +177,10 @@
     ;; One of `items` chosen by the seed and a key, if there are any.
     (: pick (All (A) (-> I64 I64 (List A) (Option A))))
     (define (pick seed key items)
-      (if (null? items) (None) (Some (list-ref items (remainder (hash seed key 0 0) (length items))))))
+      (if (null? items)
+          (None)
+          (Some
+           (list-ref items (remainder (hash seed key 0 0) (length items))))))
 
     ;; ---- The hub and the nest fronts ----
 
@@ -170,7 +191,9 @@
       (let ((x (- (map-offset seed 73 9) 4)) (y (- (map-offset seed 151 9) 4)))
         (cond ((<= (+ (* x x) (* y y)) 16) (if horizontal x y))
               ((= attempt 23) 0)
-              (else (spawn-offset (remainder (+ (* seed 25173) 13849) 65521) (+ attempt 1) horizontal)))))
+              (else (spawn-offset (remainder (+ (* seed 25173) 13849) 65521)
+                                  (+ attempt 1)
+                                  horizontal)))))
 
     (: spawn-x (-> I64 I64))
     (define (spawn-x seed)
@@ -183,7 +206,9 @@
     ;; The first front lies 20 to 25 cells out along a seeded axis.
     (: nest-offset (-> I64 Bool I64))
     (define (nest-offset seed horizontal)
-      (let ((direction (map-offset seed 67 4)) (major (+ 20 (map-offset seed 173 6))) (minor (- (map-offset seed 227 9) 4)))
+      (let ((direction (map-offset seed 67 4))
+            (major (+ 20 (map-offset seed 173 6)))
+            (minor (- (map-offset seed 227 9) 4)))
         (if (= (remainder direction 2) (if horizontal 0 1))
             (if (< direction 2) major (- 0 major))
             minor)))
@@ -191,7 +216,9 @@
     ;; The other two fronts are integer rotations of the first by 120 degrees.
     (: front-offset (-> I64 I64 Bool I64))
     (define (front-offset seed front horizontal)
-      (let ((x (nest-offset seed #t)) (y (nest-offset seed #f)) (turn (if (= front 1) 866 -866)))
+      (let ((x (nest-offset seed #t))
+            (y (nest-offset seed #f))
+            (turn (if (= front 1) 866 -866)))
         (cond ((= front 0) (if horizontal x y))
               (horizontal (quotient (- (* -500 x) (* turn y)) 1000))
               (else (quotient (+ (* turn x) (* -500 y)) 1000)))))
@@ -212,9 +239,14 @@
     (: noise (-> I64 I64 I64 I64 I64 I64))
     (define (noise seed key scale x y)
       (let ((i (quotient x scale)) (j (quotient y scale))
-            (u (ease (remainder x scale) scale)) (v (ease (remainder y scale) scale)))
-        (quotient (+ (* (- 256 v) (+ (* (- 256 u) (corner seed key i j)) (* u (corner seed key (+ i 1) j))))
-                     (* v (+ (* (- 256 u) (corner seed key i (+ j 1))) (* u (corner seed key (+ i 1) (+ j 1))))))
+            (u (ease (remainder x scale) scale))
+            (v (ease (remainder y scale) scale)))
+        (quotient (+ (* (- 256 v)
+                        (+ (* (- 256 u) (corner seed key i j))
+                           (* u (corner seed key (+ i 1) j))))
+                     (* v
+                        (+ (* (- 256 u) (corner seed key i (+ j 1)))
+                           (* u (corner seed key (+ i 1) (+ j 1))))))
                   65536)))
 
     (: corner (-> I64 I64 I64 I64 I64))
@@ -232,9 +264,16 @@
     ;; show as straight edges. Coordinates shift by 64 to stay positive.
     (: field (-> I64 I64 I64 I64 I64))
     (define (field seed key x y)
-      (let ((u (+ x (+ 64 (quotient (- (noise seed 40 7 (+ x 64) (+ y 64)) 128) 24))))
-            (v (+ y (+ 64 (quotient (- (noise seed 41 7 (+ x 64) (+ y 64)) 128) 24)))))
-        (quotient (+ (* 2 (noise seed key 10 u v)) (noise seed (+ key 1) 4 u v)) 3)))
+      (let ((u (+ x
+                  (+ 64
+                     (quotient (- (noise seed 40 7 (+ x 64) (+ y 64)) 128)
+                               24))))
+            (v (+ y
+                  (+ 64
+                     (quotient (- (noise seed 41 7 (+ x 64) (+ y 64)) 128)
+                               24)))))
+        (quotient (+ (* 2 (noise seed key 10 u v)) (noise seed (+ key 1) 4 u v))
+                  3)))
 
     ;; Near the middle of a field's range: thin winding lines.
     (: crest? (-> I64 I64 I64 I64 I64 Bool))
@@ -258,12 +297,26 @@
     ;; the high ground, with rock on the highest.
     (: wild-ground (-> Biome I64 Cell Ground))
     (define (wild-ground biome seed cell)
-      (let* ((x (Cell-x cell)) (y (Cell-y cell)) (height (field seed 1 x y)) (wet (field seed 3 x y)))
+      (let* ((x (Cell-x cell))
+             (y (Cell-y cell))
+             (height (field seed 1 x y))
+             (wet (field seed 3 x y)))
         (match biome
-          ((Meadow) (cond ((< wet 88) (Water)) ((> height 168) (Rock)) (else (Open))))
-          ((Desert) (cond ((> height 172) (Rock)) ((and (crest? seed 5 9 x y) (< wet 150)) (Rock)) (else (Open))))
-          ((Tundra) (cond ((< wet 92) (Ice)) ((> height 176) (Rock)) ((= (remainder (hash seed 7 x y) 17) 0) (Rock)) (else (Open))))
-          ((Archipelago) (cond ((< height 138) (Water)) ((> height 196) (Rock)) (else (Open)))))))
+          ((Meadow)
+           (cond ((< wet 88) (Water)) ((> height 168) (Rock)) (else (Open))))
+          ((Desert)
+           (cond ((> height 172) (Rock))
+                 ((and (crest? seed 5 9 x y) (< wet 150)) (Rock))
+                 (else (Open))))
+          ((Tundra)
+           (cond ((< wet 92) (Ice))
+                 ((> height 176) (Rock))
+                 ((= (remainder (hash seed 7 x y) 17) 0) (Rock))
+                 (else (Open))))
+          ((Archipelago)
+           (cond ((< height 138) (Water))
+                 ((> height 196) (Rock))
+                 (else (Open)))))))
 
     ;; ---- Clearings ----
 
@@ -276,7 +329,11 @@
     (: cleared? (-> I64 Cell Bool))
     (define (cleared? seed cell)
       (or (within? cell (Cell (spawn-x seed) (spawn-y seed)) 4)
-          (any? (lambda (front) (within? cell (Cell (front-x seed front) (front-y seed front)) 5)) (list 0 1 2))))
+          (any? (lambda (front)
+                  (within? cell
+                           (Cell (front-x seed front) (front-y seed front))
+                           5))
+                (list 0 1 2))))
 
     ;; ---- Passes ----
 
@@ -284,7 +341,13 @@
     ;; crosses fewest of them, so a front already joined opens nothing.
     (: passes (-> Cell (List Cell) (Vector Ground) (Vector Ground)))
     (define (passes hub fronts ground)
-      (fold-left (lambda (ground front) (open-cells ground (crossing-path (vector-map walkable? ground) (list hub) front))) ground fronts))
+      (fold-left (lambda (ground front)
+                   (open-cells ground
+                               (crossing-path (vector-map walkable? ground)
+                                              (list hub)
+                                              front)))
+                 ground
+                 fronts))
 
     (: walkable? (-> Ground Bool))
     (define (walkable? ground)
@@ -295,7 +358,10 @@
 
     (: open-cells (-> (Vector Ground) (List Cell) (Vector Ground)))
     (define (open-cells ground cells)
-      (fold-left (lambda (ground cell) (vector-set ground (cell-index cell) (Open))) ground cells))
+      (fold-left
+       (lambda (ground cell) (vector-set ground (cell-index cell) (Open)))
+       ground
+       cells))
 
     ;; ---- Crystal sites ----
 
@@ -314,18 +380,33 @@
     ;; one site; the first listed keeps it.
     (: crystal-sites (-> I64 Cell (List Cell) (Vector Ground) (List Site)))
     (define (crystal-sites seed hub fronts ground)
-      (let* ((site? (site-cell? ground (joined ground hub (lambda (g) (match g ((Rock) #f) (_ #t)))) fronts))
+      (let* ((site? (site-cell? ground
+                                (joined ground
+                                        hub
+                                        (lambda (g)
+                                          (match g ((Rock) #f) (_ #t))))
+                                fronts))
              (second (pick seed 11 (filter site? (ring hub 7 11))))
-             (third (pick seed 12 (filter (lambda (cell) (and (site? cell) (apart? cell second))) (ring hub 11 15)))))
+             (third (pick seed
+                          12
+                          (filter (lambda (cell)
+                                    (and (site? cell) (apart? cell second)))
+                                  (ring hub 11 15)))))
         (delete-duplicates (lambda (a b) (cell=? (Site-cell a) (Site-cell b)))
-                           (concatenate (list (site second 3) (site third 6) (regional-sites seed hub site?) (front-sites seed fronts site?))))))
+                           (concatenate (list (site second 3)
+                                              (site third 6)
+                                              (regional-sites seed hub site?)
+                                              (front-sites seed
+                                                           fronts
+                                                           site?))))))
 
     ;; Open ground the hub can wire toward, at least five cells from every
     ;; front.
     (: site-cell? (-> (Vector Ground) (Vector Bool) (List Cell) (-> Cell Bool)))
     (define (site-cell? ground wired fronts)
       (lambda (cell)
-        (and (match (vector-ref ground (cell-index cell)) ((Open) #t) (_ #f)) (vector-ref wired (cell-index cell))
+        (and (match (vector-ref ground (cell-index cell)) ((Open) #t) (_ #f))
+             (vector-ref wired (cell-index cell))
              (not (any? (lambda (front) (within? cell front 4)) fronts)))))
 
     (: site (-> (Option Cell) I64 (List Site)))
@@ -345,8 +426,13 @@
     (: ring (-> Cell I64 I64 (List Cell)))
     (define (ring center inner outer)
       (let ((side (+ (* 2 outer) 1)))
-        (filter (lambda (cell) (and (in-bounds? cell) (within? cell center outer) (not (within? cell center inner))))
-                (map (lambda (i) (Cell (+ (Cell-x center) (- (remainder i side) outer)) (+ (Cell-y center) (- (quotient i side) outer))))
+        (filter (lambda (cell)
+                  (and (in-bounds? cell)
+                       (within? cell center outer)
+                       (not (within? cell center inner))))
+                (map (lambda (i)
+                       (Cell (+ (Cell-x center) (- (remainder i side) outer))
+                             (+ (Cell-y center) (- (quotient i side) outer))))
                      (iota (* side side))))))
 
     ;; Two regions in five of the 16-cell regions hold a site yielding 2 to
@@ -354,22 +440,37 @@
     (: regional-sites (-> I64 Cell (-> Cell Bool) (List Site)))
     (define (regional-sites seed hub site?)
       (concatenate (map (lambda (region)
-                          (let ((rx (* 16 (remainder region 5))) (ry (* 16 (quotient region 5))))
+                          (let ((rx (* 16 (remainder region 5)))
+                                (ry (* 16 (quotient region 5))))
                             (if (< (remainder (hash seed 13 rx ry) 5) 2)
-                                (site (pick (+ seed region) 14 (filter (lambda (cell) (and (site? cell) (not (within? cell hub 15)))) (region-cells rx ry)))
+                                (site (pick (+ seed region)
+                                            14
+                                            (filter (lambda (cell)
+                                                      (and (site? cell)
+                                                           (not (within? cell
+                                                                         hub
+                                                                         15))))
+                                                    (region-cells rx ry)))
                                       (+ 2 (remainder (hash seed 15 rx ry) 5)))
                                 (Nil))))
                         (iota 25))))
 
     (: region-cells (-> I64 I64 (List Cell)))
     (define (region-cells rx ry)
-      (map (lambda (i) (Cell (+ rx (remainder i 16)) (+ ry (quotient i 16)))) (iota 256)))
+      (map (lambda (i) (Cell (+ rx (remainder i 16)) (+ ry (quotient i 16))))
+           (iota 256)))
 
     ;; Three fronts in four have a site yielding 4, 6 to 9 cells out.
     (: front-sites (-> I64 (List Cell) (-> Cell Bool) (List Site)))
     (define (front-sites seed fronts site?)
       (concatenate (map-indexed (lambda (index front)
-                                  (if (< (remainder (hash seed 16 index 0) 4) 3) (site (pick (+ seed index) 17 (filter site? (ring front 5 9))) 4) (Nil)))
+                                  (if (< (remainder (hash seed 16 index 0) 4) 3)
+                                      (site (pick (+ seed index)
+                                                  17
+                                                  (filter site?
+                                                          (ring front 5 9)))
+                                            4)
+                                      (Nil)))
                                 fronts)))
 
     ))

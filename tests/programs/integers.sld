@@ -11,7 +11,9 @@
 
 (: factorial (-> I64 Integer))
 (define (factorial n)
-  (if (= n 0) (integer-from-i64 1) (* (integer-from-i64 n) (factorial (- n 1)))))
+  (if (= n 0)
+      (integer-from-i64 1)
+      (* (integer-from-i64 n) (factorial (- n 1)))))
 
 (define big (parse "123456789012345678901234567890"))
 (write-line (show (factorial 30)))

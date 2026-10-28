@@ -17,7 +17,9 @@
 
 (: tree Tree)
 (define tree
-  (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf))) 5 (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
+  (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf)))
+        5
+        (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
 
 ;; An in-order walk that reports each value it passes, so the output shows
 ;; where the walk stopped.
@@ -37,8 +39,10 @@
     (walk wanted tree)
     -1))
 
-(write-line (string-append "first above 6: " (show (first-where (lambda (value) (> value 6))))))
-(write-line (string-append "first above 20: " (show (first-where (lambda (value) (> value 20))))))
+(write-line (string-append "first above 6: "
+                           (show (first-where (lambda (value) (> value 6))))))
+(write-line (string-append "first above 20: "
+                           (show (first-where (lambda (value) (> value 20))))))
 
 ;; Operands that ran before the operation keep their effects; the call
 ;; they were for never happens.
@@ -47,9 +51,13 @@
   (match tree
     ((Leaf) 0)
     ((Node left value right)
-     (+ (sum left) (+ (if (= value 12) (begin (found value) 0) value) (sum right))))))
+     (+ (sum left)
+        (+ (if (= value 12) (begin (found value) 0) value) (sum right))))))
 
-(write-line (string-append "sum: " (show (handle Found ((found (lambda (value resume) (- 0 value)))) (sum tree)))))
+(write-line (string-append "sum: "
+                           (show (handle Found ((found (lambda (value resume)
+                                                         (- 0 value))))
+                                   (sum tree)))))
 
 ;; A `Once` held across the operation is dropped with the frame that held
 ;; it, and never runs.

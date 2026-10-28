@@ -3,7 +3,12 @@
   (export
    Request Request-head Request-body
    Response Response-status Response-headers Response-body
-   ExchangeError ProtocolFailure TransportFailure TruncatedHead TruncatedBody ApplicationFailure
+   ExchangeError
+   ProtocolFailure
+   TransportFailure
+   TruncatedHead
+   TruncatedBody
+   ApplicationFailure
    serve-one)
   (import
    (snail-core base)
@@ -41,15 +46,21 @@
 
     ;; A successful chunk is nonempty and fits the requested bound. EOF stays
     ;; separate so the head and body readers report their own truncation facts.
-    (: read-chunk (All (E) (-> Connection I64 (Result (Option Bytes) (ExchangeError E)) ! tcp)))
+    (: read-chunk
+       (All (E)
+            (-> Connection
+                I64
+                (Result (Option Bytes) (ExchangeError E))
+                ! tcp)))
     (define (read-chunk connection maximum)
       (match (read connection (i64->i32 maximum))
         ((Err error) (Err (TransportFailure error)))
         ((Ok (None)) (Ok (None)))
         ((Ok (Some bytes))
-         (if (and (> (vector-length bytes) 0) (<= (vector-length bytes) maximum))
-             (Ok (Some bytes))
-             (Err (TransportFailure (SocketError "EIO")))))))
+         (if
+          (and (> (vector-length bytes) 0) (<= (vector-length bytes) maximum))
+          (Ok (Some bytes))
+          (Err (TransportFailure (SocketError "EIO")))))))
 
     ;; Only locate CRLFCRLF here. The codec owns all HTTP syntax validation.
     ;; State is the number of matching delimiter bytes, from zero through four.
@@ -65,44 +76,66 @@
       (let loop ((index 0) (state state))
         (if (or (= state 4) (= index (vector-length bytes)))
             (Pair index state)
-            (loop (+ index 1) (delimiter-step state (vector-ref bytes index))))))
+            (loop (+ index 1)
+                  (delimiter-step state (vector-ref bytes index))))))
 
-    (: parsed-prefix (All (E) (-> (List Bytes) Bytes (Result RequestPrefix (ExchangeError E)))))
+    (: parsed-prefix
+       (All (E)
+            (-> (List Bytes) Bytes (Result RequestPrefix (ExchangeError E)))))
     (define (parsed-prefix reversed prefix)
       (match (parse-request-head (vector-concatenate (reverse reversed)))
         ((Err error) (Err (ProtocolFailure error)))
         ((Ok value)
          (match value
-           ((Some parsed) (Ok (RequestPrefix (ParsedHead-request parsed) prefix)))
+           ((Some parsed)
+            (Ok (RequestPrefix (ParsedHead-request parsed) prefix)))
            ((None) (panic "HTTP delimiter did not complete the head"))))))
 
-    (: read-head (All (E) (-> Connection (Result RequestPrefix (ExchangeError E)) ! tcp)))
+    (: read-head
+       (All (E) (-> Connection (Result RequestPrefix (ExchangeError E)) ! tcp)))
     (define (read-head connection)
-      (let loop ((chunks (ann (Nil) (List Bytes))) (total 0) (state (ann 0 I32)))
+      (let loop ((chunks (ann (Nil) (List Bytes)))
+                 (total 0)
+                 (state (ann 0 I32)))
         (if (= total head-limit)
             (Err (ProtocolFailure (HeadTooLarge)))
             (match (read-chunk connection (- head-limit total))
               ((Err error) (Err error))
               ((Ok (None)) (Err (TruncatedHead)))
               ((Ok (Some bytes))
-               (let* ((count (vector-length bytes)) (scanned (scan-head bytes state)) (end (Pair-first scanned)))
+               (let* ((count (vector-length bytes))
+                      (scanned (scan-head bytes state))
+                      (end (Pair-first scanned)))
                  (if (= (Pair-second scanned) 4)
-                     (parsed-prefix (Cons (subvector bytes 0 end) chunks) (subvector bytes end count))
-                     (loop (Cons bytes chunks) (+ total count) (Pair-second scanned)))))))))
+                     (parsed-prefix (Cons (subvector bytes 0 end) chunks)
+                                    (subvector bytes end count))
+                     (loop (Cons bytes chunks)
+                           (+ total count)
+                           (Pair-second scanned)))))))))
 
-    (: read-body (All (E) (-> Connection RequestPrefix (Result Request (ExchangeError E)) ! tcp)))
+    (: read-body
+       (All (E)
+            (-> Connection
+                RequestPrefix
+                (Result Request (ExchangeError E))
+                ! tcp)))
     (define (read-body connection prefix)
-      (let* ((head (RequestPrefix-head prefix)) (expected (RequestHead-body-length head))
-             (initial (RequestPrefix-prefix prefix)) (count (min expected (vector-length initial))))
+      (let* ((head (RequestPrefix-head prefix))
+             (expected (RequestHead-body-length head))
+             (initial (RequestPrefix-prefix prefix))
+             (count (min expected (vector-length initial))))
         (let loop ((chunks (list (subvector initial 0 count))) (received count))
           (if (= received expected)
               (Ok (Request head (vector-concatenate (reverse chunks))))
               (match (read-chunk connection (min 65536 (- expected received)))
                 ((Err error) (Err error))
                 ((Ok (None)) (Err (TruncatedBody expected received)))
-                ((Ok (Some bytes)) (loop (Cons bytes chunks) (+ received (vector-length bytes)))))))))
+                ((Ok (Some bytes))
+                 (loop (Cons bytes chunks)
+                       (+ received (vector-length bytes)))))))))
 
-    (: read-request (All (E) (-> Connection (Result Request (ExchangeError E)) ! tcp)))
+    (: read-request
+       (All (E) (-> Connection (Result Request (ExchangeError E)) ! tcp)))
     (define (read-request connection)
       (match (read-head connection)
         ((Err error) (Err error))
@@ -110,7 +143,8 @@
 
     ;; ---- Complete response output ----
 
-    (: write-bytes (All (E) (-> Connection Bytes (Result Unit (ExchangeError E)) ! tcp)))
+    (: write-bytes
+       (All (E) (-> Connection Bytes (Result Unit (ExchangeError E)) ! tcp)))
     (define (write-bytes connection bytes)
       ;; Slice sizes follow actual progress: at most 65536 + twice the sent
       ;; bytes are copied, even when a replacement handler accepts tiny writes.
@@ -126,7 +160,13 @@
                        (Err (TransportFailure (SocketError "EIO")))
                        (loop (+ offset count) (min 65536 (* 2 count)))))))))))
 
-    (: write-response (All (E) (-> Connection I32 ResponseParts (Result Unit (ExchangeError E)) ! tcp)))
+    (: write-response
+       (All (E)
+            (-> Connection
+                I32
+                ResponseParts
+                (Result Unit (ExchangeError E))
+                ! tcp)))
     (define (write-response connection grace parts)
       (match (write-bytes connection (ResponseParts-head parts))
         ((Err error) (Err error))
@@ -138,15 +178,25 @@
               ((Err error) (Err (TransportFailure error)))
               ((Ok _) (Ok (unit)))))))))
 
-    (: respond (All (E) (-> Connection I32 Request Response (Result Unit (ExchangeError E)) ! tcp)))
+    (: respond
+       (All (E)
+            (-> Connection
+                I32
+                Request
+                Response
+                (Result Unit (ExchangeError E))
+                ! tcp)))
     (define (respond connection grace request response)
-      (match (encode-response (RequestHead-method (Request-head request)) (Response-status response)
-                              (Response-headers response) (Response-body response))
+      (match (encode-response (RequestHead-method (Request-head request))
+                              (Response-status response)
+                              (Response-headers response)
+                              (Response-body response))
         ((Err error) (Err (ProtocolFailure error)))
         ((Ok parts) (write-response connection grace parts))))
 
-    (: exchange (All (E e) (-> Connection I32 (-> Request (Result Response E) ! e)
-                               (Result Unit (ExchangeError E)) ! tcp e)))
+    (: exchange
+       (All (E e) (-> Connection I32 (-> Request (Result Response E) ! e)
+                      (Result Unit (ExchangeError E)) ! tcp e)))
     (define (exchange connection grace handler)
       (match (read-request connection)
         ((Err error) (Err error))
@@ -159,8 +209,9 @@
     ;; Returned failures close here. Traps and cancellation in an unrelated
     ;; handler effect cannot unwind through this code; runtime shutdown owns
     ;; their remaining native resources. Active native I/O cancels its socket.
-    (: serve-one (All (E e) (-> Connection I32 (-> Request (Result Response E) ! e)
-                                (Result Unit (ExchangeError E)) ! tcp e)))
+    (: serve-one
+       (All (E e) (-> Connection I32 (-> Request (Result Response E) ! e)
+                      (Result Unit (ExchangeError E)) ! tcp e)))
     (define (serve-one connection grace handler)
       (let ((result (exchange connection grace handler)))
         (match result

@@ -22,7 +22,9 @@
 
 (instance (Collection Range)
   (define (collect range f)
-    (map f (map (lambda (i) (+ i (Range-start range))) (iota (- (Range-end range) (Range-start range)))))))
+    (map f
+         (map (lambda (i) (+ i (Range-start range)))
+              (iota (- (Range-end range) (Range-start range)))))))
 
 ;; A generic function whose requirements pass evidence on.
 (: describe-all (All (C) (requires (Collection C)) (-> C (List String))))

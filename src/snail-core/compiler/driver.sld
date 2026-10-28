@@ -18,12 +18,36 @@
     (define (compile-command-line)
       (take-input-request!)
       (match (command-line)
-        ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
-         (let ((generate (lambda (loading forms) (generated-syntax generated directories loading forms))))
-           (cond ((string=? mode "schema") (write-file output (source->schemas directories source generate no-inputs)))
-                 ((string=? mode "modules") (write-modules output generated (source->modules directories source generate no-inputs)))
-                 (else (write-program output generated (source->wat directories source generate no-inputs))))))
-        (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
+        ((Cons _
+               (Cons mode
+                     (Cons source (Cons output (Cons generated directories)))))
+         (let ((generate (lambda (loading forms)
+                           (generated-syntax generated
+                                             directories
+                                             loading
+                                             forms))))
+           (cond ((string=? mode "schema")
+                  (write-file output
+                              (source->schemas directories
+                                               source
+                                               generate
+                                               no-inputs)))
+                 ((string=? mode "modules")
+                  (write-modules output
+                                 generated
+                                 (source->modules directories
+                                                  source
+                                                  generate
+                                                  no-inputs)))
+                 (else (write-program output
+                                      generated
+                                      (source->wat directories
+                                                   source
+                                                   generate
+                                                   no-inputs))))))
+        (_
+         (panic
+          "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
 
     (: write-program (-> String String WholeProgram Unit ! fs))
     (define (write-program output generated program)
@@ -32,9 +56,16 @@
 
     (: write-modules (-> String String (List Built) Unit ! fs))
     (define (write-modules directory generated modules)
-      (for-each (lambda (module) (write-file (string-append directory "/" (Built-name module) ".wat") (Built-text module))) modules)
+      (for-each (lambda (module)
+                  (write-file
+                   (string-append directory "/" (Built-name module) ".wat")
+                   (Built-text module)))
+                modules)
       (write-file (string-append directory "/modules")
-                  (string-concatenate (map (lambda (module) (string-append (Built-name module) "\n")) modules)))
+                  (string-concatenate (map (lambda (module)
+                                             (string-append (Built-name module)
+                                                            "\n"))
+                                           modules)))
       (write-links generated (concatenate (map Built-links modules))))
 
     ;; ---- Linked files ----
@@ -47,8 +78,17 @@
     (define (write-links directory links)
       (write-file (string-append directory "/links.datum")
                   (string-concatenate (map (lambda (link)
-                                             (string-append "(" (datum->string (DString (LinkedFile-name link))) " "
-                                                            (datum->string (DString (LinkedFile-path link))) ")\n"))
+                                             (string-append "("
+                                                            (datum->string
+                                                             (DString
+                                                              (LinkedFile-name
+                                                               link)))
+                                                            " "
+                                                            (datum->string
+                                                             (DString
+                                                              (LinkedFile-path
+                                                               link)))
+                                                            ")\n"))
                                            links))))
 
     ;; ---- Request publication ----

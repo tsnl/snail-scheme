@@ -78,7 +78,12 @@
 
     ;; Applies the exact operation when both operands are exact, and the
     ;; inexact one otherwise.
-    (: combine (-> (-> Rational Rational Rational) (-> F64 F64 F64) Number Number Number))
+    (: combine
+       (-> (-> Rational Rational Rational)
+           (-> F64 F64 F64)
+           Number
+           Number
+           Number))
     (define (combine exact inexact a b)
       (match a
         ((Exact x) (match b
@@ -148,8 +153,12 @@
         ((Some slash)
          (match (string->integer (substring text 0 slash))
            ((Some numerator)
-            (match (string->integer (substring text (+ slash 1) (string-length text)))
-              ((Some denominator) (if (integer-zero? denominator) (None) (Some (Exact (make-rational numerator denominator)))))
+            (match (string->integer
+                    (substring text (+ slash 1) (string-length text)))
+              ((Some denominator)
+               (if (integer-zero? denominator)
+                   (None)
+                   (Some (Exact (make-rational numerator denominator)))))
               ((None) (None))))
            ((None) (None))))
         ((None)

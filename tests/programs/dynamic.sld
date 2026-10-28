@@ -8,7 +8,10 @@
 
 ;; Values of different types travel together as Any and come back out.
 (define values
-  (list (type-convert 42 Any) (type-convert "text" Any) (type-convert (Point 3 4) Any) (type-convert 2.5 Any)))
+  (list (type-convert 42 Any)
+        (type-convert "text" Any)
+        (type-convert (Point 3 4) Any)
+        (type-convert 2.5 Any)))
 
 (display (+ 1 (type-convert (list-ref values 0) I64)))
 (newline)

@@ -29,7 +29,14 @@
     (: advance (-> World World))
     (define (advance world)
       (if (and (World-started world) (playing? world))
-          (judge (settle (strike (settle (fire (march (excavate (spawn (work (produce (World-tick-set world (+ (World-tick world) 1))))))))))))
+          (judge
+           (settle
+            (strike (settle (fire (march (excavate
+                                          (spawn (work (produce (World-tick-set
+                                                                 world
+                                                                 (+ (World-tick
+                                                                     world)
+                                                                    1))))))))))))
           world))
 
     ;; ---- Journal ----
@@ -60,12 +67,14 @@
       (match (fold-left replay-entry (Pair (new-world seed) (Nil)) entries)
         ((Pair world kept) (Pair (advance-until world tick) (reverse kept)))))
 
-    (: replay-entry (-> (Pair World (List Entry)) Entry (Pair World (List Entry))))
+    (: replay-entry
+       (-> (Pair World (List Entry)) Entry (Pair World (List Entry))))
     (define (replay-entry played entry)
       (let ((world (advance-until (Pair-first played) (Entry-tick entry))))
         (if (= (World-tick world) (Entry-tick entry))
             (match (command world (Entry-action entry))
-              ((Ok (Pair next kept)) (Pair next (Cons kept (Pair-second played))))
+              ((Ok (Pair next kept))
+               (Pair next (Cons kept (Pair-second played))))
               ((Err _) (Pair world (Pair-second played))))
             (Pair world (Pair-second played)))))
 
@@ -75,7 +84,9 @@
     (define (advance-until world tick)
       (if (< (World-tick world) tick)
           (let ((next (advance world)))
-            (if (= (World-tick next) (World-tick world)) next (advance-until next tick)))
+            (if (= (World-tick next) (World-tick world))
+                next
+                (advance-until next tick)))
           world))
 
     ))

@@ -24,7 +24,8 @@
     ;; One item of a list, and the generator after the draw.
     (: deal (All (T) (-> Random (List T) (Pair T Random))))
     (define (deal random items)
-      (Pair (list-ref items (random-below random (length items))) (random-next random)))
+      (Pair (list-ref items (random-below random (length items)))
+            (random-next random)))
 
     (: names->dyes (-> (List String) (List Dye)))
     (define (names->dyes names)
@@ -42,7 +43,8 @@
     (: build-heads (-> Build (List Head)))
     (define (build-heads build)
       (match build
-        ((Female) (list (HumanFemale) (HumanFemale) (HumanFemale) (HumanFemaleElderly)))
+        ((Female)
+         (list (HumanFemale) (HumanFemale) (HumanFemale) (HumanFemaleElderly)))
         (_ (list (HumanMale) (HumanMale) (HumanMale) (HumanMaleElderly)))))
 
     (: elderly? (-> Head Bool))
@@ -52,13 +54,27 @@
         ((HumanFemaleElderly) #t)
         (_ #f)))
 
-    (define human-skins (map Skin (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
+    (define human-skins
+      (map Skin
+           (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
 
-    (define cuts (map HairStyle (list "bob" "buzzcut" "curly_short" "long_messy" "high_ponytail" "afro" "cowlick" "bangs_bun")))
+    (define cuts
+      (map HairStyle
+           (list "bob"
+                 "buzzcut"
+                 "curly_short"
+                 "long_messy"
+                 "high_ponytail"
+                 "afro"
+                 "cowlick"
+                 "bangs_bun")))
 
     (: hair-shades (-> Head (List HairColor)))
     (define (hair-shades head)
-      (map HairColor (if (elderly? head) (list "gray" "white") (list "black" "dark_brown" "chestnut" "blonde" "ginger"))))
+      (map HairColor
+           (if (elderly? head)
+               (list "gray" "white")
+               (list "black" "dark_brown" "chestnut" "blonde" "ginger"))))
 
     (: tops (-> Build (List Garment)))
     (define (tops build)
@@ -85,11 +101,13 @@
     (define (worn-in build garment dye)
       (let ((drawn (garment-dyes build garment)))
         (Worn garment
-              (if (any? (lambda (other) (string=? (Dye-name other) (Dye-name dye))) drawn)
-                  dye
-                  (match drawn
-                    ((Cons first _) first)
-                    ((Nil) dye))))))
+              (if
+               (any? (lambda (other) (string=? (Dye-name other) (Dye-name dye)))
+                     drawn)
+               dye
+               (match drawn
+                 ((Cons first _) first)
+                 ((Nil) dye))))))
 
     ;; Every look dealt here is one the catalog draws, so dressing never
     ;; fails. Were the tables to drift from the catalog, building (hearsay
@@ -106,21 +124,36 @@
     (: dealt (-> I64 (List Dye) Character))
     (define (dealt seed palette)
       (let* ((r (make-random seed))
-             (build (deal r (list (Male) (Female) (Teen)))) (head (deal (Pair-second build) (build-heads (Pair-first build))))
-             (skin (deal (Pair-second head) human-skins)) (cut (deal (Pair-second skin) cuts))
+             (build (deal r (list (Male) (Female) (Teen))))
+             (head (deal (Pair-second build) (build-heads (Pair-first build))))
+             (skin (deal (Pair-second head) human-skins))
+             (cut (deal (Pair-second skin) cuts))
              (shade (deal (Pair-second cut) (hair-shades (Pair-first head)))))
-        (outfitted (Pair-first build) (Pair-first head) (Pair-first skin) (Hair (Pair-first cut) (Pair-first shade)) palette
+        (outfitted (Pair-first build)
+                   (Pair-first head)
+                   (Pair-first skin)
+                   (Hair (Pair-first cut) (Pair-first shade))
+                   palette
                    (Pair-second shade))))
 
     (: outfitted (-> Build Head Skin Hair (List Dye) Random Character))
     (define (outfitted build head skin hair palette r)
-      (let* ((top (deal r (tops build))) (top-dye (deal (Pair-second top) palette))
-             (bottom (deal (Pair-second top-dye) (bottoms build))) (bottom-dye (deal (Pair-second bottom) palette))
-             (shoe (deal (Pair-second bottom-dye) footwear)) (shoe-dye (deal (Pair-second shoe) shoe-dyes)))
+      (let* ((top (deal r (tops build)))
+             (top-dye (deal (Pair-second top) palette))
+             (bottom (deal (Pair-second top-dye) (bottoms build)))
+             (bottom-dye (deal (Pair-second bottom) palette))
+             (shoe (deal (Pair-second bottom-dye) footwear))
+             (shoe-dye (deal (Pair-second shoe) shoe-dyes)))
         (dressed build head skin
-                 (Outfit (Some hair) (Some (worn-in build (Pair-first top) (Pair-first top-dye)))
-                         (Some (worn-in build (Pair-first bottom) (Pair-first bottom-dye)))
-                         (Some (worn-in build (Pair-first shoe) (Pair-first shoe-dye)))))))
+                 (Outfit (Some hair)
+                         (Some
+                          (worn-in build (Pair-first top) (Pair-first top-dye)))
+                         (Some (worn-in build
+                                        (Pair-first bottom)
+                                        (Pair-first bottom-dye)))
+                         (Some (worn-in build
+                                        (Pair-first shoe)
+                                        (Pair-first shoe-dye)))))))
 
     ;; Resident `person` of the rumor mill, dressed in their audience's
     ;; colors.
@@ -133,16 +166,23 @@
     (define (rival who)
       (if (= who vee)
           (dressed (Female) (HumanFemale) (Skin "bronze")
-                   (Outfit (Some (Hair (HairStyle "high_ponytail") (HairColor "raven"))) (Some (Worn (Tunic) (Dye "purple")))
-                           (Some (Worn (Leggings) (Dye "black"))) (Some (Worn (Boots) (Dye "black")))))
+                   (Outfit (Some (Hair (HairStyle "high_ponytail")
+                                       (HairColor "raven")))
+                           (Some (Worn (Tunic) (Dye "purple")))
+                           (Some (Worn (Leggings) (Dye "black")))
+                           (Some (Worn (Boots) (Dye "black")))))
           (dressed (Male) (HumanMale) (Skin "light")
-                   (Outfit (Some (Hair (HairStyle "spiked") (HairColor "carrot"))) (Some (Worn (Tabard) (Dye "red")))
-                           (Some (Worn (Pants) (Dye "green"))) (Some (Worn (Shoes) (Dye "black")))))))
+                   (Outfit
+                    (Some (Hair (HairStyle "spiked") (HairColor "carrot")))
+                    (Some (Worn (Tabard) (Dye "red")))
+                    (Some (Worn (Pants) (Dye "green")))
+                    (Some (Worn (Shoes) (Dye "black")))))))
 
     ;; Everyone drawn, for embedding their art.
     (: everyone (List Character))
     (define everyone
-      (append (map resident (iota person-count)) (list (rival vee) (rival kit))))
+      (append (map resident (iota person-count))
+              (list (rival vee) (rival kit))))
 
     ;; ---- Pictures ----
 

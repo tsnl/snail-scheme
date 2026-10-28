@@ -39,7 +39,9 @@
       (let loop ((index 0) (hash -3750763034362895579))
         (if (= index (string-length key))
             hash
-            (loop (+ index 1) (* (i64-xor hash (char->integer (string-ref key index))) 1099511628211)))))
+            (loop (+ index 1)
+                  (* (i64-xor hash (char->integer (string-ref key index)))
+                     1099511628211)))))
 
     (: below (-> I64 I64 I64))
     (define (below hash bit)
@@ -51,8 +53,10 @@
         (let loop ((table table))
           (match table
             ((Empty) (None))
-            ((Leaf leaf-hash entries) (if (= leaf-hash hash) (assoc-ref entries key) (None)))
-            ((Branch _ bit zero one) (loop (if (= (i64-and hash bit) 0) zero one)))))))
+            ((Leaf leaf-hash entries)
+             (if (= leaf-hash hash) (assoc-ref entries key) (None)))
+            ((Branch _ bit zero one)
+             (loop (if (= (i64-and hash bit) 0) zero one)))))))
 
     (: table-contains? (All (V) (-> (Table V) String Bool)))
     (define (table-contains? table key)
@@ -68,18 +72,31 @@
             ((Empty) (Leaf hash (list (Pair key value))))
             ((Leaf leaf-hash entries)
              (if (= leaf-hash hash)
-                 (Leaf hash (Cons (Pair key value) (filter (lambda (entry) (not (string=? (Pair-first entry) key))) entries)))
-                 (join hash (Leaf hash (list (Pair key value))) leaf-hash table)))
+                 (Leaf hash
+                       (Cons (Pair key value)
+                             (filter (lambda (entry)
+                                       (not (string=? (Pair-first entry) key)))
+                                     entries)))
+                 (join hash
+                       (Leaf hash (list (Pair key value)))
+                       leaf-hash
+                       table)))
             ((Branch prefix bit zero one)
-             (cond ((not (= (below hash bit) prefix)) (join hash (Leaf hash (list (Pair key value))) prefix table))
-                   ((= (i64-and hash bit) 0) (Branch prefix bit (insert zero) one))
+             (cond ((not (= (below hash bit) prefix))
+                    (join hash
+                          (Leaf hash (list (Pair key value)))
+                          prefix
+                          table))
+                   ((= (i64-and hash bit) 0)
+                    (Branch prefix bit (insert zero) one))
                    (else (Branch prefix bit zero (insert one)))))))))
 
     ;; A branch over two tries whose hashes, `a` and `b`, differ. It splits
     ;; on their lowest differing bit.
     (: join (All (V) (-> I64 (Table V) I64 (Table V) (Table V))))
     (define (join a a-table b b-table)
-      (let* ((difference (i64-xor a b)) (bit (i64-and difference (negate difference))))
+      (let* ((difference (i64-xor a b))
+             (bit (i64-and difference (negate difference))))
         (if (= (i64-and a bit) 0)
             (Branch (below a bit) bit a-table b-table)
             (Branch (below a bit) bit b-table a-table))))
@@ -98,10 +115,15 @@
 
     (: table-keys (All (V) (-> (Table V) (List String))))
     (define (table-keys table)
-      (reverse (table-fold (lambda (keys entry) (Cons (Pair-first entry) keys)) (Nil) table)))
+      (reverse (table-fold (lambda (keys entry) (Cons (Pair-first entry) keys))
+                           (Nil)
+                           table)))
 
     (: table-values (All (V) (-> (Table V) (List V))))
     (define (table-values table)
-      (reverse (table-fold (lambda (values entry) (Cons (Pair-second entry) values)) (Nil) table)))
+      (reverse
+       (table-fold (lambda (values entry) (Cons (Pair-second entry) values))
+                   (Nil)
+                   table)))
 
     ))

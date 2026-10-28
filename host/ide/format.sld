@@ -58,7 +58,10 @@
 (: class-letters (-> (List Token) String))
 (define (class-letters tokens)
   (string-concatenate
-   (map (lambda (token) (make-string (- (Token-end token) (Token-start token)) (class-letter (Token-class token)))) tokens)))
+   (map (lambda (token)
+          (make-string (- (Token-end token) (Token-start token))
+                       (class-letter (Token-class token))))
+        tokens)))
 
 (: class-letter (-> Class Char))
 (define (class-letter class)
@@ -101,7 +104,8 @@
 (define (lines-of text)
   (let loop ((chars (string->list text)) (line (Nil)) (out (Nil)))
     (match chars
-      ((Cons #\newline rest) (loop rest (Nil) (Cons (list->string (reverse line)) out)))
+      ((Cons #\newline rest)
+       (loop rest (Nil) (Cons (list->string (reverse line)) out)))
       ((Cons c rest) (loop rest (Cons c line) out))
       ((Nil) (reverse (Cons (list->string (reverse line)) out))))))
 
@@ -113,8 +117,13 @@
     ((Pair (Cons a more) (Cons b rest))
      (if (string=? a b)
          (first-difference more rest (+ number 1))
-         (Some (string-append (i64->string number) ": needs formatting\n  was: " a "\n  now: " b))))
-    (_ (Some (string-append (i64->string number) ": needs formatting: the line count changes")))))
+         (Some (string-append (i64->string number)
+                              ": needs formatting\n  was: "
+                              a
+                              "\n  now: "
+                              b))))
+    (_ (Some (string-append (i64->string number)
+                            ": needs formatting: the line count changes")))))
 
 (: check-files (-> I64 (List String) Unit ! fs console))
 (define (check-files width paths)

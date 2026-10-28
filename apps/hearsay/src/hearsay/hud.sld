@@ -39,21 +39,41 @@
     ;; A heading over its widgets, or over a muted line saying there are none.
     (: section (-> String String String (List Widget) (List Widget)))
     (define (section key title none widgets)
-      (Cons (section-heading key title) (if (null? widgets) (list (toned (string-append "none-" key) (Muted) none)) widgets)))
+      (Cons (section-heading key title)
+            (if (null? widgets)
+                (list (toned (string-append "none-" key) (Muted) none))
+                widgets)))
 
     ;; Each line as its own label.
     (: line-labels (-> String (List String) (List Widget)))
     (define (line-labels prefix texts)
-      (map-indexed (lambda (index text) (label (string-append prefix "-" (show index)) text)) texts))
+      (map-indexed (lambda (index text)
+                     (label (string-append prefix "-" (show index)) text))
+                   texts))
 
     ;; A button showing its terms as its caption: disabled with the reason
     ;; as its help when `refusal` says why it would fail now, and otherwise
     ;; enabled with `help`.
-    (: choice-button (-> String String String I32 I32 (Option String) String Widget))
+    (: choice-button
+       (-> String String String I32 I32 (Option String) String Widget))
     (define (choice-button key text caption action argument refusal help)
       (match refusal
-        ((Some why) (Button (Look-help-set (look key) why) text caption action argument (Disabled) -1.0))
-        ((None) (Button (Look-help-set (look key) help) text caption action argument (Enabled) -1.0))))
+        ((Some why)
+         (Button (Look-help-set (look key) why)
+                 text
+                 caption
+                 action
+                 argument
+                 (Disabled)
+                 -1.0))
+        ((None)
+         (Button (Look-help-set (look key) help)
+                 text
+                 caption
+                 action
+                 argument
+                 (Enabled)
+                 -1.0))))
 
     ;; ---- Guide pages ----
 
@@ -93,7 +113,10 @@
             ((= action guide-close) (None))
             (else (match page
                     ((Some index)
-                     (cond ((= action guide-next) (if (< (+ index 1) (length pages)) (Some (+ index 1)) (None)))
+                     (cond ((= action guide-next)
+                            (if (< (+ index 1) (length pages))
+                                (Some (+ index 1))
+                                (None)))
                            (else (Some (max 0 (- index 1))))))
                     ((None) (None))))))
 
@@ -109,14 +132,30 @@
 
     (: guide-panel (-> String (List Page) I64 Panel))
     (define (guide-panel name pages index)
-      (let ((page (list-ref pages index)) (last? (= (+ index 1) (length pages))))
+      (let ((page (list-ref pages index))
+            (last? (= (+ index 1) (length pages))))
         (Panel "guide" (Dialog guide-close)
                (concatenate
-                (list (Cons (label "guide-title" (Page-title page)) (line-labels "guide-text" (Page-paragraphs page)))
+                (list (Cons (label "guide-title" (Page-title page))
+                            (line-labels "guide-text" (Page-paragraphs page)))
                       (Page-extras page)
-                      (list (toned "guide-page" (Muted) (string-append name " guide, " (show (+ index 1)) " of " (show (length pages))))
-                            (Button (look "guide-back") "Back" "" guide-back 0 (if (= index 0) (Disabled) (Enabled)) -1.0)
-                            (button "guide-next" (if last? "Start playing" "Next") guide-next)))))))
+                      (list (toned "guide-page"
+                                   (Muted)
+                                   (string-append name
+                                                  " guide, "
+                                                  (show (+ index 1))
+                                                  " of "
+                                                  (show (length pages))))
+                            (Button (look "guide-back")
+                                    "Back"
+                                    ""
+                                    guide-back
+                                    0
+                                    (if (= index 0) (Disabled) (Enabled))
+                                    -1.0)
+                            (button "guide-next"
+                                    (if last? "Start playing" "Next")
+                                    guide-next)))))))
 
     ;; ---- Scene ----
 
@@ -127,7 +166,11 @@
     ;; A scene with nothing in it, carrying `pictures` for the HUD's images.
     (: empty-frame (-> (List Picture) Frame))
     (define (empty-frame pictures)
-      (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0) backdrop 1.0 (Nil)
+      (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
+             (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
+             backdrop
+             1.0
+             (Nil)
              pictures))
 
     ))

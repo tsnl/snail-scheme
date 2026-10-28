@@ -17,7 +17,8 @@
         ((marker (lambda () 17)))
       (dispatch-local (once (lambda ()
                               (yield)
-                              (unless (= (marker) 17) (panic "a child lost its inherited handler"))
+                              (unless (= (marker) 17)
+                                (panic "a child lost its inherited handler"))
                               (sleep 100000))))
       (run))))
 
@@ -79,7 +80,8 @@
   (match input
     ((Press 1 _) (Counter-count-set counter (+ (Counter-count counter) 1)))
     ((Press 2 _) (panic "a deliberate update trap"))
-    ((Elapsed elapsed) (Counter-count-set counter (+ (Counter-count counter) (i32->i64 elapsed))))
+    ((Elapsed elapsed)
+     (Counter-count-set counter (+ (Counter-count counter) (i32->i64 elapsed))))
     ((Resize _ _) (Counter-resizes-set counter (+ (Counter-resizes counter) 1)))
     (_ counter)))
 

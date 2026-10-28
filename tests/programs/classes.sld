@@ -14,7 +14,9 @@
 (instance (Describe (List T))
   (requires (Describe T))
   (define (describe items)
-    (string-append "[" (string-append (string-join (map describe items) ", ") "]"))))
+    (string-append "["
+                   (string-append (string-join (map describe items) ", ")
+                                  "]"))))
 
 (instance (Describe (Option T))
   (requires (Describe T))

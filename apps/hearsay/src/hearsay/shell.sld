@@ -68,11 +68,18 @@
     (define (open shell action argument)
       (let ((index (i32->i64 argument)) (opened (+ (Shell-opened shell) 1)))
         (cond ((= action action-ledger)
-               (show-opened (Shell-ledger-guided-set shell #t) (Favors (new-ledger-screen (+ (Shell-seed shell) opened)))
+               (show-opened (Shell-ledger-guided-set shell #t)
+                            (Favors
+                             (new-ledger-screen (+ (Shell-seed shell) opened)))
                             (Shell-ledger-guided shell)))
-              ((and (= action action-scenario) (>= index 0) (< index (length scenarios)))
+              ((and (= action action-scenario)
+                    (>= index 0)
+                    (< index (length scenarios)))
                (show-opened (Shell-mill-guided-set shell #t)
-                            (Rumors (new-mill-screen (list-ref scenarios index) (* opened 1000) (Shell-width shell) (Shell-height shell)))
+                            (Rumors (new-mill-screen (list-ref scenarios index)
+                                                     (* opened 1000)
+                                                     (Shell-width shell)
+                                                     (Shell-height shell)))
                             (Shell-mill-guided shell)))
               (else shell))))
 
@@ -80,27 +87,34 @@
     ;; button unless it has been `guided` before.
     (: show-opened (-> Shell Screen Bool Shell))
     (define (show-opened shell screen guided)
-      (let ((shown (Shell-opened-set (Shell-screen-set shell screen) (+ (Shell-opened shell) 1))))
+      (let ((shown (Shell-opened-set (Shell-screen-set shell screen)
+                                     (+ (Shell-opened shell) 1))))
         (if guided shown (forward shown (Press guide-open 0)))))
 
     (: forward (-> Shell Input Shell))
     (define (forward shell input)
       (match (Shell-screen shell)
         ((Menu) shell)
-        ((Rumors screen) (Shell-screen-set shell (Rumors (update-mill-screen screen input))))
-        ((Favors screen) (Shell-screen-set shell (Favors (update-ledger-screen screen input))))))
+        ((Rumors screen)
+         (Shell-screen-set shell (Rumors (update-mill-screen screen input))))
+        ((Favors screen)
+         (Shell-screen-set shell
+                           (Favors (update-ledger-screen screen input))))))
 
     (: press (-> Shell I32 I32 Shell))
     (define (press shell action argument)
       (cond ((= action action-menu) (Shell-screen-set shell (Menu)))
-            ((match (Shell-screen shell) ((Menu) #t) (_ #f)) (open shell action argument))
+            ((match (Shell-screen shell) ((Menu) #t) (_ #f))
+             (open shell action argument))
             (else (forward shell (Press action argument)))))
 
     (: update-shell (-> Shell Input Shell))
     (define (update-shell shell input)
       (match input
         ((Press action argument) (press shell action argument))
-        ((Resize width height) (forward (Shell-height-set (Shell-width-set shell width) height) input))
+        ((Resize width height)
+         (forward (Shell-height-set (Shell-width-set shell width) height)
+                  input))
         (_ (forward shell input))))
 
     ;; ---- View ----
@@ -121,14 +135,28 @@
                     (list (list (label "title" "Hearsay prototypes")
                                 (label "subtitle"
                                        "Each prototype asks one question about whether a piece of the design is fun. Each opens with a short guide to its rules and to what to watch for while you play.")
-                                (label "heading-rumors" "The rumor mill: is steering belief fun?"))
+                                (label "heading-rumors"
+                                       "The rumor mill: is steering belief fun?"))
                           (map-indexed (lambda (index scenario)
-                                         (let ((rules (scenario-rules scenario)))
-                                           (Button (look (string-append "scenario-" (show index))) (Rules-name rules) (Rules-pitch rules)
-                                                   action-scenario (i64->i32 index) (Enabled) -1.0)))
+                                         (let ((rules
+                                                (scenario-rules scenario)))
+                                           (Button
+                                            (look (string-append "scenario-"
+                                                                 (show index)))
+                                            (Rules-name rules)
+                                            (Rules-pitch rules)
+                                            action-scenario
+                                            (i64->i32 index)
+                                            (Enabled)
+                                            -1.0)))
                                        scenarios)
-                          (list (label "heading-favors" "The favor ledger: do favors trade, or get hoarded?")
-                                (Button (look "ledger") "Favor ledger" "Trade markers and promises with two rival fixers." action-ledger 0
+                          (list (label "heading-favors"
+                                       "The favor ledger: do favors trade, or get hoarded?")
+                                (Button (look "ledger")
+                                        "Favor ledger"
+                                        "Trade markers and promises with two rival fixers."
+                                        action-ledger
+                                        0
                                         (Enabled) -1.0)))))))
 
     ;; Each prototype puts the Menu and Guide buttons first in the top-right
@@ -136,7 +164,8 @@
     (: menu-button (List Panel))
     (define menu-button
       (list (Panel "back" (At (TopRight) 0)
-                   (list (button "back" "Menu" action-menu) (button "open-guide" "Guide" guide-open)))))
+                   (list (button "back" "Menu" action-menu)
+                         (button "open-guide" "Guide" guide-open)))))
 
     (: shell-hud (-> Shell (List Panel)))
     (define (shell-hud shell)
