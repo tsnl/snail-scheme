@@ -18,6 +18,22 @@ intermediates; it does not provide project publication guarantees.
 Source-level `run` uses a private build directory by default and removes it when
 the process finishes.
 
+Compiler contributors also have `build/snail`, which Cargo builds from
+`crates/snail`: a native executable that embeds wasmtime. Its subcommands
+are internal to the driver and the tests:
+
+| Subcommand | Does |
+| --- | --- |
+| `build/snail run-compiler MODULE ARGUMENT ...` | Runs the compiled compiler as `host/native/run-compiler.mjs` does on Node, with the same exit statuses. |
+| `build/snail precompile MODULE OUTPUT` | Writes the module's machine code as a `.cwasm` file, which `run-compiler` loads in place of the module. |
+
+`SNAIL_ENGINE=wasmtime` makes the driver run every compile on it, and
+`make bootstrap` builds it first; [the bootstrap](bootstrap.md#the-native-executable)
+explains why Node stays the default. The public `./snail` launcher is
+unchanged. One native `snail` that replaces it, running the project builder
+and programs as well, is proposed in
+[#562](https://github.com/tsnl/snail-scheme/issues/562).
+
 The [project chapter](projects.md) defines `project.datum`, named targets,
 output directories and artifact bundles.
 
