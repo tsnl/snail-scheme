@@ -76,7 +76,7 @@
 
 ;;; Long lines
 
-(defvar snail-format-width 80
+(defvar snail-format-width 100
   "The column a line's code may reach.
 A line whose code, not counting a comment after it, runs past this column
 is broken until it fits or nothing on it can break.")
