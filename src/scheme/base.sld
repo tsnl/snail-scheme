@@ -22,19 +22,19 @@
     (define (cons head tail)
       (Cons head tail))
 
-    (: car (All (T) (-> (List T) T)))
+    (: car (All (T) (requires (Copy T)) (-> (List T) T)))
     (define (car items)
       (match items
         ((Cons head _) head)
         ((Nil) (panic "car of an empty list"))))
 
-    (: cdr (All (T) (-> (List T) (List T))))
+    (: cdr (All (T) (requires (Copy T)) (-> (List T) (List T))))
     (define (cdr items)
       (match items
         ((Cons _ tail) tail)
         ((Nil) (panic "cdr of an empty list"))))
 
-    (: pair? (All (T) (-> (List T) Bool)))
+    (: pair? (All (T) (requires (Copy T)) (-> (List T) Bool)))
     (define (pair? items)
       (not (null? items)))
 

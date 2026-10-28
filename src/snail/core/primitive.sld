@@ -72,7 +72,8 @@
     (primitive panic (All (A) (-> String A)))
     (primitive unsafe-total (All (A e) (-> (-> A ! e) A)))
     (primitive unsafe-cast (All (A) (-> Funcref A)))
-    (primitive dynamic-cast (All (A) (-> Funcref (-> (Vector I64) Bool) (Vector A))))
+    (primitive dynamic-cast
+               (All (A) (requires (Copy A)) (-> Funcref (-> (Vector I64) Bool) (Vector A))))
 
     ;; ---- Once and tasks ----
 
@@ -209,24 +210,31 @@
 
     ;; ---- Vectors ----
 
-    (primitive vector-length (All (A) (-> (Vector A) I64)))
-    (primitive vector-ref (All (A) (-> (Vector A) I64 A)))
-    (primitive vector-append (All (A) (-> (Vector A) (Vector A) (Vector A))))
-    (primitive subvector (All (A) (-> (Vector A) I64 I64 (Vector A))))
-    (primitive make-vector (All (A) (-> I64 A (Vector A))))
-    (primitive vector-set (All (A) (-> (Vector A) I64 A (Vector A))))
-    (primitive vector-generate (All (A e) (-> I64 (-> I64 A ! e) (Vector A) ! e)))
+    ;; A vector, like an array, holds only ω values: reading an element
+    ;; leaves it in place, so each operation requires (Copy A).
+    (primitive vector-length (All (A) (requires (Copy A)) (-> (Vector A) I64)))
+    (primitive vector-ref (All (A) (requires (Copy A)) (-> (Vector A) I64 A)))
+    (primitive vector-append (All (A) (requires (Copy A)) (-> (Vector A) (Vector A) (Vector A))))
+    (primitive subvector (All (A) (requires (Copy A)) (-> (Vector A) I64 I64 (Vector A))))
+    (primitive make-vector (All (A) (requires (Copy A)) (-> I64 A (Vector A))))
+    (primitive vector-set (All (A) (requires (Copy A)) (-> (Vector A) I64 A (Vector A))))
+    (primitive vector-generate
+               (All (A e) (requires (Copy A)) (-> I64 (-> I64 A ! e) (Vector A) ! e)))
 
     ;; ---- Mutable storage ----
 
-    (primitive make-array (All (A) (-> I64 A (Array A) ! mut)))
-    (primitive array-length (All (A) (-> (Array A) I64)))
-    (primitive array-ref (All (A) (-> (Array A) I64 A ! mut)))
-    (primitive array-set! (All (A) (-> (Array A) I64 A Unit ! mut)))
-    (primitive array->vector (All (A) (-> (Array A) (Vector A) ! mut)))
-    (primitive vector->array (All (A) (-> (Vector A) (Array A) ! mut)))
-    (primitive array-copy! (All (A) (-> (Array A) I64 (Array A) I64 I64 Unit ! mut)))
-    (primitive vector-copy! (All (A) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))
+    (primitive make-array (All (A) (requires (Copy A)) (-> I64 A (Array A) ! mut)))
+    (primitive array-length (All (A) (requires (Copy A)) (-> (Array A) I64)))
+    (primitive array-ref (All (A) (requires (Copy A)) (-> (Array A) I64 A ! mut)))
+    (primitive array-set! (All (A) (requires (Copy A)) (-> (Array A) I64 A Unit ! mut)))
+    (primitive array->vector (All (A) (requires (Copy A)) (-> (Array A) (Vector A) ! mut)))
+    (primitive vector->array (All (A) (requires (Copy A)) (-> (Vector A) (Array A) ! mut)))
+    (primitive array-copy!
+               (All (A) (requires (Copy A)) (-> (Array A) I64 (Array A) I64 I64 Unit ! mut)))
+    (primitive vector-copy!
+               (All (A) (requires (Copy A)) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))
+    ;; `ref-get` duplicates a cell's content and `ref-set!` discards it, so
+    ;; both require (Copy A); `ref` only moves its argument in.
     (primitive ref (All (A) (-> A (Ref A) ! mut)))
-    (primitive ref-get (All (A) (-> (Ref A) A ! mut)))
-    (primitive ref-set! (All (A) (-> (Ref A) A Unit ! mut)))))
+    (primitive ref-get (All (A) (requires (Copy A)) (-> (Ref A) A ! mut)))
+    (primitive ref-set! (All (A) (requires (Copy A)) (-> (Ref A) A Unit ! mut)))))

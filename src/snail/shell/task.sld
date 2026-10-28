@@ -26,11 +26,11 @@
     (define (empty-queue)
       (Queue (Nil) (Nil)))
 
-    (: enqueue (All (T) (-> (Queue T) T (Queue T))))
+    (: enqueue (All (T) (requires (Copy T)) (-> (Queue T) T (Queue T))))
     (define (enqueue queue item)
       (Queue-back-set queue (Cons item (Queue-back queue))))
 
-    (: dequeue (All (T) (-> (Queue T) (Option (Pair T (Queue T))))))
+    (: dequeue (All (T) (requires (Copy T)) (-> (Queue T) (Option (Pair T (Queue T))))))
     (define (dequeue queue)
       (match (Queue-front queue)
         ((Cons item rest) (Some (Pair item (Queue rest (Queue-back queue)))))
@@ -54,13 +54,13 @@
     (struct (Mailbox T)
       ((pending (Ref (Pending T)))))
 
-    (: make-mailbox (All (T) (-> (Mailbox T) ! mut)))
+    (: make-mailbox (All (T) (requires (Copy T)) (-> (Mailbox T) ! mut)))
     (define (make-mailbox)
       (Mailbox (ref (Pending (empty-queue) (empty-queue)))))
 
     ;; Posting never waits. The message joins the queue, and the receiver
     ;; parked longest is woken to take it.
-    (: mailbox-post (All (T) (-> (Mailbox T) T Unit ! mut tasks)))
+    (: mailbox-post (All (T) (requires (Copy T)) (-> (Mailbox T) T Unit ! mut tasks)))
     (define (mailbox-post mailbox message)
       (let* ((pending (ref-get (Mailbox-pending mailbox)))
              (receivers (wake-first (Pending-receivers pending))))
@@ -79,7 +79,7 @@
     ;; a post wakes it and then looks again, since a receiver that was
     ;; already running may have taken the message first. Parking is not a
     ;; busy wait: the task does not run again until a post wakes it.
-    (: mailbox-receive (All (T) (-> (Mailbox T) T ! mut tasks)))
+    (: mailbox-receive (All (T) (requires (Copy T)) (-> (Mailbox T) T ! mut tasks)))
     (define (mailbox-receive mailbox)
       (let ((pending (ref-get (Mailbox-pending mailbox))))
         (match (dequeue (Pending-messages pending))

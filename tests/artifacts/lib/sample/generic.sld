@@ -5,7 +5,7 @@
    (snail shell artifact))
   (begin
 
-    (: generic-bundle (All (A) (-> A ArtifactBundle)))
+    (: generic-bundle (All (A) (requires (Copy A)) (-> A ArtifactBundle)))
     (define (generic-bundle ignored)
       (artifact-bundle "client"))
 

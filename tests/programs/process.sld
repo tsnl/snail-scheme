@@ -30,7 +30,7 @@
     ((Exited code) (string-append "exited " (show code)))
     ((Signaled name) (string-append "signaled " name))))
 
-(: report-error (All (T) (-> (Result T ProcessError) Unit ! console)))
+(: report-error (All (T) (requires (Copy T)) (-> (Result T ProcessError) Unit ! console)))
 (define (report-error result)
   (match result
     ((Err error) (write-line (ProcessError-code error)))
