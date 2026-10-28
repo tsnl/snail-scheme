@@ -11,7 +11,10 @@ how stage 0 runs that source; [Bootstrap](bootstrap.md) explains it.
 The chapters describe implemented behavior and mark proposed toolchain changes:
 
 - [Terms](terms.md): programs, libraries, language forms and toolchain names.
-- [Types](types.md): scalars, data, typeclasses, effects and dynamic values.
+- [Types](types.md): scalars, data, typeclasses, foreign functions, linked
+  files and dynamic values.
+- [Effects and handlers](effects.md): effect rows, handlers, control
+  operations with a one-shot `resume`, and latent rows.
 - [Macros and Scheme libraries](macros.md): hygienic macros, generated
   libraries and Scheme on Snail-Core.
 - [Bootstrap and self-hosting](bootstrap.md): the erasure property, the two

@@ -26,3 +26,4 @@ The call to `action` uses `e`, which fits the surrounding `console e` for any
 substitution of `e`. Extra permissions do not authorize effects absent from the
 context, and unrelated quantified tails are not interchangeable. Function-type
 equality still compares complete rows; this inclusion rule applies when calling.
+[Effects and handlers](../effects.md) covers the effect system in full.

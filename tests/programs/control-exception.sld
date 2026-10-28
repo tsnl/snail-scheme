@@ -5,6 +5,7 @@
 ;; An exception is a control operation with a resumable shape: `raise`
 ;; could hand its caller a number, but these handlers drop `resume` and
 ;; answer for the whole handled computation instead.
+;; ANCHOR: parse-or
 (effect Raise
   ((ctl raise (-> String I64))))
 
@@ -28,6 +29,7 @@
 (newline)
 (display (parse-or "1x3" 0))
 (newline)
+;; ANCHOR_END: parse-or
 
 ;; Of two handlers of one effect, the inner one catches; its
 ;; implementation runs in the outer context, so raising there reaches the
