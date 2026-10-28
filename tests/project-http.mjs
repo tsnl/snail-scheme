@@ -1,3 +1,7 @@
+// `snail dev` over HTTP, from outside (tests/development-service.mjs): the
+// origin boundary, conditional saves, the status snapshot and event stream,
+// HTTP answering while the compiler blocks on a FIFO, run controls and
+// shutdown on the ordinary signal.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -6,267 +10,271 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {serveProject} from '../host/native/project-http.mjs';
 import {projectTools} from '../host/native/project.mjs';
+import {connect, dead, delay, spawnDevelopment, startDevelopment} from './development-service.mjs';
 
-const root = process.argv[2], project = fs.mkdtempSync(join(tmpdir(), 'snail-project-http-'));
-const source = join(project, 'main.sld'), pipe = join(project, 'slow.sld');
+const root = process.argv[2], project = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-http-')));
+const source = join(project, 'main.sld'), pipe = join(project, 'slow.sld'), notes = join(project, 'notes.txt');
 const program = text => `(import (snail-core base) (snail-core io)) (write-line "${text}")`;
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-// Waiting costs what the service costs: wake on each development snapshot,
-// and keep a short tick for the predicates that watch the event stream or the
-// filesystem instead. One deadline covers every wait; it is a liveness
-// backstop for a wedged service, not a bound anything is expected to approach.
-const liveness = 30_000;
-async function until(test) {
-  const deadline = Date.now() + liveness;
-  let wake = Promise.withResolvers();
-  const stop = service.development.subscribe(() => wake.resolve());
-  try {
-    while (!test()) {
-      if (Date.now() > deadline) assert.fail('timed out waiting for project HTTP state');
-      await Promise.race([wake.promise, delay(5)]);
-      wake = Promise.withResolvers();
-    }
-  } finally { stop(); }
-}
 const config = '((build-target main (program (entry "main.sld") (library-roots (".")))) (run-target dev (run main)))';
 fs.writeFileSync(join(project, 'project.datum'), config);
 fs.writeFileSync(source, program('initial'));
-const tools = projectTools(root), service = await serveProject({root, project, tools});
-// These requests run while the compiler blocks reading the fifo below, and
-// that build only completes once this test writes to it. A service that
-// answered from the compiler's thread would therefore deadlock here rather
-// than answer late, so the deadline distinguishes wedged from slow and never
-// fires on a working service. Report which request gave up and after how
-// long: an aborted fetch otherwise raises a DOMException carrying neither.
-async function get(path) {
-  const began = Date.now();
-  try { return await fetch(service.url + path, {signal: AbortSignal.timeout(liveness)}); }
-  catch (error) {
-    if (error.name !== 'TimeoutError') throw error;
-    assert.fail(`GET ${path} never answered in ${Date.now() - began} ms, with the service ${service.development.status.phase}`);
-  }
-}
-const read = async () => (await get('/api/file?path=main.sld')).json();
-const save = (revision, text, headers = {}) => fetch(service.url + '/api/file?path=main.sld', {
-  method: 'PUT', headers: {Origin: service.url, 'Content-Type': 'text/plain; charset=utf-8', 'If-Match': `"${revision}"`, ...headers}, body: text,
+fs.writeFileSync(notes, 'notes\n');
+const service = await startDevelopment(root, project), {url} = service;
+const read = async (path = 'main.sld') => (await service.get('/api/file?path=' + path)).json();
+const save = (revision, text, headers = {}, path = 'main.sld') => fetch(`${url}/api/file?path=${path}`, {
+  method: 'PUT', headers: {Origin: url, 'Content-Type': 'text/plain; charset=utf-8', 'If-Match': `"${revision}"`, ...headers}, body: text,
 });
+const control = (action, target = 'dev') => service.command(`/api/run/${action}?target=${encodeURIComponent(target)}`);
+const run = async () => (await service.status()).runs.find(run => run.target === 'dev');
+const statuses = stream => stream.seen.filter(event => event.kind === 'status');
+const opened = stream => () => stream.seen.some(event => event.kind === 'files');
 
-// Native HTTP permits deliberately malformed/foreign headers and chunked bodies.
-function request(path, method, headers = {}, bytes = null) {
-  return new Promise((resolve, reject) => {
-    const incoming = http.request(new URL(path, service.url), {method, headers}, response => {
-      const chunks = [];
-      response.on('data', chunk => chunks.push(chunk));
-      response.on('end', () => resolve({status: response.statusCode, headers: response.headers, text: Buffer.concat(chunks).toString()}));
-      response.on('error', reject);
-    });
-    incoming.on('error', reject);
-    if (bytes) incoming.write(bytes);
-    incoming.end();
-  });
+// A disk change becomes a build request when the observer reconciles: GET
+// /api/project awaits a fresh reconciliation, and the debounce then has room.
+async function quiet() {
+  assert.equal((await service.get('/api/project')).status, 200);
+  await delay(500);
 }
 
-async function events() {
-  const controller = new AbortController(), response = await fetch(service.url + '/api/events', {signal: controller.signal});
-  assert.equal(response.status, 200);
-  const seen = [], reader = response.body.getReader(), decoder = new TextDecoder();
-  const done = (async () => {
-    let text = '';
-    for (;;) {
-      const {value, done} = await reader.read();
-      if (done) return;
-      text += decoder.decode(value, {stream: true});
-      let end;
-      while ((end = text.indexOf('\n\n')) >= 0) {
-        const record = text.slice(0, end); text = text.slice(end + 2);
-        const match = /^event: (\w+)\ndata: ([\s\S]*)$/.exec(record);
-        if (match) seen.push({kind: match[1], data: JSON.parse(match[2])});
-      }
-    }
-  })().catch(() => {}); // Server shutdown/backpressure may end a stream abruptly.
-  return {seen, done, close: async () => { controller.abort(); await done; }};
-}
-
-const stream = await events();
+const stream = await service.events();
 let writer = null;
 try {
-  await until(() => stream.seen.some(event => event.kind === 'files'));
+  await service.until(opened(stream), 'the first event frames');
   assert.equal(stream.seen[0].kind, 'status');
   assert.equal(stream.seen[1].kind, 'runs');
-  await until(() => service.development.status.phase === 'succeeded');
-  const projectReply = await (await get('/api/project')).json();
-  assert.deepEqual(projectReply.files, ['main.sld', 'project.datum']);
+  const first = await service.settled(0);
+
+  // One snapshot of the session: the attempt, the generation each published
+  // target names on disk, the compiler's identity and the runs the stream sends.
+  assert.deepEqual(Object.keys(first).sort(), ['compiler', 'diagnostics', 'id', 'phase', 'published', 'runs']);
+  assert.equal(first.published.id, first.id);
+  const [main] = first.published.targets;
+  assert.deepEqual(Object.keys(main).sort(), ['compiled', 'digest', 'directory', 'name']);
+  assert.equal(main.name, 'main');
+  assert.equal(main.directory, fs.realpathSync(join(project, 'build/main')));
+  assert.match(main.digest, /^[0-9a-f]{64}$/);
+  assert.ok(main.compiled > 0);
+  assert.ok(Number.isInteger(first.compiler.worker));
+  assert.deepEqual(first.runs.map(run => [run.target, run.available, run.wanted, run.attempt]), [['dev', true, false, null]]);
+
+  const projectReply = await (await service.get('/api/project')).json();
+  assert.deepEqual(projectReply.files, ['main.sld', 'notes.txt', 'project.datum']);
   assert.equal(projectReply.name, project.split('/').at(-1));
-  const page = await request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document'});
+  const page = await service.request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document'});
   assert.equal(page.status, 200);
   assert.equal(page.headers['x-frame-options'], 'DENY');
   assert.match(page.headers['content-security-policy'], /frame-ancestors 'none'/);
   assert.match(page.text, /id="save"/);
-  assert.equal((await request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'iframe'})).status, 403);
-  assert.equal((await get('/main.sld')).status, 404, 'no arbitrary project files on the editor origin');
-  assert.equal((await get('/host/ide/ide.mjs')).status, 404, 'asset lookup is an allowlist');
-  const initial = await read(), first = service.development.status.id;
+  assert.equal((await service.request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'iframe'})).status, 403);
+  assert.equal((await service.get('/main.sld')).status, 404, 'no arbitrary project files on the editor origin');
+  assert.equal((await service.get('/host/ide/ide.mjs')).status, 404, 'asset lookup is an allowlist');
 
-  // HTTP Save writes disk; only the independent observer schedules compilation.
-  const build = service.development.requestBuild;
-  let manualBuilds = 0;
-  service.development.requestBuild = () => { manualBuilds++; build(); };
+  // HTTP Save writes disk and requests nothing: saving a file that is no
+  // build input starts no attempt, so only the observer schedules compilation.
+  const note = await read('notes.txt');
+  assert.equal((await save(note.revision, 'saved notes\n', {}, 'notes.txt')).status, 200);
+  assert.equal(fs.readFileSync(notes, 'utf8'), 'saved notes\n');
+  await quiet();
+  assert.equal((await service.status()).id, first.id, 'Save starts no attempt');
+  const initial = await read();
   const response = await save(initial.revision, program('saved'));
   assert.equal(response.status, 200);
   assert.equal(fs.readFileSync(source, 'utf8'), program('saved'));
-  assert.equal(manualBuilds, 0);
   const saved = await response.json();
   assert.equal((await save(initial.revision, program('stale'))).status, 409);
-  await until(() => service.development.status.id > first && service.development.status.phase === 'succeeded');
+  await service.settled(first.id);
   assert.ok(stream.seen.filter(event => event.kind === 'files').length >= 2);
-  const built = await request('/api/build', 'POST', {Origin: service.url});
+
+  // Build is the request that asks for an attempt, and exactly one follows.
+  const built = await service.command('/api/build');
   assert.equal(built.status, 202);
   const buildStatus = JSON.parse(built.text);
   assert.deepEqual(Object.keys(buildStatus).sort(), ['diagnostics', 'id', 'phase']);
-  assert.equal(manualBuilds, 1);
-  await until(() => service.development.status.id > buildStatus.id && service.development.status.phase === 'succeeded');
+  assert.equal((await service.settled(buildStatus.id)).id, buildStatus.id + 1);
+  await quiet();
+  assert.equal((await service.status()).id, buildStatus.id + 1, 'one Build, one attempt');
 
   for (const headers of [{Host: 'unrelated.example'}, {Origin: 'https://unrelated.example'}, {Origin: 'null'}, {'Sec-Fetch-Site': 'cross-site'}]) {
-    const denied = await request('/api/project', 'GET', headers);
-    assert.equal(denied.status, 403);
-    assert.ok(!denied.headers['access-control-allow-origin']);
-    assert.ok(!denied.text.includes('main.sld'));
+    for (const path of ['/api/project', '/api/status']) {
+      const denied = await service.request(path, 'GET', headers);
+      assert.equal(denied.status, 403);
+      assert.ok(!denied.headers['access-control-allow-origin']);
+      assert.ok(!denied.text.includes('main.sld') && !denied.text.includes(project));
+    }
   }
-  assert.equal((await request('/api/file?path=main.sld', 'PUT')).status, 403);
-  assert.equal((await get('/api/file?path=../outside.sld')).status, 400);
-  assert.equal((await get('/api/file?path=missing.sld')).status, 404);
+  assert.equal((await service.request('/api/file?path=main.sld', 'PUT')).status, 403);
+  assert.equal((await service.get('/api/file?path=../outside.sld')).status, 400);
+  assert.equal((await service.get('/api/file?path=missing.sld')).status, 404);
   assert.equal((await save(saved.revision, 'text', {'If-Match': '*'})).status, 400);
   assert.equal((await save(saved.revision, 'text', {'Content-Type': 'application/json'})).status, 415);
   assert.equal((await save(saved.revision, Buffer.from([255]))).status, 400);
   assert.equal(fs.readFileSync(source, 'utf8'), program('saved'));
-  const put = {Origin: service.url, 'Content-Type': 'text/plain', 'If-Match': `"${saved.revision}"`};
-  assert.equal((await request('/api/file?path=main.sld', 'PUT', {...put, 'Content-Length': 8 * 1024 * 1024 + 1})).status, 413);
-  assert.equal((await request('/api/file?path=main.sld', 'PUT', put, Buffer.alloc(8 * 1024 * 1024 + 1, 65))).status, 413);
+  const put = {Origin: url, 'Content-Type': 'text/plain', 'If-Match': `"${saved.revision}"`};
+  assert.equal((await service.request('/api/file?path=main.sld', 'PUT', {...put, 'Content-Length': 8 * 1024 * 1024 + 1})).status, 413);
+
+  // Content-Length is the only body framing: a request naming a
+  // Transfer-Encoding is refused before any of its body is read, whatever its
+  // method or path, so an oversized chunked body cannot reach the save.
+  assert.equal((await service.request('/api/file?path=main.sld', 'PUT', put, program('chunked'))).status, 411);
+  assert.equal((await service.request('/api/build', 'POST', {Origin: url}, 'chunked')).status, 411);
+  assert.equal((await service.request('/api/status', 'GET', {'Transfer-Encoding': 'chunked'})).status, 411);
   assert.equal(fs.readFileSync(source, 'utf8'), program('saved'));
 
   // Reconnection needs no event IDs or archive: both current status and a file
   // invalidation arrive even if no files changed while the stream was absent.
-  const beforeReconnect = service.development.status.id;
-  const reconnected = await events();
-  await until(() => reconnected.seen.some(event => event.kind === 'files'));
+  const beforeReconnect = (await service.status()).id;
+  const reconnected = await service.events();
+  await service.until(opened(reconnected), 'the frames of a reconnection');
   assert.deepEqual(Object.keys(reconnected.seen[0].data).sort(), ['diagnostics', 'id', 'phase']);
-  assert.ok(reconnected.seen[0].data.id >= beforeReconnect && reconnected.seen[0].data.id <= service.development.status.id);
+  assert.ok(reconnected.seen[0].data.id >= beforeReconnect && reconnected.seen[0].data.id <= (await service.status()).id);
   await reconnected.close();
 
-  // A first status larger than the writable high-water mark must still arrive.
-  const largeMessage = 'diagnostic '.repeat(20_000);
-  const {diagnostics} = service.development.status;
-  diagnostics.push({severity: 'error', message: largeMessage});
-  const large = await events();
-  await until(() => large.seen.some(event => event.kind === 'files'));
-  assert.equal(large.seen[0].data.diagnostics[0].message, largeMessage);
+  // A first status larger than the writable high-water mark must still arrive:
+  // its one diagnostic names a 200,000-character identifier.
+  const long = 'x'.repeat(200_000);
+  let before = (await service.status()).id;
+  fs.writeFileSync(source, `(import (snail-core base))\n(${long})\n`);
+  await service.settled(before, 'failed');
+  const large = await service.events();
+  await service.until(opened(large), 'a large first status');
+  assert.ok(large.seen[0].data.diagnostics[0].message.includes(long));
   await large.close();
-  diagnostics.pop();
-  await assert.rejects(serveProject({root, project, tools, port: Number(new URL(service.url).port)}), {code: 'EADDRINUSE'});
-  assert.equal((await get('/api/project')).status, 200);
+  before = (await service.status()).id;
+  fs.writeFileSync(source, program('saved'));
+  await service.settled(before);
 
-  await until(() => service.development.status.phase === 'succeeded');
+  // A second service cannot take the port, and the first keeps answering.
+  const second = await spawnDevelopment(root, project, Number(new URL(url).port)).exited;
+  assert.equal(second.code, 1, second.stderr);
+  assert.match(second.stderr, /EADDRINUSE/);
+  assert.equal((await service.get('/api/project')).status, 200);
+
+  // These requests run while the compiler blocks reading the fifo below, and
+  // that build only completes once this test writes to it. A service that
+  // answered from the compiler's thread would therefore deadlock here rather
+  // than answer late, so the deadline distinguishes wedged from slow.
   assert.equal(spawnSync('mkfifo', [pipe]).status, 0);
   fs.writeFileSync(source, '(import (snail-core base) (snail-core io) (slow)) (write-line message)');
-  // A missing reader must fail on a deadline rather than hang the suite.
-  await until(() => {
+  await service.until(() => {
     try { writer = fs.openSync(pipe, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK); return true; }
     catch (error) { if (error.code === 'ENXIO') return false; throw error; }
-  }); // The real compiler has opened the pipe.
-  assert.equal(service.development.status.phase, 'building');
-  const blocked = service.development.status.id;
-  assert.equal((await get('/api/project')).status, 200);
-  assert.equal((await get('/api/file?path=slow.sld')).status, 400);
+  }, 'the compiler to open the FIFO'); // A missing reader fails on the deadline rather than hanging.
+  const blocked = await service.status();
+  assert.equal(blocked.phase, 'building');
+  assert.equal((await service.get('/api/project')).status, 200);
+  assert.equal((await service.get('/api/file?path=slow.sld')).status, 400);
   const during = await read();
   assert.equal((await save(during.revision, program('edited during compilation'))).status, 200);
   fs.writeFileSync(writer, '(define-library (slow) (export message) (import (snail-core base)) (begin (: message String) (define message "blocked")))');
   fs.closeSync(writer); writer = null;
-  await until(() => service.development.status.id > blocked && service.development.status.phase === 'succeeded');
-  const manifest = join(service.development.status.published.targets[0].directory, 'modules.json');
-  const executed = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), manifest], {encoding: 'utf8'});
+  const [unblocked] = (await service.settled(blocked.id)).published.targets;
+  assert.equal(unblocked.directory, fs.realpathSync(join(project, 'build/main')));
+  const executed = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(unblocked.directory, 'modules.json')], {encoding: 'utf8'});
   assert.equal(executed.status, 0, executed.stderr);
   assert.equal(executed.stdout, 'edited during compilation\n');
 
-  const control = (action, target = 'dev') => request(`/api/run/${action}?target=${encodeURIComponent(target)}`, 'POST', {Origin: service.url});
-  const run = () => service.development.status.runs.find(run => run.target === 'dev');
   for (const action of ['start', 'stop', 'restart']) {
-    assert.equal((await request(`/api/run/${action}?target=dev`, 'POST')).status, 403);
-    assert.equal((await request(`/api/run/${action}?target=dev`, 'POST', {Origin: 'https://unrelated.example'})).status, 403);
+    assert.equal((await service.request(`/api/run/${action}?target=dev`, 'POST')).status, 403);
+    assert.equal((await service.request(`/api/run/${action}?target=dev`, 'POST', {Origin: 'https://unrelated.example'})).status, 403);
     assert.equal((await control(action, 'missing')).status, 404);
   }
-  assert.equal((await request('/api/run/start?target=dev', 'POST', {Origin: service.url}, 'body')).status, 400);
+  assert.equal((await service.request('/api/run/start?target=dev', 'POST', {Origin: url, 'Content-Length': 4}, 'body')).status, 400);
   assert.equal((await control('unknown')).status, 404);
-  await until(() => stream.seen.some(event => event.kind === 'status' && event.data.id === service.development.status.id && event.data.phase === 'succeeded'));
-  const compilerCount = stream.seen.filter(event => event.kind === 'status').length;
+  const current = (await service.status()).id;
+  await service.until(() => statuses(stream).some(event => event.data.id === current && event.data.phase === 'succeeded'), 'the current status on the stream');
+  const compilerCount = statuses(stream).length;
   const started = await control('start'); assert.equal(started.status, 204); assert.equal(started.text, '');
-  await until(() => run().attempt?.phase === 'exited');
-  const firstPid = run().attempt.pid;
-  assert.equal(run().attempt.stdout, 'edited during compilation\n');
+  const exited = await service.until(async () => { const dev = await run(); return dev.attempt?.phase === 'exited' && dev; }, 'the run to exit');
+  const firstPid = exited.attempt.pid;
+  assert.equal(exited.attempt.stdout, 'edited during compilation\n');
   assert.equal((await control('start')).status, 204);
-  await delay(50); assert.equal(run().attempt.pid, firstPid);
+  await delay(50); assert.equal((await run()).attempt.pid, firstPid);
   assert.equal((await control('restart')).status, 204);
-  await until(() => run().attempt?.pid !== firstPid && run().attempt?.phase === 'exited');
-  await until(() => stream.seen.some(event => event.kind === 'runs' && event.data[0]?.attempt?.pid === run().attempt.pid && event.data[0].attempt.phase === 'exited'));
-  assert.equal(stream.seen.filter(event => event.kind === 'status').length, compilerCount, 'run updates do not replay compiler evidence');
-
-  // One native observation changes both frames. It needs one write so the
-  // second frame cannot close a healthy reader before the first can drain.
-  const updates = stream.seen.length, currentDiagnostics = service.development.status.diagnostics;
-  currentDiagnostics.push({severity: 'error', message: largeMessage});
+  const rerun = await service.until(async () => { const dev = await run(); return dev.attempt?.pid !== firstPid && dev.attempt?.phase === 'exited' && dev; }, 'a restarted run to exit');
+  await service.until(() => stream.seen.some(event => event.kind === 'runs' && event.data[0]?.attempt?.pid === rerun.attempt.pid && event.data[0].attempt.phase === 'exited'), 'the restarted run on the stream');
+  assert.equal(statuses(stream).length, compilerCount, 'run updates do not replay compiler evidence');
   assert.equal((await control('stop')).status, 204);
-  await until(() => stream.seen.slice(updates).some(event => event.kind === 'status' && event.data.diagnostics[0]?.message === largeMessage)
-    && stream.seen.slice(updates).some(event => event.kind === 'runs' && !event.data[0].wanted));
-  currentDiagnostics.pop();
 
-  let before = service.development.status.id;
+  before = (await service.status()).id;
   fs.writeFileSync(join(project, 'project.datum'), '((build-target main (program (entry "main.sld"))))');
-  await until(() => service.development.status.id > before && service.development.status.phase === 'succeeded');
+  await service.settled(before);
   assert.equal((await control('start')).status, 404); assert.equal((await control('restart')).status, 404);
   assert.equal((await control('stop')).status, 204);
-  before = service.development.status.id;
+  before = (await service.status()).id;
   fs.writeFileSync(join(project, 'project.datum'), config);
   fs.writeFileSync(source, '(import (snail-core base) (snail-core io) (snail-core task)) (write-line "running") (sleep 600000)');
-  await until(() => service.development.status.id > before && service.development.status.phase === 'succeeded');
-  assert.equal(run().wanted, false);
+  await service.settled(before);
+  assert.equal((await run()).wanted, false);
   assert.equal((await control('start')).status, 204);
-  await until(() => run().attempt.stdout === 'running\n');
-  const livePid = run().attempt.pid;
+  const livePid = (await service.until(async () => { const dev = await run(); return dev.attempt?.stdout === 'running\n' && dev; }, 'a running application')).attempt.pid;
   await stream.close();
   await delay(50); process.kill(livePid, 0); // Disconnect owns no application process.
-  const runReconnect = await events();
-  await until(() => runReconnect.seen.some(event => event.kind === 'files'));
+  const runReconnect = await service.events();
+  await service.until(opened(runReconnect), 'the frames of a reconnection');
   assert.equal(runReconnect.seen.find(event => event.kind === 'runs').data[0].attempt.pid, livePid);
   await runReconnect.close();
 
-  before = service.development.status.id;
+  before = (await service.status()).id;
   fs.writeFileSync(source, '(import (snail-core base)) (missing)');
-  await until(() => service.development.status.id > before && service.development.status.phase === 'failed');
-  assert.equal(run().attempt.pid, livePid);
+  await service.settled(before, 'failed');
+  assert.equal((await run()).attempt.pid, livePid);
   assert.equal((await control('restart')).status, 204, 'a compiler failure does not disable accepted controls');
-  await until(() => run().attempt.pid !== livePid && run().attempt.stdout === 'running\n');
-  const finalPid = run().attempt.pid;
+  const finalPid = (await service.until(async () => {
+    const dev = await run();
+    return dev.attempt.pid !== livePid && dev.attempt.stdout === 'running\n' && dev;
+  }, 'a restarted application')).attempt.pid;
 
-  // Closing with an undecoded body prevents its later save, and closes active
-  // SSE and keepalive connections along with the development session.
-  const final = await read();
-  const pending = http.request(new URL('/api/file?path=main.sld', service.url), {method: 'PUT', headers: {...put, 'If-Match': `"${final.revision}"`}});
+  // The ordinary signal closes the service with an undecoded body pending,
+  // which then never saves, and closes its event streams and application.
+  const final = await read(), closing = await service.events();
+  await service.until(opened(closing), 'an event stream open at shutdown');
+  const pending = http.request(new URL('/api/file?path=main.sld', url), {method: 'PUT', headers: {...put, 'If-Match': `"${final.revision}"`, 'Content-Length': 64}});
   pending.on('error', () => {}); pending.write('unfinished');
   await delay(50);
-  await service.close();
-  assert.throws(() => process.kill(finalPid, 0), {code: 'ESRCH'});
+  const {code, signal, stderr} = await service.stop();
+  assert.deepEqual({code, signal}, {code: 0, signal: null}, stderr);
+  dead(finalPid);
   pending.destroy();
-  await stream.done;
-  for (const event of stream.seen.filter(event => event.kind === 'status')) {
+  await closing.done;
+  for (const event of [...statuses(stream), ...statuses(closing)]) {
     assert.deepEqual(Object.keys(event.data).sort(), ['diagnostics', 'id', 'phase']);
   }
   assert.equal(fs.readFileSync(source, 'utf8'), final.text);
-  await service.closed;
-  await assert.rejects(get('/api/project'));
+  await assert.rejects(fetch(url + '/api/project'));
 } finally {
   if (writer !== null) { fs.writeFileSync(writer, '(define-library (slow) (export) (import (snail-core base)) (begin))'); fs.closeSync(writer); }
   await stream.close();
-  await service.close();
+  await service.stop();
   fs.rmSync(project, {recursive: true, force: true});
 }
-console.log('project HTTP: origin boundary, conditional saves, SSE, responsive compilation and close');
+
+// ---- In process until step 9 ----
+
+// One observation that changes both the compiler status and the runs goes out
+// in one write, so a large status cannot leave the runs frame to close a
+// healthy reader before it drains. No real sequence makes that observation
+// with a large status: only failures carry diagnostics, and a failure changes
+// no run. So this case patches the session's diagnostics in process, until
+// step 9 of the development-loop plan gives the editor's streams tests of
+// their own.
+const framed = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-http-frames-')));
+fs.writeFileSync(join(framed, 'project.datum'), '((build-target main (program (entry "main.sld"))) (run-target dev (run main)))');
+fs.writeFileSync(join(framed, 'main.sld'), program('framed'));
+const local = await serveProject({root, project: framed, tools: projectTools(root)}), client = connect(local.url);
+const frames = await client.events();
+try {
+  await client.settled(0);
+  assert.equal((await client.command('/api/run/start?target=dev')).status, 204);
+  await client.until(async () => (await client.status()).runs[0].attempt?.phase === 'exited', 'the run to exit');
+  const updates = frames.seen.length, largeMessage = 'diagnostic '.repeat(20_000), {diagnostics} = local.development.status;
+  diagnostics.push({severity: 'error', message: largeMessage});
+  assert.equal((await client.command('/api/run/stop?target=dev')).status, 204);
+  await client.until(() => frames.seen.slice(updates).some(event => event.kind === 'status' && event.data.diagnostics[0]?.message === largeMessage)
+    && frames.seen.slice(updates).some(event => event.kind === 'runs' && !event.data[0].wanted), 'both frames of one observation');
+  diagnostics.pop();
+} finally {
+  await frames.close();
+  await local.close();
+  fs.rmSync(framed, {recursive: true, force: true});
+}
+console.log('project HTTP: origin boundary, conditional saves, status, SSE, responsive compilation, runs and shutdown');

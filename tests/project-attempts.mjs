@@ -1,28 +1,26 @@
-// Actual disk writes drive a resident worker. A generated library reads a FIFO
-// outside the observed roots so tests can hold compilation without blocking the
-// parent, then introduce only a newly configured public-file change.
+// Actual disk writes drive `snail dev`'s resident compiler, observed from
+// outside (tests/development-service.mjs). A generated library reads a FIFO
+// outside the observed roots so the test can hold compilation while the
+// service keeps answering, then introduce only a newly configured public-file
+// change.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {basename, join} from 'node:path';
 import threads from 'node:worker_threads';
 import {developProject} from '../host/native/project-develop.mjs';
 import {projectTools} from '../host/native/project.mjs';
+import {delay, startDevelopment} from './development-service.mjs';
 
-const root = process.argv[2], parent = fs.mkdtempSync(join(tmpdir(), 'snail-project-attempts-'));
+const root = process.argv[2], parent = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-attempts-')));
 const project = join(parent, 'project'), gate = join(parent, 'gate');
-const tools = projectTools(root), delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
 const description = path => `((build-target server (program (entry "main.sld") (library-roots ("."))))
   (build-target client (browser (entry "client.sld") (public "${path}"))))`;
 const program = message => `(import (snail-core base) (snail-core io)) (write-line "${message}")`;
-async function until(test) {
-  for (let n = 0; n < 600; n++) { if (test()) return; await delay(50); }
-  assert.fail('timed out waiting for project attempt');
-}
 function execute(directory) {
   const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
@@ -32,137 +30,170 @@ function pipe() {
   fs.rmSync(gate, {force: true});
   assert.equal(spawnSync('mkfifo', [gate]).status, 0);
 }
+// Everything in the project's build directory: published links, the
+// generations they name, and any attempt's private namespace.
+const outputs = () => fs.readdirSync(join(project, 'build')).sort();
+const server = status => status.published.targets.find(target => target.name === 'server');
 
-write('project.datum', description('public'));
-write('main.sld', program('first'));
-write('client.sld', '(import (snail-core base)) (unit)');
-write('public/index.html', '<!doctype html><title>first</title>');
-const dev = developProject({root, project, tools}), events = [], observed = [];
-const unsubscribe = dev.subscribe(event => events.push(event));
-dev.files.subscribe(event => observed.push(event));
-const settled = async (after, phase = 'succeeded') => {
-  await until(() => dev.status.id > after && dev.status.phase === phase);
-  return dev.status;
-};
-let writer = null;
+// ---- Through the service ----
 
-try {
-  const first = await settled(0);
-  assert.equal(execute(first.published.targets.find(target => target.name === 'server').directory), 'first\n');
-  const initial = fs.realpathSync(join(project, 'build/server'));
-
-  write('main.sld', '(import (snail-core base)) (first-missing)');
-  const failed = await settled(first.id, 'failed');
-  assert.match(failed.diagnostics[0].message, /first-missing/);
-  assert.deepEqual(failed.diagnostics[0].source, {file: join(project, 'main.sld'), line: 1, column: 29});
-  assert.equal(fs.realpathSync(join(project, 'build/server')), initial, 'failure preserves accepted output');
-  write('main.sld', '(import (snail-core base)) (second-missing)');
-  const failedAgain = await settled(failed.id, 'failed');
-  assert.match(failedAgain.diagnostics[0].message, /second-missing/);
-  assert.doesNotMatch(failedAgain.diagnostics[0].message, /first-missing/);
-  write('main.sld', program('repaired'));
-  let repaired = await settled(failedAgain.id);
-  assert.deepEqual(repaired.diagnostics, []);
-  assert.ok(events.filter(event => event.phase === 'building').every(event => event.diagnostics.length === 0));
-  assert.ok(observed.some(event => event.kind === 'changed' && event.paths.includes(join(project, 'main.sld'))));
-
-  // Artifact context must not overwrite a failing dependency's real source.
-  write('main.sld', '(import (snail-core base) (snail-core artifact)) (artifact-bundle "client")');
-  write('client.sld', '(import (snail-core base)) (child-missing)');
-  const childFailure = await settled(repaired.id, 'failed');
-  assert.match(childFailure.diagnostics[0].message, /child-missing/);
-  assert.deepEqual(childFailure.diagnostics[0].source, {file: join(project, 'client.sld'), line: 1, column: 29});
-
-  // A generated producer is checked in its printed scratch source. Report that
-  // origin, never invent a point in the importing application or recipe.
-  write('bad.sld', '(generate-library (bad) (import (snail-core base) (snail-core syntax)) producer-missing)');
+async function throughTheService() {
+  write('project.datum', description('public'));
+  write('main.sld', program('first'));
   write('client.sld', '(import (snail-core base)) (unit)');
-  write('main.sld', '(import (snail-core base) (bad)) (unit)');
-  const producerFailure = await settled(childFailure.id, 'failed');
-  assert.match(producerFailure.diagnostics[0].message, /producer-missing/);
-  assert.ok(producerFailure.diagnostics[0].source.file.startsWith(join(root, 'build/snail-run/')));
-  assert.ok(producerFailure.diagnostics[0].source.file.endsWith('.sld'));
-  write('main.sld', program('repaired'));
-  repaired = await settled(producerFailure.id);
+  write('public/index.html', '<!doctype html><title>first</title>');
+  const service = await startDevelopment(root, project), stream = await service.events();
+  const phases = id => stream.seen.filter(event => event.kind === 'status' && event.data.id === id).map(event => event.data.phase);
+  const invalidations = () => stream.seen.filter(event => event.kind === 'files').length;
+  let writer = null;
 
-  dev.requestBuild();
-  const reused = await settled(repaired.id);
-  assert.ok(reused.published.targets.every(target => target.compiled === 0), 'manual builds reuse successful sessions');
-  write('data/store.sqlite', 'database data');
-  write('store.sqlite-wal', 'journal');
-  await dev.files.reconcile();
-  await delay(1200);
-  assert.equal(dev.status.id, reused.id, 'data writes and output publication do not schedule builds');
+  try {
+    const first = await service.settled(0);
+    assert.equal(server(first).directory, fs.realpathSync(join(project, 'build/server')));
+    assert.equal(execute(server(first).directory), 'first\n');
+    const initial = server(first).directory, observed = invalidations();
 
-  // Retain successfully parsed inputs on failure: creating a missing public
-  // directory must recover without another config/source write or Save event.
-  write('project.datum', description('new-public'));
-  const missingPublic = await settled(reused.id, 'failed');
-  assert.equal(missingPublic.diagnostics[0].source, null, 'packaging failures have no source point');
-  write('new-public/index.html', '<!doctype html><title>recovered</title>');
-  const recovered = await settled(missingPublic.id);
-  write('project.datum', '(');
-  const malformed = await settled(recovered.id, 'failed');
-  assert.deepEqual(malformed.diagnostics[0].source, {file: join(project, 'project.datum'), line: 1, column: 1});
-  write('project.datum', description('new-public'));
-  const restored = await settled(malformed.id);
+    write('main.sld', '(import (snail-core base)) (first-missing)');
+    const failed = await service.settled(first.id, 'failed');
+    assert.match(failed.diagnostics[0].message, /first-missing/);
+    assert.deepEqual(failed.diagnostics[0].source, {file: join(project, 'main.sld'), line: 1, column: 29});
+    assert.equal(fs.realpathSync(join(project, 'build/server')), initial, 'failure preserves accepted output');
+    assert.equal(server(failed).directory, initial);
+    write('main.sld', '(import (snail-core base)) (second-missing)');
+    const failedAgain = await service.settled(failed.id, 'failed');
+    assert.match(failedAgain.diagnostics[0].message, /second-missing/);
+    assert.doesNotMatch(failedAgain.diagnostics[0].message, /first-missing/);
+    write('main.sld', program('repaired'));
+    let repaired = await service.settled(failedAgain.id);
+    assert.deepEqual(repaired.diagnostics, []);
+    assert.ok(stream.seen.filter(event => event.kind === 'status' && event.data.phase === 'building').every(event => event.data.diagnostics.length === 0));
+    assert.ok(invalidations() > observed, 'the observer reports the edits to the editor too');
 
-  // No parent subscriber knows next-public yet. Hold the actual producer after
-  // its descriptor was read, edit only that public file, then finish this build.
-  pipe();
-  write('slow.sld', `(generate-library (slow)
-    (import (snail-core base) (snail-core io) (snail-core syntax))
-    (library-syntax (list "slow") (list "message") (list (list "snail-core" "base"))
-      (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
-        (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${gate}")))))))`);
-  write('next-public/index.html', '<!doctype html><title>before</title>');
-  write('main.sld', '(import (snail-core base) (snail-core io) (slow)) (write-line message)');
-  write('project.datum', description('next-public'));
-  writer = await fsp.open(gate, 'w'); // The producer has reached its blocking read.
-  assert.equal(dev.status.phase, 'building');
-  const blocked = dev.status.id, beforeBlocked = fs.realpathSync(join(project, 'build/server'));
-  let ticked = false;
-  setTimeout(() => { ticked = true; }, 0);
-  write('next-public/index.html', '<!doctype html><title>after</title>');
-  await dev.files.reconcile();
-  assert.ok(ticked, 'the parent runs timers and disk reconciliation while compilation is blocked');
-  fs.renameSync(gate, join(parent, 'blocked-pipe'));
-  fs.writeFileSync(gate, 'next attempt');
-  await writer.writeFile('superseded attempt'); await writer.close(); writer = null;
-  const accepted = await settled(blocked);
-  assert.ok(events.some(event => event.id === blocked && event.phase === 'superseded'));
-  assert.ok(!events.some(event => event.id === blocked && event.phase === 'succeeded'));
-  assert.ok(events.filter(event => event.id === blocked).every(event => event.published.targets.find(target => target.name === 'server').directory === beforeBlocked));
-  assert.equal(execute(accepted.published.targets.find(target => target.name === 'server').directory), 'next attempt\n');
-  assert.match(fs.readFileSync(join(project, 'build/client/index.html'), 'utf8'), /<title>after<\/title>/);
+    // Artifact context must not overwrite a failing dependency's real source.
+    write('main.sld', '(import (snail-core base) (snail-core artifact)) (artifact-bundle "client")');
+    write('client.sld', '(import (snail-core base)) (child-missing)');
+    const childFailure = await service.settled(repaired.id, 'failed');
+    assert.match(childFailure.diagnostics[0].message, /child-missing/);
+    assert.deepEqual(childFailure.diagnostics[0].source, {file: join(project, 'client.sld'), line: 1, column: 29});
 
-  // Stop while a producer is in flight. The reply cannot publish, and cleanup
-  // removes only this attempt's private namespace after worker ownership ends.
-  const beforeStop = fs.readdirSync(join(project, 'build')).sort();
-  const acceptedPath = fs.realpathSync(join(project, 'build/server'));
-  pipe(); dev.requestBuild();
-  writer = await fsp.open(gate, 'w');
-  const count = events.length, closing = dev.close();
-  await writer.writeFile('must not publish'); await writer.close(); writer = null;
-  await closing;
-  assert.equal(events.length, count);
-  assert.equal(fs.realpathSync(join(project, 'build/server')), acceptedPath);
-  assert.deepEqual(fs.readdirSync(join(project, 'build')).sort(), beforeStop);
-  await assert.rejects(dev.files.reconcile(), /closed/);
-  assert.throws(() => dev.subscribe(() => {}), /closed/);
-  unsubscribe();
+    // A generated producer is checked in its printed scratch source. Report that
+    // origin, never invent a point in the importing application or recipe.
+    write('bad.sld', '(generate-library (bad) (import (snail-core base) (snail-core syntax)) producer-missing)');
+    write('client.sld', '(import (snail-core base)) (unit)');
+    write('main.sld', '(import (snail-core base) (bad)) (unit)');
+    const producerFailure = await service.settled(childFailure.id, 'failed');
+    assert.match(producerFailure.diagnostics[0].message, /producer-missing/);
+    assert.ok(producerFailure.diagnostics[0].source.file.startsWith(join(root, 'build/snail-run/')));
+    assert.ok(producerFailure.diagnostics[0].source.file.endsWith('.sld'));
+    write('main.sld', program('repaired'));
+    repaired = await service.settled(producerFailure.id);
+
+    assert.equal((await service.command('/api/build')).status, 202);
+    const reused = await service.settled(repaired.id);
+    assert.ok(reused.published.targets.every(target => target.compiled === 0), 'manual builds reuse successful sessions');
+    write('data/store.sqlite', 'database data');
+    write('store.sqlite-wal', 'journal');
+    assert.equal((await service.get('/api/project')).status, 200); // A listing awaits a fresh reconciliation.
+    await delay(1200);
+    assert.equal((await service.status()).id, reused.id, 'data writes and output publication do not schedule builds');
+
+    // Retain successfully parsed inputs on failure: creating a missing public
+    // directory must recover without another config/source write or Save event.
+    write('project.datum', description('new-public'));
+    const missingPublic = await service.settled(reused.id, 'failed');
+    assert.equal(missingPublic.diagnostics[0].source, null, 'packaging failures have no source point');
+    write('new-public/index.html', '<!doctype html><title>recovered</title>');
+    const recovered = await service.settled(missingPublic.id);
+    write('project.datum', '(');
+    const malformed = await service.settled(recovered.id, 'failed');
+    assert.deepEqual(malformed.diagnostics[0].source, {file: join(project, 'project.datum'), line: 1, column: 1});
+    write('project.datum', description('new-public'));
+    const restored = await service.settled(malformed.id);
+
+    // Nothing the service has accepted knows next-public yet. Hold the actual
+    // producer after its descriptor was read, edit only that public file, then
+    // finish this build: it is superseded, and its successor is accepted.
+    const beforeBlocked = outputs();
+    pipe();
+    write('slow.sld', `(generate-library (slow)
+      (import (snail-core base) (snail-core io) (snail-core syntax))
+      (library-syntax (list "slow") (list "message") (list (list "snail-core" "base"))
+        (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
+          (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${gate}")))))))`);
+    write('next-public/index.html', '<!doctype html><title>before</title>');
+    write('main.sld', '(import (snail-core base) (snail-core io) (slow)) (write-line message)');
+    write('project.datum', description('next-public'));
+    writer = await fsp.open(gate, 'w'); // The producer has reached its blocking read.
+    const blocked = await service.status();
+    assert.equal(blocked.phase, 'building');
+    assert.equal(server(blocked).directory, server(restored).directory);
+    write('next-public/index.html', '<!doctype html><title>after</title>');
+    assert.equal((await service.get('/api/project')).status, 200, 'the service answers and reconciles disk while compilation is blocked');
+    fs.renameSync(gate, join(parent, 'blocked-pipe'));
+    fs.writeFileSync(gate, 'next attempt');
+    await writer.writeFile('superseded attempt'); await writer.close(); writer = null;
+    const accepted = await service.settled(blocked.id);
+    assert.ok(phases(blocked.id).includes('superseded'));
+    assert.ok(!phases(blocked.id).includes('succeeded'));
+    // A published generation stays until the session ends, so the superseded
+    // attempt published nothing exactly when the accepted attempt's generations
+    // are the only outputs since, and the targets name them.
+    assert.deepEqual(outputs().filter(name => !beforeBlocked.includes(name)), accepted.published.targets.map(target => basename(target.directory)).sort());
+    assert.equal(fs.realpathSync(join(project, 'build/server')), server(accepted).directory);
+    assert.equal(execute(server(accepted).directory), 'next attempt\n');
+    assert.match(fs.readFileSync(join(project, 'build/client/index.html'), 'utf8'), /<title>after<\/title>/);
+
+    // Stop while a producer is in flight. The reply cannot publish, and cleanup
+    // removes only this attempt's private namespace after worker ownership ends.
+    // The service ends its event streams as it begins to close.
+    const beforeStop = outputs();
+    const acceptedPath = fs.realpathSync(join(project, 'build/server'));
+    pipe(); assert.equal((await service.command('/api/build')).status, 202);
+    writer = await fsp.open(gate, 'w');
+    const inFlight = await service.status();
+    assert.equal(inFlight.phase, 'building');
+    const exited = service.stop();
+    await stream.done;
+    await writer.writeFile('must not publish'); await writer.close(); writer = null;
+    const {code, signal, stderr} = await exited;
+    assert.deepEqual({code, signal}, {code: 0, signal: null}, stderr);
+    assert.deepEqual(phases(inFlight.id), ['building'], 'closing accepts no reply');
+    assert.equal(fs.realpathSync(join(project, 'build/server')), acceptedPath);
+    assert.deepEqual(outputs(), beforeStop);
+    await assert.rejects(fetch(service.url + '/api/project'));
+  } finally {
+    if (writer) { await writer.writeFile('cleanup'); await writer.close(); }
+    await stream.close();
+    await service.stop();
+  }
+}
+
+// ---- In process until steps 8 and 10 ----
+
+async function until(test) {
+  for (let n = 0; n < 600; n++) { if (test()) return; await delay(50); }
+  assert.fail('timed out waiting for project attempt');
+}
+
+async function inProcess() {
+  const tools = projectTools(root);
 
   // Status observers can stop synchronously. No build may be queued after the
   // worker's close command, even though both would fit in one parent turn.
+  // Only an observer in this process can close within the turn that reports
+  // the attempt; step 8's pure `step` makes it a test of that transition.
+  const beforeStop = outputs();
   let stoppedOnStart = null;
   const early = developProject({root, project, tools});
   early.subscribe(event => { if (event.phase === 'building') stoppedOnStart = early.close(); });
   await until(() => stoppedOnStart !== null);
   await stoppedOnStart;
-  assert.deepEqual(fs.readdirSync(join(project, 'build')).sort(), beforeStop);
+  assert.deepEqual(outputs(), beforeStop);
 
   // An initial reconciliation can still be pending when a worker dies. Its
-  // cancellation must not replace the terminal worker diagnostic.
+  // cancellation must not replace the terminal worker diagnostic. Holding the
+  // reconciliation and killing the worker take patches in this process until
+  // step 10 makes the compiler a child that /api/status names by pid.
   const read = fsp.readdir, NativeWorker = threads.Worker, entered = Promise.withResolvers(), release = Promise.withResolvers();
   let captured = null, dying = null;
   threads.Worker = class extends NativeWorker { constructor(...args) { super(...args); captured = this; } };
@@ -187,13 +218,19 @@ try {
     fsp.readdir = read; threads.Worker = NativeWorker; syncBuiltinESMExports();
   }
 
+  // A compiler that cannot load is fatal too. `snail dev` always supplies the
+  // compiler it built, so naming a missing one stays in process with the
+  // worker's death until step 10.
   const broken = developProject({root, project, tools: {...tools, compiler: join(parent, 'missing.wasm')}});
   await until(() => broken.status.phase === 'fatal');
   await broken.close();
   assert.match(broken.status.diagnostics[0].message, /missing.wasm/);
+}
+
+try {
+  await throughTheService();
+  await inProcess();
 } finally {
-  if (writer) { await writer.writeFile('cleanup'); await writer.close(); }
-  await dev.close();
   fs.rmSync(parent, {recursive: true, force: true});
 }
 console.log('project attempts: fresh diagnostics, disk inputs, supersession, cache reuse and shutdown');

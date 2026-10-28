@@ -184,18 +184,51 @@ formatter; it never serves project HTML or arbitrary filesystem paths.
 | `POST /api/run/stop?target=...` | Stop a retained run target, including a removed name; empty body, 204 acknowledgement. |
 | `POST /api/run/restart?target=...` | Fresh attempt for an accepted run target; empty body, 204 acknowledgement. |
 | `GET /api/events` | SSE: current compiler `status` (`phase`, attempt `id`, `diagnostics`), current `runs` array, then `files` invalidation; subsequent changes to each. |
+| `GET /api/status` | One JSON snapshot of the whole session, below. |
 
 Reconnect obtains both current snapshots and an unconditional file invalidation;
 there is no event archive or replay cursor. Each run includes its target, availability,
 intent, desired build and observed attempt, with PID, build, phase, exit outcome and
 bounded stdout/stderr tails. Compiler and run frames are sent independently when
 their respective values change: output does not replay compiler diagnostics.
-Build directories and worker identity stay in the native session.
 Each stream holds at most one pending write; a later event
 closes a reader whose previous write still needs drain. An idle blocked stream
-stays open until another event or connection closure, within the 64-stream limit. Request
-bodies are limited to 8 MiB and decoded strictly as UTF-8. File operations remain
-responsive while the real compiler waits on a source pipe in its worker.
+stays open until another event or connection closure, within the 64-stream limit.
+File operations remain responsive while the real compiler waits on a source pipe
+in its worker.
+
+The event stream carries what the editor draws. `GET /api/status` answers
+with everything else a client can observe of the session, in one value:
+
+```json
+{"phase": "succeeded", "id": 4, "diagnostics": [],
+ "published": {"id": 4, "targets": [{"name": "main", "directory": "/project/build/.snail-attempt-…", "digest": "…", "compiled": 1}]},
+ "compiler": {"worker": 1},
+ "runs": [{"target": "dev", "desired": null, "attempt": null, "wanted": false, "available": true}]}
+```
+
+`phase`, `id` and `diagnostics` are the stream's `status`: the attempt last
+started, numbered by the epoch, and what it reported. `published` is the
+build the session last accepted, `null` before the first: its epoch, and for
+each target the generation directory its `build/NAME` link names, the digest
+of that generation's files, and how many libraries that build compiled rather
+than reused. `compiler` identifies the resident compiler, a worker thread
+today, and is `null` once it has exited. `runs` is the stream's `runs`.
+
+The development loop's tests (`tests/project-http.mjs`,
+`tests/project-attempts.mjs`, `tests/development-runs.mjs`,
+`tests/browser/ide.mjs` and `tests/browser/ide-runs.mjs`) spawn `snail dev
+--port 0` and observe it only through the URL it prints, this snapshot, the
+event stream, the files on disk and process IDs, so nothing they check
+depends on how the service is written; `tests/development-service.mjs` is
+that client. The few cases that must act within one turn of the session, or
+kill its compiler worker, still run it in process and say why.
+
+Request bodies are framed by Content-Length alone, as in the
+[Snail HTTP library](http.md): a request naming a Transfer-Encoding is
+answered 411 before routing, or 400 by Node's parser if it also gives a
+Content-Length, so a body's size is known from its head. Bodies are limited
+to 8 MiB and decoded strictly as UTF-8.
 
 The service requires its exact Host authority and rejects a supplied foreign
 Origin or fetch context. Mutations require the exact Origin. It provides no CORS
