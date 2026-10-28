@@ -49,7 +49,7 @@ selects a free port; send destination ports are 1–65,535. UDP does not guarant
 delivery, order or uniqueness.
 
 `Listener`, `Connection` and `UdpSocket` carry an opaque `Any` token belonging to their
-handler. They are reusable local values, neither `Send` nor `Sync`. Closing
+handler. They are reusable values that stay within their instance. Closing
 revokes all aliases; closing the same native token again succeeds. Native
 token types stay private to the library. A different handler's token reaching
 the native binding reports `EBADF` instead of being cast to an integer handle.
@@ -59,8 +59,8 @@ types differ. Tokens must remain with the runtime that issued them.
 A replacement `handle tcp` supplies eight operations; `handle udp` supplies four.
 They may create endpoint values with their own tokens. For example, a test
 can put a `Ref Bytes` in a connection token or a `Ref Datagram` in a UDP token,
-accessed through operation arguments. The reusable handler's captures still satisfy `Send + Sync` and
-grade `omega`; this does not relax the language's handler rules.
+accessed through operation arguments. Like any handler, the replacement
+must be reusable, grade `omega`.
 
 ## Wasm boundary
 

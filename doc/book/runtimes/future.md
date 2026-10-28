@@ -1,14 +1,14 @@
 # Continuations and parallel execution
 
 Research recorded on 2026-10-24. This page describes future options, not
-shipping features. We ship one WasmGC backend. The language keeps its
-multithreaded contract and `Send + Sync` handler restrictions while the
-implementation runs one execution agent.
+shipping features. We ship one WasmGC backend.
 
-The follow-on [mixed memory and continuations draft](memory-and-continuations.md)
-selects one Wasm backend with both GC and owned linear storage, and
-compiler-lowered affine and reusable continuations. The native alternatives
-below remain research; their implementation is not required by that plan.
+Two decisions have been made since. One-shot `ctl` handlers are implemented
+by evidence passing ([effects and handlers](../snail-core/effects.md#control-handlers)).
+And each instance of a program is single-threaded, talking to others only
+through queues and shared memory ([instances](instances.md), proposed). So
+the shared-heap thread pool below is not the plan. The native alternatives
+remain research.
 
 ## What the Wasm target needs
 
@@ -142,12 +142,66 @@ through external cleanup records. A precise account of grades, effect
 instances and escaping resumptions remains theoretical work before public
 `ctl` handlers are added.
 
-When a shared-heap backend exists, a conventional pool is sufficient:
-worker-local deques, recently spawned work preferred locally, older work
-available for stealing, and an injection queue for external submissions.
-Suspended tasks are absent from ready queues. Thread-affine resumptions
-remain pinned. This is a future scheduling policy, not part of the language's
-observable ordering guarantees.
+A shared-heap backend would want a conventional work-stealing pool. That is
+not the plan: each instance schedules its own tasks, and parallel work
+runs as more instances ([instances](instances.md)). For now, deploy
+independent Wasm instances and balance requests externally. Neither native
+backend is on the implementation path of the task rewrite.
 
-For now, deploy independent Wasm instances and balance requests externally.
-Neither native backend is on the implementation path of the task rewrite.
+## Scheme control and dynamic wind
+
+The Scheme layer needs abortive `call/cc` with reusable continuations of
+unlimited extent, multiple values, dynamic parameters and exception
+handlers. Invoking an escape continuation replaces the current
+continuation. A root delimiter must model the Scheme execution context;
+delimiting every ordinary function or temporary browser callback would
+truncate it. Other Scheme conformance work remains in the
+[language issue](https://github.com/tsnl/snail-scheme/issues/456). See [R7RS sections 6.10 and 6.11](https://standards.scheme.org/official/r7rs.pdf).
+
+Represent `dynamic-wind` scopes as persistent nodes with identity, parent,
+entry and exit thunks, and their surrounding dynamic context. A
+continuation retains the applicable chain. For a control transfer, find
+the common ancestor, exit current scopes from inside outward, then enter
+destination scopes from outside inward:
+
+```text
+Current: root -> A -> B -> C
+Target:  root -> A -> D
+Actions: C.after -> B.after -> D.before -> resume target
+```
+
+Remove a scope before calling its exit thunk; install it after its entry
+thunk returns. Preserve the body's returned values across normal exit.
+The transition machinery must participate in control lowering when a
+hook performs an effect. The standard library implementation in
+[The Scheme Programming Language](https://www.scheme.com/tspl4/control.html#./control:h6)
+illustrates the chain and ordering.
+
+Compiler-generated returns used to package a suspension do not themselves
+leave a language scope. Ordinary I/O waiting preserves the task's dynamic
+context. Actual continuation transfers run the corresponding wind
+transitions. Capturing a continuation and collecting an already inactive
+continuation do not independently trigger wind hooks. Final resource
+destruction and dynamic scope exit remain separate operations.
+
+## Cancellation and foreign callbacks
+
+A pending operation owns its one-shot continuation. Completion and
+cancellation race to settle that operation once; only the winner may
+enqueue its work or initiate cancellation cleanup. Abandoning a task
+disarms its registration or retains the registration's storage until late
+callbacks can no longer access it. An empty ready queue is not runtime
+exhaustion while waits or cleanup remain live.
+
+Cancellation follows an explicit task cleanup path. It does not rely on
+GC reachability or a native Rust/JavaScript exception to walk language
+frames. Reusable Scheme continuations require a distinct lifetime policy:
+discarding one reference does not cancel every retained invocation or
+destroy resources still reachable through another reference.
+
+Foreign callbacks return normally. They copy transient inputs or transfer
+an explicitly owned buffer, settle a registration and enqueue Snail-Core work.
+They do not capture a foreign stack as part of a continuation. Browser
+operations that need an immediate response, such as event suppression,
+keep that decision in the synchronous adapter.
+

@@ -71,8 +71,6 @@ or payloads erased into `Any`. There are no borrowed references or user
 defined drop operations. The static check establishes ownership within
 Snail-Core; unsafe foreign code remains a trusted boundary.
 
-Ownership does not establish `Send` or `Sync`. A locally owned work item
-can capture a local mutable cell. Ordinary effect handlers still require
-reusable captures satisfying both thread-safety properties. Future
-dispatch to arbitrary workers will also need evidence for the work
-item's complete environment.
+A locally owned work item, or an ordinary handler, may capture a local
+mutable cell. An instance is single-threaded, so nothing it holds is shared
+with another thread.

@@ -19,8 +19,7 @@ does not suspend still monopolizes this execution agent.
 
 ## Handler bindings
 
-Ordinary handlers are reusable and satisfy `Send + Sync`. Handlers are
-evidence: every function takes the list of handlers in scope as a
+Ordinary handlers are reusable. Handlers are evidence: every function takes the list of handlers in scope as a
 parameter, so a task's handlers live on its own Wasm stack. Dispatch
 hands the host the evidence in scope at `dispatch-local` along with the
 work, and the host passes it back when the work runs, so a child keeps

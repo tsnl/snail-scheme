@@ -21,7 +21,7 @@
        (port I32)))
 
     ;; Tokens belong to the effect handler that created them. Any keeps a
-    ;; native endpoint local (!Send, !Sync), and lets tests use their own tokens.
+    ;; native endpoint opaque, and lets tests use their own tokens.
     ;; Closing a native endpoint revokes every alias; it does not consume one.
     (struct Listener
       ((token Any)

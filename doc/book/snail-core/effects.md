@@ -269,31 +269,22 @@ hello, memory
 handlers outside `from-disk`'s, here the host, so `from-disk`'s row names
 `fs`. `from-memory`'s does not: the test touches no file system at all.
 
-### Handlers hold no mutable state
+### Handlers may hold state
 
-Ordinary handler implementations must be reusable and satisfy `Send + Sync`,
-including their captures and the globals reachable through helper functions.
-A task dispatched under a handler inherits it, and the
-[language contract](../runtimes/contract.md#effects-and-handlers) lets tasks
-run on different threads, so one implementation may serve many tasks at
-once. The compiler checks concrete handler installations after
-specialization. Capturing an immutable value or a known safe procedure is
-allowed. Capturing a mutable cell, an alias of a procedure that reaches one,
-or an opaque callback whose environment is unknown is rejected
-(`tests/programs/error-handler-local.sld`):
+An instance of a program runs on one thread, so a handler's implementation
+may capture mutable state and change it. That includes a cell, an alias of
+a procedure that reaches one, a global, or a callback passed in
+(`tests/programs/handler-shared-state.sld`):
 
-```text
-{{#include ../../../tests/programs/error-handler-local.err}}
+```scheme
+{{#include ../../../tests/programs/handler-shared-state.sld:counter}}
 ```
 
-The handler may allocate fresh mutable storage on each invocation and
-operate on its arguments (`tests/programs/handler-captures.sld`), so state
-an operation needs travels in its arguments. An arrow alone is not a
-certificate for an unknown callback; higher-order handler factories may
-need to construct their implementation at the binding site so its
-environment remains visible to the compiler. Incremental builds recheck
-cached handler code against current helper bodies; an unchanged function
-signature does not preserve a proof about captures.
+prints `23`. A handler must still be reusable, since a deep handler runs
+its implementation again for each operation. Ordinary closures always are,
+because they cannot capture a one-shot value. Fresh storage allocated
+inside an invocation, and the operation's arguments, belong to that
+invocation (`tests/programs/handler-captures.sld`).
 
 ### Defaults in Snail-Core
 

@@ -1845,8 +1845,6 @@
     (: declared-instance
        (-> Context Env Class (List Syntax) (List Syntax) Loc (Pair Instance Context)))
     (define (declared-instance cx env class type-args requires loc)
-      (when (capability-class? (Class-name class))
-        (compile-error loc "Send and Sync instances are compiler-owned"))
       (let* ((vars (delete-duplicates string=?
                                       (concatenate
                                        (map (lambda (type) (free-type-names cx env type))

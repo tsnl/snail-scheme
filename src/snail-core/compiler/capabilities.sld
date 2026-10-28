@@ -1,51 +1,12 @@
-;; Compiler-owned properties of values. The language distinguishes transfer
-;; from sharing even while its managed, aliased mutable containers permit
-;; neither. A procedure's arrow does not describe its captured environment.
+;; Compiler-owned properties of types, found from their structure: whether a
+;; type is first-order data, and whether it is affine. A procedure's arrow
+;; does not describe its captured environment.
 (define-library (snail-core compiler capabilities)
-  (export capability-class? capability-type? affine-type? first-order-type?)
+  (export affine-type? first-order-type?)
   (import
    (snail-core base)
    (snail-core compiler core))
   (begin
-
-    ;; ---- Structural evidence ----
-
-    (: capability-class? (-> String Bool))
-    (define (capability-class? name)
-      (member? name (list "snail-core.base:Send" "snail-core.base:Sync")))
-
-    (: capability-type? (-> Program String Type (List Constraint) (List String) Bool))
-    (define (capability-type? program property type givens visiting)
-      (or (any? (lambda (given) (and (string=? property (Constraint-class given))
-                                     (types=? (list type) (Constraint-types given)))) givens)
-          (match type
-            ((TCon name args)
-             (and (not (member? name (list "Ref" "Array" "Any" "Funcref")))
-                  (every? (lambda (arg) (capability-type? program property arg givens visiting))
-                          args)
-                  (or (member? name visiting)
-                      (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types)
-                      (capability-fields? program property type givens (Cons name visiting)))))
-            ((TRow _ _) #t)
-            (_ #f))))
-
-    ;; Arguments are checked before cutting a recursive declaration by name.
-    ;; Thus List<Ref<I64>> cannot pass because List has been visited already.
-    (: capability-fields? (-> Program String Type (List Constraint) (List String) Bool))
-    (define (capability-fields? program property type givens visiting)
-      (match type
-        ((TCon name args)
-         (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
-           (every? (lambda (case)
-                     (every? (lambda (field)
-                               (capability-type? program
-                                                 property
-                                                 (substitute bindings (Field-type field))
-                                                 givens
-                                                 visiting))
-                             (Case-fields case)))
-                   (DataType-cases data))))
-        (_ #f)))
 
     ;; ---- Data ----
 

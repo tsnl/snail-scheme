@@ -155,15 +155,11 @@ function of the expander has `mut` in its row — and where it does not, the
   performs effects, or a type variable (core's `hidden-effects`): an `Any`'s
   TypeId keys its type without rows, and mono erases the ordinary ones
   next, so this is the last pass that could tell.
-- **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/capabilities.sld)** establishes
-  structural `Send` and `Sync` evidence from types and declared fields.
-  The checker resolves these compiler-owned markers; user instances cannot
-  override them. Ordinary arrows carry no proof about their captures.
-- **[`handlers.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/handlers.sld)** checks that a handler's
-  retained environment is reusable and satisfies `Send + Sync`. It follows
-  closure aliases, named helpers and selected method evidence to their
-  captures and globals, while keeping invocation arguments and fresh local
-  storage separate. Unknown callback provenance is rejected.
+- **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/capabilities.sld)** finds two
+  structural properties of types from their declared fields: whether a
+  type is first-order data, which dynamic exports require, and whether it
+  is affine, which ownership uses. Ordinary arrows say nothing about their
+  captures.
 - **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
