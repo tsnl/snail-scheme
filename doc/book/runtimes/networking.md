@@ -274,7 +274,10 @@ order, here by terminating a child and waiting for it:
 ```
 
 A wait ends with its signal, so a second Ctrl-C during that shutdown ends
-the program at once, unless a task waits again. There is no window between
+the program at once, unless a task waits again. A second Ctrl-C that comes
+so quickly it is still on its way while the first ends the wait is kept for
+the program's next wait instead, at most one, so a double tap reaches a
+program that waits again, and does not end one that does not. There is no window between
 a task's starting to wait and the signal's reaching it: in Node only the
 main thread receives signals, and the program runs on a worker, so the
 worker counts its waiters in shared memory and the main thread reads the
@@ -282,9 +285,14 @@ count when a signal arrives. With waiters it forwards the signal to the
 worker; without, it removes its handlers and raises the signal again, so
 the process ends by that signal, with the status Node's default gives. A
 signal forwarded to a worker whose last waiter was cancelled on the way is
-raised again the same way. `tests/termination/check.mjs` sends SIGTERM and
-SIGINT to a waiting program, which observes each and exits cleanly, and
-SIGTERM to one that does not wait, which it ends.
+raised again the same way. The worker tells the two apart by a second
+count in the shared memory, of the deliveries that ended waits: the main
+thread stamps each signal it forwards with the count it read, and a
+signal that finds no waiter after a newer delivery came with that one.
+`tests/termination/check.mjs` sends SIGTERM and SIGINT to a waiting
+program, which observes each and exits cleanly, and SIGTERM to one that
+does not wait, which it ends, and delivers a double tap with the stamps
+the main thread would give it.
 
 ### The process boundary
 
@@ -310,8 +318,9 @@ reacquires the execution permit, as `socket-imports.mjs` does.
 `createTermination(waiting)` in the same file holds the termination waiters
 and publishes their number in `waiting`, the shared `Int32Array` the main
 thread reads: `wait(signal)`
-resolves with the signal's number, 2 or 15, and `deliver(name)` resolves
-every waiter, or raises the signal again when there is none.
+resolves with the signal's number, 2 or 15, and `deliver({name, deliveries})`
+resolves every waiter, keeps a signal that came alongside the last
+delivery, or raises the signal again.
 
 Node discards a child's output when it exits unless a `'readable'` listener
 is waiting for it, so each output stream keeps one, and its bytes wait in
