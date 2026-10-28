@@ -1,5 +1,6 @@
 // Applications own input and checkpoint handover; the scheduler owns tasks.
-import {programEntry, byteSnapshot} from './entry.mjs';
+import {programEntry} from './entry.mjs';
+import {byteSnapshot} from './load.mjs';
 import {createScheduler, taskImports} from './tasks.mjs';
 
 export const FRAME = 11, HIDDEN = 12, RELOAD = 13;

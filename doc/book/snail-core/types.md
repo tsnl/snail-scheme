@@ -314,7 +314,10 @@ rejected even when the argument is local; define it inside the function.
 the cases this rule rejects; each use says in a comment why nothing escapes.
 `unsafe-cast` is the other unchecked primitive: it turns a `Funcref`, a
 function another module exports, into a function of whatever type the
-context expects (`(snail-core wasm)`).
+context expects (`(snail-core wasm)`). `dynamic-cast` is its checked
+counterpart, for a function a plugin exposes with `dynamic`: it makes the
+function only if the policy it is given accepts the signature of the
+expected type ([plugins](compilers.md#plugins)).
 
 Traps and non-termination are not tracked.
 

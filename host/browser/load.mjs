@@ -227,31 +227,53 @@ export async function relinkProgram(program, from) {
 
 // ---- Loading while the program runs ----
 
-// The `wasm` effect of (snail-core wasm). A program loads a module from a file,
-// linked as its own modules are, after them and the modules it loaded
-// before, and takes the functions the module exports. The program waits
-// for both, so they are synchronous, and `read` gives a file's bytes at
-// once. `program()` gives the program that loads, which the host links
-// after making these imports. A name already linked is refused: the
-// modules that import it keep the instance they have, so replacing it
-// would only mislead.
-export function wasmImports(program, read) {
-  const loaded = [], strings = stagedStrings();
+// The `wasm` effect of (snail-core wasm), which reads the files and decides
+// what to link; the host only does what it cannot. `compile` takes the
+// bytes of a module, `namespace` makes an empty namespace, `instantiate`
+// links a module in one under a library name and runs its main, and
+// `has-export` and `export-function` find what an instance exports by name.
+// Namespace 0 is the program's own, its linked modules; a name already
+// there is refused, since the modules that import it keep the instance they
+// have. Another namespace holds a plugin's modules: each sees the modules
+// before it there, then the runtime and the host's modules, as a
+// child-first class loader resolves, and none of the files the program
+// links, so a plugin that links files cannot read them yet. A failure
+// answers a negative code, which (snail-core wasm) names; a trap in a
+// module's main still ends the program, and a main cannot wait.
+// The program waits for each operation, so they are synchronous.
+// `program()` gives the program that loads, which the host links after
+// making these imports.
+const INVALID_MODULE = -1, NAME_TAKEN = -1, LINK_FAILED = -2;
+
+export function wasmImports(program) {
+  const modules = [], instances = [], namespaces = [], strings = stagedStrings();
+  const namespace = handle => (handle === 0 ? program().linked : namespaces[handle - 1]);
   return {
     ...strings.imports,
-    load() {
-      const [name, file] = strings.take(), {linked} = program();
-      if (linked.has(name)) throw new Error(`a module named ${name} is already linked`);
-      const module = new WebAssembly.Module(read(file));
-      linked.set(name, new WebAssembly.Instance(module, moduleImports(program(), new Set(['snail.library', ...linked.keys()]), module)));
-      return loaded.push(linked.get(name)) - 1;
+    compile(address) {
+      try { return modules.push(new WebAssembly.Module(byteSnapshot(program().runtime.exports.memory, address))) - 1; }
+      catch (error) { if (error instanceof WebAssembly.CompileError) return INVALID_MODULE; throw error; }
     },
-    'export-function'(handle) {
-      const [name] = strings.take(), value = loaded[handle].exports[name];
-      if (typeof value !== 'function') throw new Error(`the module exports no function ${name}`);
-      return value;
+    namespace: () => namespaces.push(new Map()),
+    instantiate(handle, module) {
+      const [name] = strings.take(), linked = namespace(handle);
+      if (linked.has(name)) return NAME_TAKEN;
+      const instance = linkedInstance(handle === 0 ? program() : {...program(), linked, links: {}, files: []}, modules[module]);
+      if (!instance) return LINK_FAILED;
+      linked.set(name, instance);
+      instance.exports.main?.();
+      return instances.push(instance) - 1;
     },
+    'has-export': instance => typeof instances[instance].exports[strings.take()[0]] === 'function',
+    'export-function': instance => instances[instance].exports[strings.take()[0]],
   };
+}
+
+// An instance of the module, linked as a module of `program` is, or null
+// if an import has no provider of its type.
+function linkedInstance(program, module) {
+  try { return new WebAssembly.Instance(module, moduleImports(program, new Set(['snail.library', ...program.linked.keys()]), module)); }
+  catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return null; throw error; }
 }
 
 // ---- Host commands ----
@@ -272,6 +294,15 @@ export function commandImports(commands) {
       return commands[name](args, number) ?? 0;
     },
   };
+}
+
+// A foreign Bytes argument borrows staging memory: a little-endian u32
+// length at `address` and that many bytes after it. Own its bytes before
+// any await or another Wasm call can overwrite or grow the buffer.
+export function byteSnapshot(memory, address) {
+  const pointer = address >>> 0, buffer = memory.buffer;
+  const length = new DataView(buffer).getUint32(pointer, true);
+  return new Uint8Array(buffer, pointer + 4, length).slice();
 }
 
 function stagedStrings() {

@@ -18,10 +18,11 @@
 | `(snail-core wire)` | `Serialize`, `Deserialize` and the byte encoding. |
 | `(snail-core utf8)` | `string->utf8`, and `utf8->string`, which rejects ill-formed bytes as a fatal `TextDecoder` does, giving the offset of the first bad sequence. |
 | `(snail-core json)` | The `Json` value, with integer numbers and objects as ordered members, and `json->string`, which writes what `JSON.stringify` writes for the same value. |
+| `(snail-core json read)` | `string->json`, which reads JSON text whose numbers are integers back as a `Json`, and `json-member`. A library of its own, so that a program that only writes JSON does not carry it. |
 | `(snail-core sha256)` | `sha256` over bytes, giving the 32-byte digest, and `bytes->hex`, the lowercase hex Node's `digest('hex')` writes. |
 | `(snail-core http)`, `(snail-core http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
 | `(snail-core app)` | Applications, frames, pictures, materials and sprites, and the `screen` effect. |
-| `(snail-core wasm)` | Loading WebAssembly modules while a program runs, and `unsafe-cast`. |
+| `(snail-core wasm)` | Loading WebAssembly modules and plugins while a program runs ([below](#loading-webassembly)). |
 | `(snail-core sprite)` | Spritebooks: animations on sheets of equal cells, posed as sprites facing the camera. |
 | `(snail-core format)` | Indenting and formatting Lisp source as `scripts/format-scheme` does. |
 | `(snail-core highlight)` | Source text as tokens that tile it, classed for coloring by the compiler reader's lexical rules ([code highlighting](toolchain.md#code-highlighting)). |
@@ -62,6 +63,43 @@ time, but Rust's standard library exposes them on WASI only as unstable
 API, so `FileStatus` has none of these yet.
 `(monotonic-nanoseconds)`, of the `clock` effect, reads WASI's monotonic
 clock, from an origin the host chooses; only differences mean anything.
+
+## Loading WebAssembly
+
+`(snail-core wasm)` loads modules while a program runs, on the Node runner,
+into a program compiled one library at a time ([loading modules at run
+time](compilers.md#loading-modules-at-run-time)). Every failure is a
+`LoadError`, and `load-error-message` describes one.
+
+```scheme
+(enum LoadError
+  (Unreadable ((file String)))         ; no such file
+  (InvalidManifest ((file String)))    ; not a modules.json
+  (InvalidModule ((file String)))      ; not a WebAssembly module
+  (NameTaken ((name String)))          ; a module of that name is linked
+  (LinkFailed ((name String)))         ; an import has no provider of its type
+  (MissingExport ((name String)))
+  (NotDynamic ((name String)))         ; exported, but not with `dynamic`
+  (SignatureMismatch ((name String)))) ; compiled with other types
+
+(: load-module (-> String String (Result Module LoadError) ! wasm fs))
+(: module-export (-> Module String (Result Funcref LoadError) ! wasm))
+(: unsafe-cast (All (A) (-> Funcref A)))
+(: load-plugin (-> String (Result Plugin LoadError) ! wasm fs))
+(: plugin-function (All (A) (-> Plugin String (Result A LoadError) ! wasm)))
+```
+
+`(load-module name file)` links the module in `file` into the program's
+own namespace under the library name `name` and runs its `main`;
+`module-export` gives a function it exports, which `unsafe-cast` makes a
+function of the expected type, unchecked. `(load-plugin manifest)` links a
+plugin, the program a `modules.json` names, into a namespace of its own,
+sharing the runtime. `(plugin-function plugin name)` gives the function the
+plugin exposes as `name` with `(expose name "symbol" dynamic)`, at the
+expected type, a function of data; it refuses a function whose signature
+is not that type's. Values cross by reference. A dynamic export is pure,
+a plugin's `main` runs under its effects' defaults, and a trap in a plugin
+ends the program.
 
 ## Wire types
 
