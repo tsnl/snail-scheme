@@ -1,5 +1,6 @@
 {
   "tab_size": 2,
+  "wrap_guides": [100],
   "file_types": {
     "Scheme": ["sld", "scm"]
   },
