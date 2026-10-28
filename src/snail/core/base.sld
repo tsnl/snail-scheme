@@ -16,7 +16,7 @@
    i32->f32 f32->i32
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
-   Option Some None Result Ok Err Pair Pair-first Pair-second
+   Option Some None Result Ok Err Pair Pair-first Pair-second Never absurd
    List
    Cons
    Nil
@@ -309,6 +309,16 @@
     (struct (Pair A B)
       ((first A)
        (second B)))
+
+    ;; The type with no values. An operation that answers Never never
+    ;; returns to its performer, so its handler is handed no `resume`, and
+    ;; `absurd` lets the code after such a call have any type: a match on a
+    ;; value of a type with no cases needs no clauses.
+    (enum Never)
+
+    (: absurd (All (A) (-> Never A)))
+    (define (absurd never)
+      (match never))
 
     ;; ---- Lists ----
 

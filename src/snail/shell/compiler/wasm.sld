@@ -1975,6 +1975,12 @@
         ((TFun _ result _) result)
         (_ (panic "internal error: an operation is a function"))))
 
+    ;; An operation that answers Never cannot return to its performer: its
+    ;; implementation is handed no `resume`, and its yields save nothing.
+    (: answers-never? (-> Module String Bool))
+    (define (answers-never? m operation)
+      (never-type? (operation-result m operation)))
+
     ;; The implementations are values of the surrounding evidence; the body
     ;; runs with the new node as its evidence. A handle of a control effect
     ;; also catches the yields aimed at its node (see Control).
@@ -2156,7 +2162,10 @@
     ;; names. That handle clears the record and calls the operation's
     ;; implementation in its own context, with the recorded arguments and a
     ;; `resume` holding the frames (see Resuming); the implementation's
-    ;; result is the handle's. A call whose value flows straight out needs
+    ;; result is the handle's. A yield of an operation that answers Never
+    ;; is never resumed, so where every effect a call may yield to is of
+    ;; that kind, its test leaves without saving a frame, and no join is
+    ;; built for the rest. A call whose value flows straight out needs
     ;; no test, so a tail call stays a tail call. Nothing reads a
     ;; placeholder, since every caller tests first and leaves too. The
     ;; record is clear whenever Snail-Core code runs outside a yield, so
@@ -2254,13 +2263,32 @@
     ;; frame and leaves. In a join function, whose own rest the body is,
     ;; the body then runs in that frame, by a tail call as the runner would
     ;; make, so each join holds its body only up to the next yield point.
+    ;; A yield that nothing can resume saves nothing, so its test only
+    ;; leaves, and the body follows in the same function.
     (: let-rest (-> Fn String Expr Expr Bool (List Wat) ! mut))
     (define (let-rest fn name value body tail?)
       (cond ((not (may-yield? fn value)) (emit fn body tail?))
+            ((aborts? fn value)
+             (Cons (wat "if" (yielding? (Fn-module fn)) (wat "then" (leave fn (Expr-loc value))))
+                   (emit fn body tail?)))
             ((match (Fn-exit fn) ((Some (ToRunner)) #t) (_ #f))
              (continue-in-frame fn name value body))
             (else (let ((test (yield-test fn (frame fn name value body) (Expr-loc value))))
                     (append test (emit fn body tail?))))))
+
+    ;; Whether every effect `value` may yield to aborts: each of its control
+    ;; operations answers Never, so its handler is handed no `resume`, and
+    ;; nothing will run what follows the yield.
+    (: aborts? (-> Fn Expr Bool))
+    (define (aborts? fn value)
+      (let ((m (Fn-module fn)))
+        (match (Module-callees m)
+          ((Some callees)
+           (every? (lambda (label)
+                     (every? (lambda (operation) (answers-never? m operation))
+                             (Effect-control (program-effect (program-of m) label))))
+                   (yields callees value)))
+          ((None) #f))))
 
     (: yield-test (-> Fn Wat Loc (List Wat) ! mut))
     (define (yield-test fn saved loc)
@@ -2679,8 +2707,11 @@
                                     base
                                     (wat "local.get" local)
                                     (Cons outer
-                                          (append arguments
-                                                  (list (resume-owner m info operation type loc))))
+                                          (if (answers-never? m operation)
+                                              arguments
+                                              (append arguments
+                                                      (list
+                                                       (resume-owner m info operation type loc)))))
                                     #t)))))
 
     (: implementation-local (-> Effect String Wat))
@@ -2688,13 +2719,16 @@
       (Word (string-append "$implementation." (i64->string (operation-index info operation)))))
 
     ;; An implementation's closure type: the operation's arguments and
-    ;; `resume`, an owner, to the handle's result.
+    ;; `resume`, an owner, to the handle's result. An operation that answers
+    ;; Never has no `resume`.
     (: implementation-base (-> Module String Type String ! mut))
     (define (implementation-base m operation type)
-      (closure-type m
-                    (append (Pair-first (function-signature m (operation-type m operation)))
-                            (list (Reference (owned-type m))))
-                    (rep m type)))
+      (let ((params (Pair-first (function-signature m (operation-type m operation)))))
+        (closure-type m
+                      (if (answers-never? m operation)
+                          params
+                          (append params (list (Reference (owned-type m)))))
+                      (rep m type))))
 
     (: handler-field (-> Module Effect Wat I64 Wat ! mut))
     (define (handler-field m info node index)

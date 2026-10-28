@@ -106,8 +106,9 @@ effects in a drop's row are refused. A data type without an instance gets
 derived glue; a type with an instance can be matched apart only inside its
 own library. The list function `drop` becomes `list-drop`.
 
-An abortive handler writes `(drop resume)`. An operation whose answer is
-`Never` takes no `resume` at all.
+An abortive handler writes `(drop resume)`, unless its operation answers
+`Never`, whose implementation already takes no `resume`
+([effects](effects.md#operations-that-never-return)).
 
 ### Places
 
