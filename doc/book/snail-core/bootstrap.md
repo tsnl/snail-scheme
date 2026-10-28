@@ -32,6 +32,16 @@ in Scheme, where every implementation provides its own `(scheme base)`:
   Chibi's own procedures, and `(snail stage0 forms)` defines `:`, `struct`, `enum`,
   `type` and `match` as erasing macros. The compiler defines no typeclass
   instances of its own, so nothing dispatches at run time.
+  - **Effects.** `effect` and `handle` implement control effects whose
+    operations are never resumed, which is all the compiler's failures need
+    ([#552](https://github.com/tsnl/snail-scheme/issues/552)). An effect is
+    a parameter holding its innermost handler. An operation escapes to its
+    `handle` with `call/cc`, so no guard in between can intercept it, and
+    runs its implementation there, outside the handler. An operation whose
+    answer is `Never` takes no `resume`; any other is handed one that
+    errors with "stage 0 cannot resume". Ordinary operations, and `host` and
+    `default` clauses, are refused. A successful compile performs no
+    operation, so the two hosts' output stays identical.
 
 The shared driver reads its arguments and files through `(snail core io)`, and both
 entries publish missing-input requests after unwinding.

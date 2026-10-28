@@ -20,6 +20,7 @@
  (only (chibi string) string-contains string-cursor->index string-split string-suffix?)
  (srfi 1)
  (snail stage0 build)
+ (only (snail stage0 forms) test-forms)
  (only (snail shell compiler read) test-read)
  (only (snail shell compiler inputs) test-inputs)
  (only (snail shell compiler expand) test-expand)
@@ -771,6 +772,7 @@
 ;; ---- Suite ----
 
 (define (main root selected)
+  (test-forms)
   (test-read)
   (test-inputs)
   (test-build root)
