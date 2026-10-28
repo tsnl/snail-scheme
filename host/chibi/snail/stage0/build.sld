@@ -42,9 +42,15 @@
    (chibi pathname)
    (chibi process)
    (snail stage0 process)
-   (only (snail core base) match)
+   (only (snail core base)
+         match
+         Ok
+         Err)
    (only (snail shell compiler read)
-         compile-error
+         loc->string
+         diagnostic->string
+         compiling
+         Failed
          GenerateInput
          ArtifactInput)
    (snail shell compiler inputs)
@@ -215,9 +221,17 @@
                    (provide-input! root
                                    directories
                                    generated
-                                   (parse-request (read-file request) request))
+                                   (published-request request))
                    (loop))
                   (else (error (diagnostic (cadr result)))))))))
+
+    ;; The request a compile published, read by the compiler's own grammar;
+    ;; a malformed one is an error with its diagnostic.
+    (define (published-request request)
+      (match (compiling (lambda () (parse-request (read-file request) request)))
+        ((Ok parsed) parsed)
+        ((Err (Failed diagnostic)) (error (diagnostic->string diagnostic)))
+        ((Err stop) (error "reading a request asked for an input" stop))))
 
     (define (provide-input! root directories generated request)
       (match request
@@ -226,9 +240,9 @@
            (error "compiler requested an already provided generated library" key))
          (produce! root directories generated key))
         ((ArtifactInput name loc)
-         (compile-error loc
-                        (string-append "artifact-bundle requires a project build resolver: "
-                                       name)))))
+         (error (string-append (loc->string loc)
+                               ": artifact-bundle requires a project build resolver: "
+                               name)))))
 
     ;; The compiler's message without the host's prefix.
     (define (diagnostic text)
@@ -812,7 +826,7 @@
                                                                 directory
                                                                 (path-join root "src")))))
                                     (expect (caddr (capture-process command)) 256)
-                                    (expect (match (parse-request (read-file request) request)
+                                    (expect (match (published-request request)
                                               ((ArtifactInput "client" _) #t) (_ #f)) #t)
                                     (delete-file request)
                                     (create-directory request)

@@ -1,6 +1,7 @@
 ;; One compiler invocation, shared by the Chibi and Wasm entry programs. A
-;; compile that needs an input publishes its request beside the libraries
-;; its producers generate, then exits with status 1, as a failed one does.
+;; compile that fails prints its diagnostic and exits with status 1; one
+;; that needs an input publishes its request beside the libraries its
+;; producers generate, then exits the same way.
 (define-library (snail shell compiler driver)
   (export
    compile-command-line)
@@ -14,9 +15,7 @@
          compiling
          Failed
          Requested
-         SourceDiagnostic-loc
-         SourceDiagnostic-message
-         compile-error)
+         diagnostic->string)
    (snail shell compiler)
    (snail shell compiler inputs))
   (begin
@@ -32,9 +31,7 @@
            ((Err (Requested request))
             (publish-request generated request)
             (panic "compiler requires an input"))
-           ((Err (Failed diagnostic))
-            (compile-error (SourceDiagnostic-loc diagnostic)
-                           (SourceDiagnostic-message diagnostic)))))
+           ((Err (Failed diagnostic)) (panic (diagnostic->string diagnostic)))))
         (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
 
     ;; Writes what `mode` asks for: the program's schemas, a module for each

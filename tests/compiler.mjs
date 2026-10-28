@@ -193,19 +193,18 @@ try {
   write(trapping, assemble(`(module
     (import "snail.records" "text" (func $text (param i32 i32)))
     (memory (export "memory") 1)
-    (func (export "_initialize")) (func (export "main")) (func (export "reset"))
+    (func (export "_initialize")) (func (export "main"))
     (func (export "input_character") (param i32) (i32.store (i32.const 0) (i32.const 1114112)) (call $text (i32.const 0) (i32.const 1)))
     (func (export "input_end")) (func (export "project"))
-    (func (export "diagnostic"))
     (func (export "close-resources") (result i32) (i32.const 0)))`));
   const broken = await createCompiler(trapping, join(directory, 'trapping-errors'));
   assert.throws(() => broken.project(project), error => error instanceof CompilerCrashed && error.cause instanceof RangeError);
   assert.throws(() => broken.project(project), /compiler is closed/);
   broken.close();
 
-  // Diagnostic reset/projection are part of the trusted boundary too. A trap
-  // there retires the instance; emitting a record never makes a trap recoverable.
-  for (const stage of ['reset', 'argument-exit', 'diagnostic', 'after-record']) {
+  // Argument staging is part of the trusted boundary too: an exit there
+  // retires the instance, and emitting a record never makes a trap recoverable.
+  for (const stage of ['argument-exit', 'after-record']) {
     const fixture = join(directory, `${stage}.wasm`);
     write(fixture, assemble(`(module
       (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
@@ -215,8 +214,6 @@ try {
       (func (export "_initialize")) (func (export "main"))
       (func (export "input_character") (param i32) ${stage === 'argument-exit' ? '(call $exit (i32.const 1))' : ''})
       (func (export "input_end"))
-      (func (export "reset") ${stage === 'reset' ? 'unreachable' : ''})
-      (func (export "diagnostic") ${stage === 'diagnostic' ? 'unreachable' : ''})
       (func (export "project") ${stage === 'after-record'
         ? '(call $text (i32.const 0) (i32.const 0)) (call $text (i32.const 0) (i32.const 0)) (call $diagnostic (i64.const 1) (i64.const 1)) unreachable'
         : '(call $exit (i32.const 1))'})
@@ -227,13 +224,15 @@ try {
     trapped.close();
   }
 
-  // A diagnostic stream failure retires the instance and must tell the
-  // project worker to stop, rather than accepting another recoverable build.
+  // A compile that exits, as one whose source is missing does, is told by
+  // the diagnostic stream. A failure to read it retires the instance and
+  // must tell the project worker to stop, rather than accepting another
+  // recoverable build.
   const readSync = fs.readSync, unavailable = new Error('diagnostic read failed');
   fs.readSync = () => { throw unavailable; };
   syncBuiltinESMExports();
   try {
-    assert.throws(() => compiler.static(empty, source, wat, fresh(), libraries),
+    assert.throws(() => compiler.static(empty, join(directory, 'missing.sld'), wat, fresh(), libraries),
       error => error instanceof CompilerCrashed && error.cause === unavailable);
   } finally { fs.readSync = readSync; syncBuiltinESMExports(); }
   assert.throws(() => compiler.project(project), /compiler is closed/);

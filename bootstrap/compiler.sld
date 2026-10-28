@@ -1,9 +1,10 @@
 ;; A resident compiler's native boundary. JavaScript retains Session values,
 ;; build plans and immutable build inputs as opaque typed references. It
 ;; receives only parsed records: a project's targets, a plan's phases, a
-;; compile's modules and the files they link. A compile the plan supplied
-;; needs no input it lacks; one that asks anyway sends its request's record
-;; and returns what its entry was given.
+;; compile's modules and the files they link. A compile that stops, at a
+;; source error or for an input the plan did not supply, sends the
+;; diagnostic's or the request's record and returns what its entry was
+;; given; nothing traps.
 (import
  (snail core base)
  (snail core io)
@@ -76,19 +77,38 @@
   (for-each (lambda (text) (output-text (stage-text (i64->i32 (string-length text))) text))
             strings))
 
-;; ---- Source failures ----
+;; ---- Stopped compiles ----
 
-;; The host calls this directly after a trusted terminal exit, before another
-;; invocation can reset the record. File cleanup does not invalidate WasmGC
-;; values. This emits no record for an IO failure or an input request.
-(: diagnostic! (-> Unit ! mut compiler-output))
-(define (diagnostic!)
-  (match (take-compile-error!)
-    ((Some diagnostic)
-     (let ((loc (SourceDiagnostic-loc diagnostic)))
-       (send-strings (list (SourceDiagnostic-message diagnostic) (Loc-file loc)))
-       (output-diagnostic (Loc-line loc) (Loc-column loc))))
-    ((None) (unit))))
+;; A compile run by an entry: its value, or, when the source is wrong or
+;; the compile needs an input it was not supplied, `given` after the
+;; diagnostic's or the request's record is sent. The host finds the record
+;; after a normal return; for a request it supplies the input and calls
+;; again with what it had.
+(: resident (All (T e) (-> (-> T ! compile e) T T ! compiler-output e)))
+(define (resident work given)
+  (match (compiling work)
+    ((Ok value) value)
+    ((Err (Requested request)) (send-request request) given)
+    ((Err (Failed diagnostic)) (send-diagnostic diagnostic) given)))
+
+(: send-diagnostic (-> SourceDiagnostic Unit ! compiler-output))
+(define (send-diagnostic diagnostic)
+  (let ((loc (SourceDiagnostic-loc diagnostic)))
+    (send-strings (list (SourceDiagnostic-message diagnostic) (Loc-file loc)))
+    (output-diagnostic (Loc-line loc) (Loc-column loc))))
+
+(: send-request (-> CompilerRequest Unit ! compiler-output))
+(define (send-request request)
+  (match request
+    ((GenerateInput key) (send-strings (list key)) (output-generate))
+    ((ArtifactInput name loc)
+     (send-strings (list name (Loc-file loc)))
+     (output-artifact (Loc-line loc) (Loc-column loc)))))
+
+;; What a failed `plan!` returns: a plan with nothing in it, which the host,
+;; finding the diagnostic, never uses.
+(: no-plan Plan)
+(define no-plan (Plan (Nil) (Nil) "" (list->vector (Nil)) (Nil)))
 
 ;; ---- Parsed projects ----
 
@@ -96,9 +116,11 @@
 (define (project!)
   (match (take-arguments!)
     ((Cons path (Nil))
-     (let ((project (parse-project (read-file path) path)))
-       (for-each send-build (Project-builds project))
-       (for-each send-run (Project-runs project))))
+     (resident (lambda ()
+                 (let ((project (parse-project (read-file path) path)))
+                   (for-each send-build (Project-builds project))
+                   (for-each send-run (Project-runs project))))
+               (unit)))
     (_ (panic "compiler project: expected one filename"))))
 
 (: send-build (-> BuildTarget Unit ! compiler-output))
@@ -176,19 +198,23 @@
 (define (plan! inputs)
   (match (take-arguments!)
     ((Cons directory (Cons standard (Cons scratch names)))
-     (let* ((file (string-append directory "/project.datum"))
-            (targets (plan-targets directory standard (parse-project (read-file file) file))))
-       (send-wave (plan-build targets
-                              (map (lambda (name) (root-target targets file name)) names)
-                              inputs
-                              scratch))))
+     (let ((file (string-append directory "/project.datum")))
+       (resident (lambda ()
+                   (let ((targets
+                          (plan-targets directory standard (parse-project (read-file file) file))))
+                     (send-wave (plan-build targets
+                                            (map (lambda (name) (root-target targets file name))
+                                                 names)
+                                            inputs
+                                            scratch))))
+                 no-plan)))
     (_ (panic "compiler plan: expected project and standard directories, scratch and root names"))))
 
 ;; The plan again, now that `inputs` holds the outputs of the producers the
 ;; waiting phases waited for. Sends the next wave.
 (: refine! (-> Plan Inputs Plan ! fs compiler-output))
 (define (refine! plan inputs)
-  (send-wave (refine-plan plan inputs)))
+  (resident (lambda () (send-wave (refine-plan plan inputs))) plan))
 
 ;; Sends the phases that can run now, in the order they run, then
 ;; `waiting` if any phase is left for a later wave, and returns the plan
@@ -290,33 +316,6 @@
                               (Built-links module)))))
   (output-module (Built-compiled? module)))
 
-;; ---- Typed input protocol ----
-
-(: reset! (-> Unit ! mut))
-(define (reset!)
-  (clear-compile-error!)
-  (unit))
-
-;; A compile run by an entry: its value, or, when it needs an input it was
-;; not supplied, `given` after its request's record is sent, so that the
-;; host, which finds the record, can supply the input and call again with
-;; what it had. A source error goes on as it came.
-(: resident (All (T e) (-> (-> T ! compile e) T T ! compiler-output e)))
-(define (resident work given)
-  (match (compiling work)
-    ((Ok value) value)
-    ((Err (Requested request)) (send-request request) given)
-    ((Err (Failed diagnostic))
-     (compile-error (SourceDiagnostic-loc diagnostic) (SourceDiagnostic-message diagnostic)))))
-
-(: send-request (-> CompilerRequest Unit ! compiler-output))
-(define (send-request request)
-  (match request
-    ((GenerateInput key) (send-strings (list key)) (output-generate))
-    ((ArtifactInput name loc)
-     (send-strings (list name (Loc-file loc)))
-     (output-artifact (Loc-line loc) (Loc-column loc)))))
-
 ;; ---- Immutable build inputs ----
 
 (: inputs (-> Inputs))
@@ -347,26 +346,26 @@
 ;; resolve in the library directories after them. The producer is read back
 ;; from its printed source, so the entry holds the text a compile looks it
 ;; up by, and `key` must be the key it was printed under.
-(: add-generated! (-> Inputs Inputs ! mut fs))
+(: add-generated! (-> Inputs Inputs ! mut fs compiler-output))
 (define (add-generated! previous)
   (match (take-arguments!)
     ((Cons key (Cons source (Cons output directories)))
-     (let ((text (printed-producer-text directories source)))
-       (unless (string=? (producer-key text) key)
-         (panic "compiler generated: the key does not name this producer"))
-       (match (generated-output previous text)
-         ((Some _) (panic "compiler generated: already provided"))
-         ((None) (supply-generated previous text (read-bytes output))))))
+     (resident (lambda ()
+                 (let ((text (printed-producer-text directories source)))
+                   (unless (string=? (producer-key text) key)
+                     (panic "compiler generated: the key does not name this producer"))
+                   (match (generated-output previous text)
+                     ((Some _) (panic "compiler generated: already provided"))
+                     ((None) (supply-generated previous text (read-bytes output))))))
+               previous))
     (_ (panic "compiler generated: expected key, source, output and library directories"))))
 
-(expose diagnostic! "diagnostic")
 (expose input-character! "input_character")
 (expose input-end! "input_end")
 (expose project! "project")
 (expose session! "session")
 (expose static! "static")
 (expose modules! "modules")
-(expose reset! "reset")
 (expose inputs "inputs")
 (expose add-artifact! "add_artifact")
 (expose add-generated! "add_generated")

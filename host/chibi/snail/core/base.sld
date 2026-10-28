@@ -8,7 +8,7 @@
    define-syntax syntax-rules quote else => _ ...
    : type ann type-convert struct enum match effect handle
    + - * quotient remainder modulo = < <= > >= negate abs min max not
-   unit panic unsafe-total
+   unit panic
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Result Ok Err Never absurd Pair Pair-first Pair-second
@@ -70,8 +70,6 @@
     (define (unit) (if #f #f))
 
     (define (panic message) (error message))
-
-    (define (unsafe-total thunk) (thunk))
 
     (define (negate n) (- 0 n))
 

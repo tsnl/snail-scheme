@@ -201,7 +201,7 @@
     ;; handled body, which tests for a yield after the operation only when
     ;; the operation's type names a control effect: the implementation may
     ;; yield to those its latent row names, and to no other.
-    (: check-restrictions (-> Callees Expr Unit))
+    (: check-restrictions (-> Callees Expr Unit ! compile))
     (define (check-restrictions callees expr)
       (match (Expr-term expr)
         ((App callee args)
@@ -222,7 +222,7 @@
          (for-each (lambda (child) (check-restrictions callees child)) (subexpressions expr)))
         (_ (for-each (lambda (child) (check-restrictions callees child)) (subexpressions expr)))))
 
-    (: check-implementations (-> Callees String (List (Pair String Expr)) Unit))
+    (: check-implementations (-> Callees String (List (Pair String Expr)) Unit ! compile))
     (define (check-implementations callees effect implementations)
       (let ((control (Effect-control (program-effect (Callees-program callees) effect))))
         (for-each (lambda (entry)
@@ -230,7 +230,7 @@
                       (check-implementation callees (Pair-first entry) (Pair-second entry))))
                   implementations)))
 
-    (: check-implementation (-> Callees String Expr Unit))
+    (: check-implementation (-> Callees String Expr Unit ! compile))
     (define (check-implementation callees operation implementation)
       (match (program-value (Callees-program callees) operation)
         ((Some (Operation effect scheme))
@@ -243,11 +243,11 @@
                                            (labels->string labels))))))
         (_ (panic "internal error: not an operation"))))
 
-    (: refuse-yield (-> Callees Expr String Loc Unit))
+    (: refuse-yield (-> Callees Expr String Loc Unit ! compile))
     (define (refuse-yield callees procedure what loc)
       (refuse-labels (procedure-yields callees procedure) what loc))
 
-    (: refuse-labels (-> (List String) String Loc Unit))
+    (: refuse-labels (-> (List String) String Loc Unit ! compile))
     (define (refuse-labels labels what loc)
       (unless (null? labels)
         (compile-error loc
@@ -457,7 +457,7 @@
     ;; directly, so the definition the checker found, this library's or an
     ;; imported one, must have a lambda as its value. Only here, after
     ;; specialization, is an imported definition's value at hand.
-    (: check-exposures (-> Mono Unit))
+    (: check-exposures (-> Mono Unit ! compile))
     (define (check-exposures mono)
       (let ((callees (module-callees mono (Nil))))
         (for-each (lambda (item)
@@ -466,7 +466,7 @@
                       (_ (unit))))
                   (Mono-items mono))))
 
-    (: check-exposure (-> Callees String Loc Unit))
+    (: check-exposure (-> Callees String Loc Unit ! compile))
     (define (check-exposure callees name loc)
       (match (callee-definition callees name)
         ((Some definition)
@@ -488,7 +488,7 @@
     ;; checked everywhere. Every program passes through here, so the one
     ;; rule the backend relies on that needs specialized definitions is
     ;; checked here too, and the backend reports no source errors.
-    (: name-yield-points (-> Mono Mono))
+    (: name-yield-points (-> Mono Mono ! compile))
     (define (name-yield-points mono)
       (check-exposures mono)
       (let ((control (control-effects (Mono-program mono))))
@@ -502,7 +502,7 @@
     ;; Temporaries are numbered within the Wasm function they land in: a
     ;; function's definition counts from zero, while the statements and the
     ;; other definitions' values all run in `main`, and share one count.
-    (: control-items (-> I64 Callees (List Item) (List Item)))
+    (: control-items (-> I64 Callees (List Item) (List Item) ! compile))
     (define (control-items count callees items)
       (match items
         ((Cons item rest)
@@ -510,7 +510,7 @@
                  (Cons item (control-items count callees rest))))
         ((Nil) (Nil))))
 
-    (: control-item (-> I64 Callees Item (Pair Item I64)))
+    (: control-item (-> I64 Callees Item (Pair Item I64) ! compile))
     (define (control-item count callees item)
       (match item
         ((Define name value)
@@ -521,7 +521,7 @@
         ((Do expr) (naming count ((expr (control-expr callees expr))) (Pair (Do expr) count)))
         (_ (Pair item count))))
 
-    (: control-expr (-> I64 Callees Expr (Pair Expr I64)))
+    (: control-expr (-> I64 Callees Expr (Pair Expr I64) ! compile))
     (define (control-expr count callees expr)
       (check-restrictions callees expr)
       (if (yield-free? callees expr) (Pair expr count) (normal count callees expr)))

@@ -138,7 +138,7 @@
     ;; The plan for building `roots`, its nodes numbered in depth-first
     ;; pre-order from the roots in order. Each producer is printed into
     ;; `scratch` when it is planned, and compiled from there.
-    (: plan-build (-> (List Target) (List Target) Inputs String Plan ! fs))
+    (: plan-build (-> (List Target) (List Target) Inputs String Plan ! fs compile))
     (define (plan-build targets roots inputs scratch)
       (refine-plan (Plan targets roots scratch (list->vector (Nil)) (Nil)) inputs))
 
@@ -146,7 +146,7 @@
     ;; step that waited learns what it needs now, which may add steps at the
     ;; next nodes, and the order and its cycles are found anew. A step whose
     ;; needs were known keeps them, since its closure waited for nothing.
-    (: refine-plan (-> Plan Inputs Plan ! fs))
+    (: refine-plan (-> Plan Inputs Plan ! fs compile))
     (define (refine-plan plan inputs)
       (let* ((growth
               (fold-left (lambda (growth root) (Pair-second (visit growth (BuildPhase root))))
@@ -229,7 +229,7 @@
     ;; graph takes the next node, so nodes number in pre-order. A new phase,
     ;; or one that waited, learns what it needs now; one whose needs were
     ;; known keeps them, but they are visited, since one of them may wait.
-    (: visit (-> Growth Phase (Pair I64 Growth) ! fs))
+    (: visit (-> Growth Phase (Pair I64 Growth) ! fs compile))
     (define (visit growth phase)
       (let ((key (phase-key phase)))
         (match (table-ref (Growth-nodes growth) key)
@@ -241,7 +241,7 @@
            (learn (add-phase (mark-visited growth key) key phase)
                   (vector-length (Growth-steps growth)))))))
 
-    (: revisit (-> Growth I64 (Pair I64 Growth) ! fs))
+    (: revisit (-> Growth I64 (Pair I64 Growth) ! fs compile))
     (define (revisit growth node)
       (match (Step-needs (step-at growth node))
         ((Known nodes)
@@ -252,7 +252,7 @@
 
     ;; Finds what the phase at `node` needs, visits those phases, and
     ;; records their nodes as its needs.
-    (: learn (-> Growth I64 (Pair I64 Growth) ! fs))
+    (: learn (-> Growth I64 (Pair I64 Growth) ! fs compile))
     (define (learn growth node)
       (let* ((demand (phase-demand growth (Step-phase (step-at growth node))))
              (visited (visit-all growth (Demand-needs demand)))
@@ -266,7 +266,7 @@
                               (Waiting (Pair-first visited) missing))))))
 
     ;; Visits each phase in turn, and returns their nodes in the same order.
-    (: visit-all (-> Growth (List Phase) (Pair (List I64) Growth) ! fs))
+    (: visit-all (-> Growth (List Phase) (Pair (List I64) Growth) ! fs compile))
     (define (visit-all growth phases)
       (let ((visited (fold-left (lambda (visited phase)
                                   (let ((result (visit (Pair-second visited) phase)))
@@ -324,7 +324,7 @@
     ;; The producers its program's closure reaches come first. Once they
     ;; have all run, a discovery expansion adds the targets whose files the
     ;; program embeds; until then, those are unknown.
-    (: phase-demand (-> Growth Phase Demand ! fs))
+    (: phase-demand (-> Growth Phase Demand ! fs compile))
     (define (phase-demand growth phase)
       (let* ((program (phase-program phase)) (producers (reached-producers growth program))
              (missing (filter (lambda (producer) (not (supplied? (Growth-inputs growth) producer)))
@@ -346,7 +346,7 @@
        (loading (List String))
        (imports (List Syntax))))
 
-    (: phase-program (-> Phase PhaseProgram ! fs))
+    (: phase-program (-> Phase PhaseProgram ! fs compile))
     (define (phase-program phase)
       (match phase
         ((BuildPhase target) (entry-program target))
@@ -357,7 +357,7 @@
                        (program-imports (Producer-forms producer))))))
 
     ;; A target's entry, read as `expand-program` reads it.
-    (: entry-program (-> Target PhaseProgram ! fs))
+    (: entry-program (-> Target PhaseProgram ! fs compile))
     (define (entry-program target)
       (let* ((entry (Target-entry target))
              (source (generating-stack (read-text (read-file entry) entry))))
@@ -368,7 +368,7 @@
 
     ;; The producers a program's closure reaches, once each, keyed as the
     ;; build's inputs key their outputs.
-    (: reached-producers (-> Growth PhaseProgram (List Producer) ! fs))
+    (: reached-producers (-> Growth PhaseProgram (List Producer) ! fs compile))
     (define (reached-producers growth program)
       (let* ((directories (PhaseProgram-directories program))
              (reached (library-closure directories
@@ -402,7 +402,7 @@
     ;; discovery first meets them. A build that declares no targets, as
     ;; the development loop's, has none to embed: a use there can only
     ;; fail, and the compile that meets it fails, so no discovery runs.
-    (: embedded-targets (-> Growth PhaseProgram (List Phase) ! fs))
+    (: embedded-targets (-> Growth PhaseProgram (List Phase) ! fs compile))
     (define (embedded-targets growth program)
       (if (null? (Growth-targets growth))
           (Nil)
@@ -415,7 +415,7 @@
                   uses)))))
 
     ;; A use names a declared browser build.
-    (: used-target (-> (List Target) ArtifactUse Target))
+    (: used-target (-> (List Target) ArtifactUse Target ! compile))
     (define (used-target targets use)
       (let ((name (ArtifactUse-name use)))
         (match (find (lambda (target) (string=? (Target-name target) name)) targets)
@@ -434,7 +434,7 @@
     ;; strongly connected components, each after those it leads to. A
     ;; component of more than one node, or a node that needs itself, is a
     ;; cycle, which no order runs.
-    (: checked-order (-> (List Target) (Vector Step) (List I64)))
+    (: checked-order (-> (List Target) (Vector Step) (List I64) ! compile))
     (define (checked-order targets steps)
       (let* ((edges (step-edges steps))
              (components (strong-components edges)))
@@ -459,7 +459,8 @@
     ;; declared first, at its declaration, then the producers on the way. A
     ;; cycle of producers alone is an import cycle, reported as the expander
     ;; reports one, at the producer planned first.
-    (: cycle-error (All (A) (-> (List Target) (Vector Step) (Vector (List I64)) (List I64) A)))
+    (: cycle-error
+       (All (A) (-> (List Target) (Vector Step) (Vector (List I64)) (List I64) A ! compile)))
     (define (cycle-error targets steps edges component)
       (match (first-declared targets steps component)
         ((Some start)
