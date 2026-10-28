@@ -62,15 +62,17 @@ tasks posting and one receiving.
 
 ## Effects and locality
 
-The dispatcher must admit both `tasks` and the thunk's latent effects.
+The dispatcher must admit both `tasks` and the effects of the thunk.
 Dispatching a thunk cannot hide an otherwise unhandled operation. A child
 inherits the ordinary handler bindings present at dispatch, including
 those whose installing parent returns before the child runs.
 
 The runtime binds `tasks`; an ordinary `handle tasks` is rejected.
 JSPI supplies these restricted control waits. User-defined control
-handlers and first-class resumptions await the continuation work described
-in [future work](future.md).
+handlers, with first-class one-shot resumptions, compile to evidence
+passing instead ([control handlers](../snail-core/effects.md#control-handlers)).
+[Future work](future.md) records research on continuations and parallel
+execution.
 
 Local dispatch may capture a mutable `Ref`, because the work stays on
 this execution agent. This does not certify the closure as `Send` or

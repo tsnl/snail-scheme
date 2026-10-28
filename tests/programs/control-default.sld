@@ -6,6 +6,7 @@
 ;; handler of its effect is in scope, under the handlers in scope where the
 ;; operation is performed: here `sleep-until` waits on its caller's
 ;; scheduler, and `now` is pure.
+;; ANCHOR: clock
 (effect Async
   ((ctl await (-> I64 I64))))
 
@@ -19,6 +20,7 @@
 (: wait-for (-> I64 I64 ! Async))
 (define (wait-for deadline)
   (await deadline))
+;; ANCHOR_END: clock
 
 (enum Task
   (Done

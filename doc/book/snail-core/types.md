@@ -15,8 +15,8 @@ in. It is replaced when the source is read, so a macro cannot compute the
 path, and nothing else may be named `include-bytes`. A large file is better
 linked than included: see [linked files](#linked-files).
 
-A function type is `(-> Param ... Result)`, optionally followed by an effect
-row: `(-> String Unit ! console)`. A polymorphic signature quantifies type
+A function type is `(-> Param ... Result)`, optionally followed by an
+[effect row](effects.md): `(-> String Unit ! console)`. A polymorphic signature quantifies type
 and row variables and lists its class requirements:
 
 ```scheme
@@ -111,153 +111,13 @@ multithreaded contract.
 
 ## Effects
 
-Ordinary handler implementations must be reusable and satisfy `Send + Sync`,
-including their captures and the globals reachable through helper functions.
-The compiler checks concrete handler installations after specialization.
-Capturing an immutable value or a known safe procedure is allowed. Capturing
-a mutable cell, an alias of a procedure that reaches one, or an opaque
-callback whose environment is unknown is rejected. The handler may allocate
-fresh mutable storage on each invocation and operate on its arguments.
-An arrow alone is not a certificate for an unknown callback; higher-order
-handler factories may need to construct their implementation at the binding
-site so its environment remains visible to the compiler.
-Incremental builds recheck cached handler code against current helper bodies;
-an unchanged function signature does not preserve a proof about captures.
+Every function type has an effect row, the effects calling it may perform,
+and a function without `!` is total. [Effects and handlers](effects.md)
+covers rows, their inference and polymorphism, local mutation, declaring
+and handling effects, control operations with a one-shot `resume`, latent
+rows and defaults.
 
-Every function type has an effect row: the effects calling it may perform.
-A function without `!` is total. `mut` covers reading and writing `Ref` and
-`Array`; every other effect is declared with operations:
-
-```scheme
-(effect Log
-  ((log (-> String Unit))))
-
-(: quietly (All (A e) (-> (-> A ! Log e) A ! e)))
-(define (quietly action)
-  (handle Log
-      ((log (lambda (message) (unit))))
-    (action)))
-```
-
-Rows are inferred by unification, Koka-style. A call requires its callee's
-effects to fit the current row. With a shared quantified tail, `e` fits
-`console e`, and `fs e` fits `console fs e`; the reverse inclusion does not
-hold. This permission check does not change equality of function types.
-A signature may not claim more than its body does either: a top-level
-definition whose signature names an effect, or a tail variable such as `e`,
-that no call in its body performs is an error at the signature, so
-`(: double (-> I64 I64 ! mut))` over a body that never mutates is rejected.
-An instance method keeps its class method's row, which one instance may need
-less of than another; `extern` declarations, class method signatures and
-definitions whose value is not a lambda have no body to compare. A signature
-a macro writes is held to each expansion, so a macro that cannot know a row,
-as `define-application` cannot know what its reset binder performs, takes
-the effects as an argument.
-A handler removes its effect. The implementation
-of an ordinary operation returns to the operation's caller exactly once, and
-every implementation runs in the handler's outer context, so an operation it
-performs goes to the next handler out, unless the operation's latent row
-names its effect (below). A handler names operations within its
-effect, so they need not be imported. Effects with defaults, such as `console`, `fs` and `clock` from
-`(snail-core io)`, need no handler at the top level of a program, and a test can
-handle `fs` to serve files from memory.
-
-**Control operations.** An effect may declare an operation with `ctl`, as
-in `(effect Gen ((ctl yield (-> I64 Unit))))`. Its implementation receives
-one more argument, `resume`, the rest of the handled body, and returns the
-handler's result, the type of the `handle` expression. A control operation
-has no default: a default runs where no handler is, and nothing there can
-be handed the rest of a computation. The implementation runs in the handler's outer context.
-Calling `(resume answer)` runs the rest of the handled body, with `answer`
-as the operation's result, to the handler's result, which the
-implementation may return or build on:
-
-```scheme
-(: collect (-> (-> I64 ! Gen) (List I64)))
-(define (collect body)
-  (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
-    (list (body))))
-```
-
-`resume` is a `Once`: it is one-shot, so the checker rejects calling it
-twice, and a second call that reaches run time traps. It is also
-first-class: an implementation may return it inside a value, such as an
-affine enum of the generator's next step, and whoever holds that value may
-call it later, after the `handle` has returned. The handler is deep, so the
-resumed computation runs under it again, and its next control operation
-reaches the same implementation; and it runs under the handlers in scope
-where `resume` is called, not those that were in scope when it started.
-Dropping `resume` drops the rest of the body: an implementation that drops
-it aborts, and its result is the handler's, as with this `raise`, declared
-`(ctl raise (-> String I64))`:
-
-```scheme
-(: parse-or (-> String I64 I64 ! console))
-(define (parse-or text default)
-  (handle Raise
-      ((raise (lambda (message resume) (write-line message) default)))
-    (number text)))
-```
-
-Nothing after an abandoned operation runs, so a `Once` held across it is
-dropped and never called; there is no `finally` clause. Of two handlers of
-one effect the inner one catches, and an implementation that performs the
-effect again reaches the outer one. A control row cannot reach a `vector-generate` or
-`string-generate` callback, an `unsafe-total` thunk, `dispatch-local` work,
-or the implementation of an operation declared without `ctl`, which returns
-into a handled body that expects it to abort only to the control effects
-the operation's type names; each is an error after
-specialization. A generic function used where a control operation may be
-performed is specialized at that row, so its callback rows name the effect
-too: `vector-map`, which calls `vector-generate`, cannot be used in such a
-body even with a callback that cannot abort.
-
-**Latent rows.** An ordinary operation's type may name effects besides its
-own, its latent row: those its implementations perform where it is
-performed, as `fetch` names the control effect `Async`:
-
-```scheme
-(effect Async
-  ((ctl await (-> I64 I64))))
-
-(effect Io
-  ((fetch (-> I64 I64 ! Async))))
-```
-
-Performing `fetch` charges the caller `Io` and `Async`, so the call may
-yield. An implementation of `fetch` may perform `Async`, and those
-operations go to the handlers in scope where `fetch` was performed, while
-its other operations go to the handlers outside `Io`'s: the performer was
-charged `Async`, so its handler is the one every frame between the two is
-compiled to yield to. A yield leaves the implementation through the
-performer, and `resume` comes back into it. An `Io` handler installed
-outside a scheduler's per-task handlers therefore still waits on the task
-that performed `fetch`, as `tests/programs/control-latent.sld` shows. An
-ordinary effect in a latent row goes to the performer's handler the same
-way. An implementation may yield only to the control effects its
-operation's type names. A control operation has no latent row, since its
-implementation runs where its handler is, once the body has unwound to it,
-and no latent row names its operation's own effect.
-
-**Defaults.** After its operations, an effect's declaration may give a
-`host` clause, naming Wasm imports, and a `default` clause, which
-implements operations in Snail-Core as a handler does:
-
-```scheme
-(effect Clock
-  ((now (-> I64))
-   (sleep-until (-> I64 I64 ! Async)))
-  (default
-    ((now (lambda () 1000))
-     (sleep-until wait-for))))
-```
-
-A default runs when no handler of its effect is in scope, under the
-handlers in scope where its operation is performed, so `sleep-until`'s
-default, `wait-for`, awaits on its caller's `Async` handler. A default has
-its operation's type without the operation's own effect, so it performs at
-most the latent row. It is a lambda or a function's name; an operation has
-at most one default, and a control operation has none.
+## Foreign functions
 
 `extern` declares a total foreign function; the declaration is the boundary's
 unsafe assumption.
@@ -292,34 +152,13 @@ permit before invoking a constructor or returning to Wasm. A task's handlers are
 evidence on its own stack, so nothing about them is saved or restored across a
 suspension. See [scheduling](https://tsnl.github.io/snail-scheme/runtimes/scheduling.html).
 
-A function whose signature has no `mut` may still mutate storage that it
-allocates and that nothing keeps after it returns:
-
-```scheme
-(: sum (-> (List I64) I64))
-(define (sum items)
-  (let ((total (ref 0)))
-    (for-each (lambda (item) (ref-set! total (+ (ref-get total) item))) items)
-    (ref-get total)))
-```
-
-The checker accepts such a body when nothing the function can reach from
-outside can hold mutable storage: not its parameters, not its result, and
-not any name it reads, including effect operations. Holding storage means
-being a `Ref`, an `Array` or an `Any`, data with such a field, or a function
-that performs `mut`. Primitives, constructors and field operations are always
-allowed. A helper defined elsewhere that mutates its argument is therefore
-rejected even when the argument is local; define it inside the function.
-`unsafe-total` runs a thunk and discards all its effects without a check, for
-the cases this rule rejects; each use says in a comment why nothing escapes.
-`unsafe-cast` is the other unchecked primitive: it turns a `Funcref`, a
+`unsafe-cast` is unchecked, like `unsafe-total`
+([local mutation](effects.md#local-mutation)): it turns a `Funcref`, a
 function another module exports, into a function of whatever type the
 context expects (`(snail-core wasm)`). `dynamic-cast` is its checked
 counterpart, for a function a plugin exposes with `dynamic`: it makes the
 function only if the policy it is given accepts the signature of the
 expected type ([plugins](compilers.md#plugins)).
-
-Traps and non-termination are not tracked.
 
 ## Linked files
 
