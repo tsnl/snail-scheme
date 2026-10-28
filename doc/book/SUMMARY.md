@@ -5,6 +5,7 @@
 - [Snail-Core](snail-core/index.md)
   - [Terms](snail-core/terms.md)
   - [Types](snail-core/types.md)
+  - [Effects and handlers](snail-core/effects.md)
   - [Macros and Scheme libraries](snail-core/macros.md)
   - [Bootstrap and self-hosting](snail-core/bootstrap.md)
   - [Libraries](snail-core/libraries.md)

@@ -8,6 +8,7 @@
 ;; loop to the handler, whose implementation is a tail call, as is its
 ;; call to `resume`, and the resumed loop runs from its frame until the
 ;; next yield returns again.
+;; ANCHOR: count-down
 (effect Tick
   ((ctl tick (-> I64 I64))))
 
@@ -20,6 +21,7 @@
 (display (handle Tick ((tick (lambda (n resume) (resume (* n 2)))))
            (count-down 100000 0)))
 (newline)
+;; ANCHOR_END: count-down
 
 ;; The same loop with a yield only every thousandth step, which runs as an
 ;; ordinary loop in between.
