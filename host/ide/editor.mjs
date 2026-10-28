@@ -85,9 +85,9 @@ function draw(parts, editor, diagnostic) {
 }
 
 // The highlight layer holds the lines in view, and a few around them, in
-// runs of one class each. The formatter's lexer reads them from the start of
-// their top-level form, as Emacs resynchronizes; if it fails, the text stays
-// plain, so it never disappears.
+// runs of one class each. The formatter's classifier, the compiler's lexical
+// rules, reads them from the start of their top-level form, as Emacs
+// resynchronizes; if it fails, the text stays plain, so it never disappears.
 function drawHighlight(parts, text, scheme) {
   const {textarea, highlight} = parts, height = lineHeight(textarea);
   const first = Math.max(0, Math.floor(textarea.scrollTop / height) - 10), count = Math.ceil(textarea.clientHeight / height) + 20;

@@ -19,6 +19,7 @@
    build-tools
    build-project-tools
    build-editor-tools
+   build-book-tools
    bootstrap!
    standard-directories
    with-private-directory
@@ -505,6 +506,12 @@
       (cons (cons "formatter" (build-tool root (path-join root "host/ide/format.sld") (path-join root "build/ide-tools/format.wasm")
                                           (standard-directories root)))
             (build-project-tools root)))
+
+    ;; The book's highlighter, which host/native/highlight-book.mjs runs while
+    ;; mdbook builds the book.
+    (define (build-book-tools root)
+      (list (cons "highlighter" (build-tool root (path-join root "host/native/highlight.sld") (path-join root "build/book-tools/highlight.wasm")
+                                            (standard-directories root)))))
 
     ;; A program the tools run, built from `source` with the libraries in
     ;; `directories` when it is stale.
