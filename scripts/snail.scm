@@ -78,4 +78,5 @@
                 ((equal? (cddr arguments) '("tools")) (print-tools (build-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("project-tools")) (print-tools (build-project-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("editor-tools")) (print-tools (build-editor-tools (cadr arguments))))
+                ((equal? (cddr arguments) '("book-tools")) (print-tools (build-book-tools (cadr arguments))))
                 (else (perform (cadr arguments) (request (cddr arguments))))))))
