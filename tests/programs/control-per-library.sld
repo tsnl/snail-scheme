@@ -11,4 +11,5 @@
 (newline)
 (display (first-signal (lambda () (signal-negative (list 5)))))
 (newline)
-(for-each (lambda (value) (display value) (newline)) (all-signals (lambda () (signal-negative (list 6 -7 8 -9)))))
+(for-each (lambda (value) (display value) (newline))
+          (all-signals (lambda () (signal-negative (list 6 -7 8 -9)))))

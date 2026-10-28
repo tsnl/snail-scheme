@@ -118,8 +118,10 @@
     ((Ok (Cons event (Nil)))
      (match (datum->list event)
        ((Some (Cons (SymbolDatum "building") manifest)) (Building (parse-manifest manifest)))
-       ((Some (Cons (SymbolDatum "built") (Cons milliseconds manifest))) (Built (datum->display-string milliseconds) (parse-manifest manifest)))
-       ((Some (Cons (SymbolDatum "failed") (Cons (StringDatum message) manifest))) (Failed message (parse-manifest manifest)))
+       ((Some (Cons (SymbolDatum "built") (Cons milliseconds manifest)))
+        (Built (datum->display-string milliseconds) (parse-manifest manifest)))
+       ((Some (Cons (SymbolDatum "failed") (Cons (StringDatum message) manifest)))
+        (Failed message (parse-manifest manifest)))
        (_ (panic (string-append "reload: an unknown event " text)))))
     (_ (panic (string-append "reload: an unreadable event " text)))))
 
@@ -131,13 +133,15 @@
 
 (: same-manifest? (-> Manifest Manifest Bool))
 (define (same-manifest? a b)
-  (and (same-pairs? (Manifest-files a) (Manifest-files b)) (same-pairs? (Manifest-modules a) (Manifest-modules b))))
+  (and (same-pairs? (Manifest-files a) (Manifest-files b))
+       (same-pairs? (Manifest-modules a) (Manifest-modules b))))
 
 (: same-pairs? (-> (List (Pair String String)) (List (Pair String String)) Bool))
 (define (same-pairs? a b)
   (and (= (length a) (length b))
-       (every? (lambda (pair) (and (string=? (Pair-first (Pair-first pair)) (Pair-first (Pair-second pair)))
-                                   (string=? (Pair-second (Pair-first pair)) (Pair-second (Pair-second pair)))))
+       (every? (lambda (pair)
+                 (and (string=? (Pair-first (Pair-first pair)) (Pair-first (Pair-second pair)))
+                      (string=? (Pair-second (Pair-first pair)) (Pair-second (Pair-second pair)))))
                (zip a b))))
 
 (: event-manifest (-> Event Manifest))
@@ -153,12 +157,14 @@
 (: changed-files (-> Manifest Manifest (List String)))
 (define (changed-files old new)
   (delete-duplicates string=?
-                     (append (differing (Manifest-files old) (Manifest-files new)) (differing (Manifest-files new) (Manifest-files old)))))
+                     (append (differing (Manifest-files old) (Manifest-files new))
+                             (differing (Manifest-files new) (Manifest-files old)))))
 
 (: differing (-> (List (Pair String String)) (List (Pair String String)) (List String)))
 (define (differing these those)
   (map Pair-first (filter (lambda (entry) (match (assoc-ref those (Pair-first entry))
-                                            ((Some digest) (not (string=? digest (Pair-second entry))))
+                                            ((Some digest)
+                                             (not (string=? digest (Pair-second entry))))
                                             ((None) #t)))
                           these)))
 
@@ -171,7 +177,9 @@
       ((Cons (Pair name file) rest)
        (match old
          ((Cons (Pair old-name old-file) old-rest)
-          (if (and (string=? name old-name) (string=? file old-file)) (loop old-rest rest) (Some name)))
+          (if (and (string=? name old-name) (string=? file old-file))
+              (loop old-rest rest)
+              (Some name)))
          ((Nil) (Some name))))
       ((Nil) (None)))))
 
@@ -261,7 +269,10 @@
      (if ok
          (begin (ref-set! loaded target) (ref-set! refused (None)) (notice! (reloaded) brief))
          (begin (ref-set! refused (Some target))
-                (offer-fresh-start! (string-append "The new program could not take over the running state; the old one is still running.\n\n" message)))))
+                (offer-fresh-start!
+                 (string-append
+                  "The new program could not take over the running state; the old one is still running.\n\n"
+                  message)))))
     ((None) (unit)))
   (apply-pending!))
 
@@ -288,7 +299,8 @@
 (: page-error! (-> String Bool Unit ! page))
 (define (page-error! message stopped)
   (notice! (if stopped
-               (string-append message "\n\nThe application stopped. Fix it and save: the next build resumes from the state before the trap.")
+               (string-append message
+                              "\n\nThe application stopped. Fix it and save: the next build resumes from the state before the trap.")
                message)
            failure))
 

@@ -64,7 +64,8 @@
     (define (mailbox-post mailbox message)
       (let* ((pending (ref-get (Mailbox-pending mailbox)))
              (receivers (wake-first (Pending-receivers pending))))
-        (ref-set! (Mailbox-pending mailbox) (Pending (enqueue (Pending-messages pending) message) receivers))))
+        (ref-set! (Mailbox-pending mailbox)
+                  (Pending (enqueue (Pending-messages pending) message) receivers))))
 
     ;; A receiver that is no longer parked, because its task was cancelled
     ;; while it waited, is dropped, so the message wakes the next one.
@@ -87,6 +88,7 @@
            message)
           ((None)
            (ref-set! (Mailbox-pending mailbox)
-                     (Pending-receivers-set pending (enqueue (Pending-receivers pending) (current-task))))
+                     (Pending-receivers-set pending
+                                            (enqueue (Pending-receivers pending) (current-task))))
            (park-task)
            (mailbox-receive mailbox)))))))

@@ -54,7 +54,10 @@
       (match module
         ((Node (Cons _ fields))
          (string-concatenate
-          (reverse (Cons ")\n" (fold-left (lambda (pieces field) (write-field field (Cons "\n  " pieces))) (list "(module") fields)))))
+          (reverse (Cons ")\n"
+                         (fold-left (lambda (pieces field) (write-field field (Cons "\n  " pieces)))
+                                    (list "(module")
+                                    fields)))))
         (_ (panic "internal error: not a module"))))
 
     (: field->string (-> Wat String))
@@ -66,8 +69,11 @@
       (match field
         ((Node (Cons (Word head) parts))
          (if (or (string=? head "func") (string=? head "rec"))
-             (Cons ")" (fold-left (lambda (pieces part) (write-wat part (Cons (if (own-line? head part) "\n    " " ") pieces)))
-                                  (Cons head (Cons "(" pieces)) parts))
+             (Cons ")"
+                   (fold-left (lambda (pieces part)
+                                (write-wat part
+                                           (Cons (if (own-line? head part) "\n    " " ") pieces)))
+                              (Cons head (Cons "(" pieces)) parts))
              (write-wat field pieces)))
         (_ (write-wat field pieces))))
 
@@ -75,7 +81,8 @@
     (define (own-line? head part)
       (match part
         ((Node (Cons (Word inner) _))
-         (or (string=? head "rec") (not (member? inner (list "type" "param" "result" "local" "export")))))
+         (or (string=? head "rec")
+             (not (member? inner (list "type" "param" "result" "local" "export")))))
         (_ #f)))
 
     ;; Pieces accumulate in reverse.
@@ -85,7 +92,10 @@
         ((Word text) (Cons text pieces))
         ((Node (Nil)) (Cons "()" pieces))
         ((Node (Cons first rest))
-         (Cons ")" (fold-left (lambda (pieces item) (write-wat item (Cons " " pieces))) (write-wat first (Cons "(" pieces)) rest)))))
+         (Cons ")"
+               (fold-left (lambda (pieces item) (write-wat item (Cons " " pieces)))
+                          (write-wat first (Cons "(" pieces))
+                          rest)))))
 
     ;; Wasm strings are UTF-8 bytes; anything beyond printable ASCII is escaped.
     (: wat-string (-> String Wat))
@@ -97,7 +107,10 @@
       (let ((code (char->integer c)))
         (if (and (>= code 32) (< code 127) (not (= code 34)) (not (= code 92)))
             (list->string (list c))
-            (string-concatenate (map (lambda (byte) (string-append "\\" (hex-digit (quotient byte 16)) (hex-digit (remainder byte 16))))
+            (string-concatenate (map (lambda (byte)
+                                       (string-append "\\"
+                                                      (hex-digit (quotient byte 16))
+                                                      (hex-digit (remainder byte 16))))
                                      (utf-8-bytes code))))))
 
     (: hex-digit (-> I64 String))
@@ -109,7 +122,9 @@
       (cond ((< code 128) (list code))
             ((< code 2048) (list (+ 192 (quotient code 64)) (+ 128 (remainder code 64))))
             ((< code 65536)
-             (list (+ 224 (quotient code 4096)) (+ 128 (remainder (quotient code 64) 64)) (+ 128 (remainder code 64))))
+             (list (+ 224 (quotient code 4096))
+                   (+ 128 (remainder (quotient code 64) 64))
+                   (+ 128 (remainder code 64))))
             (else (list (+ 240 (quotient code 262144)) (+ 128 (remainder (quotient code 4096) 64))
                         (+ 128 (remainder (quotient code 64) 64)) (+ 128 (remainder code 64))))))
 
@@ -243,7 +258,10 @@
     (: wat-hash (-> I64 Wat I64))
     (define (wat-hash hash tree)
       (match tree
-        ((Word text) (vector-fold (lambda (h c) (fnv-step h (char->integer c))) (fnv-step hash 32) (string->vector text)))
+        ((Word text)
+         (vector-fold (lambda (h c) (fnv-step h (char->integer c)))
+                      (fnv-step hash 32)
+                      (string->vector text)))
         ((Node items) (fold-left wat-hash (fnv-step hash 40) items))))
 
     (: wat=? (-> Wat Wat Bool))
@@ -251,7 +269,8 @@
       (match (Pair a b)
         ((Pair (Word x) (Word y)) (string=? x y))
         ((Pair (Node xs) (Node ys))
-         (and (= (length xs) (length ys)) (every? (lambda (pair) (wat=? (Pair-first pair) (Pair-second pair))) (zip xs ys))))
+         (and (= (length xs) (length ys))
+              (every? (lambda (pair) (wat=? (Pair-first pair) (Pair-second pair))) (zip xs ys))))
         (_ #f)))
 
     (: wat-rename (-> String String Wat Wat))
@@ -272,9 +291,12 @@
     (: first-id (-> Wat (Option String)))
     (define (first-id tree)
       (match tree
-        ((Word text) (if (and (> (string-length text) 0) (char=? (string-ref text 0) #\$)) (Some text) (None)))
+        ((Word text)
+         (if (and (> (string-length text) 0) (char=? (string-ref text 0) #\$)) (Some text) (None)))
         ((Node items)
-         (fold-left (lambda (found item) (match found ((Some _) found) ((None) (first-id item)))) (ann (None) (Option String)) items))))
+         (fold-left (lambda (found item) (match found ((Some _) found) ((None) (first-id item))))
+                    (ann (None) (Option String))
+                    items))))
 
     (: id (-> String Wat))
     (define (id name)
@@ -342,7 +364,8 @@
            (("Array" "Vector") (Reference (array-type m (element-rep m (first-type args)))))
            (("Ref") (Reference (cell-type m (rep m (first-type args)))))
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
-        ((TFun params result _) (Reference (closure-type m (map (lambda (param) (rep m param)) params) (rep m result))))
+        ((TFun params result _)
+         (Reference (closure-type m (map (lambda (param) (rep m param)) params) (rep m result))))
         (_ (panic (string-append "internal error: not a ground type: " (type-key type))))))
 
     (: first-type (-> (List Type) Type))
@@ -377,7 +400,13 @@
       (let ((key (string-append "arr." (rep-key element))))
         (match (known-type m key)
           ((Some type) type)
-          ((None) (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat "array" (wat "mut" (rep->wat element)))))))))
+          ((None)
+           (register-type! m
+                           key
+                           (wasm-id key)
+                           (wat "type"
+                                (id (wasm-id key))
+                                (wat "array" (wat "mut" (rep->wat element)))))))))
 
     (: cell-type (-> Module Rep String ! mut))
     (define (cell-type m content)
@@ -385,13 +414,19 @@
         (match (known-type m key)
           ((Some type) type)
           ((None)
-           (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat "struct" (wat "field" (wat "mut" (rep->wat content))))))))))
+           (register-type! m
+                           key
+                           (wasm-id key)
+                           (wat "type"
+                                (id (wasm-id key))
+                                (wat "struct" (wat "field" (wat "mut" (rep->wat content))))))))))
 
     ;; A closure is a struct whose first field is its code. Each lambda with
     ;; captured variables extends the base struct with their fields.
     (: closure-type (-> Module (List Rep) Rep String ! mut))
     (define (closure-type m params result)
-      (let* ((signature (string-append (string-join (map rep-key params) ",") "->" (rep-key result)))
+      (let* ((signature
+              (string-append (string-join (map rep-key params) ",") "->" (rep-key result)))
              (key (string-append "clo." signature)))
         (match (known-type m key)
           ((Some type) type)
@@ -403,9 +438,18 @@
                              (wat "type" (id code)
                                   (wat* "func" (append (Cons (wat "param" (wat "ref" (id closure)))
                                                              (Cons (wat "param" (evidence-ref m))
-                                                                   (map (lambda (param) (wat "param" (rep->wat param))) params)))
+                                                                   (map (lambda (param)
+                                                                          (wat "param"
+                                                                               (rep->wat param)))
+                                                                        params)))
                                                        (list (wat "result" (rep->wat result)))))))
-             (register-type! m key closure (wat "type" (id closure) (wat "sub" (wat "struct" (wat "field" (wat "ref" (id code))))))))))))
+             (register-type! m
+                             key
+                             closure
+                             (wat "type"
+                                  (id closure)
+                                  (wat "sub"
+                                       (wat "struct" (wat "field" (wat "ref" (id code))))))))))))
 
     ;; Every closure subtype shares its base's code type.
     (: code-type (-> Module String String ! mut))
@@ -427,7 +471,8 @@
     (: tag-enum? (-> Module String Bool))
     (define (tag-enum? m name)
       (let ((data (data-type-of m name)))
-        (and (DataType-enum? data) (every? (lambda (case) (null? (Case-fields case))) (DataType-cases data)))))
+        (and (DataType-enum? data)
+             (every? (lambda (case) (null? (Case-fields case))) (DataType-cases data)))))
 
     (: case-field-types (-> Module Type Case (List Type)))
     (define (case-field-types m type case)
@@ -460,11 +505,18 @@
            (let ((type-id (wasm-id key)) (data (data-type-of m (type-name type))))
              (put! (Module-type-ids m) key type-id)
              (if (DataType-enum? data)
-                 (begin (push! (Module-types m) (wat "type" (id type-id) (wat "sub" (wat "struct" (wat "field" (Word "i32"))))))
-                        (for-each (lambda (case) (case-type m type case) (unit))
-                                  (filter (lambda (case) (not (null? (Case-fields case)))) (DataType-cases data))))
+                 (begin
+                   (push! (Module-types m)
+                          (wat "type"
+                               (id type-id)
+                               (wat "sub" (wat "struct" (wat "field" (Word "i32"))))))
+                   (for-each (lambda (case) (case-type m type case) (unit))
+                             (filter (lambda (case) (not (null? (Case-fields case))))
+                                     (DataType-cases data))))
                  (match (DataType-cases data)
-                   ((Cons case _) (push! (Module-types m) (wat "type" (id type-id) (wat* "struct" (case-fields m type case)))))
+                   ((Cons case _)
+                    (push! (Module-types m)
+                           (wat "type" (id type-id) (wat* "struct" (case-fields m type case)))))
                    ((Nil) (panic "internal error: a struct has one case"))))
              type-id)))))
 
@@ -480,7 +532,12 @@
            (let ((case-id (wasm-id key)))
              (register-type! m key case-id
                              (wat "type" (id case-id)
-                                  (wat "sub" (Word "final") (id base) (wat* "struct" (Cons (wat "field" (Word "i32")) (case-fields m type case)))))))))))
+                                  (wat "sub"
+                                       (Word "final")
+                                       (id base)
+                                       (wat* "struct"
+                                             (Cons (wat "field" (Word "i32"))
+                                                   (case-fields m type case)))))))))))
 
     ;; ---- Functions ----
 
@@ -502,7 +559,14 @@
     ;; the call; a `handle` body reads the node it installed instead.
     (: new-fn (-> Module Fn ! mut))
     (define (new-fn m)
-      (Fn m (ref (Nil)) (ref empty-table) (ref empty-table) (None) (ref 0) (wat "local.get" (Word "$ev")) (None)))
+      (Fn m
+          (ref (Nil))
+          (ref empty-table)
+          (ref empty-table)
+          (None)
+          (ref 0)
+          (wat "local.get" (Word "$ev"))
+          (None)))
 
     ;; Temporaries and labels are numbered within their function, so a name
     ;; depends on nothing outside the body it appears in.
@@ -547,27 +611,42 @@
     ;; declared, then the body.
     (: function-wat (-> Fn String (List Wat) Rep (List Wat) Wat ! mut))
     (define (function-wat fn name params result body)
-      (wat* "func" (Cons (id name) (append params (Cons (wat "result" (rep->wat result)) (append (reverse (ref-get (Fn-locals fn))) body))))))
+      (wat* "func"
+            (Cons (id name)
+                  (append params
+                          (Cons (wat "result" (rep->wat result))
+                                (append (reverse (ref-get (Fn-locals fn))) body))))))
 
     (: bind-params! (-> Fn (List String) (List Rep) Unit ! mut))
     (define (bind-params! fn params reps)
-      (for-each (lambda (pair) (bind-local! fn (Pair-first pair) (wat "local.get" (id (wasm-id (Pair-first pair)))) (Pair-second pair)))
+      (for-each (lambda (pair)
+                  (bind-local! fn
+                               (Pair-first pair)
+                               (wat "local.get" (id (wasm-id (Pair-first pair))))
+                               (Pair-second pair)))
                 (zip params reps)))
 
     (: param-wats (-> (List String) (List Rep) (List Wat)))
     (define (param-wats params reps)
-      (map (lambda (pair) (wat "param" (id (wasm-id (Pair-first pair))) (rep->wat (Pair-second pair)))) (zip params reps)))
+      (map
+       (lambda (pair) (wat "param" (id (wasm-id (Pair-first pair))) (rep->wat (Pair-second pair))))
+       (zip params reps)))
 
     (: emit-function! (-> Module String Expr Unit ! mut))
     (define (emit-function! m name function)
       (match (Expr-term function)
         ((Lambda params body)
-         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (Expr-type function)))) (signature (function-signature m (Expr-type function)))
+         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (Expr-type function))))
+                (signature (function-signature m (Expr-type function)))
                 (reps (Pair-first signature)))
            (bind-params! fn params reps)
            (let ((code (emit fn body #t)))
              (push-function! m (wasm-id name)
-                             (function-wat fn (wasm-id name) (Cons (evidence-param m) (param-wats params reps)) (Pair-second signature) code)))))
+                             (function-wat fn
+                                           (wasm-id name)
+                                           (Cons (evidence-param m) (param-wats params reps))
+                                           (Pair-second signature)
+                                           code)))))
         (_ (panic "internal error: not a function"))))
 
     ;; ---- Expressions ----
@@ -582,10 +661,18 @@
           ((Lambda _ _) (list (closure fn expr (None))))
           ((App callee args) (emit-call fn expr callee args tail?))
           ((If test then otherwise)
-           (let* ((test-code (emit1 fn test)) (then-code (emit fn then tail?)) (else-code (emit fn otherwise tail?)))
-             (list (wat "if" (wat "result" (rep->wat (fn-rep fn type))) test-code (wat* "then" then-code) (wat* "else" else-code)))))
+           (let* ((test-code (emit1 fn test))
+                  (then-code (emit fn then tail?))
+                  (else-code (emit fn otherwise tail?)))
+             (list (wat "if"
+                        (wat "result" (rep->wat (fn-rep fn type)))
+                        test-code
+                        (wat* "then" then-code)
+                        (wat* "else" else-code)))))
           ((Let name value body) (emit-let fn name value body tail?))
-          ((Seq first rest) (let ((first-code (emit1 fn first))) (Cons (wat "drop" first-code) (emit fn rest tail?))))
+          ((Seq first rest)
+           (let ((first-code (emit1 fn first)))
+             (Cons (wat "drop" first-code) (emit fn rest tail?))))
           ((Match scrutinee clauses) (emit-match fn expr scrutinee clauses tail?))
           ((Handle effect implementations body) (emit-handle fn expr effect implementations body))
           ((Convert inner target) (emit-convert fn inner target (Expr-loc expr)))
@@ -616,16 +703,18 @@
         ((DBytes bytes) (bytes-literal (Fn-module fn) bytes))
         ((DUnit) (wat "i32.const" (int 0)))
         ((DInt n) (wat (string-append (rep-key (fn-rep fn type)) ".const") (int n)))
-        ((DFloat text) (wat (string-append (rep-key (fn-rep fn type)) ".const") (Word (float-text text))))))
+        ((DFloat text)
+         (wat (string-append (rep-key (fn-rep fn type)) ".const") (Word (float-text text))))))
 
     ;; WAT needs a digit before a decimal point, as in `0.5` or `-0.5`.
     (: float-text (-> String String))
     (define (float-text text)
-      (cond ((and (> (string-length text) 0) (char=? (string-ref text 0) #\.)) (string-append "0" text))
-            ((and (> (string-length text) 1) (char=? (string-ref text 1) #\.)
-                  (or (char=? (string-ref text 0) #\-) (char=? (string-ref text 0) #\+)))
-             (string-append (substring text 0 1) "0" (substring text 1 (string-length text))))
-            (else text)))
+      (cond
+       ((and (> (string-length text) 0) (char=? (string-ref text 0) #\.)) (string-append "0" text))
+       ((and (> (string-length text) 1) (char=? (string-ref text 1) #\.)
+             (or (char=? (string-ref text 0) #\-) (char=? (string-ref text 0) #\+)))
+        (string-append (substring text 0 1) "0" (substring text 1 (string-length text))))
+       (else text)))
 
     ;; String literals are immutable globals, built once.
     (: string-literal (-> Module String Wat ! mut))
@@ -638,7 +727,9 @@
                                 (wat* "array.new_fixed"
                                       (Cons (id array)
                                             (Cons (int (string-length text))
-                                                  (map (lambda (c) (wat "i32.const" (int (char->integer c)))) (string->list text)))))))
+                                                  (map (lambda (c)
+                                                         (wat "i32.const" (int (char->integer c))))
+                                                       (string->list text)))))))
                     (wat "global.get" (id global))))))
 
     ;; A byte literal is a passive data segment, one byte per byte, so large
@@ -652,7 +743,10 @@
                   (lambda ()
                     (let ((segment (keyed-id "bytes" text)))
                       (push! (Module-data m) (wat "data" (id segment) (Word text)))
-                      (wat "array.new_data" (id (array-type m (Scalar "i8"))) (id segment) (wat "i32.const" (int 0))
+                      (wat "array.new_data"
+                           (id (array-type m (Scalar "i8")))
+                           (id segment)
+                           (wat "i32.const" (int 0))
                            (wat "i32.const" (int (vector-length bytes)))))))))
 
     ;; Every byte is a two-digit escape, so the text is three characters per
@@ -663,7 +757,9 @@
       (string-append "\""
                      (string-generate (* 3 (vector-length bytes))
                                       (lambda (index)
-                                        (let ((byte (i32->i64 (u8->i32 (vector-ref bytes (quotient index 3))))))
+                                        (let ((byte (i32->i64 (u8->i32 (vector-ref bytes
+                                                                                   (quotient index
+                                                                                             3))))))
                                           (match (remainder index 3)
                                             (0 #\\)
                                             (1 (hex-char (quotient byte 16)))
@@ -677,7 +773,9 @@
     ;; A let whose value may yield tests for the yield before its body.
     (: emit-let (-> Fn String Expr Expr Bool (List Wat) ! mut))
     (define (emit-let fn name value body tail?)
-      (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value))) (closure fn value (Some name)) (emit-let-value fn value)))
+      (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value)))
+                       (closure fn value (Some name))
+                       (emit-let-value fn value)))
              (local (declare-local! fn name (fn-rep fn (Expr-type value)))))
         (Cons (wat "local.set" (id local) code) (let-rest fn name value body tail?))))
 
@@ -697,7 +795,10 @@
                     (else (wat "ref.as_non_null" (wat "global.get" (id (global-id m name type)))))))
              ((None)
               (match (program-value (program-of m) name)
-                ((Some (Constructor case _)) (if (null? (Case-fields case)) (construct fn case type (Nil)) (function-value m name type)))
+                ((Some (Constructor case _))
+                 (if (null? (Case-fields case))
+                     (construct fn case type (Nil))
+                     (function-value m name type)))
                 ((Some _) (function-value m name type))
                 ((None) (panic (string-append "internal error: unknown variable " name))))))))))
 
@@ -715,7 +816,10 @@
       (match (table-ref (Module-externals m) name)
         ((Some definition)
          (let ((signature (function-signature m (Expr-type definition))))
-           (import! m (Import (name-owner name) name) (Cons (evidence-rep m) (Pair-first signature)) (Some (Pair-second signature)))))
+           (import! m
+                    (Import (name-owner name) name)
+                    (Cons (evidence-rep m) (Pair-first signature))
+                    (Some (Pair-second signature)))))
         ((None) (wasm-id name))))
 
     ;; Another library's value is a mutable global of its module, imported.
@@ -723,8 +827,9 @@
     (define (global-id m name type)
       (if (table-contains? (Module-externals m) name)
           (import-once! m (string-append "global:" name) (wasm-id (string-append "global:" name))
-                        (lambda (global) (wat "import" (wat-string (name-owner name)) (wat-string name)
-                                              (wat "global" (id global) (wat "mut" (nullable (rep m type)))))))
+                        (lambda (global)
+                          (wat "import" (wat-string (name-owner name)) (wat-string name)
+                               (wat "global" (id global) (wat "mut" (nullable (rep m type)))))))
           (wasm-id name)))
 
     (: scalar? (-> Rep Bool))
@@ -740,9 +845,14 @@
                 (lambda ()
                   (match type
                     ((TFun params result _)
-                     (let* ((names (map (lambda (index) (string-append "argument." (i64->string index))) (iota (length params))))
+                     (let* ((names
+                             (map (lambda (index) (string-append "argument." (i64->string index)))
+                                  (iota (length params))))
                             (call (Expr (App (Expr (Var name (Nil) (Nil)) type no-loc)
-                                             (map (lambda (pair) (Expr (Var (Pair-first pair) (Nil) (Nil)) (Pair-second pair) no-loc))
+                                             (map (lambda (pair)
+                                                    (Expr (Var (Pair-first pair) (Nil) (Nil))
+                                                          (Pair-second pair)
+                                                          no-loc))
                                                   (zip names params)))
                                         result no-loc)))
                        (closure-value m (Expr (Lambda names call) type no-loc) (None))))
@@ -776,7 +886,11 @@
         (memoize! m (string-append "closure-value:" code)
                   (lambda ()
                     (let ((global (derived-id "closure" code)))
-                      (push! (Module-globals m) (wat "global" (id global) (wat "ref" (id base)) (wat "struct.new" (id base) (wat "ref.func" (id code)))))
+                      (push! (Module-globals m)
+                             (wat "global"
+                                  (id global)
+                                  (wat "ref" (id base))
+                                  (wat "struct.new" (id base) (wat "ref.func" (id code)))))
                       (wat "global.get" (id global)))))))
 
     (: closure-with-captures (-> Fn Expr (Option String) (List String) Wat ! mut))
@@ -786,21 +900,28 @@
              (reps (map (lambda (name) (capture-rep fn name)) captured))
              (subtype (capture-type m base reps))
              (code (lambda-function! m function self (zip captured reps) subtype)))
-        (wat* "struct.new" (Cons (id subtype) (Cons (wat "ref.func" (id code)) (map (lambda (name) (variable fn name unchecked)) captured))))))
+        (wat* "struct.new"
+              (Cons (id subtype)
+                    (Cons (wat "ref.func" (id code))
+                          (map (lambda (name) (variable fn name unchecked)) captured))))))
 
     ;; The captures extend the base struct with their fields. Closures with
     ;; one base and one list of representations share the subtype.
     (: capture-type (-> Module String (List Rep) String ! mut))
     (define (capture-type m base reps)
-      (let ((name (wasm-id (string-append (substring base 1 (string-length base)) "+" (string-join (map rep-key reps) ",")))))
+      (let ((name (wasm-id (string-append (substring base 1 (string-length base))
+                                          "+"
+                                          (string-join (map rep-key reps) ",")))))
         (match (known-type m name)
           ((Some type) type)
           ((None)
            (register-type! m name name
                            (wat "type" (id name)
                                 (wat "sub" (Word "final") (id base)
-                                     (wat* "struct" (Cons (wat "field" (wat "ref" (id (code-type m base))))
-                                                          (map (lambda (r) (wat "field" (rep->wat r))) reps))))))))))
+                                     (wat* "struct"
+                                           (Cons (wat "field" (wat "ref" (id (code-type m base))))
+                                                 (map (lambda (r) (wat "field" (rep->wat r)))
+                                                      reps))))))))))
 
     (: capture-rep (-> Fn String Rep ! mut))
     (define (capture-rep fn name)
@@ -808,21 +929,25 @@
         ((Some rep) rep)
         ((None) (panic (string-append "internal error: no representation for " name)))))
 
-    (: lambda-function! (-> Module Expr (Option String) (List (Pair String Rep)) String String ! mut))
+    (: lambda-function!
+       (-> Module Expr (Option String) (List (Pair String Rep)) String String ! mut))
     (define (lambda-function! m function self captured closure)
       (match (Expr-term function)
         ((Lambda params body)
-         (let* ((signature (function-signature m (Expr-type function))) (reps (Pair-first signature))
+         (let* ((signature (function-signature m (Expr-type function)))
+                (reps (Pair-first signature))
                 (base (closure-type m reps (Pair-second signature)))
-                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base) (function-exit (Expr-type function)))))
+                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base)
+                                 (function-exit (Expr-type function)))))
            (bind-params! fn params reps)
            (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t))
                   ;; The function's type must be the closure's code type itself,
                   ;; not a structurally equal one, for `ref.func` to fit the field.
                   (draft (function-wat fn "$lambda.self"
                                        (Cons (wat "type" (id (code-type m base)))
-                                             (Cons (wat "param" (Word "$closure") (wat "ref" (id base)))
-                                                   (Cons (evidence-param m) (param-wats params reps))))
+                                             (Cons
+                                              (wat "param" (Word "$closure") (wat "ref" (id base)))
+                                              (Cons (evidence-param m) (param-wats params reps))))
                                        (Pair-second signature) (append loads code))))
              (lambda-id m "lambda" draft 0))))
         (_ (panic "internal error: not a lambda"))))
@@ -835,7 +960,12 @@
     (: lambda-id (-> Module String Wat I64 String ! mut))
     (define (lambda-id m prefix draft salt)
       (let* ((hash (i64->string (wat-hash fnv-offset draft)))
-             (name (wasm-id (string-append prefix "." hash (if (= salt 0) "" (string-append "." (i64->string salt))))))
+             (name (wasm-id (string-append prefix
+                                           "."
+                                           hash
+                                           (if (= salt 0)
+                                               ""
+                                               (string-append "." (i64->string salt))))))
              (key (string-append "lambda:" name)))
         (match (table-ref (ref-get (Module-memo m)) key)
           ((Some stored) (if (wat=? stored draft) name (lambda-id m prefix draft (+ salt 1))))
@@ -859,9 +989,12 @@
     (: capture-loads (-> Fn (List (Pair String Rep)) String (List Wat) ! mut))
     (define (capture-loads fn captured closure)
       (map-indexed (lambda (index entry)
-                     (wat "local.set" (id (declare-local! fn (Pair-first entry) (Pair-second entry)))
+                     (wat "local.set"
+                          (id (declare-local! fn (Pair-first entry) (Pair-second entry)))
                           (wat "struct.get" (id closure) (int (+ index 1))
-                               (wat "ref.cast" (wat "ref" (id closure)) (wat "local.get" (Word "$closure"))))))
+                               (wat "ref.cast"
+                                    (wat "ref" (id closure))
+                                    (wat "local.get" (Word "$closure"))))))
                    captured))
 
     ;; ---- Calls ----
@@ -877,7 +1010,10 @@
          (match (Fn-self fn)
            ((Some (Pair own function-id))
             (if (string=? own name)
-                (list (wat* (call-op tail?) (Cons (id function-id) (Cons (wat "local.get" (Word "$closure")) (Cons (Fn-evidence fn) (emit-args fn args))))))
+                (list (wat* (call-op tail?)
+                            (Cons (id function-id)
+                                  (Cons (wat "local.get" (Word "$closure"))
+                                        (Cons (Fn-evidence fn) (emit-args fn args))))))
                 (named-call fn expr callee name args tail?)))
            ((None) (named-call fn expr callee name args tail?))))
         (_ (closure-call fn callee args tail?))))
@@ -889,7 +1025,9 @@
           (match (definition-of (Fn-module fn) name)
             ((Some definition)
              (if (lambda-expr? definition)
-                 (list (wat* (call-op tail?) (Cons (id (function-id (Fn-module fn) name)) (Cons (Fn-evidence fn) (emit-args fn args)))))
+                 (list (wat* (call-op tail?)
+                             (Cons (id (function-id (Fn-module fn) name))
+                                   (Cons (Fn-evidence fn) (emit-args fn args)))))
                  (closure-call fn callee args tail?)))
             ((None) (builtin-call fn expr name args)))))
 
@@ -897,12 +1035,18 @@
     (define (builtin-call fn expr name args)
       (let ((m (Fn-module fn)))
         (match (program-value (program-of m) name)
-          ((Some (Constructor case _)) (list (construct fn case (Expr-type expr) (emit-args fn args))))
+          ((Some (Constructor case _))
+           (list (construct fn case (Expr-type expr) (emit-args fn args))))
           ((Some (Accessor case index _)) (list (field-access fn case index (first-arg args))))
-          ((Some (Replacer case index _)) (list (replace-field fn case index (first-arg args) (list-ref args 1))))
+          ((Some (Replacer case index _))
+           (list (replace-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (Expr-type expr)))
-          ((Some (Operation effect _)) (list (wat* "call" (Cons (id (performer m effect name)) (Cons (Fn-evidence fn) (emit-args fn args))))))
-          ((Some (Foreign import scheme)) (host-call m import (Scheme-type scheme) (emit-args fn args) (Expr-loc expr)))
+          ((Some (Operation effect _))
+           (list (wat* "call"
+                       (Cons (id (performer m effect name))
+                             (Cons (Fn-evidence fn) (emit-args fn args))))))
+          ((Some (Foreign import scheme))
+           (host-call m import (Scheme-type scheme) (emit-args fn args) (Expr-loc expr)))
           (_ (panic (string-append "internal error: cannot call " name))))))
 
     (: first-arg (-> (List Expr) Expr))
@@ -925,25 +1069,41 @@
     (define (once-call fn callee procedure args tail?)
       (let* ((m (Fn-module fn)) (signature (function-signature m procedure))
              (base (closure-type m (Pair-first signature) (Pair-second signature)))
-             (owner (emit1 fn callee)) (arguments (emit-args fn args)) (temp (declare-temp! fn (rep->wat (Reference base)))))
-        (list (wat "local.set" (id temp) (wat "ref.cast" (wat "ref" (id base)) (wat "call" (id (take-owned-helper m)) owner)))
-              (closure-call-wat m base (wat "local.get" (id temp)) (Cons (Fn-evidence fn) arguments) tail?))))
+             (owner (emit1 fn callee))
+             (arguments (emit-args fn args))
+             (temp (declare-temp! fn (rep->wat (Reference base)))))
+        (list (wat "local.set"
+                   (id temp)
+                   (wat "ref.cast"
+                        (wat "ref" (id base))
+                        (wat "call" (id (take-owned-helper m)) owner)))
+              (closure-call-wat m
+                                base
+                                (wat "local.get" (id temp))
+                                (Cons (Fn-evidence fn) arguments)
+                                tail?))))
 
     (: plain-closure-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
     (define (plain-closure-call fn callee args tail?)
       (let* ((m (Fn-module fn)) (signature (function-signature m (Expr-type callee)))
-             (base (closure-type m (Pair-first signature) (Pair-second signature))) (value (emit1 fn callee)))
+             (base (closure-type m (Pair-first signature) (Pair-second signature)))
+             (value (emit1 fn callee)))
         (if (variable-read? value)
             (list (closure-call-wat m base value (Cons (Fn-evidence fn) (emit-args fn args)) tail?))
             (let ((temp (declare-temp! fn (rep->wat (Reference base)))))
               (list (wat "local.set" (id temp) value)
-                    (closure-call-wat m base (wat "local.get" (id temp)) (Cons (Fn-evidence fn) (emit-args fn args)) tail?))))))
+                    (closure-call-wat m
+                                      base
+                                      (wat "local.get" (id temp))
+                                      (Cons (Fn-evidence fn) (emit-args fn args))
+                                      tail?))))))
 
     ;; The arguments begin with the evidence.
     (: closure-call-wat (-> Module String Wat (List Wat) Bool Wat ! mut))
     (define (closure-call-wat m base read args tail?)
       (wat* (if tail? "return_call_ref" "call_ref")
-            (Cons (id (code-type m base)) (Cons read (append args (list (wat "struct.get" (id base) (int 0) read)))))))
+            (Cons (id (code-type m base))
+                  (Cons read (append args (list (wat "struct.get" (id base) (int 0) read)))))))
 
     (: variable-read? (-> Wat Bool))
     (define (variable-read? code)
@@ -965,9 +1125,12 @@
     (define (construct-data fn case type args)
       (let* ((m (Fn-module fn)) (name (Case-type case)))
         (cond ((tag-enum? m name) (wat "i32.const" (int (Case-tag case))))
-              ((not (DataType-enum? (data-type-of m name))) (wat* "struct.new" (Cons (id (data-type m type)) args)))
+              ((not (DataType-enum? (data-type-of m name)))
+               (wat* "struct.new" (Cons (id (data-type m type)) args)))
               ((null? args) (singleton m type case))
-              (else (wat* "struct.new" (Cons (id (case-type m type case)) (Cons (wat "i32.const" (int (Case-tag case))) args)))))))
+              (else (wat* "struct.new"
+                          (Cons (id (case-type m type case))
+                                (Cons (wat "i32.const" (int (Case-tag case))) args)))))))
 
     (: singleton (-> Module Type Case Wat ! mut))
     (define (singleton m type case)
@@ -976,7 +1139,12 @@
                   (lambda ()
                     (let ((global (keyed-id "value" key)) (base (data-type m type)))
                       (push! (Module-globals m)
-                             (wat "global" (id global) (wat "ref" (id base)) (wat "struct.new" (id base) (wat "i32.const" (int (Case-tag case))))))
+                             (wat "global"
+                                  (id global)
+                                  (wat "ref" (id base))
+                                  (wat "struct.new"
+                                       (id base)
+                                       (wat "i32.const" (int (Case-tag case))))))
                       (wat "global.get" (id global)))))))
 
     (: field-access (-> Fn Case I64 Expr Wat ! mut))
@@ -984,17 +1152,28 @@
       (let* ((m (Fn-module fn)) (type (Expr-type value)))
         (if (DataType-enum? (data-type-of m (Case-type case)))
             (let ((case-id (case-type m type case)))
-              (wat "struct.get" (id case-id) (int (+ index 1)) (wat "ref.cast" (wat "ref" (id case-id)) (emit1 fn value))))
+              (wat "struct.get"
+                   (id case-id)
+                   (int (+ index 1))
+                   (wat "ref.cast" (wat "ref" (id case-id)) (emit1 fn value))))
             (wat "struct.get" (id (data-type m type)) (int index) (emit1 fn value)))))
 
     (: replace-field (-> Fn Case I64 Expr Expr Wat ! mut))
     (define (replace-field fn case index value replacement)
-      (let* ((m (Fn-module fn)) (type-id (data-type m (Expr-type value))) (temp (declare-temp! fn (rep->wat (Reference type-id)))))
+      (let* ((m (Fn-module fn))
+             (type-id (data-type m (Expr-type value)))
+             (temp (declare-temp! fn (rep->wat (Reference type-id)))))
         (wat "block" (wat "result" (wat "ref" (id type-id)))
              (wat "local.set" (id temp) (emit1 fn value))
              (wat* "struct.new"
                    (Cons (id type-id)
-                         (map (lambda (i) (if (= i index) (emit1 fn replacement) (wat "struct.get" (id type-id) (int i) (wat "local.get" (id temp)))))
+                         (map (lambda (i)
+                                (if (= i index)
+                                    (emit1 fn replacement)
+                                    (wat "struct.get"
+                                         (id type-id)
+                                         (int i)
+                                         (wat "local.get" (id temp)))))
                               (iota (length (Case-fields case)))))))))
 
     ;; ---- Host calls ----
@@ -1007,7 +1186,10 @@
     (define (host-call m import type args loc)
       (match type
         ((TFun params result _)
-         (let* ((function-id (import! m import (host-params m params loc) (if (unit-type? type) (None) (Some (rep m result)))))
+         (let* ((function-id (import! m
+                                      import
+                                      (host-params m params loc)
+                                      (if (unit-type? type) (None) (Some (rep m result)))))
                 (call (wat* "call" (Cons (id function-id) (host-args m params args)))))
            (if (unit-type? type) (list call (wat "i32.const" (int 0))) (list call))))
         (_ (panic "internal error: a host function needs a function type"))))
@@ -1033,13 +1215,16 @@
       (map-indexed (lambda (index param)
                      (cond ((not (buffer-type? param)) (rep m param))
                            ((= index (- (length params) 1)) (Scalar "i32"))
-                           (else (compile-error loc "a host function can take a String or Bytes only as its last argument"))))
+                           (else (compile-error loc
+                                                "a host function can take a String or Bytes only as its last argument"))))
                    params))
 
     (: host-args (-> Module (List Type) (List Wat) (List Wat) ! mut))
     (define (host-args m params args)
       (map (lambda (pair) (if (buffer-type? (Pair-first pair))
-                              (wat "call" (id (stage-helper m (bytes-type? (Pair-first pair)))) (Pair-second pair))
+                              (wat "call"
+                                   (id (stage-helper m (bytes-type? (Pair-first pair))))
+                                   (Pair-second pair))
                               (Pair-second pair)))
            (zip params args)))
 
@@ -1053,12 +1238,19 @@
     (: import! (-> Module Import (List Rep) (Option Rep) String ! mut))
     (define (import! m import params result)
       (import-once! m (string-append "import:" (Import-module import) ":" (Import-symbol import))
-                    (wasm-id (string-append "import." (Import-module import) ":" (Import-symbol import)))
+                    (wasm-id
+                     (string-append "import." (Import-module import) ":" (Import-symbol import)))
                     (lambda (function-id)
-                      (wat "import" (wat-string (Import-module import)) (wat-string (Import-symbol import))
+                      (wat "import"
+                           (wat-string (Import-module import))
+                           (wat-string (Import-symbol import))
                            (wat* "func" (Cons (id function-id)
-                                              (append (map (lambda (param) (wat "param" (rep->wat param))) params)
-                                                      (match result ((Some r) (list (wat "result" (rep->wat r)))) ((None) (Nil))))))))))
+                                              (append
+                                               (map (lambda (param) (wat "param" (rep->wat param)))
+                                                    params)
+                                               (match result
+                                                 ((Some r) (list (wat "result" (rep->wat r))))
+                                                 ((None) (Nil))))))))))
 
     ;; ---- Exposed handovers ----
 
@@ -1081,7 +1273,8 @@
           (let ((m (Fn-module fn)))
             (wat "if" (wat "result" (rep->wat (rep m type))) (wat "ref.is_null" value)
                  (wat "then" (construct fn (option-case m #f) type (Nil)))
-                 (wat "else" (construct fn (option-case m #t) type (list (wat "ref.as_non_null" value))))))
+                 (wat "else"
+                      (construct fn (option-case m #t) type (list (wat "ref.as_non_null" value))))))
           value))
 
     (: export-handover (-> Fn Type Wat Wat ! mut))
@@ -1089,11 +1282,19 @@
       (if (optional-any-type? type)
           (let* ((m (Fn-module fn)) (temp (declare-temp! fn (rep->wat (rep m type))))
                  (read (wat "local.get" (id temp))) (some (case-type m type (option-case m #t))))
-            (wat "block" (wat "result" (exposed-value-type m type)) (wat "local.set" (id temp) value)
+            (wat "block"
+                 (wat "result" (exposed-value-type m type))
+                 (wat "local.set" (id temp) value)
                  (wat "if" (wat "result" (exposed-value-type m type))
-                      (wat "i32.eq" (wat "struct.get" (id (data-type m type)) (int 0) read) (wat "i32.const" (int (Case-tag (option-case m #f)))))
+                      (wat "i32.eq"
+                           (wat "struct.get" (id (data-type m type)) (int 0) read)
+                           (wat "i32.const" (int (Case-tag (option-case m #f)))))
                       (wat "then" (wat "ref.null" (id (any-type m))))
-                      (wat "else" (wat "struct.get" (id some) (int 1) (wat "ref.cast" (wat "ref" (id some)) read))))))
+                      (wat "else"
+                           (wat "struct.get"
+                                (id some)
+                                (int 1)
+                                (wat "ref.cast" (wat "ref" (id some)) read))))))
           value))
 
     (: exposed-function (-> Module String Type String ! mut))
@@ -1104,13 +1305,35 @@
 
     (: handover-wrapper! (-> Module String (List Type) Type String ! mut))
     (define (handover-wrapper! m name params result)
-      (let* ((fn (new-fn m)) (wrapper (wasm-id (string-append "exposed." name))) (names (map (lambda (i) (string-append "$arg." (i64->string i))) (iota (length params))))
-             (args (map (lambda (pair) (import-handover fn (Pair-first pair) (wat "local.get" (id (Pair-second pair))))) (zip params names)))
-             (value (export-handover fn result (wat* "call" (Cons (id (wasm-id name)) (Cons (evidence-none m) args))))))
+      (let* ((fn (new-fn m))
+             (wrapper (wasm-id (string-append "exposed." name)))
+             (names
+              (map (lambda (i) (string-append "$arg." (i64->string i))) (iota (length params))))
+             (args (map (lambda (pair)
+                          (import-handover fn
+                                           (Pair-first pair)
+                                           (wat "local.get" (id (Pair-second pair)))))
+                        (zip params names)))
+             (value (export-handover fn
+                                     result
+                                     (wat* "call"
+                                           (Cons (id (wasm-id name))
+                                                 (Cons (evidence-none m) args))))))
         (push-function! m wrapper (wat* "func" (Cons (id wrapper)
-                                                     (append (map (lambda (pair) (wat "param" (id (Pair-second pair)) (exposed-value-type m (Pair-first pair)))) (zip params names))
-                                                             (Cons (wat "result" (exposed-value-type m result))
-                                                                   (append (reverse (ref-get (Fn-locals fn))) (list value)))))))
+                                                     (append (map (lambda (pair)
+                                                                    (wat "param"
+                                                                         (id (Pair-second pair))
+                                                                         (exposed-value-type m
+                                                                                             (Pair-first
+                                                                                              pair))))
+                                                                  (zip params names))
+                                                             (Cons (wat "result"
+                                                                        (exposed-value-type m
+                                                                                            result))
+                                                                   (append
+                                                                    (reverse (ref-get (Fn-locals
+                                                                                       fn)))
+                                                                    (list value)))))))
         wrapper))
 
     ;; ---- Pattern matching ----
@@ -1119,14 +1342,17 @@
     ;; tests branch out of; a matching clause branches to `done` with its value.
     (: emit-match (-> Fn Expr Expr (List Clause) Bool (List Wat) ! mut))
     (define (emit-match fn expr scrutinee clauses tail?)
-      (let* ((value (declare-temp! fn (rep->wat (fn-rep fn (Expr-type scrutinee))))) (done (local-id fn "match"))
+      (let* ((value (declare-temp! fn (rep->wat (fn-rep fn (Expr-type scrutinee)))))
+             (done (local-id fn "match"))
              (scrutinee-code (emit1 fn scrutinee)))
         (list (wat "local.set" (id value) scrutinee-code)
               (wat* "block"
                     (Cons (id done)
                           (Cons (wat "result" (rep->wat (fn-rep fn (Expr-type expr))))
-                                (append (map (lambda (clause) (clause-block fn clause value done tail?)) clauses)
-                                        (list (wat "unreachable")))))))))
+                                (append
+                                 (map (lambda (clause) (clause-block fn clause value done tail?))
+                                      clauses)
+                                 (list (wat "unreachable")))))))))
 
     ;; The pattern declares the locals its body reads.
     (: clause-block (-> Fn Clause String String Bool Wat ! mut))
@@ -1144,9 +1370,12 @@
     (define (pattern-code fn pattern value fail)
       (match pattern
         ((PWild _) (Nil))
-        ((PVar name type) (list (wat "local.set" (id (declare-local! fn name (fn-rep fn type))) value)))
-        ((PLit literal-value type) (list (wat "br_if" (id fail) (literal-differs fn literal-value type value))))
-        ((PCon constructor args type) (constructor-pattern-code fn constructor args type value fail))))
+        ((PVar name type)
+         (list (wat "local.set" (id (declare-local! fn name (fn-rep fn type))) value)))
+        ((PLit literal-value type)
+         (list (wat "br_if" (id fail) (literal-differs fn literal-value type value))))
+        ((PCon constructor args type)
+         (constructor-pattern-code fn constructor args type value fail))))
 
     ;; Owned matches test first, then move bindings and clear containers.
     ;; Peeks stay on the operand stack: a failed clause must leave neither
@@ -1159,40 +1388,65 @@
          (let ((representation (fn-rep fn type)))
            (Pair (Nil) (list (wat "local.set" (id (declare-local! fn name representation))
                                   (move-value (Fn-module fn) representation value))))))
-        ((PLit literal-value type) (Pair (list (wat "br_if" (id fail) (literal-differs fn literal-value type value))) (Nil)))
-        ((PCon constructor args type) (owned-constructor-pattern fn constructor args type value fail))))
+        ((PLit literal-value type)
+         (Pair (list (wat "br_if" (id fail) (literal-differs fn literal-value type value))) (Nil)))
+        ((PCon constructor args type)
+         (owned-constructor-pattern fn constructor args type value fail))))
 
-    (: owned-constructor-pattern (-> Fn String (List Pattern) Type Wat String (Pair (List Wat) (List Wat)) ! mut))
+    (: owned-constructor-pattern
+       (-> Fn String (List Pattern) Type Wat String (Pair (List Wat) (List Wat)) ! mut))
     (define (owned-constructor-pattern fn constructor args type value fail)
       (let* ((m (Fn-module fn))
              (case (match (program-value (program-of m) constructor)
-                     ((Some (Constructor case _)) case) (_ (panic "internal error: not a constructor"))))
+                     ((Some (Constructor case _)) case)
+                     (_ (panic "internal error: not a constructor"))))
              (owned (affine-type? (program-of m) type))
              (raw (if owned (wat "ref.cast" (wat "ref" (id (data-type m type)))
                                  (wat "struct.get" (id (owned-type m)) (int 0) value)) value))
              (plan (data-pattern fn case args type raw fail)))
-        (Pair (Pair-first plan) (append (Pair-second plan) (if owned (list (clear-owner m value)) (Nil))))))
+        (Pair (Pair-first plan)
+              (append (Pair-second plan) (if owned (list (clear-owner m value)) (Nil))))))
 
     (: data-pattern (-> Fn Case (List Pattern) Type Wat String (Pair (List Wat) (List Wat)) ! mut))
     (define (data-pattern fn case args type value fail)
-      (let* ((m (Fn-module fn)) (name (Case-type case)) (enum? (DataType-enum? (data-type-of m name))))
+      (let* ((m (Fn-module fn))
+             (name (Case-type case))
+             (enum? (DataType-enum? (data-type-of m name))))
         (if (tag-enum? m name)
-            (Pair (list (wat "br_if" (id fail) (wat "i32.ne" value (wat "i32.const" (int (Case-tag case)))))) (Nil))
+            (Pair (list (wat "br_if"
+                             (id fail)
+                             (wat "i32.ne" value (wat "i32.const" (int (Case-tag case))))))
+                  (Nil))
             (let* ((container (if enum? (case-type m type case) (data-type m type)))
                    (raw (if enum? (wat "ref.cast" (wat "ref" (id container)) value) value))
                    (fields (map-indexed (lambda (index arg)
-                                          (owned-pattern fn arg (wat "struct.get" (id container) (int (+ index (if enum? 1 0))) raw) fail)) args))
+                                          (owned-pattern fn
+                                                         arg
+                                                         (wat "struct.get"
+                                                              (id container)
+                                                              (int (+ index (if enum? 1 0)))
+                                                              raw)
+                                                         fail))
+                                        args))
                    (tag (if enum? (list (wat "br_if" (id fail)
-                                             (wat "i32.ne" (wat "struct.get" (id (data-type m type)) (int 0) value)
-                                                  (wat "i32.const" (int (Case-tag case)))))) (Nil))))
-              (Pair (append tag (concatenate (map Pair-first fields))) (concatenate (map Pair-second fields)))))))
+                                             (wat "i32.ne"
+                                                  (wat "struct.get"
+                                                       (id (data-type m type))
+                                                       (int 0)
+                                                       value)
+                                                  (wat "i32.const" (int (Case-tag case))))))
+                            (Nil))))
+              (Pair (append tag (concatenate (map Pair-first fields)))
+                    (concatenate (map Pair-second fields)))))))
 
     (: literal-differs (-> Fn Datum Type Wat Wat ! mut))
     (define (literal-differs fn literal-value type scrutinee)
       (let ((constant (literal fn literal-value type)))
         (match (fn-rep fn type)
           ((Scalar name) (wat (string-append name ".ne") scrutinee constant))
-          ((Reference _) (wat "i32.eqz" (wat "call" (id (string-equal-helper (Fn-module fn))) scrutinee constant))))))
+          ((Reference _)
+           (wat "i32.eqz"
+                (wat "call" (id (string-equal-helper (Fn-module fn))) scrutinee constant))))))
 
     (: constructor-pattern-code (-> Fn String (List Pattern) Type Wat String (List Wat) ! mut))
     (define (constructor-pattern-code fn constructor args type value fail)
@@ -1201,18 +1455,35 @@
                      ((Some (Constructor case _)) case)
                      (_ (panic "internal error: not a constructor"))))
              (name (Case-type case)) (types (case-field-types m type case)))
-        (cond ((tag-enum? m name) (list (wat "br_if" (id fail) (wat "i32.ne" value (wat "i32.const" (int (Case-tag case)))))))
-              ((not (DataType-enum? (data-type-of m name))) (fields-code fn (data-type m type) 0 args types value fail))
+        (cond ((tag-enum? m name)
+               (list (wat "br_if"
+                          (id fail)
+                          (wat "i32.ne" value (wat "i32.const" (int (Case-tag case)))))))
+              ((not (DataType-enum? (data-type-of m name)))
+               (fields-code fn (data-type m type) 0 args types value fail))
               (else
                ;; A case's own type is registered only when its fields are
                ;; read, so a field-less case never declares one.
                (let ((base (data-type m type)))
-                 (Cons (wat "br_if" (id fail) (wat "i32.ne" (wat "struct.get" (id base) (int 0) value) (wat "i32.const" (int (Case-tag case)))))
+                 (Cons (wat "br_if"
+                            (id fail)
+                            (wat "i32.ne"
+                                 (wat "struct.get" (id base) (int 0) value)
+                                 (wat "i32.const" (int (Case-tag case)))))
                        (if (every? wild? args)
                            (Nil)
-                           (let* ((case-id (case-type m type case)) (cast (declare-temp! fn (rep->wat (Reference case-id)))))
-                             (Cons (wat "local.set" (id cast) (wat "ref.cast" (wat "ref" (id case-id)) value))
-                                   (fields-code fn case-id 1 args types (wat "local.get" (id cast)) fail))))))))))
+                           (let* ((case-id (case-type m type case))
+                                  (cast (declare-temp! fn (rep->wat (Reference case-id)))))
+                             (Cons (wat "local.set"
+                                        (id cast)
+                                        (wat "ref.cast" (wat "ref" (id case-id)) value))
+                                   (fields-code fn
+                                                case-id
+                                                1
+                                                args
+                                                types
+                                                (wat "local.get" (id cast))
+                                                fail))))))))))
 
     (: wild? (-> Pattern Bool))
     (define (wild? pattern)
@@ -1226,12 +1497,15 @@
     (define (fields-code fn type-id offset args types value fail)
       (concatenate
        (map-indexed (lambda (index pair)
-                      (let ((arg (Pair-first pair)) (field (wat "struct.get" (id type-id) (int (+ index offset)) value)))
+                      (let ((arg (Pair-first pair))
+                            (field (wat "struct.get" (id type-id) (int (+ index offset)) value)))
                         (match arg
                           ((PWild _) (Nil))
                           ((PVar _ _) (pattern-code fn arg field fail))
-                          (_ (let ((temp (declare-temp! fn (rep->wat (fn-rep fn (Pair-second pair))))))
-                               (Cons (wat "local.set" (id temp) field) (pattern-code fn arg (wat "local.get" (id temp)) fail)))))))
+                          (_ (let ((temp
+                                    (declare-temp! fn (rep->wat (fn-rep fn (Pair-second pair))))))
+                               (Cons (wat "local.set" (id temp) field)
+                                     (pattern-code fn arg (wat "local.get" (id temp)) fail)))))))
                     (zip args types))))
 
     ;; ---- Dynamic values ----
@@ -1242,14 +1516,28 @@
     (define (any-type m)
       (match (known-type m "any")
         ((Some type) type)
-        ((None) (register-type! m "any" "$any" (wat "type" (Word "$any") (wat "struct" (wat "field" (Word "i32")) (wat "field" (Word "anyref"))))))))
+        ((None)
+         (register-type! m
+                         "any"
+                         "$any"
+                         (wat "type"
+                              (Word "$any")
+                              (wat "struct"
+                                   (wat "field" (Word "i32"))
+                                   (wat "field" (Word "anyref"))))))))
 
     (: box-type (-> Module Rep String ! mut))
     (define (box-type m r)
       (let ((key (string-append "box." (rep-key r))))
         (match (known-type m key)
           ((Some type) type)
-          ((None) (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat "struct" (wat "field" (rep->wat r)))))))))
+          ((None)
+           (register-type! m
+                           key
+                           (wasm-id key)
+                           (wat "type"
+                                (id (wasm-id key))
+                                (wat "struct" (wat "field" (rep->wat r)))))))))
 
     (: any-type? (-> Type Bool))
     (define (any-type? type)
@@ -1263,31 +1551,50 @@
     (define (emit-convert fn inner target loc)
       (let ((source (Expr-type inner)) (m (Fn-module fn)))
         (cond ((string=? (type-key source) (type-key target)) (emit fn inner #f))
-              ((match (Expr-term inner) ((Convert original _) (string=? (type-key (Expr-type original)) (type-key target))) (_ #f))
+              ((match (Expr-term inner)
+                 ((Convert original _) (string=? (type-key (Expr-type original)) (type-key target)))
+                 (_ #f))
                (match (Expr-term inner)
                  ((Convert original _) (emit fn original #f))
                  (_ (Nil))))
               ((any-type? target) (list (to-any m source (emit1 fn inner))))
               ((any-type? source) (list (from-any fn target (emit1 fn inner))))
-              (else (compile-error loc (string-append "type-convert converts to or from Any, not from " (type->string source) " to "
-                                                      (type->string target)))))))
+              (else (compile-error loc
+                                   (string-append "type-convert converts to or from Any, not from "
+                                                  (type->string source)
+                                                  " to "
+                                                  (type->string target)))))))
 
     (: to-any (-> Module Type Wat Wat ! mut))
     (define (to-any m type value)
       (let ((r (rep m type)))
-        (wat "struct.new" (id (any-type m)) (wat "i32.const" (int (any-type-id (program-of m) type)))
+        (wat "struct.new"
+             (id (any-type m))
+             (wat "i32.const" (int (any-type-id (program-of m) type)))
              (match r
                ((Scalar _) (wat "struct.new" (id (held-type m r)) value))
                ((Reference _) value)))))
 
     (: from-any (-> Fn Type Wat Wat ! mut))
     (define (from-any fn type value)
-      (let* ((m (Fn-module fn)) (r (fn-rep fn type)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
-             (held (wat "ref.cast" (wat "ref" (id (held-type m r))) (wat "struct.get" (Word "$any") (int 1) (wat "local.get" (id any))))))
+      (let* ((m (Fn-module fn))
+             (r (fn-rep fn type))
+             (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
+             (held (wat "ref.cast"
+                        (wat "ref" (id (held-type m r)))
+                        (wat "struct.get" (Word "$any") (int 1) (wat "local.get" (id any))))))
         (wat "block" (wat "result" (rep->wat r))
              (wat "local.set" (id any) value)
-             (wat "if" (wat "i32.ne" (wat "struct.get" (Word "$any") (int 0) (wat "local.get" (id any))) (wat "i32.const" (int (any-type-id (program-of m) type))))
-                  (wat "then" (wat "call" (id (panic-helper m)) (string-literal m (string-append "type-convert: the value is not a " (type->string type))))
+             (wat "if"
+                  (wat "i32.ne"
+                       (wat "struct.get" (Word "$any") (int 0) (wat "local.get" (id any)))
+                       (wat "i32.const" (int (any-type-id (program-of m) type))))
+                  (wat "then"
+                       (wat "call"
+                            (id (panic-helper m))
+                            (string-literal m
+                                            (string-append "type-convert: the value is not a "
+                                                           (type->string type))))
                        (wat "unreachable")))
              (match r
                ((Scalar _) (wat "struct.get" (id (held-type m r)) (int 0) held))
@@ -1299,11 +1606,15 @@
     (: type-test (-> Fn Expr Type Wat ! mut))
     (define (type-test fn inner type)
       (let* ((m (Fn-module fn)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
-             (field (lambda (index) (wat "struct.get" (Word "$any") (int index) (wat "local.get" (id any))))))
+             (field (lambda (index)
+                      (wat "struct.get" (Word "$any") (int index) (wat "local.get" (id any))))))
         (wat "block" (wat "result" (Word "i32"))
              (wat "local.set" (id any) (emit1 fn inner))
-             (wat "if" (wat "result" (Word "i32")) (wat "i32.eq" (field 0) (wat "i32.const" (int (any-type-id (program-of m) type))))
-                  (wat "then" (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 1)))
+             (wat "if"
+                  (wat "result" (Word "i32"))
+                  (wat "i32.eq" (field 0) (wat "i32.const" (int (any-type-id (program-of m) type))))
+                  (wat "then"
+                       (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 1)))
                   (wat "else" (wat "i32.const" (int 0)))))))
 
     ;; What an Any holds for a value of representation `r`: the value, or a
@@ -1326,9 +1637,13 @@
     (define (funcref-closure m type reference)
       (match type
         ((TFun _ _ _)
-         (let* ((signature (function-signature m type)) (base (closure-type m (Pair-first signature) (Pair-second signature)))
+         (let* ((signature (function-signature m type))
+                (base (closure-type m (Pair-first signature) (Pair-second signature)))
                 (holder (funcref-holder-type m base)))
-           (wat "struct.new" (id holder) (wat "ref.func" (id (funcref-code m signature base holder))) reference)))
+           (wat "struct.new"
+                (id holder)
+                (wat "ref.func" (id (funcref-code m signature base holder)))
+                reference)))
         (_ (panic (string-append "unsafe-cast makes a function, not a " (type->string type))))))
 
     (: funcref-holder-type (-> Module String String ! mut))
@@ -1339,7 +1654,12 @@
           ((None)
            (register-type! m key (wasm-id key)
                            (wat "type" (id (wasm-id key))
-                                (wat "sub" (Word "final") (id base) (wat "struct" (wat "field" (wat "ref" (id (code-type m base)))) (wat "field" (Word "funcref"))))))))))
+                                (wat "sub"
+                                     (Word "final")
+                                     (id base)
+                                     (wat "struct"
+                                          (wat "field" (wat "ref" (id (code-type m base))))
+                                          (wat "field" (Word "funcref"))))))))))
 
     ;; The code takes the closure, the evidence and the arguments, and calls
     ;; the function the closure holds with the evidence and the arguments, at
@@ -1350,10 +1670,14 @@
         (helper! m "funcref" holder
                  (lambda (function-id)
                    (push! (Module-declared m) function-id)
-                   (wat* "func" (concatenate (list (list (id function-id) (wat "type" (id (code-type m base)))
-                                                         (wat "param" (wat "ref" (id base))) (wat "param" (evidence-ref m)))
-                                                   (map (lambda (param) (wat "param" (rep->wat param))) params)
-                                                   (list (wat "result" (rep->wat result)) (held-call m params result holder)))))))))
+                   (wat* "func"
+                         (concatenate
+                          (list (list (id function-id) (wat "type" (id (code-type m base)))
+                                      (wat "param" (wat "ref" (id base)))
+                                      (wat "param" (evidence-ref m)))
+                                (map (lambda (param) (wat "param" (rep->wat param))) params)
+                                (list (wat "result" (rep->wat result))
+                                      (held-call m params result holder)))))))))
 
     ;; The held function runs under the handlers in scope where the closure
     ;; is called: the code passes on its own evidence, local 1, and the
@@ -1361,22 +1685,35 @@
     (: held-call (-> Module (List Rep) Rep String Wat ! mut))
     (define (held-call m params result holder)
       (let ((own (funcref-type m params result))
-            (held (wat "struct.get" (id holder) (int 1) (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0))))))
-        (wat* "call_ref" (append (Cons (id own) (map (lambda (index) (wat "local.get" (int (+ index 1)))) (iota (+ (length params) 1))))
-                                 (list (wat "ref.cast" (wat "ref" (id own)) held))))))
+            (held (wat "struct.get"
+                       (id holder)
+                       (int 1)
+                       (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0))))))
+        (wat* "call_ref"
+              (append (Cons (id own)
+                            (map (lambda (index) (wat "local.get" (int (+ index 1))))
+                                 (iota (+ (length params) 1))))
+                      (list (wat "ref.cast" (wat "ref" (id own)) held))))))
 
     ;; The Wasm type of the function a Funcref refers to, which takes the
     ;; evidence and no closure.
     (: funcref-type (-> Module (List Rep) Rep String ! mut))
     (define (funcref-type m params result)
-      (let ((key (string-append "funcref." (string-join (map rep-key params) ",") "->" (rep-key result))))
+      (let ((key (string-append "funcref."
+                                (string-join (map rep-key params) ",")
+                                "->"
+                                (rep-key result))))
         (match (known-type m key)
           ((Some type) type)
           ((None)
            (register-type! m key (wasm-id key)
                            (wat "type" (id (wasm-id key))
-                                (wat* "func" (append (Cons (wat "param" (evidence-ref m)) (map (lambda (param) (wat "param" (rep->wat param))) params))
-                                                     (list (wat "result" (rep->wat result)))))))))))
+                                (wat* "func"
+                                      (append (Cons (wat "param" (evidence-ref m))
+                                                    (map
+                                                     (lambda (param) (wat "param" (rep->wat param)))
+                                                     params))
+                                              (list (wat "result" (rep->wat result)))))))))))
 
     ;; ---- Dynamic functions ----
 
@@ -1394,33 +1731,44 @@
     (: signature-words (-> Module Type (List I64)))
     (define (signature-words m type)
       (match type
-        ((TFun params result _) (Cons (length params) (map (lambda (t) (wide-type-id (program-of m) t)) (append params (list result)))))
+        ((TFun params result _)
+         (Cons (length params)
+               (map (lambda (t) (wide-type-id (program-of m) t)) (append params (list result)))))
         (_ (panic "internal error: a dynamic function has a function type"))))
 
     (: signature-wat (-> Module Type Wat ! mut))
     (define (signature-wat m type)
       (let ((words (signature-words m type)))
         (wat* "array.new_fixed"
-              (Cons (id (array-type m (Scalar "i64"))) (Cons (int (length words)) (map (lambda (word) (wat "i64.const" (int word))) words))))))
+              (Cons (id (array-type m (Scalar "i64")))
+                    (Cons (int (length words))
+                          (map (lambda (word) (wat "i64.const" (int word))) words))))))
 
     ;; The Wasm type of a dynamic export of `arity` parameters.
     (: dynamic-type (-> Module I64 String ! mut))
     (define (dynamic-type m arity)
-      (let ((key (string-append "dynamic." (i64->string arity))) (any (wat "ref" (id (any-type m)))))
+      (let ((key (string-append "dynamic." (i64->string arity)))
+            (any (wat "ref" (id (any-type m)))))
         (match (known-type m key)
           ((Some type) type)
           ((None)
            (register-type! m key (wasm-id key)
                            (wat "type" (id (wasm-id key))
-                                (wat* "func" (append (Cons (wat "param" (evidence-ref m)) (map (lambda (index) (wat "param" any)) (iota arity)))
-                                                     (list (wat "result" any))))))))))
+                                (wat* "func"
+                                      (append (Cons (wat "param" (evidence-ref m))
+                                                    (map (lambda (index) (wat "param" any))
+                                                         (iota arity)))
+                                              (list (wat "result" any))))))))))
 
     ;; Both exports of `name`, whose definition has `type`.
     (: export-dynamic! (-> Module String String Type Unit ! mut))
     (define (export-dynamic! m name symbol type)
-      (push! (Module-exports m) (wat "export" (wat-string symbol) (wat "func" (id (dynamic-wrapper! m name type)))))
       (push! (Module-exports m)
-             (wat "export" (wat-string (string-append symbol ":signature")) (wat "func" (id (signature-function! m name type))))))
+             (wat "export" (wat-string symbol) (wat "func" (id (dynamic-wrapper! m name type)))))
+      (push! (Module-exports m)
+             (wat "export"
+                  (wat-string (string-append symbol ":signature"))
+                  (wat "func" (id (signature-function! m name type))))))
 
     ;; The wrapper takes each argument out of its Any, which checks its
     ;; TypeId, and calls the definition with the empty evidence list, as an
@@ -1431,13 +1779,26 @@
       (match type
         ((TFun params result _)
          (let* ((fn (new-fn m)) (wrapper (wasm-id (string-append "dynamic-export." name)))
-                (names (map (lambda (index) (string-append "$any." (i64->string index))) (iota (length params))))
-                (args (map (lambda (pair) (from-any fn (Pair-first pair) (wat "local.get" (id (Pair-second pair))))) (zip params names)))
-                (value (to-any m result (wat* "call" (Cons (id (wasm-id name)) (Cons (evidence-none m) args))))))
+                (names (map (lambda (index) (string-append "$any." (i64->string index)))
+                            (iota (length params))))
+                (args (map (lambda (pair)
+                             (from-any fn
+                                       (Pair-first pair)
+                                       (wat "local.get" (id (Pair-second pair)))))
+                           (zip params names)))
+                (value (to-any m
+                               result
+                               (wat* "call"
+                                     (Cons (id (wasm-id name)) (Cons (evidence-none m) args))))))
            (push-function! m wrapper
                            (function-wat fn wrapper
                                          (Cons (wat "type" (id (dynamic-type m (length params))))
-                                               (Cons (evidence-param m) (map (lambda (param) (wat "param" (id param) (wat "ref" (id (any-type m))))) names)))
+                                               (Cons (evidence-param m)
+                                                     (map (lambda (param)
+                                                            (wat "param"
+                                                                 (id param)
+                                                                 (wat "ref" (id (any-type m)))))
+                                                          names)))
                                          (Reference (any-type m)) (list value)))
            wrapper))
         (_ (panic "internal error: a dynamic export is a function"))))
@@ -1448,7 +1809,10 @@
     (define (signature-function! m name type)
       (let ((function-id (wasm-id (string-append "dynamic-signature." name))))
         (push-function! m function-id
-                        (wat "func" (id function-id) (evidence-param m) (wat "result" (wat "ref" (id (array-type m (Scalar "i64")))))
+                        (wat "func"
+                             (id function-id)
+                             (evidence-param m)
+                             (wat "result" (wat "ref" (id (array-type m (Scalar "i64")))))
                              (signature-wat m type)))
         function-id))
 
@@ -1458,14 +1822,25 @@
     ;; vector is empty. Both operands are evaluated first, in order.
     (: dynamic-cast (-> Fn Type Type Wat Wat Wat ! mut))
     (define (dynamic-cast fn type policy-type reference policy)
-      (let* ((m (Fn-module fn)) (vector (reference-type (fn-rep fn type))) (base (reference-type (fn-rep fn policy-type)))
-             (held (declare-temp! fn (Word "funcref"))) (accepts (declare-temp! fn (rep->wat (Reference base)))))
+      (let* ((m (Fn-module fn))
+             (vector (reference-type (fn-rep fn type)))
+             (base (reference-type (fn-rep fn policy-type)))
+             (held (declare-temp! fn (Word "funcref")))
+             (accepts (declare-temp! fn (rep->wat (Reference base)))))
         (wat "block" (wat "result" (wat "ref" (id vector)))
              (wat "local.set" (id held) reference)
              (wat "local.set" (id accepts) policy)
              (wat "if" (wat "result" (wat "ref" (id vector)))
-                  (closure-call-wat m base (wat "local.get" (id accepts)) (list (Fn-evidence fn) (signature-wat m (vector-element type))) #f)
-                  (wat "then" (wat "array.new_fixed" (id vector) (int 1) (dynamic-closure m (vector-element type) (wat "local.get" (id held)))))
+                  (closure-call-wat m
+                                    base
+                                    (wat "local.get" (id accepts))
+                                    (list (Fn-evidence fn) (signature-wat m (vector-element type)))
+                                    #f)
+                  (wat "then"
+                       (wat "array.new_fixed"
+                            (id vector)
+                            (int 1)
+                            (dynamic-closure m (vector-element type) (wat "local.get" (id held)))))
                   (wat "else" (wat "array.new_fixed" (id vector) (int 0)))))))
 
     (: vector-element (-> Type Type))
@@ -1481,10 +1856,15 @@
       (match type
         ((TFun params result _)
          (unless (every? (lambda (t) (first-order-type? (program-of m) t)) (Cons result params))
-           (panic (string-append "dynamic-cast makes a function of data, not a " (type->string type))))
-         (let* ((signature (function-signature m type)) (base (closure-type m (Pair-first signature) (Pair-second signature)))
+           (panic
+            (string-append "dynamic-cast makes a function of data, not a " (type->string type))))
+         (let* ((signature (function-signature m type))
+                (base (closure-type m (Pair-first signature) (Pair-second signature)))
                 (holder (funcref-holder-type m base)))
-           (wat "struct.new" (id holder) (wat "ref.func" (id (dynamic-code m type base holder))) reference)))
+           (wat "struct.new"
+                (id holder)
+                (wat "ref.func" (id (dynamic-code m type base holder)))
+                reference)))
         (_ (panic (string-append "dynamic-cast makes a function, not a " (type->string type))))))
 
     ;; The code passes the closure's arguments as Any values, with its own
@@ -1499,8 +1879,11 @@
                  (push! (Module-declared m) function-id)
                  (let ((fn (new-fn m)) (signature (function-signature m type)))
                    (function-wat fn function-id
-                                 (append (list (wat "type" (id (code-type m base))) (wat "param" (wat "ref" (id base))) (wat "param" (evidence-ref m)))
-                                         (map (lambda (param) (wat "param" (rep->wat param))) (Pair-first signature)))
+                                 (append (list (wat "type" (id (code-type m base)))
+                                               (wat "param" (wat "ref" (id base)))
+                                               (wat "param" (evidence-ref m)))
+                                         (map (lambda (param) (wat "param" (rep->wat param)))
+                                              (Pair-first signature)))
                                  (Pair-second signature) (list (dynamic-call fn type holder)))))))
 
     ;; The export takes the evidence, local 1, then an Any for each of the
@@ -1510,10 +1893,18 @@
       (match type
         ((TFun params result _)
          (let* ((m (Fn-module fn)) (export (dynamic-type m (length params)))
-                (held (wat "struct.get" (id holder) (int 1) (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0)))))
-                (anys (map-indexed (lambda (index param) (to-any m param (wat "local.get" (int (+ index 2))))) params)))
-           (from-any fn result (wat* "call_ref" (append (Cons (id export) (Cons (wat "local.get" (int 1)) anys))
-                                                        (list (wat "ref.cast" (wat "ref" (id export)) held)))))))
+                (held (wat "struct.get"
+                           (id holder)
+                           (int 1)
+                           (wat "ref.cast" (wat "ref" (id holder)) (wat "local.get" (int 0)))))
+                (anys (map-indexed
+                       (lambda (index param) (to-any m param (wat "local.get" (int (+ index 2)))))
+                       params)))
+           (from-any fn
+                     result
+                     (wat* "call_ref"
+                           (append (Cons (id export) (Cons (wat "local.get" (int 1)) anys))
+                                   (list (wat "ref.cast" (wat "ref" (id export)) held)))))))
         (_ (panic "internal error: not a function type"))))
 
     ;; ---- Effect handlers ----
@@ -1535,11 +1926,19 @@
         ((None)
          (push! (Module-globals m)
                 (wat "global" (id "$evidence.none") (wat "ref" (id "$evidence"))
-                     (wat "struct.new" (id "$evidence") (wat "i32.const" (int -1)) (wat "ref.null" (Word "any")) (wat "ref.null" (id "$evidence")))))
+                     (wat "struct.new"
+                          (id "$evidence")
+                          (wat "i32.const" (int -1))
+                          (wat "ref.null" (Word "any"))
+                          (wat "ref.null" (id "$evidence")))))
          (register-type! m "evidence" "$evidence"
                          (wat "type" (id "$evidence")
-                              (wat "struct" (wat "field" (Word "i32")) (wat "field" (wat "ref" (Word "null") (Word "any")))
-                                   (wat "field" (wat "mut" (wat "ref" (Word "null") (id "$evidence"))))))))))
+                              (wat "struct"
+                                   (wat "field" (Word "i32"))
+                                   (wat "field" (wat "ref" (Word "null") (Word "any")))
+                                   (wat "field"
+                                        (wat "mut"
+                                             (wat "ref" (Word "null") (id "$evidence"))))))))))
 
     (: evidence-rep (-> Module Rep ! mut))
     (define (evidence-rep m)
@@ -1571,8 +1970,13 @@
           ((Some type) type)
           ((None)
            (let* ((info (program-effect (program-of m) effect))
-                  (fields (map (lambda (operation) (wat "field" (implementation-field m info operation))) (Effect-operations info))))
-             (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat* "struct" fields))))))))
+                  (fields
+                   (map (lambda (operation) (wat "field" (implementation-field m info operation)))
+                        (Effect-operations info))))
+             (register-type! m
+                             key
+                             (wasm-id key)
+                             (wat "type" (id (wasm-id key)) (wat* "struct" fields))))))))
 
     ;; A control implementation's type depends on its handle's result, and
     ;; only its handle site calls it, so its field holds any reference.
@@ -1607,7 +2011,9 @@
     (define (emit-returning-handle fn expr effect implementations body)
       (let* ((installed (install-handler fn effect implementations)) (node (Pair-first installed)))
         (list (Pair-second installed)
-              (move-value (Fn-module fn) (fn-rep fn (Expr-type expr)) (emit1 (Fn-evidence-set fn (wat "local.get" (id node))) body)))))
+              (move-value (Fn-module fn)
+                          (fn-rep fn (Expr-type expr))
+                          (emit1 (Fn-evidence-set fn (wat "local.get" (id node))) body)))))
 
     ;; A new evidence node in a local: the local's name, and the instruction
     ;; that sets it to the node holding the handler.
@@ -1616,10 +2022,20 @@
       (let* ((m (Fn-module fn)) (type-id (handler-type m effect)) (node (local-id fn "ev"))
              (handler (wat* "struct.new"
                             (Cons (id type-id)
-                                  (map (lambda (operation) (emit1 fn (handler-implementation implementations operation)))
-                                       (Effect-operations (program-effect (program-of m) effect)))))))
+                                  (map (lambda (operation)
+                                         (emit1 fn
+                                                (handler-implementation implementations operation)))
+                                       (Effect-operations
+                                        (program-effect (program-of m) effect)))))))
         (push! (Fn-locals fn) (wat "local" (id node) (evidence-ref m)))
-        (Pair node (wat "local.set" (id node) (wat "struct.new" (id (evidence-type m)) (effect-label effect) handler (Fn-evidence fn))))))
+        (Pair node
+              (wat "local.set"
+                   (id node)
+                   (wat "struct.new"
+                        (id (evidence-type m))
+                        (effect-label effect)
+                        handler
+                        (Fn-evidence fn))))))
 
     (: handler-implementation (-> (List (Pair String Expr)) String Expr))
     (define (handler-implementation implementations operation)
@@ -1637,32 +2053,48 @@
     (define (performer m effect operation)
       (helper! m "perform" operation
                (lambda (function-id)
-                 (let* ((signature (function-signature m (operation-type m operation))) (params (Pair-first signature))
+                 (let* ((signature (function-signature m (operation-type m operation)))
+                        (params (Pair-first signature))
                         (result (Pair-second signature))
-                        (names (map (lambda (index) (string-append "$argument." (i64->string index))) (iota (length params))))
+                        (names
+                         (map (lambda (index) (string-append "$argument." (i64->string index)))
+                              (iota (length params))))
                         (info (program-effect (program-of m) effect)))
                    (wat* "func"
                          (concatenate
                           (list (Cons (id function-id)
                                       (Cons (evidence-param m)
-                                            (map (lambda (pair) (wat "param" (id (Pair-first pair)) (rep->wat (Pair-second pair)))) (zip names params))))
+                                            (map (lambda (pair)
+                                                   (wat "param"
+                                                        (id (Pair-first pair))
+                                                        (rep->wat (Pair-second pair))))
+                                                 (zip names params))))
                                 (list (wat "result" (rep->wat result))
-                                      (wat "local" (Word "$node") (wat "ref" (Word "null") (id (evidence-type m)))))
+                                      (wat "local"
+                                           (Word "$node")
+                                           (wat "ref" (Word "null") (id (evidence-type m)))))
                                 (forwarding-locals m operation result)
-                                (list (wat "local.set" (Word "$node") (wat "local.get" (Word "$ev")))
-                                      (wat* "loop" (Cons (Word "$walk") (handler-search m info operation names params result)))
-                                      (wat "unreachable")))))))))
+                                (list
+                                 (wat "local.set" (Word "$node") (wat "local.get" (Word "$ev")))
+                                 (wat* "loop"
+                                       (Cons (Word "$walk")
+                                             (handler-search m info operation names params result)))
+                                 (wat "unreachable")))))))))
 
     ;; One step of the walk: the default past the last node, the
     ;; implementation at the effect's node, else the next node out.
     (: handler-search (-> Module Effect String (List String) (List Rep) Rep (List Wat) ! mut))
     (define (handler-search m info operation names params result)
       (let ((node (wat "local.get" (Word "$node"))) (evidence (evidence-type m)))
-        (list (wat "if" (wat "ref.is_null" node) (wat* "then" (default-call m info operation names)))
-              (wat "if" (wat "i32.eq" (wat "struct.get" (id evidence) (int 0) node) (effect-label (Effect-name info)))
-                   (wat* "then" (at-handler m info operation names params result)))
-              (wat "local.set" (Word "$node") (wat "struct.get" (id evidence) (int 2) node))
-              (wat "br" (Word "$walk")))))
+        (list
+         (wat "if" (wat "ref.is_null" node) (wat* "then" (default-call m info operation names)))
+         (wat "if"
+              (wat "i32.eq"
+                   (wat "struct.get" (id evidence) (int 0) node)
+                   (effect-label (Effect-name info)))
+              (wat* "then" (at-handler m info operation names params result)))
+         (wat "local.set" (Word "$node") (wat "struct.get" (id evidence) (int 2) node))
+         (wat "br" (Word "$walk")))))
 
     ;; At the effect's node an ordinary operation calls the implementation
     ;; there and returns its result, under forwarding nodes when its latent
@@ -1671,21 +2103,40 @@
     (: at-handler (-> Module Effect String (List String) (List Rep) Rep (List Wat) ! mut))
     (define (at-handler m info operation names params result)
       (cond ((member? operation (Effect-control info))
-             (list (record-yield m info operation names params) (wat "return" (placeholder m (operation-result m operation) no-loc))))
+             (list (record-yield m info operation names params)
+                   (wat "return" (placeholder m (operation-result m operation) no-loc))))
             ((null? (forwarded-effects m operation))
-             (list (wat "return" (implementation-call m info operation names params result (node-outside m (wat "local.get" (Word "$node")))))))
+             (list (wat "return"
+                        (implementation-call m
+                                             info
+                                             operation
+                                             names
+                                             params
+                                             result
+                                             (node-outside m (wat "local.get" (Word "$node")))))))
             (else (forwarding-call m info operation names params result))))
 
     ;; The implementation at the walk's node, called under `evidence`.
     (: implementation-call (-> Module Effect String (List String) (List Rep) Rep Wat Wat ! mut))
     (define (implementation-call m info operation names params result evidence)
       (let* ((handler-id (handler-type m (Effect-name info))) (base (closure-type m params result))
-             (implementation (wat "struct.get" (id handler-id) (int (operation-index info operation))
-                                  (wat "ref.cast" (wat "ref" (id handler-id)) (wat "struct.get" (id (evidence-type m)) (int 1) (wat "local.get" (Word "$node")))))))
+             (implementation
+              (wat "struct.get" (id handler-id) (int (operation-index info operation))
+                   (wat "ref.cast"
+                        (wat "ref" (id handler-id))
+                        (wat "struct.get"
+                             (id (evidence-type m))
+                             (int 1)
+                             (wat "local.get" (Word "$node")))))))
         (wat* "call_ref" (Cons (id (code-type m base))
                                (Cons implementation
-                                     (Cons evidence (append (map (lambda (name) (wat "local.get" (id name))) names)
-                                                            (list (wat "struct.get" (id base) (int 0) implementation)))))))))
+                                     (Cons evidence
+                                           (append
+                                            (map (lambda (name) (wat "local.get" (id name))) names)
+                                            (list (wat "struct.get"
+                                                       (id base)
+                                                       (int 0)
+                                                       implementation)))))))))
 
     ;; The evidence outside a node.
     (: node-outside (-> Module Wat Wat ! mut))
@@ -1698,10 +2149,20 @@
     (define (default-call m info operation names)
       (let ((arguments (map (lambda (name) (wat "local.get" (id name))) names)))
         (match (assoc-ref (Effect-defaults info) operation)
-          ((Some (HostDefault import)) (list (wat* "return" (host-call m import (operation-type m operation) arguments no-loc))))
-          ((Some (SnailDefault function)) (list (wat* "return_call" (Cons (id (function-id m function)) (Cons (wat "local.get" (Word "$ev")) arguments)))))
+          ((Some (HostDefault import))
+           (list
+            (wat* "return" (host-call m import (operation-type m operation) arguments no-loc))))
+          ((Some (SnailDefault function))
+           (list (wat* "return_call"
+                       (Cons (id (function-id m function))
+                             (Cons (wat "local.get" (Word "$ev")) arguments)))))
           ((None)
-           (list (wat "return" (wat "call" (id (panic-helper m)) (string-literal m (string-append "unhandled effect operation " (short-name operation))))
+           (list (wat "return"
+                      (wat "call"
+                           (id (panic-helper m))
+                           (string-literal m
+                                           (string-append "unhandled effect operation "
+                                                          (short-name operation))))
                       (wat "unreachable")))))))
 
     ;; ---- Control ----
@@ -1751,8 +2212,12 @@
          (let ((frames (frames-type m)))
            (register-type! m "yield" "$yield"
                            (wat "type" (id "$yield")
-                                (wat "struct" (wat "field" (evidence-ref m)) (wat "field" (Word "i32")) (wat "field" (Word "anyref"))
-                                     (wat "field" (wat "mut" (wat "ref" (Word "null") (id frames)))))))))))
+                                (wat "struct"
+                                     (wat "field" (evidence-ref m))
+                                     (wat "field" (Word "i32"))
+                                     (wat "field" (Word "anyref"))
+                                     (wat "field"
+                                          (wat "mut" (wat "ref" (Word "null") (id frames)))))))))))
 
     ;; The global holding the record, null while nothing yields. A whole
     ;; program declares it. A library's module imports it from the control
@@ -1764,11 +2229,16 @@
         (match (Module-owner m)
           ((Some _)
            (import-once! m "yielding" "$yielding"
-                         (lambda (global) (wat "import" (wat-string "snail.control") (wat-string "yielding") (wat "global" (id global) type)))))
+                         (lambda (global)
+                           (wat "import"
+                                (wat-string "snail.control")
+                                (wat-string "yielding")
+                                (wat "global" (id global) type)))))
           ((None)
            (unless (table-contains? (ref-get (Module-helpers m)) "yielding")
              (put! (Module-helpers m) "yielding" "$yielding")
-             (push! (Module-globals m) (wat "global" (id "$yielding") type (wat "ref.null" (id "$yield")))))
+             (push! (Module-globals m)
+                    (wat "global" (id "$yielding") type (wat "ref.null" (id "$yield")))))
            "$yielding"))))
 
     ;; The module a library build links first when its program has control
@@ -1777,7 +2247,8 @@
     (: emit-control-module (-> Program Wat ! mut))
     (define (emit-control-module program)
       (let ((m (new-module (Mono program (Nil) empty-table (Nil)) (None))))
-        (push! (Module-exports m) (wat "export" (wat-string "yielding") (wat "global" (id (yielding m)))))
+        (push! (Module-exports m)
+               (wat "export" (wat-string "yielding") (wat "global" (id (yielding m)))))
         (emit-main! m (Nil))
         (module-wat m)))
 
@@ -1788,7 +2259,12 @@
     ;; Whether the record, which is set, names `node`.
     (: aimed-at? (-> Module Wat Wat ! mut))
     (define (aimed-at? m node)
-      (wat "ref.eq" (wat "struct.get" (id (yield-type m)) (int 0) (wat "ref.as_non_null" (wat "global.get" (id (yielding m))))) node))
+      (wat "ref.eq"
+           (wat "struct.get"
+                (id (yield-type m))
+                (int 0)
+                (wat "ref.as_non_null" (wat "global.get" (id (yielding m)))))
+           node))
 
     (: may-yield? (-> Fn Expr Bool))
     (define (may-yield? fn value)
@@ -1804,8 +2280,10 @@
     (: let-rest (-> Fn String Expr Expr Bool (List Wat) ! mut))
     (define (let-rest fn name value body tail?)
       (cond ((not (may-yield? fn value)) (emit fn body tail?))
-            ((match (Fn-exit fn) ((Some (ToRunner)) #t) (_ #f)) (continue-in-frame fn name value body))
-            (else (let ((test (yield-test fn (frame fn name value body) (Expr-loc value)))) (append test (emit fn body tail?))))))
+            ((match (Fn-exit fn) ((Some (ToRunner)) #t) (_ #f))
+             (continue-in-frame fn name value body))
+            (else (let ((test (yield-test fn (frame fn name value body) (Expr-loc value))))
+                    (append test (emit fn body tail?))))))
 
     (: yield-test (-> Fn Wat Loc (List Wat) ! mut))
     (define (yield-test fn saved loc)
@@ -1814,10 +2292,20 @@
 
     (: continue-in-frame (-> Fn String Expr Expr (List Wat) ! mut))
     (define (continue-in-frame fn name value body)
-      (let* ((m (Fn-module fn)) (base (frame-type m)) (temp (declare-temp! fn (wat "ref" (id base))))
-             (saved (wat "local.get" (id temp))) (set (wat "local.set" (id temp) (frame fn name value body)))
-             (test (yield-test fn saved (Expr-loc value))) (argument (box-value m (Expr-type value) (variable fn name unchecked))))
-        (Cons set (append test (list (wat "return_call_ref" (id (code-type m base)) saved argument (wat "struct.get" (id base) (int 0) saved)))))))
+      (let* ((m (Fn-module fn))
+             (base (frame-type m))
+             (temp (declare-temp! fn (wat "ref" (id base))))
+             (saved (wat "local.get" (id temp)))
+             (set (wat "local.set" (id temp) (frame fn name value body)))
+             (test (yield-test fn saved (Expr-loc value)))
+             (argument (box-value m (Expr-type value) (variable fn name unchecked))))
+        (Cons set
+              (append test
+                      (list (wat "return_call_ref"
+                                 (id (code-type m base))
+                                 saved
+                                 argument
+                                 (wat "struct.get" (id base) (int 0) saved)))))))
 
     ;; A let's value that holds yield points of its own is a block they
     ;; leave, so that the let's own test then saves the let's body too.
@@ -1827,7 +2315,10 @@
         ((Some callees)
          (if (holds-yield-point? callees value)
              (let ((label (local-id fn "yield")) (type (Expr-type value)))
-               (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat (fn-rep fn type))) (emit (Fn-exit-set fn (Some (ToBlock label type))) value #f)))))
+               (wat* "block"
+                     (Cons (id label)
+                           (Cons (wat "result" (rep->wat (fn-rep fn type)))
+                                 (emit (Fn-exit-set fn (Some (ToBlock label type))) value #f)))))
              (emit1 fn value)))
         ((None) (emit1 fn value))))
 
@@ -1835,7 +2326,8 @@
     (define (leave fn loc)
       (match (Fn-exit fn)
         ((Some (ToCaller result)) (wat "return" (placeholder (Fn-module fn) result loc)))
-        ((Some (ToBlock label result)) (wat "br" (id label) (placeholder (Fn-module fn) result loc)))
+        ((Some (ToBlock label result))
+         (wat "br" (id label) (placeholder (Fn-module fn) result loc)))
         ((Some (ToRunner)) (wat "return" (wat "ref.null" (Word "any"))))
         ((None) (panic "internal error: a yield outside any function"))))
 
@@ -1855,8 +2347,19 @@
         ((None)
          (put! (Module-type-ids m) "code:$frame" "$frame.code")
          (register-type! m "frame.code" "$frame.code"
-                         (wat "type" (id "$frame.code") (wat "func" (wat "param" (wat "ref" (id "$frame"))) (wat "param" (Word "anyref")) (wat "result" (Word "anyref")))))
-         (register-type! m "frame" "$frame" (wat "type" (id "$frame") (wat "sub" (wat "struct" (wat "field" (wat "ref" (id "$frame.code"))))))))))
+                         (wat "type"
+                              (id "$frame.code")
+                              (wat "func"
+                                   (wat "param" (wat "ref" (id "$frame")))
+                                   (wat "param" (Word "anyref"))
+                                   (wat "result" (Word "anyref")))))
+         (register-type! m
+                         "frame"
+                         "$frame"
+                         (wat "type"
+                              (id "$frame")
+                              (wat "sub"
+                                   (wat "struct" (wat "field" (wat "ref" (id "$frame.code"))))))))))
 
     ;; A list of frames. The record's grows at its head as the yield leaves
     ;; each frame, so its outermost frame comes first; a continuation's is
@@ -1868,19 +2371,30 @@
         ((None)
          (let ((frame (frame-type m)))
            (register-type! m "frames" "$frames"
-                           (wat "type" (id "$frames") (wat "struct" (wat "field" (wat "ref" (id frame))) (wat "field" (wat "ref" (Word "null") (id "$frames"))))))))))
+                           (wat "type"
+                                (id "$frames")
+                                (wat "struct"
+                                     (wat "field" (wat "ref" (id frame)))
+                                     (wat "field" (wat "ref" (Word "null") (id "$frames"))))))))))
 
     ;; The frame of the let binding `name` to `value`: the join function of
     ;; its body, the locals the body reads, moved, then the evidence.
     (: frame (-> Fn String Expr Expr Wat ! mut))
     (define (frame fn name value body)
       (let* ((m (Fn-module fn))
-             (captured (filter (lambda (local) (and (not (string=? local name)) (local? fn local))) (expr-references body)))
+             (captured (filter (lambda (local) (and (not (string=? local name)) (local? fn local)))
+                               (expr-references body)))
              (entries (map (lambda (local) (Pair local (capture-rep fn local))) captured))
-             (type (capture-type m (frame-type m) (append (map Pair-second entries) (list (evidence-rep m)))))
-             (join (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner))) name value body entries type)))
+             (type (capture-type m
+                                 (frame-type m)
+                                 (append (map Pair-second entries) (list (evidence-rep m)))))
+             (join
+              (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner))) name value body entries type)))
         (wat* "struct.new" (Cons (id type) (Cons (wat "ref.func" (id join))
-                                                 (append (map (lambda (local) (variable fn local unchecked)) captured) (list (Fn-evidence fn))))))))
+                                                 (append (map (lambda (local)
+                                                                (variable fn local unchecked))
+                                                              captured)
+                                                         (list (Fn-evidence fn))))))))
 
     ;; A let's body as a function of its frame and its boxed value: it
     ;; loads the frame's locals and evidence and binds the value, runs the
@@ -1893,19 +2407,28 @@
     (: emit-join! (-> Fn String Expr Expr (List (Pair String Rep)) String String ! mut))
     (define (emit-join! join name value body entries type)
       (push! (Fn-locals join) (wat "local" (Word "$ev") (evidence-ref (Fn-module join))))
-      (let* ((m (Fn-module join)) (frame (wat "ref.cast" (wat "ref" (id type)) (wat "local.get" (Word "$closure"))))
-             (evidence (wat "local.set" (Word "$ev") (wat "struct.get" (id type) (int (+ (length entries) 1)) frame)))
+      (let* ((m (Fn-module join))
+             (frame (wat "ref.cast" (wat "ref" (id type)) (wat "local.get" (Word "$closure"))))
+             (evidence (wat "local.set"
+                            (Word "$ev")
+                            (wat "struct.get" (id type) (int (+ (length entries) 1)) frame)))
              (loads (capture-loads join entries type))
              (local (declare-local! join name (fn-rep join (Expr-type value))))
-             (argument (wat "local.set" (id local) (unbox-value m (Expr-type value) (wat "local.get" (Word "$value")))))
+             (argument (wat "local.set"
+                            (id local)
+                            (unbox-value m (Expr-type value) (wat "local.get" (Word "$value")))))
              (result (box-value m (Expr-type body) (emit1 join body))))
-        (lambda-id m "join" (join-wat join (Cons evidence (append loads (list argument result)))) 0)))
+        (lambda-id m
+                   "join"
+                   (join-wat join (Cons evidence (append loads (list argument result))))
+                   0)))
 
     (: join-wat (-> Fn (List Wat) Wat ! mut))
     (define (join-wat join code)
       (let* ((m (Fn-module join)) (frame (frame-type m)))
         (wat* "func" (append (list (Word "$lambda.self") (wat "type" (id (code-type m frame)))
-                                   (wat "param" (Word "$closure") (wat "ref" (id frame))) (wat "param" (Word "$value") (Word "anyref"))
+                                   (wat "param" (Word "$closure") (wat "ref" (id frame)))
+                                   (wat "param" (Word "$value") (Word "anyref"))
                                    (wat "result" (Word "anyref")))
                              (append (reverse (ref-get (Fn-locals join))) code)))))
 
@@ -1920,7 +2443,9 @@
     (: unbox-value (-> Module Type Wat Wat ! mut))
     (define (unbox-value m type value)
       (match (rep m type)
-        ((Scalar name) (let ((box (box-type m (Scalar name)))) (wat "struct.get" (id box) (int 0) (wat "ref.cast" (wat "ref" (id box)) value))))
+        ((Scalar name)
+         (let ((box (box-type m (Scalar name))))
+           (wat "struct.get" (id box) (int 0) (wat "ref.cast" (wat "ref" (id box)) value))))
         ((Reference type-id) (wat "ref.cast" (wat "ref" (id type-id)) value))))
 
     ;; Saves a frame on the record, as the yield leaves it.
@@ -1931,7 +2456,10 @@
   (local $record (ref {yield}))
   (local.set $record (ref.as_non_null (global.get {yielding})))
   (struct.set {yield} 3 (local.get $record) (struct.new {frames} (local.get $frame) (struct.get {yield} 3 (local.get $record)))))"
-                        (list (Pair "frame" (frame-type m)) (Pair "yield" (yield-type m)) (Pair "yielding" (yielding m)) (Pair "frames" (frames-type m)))))
+                        (list (Pair "frame" (frame-type m))
+                              (Pair "yield" (yield-type m))
+                              (Pair "yielding" (yielding m))
+                              (Pair "frames" (frames-type m)))))
 
     ;; ---- Placeholders ----
 
@@ -1949,7 +2477,11 @@
          (memoize! m (string-append "placeholder:" (type-key type))
                    (lambda ()
                      (let ((global (keyed-id "placeholder" (type-key type))))
-                       (push! (Module-globals m) (wat "global" (id global) (wat "ref" (id representation)) (placeholder-value m type (Nil) loc)))
+                       (push! (Module-globals m)
+                              (wat "global"
+                                   (id global)
+                                   (wat "ref" (id representation))
+                                   (placeholder-value m type (Nil) loc)))
                        (wat "global.get" (id global))))))
         (scalar (default-value scalar))))
 
@@ -1962,26 +2494,39 @@
         ((Reference "$owned") (fresh-owner m))
         ((Reference representation)
          (match type
-           ((TCon "Any" _) (wat "struct.new" (id representation) (wat "i32.const" (int -1)) (wat "ref.null" (Word "any"))))
-           ((TCon "Ref" (Cons content _)) (wat "struct.new" (id representation) (placeholder-value m content seen loc)))
+           ((TCon "Any" _)
+            (wat "struct.new"
+                 (id representation)
+                 (wat "i32.const" (int -1))
+                 (wat "ref.null" (Word "any"))))
+           ((TCon "Ref" (Cons content _))
+            (wat "struct.new" (id representation) (placeholder-value m content seen loc)))
            ((TCon name _)
             (if (member? name (list "String" "Array" "Vector"))
                 (wat "array.new_fixed" (id representation) (int 0))
                 (data-placeholder m type seen loc)))
-           (_ (wat "struct.new" (id representation) (wat "ref.func" (id (unreachable-code m type representation)))))))))
+           (_ (wat "struct.new"
+                   (id representation)
+                   (wat "ref.func" (id (unreachable-code m type representation)))))))))
 
     ;; A struct that contains itself has no placeholder.
     (: data-placeholder (-> Module Type (List String) Loc Wat ! mut))
     (define (data-placeholder m type seen loc)
       (let ((data (data-type-of m (type-name type))) (key (type-key type)))
-        (cond ((DataType-enum? data) (wat "struct.new" (id (data-type m type)) (wat "i32.const" (int -1))))
+        (cond ((DataType-enum? data)
+               (wat "struct.new" (id (data-type m type)) (wat "i32.const" (int -1))))
               ((member? key seen)
-               (compile-error loc (string-append "a call that may yield here cannot return " (type->string type) ", which contains itself")))
+               (compile-error loc
+                              (string-append "a call that may yield here cannot return "
+                                             (type->string type)
+                                             ", which contains itself")))
               (else
                (match (DataType-cases data)
                  ((Cons case _)
                   (wat* "struct.new" (Cons (id (data-type m type))
-                                           (map (lambda (field) (placeholder-value m field (Cons key seen) loc)) (case-field-types m type case)))))
+                                           (map (lambda (field)
+                                                  (placeholder-value m field (Cons key seen) loc))
+                                                (case-field-types m type case)))))
                  ((Nil) (panic "internal error: a struct has one case")))))))
 
     (: unreachable-code (-> Module Type String String ! mut))
@@ -1990,10 +2535,15 @@
         (helper! m "unreachable" base
                  (lambda (function-id)
                    (push! (Module-declared m) function-id)
-                   (wat* "func" (concatenate (list (list (id function-id) (wat "type" (id (code-type m base))) (wat "param" (wat "ref" (id base)))
-                                                         (evidence-param m))
-                                                   (map (lambda (param) (wat "param" (rep->wat param))) (Pair-first signature))
-                                                   (list (wat "result" (rep->wat (Pair-second signature))) (wat "unreachable")))))))))
+                   (wat* "func"
+                         (concatenate (list (list (id function-id)
+                                                  (wat "type" (id (code-type m base)))
+                                                  (wat "param" (wat "ref" (id base)))
+                                                  (evidence-param m))
+                                            (map (lambda (param) (wat "param" (rep->wat param)))
+                                                 (Pair-first signature))
+                                            (list (wat "result" (rep->wat (Pair-second signature)))
+                                                  (wat "unreachable")))))))))
 
     (: fresh-owner (-> Module Wat ! mut))
     (define (fresh-owner m)
@@ -2006,9 +2556,13 @@
     (: record-yield (-> Module Effect String (List String) (List Rep) Wat ! mut))
     (define (record-yield m info operation names params)
       (wat "global.set" (id (yielding m))
-           (wat "struct.new" (id (yield-type m)) (wat "ref.as_non_null" (wat "local.get" (Word "$node")))
+           (wat "struct.new"
+                (id (yield-type m))
+                (wat "ref.as_non_null" (wat "local.get" (Word "$node")))
                 (wat "i32.const" (int (operation-index info operation)))
-                (wat* "struct.new" (Cons (id (arguments-type m operation params)) (map (lambda (name) (wat "local.get" (id name))) names)))
+                (wat* "struct.new"
+                      (Cons (id (arguments-type m operation params))
+                            (map (lambda (name) (wat "local.get" (id name))) names)))
                 (wat "ref.null" (id (frames-type m))))))
 
     (: operation-index (-> Effect String I64))
@@ -2024,7 +2578,14 @@
         (match (known-type m key)
           ((Some type) type)
           ((None)
-           (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat* "struct" (map (lambda (param) (wat "field" (rep->wat param))) params))))))))
+           (register-type! m
+                           key
+                           (wasm-id key)
+                           (wat "type"
+                                (id (wasm-id key))
+                                (wat* "struct"
+                                      (map (lambda (param) (wat "field" (rep->wat param)))
+                                           params))))))))
 
     ;; A handle of a control effect runs its body in a block, which a yield
     ;; leaves by branching to its end with a placeholder. There the handle
@@ -2033,23 +2594,36 @@
     ;; with the handle saved as a frame of its own (see Resuming).
     (: emit-control-handle (-> Fn Expr String (List (Pair String Expr)) Expr (List Wat) ! mut))
     (define (emit-control-handle fn expr effect implementations body)
-      (let* ((info (program-effect (program-of (Fn-module fn)) effect)) (installed (install-handler fn effect implementations))
+      (let* ((info (program-effect (program-of (Fn-module fn)) effect))
+             (installed (install-handler fn effect implementations))
              (label (local-id fn "handle")))
-        (Cons (Pair-second installed) (handled-body fn expr info (Pair-first installed) label body))))
+        (Cons (Pair-second installed)
+              (handled-body fn expr info (Pair-first installed) label body))))
 
     ;; The body's value, or the implementation's when the handle catches.
     (: handled-body (-> Fn Expr Effect String String Expr (List Wat) ! mut))
     (define (handled-body fn expr info node label body)
-      (let* ((m (Fn-module fn)) (type (Expr-type expr)) (result (fn-rep fn type)) (value (declare-temp! fn (rep->wat result)))
-             (code (emit (Fn-exit-set (Fn-evidence-set fn (wat "local.get" (id node))) (Some (ToBlock label type))) body #f))
+      (let* ((m (Fn-module fn))
+             (type (Expr-type expr))
+             (result (fn-rep fn type))
+             (value (declare-temp! fn (rep->wat result)))
+             (code (emit (Fn-exit-set (Fn-evidence-set fn (wat "local.get" (id node)))
+                                      (Some (ToBlock label type)))
+                         body
+                         #f))
              (catch (catch-yield m info type (wat "local.get" (id node)) value (Expr-loc expr))))
-        (list (wat "local.set" (id value) (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat result)) code))))
+        (list (wat "local.set"
+                   (id value)
+                   (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat result)) code))))
               catch
               (move-value m result (wat "local.get" (id value))))))
 
     (: catch-yield (-> Module Effect Type Wat String Loc Wat ! mut))
     (define (catch-yield m info type node value loc)
-      (wat "if" (yielding? m) (wat "then" (wat "local.set" (id value) (wat "call" (id (catcher m info type loc)) node)))))
+      (wat "if"
+           (yielding? m)
+           (wat "then"
+                (wat "local.set" (id value) (wat "call" (id (catcher m info type loc)) node)))))
 
     ;; What a handle does with the yield that has reached it, for one
     ;; effect and handle result type; the handle site and `resume` both
@@ -2065,41 +2639,76 @@
     (define (catcher m info type loc)
       (helper! m "catch" (string-append (Effect-name info) " " (type-key type))
                (lambda (function-id)
-                 (wat* "func" (concatenate (list (list (id function-id) (wat "param" (Word "$node") (evidence-ref m)) (wat "result" (rep->wat (rep m type))))
-                                                 (dispatch-locals m info type) (list (pass-on m info type loc)) (take-continuation m)
-                                                 (map (lambda (operation) (dispatch-case m info type operation loc)) (Effect-control info))
-                                                 (list (wat "unreachable"))))))))
+                 (wat* "func"
+                       (concatenate (list (list (id function-id)
+                                                (wat "param" (Word "$node") (evidence-ref m))
+                                                (wat "result" (rep->wat (rep m type))))
+                                          (dispatch-locals m info type)
+                                          (list (pass-on m info type loc))
+                                          (take-continuation m)
+                                          (map (lambda (operation)
+                                                 (dispatch-case m info type operation loc))
+                                               (Effect-control info))
+                                          (list (wat "unreachable"))))))))
 
     (: pass-on (-> Module Effect Type Loc Wat ! mut))
     (define (pass-on m info type loc)
       (let ((node (wat "local.get" (Word "$node"))))
-        (wat "if" (wat "i32.eqz" (aimed-at? m node)) (wat "then" (enclose m (Handling info loc) type node) (wat "return" (placeholder m type loc))))))
+        (wat "if"
+             (wat "i32.eqz" (aimed-at? m node))
+             (wat "then"
+                  (enclose m (Handling info loc) type node)
+                  (wat "return" (placeholder m type loc))))))
 
     (: dispatch-locals (-> Module Effect Type (List Wat) ! mut))
     (define (dispatch-locals m info type)
       (append (list (wat "local" (Word "$record") (wat "ref" (id (yield-type m))))
                     (wat "local" (Word "$continuation") (wat "ref" (id (continuation-type m)))))
-              (map (lambda (operation) (wat "local" (implementation-local info operation) (wat "ref" (id (implementation-base m operation type)))))
+              (map (lambda (operation)
+                     (wat "local"
+                          (implementation-local info operation)
+                          (wat "ref" (id (implementation-base m operation type)))))
                    (Effect-control info))))
 
     (: take-continuation (-> Module (List Wat) ! mut))
     (define (take-continuation m)
-      (let ((frames (wat "struct.get" (id (yield-type m)) (int 3) (wat "local.get" (Word "$record")))))
-        (list (wat "local.set" (Word "$record") (wat "ref.as_non_null" (wat "global.get" (id (yielding m)))))
+      (let ((frames
+             (wat "struct.get" (id (yield-type m)) (int 3) (wat "local.get" (Word "$record")))))
+        (list (wat "local.set"
+                   (Word "$record")
+                   (wat "ref.as_non_null" (wat "global.get" (id (yielding m)))))
               (wat "global.set" (id (yielding m)) (wat "ref.null" (id (yield-type m))))
               (wat "local.set" (Word "$continuation")
-                   (wat "struct.new" (id (continuation-type m)) (wat "call" (id (reverse-helper m)) frames) (wat "local.get" (Word "$node")))))))
+                   (wat "struct.new"
+                        (id (continuation-type m))
+                        (wat "call" (id (reverse-helper m)) frames)
+                        (wat "local.get" (Word "$node")))))))
 
     ;; The implementation of a control operation, if the record names it,
     ;; taken from the handler at the node.
     (: dispatch-case (-> Module Effect Type String Loc Wat ! mut))
     (define (dispatch-case m info type operation loc)
-      (let* ((index (operation-index info operation)) (base (implementation-base m operation type)) (local (implementation-local info operation))
-             (node (wat "local.get" (Word "$node"))) (outer (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 2) node)))
+      (let* ((index (operation-index info operation))
+             (base (implementation-base m operation type))
+             (local (implementation-local info operation))
+             (node (wat "local.get" (Word "$node")))
+             (outer (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 2) node)))
              (arguments (recorded-arguments m operation (wat "local.get" (Word "$record")))))
-        (wat "if" (wat "i32.eq" (wat "struct.get" (id (yield-type m)) (int 1) (wat "local.get" (Word "$record"))) (wat "i32.const" (int index)))
-             (wat "then" (wat "local.set" local (wat "ref.cast" (wat "ref" (id base)) (handler-field m info node index)))
-                  (closure-call-wat m base (wat "local.get" local) (Cons outer (append arguments (list (resume-owner m info operation type loc)))) #t)))))
+        (wat "if"
+             (wat "i32.eq"
+                  (wat "struct.get" (id (yield-type m)) (int 1) (wat "local.get" (Word "$record")))
+                  (wat "i32.const" (int index)))
+             (wat "then"
+                  (wat "local.set"
+                       local
+                       (wat "ref.cast" (wat "ref" (id base)) (handler-field m info node index)))
+                  (closure-call-wat m
+                                    base
+                                    (wat "local.get" local)
+                                    (Cons outer
+                                          (append arguments
+                                                  (list (resume-owner m info operation type loc))))
+                                    #t)))))
 
     (: implementation-local (-> Effect String Wat))
     (define (implementation-local info operation)
@@ -2109,17 +2718,28 @@
     ;; `resume`, an owner, to the handle's result.
     (: implementation-base (-> Module String Type String ! mut))
     (define (implementation-base m operation type)
-      (closure-type m (append (Pair-first (function-signature m (operation-type m operation))) (list (Reference (owned-type m)))) (rep m type)))
+      (closure-type m
+                    (append (Pair-first (function-signature m (operation-type m operation)))
+                            (list (Reference (owned-type m))))
+                    (rep m type)))
 
     (: handler-field (-> Module Effect Wat I64 Wat ! mut))
     (define (handler-field m info node index)
       (let ((handler (handler-type m (Effect-name info))))
-        (wat "struct.get" (id handler) (int index) (wat "ref.cast" (wat "ref" (id handler)) (wat "struct.get" (id (evidence-type m)) (int 1) node)))))
+        (wat "struct.get"
+             (id handler)
+             (int index)
+             (wat "ref.cast"
+                  (wat "ref" (id handler))
+                  (wat "struct.get" (id (evidence-type m)) (int 1) node)))))
 
     (: recorded-arguments (-> Module String Wat (List Wat) ! mut))
     (define (recorded-arguments m operation record)
-      (let* ((params (Pair-first (function-signature m (operation-type m operation)))) (type (arguments-type m operation params))
-             (held (wat "ref.cast" (wat "ref" (id type)) (wat "struct.get" (id (yield-type m)) (int 2) record))))
+      (let* ((params (Pair-first (function-signature m (operation-type m operation))))
+             (type (arguments-type m operation params))
+             (held (wat "ref.cast"
+                        (wat "ref" (id type))
+                        (wat "struct.get" (id (yield-type m)) (int 2) record))))
         (map-indexed (lambda (index param) (wat "struct.get" (id type) (int index) held)) params)))
 
     ;; ---- Resuming ----
@@ -2146,7 +2766,9 @@
          (let ((frames (frames-type m)))
            (register-type! m "continuation" "$continuation"
                            (wat "type" (id "$continuation")
-                                (wat "struct" (wat "field" (wat "mut" (wat "ref" (Word "null") (id frames)))) (wat "field" (evidence-ref m)))))))))
+                                (wat "struct"
+                                     (wat "field" (wat "mut" (wat "ref" (Word "null") (id frames))))
+                                     (wat "field" (evidence-ref m)))))))))
 
     ;; `resume`, a closure of the operation's answer to the handle's result.
     (: resume-type (-> Module String String ! mut))
@@ -2158,7 +2780,10 @@
            (register-type! m name name
                            (wat "type" (id name)
                                 (wat "sub" (Word "final") (id base)
-                                     (wat "struct" (wat "field" (wat "ref" (id (code-type m base)))) (wat "field" (wat "ref" (id (continuation-type m))))))))))))
+                                     (wat "struct"
+                                          (wat "field" (wat "ref" (id (code-type m base))))
+                                          (wat "field"
+                                               (wat "ref" (id (continuation-type m))))))))))))
 
     (: resume-base (-> Module String Type String ! mut))
     (define (resume-base m operation type)
@@ -2168,7 +2793,10 @@
     (define (resume-owner m info operation type loc)
       (let ((base (resume-base m operation type)))
         (wat "struct.new" (id (owned-type m))
-             (wat "struct.new" (id (resume-type m base)) (wat "ref.func" (id (resume-code m info operation type loc))) (wat "local.get" (Word "$continuation"))))))
+             (wat "struct.new"
+                  (id (resume-type m base))
+                  (wat "ref.func" (id (resume-code m info operation type loc)))
+                  (wat "local.get" (Word "$continuation"))))))
 
     ;; The code of an operation's `resume`: the handle again, run on the
     ;; boxed answer under the caller's evidence.
@@ -2178,12 +2806,23 @@
                (lambda (function-id)
                  (let* ((base (resume-base m operation type)) (resume (resume-type m base)))
                    (push! (Module-declared m) function-id)
-                   (Word (fill "(func {id} (type {code}) (param $closure (ref {base})) (param $ev (ref {evidence})) (param $answer {answer}) (result {result})
+                   (Word
+                    (fill
+                     "(func {id} (type {code}) (param $closure (ref {base})) (param $ev (ref {evidence})) (param $answer {answer}) (result {result})
   (return_call {rehandle} (struct.get {resume} 1 (ref.cast (ref {resume}) (local.get $closure))) (local.get $ev) {boxed}))"
-                               (list (Pair "id" function-id) (Pair "code" (code-type m base)) (Pair "base" base) (Pair "evidence" (evidence-type m))
-                                     (Pair "answer" (wat->text (rep->wat (rep m (operation-result m operation))))) (Pair "result" (wat->text (rep->wat (rep m type))))
-                                     (Pair "rehandle" (rehandler m (Handling info loc) type)) (Pair "resume" resume)
-                                     (Pair "boxed" (wat->text (box-value m (operation-result m operation) (wat "local.get" (Word "$answer"))))))))))))
+                     (list (Pair "id" function-id)
+                           (Pair "code" (code-type m base))
+                           (Pair "base" base)
+                           (Pair "evidence" (evidence-type m))
+                           (Pair "answer"
+                                 (wat->text (rep->wat (rep m (operation-result m operation)))))
+                           (Pair "result" (wat->text (rep->wat (rep m type))))
+                           (Pair "rehandle" (rehandler m (Handling info loc) type))
+                           (Pair "resume" resume)
+                           (Pair "boxed"
+                                 (wat->text (box-value m
+                                                       (operation-result m operation)
+                                                       (wat "local.get" (Word "$answer"))))))))))))
 
     ;; Where a handle's saved frames end when a yield reaches them: at an
     ;; effect's handler, which catches the yields aimed at its node, or at
@@ -2220,14 +2859,22 @@
     (define (rehandler m catch type)
       (helper! m (catch-prefix catch "rehandle") (catch-key catch type)
                (lambda (function-id)
-                 (Word (fill "(func {id} (param $continuation (ref {continuation})) (param $ev (ref {evidence})) (param $value anyref) (result {result})
+                 (Word
+                  (fill
+                   "(func {id} (param $continuation (ref {continuation})) (param $ev (ref {evidence})) (param $value anyref) (result {result})
   (local.set $value (call {continue} (local.get $continuation) (local.get $ev) (local.get $value)))
   (if {yielding} (then (return_call {catch} (struct.get {continuation} 1 (local.get $continuation)))))
   {unboxed})"
-                             (list (Pair "id" function-id) (Pair "continuation" (continuation-type m)) (Pair "evidence" (evidence-type m))
-                                   (Pair "result" (wat->text (rep->wat (rep m type)))) (Pair "continue" (continue-helper m))
-                                   (Pair "yielding" (wat->text (yielding? m))) (Pair "catch" (catch-helper m catch type))
-                                   (Pair "unboxed" (wat->text (unbox-value m type (wat "local.get" (Word "$value")))))))))))
+                   (list (Pair "id" function-id)
+                         (Pair "continuation" (continuation-type m))
+                         (Pair "evidence" (evidence-type m))
+                         (Pair "result" (wat->text (rep->wat (rep m type))))
+                         (Pair "continue" (continue-helper m))
+                         (Pair "yielding" (wat->text (yielding? m)))
+                         (Pair "catch" (catch-helper m catch type))
+                         (Pair "unboxed"
+                               (wat->text
+                                (unbox-value m type (wat "local.get" (Word "$value")))))))))))
 
     ;; A handle that a yield leaves, saved as a frame: the frames saved
     ;; inside its body, as a continuation for its node. Run, it is the
@@ -2243,7 +2890,10 @@
            (register-type! m "handled" "$handled"
                            (wat "type" (id "$handled")
                                 (wat "sub" (Word "final") (id frame)
-                                     (wat "struct" (wat "field" (wat "ref" (id (code-type m frame)))) (wat "field" (wat "ref" (id (continuation-type m))))))))))))
+                                     (wat "struct"
+                                          (wat "field" (wat "ref" (id (code-type m frame))))
+                                          (wat "field"
+                                               (wat "ref" (id (continuation-type m))))))))))))
 
     (: handled-code (-> Module Catch Type String ! mut))
     (define (handled-code m catch type)
@@ -2251,15 +2901,35 @@
                (lambda (function-id)
                  (let ((frame (frame-type m)) (continuation (continuation-type m)))
                    (push! (Module-declared m) function-id)
-                   (Word (fill "(func {id} (type {code}) (param $frame (ref {frame})) (param $value anyref) (result anyref)
+                   (Word
+                    (fill
+                     "(func {id} (type {code}) (param $frame (ref {frame})) (param $value anyref) (result anyref)
   (local $continuation (ref {continuation}))
   (local.set $continuation (struct.get {handled} 1 (ref.cast (ref {handled}) (local.get $frame))))
   {boxed})"
-                               (list (Pair "id" function-id) (Pair "code" (code-type m frame)) (Pair "frame" frame) (Pair "continuation" continuation)
-                                     (Pair "handled" (handled-type m))
-                                     (Pair "boxed" (wat->text (box-value m type (wat "call" (id (rehandler m catch type)) (wat "local.get" (Word "$continuation"))
-                                                                                     (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 2) (wat "struct.get" (id continuation) (int 1) (wat "local.get" (Word "$continuation")))))
-                                                                                     (wat "local.get" (Word "$value")))))))))))))
+                     (list (Pair "id" function-id)
+                           (Pair "code" (code-type m frame))
+                           (Pair "frame" frame)
+                           (Pair "continuation" continuation)
+                           (Pair "handled" (handled-type m))
+                           (Pair "boxed"
+                                 (wat->text (box-value m
+                                                       type
+                                                       (wat "call"
+                                                            (id (rehandler m catch type))
+                                                            (wat "local.get" (Word "$continuation"))
+                                                            (wat "ref.as_non_null"
+                                                                 (wat "struct.get"
+                                                                      (id (evidence-type m))
+                                                                      (int 2)
+                                                                      (wat "struct.get"
+                                                                           (id continuation)
+                                                                           (int 1)
+                                                                           (wat "local.get"
+                                                                                (Word
+                                                                                 "$continuation")))))
+                                                            (wat "local.get"
+                                                                 (Word "$value")))))))))))))
 
     ;; Saves the handle at `node`, which a yield is leaving, as one frame
     ;; in place of the frames saved inside its body.
@@ -2277,8 +2947,13 @@
     (struct.new {frames}
       (struct.new {handled} (local.get $code) (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $node)))
       (ref.null {frames}))))"
-                        (list (Pair "evidence" (evidence-type m)) (Pair "code" (code-type m (frame-type m))) (Pair "yield" (yield-type m)) (Pair "yielding" (yielding m))
-                              (Pair "frames" (frames-type m)) (Pair "handled" (handled-type m)) (Pair "continuation" (continuation-type m))
+                        (list (Pair "evidence" (evidence-type m))
+                              (Pair "code" (code-type m (frame-type m)))
+                              (Pair "yield" (yield-type m))
+                              (Pair "yielding" (yielding m))
+                              (Pair "frames" (frames-type m))
+                              (Pair "handled" (handled-type m))
+                              (Pair "continuation" (continuation-type m))
                               (Pair "reverse" (reverse-helper m)))))
 
     ;; Runs a continuation: it rebases the node on the caller's evidence
@@ -2309,8 +2984,13 @@
       (else (call {push} (local.get $frame))))
     (br $next))
   (unreachable))"
-                          (list (Pair "continuation" (continuation-type m)) (Pair "evidence" (evidence-type m)) (Pair "frames" (frames-type m))
-                                (Pair "frame" frame) (Pair "code" (code-type m frame)) (Pair "yielding" (yielding m)) (Pair "push" (push-helper m))))))
+                          (list (Pair "continuation" (continuation-type m))
+                                (Pair "evidence" (evidence-type m))
+                                (Pair "frames" (frames-type m))
+                                (Pair "frame" frame)
+                                (Pair "code" (code-type m frame))
+                                (Pair "yielding" (yielding m))
+                                (Pair "push" (push-helper m))))))
 
     (: reverse-helper (-> Module String ! mut))
     (define (reverse-helper m)
@@ -2351,7 +3031,8 @@
       (match (program-value (program-of m) operation)
         ((Some (Operation effect scheme))
          (map (lambda (label) (program-effect (program-of m) label))
-              (filter (lambda (label) (table-contains? (Program-effects (program-of m)) label)) (operation-latent effect scheme))))
+              (filter (lambda (label) (table-contains? (Program-effects (program-of m)) label))
+                      (operation-latent effect scheme))))
         (_ (panic "internal error: not an operation"))))
 
     ;; The performer's locals for forwarding: the result, and a node per
@@ -2362,7 +3043,8 @@
         (if (null? effects)
             (Nil)
             (Cons (wat "local" (Word "$forwarded") (rep->wat result))
-                  (map (lambda (index) (wat "local" (latent-local index) (evidence-ref m))) (iota (length effects)))))))
+                  (map (lambda (index) (wat "local" (latent-local index) (evidence-ref m)))
+                       (iota (length effects)))))))
 
     (: latent-local (-> I64 Wat))
     (define (latent-local index)
@@ -2374,11 +3056,21 @@
     ;; each node of a control effect, innermost first.
     (: forwarding-call (-> Module Effect String (List String) (List Rep) Rep (List Wat) ! mut))
     (define (forwarding-call m info operation names params result)
-      (let* ((effects (forwarded-effects m operation)) (last-node (wat "local.get" (latent-local (- (length effects) 1))))
-             (outside (lambda (index) (if (= index 0) (node-outside m (wat "local.get" (Word "$node"))) (wat "local.get" (latent-local (- index 1)))))))
+      (let* ((effects (forwarded-effects m operation))
+             (last-node (wat "local.get" (latent-local (- (length effects) 1))))
+             (outside (lambda (index)
+                        (if (= index 0)
+                            (node-outside m (wat "local.get" (Word "$node")))
+                            (wat "local.get" (latent-local (- index 1)))))))
         (concatenate
-         (list (map-indexed (lambda (index effect) (wat "local.set" (latent-local index) (forwarding-node m effect (outside index)))) effects)
-               (list (wat "local.set" (Word "$forwarded") (implementation-call m info operation names params result last-node)))
+         (list (map-indexed (lambda (index effect)
+                              (wat "local.set"
+                                   (latent-local index)
+                                   (forwarding-node m effect (outside index))))
+                            effects)
+               (list (wat "local.set"
+                          (Word "$forwarded")
+                          (implementation-call m info operation names params result last-node)))
                (reverse (forwarding-catches m effects (operation-result m operation)))
                (list (wat "return" (wat "local.get" (Word "$forwarded"))))))))
 
@@ -2389,7 +3081,12 @@
                                       (Nil)
                                       (list (wat "if" (yielding? m)
                                                  (wat "then" (wat "local.set" (Word "$forwarded")
-                                                                  (wat "call" (id (forwarder m effect type)) (wat "local.get" (latent-local index)))))))))
+                                                                  (wat "call"
+                                                                       (id
+                                                                        (forwarder m effect type))
+                                                                       (wat "local.get"
+                                                                            (latent-local
+                                                                             index)))))))))
                                 effects)))
 
     ;; A forwarding node for an effect over `outside`, whose handler sends
@@ -2397,38 +3094,70 @@
     (: forwarding-node (-> Module Effect Wat Wat ! mut))
     (define (forwarding-node m info outside)
       (wat "struct.new" (id (evidence-type m)) (effect-label (Effect-name info))
-           (wat* "struct.new" (Cons (id (handler-type m (Effect-name info))) (map (lambda (operation) (forwarding-field m info operation)) (Effect-operations info))))
+           (wat* "struct.new"
+                 (Cons (id (handler-type m (Effect-name info)))
+                       (map (lambda (operation) (forwarding-field m info operation))
+                            (Effect-operations info))))
            outside))
 
     (: forwarding-field (-> Module Effect String Wat ! mut))
     (define (forwarding-field m info operation)
       (if (member? operation (Effect-control info))
           (wat "local.get" (Word "$ev"))
-          (wat "struct.new" (id (forwarding-closure m operation)) (wat "ref.func" (id (forwarding-code m info operation))) (wat "local.get" (Word "$ev")))))
+          (wat "struct.new"
+               (id (forwarding-closure m operation))
+               (wat "ref.func" (id (forwarding-code m info operation)))
+               (wat "local.get" (Word "$ev")))))
 
     ;; An ordinary operation's closure that holds the evidence to perform it
     ;; under.
     (: forwarding-closure (-> Module String String ! mut))
     (define (forwarding-closure m operation)
       (let ((signature (function-signature m (operation-type m operation))))
-        (capture-type m (closure-type m (Pair-first signature) (Pair-second signature)) (list (evidence-rep m)))))
+        (capture-type m
+                      (closure-type m (Pair-first signature) (Pair-second signature))
+                      (list (evidence-rep m)))))
 
     ;; Its code: the operation performed under the evidence it holds.
     (: forwarding-code (-> Module Effect String String ! mut))
     (define (forwarding-code m info operation)
       (helper! m "forward" operation
                (lambda (function-id)
-                 (let* ((signature (function-signature m (operation-type m operation))) (closure (forwarding-closure m operation))
+                 (let* ((signature (function-signature m (operation-type m operation)))
+                        (closure (forwarding-closure m operation))
                         (base (closure-type m (Pair-first signature) (Pair-second signature)))
-                        (names (map (lambda (index) (string-append "$argument." (i64->string index))) (iota (length (Pair-first signature)))))
-                        (held (wat "struct.get" (id closure) (int 1) (wat "ref.cast" (wat "ref" (id closure)) (wat "local.get" (Word "$closure"))))))
+                        (names
+                         (map (lambda (index) (string-append "$argument." (i64->string index)))
+                              (iota (length (Pair-first signature)))))
+                        (held (wat "struct.get"
+                                   (id closure)
+                                   (int 1)
+                                   (wat "ref.cast"
+                                        (wat "ref" (id closure))
+                                        (wat "local.get" (Word "$closure"))))))
                    (push! (Module-declared m) function-id)
-                   (wat* "func" (concatenate (list (list (id function-id) (wat "type" (id (code-type m base))) (wat "param" (Word "$closure") (wat "ref" (id base)))
-                                                         (evidence-param m))
-                                                   (map (lambda (pair) (wat "param" (id (Pair-first pair)) (rep->wat (Pair-second pair)))) (zip names (Pair-first signature)))
-                                                   (list (wat "result" (rep->wat (Pair-second signature)))
-                                                         (wat* "return_call" (Cons (id (performer m (Effect-name info) operation))
-                                                                                   (Cons held (map (lambda (name) (wat "local.get" (id name))) names))))))))))))
+                   (wat* "func"
+                         (concatenate (list (list (id function-id)
+                                                  (wat "type" (id (code-type m base)))
+                                                  (wat "param"
+                                                       (Word "$closure")
+                                                       (wat "ref" (id base)))
+                                                  (evidence-param m))
+                                            (map (lambda (pair)
+                                                   (wat "param"
+                                                        (id (Pair-first pair))
+                                                        (rep->wat (Pair-second pair))))
+                                                 (zip names (Pair-first signature)))
+                                            (list (wat "result" (rep->wat (Pair-second signature)))
+                                                  (wat* "return_call"
+                                                        (Cons (id (performer m
+                                                                             (Effect-name info)
+                                                                             operation))
+                                                              (Cons held
+                                                                    (map (lambda (name)
+                                                                           (wat "local.get"
+                                                                                (id name)))
+                                                                         names))))))))))))
 
     ;; A forwarding node's catch: a yield aimed at the node is re-aimed at
     ;; the performer's handler. Either way the yield leaves, and the node's
@@ -2438,8 +3167,13 @@
       (helper! m "forward-catch" (string-append (Effect-name info) " " (type-key type))
                (lambda (function-id)
                  (let ((node (wat "local.get" (Word "$node"))))
-                   (wat "func" (id function-id) (wat "param" (Word "$node") (evidence-ref m)) (wat "result" (rep->wat (rep m type)))
-                        (wat "if" (aimed-at? m node) (wat "then" (wat "call" (id (retargeter m info)) node)))
+                   (wat "func"
+                        (id function-id)
+                        (wat "param" (Word "$node") (evidence-ref m))
+                        (wat "result" (rep->wat (rep m type)))
+                        (wat "if"
+                             (aimed-at? m node)
+                             (wat "then" (wat "call" (id (retargeter m info)) node)))
                         (enclose m (Forwarding info) type node)
                         (placeholder m type no-loc))))))
 
@@ -2462,11 +3196,19 @@
             (return)))
     (local.set $target (struct.get {evidence} 2 (local.get $target)))
     (br $walk)))"
-                        (list (Pair "evidence" (evidence-type m)) (Pair "yield" (yield-type m)) (Pair "yielding" (yielding m))
+                        (list (Pair "evidence" (evidence-type m))
+                              (Pair "yield" (yield-type m))
+                              (Pair "yielding" (yielding m))
                               (Pair "handler" (handler-type m (Effect-name info)))
-                              (Pair "index" (i64->string (operation-index info (first-control info))))
+                              (Pair "index"
+                                    (i64->string (operation-index info (first-control info))))
                               (Pair "panic" (panic-helper m))
-                              (Pair "message" (wat->text (string-literal m (string-append "unhandled effect " (short-name (Effect-name info))))))
+                              (Pair "message"
+                                    (wat->text (string-literal m
+                                                               (string-append "unhandled effect "
+                                                                              (short-name
+                                                                               (Effect-name
+                                                                                info))))))
                               (Pair "label" (wat->text (effect-label (Effect-name info)))))))
 
     (: first-control (-> Effect String))
@@ -2480,30 +3222,84 @@
     ;; Primitives with a single Wasm instruction.
     (: instruction-primitives (List (Pair String String)))
     (define instruction-primitives
-      (list (Pair "i32-add" "i32.add") (Pair "i32-sub" "i32.sub") (Pair "i32-mul" "i32.mul") (Pair "i32-quotient" "i32.div_s")
-            (Pair "i32-remainder" "i32.rem_s") (Pair "i32-and" "i32.and") (Pair "i32-or" "i32.or") (Pair "i32-xor" "i32.xor")
-            (Pair "i32-shift-left" "i32.shl") (Pair "i32-shift-right" "i32.shr_s") (Pair "i32-shift-right/logical" "i32.shr_u")
-            (Pair "i32-eq" "i32.eq") (Pair "i32-lt" "i32.lt_s") (Pair "i32-le" "i32.le_s") (Pair "i32-gt" "i32.gt_s")
+      (list (Pair "i32-add" "i32.add")
+            (Pair "i32-sub" "i32.sub")
+            (Pair "i32-mul" "i32.mul")
+            (Pair "i32-quotient" "i32.div_s")
+            (Pair "i32-remainder" "i32.rem_s")
+            (Pair "i32-and" "i32.and")
+            (Pair "i32-or" "i32.or")
+            (Pair "i32-xor" "i32.xor")
+            (Pair "i32-shift-left" "i32.shl")
+            (Pair "i32-shift-right" "i32.shr_s")
+            (Pair "i32-shift-right/logical" "i32.shr_u")
+            (Pair "i32-eq" "i32.eq")
+            (Pair "i32-lt" "i32.lt_s")
+            (Pair "i32-le" "i32.le_s")
+            (Pair "i32-gt" "i32.gt_s")
             (Pair "i32-ge" "i32.ge_s")
-            (Pair "i64-add" "i64.add") (Pair "i64-sub" "i64.sub") (Pair "i64-mul" "i64.mul") (Pair "i64-quotient" "i64.div_s")
-            (Pair "i64-remainder" "i64.rem_s") (Pair "i64-and" "i64.and") (Pair "i64-or" "i64.or") (Pair "i64-xor" "i64.xor")
-            (Pair "i64-shift-left" "i64.shl") (Pair "i64-shift-right" "i64.shr_s") (Pair "i64-shift-right/logical" "i64.shr_u")
-            (Pair "i64-eq" "i64.eq") (Pair "i64-lt" "i64.lt_s") (Pair "i64-le" "i64.le_s") (Pair "i64-gt" "i64.gt_s")
+            (Pair "i64-add" "i64.add")
+            (Pair "i64-sub" "i64.sub")
+            (Pair "i64-mul" "i64.mul")
+            (Pair "i64-quotient" "i64.div_s")
+            (Pair "i64-remainder" "i64.rem_s")
+            (Pair "i64-and" "i64.and")
+            (Pair "i64-or" "i64.or")
+            (Pair "i64-xor" "i64.xor")
+            (Pair "i64-shift-left" "i64.shl")
+            (Pair "i64-shift-right" "i64.shr_s")
+            (Pair "i64-shift-right/logical" "i64.shr_u")
+            (Pair "i64-eq" "i64.eq")
+            (Pair "i64-lt" "i64.lt_s")
+            (Pair "i64-le" "i64.le_s")
+            (Pair "i64-gt" "i64.gt_s")
             (Pair "i64-ge" "i64.ge_s")
-            (Pair "f32-add" "f32.add") (Pair "f32-sub" "f32.sub") (Pair "f32-mul" "f32.mul") (Pair "f32-div" "f32.div")
-            (Pair "f32-min" "f32.min") (Pair "f32-max" "f32.max") (Pair "f32-eq" "f32.eq") (Pair "f32-lt" "f32.lt")
-            (Pair "f32-le" "f32.le") (Pair "f32-gt" "f32.gt") (Pair "f32-ge" "f32.ge") (Pair "f32-sqrt" "f32.sqrt")
-            (Pair "f32-abs" "f32.abs") (Pair "f32-negate" "f32.neg") (Pair "f32-floor" "f32.floor") (Pair "f32-ceiling" "f32.ceil")
+            (Pair "f32-add" "f32.add")
+            (Pair "f32-sub" "f32.sub")
+            (Pair "f32-mul" "f32.mul")
+            (Pair "f32-div" "f32.div")
+            (Pair "f32-min" "f32.min")
+            (Pair "f32-max" "f32.max")
+            (Pair "f32-eq" "f32.eq")
+            (Pair "f32-lt" "f32.lt")
+            (Pair "f32-le" "f32.le")
+            (Pair "f32-gt" "f32.gt")
+            (Pair "f32-ge" "f32.ge")
+            (Pair "f32-sqrt" "f32.sqrt")
+            (Pair "f32-abs" "f32.abs")
+            (Pair "f32-negate" "f32.neg")
+            (Pair "f32-floor" "f32.floor")
+            (Pair "f32-ceiling" "f32.ceil")
             (Pair "f32-truncate" "f32.trunc") (Pair "f32-round" "f32.nearest")
-            (Pair "f64-add" "f64.add") (Pair "f64-sub" "f64.sub") (Pair "f64-mul" "f64.mul") (Pair "f64-div" "f64.div")
-            (Pair "f64-min" "f64.min") (Pair "f64-max" "f64.max") (Pair "f64-eq" "f64.eq") (Pair "f64-lt" "f64.lt")
-            (Pair "f64-le" "f64.le") (Pair "f64-gt" "f64.gt") (Pair "f64-ge" "f64.ge") (Pair "f64-sqrt" "f64.sqrt")
-            (Pair "f64-abs" "f64.abs") (Pair "f64-negate" "f64.neg") (Pair "f64-floor" "f64.floor") (Pair "f64-ceiling" "f64.ceil")
+            (Pair "f64-add" "f64.add")
+            (Pair "f64-sub" "f64.sub")
+            (Pair "f64-mul" "f64.mul")
+            (Pair "f64-div" "f64.div")
+            (Pair "f64-min" "f64.min")
+            (Pair "f64-max" "f64.max")
+            (Pair "f64-eq" "f64.eq")
+            (Pair "f64-lt" "f64.lt")
+            (Pair "f64-le" "f64.le")
+            (Pair "f64-gt" "f64.gt")
+            (Pair "f64-ge" "f64.ge")
+            (Pair "f64-sqrt" "f64.sqrt")
+            (Pair "f64-abs" "f64.abs")
+            (Pair "f64-negate" "f64.neg")
+            (Pair "f64-floor" "f64.floor")
+            (Pair "f64-ceiling" "f64.ceil")
             (Pair "f64-truncate" "f64.trunc") (Pair "f64-round" "f64.nearest")
-            (Pair "i32->i64" "i64.extend_i32_s") (Pair "i64->i32" "i32.wrap_i64") (Pair "i64->f64" "f64.convert_i64_s")
-            (Pair "f64->i64" "i64.trunc_sat_f64_s") (Pair "i32->f64" "f64.convert_i32_s") (Pair "f64->i32" "i32.trunc_sat_f64_s")
-            (Pair "i32->f32" "f32.convert_i32_s") (Pair "f32->i32" "i32.trunc_sat_f32_s") (Pair "i64->f32" "f32.convert_i64_s")
-            (Pair "f32->i64" "i64.trunc_sat_f32_s") (Pair "f32->f64" "f64.promote_f32") (Pair "f64->f32" "f32.demote_f64")
+            (Pair "i32->i64" "i64.extend_i32_s")
+            (Pair "i64->i32" "i32.wrap_i64")
+            (Pair "i64->f64" "f64.convert_i64_s")
+            (Pair "f64->i64" "i64.trunc_sat_f64_s")
+            (Pair "i32->f64" "f64.convert_i32_s")
+            (Pair "f64->i32" "i32.trunc_sat_f64_s")
+            (Pair "i32->f32" "f32.convert_i32_s")
+            (Pair "f32->i32" "i32.trunc_sat_f32_s")
+            (Pair "i64->f32" "f32.convert_i64_s")
+            (Pair "f32->i64" "i64.trunc_sat_f32_s")
+            (Pair "f32->f64" "f64.promote_f32")
+            (Pair "f64->f32" "f32.demote_f64")
             (Pair "f32->bits" "i32.reinterpret_f32") (Pair "bits->f32" "f32.reinterpret_i32")
             (Pair "f64->bits" "i64.reinterpret_f64") (Pair "bits->f64" "f64.reinterpret_i64")))
 
@@ -2516,7 +3312,8 @@
       (let ((operation (substring name 5 (string-length name))))
         (match (assoc-ref instruction-primitives operation)
           ((Some instruction) (list (wat* instruction (emit-args fn args))))
-          ((None) (special-primitive fn operation args (emit-args fn args) (map Expr-type args) type)))))
+          ((None)
+           (special-primitive fn operation args (emit-args fn args) (map Expr-type args) type)))))
 
     ;; Strings and character vectors share one representation.
     (: special-primitive (-> Fn String (List Expr) (List Wat) (List Type) Type (List Wat) ! mut))
@@ -2542,28 +3339,53 @@
           (("bool->i32" "char->i32" "i32->char" "string->vector" "vector->string" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))
           (("i32->bool") (list (wat "i32.ne" (arg 0) (wat "i32.const" (int 0)))))
-          (("string-length" "vector-length" "array-length") (list (wat "i64.extend_i32_u" (wat "array.len" (arg 0)))))
+          (("string-length" "vector-length" "array-length")
+           (list (wat "i64.extend_i32_u" (wat "array.len" (arg 0)))))
           (("string-ref" "vector-ref" "array-ref")
            (let ((array (sequence (first-type types))))
              (list (wat (array-get array) (id array) (arg 0) (index (arg 1))))))
           (("array-set!")
-           (list (wat "array.set" (id (sequence (first-type types))) (arg 0) (index (arg 1)) (arg 2)) (wat "i32.const" (int 0))))
-          (("make-string" "make-vector" "make-array") (list (wat "array.new" (id (sequence type)) (arg 1) (index (arg 0)))))
-          (("string-append" "vector-append") (list (wat* "call" (Cons (id (append-helper m (sequence type))) code))))
-          (("substring" "subvector") (list (wat* "call" (Cons (id (slice-helper m (sequence type))) code))))
-          (("vector-set") (list (wat* "call" (Cons (id (set-helper m (sequence type) (fn-rep fn (list-ref types 2)))) code))))
-          (("array->vector" "vector->array") (list (wat* "call" (Cons (id (copy-helper m (sequence type))) code))))
+           (list
+            (wat "array.set" (id (sequence (first-type types))) (arg 0) (index (arg 1)) (arg 2))
+            (wat "i32.const" (int 0))))
+          (("make-string" "make-vector" "make-array")
+           (list (wat "array.new" (id (sequence type)) (arg 1) (index (arg 0)))))
+          (("string-append" "vector-append")
+           (list (wat* "call" (Cons (id (append-helper m (sequence type))) code))))
+          (("substring" "subvector")
+           (list (wat* "call" (Cons (id (slice-helper m (sequence type))) code))))
+          (("vector-set")
+           (list (wat* "call"
+                       (Cons (id (set-helper m (sequence type) (fn-rep fn (list-ref types 2))))
+                             code))))
+          (("array->vector" "vector->array")
+           (list (wat* "call" (Cons (id (copy-helper m (sequence type))) code))))
           (("array-copy!" "vector-copy!")
            (let ((array (id (sequence (first-type types)))))
-             (list (wat "array.copy" array array (arg 0) (index (arg 1)) (arg 2) (index (arg 3)) (index (arg 4))) (wat "i32.const" (int 0)))))
+             (list (wat "array.copy"
+                        array
+                        array
+                        (arg 0)
+                        (index (arg 1))
+                        (arg 2)
+                        (index (arg 3))
+                        (index (arg 4)))
+                   (wat "i32.const" (int 0)))))
           (("string=?") (list (wat* "call" (Cons (id (string-equal-helper m)) code))))
           (("string-compare") (list (wat* "call" (Cons (id (string-compare-helper m)) code))))
           (("vector-generate" "string-generate")
-           (list (wat* "call" (Cons (id (generate-helper m (sequence type) (list-ref types 1))) (append code (list (Fn-evidence fn)))))))
-          (("ref") (list (wat* "struct.new" (Cons (id (cell-type m (fn-rep fn (first-type types)))) code))))
-          (("ref-get") (list (wat* "struct.get" (Cons (id (cell-type m (fn-rep fn type))) (Cons (int 0) code)))))
+           (list (wat* "call"
+                       (Cons (id (generate-helper m (sequence type) (list-ref types 1)))
+                             (append code (list (Fn-evidence fn)))))))
+          (("ref")
+           (list (wat* "struct.new" (Cons (id (cell-type m (fn-rep fn (first-type types)))) code))))
+          (("ref-get")
+           (list
+            (wat* "struct.get" (Cons (id (cell-type m (fn-rep fn type))) (Cons (int 0) code)))))
           (("ref-set!")
-           (list (wat* "struct.set" (Cons (id (cell-type m (fn-rep fn (list-ref types 1)))) (Cons (int 0) code))) (wat "i32.const" (int 0))))
+           (list (wat* "struct.set"
+                       (Cons (id (cell-type m (fn-rep fn (list-ref types 1)))) (Cons (int 0) code)))
+                 (wat "i32.const" (int 0))))
           (else (panic (string-append "internal error: unknown primitive " operation))))))
 
     ;; ---- Owned values ----
@@ -2577,7 +3399,9 @@
       (match (known-type m "owned")
         ((Some type) type)
         ((None) (register-type! m "owned" "$owned"
-                                (wat "type" (id "$owned") (wat "struct" (wat "field" (wat "mut" (Word "anyref")))))))))
+                                (wat "type"
+                                     (id "$owned")
+                                     (wat "struct" (wat "field" (wat "mut" (Word "anyref")))))))))
 
     (: clear-owner (-> Module Wat Wat ! mut))
     (define (clear-owner m value)
@@ -2609,8 +3433,11 @@
   (local $closure (ref {closure}))
   (local.set $closure (ref.cast (ref {closure}) (call {take} (local.get $owner))))
   (return_call_ref {code} (local.get $closure) (local.get $ev) (struct.get {closure} 0 (local.get $closure))))"
-                          (list (Pair "owner" (owned-type m)) (Pair "closure" closure) (Pair "code" (code-type m closure))
-                                (Pair "take" (take-owned-helper m)) (Pair "evidence" (evidence-type m))))))
+                          (list (Pair "owner" (owned-type m))
+                                (Pair "closure" closure)
+                                (Pair "code" (code-type m closure))
+                                (Pair "take" (take-owned-helper m))
+                                (Pair "evidence" (evidence-type m))))))
 
     ;; The host receives an opaque owner, the evidence of the dispatch, and
     ;; two typed Wasm entry points. It runs the work once with that evidence,
@@ -2620,11 +3447,16 @@
     (define (dispatch-work m owner evidence)
       (let* ((run (call-once-helper m)) (drop (drop-owned-helper m))
              (host (import! m (Import "snail.tasks" "dispatch")
-                            (list (Scalar "funcref") (Scalar "funcref") (Reference (owned-type m)) (evidence-rep m)) (None))))
+                            (list (Scalar "funcref")
+                                  (Scalar "funcref")
+                                  (Reference (owned-type m))
+                                  (evidence-rep m))
+                            (None))))
         (push! (Module-declared m) run)
         (push! (Module-declared m) drop)
-        (list (wat "call" (id host) (wat "ref.func" (id run)) (wat "ref.func" (id drop)) owner evidence)
-              (wat "i32.const" (int 0)))))
+        (list
+         (wat "call" (id host) (wat "ref.func" (id run)) (wat "ref.func" (id drop)) owner evidence)
+         (wat "i32.const" (int 0)))))
 
     ;; The scheduler's waits and wakes are imports of "snail.tasks", each
     ;; named by its primitive without "-task": `yield`, `sleep`, `park`,
@@ -2658,7 +3490,11 @@
 
     (: template-helper! (-> Module String String String (List (Pair String String)) String ! mut))
     (define (template-helper! m prefix key template bindings)
-      (helper! m prefix key (lambda (function-id) (Word (fill template (Cons (Pair "id" function-id) bindings))))))
+      (helper! m
+               prefix
+               key
+               (lambda (function-id)
+                 (Word (fill template (Cons (Pair "id" function-id) bindings))))))
 
     (: append-helper (-> Module String String ! mut))
     (define (append-helper m array)
@@ -2708,11 +3544,13 @@
     (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
     (array.set {array} (local.get $result) (i32.wrap_i64 (local.get $index)) (local.get $value))
     (local.get $result))"
-                        (list (Pair "array" array) (Pair "element" (wat->text (rep->wat element))))))
+                        (list (Pair "array" array)
+                              (Pair "element" (wat->text (rep->wat element))))))
 
     (: generate-helper (-> Module String Type String ! mut))
     (define (generate-helper m array function-type)
-      (let* ((signature (function-signature m function-type)) (base (closure-type m (Pair-first signature) (Pair-second signature))))
+      (let* ((signature (function-signature m function-type))
+             (base (closure-type m (Pair-first signature) (Pair-second signature))))
         (template-helper! m "generate" (string-append array " " base)
                           "(func {id} (param $count i64) (param $f (ref {base})) (param $ev (ref {evidence})) (result (ref {array}))
     (local $result (ref {array})) (local $length i32) (local $index i32)
@@ -2729,7 +3567,10 @@
         (local.set $index (i32.add (local.get $index) (i32.const 1)))
         (br $next)))
     (local.get $result))"
-                          (list (Pair "array" array) (Pair "base" base) (Pair "code" (code-type m base)) (Pair "evidence" (evidence-type m))))))
+                          (list (Pair "array" array)
+                                (Pair "base" base)
+                                (Pair "code" (code-type m base))
+                                (Pair "evidence" (evidence-type m))))))
 
     (: string-equal-helper (-> Module String ! mut))
     (define (string-equal-helper m)
@@ -2765,7 +3606,10 @@
     ;; stage reserves four bytes per slot: count+1 safely holds either layout.
     (: stage-helper (-> Module Bool String ! mut))
     (define (stage-helper m bytes?)
-      (let ((stage (import! m (Import "snail.library" "snail:io/stage") (list (Scalar "i32")) (Some (Scalar "i32")))))
+      (let ((stage (import! m
+                            (Import "snail.library" "snail:io/stage")
+                            (list (Scalar "i32"))
+                            (Some (Scalar "i32")))))
         (template-helper! m (if bytes? "stage.bytes" "stage.text") ""
                           "(func {id} (param $text (ref {array})) (result i32)
     (local $address i32) (local $index i32)
@@ -2780,18 +3624,36 @@
         (local.set $index (i32.add (local.get $index) (i32.const 1)))
         (br $next)))
     {result})"
-                          (list (Pair "array" (array-type m (Scalar (if bytes? "i8" "i32")))) (Pair "stage" stage)
-                                (Pair "guard" (if bytes? "(if (i32.eq (array.len (local.get $text)) (i32.const -1)) (then (unreachable)))" ""))
-                                (Pair "capacity" (if bytes? "(i32.add (array.len (local.get $text)) (i32.const 1))" "(array.len (local.get $text))"))
-                                (Pair "header" (if bytes? "(i32.store (local.get $address) (array.len (local.get $text)))" ""))
-                                (Pair "store" (if bytes? "i32.store8" "i32.store")) (Pair "get" (if bytes? "array.get_u" "array.get"))
-                                (Pair "offset" (if bytes? "4" "0")) (Pair "shift" (if bytes? "0" "2"))
-                                (Pair "result" (if bytes? "(local.get $address)" "(array.len (local.get $text))"))))))
+                          (list (Pair "array" (array-type m (Scalar (if bytes? "i8" "i32"))))
+                                (Pair "stage" stage)
+                                (Pair "guard"
+                                      (if bytes?
+                                          "(if (i32.eq (array.len (local.get $text)) (i32.const -1)) (then (unreachable)))"
+                                          ""))
+                                (Pair "capacity"
+                                      (if bytes?
+                                          "(i32.add (array.len (local.get $text)) (i32.const 1))"
+                                          "(array.len (local.get $text))"))
+                                (Pair "header"
+                                      (if bytes?
+                                          "(i32.store (local.get $address) (array.len (local.get $text)))"
+                                          ""))
+                                (Pair "store" (if bytes? "i32.store8" "i32.store"))
+                                (Pair "get" (if bytes? "array.get_u" "array.get"))
+                                (Pair "offset" (if bytes? "4" "0"))
+                                (Pair "shift" (if bytes? "0" "2"))
+                                (Pair "result"
+                                      (if bytes?
+                                          "(local.get $address)"
+                                          "(array.len (local.get $text))"))))))
 
     ;; Sends the message to the runtime one scalar at a time, then stops.
     (: panic-helper (-> Module String ! mut))
     (define (panic-helper m)
-      (let ((character (import! m (Import "snail.library" "snail:panic/character") (list (Scalar "i32")) (None)))
+      (let ((character (import! m
+                                (Import "snail.library" "snail:panic/character")
+                                (list (Scalar "i32"))
+                                (None)))
             (raise (import! m (Import "snail.library" "snail:panic/raise") (Nil) (None))))
         (template-helper! m "panic" ""
                           "(func {id} (param $message (ref {array}))
@@ -2804,7 +3666,9 @@
         (br $next)))
     (call {raise})
     (unreachable))"
-                          (list (Pair "array" (array-type m (Scalar "i32"))) (Pair "character" character) (Pair "raise" raise)))))
+                          (list (Pair "array" (array-type m (Scalar "i32")))
+                                (Pair "character" character)
+                                (Pair "raise" raise)))))
 
     (: wat->text (-> Wat String))
     (define (wat->text wat)
@@ -2822,12 +3686,18 @@
     ;; Types are numbered in the order of their names.
     (: type-groups (-> (List Wat) (List Wat)))
     (define (type-groups definitions)
-      (let* ((named (fold-left (lambda (table definition) (table-set table (type-definition-name definition) definition))
+      (let* ((named (fold-left (lambda (table definition)
+                                 (table-set table (type-definition-name definition) definition))
                                empty-table definitions))
              (names (list->vector (sort-strings (map type-definition-name definitions))))
-             (numbers (fold-left (lambda (table index) (table-set table (vector-ref names index) index)) empty-table (iota (vector-length names)))))
-        (map (lambda (component) (group-wat named (map (lambda (index) (vector-ref names index)) component)))
-             (strong-components (vector-map (lambda (name) (type-edges named numbers name)) names)))))
+             (numbers
+              (fold-left (lambda (table index) (table-set table (vector-ref names index) index))
+                         empty-table
+                         (iota (vector-length names)))))
+        (map (lambda (component)
+               (group-wat named (map (lambda (index) (vector-ref names index)) component)))
+             (strong-components
+              (vector-map (lambda (name) (type-edges named numbers name)) names)))))
 
     (: type-definition-name (-> Wat String))
     (define (type-definition-name definition)
@@ -2840,8 +3710,11 @@
     (: type-edges (-> (Table Wat) (Table I64) String (List I64)))
     (define (type-edges named numbers name)
       (map (lambda (word) (table-number numbers word))
-           (sort-strings (delete-duplicates string=? (filter (lambda (word) (and (not (string=? word name)) (table-contains? numbers word)))
-                                                             (wat-words (table-ref-or-wat named name)))))))
+           (sort-strings (delete-duplicates string=?
+                                            (filter (lambda (word)
+                                                      (and (not (string=? word name))
+                                                           (table-contains? numbers word)))
+                                                    (wat-words (table-ref-or-wat named name)))))))
 
     (: table-number (-> (Table I64) String I64))
     (define (table-number table key)
@@ -2872,14 +3745,16 @@
       (let ((count (length strings)))
         (if (< count 2)
             strings
-            (merge-strings (sort-strings (take strings (quotient count 2))) (sort-strings (drop strings (quotient count 2)))))))
+            (merge-strings (sort-strings (take strings (quotient count 2)))
+                           (sort-strings (drop strings (quotient count 2)))))))
 
     (: merge-strings (-> (List String) (List String) (List String)))
     (define (merge-strings a b)
       (match (Pair a b)
         ((Pair (Nil) _) b)
         ((Pair _ (Nil)) a)
-        ((Pair (Cons x xs) (Cons y ys)) (if (string<? y x) (Cons y (merge-strings a ys)) (Cons x (merge-strings xs b))))))
+        ((Pair (Cons x xs) (Cons y ys))
+         (if (string<? y x) (Cons y (merge-strings a ys)) (Cons x (merge-strings xs b))))))
 
     ;; ---- Modules ----
 
@@ -2903,9 +3778,22 @@
 
     (: new-module (-> Mono (Option String) Module ! mut))
     (define (new-module mono owner)
-      (Module (Mono-program mono) (item-definitions (Mono-items mono)) owner (Mono-externals mono) (ref empty-table) (ref (Nil))
-              (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref (Nil)) (ref empty-table) (ref empty-table)
-              (let ((control (control-effects (Mono-program mono)))) (if (null? control) (None) (Some (module-callees mono control))))))
+      (Module (Mono-program mono)
+              (item-definitions (Mono-items mono))
+              owner
+              (Mono-externals mono)
+              (ref empty-table)
+              (ref (Nil))
+              (ref (Nil))
+              (ref (Nil))
+              (ref (Nil))
+              (ref (Nil))
+              (ref (Nil))
+              (ref (Nil))
+              (ref empty-table)
+              (ref empty-table)
+              (let ((control (control-effects (Mono-program mono))))
+                (if (null? control) (None) (Some (module-callees mono control))))))
 
     (: emit-items! (-> Module (List Item) Unit ! mut))
     (define (emit-items! m items)
@@ -2920,7 +3808,10 @@
     (define (export-definition! m name)
       (match (table-ref (Module-definitions m) name)
         ((Some definition)
-         (push! (Module-exports m) (wat "export" (wat-string name) (wat (if (lambda-expr? definition) "func" "global") (id (wasm-id name))))))
+         (push! (Module-exports m)
+                (wat "export"
+                     (wat-string name)
+                     (wat (if (lambda-expr? definition) "func" "global") (id (wasm-id name))))))
         ((None) (panic (string-append "internal error: nothing to export for " name)))))
 
     ;; The fields in the order Wasm requires: types in their recursion
@@ -2937,42 +3828,59 @@
         (wat* "module"
               (concatenate
                (list (type-groups (reverse (ref-get (Module-types m))))
-                     (Cons (wat "import" (wat-string "snail.library") (wat-string "memory") (wat "memory" (int 0)))
+                     (Cons (wat "import"
+                                (wat-string "snail.library")
+                                (wat-string "memory")
+                                (wat "memory" (int 0)))
                            (sorted-declarations (ref-get (Module-imports m))))
                      (sorted-declarations (ref-get (Module-globals m)))
-                     (if (null? declared) (Nil) (list (wat* "elem" (Cons (Word "declare") (Cons (Word "func") (map id declared))))))
+                     (if (null? declared)
+                         (Nil)
+                         (list (wat* "elem"
+                                     (Cons (Word "declare")
+                                           (Cons (Word "func") (map id declared))))))
                      (sorted-declarations (ref-get (Module-exports m)))
-                     (map (lambda (entry) (Word (Pair-second entry))) (sort-named (ref-get (Module-functions m))))
+                     (map (lambda (entry) (Word (Pair-second entry)))
+                          (sort-named (ref-get (Module-functions m))))
                      (sorted-declarations (ref-get (Module-data m))))))))
 
     (: sorted-declarations (-> (List Wat) (List Wat)))
     (define (sorted-declarations declarations)
       (map (lambda (entry) (Pair-second entry))
-           (sort-named (map (lambda (declaration) (Pair (declaration-id declaration) declaration)) declarations))))
+           (sort-named (map (lambda (declaration) (Pair (declaration-id declaration) declaration))
+                            declarations))))
 
     (: sort-named (All (A) (-> (List (Pair String A)) (List (Pair String A)))))
     (define (sort-named entries)
       (let ((count (length entries)))
         (if (< count 2)
             entries
-            (merge-named (sort-named (take entries (quotient count 2))) (sort-named (drop entries (quotient count 2)))))))
+            (merge-named (sort-named (take entries (quotient count 2)))
+                         (sort-named (drop entries (quotient count 2)))))))
 
-    (: merge-named (All (A) (-> (List (Pair String A)) (List (Pair String A)) (List (Pair String A)))))
+    (: merge-named
+       (All (A) (-> (List (Pair String A)) (List (Pair String A)) (List (Pair String A)))))
     (define (merge-named a b)
       (match (Pair a b)
         ((Pair (Nil) _) b)
         ((Pair _ (Nil)) a)
         ((Pair (Cons x xs) (Cons y ys))
-         (if (string<? (Pair-first y) (Pair-first x)) (Cons y (merge-named a ys)) (Cons x (merge-named xs b))))))
+         (if (string<? (Pair-first y) (Pair-first x))
+             (Cons y (merge-named a ys))
+             (Cons x (merge-named xs b))))))
 
     (: emit-main! (-> Module (List Item) Unit ! mut))
     (define (emit-main! m items)
-      (let* ((fn (Fn-evidence-set (new-fn m) (evidence-none m))) (code (concatenate (map (lambda (item) (main-item-code m fn item)) items))))
+      (let* ((fn (Fn-evidence-set (new-fn m) (evidence-none m)))
+             (code (concatenate (map (lambda (item) (main-item-code m fn item)) items))))
         (push-function! m "$main"
                         (wat* "func" (Cons (Word "$main")
                                            (Cons (wat "export" (wat-string "main"))
                                                  (Cons (wat "result" (Word "i32"))
-                                                       (append (reverse (ref-get (Fn-locals fn))) (append code (list (wat "i32.const" (int 0))))))))))))
+                                                       (append (reverse (ref-get (Fn-locals fn)))
+                                                               (append code
+                                                                       (list (wat "i32.const"
+                                                                                  (int 0))))))))))))
 
     ;; A value becomes a mutable global set at startup; a statement runs and
     ;; its value is dropped; an exposed function is exported, behind the
@@ -2984,17 +3892,21 @@
          (if (lambda-expr? value)
              (Nil)
              (let ((r (rep m (Expr-type value))))
-               (push! (Module-globals m) (wat "global" (id (wasm-id name)) (wat "mut" (nullable r)) (default-value r)))
+               (push! (Module-globals m)
+                      (wat "global" (id (wasm-id name)) (wat "mut" (nullable r)) (default-value r)))
                (list (wat "global.set" (id (wasm-id name)) (emit1 fn value))))))
         ((Do expr) (list (wat "drop" (emit1 fn expr))))
         ((Expose name symbol dynamic loc)
          (match (definition-of m name)
            ((Some definition)
-            (unless (lambda-expr? definition) (compile-error loc "an exposed function must be defined with lambda"))
+            (unless (lambda-expr? definition)
+              (compile-error loc "an exposed function must be defined with lambda"))
             (if dynamic
                 (export-dynamic! m name symbol (Expr-type definition))
                 (push! (Module-exports m)
-                       (wat "export" (wat-string symbol) (wat "func" (id (exposed-function m name (Expr-type definition))))))))
+                       (wat "export"
+                            (wat-string symbol)
+                            (wat "func" (id (exposed-function m name (Expr-type definition))))))))
            ((None) (compile-error loc "an exposed function must be defined")))
          (Nil))))
 
@@ -3011,7 +3923,11 @@
       (define (test-wasm)
         (expect (mangle "a b,c(d)") "a_b~c<d>")
         (expect (fill "(call {f} {x})" (list (Pair "f" "$g") (Pair "x" "1"))) "(call $g 1)")
-        (expect (wat->string (wat "module" (wat "func" (Word "$f") (wat "result" (Word "i32")) (wat "i32.const" (int 1)))))
+        (expect (wat->string (wat "module"
+                                  (wat "func"
+                                       (Word "$f")
+                                       (wat "result" (Word "i32"))
+                                       (wat "i32.const" (int 1)))))
                 "(module\n  (func $f (result i32)\n    (i32.const 1)))\n")
         (expect (wat->text (wat-string "é\n")) "\"\\c3\\a9\\0a\""))))
    (else)))

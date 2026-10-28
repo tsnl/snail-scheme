@@ -9,4 +9,6 @@
                   (library-syntax (list "sample" "knot")
                                   (list "knot")
                                   (list (list "snail-core" "base"))
-                                  (list (form "define" (list (SymbolSyntax "knot") (IntegerSyntax helper))))))
+                                  (list (form "define"
+                                              (list (SymbolSyntax "knot")
+                                                    (IntegerSyntax helper))))))

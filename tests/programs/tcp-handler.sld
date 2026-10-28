@@ -13,7 +13,8 @@
 ;; Mutable test state travels in operation arguments, not the reusable
 ;; handler's captures. A dispatched task inherits this handler across waits.
 (handle tcp
-    ((listen (lambda (endpoint) (Ok (Listener (type-convert endpoint Any) (Endpoint-port endpoint)))))
+    ((listen
+      (lambda (endpoint) (Ok (Listener (type-convert endpoint Any) (Endpoint-port endpoint)))))
      (connect (lambda (_) (Ok (Connection (type-convert (ref #u8()) Any)))))
      (accept (lambda (_) (Ok (Connection (type-convert (ref #u8()) Any)))))
      (read (lambda (connection _)

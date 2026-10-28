@@ -89,9 +89,12 @@
               ((Err error) (Err error))
               ((Ok (None)) (Err (TruncatedHead)))
               ((Ok (Some bytes))
-               (let* ((count (vector-length bytes)) (scanned (scan-head bytes state)) (end (Pair-first scanned)))
+               (let* ((count (vector-length bytes))
+                      (scanned (scan-head bytes state))
+                      (end (Pair-first scanned)))
                  (if (= (Pair-second scanned) 4)
-                     (parsed-prefix (Cons (subvector bytes 0 end) chunks) (subvector bytes end count))
+                     (parsed-prefix (Cons (subvector bytes 0 end) chunks)
+                                    (subvector bytes end count))
                      (loop (Cons bytes chunks) (+ total count) (Pair-second scanned)))))))))
 
     (: read-body (All (E) (-> Connection RequestPrefix (Result Request (ExchangeError E)) ! tcp)))
@@ -104,7 +107,8 @@
               (match (read-chunk connection (min 65536 (- expected received)))
                 ((Err error) (Err error))
                 ((Ok (None)) (Err (TruncatedBody expected received)))
-                ((Ok (Some bytes)) (loop (Cons bytes chunks) (+ received (vector-length bytes)))))))))
+                ((Ok (Some bytes))
+                 (loop (Cons bytes chunks) (+ received (vector-length bytes)))))))))
 
     (: read-request (All (E) (-> Connection (Result Request (ExchangeError E)) ! tcp)))
     (define (read-request connection)
@@ -130,7 +134,8 @@
                        (Err (TransportFailure (SocketError "EIO")))
                        (loop (+ offset count) (min 65536 (* 2 count)))))))))))
 
-    (: write-response (All (E) (-> Connection I32 ResponseParts (Result Unit (ExchangeError E)) ! tcp)))
+    (: write-response
+       (All (E) (-> Connection I32 ResponseParts (Result Unit (ExchangeError E)) ! tcp)))
     (define (write-response connection grace parts)
       (match (write-bytes connection (ResponseParts-head parts))
         ((Err error) (Err error))

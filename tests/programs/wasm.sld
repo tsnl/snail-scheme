@@ -59,4 +59,7 @@
             (match (load-module (Pair-first entry) (Pair-second entry))
               ((Ok _) (write-line "loaded"))
               ((Err error) (write-line (load-error-message error)))))
-          (list (Pair "adder" path) (Pair "missing" "build/tests/missing.wasm") (Pair "text" text-path) (Pair "mislinked" mislinked-path)))
+          (list (Pair "adder" path)
+                (Pair "missing" "build/tests/missing.wasm")
+                (Pair "text" text-path)
+                (Pair "mislinked" mislinked-path)))

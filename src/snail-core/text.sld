@@ -65,7 +65,8 @@
 
     (: string-downcase (-> String String))
     (define (string-downcase text)
-      (string-generate (string-length text) (lambda (index) (char-downcase (string-ref text index)))))
+      (string-generate (string-length text)
+                       (lambda (index) (char-downcase (string-ref text index)))))
 
     ;; Full case folding, which may expand one scalar into several, as "ß"
     ;; into "ss"; folded strings compare equal ignoring case.
@@ -76,7 +77,8 @@
     (define (string-foldcase text)
       (string-concatenate
        (map (lambda (char)
-              (string-generate (i32->i64 (fold-length char)) (lambda (index) (fold-scalar char (i64->i32 index)))))
+              (string-generate (i32->i64 (fold-length char))
+                               (lambda (index) (fold-scalar char (i64->i32 index)))))
             (string->list text))))
 
     ))

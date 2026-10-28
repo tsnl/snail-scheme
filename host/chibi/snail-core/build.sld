@@ -51,22 +51,32 @@
 
     ;; The command that runs a compiled program under Node.
     (define (node-command root program)
-      (list (or (get-environment-variable "NODE") "node") "--no-warnings" (path-join root "host/native/run-snail.mjs") program))
+      (list (or (get-environment-variable "NODE") "node")
+            "--no-warnings"
+            (path-join root "host/native/run-snail.mjs")
+            program))
 
     ;; The compiler is synchronous and has no application scheduler. Keep
     ;; the previous compiler worker's heap and native stack allowance.
     (define (compiler-command root program)
-      (list (or (get-environment-variable "NODE") "node") "--no-warnings" "--max-semi-space-size=128" "--stack-size=3904"
+      (list (or (get-environment-variable "NODE") "node")
+            "--no-warnings"
+            "--max-semi-space-size=128"
+            "--stack-size=3904"
             (path-join root "host/native/run-compiler.mjs") program))
 
     ;; Chibi sweeps its whole heap on every collection, and compiling the
     ;; compiler allocates gigabytes, so a large heap keeps collections rare.
     (define (chibi-compiler root)
-      (list (or (get-environment-variable "CHIBI") "chibi-scheme") "-h" (or (get-environment-variable "SNAIL_STAGE0_HEAP") "6G")
+      (list (or (get-environment-variable "CHIBI") "chibi-scheme")
+            "-h"
+            (or (get-environment-variable "SNAIL_STAGE0_HEAP") "6G")
             ;; Stage 0 sees only bootstrap/chibi-include, which symlinks the
             ;; libraries the compiler's own load closure reaches and nothing
             ;; else, so no other library under src/ can enter the bootstrap.
-            "-I" (path-join root "bootstrap/chibi-include") (path-join root "host/chibi/compile.scm")))
+            "-I"
+            (path-join root "bootstrap/chibi-include")
+            (path-join root "host/chibi/compile.scm")))
 
     ;; The command that runs a compiler. The compiled compiler is rebuilt
     ;; first when its source has changed; SNAIL_STAGE0=chibi runs the source
@@ -85,7 +95,13 @@
       (with-private-directory root
                               (lambda (directory)
                                 (let ((output (path-join directory "output.wat")))
-                                  (run-compiler-into root (selected-compiler root) "wat" directories source output directory)
+                                  (run-compiler-into root
+                                                     (selected-compiler root)
+                                                     "wat"
+                                                     directories
+                                                     source
+                                                     output
+                                                     directory)
                                   (cons (read-file output) (read-links directory))))))
 
     (define (program->schemas root directories source)
@@ -99,7 +115,13 @@
       (with-private-directory root
                               (lambda (directory)
                                 (let ((output (path-join directory "output.wat")))
-                                  (run-compiler-into root command mode directories source output directory)
+                                  (run-compiler-into root
+                                                     command
+                                                     mode
+                                                     directories
+                                                     source
+                                                     output
+                                                     directory)
                                   (read-file output)))))
 
     ;; Every library that ships with the language, Snail-Core's own and Scheme's
@@ -111,13 +133,16 @@
 
     (define (with-private-directory root use)
       (let ((directory (private-directory root)))
-        (dynamic-wind (lambda () #f) (lambda () (use directory)) (lambda () (delete-file-hierarchy directory)))))
+        (dynamic-wind (lambda () #f)
+            (lambda () (use directory))
+            (lambda () (delete-file-hierarchy directory)))))
 
     (define private-count 0)
 
     (define (private-directory root)
       (let ((directory (path-join root "build/snail-run")))
-        (unless (create-directory* directory) (error "cannot create compiler scratch directory" directory))
+        (unless (create-directory* directory)
+          (error "cannot create compiler scratch directory" directory))
         (create-staging-directory directory)))
 
     ;; Remove the old request immediately before starting each process;
@@ -129,29 +154,39 @@
       (let ((request (path-join generated "request.datum")))
         (let loop ()
           (when (file-link-status request) (delete-file request))
-          (let ((result (capture-process (append command (list mode source output generated) directories))))
+          (let ((result (capture-process
+                         (append command (list mode source output generated) directories))))
             (cond ((zero? (caddr result))
-                   (when (file-link-status request) (error "compiler succeeded with a pending input request"))
+                   (when (file-link-status request)
+                     (error "compiler succeeded with a pending input request"))
                    output)
                   ((and (= (caddr result) 256) (file-link-status request))
-                   (provide-input! root directories generated (parse-request (read-file request) request))
+                   (provide-input! root
+                                   directories
+                                   generated
+                                   (parse-request (read-file request) request))
                    (loop))
                   (else (error (diagnostic (cadr result)))))))))
 
     (define (provide-input! root directories generated request)
       (match request
         ((GenerateInput key)
-         (when (file-exists? (path-join generated (string-append key ".syntax"))) (error "compiler requested an already provided generated library" key))
+         (when (file-exists? (path-join generated (string-append key ".syntax")))
+           (error "compiler requested an already provided generated library" key))
          (produce! root directories generated key))
         ((ArtifactInput name loc)
-         (compile-error loc (string-append "artifact-bundle requires a project build resolver: " name)))))
+         (compile-error loc
+                        (string-append "artifact-bundle requires a project build resolver: "
+                                       name)))))
 
     ;; The compiler's message without the host's prefix.
     (define (diagnostic text)
       (let* ((cursor (string-contains text "snail: "))
              (start (if cursor (+ (string-cursor->index text cursor) 6) 0)))
         (let loop ((end (string-length text)))
-          (if (and (> end start) (char=? (string-ref text (- end 1)) #\newline)) (loop (- end 1)) (substring text start end)))))
+          (if (and (> end start) (char=? (string-ref text (- end 1)) #\newline))
+              (loop (- end 1))
+              (substring text start end)))))
 
     ;; ---- Generated libraries ----
 
@@ -167,9 +202,13 @@
         (let* ((source (path-join generated (string-append key ".sld")))
                (program (path-join generated (string-append key ".wasm")))
                (output (path-join generated (string-append key ".syntax")))
-               (result (begin (build-program root directories source program #f) (run-wasm root program (list output)))))
-          (unless (zero? (caddr result)) (error (string-append "the producer " source " failed:\n" (cadr result))))
-          (unless (file-exists? output) (error "the producer did not write its generated library" source)))))
+               (result (begin
+                         (build-program root directories source program #f)
+                         (run-wasm root program (list output)))))
+          (unless (zero? (caddr result))
+            (error (string-append "the producer " source " failed:\n" (cadr result))))
+          (unless (file-exists? output)
+            (error "the producer did not write its generated library" source)))))
 
     ;; The keys of the producers being built, innermost first. The compiler
     ;; reports a producer that leads back to the library it generates as an
@@ -196,7 +235,10 @@
             (let ((port (open-output-file (path-join root "build/lock"))))
               (dynamic-wind (lambda () (file-lock port lock/exclusive) (set! build-lock-held? #t))
                   thunk
-                  (lambda () (set! build-lock-held? #f) (file-lock port lock/unlock) (close-port port)))))))
+                  (lambda ()
+                    (set! build-lock-held? #f)
+                    (file-lock port lock/unlock)
+                    (close-port port)))))))
 
     ;; `output` is stale when it is missing or older than one of its
     ;; `sources`: files, or directories whose .sld files count at any depth.
@@ -208,7 +250,8 @@
       output)
 
     (define (current? output sources)
-      (and (file-exists? output) (> (file-modification-time output) (apply max (map newest-time sources)))))
+      (and (file-exists? output)
+           (> (file-modification-time output) (apply max (map newest-time sources)))))
 
     (define (newest-time path)
       (if (file-directory? path) (newest-sld-time path) (file-modification-time path)))
@@ -221,7 +264,8 @@
                (let ((path (path-join directory (car entries))))
                  (loop (cdr entries)
                        (max newest (cond ((file-directory? path) (newest-sld-time path))
-                                         ((string-suffix? ".sld" path) (file-modification-time path))
+                                         ((string-suffix? ".sld" path)
+                                          (file-modification-time path))
                                          (else 0)))))))))
 
     ;; ---- Bootstrap ----
@@ -238,8 +282,13 @@
     (define (current-compiler root)
       (rebuild-if-stale! root (compiler-path root)
                          (map (lambda (path) (path-join root path))
-                              '("bootstrap/compile.sld" "src/snail-core/compiler.sld" "src/snail-core/compiler" "src/snail-core/base.sld"
-                                "src/snail-core/table.sld" "src/snail-core/io.sld" "src/snail-core/primitive.sld"))
+                              '("bootstrap/compile.sld"
+                                "src/snail-core/compiler.sld"
+                                "src/snail-core/compiler"
+                                "src/snail-core/base.sld"
+                                "src/snail-core/table.sld"
+                                "src/snail-core/io.sld"
+                                "src/snail-core/primitive.sld"))
                          (lambda () (rebuild-compiler! root))))
 
     (define (bootstrap! root)
@@ -252,25 +301,38 @@
     ;; the same input, so stage 1 must be that text as well: the two hosts
     ;; agree, or the build says where they differ.
     (define (rebuild-compiler! root)
-      (let* ((directory (path-join root "build/compiler")) (entry (path-join root "bootstrap/compile.sld"))
-             (stage1 (path-join directory "stage1.wasm")) (stage2 (path-join directory "stage2.wasm"))
+      (let* ((directory (path-join root "build/compiler"))
+             (entry (path-join root "bootstrap/compile.sld"))
+             (stage1 (path-join directory "stage1.wasm"))
+             (stage2 (path-join directory "stage2.wasm"))
              (stage3 (path-join directory "stage3.wat")) (sources (standard-directories root)))
         (create-directory* directory)
         (let ((first (stage1-text root entry)))
           (link-wat root (cdr first) stage1 #f)
-          (link-wat root (run-compiler root (compiler-command root stage1) "wat" sources entry) stage2 #f)
+          (link-wat root
+                    (run-compiler root (compiler-command root stage1) "wat" sources entry)
+                    stage2
+                    #f)
           (write-file stage3 (run-compiler root (compiler-command root stage2) "wat" sources entry))
           (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
-            (error "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
-          (when (and (car first) (not (equal? (cdr first) (read-file (string-append stage2 ".wat")))))
-            (error "bootstrap: the source on Chibi and its compiled form emit different text; compare build/compiler/stage1.wasm.wat with stage2.wasm.wat"))
+            (error
+             "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
+          (when (and (car first)
+                     (not (equal? (cdr first) (read-file (string-append stage2 ".wat")))))
+            (error
+             "bootstrap: the source on Chibi and its compiled form emit different text; compare build/compiler/stage1.wasm.wat with stage2.wasm.wat"))
           (rename-file stage2 (compiler-path root)))))
 
     ;; Whether Chibi produced the text, and the text.
     (define (stage1-text root entry)
       (let* ((previous (compiler-path root)) (sources (standard-directories root))
              (reused (and (file-exists? previous)
-                          (guard (failure (#t #f)) (run-compiler root (compiler-command root previous) "wat" sources entry)))))
+                          (guard (failure (#t #f))
+                            (run-compiler root
+                                          (compiler-command root previous)
+                                          "wat"
+                                          sources
+                                          entry)))))
         (if reused
             (cons #f reused)
             (cons #t (run-compiler root (chibi-compiler root) "wat" sources entry)))))
@@ -289,15 +351,19 @@
         (lambda (port)
           (let loop ((chunks '()))
             (let ((chunk (read-string 65536 port)))
-              (if (eof-object? chunk) (apply string-append (reverse chunks)) (loop (cons chunk chunks))))))))
+              (if (eof-object? chunk)
+                  (apply string-append (reverse chunks))
+                  (loop (cons chunk chunks))))))))
 
     (define (write-file path text)
       (create-directory* (path-directory path))
       (call-with-output-file path (lambda (port) (write-string text port))))
 
     (define (copy-file! from to)
-      (let ((bytes (call-with-port (open-binary-input-file from) (lambda (port) (read-bytevector (file-size from) port)))))
-        (call-with-port (open-binary-output-file to) (lambda (port) (write-bytevector bytes port)))))
+      (let ((bytes (call-with-port (open-binary-input-file from)
+                     (lambda (port) (read-bytevector (file-size from) port)))))
+        (call-with-port (open-binary-output-file to)
+          (lambda (port) (write-bytevector bytes port)))))
 
     ;; Runs a compiled program under Node, returning (output error status).
     (define (run-wasm root program arguments)
@@ -324,7 +390,11 @@
           '("-O1")))
 
     (define (wasm-opt input output . flags)
-      (apply run-tool "WASM_OPT" "wasm-opt" "-g" (append wasm-features flags (list input "-o" output))))
+      (apply run-tool
+             "WASM_OPT"
+             "wasm-opt"
+             "-g"
+             (append wasm-features flags (list input "-o" output))))
 
     ;; ---- Runtime ----
 
@@ -346,7 +416,10 @@
       (let ((target (path-join root (string-append "build/wasm-" name))))
         (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
                   "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-                  "--target" "wasm32-wasip1" "--manifest-path" (path-join root "crates" name "Cargo.toml")
+                  "--target"
+                  "wasm32-wasip1"
+                  "--manifest-path"
+                  (path-join root "crates" name "Cargo.toml")
                   "--target-dir" target)
         (path-join target "wasm32-wasip1/release" (string-append "snail_" name ".wasm"))))
 
@@ -365,18 +438,34 @@
       (let* ((at (string-contains text key))
              (rest (and at (substring text (string-cursor->index text at) (string-length text))))
              (open (and rest (string-contains rest "\"")))
-             (tail (and open (substring rest (+ (string-cursor->index rest open) 1) (string-length rest))))
+             (tail (and open
+                        (substring rest
+                                   (+ (string-cursor->index rest open) 1)
+                                   (string-length rest))))
              (close (and tail (string-contains tail "\""))))
         (and close (substring tail 0 (string-cursor->index tail close)))))
 
     (define (link module output runtime release?)
-      (let ((adapter (string-append output ".adapter.wasm")) (linked (string-append output ".linked.wasm"))
+      (let ((adapter (string-append output ".adapter.wasm"))
+            (linked (string-append output ".linked.wasm"))
             (adapter-wat (string-append output ".adapter.wat")))
         (write-file adapter-wat adapter-text)
         (apply run-tool "WASM_AS" "wasm-as" (append wasm-features (list adapter-wat "-o" adapter)))
         (apply run-tool "WASM_MERGE" "wasm-merge" "-g"
-               (append wasm-features (list module "snail.abi" runtime "snail.library" adapter "snail.platform" "-o" linked)))
-        (apply wasm-opt linked output "--remove-exports" "--pass-arg=remove-exports@snail:*,diagnostics/*"
+               (append wasm-features
+                       (list module
+                             "snail.abi"
+                             runtime
+                             "snail.library"
+                             adapter
+                             "snail.platform"
+                             "-o"
+                             linked)))
+        (apply wasm-opt
+               linked
+               output
+               "--remove-exports"
+               "--pass-arg=remove-exports@snail:*,diagnostics/*"
                (optimization release?))))
 
     ;; ---- Artifacts ----
@@ -402,7 +491,13 @@
         (create-directory* (path-directory output))
         (let ((links (with-private-directory root
                                              (lambda (directory)
-                                               (run-compiler-into root (selected-compiler root) "wat" directories source wat directory)
+                                               (run-compiler-into root
+                                                                  (selected-compiler root)
+                                                                  "wat"
+                                                                  directories
+                                                                  source
+                                                                  wat
+                                                                  directory)
                                                (read-links directory)))))
           (link-wat-file root wat output release?)
           (place-links! links (path-directory output))
@@ -412,7 +507,11 @@
     ;; from a reused process id is skipped, never adopted or removed.
     (define (create-staging-directory output)
       (set! private-count (+ private-count 1))
-      (let ((directory (path-join output (string-append ".snail-" (number->string (current-process-id)) "-" (number->string private-count)))))
+      (let ((directory (path-join output
+                                  (string-append ".snail-"
+                                                 (number->string (current-process-id))
+                                                 "-"
+                                                 (number->string private-count)))))
         (cond ((create-directory directory #o700) directory)
               ((file-link-status directory) (create-staging-directory output))
               (else (error "cannot stage program in output directory" output)))))
@@ -427,7 +526,9 @@
         (lambda (port)
           (let loop ((links '()))
             (let ((entry (read port)))
-              (if (eof-object? entry) (reverse links) (loop (cons (cons (car entry) (cadr entry)) links))))))))
+              (if (eof-object? entry)
+                  (reverse links)
+                  (loop (cons (cons (car entry) (cadr entry)) links))))))))
 
     ;; Each file goes to resources/NAME in `directory`, beside the payload,
     ;; where both hosts read it before the program starts.
@@ -447,7 +548,13 @@
       (create-directory* output)
       (let* ((links (with-private-directory root
                                             (lambda (generated)
-                                              (run-compiler-into root (selected-compiler root) "modules" directories source output generated)
+                                              (run-compiler-into root
+                                                                 (selected-compiler root)
+                                                                 "modules"
+                                                                 directories
+                                                                 source
+                                                                 output
+                                                                 generated)
                                               (read-links generated))))
              (names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble (path-join output name))) names)
@@ -458,14 +565,20 @@
 
     ;; PATH.wat to PATH.wasm.
     (define (assemble path)
-      (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list (string-append path ".wat") "-o" (string-append path ".wasm")))))
+      (apply run-tool
+             "WASM_AS"
+             "wasm-as"
+             "-g"
+             (append wasm-features
+                     (list (string-append path ".wat") "-o" (string-append path ".wasm")))))
 
     (define (read-lines path)
       (let loop ((lines '()) (rest (read-file path)))
         (let ((cursor (string-contains rest "\n")))
           (if cursor
               (let ((end (string-cursor->index rest cursor)))
-                (loop (cons (substring rest 0 end) lines) (substring rest (+ end 1) (string-length rest))))
+                (loop (cons (substring rest 0 end) lines)
+                      (substring rest (+ end 1) (string-length rest))))
               (reverse lines)))))
 
     (define (modules-json names)
@@ -473,8 +586,12 @@
                      (let loop ((names names) (out ""))
                        (if (null? names)
                            out
-                           (loop (cdr names) (string-append out (if (string=? out "") "" ", ") "{\"name\": \"" (car names)
-                                                            "\", \"file\": \"" (car names) ".wasm\"}"))))
+                           (loop (cdr names)
+                                 (string-append out
+                                                (if (string=? out "") "" ", ")
+                                                "{\"name\": \""
+                                                (car names)
+                                                "\", \"file\": \"" (car names) ".wasm\"}"))))
                      "]}\n"))
 
     ;; ---- Development tools ----
@@ -486,37 +603,55 @@
     (define (build-tools root)
       (let ((directory (path-join root "build/develop")))
         (create-directory* directory)
-        (list (cons "develop" (build-tool root (path-join root "bootstrap/develop.sld") (path-join directory "develop.wasm")
-                                          (standard-directories root)))
-              (cons "client" (build-tool root (path-join root "host/browser/reload.sld") (path-join directory "reload.wasm")
-                                         (standard-directories root)))
+        (list (cons "develop"
+                    (build-tool root
+                                (path-join root "bootstrap/develop.sld")
+                                (path-join directory "develop.wasm")
+                                (standard-directories root)))
+              (cons "client"
+                    (build-tool root
+                                (path-join root "host/browser/reload.sld")
+                                (path-join directory "reload.wasm")
+                                (standard-directories root)))
               (cons "runtime" (build-crate root "runtime"))
               (cons "assembler" (build-crate root "assembler")))))
 
     ;; The shared native project builder uses the resident compiler boundary.
     ;; The old application loop remains a separate tool until dev replaces it.
     (define (build-project-tools root)
-      (list (cons "compiler" (build-tool root (path-join root "bootstrap/compiler.sld") (path-join root "build/project/compiler.wasm")
-                                         (standard-directories root)))
+      (list (cons "compiler"
+                  (build-tool root
+                              (path-join root "bootstrap/compiler.sld")
+                              (path-join root "build/project/compiler.wasm")
+                              (standard-directories root)))
             (cons "runtime" (build-crate root "runtime"))
             (cons "assembler" (build-crate root "assembler"))))
 
     ;; The editor adds only its formatter to the native project tools.
     (define (build-editor-tools root)
-      (cons (cons "formatter" (build-tool root (path-join root "host/ide/format.sld") (path-join root "build/ide-tools/format.wasm")
-                                          (standard-directories root)))
+      (cons (cons "formatter"
+                  (build-tool root
+                              (path-join root "host/ide/format.sld")
+                              (path-join root "build/ide-tools/format.wasm")
+                              (standard-directories root)))
             (build-project-tools root)))
 
     ;; The book's highlighter, which host/native/highlight-book.mjs runs while
     ;; mdbook builds the book.
     (define (build-book-tools root)
-      (list (cons "highlighter" (build-tool root (path-join root "host/native/highlight.sld") (path-join root "build/book-tools/highlight.wasm")
-                                            (standard-directories root)))))
+      (list (cons "highlighter"
+                  (build-tool root
+                              (path-join root "host/native/highlight.sld")
+                              (path-join root "build/book-tools/highlight.wasm")
+                              (standard-directories root)))))
 
     ;; A program the tools run, built from `source` with the libraries in
     ;; `directories` when it is stale.
     (define (build-tool root source output directories)
-      (rebuild-if-stale! root output (cons source directories) (lambda () (build-program root directories source output #f))))
+      (rebuild-if-stale! root
+                         output
+                         (cons source directories)
+                         (lambda () (build-program root directories source output #f))))
 
     ;; ---- Failures ----
 
@@ -534,7 +669,8 @@
       (let ((port (open-output-string)))
         (if (error-object? failure)
             (begin (display (error-object-message failure) port)
-                   (for-each (lambda (irritant) (display " " port) (write irritant port)) (error-object-irritants failure)))
+                   (for-each (lambda (irritant) (display " " port) (write irritant port))
+                             (error-object-irritants failure)))
             (write failure port))
         (get-output-string port)))
 
@@ -555,8 +691,16 @@
         (with-private-directory root
                                 (lambda (directory)
                                   (prepare directory)
-                                  (run-compiler-into root (list "sh" (path-join root "tests/compiler-inputs/compiler.sh") scenario)
-                                                     "wat" '() "source.sld" (path-join directory "output.wat") directory))))
+                                  (run-compiler-into root
+                                                     (list "sh"
+                                                           (path-join root
+                                                                      "tests/compiler-inputs/compiler.sh")
+                                                           scenario)
+                                                     "wat"
+                                                     '()
+                                                     "source.sld"
+                                                     (path-join directory "output.wat")
+                                                     directory))))
 
       (define (expect-request-error thunk wanted)
         (let ((actual (request-failure thunk)))
@@ -569,8 +713,12 @@
                                 (lambda (directory)
                                   (let* ((request (path-join directory "request.datum"))
                                          (command (append (chibi-compiler root)
-                                                          (list "wat" (path-join root "tests/artifacts/native.sld")
-                                                                (path-join directory "output.wat") directory (path-join root "src")))))
+                                                          (list "wat"
+                                                                (path-join root
+                                                                           "tests/artifacts/native.sld")
+                                                                (path-join directory "output.wat")
+                                                                directory
+                                                                (path-join root "src")))))
                                     (expect (caddr (capture-process command)) 256)
                                     (expect (match (parse-request (read-file request) request)
                                               ((ArtifactInput "client" _) #t) (_ #f)) #t)
@@ -581,20 +729,40 @@
       (define (test-build root)
         (test-source-request-status root)
         (expect-request-error
-         (lambda () (test-request root "stderr" (lambda (directory) (write-file (path-join directory "request.datum") "(artifact \"stale\" \"old.sld\" 1 1)"))))
+         (lambda ()
+           (test-request root
+                         "stderr"
+                         (lambda (directory)
+                           (write-file (path-join directory "request.datum")
+                                       "(artifact \"stale\" \"old.sld\" 1 1)"))))
          "generate 123")
-        (test-request root "stale" (lambda (directory) (write-file (path-join directory "request.datum") "(generate \"123\")")))
-        (expect-request-error (lambda () (test-request root "malformed" (lambda (_) #f))) "expected exactly one")
-        (expect-request-error (lambda () (test-request root "success-request" (lambda (_) #f))) "succeeded with a pending")
-        (expect-request-error (lambda () (test-request root "publication-failed" (lambda (_) #f))) "input publication failed")
-        (expect-request-error (lambda () (test-request root "generated" (lambda (directory) (write-file (path-join directory "123.syntax") "()"))))
+        (test-request root
+                      "stale"
+                      (lambda (directory)
+                        (write-file (path-join directory "request.datum") "(generate \"123\")")))
+        (expect-request-error (lambda () (test-request root "malformed" (lambda (_) #f)))
+                              "expected exactly one")
+        (expect-request-error (lambda () (test-request root "success-request" (lambda (_) #f)))
+                              "succeeded with a pending")
+        (expect-request-error (lambda () (test-request root "publication-failed" (lambda (_) #f)))
+                              "input publication failed")
+        (expect-request-error (lambda ()
+                                (test-request root
+                                              "generated"
+                                              (lambda (directory)
+                                                (write-file (path-join directory "123.syntax")
+                                                            "()"))))
                               "already provided generated library")
         (expect-request-error (lambda () (test-request root "artifact" (lambda (_) #f)))
                               "application.sld:3:8: artifact-bundle requires a project build resolver")
         ;; Simulate a reused process id/counter. The allocator must leave
         ;; the previous compile and its stale generated input untouched.
         (let* ((parent (path-join root "build/snail-run"))
-               (old (path-join parent (string-append ".snail-" (number->string (current-process-id)) "-" (number->string (+ private-count 1)))))
+               (old (path-join parent
+                               (string-append ".snail-"
+                                              (number->string (current-process-id))
+                                              "-"
+                                              (number->string (+ private-count 1)))))
                (sentinel (path-join old "123.syntax")))
           (unless (create-directory old #o700) (error "test scratch collision" old))
           (write-file sentinel "old compile")

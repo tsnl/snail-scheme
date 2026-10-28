@@ -39,7 +39,8 @@
       (let loop ((index 0) (hash -3750763034362895579))
         (if (= index (string-length key))
             hash
-            (loop (+ index 1) (* (i64-xor hash (char->integer (string-ref key index))) 1099511628211)))))
+            (loop (+ index 1)
+                  (* (i64-xor hash (char->integer (string-ref key index))) 1099511628211)))))
 
     (: below (-> I64 I64 I64))
     (define (below hash bit)
@@ -68,10 +69,14 @@
             ((Empty) (Leaf hash (list (Pair key value))))
             ((Leaf leaf-hash entries)
              (if (= leaf-hash hash)
-                 (Leaf hash (Cons (Pair key value) (filter (lambda (entry) (not (string=? (Pair-first entry) key))) entries)))
+                 (Leaf hash
+                       (Cons (Pair key value)
+                             (filter (lambda (entry) (not (string=? (Pair-first entry) key)))
+                                     entries)))
                  (join hash (Leaf hash (list (Pair key value))) leaf-hash table)))
             ((Branch prefix bit zero one)
-             (cond ((not (= (below hash bit) prefix)) (join hash (Leaf hash (list (Pair key value))) prefix table))
+             (cond ((not (= (below hash bit) prefix))
+                    (join hash (Leaf hash (list (Pair key value))) prefix table))
                    ((= (i64-and hash bit) 0) (Branch prefix bit (insert zero) one))
                    (else (Branch prefix bit zero (insert one)))))))))
 

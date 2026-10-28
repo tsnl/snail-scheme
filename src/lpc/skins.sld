@@ -7,4 +7,5 @@
                    (snail-core base)
                    (snail-core io)
                    (lpc embed))
-                  (ramps-library (list "lpc" "skins") "src/lpc/lpc-character-bases-v3_1/_build/palettes/skin.json"))
+                  (ramps-library (list "lpc" "skins")
+                                 "src/lpc/lpc-character-bases-v3_1/_build/palettes/skin.json"))

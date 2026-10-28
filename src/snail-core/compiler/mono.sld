@@ -45,8 +45,11 @@
 
     (: prepare-specialization (-> Typed Specialization))
     (define (prepare-specialization typed)
-      (let ((instances (fold-left (lambda (table instance) (table-set table (Instance-name instance) instance))
-                                  empty-table (concatenate (table-values (Program-instances (Typed-program typed)))))))
+      (let ((instances (fold-left (lambda (table instance)
+                                    (table-set table (Instance-name instance) instance))
+                                  empty-table
+                                  (concatenate
+                                   (table-values (Program-instances (Typed-program typed)))))))
         (Specialization typed instances (item-definitions (Typed-items typed)))))
 
     ;; Every emission owns fresh requests, copies in creation order, and
@@ -95,10 +98,13 @@
     ;; instances the types determine the evidence.
     (: request! (-> State String (List Type) (List Evidence) String ! mut))
     (define (request! state name types evidence)
-      (let ((spec (if (null? types) name (string-append name "<" (string-join (map spec-key types) ",") ">"))))
+      (let ((spec (if (null? types)
+                      name
+                      (string-append name "<" (string-join (map spec-key types) ",") ">"))))
         (unless (table-contains? (ref-get (State-done state)) spec)
           (ref-set! (State-done state) (table-set (ref-get (State-done state)) spec spec))
-          (ref-set! (State-pending state) (Cons (Request name spec types evidence) (ref-get (State-pending state)))))
+          (ref-set! (State-pending state)
+                    (Cons (Request name spec types evidence) (ref-get (State-pending state)))))
         spec))
 
     (: run-requests! (-> State Unit ! mut))
@@ -114,11 +120,15 @@
     (define (specialize-request! state request)
       (let* ((name (Request-name request))
              (scheme (scheme-of state name))
-             (inst (Instantiation (zip (Scheme-vars scheme) (Request-types request)) (Request-evidence request) (State-control state)))
+             (inst (Instantiation (zip (Scheme-vars scheme) (Request-types request))
+                                  (Request-evidence request)
+                                  (State-control state)))
              (value (copy-expr state inst (definition state name)))
              (copies (copies-of state name)))
         (ref-set! (State-specialized state)
-                  (table-set (ref-get (State-specialized state)) name (append copies (list (Define (Request-spec request) value)))))))
+                  (table-set (ref-get (State-specialized state))
+                             name
+                             (append copies (list (Define (Request-spec request) value)))))))
 
     (: copies-of (-> State String (List Item) ! mut))
     (define (copies-of state name)
@@ -140,7 +150,9 @@
       (match type
         ((TCon name args) (TCon name (map (lambda (arg) (erase-rows control arg)) args)))
         ((TFun params result row)
-         (TFun (map (lambda (param) (erase-rows control param)) params) (erase-rows control result) (control-row control row)))
+         (TFun (map (lambda (param) (erase-rows control param)) params)
+               (erase-rows control result)
+               (control-row control row)))
         ((TRow _ _) (control-row control type))
         (_ type)))
 
@@ -166,7 +178,12 @@
         ((TCon name (Nil)) name)
         ((TCon name args) (string-append name "<" (string-join (map spec-key args) ",") ">"))
         ((TFun params result row)
-         (string-append "fn<" (string-join (map spec-key params) ",") "->" (spec-key result) ">" (control-suffix row)))
+         (string-append "fn<"
+                        (string-join (map spec-key params) ",")
+                        "->"
+                        (spec-key result)
+                        ">"
+                        (control-suffix row)))
         ((TRow _ _) (string-append "row" (control-suffix type)))
         (_ (type-key type))))
 
@@ -179,7 +196,9 @@
       (match evidence
         ((EvParam index) (list-ref (Instantiation-evidence inst) index))
         ((EvInstance instance types subs)
-         (EvInstance instance (map (lambda (type) (ground inst type)) types) (map (lambda (sub) (ground-evidence inst sub)) subs)))
+         (EvInstance instance
+                     (map (lambda (type) (ground inst type)) types)
+                     (map (lambda (sub) (ground-evidence inst sub)) subs)))
         ((EvHole _) (panic "internal error: unsolved evidence"))))
 
     (: copy-expr (-> State Instantiation Expr Expr ! mut))
@@ -187,7 +206,12 @@
       (let ((type (ground inst (Expr-type expr))) (loc (Expr-loc expr)))
         (match (Expr-term expr)
           ((Var name types evidence)
-           (reference state name (map (lambda (t) (ground inst t)) types) (map (lambda (e) (ground-evidence inst e)) evidence) type loc))
+           (reference state
+                      name
+                      (map (lambda (t) (ground inst t)) types)
+                      (map (lambda (e) (ground-evidence inst e)) evidence)
+                      type
+                      loc))
           (term (Expr (copy-term state inst term) type loc)))))
 
     (: copy-term (-> State Instantiation Term Term ! mut))
@@ -200,17 +224,28 @@
           ((Lit value) (Lit value))
           ((Var name types evidence) (Var name types evidence))
           ((Lambda params body) (Lambda params (copy body)))
-          ((App callee args) (let* ((callee (copy callee)) (args (map copy args))) (App callee args)))
-          ((If test then otherwise) (let* ((test (copy test)) (then (copy then)) (otherwise (copy otherwise))) (If test then otherwise)))
-          ((Let name value body) (let* ((value (copy value)) (body (copy body))) (Let name value body)))
+          ((App callee args)
+           (let* ((callee (copy callee)) (args (map copy args))) (App callee args)))
+          ((If test then otherwise)
+           (let* ((test (copy test))
+                  (then (copy then))
+                  (otherwise (copy otherwise)))
+             (If test then otherwise)))
+          ((Let name value body)
+           (let* ((value (copy value)) (body (copy body))) (Let name value body)))
           ((Seq first rest) (let* ((first (copy first)) (rest (copy rest))) (Seq first rest)))
           ((Match scrutinee clauses)
            (let* ((scrutinee (copy scrutinee))
-                  (clauses (map (lambda (clause) (Clause (copy-pattern inst (Clause-pattern clause)) (copy (Clause-body clause)))) clauses)))
+                  (clauses (map (lambda (clause)
+                                  (Clause (copy-pattern inst (Clause-pattern clause))
+                                          (copy (Clause-body clause))))
+                                clauses)))
              (Match scrutinee clauses)))
           ((Ann inner type) (Ann (copy inner) (ground inst type)))
           ((Handle effect implementations body)
-           (let* ((implementations (map (lambda (entry) (Pair (Pair-first entry) (copy (Pair-second entry)))) implementations))
+           (let* ((implementations
+                   (map (lambda (entry) (Pair (Pair-first entry) (copy (Pair-second entry))))
+                        implementations))
                   (body (copy body)))
              (Handle effect implementations body)))
           ((Convert inner target) (Convert (copy inner) (ground inst target)))
@@ -222,7 +257,8 @@
         ((PWild type) (PWild (ground inst type)))
         ((PVar name type) (PVar name (ground inst type)))
         ((PLit value type) (PLit value (ground inst type)))
-        ((PCon constructor args type) (PCon constructor (map (lambda (arg) (copy-pattern inst arg)) args) (ground inst type)))))
+        ((PCon constructor args type)
+         (PCon constructor (map (lambda (arg) (copy-pattern inst arg)) args) (ground inst type)))))
 
     ;; ---- References ----
 
@@ -236,7 +272,9 @@
          (match evidence
            ((Cons (EvInstance instance instance-types subs) rest)
             (let ((class-arity (length (Class-params (program-class (program-of state) class)))))
-              (definition-reference state (instance-method state instance name) (append instance-types (drop types class-arity))
+              (definition-reference state
+                (instance-method state instance name)
+                (append instance-types (drop types class-arity))
                 (append subs rest) type loc)))
            (_ (panic "internal error: a method needs instance evidence"))))
         ((Some (Operation effect _)) (operation-reference state effect name type loc))
@@ -248,7 +286,14 @@
     (: operation-reference (-> State String String Type Loc Expr ! mut))
     (define (operation-reference state effect name type loc)
       (match (assoc-ref (Effect-defaults (program-effect (program-of state) effect)) name)
-        ((Some (SnailDefault function)) (definition-reference state function (Nil) (Nil) (Scheme-type (scheme-of state function)) loc) (unit))
+        ((Some (SnailDefault function))
+         (definition-reference state
+           function
+           (Nil)
+           (Nil)
+           (Scheme-type (scheme-of state function))
+           loc)
+         (unit))
         (_ (unit)))
       (Expr (Var name (Nil) (Nil)) type loc))
 
@@ -270,10 +315,16 @@
         (match (Expr-term value)
           ((Var _ _ _)
            (let ((scheme (scheme-of state name)))
-             (copy-expr state (Instantiation (zip (Scheme-vars scheme) types) evidence (State-control state)) value)))
+             (copy-expr state
+                        (Instantiation (zip (Scheme-vars scheme) types)
+                                       evidence
+                                       (State-control state))
+                        value)))
           (_ (if (external? state name types)
-                 (begin (ref-set! (State-externals state) (table-set (ref-get (State-externals state)) name value))
-                        (Expr (Var name (Nil) (Nil)) type loc))
+                 (begin
+                   (ref-set! (State-externals state)
+                             (table-set (ref-get (State-externals state)) name value))
+                   (Expr (Var name (Nil) (Nil)) type loc))
                  (Expr (Var (request! state name types evidence) (Nil) (Nil)) type loc))))))
 
     (: external? (-> State String (List Type) Bool))
@@ -302,7 +353,8 @@
     (: insert-name (-> String (List String) (List String)))
     (define (insert-name name sorted)
       (match sorted
-        ((Cons first rest) (if (string<? first name) (Cons first (insert-name name rest)) (Cons name sorted)))
+        ((Cons first rest)
+         (if (string<? first name) (Cons first (insert-name name rest)) (Cons name sorted)))
         ((Nil) (list name))))
 
     ;; Statements and monomorphic top-level values are roots, so their
@@ -313,8 +365,10 @@
       (let* ((items (Typed-items typed)) (state (new-state (prepare-specialization typed) (None)))
              (statements (map (lambda (item) (root-item state item)) items)))
         (run-requests! state)
-        (finish-mono state (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair)))
-                                             (zip items statements))) (Nil))))
+        (finish-mono state
+                     (concatenate
+                      (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair)))
+                           (zip items statements))) (Nil))))
 
     ;; One library's items, `items` among the program's. Every monomorphic
     ;; definition is a root, since any module may import it. Copies of other
@@ -322,20 +376,33 @@
     ;; in program order, as those libraries come before it.
     (: monomorphize-library (-> Specialization String (List Item) Mono ! mut))
     (define (monomorphize-library input owner items)
-      (let* ((typed (Specialization-typed input)) (state (new-state input (Some owner))) (exported (library-roots state items))
+      (let* ((typed (Specialization-typed input))
+             (state (new-state input (Some owner)))
+             (exported (library-roots state items))
              (statements (map (lambda (item) (root-item state item)) items)))
         (run-requests! state)
         (finish-mono state
-                     (append (concatenate (map (lambda (item) (foreign-copies state owner item)) (Typed-items typed)))
-                             (concatenate (map (lambda (pair) (output-items state (Pair-first pair) (Pair-second pair))) (zip items statements))))
+                     (append (concatenate (map (lambda (item) (foreign-copies state owner item))
+                                               (Typed-items typed)))
+                             (concatenate (map (lambda (pair)
+                                                 (output-items state
+                                                               (Pair-first pair)
+                                                               (Pair-second pair)))
+                                               (zip items statements))))
                      exported)))
 
     ;; Specialization has selected concrete method implementations. Check
     ;; handler environments before handing this evidence to the backend.
     (: finish-mono (-> State (List Item) (List String) Mono ! mut))
     (define (finish-mono state items exported)
-      (check-handlers (program-of state) (table-union (Specialization-definitions (State-input state)) (item-definitions items)) items)
-      (Mono (program-of state) (own-items (program-of state) items) (ref-get (State-externals state)) exported))
+      (check-handlers (program-of state)
+                      (table-union (Specialization-definitions (State-input state))
+                                   (item-definitions items))
+                      items)
+      (Mono (program-of state)
+            (own-items (program-of state) items)
+            (ref-get (State-externals state))
+            exported))
 
     ;; Requests the library's monomorphic functions, which `root-item` leaves
     ;; until something reaches them, and returns every name it exports.
@@ -344,7 +411,8 @@
       (concatenate (map (lambda (item)
                           (match item
                             ((Define name value)
-                             (if (and (null? (Scheme-vars (scheme-of state name))) (not (alias-expr? value)))
+                             (if (and (null? (Scheme-vars (scheme-of state name)))
+                                      (not (alias-expr? value)))
                                  (begin (request! state name (Nil) (Nil)) (list name))
                                  (Nil)))
                             (_ (Nil))))
@@ -361,12 +429,14 @@
     (define (root-item state item)
       (match item
         ((Expose name _ _ _) (request! state name (Nil) (Nil)) (None))
-        ((Do expr) (Some (Do (copy-expr state (Instantiation (Nil) (Nil) (State-control state)) expr))))
+        ((Do expr)
+         (Some (Do (copy-expr state (Instantiation (Nil) (Nil) (State-control state)) expr))))
         ((Define name value)
          (let ((scheme (scheme-of state name)))
-           (if (and (null? (Scheme-vars scheme)) (not (lambda-expr? value)) (not (alias-expr? value)))
-               (begin (request! state name (Nil) (Nil)) (None))
-               (None))))))
+           (if
+            (and (null? (Scheme-vars scheme)) (not (lambda-expr? value)) (not (alias-expr? value)))
+            (begin (request! state name (Nil) (Nil)) (None))
+            (None))))))
 
     ;; Each definition's copies take its place in program order.
     (: output-items (-> State Item (Option Item) (List Item) ! mut))
@@ -404,13 +474,16 @@
           (expect (erase-rows control row) (TRow (list "abort" "gen") (None)))
           (expect (erase-rows (Nil) row) empty-row)
           (expect (erase-rows control (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) row))
-                  (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) (TRow (list "abort" "gen") (None))))))
+                  (TFun (list (TCon "I64" (Nil)))
+                        (TCon "Unit" (Nil))
+                        (TRow (list "abort" "gen") (None))))))
 
       ;; Without control effects a name is what `type-key` gives, so pure
       ;; code keeps its names; with one, the name says so.
       (define (test-spec-keys)
         (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) empty-row))
-              (control (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) (TRow (list "gen") (None)))))
+              (control
+               (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) (TRow (list "gen") (None)))))
           (expect (spec-key pure) (type-key pure))
           (expect (spec-key (TCon "List" (list pure))) (type-key (TCon "List" (list pure))))
           (expect (spec-key control) "fn<I64->I64>!gen")

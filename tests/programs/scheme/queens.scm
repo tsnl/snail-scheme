@@ -19,7 +19,9 @@
                           (if (> column board-size)
                               (reverse found)
                               (collect (+ column 1)
-                                       (if (safe? column placed) (cons (cons column placed) found) found)))))
+                                       (if (safe? column placed)
+                                           (cons (cons column placed) found)
+                                           found)))))
                       smaller)))))
   (place board-size))
 

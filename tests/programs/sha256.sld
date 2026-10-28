@@ -18,14 +18,19 @@
 (digest (string->utf8 ""))
 (digest (string->utf8 "abc"))
 (digest (string->utf8 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))
-(digest (string->utf8 "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"))
+(digest
+ (string->utf8
+  "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"))
 (digest (make-vector 1000000 (i32->u8 97)))
-(for-each (lambda (length) (digest (make-vector length (i32->u8 120)))) (list 1 55 56 57 63 64 65 119 120 128))
+(for-each (lambda (length) (digest (make-vector length (i32->u8 120))))
+          (list 1 55 56 57 63 64 65 119 120 128))
 (digest (vector-generate 256 (lambda (index) (i32->u8 (i64->i32 index)))))
 (digest (string->utf8 "λ € 😀"))
 
 (let ((image (read-bytes "tests/programs/data/pixel.png")))
   (digest image)
-  (let ((frame (string->utf8 (json->string (JsonArray (list (JsonString "pixel.png") (JsonInteger (vector-length image))))))))
+  (let ((frame (string->utf8 (json->string (JsonArray (list (JsonString "pixel.png")
+                                                            (JsonInteger
+                                                             (vector-length image))))))))
     (write-line (bytes->hex (sha256 (vector-append frame image))))))
 (write-line (bytes->hex #u8(0 1 15 16 127 128 254 255)))

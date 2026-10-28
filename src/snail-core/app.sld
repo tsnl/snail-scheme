@@ -287,7 +287,9 @@
     (define (recognize gestures input)
       (let ((contacts (Gestures-contacts gestures)))
         (match input
-          ((PointerDown pointer x y button) (Pair (Gestures (press-contact contacts (Contact pointer button x y x y (Holding)))) (Nil)))
+          ((PointerDown pointer x y button)
+           (Pair (Gestures (press-contact contacts (Contact pointer button x y x y (Holding))))
+                 (Nil)))
           ((PointerMove pointer x y) (move-contact contacts pointer x y))
           ((PointerUp pointer x y) (release-contact contacts pointer x y))
           ((PointerCancel pointer) (Pair (Gestures (without-contact contacts pointer)) (Nil)))
@@ -298,7 +300,9 @@
     (: press-contact (-> (List Contact) Contact (List Contact)))
     (define (press-contact contacts contact)
       (let ((pressed (append (without-contact contacts (Contact-pointer contact)) (list contact))))
-        (if (null? (cdr-list pressed)) pressed (map (lambda (c) (Contact-mode-set c (Pinched))) pressed))))
+        (if (null? (cdr-list pressed))
+            pressed
+            (map (lambda (c) (Contact-mode-set c (Pinched))) pressed))))
 
     (: cdr-list (All (T) (-> (List T) (List T))))
     (define (cdr-list items)
@@ -317,7 +321,11 @@
       (match (find (lambda (c) (= (Contact-pointer c) pointer)) contacts)
         ((Some contact) (if (null? (cdr-list contacts))
                             (lone-move contact x y)
-                            (let ((moved (map (lambda (c) (if (= (Contact-pointer c) pointer) (Contact-y-set (Contact-x-set c x) y) c)) contacts)))
+                            (let ((moved (map (lambda (c)
+                                                (if (= (Contact-pointer c) pointer)
+                                                    (Contact-y-set (Contact-x-set c x) y)
+                                                    c))
+                                              contacts)))
                               (Pair (Gestures moved) (pinch contacts moved)))))
         ((None) (Pair (Gestures contacts) (list (Point x y))))))
 
@@ -327,9 +335,13 @@
     (define (lone-move contact x y)
       (let ((moved (Contact-y-set (Contact-x-set contact x) y)))
         (match (Contact-mode contact)
-          ((Dragging) (Pair (Gestures (list moved)) (list (Drag (- x (Contact-x contact)) (- y (Contact-y contact))))))
+          ((Dragging)
+           (Pair (Gestures (list moved))
+                 (list (Drag (- x (Contact-x contact)) (- y (Contact-y contact))))))
           ((Holding) (if (far? contact x y)
-                         (Pair (Gestures (list (Contact-mode-set moved (Dragging)))) (list (Drag (- x (Contact-start-x contact)) (- y (Contact-start-y contact)))))
+                         (Pair (Gestures (list (Contact-mode-set moved (Dragging))))
+                               (list (Drag (- x (Contact-start-x contact))
+                                           (- y (Contact-start-y contact)))))
                          (Pair (Gestures (list moved)) (Nil))))
           ((Pinched) (Pair (Gestures (list moved)) (Nil))))))
 
@@ -347,8 +359,10 @@
     (: spread (-> (List Contact) F32))
     (define (spread contacts)
       (match contacts
-        ((Cons a (Cons b _)) (let ((dx (i32->f32 (- (Contact-x a) (Contact-x b)))) (dy (i32->f32 (- (Contact-y a) (Contact-y b)))))
-                               (sqrt (+ (* dx dx) (* dy dy)))))
+        ((Cons a (Cons b _))
+         (let ((dx (i32->f32 (- (Contact-x a) (Contact-x b))))
+               (dy (i32->f32 (- (Contact-y a) (Contact-y b)))))
+           (sqrt (+ (* dx dx) (* dy dy)))))
         (_ 0.0)))
 
     ;; Only a pointer still held, near where it went down, taps.
@@ -357,7 +371,10 @@
       (match (find (lambda (c) (= (Contact-pointer c) pointer)) contacts)
         ((Some contact) (Pair (Gestures (without-contact contacts pointer))
                               (match (Contact-mode contact)
-                                ((Holding) (if (far? contact x y) (Nil) (list (Tap x y (Contact-button contact)))))
+                                ((Holding)
+                                 (if (far? contact x y)
+                                     (Nil)
+                                     (list (Tap x y (Contact-button contact)))))
                                 (_ (Nil)))))
         ((None) (Pair (Gestures contacts) (Nil)))))
 
@@ -513,7 +530,14 @@
     ;; scene.
     (: sprite (-> Texture Vec3 F32 F32 Item))
     (define (sprite texture position width height)
-      (Item (Quad) position (Vec3 width height 1.0) 0.0 (rgb 255 255 255) 0.0 position (Material (Some texture) 0.0 1.0)
+      (Item (Quad)
+            position
+            (Vec3 width height 1.0)
+            0.0
+            (rgb 255 255 255)
+            0.0
+            position
+            (Material (Some texture) 0.0 1.0)
             (Upright)))
 
     ;; A texture lying on the ground, `width` by `height` world units, its
@@ -522,8 +546,17 @@
     ;; It shows the texture's own colors, unlit.
     (: flat-sprite (-> Texture Vec3 F32 F32 Item))
     (define (flat-sprite texture position width height)
-      (let ((center (Vec3 (Vec3-x position) (Vec3-y position) (- (Vec3-z position) (/ height 2.0)))))
-        (Item (Tile) center (Vec3 width 1.0 height) 0.0 (rgb 255 255 255) 1.0 center (Material (Some texture) 0.0 1.0) (Fixed))))
+      (let ((center
+             (Vec3 (Vec3-x position) (Vec3-y position) (- (Vec3-z position) (/ height 2.0)))))
+        (Item (Tile)
+              center
+              (Vec3 width 1.0 height)
+              0.0
+              (rgb 255 255 255)
+              1.0
+              center
+              (Material (Some texture) 0.0 1.0)
+              (Fixed))))
 
     ;; Solid batches hide what is behind them. Translucent ones are drawn
     ;; after, over them. A revealed batch shows only within `radius` of a
@@ -580,7 +613,13 @@
     ;; picture, each texel `scale` pixels wide.
     (enum Widget
       (Label ((look Look) (text String)))
-      (Button ((look Look) (text String) (caption String) (action I32) (argument I32) (control Control) (ring F32)))
+      (Button ((look Look)
+               (text String)
+               (caption String)
+               (action I32)
+               (argument I32)
+               (control Control)
+               (ring F32)))
       (Dial ((look Look) (text String) (fraction F32)))
       (Link ((look Look) (text String) (url String)))
       (Text ((look Look) (spans (List Span))))
@@ -681,26 +720,55 @@
     (define (render-camera view)
       (let ((eye (Camera-eye view)) (target (Camera-target view)))
         (match (Camera-projection view)
-          ((Perspective fov) (camera (Vec3-x eye) (Vec3-y eye) (Vec3-z eye) (Vec3-x target) (Vec3-y target) (Vec3-z target) 0 fov))
-          ((Orthographic height) (camera (Vec3-x eye) (Vec3-y eye) (Vec3-z eye) (Vec3-x target) (Vec3-y target) (Vec3-z target) 1 height)))))
+          ((Perspective fov)
+           (camera (Vec3-x eye)
+                   (Vec3-y eye)
+                   (Vec3-z eye)
+                   (Vec3-x target)
+                   (Vec3-y target)
+                   (Vec3-z target)
+                   0
+                   fov))
+          ((Orthographic height)
+           (camera (Vec3-x eye)
+                   (Vec3-y eye)
+                   (Vec3-z eye)
+                   (Vec3-x target)
+                   (Vec3-y target)
+                   (Vec3-z target)
+                   1
+                   height)))))
 
     (: render-light (-> Light Unit ! screen))
     (define (render-light sunlight)
       (let ((direction (Light-direction sunlight)))
-        (light (Vec3-x direction) (Vec3-y direction) (Vec3-z direction) (Light-sun sunlight) (Light-ambient sunlight))))
+        (light (Vec3-x direction)
+               (Vec3-y direction)
+               (Vec3-z direction)
+               (Light-sun sunlight)
+               (Light-ambient sunlight))))
 
     ;; A picture's layers travel only when the host lacks this version, and a
     ;; source's bytes only when the host has never decoded it.
     (: render-picture (-> Picture Unit ! screen))
     (define (render-picture picture)
-      (unless (picture-begin (Picture-key picture) (Picture-version picture) (Picture-width picture) (Picture-height picture))
+      (unless (picture-begin (Picture-key picture)
+                             (Picture-version picture)
+                             (Picture-width picture)
+                             (Picture-height picture))
         (for-each render-layer ((Picture-layers picture)))
         (picture-end)))
 
     (: render-layer (-> Layer Unit ! screen))
     (define (render-layer piece)
       (let ((from (Layer-from piece)) (source (Layer-source piece)))
-        (unless (layer (Source-key source) (Rect-x from) (Rect-y from) (Rect-width from) (Rect-height from) (Layer-x piece) (Layer-y piece))
+        (unless (layer (Source-key source)
+                       (Rect-x from)
+                       (Rect-y from)
+                       (Rect-width from)
+                       (Rect-height from)
+                       (Layer-x piece)
+                       (Layer-y piece))
           (send-source source))
         (for-each (lambda (pair) (swap (Pair-first pair) (Pair-second pair))) (Layer-swaps piece))))
 
@@ -713,7 +781,9 @@
         (let loop ((index 0))
           (when (< index count)
             (source-word (+ (byte index)
-                            (+ (i32-shift-left (byte (+ index 1)) 8) (+ (i32-shift-left (byte (+ index 2)) 16) (i32-shift-left (byte (+ index 3)) 24)))))
+                            (+ (i32-shift-left (byte (+ index 1)) 8)
+                               (+ (i32-shift-left (byte (+ index 2)) 16)
+                                  (i32-shift-left (byte (+ index 3)) 24)))))
             (loop (+ index 4))))))
 
     ;; The style travels with every frame; the items only when the host lacks
@@ -722,16 +792,32 @@
     (define (render-batch batch)
       (unless (match (Batch-style batch)
                 ((Solid) (batch-begin (Batch-key batch) (Batch-version batch) 0 1.0 0.0 0.0 0.0))
-                ((Translucent opacity) (batch-begin (Batch-key batch) (Batch-version batch) 1 opacity 0.0 0.0 0.0))
-                ((Revealed center radius) (batch-begin (Batch-key batch) (Batch-version batch) 2 1.0 (Vec3-x center) (Vec3-z center) radius)))
+                ((Translucent opacity)
+                 (batch-begin (Batch-key batch) (Batch-version batch) 1 opacity 0.0 0.0 0.0))
+                ((Revealed center radius)
+                 (batch-begin (Batch-key batch)
+                              (Batch-version batch)
+                              2
+                              1.0
+                              (Vec3-x center)
+                              (Vec3-z center)
+                              radius)))
         (for-each render-item ((Batch-items batch)))))
 
     (: render-item (-> Item Unit ! screen))
     (define (render-item item)
       (let ((position (Item-position item)) (scale (Item-scale item)) (from (Item-from item)))
-        (instance (mesh-index (Item-mesh item)) (Vec3-x position) (Vec3-y position) (Vec3-z position)
-                  (Vec3-x scale) (Vec3-y scale) (Vec3-z scale) (Item-yaw item) (Item-color item) (Item-glow item)
-                  (Vec3-x from) (Vec3-y from) (Vec3-z from))
+        (instance (mesh-index (Item-mesh item))
+          (Vec3-x position)
+          (Vec3-y position)
+          (Vec3-z position)
+          (Vec3-x scale)
+          (Vec3-y scale)
+          (Vec3-z scale)
+          (Item-yaw item)
+          (Item-color item)
+          (Item-glow item)
+          (Vec3-x from) (Vec3-y from) (Vec3-z from))
         (render-surface (Item-material item) (Item-facing item))))
 
     ;; A material and facing follow each instance: an untextured one names
@@ -742,9 +828,27 @@
         (match (Material-texture material)
           ((Some texture)
            (let ((region (Texture-region texture)))
-             (surface (Material-metalness material) (Material-roughness material) turn (Texture-picture texture)
-                      (Rect-x region) (Rect-y region) (Rect-width region) (Rect-height region) (Texture-frames texture) (Texture-period texture))))
-          ((None) (surface (Material-metalness material) (Material-roughness material) turn -1 0 0 0 0 1 1)))))
+             (surface (Material-metalness material)
+                      (Material-roughness material)
+                      turn
+                      (Texture-picture texture)
+                      (Rect-x region)
+                      (Rect-y region)
+                      (Rect-width region)
+                      (Rect-height region)
+                      (Texture-frames texture)
+                      (Texture-period texture))))
+          ((None)
+           (surface (Material-metalness material)
+                    (Material-roughness material)
+                    turn
+                    -1
+                    0
+                    0
+                    0
+                    0
+                    1
+                    1)))))
 
     ;; The order matches the meshes in host/browser/renderer.mjs.
     (: mesh-index (-> Mesh I32))
@@ -791,16 +895,34 @@
     (: render-widget (-> Widget Unit ! screen))
     (define (render-widget widget)
       (match widget
-        ((Label face text) (widget-begin 0 (tone-index (Look-tone face)) 0 0 0 0.0) (render-look face) (render-field 4 text))
+        ((Label face text)
+         (widget-begin 0 (tone-index (Look-tone face)) 0 0 0 0.0)
+         (render-look face)
+         (render-field 4 text))
         ((Button face text caption action argument control ring)
          (widget-begin 1 (tone-index (Look-tone face)) action argument (control-index control) ring)
          (render-look face) (render-field 4 text) (render-field 5 caption))
-        ((Dial face text fraction) (widget-begin 2 (tone-index (Look-tone face)) 0 0 0 fraction) (render-look face) (render-field 4 text))
-        ((Link face text url) (widget-begin 3 (tone-index (Look-tone face)) 0 0 0 0.0) (render-look face) (render-field 4 text) (render-field 6 url))
-        ((Text face spans) (widget-begin 4 (tone-index (Look-tone face)) 0 0 0 0.0) (render-look face) (for-each render-span spans))
+        ((Dial face text fraction)
+         (widget-begin 2 (tone-index (Look-tone face)) 0 0 0 fraction)
+         (render-look face)
+         (render-field 4 text))
+        ((Link face text url)
+         (widget-begin 3 (tone-index (Look-tone face)) 0 0 0 0.0)
+         (render-look face)
+         (render-field 4 text)
+         (render-field 6 url))
+        ((Text face spans)
+         (widget-begin 4 (tone-index (Look-tone face)) 0 0 0 0.0)
+         (render-look face)
+         (for-each render-span spans))
         ((Image face picture region scale)
          (widget-begin 5 (tone-index (Look-tone face)) 0 0 0 0.0)
-         (widget-image picture (Rect-x region) (Rect-y region) (Rect-width region) (Rect-height region) scale)
+         (widget-image picture
+                       (Rect-x region)
+                       (Rect-y region)
+                       (Rect-width region)
+                       (Rect-height region)
+                       scale)
          (render-look face))))
 
     (: render-span (-> Span Unit ! screen))
@@ -863,10 +985,14 @@
         (match (Camera-projection view)
           ((Perspective fov)
            (let ((half (f64->f32 (tan (/ (f32->f64 fov) 2.0)))))
-             (Ray eye (normalize (add forward (add (scale right (* px (* half aspect))) (scale up (* py half))))))))
+             (Ray eye
+                  (normalize (add forward
+                                  (add (scale right (* px (* half aspect)))
+                                       (scale up (* py half))))))))
           ((Orthographic height)
            (let ((half (/ height 2.0)))
-             (Ray (add eye (add (scale right (* px (* half aspect))) (scale up (* py half)))) forward))))))
+             (Ray (add eye (add (scale right (* px (* half aspect))) (scale up (* py half))))
+                  forward))))))
 
     ;; The directions of the screen's right and up in the world. A camera
     ;; looking straight down has up toward -z, so it shows the ground as a
@@ -882,7 +1008,9 @@
     ;; Where the ray through pixel (x, y) meets the ground plane y = 0.
     (: ground-point (-> Camera I32 I32 I32 I32 (Option Vec3)))
     (define (ground-point view x y width height)
-      (let* ((ray (pointer-ray view x y width height)) (origin (Ray-origin ray)) (direction (Ray-direction ray)))
+      (let* ((ray (pointer-ray view x y width height))
+             (origin (Ray-origin ray))
+             (direction (Ray-direction ray)))
         (if (>= (Vec3-y direction) 0.0)
             (None)
             (Some (add origin (scale direction (/ (negate (Vec3-y origin)) (Vec3-y direction))))))))
@@ -907,7 +1035,10 @@
 
     (: normalize (-> Vec3 Vec3))
     (define (normalize v)
-      (scale v (/ 1.0 (sqrt (+ (* (Vec3-x v) (Vec3-x v)) (+ (* (Vec3-y v) (Vec3-y v)) (* (Vec3-z v) (Vec3-z v))))))))
+      (scale v
+             (/ 1.0
+                (sqrt (+ (* (Vec3-x v) (Vec3-x v))
+                         (+ (* (Vec3-y v) (Vec3-y v)) (* (Vec3-z v) (Vec3-z v))))))))
 
     ;; ---- Application events ----
 
@@ -942,7 +1073,11 @@
         (11 (FrameEvent (event-field 0)))
         (12 (Hidden))
         (13 (Reload))
-        (kind (InputEvent (decode-input kind (event-field 0) (event-field 1) (event-field 2) (event-field 3))))))
+        (kind (InputEvent (decode-input kind
+                                        (event-field 0)
+                                        (event-field 1)
+                                        (event-field 2)
+                                        (event-field 3))))))
 
     ;; The application root owns this checkpoint protocol. Detached tasks
     ;; need their own storage binding; they cannot replace the loop's save.
@@ -960,7 +1095,8 @@
       (let ((count (load-count)))
         (if (< count 0)
             (None)
-            (Some (vector-generate (i32->i64 count) (lambda (index) (loaded-byte (i64->i32 index))))))))
+            (Some
+             (vector-generate (i32->i64 count) (lambda (index) (loaded-byte (i64->i32 index))))))))
 
     ;; Instantiate the result and row on reset, not on the returned binder.
     ;; An application can replace this binder to install handlers for the run.
@@ -981,7 +1117,12 @@
       (syntax-rules (reset: effects: init: update: view: hud: save: restore:)
         ((_ State (reset: reset-run) (init: initialize) more ...)
          (define-application State (reset: reset-run) (effects:) (init: initialize) more ...))
-        ((_ State (reset: reset-run) (effects: effect ...) (init: initialize) (update: step) (view: draw)
+        ((_ State
+            (reset: reset-run)
+            (effects: effect ...)
+            (init: initialize)
+            (update: step)
+            (view: draw)
             (hud: panels) (save: save-state) (restore: restore-state))
          (begin
            (define current (ref (ann (None) (Option State))))
@@ -993,7 +1134,11 @@
              (match (load-save)
                ((Some bytes) (Some (Pair (app-restore-bytes bytes) 1)))
                ((None) (if cold?
-                           (Some (Pair ((ann initialize (-> I32 I32 I32 State)) (random-seed) (canvas-width) (canvas-height)) 2))
+                           (Some (Pair ((ann initialize (-> I32 I32 I32 State))
+                                        (random-seed)
+                                        (canvas-width)
+                                        (canvas-height))
+                                       2))
                            (None)))))
 
            (: app-boot (-> (Option Any) (Option (Pair State I32)) ! events storage))
@@ -1033,7 +1178,8 @@
              (match (next-event)
                ((FrameEvent elapsed) (app-frame state elapsed since-hud since-save))
                ((InputEvent input)
-                (let* ((next ((ann step (-> State Input State)) state input)) (widgets ((ann panels (-> State (List Panel))) next)))
+                (let* ((next ((ann step (-> State Input State)) state input))
+                       (widgets ((ann panels (-> State (List Panel))) next)))
                   (render-hud widgets)
                   (app-run next 0 since-save)))
                ((Hidden) (store-save (app-save-bytes state)) (app-run state since-hud 0))

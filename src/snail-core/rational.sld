@@ -51,11 +51,14 @@
     (define (rational->string r)
       (if (rational-integer? r)
           (integer->string (Rational-numerator r))
-          (string-append (integer->string (Rational-numerator r)) "/" (integer->string (Rational-denominator r)))))
+          (string-append (integer->string (Rational-numerator r))
+                         "/"
+                         (integer->string (Rational-denominator r)))))
 
     (: rational-add (-> Rational Rational Rational))
     (define (rational-add a b)
-      (make-rational (+ (* (Rational-numerator a) (Rational-denominator b)) (* (Rational-numerator b) (Rational-denominator a)))
+      (make-rational (+ (* (Rational-numerator a) (Rational-denominator b))
+                        (* (Rational-numerator b) (Rational-denominator a)))
                      (* (Rational-denominator a) (Rational-denominator b))))
 
     (: rational-subtract (-> Rational Rational Rational))
@@ -64,15 +67,18 @@
 
     (: rational-multiply (-> Rational Rational Rational))
     (define (rational-multiply a b)
-      (make-rational (* (Rational-numerator a) (Rational-numerator b)) (* (Rational-denominator a) (Rational-denominator b))))
+      (make-rational (* (Rational-numerator a) (Rational-numerator b))
+                     (* (Rational-denominator a) (Rational-denominator b))))
 
     (: rational-divide (-> Rational Rational Rational))
     (define (rational-divide a b)
-      (make-rational (* (Rational-numerator a) (Rational-denominator b)) (* (Rational-denominator a) (Rational-numerator b))))
+      (make-rational (* (Rational-numerator a) (Rational-denominator b))
+                     (* (Rational-denominator a) (Rational-numerator b))))
 
     ;; Denominators are positive, so cross-multiplying preserves order.
     (: rational-compare (-> Rational Rational I64))
     (define (rational-compare a b)
-      (integer-compare (* (Rational-numerator a) (Rational-denominator b)) (* (Rational-numerator b) (Rational-denominator a))))
+      (integer-compare (* (Rational-numerator a) (Rational-denominator b))
+                       (* (Rational-numerator b) (Rational-denominator a))))
 
     ))
