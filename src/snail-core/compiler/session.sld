@@ -31,7 +31,6 @@
    (snail-core compiler expand)
    (snail-core compiler check)
    (snail-core compiler mono)
-   (snail-core compiler handlers)
    (snail-core compiler control)
    (snail-core compiler wasm))
   (begin
@@ -171,10 +170,6 @@
              (let ((before (compiled-of compiled name)))
                (match (Compiled-emission before)
                  ((Some emission)
-                  (check-handlers (Typed-program typed)
-                                  (table-union (Specialization-definitions input)
-                                               (item-definitions (Emission-items emission)))
-                                  (Emission-items emission))
                   (loop rest
                         compiled
                         (Cons
@@ -250,7 +245,6 @@
             (expect (compiled-names unchanged) (list))
             (expect (compiled-names body) (list "sample.a"))
             (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
-        (test-handler-revalidation directory library)
         (test-artifact-replay directory library)
         (test-link-replay directory library))
 
@@ -334,36 +328,6 @@
                     (string-append
                      "(define-library (sample assets) (export bundle) (import (snail-core base) (snail-core artifact)) "
                      "(begin (: bundle (-> ArtifactBundle)) (define (bundle) " body ")))")))
-
-      (define (test-handler-revalidation directory library)
-        (let ((main (string-append directory "/main.sld")))
-          (write-handler-helper directory "(ref-get (ref (ann 1 I64)))")
-          (write-file (string-append directory "/sample/b.sld")
-                      "(define-library (sample b) (export run) (import (snail-core core) (snail-core primitive) (sample a)) (begin (effect Counter ((tick (-> I64)))) (: run (-> I64 ! mut)) (define (run) (handle Counter ((tick (lambda () (helper)))) (tick)))))")
-          (write-file main "(import (snail-core core) (snail-core primitive) (sample b)) (run)")
-          (let* ((first (build-session (make-session (list directory library))
-                                       main
-                                       no-generation
-                                       no-inputs))
-                 (session (Pair-second first)))
-            (expect (compiled-names (build-session session main no-generation no-inputs)) (list))
-            (write-handler-helper directory "(ref-get cell)")
-            (expect (guard (failure
-                            ((error-object? failure)
-                             (if (string-contains (error-object-message failure)
-                                                  "a handler and its captures must satisfy")
-                                 #t
-                                 #f)))
-                      (build-session session main no-generation no-inputs)
-                      #f)
-                    #t))))
-
-      (define (write-handler-helper directory body)
-        (write-file (string-append directory "/sample/a.sld")
-                    (string-append
-                     "(define-library (sample a) (export helper) (import (snail-core core) (snail-core primitive)) (begin "
-                     "(: cell (Ref I64)) (define cell (ref (ann 9 I64))) "
-                     "(: helper (-> I64 ! mut)) (define (helper) " body ")))")))
 
       (define (write-sample-a directory body more)
         (write-file (string-append directory "/sample/a.sld")

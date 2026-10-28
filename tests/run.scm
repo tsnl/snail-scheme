@@ -587,7 +587,6 @@
     ("tests/programs" "tables")
     ("tests/programs" "libraries")
     ("tests/programs" "generated") ("tests/programs" "wasm")
-    ("tests/programs" "capabilities")
     ("tests/programs" "handler-captures")
     ("tests/programs" "once")
     ("tests/programs" "tasks")

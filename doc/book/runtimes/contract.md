@@ -42,21 +42,12 @@ aliases cannot each independently destroy a shared resource at last use.
 Dropping one reference to a future reusable continuation does not cancel
 other retained invocations.
 
-`Send` means ownership may cross a thread boundary. `Sync` means shared
-access is safe across threads. Neither means serializable. The compiler
-establishes these properties from representations and captures; users
-cannot assert them with an empty marker instance. Mutable aliased `Ref`
-and `Array`, opaque `Any`, and unclassified foreign references do not gain
-these properties just because this implementation uses one thread.
-Today's compiler checks types and captures structurally. Worker dispatch
-will also need proof that their emitted representations can be transferred;
-the [mixed memory draft](memory-and-continuations.md) specifies
-that additional obligation. Current WasmGC values remain local.
-
-Local dispatch may retain values that are not `Send`. A task eligible for
-any worker must be `Send`. A reusable closure's signature alone does not
-prove anything about its environment. Foreign code and host capabilities
-are explicit trusted boundaries, with thread confinement recorded there.
+Each instance of a program runs on one thread, and no value it holds is
+reachable from another thread. So the language has no thread-safety
+markers, and a handler or a task may capture mutable state. Instances
+will talk to each other only through queues, which copy bytes, and through
+shared memory holding plain data; that design is proposed in [#553](https://github.com/tsnl/snail-scheme/issues/553).
+Foreign code and host capabilities are explicit trusted boundaries.
 
 ## Effects and handlers
 
@@ -65,12 +56,11 @@ platform effects; applications may bind ordinary handlers for abstractions
 and tests. Possessing an effect label alone does not confer authority to a
 platform resource.
 
-Every ordinary handler implementation, including its captured environment,
-must be `Send + Sync` and grade `omega`. Its individual invocations may own
-affine arguments and allocate local mutable storage. An operation that
-needs a local resource takes that resource as an argument rather than
-hiding it in a shared handler. Host implementations may use synchronized
-capability proxies or execution-agent confinement.
+Every ordinary handler implementation must be grade `omega`, because a
+deep handler runs it again for each operation. Ordinary closures always
+are: they cannot capture a one-shot value. A handler may capture mutable
+state. Its individual invocations may also own affine arguments and
+allocate local mutable storage.
 
 A handler implementation is distinct from an **installation** of that
 handler. Installations and their outer bindings belong to a computation.

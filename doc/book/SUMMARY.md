@@ -28,7 +28,7 @@
   - [Scheduling and suspension](runtimes/scheduling.md)
   - [Native networking and processes](runtimes/networking.md)
   - [Language contract](runtimes/contract.md)
-  - [Draft mixed memory and continuations](runtimes/memory-and-continuations.md)
+  - [Instances, queues and shared memory](runtimes/instances.md)
   - [Continuations and parallel execution](runtimes/future.md)
 
 # Extras

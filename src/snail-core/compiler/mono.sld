@@ -22,7 +22,6 @@
    (snail-core compiler read)
    (snail-core compiler core)
    (snail-core compiler check)
-   (snail-core compiler handlers)
    (snail-core compiler ownership))
   (begin
 
@@ -391,14 +390,8 @@
                                                (zip items statements))))
                      exported)))
 
-    ;; Specialization has selected concrete method implementations. Check
-    ;; handler environments before handing this evidence to the backend.
     (: finish-mono (-> State (List Item) (List String) Mono ! mut))
     (define (finish-mono state items exported)
-      (check-handlers (program-of state)
-                      (table-union (Specialization-definitions (State-input state))
-                                   (item-definitions items))
-                      items)
       (Mono (program-of state)
             (own-items (program-of state) items)
             (ref-get (State-externals state))
