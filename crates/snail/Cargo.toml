@@ -25,6 +25,10 @@ wasmtime = { version = "=48.0.7", default-features = false, features = [
     "std",
 ] }
 wasmtime-wasi = { version = "=48.0.7", default-features = false, features = ["p1"] }
+# What wasmtime already builds on: wasmparser reads a program's imports
+# without compiling it, and serde_json a per-library build's modules.json.
+wasmparser = { version = "=0.254.2", default-features = false, features = ["std"] }
+serde_json = "=1.0.154"
 
 # Tests assemble their modules from text.
 [dev-dependencies]

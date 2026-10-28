@@ -95,10 +95,31 @@ the driver keeps `build/compiler/snailc.cwasm` beside the compiler, which
 saves each compile about 0.7 s. The file belongs to one wasmtime version,
 configuration and CPU, so it is a build output and is never committed.
 
+`build/snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program as
+`host/native/run-snail.mjs` does, for one that needs of its host only WASI,
+the files it links and loading modules (`crates/snail/src/program.rs`).
+PROGRAM is one linked module, or the `modules.json` of a per-library build,
+whose runtime is instantiated first and each library's module after those
+it imports from (`modules.rs`). Every file the program links is read from
+`resources/` beside it before any module is instantiated (`links.rs`).
+WASI gets PROGRAM and the arguments as above; then `_initialize`, and each
+module's `main` in program order. The last `main`'s result is the status
+when it is 0 to 255, and 1 otherwise; a WASI exit is its own status.
+`close-resources`, or the runtime's `snail:io/close-all`, runs whatever
+happened, and a nonzero answer fails a run that succeeded. A trap or a
+failure of the host is status 2, with V8's message after `snail: ` and the
+Wasm frames after it. A module that imports `snail.tasks`, `snail.socket`
+or `snail.process` is refused before it is compiled: Node's event loop
+schedules those until tasks become effects
+([#511](https://github.com/tsnl/snail-scheme/issues/511)).
+
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
-on `build/snail` instead, the bootstrap's stages included; the driver builds
-the executable with Cargo when it is stale, and `make bootstrap` builds it
-first. Compiled programs still run on Node either way.
+on `build/snail` instead, the bootstrap's stages included, and every program
+the driver runs that imports none of those three modules: `program-command`
+in `host/chibi/snail-core/build.sld` asks `build/snail imports PROGRAM`,
+which reads the import sections without compiling them, and runs the rest
+on Node. Under that engine the driver builds the executable with Cargo
+when it is stale, and `make bootstrap` builds it first.
 
 The engine is opt-in because it is slow. Wasmtime's one working collector,
 deferred reference counting, collects whenever its list of possible stack
@@ -123,7 +144,12 @@ default waits for a compile within three times Node's, the gate
 backend emitting fewer globals of GC types would cut each collection's cost
 directly.
 
-**Proposed** in #562, not implemented: running WASI-only programs on
-`build/snail`, then one `snail` executable that embeds the compiler and the
+Programs show the same split. A short one, such as `examples/fibonacci.sld`,
+runs in about 15 ms on `build/snail` against Node's 55, which pays for
+starting V8; one that allocates much runs 10 to 35 times as long, such as
+Siegework's terrain test, 17.5 s against 0.53, and the formatter checking
+every tracked Scheme file, 12 s against 0.9.
+
+**Proposed** in #562, not implemented: one `snail` executable that embeds the compiler and the
 project builder as precompiled images, replacing the shell, Node and Chibi
 chain for `snail build` and `snail run`, with Chibi kept for stage 0.

@@ -23,7 +23,7 @@
    bootstrap!
    standard-directories
    with-private-directory
-   node-command
+   program-command
    wasmtime-engine?
    path-join
    absolute
@@ -48,14 +48,50 @@
    (only (chibi string) string-contains string-cursor->index string-suffix?))
   (begin
 
-    ;; ---- Compiling ----
+    ;; ---- Running programs ----
 
-    ;; The command that runs a compiled program under Node.
+    ;; The command that runs a compiled program, one linked module or the
+    ;; modules.json of a per-library build. Node runs it, unless
+    ;; SNAIL_ENGINE=wasmtime asks for build/snail, whose `run-wasm` runs a
+    ;; program that needs of its host only WASI, the files it links and
+    ;; loading modules. A program that imports tasks, sockets or processes
+    ;; stays on Node until tasks become effects (#511).
+    (define (program-command root program)
+      (if (and (wasmtime-engine?) (not (node-hosted? (program-imports root program))))
+          (list (snail-binary root) "run-wasm" program)
+          (node-command root program)))
+
     (define (node-command root program)
       (list (or (get-environment-variable "NODE") "node")
             "--no-warnings"
             (path-join root "host/native/run-snail.mjs")
             program))
+
+    ;; The host modules only Node provides; `run-wasm` refuses a program
+    ;; that imports one (crates/snail/src/program.rs).
+    (define node-hosted-modules '("snail.tasks" "snail.socket" "snail.process"))
+
+    (define (node-hosted? imports)
+      (and (pair? imports)
+           (or (and (member (car imports) node-hosted-modules) #t) (node-hosted? (cdr imports)))))
+
+    ;; The modules a program's modules import from, which `snail imports`
+    ;; reads from their import sections without compiling them.
+    (define (program-imports root program)
+      (let ((result (capture-process (list (snail-binary root) "imports" program))))
+        (unless (zero? (caddr result))
+          (error (string-append "snail imports failed:\n" (cadr result))))
+        (text-lines (car result))))
+
+    ;; SNAIL_ENGINE names the engine, so a misspelled one is an error rather
+    ;; than Node without a word.
+    (define (wasmtime-engine?)
+      (let ((engine (get-environment-variable "SNAIL_ENGINE")))
+        (cond ((member engine '(#f "" "node")) #f)
+              ((equal? engine "wasmtime") #t)
+              (else (error "SNAIL_ENGINE must be node or wasmtime" engine)))))
+
+    ;; ---- Compiling ----
 
     ;; The command that runs the compiled compiler `program`. Node runs it
     ;; by default, through host/native/run-compiler.mjs; with
@@ -67,14 +103,6 @@
       (if (wasmtime-engine?)
           (list (snail-binary root) "run-compiler" program)
           (node-compiler-command root program)))
-
-    ;; SNAIL_ENGINE names the engine, so a misspelled one is an error rather
-    ;; than Node without a word.
-    (define (wasmtime-engine?)
-      (let ((engine (get-environment-variable "SNAIL_ENGINE")))
-        (cond ((member engine '(#f "" "node")) #f)
-              ((equal? engine "wasmtime") #t)
-              (else (error "SNAIL_ENGINE must be node or wasmtime" engine)))))
 
     ;; The compiler is synchronous and has no application scheduler. Keep
     ;; the previous compiler worker's heap and native stack allowance.
@@ -401,9 +429,9 @@
         (call-with-port (open-binary-output-file to)
           (lambda (port) (write-bytevector bytes port)))))
 
-    ;; Runs a compiled program under Node, returning (output error status).
+    ;; Runs a compiled program, returning (output error status).
     (define (run-wasm root program arguments)
-      (capture-process (append (node-command root program) arguments)))
+      (capture-process (append (program-command root program) arguments)))
 
     ;; Runs a command, raising its standard error if it fails. Tools can be
     ;; overridden by environment variables such as WASM_OPT.
@@ -509,9 +537,9 @@
     ;; ---- The native executable ----
 
     ;; build/snail: crates/snail built for this machine, an executable that
-    ;; embeds wasmtime and runs the compiled compiler as Node does. Cargo
-    ;; decides whether it is stale, once per process, since every compile
-    ;; asks; build/snail links to its output.
+    ;; embeds wasmtime and runs the compiled compiler and compiled programs
+    ;; as Node does. Cargo decides whether it is stale, once per process,
+    ;; since every compile and run asks; build/snail links to its output.
     (define snail-built? #f)
 
     (define (snail-binary root)
@@ -630,7 +658,11 @@
                      (list (string-append path ".wat") "-o" (string-append path ".wasm")))))
 
     (define (read-lines path)
-      (let loop ((lines '()) (rest (read-file path)))
+      (text-lines (read-file path)))
+
+    ;; Each line of TEXT that a newline ends.
+    (define (text-lines text)
+      (let loop ((lines '()) (rest text))
         (let ((cursor (string-contains rest "\n")))
           (if cursor
               (let ((end (string-cursor->index rest cursor)))
