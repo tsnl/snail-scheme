@@ -1516,14 +1516,27 @@
     ;; The host may retain unrestricted values, holding managed references
     ;; opaquely. Affine ownership cannot cross this unrestricted boundary.
     ;; The trusted host respects Snail-Core types and implements the declared effects.
-    (: check-exposed (-> Checker String Loc Checker))
-    (define (check-exposed ck name loc)
+    (: check-exposed (-> Checker String Bool Loc Checker))
+    (define (check-exposed ck name dynamic loc)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) (TFun params result row)))
          (when (any? (lambda (type) (affine? ck type)) (Cons result params))
            (compile-error loc "an exposed function cannot take or return an affine value"))
+         (when dynamic (check-dynamic ck (Cons result params) row loc))
          (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
+
+    ;; A program that loads a dynamic export trusts nothing of it but its
+    ;; signature, which names each type by its TypeId, so every parameter
+    ;; and the result must be data that a TypeId describes. Effects are
+    ;; erased before the backend writes the signature, so a program that
+    ;; loads the function could not check them: a dynamic export is pure.
+    (: check-dynamic (-> Checker (List Type) Type Loc Unit))
+    (define (check-dynamic ck types row loc)
+      (unless (every? (lambda (type) (first-order-type? (program-of ck) (resolve-type (solution ck) type))) types)
+        (compile-error loc "a dynamic export takes and returns only data, with no function or Any inside"))
+      (unless (null? (Pair-first (flatten-row (solution ck) row)))
+        (compile-error loc "a dynamic export cannot perform effects: the program that loads it could not check them")))
 
     ;; Effects performed at program start need defaults for every
     ;; operation.
@@ -1574,7 +1587,7 @@
     (define (check-exposures ck items)
       (fold-left (lambda (ck item)
                    (match item
-                     ((Expose name _ loc) (check-exposed ck name loc))
+                     ((Expose name _ dynamic loc) (check-exposed ck name dynamic loc))
                      (_ ck)))
                  ck items))
 
@@ -1607,7 +1620,7 @@
               ((Some scheme) (check-annotated ck item scheme))
               ((None) (panic "internal error: unchecked definition"))))))
         ((Do expr) (check-statement ck expr))
-        ((Expose _ _ _) (Pair item ck))))
+        ((Expose _ _ _ _) (Pair item ck))))
 
     (: zonk-item (-> Solution Item Item))
     (define (zonk-item solution item)

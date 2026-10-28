@@ -1,0 +1,1 @@
+dynamic-cast makes a function of data, not a (-> (-> I64 I64) I64 I64)

@@ -1,0 +1,24 @@
+null
+-9223372036854775808
+"quote \" backslash \\ tab\tend λ 😀"
+"\ud800\u001f"
+[1,[],{}]
+{"a":true,"a":false}
+{"runtime":"runtime.wasm","modules":[{"name":"main","file":"main.wasm"}]}
+"é😀 \ud800 /\b\f\n\r\t"
+0
+nothing
+nothing
+nothing
+nothing
+nothing
+nothing
+nothing
+nothing
+nothing
+nothing
+nothing
+nothing
+1
+2
+no member

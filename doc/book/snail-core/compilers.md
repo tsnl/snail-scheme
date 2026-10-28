@@ -231,7 +231,9 @@ function of the expander has `mut` in its row — and where it does not, the
   as a nullable opaque handover. Other exposed managed values keep their normal
   representation; the checker rejects affine parameters/results at that boundary.
   The host passes no evidence, so every exposed function has a wrapper that
-  calls the definition with the empty evidence list.
+  calls the definition with the empty evidence list; a function exposed with
+  `dynamic` has a wrapper of `Any` values and a signature instead
+  ([plugins](#plugins)).
 - **[`session.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/session.sld)** keeps the compiler
   running between builds: the expander replays libraries whose declarations
   and imports' interfaces are unchanged, and only libraries whose expansion
@@ -324,7 +326,8 @@ interfaces it imports. Nothing checks them at load time: every module of a
 link comes from one build of one session, which recompiles importers
 whenever an interface changes. The engine still checks the WebAssembly
 type of every import, and a value that crosses as `Any` keeps its own
-check at `type-convert`.
+check at `type-convert`. A plugin comes from another build, so its
+functions are checked when they are looked up ([plugins](#plugins)).
 
 Replacing a library's module means linking it and every module after it
 in program order again (`relinkProgram` in `load.mjs`); the modules before
@@ -335,28 +338,130 @@ table, would add to every call across libraries.
 
 ### Loading modules at run time
 
-`(snail-core wasm)` is `dlopen` and `dlsym`. It loads a module from a file,
-linked against the runtime, the program's own modules and the modules
-loaded before it, by name. A function the module exports comes out as a
-`Funcref`, and `unsafe-cast` makes it a function of the type the context expects:
+`(snail-core wasm)` is `dlopen` and `dlsym`. `load-module` loads a module
+from a file into the program's own namespace, linked against the runtime,
+the program's modules and the modules loaded before it, by name, and runs
+its `main`. A function the module exports comes out as a `Funcref`, and
+`unsafe-cast` makes it a function of the type the context expects:
 
 ```scheme
-(let* ((cell (load-module "cell" "build/cell.wasm"))
-       (run (ann (unsafe-cast (module-export cell "cell:run")) (-> I64 I64))))
-  (run 41))
+(match (load-module "cell" "build/cell.wasm")
+  ((Ok cell)
+   (match (module-export cell "cell:run")
+     ((Ok run) ((ann (unsafe-cast run) (-> I64 I64)) 41))
+     ((Err error) (panic (load-error-message error)))))
+  ((Err error) (panic (load-error-message error))))
 ```
 
 `unsafe-cast` is a primitive. It wraps the reference in a closure whose
-code casts it to the WebAssembly type of a function of the expected type
-and calls it. The cast is the only check: the engine traps when the
-WebAssembly types differ, and nothing compares Snail-Core types, so the unsafe
-assumption is visible where it is made. `tests/programs/wasm.sld` loads a
-module it writes itself.
+code casts it to the WebAssembly type of a Snail-Core function of the
+expected type, which takes the evidence first, and calls it with the
+handlers in scope where the closure is called. The cast is the only check:
+the engine traps when the WebAssembly types differ, and nothing compares
+Snail-Core types, so the unsafe assumption is visible where it is made.
+
+### Plugins
+
+A plugin is a program built apart from the one that loads it, compiled one
+library at a time and named by its `modules.json`. Types cannot be loaded:
+the plugin and the program share the types they pass by importing one
+declaration of them, and only functions cross. The plugin marks each
+function it offers:
+
+```scheme
+(: summarize (-> Project Report))
+(define (summarize project) ...)
+(expose summarize "summarize" dynamic)
+```
+
+and the program looks it up at the type it expects:
+
+```scheme
+(match (load-plugin "build/plugin/modules.json")
+  ((Ok plugin)
+   (match (ann (plugin-function plugin "summarize") (Result (-> Project Report) LoadError))
+     ((Ok summarize) (summarize project))
+     ((Err error) (panic (load-error-message error)))))
+  ((Err error) (panic (load-error-message error))))
+```
+
+The backend emits two exports for a dynamic function. `"summarize"` takes
+the evidence and an `Any` for each parameter, takes each argument out of
+its `Any`, which tests its TypeId, calls the definition and returns the
+result as an `Any`; every dynamic export of one arity has one WebAssembly
+type. `"summarize:signature"` returns the signature as a `(Vector I64)`:
+the arity, then the identity of each parameter's type and of the result's,
+in 64 bits (`wide-type-id`, FNV-1a over the same text as the 32-bit TypeId,
+kept in two halves so that both hosts compute it alike). The signature is
+compared once, when the function is looked up, so it is worth the wider
+hash; the TypeId an `Any` carries is tested on every call.
+
+The checker adds two rules to `expose`'s for a dynamic function. Its
+parameters and result are data, with no function, `Funcref` or `Any`
+inside: a function type's TypeId says only that it is a function, and an
+`Any`'s nothing of what it holds. And it is pure. Mono erases every effect
+but the control effects before the backend runs, so neither side's backend
+knows the function's effects and the signature cannot carry them; a
+program that declared fewer effects than the plugin performs would go
+unchecked. Passing the importer's evidence is mechanical once effect
+identities, with their operations' types, reach the backend.
+
+`load-plugin` reads the manifest, makes a namespace and links the plugin's
+modules there in program order, each against those before it, then the
+runtime the program shares with it and the host's modules, as a
+child-first class loader resolves, and runs each module's `main`. The
+namespace is private: a library's module text depends on the program it
+was compiled for, its set of control effects among it, so a plugin has its
+own instances, and its own globals, even of a library the program imports
+too. The runtime its manifest names is not loaded.
+
+`plugin-function` finds `NAME` and `NAME:signature` in the plugin's own
+module, its program's, and calls the signature through `unsafe-cast`: that
+an export so named is a signature is the boundary's one unsafe assumption.
+Then the primitive `dynamic-cast` calls a policy with the signature of the
+type the context expects and, if the policy accepts it, holds the export
+in a closure of that type, which passes each argument as an `Any` and
+takes the result out of one. The policy is a Snail-Core function,
+`same-signature?`, so loosening it is a library change: strict identity,
+under which a plugin built from another declaration of `Project` is
+refused with `SignatureMismatch` before anything is called. A versioned
+identity, as the JVM's binary compatibility allows, would need every type
+to be non-final, its history kept in source and an append-only checker,
+and an enum could never gain a case, since an old exhaustive `match` would
+reach `unreachable`.
+
+Values cross by reference, with no copy. Every module that declares a type
+declares the same recursion group, so the engine makes them one type across
+the namespaces, and the plugin's casts succeed on the program's values.
+Both checks are needed: WebAssembly's equality is only shape, so
+`Point {x, y}` and `Range {lo, hi}` are one WebAssembly type, while their
+TypeIds differ. `wire` is for where references cannot go: workers, Rust in
+linear memory, native code, disks and networks.
+
+A failure is a `LoadError` value: a file that cannot be read, a manifest
+or module that is not one, a name already linked, an import with no
+provider of its type, an export that is missing or not dynamic, and a
+signature that differs. There is no fault isolation: a trap inside a
+plugin, its `main` included, ends the program.
+
+### Hosts
+
+The host keeps the operations only it can do, as the `wasm` effect: it
+compiles a module from the Bytes the program read, makes a namespace,
+instantiates a module in one under a library name and runs its `main`, and
+finds the functions an instance exports (`wasmImports` in `load.mjs`).
+Namespace 0 is the program's own. Each answers a failure with a negative
+code rather than a throw. A `main` runs inside the host call, so it cannot
+wait for a task, and a plugin cannot yet read the files it links.
 
 The Node runner provides the `wasm` effect for both builds. A statically
 linked program exports nothing of its runtime, so what it loads can link
-only against the host. Browser hosts do not provide it yet: loading is
-synchronous, and a page reads files asynchronously.
+only against the host, and it cannot load a plugin. Browser hosts do not
+provide it yet: loading is synchronous, and a page reads files
+asynchronously. `tests/dynamic/host.sld` loads a library's module from a
+plugin's build, and the plugin itself built twice, once from a stale
+declaration of the type it takes; `tests/programs/wasm.sld` loads modules
+it writes itself.
 
 ## Compiler inputs
 
