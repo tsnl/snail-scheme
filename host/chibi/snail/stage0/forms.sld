@@ -1,7 +1,8 @@
 ;; Snail-Core's typed forms for the Chibi host, erased to R7RS: signatures and
-;; aliases disappear, and struct values are vectors whose first slot is their
-;; constructor procedure, so `match` can test it with `eq?`. Chibi's (snail core
-;; base) re-exports these; Snail-Core itself never loads this library.
+;; aliases disappear, struct values are vectors whose first slot is their
+;; constructor procedure, so `match` can test it with `eq?`, and a control
+;; effect escapes to its handler. Chibi's (snail core base) re-exports these;
+;; Snail-Core itself never loads this library.
 (define-library (snail stage0 forms)
   (export
    :
@@ -11,6 +12,8 @@
    struct
    enum
    match
+   effect
+   handle
    ref
    ref-get
    ref-set!)
@@ -167,4 +170,111 @@
                      (cddr form))
               (,(rename 'else) (,(rename 'error) "match: no clause matched" ,value))))))))
 
-    ))
+
+    ;; ---- Effects ----
+
+    ;; Stage 0 runs the compiler, whose effect only fails: no operation of
+    ;; it is resumed. So an effect is a parameter holding its innermost
+    ;; handler, the continuation of that handler's `handle` and its
+    ;; implementations, and an operation escapes to the continuation and
+    ;; runs its implementation there, outside the handler; the
+    ;; implementation's answer is the `handle`'s value. It escapes with
+    ;; `call/cc`, not `raise`, so that no guard between the operation and
+    ;; its handler can intercept it. An operation whose answer is `Never`
+    ;; takes no `resume`; any other is handed one stage 0 cannot call.
+    ;;
+    ;; Stage 0 refuses ordinary operations, whose implementations would have
+    ;; to run in place under the handlers outside their own `handle`, of
+    ;; every effect, and `host` and `default` clauses.
+    (define-syntax effect
+      (er-macro-transformer
+       (lambda (form rename compare)
+         (let ((name (cadr form)))
+           (unless (null? (cdddr form))
+             (error "stage 0's effect takes no host or default clause" name))
+           `(,(rename 'begin)
+             (,(rename 'define) ,name (,(rename 'make-parameter) #f))
+             ,@(map (lambda (operation) (operation-definition name operation rename))
+                    (caddr form)))))))
+
+    (define (operation-definition effect operation rename)
+      (unless (eq? (car operation) 'ctl)
+        (error "stage 0 implements only control operations" operation))
+      (let ((name (cadr operation)) (arguments (rename 'arguments)))
+        `(,(rename 'define) (,name . ,arguments)
+          (,(rename 'perform) ,effect
+           ',name
+           ,(if (never-answer? (caddr operation))
+                arguments
+                `(,(rename 'append) ,arguments (,(rename 'list) ,(rename 'cannot-resume))))))))
+
+    ;; Whether an operation's type, `(-> argument ... answer)` with perhaps
+    ;; `! effect ...` after it, answers `Never`.
+    (define (never-answer? type)
+      (let loop ((parts (cdr type)) (answer #f))
+        (if (or (null? parts) (eq? (car parts) '!))
+            (eq? answer 'Never)
+            (loop (cdr parts) (car parts)))))
+
+    ;; The innermost handler of `effect` runs the implementation of
+    ;; `operation` back at its `handle`, so under the handlers outside it.
+    (define (perform effect operation arguments)
+      (let ((handler (effect)))
+        (unless handler
+          (error "unhandled effect operation" operation))
+        ((car handler) (lambda () (apply (cdr (assq operation (cdr handler))) arguments)))))
+
+    (define (cannot-resume answer)
+      (error "stage 0 cannot resume"))
+
+    ;; `(handle Name ((operation implementation) ...) body ...)`.
+    (define-syntax handle
+      (syntax-rules ()
+        ((_ effect ((operation implementation) ...) body ...)
+         (handling effect (list (cons 'operation implementation) ...) (lambda () body ...)))))
+
+    ;; The body's value, or the answer of the implementation an operation
+    ;; escaped to run. The escape hands back a thunk, which is called here,
+    ;; outside the `parameterize`.
+    (define (handling effect implementations body)
+      ((call/cc (lambda (escape)
+                  (let ((value (parameterize ((effect (cons escape implementations))) (body))))
+                    (lambda () value))))))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-forms)
+    (import
+     (snail stage0 testing))
+    (begin
+      (effect Stop
+        ((ctl stop (-> I64 Never))
+         (ctl ask (-> I64 I64))))
+
+      (define (failure-message thunk)
+        (guard (failure ((error-object? failure) (error-object-message failure))) (thunk)))
+
+      (define (test-forms)
+        ;; The implementation's answer is the handle's; nothing after the
+        ;; operation runs, and a guard between them does not see it.
+        (expect (handle Stop ((stop (lambda (code) (* code 10))) (ask (lambda (n resume) n)))
+                  (+ 1 (guard (failure (#t 0)) (stop 4))))
+                40)
+        ;; An implementation runs outside its handler, so its operation
+        ;; reaches the next handler out.
+        (expect (handle Stop ((stop (lambda (code) (list 'outer code))) (ask (lambda (n resume) n)))
+                  (handle Stop ((stop (lambda (code) (stop (+ code 1))))
+                                (ask (lambda (n resume) n)))
+                    (stop 1)))
+                '(outer 2))
+        (expect (handle Stop ((stop (lambda (code) code)) (ask (lambda (n resume) n))) 5) 5)
+        (expect (failure-message
+                 (lambda ()
+                   (handle Stop ((stop (lambda (code) code)) (ask (lambda (n resume) (resume n))))
+                     (ask 3))))
+                "stage 0 cannot resume")
+        (expect (failure-message (lambda () (stop 1))) "unhandled effect operation"))))
+   (else)))
