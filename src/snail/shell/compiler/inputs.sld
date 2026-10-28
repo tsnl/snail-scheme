@@ -229,14 +229,12 @@
    (snail-tests
     (export test-inputs)
     (import
-     (only (scheme base) guard error-object-message list)
+     (only (scheme base) list)
      (only (chibi string) string-contains)
      (snail stage0 testing))
     (begin
       (define (input-error text)
-        (guard (failure (#t (error-object-message failure)))
-          (parse-request text "input.datum")
-          "accepted"))
+        (or (compile-failure (lambda () (parse-request text "input.datum"))) "accepted"))
 
       (define (test-inputs)
         (let ((request (ArtifactInput "client\"\n" (Loc "source\\name.sld" 12 7))))

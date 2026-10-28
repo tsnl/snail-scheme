@@ -804,11 +804,21 @@
 
   (cond-expand
    (snail-tests
-    (export test-read)
+    (export
+     test-read
+     compile-failure)
     (import
-     (only (scheme base) car guard error-object-message)
+     (only (scheme base) car guard error-object? error-object-message)
      (snail stage0 testing))
     (begin
+      ;; The located message of the source error `work` stops with, or #f
+      ;; when it completes. Every unit test of a source error goes through
+      ;; here, so the way a compile reports one changes in one place (#552).
+      (define (compile-failure work)
+        (guard (failure ((error-object? failure) (error-object-message failure)))
+          (work)
+          #f))
+
       (define (test-read)
         (expect (map syntax->string
                      (read-text
@@ -817,11 +827,11 @@
                 (list "(define (f x) (+ x 1.5))" "\"a\\nb\"" "#\\a" "#\\ " "#t" "(quote x)" "-7"))
         (let ((forms (read-text "\n  (a\n   b)" "t.sld")))
           (expect (loc->string (syntax-loc (car forms))) "t.sld:2:3"))
-        (expect (guard (failure (#t (error-object-message failure))) (read-text "(a" "t"))
+        (expect (compile-failure (lambda () (read-text "(a" "t")))
                 "t:1:1: unclosed list")
         (expect (map syntax->string (read-text "#u8(0 137 255) #u8( )" "t"))
                 (list "#u8(0 137 255)" "#u8()"))
-        (expect (guard (failure (#t (error-object-message failure))) (read-text "#u8(1 256)" "t"))
+        (expect (compile-failure (lambda () (read-text "#u8(1 256)" "t")))
                 "t:1:7: a byte is an integer from 0 to 255")
         (test-unclosed)
         (test-source-diagnostic)
@@ -830,25 +840,25 @@
       ;; The lexemes run to the end of the text; the reader says what is
       ;; missing. A string's escapes stay inside its quotes.
       (define (test-unclosed)
-        (expect (guard (failure (#t (error-object-message failure))) (read-text "(a \"b" "t"))
+        (expect (compile-failure (lambda () (read-text "(a \"b" "t")))
                 "t:1:4: unterminated string")
-        (expect (guard (failure (#t (error-object-message failure))) (read-text "a #| #| |#" "t"))
+        (expect (compile-failure (lambda () (read-text "a #| #| |#" "t")))
                 "t:1:11: unterminated block comment")
-        (expect (guard (failure (#t (error-object-message failure))) (read-text "#\\" "t"))
+        (expect (compile-failure (lambda () (read-text "#\\" "t")))
                 "t:1:1: expected a character after #\\")
-        (expect (guard (failure (#t (error-object-message failure))) (read-text "\"\\x41\" ;" "t"))
+        (expect (compile-failure (lambda () (read-text "\"\\x41\" ;" "t")))
                 "t:1:1: invalid hexadecimal escape")
         (expect (map syntax->string (read-text "\"\\x41;\\\"\" #\\x41 [a]" "t"))
                 (list "\"A\\\"\"" "#\\A" "(a)")))
 
       (define (test-source-diagnostic)
         (clear-compile-error!)
-        (expect (guard (failure (#t (error-object-message failure))) (read-text "😀 )" "λ😀.sld"))
+        (expect (compile-failure (lambda () (read-text "😀 )" "λ😀.sld")))
                 "λ😀.sld:1:3: unexpected closing parenthesis")
         (expect (take-compile-error!)
                 (Some (SourceDiagnostic (Loc "λ😀.sld" 1 3) "unexpected closing parenthesis")))
         (expect (take-compile-error!) (None))
-        (guard (failure (#t (unit))) (read-text "(" "discarded.sld"))
+        (compile-failure (lambda () (read-text "(" "discarded.sld")))
         (clear-compile-error!)
         (read-text "()" "recovered.sld")
         (expect (take-compile-error!) (None)))
@@ -860,11 +870,10 @@
                (list->vector (list 0 7 1 1 102 3 1 187 7 2 2 45 55 2 3 49 46 53 4 97 6 7 2 0 200))))
           (expect (syntax->string (decode-syntax bytes loc)) "(f \"λ\" -7 1.5 #\\a #t #u8(0 200))")
           (expect (loc->string (syntax-loc (decode-syntax bytes loc))) "recipe.sld:3:4")
-          (expect (guard (failure (#t (error-object-message failure)))
-                    (decode-syntax (list->vector (list 0 2 1 1 102)) loc))
-                  "recipe.sld:3:4: malformed generated syntax: it ends early")
-          (expect (guard (failure (#t (error-object-message failure)))
-                    (decode-syntax (list->vector (list 2 1 120)) loc))
+          (expect
+           (compile-failure (lambda () (decode-syntax (list->vector (list 0 2 1 1 102)) loc)))
+           "recipe.sld:3:4: malformed generated syntax: it ends early")
+          (expect (compile-failure (lambda () (decode-syntax (list->vector (list 2 1 120)) loc)))
                   "recipe.sld:3:4: malformed generated syntax: the number x does not read as one")
           (match (take-compile-error!)
             ((Some diagnostic) (expect (SourceDiagnostic-loc diagnostic) loc))
