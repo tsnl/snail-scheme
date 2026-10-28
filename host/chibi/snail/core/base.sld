@@ -6,7 +6,7 @@
   (export
    define lambda if begin let let* letrec cond case when unless and or do
    define-syntax syntax-rules quote else => _ ...
-   : type ann type-convert struct enum match
+   : type ann type-convert struct enum match effect handle
    + - * quotient remainder modulo = < <= > >= negate abs min max not
    unit panic unsafe-total
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
