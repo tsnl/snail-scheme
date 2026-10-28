@@ -6,7 +6,8 @@
 ;; program becomes one module; one library becomes a module that imports
 ;; what it uses from the modules of other libraries. A control operation
 ;; leaves a record in one global, which each caller tests after a call that
-;; may yield, back to the handle it is aimed at.
+;; may yield, saving the rest of its work as a frame, back to the handle it
+;; is aimed at; `resume` runs those frames again.
 (define-library (snail-core compiler wasm)
   (export
    emit-module
@@ -676,11 +677,9 @@
     ;; A let whose value may yield tests for the yield before its body.
     (: emit-let (-> Fn String Expr Expr Bool (List Wat) ! mut))
     (define (emit-let fn name value body tail?)
-      (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value))) (closure fn value (Some name)) (emit1 fn value)))
-             (local (declare-local! fn name (fn-rep fn (Expr-type value))))
-             (test (yield-test fn value))
-             (rest (emit fn body tail?)))
-        (Cons (wat "local.set" (id local) code) (append test rest))))
+      (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value))) (closure fn value (Some name)) (emit-let-value fn value)))
+             (local (declare-local! fn name (fn-rep fn (Expr-type value)))))
+        (Cons (wat "local.set" (id local) code) (let-rest fn name value body tail?))))
 
     ;; ---- Variables ----
 
@@ -825,21 +824,21 @@
                                              (Cons (wat "param" (Word "$closure") (wat "ref" (id base)))
                                                    (Cons (evidence-param m) (param-wats params reps))))
                                        (Pair-second signature) (append loads code))))
-             (lambda-id m draft 0))))
+             (lambda-id m "lambda" draft 0))))
         (_ (panic "internal error: not a lambda"))))
 
-    ;; A lambda is named by the hash of its own text, written with its name
-    ;; as a placeholder, so identical lambdas share one function and a name
-    ;; depends on nothing but the body. Two different lambdas with one hash
-    ;; take the next salt, the one place a name can still depend on the
-    ;; order of emission.
-    (: lambda-id (-> Module Wat I64 String ! mut))
-    (define (lambda-id m draft salt)
+    ;; A lambda, or a join function, is named by the hash of its own text,
+    ;; written with its name as a placeholder, so identical lambdas share one
+    ;; function and a name depends on nothing but the body. Two different
+    ;; lambdas with one hash take the next salt, the one place a name can
+    ;; still depend on the order of emission.
+    (: lambda-id (-> Module String Wat I64 String ! mut))
+    (define (lambda-id m prefix draft salt)
       (let* ((hash (i64->string (wat-hash fnv-offset draft)))
-             (name (wasm-id (string-append "lambda." hash (if (= salt 0) "" (string-append "." (i64->string salt))))))
+             (name (wasm-id (string-append prefix "." hash (if (= salt 0) "" (string-append "." (i64->string salt))))))
              (key (string-append "lambda:" name)))
         (match (table-ref (ref-get (Module-memo m)) key)
-          ((Some stored) (if (wat=? stored draft) name (lambda-id m draft (+ salt 1))))
+          ((Some stored) (if (wat=? stored draft) name (lambda-id m prefix draft (+ salt 1))))
           ((None)
            (put! (Module-memo m) key draft)
            (push! (Module-declared m) name)
@@ -1384,6 +1383,9 @@
     ;; the node, so the implementation's own operations go to the next
     ;; handler out, and a list with no such node means the host default.
     ;; Nothing is global, so a task carries its handlers on its own stack.
+    ;; The node outside is mutable because `resume` sets it to the evidence
+    ;; of its caller, so a resumed computation runs under the handlers in
+    ;; scope where it is resumed (see Resuming); nothing else writes it.
     (: evidence-type (-> Module String ! mut))
     (define (evidence-type m)
       (match (known-type m "evidence")
@@ -1395,7 +1397,7 @@
          (register-type! m "evidence" "$evidence"
                          (wat "type" (id "$evidence")
                               (wat "struct" (wat "field" (Word "i32")) (wat "field" (wat "ref" (Word "null") (Word "any")))
-                                   (wat "field" (wat "ref" (Word "null") (id "$evidence")))))))))
+                                   (wat "field" (wat "mut" (wat "ref" (Word "null") (id "$evidence"))))))))))
 
     (: evidence-rep (-> Module Rep ! mut))
     (define (evidence-rep m)
@@ -1552,34 +1554,41 @@
 
     ;; ---- Control ----
 
-    ;; A control operation aborts, for now: its implementation may not use
-    ;; `resume`. Performing one records the yield in one global: the node
-    ;; of the handler it is aimed at, the operation's index in its effect,
-    ;; and its arguments. The performer then returns a placeholder of its
-    ;; result type. Each call that may yield is the value of a let, as
-    ;; (snail-core compiler control) arranges, and after that let the
-    ;; record is tested: while it is set, a function returns a placeholder
-    ;; and a handle body branches to the end of its block with one, until
-    ;; the handle whose node the record names. That handle clears the
-    ;; record and calls the operation's implementation in its own context,
-    ;; with the recorded arguments and a `resume` that holds nothing, and
-    ;; the implementation's result is the handle's. A call whose value flows
-    ;; straight out needs no test, so a tail call stays a tail call.
-    ;; Nothing reads a placeholder, since every caller tests first and
-    ;; leaves too. The record is clear whenever Snail-Core code runs outside
-    ;; a yield, so none is live across a host suspension.
+    ;; Performing a control operation records the yield in one global: the
+    ;; node of the handler it is aimed at, the operation's index in its
+    ;; effect, its arguments, and the frames saved so far. The performer
+    ;; then returns a placeholder of its result type. Each call that may
+    ;; yield is the value of a let, as (snail-core compiler control)
+    ;; arranges, and after that let the record is tested: while it is set,
+    ;; the let saves its body as a frame on the record (see Frames) and
+    ;; leaves with a placeholder, a function to its caller and a handle body
+    ;; to the end of its block, until the handle whose node the record
+    ;; names. That handle clears the record and calls the operation's
+    ;; implementation in its own context, with the recorded arguments and a
+    ;; `resume` holding the frames (see Resuming); the implementation's
+    ;; result is the handle's. A call whose value flows straight out needs
+    ;; no test, so a tail call stays a tail call. Nothing reads a
+    ;; placeholder, since every caller tests first and leaves too. The
+    ;; record is clear whenever Snail-Core code runs outside a yield, so
+    ;; none is live across a host suspension.
 
-    ;; Where a yield leaves the code being emitted: the end of the block
-    ;; of the handle body it is in, by the block's label, or else the
-    ;; function, for its caller; either way with a placeholder of `result`.
-    (struct Exit
-      ((label (Option String))
-       (result Type)))
+    ;; Where a yield leaves the code being emitted, with a placeholder: a
+    ;; function returns one of its result type to its caller; a block, the
+    ;; body of a handle or the value of a let, branches to its end with one
+    ;; of its type; a join function returns null to the runner, for the
+    ;; boxed value it would have returned.
+    (enum Exit
+      (ToCaller
+       ((result Type)))
+      (ToBlock
+       ((label String)
+        (result Type)))
+      (ToRunner))
 
     (: function-exit (-> Type (Option Exit)))
     (define (function-exit type)
       (match type
-        ((TFun _ result _) (Some (Exit (None) result)))
+        ((TFun _ result _) (Some (ToCaller result)))
         (_ (panic "internal error: not a function type"))))
 
     (: yield-type (-> Module String ! mut))
@@ -1587,9 +1596,11 @@
       (match (known-type m "yield")
         ((Some type) type)
         ((None)
-         (register-type! m "yield" "$yield"
-                         (wat "type" (id "$yield")
-                              (wat "struct" (wat "field" (evidence-ref m)) (wat "field" (Word "i32")) (wat "field" (Word "anyref"))))))))
+         (let ((frames (frames-type m)))
+           (register-type! m "yield" "$yield"
+                           (wat "type" (id "$yield")
+                                (wat "struct" (wat "field" (evidence-ref m)) (wat "field" (Word "i32")) (wat "field" (Word "anyref"))
+                                     (wat "field" (wat "mut" (wat "ref" (Word "null") (id frames)))))))))))
 
     ;; The global holding the record, null while nothing yields. A whole
     ;; program declares it. A library's module imports it from the control
@@ -1618,23 +1629,157 @@
         (emit-main! m (Nil))
         (module-wat m)))
 
-    ;; After a let's value that may yield: leave while the record is set.
-    (: yield-test (-> Fn Expr (List Wat) ! mut))
-    (define (yield-test fn value)
-      (let ((m (Fn-module fn)))
-        (match (Module-callees m)
-          ((Some callees)
-           (if (null? (yields callees value))
-               (Nil)
-               (list (wat "if" (wat "i32.eqz" (wat "ref.is_null" (wat "global.get" (id (yielding m))))) (wat "then" (leave fn (Expr-loc value)))))))
-          ((None) (Nil)))))
+    (: yielding? (-> Module Wat ! mut))
+    (define (yielding? m)
+      (wat "i32.eqz" (wat "ref.is_null" (wat "global.get" (id (yielding m))))))
+
+    ;; Whether the record, which is set, names `node`.
+    (: aimed-at? (-> Module Wat Wat ! mut))
+    (define (aimed-at? m node)
+      (wat "ref.eq" (wat "struct.get" (id (yield-type m)) (int 0) (wat "ref.as_non_null" (wat "global.get" (id (yielding m))))) node))
+
+    (: may-yield? (-> Fn Expr Bool))
+    (define (may-yield? fn value)
+      (match (Module-callees (Fn-module fn))
+        ((Some callees) (not (null? (yields callees value))))
+        ((None) #f)))
+
+    ;; The rest of a let after its value. When the value may yield, a test
+    ;; comes first: while the record is set, it saves the let's body as a
+    ;; frame and leaves. In a join function, whose own rest the body is,
+    ;; the body then runs in that frame, by a tail call as the runner would
+    ;; make, so each join holds its body only up to the next yield point.
+    (: let-rest (-> Fn String Expr Expr Bool (List Wat) ! mut))
+    (define (let-rest fn name value body tail?)
+      (cond ((not (may-yield? fn value)) (emit fn body tail?))
+            ((match (Fn-exit fn) ((Some (ToRunner)) #t) (_ #f)) (continue-in-frame fn name value body))
+            (else (let ((test (yield-test fn (frame fn name value body) (Expr-loc value)))) (append test (emit fn body tail?))))))
+
+    (: yield-test (-> Fn Wat Loc (List Wat) ! mut))
+    (define (yield-test fn saved loc)
+      (let* ((m (Fn-module fn)) (exit (leave fn loc)))
+        (list (wat "if" (yielding? m) (wat "then" (wat "call" (id (push-helper m)) saved) exit)))))
+
+    (: continue-in-frame (-> Fn String Expr Expr (List Wat) ! mut))
+    (define (continue-in-frame fn name value body)
+      (let* ((m (Fn-module fn)) (base (frame-type m)) (temp (declare-temp! fn (wat "ref" (id base))))
+             (saved (wat "local.get" (id temp))) (set (wat "local.set" (id temp) (frame fn name value body)))
+             (test (yield-test fn saved (Expr-loc value))) (argument (box-value m (Expr-type value) (variable fn name unchecked))))
+        (Cons set (append test (list (wat "return_call_ref" (id (code-type m base)) saved argument (wat "struct.get" (id base) (int 0) saved)))))))
+
+    ;; A let's value that holds yield points of its own is a block they
+    ;; leave, so that the let's own test then saves the let's body too.
+    (: emit-let-value (-> Fn Expr Wat ! mut))
+    (define (emit-let-value fn value)
+      (match (Module-callees (Fn-module fn))
+        ((Some callees)
+         (if (holds-yield-point? callees value)
+             (let ((label (local-id fn "yield")) (type (Expr-type value)))
+               (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat (fn-rep fn type))) (emit (Fn-exit-set fn (Some (ToBlock label type))) value #f)))))
+             (emit1 fn value)))
+        ((None) (emit1 fn value))))
 
     (: leave (-> Fn Loc Wat ! mut))
     (define (leave fn loc)
       (match (Fn-exit fn)
-        ((Some (Exit (Some label) result)) (wat "br" (id label) (placeholder (Fn-module fn) result loc)))
-        ((Some (Exit (None) result)) (wat "return" (placeholder (Fn-module fn) result loc)))
+        ((Some (ToCaller result)) (wat "return" (placeholder (Fn-module fn) result loc)))
+        ((Some (ToBlock label result)) (wat "br" (id label) (placeholder (Fn-module fn) result loc)))
+        ((Some (ToRunner)) (wat "return" (wat "ref.null" (Word "any"))))
         ((None) (panic "internal error: a yield outside any function"))))
+
+    ;; ---- Frames ----
+
+    ;; A frame is a closure over the rest of a function at a yield point:
+    ;; the body of a let whose value yielded. Its code takes the frame and
+    ;; the let's value and returns the body's, each boxed when a scalar, so
+    ;; one code type serves every frame. It holds the live locals the body
+    ;; reads and, last, the evidence the body runs under, whose nodes reach
+    ;; the handler the yield is aimed at. Outside join functions a frame is
+    ;; built only on the path that leaves, so the fast path allocates none.
+    (: frame-type (-> Module String ! mut))
+    (define (frame-type m)
+      (match (known-type m "frame")
+        ((Some type) type)
+        ((None)
+         (put! (Module-type-ids m) "code:$frame" "$frame.code")
+         (register-type! m "frame.code" "$frame.code"
+                         (wat "type" (id "$frame.code") (wat "func" (wat "param" (wat "ref" (id "$frame"))) (wat "param" (Word "anyref")) (wat "result" (Word "anyref")))))
+         (register-type! m "frame" "$frame" (wat "type" (id "$frame") (wat "sub" (wat "struct" (wat "field" (wat "ref" (id "$frame.code"))))))))))
+
+    ;; A list of frames. The record's grows at its head as the yield leaves
+    ;; each frame, so its outermost frame comes first; a continuation's is
+    ;; reversed, into the order the frames run in.
+    (: frames-type (-> Module String ! mut))
+    (define (frames-type m)
+      (match (known-type m "frames")
+        ((Some type) type)
+        ((None)
+         (let ((frame (frame-type m)))
+           (register-type! m "frames" "$frames"
+                           (wat "type" (id "$frames") (wat "struct" (wat "field" (wat "ref" (id frame))) (wat "field" (wat "ref" (Word "null") (id "$frames"))))))))))
+
+    ;; The frame of the let binding `name` to `value`: the join function of
+    ;; its body, the locals the body reads, moved, then the evidence.
+    (: frame (-> Fn String Expr Expr Wat ! mut))
+    (define (frame fn name value body)
+      (let* ((m (Fn-module fn))
+             (captured (filter (lambda (local) (and (not (string=? local name)) (local? fn local))) (expr-references body)))
+             (entries (map (lambda (local) (Pair local (capture-rep fn local))) captured))
+             (type (capture-type m (frame-type m) (append (map Pair-second entries) (list (evidence-rep m)))))
+             (join (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner))) name value body entries type)))
+        (wat* "struct.new" (Cons (id type) (Cons (wat "ref.func" (id join))
+                                                 (append (map (lambda (local) (variable fn local unchecked)) captured) (list (Fn-evidence fn))))))))
+
+    ;; A let's body as a function of its frame and its boxed value: it
+    ;; loads the frame's locals and evidence and binds the value, runs the
+    ;; body, which a yield leaves with null, and boxes the body's value.
+    ;; The body runs to the let's end and no further, since the frames
+    ;; outside it continue from there, and its tail calls are calls, since
+    ;; their results are boxed. It is named by its text, as a lambda is,
+    ;; so the joins of one let, which the function and the join of the
+    ;; let before it both need, are one function.
+    (: emit-join! (-> Fn String Expr Expr (List (Pair String Rep)) String String ! mut))
+    (define (emit-join! join name value body entries type)
+      (push! (Fn-locals join) (wat "local" (Word "$ev") (evidence-ref (Fn-module join))))
+      (let* ((m (Fn-module join)) (frame (wat "ref.cast" (wat "ref" (id type)) (wat "local.get" (Word "$closure"))))
+             (evidence (wat "local.set" (Word "$ev") (wat "struct.get" (id type) (int (+ (length entries) 1)) frame)))
+             (loads (capture-loads join entries type))
+             (local (declare-local! join name (fn-rep join (Expr-type value))))
+             (argument (wat "local.set" (id local) (unbox-value m (Expr-type value) (wat "local.get" (Word "$value")))))
+             (result (box-value m (Expr-type body) (emit1 join body))))
+        (lambda-id m "join" (join-wat join (Cons evidence (append loads (list argument result)))) 0)))
+
+    (: join-wat (-> Fn (List Wat) Wat ! mut))
+    (define (join-wat join code)
+      (let* ((m (Fn-module join)) (frame (frame-type m)))
+        (wat* "func" (append (list (Word "$lambda.self") (wat "type" (id (code-type m frame)))
+                                   (wat "param" (Word "$closure") (wat "ref" (id frame))) (wat "param" (Word "$value") (Word "anyref"))
+                                   (wat "result" (Word "anyref")))
+                             (append (reverse (ref-get (Fn-locals join))) code)))))
+
+    ;; A value as frames pass it: a reference as it is, a scalar boxed as
+    ;; an Any holds it.
+    (: box-value (-> Module Type Wat Wat ! mut))
+    (define (box-value m type value)
+      (match (rep m type)
+        ((Scalar name) (wat "struct.new" (id (box-type m (Scalar name))) value))
+        ((Reference _) value)))
+
+    (: unbox-value (-> Module Type Wat Wat ! mut))
+    (define (unbox-value m type value)
+      (match (rep m type)
+        ((Scalar name) (let ((box (box-type m (Scalar name)))) (wat "struct.get" (id box) (int 0) (wat "ref.cast" (wat "ref" (id box)) value))))
+        ((Reference type-id) (wat "ref.cast" (wat "ref" (id type-id)) value))))
+
+    ;; Saves a frame on the record, as the yield leaves it.
+    (: push-helper (-> Module String ! mut))
+    (define (push-helper m)
+      (template-helper! m "control" "push"
+                        "(func {id} (param $frame (ref {frame}))
+  (local $record (ref {yield}))
+  (local.set $record (ref.as_non_null (global.get {yielding})))
+  (struct.set {yield} 3 (local.get $record) (struct.new {frames} (local.get $frame) (struct.get {yield} 3 (local.get $record)))))"
+                        (list (Pair "frame" (frame-type m)) (Pair "yield" (yield-type m)) (Pair "yielding" (yielding m)) (Pair "frames" (frames-type m)))))
 
     ;; ---- Placeholders ----
 
@@ -1704,13 +1849,15 @@
 
     ;; ---- Performing and catching ----
 
-    ;; The yield of `operation` at the node the performer's walk is on.
+    ;; The yield of `operation` at the node the performer's walk is on,
+    ;; with no frames yet.
     (: record-yield (-> Module Effect String (List String) (List Rep) Wat ! mut))
     (define (record-yield m info operation names params)
       (wat "global.set" (id (yielding m))
            (wat "struct.new" (id (yield-type m)) (wat "ref.as_non_null" (wat "local.get" (Word "$node")))
                 (wat "i32.const" (int (operation-index info operation)))
-                (wat* "struct.new" (Cons (id (arguments-type m operation params)) (map (lambda (name) (wat "local.get" (id name))) names))))))
+                (wat* "struct.new" (Cons (id (arguments-type m operation params)) (map (lambda (name) (wat "local.get" (id name))) names)))
+                (wat "ref.null" (id (frames-type m))))))
 
     (: operation-index (-> Effect String I64))
     (define (operation-index info operation)
@@ -1727,89 +1874,277 @@
           ((None)
            (register-type! m key (wasm-id key) (wat "type" (id (wasm-id key)) (wat* "struct" (map (lambda (param) (wat "field" (rep->wat param))) params))))))))
 
-    ;; Resumption is not compiled yet, so a control implementation must drop
-    ;; `resume`, its last parameter. Ownership drops each owned parameter
-    ;; that the body never uses before anything else runs.
-    (: check-abortive (-> Expr Unit))
-    (define (check-abortive implementation)
-      (unless (match (Expr-term implementation)
-                ((Lambda params body)
-                 (match (last params)
-                   ((Some resume) (drops-first? body resume))
-                   ((None) #f)))
-                (_ #f))
-        (compile-error (Expr-loc implementation) "resumption is not compiled yet: a control implementation must not use resume")))
-
-    (: drops-first? (-> Expr String Bool))
-    (define (drops-first? body name)
-      (match (Expr-term body)
-        ((Seq (Expr (App (Expr (Var "prim:drop-owned" _ _) _ _) (Cons (Expr (Var dropped _ _) _ _) (Nil))) _ _) rest)
-         (or (string=? dropped name) (drops-first? rest name)))
-        (_ #f)))
-
     ;; A handle of a control effect runs its body in a block, which a yield
     ;; leaves by branching to its end with a placeholder. There the handle
     ;; catches a yield aimed at its own node; any other yield leaves the
-    ;; placeholder as the handle's value, and the record set for its caller.
+    ;; placeholder as the handle's value, and the record set for its caller,
+    ;; with the handle saved as a frame of its own (see Resuming).
     (: emit-control-handle (-> Fn Expr String (List (Pair String Expr)) Expr (List Wat) ! mut))
     (define (emit-control-handle fn expr effect implementations body)
-      (let ((info (program-effect (program-of (Fn-module fn)) effect)))
-        (for-each (lambda (operation) (check-abortive (handler-implementation implementations operation))) (Effect-control info))
-        (let* ((installed (install-handler fn effect implementations)) (label (local-id fn "handle"))
-               (handled (handled-body fn expr info (Pair-first installed) label implementations body)))
-          (Cons (Pair-second installed) handled))))
+      (let* ((info (program-effect (program-of (Fn-module fn)) effect)) (installed (install-handler fn effect implementations))
+             (label (local-id fn "handle")))
+        (Cons (Pair-second installed) (handled-body fn expr info (Pair-first installed) label body))))
 
     ;; The body's value, or the implementation's when the handle catches.
-    (: handled-body (-> Fn Expr Effect String String (List (Pair String Expr)) Expr (List Wat) ! mut))
-    (define (handled-body fn expr info node label implementations body)
-      (let* ((m (Fn-module fn)) (result (fn-rep fn (Expr-type expr))) (value (declare-temp! fn (rep->wat result)))
-             (code (emit (Fn-exit-set (Fn-evidence-set fn (wat "local.get" (id node))) (Some (Exit (Some label) (Expr-type expr)))) body #f))
-             (catch (catch-yield fn info node value result implementations)))
+    (: handled-body (-> Fn Expr Effect String String Expr (List Wat) ! mut))
+    (define (handled-body fn expr info node label body)
+      (let* ((m (Fn-module fn)) (type (Expr-type expr)) (result (fn-rep fn type)) (value (declare-temp! fn (rep->wat result)))
+             (code (emit (Fn-exit-set (Fn-evidence-set fn (wat "local.get" (id node))) (Some (ToBlock label type))) body #f))
+             (catch (catch-yield m info type (wat "local.get" (id node)) value (Expr-loc expr))))
         (list (wat "local.set" (id value) (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat result)) code))))
               catch
               (move-value m result (wat "local.get" (id value))))))
 
-    ;; When the record names the handle's node: clear it, and run the
-    ;; implementation of the operation it names.
-    (: catch-yield (-> Fn Effect String String Rep (List (Pair String Expr)) Wat ! mut))
-    (define (catch-yield fn info node value result implementations)
-      (let* ((m (Fn-module fn)) (current (wat "global.get" (id (yielding m)))) (record (declare-temp! fn (rep->wat (Reference (yield-type m)))))
-             (done (local-id fn "dispatch"))
-             (cases (map (lambda (operation) (dispatch-case fn info node record done operation (handler-implementation implementations operation)))
-                         (Effect-control info))))
-        (wat "if" (wat "i32.eqz" (wat "ref.is_null" current))
-             (wat "then"
-                  (wat "if" (wat "ref.eq" (wat "struct.get" (id (yield-type m)) (int 0) (wat "ref.as_non_null" current)) (wat "local.get" (id node)))
-                       (wat "then"
-                            (wat "local.set" (id value)
-                                 (wat* "block" (concatenate (list (list (id done) (wat "result" (rep->wat result))
-                                                                        (wat "local.set" (id record) (wat "ref.as_non_null" current))
-                                                                        (wat "global.set" (id (yielding m)) (wat "ref.null" (id (yield-type m)))))
-                                                                  cases (list (wat "unreachable"))))))))))))
+    (: catch-yield (-> Module Effect Type Wat String Loc Wat ! mut))
+    (define (catch-yield m info type node value loc)
+      (wat "if" (yielding? m) (wat "then" (wat "local.set" (id value) (wat "call" (id (catcher m info type loc)) node)))))
+
+    ;; What a handle does with the yield that has reached it, for one
+    ;; effect and handle result type; the handle site and `resume` both
+    ;; end here. A yield aimed at another node leaves the handle, which
+    ;; saves itself as one frame, and the handle's value is a placeholder.
+    ;; One aimed at `node` is caught: the record is cleared, the yield's
+    ;; frames become a continuation, and the implementation of the recorded
+    ;; operation runs in the context outside the node, with the recorded
+    ;; arguments and a `resume` holding the continuation. Its call is a
+    ;; tail call, so a handler that resumes in tail position runs in
+    ;; constant stack however many times its operation is performed.
+    (: catcher (-> Module Effect Type Loc String ! mut))
+    (define (catcher m info type loc)
+      (helper! m "catch" (string-append (Effect-name info) " " (type-key type))
+               (lambda (function-id)
+                 (wat* "func" (concatenate (list (list (id function-id) (wat "param" (Word "$node") (evidence-ref m)) (wat "result" (rep->wat (rep m type))))
+                                                 (dispatch-locals m info type) (list (pass-on m info type loc)) (take-continuation m)
+                                                 (map (lambda (operation) (dispatch-case m info type operation loc)) (Effect-control info))
+                                                 (list (wat "unreachable"))))))))
+
+    (: pass-on (-> Module Effect Type Loc Wat ! mut))
+    (define (pass-on m info type loc)
+      (let ((node (wat "local.get" (Word "$node"))))
+        (wat "if" (wat "i32.eqz" (aimed-at? m node)) (wat "then" (enclose m info type node loc) (wat "return" (placeholder m type loc))))))
+
+    (: dispatch-locals (-> Module Effect Type (List Wat) ! mut))
+    (define (dispatch-locals m info type)
+      (append (list (wat "local" (Word "$record") (wat "ref" (id (yield-type m))))
+                    (wat "local" (Word "$continuation") (wat "ref" (id (continuation-type m)))))
+              (map (lambda (operation) (wat "local" (implementation-local info operation) (wat "ref" (id (implementation-base m operation type)))))
+                   (Effect-control info))))
+
+    (: take-continuation (-> Module (List Wat) ! mut))
+    (define (take-continuation m)
+      (let ((frames (wat "struct.get" (id (yield-type m)) (int 3) (wat "local.get" (Word "$record")))))
+        (list (wat "local.set" (Word "$record") (wat "ref.as_non_null" (wat "global.get" (id (yielding m)))))
+              (wat "global.set" (id (yielding m)) (wat "ref.null" (id (yield-type m))))
+              (wat "local.set" (Word "$continuation")
+                   (wat "struct.new" (id (continuation-type m)) (wat "call" (id (reverse-helper m)) frames) (wat "local.get" (Word "$node")))))))
 
     ;; The implementation of a control operation, if the record names it,
-    ;; taken from the handler at the node and called in the handle's
-    ;; context with the recorded arguments and a `resume` that holds no
-    ;; procedure, which the implementation drops.
-    (: dispatch-case (-> Fn Effect String String String String Expr Wat ! mut))
-    (define (dispatch-case fn info node record done operation implementation)
-      (let* ((m (Fn-module fn)) (index (operation-index info operation)) (signature (function-signature m (Expr-type implementation)))
-             (base (closure-type m (Pair-first signature) (Pair-second signature))) (closure (declare-temp! fn (rep->wat (Reference base))))
-             (arguments (recorded-arguments m operation (wat "local.get" (id record)))))
-        (wat "if" (wat "i32.eq" (wat "struct.get" (id (yield-type m)) (int 1) (wat "local.get" (id record))) (wat "i32.const" (int index)))
-             (wat "then" (wat "local.set" (id closure) (wat "ref.cast" (wat "ref" (id base)) (handler-field m info node index)))
-                  (wat "br" (id done) (closure-call-wat m base (wat "local.get" (id closure)) (Cons (Fn-evidence fn) (append arguments (list (fresh-owner m)))) #f))))))
+    ;; taken from the handler at the node.
+    (: dispatch-case (-> Module Effect Type String Loc Wat ! mut))
+    (define (dispatch-case m info type operation loc)
+      (let* ((index (operation-index info operation)) (base (implementation-base m operation type)) (local (implementation-local info operation))
+             (node (wat "local.get" (Word "$node"))) (outer (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 2) node)))
+             (arguments (recorded-arguments m operation (wat "local.get" (Word "$record")))))
+        (wat "if" (wat "i32.eq" (wat "struct.get" (id (yield-type m)) (int 1) (wat "local.get" (Word "$record"))) (wat "i32.const" (int index)))
+             (wat "then" (wat "local.set" local (wat "ref.cast" (wat "ref" (id base)) (handler-field m info node index)))
+                  (closure-call-wat m base (wat "local.get" local) (Cons outer (append arguments (list (resume-owner m info operation type loc)))) #t)))))
 
-    (: handler-field (-> Module Effect String I64 Wat ! mut))
+    (: implementation-local (-> Effect String Wat))
+    (define (implementation-local info operation)
+      (Word (string-append "$implementation." (i64->string (operation-index info operation)))))
+
+    ;; An implementation's closure type: the operation's arguments and
+    ;; `resume`, an owner, to the handle's result.
+    (: implementation-base (-> Module String Type String ! mut))
+    (define (implementation-base m operation type)
+      (closure-type m (append (Pair-first (function-signature m (operation-type m operation))) (list (Reference (owned-type m)))) (rep m type)))
+
+    (: handler-field (-> Module Effect Wat I64 Wat ! mut))
     (define (handler-field m info node index)
       (let ((handler (handler-type m (Effect-name info))))
-        (wat "struct.get" (id handler) (int index) (wat "ref.cast" (wat "ref" (id handler)) (wat "struct.get" (id (evidence-type m)) (int 1) (wat "local.get" (id node)))))))
+        (wat "struct.get" (id handler) (int index) (wat "ref.cast" (wat "ref" (id handler)) (wat "struct.get" (id (evidence-type m)) (int 1) node)))))
 
     (: recorded-arguments (-> Module String Wat (List Wat) ! mut))
     (define (recorded-arguments m operation record)
       (let* ((params (Pair-first (function-signature m (operation-type m operation)))) (type (arguments-type m operation params))
              (held (wat "ref.cast" (wat "ref" (id type)) (wat "struct.get" (id (yield-type m)) (int 2) record))))
         (map-indexed (lambda (index param) (wat "struct.get" (id type) (int index) held)) params)))
+
+    ;; ---- Resuming ----
+
+    ;; A continuation is the frames saved inside a handle's body, innermost
+    ;; first, and the handle's node. `resume` is a closure over the one a
+    ;; caught yield saved, which its owner makes one-shot. Calling it takes
+    ;; the frames out, sets the node's outer evidence to the caller's, so
+    ;; that the computation resumes under the handlers in scope where
+    ;; `resume` is called, and runs the frames on the answer, as the handle
+    ;; again: the handler is deep, so a yield aimed at the node runs the
+    ;; handler again, in tail position, as the handle site would, even after
+    ;; that handle has returned. A handle that any other yield leaves, at
+    ;; its site or resumed, becomes one frame holding the continuation
+    ;; inside it, so resuming the outer computation enters the handle again
+    ;; too. Dropping `resume` drops the continuation: its frames are garbage,
+    ;; and the owned values they hold are dropped with them, as with any
+    ;; dropped `Once`.
+    (: continuation-type (-> Module String ! mut))
+    (define (continuation-type m)
+      (match (known-type m "continuation")
+        ((Some type) type)
+        ((None)
+         (let ((frames (frames-type m)))
+           (register-type! m "continuation" "$continuation"
+                           (wat "type" (id "$continuation")
+                                (wat "struct" (wat "field" (wat "mut" (wat "ref" (Word "null") (id frames)))) (wat "field" (evidence-ref m)))))))))
+
+    ;; `resume`, a closure of the operation's answer to the handle's result.
+    (: resume-type (-> Module String String ! mut))
+    (define (resume-type m base)
+      (let ((name (wasm-id (string-append (substring base 1 (string-length base)) "+resume"))))
+        (match (known-type m name)
+          ((Some type) type)
+          ((None)
+           (register-type! m name name
+                           (wat "type" (id name)
+                                (wat "sub" (Word "final") (id base)
+                                     (wat "struct" (wat "field" (wat "ref" (id (code-type m base)))) (wat "field" (wat "ref" (id (continuation-type m))))))))))))
+
+    (: resume-base (-> Module String Type String ! mut))
+    (define (resume-base m operation type)
+      (closure-type m (list (rep m (operation-result m operation))) (rep m type)))
+
+    (: resume-owner (-> Module Effect String Type Loc Wat ! mut))
+    (define (resume-owner m info operation type loc)
+      (let ((base (resume-base m operation type)))
+        (wat "struct.new" (id (owned-type m))
+             (wat "struct.new" (id (resume-type m base)) (wat "ref.func" (id (resume-code m info operation type loc))) (wat "local.get" (Word "$continuation"))))))
+
+    ;; The code of an operation's `resume`: the handle again, run on the
+    ;; boxed answer under the caller's evidence.
+    (: resume-code (-> Module Effect String Type Loc String ! mut))
+    (define (resume-code m info operation type loc)
+      (helper! m "resume" (string-append operation " " (type-key type))
+               (lambda (function-id)
+                 (let* ((base (resume-base m operation type)) (resume (resume-type m base)))
+                   (push! (Module-declared m) function-id)
+                   (Word (fill "(func {id} (type {code}) (param $closure (ref {base})) (param $ev (ref {evidence})) (param $answer {answer}) (result {result})
+  (return_call {rehandle} (struct.get {resume} 1 (ref.cast (ref {resume}) (local.get $closure))) (local.get $ev) {boxed}))"
+                               (list (Pair "id" function-id) (Pair "code" (code-type m base)) (Pair "base" base) (Pair "evidence" (evidence-type m))
+                                     (Pair "answer" (wat->text (rep->wat (rep m (operation-result m operation))))) (Pair "result" (wat->text (rep->wat (rep m type))))
+                                     (Pair "rehandle" (rehandler m info type loc)) (Pair "resume" resume)
+                                     (Pair "boxed" (wat->text (box-value m (operation-result m operation) (wat "local.get" (Word "$answer"))))))))))))
+
+    ;; The handle again, for one effect and handle result type: the
+    ;; continuation run on a boxed value under `$ev`, ending, if a yield
+    ;; reaches it, in the handle's catch, in tail position.
+    (: rehandler (-> Module Effect Type Loc String ! mut))
+    (define (rehandler m info type loc)
+      (helper! m "rehandle" (string-append (Effect-name info) " " (type-key type))
+               (lambda (function-id)
+                 (Word (fill "(func {id} (param $continuation (ref {continuation})) (param $ev (ref {evidence})) (param $value anyref) (result {result})
+  (local.set $value (call {continue} (local.get $continuation) (local.get $ev) (local.get $value)))
+  (if {yielding} (then (return_call {catch} (struct.get {continuation} 1 (local.get $continuation)))))
+  {unboxed})"
+                             (list (Pair "id" function-id) (Pair "continuation" (continuation-type m)) (Pair "evidence" (evidence-type m))
+                                   (Pair "result" (wat->text (rep->wat (rep m type)))) (Pair "continue" (continue-helper m))
+                                   (Pair "yielding" (wat->text (yielding? m))) (Pair "catch" (catcher m info type loc))
+                                   (Pair "unboxed" (wat->text (unbox-value m type (wat "local.get" (Word "$value")))))))))))
+
+    ;; A handle that a yield leaves, saved as a frame: the frames saved
+    ;; inside its body, as a continuation for its node. Run, it is the
+    ;; handle again, under the evidence outside its node as it stands,
+    ;; since whatever resumed the computation around it rebased that, and
+    ;; it boxes the handle's result.
+    (: handled-type (-> Module String ! mut))
+    (define (handled-type m)
+      (match (known-type m "handled")
+        ((Some type) type)
+        ((None)
+         (let ((frame (frame-type m)))
+           (register-type! m "handled" "$handled"
+                           (wat "type" (id "$handled")
+                                (wat "sub" (Word "final") (id frame)
+                                     (wat "struct" (wat "field" (wat "ref" (id (code-type m frame)))) (wat "field" (wat "ref" (id (continuation-type m))))))))))))
+
+    (: handled-code (-> Module Effect Type Loc String ! mut))
+    (define (handled-code m info type loc)
+      (helper! m "handled" (string-append (Effect-name info) " " (type-key type))
+               (lambda (function-id)
+                 (let ((frame (frame-type m)) (continuation (continuation-type m)))
+                   (push! (Module-declared m) function-id)
+                   (Word (fill "(func {id} (type {code}) (param $frame (ref {frame})) (param $value anyref) (result anyref)
+  (local $continuation (ref {continuation}))
+  (local.set $continuation (struct.get {handled} 1 (ref.cast (ref {handled}) (local.get $frame))))
+  {boxed})"
+                               (list (Pair "id" function-id) (Pair "code" (code-type m frame)) (Pair "frame" frame) (Pair "continuation" continuation)
+                                     (Pair "handled" (handled-type m))
+                                     (Pair "boxed" (wat->text (box-value m type (wat "call" (id (rehandler m info type loc)) (wat "local.get" (Word "$continuation"))
+                                                                                     (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 2) (wat "struct.get" (id continuation) (int 1) (wat "local.get" (Word "$continuation")))))
+                                                                                     (wat "local.get" (Word "$value")))))))))))))
+
+    ;; Saves the handle at `node`, which a yield is leaving, as one frame
+    ;; in place of the frames saved inside its body.
+    (: enclose (-> Module Effect Type Wat Loc Wat ! mut))
+    (define (enclose m info type node loc)
+      (wat "call" (id (enclose-helper m)) node (wat "ref.func" (id (handled-code m info type loc)))))
+
+    (: enclose-helper (-> Module String ! mut))
+    (define (enclose-helper m)
+      (template-helper! m "control" "enclose"
+                        "(func {id} (param $node (ref {evidence})) (param $code (ref {code}))
+  (local $record (ref {yield}))
+  (local.set $record (ref.as_non_null (global.get {yielding})))
+  (struct.set {yield} 3 (local.get $record)
+    (struct.new {frames}
+      (struct.new {handled} (local.get $code) (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $node)))
+      (ref.null {frames}))))"
+                        (list (Pair "evidence" (evidence-type m)) (Pair "code" (code-type m (frame-type m))) (Pair "yield" (yield-type m)) (Pair "yielding" (yielding m))
+                              (Pair "frames" (frames-type m)) (Pair "handled" (handled-type m)) (Pair "continuation" (continuation-type m))
+                              (Pair "reverse" (reverse-helper m)))))
+
+    ;; Runs a continuation: it rebases the node on the caller's evidence
+    ;; and takes the frames out, so that neither the continuation nor
+    ;; `resume` holds them while they run. Then each frame runs in turn,
+    ;; innermost first, on the value the one before produced. When a frame
+    ;; yields, the frames after it are saved on the record in turn, as if
+    ;; the yield were leaving them, and the loop returns with the record
+    ;; set, so its caller leaves too. A handle among the frames is one
+    ;; frame that runs the frames inside it itself, so a yield aimed at
+    ;; that handle is caught there and never passes through this loop.
+    (: continue-helper (-> Module String ! mut))
+    (define (continue-helper m)
+      (let ((frame (frame-type m)))
+        (template-helper! m "control" "continue"
+                          "(func {id} (param $continuation (ref {continuation})) (param $ev (ref {evidence})) (param $value anyref) (result anyref)
+  (local $frames (ref null {frames}))
+  (local $frame (ref {frame}))
+  (struct.set {evidence} 2 (struct.get {continuation} 1 (local.get $continuation)) (local.get $ev))
+  (local.set $frames (struct.get {continuation} 0 (local.get $continuation)))
+  (struct.set {continuation} 0 (local.get $continuation) (ref.null {frames}))
+  (loop $next
+    (if (ref.is_null (local.get $frames)) (then (return (local.get $value))))
+    (local.set $frame (struct.get {frames} 0 (ref.as_non_null (local.get $frames))))
+    (local.set $frames (struct.get {frames} 1 (ref.as_non_null (local.get $frames))))
+    (if (ref.is_null (global.get {yielding}))
+      (then (local.set $value (call_ref {code} (local.get $frame) (local.get $value) (struct.get {frame} 0 (local.get $frame)))))
+      (else (call {push} (local.get $frame))))
+    (br $next))
+  (unreachable))"
+                          (list (Pair "continuation" (continuation-type m)) (Pair "evidence" (evidence-type m)) (Pair "frames" (frames-type m))
+                                (Pair "frame" frame) (Pair "code" (code-type m frame)) (Pair "yielding" (yielding m)) (Pair "push" (push-helper m))))))
+
+    (: reverse-helper (-> Module String ! mut))
+    (define (reverse-helper m)
+      (template-helper! m "control" "reverse"
+                        "(func {id} (param $frames (ref null {frames})) (result (ref null {frames}))
+  (local $reversed (ref null {frames}))
+  (block $done
+    (loop $next
+      (br_if $done (ref.is_null (local.get $frames)))
+      (local.set $reversed (struct.new {frames} (struct.get {frames} 0 (ref.as_non_null (local.get $frames))) (local.get $reversed)))
+      (local.set $frames (struct.get {frames} 1 (ref.as_non_null (local.get $frames))))
+      (br $next)))
+  (local.get $reversed))"
+                        (list (Pair "frames" (frames-type m)))))
 
     ;; ---- Primitives ----
 

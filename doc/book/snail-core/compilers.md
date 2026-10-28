@@ -173,11 +173,23 @@ the `Ref` is allocated by the pass and never escapes it.
   instead leaves a yield record in one global: the node it is aimed at, the
   operation and its arguments, and returns a placeholder of its result type.
   After each let whose value may yield the record is tested, and while it is
-  set each function returns a placeholder and each handle body branches to
-  its handle site, until the handle whose node the record names clears it
-  and runs the implementation, whose result becomes the handle's. Nothing
-  reads a placeholder, and a program without control effects declares no
-  record and tests nothing. Each GC type sits in
+  set the let saves its body on the record as a frame, a closure over the
+  locals the body reads and its evidence whose code is the body compiled
+  as a join function, named by the hash of its text, which runs only to
+  the next yield point and continues in that point's frame; then each function
+  returns a placeholder and each handle body branches to its handle site,
+  until the handle whose node the record names. That handle clears the
+  record and runs the implementation with `resume`, a closure over the
+  frames and the node, and the implementation's result becomes the
+  handle's; any other control handle the yield leaves saves itself as one
+  frame holding the frames saved inside it. Calling `resume` sets the
+  node's outer evidence to its caller's, rebasing the computation on the
+  handlers in scope where it is resumed, runs the frames, innermost first,
+  and ends in the handle's catch, as the handle site does, so handlers are
+  deep and a tail-resumptive implementation runs in constant stack. A
+  frame that yields again has the frames after it saved on the new record.
+  Nothing reads a placeholder, and a program without control effects
+  declares no record and tests nothing. Each GC type sits in
   the smallest recursion group it can, ordered by name, so modules that
   declare the same
   type declare the same group. Compiled one library at a time, a module

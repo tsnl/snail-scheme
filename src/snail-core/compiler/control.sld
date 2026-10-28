@@ -19,7 +19,8 @@
    name-yield-points
    Callees
    module-callees
-   yields)
+   yields
+   holds-yield-point?)
   (import
    (snail-core base)
    (snail-core table)
@@ -129,6 +130,16 @@
              ((App callee _) (null? (callee-row callees callee)))
              (_ #t))
            (every? (lambda (child) (yield-free? callees child)) (subexpressions expr))))
+
+    ;; Whether a let inside `expr`, outside its lambdas, has a value that
+    ;; may yield. The backend tests for a yield after such a let and leaves
+    ;; while one is set, so a value that holds one is a block it can leave.
+    (: holds-yield-point? (-> Callees Expr Bool))
+    (define (holds-yield-point? callees expr)
+      (match (Expr-term expr)
+        ((Lambda _ _) #f)
+        ((Let _ value body) (or (not (null? (yields callees value))) (holds-yield-point? callees body)))
+        (_ (any? (lambda (child) (holds-yield-point? callees child)) (subexpressions expr)))))
 
     (: subexpressions (-> Expr (List Expr)))
     (define (subexpressions expr)
@@ -414,6 +425,7 @@
         (test-operands)
         (test-flow)
         (test-unchanged)
+        (test-holds)
         (test-restrictions))
 
       (define i64 (TCon "I64" (Nil)))
@@ -500,6 +512,16 @@
       (define (test-unchanged)
         (let ((pure (call add (list (call g (list (number 1))) (call g (list (number 2)))))))
           (expect (eq? (Pair-first (control-expr 0 callees pure)) pure) #t)))
+
+      ;; A value holds a yield point when a let inside it, outside its
+      ;; lambdas, binds a value that may yield; a call that may yield is not
+      ;; one, since the let it is the value of tests it.
+      (define (test-holds)
+        (let ((inner (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64)))) i64 loc)))
+          (expect (holds-yield-point? callees inner) #t)
+          (expect (holds-yield-point? callees (Expr (If (local "c.1" bool) inner (number 2)) i64 loc)) #t)
+          (expect (holds-yield-point? callees (call f (list (number 1)))) #f)
+          (expect (holds-yield-point? callees (Expr (Lambda (list "y.1") inner) (Expr-type g) loc)) #f)))
 
       ;; A thunk unsafe-total calls cannot yield, but a lambda whose row
       ;; names Abort and whose body yields nothing can be called anywhere;

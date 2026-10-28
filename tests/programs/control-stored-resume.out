@@ -1,0 +1,15 @@
+first log: a produces 1
+first log: b produces 10
+got 1
+second log: a produces 2
+got 10
+second log: b produces 11
+got 2
+second log: a produces 3
+got 11
+got 3
+both done
+gave 1
+gave 4
+gave 60
+finished

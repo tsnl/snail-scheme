@@ -162,13 +162,33 @@ effect, so they need not be imported. Effects with host defaults, such as `conso
 handle `fs` to serve files from memory.
 
 **Control operations.** An effect may declare an operation with `ctl`, as
-in `(effect Raise ((ctl raise (-> String I64))))`. Its implementation
-receives one more argument, `resume`, the rest of the handled body, and
-returns the handler's result, the type of the `handle` expression. A control
-operation has no host default, since the host cannot be handed the rest of a
-computation. An implementation that drops `resume` aborts: performing the
-operation abandons the rest of the handled body, the implementation runs in
-the handler's outer context, and its result is the handler's:
+in `(effect Gen ((ctl yield (-> I64 Unit))))`. Its implementation receives
+one more argument, `resume`, the rest of the handled body, and returns the
+handler's result, the type of the `handle` expression. A control operation
+has no host default, since the host cannot be handed the rest of a
+computation. The implementation runs in the handler's outer context.
+Calling `(resume answer)` runs the rest of the handled body, with `answer`
+as the operation's result, to the handler's result, which the
+implementation may return or build on:
+
+```scheme
+(: collect (-> (-> I64 ! Gen) (List I64)))
+(define (collect body)
+  (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
+    (list (body))))
+```
+
+`resume` is a `Once`: it is one-shot, so the checker rejects calling it
+twice, and a second call that reaches run time traps. It is also
+first-class: an implementation may return it inside a value, such as an
+affine enum of the generator's next step, and whoever holds that value may
+call it later, after the `handle` has returned. The handler is deep, so the
+resumed computation runs under it again, and its next control operation
+reaches the same implementation; and it runs under the handlers in scope
+where `resume` is called, not those that were in scope when it started.
+Dropping `resume` drops the rest of the body: an implementation that drops
+it aborts, and its result is the handler's, as with this `raise`, declared
+`(ctl raise (-> String I64))`:
 
 ```scheme
 (: parse-or (-> String I64 I64 ! console))
@@ -178,9 +198,10 @@ the handler's outer context, and its result is the handler's:
     (number text)))
 ```
 
-Nothing after the operation runs, so a `Once` held across it is dropped and
-never called. Of two handlers of one effect the inner one catches, and an
-implementation that performs the effect again reaches the outer one. A control row cannot reach a `vector-generate` or
+Nothing after an abandoned operation runs, so a `Once` held across it is
+dropped and never called; there is no `finally` clause. Of two handlers of
+one effect the inner one catches, and an implementation that performs the
+effect again reaches the outer one. A control row cannot reach a `vector-generate` or
 `string-generate` callback, an `unsafe-total` thunk, `dispatch-local` work,
 or the implementation of an operation declared without `ctl`, which returns
 into a handled body that does not expect it to abort; each is an error after
@@ -188,13 +209,6 @@ specialization. A generic function used where a control operation may be
 performed is specialized at that row, so its callback rows name the effect
 too: `vector-map`, which calls `vector-generate`, cannot be used in such a
 body even with a callback that cannot abort.
-
-**Proposed: resumption.** Calling `(resume answer)` would run the rest of the
-handled body, under the handler again, to the handler's result, which the
-implementation returns. `resume` is a `Once`, so the checker rejects calling
-it twice, and it may be stored and called later. The checker accepts this
-today; the backend reports "resumption is not compiled yet" for an
-implementation that uses `resume`.
 
 `extern` declares a total foreign function; the declaration is the boundary's
 unsafe assumption.
