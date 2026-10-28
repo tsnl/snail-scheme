@@ -1,0 +1,41 @@
+"(define (twice x) ; doubles\n  (* 2 x))"
+  punctuation:"(" keyword:"define" whitespace:" " punctuation:"(" definition:"twice" whitespace:" " identifier:"x" punctuation:")" whitespace:" " comment:"; doubles" whitespace:"\n  " punctuation:"(" identifier:"*" whitespace:" " number:"2" whitespace:" " identifier:"x" punctuation:")" punctuation:")"
+  read: (define (twice x) (* 2 x))
+"(: label (-> I64 String))"
+  punctuation:"(" keyword:":" whitespace:" " definition:"label" whitespace:" " punctuation:"(" keyword:"->" whitespace:" " type:"I64" whitespace:" " type:"String" punctuation:")" punctuation:")"
+  read: (: label (-> I64 String))
+"(define ((adder n) x) (+ n x))"
+  punctuation:"(" keyword:"define" whitespace:" " punctuation:"(" punctuation:"(" definition:"adder" whitespace:" " identifier:"n" punctuation:")" whitespace:" " identifier:"x" punctuation:")" whitespace:" " punctuation:"(" identifier:"+" whitespace:" " identifier:"n" whitespace:" " identifier:"x" punctuation:")" punctuation:")"
+  read: (define ((adder n) x) (+ n x))
+"(struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))"
+  punctuation:"(" keyword:"struct" whitespace:" " type:"Point" whitespace:" " punctuation:"(" punctuation:"(" identifier:"x" whitespace:" " type:"F64" punctuation:")" punctuation:")" whitespace:" " punctuation:"(" keyword:"deriving" whitespace:" " type:"Show" punctuation:")" punctuation:")" whitespace:" " punctuation:"(" keyword:"match" whitespace:" " identifier:"p" whitespace:" " punctuation:"(" punctuation:"(" type:"Point" whitespace:" " identifier:"x" punctuation:")" whitespace:" " identifier:"x" punctuation:")" whitespace:" " punctuation:"(" identifier:"_" whitespace:" " number:"0" punctuation:")" punctuation:")"
+  read: (struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))
+"(effect ask (ctl ask (-> Unit I64))) (handle ask ((ask (lambda (resume) 1))) body)"
+  punctuation:"(" keyword:"effect" whitespace:" " identifier:"ask" whitespace:" " punctuation:"(" keyword:"ctl" whitespace:" " identifier:"ask" whitespace:" " punctuation:"(" keyword:"->" whitespace:" " type:"Unit" whitespace:" " type:"I64" punctuation:")" punctuation:")" punctuation:")" whitespace:" " punctuation:"(" keyword:"handle" whitespace:" " identifier:"ask" whitespace:" " punctuation:"(" punctuation:"(" identifier:"ask" whitespace:" " punctuation:"(" keyword:"lambda" whitespace:" " punctuation:"(" identifier:"resume" punctuation:")" whitespace:" " number:"1" punctuation:")" punctuation:")" punctuation:")" whitespace:" " identifier:"body" punctuation:")"
+  read: (effect ask (ctl ask (-> Unit I64))) (handle ask ((ask (lambda (resume) 1))) body)
+"#| outer #| inner |# still outer |#x"
+  comment:"#| outer #| inner |# still outer |#" identifier:"x"
+  read: x
+"\"line\\n quote\\\" slash\\\\ \\x41;\" #\\( #\\space #\\x41 #\\)"
+  string:"\"line\\n quote\\\" slash\\\\ \\x41;\"" whitespace:" " character:"#\\(" whitespace:" " character:"#\\space" whitespace:" " character:"#\\x41" whitespace:" " character:"#\\)"
+  read: "line\n quote\" slash\\ A" #\( #\  #\A #\)
+"#u8(0 255) 'x '(a b) #t #false 1.5e3 -7 +x"
+  punctuation:"#u8(" number:"0" whitespace:" " number:"255" punctuation:")" whitespace:" " punctuation:"'" identifier:"x" whitespace:" " punctuation:"'" punctuation:"(" identifier:"a" whitespace:" " identifier:"b" punctuation:")" whitespace:" " boolean:"#t" whitespace:" " boolean:"#false" whitespace:" " number:"1.5e3" whitespace:" " number:"-7" whitespace:" " identifier:"+x"
+  read: #u8(0 255) (quote x) (quote (a b)) #t #f 1.5e3 -7 +x
+"#;(skip me) kept #; #; a 'b c"
+  comment:"#;(skip me)" whitespace:" " identifier:"kept" whitespace:" " comment:"#; #; a 'b" whitespace:" " identifier:"c"
+  read: kept c
+"(f #;(a ; note\n #;b \"(\" c) d)"
+  punctuation:"(" identifier:"f" whitespace:" " comment:"#;(a ; note\n #;b \"(\" c)" whitespace:" " identifier:"d" punctuation:")"
+  read: (f d)
+"(x'y \"s\"t #\\) a;b\n[c])"
+  punctuation:"(" identifier:"x" punctuation:"'" identifier:"y" whitespace:" " string:"\"s\"" identifier:"t" whitespace:" " character:"#\\)" whitespace:" " identifier:"a" comment:";b" whitespace:"\n" punctuation:"[" identifier:"c" punctuation:"]" punctuation:")"
+  read: (x (quote y) "s" t #\) a (c))
+". #foo (a) ]"
+  invalid:"." whitespace:" " invalid:"#foo" whitespace:" " punctuation:"(" identifier:"a" punctuation:")" whitespace:" " punctuation:"]"
+"\"unterminated\n(still a string"
+  string:"\"unterminated\n(still a string"
+"#| unterminated"
+  comment:"#| unterminated"
+"(#; )"
+  punctuation:"(" comment:"#; " punctuation:")"

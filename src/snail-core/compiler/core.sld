@@ -35,6 +35,7 @@
    label-union
    label-difference
    builtin-types
+   core-keywords
    Evidence
    EvInstance
    EvParam
@@ -198,6 +199,14 @@
     (: mono-scheme (-> Type Scheme))
     (define (mono-scheme type)
       (Scheme (Nil) (Nil) type))
+
+    ;; The names of the core forms, which the expander binds in
+    ;; (snail-core core) and (snail-core highlight) colors as keywords.
+    (: core-keywords (List String))
+    (define core-keywords
+      (list "define" "lambda" "if" "begin" "let" "define-syntax" "syntax-rules" "quote" ":" "struct" "enum" "type"
+            "typeclass" "instance" "match" "ann" "extern" "primitive" "effect" "handle" "expose" "case-id" "type-convert" "type-test"
+            "artifact-files" "link-file"))
 
     (: builtin-types (List (Pair String I64)))
     (define builtin-types

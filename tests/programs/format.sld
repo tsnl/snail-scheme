@@ -14,28 +14,3 @@
 
 ;; Reindenting only the second line leaves the third as it was.
 (write-string (indent-lines "(foo bar\nbaz\n  qux)\n" 1 1))
-
-;; Each character's class, for coloring: a definition's name, a comment, a
-;; number, a type and a string.
-(write-line (highlight-classes "(define (twice x) ; doubles\n  (* 2 x))"))
-(write-line (highlight-classes "(: label (-> I64 String)) \"#\\\\(\""))
-
-;; Both APIs use the same token boundaries, including incomplete editor input.
-(: check-classes (-> String String Unit))
-(define (check-classes source expected)
-  (unless (string=? (highlight-classes source) expected)
-    (panic (string-append "wrong highlighting: " source))))
-
-(check-classes ",@" "qq")
-(check-classes "#;x" "qq.")
-(check-classes "#(1)" "qpnp")
-(check-classes "#\\(" "hhh")
-(check-classes "[1 ,@x]" "pn.qq.p")
-(check-classes "\"a\\\n\"x" "sssss.")
-(check-classes "\"a\n\nb\"" "ssssss")
-(check-classes "#|a\n#|b|#\n|#x" "cccccccccccc.")
-(check-classes ";a\nx" "cc..")
-(check-classes "#|x|#\nx" "ccccc..")
-(check-classes "\"x\"\nx" "sss..")
-(check-classes "\"unterminated" "sssssssssssss")
-(check-classes "#|\n\n" "cccc")
