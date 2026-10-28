@@ -205,6 +205,25 @@ async function repeatedSuspension() {
   assert.deepEqual(f.cleaned, [10, 11]); f.settled();
 }
 
+// A parked task wakes only when unpark names it, and a stale id, such as
+// one whose task was cancelled while parked, wakes nothing.
+async function parking() {
+  const scheduler = createScheduler();
+  let id;
+  const woken = scheduler.start(() => { id = scheduler.current(); return scheduler.park().then(() => 'woken'); });
+  await turn();
+  assert.equal(scheduler.unpark(id + 1), false, 'unparking another id wakes nothing');
+  assert.equal(scheduler.unpark(id), true);
+  assert.equal(scheduler.unpark(id), false, 'a woken task is no longer parked');
+  assert.equal(await woken.done, 'woken');
+  const cancelled = scheduler.start(() => { id = scheduler.current(); return scheduler.park(); });
+  await turn(); cancelled.cancel();
+  await assert.rejects(cancelled.done, {name: 'AbortError'});
+  assert.equal(scheduler.unpark(id), false, 'a task cancelled while parked leaves no waiter');
+  assert.throws(() => scheduler.current(), /running task/);
+  assert.equal(scheduler.size, 0);
+}
+
 await isolation();
 await detachedChild();
 await cancellation();
@@ -214,4 +233,5 @@ await fairness();
 await failedDiscard();
 await failedResultDiscard();
 await repeatedSuspension();
-console.log('tasks: JSPI permits, exhaustion, cancellation, cleanup and fairness');
+await parking();
+console.log('tasks: JSPI permits, exhaustion, cancellation, cleanup, fairness and parking');

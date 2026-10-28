@@ -7,6 +7,9 @@
 | `(dispatch-local work)` | Transfer a `Once` thunk into an independent local task. |
 | `(yield)` | Suspend until an event-loop turn permits more work. |
 | `(sleep milliseconds)` | Suspend for a timer, using an `I64` delay from 0 through 2147483647. |
+| `(make-mailbox)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. |
+| `(mailbox-post mailbox message)` | Add a message at the back. Posting never waits. |
+| `(mailbox-receive mailbox)` | Take the message at the front, waiting until one is posted. |
 
 ```scheme
 (import
@@ -28,9 +31,34 @@ in dependency order; their children need not finish before the next
 initializer runs.
 
 `dispatch-local` returns `Unit`, not an actor or an application object.
-Its argument is consumed. There are no mailboxes, request/reply protocols
-or supervisors. The runtime's host API can cancel individual tasks or
+Its argument is consumed. There are no request/reply protocols or
+supervisors. The runtime's host API can cancel individual tasks or
 close the runtime; this first Snail-Core API does not expose task handles.
+
+## Mailboxes
+
+A `Mailbox` is how tasks hand each other values. Messages are received in
+the order they were posted, and receivers are served in the order they
+began to wait. Its queue is Snail-Core data, a pair of lists in one `Ref`:
+tasks share a mailbox, so its contents are the one piece of state this
+library cannot thread through a single task. The name is `mailbox-receive`,
+not `receive`, because `(snail-core socket)` exports UDP's `receive`, and a
+program importing both libraries would have conflicting imports.
+
+```scheme
+(let ((mailbox (make-mailbox)))
+  (dispatch-local (once (lambda () (write-line (mailbox-receive mailbox)))))
+  (dispatch-local (once (lambda () (mailbox-post mailbox "hello")))))
+```
+
+A receiver that finds the queue empty adds its task's id to the mailbox's
+receivers and parks; a post wakes the receiver that has waited longest. A
+parked task does not run again until it is woken, so waiting costs nothing
+while nothing is posted, where a loop of `yield`s would run every event-loop
+turn. A woken receiver looks again, since a receiver that was already
+running may have taken the message first. A receiver whose task was
+cancelled while it waited is skipped. `tests/programs/mailbox.sld` has two
+tasks posting and one receiving.
 
 ## Effects and locality
 
@@ -62,6 +90,17 @@ before executing the thunk. The discard entry clears queued work without
 running it. JavaScript neither inspects the closure nor constructs Snail-Core
 objects. These entries also enforce one-shot use at the trusted host
 boundary.
+
+Parking needs two more imports and a third to name the task. `park`
+suspends the running task until `unpark` is called with its id, which
+`current` gives as an `I64`. `unpark` returns whether a task with that id
+was parked, and wakes nothing otherwise, so an id left behind by a
+cancelled task cannot wake a different task. Parking is safe without a
+lock because a task runs until it waits: nothing else runs between a
+receiver's finding the queue empty and its parking. The queue the waits
+serve stays in Snail-Core; the host keeps only the parked tasks. When
+tasks become effects, `park` becomes a wait on the Snail-Core scheduler
+and the mailbox operations keep their types.
 
 Optimization must preserve those external calls. The build no longer
 enables Binaryen's `--closed-world`: that mode assumes outgoing function

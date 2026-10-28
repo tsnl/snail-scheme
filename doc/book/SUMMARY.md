@@ -25,7 +25,7 @@
   - [Task operations](runtimes/tasks.md)
   - [One-shot work and ownership](runtimes/ownership.md)
   - [Scheduling and suspension](runtimes/scheduling.md)
-  - [Native networking](runtimes/networking.md)
+  - [Native networking and processes](runtimes/networking.md)
   - [Language contract](runtimes/contract.md)
   - [Draft mixed memory and continuations](runtimes/memory-and-continuations.md)
   - [Continuations and parallel execution](runtimes/future.md)
