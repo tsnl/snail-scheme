@@ -186,14 +186,15 @@
       ;; signature recompiles its library alone, and an edit to what
       ;; importers see recompiles them too. The libraries use only
       ;; primitives, so the session runs quickly on Chibi. The sources are
-      ;; written into `directory`.
+      ;; written into `directory`; `library` holds the standard libraries,
+      ;; (snail-core primitive) among them.
       (define (test-session directory library)
         (let ((main (string-append directory "/main.sld")))
           (create-directory* (string-append directory "/sample"))
           (write-sample-a directory "(i64-add x x)" "")
           (write-file (string-append directory "/sample/b.sld") sample-b)
           (write-file main "(import (snail-core core) (snail-core primitive) (sample b)) (four)")
-          (let* ((first (build-session (make-session (list directory)) main no-generation no-inputs))
+          (let* ((first (build-session (make-session (list directory library)) main no-generation no-inputs))
                  (unchanged (build-session (Pair-second first) main no-generation no-inputs))
                  (body (begin (write-sample-a directory "(i64-mul x 2)" "") (build-session (Pair-second unchanged) main no-generation no-inputs)))
                  (interface (begin (write-sample-a directory "(i64-mul x 2)" "(define zero 0)") (build-session (Pair-second body) main no-generation no-inputs))))
@@ -201,9 +202,9 @@
             (expect (compiled-names unchanged) (list))
             (expect (compiled-names body) (list "sample.a"))
             (expect (compiled-names interface) (list "sample.a" "sample.b" "main"))))
-        (test-handler-revalidation directory)
+        (test-handler-revalidation directory library)
         (test-artifact-replay directory library)
-        (test-link-replay directory))
+        (test-link-replay directory library))
 
       (define (no-generation loading forms) (panic "unexpected generated library"))
 
@@ -227,14 +228,14 @@
       ;; A linked file's bytes are no build key: editing it compiles
       ;; nothing, though every build still reports it. Removing it fails
       ;; even a replay, naming the library and the path.
-      (define (test-link-replay directory)
+      (define (test-link-replay directory library)
         (let ((main (string-append directory "/linked.sld")) (data (string-append directory "/sample/data.bin")))
           (write-file data "first")
           (write-file (string-append directory "/sample/linked.sld")
                       (string-append "(define-library (sample linked) (export data) (import (snail-core core) (snail-core primitive)) "
                                      "(begin (: data I32) (define data (link-file \"./data.bin\"))))"))
           (write-file main "(import (snail-core core) (snail-core primitive) (sample linked)) data")
-          (let* ((first (build-session (make-session (list directory)) main no-generation no-inputs))
+          (let* ((first (build-session (make-session (list directory library)) main no-generation no-inputs))
                  (edited (begin (write-file data "second") (build-session (Pair-second first) main no-generation no-inputs))))
             (expect (compiled-names edited) (Nil))
             (expect (map (lambda (built) (map LinkedFile-name (Built-links built))) (Pair-first edited)) (list (list "sample.linked/data.bin") (Nil)))
@@ -263,13 +264,13 @@
                     (string-append "(define-library (sample assets) (export bundle) (import (snail-core base) (snail-core artifact)) "
                                    "(begin (: bundle (-> ArtifactBundle)) (define (bundle) " body ")))")))
 
-      (define (test-handler-revalidation directory)
+      (define (test-handler-revalidation directory library)
         (let ((main (string-append directory "/main.sld")))
           (write-handler-helper directory "(ref-get (ref (ann 1 I64)))")
           (write-file (string-append directory "/sample/b.sld")
                       "(define-library (sample b) (export run) (import (snail-core core) (snail-core primitive) (sample a)) (begin (effect Counter ((tick (-> I64)))) (: run (-> I64 ! mut)) (define (run) (handle Counter ((tick (lambda () (helper)))) (tick)))))")
           (write-file main "(import (snail-core core) (snail-core primitive) (sample b)) (run)")
-          (let* ((first (build-session (make-session (list directory)) main no-generation no-inputs))
+          (let* ((first (build-session (make-session (list directory library)) main no-generation no-inputs))
                  (session (Pair-second first)))
             (expect (compiled-names (build-session session main no-generation no-inputs)) (list))
             (write-handler-helper directory "(ref-get cell)")

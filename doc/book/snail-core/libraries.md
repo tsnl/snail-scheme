@@ -4,6 +4,8 @@
 
 | Library | Contents |
 | --- | --- |
+| `(snail-core core)` | The core forms, the builtin types, and the `mut` and `tasks` effects. The compiler serves it; it has no file. |
+| `(snail-core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail-core base)` gives most of them their everyday names. |
 | `(snail-core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, lists, vectors, arrays, strings, `Show`. |
 | `(snail-core io)` | The `console` and `fs` effects: text output, lines of input, and files as text or bytes. |
 | `(snail-core resource)` | Files a library links rather than embeds: `link-bytes`, the `Resource` handle, and `read-resource` through the `resource` effect ([linked files](types.md#linked-files)). |
