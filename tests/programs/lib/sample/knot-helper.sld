@@ -4,7 +4,7 @@
   (export
    helper)
   (import
-   (snail-core base)
+   (snail core base)
    (sample knot))
   (begin
 

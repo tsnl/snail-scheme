@@ -4,10 +4,10 @@
 ;; valid texts was checked against JSON.stringify(JSON.parse(text)). Text
 ;; that is not one JSON value of integers reads as nothing.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core json)
- (snail-core json read))
+ (snail core base)
+ (snail core io)
+ (snail shell json)
+ (snail shell json read))
 
 (: read-back (-> String String))
 (define (read-back text)

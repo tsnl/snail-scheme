@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A generator: `yield` hands a value to the handler, which collects it
 ;; and resumes the walk, so the handled body runs to its end between the

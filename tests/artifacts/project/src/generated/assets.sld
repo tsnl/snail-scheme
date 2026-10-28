@@ -2,14 +2,14 @@
 ;; admin. Both use the same project traversal as the importing program.
 (generate-library (generated assets)
                   (import
-                   (snail-core base)
-                   (snail-core artifact)
-                   (snail-core syntax))
+                   (snail core base)
+                   (snail shell artifact)
+                   (snail shell syntax))
                   (let ((client (artifact-bundle "client")))
                     (library-syntax
                      (list "generated" "assets")
                      (list "producer-bytes" "admin-bundle")
-                     (list (list "snail-core" "base") (list "snail-core" "artifact"))
+                     (list (list "snail" "core" "base") (list "snail" "shell" "artifact"))
                      (list (form "define" (list (SymbolSyntax "producer-bytes")
                                                 (BytesSyntax
                                                  (match (artifact-ref client "nested/data.bin")

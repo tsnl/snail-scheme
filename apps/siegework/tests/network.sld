@@ -7,8 +7,8 @@
 ;; its wire, and scavenging that one rewires the extractor through the
 ;; first.
 (import
- (snail-core base)
- (snail-core io)
+ (snail core base)
+ (snail core io)
  (siegework grid)
  (only (siegework terrain) Land-starter)
  (siegework world)

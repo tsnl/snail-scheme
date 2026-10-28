@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; With an Async handler on each side of Io's, fetch's await goes to the
 ;; inner one, which is in scope where fetch is performed, and not to the

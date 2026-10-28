@@ -1,3 +1,3 @@
 (import
- (snail-core base))
+ (snail core base))
 (ref (once (lambda () (unit))))

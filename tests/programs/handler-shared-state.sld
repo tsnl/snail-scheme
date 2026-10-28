@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; Each instance is single-threaded, so a handler may capture shared mutable
 ;; state: through an alias, a global, a local cell, a method that reads a

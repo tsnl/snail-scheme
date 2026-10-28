@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (rename (snail-core artifact) (artifact-bundle bundle))
+ (snail core base)
+ (snail core io)
+ (rename (snail shell artifact) (artifact-bundle bundle))
  (generated assets))
 
 (define-syntax client-snapshot

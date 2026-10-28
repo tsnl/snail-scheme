@@ -1,10 +1,10 @@
 ;; The water jug puzzle as a bounded search: with jugs of 3 and 5 litres,
 ;; the shortest way to measure 4 litres.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core wire)
- (snail-core explore))
+ (snail core base)
+ (snail core io)
+ (snail shell wire)
+ (snail shell explore))
 
 (struct Jugs
   ((small I64)

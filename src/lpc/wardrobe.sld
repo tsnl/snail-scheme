@@ -15,9 +15,9 @@
    walk-picture
    portrait)
   (import
-   (snail-core base)
-   (snail-core wire)
-   (snail-core app)
+   (snail core base)
+   (snail shell wire)
+   (snail shell app)
    (lpc layout)
    (lpc catalog))
   (begin

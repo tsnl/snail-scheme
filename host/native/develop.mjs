@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The native host owns watchers, timers, HTTP/SSE and application children.
-// A persistent worker owns (snail-core develop), its synchronous Wasm compiler,
+// A persistent worker owns (snail shell develop), its synchronous Wasm compiler,
 // assembler and producer runs. Compiler work never occupies this event loop.
 //
 //   develop.mjs ROOT serve [--port PORT] APP-DIRECTORY
@@ -61,7 +61,7 @@ function startLoop(root, tools, request) {
   return loop;
 }
 
-// The loop's events, numbered as `deliver-event!` in src/snail-core/develop.sld
+// The loop's events, numbered as `deliver-event!` in src/snail/shell/develop.sld
 // numbers them. The worker serializes calls into its one Wasm instance.
 const CHANGED = 1, TIMER = 2;
 

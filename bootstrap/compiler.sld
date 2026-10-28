@@ -5,15 +5,15 @@
 ;; needs no input it lacks; one that asks anyway is projected only after the
 ;; compiler unwinds.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core table)
- (snail-core project)
- (snail-core compiler)
- (snail-core compiler read)
- (snail-core compiler inputs)
- (snail-core compiler session)
- (snail-core compiler plan))
+ (snail core base)
+ (snail core io)
+ (snail core table)
+ (snail shell project)
+ (snail shell compiler)
+ (snail shell compiler read)
+ (snail shell compiler inputs)
+ (snail shell compiler session)
+ (snail shell compiler plan))
 
 ;; ---- Arguments and records ----
 
@@ -52,7 +52,7 @@
    (output-produce (-> I64 I64 Unit))
    (output-build (-> I64 I64 Unit))
    (output-waiting (-> Unit)))
-  (host "snail-core.compiler"
+  (host "snail.records"
         ((output-text "text")
          (output-program "program")
          (output-browser "browser")

@@ -3,8 +3,8 @@
    first-signal
    all-signals)
   (import
-   (snail-core base)
-   (snail-core io)
+   (snail core base)
+   (snail core io)
    (control signal))
   (begin
     ;; The value signalled first, or 0 when the action finishes.

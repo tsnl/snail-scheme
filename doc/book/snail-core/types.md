@@ -131,20 +131,20 @@ suspension. See [scheduling](https://tsnl.github.io/snail-scheme/runtimes/schedu
 `unsafe-cast` is unchecked, like `unsafe-total`
 ([local mutation](effects.md#local-mutation)): it turns a `Funcref`, a
 function another module exports, into a function of whatever type the
-context expects (`(snail-core wasm)`). `dynamic-cast` is its checked
+context expects (`(snail shell wasm)`). `dynamic-cast` is its checked
 counterpart, for a function a plugin exposes with `dynamic`: it makes the
 function only if the policy it is given accepts the signature of the
 expected type ([plugins](compilers.md#plugins)).
 
 ## Linked files
 
-`(snail-core resource)` links a file to a library instead of embedding it, as
+`(snail shell resource)` links a file to a library instead of embedding it, as
 Python's `importlib.resources` addresses a package's data:
 
 ```scheme
 (import
- (snail-core base)
- (snail-core resource))
+ (snail core base)
+ (snail shell resource))
 
 (: hero Resource)
 (define hero (link-bytes "art/hero.png"))

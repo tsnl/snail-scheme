@@ -10,7 +10,7 @@ Real-number conversion is the exception: its results are scratch owned by the
 runtime instance, with no handle and no part in cleanup, because the private
 Snail-Core wrappers read them before returning and no user code runs in between.
 
-The command-line driver (`host/chibi/snail-core/build.sld`) builds this crate for
+The command-line driver (`host/chibi/snail/stage0/build.sld`) builds this crate for
 `wasm32-wasip1`. It merges the runtime into each statically linked program,
 as `snail build` and the internal source compiler build them, and connects terminal
 diagnostics and resource cleanup. A program linked when it runs, as

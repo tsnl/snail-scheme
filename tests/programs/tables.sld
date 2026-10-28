@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core table))
+ (snail core base)
+ (snail core io)
+ (snail core table))
 
 (define table
   (fold-left (lambda (table i) (table-set table (string-append "key" (show i)) (* i i)))

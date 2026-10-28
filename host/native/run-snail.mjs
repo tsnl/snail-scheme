@@ -15,7 +15,7 @@ import {processImports} from './process-imports.mjs';
 //
 // A program is one linked module, or a modules.json naming the modules of a
 // program compiled one library at a time (host/browser/load.mjs). Either may
-// load modules while it runs, through (snail-core wasm); a linked module links
+// load modules while it runs, through (snail shell wasm); a linked module links
 // only against what the program kept exported, which for one linked module
 // is nothing of the runtime's. The files a program links are read from
 // resources/ beside it before it starts.
@@ -79,7 +79,7 @@ async function runInitializers(program, scheduler) {
 // ---- Termination signals ----
 
 // SIGINT and SIGTERM reach only the main thread. They go to the program's
-// tasks waiting in `termination`, (snail-core process); with none waiting,
+// tasks waiting in `termination`, (snail shell process); with none waiting,
 // they end the process as Node's default does, by the same signal. The
 // worker counts its waiters in shared memory, read when the signal
 // arrives, so no message is in flight while a new waiter could miss it.

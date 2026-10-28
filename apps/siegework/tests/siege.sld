@@ -3,8 +3,8 @@
 ;; build slots. Last, an enemy between two turrets holds to one of them,
 ;; and each turret's guns stay on its last shot.
 (import
- (snail-core base)
- (snail-core io)
+ (snail core base)
+ (snail core io)
  (siegework grid)
  (only (siegework terrain) Land-starter)
  (siegework world)

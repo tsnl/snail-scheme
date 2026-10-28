@@ -1,4 +1,4 @@
 (import
- (snail-core base))
+ (snail core base))
 
 (unit)

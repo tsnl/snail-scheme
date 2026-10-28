@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; An Io handler may be installed with no Async handler in scope, since
 ;; fetch's Async is resolved where fetch is performed. Performing it where

@@ -1,5 +1,5 @@
 /* Colors for the `scheme` blocks host/native/highlight-book.mjs highlights,
-   by the class (snail-core highlight) gives each token. mdbook names its
+   by the class (snail shell highlight) gives each token. mdbook names its
    theme on <html>: light and rust are light themes, coal, navy and ayu dark.
    The light colors follow mdbook's highlight.css, the dark ones its
    tomorrow-night.css. */

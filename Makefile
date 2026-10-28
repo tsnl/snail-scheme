@@ -10,7 +10,7 @@ MDBOOK ?= mdbook
 SCHEME_SOURCES = '*.scm' '*.sld'
 # Stage 0 sees only bootstrap/chibi-include: one symlink per library the
 # compiler's own load closure reaches, so no other library under src/ can
-# enter the bootstrap by accident. tests/ supplies (snail-core testing).
+# enter the bootstrap by accident. tests/ supplies (snail stage0 testing).
 CHIBI_PATH = -I tests -I bootstrap/chibi-include
 
 # Downloads the Rust crates in each Cargo.lock, which the tests and every

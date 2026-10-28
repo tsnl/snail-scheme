@@ -3,10 +3,10 @@
 ;; in drawing order, heads are recolored ramp for ramp, and a pose picks the
 ;; strip a viewer should see.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core app)
- (snail-core sprite)
+ (snail core base)
+ (snail core io)
+ (snail shell app)
+ (snail shell sprite)
  (lpc layout)
  (lpc catalog)
  (lpc wardrobe))

@@ -276,9 +276,9 @@ promise; a failed bind also disposes the session it created.
 
 ## Browser editor
 
-The editor has a file browser and split panes. `(snail-core format)` runs in the page
+The editor has a file browser and split panes. `(snail shell format)` runs in the page
 for Tab/Enter indentation and format-on-save of Scheme files (`.sld`, `.scm`
-and `.datum`), and `(snail-core highlight)` colors them as the
+and `.datum`), and `(snail shell highlight)` colors them as the
 [book does](#code-highlighting). Other supported files use ordinary text
 editing. Browser textareas use LF in edited text; the native file API
 preserves exact bytes until saved.
@@ -338,9 +338,9 @@ covering file reads that failed while an existing event connection survived.
 
 ## Code highlighting
 
-The book and the editor color code with one classifier, `(snail-core highlight)`.
+The book and the editor color code with one classifier, `(snail shell highlight)`.
 It walks text with the compiler reader's own lexical rules, the "Lexemes"
-section of `src/snail-core/compiler/read.sld`: what starts at an index, where
+section of `src/snail/shell/compiler/read.sld`: what starts at an index, where
 it ends, and what a token's text is to the reader, a boolean, a number, a name
 or an error. The reader is built on the same functions, so a highlighter
 cannot disagree with it about where a string, a character such as `#\(`, a
@@ -375,7 +375,7 @@ preprocessor goes away.
 `dev` currently compiles and edits projects. Application execution and reload
 still use `./scripts/snail-tool serve APP-DIRECTORY` and
 `./scripts/snail-tool watch SOURCE [ARGUMENT ...]`. Their loop is
-`src/snail-core/develop.sld`, exposed by `bootstrap/develop.sld`; it retains a compiler
+`src/snail/shell/develop.sld`, exposed by `bootstrap/develop.sld`; it retains a compiler
 session, debounces changes and publishes manifests. It plans each build as the
 project builder does, with no project targets: the producers of the
 generated libraries the program reaches run first, each compiled one library
@@ -392,7 +392,7 @@ The [application chapter](applications.md#hot-reload) defines current reload beh
 file work through the runtime's WASI, as any program does
 ([files and directories](libraries.md#files-and-directories)): it makes,
 lists, renames and removes files, copies linked files, digests files with
-`(snail-core sha256)` and times builds with the monotonic clock. Watch,
+`(snail shell sha256)` and times builds with the monotonic clock. Watch,
 schedule, serve, broadcast and run commands cross to the parent.
 Watches are installed before the first compile. HTML, manifests, module bytes
 and linked files are staged beside their destinations and renamed, providing

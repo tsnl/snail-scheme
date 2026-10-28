@@ -62,10 +62,10 @@ try {
 
   // A genuine Session survives success, cache reuse, a failed edit and repair.
   const source = join(directory, 'main.sld'), helper = join(directory, 'sample/value.sld');
-  const value = number => `(define-library (sample value) (export value) (import (snail-core base))
+  const value = number => `(define-library (sample value) (export value) (import (snail core base))
     (begin (: value (-> I64)) (define (value) ${number})))`;
   write(helper, value(42));
-  write(source, '(import (snail-core base) (snail-core io) (sample value)) (write-line (i64->string (value)))');
+  write(source, '(import (snail core base) (snail core io) (sample value)) (write-line (i64->string (value)))');
   const first = compiler.modules(compiler.session(libraries), empty, source, fresh());
   execute(first.modules, '42\n');
   const second = compiler.modules(first.session, empty, source, fresh());
@@ -88,7 +88,7 @@ try {
   // Missing inputs unwind before native work. A new logical compilation
   // requests generated syntax again, even with its last successful Session.
   const generated = join(directory, 'generated.sld'), scratch = fresh();
-  write(generated, '(import (snail-core base) (snail-core io) (sample table)) (write-line (i64->string (length squares)))');
+  write(generated, '(import (snail core base) (snail core io) (sample table)) (write-line (i64->string (length squares)))');
   const generatedLibraries = [join(root, 'tests/programs/lib'), join(root, 'src')];
   const previous = compiler.session(generatedLibraries);
   const missing = failure(() => compiler.modules(previous, empty, generated, scratch), /compiler requires an input/);
@@ -97,7 +97,7 @@ try {
   assert.equal(existsSync(join(scratch, 'request.datum')), false);
   assert.equal(failure(() => compiler.static(empty, join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).request, null);
   const malformed = join(directory, 'malformed.sld');
-  write(malformed, '(import (snail-core base)) (');
+  write(malformed, '(import (snail core base)) (');
   const syntaxFailure = failure(() => compiler.static(empty, malformed, wat, fresh(), libraries), /unclosed list/);
   assert.equal(syntaxFailure.request, null);
   assert.equal(syntaxFailure.diagnostic.source.file, malformed);
@@ -144,11 +144,11 @@ try {
   write(join(planned, 'project.datum'), `((build-target client (browser (entry "client.sld")))
     (build-target main (program (entry "main.sld") (library-roots ("."))))
     (build-target server (program (entry "server.sld"))))`);
-  write(join(planned, 'client.sld'), '(import (snail-core base)) (unit)');
-  write(join(planned, 'server.sld'), '(import (snail-core base) (snail-core artifact)) (artifact-bundle "client")');
-  write(join(planned, 'main.sld'), '(import (snail-core base) (snail-core io) (sample made)) (write-line value)');
-  write(join(planned, 'sample/made.sld'), `(generate-library (sample made) (import (snail-core base) (snail-core syntax))
-    (library-syntax (list "sample" "made") (list "value") (list (list "snail-core" "base"))
+  write(join(planned, 'client.sld'), '(import (snail core base)) (unit)');
+  write(join(planned, 'server.sld'), '(import (snail core base) (snail shell artifact)) (artifact-bundle "client")');
+  write(join(planned, 'main.sld'), '(import (snail core base) (snail core io) (sample made)) (write-line value)');
+  write(join(planned, 'sample/made.sld'), `(generate-library (sample made) (import (snail core base) (snail shell syntax))
+    (library-syntax (list "sample" "made") (list "value") (list (list "snail" "core" "base"))
       (list (form ":" (list (SymbolSyntax "value") (SymbolSyntax "String"))) (form "define" (list (SymbolSyntax "value") (StringSyntax "made"))))))`);
   const waiting = compiler.plan(empty, planned, standard, fresh(), ['main']);
   const [producerPhase] = waiting.phases;
@@ -170,11 +170,11 @@ try {
   assert.equal(embedding.waiting, false);
   failure(() => compiler.plan(empty, planned, standard, fresh(), ['absent']), /unknown project build target absent/);
 
-  const unicode = '(import (snail-core base))\n(: greeting String)\n(define greeting (if #t "😀" 5))';
+  const unicode = '(import (snail core base))\n(: greeting String)\n(define greeting (if #t "😀" 5))';
   write(source, unicode);
   const point = failure(() => compiler.static(empty, source, wat, fresh(), libraries), /does not fit String/).diagnostic;
   assert.deepEqual(point.source, {file: source, line: 3, column: Array.from(unicode.split('\n')[2].split('5')[0]).length + 1});
-  write(source, '(import (snail-core base))\n(');
+  write(source, '(import (snail core base))\n(');
   assert.deepEqual(failure(() => compiler.static(empty, source, wat, fresh(), libraries), /unclosed list/).diagnostic.source, {file: source, line: 2, column: 1});
 
   // Session and artifact references keep distinct Wasm types. Passing one
@@ -191,7 +191,7 @@ try {
   // with the trusted compiler's resource-cleaning diagnostic exit.
   const trapping = join(directory, 'trapping.wasm');
   write(trapping, assemble(`(module
-    (import "snail-core.compiler" "text" (func $text (param i32 i32)))
+    (import "snail.records" "text" (func $text (param i32 i32)))
     (memory (export "memory") 1)
     (func (export "_initialize")) (func (export "main")) (func (export "reset"))
     (func (export "input_character") (param i32) (i32.store (i32.const 0) (i32.const 1114112)) (call $text (i32.const 0) (i32.const 1)))
@@ -209,8 +209,8 @@ try {
     const fixture = join(directory, `${stage}.wasm`);
     write(fixture, assemble(`(module
       (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
-      (import "snail-core.compiler" "text" (func $text (param i32 i32)))
-      (import "snail-core.compiler" "diagnostic" (func $diagnostic (param i64 i64)))
+      (import "snail.records" "text" (func $text (param i32 i32)))
+      (import "snail.records" "diagnostic" (func $diagnostic (param i64 i64)))
       (memory (export "memory") 1)
       (func (export "_initialize")) (func (export "main"))
       (func (export "input_character") (param i32) ${stage === 'argument-exit' ? '(call $exit (i32.const 1))' : ''})

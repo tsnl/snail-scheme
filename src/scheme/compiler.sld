@@ -5,7 +5,7 @@
 ;; recipe runs the translator when a library is built:
 ;;
 ;;   (generate-library (legacy hello)
-;;                     (import (snail-core base) (snail-core io) (scheme compiler))
+;;                     (import (snail core base) (snail core io) (scheme compiler))
 ;;                     (scheme->snail-core-library (list "legacy" "hello") (read-file "hello.scm")))
 ;;
 ;; The supported forms are define, lambda (with rest parameters), if, set!,
@@ -16,12 +16,12 @@
   (export
    scheme->snail-core-library)
   (import
-   (snail-core base)
-   (snail-core number)
-   (snail-core datum)
-   (snail-core read)
-   (snail-core write)
-   (snail-core syntax))
+   (snail core base)
+   (snail shell number)
+   (snail shell datum)
+   (snail shell read)
+   (snail shell write)
+   (snail shell syntax))
   (begin
 
     ;; ---- Programs ----
@@ -32,8 +32,8 @@
         ((Ok forms)
          (library-syntax name
                          (Nil)
-                         (list (list "snail-core" "base")
-                               (list "snail-core" "datum")
+                         (list (list "snail" "core" "base")
+                               (list "snail" "shell" "datum")
                                (list "scheme" "runtime"))
                          (map translate-top forms)))
         ((Err message) (panic (string-append "scheme: " message)))))

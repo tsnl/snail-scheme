@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; A `Once` is called like the procedure it holds, and the call consumes it.
 (let ((greet (once (lambda () (write-line "called once")))))

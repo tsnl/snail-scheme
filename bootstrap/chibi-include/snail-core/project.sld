@@ -1,1 +1,0 @@
-../../../src/snail-core/project.sld

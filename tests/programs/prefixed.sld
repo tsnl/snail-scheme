@@ -1,6 +1,6 @@
 (import
- (prefix (snail-core base) b:)
- (only (snail-core io) write-line))
+ (prefix (snail core base) b:)
+ (only (snail core io) write-line))
 
 ;; Methods are named within their class, whatever prefix imports it.
 (b:struct Pair2

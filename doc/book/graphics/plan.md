@@ -3,7 +3,7 @@
 **Proposed.** Applications send `Frame` values to
 `host/browser/renderer.mjs`, a fixed JavaScript renderer. This design replaces
 it with two layers written in Snail-Core: a `gpu` effect that is a thin wrapper
-around WebGPU, and `(snail-core graphics ...)` libraries of pipelines and
+around WebGPU, and `(snail shell graphics ...)` libraries of pipelines and
 packers on top of it. Delivery is tracked in
 [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
@@ -76,7 +76,7 @@ struct deriving `Pod`, and it changes when the pipeline does. Nothing is hidden
 behind a renderer object: every pass, buffer and layout is a value the
 application can read, replace or extend.
 
-Each row is `(snail-core graphics NAME)`:
+Each row is `(snail shell graphics NAME)`:
 
 | Library | Provides |
 | --- | --- |

@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; The counter belongs to the program, not to the call.
 (define counter (ref 0))

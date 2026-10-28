@@ -1,8 +1,8 @@
 (define-library (owned work)
   (export message run)
   (import
-   (snail-core base)
-   (snail-core io))
+   (snail core base)
+   (snail core io))
   (begin
     (: message (-> String (Once (-> Unit ! console))))
     (define (message text) (once (lambda () (write-line text))))

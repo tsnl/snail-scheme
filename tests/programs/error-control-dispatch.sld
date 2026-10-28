@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core task))
+ (snail core base)
+ (snail shell task))
 
 ;; Dispatched work runs later, on a task's own stack, which the
 ;; dispatcher's handlers are not on.

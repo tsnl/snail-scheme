@@ -1,8 +1,8 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core math)
- (snail-core text))
+ (snail core base)
+ (snail core io)
+ (snail shell math)
+ (snail shell text))
 
 (display (round (* 1000.0 (sin (/ pi 2.0)))))
 (newline)

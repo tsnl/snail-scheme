@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 (: checksum (-> Bytes I64))
 (define (checksum bytes)

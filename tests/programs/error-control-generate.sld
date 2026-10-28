@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; vector-generate calls its callback from a loop in WAT, which cannot
 ;; leave early when the callback yields.

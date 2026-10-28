@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; A function inside a parameter's fields is as opaque to a TypeId as a
 ;; function parameter.

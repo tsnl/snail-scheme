@@ -1,5 +1,5 @@
 (import
- (snail-core base))
+ (snail core base))
 
 ;; An implementation may yield only to the control effects its
 ;; operation's type names, Gen here, since only those are tested for

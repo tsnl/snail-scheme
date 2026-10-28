@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 ;; An instance method has its class method's row, even when this instance
 ;; performs less of it.

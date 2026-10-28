@@ -1,8 +1,8 @@
 (define-library (sample generic)
   (export generic-bundle)
   (import
-   (snail-core base)
-   (snail-core artifact))
+   (snail core base)
+   (snail shell artifact))
   (begin
 
     (: generic-bundle (All (A) (-> A ArtifactBundle)))

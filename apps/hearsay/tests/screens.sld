@@ -3,9 +3,9 @@
 ;; their caption and marked - when disabled, and labels with their tone when
 ;; it is not plain, with the number of shapes in each scene batch.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core app)
+ (snail core base)
+ (snail core io)
+ (snail shell app)
  (hearsay shell)
  (only (hearsay hud) guide-next guide-close))
 

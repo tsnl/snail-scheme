@@ -2,11 +2,11 @@
 ;; library is built, and the recipe returns the library as syntax.
 (generate-library (sample table)
                   (import
-                   (snail-core base)
-                   (snail-core syntax))
+                   (snail core base)
+                   (snail shell syntax))
                   (library-syntax (list "sample" "table")
                                   (list "squares")
-                                  (list (list "snail-core" "base"))
+                                  (list (list "snail" "core" "base"))
                                   (list (form "define"
                                               (list (SymbolSyntax "squares")
                                                     (form "list"

@@ -1,4 +1,4 @@
-//! The files a program links, `link-bytes` in (snail-core resource), as
+//! The files a program links, `link-bytes` in (snail shell resource), as
 //! host/browser/load.mjs gives them on Node and in the page.
 //!
 //! A module asks for each file it links by importing a function from

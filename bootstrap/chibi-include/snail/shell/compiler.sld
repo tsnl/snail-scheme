@@ -1,0 +1,1 @@
+../../../../src/snail/shell/compiler.sld

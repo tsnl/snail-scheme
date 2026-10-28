@@ -1,6 +1,6 @@
 # Application model
 
-`(snail-core app)` defines interactive browser applications as total functions over
+`(snail shell app)` defines interactive browser applications as total functions over
 a state:
 
 | Function | Meaning |
@@ -70,7 +70,7 @@ recoloring each by swapping colors, and keeps until their version changes.
 A sprite is a textured quad, standing upright toward the camera in a 2.5D
 scene or lying flat under an orthographic camera looking straight down in
 a 2D one, and a texture region can be a strip of frames the host steps
-through by the clock. `(snail-core sprite)` poses figures from spritebooks of any
+through by the clock. `(snail shell sprite)` poses figures from spritebooks of any
 sheet, and `src/lpc` uses it for the Liberated Pixel Cup character art.
 
 HUD panels, built from widgets such as those `label` and `button` make,

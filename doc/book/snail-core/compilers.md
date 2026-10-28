@@ -23,8 +23,8 @@ surface they implement.
 
 ## The passes
 
-All compiler modules live in `src/snail-core/compiler/` and are written in typed
-Snail-Core: they import only `(snail-core base)`, `(snail-core table)` and `(snail-core io)`, so the
+All compiler modules live in `src/snail/shell/compiler/` and are written in typed
+Snail-Core: they import only `(snail core base)`, `(snail core table)` and `(snail core io)`, so the
 compiler can compile itself. Chibi Scheme runs the same source through
 `host/chibi/`, which implements those three libraries and erases the typed
 forms.
@@ -37,27 +37,27 @@ state, its type says so — neither the checker's `check-library` nor any
 function of the expander has `mut` in its row — and where it does not, the
 `Ref` is allocated by the pass and never escapes it.
 
-- **[`read.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/read.sld)** turns text into `Syntax`:
+- **[`read.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/read.sld)** turns text into `Syntax`:
   atoms, identifiers and forms, each with a `Loc`. It is a recursive descent
   over a vector of characters; a line table recovers line and column only
   when a location is needed. Its lexemes, what starts at an index and where
   it ends, never fail, and the reader reports what it rejects in them;
-  `(snail-core highlight)` classifies text with the same functions. It also
+  `(snail shell highlight)` classifies text with the same functions. It also
   decodes the bytes a `generate-library` producer writes, the encoding
-  `(snail-core syntax)` defines, straight into `Syntax`. `compile-error`
+  `(snail shell syntax)` defines, straight into `Syntax`. `compile-error`
   preserves the source point and message at terminal failure; the resident
   caller resets and consumes this private diagnostic cell.
-- **[`core.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/core.sld)** defines the data the later
+- **[`core.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
   `Instance`, `Effect`), the `Program`, the global names of primitives,
   TypeIds for wire cases and `Any` values from one FNV-1a hash, the
   strongly connected components that the checker and the backend share, and
-  the names of the core forms and builtin types that `(snail-core core)`
+  the names of the core forms and builtin types that `(snail core forms)`
   provides. A `Program` is a value: the expander threads it through
   expansion, each addition handing back a larger one, and the later passes
   read it without effects.
-- **[`expand.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/expand.sld)** is the only pass that
+- **[`expand.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/expand.sld)** is the only pass that
   knows binding forms. It loads libraries, replacing each `include-bytes`
   with the byte vector literal of its file, resolves every identifier through
   environments, and runs `syntax-rules`. Hygiene is renaming: each identifier
@@ -66,7 +66,7 @@ function of the expander has `mut` in its row — and where it does not, the
   passes so definitions may refer to later ones; local bodies are
   sequential. Declarations become entities in the program tables, derived
   wire instances are generated as ordinary instance syntax that resolves in
-  the implicit libraries, `(snail-core wire)` among them, which the build's
+  the implicit libraries, `(snail shell wire)` among them, which the build's
   first deriving clause loads, and expressions become core `Expr`s with
   unique names. Each library's build key, the text of its declarations with
   its imports' interfaces, lets a session replay it.
@@ -94,11 +94,11 @@ function of the expander has `mut` in its row — and where it does not, the
   `artifact-files` without its files requests the input, which exits as a
   compile error does.
 
-  Every library is a file but `(snail-core core)`, which the expander
+  Every library is a file but `(snail core forms)`, which the expander
   serves from memory: the core forms, the builtin types, and the `mut` and
   `tasks` effects. The operations the backend implements directly are
   declared in
-  [`src/snail-core/primitive.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/primitive.sld),
+  [`src/snail/core/primitive.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/core/primitive.sld),
   read and resolved like any library. `(primitive i32-add (-> I32 I32 I32))`
   declares one, as `extern` declares a foreign function: it binds the name to
   the global `prim:i32-add`, the name the checker, mono and `emit-primitive`
@@ -107,7 +107,7 @@ function of the expander has `mut` in its row — and where it does not, the
   is accepted only in that library, whose body holds nothing else, so it
   adds no items and has no module; a session replays its values.
 
-  The core form `link-file`, which `link-bytes` in `(snail-core resource)`
+  The core form `link-file`, which `link-bytes` in `(snail shell resource)`
   wraps, parses its path against the directory of the file it is written in
   and records a `LinkedFile` on the library: the name the payload ships it
   under, the library's key and the canonical path, and where the build finds
@@ -128,7 +128,7 @@ function of the expander has `mut` in its row — and where it does not, the
   macros may name them, so `discover-artifacts` runs the expander itself
   with no target files supplied and records each `artifact-files` use as
   expansion reaches it, in program order.
-- **[`check.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/check.sld)** is Hindley-Milner inference
+- **[`check.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/check.sld)** is Hindley-Milner inference
   with effect rows. Unannotated top-level definitions are checked in
   dependency order (core's `strong-components`). Each instantiation records its type
   arguments and an evidence hole per class constraint. While items are
@@ -155,22 +155,22 @@ function of the expander has `mut` in its row — and where it does not, the
   performs effects, or a type variable (core's `hidden-effects`): an `Any`'s
   TypeId keys its type without rows, and mono erases the ordinary ones
   next, so this is the last pass that could tell.
-- **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/capabilities.sld)** finds two
+- **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds two
   structural properties of types from their declared fields: whether a
   type is first-order data, which dynamic exports require, and whether it
   is affine, which ownership uses. Ordinary arrows say nothing about their
   captures.
-- **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/mono.sld)** starts from the program's
+- **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
   names, and definitions that only rename another, such as
   `(define + i64-add)`, are replaced by their target.
-- **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/ownership.sld)** consumes affine
+- **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** consumes affine
   locals once per path after specialization. Branches fork and intersect
   their live owners; a path drops a value when it has no remaining use.
   Only one-shot closures can own affine captures. Concrete records inherit
   their fields' grade; existing generic parameters remain unrestricted.
-- **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/control.sld)** prepares the calls
+- **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/control.sld)** prepares the calls
   that may yield to a control handler. After specialization a row keeps
   only control effects, so a call may yield exactly when its callee's row
   names one, and a handle keeps what its body yields except to its own
@@ -188,7 +188,7 @@ function of the expander has `mut` in its row — and where it does not, the
   later on a task's own stack; and in the implementation of an operation
   declared without `ctl`, which returns into a handled body that tests for
   a yield there only to the control effects the operation's type names.
-- **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/wasm.sld)** chooses representations and
+- **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
   subtypes of a base holding the tag. Sequences are GC arrays. Functions are
@@ -234,7 +234,7 @@ function of the expander has `mut` in its row — and where it does not, the
   calls the definition with the empty evidence list; a function exposed with
   `dynamic` has a wrapper of `Any` values and a signature instead
   ([plugins](#plugins)).
-- **[`session.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/session.sld)** keeps the compiler
+- **[`session.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/session.sld)** keeps the compiler
   running between builds: the expander replays libraries whose declarations
   and imports' interfaces are unchanged, and only libraries whose expansion
   changed are checked, specialized and emitted again. Cached emissions keep
@@ -243,7 +243,7 @@ function of the expander has `mut` in its row — and where it does not, the
   generators and immutable build inputs are passed to each build; sessions
   retain only compilation evidence. Each `Built` module carries the files its
   library links, compiled this build or not, so a build places them all.
-- **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler/plan.sld)** orders a project build's
+- **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/plan.sld)** orders a project build's
   phases before any of them runs: building a target, and running a
   producer. A phase needs the producers its program's closure reaches, then
   the targets a discovery expansion finds it embeds. Nodes number in
@@ -257,7 +257,7 @@ function of the expander has `mut` in its row — and where it does not, the
   resolves the project's targets, and the native builder runs the plan wave by
   wave. The development loop plans with no targets, which needs no discovery,
   and runs only the producers.
-- **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-core/compiler.sld)** composes the passes, from a
+- **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text with the files it links, a
   `WholeProgram`, or to one module's text per library. The driver writes the
   files a compile links to `links.datum` in the compile's directory, one
@@ -266,10 +266,10 @@ function of the expander has `mut` in its row — and where it does not, the
 ## Separate compilation
 
 The unit of compilation is a library (`source->modules` in
-`src/snail-core/compiler.sld`). In its module:
+`src/snail/shell/compiler.sld`). In its module:
 
 - each monomorphic definition is exported under its global name, as in
-  `snail-core.base:map`;
+  `snail.core.base:map`;
 - each generic definition and alias the library uses is copied in,
   specialized at the library's own types, as C++ instantiates a template in
   every translation unit that uses it;
@@ -286,7 +286,7 @@ The checker settles each library's types before it checks the libraries
 that import it, so a definition's type comes from its own library and not
 from how an importer happens to use it.
 
-A **session** (`src/snail-core/compiler/session.sld`) compiles a program again
+A **session** (`src/snail/shell/compiler/session.sld`) compiles a program again
 and again, as the development loop does, keeping everything in memory:
 
 - The expander replays a library, adding what it added before, when its
@@ -338,7 +338,7 @@ table, would add to every call across libraries.
 
 ### Loading modules at run time
 
-`(snail-core wasm)` is `dlopen` and `dlsym`. `load-module` loads a module
+`(snail shell wasm)` is `dlopen` and `dlsym`. `load-module` loads a module
 from a file into the program's own namespace, linked against the runtime,
 the program's modules and the modules loaded before it, by name, and runs
 its `main`. A function the module exports comes out as a `Funcref`, and
@@ -484,7 +484,7 @@ it has no filesystem capability. Inputs belong to the current invocation, not
 the retained session. `no-inputs` supplies nothing.
 
 `generated` maps a producer's key to what it wrote. The key hashes the
-producer's text, `producer-text` in `(snail-core compiler inputs)`: the
+producer's text, `producer-text` in `(snail shell compiler inputs)`: the
 library directories its imports resolve in, then its program. One table can
 serve every target of a build, and two targets with different directories may
 resolve the same recipe's imports to different libraries, so the directories
@@ -531,7 +531,7 @@ with those libraries loading:
 
 ```scheme
 (generating "sample.knot")
-(import (snail-core base) (snail-core syntax) (sample knot-helper) ...)
+(import (snail core base) (snail shell syntax) (sample knot-helper) ...)
 ```
 
 A producer that imports, along any chain, the library it generates is then an
@@ -554,7 +554,7 @@ consumes the request after the compiler stack has unwound.
 Standalone source builds service generated-library requests and reject artifact
 requests with their source location: an artifact needs a project build. Chibi
 and Node compiler entries publish the pending request in `request.datum` after
-unwinding. `(snail-core compiler inputs)` owns this grammar:
+unwinding. `(snail shell compiler inputs)` owns this grammar:
 
 ```scheme
 (generate "123456")
@@ -656,15 +656,15 @@ at its first error. These operations are implemented and tested.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/snail-core/compiler/driver.sld`, `bootstrap/compile.sld` | Typed source invocation shared by both hosts; compilation and post-exit request publication are separate entries. |
+| `src/snail/shell/compiler/driver.sld`, `bootstrap/compile.sld` | Typed source invocation shared by both hosts; compilation and post-exit request publication are separate entries. |
 | `host/chibi/compile.scm`, `host/native/run-compiler.mjs` | Process unwind boundaries; publish missing-input requests only after trusted exit. |
 | `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs the compiled compiler by `run-compiler.mjs`'s protocol, and programs that need only WASI, linked files and module loading by `run-snail.mjs`'s, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
-| `host/chibi/snail-core/build.sld`, `scripts/link.scm` | Bootstrap, standalone generated libraries, tool builds and Binaryen/runtime linking policy. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
-| `host/chibi/snail-core/process.sld` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. This avoids Chibi 0.12 pipe-finalizer and sequential pipe-draining failures. |
+| `host/chibi/snail/stage0/build.sld`, `scripts/link.scm` | Bootstrap, standalone generated libraries, tool builds and Binaryen/runtime linking policy. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
+| `host/chibi/snail/stage0/process.sld` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. This avoids Chibi 0.12 pipe-finalizer and sequential pipe-draining failures. |
 | `crates/runtime/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. |
 | `crates/assembler/`, `host/native/assemble.mjs` | The `wat` crate compiled to Wasm for in-process text assembly. Programs do not carry the assembler. |
 | `host/native/run-snail.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading and the task scheduler. JSPI stacks remain finite. |
-| `src/`, `host/chibi/snail-core/`, `bootstrap/chibi-include/` | Every library that ships with the language, the compiler among them, and the separate stage-0 implementations of the three it imports. Stage 0's only search root is `bootstrap/chibi-include/`, one symlink per library the compiler reaches. |
+| `src/`, `host/chibi/snail/`, `bootstrap/chibi-include/` | Every library that ships with the language, the compiler among them, and the separate stage-0 implementations of the three it imports. Stage 0's only search root is `bootstrap/chibi-include/`, one symlink per library the compiler reaches. |
 
 Running project build plans and publication belong to the [project builder](projects.md),
 watching and editor services to the [development toolchain](toolchain.md), and

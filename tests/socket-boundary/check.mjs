@@ -18,13 +18,13 @@ const scheduler = createScheduler({handlerGlobals: () => program ? programEntry(
 const host = {'snail.socket': socketImports(() => program, scheduler, tcp, udp), 'snail.test': {stage: () => 0}};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
 const invoke = (name, ...args) => scheduler.start(() => WebAssembly.promising(api[name])(...args));
-const helpers = () => program.names ? program.linked.get('snail-core.socket').exports : program.runtime.exports;
+const helpers = () => program.names ? program.linked.get('snail.shell.socket').exports : program.runtime.exports;
 const native = {listen: tcp.listen, connect: tcp.connect, read: tcp.read, write: tcp.write};
 const timeout = setTimeout(() => { throw new Error('socket boundary test timed out'); }, 30_000);
 
 function replaceHelpers(overrides) {
   const replacement = {exports: {...helpers(), ...overrides}};
-  if (program.names) program = {...program, linked: new Map(program.linked).set('snail-core.socket', replacement)};
+  if (program.names) program = {...program, linked: new Map(program.linked).set('snail.shell.socket', replacement)};
   else program = {...program, runtime: replacement};
 }
 

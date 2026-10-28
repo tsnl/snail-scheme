@@ -1,6 +1,6 @@
 (import
- (snail-core base)
- (snail-core io))
+ (snail core base)
+ (snail core io))
 
 (: call (All (A e) (-> (-> A ! e) A ! e)))
 (define (call action) (action))

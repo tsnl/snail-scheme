@@ -17,7 +17,7 @@ bytes.
 
 ## Queues
 
-`(snail-core queue)` copies, and works on every host, including a browser
+`(snail shell queue)` copies, and works on every host, including a browser
 page without cross-origin isolation.
 
 - A queue has many senders and one receiver, like Rust's `mpsc`. Both
@@ -26,12 +26,12 @@ page without cross-origin isolation.
 - Queues are bounded. A full queue makes `send` wait; `try-send` returns
   `Full`.
 - Endpoints can travel inside messages, as file descriptors do.
-- Typed messages through `(snail-core wire)` are a convenience on top. The
+- Typed messages through `(snail shell wire)` are a convenience on top. The
   fast path is bytes.
 
 ## Shared memory
 
-`(snail-core shared)` is unsafe and zero-copy, and in a browser it needs
+`(snail shell shared)` is unsafe and zero-copy, and in a browser it needs
 cross-origin isolation. It follows the owner's `mpmc_ndarray_queue`: a
 fixed pool of equal slots in shared memory, with ordinary queues carrying
 only slot indices. The queues do all the waking. Shared memory holds data

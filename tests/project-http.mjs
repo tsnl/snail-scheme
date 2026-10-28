@@ -14,7 +14,7 @@ import {connect, dead, delay, spawnDevelopment, startDevelopment} from './develo
 
 const root = process.argv[2], project = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-http-')));
 const source = join(project, 'main.sld'), pipe = join(project, 'slow.sld'), notes = join(project, 'notes.txt');
-const program = text => `(import (snail-core base) (snail-core io)) (write-line "${text}")`;
+const program = text => `(import (snail core base) (snail core io)) (write-line "${text}")`;
 const config = '((build-target main (program (entry "main.sld") (library-roots (".")))) (run-target dev (run main)))';
 fs.writeFileSync(join(project, 'project.datum'), config);
 fs.writeFileSync(source, program('initial'));
@@ -133,7 +133,7 @@ try {
   // its one diagnostic names a 200,000-character identifier.
   const long = 'x'.repeat(200_000);
   let before = (await service.status()).id;
-  fs.writeFileSync(source, `(import (snail-core base))\n(${long})\n`);
+  fs.writeFileSync(source, `(import (snail core base))\n(${long})\n`);
   await service.settled(before, 'failed');
   const large = await service.events();
   await service.until(opened(large), 'a large first status');
@@ -154,7 +154,7 @@ try {
   // answered from the compiler's thread would therefore deadlock here rather
   // than answer late, so the deadline distinguishes wedged from slow.
   assert.equal(spawnSync('mkfifo', [pipe]).status, 0);
-  fs.writeFileSync(source, '(import (snail-core base) (snail-core io) (slow)) (write-line message)');
+  fs.writeFileSync(source, '(import (snail core base) (snail core io) (slow)) (write-line message)');
   await service.until(() => {
     try { writer = fs.openSync(pipe, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK); return true; }
     catch (error) { if (error.code === 'ENXIO') return false; throw error; }
@@ -165,7 +165,7 @@ try {
   assert.equal((await service.get('/api/file?path=slow.sld')).status, 400);
   const during = await read();
   assert.equal((await save(during.revision, program('edited during compilation'))).status, 200);
-  fs.writeFileSync(writer, '(define-library (slow) (export message) (import (snail-core base)) (begin (: message String) (define message "blocked")))');
+  fs.writeFileSync(writer, '(define-library (slow) (export message) (import (snail core base)) (begin (: message String) (define message "blocked")))');
   fs.closeSync(writer); writer = null;
   const [unblocked] = (await service.settled(blocked.id)).published.targets;
   assert.equal(unblocked.directory, fs.realpathSync(join(project, 'build/main')));
@@ -202,7 +202,7 @@ try {
   assert.equal((await control('stop')).status, 204);
   before = (await service.status()).id;
   fs.writeFileSync(join(project, 'project.datum'), config);
-  fs.writeFileSync(source, '(import (snail-core base) (snail-core io) (snail-core task)) (write-line "running") (sleep 600000)');
+  fs.writeFileSync(source, '(import (snail core base) (snail core io) (snail shell task)) (write-line "running") (sleep 600000)');
   await service.settled(before);
   assert.equal((await run()).wanted, false);
   assert.equal((await control('start')).status, 204);
@@ -215,7 +215,7 @@ try {
   await runReconnect.close();
 
   before = (await service.status()).id;
-  fs.writeFileSync(source, '(import (snail-core base)) (missing)');
+  fs.writeFileSync(source, '(import (snail core base)) (missing)');
   await service.settled(before, 'failed');
   assert.equal((await run()).attempt.pid, livePid);
   assert.equal((await control('restart')).status, 204, 'a compiler failure does not disable accepted controls');
@@ -242,7 +242,7 @@ try {
   assert.equal(fs.readFileSync(source, 'utf8'), final.text);
   await assert.rejects(fetch(url + '/api/project'));
 } finally {
-  if (writer !== null) { fs.writeFileSync(writer, '(define-library (slow) (export) (import (snail-core base)) (begin))'); fs.closeSync(writer); }
+  if (writer !== null) { fs.writeFileSync(writer, '(define-library (slow) (export) (import (snail core base)) (begin))'); fs.closeSync(writer); }
   await stream.close();
   await service.stop();
   fs.rmSync(project, {recursive: true, force: true});

@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core task))
+ (snail core base)
+ (snail core io)
+ (snail shell task))
 
 (effect Label ((label (-> String))))
 

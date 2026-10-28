@@ -4,7 +4,7 @@
  (scheme cxr)
  (scheme process-context)
  (chibi process)
- (snail-core build))
+ (snail stage0 build))
 
 ;; ---- Requests ----
 

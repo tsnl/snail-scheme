@@ -21,9 +21,9 @@
    walk-book
    face-region)
   (import
-   (snail-core base)
-   (snail-core app)
-   (snail-core sprite))
+   (snail core base)
+   (snail shell app)
+   (snail shell sprite))
   (begin
 
     ;; ---- Cells ----

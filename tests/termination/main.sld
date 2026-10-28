@@ -1,8 +1,8 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core task)
- (snail-core process))
+ (snail core base)
+ (snail core io)
+ (snail shell task)
+ (snail shell process))
 
 ;; Run with `wait`, a task waits for termination, and main yields once so
 ;; that it is waiting before "ready" is printed: a signal after that is the

@@ -1,8 +1,8 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core task)
- (snail-core socket))
+ (snail core base)
+ (snail core io)
+ (snail shell task)
+ (snail shell socket))
 
 (: require (All (T) (-> (Result T SocketError) T)))
 (define (require result)

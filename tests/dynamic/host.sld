@@ -6,9 +6,9 @@
 ;; which cross by reference; the stale build is refused before anything is
 ;; called, and so is a function the plugin does not offer.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core wasm)
+ (snail core base)
+ (snail core io)
+ (snail shell wasm)
  (project))
 
 (: run-cell (-> String Unit ! wasm fs console))

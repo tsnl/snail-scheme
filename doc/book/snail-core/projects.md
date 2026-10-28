@@ -64,7 +64,7 @@ backslashes, colons and NUL. The whole spelling `"."` may name a directory but
 cannot be an entry file. This lexical rule is not a filesystem sandbox: parsing
 does not resolve symlinks, check existence or read source files.
 
-`(snail-core project)` uses the compiler's located reader on Chibi and Wasm.
+`(snail shell project)` uses the compiler's located reader on Chibi and Wasm.
 `parse-project` takes text and its filename and returns ordered typed build and
 run lists. A resolved `RunTarget` contains a `ProgramBuild`; callers need not
 recheck its existence or kind. Builds are collected before runs are resolved,
@@ -112,8 +112,8 @@ the builder still does not invent a page.
 
 ```scheme
 (import
- (snail-core base)
- (snail-core artifact))
+ (snail core base)
+ (snail shell artifact))
 
 (: frontend ArtifactBundle)
 (define frontend (artifact-bundle "client"))
@@ -135,7 +135,7 @@ no use. Constructor names retain their definition scope, so importing only
 the macro, renaming it or shadowing constructors does not change its meaning.
 
 The compiler plans a build before running any of it
-(`src/snail-core/compiler/plan.sld`): a walk of each program's import closure
+(`src/snail/shell/compiler/plan.sld`): a walk of each program's import closure
 finds the producers it needs, and a discovery expansion, the expander itself
 supplied no files, finds the targets it embeds. There is no source scanner
 that a macro could hide a use from. Each target is built once per invocation,

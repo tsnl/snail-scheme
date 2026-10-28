@@ -5,10 +5,10 @@
 ;; which the classes agree with: the reader skips comments and whitespace,
 ;; and reads a name, string or character where they are.
 (import
- (snail-core base)
- (snail-core io)
- (snail-core highlight)
- (only (snail-core compiler read) read-text syntax->string))
+ (snail core base)
+ (snail core io)
+ (snail shell highlight)
+ (only (snail shell compiler read) read-text syntax->string))
 
 ;; ---- Printing ----
 

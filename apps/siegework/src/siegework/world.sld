@@ -194,8 +194,8 @@
    visible?
    explored?)
   (import
-   (snail-core base)
-   (snail-core wire)
+   (snail core base)
+   (snail shell wire)
    (siegework grid)
    (siegework terrain))
   (begin

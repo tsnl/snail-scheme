@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core task))
+ (snail core base)
+ (snail core io)
+ (snail shell task))
 
 ;; Two producers post into one mailbox and one consumer receives. The
 ;; consumer starts first and parks; each producer's first post comes

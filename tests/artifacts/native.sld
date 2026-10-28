@@ -1,7 +1,7 @@
 (import
- (snail-core base)
- (snail-core io)
- (snail-core artifact))
+ (snail core base)
+ (snail core io)
+ (snail shell artifact))
 
 (define bundle (artifact-bundle "client"))
 (for-each (lambda (file)
