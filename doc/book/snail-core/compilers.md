@@ -65,21 +65,25 @@ function of the expander has `mut` in its row — and where it does not, the
   unbound, resolves in the macro's own environment. Top levels expand in two
   passes so definitions may refer to later ones; local bodies are
   sequential. Declarations become entities in the program tables, derived
-  wire instances are generated as ordinary instance syntax, and expressions
-  become core `Expr`s with unique names. Each library's build key, the text
-  of its declarations with its imports' interfaces, lets a session replay
-  it.
+  wire instances are generated as ordinary instance syntax that resolves in
+  the implicit libraries, `(snail-core wire)` among them, which the build's
+  first deriving clause loads, and expressions become core `Expr`s with
+  unique names. Each library's build key, the text of its declarations with
+  its imports' interfaces, lets a session replay it.
 
   The pass holds no mutable state. A `Context` is plain data, threaded
   through: each step takes one and hands back the one it learned in, and a
   private `expanding` form sequences steps as the checker's `learning` does.
   Its fields separate what the build is given; scope, which loading a
   library replaces and the importer gets back — the library's prefix, the
-  libraries loading, the aliases being resolved, and the library's own
-  artifact uses and links; and what the build has learned, which flows
-  forward out of every library — the program, the libraries expanded, the
-  counter behind fresh names, the scopes that marks refer to and the
-  definitions of each top level. One `resumed` says which is which. A top
+  libraries loading, the aliases being resolved, and what the library itself
+  uses and makes: its artifact uses and links, whether it derived instances,
+  and the items its body adds, which join the program as one run when the
+  body is done, so a library loaded meanwhile, as the implicit libraries
+  are, comes before that run and never inside it; and what the build has
+  learned, which flows forward out of every library — the program, the
+  libraries expanded, the counter behind fresh names, the scopes that marks
+  refer to and the definitions of each top level. One `resumed` says which is which. A top
   level's definitions are the context's, under the top level's key, so an
   environment made before the scan bound a name resolves it as well as one
   made after. Pass 2 adds each declared entity to the program as it meets
@@ -284,7 +288,9 @@ A **session** (`src/snail-core/compiler/session.sld`) compiles a program again
 and again, as the development loop does, keeping everything in memory:
 
 - The expander replays a library, adding what it added before, when its
-  declarations read the same and its imports show the same interfaces.
+  declarations read the same and its imports show the same interfaces. A
+  library that derived instances loads the implicit libraries first, as its
+  expansion did, so its run follows theirs in every build.
 - A library's **interface** is what importers depend on: its imports and
   exports, every declaration except the bodies of definitions whose
   signatures are monomorphic, and its imports' interfaces, since its

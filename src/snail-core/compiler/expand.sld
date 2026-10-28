@@ -199,9 +199,12 @@
     ;; being loaded, innermost first, so a library requested while it loads
     ;; is part of an import cycle; `aliases` the type aliases whose bodies
     ;; are being resolved, innermost first, so an alias that refers to itself
-    ;; is caught; and what the library itself uses, newest first:
-    ;; `artifact-uses`, the targets whose files it embeds, and `links`, the
-    ;; files its `link-file` uses name.
+    ;; is caught; and what the library itself uses and makes, newest first:
+    ;; `artifact-uses`, the targets whose files it embeds, `links`, the
+    ;; files its `link-file` uses name, `items`, the items its body has
+    ;; added so far, which join the program as one run when the body is
+    ;; done, and `derives`, a declaration it derived instances for, if any,
+    ;; which needs the implicit libraries.
     ;;
     ;; What the build has learned, which flows forward out of every library:
     ;; `program` is the program built so far, and `expanded` holds each
@@ -223,6 +226,8 @@
        (aliases (List String))
        (artifact-uses (List ArtifactUse))
        (links (List LinkedFile))
+       (items (List Item))
+       (derives (Option Loc))
        (program Program)
        (expanded (Table Expanded))
        (artifacts ArtifactSource)
@@ -242,9 +247,9 @@
     (define (resumed outer inner)
       (Context (Context-predecessor outer) (Context-directories outer) (Context-generate outer) (Context-inputs outer)
                (Context-prefix outer) (Context-loading outer) (Context-aliases outer) (Context-artifact-uses outer)
-               (Context-links outer) (Context-program inner) (Context-expanded inner) (Context-artifacts inner)
-               (Context-counter inner) (Context-scopes inner) (Context-scope-count inner) (Context-tops inner)
-               (Context-top-count inner) (Context-deriving inner)))
+               (Context-links outer) (Context-items outer) (Context-derives outer) (Context-program inner)
+               (Context-expanded inner) (Context-artifacts inner) (Context-counter inner) (Context-scopes inner)
+               (Context-scope-count inner) (Context-tops inner) (Context-top-count inner) (Context-deriving inner)))
 
     ;; A sequence of steps that each take the context and hand it back,
     ;; written as `let*` is, as `learning` threads the checker in check.sld.
@@ -315,7 +320,8 @@
     ;; of its declarations with the interfaces of its imports, which decides
     ;; whether a later build may replay it; its own interface; its exports;
     ;; everything it added to the program; the targets whose files it
-    ;; embeds; and the files it links.
+    ;; embeds; the files it links; and a declaration it derived instances
+    ;; for, if any.
     (struct Expanded
       ((key String)
        (body-key String)
@@ -323,7 +329,8 @@
        (exports Exports)
        (delta Program)
        (artifacts (List ArtifactUse))
-       (links (List LinkedFile))))
+       (links (List LinkedFile))
+       (derives (Option Loc))))
 
     ;; What a build expanded: the program, its libraries, and the counters,
     ;; scopes and top levels a later build continues from, so that the names
@@ -346,8 +353,8 @@
 
     (: new-context (-> (List String) (-> (List String) (List Syntax) Bytes ! fs) Inputs ArtifactSource ExpandedProgram Context))
     (define (new-context directories generate inputs artifacts predecessor)
-      (Context (ExpandedProgram-libraries predecessor) directories generate inputs "" (Nil) (Nil) (Nil) (Nil) empty-program
-               empty-table artifacts (ExpandedProgram-counter predecessor) (ExpandedProgram-scopes predecessor)
+      (Context (ExpandedProgram-libraries predecessor) directories generate inputs "" (Nil) (Nil) (Nil) (Nil) (Nil) (None)
+               empty-program empty-table artifacts (ExpandedProgram-counter predecessor) (ExpandedProgram-scopes predecessor)
                (ExpandedProgram-scope-count predecessor) (ExpandedProgram-tops predecessor) (ExpandedProgram-top-count predecessor)
                (None)))
 
@@ -357,14 +364,15 @@
       (ExpandedProgram (Context-program cx) (Context-expanded cx) (Context-counter cx) (Context-scope-count cx) (Context-scopes cx)
                        (Context-tops cx) (Context-top-count cx)))
 
-    ;; Each addition hands back the context with a larger program.
+    ;; Each addition hands back the context with a larger program, except
+    ;; that an item joins the library's own items until its run is done.
     (: add-value (-> Context String Value Context))
     (define (add-value cx name value)
       (Context-program-set cx (program-with-value (Context-program cx) name value)))
 
     (: add-item (-> Context Item Context))
     (define (add-item cx item)
-      (Context-program-set cx (program-with-item (Context-program cx) item)))
+      (Context-items-set cx (Cons item (Context-items cx))))
 
     (: fresh (-> Context String (Pair String Context)))
     (define (fresh cx base)
@@ -680,12 +688,13 @@
 
     ;; Loads the imports, then replays the library from the build before
     ;; where it may, or expands it; either way the library is recorded for
-    ;; the next build. Its uses and links start empty, after its imports
-    ;; have loaded with their own.
+    ;; the next build. What it uses and makes starts empty, after its
+    ;; imports have loaded with their own.
     (: expand-sections (-> Context (List (Pair String (List Syntax))) (Pair Exports Context) ! fs))
     (define (expand-sections cx sections)
       (expanding cx ((env (import-env (section-items sections "import"))))
-                 (let* ((key (sections-key cx sections)) (cx (Context-links-set (Context-artifact-uses-set cx (Nil)) (Nil))))
+                 (let* ((key (sections-key cx sections))
+                        (cx (Context-derives-set (Context-items-set (Context-links-set (Context-artifact-uses-set cx (Nil)) (Nil)) (Nil)) (None))))
                    (expanding cx ((previous (replayable key)))
                               (match previous
                                 ((Some entry) (replay cx entry))
@@ -701,14 +710,15 @@
                      (expand-library-run cx env forms))))
         (Pair (map (lambda (spec) (export-entry cx env spec)) (section-items sections "export")) cx)))
 
-    ;; The body's items follow those of the library's imports, and the
-    ;; program records how many it added, so its items divide back into
-    ;; libraries.
+    ;; The body's items are the library's run, which joins the program
+    ;; whole once the body is expanded, so the program's items divide back
+    ;; into libraries. A library loaded meanwhile, as the implicit libraries
+    ;; are at the build's first deriving clause, has joined already, so its
+    ;; items come before the run, as an import's do, and never inside it.
     (: expand-library-run (-> Context Env (List Syntax) Context ! fs))
     (define (expand-library-run cx env forms)
-      (let* ((before (length (program-items (Context-program cx)))) (cx (expand-top-level cx env forms))
-             (count (- (length (program-items (Context-program cx))) before)))
-        (Context-program-set cx (program-with-library (Context-program cx) (Context-prefix cx) count))))
+      (let ((cx (expand-top-level cx env forms)))
+        (Context-program-set cx (program-with-library (Context-program cx) (Context-prefix cx) (Context-items cx)))))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -906,14 +916,19 @@
              (Pair (None) cx)))
         ((None) (Pair (None) cx))))
 
-    ;; A library replayed adds what it added in the build before. The
-    ;; generation handoff is functional: `expand-program` takes the previous
-    ;; generation as an argument, `Context-predecessor` holds it read-only,
-    ;; and `program-with` unions persistent tables, so a replayed library's
+    ;; A library replayed adds what it added in the build before, after the
+    ;; implicit libraries if it derived instances, since its run follows
+    ;; them, as it did when it was expanded. The generation handoff is
+    ;; functional: `expand-program` takes the previous generation as an
+    ;; argument, `Context-predecessor` holds it read-only, and
+    ;; `program-with` unions persistent tables, so a replayed library's
     ;; values alias the ones it produced before rather than being rebuilt.
-    (: replay (-> Context Expanded (Pair Exports Context)))
+    (: replay (-> Context Expanded (Pair Exports Context) ! fs))
     (define (replay cx entry)
-      (Pair (Expanded-exports entry) (record (Context-program-set cx (program-with (Context-program cx) (Expanded-delta entry))) entry)))
+      (let ((cx (match (Expanded-derives entry)
+                  ((Some loc) (Pair-second (deriving-scope cx loc)))
+                  ((None) cx))))
+        (Pair (Expanded-exports entry) (record (Context-program-set cx (program-with (Context-program cx) (Expanded-delta entry))) entry))))
 
     ;; The fresh artifact stamp identifies each new artifact-bearing
     ;; expansion. The counter continues from the last
@@ -933,7 +948,7 @@
                               (for-each (lambda (link) (check-linked-file (Context-prefix cx) link)) links)
                               (Pair exports
                                     (record cx (Expanded key (string-append key stamp) (string-append (interface-hash cx sections) stamp) exports
-                                                         (library-delta cx) uses links)))))))
+                                                         (library-delta cx) uses links (Context-derives cx))))))))
 
     ;; What the library added, which a later build replays.
     (: library-delta (-> Context Program))
@@ -2119,16 +2134,21 @@
                   (_ (compile-error (syntax-loc class) "only Serialize and Deserialize can be derived"))))
               (derived-classes form))))
 
+    ;; The scope derived instances resolve in, made at the build's first
+    ;; deriving clause, which loads the implicit libraries, and shared by
+    ;; every later one. The library notes the declaration at `loc`, so that
+    ;; replaying it loads them too.
     (: deriving-scope (-> Context Loc (Pair I64 Context) ! fs))
     (define (deriving-scope cx loc)
-      (match (Context-deriving cx)
-        ((Some scope) (Pair scope cx))
-        ((None)
-         (expanding cx ((exports (each (lambda (cx name) (load-library cx name loc)) implicit-libraries))
-                        (env (new-top (fold-left (lambda (table entry) (table-set table (Pair-first entry) (Pair-second entry)))
-                                                 empty-table (concatenate exports))))
-                        (scope (register-scope env)))
-                    (Pair scope (Context-deriving-set cx (Some scope)))))))
+      (let ((cx (Context-derives-set cx (Some loc))))
+        (match (Context-deriving cx)
+          ((Some scope) (Pair scope cx))
+          ((None)
+           (expanding cx ((exports (each (lambda (cx name) (load-library cx name loc)) implicit-libraries))
+                          (env (new-top (fold-left (lambda (table entry) (table-set table (Pair-first entry) (Pair-second entry)))
+                                                   empty-table (concatenate exports))))
+                          (scope (register-scope env)))
+                      (Pair scope (Context-deriving-set cx (Some scope))))))))
 
     ;; Builds the syntax of a derived instance; `w` makes wire identifiers.
     (struct Deriver
@@ -2494,7 +2514,8 @@
           (test-library-closure walk)
           (test-discovery (list discover library) discover)
           (test-links (string-append directory "/links"))
-          (test-primitives (string-append directory "/primitive") library)))
+          (test-primitives (string-append directory "/primitive") library)
+          (test-deriving-runs (string-append directory "/deriving") library)))
 
       (define (test-library-file directories)
         (let ((loc (Loc "test.sld" 1 1)))
@@ -2580,6 +2601,46 @@
           (expect (primitive-scheme program "ref-get") (list (list "A") "(-> (Ref A) A ! mut)"))
           (expect (primitive-scheme program "dispatch-local") (list (list "e") "(-> (Once (-> Unit ! e)) Unit ! tasks e)"))
           (expect (map Pair-first (library-items program (program-items program))) (list "main"))))
+
+      ;; A library that derives without importing (snail-core wire) loads
+      ;; it at its first deriving clause, and the wire's run of items comes
+      ;; before the library's, not inside it: each run holds only the
+      ;; definitions of the library it names, and the library's are the two
+      ;; methods it derived. Replaying the library, when nothing else
+      ;; imports the wire, loads it first again.
+      (define (test-deriving-runs root library)
+        (create-directory* (string-append root "/sample"))
+        (write-file (string-append root "/sample/shape.sld")
+                    (string-append "(define-library (sample shape) (export Shape) (import (snail-core base))"
+                                   " (begin (struct Shape ((side I64)) (deriving Serialize Deserialize))))"))
+        (write-file (string-append root "/main.sld") "(import (snail-core base) (sample shape)) (Shape 2)")
+        (let* ((expand (lambda (predecessor)
+                         (expand-program (list root library) (lambda (loading forms) (panic "unexpected producer")) no-inputs
+                                         (string-append root "/main.sld") predecessor)))
+               (first (expand empty-expansion)))
+          (expect (every? own-run? (expansion-runs first)) #t)
+          (expect (run-length first "sample.shape") 2)
+          (expect (deriving-order first) (list "snail-core.wire" "sample.shape" "main"))
+          (expect (deriving-order (expand first)) (list "snail-core.wire" "sample.shape" "main"))))
+
+      (define (expansion-runs expansion)
+        (let ((program (ExpandedProgram-program expansion)))
+          (library-items program (program-items program))))
+
+      (define (own-run? run)
+        (every? (lambda (item)
+                  (match item
+                    ((Define name _) (string=? (name-owner name) (Pair-first run)))
+                    (_ #t)))
+                (Pair-second run)))
+
+      (define (run-length expansion name)
+        (match (find (lambda (run) (string=? (Pair-first run) name)) (expansion-runs expansion))
+          ((Some run) (length (Pair-second run)))
+          ((None) -1)))
+
+      (define (deriving-order expansion)
+        (filter (lambda (name) (member? name (list "snail-core.wire" "sample.shape" "main"))) (map Pair-first (expansion-runs expansion))))
 
       (define (primitive-scheme program name)
         (match (program-value program (string-append "prim:" name))
