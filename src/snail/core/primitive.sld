@@ -210,8 +210,9 @@
 
     ;; ---- Vectors ----
 
-    ;; A vector, like an array, holds only ω values: reading an element
-    ;; leaves it in place, so each operation requires (Copy A).
+    ;; Vectors and arrays will be linear, and may then hold linear values
+    ;; (#550); until then they hold only ω values, so each operation
+    ;; requires (Copy A).
     (primitive vector-length (All (A) (requires (Copy A)) (-> (Vector A) I64)))
     (primitive vector-ref (All (A) (requires (Copy A)) (-> (Vector A) I64 A)))
     (primitive vector-append (All (A) (requires (Copy A)) (-> (Vector A) (Vector A) (Vector A))))
