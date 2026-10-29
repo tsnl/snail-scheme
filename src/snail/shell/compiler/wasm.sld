@@ -483,8 +483,12 @@
         (_ (panic "internal error: not a data type"))))
 
     (: case-fields (-> Module Type Case (List Wat) ! mut))
+    ;; A mutable field is a `mut` field of the GC struct, written in place.
     (define (case-fields m type case)
-      (map (lambda (field) (wat "field" (rep->wat (rep m field)))) (case-field-types m type case)))
+      (map (lambda (pair)
+             (let ((content (rep->wat (rep m (Pair-second pair)))))
+               (wat "field" (if (Field-mutable? (Pair-first pair)) (wat "mut" content) content))))
+           (zip (Case-fields case) (case-field-types m type case))))
 
     (: type-name (-> Type String))
     (define (type-name type)
@@ -1040,6 +1044,10 @@
           ((Some (Accessor case index _)) (list (field-access fn case index (first-arg args))))
           ((Some (Replacer case index _))
            (list (replace-field fn case index (first-arg args) (list-ref args 1))))
+          ((Some (Setter _ index _))
+           (list (set-field fn index (first-arg args) (list-ref args 1)) (wat "i32.const" (int 0))))
+          ((Some (Swapper case index _))
+           (list (swap-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (Expr-type expr)))
           ((Some (Operation effect _))
            (list (wat* "call"
@@ -1155,8 +1163,73 @@
               (wat "struct.get"
                    (id case-id)
                    (int (+ index 1))
-                   (wat "ref.cast" (wat "ref" (id case-id)) (emit1 fn value))))
-            (wat "struct.get" (id (data-type m type)) (int index) (emit1 fn value)))))
+                   (wat "ref.cast" (wat "ref" (id case-id)) (place-value fn value))))
+            (wat "struct.get" (id (data-type m type)) (int index) (place-value fn value)))))
+
+    ;; Only a struct's fields can be mutable.
+    (: set-field (-> Fn I64 Expr Expr Wat ! mut))
+    (define (set-field fn index record content)
+      (wat "struct.set"
+           (id (data-type (Fn-module fn) (Expr-type record)))
+           (int index)
+           (place-value fn record)
+           (emit1 fn content)))
+
+    (: swap-field (-> Fn Case I64 Expr Expr Wat ! mut))
+    (define (swap-field fn case index record content)
+      (let* ((m (Fn-module fn)) (type (Expr-type record)))
+        (wat "call"
+             (id (swap-helper m
+                              (data-type m type)
+                              index
+                              (rep m (list-ref (case-field-types m type case) index))))
+             (place-value fn record)
+             (emit1 fn content))))
+
+    ;; Swaps a mutable field's content for a new value and answers the old
+    ;; one, which stays on the operand stack while the new one is stored.
+    ;; The content moves without a copy, so the caller is its only owner,
+    ;; and a mutable field may hold a linear value.
+    (: swap-helper (-> Module String I64 Rep String ! mut))
+    (define (swap-helper m record index content)
+      (let ((type (rep->wat content)))
+        (helper! m
+                 "swap"
+                 (string-append record "." (i64->string index))
+                 (lambda (function-id)
+                   (wat "func"
+                        (id function-id)
+                        (wat "param" (id "$record") (wat "ref" (id record)))
+                        (wat "param" (id "$value") type)
+                        (wat "result" type)
+                        (wat "struct.get" (id record) (int index) (wat "local.get" (id "$record")))
+                        (wat "struct.set"
+                             (id record)
+                             (int index)
+                             (wat "local.get" (id "$record"))
+                             (wat "local.get" (id "$value"))))))))
+
+    ;; The record a field operation acts on. The place rule leaves a linear
+    ;; local live across one (see ownership.sld), so the operation peeks
+    ;; into the local's owner rather than moving the record out of it.
+    (: place-value (-> Fn Expr Wat ! mut))
+    (define (place-value fn record)
+      (let* ((m (Fn-module fn)) (type (Expr-type record)))
+        (if (linear-type? (program-of m) (Nil) type)
+            (wat "ref.cast"
+                 (wat "ref" (id (data-type m type)))
+                 (wat "struct.get" (id (owned-type m)) (int 0) (owner-in-place fn record)))
+            (emit1 fn record))))
+
+    ;; The owner a linear local holds, read without moving the record out.
+    (: owner-in-place (-> Fn Expr Wat ! mut))
+    (define (owner-in-place fn record)
+      (match (Expr-term record)
+        ((Var name _ _)
+         (match (local-access fn name)
+           ((Some access) access)
+           ((None) (panic "internal error: a field operation's linear record is a local"))))
+        (_ (panic "internal error: a field operation's linear record is a local"))))
 
     (: replace-field (-> Fn Case I64 Expr Expr Wat ! mut))
     (define (replace-field fn case index value replacement)

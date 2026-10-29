@@ -9,9 +9,9 @@ each can return if a program needs it.
 - **The dependent elaborator.** Generic code is served by Hindley–Milner
   checking with typeclasses, effect rows and monomorphization. Normalization
   by evaluation and implicit arguments would add type-level computation
-  no program uses. The implemented ownership subset assigns grade `1` to
-  `Once` and concrete records containing it; it has no general dependent
-  elaborator or grade-polymorphic containers.
+  no program uses. Ownership has two grades, linear and omega, found from
+  a type's structure and the `(Copy A)` a definition requires
+  ([ownership](ownership.md)); there are no grade variables.
 - **Checked interfaces.** Separate compilation hashes each library's
   interface to decide what to rebuild, but stores none: the compiled
   compiler checks Siegework, the largest program, in a fraction of a second,

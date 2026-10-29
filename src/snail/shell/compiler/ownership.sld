@@ -5,7 +5,8 @@
 ;; names. It inserts nothing. A value is released by a call someone wrote,
 ;; such as `drop` or `call-once`, or by a match that moves its fields out.
 ;; Ordinary arrows stay unrestricted; only an immediate `once` lambda may
-;; move linear captures into its environment. A type variable is linear
+;; move linear captures into its environment. A field operation acts on
+;; its record in place, so a linear local it is applied to stays live. A type variable is linear
 ;; unless its definition requires (Copy A), so each generic body is
 ;; checked once, before specialization, for every instantiation, and a
 ;; refusal it causes names the requirement that would lift it.
@@ -163,16 +164,19 @@
 
     (: consume (-> Path Owner Loc Path ! compile))
     (define (consume path owner loc)
-      (let ((name (Owner-name owner)))
-        (unless (live? path name)
-          (compile-error loc
-                         (explain path
-                                  (Owner-type owner)
-                                  (string-append "linear value used more than once: "
-                                                 (local-name name)))))
-        (Path-live-set path
-                       (filter (lambda (live) (not (string=? (Owner-name live) name)))
-                               (Path-live path)))))
+      (require-live path owner loc)
+      (Path-live-set path
+                     (filter (lambda (live) (not (string=? (Owner-name live) (Owner-name owner))))
+                             (Path-live path))))
+
+    (: require-live (-> Path Owner Loc Unit ! compile))
+    (define (require-live path owner loc)
+      (unless (live? path (Owner-name owner))
+        (compile-error loc
+                       (explain path
+                                (Owner-type owner)
+                                (string-append "linear value used more than once: "
+                                               (local-name (Owner-name owner)))))))
 
     ;; The end of a scope opened on `outer`: if the path returns, it has
     ;; consumed each linear name the scope bound.
@@ -252,39 +256,126 @@
           ((TypeTest inner target) (check-conversion path expr inner target)))))
 
     ;; A use of a linear local consumes it. A global is shared, as nothing
-    ;; linear is one. A linear record's accessors and replacements would
-    ;; give its fields a second owner.
+    ;; linear is one.
     (: check-reference (-> Path Expr String Path ! compile))
     (define (check-reference path expr name)
-      (match (program-value (Path-program path) name)
-        ((Some (Accessor _ _ _)) (check-accessor path expr) path)
-        ((Some (Replacer _ _ _)) (check-accessor path expr) path)
-        ((Some _) path)
+      (match (field-operation path name)
+        ((Some operation) (check-field-value path operation expr) path)
         ((None)
-         (if (linear? path (Expr-type expr))
-             (consume path (Owner name (Expr-type expr)) (Expr-loc expr))
-             path))))
-
-    (: check-accessor (-> Path Expr Unit ! compile))
-    (define (check-accessor path expr)
-      (match (Expr-type expr)
-        ((TFun (Cons type _) _ _)
-         (when (linear? path type)
-           (compile-error (Expr-loc expr)
-                          (explain path
-                                   type
-                                   "destructure a linear record with match; accessors would duplicate ownership"))))
-        (_ (unit))))
+         (match (program-value (Path-program path) name)
+           ((Some _) path)
+           ((None)
+            (if (linear? path (Expr-type expr))
+                (consume path (Owner name (Expr-type expr)) (Expr-loc expr))
+                path))))))
 
     ;; `once` may move a lambda's linear captures into it. A panic never
-    ;; returns.
+    ;; returns. A field operation acts on its record in place.
     (: check-call (-> Path Expr (List Expr) Path ! compile))
     (define (check-call path callee args)
       (match (Pair (Expr-term callee) args)
         ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
          (if (lambda-expr? value) (check-lambda path value #t) (check path value)))
         ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
+        ((Pair (Var name _ _) (Cons record rest))
+         (match (field-operation path name)
+           ((Some operation)
+            (check-field-grades path operation (Expr-type callee) (Expr-loc callee))
+            (check-all (check-place path record) rest))
+           ((None) (check-all path (Cons callee args)))))
         (_ (check-all path (Cons callee args)))))
+
+    ;; ---- Fields ----
+
+    ;; The value `name` denotes when it is an accessor, a replacement, a
+    ;; setter or a swapper.
+    (: field-operation (-> Path String (Option Value)))
+    (define (field-operation path name)
+      (match (program-value (Path-program path) name)
+        ((Some value) (if (field-value? value) (Some value) (None)))
+        ((None) (None))))
+
+    (: field-value? (-> Value Bool))
+    (define (field-value? value)
+      (match value
+        ((Accessor _ _ _) #t)
+        ((Replacer _ _ _) #t)
+        ((Setter _ _ _) #t)
+        ((Swapper _ _ _) #t)
+        (_ #f)))
+
+    ;; What a field operation may not do with a linear value, given its
+    ;; type at this use: read one, which would leave a second owner where
+    ;; it was; discard the one a setter overwrites; or copy a linear
+    ;; record's other fields into a replacement. A swapper moves the old
+    ;; content out, so it may do anything.
+    (: check-field-grades (-> Path Value Type Loc Unit ! compile))
+    (define (check-field-grades path operation type loc)
+      (match (Pair operation type)
+        ((Pair (Accessor case index _) (TFun _ result _))
+         (when (linear? path result)
+           (compile-error loc (explain path result (linear-read-advice case index)))))
+        ((Pair (Setter case index _) (TFun (Cons _ (Cons content _)) _ _))
+         (when (linear? path content)
+           (compile-error loc
+                          (explain path
+                                   content
+                                   (string-append
+                                    "setting a mutable field would discard its linear content; swap it out with "
+                                    (swapper-name case index))))))
+        ((Pair (Replacer _ _ _) (TFun (Cons record _) _ _))
+         (when (linear? path record)
+           (compile-error loc
+                          (explain path
+                                   record
+                                   "destructure a linear record with match; a replacement would copy its other fields"))))
+        (_ (unit))))
+
+    (: linear-read-advice (-> Case I64 String))
+    (define (linear-read-advice case index)
+      (if (Field-mutable? (list-ref (Case-fields case) index))
+          (string-append
+           "reading a mutable field would duplicate its linear content; swap it out with "
+           (swapper-name case index))
+          "destructure a linear record with match to move its linear field out"))
+
+    (: swapper-name (-> Case I64 String))
+    (define (swapper-name case index)
+      (string-append (short-name (Case-name case))
+                     "-"
+                     (Field-name (list-ref (Case-fields case) index))
+                     "-replace!"))
+
+    ;; A field operation used as a value is checked as a call to it is, and
+    ;; it consumes the record it is later applied to: on a linear record
+    ;; that would leave the other fields with no owner.
+    (: check-field-value (-> Path Value Expr Unit ! compile))
+    (define (check-field-value path operation expr)
+      (check-field-grades path operation (Expr-type expr) (Expr-loc expr))
+      (match (Expr-type expr)
+        ((TFun (Cons record _) _ _)
+         (when (linear? path record)
+           (compile-error (Expr-loc expr)
+                          (explain path
+                                   record
+                                   "apply a field operation to a linear record by name; as a value it would consume the record"))))
+        (_ (unit))))
+
+    ;; The place rule: a field operation reads or writes its record where it
+    ;; is, so a linear local it is applied to stays live. A linear record
+    ;; that is not a local has nowhere to stay, and its other fields would
+    ;; be left with no owner.
+    (: check-place (-> Path Expr Path ! compile))
+    (define (check-place path record)
+      (let ((type (Expr-type record)))
+        (if (linear? path type)
+            (match (Expr-term record)
+              ((Var name _ _) (require-live path (Owner name type) (Expr-loc record)) path)
+              (_ (compile-error (Expr-loc record)
+                                (explain path
+                                         type
+                                         "a field operation works on a linear record in place; bind the record to a name first"))))
+            (check path record))))
 
     ;; A closure's body is a path of its own, which starts with the linear
     ;; names it captures and its linear parameters live, and must consume
@@ -336,7 +427,22 @@
          path)
         ((PVar name type) (bind path name type))
         ((PLit _ _) path)
-        ((PCon _ args _) (fold-left (lambda (path arg) (bind-pattern path arg loc)) path args))))
+        ((PCon constructor args _)
+         (fold-left (lambda (path pair)
+                      (if (Field-mutable? (Pair-first pair))
+                          path
+                          (bind-pattern path (Pair-second pair) loc)))
+                    path (zip (constructor-fields path constructor) args)))))
+
+    ;; A mutable position holds only `_`, which the checker requires, and it
+    ;; may skip linear content: a shared record's other owners can still
+    ;; swap it out, and a record consumed here abandons it, as a lost cell
+    ;; abandons what it holds.
+    (: constructor-fields (-> Path String (List Field)))
+    (define (constructor-fields path constructor)
+      (match (program-value (Path-program path) constructor)
+        ((Some (Constructor case _)) (Case-fields case))
+        (_ (panic "internal error: a pattern names a constructor"))))
 
     (: check-conversion (-> Path Expr Expr Type Path ! compile))
     (define (check-conversion path expr inner target)

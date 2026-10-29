@@ -67,7 +67,10 @@ function of the expander has `mut` in its row — and where it does not, the
   a template introduces gets a mark that is unique to the expansion and, when
   unbound, resolves in the macro's own environment. Top levels expand in two
   passes so definitions may refer to later ones; local bodies are
-  sequential. Declarations become entities in the program tables, derived
+  sequential. Declarations become entities in the program tables: a struct
+  or enum is a `DataType` whose fields say whether they are mutable, with
+  an accessor for each field and, depending on mutability, a pure
+  replacement or a setter and a swapper. Derived
   wire instances are generated as ordinary instance syntax that resolves in
   the implicit libraries, `(snail shell wire)` among them, which the build's
   first deriving clause loads, and expressions become core `Expr`s with
@@ -177,9 +180,11 @@ function of the expander has `mut` in its row — and where it does not, the
   is an error. Alternatives must consume the same values, except those
   that panic or reach `Never`, which never return. It inserts nothing.
   Only one-shot closures can own linear captures. Records inherit the
-  grade of their fields, and a type variable is linear
+  grade of their immutable fields, and a type variable is linear
   unless its definition requires `(Copy A)`, so each generic body is
-  checked once, for every instantiation.
+  checked once, for every instantiation. A field operation applied to a
+  linear local leaves it live, the place rule, and may not read or
+  discard a linear value.
 - **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
@@ -209,7 +214,9 @@ function of the expander has `mut` in its row — and where it does not, the
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
-  subtypes of a base holding the tag. Sequences are GC arrays. Functions are
+  subtypes of a base holding the tag. A mutable field is a `mut` struct
+  field, written with `struct.set`; a swap reads the old content and writes
+  the new in one helper. Sequences are GC arrays. Functions are
   closures: a struct whose first field is a typed function reference, with
   captured variables in a subtype. Tail calls become `return_call`. Every
   function takes the handlers in scope as its first parameter, a list of

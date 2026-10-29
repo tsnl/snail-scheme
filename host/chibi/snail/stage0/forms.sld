@@ -59,7 +59,10 @@
     ;; ---- Structs and enum cases ----
 
     ;; `(struct (Name T ...) ((field type) ...))` defines the constructor `Name`,
-    ;; accessors `Name-field` and pure replacements `Name-field-set`.
+    ;; accessors `Name-field` and pure replacements `Name-field-set`. A field
+    ;; written `(field mut type)` gets `Name-field-set!` and
+    ;; `Name-field-replace!` instead, which change the vector in place, and its
+    ;; struct gets no pure replacements, as Snail-Core's own expander decides.
     (define (head-name head)
       (if (pair? head) (car head) head))
 
@@ -68,20 +71,40 @@
        (apply string-append
               (map (lambda (part) (if (symbol? part) (symbol->string part) part)) parts))))
 
-    (define (record-definitions name fields setters? rename)
-      (let ((define* (rename 'define)) (vector-ref* (rename 'vector-ref)))
+    (define (mutable-field? field)
+      (and (pair? (cdr field)) (eq? (cadr field) 'mut) (pair? (cddr field))))
+
+    (define (any-mutable? fields)
+      (and (pair? fields) (or (mutable-field? (car fields)) (any-mutable? (cdr fields)))))
+
+    (define (field-definitions name field index pure? rename)
+      (let ((define* (rename 'define))
+            (vector-ref* (rename 'vector-ref))
+            (vector-set* (rename 'vector-set!))
+            (field-name (car field)))
+        (cons `(,define* (,(joined-name name "-" field-name) value) (,vector-ref* value ,index))
+              (cond ((mutable-field? field)
+                     (list `(,define* (,(joined-name name "-" field-name "-set!") value content)
+                              (,vector-set* value ,index content))
+                           `(,define* (,(joined-name name "-" field-name "-replace!") value content)
+                              (,(rename 'let) ((old (,vector-ref* value ,index)))
+                               (,vector-set* value ,index content)
+                               old))))
+                    (pure?
+                     (list `(,define* (,(joined-name name "-" field-name "-set") value replacement)
+                              (,(rename 'let) ((copy (,(rename 'vector-copy) value)))
+                               (,vector-set* copy ,index replacement)
+                               copy))))
+                    (else '())))))
+
+    (define (record-definitions name fields struct? rename)
+      (let ((pure? (and struct? (not (any-mutable? fields)))))
         (let loop ((fields fields) (index 1) (out '()))
           (if (null? fields)
-              (reverse out)
-              (let* ((field (caar fields))
-                     (accessor
-                      `(,define* (,(joined-name name "-" field) value) (,vector-ref* value ,index)))
-                     (setter `(,define* (,(joined-name name "-" field "-set") value replacement)
-                                (,(rename 'let) ((copy (,(rename 'vector-copy) value)))
-                                 (,(rename 'vector-set!) copy ,index replacement)
-                                 copy))))
-                (loop (cdr fields) (+ index 1)
-                      (if setters? (cons setter (cons accessor out)) (cons accessor out))))))))
+              out
+              (loop (cdr fields)
+                    (+ index 1)
+                    (append out (field-definitions name (car fields) index pure? rename)))))))
 
     (define (constructor-definition name fields rename)
       (let ((parameters (map car fields)))
@@ -257,6 +280,12 @@
       (define (failure-message thunk)
         (guard (failure ((error-object? failure) (error-object-message failure))) (thunk)))
 
+      ;; A mutable field changes in place, so every name for the struct
+      ;; sees the write, and a swap answers the old content.
+      (struct Counter
+        ((name String)
+         (count mut I64)))
+
       (define (test-forms)
         ;; The implementation's answer is the handle's; nothing after the
         ;; operation runs, and a guard between them does not see it.
@@ -276,5 +305,11 @@
                    (handle Stop ((stop (lambda (code) code)) (ask (lambda (n resume) (resume n))))
                      (ask 3))))
                 "stage 0 cannot resume")
-        (expect (failure-message (lambda () (stop 1))) "unhandled effect operation"))))
+        (expect (failure-message (lambda () (stop 1))) "unhandled effect operation")
+        (let* ((counter (Counter "clicks" 1)) (same counter))
+          (Counter-count-set! counter 5)
+          (expect (Counter-count same) 5)
+          (expect (Counter-count-replace! same 7) 5)
+          (expect (Counter-count counter) 7)
+          (expect (Counter-name counter) "clicks")))))
    (else)))

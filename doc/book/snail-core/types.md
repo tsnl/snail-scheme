@@ -58,8 +58,15 @@ and polymorphic values that are not functions, need signatures.
 ```
 
 A struct `Name` defines the constructor `Name`, accessors `Name-field` and pure
-replacements `Name-field-set`. An enum defines a constructor and accessors per
-case. Cases are constructors, not types, and are always applied: `(Empty)`.
+replacements `Name-field-set`. A struct's field may be mutable, written
+`(count mut I64)`: it is read and written where the struct is, by
+`Name-count`, `Name-count-set!` and `Name-count-replace!`, which stores a new
+value and returns the old one, and each performs `mut`. A struct with a mutable
+field has identity, so it has no pure replacements and derives no instances,
+and a pattern can only skip a mutable field, with `_`
+([ownership](ownership.md)). An enum defines a constructor and accessors per
+case, and its fields are immutable. Cases are constructors, not types, and are
+always applied: `(Empty)`.
 
 Patterns are `_`, variables, literals (numbers, characters, strings,
 booleans) and constructor patterns, nested freely. `(List T)` is an ordinary

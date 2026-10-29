@@ -12,6 +12,7 @@
    TRigid
    TVar-id
    empty-row
+   mut-row
    unchecked
    Constraint
    Constraint-class
@@ -89,6 +90,7 @@
    Field
    Field-name
    Field-type
+   Field-mutable?
    Class
    Class-name
    Class-params
@@ -119,6 +121,8 @@
    Constructor
    Accessor
    Replacer
+   Setter
+   Swapper
    Method
    Operation
    Primitive
@@ -194,6 +198,11 @@
 
     (: empty-row Type)
     (define empty-row (TRow (Nil) (None)))
+
+    ;; The row of an operation on a mutable field, which reads or writes
+    ;; storage and nothing else.
+    (: mut-row Type)
+    (define mut-row (TRow (list "mut") (None)))
 
     ;; The type of an expression the checker has not yet seen. The checker
     ;; rebuilds every expression, so no later pass meets it.
@@ -660,9 +669,12 @@
        (tag I64)
        (fields (List Field))))
 
+    ;; A mutable field is a place: it is read and written in the struct
+    ;; that holds it, so a struct with one has identity.
     (struct Field
       ((name String)
-       (type Type)))
+       (type Type)
+       (mutable? Bool)))
 
     ;; Method schemes quantify the class parameters first and require the
     ;; class itself as their first constraint.
@@ -709,7 +721,11 @@
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
     ;; that `(: name type)` was written. An instance method has its class
-    ;; method's scheme and no signature of its own.
+    ;; method's scheme and no signature of its own. A field has four
+    ;; operations: an Accessor reads it, `Name-field`; a Replacer copies an
+    ;; immutable struct with it replaced, `Name-field-set`; and a mutable
+    ;; field's Setter writes it in place, `Name-field-set!`, as its Swapper
+    ;; does while answering the old content, `Name-field-replace!`.
     (enum Value
       (Defined
         ((scheme (Option Scheme))
@@ -722,6 +738,14 @@
         (index I64)
         (scheme Scheme)))
       (Replacer
+       ((case Case)
+        (index I64)
+        (scheme Scheme)))
+      (Setter
+       ((case Case)
+        (index I64)
+        (scheme Scheme)))
+      (Swapper
        ((case Case)
         (index I64)
         (scheme Scheme)))
@@ -746,6 +770,8 @@
         ((Constructor _ scheme) (Some scheme))
         ((Accessor _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
+        ((Setter _ _ scheme) (Some scheme))
+        ((Swapper _ _ scheme) (Some scheme))
         ((Method _ scheme) (Some scheme))
         ((Operation _ scheme) (Some scheme))
         ((Primitive scheme) (Some scheme))
@@ -1036,7 +1062,8 @@
         (string-append (Case-name case) "("
                        (string-concatenate
                         (map (lambda (field)
-                               (string-append (Field-name field) ":"
+                               (string-append (Field-name field)
+                                              (if (Field-mutable? field) " mut:" ":")
                                               (type-schema program
                                                            (Field-type field)
                                                            (DataType-params data)
