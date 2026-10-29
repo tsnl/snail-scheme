@@ -1513,15 +1513,24 @@
                                                 (Defined (Some scheme) loc))
                                                ((None) (Defined (None) (None))))))
                        (value (definition-value env form)))
-                   (add-item cx (Define name value)))))
+                   (add-item cx (Define name (top-level-value value))))))
 
     (: definition-value (-> Context Env Syntax (Pair Expr Context) ! compile))
     (define (definition-value cx env form)
       (match form
         ((Form (Cons _ (Cons (Form (Cons _ params) _) body)) loc)
-         (expand-lambda cx env params body loc))
+         (expand-lambda cx env params body #t loc))
         ((Form (Cons _ (Cons _ (Cons value (Nil)))) _) (expand-expr cx env value))
         (_ (compile-error (syntax-loc form) "expected a definition"))))
+
+    ;; No local is in scope where a top-level function is written, so it is
+    ;; marked as one that may not capture, and every global function is
+    ;; known to have no environment.
+    (: top-level-value (-> Expr Expr))
+    (define (top-level-value value)
+      (match (Expr-term value)
+        ((Lambda params body _) (Expr (Lambda params body #f) (Expr-type value) (Expr-loc value)))
+        (_ value)))
 
     ;; ---- Declarations ----
 
@@ -2065,7 +2074,9 @@
                                            (lambda (cx)
                                              (expanding cx ((value
                                                              (definition-value env definition)))
-                                                        (add-item cx (Define global value)))))
+                                                        (add-item cx
+                                                                  (Define global
+                                                                    (top-level-value value))))))
                          cx))))
 
     (: instance-method-scheme (-> Program Class String Instance Scheme))
@@ -2378,7 +2389,7 @@
     (define (expand-default cx env global operation syntax loc)
       (expanding cx ((value (expand-expr env syntax)))
                  (match (Expr-term value)
-                   ((Lambda _ _) (add-item cx (Define global value)))
+                   ((Lambda _ _ _) (add-item cx (Define global (top-level-value value))))
                    ((Var _ _ _)
                     (expanding cx ((value (eta-expand value (operation-arity cx operation) loc)))
                                (add-item cx (Define global value))))
@@ -2392,7 +2403,8 @@
                                                 (map
                                                  (lambda (name) (expr (Var name (Nil) (Nil)) loc))
                                                  names))
-                                           loc))
+                                           loc)
+                                     #f)
                              loc)
                        cx)))
 
@@ -2638,8 +2650,15 @@
         (("lambda")
          (match items
            ((Cons _ (Cons params body))
-            (expand-lambda cx env (form-items params "a parameter list") body loc))
+            (expand-lambda cx env (form-items params "a parameter list") body #t loc))
            (_ (compile-error loc "expected (lambda (parameter ...) body ...)"))))
+        ;; A function that may not capture: it reads only its parameters,
+        ;; its own locals and globals, so it has no environment.
+        (("fn")
+         (match items
+           ((Cons _ (Cons params body))
+            (expand-lambda cx env (form-items params "a parameter list") body #f loc))
+           (_ (compile-error loc "expected (fn (parameter ...) body ...)"))))
         (("if")
          ;; `then` is `expanding`'s own keyword, so the branches are named
          ;; otherwise.
@@ -2692,11 +2711,12 @@
         (else
          (compile-error loc (string-append "this form is only valid as a definition: " keyword)))))
 
-    (: expand-lambda (-> Context Env (List Syntax) (List Syntax) Loc (Pair Expr Context) ! compile))
-    (define (expand-lambda cx env params body loc)
+    (: expand-lambda
+       (-> Context Env (List Syntax) (List Syntax) Bool Loc (Pair Expr Context) ! compile))
+    (define (expand-lambda cx env params body captures? loc)
       (expanding cx ((locals (bind-locals env params))
                      (body (expand-body (Pair-first locals) body loc)))
-                 (Pair (expr (Lambda (Pair-second locals) body) loc) cx)))
+                 (Pair (expr (Lambda (Pair-second locals) body captures?) loc) cx)))
 
     ;; Binds each identifier to a fresh local, in order; returns the longer
     ;; environment and the unique names.
@@ -2771,7 +2791,8 @@
                          (function? (match form
                                       ((Form (Cons _ (Cons (Form _ _) _)) _) #t)
                                       ((Form (Cons _ (Cons _ (Cons value (Nil)))) _)
-                                       (core-form? cx scope value "lambda"))
+                                       (or (core-form? cx scope value "lambda")
+                                           (core-form? cx scope value "fn")))
                                       (_ #f))))
                      (expanding cx ((value (definition-value (if function? inner scope) form))
                                     (body (expand-body-forms inner rest (None) loc)))
@@ -2809,6 +2830,7 @@
                      (loop (expand-lambda (extend env ident (Local name))
                                           (map binding-name bindings)
                                           body
+                                          #t
                                           loc))
                      (initial
                       (each (lambda (cx binding) (expand-expr cx env (binding-value binding)))

@@ -309,7 +309,7 @@
                    (Pair "match-let" (LetRule))
                    (Pair "syntax-rules" (Definition)))
              (map (lambda (name) (Pair name (Special 1)))
-                  (list "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
+                  (list "fn" "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
              (list (Pair "handle" (Special 2))))))
 
     ;; A name without a rule that starts with `def` and is longer than

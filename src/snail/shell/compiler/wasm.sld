@@ -623,7 +623,7 @@
     (: emit-function! (-> Module String Expr Unit ! mut))
     (define (emit-function! m name function)
       (match (Expr-term function)
-        ((Lambda params body)
+        ((Lambda params body _)
          (let* ((fn (Fn-exit-set (new-fn m) (function-exit (Expr-type function))))
                 (signature (function-signature m (Expr-type function)))
                 (reps (Pair-first signature)))
@@ -646,7 +646,7 @@
         (match (Expr-term expr)
           ((Lit value) (list (literal fn value type)))
           ((Var name _ _) (list (variable fn name type)))
-          ((Lambda _ _) (list (closure fn expr (None))))
+          ((Lambda _ _ _) (list (closure fn expr (None))))
           ((App callee args) (emit-call fn expr callee args tail?))
           ((If test then otherwise)
            (let* ((test-code (emit1 fn test))
@@ -843,21 +843,27 @@
                                                           no-loc))
                                                   (zip names params)))
                                         result no-loc)))
-                       (closure-value m (Expr (Lambda names call) type no-loc) (None))))
+                       (closure-value m (Expr (Lambda names call #f) type no-loc) (None))))
                     (_ (panic "internal error: a function value needs a function type"))))))
 
     ;; ---- Closures ----
 
     ;; A lambda becomes a function taking its closure first. Captured
     ;; variables are copied into the closure and loaded on entry; `self` names
-    ;; a recursive local function, which reads as the closure itself.
+    ;; a recursive local function, which reads as the closure itself. A
+    ;; closure that may not capture has nothing to copy, which the checker
+    ;; established (`check-closed`), so it is always one global.
     (: closure (-> Fn Expr (Option String) Wat ! mut))
     (define (closure fn function self)
       (let ((captured (filter (lambda (name) (and (not (self-name? self name)) (local? fn name)))
                               (expr-references function))))
-        (if (null? captured)
-            (closure-value (Fn-module fn) function self)
-            (closure-with-captures fn function self captured))))
+        (match (Pair captured (Expr-term function))
+          ((Pair (Nil) _) (closure-value (Fn-module fn) function self))
+          ((Pair _ (Lambda _ _ captures?))
+           (unless captures?
+             (panic "internal error: a fn captures"))
+           (closure-with-captures fn function self captured))
+          (_ (panic "internal error: a closure is a lambda")))))
 
     (: self-name? (-> (Option String) String Bool))
     (define (self-name? self name)
@@ -921,7 +927,7 @@
        (-> Module Expr (Option String) (List (Pair String Rep)) String String ! mut))
     (define (lambda-function! m function self captured closure)
       (match (Expr-term function)
-        ((Lambda params body)
+        ((Lambda params body _)
          (let* ((signature (function-signature m (Expr-type function)))
                 (reps (Pair-first signature))
                 (base (closure-type m reps (Pair-second signature)))

@@ -4,7 +4,7 @@
 (require 'seq)
 (require 'cl-lib)
 
-(dolist (form '(struct enum typeclass instance effect match))
+(dolist (form '(fn struct enum typeclass instance effect match))
   (put form 'scheme-indent-function 1))
 (put 'handle 'scheme-indent-function 2)
 ;; Emacs 31 indents `guard' this way; older versions treat it as a call.

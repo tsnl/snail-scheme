@@ -68,10 +68,9 @@
     ;; A type variable is linear unless `copy` names it, as a signature's
     ;; `(requires (Copy A))` does. An owned declaration is linear, and
     ;; immutable fields can make any record linear; ordinary arrows never
-    ;; describe owned captures. A cell, like
-    ;; any struct with a mutable field, is a shared handle whatever it
-    ;; holds, so a declaration that holds a parameter only in a `Ref` is
-    ;; unrestricted.
+    ;; describe owned captures. A cell, like any struct with a mutable
+    ;; field, is a shared handle whatever it holds, so a declaration that
+    ;; holds a parameter only in a `Ref` is unrestricted.
     (: linear-type? (-> Program (List String) Type Bool))
     (define (linear-type? program copy type)
       (Linearity-found? (linear-search program copy type (Linearity #f (Nil) (Nil)))))
