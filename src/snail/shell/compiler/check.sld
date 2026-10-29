@@ -127,13 +127,15 @@
     (define (solved-evidence solution id)
       (table-ref (Solution-evidence solution) (identity-key id)))
 
-    ;; A class constraint keeps the givens in scope where it arose, and a
-    ;; Copy requirement the type variables declared ω there.
+    ;; A class constraint keeps the givens in scope where it arose, and the
+    ;; type variables declared ω there, which decide what a drop releases;
+    ;; a Copy requirement keeps those variables too.
     (enum Wanted
       (WantClass
        ((constraint Constraint)
         (hole I64)
         (givens (List Constraint))
+        (copy (List String))
         (loc Loc)))
       (WantLiteral
        ((value Datum)
@@ -440,7 +442,8 @@
     (: want-class (-> Checker Constraint Loc (Pair Evidence Checker)))
     (define (want-class ck constraint loc)
       (learning ck ((hole (fresh-identity))
-                    (then (want (WantClass constraint hole (Checker-givens ck) loc))))
+                    (then
+                     (want (WantClass constraint hole (Checker-givens ck) (Checker-copy ck) loc))))
                 (Pair (EvHole hole) ck)))
 
     ;; A use of a variable: its type, the types its quantified variables
@@ -698,13 +701,15 @@
 
     (: infer-app (-> Checker Expr (List Expr) Type Loc (Pair Expr Checker) ! compile))
     (define (infer-app ck callee args row loc)
-      (learning ck ((callee (infer callee row))
-                    (args (each (lambda (ck arg) (infer ck arg row)) args))
-                    (result (fresh-meta))
-                    (latent (fresh-meta))
-                    (then (unify-call (Expr-type callee) args result latent loc))
-                    (then (perform latent row loc)))
-                (Pair (Expr (App callee args) result loc) ck)))
+      (let ((before (Checker-pending-count ck)))
+        (learning ck ((callee (infer callee row))
+                      (args (each (lambda (ck arg) (infer ck arg row)) args))
+                      (result (fresh-meta))
+                      (latent (fresh-meta))
+                      (then (unify-call (Expr-type callee) args result latent loc))
+                      (then (perform latent row loc))
+                      (then (solve-drops before row)))
+                  (Pair (Expr (App callee args) result loc) ck))))
 
     ;; Arguments are compared one by one, so a mismatch names its argument.
     (: unify-call (-> Checker Type (List Expr) Type Type Loc Checker ! compile))
@@ -1104,8 +1109,11 @@
 
     ;; Runs once, after every item is checked: literals whose type nothing
     ;; determined default to F64 or I64, every literal is range-checked, and
-    ;; every class constraint is solved with the givens it arose under. Solving
-    ;; binds no metavariables, so waiting until now loses nothing.
+    ;; every class constraint is solved with the givens it arose under.
+    ;; Solving binds no metavariables, so waiting until now loses nothing,
+    ;; except a drop's, which charges its row: most are solved at their call
+    ;; (`solve-drops`), and one left until now is a drop of a type that a
+    ;; later use decided.
     (: solve-pending (-> Checker Checker ! compile))
     (define (solve-pending ck)
       (let ((pending (reverse (Checker-pending ck))))
@@ -1119,8 +1127,8 @@
                             pending)
                   (fold-left (lambda (ck want)
                                (match want
-                                 ((WantClass constraint hole givens loc)
-                                  (solve-class ck constraint hole givens loc))
+                                 ((WantClass constraint hole givens copy loc)
+                                  (solve-class ck constraint hole givens copy loc))
                                  (_ ck)))
                              ck pending))))
 
@@ -1169,22 +1177,122 @@
         ((DFloat _) (or (string=? type "F32") (string=? type "F64")))
         (_ #f)))
 
-    (: solve-class (-> Checker Constraint I64 (List Constraint) Loc Checker ! compile))
-    (define (solve-class ck constraint hole givens loc)
-      (match (find-evidence ck constraint givens loc)
-        ((Some evidence)
-         (Checker-solution-set ck (Solution (Solution-types (solution ck))
-                                            (table-set (Solution-evidence (solution ck))
-                                                       (identity-key hole)
-                                                       evidence))))
-        ((None)
-         (compile-error loc (string-append "ambiguous constraint "
-                                           (constraint->string (Constraint-class constraint)
-                                                               (map (lambda (type)
-                                                                      (resolve-type (solution ck)
-                                                                                    type))
-                                                                    (Constraint-types constraint)))
-                                           "; add a signature or an annotation")))))
+    (: solve-class
+       (-> Checker Constraint I64 (List Constraint) (List String) Loc Checker ! compile))
+    (define (solve-class ck constraint hole givens copy loc)
+      (if (string=? (Constraint-class constraint) drop-class)
+          (solve-drop ck constraint hole givens copy (None) loc)
+          (match (find-evidence ck constraint givens loc)
+            ((Some evidence) (with-evidence ck hole evidence))
+            ((None) (compile-error loc (ambiguous-constraint ck constraint))))))
+
+    (: with-evidence (-> Checker I64 Evidence Checker))
+    (define (with-evidence ck hole evidence)
+      (Checker-solution-set ck (Solution (Solution-types (solution ck))
+                                         (table-set (Solution-evidence (solution ck))
+                                                    (identity-key hole)
+                                                    evidence))))
+
+    (: ambiguous-constraint (-> Checker Constraint String))
+    (define (ambiguous-constraint ck constraint)
+      (string-append "ambiguous constraint "
+                     (constraint->string (Constraint-class constraint)
+                                         (map (lambda (type) (resolve-type (solution ck) type))
+                                              (Constraint-types constraint)))
+                     "; add a signature or an annotation"))
+
+    ;; `(Drop e T)`'s row is found from T, not matched: dropping a T runs
+    ;; what releases one (`drop-rows`), and each row that performs is
+    ;; performed in `e`. Mono finds the release again from the ground
+    ;; type, so the evidence only says so. `context` is the row of the call
+    ;; the drop was raised in, when it is solved there.
+    (: solve-drop
+       (-> Checker
+           Constraint
+           I64
+           (List Constraint)
+           (List String)
+           (Option Type)
+           Loc
+           Checker
+           ! compile))
+    (define (solve-drop ck constraint hole givens copy context loc)
+      (match (Constraint-types constraint)
+        ((Cons row (Cons type (Nil)))
+         (let ((type (resolve-type (solution ck) type)))
+           (when (has-meta? (solution ck) type)
+             (compile-error loc (ambiguous-constraint ck constraint)))
+           (match (drop-rows (program-of ck) copy givens type)
+             ((Ok rows)
+              (with-evidence
+               (fold-left (lambda (ck performed) (charge-drop ck performed row context loc))
+                          ck
+                          rows)
+               hole
+               (EvDerived)))
+             ((Err message) (compile-error loc message)))))
+        (_ (panic "internal error: Drop has a row and a type"))))
+
+    ;; A drop performs `performed` in its own row. When that row has joined
+    ;; the call's context, as it has when the drop is called there or
+    ;; handed to a callee that calls it, the context performs it too, which
+    ;; a signed body counts (`record-performed`); a drop only stored, as in
+    ;; a struct, charges nothing here.
+    (: charge-drop (-> Checker Type Type (Option Type) Loc Checker ! compile))
+    (define (charge-drop ck performed row context loc)
+      (let ((ck (perform ck performed row loc)))
+        (match context
+          ((Some context)
+           (if (same-tail? (Pair-second (flatten-row (solution ck) row))
+                           (Pair-second (flatten-row (solution ck) context)))
+               (record-performed ck
+                                 context
+                                 (let ((flat (flatten-row (solution ck) performed)))
+                                   (append (Pair-first flat) (tail-variable (Pair-second flat)))))
+               ck))
+          ((None) ck))))
+
+    ;; A drop is charged where it is written: once a call is checked, each
+    ;; Drop constraint raised in it whose type is known by now is solved in
+    ;; the call's scope, so a signed body is seen to perform what its drops
+    ;; do. One whose type a later use decides waits for `solve-pending`.
+    (: solve-drops (-> Checker I64 Type Checker ! compile))
+    (define (solve-drops ck before context)
+      (let* ((count (- (Checker-pending-count ck) before))
+             (recent (take (Checker-pending ck) count))
+             (older (list-drop (Checker-pending ck) count)))
+        (if (any? (lambda (want) (known-drop? ck want)) recent)
+            (match (fold-left (lambda (progress want) (solve-known-drop progress want context))
+                              (Pair (Nil) ck)
+                              (reverse recent))
+              ((Pair kept ck)
+               (Checker-pending-count-set (Checker-pending-set ck (append kept older))
+                                          (+ before (length kept)))))
+            ck)))
+
+    ;; One wanted constraint, oldest first: solved when it is a drop of a
+    ;; known type, and otherwise kept, newest first, as `pending` keeps them.
+    (: solve-known-drop
+       (-> (Pair (List Wanted) Checker) Wanted Type (Pair (List Wanted) Checker) ! compile))
+    (define (solve-known-drop progress want context)
+      (match progress
+        ((Pair kept ck)
+         (match want
+           ((WantClass constraint hole givens copy loc)
+            (if (known-drop? ck want)
+                (Pair kept (solve-drop ck constraint hole givens copy (Some context) loc))
+                (Pair (Cons want kept) ck)))
+           (_ (Pair (Cons want kept) ck))))))
+
+    (: known-drop? (-> Checker Wanted Bool))
+    (define (known-drop? ck want)
+      (match want
+        ((WantClass constraint _ _ _ _)
+         (and (string=? (Constraint-class constraint) drop-class)
+              (match (Constraint-types constraint)
+                ((Cons _ (Cons type (Nil))) (not (has-meta? (solution ck) type)))
+                (_ #f))))
+        (_ #f)))
 
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
@@ -1726,7 +1834,7 @@
     (: wanted-metas (-> Solution Wanted (List Type)))
     (define (wanted-metas solution want)
       (match want
-        ((WantClass constraint _ _ _)
+        ((WantClass constraint _ _ _ _)
          (concatenate
           (map (lambda (type) (free-metas solution type)) (Constraint-types constraint))))
         ((WantLiteral _ type _) (free-metas solution type))

@@ -8,7 +8,7 @@
    Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes FnOnce mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
-   not unit panic unsafe-total once call-once drop
+   not unit panic unsafe-total once call-once Drop drop
    Num + - * negate abs
    Ord = < <= > >= min max
    Integral quotient remainder modulo
@@ -337,6 +337,20 @@
     (: absurd (All (A) (-> Never A)))
     (define (absurd never)
       (match never))
+
+    ;; ---- Releasing ----
+
+    ;; `drop` releases a value without using it, and performs what
+    ;; releasing it does, found from its type: nothing for an unrestricted
+    ;; value, a FnOnce, or data with nothing linear in it; the method of the
+    ;; type's instance, which names its row in its head; and otherwise a
+    ;; drop of each linear field. A definition that drops a value of a type
+    ;; variable A requires (Drop e A), with `e` in its row:
+    ;;
+    ;;     (instance (Drop (! log) Handle)
+    ;;       (define (drop handle) ...))
+    (typeclass (Drop e T)
+      (: drop (-> T Unit ! e)))
 
     ;; ---- Lists ----
 
