@@ -54,7 +54,7 @@
     (struct (Mailbox T)
       ((pending (Ref (Pending T)))))
 
-    (: make-mailbox (All (T) (requires (Copy T)) (-> (Mailbox T) ! mut)))
+    (: make-mailbox (All (T) (-> (Mailbox T) ! mut)))
     (define (make-mailbox)
       (Mailbox (ref (Pending (empty-queue) (empty-queue)))))
 

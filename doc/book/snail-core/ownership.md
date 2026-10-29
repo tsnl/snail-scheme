@@ -64,11 +64,16 @@ so is a second use.
   unrestricted types, so a generic `duplicate` cannot be instantiated with
   a work item. No class implies `Copy`: `max` requires `(Ord T)` and
   `(Copy T)`. An instance requires `Copy` the same way, in its `requires`.
+- **Cells.** A `Ref`'s handle is unrestricted even when its content is
+  linear, so a cell of work items may be shared, captured by an ordinary
+  procedure, or named by a global. `ref` moves a value in, and
+  `ref-replace!` swaps in a new one and hands back the old for the caller
+  to consume. `ref-get` would duplicate the content and `ref-set!` discard
+  it, so both require `(Copy A)`.
 - **What cannot hold one.** Linear values cannot be globals, elements of
-  `Ref`, `Array` or `Vector`, payloads erased into `Any`, or exports, and a
+  `Array` or `Vector`, payloads erased into `Any`, or exports, and a
   statement cannot discard one. Reading an element of a vector leaves it in
-  place, so the vector and array primitives require `(Copy A)`, as do
-  `ref-get` and `ref-set!`.
+  place, so the vector and array primitives require `(Copy A)`.
 - **Handlers.** `resume` is a `Once`. An implementation that does not
   resume writes `(drop resume)`; one whose operation answers `Never` is
   handed no `resume` at all.
@@ -109,23 +114,29 @@ no user destructors, and clearing a closure is not a substitute for
 cancelling an I/O registration: the runtime owns and cancels those
 explicitly.
 
-## Proposed: linear types, cells and `Drop`
+## Proposed: linear types, mutable fields and `Drop`
 
 *Proposed, not implemented; the remaining steps are in
-[#550](https://github.com/tsnl/snail-scheme/issues/550).* The flavour is
-Rust's, with GC as the only heap.
+[#550](https://github.com/tsnl/snail-scheme/issues/550).* The grades are
+Rust's and the mutable fields OCaml's, with GC as the only heap.
 
 ### Grades
 
 A type stays **linear** or **omega**, and linearity reaches beyond `Once`:
 
-- A concrete struct or enum is omega unless a field is linear, it carries
-  the compiler-owned `Move` marker, or it has a `Drop` instance. Most
-  declarations need no annotation.
+- `(FnOnce A B ! e)` spells today's `(Once (-> A B ! e))`: the linear
+  arrow, beside the omega `->`.
+- A concrete struct or enum is omega unless an immutable field is linear,
+  it carries the compiler-owned `Move` marker, or it has a `Drop`
+  instance. Most declarations need no annotation. A linear struct leaves
+  only by being destructured or dropped, so its reference has one owner,
+  and a functional update of it may reuse the object in place.
 - `(Clone e A)` duplicates explicitly, with
   `clone : (-> A (Pair A A) ! e)`. Like `Drop`, it is a class over an
   effect row; `(Copy A)` is implemented, above.
-- `Vector`, `Array`, `Any`, globals and exports hold omega values only.
+- `Any`, globals and exports hold omega values only. A `Vector`'s elements
+  are immutable, so it may later take their grade, as `List` does; that
+  waits for vector constructors that need no `Copy`.
 
 ### Drop as a class
 
@@ -141,21 +152,34 @@ effects in a drop's row are refused. A data type without an instance gets
 derived glue; a type with an instance can be matched apart only inside its
 own library.
 
-### Places
+### Mutable fields
 
-Locals are immutable. The writable places are a `Cell`'s content and an
-array element, and nothing else: there are no borrows, no `RefMut`, and no
-linear memory in the language.
+Locals are immutable. The writable places are a struct's mutable fields
+and an `Array`'s elements, and nothing else: there is no linear memory in
+the language. A field is mutable when its declaration says so:
 
-- `Cell` is today's `Ref` cell, a shared mutable slot whose handle is
-  omega. It may hold a linear value.
-- `cell-get` and `cell-set!` need `(Copy A)`, because they duplicate or
-  discard. `cell-replace!` swaps in a new value and returns the old one for
-  the caller to consume.
-- **The place rule.** Reading a `Copy` field of a linear binding, through
+```scheme
+(struct Counter
+  ((name String)
+   (count mut I64)))
+```
+
+- **Effects.** `Counter-count` reads the field and `Counter-count-set!`
+  writes it, and both perform `mut`. Reading an immutable field and
+  constructing a struct are pure.
+- **Identity.** A struct with a mutable field has identity. One without
+  has none, so it could later be stored inline.
+- **Linear content.** A mutable field never makes its struct linear. Its
+  content leaves only by `Counter-count-replace!`, which stores a new
+  value and returns the old one; reading linear content needs `(Copy A)`.
+- **Patterns** bind only immutable fields; a mutable position takes only
+  `_`. Enum payloads stay immutable.
+- **Cells.** `Ref` becomes a library struct with one mutable field, as
+  OCaml's `ref` is, and keeps `ref`, `ref-get`, `ref-set!` and
+  `ref-replace!`. Cells that hold linear values are implemented, above.
+- **The place rule.** Reading an omega field of a linear binding, through
   an accessor or a `match` that moves nothing, does not consume it.
-- Read-only borrows may come later, as a second-class `(Borrow T)`, if
-  threading values and the place rule prove insufficient.
+- Safe borrows may come later.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).
@@ -169,6 +193,6 @@ capture", and a closure marked capture-free that captures is an error.
 
 ### What linearity does not cover
 
-A linear value left in an unreachable `Cell` is never released, as a
-dropped `resume` abandons what its frames hold. Leaks are safe; this is
+A linear value left in an unreachable `Ref` or mutable field is never
+released, as a dropped `resume` abandons what its frames hold. Leaks are safe; this is
 documented, not prevented.
