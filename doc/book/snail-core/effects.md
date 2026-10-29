@@ -544,8 +544,9 @@ A hundred thousand yields grow neither the loop's stack nor the handler's.
 
 ### One shot
 
-`resume` is one-shot, so the checker rejects calling it twice, and a
-second call that reaches run time traps.
+`resume` is one-shot, so the checker rejects calling it twice. Nothing
+checks again at run time: a linear value cannot reach `Any`, a global or
+an export, so no unchecked path can call it twice either.
 `tests/programs/error-control-resume-twice.sld`:
 
 ```scheme
