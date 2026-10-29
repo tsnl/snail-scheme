@@ -6,10 +6,11 @@
 ;; such as `drop` or `call-once`, or by a match that moves its fields out.
 ;; Ordinary arrows stay unrestricted; only an immediate `once` lambda may
 ;; move linear captures into its environment. A field operation acts on
-;; its record in place, so a linear local it is applied to stays live. A type variable is linear
-;; unless its definition requires (Copy A), so each generic body is
-;; checked once, before specialization, for every instantiation, and a
-;; refusal it causes names the requirement that would lift it.
+;; its record in place, so a linear local it is applied to stays live. A
+;; type variable is linear unless its definition requires (Copy A), so
+;; each generic body is checked once, before specialization, for every
+;; instantiation, and a refusal it causes names the requirement that would
+;; lift it.
 (define-library (snail shell compiler ownership)
   (export check-ownership check-owned-types)
   (import
@@ -108,7 +109,7 @@
     (: children (-> Expr (List Expr)))
     (define (children expr)
       (match (Expr-term expr)
-        ((Lambda _ body) (list body))
+        ((Lambda _ body _) (list body))
         ((App callee args) (Cons callee args))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
@@ -232,7 +233,7 @@
         (match (Expr-term expr)
           ((Lit _) path)
           ((Var name _ _) (check-reference path expr name))
-          ((Lambda _ _) (check-lambda path expr #f))
+          ((Lambda _ _ _) (check-lambda path expr #f))
           ((App callee args) (check-call path callee args))
           ((If test then otherwise)
            (let ((path (check path test)))
@@ -382,7 +383,7 @@
     (: check-lambda (-> Path Expr Bool Path ! compile))
     (define (check-lambda path expr once?)
       (match (Pair (Expr-term expr) (Expr-type expr))
-        ((Pair (Lambda params body) (TFun types _ _))
+        ((Pair (Lambda params body _) (TFun types _ _))
          (let ((captured (let ((references (expr-references expr)))
                            (filter (lambda (owner) (member? (Owner-name owner) references))
                                    (Path-live path))))

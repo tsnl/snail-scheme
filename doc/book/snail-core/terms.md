@@ -50,6 +50,7 @@ datum into syntax. Every generated form is located at the recipe.
 | --- | --- |
 | `(define name value)`, `(define (name param ...) body ...)` | Definition. |
 | `(lambda (param ...) body ...)` | Function with a fixed number of parameters. |
+| `(fn (param ...) body ...)` | Function without an environment: it reads no local of the code around it ([ownership](ownership.md#closures-without-an-environment)). |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
 | `(let ((name value) ...) body ...)`, `(let loop ((name value) ...) body ...)` | Local bindings and loops. |

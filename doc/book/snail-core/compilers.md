@@ -166,7 +166,10 @@ function of the expander has `mut` in its row — and where it does not, the
   refuses a `type-convert` or `type-test` whose types hold a function that
   performs effects, or a type variable (core's `hidden-effects`): an `Any`'s
   TypeId keys its type without rows, and mono erases the ordinary ones
-  next, so this is the last pass that could tell.
+  next, so this is the last pass that could tell. It also refuses a
+  closure that may not capture, a `fn` or a top-level function, that
+  reads a local from around it (`check-closed`), so the backend knows such
+  a closure has no environment.
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds
   structural properties of types from their declared fields: whether a
   type is first-order data, which dynamic exports require; whether it

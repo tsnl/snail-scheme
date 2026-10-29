@@ -97,7 +97,7 @@
     (: definition-row (-> Callees String Expr (List String)))
     (define (definition-row callees name definition)
       (match (Pair (Callees-reading callees) (Expr-term definition))
-        ((Pair (Some reading) (Lambda _ body))
+        ((Pair (Some reading) (Lambda _ body _))
          (if (member? name reading)
              (call-row (Expr-type definition))
              (yields (Callees-reading-set callees (Some (Cons name reading))) body)))
@@ -151,7 +151,7 @@
                               (Nil)
                               exprs))))
         (match (Expr-term expr)
-          ((Lambda _ _) (Nil))
+          ((Lambda _ _ _) (Nil))
           ((App callee args) (label-union (callee-row callees callee) (all (Cons callee args))))
           ((Handle effect implementations body)
            (label-union (all (map Pair-second implementations))
@@ -176,7 +176,7 @@
     (: procedure-yields (-> Callees Expr (List String)))
     (define (procedure-yields callees procedure)
       (match (Expr-term procedure)
-        ((Lambda _ body) (yields callees body))
+        ((Lambda _ body _) (yields callees body))
         ((App (Expr (Var "prim:once" _ _) _ _) (Cons held (Nil))) (procedure-yields callees held))
         (_ (callee-row callees procedure))))
 
@@ -194,7 +194,7 @@
     (: holds-yield-point? (-> Callees Expr Bool))
     (define (holds-yield-point? callees expr)
       (match (Expr-term expr)
-        ((Lambda _ _) #f)
+        ((Lambda _ _ _) #f)
         ((Let _ value body)
          (or (not (null? (yields callees value))) (holds-yield-point? callees body)))
         (_ (any? (lambda (child) (holds-yield-point? callees child)) (subexpressions expr)))))
@@ -202,7 +202,7 @@
     (: subexpressions (-> Expr (List Expr)))
     (define (subexpressions expr)
       (match (Expr-term expr)
-        ((Lambda _ body) (list body))
+        ((Lambda _ body _) (list body))
         ((App callee args) (Cons callee args))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
@@ -326,7 +326,7 @@
         (concatenate (map (lambda (entry)
                             (if (member? (Pair-first entry) control)
                                 (match (Expr-term (Pair-second entry))
-                                  ((Lambda params _)
+                                  ((Lambda params _ _)
                                    (match (last params)
                                      ((Some resume) (list (Pair resume effect)))
                                      ((None) (Nil))))
@@ -404,9 +404,9 @@
     (define (normal count callees expr)
       (let ((rebuild (lambda (term) (Expr term (Expr-type expr) (Expr-loc expr)))))
         (match (Expr-term expr)
-          ((Lambda params body)
+          ((Lambda params body captures?)
            (naming count ((body (normal callees body)))
-                   (Pair (rebuild (Lambda params body)) count)))
+                   (Pair (rebuild (Lambda params body captures?)) count)))
           ((App callee args) (normal-call count callees expr callee args))
           ((If test then otherwise)
            (naming count ((test (normal callees test))
@@ -556,7 +556,7 @@
       (match (Expr-term expr)
         ((Lit _) #t)
         ((Var _ _ _) #t)
-        ((Lambda _ _) #t)
+        ((Lambda _ _ _) #t)
         (_ #f)))
 
     ;; ---- Exposures ----
@@ -718,7 +718,7 @@
         (match (Expr-term expr)
           ((Lit (DInt n)) (i64->string n))
           ((Var name _ _) name)
-          ((Lambda params body) (string-append "(lambda " (shape body) ")"))
+          ((Lambda params body _) (string-append "(lambda " (shape body) ")"))
           ((App callee args)
            (string-append "(" (string-join (map shape (Cons callee args)) " ") ")"))
           ((If test then otherwise)
@@ -744,7 +744,7 @@
         (expect (yields callees (call add (list (number 1) (call f (list (number 2))))))
                 (list "t:Abort"))
         (expect
-         (yields callees (Expr (Lambda (list "x") (call f (list (number 1)))) (Expr-type f) loc))
+         (yields callees (Expr (Lambda (list "x") (call f (list (number 1))) #t) (Expr-type f) loc))
          (Nil))
         (expect (yields callees (handle-abort (call f (list (number 1))))) (Nil)))
 
@@ -753,7 +753,9 @@
       (define (test-globals)
         (let* ((opened (local "t:pure" (TFun (list i64) i64 abort-row)))
                (pure
-                (Expr (Lambda (list "x.1") (local "x.1" i64)) (TFun (list i64) i64 empty-row) loc))
+                (Expr (Lambda (list "x.1") (local "x.1" i64) #t)
+                      (TFun (list i64) i64 empty-row)
+                      loc))
                (defined (Callees program
                                  (list "t:Abort")
                                  (table-set empty-table "t:pure" pure)
@@ -791,10 +793,11 @@
                            i64
                            loc))
          "(let x.1 (f 1) (g x.1))")
-        (expect (normalized (Expr (Lambda (list "x.1") (call g (list (call f (list (number 1))))))
-                                  (Expr-type g)
-                                  loc))
-                "(lambda (let %control.0% (f 1) (g %control.0%)))"))
+        (expect
+         (normalized (Expr (Lambda (list "x.1") (call g (list (call f (list (number 1))))) #t)
+                           (Expr-type g)
+                           loc))
+         "(lambda (let %control.0% (f 1) (g %control.0%)))"))
 
       ;; An item without a call that may yield is returned itself.
       (define (test-unchanged)
@@ -813,8 +816,9 @@
            (holds-yield-point? callees (Expr (If (local "c.1" bool) inner (number 2)) i64 loc))
            #t)
           (expect (holds-yield-point? callees (call f (list (number 1)))) #f)
-          (expect (holds-yield-point? callees (Expr (Lambda (list "y.1") inner) (Expr-type g) loc))
-                  #f)))
+          (expect
+           (holds-yield-point? callees (Expr (Lambda (list "y.1") inner #t) (Expr-type g) loc))
+           #f)))
 
       ;; A thunk unsafe-total calls cannot yield, but a lambda whose row
       ;; names Abort and whose body yields nothing can be called anywhere;
@@ -822,12 +826,13 @@
       (define (test-restrictions)
         (let* ((thunk-type (TFun (list) i64 abort-row))
                (total (local "prim:unsafe-total" (TFun (list thunk-type) i64 empty-row)))
-               (log (Expr (Lambda (list "m.1") (call f (list (number 1))))
+               (log (Expr (Lambda (list "m.1") (call f (list (number 1))) #t)
                           (TFun (list i64) i64 empty-row)
                           loc)))
           (expect (refused? (call total (list (local "thunk" thunk-type))))
                   "an unsafe-total thunk cannot reach a control operation")
-          (expect (refused? (call total (list (Expr (Lambda (Nil) (number 1)) thunk-type loc)))) #f)
+          (expect (refused? (call total (list (Expr (Lambda (Nil) (number 1) #t) thunk-type loc))))
+                  #f)
           (expect (refused? (Expr (Handle "t:Log" (list (Pair "t:log" log)) (number 1)) i64 loc))
                   "the implementation of log can yield only to the control effects its operation's type names")))
 
@@ -839,14 +844,16 @@
                (inherit (local "prim:inherit-handlers-1" (TFun (list resume-type) i64 empty-row)))
                (implementation-type (TFun (list i64 resume-type) i64 empty-row))
                (closing (Expr (Lambda (list "v.1" "resume.1")
-                                      (call inherit (list (local "resume.1" resume-type))))
+                                      (call inherit (list (local "resume.1" resume-type)))
+                                      #t)
                               implementation-type
                               loc))
                (forwarding
                 (Expr (Lambda (list "v.2" "resume.2")
                               (call add
                                     (list (call f (list (number 1)))
-                                          (call inherit (list (local "resume.2" resume-type))))))
+                                          (call inherit (list (local "resume.2" resume-type)))))
+                              #t)
                       implementation-type
                       loc)))
           (expect
@@ -865,9 +872,10 @@
       ;; `f` may not.
       (define (test-reading)
         (let* ((caught-type (TFun (list i64) i64 abort-row))
-               (caught (Expr (Lambda (list "x.2") (handle-abort (call f (list (local "x.2" i64)))))
-                             caught-type
-                             loc))
+               (caught
+                (Expr (Lambda (list "x.2") (handle-abort (call f (list (local "x.2" i64)))) #t)
+                      caught-type
+                      loc))
                (reading (Callees program
                                  (list "t:Abort")
                                  (table-set empty-table "t:caught" caught)
@@ -876,7 +884,7 @@
                                  (None)))
                (thunk-type (TFun (Nil) i64 abort-row))
                (inherit (local "prim:inherit-handlers" (TFun (list thunk-type) i64 empty-row)))
-               (thunk (lambda (body) (Expr (Lambda (Nil) body) thunk-type loc))))
+               (thunk (lambda (body) (Expr (Lambda (Nil) body #t) thunk-type loc))))
           (expect (refused-in? reading
                                (call inherit
                                      (list (thunk (call (local "t:caught" caught-type)
@@ -889,7 +897,7 @@
       ;; its implementation may.
       (define (test-latent)
         (let ((fetch (local "t:fetch" (TFun (list i64) i64 empty-row)))
-              (yielding (Expr (Lambda (list "n.1") (call f (list (number 1))))
+              (yielding (Expr (Lambda (list "n.1") (call f (list (number 1))) #t)
                               (TFun (list i64) i64 abort-row)
                               loc)))
           (expect (yields callees (call fetch (list (number 1)))) (list "t:Abort"))

@@ -239,6 +239,7 @@
     (define core-keywords
       (list "define"
             "lambda"
+            "fn"
             "if"
             "begin"
             "let"
@@ -569,9 +570,15 @@
        ((name String)
         (types (List Type))
         (evidence (List Evidence))))
+      ;; A closure. `captures?` says whether it may read the locals around
+      ;; it: the surface `lambda` may, a `fn` may not, and neither may a
+      ;; top-level function, which has none around it. The checker refuses a
+      ;; closure that reads one it may not (`check-closed`), so a closure
+      ;; marked so has no environment wherever it is compiled.
       (Lambda
        ((params (List String))
-        (body Expr)))
+        (body Expr)
+        (captures? Bool)))
       (App
        ((callee Expr)
         (args (List Expr))))
@@ -632,7 +639,7 @@
     (: lambda-expr? (-> Expr Bool))
     (define (lambda-expr? expr)
       (match (Expr-term expr)
-        ((Lambda _ _) #t)
+        ((Lambda _ _ _) #t)
         (_ #f)))
 
     ;; Every name an expression refers to, once each, in order of first
@@ -655,7 +662,7 @@
               (if (table-contains? seen name)
                   found
                   (Pair (table-set seen name #t) (Cons name names))))))
-          ((Lambda _ body) (collect found body))
+          ((Lambda _ body _) (collect found body))
           ((App callee args) (fold-left collect found (Cons callee args)))
           ((If test then otherwise) (fold-left collect found (list test then otherwise)))
           ((Let _ value body) (collect (collect found value) body))
