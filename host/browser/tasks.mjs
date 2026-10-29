@@ -1,205 +1,129 @@
-// One execution permit protects the Wasm globals holding dynamic handlers.
-// A parked JSPI invocation stays live until its operation, cleanup and unwind
-// finish. Only the scheduler releases its resumption Promise.
-// The host's reporting hook must not throw. One scheduler owns each program.
-// A task's effect handlers are evidence on its own Wasm stack, so nothing
-// is saved or restored around a switch.
-//
-// Tickets are numbered across every scheduler of the page. A relink makes
-// a new scheduler while the application's state crosses unchanged, so a
-// Mailbox kept in it still lists the tickets of receivers the old
-// scheduler cancelled. Waking one of those must wake nothing, so that the
-// Mailbox moves on to its next receiver, as it does for any stale ticket.
-let lastTicket = 0;
+// The host side of (snail shell task). The scheduler is Snail-Core's; a
+// host drives it a turn at a time and completes the host operations its
+// tasks wait on. A task takes a ticket, starts the operation through a
+// synchronous import that returns at once, awaits the ticket, and then
+// finishes it, through another, which takes the outcome the host kept
+// (task.sld's `through-host`). No Wasm stack is ever suspended.
 
-export function createScheduler({reportError = () => {}} = {}) {
-  const live = new Set(), ready = [], drains = [], tickets = new Map();
-  let active = null, scheduled = false, closed = false, steps = 0;
+// The exports of the module holding (snail shell task), or null when the
+// program does not link it and has no tasks to drive. A program is a
+// per-library build, a loaded whole program, or its bare instance, as
+// `programEntry` takes them.
+export function taskExports(program) {
+  const exports = program.names ? program.linked.get('snail.shell.task')?.exports
+    : program.exports ?? program.runtime.exports;
+  return exports?.['tasks:turn'] ? exports : null;
+}
 
-  function schedule() {
-    if (scheduled || active || !ready.length) return;
-    scheduled = true;
-    // Bound the microtask chain: many short tasks must still service input.
-    if (++steps < 64) queueMicrotask(pump);
-    else setTimeout(() => { steps = 0; pump(); }, 0);
+// One run of a program's tasks: its outstanding host operations and the
+// loop that turns the scheduler. `exports` gives the scheduler's exports
+// once the program is loaded. Closing aborts every outstanding operation
+// and drops every task.
+export function createTasks(exports, {reportError = () => {}} = {}) {
+  const outcomes = new Map(), controller = new AbortController();
+  let outstanding = 0, resting = null;
+
+  // ---- Completions ----
+
+  // A settled operation wakes its ticket. A ticket that wakes nothing, as
+  // after closing, or after its task trapped, leaves its success to be
+  // disposed of: an accepted connection is closed.
+  function settle(ticket, outcome) {
+    outstanding--;
+    if (controller.signal.aborted || !wake(ticket)) return outcome.dispose();
+    outcomes.set(ticket, outcome);
   }
-  function enqueue(task, next) {
-    task.next = next;
-    ready.push(task);
-    schedule();
+  function wake(ticket) {
+    const woke = exports()['tasks:wake'](BigInt(ticket)) !== 0;
+    if (woke) resting?.();
+    return woke;
   }
-  function release(task) {
-    if (active !== task) return;
-    active = null;
-    schedule();
-  }
-  function pump() {
-    scheduled = false;
-    if (active) return;
-    let task;
-    while ((task = ready.shift()) && !live.has(task)) {}
-    if (!task) return;
-    active = task;
-    const next = task.next;
-    task.next = null;
-    try { next(); }
-    catch (error) { finish(task, false, error); }
-  }
-  function finish(task, ok, result) {
-    if (!live.delete(task)) return;
-    release(task);
-    task.work = task.discard = task.next = null;
-    for (const ticket of task.tickets) tickets.delete(ticket);
-    if (ok && task.controller.signal.aborted) { ok = false; result = task.controller.signal.reason; }
-    if (ok) task.completion.resolve(result);
-    else task.completion.reject(result);
-    if (!live.size) for (const resolve of drains.splice(0)) resolve();
-    schedule();
-    if (!ok && task.detached && (!task.controller.signal.aborted || result !== task.controller.signal.reason)) reportError(result);
-  }
-  function cancel(task, reason = new DOMException('task cancelled', 'AbortError')) {
-    if (!live.has(task) || task.controller.signal.aborted) return;
-    task.controller.abort(reason);
-    // A queued resumption still owns a Wasm invocation and must unwind.
-    // Only work that has never entered Wasm can settle without resuming.
-    if (task.work !== null) {
-      let failure = reason;
-      try { task.discard?.(); }
-      catch (error) { failure = error; }
-      finish(task, false, failure);
-    }
-  }
-  function spawn(work, discard, detached) {
-    if (closed) throw new Error('the task runtime has closed');
-    const task = {work, discard, detached, controller: new AbortController(), completion: Promise.withResolvers(), next: null, tickets: new Set()};
-    task.completion.promise.catch(() => {});
-    live.add(task); // Reserve before the dispatching task can return.
-    enqueue(task, () => {
-      const work = task.work;
-      task.work = task.discard = null;
-      Promise.resolve(work()).then(value => finish(task, true, value), error => finish(task, false, error));
+
+  // ---- Turns ----
+
+  // Between turns the host runs its own work: at once when a task is
+  // ready, and otherwise until a wake or the earliest deadline.
+  function rest(next) {
+    if (next === 0) return nextMacrotask();
+    return new Promise(resolve => {
+      const timer = next > 0 ? setTimeout(() => resting(), next) : null;
+      resting = () => { clearTimeout(timer); resting = null; resolve(); };
     });
-    return {done: task.completion.promise, cancel: reason => cancel(task, reason)};
   }
 
-  // The operation owns its abort listener and settles only after cleanup.
-  // An operation that cannot abort may finish normally; cancellation still
-  // rejects the gate. A broken adapter that never settles prevents drain.
-  // Work returns its complete invocation Promise: a parked task cannot finish
-  // or enter another wait before this gate settles. No wait identity is needed.
-  // Successful results belong to the gate until delivery. Discard is native,
-  // synchronous cleanup and must not reenter Wasm.
-  function suspend(operation, discard = null) {
-    const task = active;
-    if (!task) throw new Error('a runtime wait requires a running task');
-    task.controller.signal.throwIfAborted();
-    const gate = Promise.withResolvers();
-    let pending;
-    try { pending = operation(task.controller.signal); }
-    catch (error) { pending = Promise.reject(error); }
-    release(task);
-    function completed(ok, result) {
-      enqueue(task, () => {
-        // Cancellation can race with an already queued successful result.
-        if (!ok) gate.reject(result);
-        else if (task.controller.signal.aborted) {
-          try { discard?.(result); gate.reject(task.controller.signal.reason); }
-          catch (error) { gate.reject(error); } // Reject the parked stack so it still unwinds.
-        } else gate.resolve(result);
-        // Keep the permit until JSPI next suspends or its export settles.
-      });
-    }
-    Promise.resolve(pending).then(value => completed(true, value), error => completed(false, error));
-    return gate.promise;
-  }
-  // A ticket names one wait of the task that takes it, which only that
-  // task awaits. `wake` resumes the task while it awaits the ticket, and
-  // otherwise does nothing and answers false, so a stale ticket, such as
-  // one whose task was cancelled while it waited, never wakes another task.
-  // Only the task's own Wasm runs between taking a ticket and awaiting it,
-  // so neither a host completion nor a Mailbox post can come first.
-  function running(what) {
-    if (!active) throw new Error(`${what} requires a running task`);
-    return active;
-  }
-  function ticket() {
-    const task = running('a ticket'), id = ++lastTicket;
-    tickets.set(id, {task, resume: null});
-    task.tickets.add(id);
-    return id;
-  }
-  function awaitTicket(id) {
-    const entry = tickets.get(id);
-    if (entry?.task !== running('awaiting a ticket') || entry.resume) throw new Error('a task awaits only a ticket it took, once');
-    return suspend(signal => new Promise((resolve, reject) => {
-      const abort = () => { tickets.delete(id); reject(signal.reason); };
-      entry.resume = () => { signal.removeEventListener('abort', abort); resolve(); };
-      signal.addEventListener('abort', abort, {once: true});
-    }));
-  }
-  function wake(id) {
-    const entry = tickets.get(id);
-    if (!entry?.resume) return false;
-    tickets.delete(id);
-    entry.task.tickets.delete(id);
-    entry.resume();
-    return true;
-  }
-  function drain() {
-    return live.size ? new Promise(resolve => drains.push(resolve)) : Promise.resolve();
-  }
   return {
-    start: work => spawn(work, null, false),
-    dispatch: (work, discard = null) => spawn(work, discard, true),
-    suspend,
-    ticket,
-    await: awaitTicket,
-    wake,
-    // The running task's signal, which aborts when it is cancelled.
-    signal: () => running('a task signal').controller.signal,
-    drain,
+    signal: controller.signal,
+    // Runs `operation` with the run's AbortSignal. `deliver` builds the
+    // managed result from its value when the task finishes the ticket,
+    // and `dispose` releases a value that no task finished.
+    start(ticket, operation, deliver, dispose = () => {}) {
+      outstanding++;
+      let pending;
+      try { pending = Promise.resolve(operation(controller.signal)); }
+      catch (error) { pending = Promise.reject(error); }
+      pending.then(value => settle(ticket, {deliver: () => deliver(value), dispose: () => dispose(value)}),
+                   error => settle(ticket, {deliver: () => { throw error; }, dispose: () => {}}));
+    },
+    // A host failure throws into the Wasm that finishes it, where it traps
+    // the task.
+    finish(ticket) {
+      const outcome = outcomes.get(ticket);
+      if (!outcome) throw new Error('a ticket was finished before its operation completed');
+      outcomes.delete(ticket);
+      return outcome.deliver();
+    },
+    // Turns until no task is live, or `stopped` holds after a turn. A trap
+    // ends only the task that ran (task.sld's `run-ready!`), so it is
+    // reported with that task's id, and the turns go on. Every task waiting
+    // on a ticket while no host operation is outstanding is a deadlock.
+    async drive(stopped = () => false) {
+      if (!exports()) return;
+      for (;;) {
+        let next;
+        try { next = Number(exports()['tasks:turn'](BigInt(Date.now()))); }
+        catch (error) {
+          reportError(error, Number(exports()['tasks:running']()));
+          next = 0;
+        }
+        if (next === -1 || stopped()) return;
+        if (next === -2 && outstanding === 0) throw new Error('every task waits on a ticket that nothing will wake');
+        await rest(next);
+      }
+    },
+    // Wakes the loop from its rest, so that `stopped` is asked again.
+    interrupt() { resting?.(); },
     close(reason) {
-      closed = true;
-      for (const task of live) cancel(task, reason);
-      return drain();
+      controller.abort(reason);
+      exports()?.['tasks:close']();
+      for (const outcome of outcomes.values()) outcome.dispose();
+      outcomes.clear();
+      resting?.();
     },
-    get size() { return live.size; },
-    get inRoot() { return active !== null && !active.detached; },
   };
 }
 
-// Timers own their registration until normal completion or cancellation.
-// Even a zero-duration sleep yields an event-loop turn, not just a microtask.
-export function delay(signal, milliseconds = 0) {
-  signal.throwIfAborted();
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, milliseconds);
-    function abort() {
-      clearTimeout(timer);
-      signal.removeEventListener('abort', abort);
-      reject(signal.reason);
+// A native operation's coded failure, such as ECONNRESET, is a value: the
+// operation's Err result. A cancellation, or a failure without a code,
+// stays a failure, which traps the finish.
+export function coded(operation) {
+  return async signal => {
+    try { return {value: await operation(signal)}; }
+    catch (error) {
+      signal.throwIfAborted();
+      if (!(error instanceof Error) || typeof error.code !== 'string' || !/^[A-Z][A-Z0-9_]*$/.test(error.code)) throw error;
+      return {code: error.code};
     }
-    signal.addEventListener('abort', abort, {once: true});
-  });
+  };
 }
 
-// Imports can survive a reload. The adapter supplies the current runtime;
-// once a call starts, its task and AbortSignal belong to that invocation.
-export function taskImports(scheduler) {
-  return {
-    // The work runs with the evidence of its dispatch: the handlers in
-    // scope where `dispatch-local` was called.
-    dispatch(run, drop, owner, evidence) {
-      scheduler().dispatch(() => WebAssembly.promising(run)(owner, evidence), () => drop(owner));
-    },
-    yield: new WebAssembly.Suspending(() => scheduler().suspend(signal => delay(signal))),
-    sleep: new WebAssembly.Suspending(milliseconds => scheduler().suspend(signal => {
-      if (milliseconds < 0n || milliseconds > 2147483647n) throw new RangeError('sleep expects 0..2147483647 milliseconds');
-      return delay(signal, Number(milliseconds));
-    })),
-    // Tickets are I64s in Snail-Core, so they cross as BigInts.
-    ticket: () => BigInt(scheduler().ticket()),
-    await: new WebAssembly.Suspending(ticket => scheduler().await(Number(ticket))),
-    wake: ticket => scheduler().wake(Number(ticket)) ? 1 : 0,
-  };
+// A turn of the event loop, not only a microtask, so the host's own events
+// run between turns: setImmediate in Node, a message in a browser, whose
+// zero timeouts are clamped.
+function nextMacrotask() {
+  if (typeof setImmediate === 'function') return new Promise(resolve => setImmediate(resolve));
+  return new Promise(resolve => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => { channel.port1.close(); resolve(); };
+    channel.port2.postMessage(null);
+  });
 }

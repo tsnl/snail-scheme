@@ -807,9 +807,6 @@
     (: infer-handle
        (-> Checker String (List (Pair String Expr)) Expr Type Loc (Pair Expr Checker) ! compile))
     (define (infer-handle ck effect implementations body row loc)
-      (when (string=? effect "tasks")
-        (compile-error loc
-                       "the runtime binds the tasks control effect; user control handlers are not supported"))
       (let* ((info (program-effect (program-of ck) effect)) (operations (Effect-operations info)))
         (unless (and (= (length operations) (length implementations))
                      (every? (lambda (operation)
@@ -1857,7 +1854,7 @@
     (: check-host-effects (-> Checker Type Loc Checker ! compile))
     (define (check-host-effects ck row loc)
       (for-each (lambda (label)
-                  (unless (or (member? label (list "mut" "tasks" "host"))
+                  (unless (or (member? label (list "mut" "host"))
                               (let ((effect (program-effect (program-of ck) label)))
                                 (= (length (Effect-defaults effect))
                                    (length (Effect-operations effect)))))

@@ -44,7 +44,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   typeclasses. The consequence is the continuation tier: one-shot and
   delimited by its handler. `resume` is a linear closure, `Once`, so it is
   first-class — a scheduler can hold it and call it later as a thunk, which
-  is how tasks become effects — and the ownership checker proves it is
+  is how tasks are effects (`src/snail/shell/task.sld`) — and the ownership checker proves it is
   called or dropped exactly once. Multi-shot continuations are out of scope, since
   they require every frame to be reachable twice and would be paid for by code
   that never captures one. The lowering is evidence passing: every
@@ -159,8 +159,8 @@ rules; what matters when writing code:
   `make test` may run beside a server.
 - The existing application loop is `src/snail/shell/develop.sld` on the native
   `host/native/develop.mjs` host; the page's reload client is `host/browser/reload.sld`,
-  `relinkProgram` in `host/browser/load.mjs` relinks after the JSPI loop in
-  `host/browser/runtime.mjs` saves, returns its state and settles. `tests/develop.mjs` (in
+  `relinkProgram` in `host/browser/load.mjs` relinks after the application's
+  loop, a task that `host/browser/runtime.mjs` drives, saves, returns its state and settles. `tests/develop.mjs` (in
   `make test`) and `tests/browser/reload.mjs` and `tests/browser/ide.mjs`
   (`make test-browser`, needs `CHROMIUM`) cover them. See
   [the development toolchain](doc/book/snail-core/toolchain.md).

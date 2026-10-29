@@ -3,8 +3,10 @@
 Research recorded on 2026-10-24. This page describes future options, not
 shipping features. We ship one WasmGC backend.
 
-Two decisions have been made since. One-shot `ctl` handlers are implemented
-by evidence passing ([effects and handlers](../snail-core/effects.md#control-handlers)).
+Three decisions have been made since. One-shot `ctl` handlers are implemented
+by evidence passing ([effects and handlers](../snail-core/effects.md#control-handlers)),
+and the runtime's tasks are an effect on them, scheduled in Snail-Core, so
+no host suspends a Wasm stack ([task operations](tasks.md)).
 And each instance of a program is single-threaded, talking to others only
 through queues and shared memory ([instances](instances.md), proposed). So
 the shared-heap thread pool below is not the plan. The native alternatives
@@ -20,9 +22,9 @@ deployment baseline; we require default support in the runtimes we ship on.
 
 [Typed stack switching](https://github.com/WebAssembly/stack-switching/blob/main/proposals/stack-switching/Explainer.md)
 provides typed continuation creation, suspension and resumption. JSPI gives
-us host-driven asynchronous suspension today, but not a language-level
-first-class continuation API or arbitrary migration of suspended stacks.
-User-defined `ctl` remains deferred while runtime-provided waits use JSPI.
+host-driven asynchronous suspension, but not a language-level first-class
+continuation API or arbitrary migration of suspended stacks, and it has no
+counterpart outside the browser engines, so the tasks no longer use it.
 
 These extensions solve different problems. Stack switching does not make
 the heap shareable. Sharing the heap does not establish ownership, handler

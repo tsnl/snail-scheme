@@ -220,32 +220,6 @@
     (or (zero? (caddr result))
         (report "app runtime" "failed" (string-append (car result) (cadr result))))))
 
-(define (check-task-runtime root)
-  (let ((result (capture-process
-                 (list "node"
-                       "--no-warnings"
-                       (path-join root "tests/tasks/check.mjs")
-                       (build-crate root "assembler")))))
-    (or (zero? (caddr result))
-        (report "task runtime" "failed" (string-append (car result) (cadr result))))))
-
-(define (compile-task-boundary root)
-  (let ((text (program->wat root
-                            (standard-directories root)
-                            (path-join root "tests/tasks/boundary.sld"))))
-    (lambda ()
-      (let ((program (path-join root "build/tests/task-boundary.wasm")))
-        (link-wat root text program #f)
-        (check-task-boundary root program)))))
-
-(define (check-task-boundary root program)
-  (let ((result (capture-process (list "node"
-                                       "--no-warnings"
-                                       (path-join root "tests/tasks/boundary.mjs")
-                                       program))))
-    (or (zero? (caddr result))
-        (report "task boundary" "failed" (string-append (car result) (cadr result))))))
-
 ;; Exercise scratch isolation in separate runtime instances, as linked modules use.
 (define (check-numeric-runtime root)
   (let ((result (capture-process
@@ -660,7 +634,6 @@
   (append (map (lambda (entry) (run-linked root (car entry) (cadr entry))) linked-cases)
           (list (run-linked-siegework root)
                 (run-linked-app-runtime root)
-                (run-linked-task-boundary root)
                 (run-linked-host-boundary root)
                 (run-linked-socket-boundary root) (run-dynamic-loading root))))
 
@@ -679,14 +652,6 @@
                    (path-join root "tests/host-boundary/main.sld")
                    output)
     (run-host-boundary root (path-join output "modules.json"))))
-
-(define (run-linked-task-boundary root)
-  (let ((output (path-join root "build/tests/linked/task-boundary")))
-    (build-modules root
-                   (standard-directories root)
-                   (path-join root "tests/tasks/boundary.sld")
-                   output)
-    (check-task-boundary root (path-join output "modules.json"))))
 
 ;; ---- Loading while a program runs ----
 
@@ -820,10 +785,8 @@
                                   (lambda () (check-type-ids root))
                                   (lambda () (check-numeric-runtime root))
                                   (lambda () (check-host-boundary root))
-                                  (lambda () (check-task-runtime root))
                                   (compile-artifacts root)
                                   (compile-native-compiler root)
-                                  (compile-task-boundary root)
                                   (compile-socket-boundary root)
                                   (compile-termination root)
                                   (compile-app-runtime root)

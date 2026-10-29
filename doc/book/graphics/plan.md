@@ -8,10 +8,9 @@ packers on top of it. Delivery is tracked in
 [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
-handlers and the runtime's waits. Those waits suspend through JSPI today and
-become ordinary effects once handlers have one-shot continuations
-([issue 511](https://github.com/tsnl/snail-scheme/issues/511)), so nothing here
-depends on an engine extension.
+handlers and the runtime's waits. Those waits are an ordinary effect,
+scheduled in Snail-Core ([task operations](../runtimes/tasks.md)), so nothing
+here depends on an engine extension.
 
 ## WebGPU through an effect
 

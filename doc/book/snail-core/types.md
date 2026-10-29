@@ -135,10 +135,11 @@ This exception applies only to exposed parameters/results; a host import
 returning `(Option Any)` still expects its ordinary enum. Constructors for a
 typed host operation should return its whole result, such as `(Result Bytes E)`.
 Resolve helpers from their library instance in separate builds and the combined
-instance in static builds. After a wait, the runtime must reacquire the execution
-permit before invoking a constructor or returning to Wasm. A task's handlers are
-evidence on its own stack, so nothing about them is saved or restored across a
-suspension. See [scheduling](https://tsnl.github.io/snail-scheme/runtimes/scheduling.html).
+instance in static builds. A waiting task's result is constructed by the finish
+import that the task itself calls on its next turn, so construction is part of
+that task's own code. A task's handlers are evidence its saved frames hold, so
+nothing about them crosses the host. See
+[waiting on the host](../runtimes/tasks.md#waiting-on-the-host).
 
 `unsafe-cast` is unchecked, like `unsafe-total`
 ([local mutation](effects.md#local-mutation)): it turns a `Funcref`, a

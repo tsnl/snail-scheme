@@ -4,8 +4,7 @@ import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {linkedFileImports, linkProgram, wasmImports} from '../browser/load.mjs';
-import {createScheduler, taskImports} from '../browser/tasks.mjs';
-import {createCompletions} from '../browser/completions.mjs';
+import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
 import {socketImports} from './socket-imports.mjs';
@@ -35,19 +34,21 @@ async function run(filename, arguments_, termination) {
   let program, failed = false, status = 1;
   const tcp = createTcp(), udp = createUdp(), processes = createProcesses();
   // WASI exits throw an opaque sentinel after printing their diagnostic.
-  const scheduler = createScheduler({reportError: error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); }});
-  const completions = createCompletions(ticket => scheduler.wake(ticket));
-  const host = {'snail.runtime.wasm': wasmImports(() => program), 'snail.runtime.tasks': taskImports(() => scheduler),
-                'snail.runtime.native.socket': socketImports(() => program, scheduler, completions, tcp, udp),
-                'snail.runtime.native.process': processImports(() => program, scheduler, completions, processes, termination)};
-  // A parked JSPI stack is live work even when no OS handle keeps Node alive.
+  const report = error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); };
+  const tasks = createTasks(() => program && taskExports(program), {reportError: report});
+  const host = {'snail.runtime.wasm': wasmImports(() => program),
+                'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
+                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination)};
+  // A task waiting on a timer or a ticket is live work even when no OS
+  // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
   try {
     program = await loadProgram(resolve(filename), wasi, host);
-    status = resultStatus(await runInitializers(program, scheduler));
+    status = resultStatus(runInitializers(program));
+    await tasks.drive().catch(report);
     if (failed) status = 1;
   } finally {
-    try { await scheduler.close(); await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown()]); }
+    try { tasks.close(); await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown()]); }
     finally {
       clearInterval(keepAlive);
       if (program) {
@@ -69,12 +70,12 @@ async function loadProgram(filename, wasi, host) {
 }
 
 // Module initialization remains ordered. Work dispatched by any initializer
-// belongs to this runtime and may outlive the program's main invocation.
-async function runInitializers(program, scheduler) {
+// belongs to this runtime and may outlive the program's main invocation:
+// its tasks run once every main has returned.
+function runInitializers(program) {
   const modules = program.names ? program.names.map(name => program.linked.get(name)) : [program.runtime];
   let result = 0;
-  for (const {exports} of modules) result = await scheduler.start(() => WebAssembly.promising(exports.main)()).done;
-  await scheduler.drain();
+  for (const {exports} of modules) result = exports.main();
   return result;
 }
 
@@ -102,8 +103,8 @@ function forwardTerminations(worker, waiting) {
 // ---- A worker with room to allocate ----
 
 // A small young generation copies long lists repeatedly. Keep the heap
-// tuning in one worker; JSPI uses its own finite, engine-managed stacks.
-// Tail calls are the language's constant-stack loop mechanism.
+// tuning in one worker. Tail calls are the language's constant-stack loop
+// mechanism.
 const limits = {maxYoungGenerationSizeMb: 384};
 
 if (isMainThread) {

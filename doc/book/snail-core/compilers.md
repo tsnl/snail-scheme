@@ -101,8 +101,8 @@ function of the expander has `mut` in its row — and where it does not, the
   compile error does.
 
   Every library is a file but `(snail core forms)`, which the expander
-  serves from memory: the core forms, the builtin types, and the `mut` and
-  `tasks` effects. The operations the backend implements directly are
+  serves from memory: the core forms, the builtin types, and the builtin
+  `mut` and `host` effects. The operations the backend implements directly are
   declared in
   [`src/snail/core/primitive.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/core/primitive.sld),
   read and resolved like any library. `(primitive i32-add (-> I32 I32 I32))`
@@ -204,12 +204,18 @@ function of the expander has `mut` in its row — and where it does not, the
   in, as does each item without such a call. The pass also refuses a
   control row where nothing could carry a yield: in a `vector-generate` or
   `string-generate` callback, which a WAT loop calls; in an `unsafe-total`
-  thunk, whose row the call discards; in `dispatch-local` work, which runs
-  later on a task's own stack; in a procedure given to `inherit-handlers`,
-  which may run after its handles have returned; and in the implementation
+  thunk, whose row the call discards; in dispatched work, which runs later
+  under its task's own handler of `tasks` and may yield to `tasks` alone;
+  in a procedure given to `inherit-handlers`, which may run after its
+  handles have returned, unless a handle inside the procedure, or inside a
+  function it calls, catches the yield, or the procedure is a `resume`
+  closed in its own handler's implementation; and
+  in the implementation
   of an operation declared without `ctl`, which returns into a handled
   body that tests for a yield there only to the control effects the
-  operation's type names. It checks, too, the one rule the backend relies
+  operation's type names. Items are checked from the last back, since a
+  copy of a generic comes before the code that made it, so a refusal
+  names the call that made a copy. It checks, too, the one rule the backend relies
   on that needs specialized definitions: an exposed function's definition,
   this library's or an imported one, has a lambda as its value.
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/wasm.sld)** chooses representations and
@@ -451,7 +457,10 @@ child-first class loader resolves, and runs each module's `main`. The
 namespace is private: a library's module text depends on the program it
 was compiled for, its set of control effects among it, so a plugin has its
 own instances, and its own globals, even of a library the program imports
-too. The runtime its manifest names is not loaded.
+too. So a plugin that imports `(snail shell task)` has its own scheduler,
+which no host drives: a task its top level dispatches never runs, and its
+dynamic functions, being pure, cannot dispatch one. The runtime its
+manifest names is not loaded.
 
 `plugin-function` finds `NAME` and `NAME:signature` in the plugin's own
 module, its program's, and calls the signature through `unsafe-cast`: that
@@ -502,8 +511,8 @@ declaration of the type it takes; `tests/programs/wasm.sld` loads modules
 it writes itself.
 
 Every import module a host provides is named for the runtime interface it
-implements, `snail.runtime.…` (#566): `snail.runtime.tasks`,
-`snail.runtime.link` and `snail.runtime.resource` on every host,
+implements, `snail.runtime.…` (#566): `snail.runtime.link` and
+`snail.runtime.resource` on every host,
 `snail.runtime.wasm`, `snail.runtime.native.socket`,
 `snail.runtime.native.process` and `snail.runtime.native.develop` on Node,
 and `snail.runtime.browser.screen`, `.events` and `.storage` on the page.
@@ -732,12 +741,12 @@ the compiler still stops at its first error. These operations are implemented an
 | `host/chibi/snail/stage0/process.sld` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. This avoids Chibi 0.12 pipe-finalizer and sequential pipe-draining failures. |
 | `crates/snail-core-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. |
 | `crates/assembler/`, `host/native/assemble.mjs` | The `wat` crate compiled to Wasm for in-process text assembly. Programs do not carry the assembler. |
-| `host/native/run-snail.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading and the task scheduler. JSPI stacks remain finite. |
+| `host/native/run-snail.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. |
 | `src/`, `host/chibi/snail/`, `bootstrap/chibi-include/` | Every library that ships with the language, the compiler among them, and the separate stage-0 implementations of the three it imports. Stage 0's only search root is `bootstrap/chibi-include/`, one symlink per library the compiler reaches. |
 
 Running project build plans and publication belong to the [project builder](projects.md),
 watching and editor services to the [development toolchain](toolchain.md), and
-suspension/resource ownership to the [runtime](../runtimes/index.md).
+task scheduling and resource ownership to the [runtime](../runtimes/index.md).
 
 ## Following and checking a change
 

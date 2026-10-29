@@ -10,9 +10,9 @@
 //!   compiling the module again (`engine.rs`).
 //! - `snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program, one
 //!   linked module or a per-library build's modules.json, as
-//!   host/native/run-snail.mjs does on Node, when it needs no tasks,
-//!   sockets or processes (`program.rs`, with `links.rs` for the files it
-//!   links and `modules.rs` for linking modules).
+//!   host/native/run-snail.mjs does on Node, when it needs no sockets or
+//!   processes (`program.rs`, with `links.rs` for the files it links and
+//!   `modules.rs` for linking modules).
 //! - `snail imports PROGRAM` lists the modules a program imports from, so
 //!   the build driver can tell whether `run-wasm` runs it (`program.rs`).
 //!

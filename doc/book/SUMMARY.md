@@ -25,7 +25,7 @@
   - [Scheme on Snail-Core](snail-core/tutorials/scheme.md)
 - [Runtimes](runtimes/index.md)
   - [Task operations](runtimes/tasks.md)
-  - [Scheduling and suspension](runtimes/scheduling.md)
+  - [Driving the scheduler](runtimes/scheduling.md)
   - [Native networking and processes](runtimes/networking.md)
   - [Language contract](runtimes/contract.md)
   - [Instances, queues and shared memory](runtimes/instances.md)

@@ -3086,7 +3086,7 @@
     ;; elsewhere, the implementation keeps the evidence outside its handler,
     ;; whose handles may have returned; that is sound because its yields go
     ;; only to forwarded effects (see control.sld), so only ordinary
-    ;; operations reach that evidence. The builtin effects, mut and tasks,
+    ;; operations reach that evidence. The builtin effects, mut and host,
     ;; which no evidence carries, need no node.
     (: forwarded-effects (-> Module String (List Effect)))
     (define (forwarded-effects m operation)
@@ -3459,9 +3459,6 @@
           (("once") (list (wat "struct.new" (id (owned-type m)) (arg 0))))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
-          (("dispatch-local") (dispatch-work m (arg 0) (Fn-evidence fn)))
-          (("yield-task" "sleep-task" "ticket-task" "await-task" "wake-task")
-           (host-call m (task-import operation) (TFun types type empty-row) code no-loc))
           (("drop") (list (clear-owner m (arg 0)) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
@@ -3560,44 +3557,6 @@
                                 (Pair "code" (code-type m closure))
                                 (Pair "take" (take-owned-helper m))
                                 (Pair "evidence" (evidence-type m))))))
-
-    ;; The host receives an opaque owner, the evidence of the dispatch, and
-    ;; two typed Wasm entry points. It runs the work once with that evidence,
-    ;; or clears queued work on cancellation. No Snail-Core value is erased
-    ;; to Any and no host needs to inspect a closure display.
-    (: dispatch-work (-> Module Wat Wat (List Wat) ! mut))
-    (define (dispatch-work m owner evidence)
-      (let* ((run (call-once-helper m)) (release (drop-owned-helper m))
-             (host (import! m (Import "snail.runtime.tasks" "dispatch")
-                            (list (Scalar "funcref")
-                                  (Scalar "funcref")
-                                  (Reference (owned-type m))
-                                  (evidence-rep m))
-                            (None))))
-        (push! (Module-declared m) run)
-        (push! (Module-declared m) release)
-        (list
-         (wat "call"
-              (id host)
-              (wat "ref.func" (id run))
-              (wat "ref.func" (id release))
-              owner
-              evidence)
-         (wat "i32.const" (int 0)))))
-
-    ;; The scheduler's waits and wakes are imports of "snail.runtime.tasks", each
-    ;; named by its primitive without "-task": `yield`, `sleep`, `ticket`,
-    ;; `await` and `wake`.
-    (: task-import (-> String Import))
-    (define (task-import operation)
-      (Import "snail.runtime.tasks" (substring operation 0 (- (string-length operation) 5))))
-
-    (: drop-owned-helper (-> Module String ! mut))
-    (define (drop-owned-helper m)
-      (template-helper! m "drop-owned" ""
-                        "(func {id} (param $owner (ref {owner}))
-  (struct.set {owner} 0 (local.get $owner) (ref.null any)))"
-                        (list (Pair "owner" (owned-type m)))))
 
     ;; ---- Runtime helpers ----
 

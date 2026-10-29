@@ -230,7 +230,7 @@ fn provider(
 
 fn missing_host(from: &str, name: &str) -> String {
     if NODE_ONLY.contains(&from) {
-        format!("{from} {name} runs on Node until tasks become effects (#511)")
+        format!("{from} {name} runs on Node")
     } else {
         format!("this host does not provide {from} {name}")
     }

@@ -4,12 +4,12 @@
 
 | Library | Contents |
 | --- | --- |
-| `(snail core forms)` | The core forms, the builtin types, and the `mut` and `tasks` effects. The compiler serves it; it has no file. |
+| `(snail core forms)` | The core forms, the builtin types, and the builtin `mut` and `host` effects. The compiler serves it; it has no file. |
 | `(snail core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail core base)` gives most of them their everyday names. |
 | `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, vectors, arrays, strings, `Show`. |
 | `(snail core io)` | The `console`, `fs` and `clock` effects: text output, lines of input, files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock. |
 | `(snail shell resource)` | Files a library links rather than embeds: `link-bytes`, the `Resource` handle, and `read-resource` through the `resource` effect ([linked files](types.md#linked-files)). |
-| `(snail shell task)` | One-shot local dispatch, cooperative yield, timer waits, and `Mailbox` queues between tasks, through the runtime-owned `tasks` effect ([task operations](../runtimes/tasks.md)). |
+| `(snail shell task)` | The `tasks` effect and its scheduler, written in Snail-Core: one-shot local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
 | `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
 | `(snail core table)` | Immutable tables from strings to values. |
 | `(snail shell math)` | Elementary functions on `F64`. |

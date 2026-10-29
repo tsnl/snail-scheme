@@ -1,8 +1,9 @@
 # Runtimes
 
-Snail-Core's shipping target is WebAssembly GC, with JavaScript Promise
-Integration (JSPI) suspending tasks until tasks become effects. A runtime
-supplies platform effects and owns the computations that use them. Each
+Snail-Core's shipping target is WebAssembly GC. Tasks are an effect,
+scheduled in Snail-Core; a host drives the scheduler and completes the
+operations tasks wait on. A runtime supplies platform effects and owns
+the computations that use them. Each
 instance of a program is single-threaded; parallel work runs as several
 instances, which will talk through queues and shared memory
 ([instances](instances.md), proposed).
@@ -24,22 +25,25 @@ The [socket effects](networking.md) bind typed, interceptable TCP and UDP operat
 to native Node resources, with cancellation and shutdown owned by the runtime, and the
 [process effect](networking.md#child-processes) binds child processes the same way.
 
-## Execution and suspension
+## Execution and waiting
 
-A synchronous piece of Wasm runs until it returns or reaches a suspending
-import. A JSPI import can return a Promise: Wasm execution suspends while
-the JavaScript event loop services other work. Resolving or rejecting that
-Promise resumes or fails the computation. A pending Promise alone does not
-keep a Node process alive; a runtime must account for outstanding work and
-own any required process-lifetime token.
+Every call into Wasm runs until it returns: no import suspends a Wasm
+stack. A task waits by returning. Its control operation unwinds through
+each frame to the task's handler, which hands the rest of the task back
+to the scheduler, and the host's call returns. The host then runs its own
+event loop, and calls in again for the next turn
+([driving the scheduler](scheduling.md)). A host operation that completes
+later starts on one call and finishes on another, under a ticket its
+completion wakes. A pending Promise alone does not keep a Node process
+alive; a runtime must account for outstanding work and own any required
+process-lifetime token.
 
 An event loop, an I/O readiness service and a scheduler serve different
 purposes. Linux `epoll` reports which descriptors can make progress; it
 does not schedule language closures or preserve effect bindings. Our host
-uses JavaScript platform APIs for I/O notifications, and JSPI for suspended
-Wasm stacks. It does not need its own `epoll` wrapper. See the
-[Linux interface](https://man7.org/linux/man-pages/man7/epoll.7.html) and
-[V8's JSPI explanation](https://v8.dev/blog/jspi).
+uses JavaScript platform APIs for I/O notifications, and Snail-Core's
+scheduler for tasks. It does not need its own `epoll` wrapper. See the
+[Linux interface](https://man7.org/linux/man-pages/man7/epoll.7.html).
 
 ## Scaling the deployed program
 
@@ -50,14 +54,12 @@ managed heap; communication uses an explicit external protocol.
 
 [workerd](https://github.com/cloudflare/workerd) is a possible host to
 investigate, not a currently supported Snail-Core deployment target. Its isolates
-are not synonymous with OS processes. Its WasmGC, JSPI and import support
+are not synonymous with OS processes. Its WasmGC and import support
 must be checked before promising compatibility. Snail-Core does not need a second
 compiler backend to use multiple independently hosted instances.
 
 ## Future work
 
 [Instances, queues and shared memory](instances.md) proposes how several
-single-threaded instances will cooperate. [Tasks as effects](https://github.com/tsnl/snail-scheme/issues/511)
-will replace JSPI with a scheduler written in Snail-Core, using one-shot
-continuations. [Continuations and parallel execution](future.md) retains
-the earlier backend research.
+single-threaded instances will cooperate. [Continuations and parallel
+execution](future.md) retains the earlier backend research.

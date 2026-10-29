@@ -484,8 +484,8 @@
 
     ;; (snail core forms) is the one library without a file: the core forms
     ;; and the builtin types, both listed in core.sld, and the builtin
-    ;; effects, which no handler implements: `mut` and `tasks`, which the
-    ;; compiler itself performs, and `host`, the effect of code that may run
+    ;; effects, which no handler implements: `mut`, which the compiler
+    ;; itself performs, and `host`, the effect of code that may run
     ;; anything the host implements, such as work closed over its handlers
     ;; by `inherit-handlers`. Every other library, (snail core primitive)
     ;; among them, is a file.
@@ -496,9 +496,7 @@
                              (Pair (Pair-first entry)
                                    (TypeName (Pair-first entry) (Pair-second entry) (None))))
                            builtin-types)
-                      (list (Pair "mut" (EffectName "mut"))
-                            (Pair "tasks" (EffectName "tasks"))
-                            (Pair "host" (EffectName "host"))))))
+                      (list (Pair "mut" (EffectName "mut")) (Pair "host" (EffectName "host"))))))
 
     (: builtin-library? (-> String Bool))
     (define (builtin-library? key)
@@ -3482,8 +3480,8 @@
                   (list (list "A" "e") "(-> I64 (-> I64 A ! e) (Vector A) ! e)"))
           (expect (primitive-scheme program "array-ref")
                   (list (list "A") "(-> (Array A) I64 A ! mut)"))
-          (expect (primitive-scheme program "dispatch-local")
-                  (list (list "e") "(-> (Once (-> Unit ! e)) Unit ! tasks e)"))
+          (expect (primitive-scheme program "inherit-handlers")
+                  (list (list "A" "e") "(-> (Once (-> A ! e)) (Once (-> A ! host)) ! e)"))
           (expect (map Pair-first (library-items program (program-items program))) (list "main"))))
 
       ;; A library that derives without importing (snail shell wire) loads

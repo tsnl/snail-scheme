@@ -29,30 +29,32 @@ runs them inside one loop and the binder returned by `reset`:
 `default-reset` simply runs its argument. A custom reset returns a binder
 that installs effect handlers around startup and the whole loop; its result
 and effect row are quantified on the reset function, so the returned binder
-is monomorphic. The loop exports `app_main : (Option Any) -> (Option Any)`.
-The task scheduler calls it through `WebAssembly.promising`; `next-event`
-drains the host queue and, when it is empty, waits for the next event by
-ticket ([waiting on the host](../runtimes/tasks.md#waiting-on-the-host)). `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
+is monomorphic. The application exports `app_main : (Option Any) -> I64`,
+which starts the loop as a task and answers its id; the host turns the
+scheduler until the loop answers ([task lifetime](#task-lifetime)).
+`next-event` drains the host queue and, when it is empty, waits for the
+next event by ticket
+([waiting on the host](../runtimes/tasks.md#waiting-on-the-host)). `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
 `Input`, `Hidden` saves without stopping, and `Reload` saves and returns the
 state. The `Frame` type continues to describe drawing data.
 
 DOM listeners enqueue input. The host keeps at most one pending display
 frame and coalesces consecutive pointer moves and resizes without crossing
-other input. Storage suspends for a whole load or store, copying save bytes
-before awaiting the browser. The loop saves every five seconds and when the
+other input. Storage waits for a whole load or store, copying save bytes
+before the browser's work begins. The loop saves every five seconds and when the
 page becomes hidden. Only a complete successful event commits its state;
 a trap leaves the preceding checkpoint available through `app_state`.
 Because time is input, an application decides how time passes and can stop
-it at any frame. Browser applications and headless tests need JSPI; the
-pinned Node 26 runs both packaging modes.
+it at any frame. Headless tests run on the pinned Node 26, in both
+packaging modes.
 
 The loop and locally dispatched work share one runtime. The root performs
 `mut`, `screen`, `events`, `storage` and `tasks`, since it waits for events
 and saves by ticket; a reset binder that performs more, such as one that
 installs a handler with effects of its own, names those effects with
 `(effects: ...)`, since a signature may not claim effects its body never
-performs. Suspensions preserve each task's handlers. Reload lets the loop save and return, then cancels and
-drains remaining work before relinking. Module globals still initialize
+performs. Each task keeps its handlers across its waits. Reload lets the
+loop save and return, then closes the remaining tasks before relinking. Module globals still initialize
 synchronously; dispatch application work from the reset binder or the
 running entry. See [runtimes](https://tsnl.github.io/snail-scheme/runtimes/index.html).
 
@@ -135,18 +137,25 @@ browser editor that subscribes to the native project development service.
 
 ## Task lifetime
 
-Each invocation owns a [task runtime](../runtimes/scheduling.md). Normal
-root completion after initial presentation lets children finish. Root
-failure or return before that acceptance boundary closes the runtime.
-Explicit reload waits for the root's
-checkpoint handover before closing it. Repeated stop requests share one
-handover result. This is application lifecycle policy; ordinary task
-completion does not cancel its children.
+The loop is a task of the program's [scheduler](../runtimes/tasks.md).
+`app-main` dispatches it through `app-start`, which answers its id, and
+the host turns the scheduler until the loop answers: `app-start` records
+the answer in a cell of `(snail shell app)`, which the host reads through
+the `app_outcome` and `app_handover` exports. A trap whose task is the
+loop's, by `tasks:running`, is the loop's failure; any other is a child's,
+reported and survived. Normal root completion after initial presentation
+lets children finish: the host turns until no task is live. Root failure
+or return before that acceptance boundary closes the scheduler, dropping
+the remaining tasks. Explicit reload waits for the root's checkpoint
+handover before closing it. Repeated stop requests share one handover
+result. This is application lifecycle policy; ordinary task completion
+does not cancel its children.
 
-Event waits and storage use the same suspension bridge as task waits.
-Their cancellation signals belong to the invocation that began the call.
-Non-abortable storage may delay teardown until it finishes. An old
-completion cannot write into a replacement invocation.
+Event waits and storage wait by ticket, as any host operation does
+([waiting on the host](../runtimes/tasks.md#waiting-on-the-host)). Their
+abort signals belong to the run that began the call, and closing the run
+aborts them. Non-abortable storage may delay teardown until it finishes.
+An old completion wakes nothing in a replacement run.
 
 Only one loop consumes application events. The runtime buffers input and
 coalesces frames; it does not own an implicitly shared current world.
@@ -166,15 +175,15 @@ Consuming a pending frame requests the next animation frame, so slow work does
 not accumulate ticks. HUD values update at most every 100 milliseconds and
 periodic saves occur every five seconds.
 
-Event waits and complete storage operations wait by ticket, which the task
-scheduler still suspends through JSPI. Starting a save copies its borrowed
-byte argument before awaiting IndexedDB; a failed persistence
-operation still leaves an owned snapshot for migration. GPU drawing currently
-uses synchronous screen bindings. Only Snail-Core calls suspending imports: the Rust
-scalar services keep a linear-memory stack that JSPI does not switch.
+Event waits and complete storage operations wait by ticket on the Snail-Core
+scheduler. Starting a save copies its borrowed byte argument before the
+IndexedDB request begins; a failed persistence operation still leaves an
+owned snapshot for migration. GPU drawing currently uses synchronous screen
+bindings. No import suspends Wasm, so the linear-memory stack of the Rust
+scalar services is never left mid-call.
 
 Reload fences the old queue with `Reload`. Its accepted prefix finishes, the root
-saves and returns, and the runtime cancels and drains remaining tasks. New input
+saves and returns, and the runtime closes the remaining tasks. New input
 waits for the replacement. Resize and an initial zero-time frame must finish before
 its first presentation is accepted; until then the old program and handover
 remain available for rollback. Cold startup, including a retry, finishes before

@@ -11,23 +11,32 @@
 //! 2. call each module's `main` in program order: the last one's result is
 //!    the exit status when it is 0 to 255, and 1 otherwise, while a WASI
 //!    exit ends the program with its own status;
-//! 3. close the program's resources whatever happened, `close-resources`
+//! 3. drive the program's tasks, when it links (snail shell task), until
+//!    none is live: a task that traps is told, and a task that panics tells
+//!    its message and exits; either fails the run, status 1, while its
+//!    siblings go on;
+//! 4. close the program's resources whatever happened, `close-resources`
 //!    or the runtime's `snail:io/close-all`; failing to close them makes a
 //!    successful run's status 1.
 //!
 //! A trap, or a failure of the host, is status 2, told as `snail: MESSAGE`
 //! with the Wasm frames after it on standard error.
 //!
-//! Node's event loop schedules tasks, sockets and processes
-//! (host/browser/tasks.mjs) until tasks become effects (#511), so a program
-//! that imports them is refused before it is compiled. `snail imports
-//! PROGRAM` lists the modules a program imports from, so the build driver
-//! can run such a program on Node instead.
+//! Sockets and processes are Node's (host/native/socket-imports.mjs and
+//! process-imports.mjs), so a program that imports them is refused before
+//! it is compiled. `snail imports PROGRAM` lists the modules a program
+//! imports from, so the build driver can run such a program on Node
+//! instead.
 
 use std::collections::BTreeSet;
 use std::path::Path;
+use std::thread;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use wasmtime::{AsContextMut, Engine, Instance, Linker, Module, Store, Val, bail, format_err};
+use wasmtime::{
+    AsContextMut, Engine, Instance, Linker, Module, Store, TypedFunc, Val, bail, format_err,
+};
+use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
 
 use crate::engine::{call, engine, exit_status, report, wasi};
@@ -93,7 +102,7 @@ fn host_linker(engine: &Engine, links: &[String]) -> wasmtime::Result<Linker<Hos
 }
 
 // Each module's main runs in program order; the program's own, last,
-// answers the status.
+// answers the status, unless a task traps after it.
 fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
     let mut status = 0;
     for instance in &program.mains {
@@ -102,7 +111,11 @@ fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
             Err(error) => return exit_status(Err(error)),
         }
     }
-    Ok(status)
+    match drive(store, program) {
+        Ok(true) => Ok(1),
+        Ok(false) => Ok(status),
+        Err(error) => exit_status(Err(error)),
+    }
 }
 
 // What `main` answers, as run-snail.mjs reads it: nothing is 0, an
@@ -130,6 +143,51 @@ fn settle(ran: wasmtime::Result<u8>, closed: wasmtime::Result<i32>) -> wasmtime:
     } else {
         status
     })
+}
+
+// ---- Tasks ----
+
+// The scheduler's turn, exported by whichever instance holds (snail shell
+// task): the runtime, when the program is one linked module.
+fn turn_export(store: &mut Store<Host>, program: &Linked) -> Option<TypedFunc<i64, i64>> {
+    std::iter::once(&program.runtime)
+        .chain(&program.mains)
+        .find_map(|instance| instance.get_typed_func(&mut *store, "tasks:turn").ok())
+}
+
+// Turns until no task is live, answering whether a task failed. A turn
+// answers 0 when a task is ready, -1 when none is live, -2 when every task
+// waits on a ticket, which only a host operation's completion wakes and
+// this host starts none, and otherwise how long until the next sleeper
+// wakes. A trap ends only the task that ran, and so does a WASI exit: a
+// panic tells its message and then exits, which unwinds out of the turn,
+// as run-snail.mjs's WASI throws out of one, and its status is lost.
+fn drive(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<bool> {
+    let Some(turn) = turn_export(store, program) else {
+        return Ok(false);
+    };
+    let mut failed = false;
+    loop {
+        match turn.call(&mut *store, now()) {
+            Ok(-1) => return Ok(failed),
+            Ok(-2) => bail!("every task waits on a ticket, and this host completes none"),
+            Ok(0) => {}
+            Ok(delay) => thread::sleep(Duration::from_millis(delay as u64)),
+            Err(error) => {
+                if error.downcast_ref::<I32Exit>().is_none() {
+                    report(&error, true);
+                }
+                failed = true;
+            }
+        }
+    }
+}
+
+// Milliseconds since the Unix epoch, as `Date.now()` gives them.
+fn now() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_millis() as i64)
 }
 
 // ---- Payloads ----
@@ -190,9 +248,8 @@ fn link_module(
 
 // ---- Programs this host does not run ----
 
-/// The host modules only Node provides, until tasks become effects (#511).
-pub const NODE_ONLY: [&str; 3] = [
-    "snail.runtime.tasks",
+/// The host modules only Node provides.
+pub const NODE_ONLY: [&str; 2] = [
     "snail.runtime.native.socket",
     "snail.runtime.native.process",
 ];
@@ -208,7 +265,7 @@ pub fn compile_module(engine: &Engine, file: &Path) -> wasmtime::Result<Module> 
         .find(|module| NODE_ONLY.contains(&module.as_str()))
     {
         bail!(
-            "{} imports {node}: a program that uses tasks, sockets or processes runs on Node until tasks become effects (#511)",
+            "{} imports {node}: a program that uses sockets or processes runs on Node",
             file.display()
         )
     }
@@ -273,13 +330,50 @@ mod tests {
     // A program importing `imports` whose main is `main` and whose
     // resources close with `close`.
     fn program(imports: &str, main: &str, close: i32) -> String {
+        tasks_program(imports, main, close, "")
+    }
+
+    // The same, with more items, such as a scheduler's turn.
+    fn tasks_program(imports: &str, main: &str, close: i32, items: &str) -> String {
         format!(
             r#"(module {imports}
                  (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
                  (memory (export "memory") 1)
                  (func (export "_initialize"))
                  (func (export "main") (result i32) {main})
-                 (func (export "close-resources") (result i32) (i32.const {close})))"#
+                 (func (export "close-resources") (result i32) (i32.const {close}))
+                 {items})"#
+        )
+    }
+
+    // What one turn of a test scheduler does.
+    enum Turn {
+        Answer(i64),
+        Trap,
+        Exit(i32),
+    }
+
+    // A turn that does each of `turns` in turn, and then answers -1.
+    fn turns(turns: &[Turn]) -> String {
+        let cases: String = turns
+            .iter()
+            .enumerate()
+            .map(|(index, turn)| {
+                let then = match turn {
+                    Turn::Answer(answer) => format!("(return (i64.const {answer}))"),
+                    Turn::Trap => "(unreachable)".to_string(),
+                    Turn::Exit(status) => format!("(call $exit (i32.const {status}))"),
+                };
+                format!("(if (i32.eq (local.get $n) (i32.const {index})) (then {then}))")
+            })
+            .collect();
+        format!(
+            r#"(global $turns (mut i32) (i32.const 0))
+               (func (export "tasks:turn") (param $now i64) (result i64) (local $n i32)
+                 (local.set $n (global.get $turns))
+                 (global.set $turns (i32.add (local.get $n) (i32.const 1)))
+                 {cases}
+                 (i64.const -1))"#
         )
     }
 
@@ -314,16 +408,69 @@ mod tests {
     }
 
     #[test]
-    fn a_program_that_uses_tasks_is_refused_naming_511() {
-        let imports = r#"(import "snail.runtime.tasks" "spawn" (func (param i32)))"#;
-        let file = module_file("tasks", &program(imports, "(i32.const 0)", 0));
+    fn a_program_that_uses_sockets_is_refused() {
+        let imports = r#"(import "snail.runtime.native.socket" "start-read" (func (param i64)))"#;
+        let file = module_file("sockets", &program(imports, "(i32.const 0)", 0));
         let engine = engine().unwrap();
         let error = compile_module(&engine, Path::new(&file))
             .unwrap_err()
             .to_string();
         assert!(error.ends_with(
-            "imports snail.runtime.tasks: a program that uses tasks, sockets or processes runs on Node until tasks become effects (#511)"
+            "imports snail.runtime.native.socket: a program that uses sockets or processes runs on Node"
         ));
+        assert_eq!(run(&file, &[]), 2);
+    }
+
+    #[test]
+    fn tasks_are_driven_until_none_is_live() {
+        let file = module_file(
+            "turns",
+            &tasks_program(
+                "",
+                "(i32.const 3)",
+                0,
+                &turns(&[Turn::Answer(0), Turn::Answer(2), Turn::Answer(0)]),
+            ),
+        );
+        assert_eq!(run(&file, &[]), 3);
+    }
+
+    #[test]
+    fn a_trapped_task_fails_the_run_and_its_siblings_go_on() {
+        let file = module_file(
+            "trapped",
+            &tasks_program(
+                "",
+                "(i32.const 0)",
+                0,
+                &turns(&[Turn::Answer(0), Turn::Trap, Turn::Answer(0)]),
+            ),
+        );
+        assert_eq!(run(&file, &[]), 1);
+    }
+
+    // A panic exits through WASI. In a task that ends the task, as a trap
+    // does, so the run fails with 1 rather than ending with the exit's 7.
+    #[test]
+    fn a_task_that_exits_fails_the_run_and_its_siblings_go_on() {
+        let file = module_file(
+            "exited",
+            &tasks_program(
+                "",
+                "(i32.const 0)",
+                0,
+                &turns(&[Turn::Answer(0), Turn::Exit(7), Turn::Answer(0)]),
+            ),
+        );
+        assert_eq!(run(&file, &[]), 1);
+    }
+
+    #[test]
+    fn tasks_waiting_on_tickets_end_the_run() {
+        let file = module_file(
+            "stuck",
+            &tasks_program("", "(i32.const 0)", 0, &turns(&[Turn::Answer(-2)])),
+        );
         assert_eq!(run(&file, &[]), 2);
     }
 

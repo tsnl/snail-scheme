@@ -8,9 +8,9 @@
 ;;   save    : State -> Save
 ;;   restore : Save -> State
 ;;
-;; `define-application` runs one loop inside the binder returned by reset.
-;; The loop suspends on events and storage through JSPI. It checkpoints
-;; complete events in one cell. Time reaches the state as input, so the
+;; `define-application` runs one loop inside the binder returned by reset,
+;; as a task of (snail shell task), which waits on events and storage by
+;; ticket. It checkpoints complete events in one cell. Time reaches the state as input, so the
 ;; state decides how time passes, and can stop it at any frame. The host
 ;; draws a Frame through the `screen` effect, shows the HUD again after
 ;; each input (after time, at most ten times a second), and stores the
@@ -182,6 +182,7 @@
    load-save
    store-save
    default-reset
+   app-start
    define-application)
   (import
    (snail core base)
@@ -1117,16 +1118,50 @@
     (define (default-reset)
       (lambda (run) (run)))
 
+    ;; ---- The application's task ----
+
+    ;; The loop runs as a task, which the host drives. `app-start`
+    ;; dispatches it and answers its id, which the host compares with
+    ;; `tasks:running` to know a trap in the loop from a trap in another
+    ;; task. The loop's answer, the state to hand over to the program that
+    ;; replaces this one, or none when it could not boot, waits in
+    ;; `outcome` for the host: `app_outcome` is 1 once it is there, and
+    ;; `app_handover` reads it.
+    (: outcome (Ref (Option (Option Any))))
+    (define outcome (ref (None)))
+
+    ;; The loop's row names `mut`, which recording its answer performs: in a
+    ;; generic body, the first call fixes the row of the lambda around it.
+    (: app-start (All (e) (-> (Once (-> (Option Any) ! mut tasks e)) I64 ! mut e)))
+    (define (app-start loop)
+      (ref-set! outcome (None))
+      (dispatch-task (once (lambda () (ref-set! outcome (Some (loop)))))))
+
+    (: app-outcome (-> I32 ! mut))
+    (define (app-outcome)
+      (match (ref-get outcome)
+        ((None) 0)
+        ((Some _) 1)))
+
+    (: app-handover (-> (Option Any) ! mut))
+    (define (app-handover)
+      (match (ref-get outcome)
+        ((Some answer) answer)
+        ((None) (panic "the application loop has not answered"))))
+
+    (expose app-outcome "app_outcome")
+    (expose app-handover "app_handover")
+
     ;; ---- Applications ----
 
     ;; Only the loop calls application messages. The cell is the last state
     ;; whose entire event succeeded; a trap never publishes its candidate.
     ;; States must be immutable data, so a handed-over checkpoint stays reusable.
     ;; The loop itself performs `mut screen events storage tasks`, tasks for
-    ;; its waits on the host. A reset binder
-    ;; that performs more, such as one that dispatches tasks, names those
-    ;; effects with `effects:`, because the checker holds `app-main`'s row to
-    ;; what its body performs.
+    ;; its waits on the host, which its own task handles. A reset binder
+    ;; that performs more, such as one that installs a handler with effects
+    ;; of its own, names those effects with `effects:`, because the checker
+    ;; holds `app-main`'s row to what its body performs.
     (define-syntax define-application
       (syntax-rules (reset: effects: init: update: view: hud: save: restore:)
         ((_ State (reset: reset-run) (init: initialize) more ...)
@@ -1200,18 +1235,21 @@
                ((Reload) (store-save (app-save-bytes state)) (Some (type-convert state Any)))))
 
            ;; The host's first Resize and Frame(0) own initial presentation.
-           ;; reset installs its handlers around this monomorphic run.
-           (: app-main (-> (Option Any) (Option Any) ! mut screen events storage tasks effect ...))
+           ;; reset installs its handlers around this monomorphic run, inside
+           ;; the loop's task, which `app-main` answers the id of.
+           (: app-main (-> (Option Any) I64 ! mut screen events storage effect ...))
            (define (app-main handover)
-             ((reset-run)
-              (lambda ()
-                (match (app-boot handover)
-                  ((Some boot)
-                   (let ((state (Pair-first boot)))
-                     (ref-set! current (Some state))
-                     (report-boot (Pair-second boot))
-                     (app-run state 0 0)))
-                  ((None) (None))))))
+             (app-start
+              (once (lambda ()
+                      ((reset-run)
+                       (lambda ()
+                         (match (app-boot handover)
+                           ((Some boot)
+                            (let ((state (Pair-first boot)))
+                              (ref-set! current (Some state))
+                              (report-boot (Pair-second boot))
+                              (app-run state 0 0)))
+                           ((None) (None)))))))))
 
            (: app-state (-> Any ! mut))
            (define (app-state)

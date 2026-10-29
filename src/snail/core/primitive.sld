@@ -8,17 +8,11 @@
 ;;
 ;; A generic type quantifies its variables in the order they first occur,
 ;; A for a type and e for the rest of a row. `mut` marks operations on
-;; mutable storage and `tasks` those that reach the runtime's scheduler,
-;; imported from `snail.runtime.tasks`; everything else is total, though
-;; some can trap. The task operations are primitives, not a runtime
-;; library's externs, because `dispatch-local` hands the host an owner cell
-;; and function references no signature names, and all six give way to a
-;; `tasks` effect when tasks become effects (#511).
+;; mutable storage; everything else is total, though some can trap.
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast dynamic-cast
    once call-once drop inherit-handlers inherit-handlers-1
-   dispatch-local yield-task sleep-task ticket-task await-task wake-task
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -105,18 +99,6 @@
     (primitive inherit-handlers (All (A e) (-> (Once (-> A ! e)) (Once (-> A ! host)) ! e)))
     (primitive inherit-handlers-1
                (All (A B e) (-> (Once (-> A B ! e)) (Once (-> A B ! host)) ! e)))
-    (primitive dispatch-local (All (e) (-> (Once (-> Unit ! e)) Unit ! tasks e)))
-    (primitive yield-task (-> Unit ! tasks))
-    (primitive sleep-task (-> I64 Unit ! tasks))
-
-    ;; A ticket names one wait of the running task: `ticket-task` takes a
-    ;; fresh one, `await-task` waits until it is woken, and `wake-task`
-    ;; wakes the task awaiting it, answering whether one was. A host
-    ;; operation that completes later wakes its ticket, as (snail shell
-    ;; task)'s `through-host` arranges, and so does a Mailbox's post.
-    (primitive ticket-task (-> I64 ! tasks))
-    (primitive await-task (-> I64 Unit ! tasks))
-    (primitive wake-task (-> I64 Bool ! tasks))
 
     ;; ---- Integers ----
 

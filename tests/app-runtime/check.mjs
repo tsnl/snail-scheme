@@ -1,4 +1,5 @@
-// Real static and dynamically linked Wasm: suspension, fencing and recovery.
+// Real static and dynamically linked Wasm: the loop as a Snail-Core task,
+// fencing and recovery.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
@@ -9,6 +10,13 @@ import {createWasi, instantiate, linkProgram, runProgram} from '../../host/brows
 const path = resolve(process.argv[2]);
 const turn = () => new Promise(setImmediate);
 const PRESS = 9, RESIZE = 8, MOVE = 4;
+const live = entry => Number(entry.tasks['tasks:live']());
+
+// Waits up to a hundred turns of the event loop for `condition`.
+async function until(condition) {
+  for (let count = 0; count < 100 && !condition(); count++) await turn();
+  assert.ok(condition());
+}
 
 async function checkQueue() {
   const queue = createEventQueue();
@@ -95,7 +103,7 @@ async function checkSuspension() {
   const run = runtime.start(entry);
   runtime.send(PRESS, 1); runtime.send(PRESS, 1);
   await turn();
-  assert.equal(run.scheduler.size, 2, 'the root and its sleeping child both remain live');
+  assert.equal(live(entry), 2, 'the root and its sleeping child both remain live');
   assert.equal(observed.frames, 0);
   assert.throws(() => runtime.start(entry), /overlap/);
   loaded.resolve(undefined);
@@ -179,7 +187,7 @@ async function checkUpdateTrap() {
   await turn();
   runtime.send(PRESS, 2); runtime.send(PRESS, 1);
   const failure = await run.done;
-  assert.ok(failure.error, 'a Snail-Core panic rejects the JSPI entry');
+  assert.ok(failure.error, 'a Snail-Core panic ends the loop\'s task');
   assert.equal(entry.exports.count(failure.state), 1n);
   app.settled();
   const handover = await runtime.stop();
@@ -249,7 +257,7 @@ async function checkRootReturn() {
   await turn();
   assert.equal(settled, false, 'a child outlives a normally returning root');
   await app.runtime.stop();
-  assert.equal(run.scheduler.size, 0, 'reload cancels and drains the remaining child');
+  assert.equal(live(entry), 0, 'reload cancels and drains the remaining child');
   app.settled();
 }
 
@@ -257,7 +265,7 @@ async function checkUnpresentedReturn() {
   const app = await application();
   const run = app.runtime.start({...app.entry, main: app.entry.exports.unpresented_main});
   await run.root; await turn();
-  assert.equal(run.scheduler.size, 0, 'children cannot keep an unpresented application alive');
+  assert.equal(live(app.entry), 0, 'children cannot keep an unpresented application alive');
   await assert.rejects(run.ready.promise, /before startup completed/);
   app.settled();
 }
@@ -275,30 +283,34 @@ async function checkReservedName() {
     /no library may be linked as snail\.runtime\.wasm, which the host provides/);
 }
 
+// Tasks beside the loop trap on entering its protocol, each reported, and
+// change nothing of it.
 async function checkProtocolOwnership() {
   const loaded = Promise.withResolvers(), stored = Promise.withResolvers();
   let loads = 0;
   const saves = [], app = await application({load: () => { loads++; return loaded.promise; },
     store: bytes => { saves.push(bytes); return stored.promise; }});
+  const {errors} = app.observed;
   const run = app.runtime.start(app.entry);
   await turn();
-  for (const name of ['child_load', 'child_store', 'child_event', 'child_boot']) {
-    const child = run.scheduler.dispatch(() => WebAssembly.promising(app.entry.exports[name])());
-    await assert.rejects(child.done, /belong to the root task/);
-  }
+  for (const which of [0, 1, 2, 3]) app.entry.exports.spawn_child(which);
+  run.tasks.interrupt();
+  await until(() => errors.length === 4);
+  for (const error of errors) assert.match(error.message, /belong to the root task/);
   assert.equal(loads, 1, 'a child cannot replace the root load buffer');
   assert.equal(saves.length, 0); assert.equal(run.boot, null);
   loaded.resolve(undefined); await run.ready.promise;
   const stopping = app.runtime.stop();
   await turn();
   assert.equal(saves.length, 1);
-  const child = run.scheduler.dispatch(() => WebAssembly.promising(app.entry.exports.child_store)());
-  await assert.rejects(child.done, /belong to the root task/);
+  app.entry.exports.spawn_child(1);
+  run.tasks.interrupt();
+  await until(() => errors.length === 5);
   assert.equal(saves.length, 1, 'a child cannot start persistence during checkpoint handover');
   stored.resolve();
   const handover = await stopping;
   assert.deepEqual(handover.saved, saves[0]);
-  assert.equal(app.observed.errors.length, 5);
+  assert.equal(errors.length, 5);
   app.settled();
 }
 
@@ -315,4 +327,4 @@ await checkReservedName();
 await checkRootReturn();
 await checkUnpresentedReturn();
 await checkProtocolOwnership();
-console.log('app runtime: suspended storage, queued input, handler restoration and checkpoint recovery passed');
+console.log('app runtime: the loop as a task, storage by ticket, queued input, inherited handlers and checkpoint recovery passed');
