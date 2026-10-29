@@ -95,7 +95,8 @@ no superclasses: a signature lists every class it needs. Unbound names in an
 instance head are its type variables.
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
-`Fractional`; `Show` converts values to text.
+`Fractional`; `Show` converts values to text, and `Drop` releases them
+([ownership](ownership.md#releasing)).
 
 ## Effects
 

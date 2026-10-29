@@ -145,7 +145,10 @@ function of the expander has `mut` in its row — and where it does not, the
   open tails. Matches are checked with Maranget's usefulness algorithm.
   A use of a definition that requires `(Copy A)` asks that `A`'s
   instantiation be unrestricted, judged under the `Copy` variables of the
-  definition containing the use.
+  definition containing the use. `(Drop e T)` is solved apart: its row is
+  found from `T` (`drop-rows`), and each row a drop performs is performed
+  in `e`, at the call the drop was raised in once that call is checked, so
+  a signature is held to what its drops perform.
 
   The pass holds no mutable state. A `Checker` is plain data, threaded
   through: each step takes one and hands back the one it learned in, so
@@ -164,15 +167,20 @@ function of the expander has `mut` in its row — and where it does not, the
   performs effects, or a type variable (core's `hidden-effects`): an `Any`'s
   TypeId keys its type without rows, and mono erases the ordinary ones
   next, so this is the last pass that could tell.
-- **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds two
+- **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds
   structural properties of types from their declared fields: whether a
-  type is first-order data, which dynamic exports require, and whether it
+  type is first-order data, which dynamic exports require; whether it
   is linear, given the type variables a definition requires `Copy` of,
-  which the checker and ownership use. Ordinary arrows say nothing about
-  their captures, and a mutable field, a `Ref`'s among them, is a shared
-  handle whatever it holds. The linear search follows each declaration's
-  immutable fields with its arguments bound, once per instantiation, so
-  an argument held only in a `Ref` leaves the type unrestricted.
+  which the checker and ownership use; and what dropping a value of it
+  runs. Ordinary arrows say nothing about their captures, and a mutable
+  field, a `Ref`'s among them, is a shared handle whatever it holds. The
+  linear search follows each declaration's immutable fields with its
+  arguments bound, once per instantiation, so an argument held only in a
+  `Ref` leaves the type unrestricted; a declaration that says
+  `(deriving Move)`, or has a Drop instance, is linear whatever its fields.
+  `release` says what a drop runs: nothing, an instance's method, or glue.
+  The checker asks it for a drop's rows and mono for its call, so the two
+  cannot disagree.
 - **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** checks each
   library's linear values once its types are final, before
   specialization. It follows each path through a body: a use consumes a
@@ -189,7 +197,10 @@ function of the expander has `mut` in its row — and where it does not, the
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
   names, and definitions that only rename another, such as
-  `(define + i64-add)`, are replaced by their target.
+  `(define + i64-add)`, are replaced by their target. A drop becomes what
+  releases its ground type: the primitive `discard`, an instance's method,
+  or glue, a function made here once per type, which matches the value
+  apart and drops each linear immutable field, the last in tail position.
 - **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/control.sld)** prepares the calls
   that may yield to a control handler. After specialization a row keeps
   only control effects, so a call may yield exactly when its callee's row

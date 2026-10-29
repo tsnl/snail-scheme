@@ -329,26 +329,15 @@
 
     ;; Closing drops every task that is not running, as a relink does with
     ;; the tasks of the program it replaces: what they hold is abandoned.
+    ;; A task is its rest, a FnOnce, which runs nothing when dropped, so
+    ;; dropping a queue of them discards it whole.
     (: close! (-> Unit ! mut))
     (define (close!)
-      (match (take-ready!)
-        ((Queue front back)
-         (for-each drop-task front)
-         (for-each drop-task back)))
-      (for-each drop-pending (take-timers!))
-      (for-each drop-pending (take-waiters!))
+      (drop (take-ready!))
+      (drop (take-timers!))
+      (drop (take-waiters!))
       (Scheduler-ready-count-set! scheduler 0)
       (Scheduler-live-set! scheduler 0))
-
-    (: drop-task (-> Task Unit))
-    (define (drop-task task)
-      (match task
-        ((Task _ next) (drop next))))
-
-    (: drop-pending (-> Pending Unit))
-    (define (drop-pending pending)
-      (match pending
-        ((Pending _ _ next) (drop next))))
 
     (: running (-> I64 ! mut))
     (define (running)

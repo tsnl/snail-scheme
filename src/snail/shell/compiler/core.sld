@@ -28,6 +28,7 @@
    type-key
    any-type?
    never-type?
+   drop-class
    local-name
    string-type?
    bytes-type?
@@ -48,6 +49,7 @@
    Evidence
    EvInstance
    EvParam
+   EvDerived
    EvHole
    Expr
    Expr-term
@@ -82,6 +84,8 @@
    DataType-params
    DataType-cases
    DataType-enum?
+   DataType-owned?
+   DataType-owned?-set
    Case
    Case-name
    Case-type
@@ -377,6 +381,12 @@
         ((TCon "snail.core.base:Never" (Nil)) #t)
         (_ #f)))
 
+    ;; The class whose method releases a value: `(Drop e T)` performs `e`
+    ;; to drop a T. Its row is found from T, so the checker and mono treat
+    ;; it apart from other classes.
+    (: drop-class String)
+    (define drop-class "snail.core.base:Drop")
+
     (: string-type? (-> Type Bool))
     (define (string-type? type)
       (match type
@@ -527,8 +537,10 @@
 
     ;; Evidence says which instance satisfies a constraint: an instance applied
     ;; to type arguments and the evidence for its requirements, or the
-    ;; enclosing definition's own requirement at `index`. Holes exist only
-    ;; while checking.
+    ;; enclosing definition's own requirement at `index`. A Drop constraint's
+    ;; is derived: mono finds what releases a value from its ground type
+    ;; (`release` in capabilities.sld), as the checker found its row. Holes
+    ;; exist only while checking.
     (enum Evidence
       (EvInstance
        ((instance String)
@@ -536,6 +548,7 @@
         (subs (List Evidence))))
       (EvParam
        ((index I64)))
+      (EvDerived)
       (EvHole
        ((id I64))))
 
@@ -657,12 +670,15 @@
 
     ;; ---- Declared entities ----
 
-    ;; A struct is a data type with one case named after it.
+    ;; A struct is a data type with one case named after it. An `owned?`
+    ;; type is linear by its declaration, whatever its fields: it says
+    ;; `(deriving Move)`, or has a Drop instance.
     (struct DataType
       ((name String)
        (params (List String))
        (cases (List Case))
-       (enum? Bool)))
+       (enum? Bool)
+       (owned? Bool)))
 
     (struct Case
       ((name String)
