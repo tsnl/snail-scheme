@@ -88,6 +88,8 @@
         ((Some (Constructor _ _)) (Nil))
         ((Some (Accessor _ _ _)) (Nil))
         ((Some (Replacer _ _ _)) (Nil))
+        ((Some (Setter _ _ _)) (Nil))
+        ((Some (Swapper _ _ _)) (Nil))
         (_ (call-row type))))
 
     (: operation-row (-> Callees String Scheme (List String)))

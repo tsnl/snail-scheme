@@ -934,12 +934,31 @@
                                                          " has "
                                                          (i64->string (length fields))
                                                          " fields")))
+                         (check-mutable-positions case args loc)
                          (learning ck ((then (unify type result loc))
                                        (checked (check-fields constructor type args fields loc)))
                                    (Pair checked ck)))
                         (_ (panic "internal error: a constructor is a function")))))
            (_
             (compile-error loc (string-append "not a constructor: " (short-name constructor))))))))
+
+    ;; A mutable field is read through its accessor, which performs `mut`,
+    ;; so a pattern can only skip it.
+    (: check-mutable-positions (-> Case (List Pattern) Loc Unit ! compile))
+    (define (check-mutable-positions case args loc)
+      (for-each (lambda (pair)
+                  (match (Pair (Field-mutable? (Pair-first pair)) (Pair-second pair))
+                    ((Pair #f _) (unit))
+                    ((Pair #t (PWild _)) (unit))
+                    ((Pair #t _)
+                     (compile-error loc
+                                    (string-append "a pattern cannot read the mutable field "
+                                                   (Field-name (Pair-first pair))
+                                                   "; write _ there and read it with "
+                                                   (short-name (Case-name case))
+                                                   "-"
+                                                   (Field-name (Pair-first pair)))))))
+                (zip (Case-fields case) args)))
 
     ;; A constructor pattern's fields, checked in order into one scope:
     ;; names are unique, so the fields' locals simply join.
@@ -1422,6 +1441,8 @@
           ((Some (Constructor _ _)) #f)
           ((Some (Accessor _ _ _)) #f)
           ((Some (Replacer _ _ _)) #f)
+          ((Some (Setter _ _ _)) #f)
+          ((Some (Swapper _ _ _)) #f)
           ((Some value) (holds-storage? program (global-type typed name value)))
           ((None) (holds-storage? program type)))))
 
@@ -1435,8 +1456,8 @@
            ((None) (panic (string-append "internal error: no type for " name)))))))
 
     ;; Whether a value of the type can hold or reach mutable storage: a `Ref`,
-    ;; an `Array`, an `Any` that may hide one, data with such a field, or a
-    ;; function that may perform `mut`. Code cannot use a value of a type
+    ;; an `Array`, an `Any` that may hide one, data with a mutable field or
+    ;; a field of such a type, or a function that may perform `mut`. Code cannot use a value of a type
     ;; variable as storage, so type variables hold none.
     (: holds-storage? (-> Program Type Bool))
     (define (holds-storage? program type)
@@ -1468,7 +1489,9 @@
       (and (not (any? (lambda (entry) (string=? (Pair-first entry) name)) builtin-types))
            (any? (lambda (case)
                    (any?
-                    (lambda (field) (holds-storage-within? program (Field-type field) visiting))
+                    (lambda (field)
+                      (or (Field-mutable? field)
+                          (holds-storage-within? program (Field-type field) visiting)))
                     (Case-fields case)))
                  (DataType-cases (program-type program name)))))
 
