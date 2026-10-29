@@ -1,76 +1,66 @@
-# Scheduling and suspension
+# Driving the scheduler
 
-`host/browser/tasks.mjs` implements the scheduler shared by runtime adapters.
-The [Snail-Core task API](tasks.md) and application event and storage waits use
-it in the CLI and browser. It uses one JavaScript execution agent and shipping
-JSPI; it does not create workers.
+The scheduler is written in Snail-Core ([task operations](tasks.md)); a
+host only drives it and completes the operations its tasks wait on.
+`host/browser/tasks.mjs` is the driver Node and the browser share, and
+`drive` in `crates/snail/src/program.rs` is wasmtime's. Each runs on one
+execution agent and creates no workers.
 
-A live task is either queued, executing or suspended. The runtime keeps a
-set of these tasks. Dispatch inserts a child before returning to its
-parent. Returning or trapping removes only the completed task; independently
-dispatched work remains live. `drain()` resolves when the set is empty.
-Work dispatched after exhaustion begins another interval of activity.
+## Turns
 
-The ready queue contains starts and resumptions. An execution permit
-allows only one of them to run at a time.
-Short tasks normally advance through microtasks; a bounded number of
-steps yields an event-loop turn so input is not starved. A CPU loop that
-does not suspend still monopolizes this execution agent.
+`drive` calls `tasks:turn` with the host's clock and rests as the answer
+says, until no task is live:
 
-## Handler bindings
+| Answer | The host rests |
+| --- | --- |
+| 0, a task is ready | until the next turn of the event loop, so the host's own events run between turns: `setImmediate` in Node, a message in a browser, whose zero timeouts are clamped |
+| a positive number of milliseconds | until that deadline, or until a completion wakes a ticket |
+| -2, every task waits on a ticket | until a completion wakes one; with no operation outstanding, nothing will, and the run fails |
+| -1, no task is live | not at all: `drive` returns |
 
-Ordinary handlers are reusable. Handlers are evidence: every function takes the list of handlers in scope as a
-parameter, so a task's handlers live on its own Wasm stack. Dispatch
-hands the host the evidence in scope at `dispatch-local` along with the
-work, and the host passes it back when the work runs, so a child keeps
-using its parent's handlers after the parent returns. Root entries start
-with the empty list, where every operation reaches its runtime default.
+A trap unwinds out of `turn`. The scheduler took the trapped task off its
+queue before running it, so the driver reports the trap with the id
+`tasks:running` gives, and turns again. `drive` takes a `stopped` test,
+asked after each turn: the application runtime stops at the loop's answer
+and only then decides whether its children may go on. `interrupt` ends a
+rest early, so that `stopped` is asked again. A CPU loop that does not
+wait still monopolizes the execution agent; the scheduler does not
+preempt it.
 
-Because nothing about handlers is global, a JSPI wait saves and restores
-nothing: the runtime releases the permit, and a wake only makes a
-resumption ready. The scheduler later resolves or rejects its wait
-Promise. It keeps the permit until the resumed Wasm suspends again or
-settles; resolving the Promise alone does not establish that Wasm has run
-yet. Three imports suspend: `yield`, `sleep` and a ticket's `await`. A
-host operation does not suspend at all; it starts, and its task awaits a
-ticket that its completion wakes ([waiting on the host](tasks.md#waiting-on-the-host)).
+## Host operations
 
-## Cancellation and adapters
+An operation that completes later is started through a synchronous import
+with the ticket its task took, and finished through another
+([waiting on the host](tasks.md#waiting-on-the-host)). The driver's
+`start(ticket, operation, deliver, dispose)` runs the operation with the
+run's `AbortSignal` and counts it outstanding until it settles. Settling
+wakes the ticket and keeps the outcome under it until the task's finish
+calls `finish(ticket)`, which runs `deliver` on a success, building the
+managed result through the library's exposed helpers, or throws a failure
+into the finish, where it traps the task. `coded` turns a native failure
+with an error code, such as `ECONNRESET`, into the operation's `Err`
+value, and leaves a cancellation or an uncoded failure a failure.
 
-`cancel()` requests cancellation; `done` marks completion. Queued work
-that has never entered Wasm can be discarded immediately. A suspended
-invocation must resume with rejection and unwind before it leaves the
-live set. Cancellation is sticky, including when a successful I/O result
-has already queued a resumption.
+A success whose ticket wakes nothing, because its task trapped or its run
+closed, is disposed of exactly once, through the operation's synchronous
+`dispose`: an accepted connection is closed. Delivered results and
+failures are not disposed of.
 
-An adapter receives an `AbortSignal` and returns one Promise covering both
-its operation and cleanup. It must handle an already aborted signal,
-remove listeners on normal completion, and settle only after owned
-cleanup finishes. Timers and event waits can disarm promptly. An operation
-that cannot abort may finish normally; the runtime then rejects its
-resumption because cancellation was requested. Its external effects are
-not rolled back.
+## Closing a run
 
-A host operation's successful result is owned by the completion table
-(`host/browser/completions.mjs`) until its task finishes the ticket. If the
-ticket wakes nothing, because its task was cancelled or has gone, or the
-task is cancelled between the wake and the finish, the table disposes of
-the result exactly once, through the operation's synchronous native
-disposer: an accepted connection is closed. It does not dispose delivered
-results or operation failures.
+`close` aborts the run's signal, drops every task through `tasks:close`,
+and disposes of each outcome still held. An operation that cannot abort
+may finish normally afterwards; its ticket then wakes nothing, and its
+outcome is disposed of. Its external effects are not rolled back.
 
-The disposer must not suspend or reenter Snail-Core. If it starts OS resource closure,
-the native owner awaits that remaining cleanup during shutdown.
-Work must return its complete invocation Promise, and
-suspending imports must return or await their gate; abandoning either loses the
-relationship between task completion and its parked stack.
+An adapter receives the `AbortSignal` and returns one Promise covering
+both its operation and its owned cleanup. It must handle an already
+aborted signal, remove listeners on normal completion, and settle only
+after owned cleanup finishes. Timers and event waits can disarm promptly.
+A disposer must not suspend or reenter Snail-Core; if it starts OS
+resource closure, the native owner awaits that remaining cleanup during
+shutdown. An adapter that never settles keeps its run from ending.
 
-This makes cleanup part of the suspended task's lifetime, without a
-second cleanup counter. A host adapter that never settles can prevent
-exhaustion. Runtime authors must uphold this boundary; a pending Promise
-is not cancellation machinery by itself.
-
-Closing a runtime rejects new work, cancels its live tasks and waits for
-them to settle. A task failure does not cancel siblings. A Node host must
-also hold a process-lifetime token until drain: unresolved Promises alone
-do not keep Node alive.
+A task failure does not close its siblings' run. A Node host holds a
+process-lifetime token until `drive` returns, since a task waiting on a
+timer or a ticket is live work that no OS handle keeps Node alive for.

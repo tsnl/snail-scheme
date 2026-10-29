@@ -67,9 +67,9 @@ must be reusable, grade `omega`.
 ## Wasm boundary
 
 The binding borrows the program's synchronous constructor/projector exports
-from `(snail shell socket)`. Native I/O runs while the task is suspended. Only after its
-scheduler gate returns the execution permit does the binding enter Wasm to
-construct a typed `Result`. Ordinary JavaScript objects cannot substitute for
+from `(snail shell socket)`. Native I/O runs while the task waits on its ticket. Only
+when the task finishes the ticket does the binding enter Wasm, in the task's
+own call, to construct a typed `Result`. Ordinary JavaScript objects cannot substitute for
 these managed values. Host code remains trusted to use the correct Snail-Core types.
 
 Outgoing bytes are copied from staging before any other Wasm call or await.

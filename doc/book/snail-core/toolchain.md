@@ -429,7 +429,7 @@ The [HTTP library](http.md) provides bounded parsing, response framing and one
 complete exchange over TCP. Routing and bundle/reload serving remain to be added. The project
 service currently uses Node HTTP; sharing a Snail-Core HTTP implementation with
 applications is future integration.
-Use the existing runtime suspension bridge and test real sockets as well as
+Wait on the host by ticket, as the runtime's sockets do, and test real sockets as well as
 intercepted operations. [Networking work](https://github.com/tsnl/snail-scheme/issues/457)
 tracks this boundary. No transport hierarchy or generic provider framework
 is needed. TLS, HTTP/2 and deployment infrastructure are separate work.

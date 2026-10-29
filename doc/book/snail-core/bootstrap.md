@@ -113,19 +113,22 @@ whose runtime is instantiated first and each library's module after those
 it imports from (`modules.rs`). Every file the program links is read from
 `resources/` beside it before any module is instantiated (`links.rs`).
 WASI gets PROGRAM and the arguments as above; then `_initialize`, and each
-module's `main` in program order. The last `main`'s result is the status
-when it is 0 to 255, and 1 otherwise; a WASI exit is its own status.
+module's `main` in program order, and then the program's tasks, driven
+until none is live ([driving the scheduler](../runtimes/scheduling.md)).
+The last `main`'s result is the status when it is 0 to 255, and 1
+otherwise, and 1 when a task trapped; a WASI exit is its own status.
 `close-resources`, or the runtime's `snail:io/close-all`, runs whatever
 happened, and a nonzero answer fails a run that succeeded. A trap or a
 failure of the host is status 2, with V8's message after `snail: ` and the
-Wasm frames after it. A module that imports `snail.runtime.tasks`, `snail.runtime.native.socket`
-or `snail.runtime.native.process` is refused before it is compiled: Node's event loop
-schedules those until tasks become effects
-([#511](https://github.com/tsnl/snail-scheme/issues/511)).
+Wasm frames after it, and so is a run whose tasks all wait on tickets,
+since this host completes no host operations. A module that imports
+`snail.runtime.native.socket` or `snail.runtime.native.process` is refused
+before it is compiled: a program that uses sockets or processes runs on
+Node.
 
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
 on `build/snail` instead, the bootstrap's stages included, and every program
-the driver runs that imports none of those three modules: `program-command`
+the driver runs that imports neither of those modules: `program-command`
 in `host/chibi/snail/stage0/build.sld` asks `build/snail imports PROGRAM`,
 which reads the import sections without compiling them, and runs the rest
 on Node. Under that engine the driver builds the executable with Cargo

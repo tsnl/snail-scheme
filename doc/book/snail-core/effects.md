@@ -103,9 +103,10 @@ class method signatures and definitions whose value is not a lambda are
 not compared either. A signature that a macro writes is held to each
 expansion, so a macro that cannot know a row takes the effects as an
 argument. `define-application` cannot know what its reset binder performs,
-so a reset that dispatches background tasks says `(effects: tasks)`
-([application model](applications.md)); claiming `tasks` for a reset that
-dispatches nothing is the same error
+so a reset that performs more than the application's loop, such as one
+whose background tasks write to the console, says `(effects: console)`
+([application model](applications.md)); claiming `console` for a reset that
+writes nothing is the same error
 (`tests/programs/error-application-unused-effect.sld`).
 
 ### Effect polymorphism
@@ -478,7 +479,12 @@ serves work of every row, as the steps of a scheduler need:
 
 Each step resumes under the log in scope where the generator yielded,
 unlike `control-stored-resume`'s. A closed procedure cannot yield to a
-control effect, whose handle may be gone by the time it runs.
+control effect, whose handle may be gone by the time it runs, except to
+a handle that cannot be gone: one inside the procedure, or inside a
+function it calls, and the handle whose implementation closes its own
+`resume`, which runs the rest of the body under that handler again.
+These are how a scheduler closes each step of a task
+([task operations](../runtimes/tasks.md#how-a-task-runs)).
 
 ### The type of `resume`
 
@@ -558,9 +564,10 @@ be reachable twice, a cost paid by code that never captures one.
 A yield returns through each frame between the operation and its handler,
 so every frame on that path must expect it. A control row cannot reach a
 `vector-generate` or `string-generate` callback, which a WAT loop calls; an
-`unsafe-total` thunk, whose row the call discards; `dispatch-local` work,
-which runs later on a task's own stack; a procedure closed over its
-handlers, which may run after their handles have returned; or the
+`unsafe-total` thunk, whose row the call discards; dispatched work, which
+runs later under its task's own handler of `tasks`, and so may yield to
+`tasks` alone; a procedure closed over its handlers, which may run after
+their handles have returned; or the
 implementation of an operation declared without `ctl`, the subject of the
 next section. Each is
 an error after specialization. A generic function used where a control
@@ -633,8 +640,8 @@ have been sneaked into code whose types do not mention it.
 
 That code was also compiled believing `Async` was already handled: only a
 call whose callee's row names a control effect checks for a yield
-(`control.sld` in the [compiler tour](compilers.md)). A suspension aimed
-further out would cut through frames that never expected to be suspended.
+(`control.sld` in the [compiler tour](compilers.md)). A yield aimed
+further out would return through frames compiled without a test for one.
 The error above closes the other way in: an operation whose type names no
 control effect may not yield at all.
 
@@ -742,6 +749,8 @@ done at 1006
   (`tests/programs/error-control-latent-ctl.sld`).
 - No latent row names its operation's own effect.
 
-The runtime's own tasks still suspend through JSPI
-([scheduling](../runtimes/scheduling.md)); making them effects like `Async`
-here is proposed in [issue #511](https://github.com/tsnl/snail-scheme/issues/511).
+The runtime's own tasks follow this pattern. `(snail shell task)` runs
+each task under its own handler of `tasks`, whose control operations hand
+the rest of the task to a scheduler written in Snail-Core, and a host
+operation's default awaits a ticket on the caller's `tasks`
+([task operations](../runtimes/tasks.md)).

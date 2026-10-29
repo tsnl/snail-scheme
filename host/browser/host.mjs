@@ -1,6 +1,6 @@
 // The browser host for a Snail-Core application built with (snail shell app). It owns no
-// game rules: DOM listeners queue events; one JSPI entry runs the loop,
-// presents through the `screen` effect, and awaits storage.
+// game rules: DOM listeners queue events; the loop runs as a Snail-Core task,
+// presents through the `screen` effect, and waits on storage by ticket.
 
 import {createRenderer} from './renderer.mjs';
 import {createHud} from './hud.mjs';
@@ -239,7 +239,7 @@ function printer(application) {
 
 // ---- Relinking ----
 
-// A full page reload first lets every loop save and leave its JSPI stack.
+// A full page reload first lets every loop save and return.
 export function saveAll() {
   return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
 }

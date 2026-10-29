@@ -63,8 +63,8 @@
     ;; modules.json of a per-library build. Node runs it, unless
     ;; SNAIL_ENGINE=wasmtime asks for build/snail, whose `run-wasm` runs a
     ;; program that needs of its host only WASI, the files it links and
-    ;; loading modules. A program that imports tasks, sockets or processes
-    ;; stays on Node until tasks become effects (#511).
+    ;; loading modules, and drives its tasks. A program that imports
+    ;; sockets or processes stays on Node.
     (define (program-command root program)
       (if (and (wasmtime-engine?) (not (node-hosted? (program-imports root program))))
           (list (snail-binary root) "run-wasm" program)
@@ -79,7 +79,7 @@
     ;; The host modules only Node provides; `run-wasm` refuses a program
     ;; that imports one (crates/snail/src/program.rs).
     (define node-hosted-modules
-      '("snail.runtime.tasks" "snail.runtime.native.socket" "snail.runtime.native.process"))
+      '("snail.runtime.native.socket" "snail.runtime.native.process"))
 
     (define (node-hosted? imports)
       (and (pair? imports)
@@ -465,8 +465,9 @@
         "--enable-nontrapping-float-to-int" "--enable-sign-ext" "--enable-mutable-globals"))
 
     (define (optimization release?)
-      ;; Task entry points escape as function references and the host calls
-      ;; them later. Closed-world mode assumes those calls never happen.
+      ;; Libraries built apart, and plugins loaded at run time, read one
+      ;; another's structs and call one another's closures. Closed-world
+      ;; mode assumes nothing outside a module does.
       (if release?
           '("-O3" "--always-inline-max-function-size=40" "--converge")
           '("-O1")))

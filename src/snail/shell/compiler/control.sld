@@ -12,9 +12,9 @@
 ;;
 ;; The pass also refuses a control row wherever nothing could carry a
 ;; yield: in the callbacks that the WAT loops of vector-generate and
-;; string-generate call, in an unsafe-total thunk, in dispatch-local work,
-;; in a procedure closed over its handlers, and in the implementation of an
-;; operation declared without ctl.
+;; string-generate call, in an unsafe-total thunk, in a procedure closed
+;; over its handlers, in dispatched work but to `tasks`, and in the
+;; implementation of an operation declared without ctl.
 (define-library (snail shell compiler control)
   (export
    name-yield-points
@@ -35,19 +35,25 @@
     ;; Where a callee is defined or declared: the program's entities, its
     ;; control effects, and the definitions a module holds and those it
     ;; imports. An import keeps the type it was checked at, whose rows name
-    ;; every effect.
+    ;; every effect. A restriction check also knows the `resume` parameters
+    ;; in scope, each with the effect its handle handles, and reads the
+    ;; bodies of the definitions it calls, naming those it is reading.
     (struct Callees
       ((program Program)
        (control (List String))
        (definitions (Table Expr))
-       (externals (Table Expr))))
+       (externals (Table Expr))
+       (resumes (List (Pair String String)))
+       (reading (Option (List String)))))
 
     (: module-callees (-> Mono (List String) Callees))
     (define (module-callees mono control)
       (Callees (Mono-program mono)
                control
                (item-definitions (Mono-items mono))
-               (Mono-externals mono)))
+               (Mono-externals mono)
+               (Nil)
+               (None)))
 
     ;; The control effects a value of a procedure type may yield to when
     ;; called: those its row names. Calling a `Once` calls the procedure it
@@ -65,13 +71,14 @@
     ;; function yields nothing, an operation yields to the control effects
     ;; among its effect and its latent row, which its implementation may
     ;; yield to, and a primitive yields only through a row variable, as
-    ;; call-once does through its procedure's.
+    ;; call-once does through its procedure's. Closing a procedure over its
+    ;; handlers charges its row without calling it, so it yields nothing.
     (: callee-row (-> Callees Expr (List String)))
     (define (callee-row callees callee)
       (match (Expr-term callee)
         ((Var name _ _)
          (match (table-ref (Callees-definitions callees) name)
-           ((Some definition) (call-row (Expr-type definition)))
+           ((Some definition) (definition-row callees name definition))
            ((None)
             (match (table-ref (Callees-externals callees) name)
               ((Some definition)
@@ -80,18 +87,47 @@
               ((None) (declared-row callees name (Expr-type callee)))))))
         (_ (call-row (Expr-type callee)))))
 
+    ;; What calling a definition may yield to: what its row names, or in a
+    ;; restriction check, what the body of its lambda yields to. A row can
+    ;; name a control effect the function only passes on from a row
+    ;; variable, which a handle in its body catches: (snail shell task)'s
+    ;; `start-task` has the row `mut e`, which names `tasks` when its work
+    ;; is dispatched inside a task. A definition already being read is
+    ;; taken at its row, so recursion ends.
+    (: definition-row (-> Callees String Expr (List String)))
+    (define (definition-row callees name definition)
+      (match (Pair (Callees-reading callees) (Expr-term definition))
+        ((Pair (Some reading) (Lambda _ body))
+         (if (member? name reading)
+             (call-row (Expr-type definition))
+             (yields (Callees-reading-set callees (Some (Cons name reading))) body)))
+        (_ (call-row (Expr-type definition)))))
+
     (: declared-row (-> Callees String Type (List String)))
     (define (declared-row callees name type)
       (match (program-value (Callees-program callees) name)
         ((Some (Operation effect scheme)) (operation-row callees effect scheme))
-        ((Some (Primitive scheme)) (if (closed-row? (Scheme-type scheme)) (Nil) (call-row type)))
+        ((Some (Primitive scheme))
+         (if (or (closed-row? (Scheme-type scheme)) (member? name closing-primitives))
+             (Nil)
+             (call-row type)))
         ((Some (Foreign _ _)) (Nil))
         ((Some (Constructor _ _)) (Nil))
         ((Some (Accessor _ _ _)) (Nil))
         ((Some (Replacer _ _ _)) (Nil))
         ((Some (Setter _ _ _)) (Nil))
         ((Some (Swapper _ _ _)) (Nil))
-        (_ (call-row type))))
+        (_ (resume-row callees name type))))
+
+    (define closing-primitives (list "prim:inherit-handlers" "prim:inherit-handlers-1"))
+
+    ;; A `resume` of a handle of X runs the rest of its body under the same
+    ;; handle again, which catches every yield to X there.
+    (: resume-row (-> Callees String Type (List String)))
+    (define (resume-row callees name type)
+      (match (assoc-ref (Callees-resumes callees) name)
+        ((Some effect) (label-difference (call-row type) (list effect)))
+        ((None) (call-row type))))
 
     (: operation-row (-> Callees String Scheme (List String)))
     (define (operation-row callees effect scheme)
@@ -180,27 +216,50 @@
 
     ;; ---- Restrictions ----
 
-    ;; The primitives whose procedure argument runs where no yield test can
-    ;; reach: the argument's position, and what to call it in a diagnostic.
-    ;; The generate helpers loop in WAT; unsafe-total discards its thunk's
-    ;; row, so nothing after it tests; dispatched work runs later, on a
-    ;; task's own stack, where the dispatcher's handlers are not; and a
-    ;; procedure closed over its handlers runs whenever it is called, when
-    ;; the handles it would yield to may have returned.
-    (: restricted-primitives (List (Pair String (Pair I64 String))))
-    (define restricted-primitives
-      (list (Pair "prim:vector-generate" (Pair 1 "a vector-generate callback"))
-            (Pair "prim:string-generate" (Pair 1 "a string-generate callback"))
-            (Pair "prim:unsafe-total" (Pair 0 "an unsafe-total thunk"))
-            (Pair "prim:dispatch-local" (Pair 0 "work given to dispatch-local"))
-            (Pair "prim:inherit-handlers" (Pair 0 "a procedure given to inherit-handlers"))
-            (Pair "prim:inherit-handlers-1" (Pair 0 "a procedure given to inherit-handlers-1"))))
+    ;; A function whose procedure argument runs where no yield test can
+    ;; reach: the argument's position, what to call it in a diagnostic, and
+    ;; the control effects it may yield to all the same.
+    (struct Restriction
+      ((position I64)
+       (what String)
+       (allowed (List String))))
 
-    (: restriction (-> Expr (Option (Pair I64 String))))
+    ;; The generate helpers loop in WAT; unsafe-total discards its thunk's
+    ;; row, so nothing after it tests; and a procedure closed over its
+    ;; handlers runs whenever it is called, when the handles it would yield
+    ;; to may have returned. Dispatched work is closed over its handlers
+    ;; too, and runs under its own handler of `tasks`. It is named at the
+    ;; dispatch, which is where its work is written, rather than at the
+    ;; closing inside (snail shell task).
+    (: restrictions (List (Pair String Restriction)))
+    (define restrictions
+      (list (Pair "prim:vector-generate" (Restriction 1 "a vector-generate callback" (Nil)))
+            (Pair "prim:string-generate" (Restriction 1 "a string-generate callback" (Nil)))
+            (Pair "prim:unsafe-total" (Restriction 0 "an unsafe-total thunk" (Nil)))
+            (Pair "prim:inherit-handlers"
+                  (Restriction 0 "a procedure given to inherit-handlers" (Nil)))
+            (Pair "prim:inherit-handlers-1"
+                  (Restriction 0 "a procedure given to inherit-handlers-1" (Nil)))
+            (Pair "snail.shell.task:dispatch-local"
+                  (Restriction 0 "work given to dispatch-local" (list "snail.shell.task:tasks")))
+            (Pair "snail.shell.task:dispatch-task"
+                  (Restriction 0 "work given to dispatch-task" (list "snail.shell.task:tasks")))))
+
+    (: restriction (-> Expr (Option Restriction)))
     (define (restriction callee)
       (match (Expr-term callee)
-        ((Var name _ _) (assoc-ref restricted-primitives name))
+        ((Var name _ _) (assoc-ref restrictions (generic-name name)))
         (_ (None))))
+
+    ;; Mono names a specialization by its definition and the types it is
+    ;; at, `name<types>`; a restriction names the definition.
+    (: generic-name (-> String String))
+    (define (generic-name name)
+      (let ((chars (string->vector name)))
+        (let loop ((index 0))
+          (cond ((= index (vector-length chars)) name)
+                ((char=? (vector-ref chars index) #\<) (substring name 0 index))
+                (else (loop (+ index 1)))))))
 
     ;; A restricted primitive called directly is judged by the procedure it
     ;; is given, and one used as a value by its type. An implementation of
@@ -213,21 +272,67 @@
       (match (Expr-term expr)
         ((App callee args)
          (match (restriction callee)
-           ((Some (Pair index what))
-            (refuse-yield callees (list-ref args index) what (Expr-loc expr)))
+           ((Some (Restriction index what allowed))
+            (refuse-labels
+             (label-difference (procedure-yields (reading callees) (list-ref args index)) allowed)
+             what
+             (Expr-loc expr)))
            ((None) (check-restrictions callees callee)))
          (for-each (lambda (arg) (check-restrictions callees arg)) args))
         ((Var _ _ _)
          (match (restriction expr)
-           ((Some (Pair index what))
-            (refuse-labels (call-row (list-ref (function-params (Expr-type expr)) index))
-                           what
-                           (Expr-loc expr)))
+           ((Some (Restriction index what allowed))
+            (refuse-labels
+             (label-difference (call-row (list-ref (function-params (Expr-type expr)) index))
+                               allowed)
+             what
+             (Expr-loc expr)))
            ((None) (unit))))
-        ((Handle effect implementations _)
+        ((Handle effect implementations body)
          (check-implementations callees effect implementations)
-         (for-each (lambda (child) (check-restrictions callees child)) (subexpressions expr)))
+         (check-restrictions callees body)
+         (let ((inside (resuming callees effect implementations)))
+           (for-each (lambda (entry) (check-restrictions inside (Pair-second entry)))
+                     implementations)))
         (_ (for-each (lambda (child) (check-restrictions callees child)) (subexpressions expr)))))
+
+    ;; A restriction check reads the bodies of the definitions it reaches.
+    (: reading (-> Callees Callees))
+    (define (reading callees)
+      (match (Callees-reading callees)
+        ((Some _) callees)
+        ((None) (Callees-reading-set callees (Some (Nil))))))
+
+    ;; Inside its control implementations, a handle's `resume`s yield to its
+    ;; effect only if an implementation does, so a scheduler can close a
+    ;; resumption over its handlers when its continuation would yield to
+    ;; the scheduler's own effect. Whether one does is asked assuming they
+    ;; do not; if one does even so, the assumption is dropped.
+    (: resuming (-> Callees String (List (Pair String Expr)) Callees))
+    (define (resuming callees effect implementations)
+      (let ((assumed (Callees-resumes-set callees
+                                          (append (resume-names callees effect implementations)
+                                                  (Callees-resumes callees)))))
+        (if (member? effect (control-implementation-yields assumed effect implementations))
+            callees
+            assumed)))
+
+    ;; Each control implementation written as a lambda takes its `resume`
+    ;; last.
+    (: resume-names
+       (-> Callees String (List (Pair String Expr)) (List (Pair String String))))
+    (define (resume-names callees effect implementations)
+      (let ((control (Effect-control (program-effect (Callees-program callees) effect))))
+        (concatenate (map (lambda (entry)
+                            (if (member? (Pair-first entry) control)
+                                (match (Expr-term (Pair-second entry))
+                                  ((Lambda params _)
+                                   (match (last params)
+                                     ((Some resume) (list (Pair resume effect)))
+                                     ((None) (Nil))))
+                                  (_ (Nil)))
+                                (Nil)))
+                          implementations))))
 
     (: check-implementations (-> Callees String (List (Pair String Expr)) Unit ! compile))
     (define (check-implementations callees effect implementations)
@@ -249,10 +354,6 @@
                                            " can yield only to the control effects its operation's type names; it may yield to"
                                            (labels->string labels))))))
         (_ (panic "internal error: not an operation"))))
-
-    (: refuse-yield (-> Callees Expr String Loc Unit ! compile))
-    (define (refuse-yield callees procedure what loc)
-      (refuse-labels (procedure-yields callees procedure) what loc))
 
     (: refuse-labels (-> (List String) String Loc Unit ! compile))
     (define (refuse-labels labels what loc)
@@ -501,15 +602,17 @@
       (let ((control (control-effects (Mono-program mono))))
         (if (null? control)
             mono
-            (Mono (Mono-program mono)
-                  (control-items 0 (module-callees mono control) (Mono-items mono))
-                  (Mono-externals mono)
-                  (Mono-exported mono)))))
+            (let ((callees (module-callees mono control)))
+              (check-items callees (Mono-items mono))
+              (Mono (Mono-program mono)
+                    (control-items 0 callees (Mono-items mono))
+                    (Mono-externals mono)
+                    (Mono-exported mono))))))
 
     ;; Temporaries are numbered within the Wasm function they land in: a
     ;; function's definition counts from zero, while the statements and the
     ;; other definitions' values all run in `main`, and share one count.
-    (: control-items (-> I64 Callees (List Item) (List Item) ! compile))
+    (: control-items (-> I64 Callees (List Item) (List Item)))
     (define (control-items count callees items)
       (match items
         ((Cons item rest)
@@ -517,7 +620,7 @@
                  (Cons item (control-items count callees rest))))
         ((Nil) (Nil))))
 
-    (: control-item (-> I64 Callees Item (Pair Item I64) ! compile))
+    (: control-item (-> I64 Callees Item (Pair Item I64)))
     (define (control-item count callees item)
       (match item
         ((Define name value)
@@ -528,10 +631,26 @@
         ((Do expr) (naming count ((expr (control-expr callees expr))) (Pair (Do expr) count)))
         (_ (Pair item count))))
 
-    (: control-expr (-> I64 Callees Expr (Pair Expr I64) ! compile))
+    (: control-expr (-> I64 Callees Expr (Pair Expr I64)))
     (define (control-expr count callees expr)
-      (check-restrictions callees expr)
       (if (yield-free? callees expr) (Pair expr count) (normal count callees expr)))
+
+    ;; Restrictions are checked from the last item back. A copy of a
+    ;; generic comes before the code that made it, in a library's build,
+    ;; where mono puts the copies of other libraries' generics first, and
+    ;; in a whole program's, where each takes its generic's place, so a
+    ;; refusal names the use rather than the copy: work that yields to
+    ;; Abort is refused where it is dispatched, not in (snail shell task).
+    (: check-items (-> Callees (List Item) Unit ! compile))
+    (define (check-items callees items)
+      (for-each (lambda (item) (check-item callees item)) (reverse items)))
+
+    (: check-item (-> Callees Item Unit ! compile))
+    (define (check-item callees item)
+      (match item
+        ((Define _ value) (check-restrictions callees value))
+        ((Do expr) (check-restrictions callees expr))
+        (_ (unit))))
 
     )
 
@@ -552,6 +671,8 @@
         (test-unchanged)
         (test-holds)
         (test-restrictions)
+        (test-resuming)
+        (test-reading)
         (test-latent))
 
       (define i64 (TCon "I64" (Nil)))
@@ -588,7 +709,7 @@
                          (Pair "t:log" (operation "t:Log" (Nil)))
                          (Pair "t:fetch" (operation "t:Io" (list "t:Abort"))))))
 
-      (define callees (Callees program (list "t:Abort") empty-table empty-table))
+      (define callees (Callees program (list "t:Abort") empty-table empty-table (Nil) (None)))
 
       (define (normalized expr) (shape (Pair-first (normal 0 callees expr))))
 
@@ -636,7 +757,9 @@
                (defined (Callees program
                                  (list "t:Abort")
                                  (table-set empty-table "t:pure" pure)
-                                 empty-table)))
+                                 empty-table
+                                 (Nil)
+                                 (None))))
           (expect (yields defined (call opened (list (number 1)))) (Nil))
           (expect (yields callees (call opened (list (number 1)))) (list "t:Abort"))))
 
@@ -708,6 +831,60 @@
           (expect (refused? (Expr (Handle "t:Log" (list (Pair "t:log" log)) (number 1)) i64 loc))
                   "the implementation of log can yield only to the control effects its operation's type names")))
 
+      ;; A `resume` closed over its handlers in its handle's implementation
+      ;; yields to the handle's effect only if an implementation does, as
+      ;; one that calls `f` does; outside a handle, it may.
+      (define (test-resuming)
+        (let* ((resume-type (TFun (list i64) i64 abort-row))
+               (inherit (local "prim:inherit-handlers-1" (TFun (list resume-type) i64 empty-row)))
+               (implementation-type (TFun (list i64 resume-type) i64 empty-row))
+               (closing (Expr (Lambda (list "v.1" "resume.1")
+                                      (call inherit (list (local "resume.1" resume-type))))
+                              implementation-type
+                              loc))
+               (forwarding
+                (Expr (Lambda (list "v.2" "resume.2")
+                              (call add
+                                    (list (call f (list (number 1)))
+                                          (call inherit (list (local "resume.2" resume-type))))))
+                      implementation-type
+                      loc)))
+          (expect
+           (refused? (Expr (Handle "t:Abort" (list (Pair "t:abort" closing)) (number 1)) i64 loc))
+           #f)
+          (expect
+           (refused?
+            (Expr (Handle "t:Abort" (list (Pair "t:abort" forwarding)) (number 1)) i64 loc))
+           "a procedure given to inherit-handlers-1 cannot reach a control operation")
+          (expect (refused? (call inherit (list (local "resume.3" resume-type))))
+                  "a procedure given to inherit-handlers-1 cannot reach a control operation")))
+
+      ;; A restriction check takes a global defined by a lambda at its body:
+      ;; the handle in `t:caught` catches the Abort its row names, so a thunk
+      ;; that calls it may be closed over its handlers, and one that calls
+      ;; `f` may not.
+      (define (test-reading)
+        (let* ((caught-type (TFun (list i64) i64 abort-row))
+               (caught (Expr (Lambda (list "x.2") (handle-abort (call f (list (local "x.2" i64)))))
+                             caught-type
+                             loc))
+               (reading (Callees program
+                                 (list "t:Abort")
+                                 (table-set empty-table "t:caught" caught)
+                                 empty-table
+                                 (Nil)
+                                 (None)))
+               (thunk-type (TFun (Nil) i64 abort-row))
+               (inherit (local "prim:inherit-handlers" (TFun (list thunk-type) i64 empty-row)))
+               (thunk (lambda (body) (Expr (Lambda (Nil) body) thunk-type loc))))
+          (expect (refused-in? reading
+                               (call inherit
+                                     (list (thunk (call (local "t:caught" caught-type)
+                                                        (list (number 1)))))))
+                  #f)
+          (expect (refused-in? reading (call inherit (list (thunk (call f (list (number 1)))))))
+                  "a procedure given to inherit-handlers cannot reach a control operation")))
+
       ;; Calling an operation whose type names Abort may yield to Abort, and
       ;; its implementation may.
       (define (test-latent)
@@ -725,6 +902,9 @@
 
       ;; The start of the diagnostic `expr` is refused with, or #f.
       (define (refused? expr)
+        (refused-in? callees expr))
+
+      (define (refused-in? callees expr)
         (let ((message (compile-failure (lambda () (check-restrictions callees expr)))))
           (and message
                (substring message

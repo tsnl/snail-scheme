@@ -1,6 +1,6 @@
 // The native socket effect boundary. Managed construction happens in the
 // finishing task's own Wasm call; pending I/O touches native data only.
-import {coded} from '../browser/completions.mjs';
+import {coded} from '../browser/tasks.mjs';
 import {byteSnapshot} from '../browser/load.mjs';
 
 function buffer(api, bytes) {
@@ -21,9 +21,9 @@ function address(api, endpoint) {
 }
 
 // Each operation that waits is started by `start-NAME`, which reads its
-// arguments at once, and finished by one `finish` (completions.mjs). Each
-// finish import has its own name, since its result type differs.
-export function socketImports(program, scheduler, completions, tcp, udp) {
+// arguments at once, and finished by one `finish` (tasks.mjs). Each finish
+// import has its own name, since its result type differs.
+export function socketImports(program, tasks, tcp, udp) {
   const helpers = () => {
     const current = program();
     return current.names ? current.linked.get('snail.shell.socket').exports : current.runtime.exports;
@@ -33,7 +33,7 @@ export function socketImports(program, scheduler, completions, tcp, udp) {
   // builds the Err of a coded failure. `dispose` releases a success that
   // no task finished.
   function start(ticket, failure, operation, deliver, dispose = () => {}) {
-    completions.start(Number(ticket), scheduler.signal(), coded(operation),
+    tasks.start(Number(ticket), coded(operation),
                       outcome => {
                         const api = helpers();
                         return 'code' in outcome ? api[failure](errorCode(api, outcome.code)) : deliver(api, outcome.value);
@@ -70,7 +70,7 @@ export function socketImports(program, scheduler, completions, tcp, udp) {
     return api['socket:closed']();
   }
 
-  const finish = ticket => completions.finish(Number(ticket));
+  const finish = ticket => tasks.finish(Number(ticket));
   return {
     'start-listen'(ticket, endpoint) {
       const api = helpers(), host = address(api, endpoint), port = api['socket:endpoint-port'](endpoint);

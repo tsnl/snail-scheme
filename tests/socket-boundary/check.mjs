@@ -1,27 +1,71 @@
-// Real Wasm, tickets and loopback sockets in both linking modes. Native
-// spies place cancellation and failure at the ownership boundaries, not in
-// a model.
+// Real Wasm, Snail-Core tasks and loopback sockets in both linking modes.
+// Native spies place cancellation and failure at the ownership boundaries,
+// not in a model. Cancelling closes the run of tasks, as reloading or
+// ending a program does: every outstanding operation is aborted.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {setImmediate as turn} from 'node:timers/promises';
 import {createWasi, instantiate, linkProgram} from '../../host/browser/load.mjs';
 import {programEntry} from '../../host/browser/entry.mjs';
-import {createScheduler, taskImports} from '../../host/browser/tasks.mjs';
-import {createCompletions} from '../../host/browser/completions.mjs';
+import {createTasks, taskExports} from '../../host/browser/tasks.mjs';
 import {createTcp} from '../../host/native/tcp.mjs';
 import {createUdp} from '../../host/native/udp.mjs';
 import {socketImports} from '../../host/native/socket-imports.mjs';
 
-let program, api;
+let program, api, tasks, driving = null;
 const tcp = createTcp(), udp = createUdp(), reported = [];
-const scheduler = createScheduler({reportError: error => reported.push(error)});
-const completions = createCompletions(ticket => scheduler.wake(ticket));
-const host = {'snail.runtime.tasks': taskImports(() => scheduler),
-              'snail.runtime.native.socket': socketImports(() => program, scheduler, completions, tcp, udp),
+// A request waits for its task's answer, or for the trap that ended it.
+const requests = new Map();
+// The imports outlive each run of tasks, which cancelling replaces.
+const current = {start: (...args) => tasks.start(...args), finish: ticket => tasks.finish(ticket)};
+const host = {'snail.runtime.native.socket': socketImports(() => program, current, tcp, udp),
               'snail.test': {stage: () => 0}};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
-const invoke = (name, ...args) => scheduler.start(() => WebAssembly.promising(api[name])(...args));
+
+function fresh() {
+  tasks = createTasks(() => program && taskExports(program), {reportError(error, task) {
+    const request = requests.get(task);
+    if (!request) return reported.push(error);
+    requests.delete(task);
+    request.reject(error);
+  }});
+}
+function deliver() {
+  for (const [id, request] of requests) {
+    if (api.answered(BigInt(id))) { requests.delete(id); request.resolve(api.answer(BigInt(id))); }
+  }
+  return false;
+}
+// One loop drives each run's turns, and stops once a cancel replaces its
+// run. A request dispatched between turns interrupts its rest; one
+// dispatched after its last turn, as an answer's awaiter can, before the
+// loop has ended, starts it again.
+function pump() {
+  if (driving) return tasks.interrupt();
+  const run = tasks;
+  const ended = () => { if (tasks === run) driving = null; };
+  driving = run.drive(() => tasks !== run || deliver()).then(() => {
+    deliver();
+    ended();
+    if (tasks === run && requests.size) pump();
+  }, error => { reported.push(error); ended(); });
+}
+function cancel(reason) {
+  tasks.close(reason);
+  for (const request of requests.values()) request.reject(reason);
+  requests.clear();
+  driving = null;
+  fresh();
+}
+function invoke(name, ...args) {
+  const id = Number(api[`begin-${name}`](...args));
+  const done = new Promise((resolve, reject) => requests.set(id, {resolve, reject}));
+  done.catch(() => {});
+  pump();
+  return {done, cancel};
+}
+fresh();
 const helpers = () => program.names ? program.linked.get('snail.shell.socket').exports : program.runtime.exports;
 const native = {listen: tcp.listen, connect: tcp.connect, read: tcp.read, write: tcp.write};
 const timeout = setTimeout(() => { throw new Error('socket boundary test timed out'); }, 30_000);
@@ -42,7 +86,7 @@ try {
   }
   api = programEntry(program, 'main').exports;
   const modules = program.names ? program.names.map(name => program.linked.get(name)) : [program.runtime];
-  for (const module of modules) await scheduler.start(() => WebAssembly.promising(module.exports.main)()).done;
+  for (const module of modules) module.exports.main();
 
   const listener = api.listener(await invoke('open').done), port = api.port(listener);
   const client = api.connection(await invoke('dial', port).done);
@@ -58,7 +102,7 @@ try {
   };
   const sending = invoke('send', client);
   await held.promise;
-  assert.equal(await invoke('overwrite').done, 1);
+  assert.equal(api.truth(await invoke('overwrite').done), 1);
   assert.deepEqual([...sent], [0, 255, 128, 1]);
   release.resolve();
   assert.equal(api.written(await sending.done), 4);
@@ -85,7 +129,10 @@ try {
   tcp.read = native.read;
   assert.equal(api['read-count'](await invoke('receive', client, 1).done), -1, 'EOF is a typed None');
 
-  // The native resource exists, but cancellation wins before managed delivery.
+  // The native resource exists, but cancellation wins before managed
+  // delivery. The cancelled run disposes of the listener when the
+  // operation settles, after the rest of its promise chain, so a turn
+  // passes before the check.
   let acquired, opening;
   tcp.listen = async (...args) => {
     acquired = await native.listen(...args);
@@ -94,6 +141,7 @@ try {
   };
   opening = invoke('open');
   await assert.rejects(opening.done, error => error === cancelled);
+  await turn();
   assert.throws(() => tcp.port(acquired), {code: 'EBADF'});
   tcp.listen = native.listen;
 
@@ -111,7 +159,7 @@ try {
   await assert.rejects(invoke('receive', client, 1).done, error => error === fault);
   tcp.read = native.read;
   assert.equal(api.finished(await invoke('finish', client, 1000).done), 1, 'finish after remote EOF returns typed Unit');
-  await invoke('stop-listener', listener).done;
+  api['stop-listener'](listener);
 
   // Both tasks may finish concurrently; unread bytes are drained.
   const finishingListener = api.listener(await invoke('open').done), finishingPort = api.port(finishingListener);
@@ -125,7 +173,7 @@ try {
   const stalled = api.connection(await invoke('dial', finishingPort).done);
   const stalledPeer = api.connection(await invoke('take', finishingListener).done);
   assert.equal(api['timed-out'](await invoke('finish', stalled, 0).done), 1, 'deadline failure is a typed socket error');
-  await invoke('stop-connection', stalledPeer).done;
+  api['stop-connection'](stalledPeer);
 
   const interrupted = api.connection(await invoke('dial', finishingPort).done);
   const interruptedPeer = api.connection(await invoke('take', finishingListener).done);
@@ -137,10 +185,11 @@ try {
   await assert.rejects(finishing.done, error => error === cancelled);
   tcp.finish = nativeFinish;
   assert.equal(api['bad-read'](await invoke('receive', interrupted, 1).done), 1, 'cancellation closes aliases and returns the scheduler permit');
-  await invoke('stop-connection', interruptedPeer).done;
-  await invoke('stop-listener', finishingListener).done;
+  api['stop-connection'](interruptedPeer);
+  api['stop-listener'](finishingListener);
 
-  const first = await invoke('open-udp').done, second = await invoke('open-udp').done;
+  const first = api['udp-socket'](await invoke('open-udp').done);
+  const second = api['udp-socket'](await invoke('open-udp').done);
   const firstPort = api['udp-port'](first), secondPort = api['udp-port'](second);
   // Staging is already borrowed on host entry. Even a synchronous argument
   // projector may reenter Wasm and overwrite it before native send starts.
@@ -157,6 +206,7 @@ try {
   udp.bind = async (...args) => { acquired = await nativeBind(...args); opening.cancel(cancelled); return acquired; };
   opening = invoke('open-udp');
   await assert.rejects(opening.done, value => value === cancelled);
+  await turn();
   assert.throws(() => udp.port(acquired), {code: 'EBADF'});
 
   udp.bind = async (...args) => { acquired = await nativeBind(...args); return acquired; };
@@ -176,12 +226,12 @@ try {
   assert.equal(api['udp-port'](second), secondPort);
   await invoke('send-udp', first, secondPort).done;
   assert.equal(api['packet-size'](await invoke('receive-udp', second, 4).done), 4, 'cancelled receive preserves UDP socket');
-  await invoke('stop-udp', first).done;
-  await invoke('stop-udp', second).done;
+  api['stop-udp'](first);
+  api['stop-udp'](second);
   await turn();
   assert.deepEqual(reported, []);
 } finally {
-  await scheduler.close();
+  tasks.close();
   await tcp.shutdown();
   await udp.shutdown();
   clearTimeout(timeout);

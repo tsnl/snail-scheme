@@ -202,7 +202,7 @@ try {
   assert.equal((await control('stop')).status, 204);
   before = (await service.status()).id;
   fs.writeFileSync(join(project, 'project.datum'), config);
-  fs.writeFileSync(source, '(import (snail core base) (snail core io) (snail shell task)) (write-line "running") (sleep 600000)');
+  fs.writeFileSync(source, '(import (snail core base) (snail core io) (snail shell task)) (write-line "running") (dispatch-local (once (lambda () (sleep 600000))))');
   await service.settled(before);
   assert.equal((await run()).wanted, false);
   assert.equal((await control('start')).status, 204);
