@@ -1,21 +1,25 @@
-// Real Wasm, JSPI and loopback sockets in both linking modes. Native spies
-// place cancellation and failure at the ownership boundaries, not in a model.
+// Real Wasm, tickets and loopback sockets in both linking modes. Native
+// spies place cancellation and failure at the ownership boundaries, not in
+// a model.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {setImmediate as turn} from 'node:timers/promises';
 import {createWasi, instantiate, linkProgram} from '../../host/browser/load.mjs';
 import {programEntry} from '../../host/browser/entry.mjs';
-import {createScheduler} from '../../host/browser/tasks.mjs';
+import {createScheduler, taskImports} from '../../host/browser/tasks.mjs';
+import {createCompletions} from '../../host/browser/completions.mjs';
 import {createTcp} from '../../host/native/tcp.mjs';
 import {createUdp} from '../../host/native/udp.mjs';
 import {socketImports} from '../../host/native/socket-imports.mjs';
 
 let program, api;
 const tcp = createTcp(), udp = createUdp(), reported = [];
-const scheduler = createScheduler({handlerGlobals: () => program ? programEntry(program, 'main').handlers : [],
-                                  reportError: error => reported.push(error)});
-const host = {'snail.runtime.native.socket': socketImports(() => program, scheduler, tcp, udp), 'snail.test': {stage: () => 0}};
+const scheduler = createScheduler({reportError: error => reported.push(error)});
+const completions = createCompletions(ticket => scheduler.wake(ticket));
+const host = {'snail.runtime.tasks': taskImports(() => scheduler),
+              'snail.runtime.native.socket': socketImports(() => program, scheduler, completions, tcp, udp),
+              'snail.test': {stage: () => 0}};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
 const invoke = (name, ...args) => scheduler.start(() => WebAssembly.promising(api[name])(...args));
 const helpers = () => program.names ? program.linked.get('snail.shell.socket').exports : program.runtime.exports;

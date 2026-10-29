@@ -1,6 +1,6 @@
 ;; Child processes with piped standard streams. A handler can replace the
-;; effect in a test; the native runner supplies the default implementation
-;; through JSPI, as it does for (snail shell socket). Stage 0's tool runner,
+;; effect in a test. By default an operation that waits starts on the
+;; native host and waits by ticket, as (snail shell socket)'s do. Stage 0's tool runner,
 ;; host/chibi/snail/stage0/process.sld, has the same name; Chibi never sees src/.
 (define-library (snail shell process)
   (export
@@ -13,7 +13,8 @@
    Exit Exited Signaled
    ProcessError ProcessError-code)
   (import
-   (snail core base))
+   (snail core base)
+   (only (snail shell task) tasks through-host))
   (begin
 
     ;; ---- Public values ----
@@ -59,21 +60,30 @@
     ;; bytes, or None at the end of the stream; writing gives the count
     ;; accepted. Closing a process that is still running kills it.
     (effect process
-      ((spawn (-> Command (Result Process ProcessError)))
-       (read-output (-> Process Stream I32 (Result (Option Bytes) ProcessError)))
-       (write-input (-> Process Bytes (Result I32 ProcessError)))
+      ((spawn (-> Command (Result Process ProcessError) ! tasks))
+       (read-output (-> Process Stream I32 (Result (Option Bytes) ProcessError) ! tasks))
+       (write-input (-> Process Bytes (Result I32 ProcessError) ! tasks))
        (close-input (-> Process (Result Unit ProcessError)))
        (send-signal (-> Process Signal (Result Unit ProcessError)))
-       (wait-exit (-> Process (Result Exit ProcessError)))
+       (wait-exit (-> Process (Result Exit ProcessError) ! tasks))
        (close-process (-> Process (Result Unit ProcessError))))
       (host "snail.runtime.native.process"
-            ((spawn "spawn")
-             (read-output "read-output")
-             (write-input "write-input")
-             (close-input "close-input")
+            ((close-input "close-input")
              (send-signal "send-signal")
-             (wait-exit "wait-exit")
-             (close-process "close-process"))))
+             (close-process "close-process")))
+      (default
+        ((spawn (lambda (command)
+                  (through-host (lambda (ticket) (start-spawn ticket command)) finish-spawn)))
+         (read-output (lambda (child stream maximum)
+                        (through-host
+                         (lambda (ticket) (start-read-output ticket child stream maximum))
+                         finish-read-output)))
+         (write-input (lambda (child bytes)
+                        (through-host (lambda (ticket) (start-write-input ticket child bytes))
+                                      finish-write-input)))
+         (wait-exit (lambda (child)
+                      (through-host (lambda (ticket) (start-wait-exit ticket child))
+                                    finish-wait-exit))))))
 
     ;; ---- Termination ----
 
@@ -85,9 +95,42 @@
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
     (effect signals
-      ((termination (-> Signal)))
-      (host "snail.runtime.native.process"
-            ((termination "termination"))))
+      ((termination (-> Signal ! tasks)))
+      (default
+        ((termination (lambda () (through-host start-termination finish-termination))))))
+
+    ;; ---- Native waits ----
+
+    ;; Each operation that waits starts on the host and finishes with the
+    ;; result the host built for its ticket, as (snail shell socket)'s do.
+    (extern start-spawn "snail.runtime.native.process" "start-spawn" (-> I64 Command Unit))
+    (extern finish-spawn
+            "snail.runtime.native.process"
+            "finish-spawn"
+            (-> I64 (Result Process ProcessError)))
+    (extern start-read-output
+            "snail.runtime.native.process"
+            "start-read-output"
+            (-> I64 Process Stream I32 Unit))
+    (extern finish-read-output
+            "snail.runtime.native.process"
+            "finish-read-output"
+            (-> I64 (Result (Option Bytes) ProcessError)))
+    (extern start-write-input
+            "snail.runtime.native.process"
+            "start-write-input"
+            (-> I64 Process Bytes Unit))
+    (extern finish-write-input
+            "snail.runtime.native.process"
+            "finish-write-input"
+            (-> I64 (Result I32 ProcessError)))
+    (extern start-wait-exit "snail.runtime.native.process" "start-wait-exit" (-> I64 Process Unit))
+    (extern finish-wait-exit
+            "snail.runtime.native.process"
+            "finish-wait-exit"
+            (-> I64 (Result Exit ProcessError)))
+    (extern start-termination "snail.runtime.native.process" "start-termination" (-> I64 Unit))
+    (extern finish-termination "snail.runtime.native.process" "finish-termination" (-> I64 Signal))
 
     ;; ---- Native tokens ----
 
@@ -154,7 +197,7 @@
     ;; ---- Host result construction ----
 
     ;; JavaScript carries GC references opaquely. These synchronous helpers
-    ;; run only after the waiting task reacquires the execution permit.
+    ;; run only inside a finish, which the waiting task calls.
     (: buffer (-> I32 (Array U8) ! mut))
     (define (buffer count)
       (make-array (i32->i64 count) (i32->u8 0)))

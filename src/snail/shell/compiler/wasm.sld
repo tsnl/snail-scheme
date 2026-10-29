@@ -3460,7 +3460,7 @@
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
           (("dispatch-local") (dispatch-work m (arg 0) (Fn-evidence fn)))
-          (("yield-task" "sleep-task" "park-task" "unpark-task" "current-task")
+          (("yield-task" "sleep-task" "ticket-task" "await-task" "wake-task")
            (host-call m (task-import operation) (TFun types type empty-row) code no-loc))
           (("drop") (list (clear-owner m (arg 0)) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
@@ -3586,8 +3586,8 @@
          (wat "i32.const" (int 0)))))
 
     ;; The scheduler's waits and wakes are imports of "snail.runtime.tasks", each
-    ;; named by its primitive without "-task": `yield`, `sleep`, `park`,
-    ;; `unpark` and `current`.
+    ;; named by its primitive without "-task": `yield`, `sleep`, `ticket`,
+    ;; `await` and `wake`.
     (: task-import (-> String Import))
     (define (task-import operation)
       (Import "snail.runtime.tasks" (substring operation 0 (- (string-length operation) 5))))

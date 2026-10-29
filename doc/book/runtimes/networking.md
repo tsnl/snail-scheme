@@ -1,8 +1,10 @@
 # Native networking and processes
 
 `(snail shell socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
-program runner binds them to `host/native/tcp.mjs` and `host/native/udp.mjs` through JSPI
-and `host/native/socket-imports.mjs`. [Child processes](#child-processes) follow the
+program runner binds them to `host/native/tcp.mjs` and `host/native/udp.mjs` through
+`host/native/socket-imports.mjs`: an operation that waits starts there and waits for its
+ticket ([waiting on the host](tasks.md#waiting-on-the-host)), so its latent row names
+`tasks`. [Child processes](#child-processes) follow the
 same model, through `host/native/process.mjs` and `host/native/process-imports.mjs`. Static and separately linked programs use the
 same binding. The [HTTP library](../snail-core/http.md) implements one complete
 request/response exchange over TCP. Browser sockets are not implemented.
