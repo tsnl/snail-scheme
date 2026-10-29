@@ -64,11 +64,11 @@
        (names (List String))))
 
     ;; A type variable is linear unless `copy` names it, as a signature's
-    ;; `(requires (Copy A))` does. Concrete fields can make a record linear;
-    ;; ordinary arrows never describe owned captures. A Ref is a shared
-    ;; handle whatever it holds: its content moves only through
-    ;; `ref-replace!`, so sharing the handle never duplicates it, and a
-    ;; declaration that holds a parameter only in a Ref is unrestricted.
+    ;; `(requires (Copy A))` does. Immutable fields can make a record
+    ;; linear; ordinary arrows never describe owned captures. A cell, like
+    ;; any struct with a mutable field, is a shared handle whatever it
+    ;; holds, so a declaration that holds a parameter only in a `Ref` is
+    ;; unrestricted.
     (: linear-type? (-> Program (List String) Type Bool))
     (define (linear-type? program copy type)
       (Linearity-found? (linear-search program copy type (Linearity #f (Nil) (Nil)))))
@@ -77,7 +77,6 @@
     (define (linear-search program copy type progress)
       (match type
         ((TCon "Once" _) (Linearity-found?-set progress #t))
-        ((TCon "Ref" _) progress)
         ((TCon name args) (linear-instance program copy name args progress))
         ((TRigid name) (if (member? name copy) progress (Linearity-found?-set progress #t)))
         (_ progress)))
@@ -153,7 +152,7 @@
     ;; ---- Buildable structs ----
 
     ;; Whether every value of the struct `data` would hold another of
-    ;; itself. The search follows struct fields and cell contents, and stops
+    ;; itself. The search follows struct fields, cells among them, and stops
     ;; at every other type, each of which has a value that holds no struct:
     ;; an enum's tag, an empty array or string, an Any, a function. A
     ;; declaration is entered once per path: one that reached its own name
@@ -167,7 +166,6 @@
     (: reaches? (-> Program String Type (List String) Bool))
     (define (reaches? program target type entered)
       (match type
-        ((TCon "Ref" (Cons content _)) (reaches? program target content entered))
         ((TCon name args)
          (cond ((string=? name target) #t)
                ((or (member? name entered)

@@ -228,7 +228,7 @@
 
     ;; `arguments` are the root, the runtime, the reload client and the
     ;; request.
-    (: new-loop (-> (List String) Loop ! mut))
+    (: new-loop (-> (List String) Loop))
     (define (new-loop arguments)
       (match arguments
         ((Cons root (Cons runtime (Cons client words)))

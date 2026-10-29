@@ -274,7 +274,6 @@
             (Pair "String" 0)
             (Pair "Array" 1)
             (Pair "Vector" 1)
-            (Pair "Ref" 1)
             (Pair "Once" 1)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source

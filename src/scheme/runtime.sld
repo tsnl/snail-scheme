@@ -135,18 +135,18 @@
         (_ #f)))
 
     ;; Procedures of fixed arity, from Snail-Core functions.
-    (: procedure1 (-> (-> Datum Datum ! console mut) (Ref Datum) ! mut))
+    (: procedure1 (-> (-> Datum Datum ! console mut) (Ref Datum)))
     (define (procedure1 f)
       (ref
        (ProcedureDatum (lambda (arguments) (arity! arguments 1 #f) (f (list-ref arguments 0))))))
 
-    (: procedure2 (-> (-> Datum Datum Datum ! console mut) (Ref Datum) ! mut))
+    (: procedure2 (-> (-> Datum Datum Datum ! console mut) (Ref Datum)))
     (define (procedure2 f)
       (ref (ProcedureDatum (lambda (arguments)
                              (arity! arguments 2 #f)
                              (f (list-ref arguments 0) (list-ref arguments 1))))))
 
-    (: variadic (-> (-> (List Datum) Datum ! console mut) (Ref Datum) ! mut))
+    (: variadic (-> (-> (List Datum) Datum ! console mut) (Ref Datum)))
     (define (variadic f)
       (ref (ProcedureDatum f)))
 
@@ -417,7 +417,7 @@
     (: %string=? (Ref Datum))
     (define %string=? (procedure2 (lambda (a b) (boolean (string=? (text-of a) (text-of b))))))
 
-    (: text (-> (-> String String) (Ref Datum) ! mut))
+    (: text (-> (-> String String) (Ref Datum)))
     (define (text f)
       (procedure1 (lambda (a) (StringDatum (f (text-of a))))))
 
@@ -449,11 +449,11 @@
         ((CharDatum char) char)
         (_ (type-error "a character" datum))))
 
-    (: character (-> (-> Char Char) (Ref Datum) ! mut))
+    (: character (-> (-> Char Char) (Ref Datum)))
     (define (character f)
       (procedure1 (lambda (a) (CharDatum (f (char-of a))))))
 
-    (: character-property (-> (-> Char Bool) (Ref Datum) ! mut))
+    (: character-property (-> (-> Char Bool) (Ref Datum)))
     (define (character-property holds?)
       (procedure1 (lambda (a) (boolean (holds? (char-of a))))))
 
