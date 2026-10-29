@@ -58,7 +58,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (Once (-> Unit Step))))))
+    (next (FnOnce Unit Step)))))
 
 ;; Runs `body` to its first yield, and hands back the rest rather than
 ;; resuming it.

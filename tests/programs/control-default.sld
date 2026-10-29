@@ -27,7 +27,7 @@
    ((value I64)))
   (Waiting
    ((deadline I64)
-    (next (Once (-> I64 Task ! Clock console))))))
+    (next (FnOnce I64 Task ! Clock console)))))
 
 (: start (-> (-> I64 ! Clock Async console) Task ! Clock console))
 (define (start body)

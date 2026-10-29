@@ -1132,7 +1132,7 @@
 
     ;; The loop's row names `mut`, which recording its answer performs: in a
     ;; generic body, the first call fixes the row of the lambda around it.
-    (: app-start (All (e) (-> (Once (-> (Option Any) ! mut tasks e)) I64 ! mut e)))
+    (: app-start (All (e) (-> (FnOnce (Option Any) ! mut tasks e) I64 ! mut e)))
     (define (app-start loop)
       (ref-set! outcome (None))
       (dispatch-task (once (lambda () (ref-set! outcome (Some (loop)))))))

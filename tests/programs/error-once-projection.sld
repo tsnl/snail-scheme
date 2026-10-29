@@ -1,5 +1,5 @@
 (import
  (snail core base))
 (struct Job
-  ((work (Once (-> Unit)))))
+  ((work (FnOnce Unit))))
 (let ((job (Job (once (lambda () (unit)))))) (call-once (Job-work job)))

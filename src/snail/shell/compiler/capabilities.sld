@@ -76,7 +76,7 @@
     (: linear-search (-> Program (List String) Type Linearity Linearity))
     (define (linear-search program copy type progress)
       (match type
-        ((TCon "Once" _) (Linearity-found?-set progress #t))
+        ((TCon "FnOnce" _) (Linearity-found?-set progress #t))
         ((TCon name args) (linear-instance program copy name args progress))
         ((TRigid name) (if (member? name copy) progress (Linearity-found?-set progress #t)))
         (_ progress)))

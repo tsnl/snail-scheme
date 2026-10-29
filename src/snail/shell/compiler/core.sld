@@ -274,7 +274,7 @@
             (Pair "String" 0)
             (Pair "Array" 1)
             (Pair "Vector" 1)
-            (Pair "Once" 1)))
+            (Pair "FnOnce" 1)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
     ;; name. Text is scanned as a vector of characters, which both hosts index
@@ -322,18 +322,20 @@
     (: type->string (-> Type String))
     (define (type->string type)
       (match type
+        ((TCon "FnOnce" (Cons (TFun params result row) (Nil)))
+         (arrow->string "(FnOnce" params result row))
         ((TCon name (Nil)) (short-name name))
         ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
-        ((TFun params result row)
-         (string-append "(->"
-                        (types->string params)
-                        " "
-                        (type->string result)
-                        (row->string row)
-                        ")"))
+        ((TFun params result row) (arrow->string "(->" params result row))
         ((TRow _ _) (string-append "{" (row->string type) " }"))
         ((TVar id) (string-append "?" (i64->string id)))
         ((TRigid name) name)))
+
+    ;; `(-> A B ! e)`, and the one-shot `(FnOnce A B ! e)`, which holds that
+    ;; function type.
+    (: arrow->string (-> String (List Type) Type Type String))
+    (define (arrow->string head params result row)
+      (string-append head (types->string params) " " (type->string result) (row->string row) ")"))
 
     (: types->string (-> (List Type) String))
     (define (types->string types)

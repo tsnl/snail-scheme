@@ -1054,10 +1054,10 @@
     (: closure-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
     (define (closure-call fn callee args tail?)
       (match (Expr-type callee)
-        ((TCon "Once" (Cons procedure (Nil))) (once-call fn callee procedure args tail?))
+        ((TCon "FnOnce" (Cons procedure (Nil))) (once-call fn callee procedure args tail?))
         (_ (plain-closure-call fn callee args tail?))))
 
-    ;; Calling a `Once` takes its procedure out of the owner, which traps if
+    ;; Calling a `FnOnce` takes its procedure out of the owner, which traps if
     ;; it was taken already, and calls it.
     (: once-call (-> Fn Expr Type (List Expr) Bool (List Wat) ! mut))
     (define (once-call fn callee procedure args tail?)
@@ -2819,7 +2819,7 @@
     ;; inside it, so resuming the outer computation enters the handle again
     ;; too. Dropping `resume` drops the continuation: its frames are garbage,
     ;; and the owned values they hold are dropped with them, as with any
-    ;; dropped `Once`.
+    ;; dropped `FnOnce`.
     (: continuation-type (-> Module String ! mut))
     (define (continuation-type m)
       (match (known-type m "continuation")
@@ -3294,11 +3294,11 @@
     ;; ---- Inherited handlers ----
 
     ;; `inherit-handlers` closes a one-shot procedure over the handlers in
-    ;; scope where it is called. The Once it makes owns a closure holding
+    ;; scope where it is called. The FnOnce it makes owns a closure holding
     ;; that evidence and the procedure's owner, moved in; its code ignores
     ;; the evidence it is called with, takes the procedure out of its owner
     ;; and tail-calls it under the evidence it holds. So whoever calls the
-    ;; Once, the procedure's operations reach the handlers of the place it
+    ;; FnOnce, the procedure's operations reach the handlers of the place it
     ;; was closed. A `resume` closed this way resumes under them too, since
     ;; resuming rebases its handler's node onto the evidence it is called
     ;; with (see Resuming). Nothing yields through it: control.sld refuses a
@@ -3306,7 +3306,7 @@
     (: inherited (-> Fn Type Wat Wat ! mut))
     (define (inherited fn type owner)
       (match type
-        ((TCon "Once" (Cons procedure (Nil)))
+        ((TCon "FnOnce" (Cons procedure (Nil)))
          (let* ((m (Fn-module fn)) (signature (function-signature m procedure)))
            (wat "struct.new"
                 (id (owned-type m))
@@ -3315,7 +3315,7 @@
                      (wat "ref.func" (id (inherit-code m signature)))
                      (Fn-evidence fn)
                      owner))))
-        (_ (panic "internal error: inherit-handlers makes a Once"))))
+        (_ (panic "internal error: inherit-handlers makes a FnOnce"))))
 
     ;; Closures of one signature share the subtype that holds the evidence
     ;; and the owner.
@@ -3459,7 +3459,7 @@
           (("once") (list (wat "struct.new" (id (owned-type m)) (arg 0))))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
-          (("drop") (list (clear-owner m (arg 0)) (wat "i32.const" (int 0))))
+          (("drop") (list (dropped m (list-ref types 0) (arg 0)) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))
@@ -3525,6 +3525,14 @@
     (: clear-owner (-> Module Wat Wat ! mut))
     (define (clear-owner m value)
       (wat "struct.set" (id (owned-type m)) (int 0) value (wat "ref.null" (Word "any"))))
+
+    ;; Dropping a one-shot clears its owner, so nothing can call it later;
+    ;; any other value is released as it is.
+    (: dropped (-> Module Type Wat Wat ! mut))
+    (define (dropped m type value)
+      (match type
+        ((TCon "FnOnce" _) (clear-owner m value))
+        (_ (wat "drop" value))))
 
     (: move-value (-> Module Rep Wat Wat ! mut))
     (define (move-value m representation value)

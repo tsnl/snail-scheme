@@ -29,7 +29,7 @@
 (: adder (-> (-> I64 I64) ! Abort))
 (define (adder) (let ((z (abort 5))) (lambda (y) (* y z))))
 
-(: later (-> (Once (-> Unit ! console)) ! Abort))
+(: later (-> (FnOnce Unit ! console) ! Abort))
 (define (later) (let ((value (abort 6))) (once (lambda () (write-line (show value))))))
 
 (display (handle Abort ((abort (lambda (value resume) (drop resume) (* value 1000))))

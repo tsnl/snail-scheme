@@ -9,7 +9,7 @@
   (match pair
     ((Pair a b) (Pair b a))))
 
-(: say (-> String (Once (-> Unit ! console))))
+(: say (-> String (FnOnce Unit ! console)))
 (define (say text)
   (once (lambda () (write-line text))))
 
