@@ -101,7 +101,10 @@ A type stays **linear** or **omega**, and linearity reaches beyond `Once`:
   implicit duplication; `(Clone e A)` duplicates explicitly, with
   `clone : (-> A (Pair A A) ! e)`. Requirements are declared in
   signatures, and a body that duplicates without one is told "this use
-  needs `(Copy A)`".
+  needs `(Copy A)`". Signatures and instances already accept
+  `(requires (Copy A))`, and the libraries declare it wherever they
+  duplicate or discard a value, but every type variable is still
+  unrestricted.
 - `Vector`, `Array`, `Any`, globals and exports hold omega values only.
 
 ### Drop as a class

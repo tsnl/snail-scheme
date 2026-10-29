@@ -304,7 +304,7 @@
             pressed
             (map (lambda (c) (Contact-mode-set c (Pinched))) pressed))))
 
-    (: cdr-list (All (T) (-> (List T) (List T))))
+    (: cdr-list (All (T) (requires (Copy T)) (-> (List T) (List T))))
     (define (cdr-list items)
       (match items
         ((Cons _ rest) rest)

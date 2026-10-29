@@ -59,7 +59,7 @@
         (vector-ref (Decoder-bytes decoder) position)))
 
     ;; The encoder and its buffer are local to this call.
-    (: serialize (All (T) (requires (Serialize T)) (-> T Bytes)))
+    (: serialize (All (T) (requires (Serialize T) (Copy T)) (-> T Bytes)))
     (define (serialize value)
       (unsafe-total
        (lambda ()
@@ -194,28 +194,29 @@
                                              (integer->char (decode-unsigned decoder))))))))
 
     (instance (Serialize (Vector T))
-      (requires (Serialize T))
+      (requires (Serialize T) (Copy T))
       (define (encode value encoder)
         (encode-unsigned encoder (vector-length value))
         (vector-for-each (lambda (item) (encode item encoder)) value)))
 
     (instance (Deserialize (Vector T))
-      (requires (Deserialize T))
+      (requires (Deserialize T) (Copy T))
       (define (decode decoder)
         (decode-elements decoder (decode-unsigned decoder) decode)))
 
     (instance (Serialize (List T))
-      (requires (Serialize T))
+      (requires (Serialize T) (Copy T))
       (define (encode value encoder)
         (encode-unsigned encoder (length value))
         (for-each (lambda (item) (encode item encoder)) value)))
 
     (instance (Deserialize (List T))
-      (requires (Deserialize T))
+      (requires (Deserialize T) (Copy T))
       (define (decode decoder)
         (vector->list (decode-elements decoder (decode-unsigned decoder) decode))))
 
-    (: decode-elements (All (T) (-> Decoder I64 (-> Decoder T ! mut) (Vector T) ! mut)))
+    (: decode-elements
+       (All (T) (requires (Copy T)) (-> Decoder I64 (-> Decoder T ! mut) (Vector T) ! mut)))
     (define (decode-elements decoder count decode-one)
       (if (= count 0)
           (vector-generate 0 (lambda (index) (panic "no elements")))

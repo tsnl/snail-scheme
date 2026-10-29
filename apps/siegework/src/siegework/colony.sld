@@ -188,7 +188,7 @@
             ((Some nest) (> (Nest-health nest) 0))
             ((None) #f))))
 
-    (: null-option? (All (T) (-> (Option T) Bool)))
+    (: null-option? (All (T) (requires (Copy T)) (-> (Option T) Bool)))
     (define (null-option? option)
       (match option
         ((Some _) #f)
@@ -468,11 +468,11 @@
        items))
 
     ;; Stable, for the handful of queued works.
-    (: insertion-sort (All (T) (-> (-> T T Bool) (List T) (List T))))
+    (: insertion-sort (All (T) (requires (Copy T)) (-> (-> T T Bool) (List T) (List T))))
     (define (insertion-sort before? items)
       (fold-left (lambda (sorted item) (insert before? item sorted)) (Nil) items))
 
-    (: insert (All (T) (-> (-> T T Bool) T (List T) (List T))))
+    (: insert (All (T) (requires (Copy T)) (-> (-> T T Bool) T (List T) (List T))))
     (define (insert before? item sorted)
       (match sorted
         ((Nil) (list item))

@@ -273,7 +273,7 @@
     ;; is compared with that type's once, here, so a stale plugin is refused
     ;; before anything it returns is read; the call then has the plain type.
     ;; A dynamic export is pure, so the program's handlers are not passed on.
-    (: plugin-function (All (A) (-> Plugin String (Result A LoadError) ! wasm)))
+    (: plugin-function (All (A) (requires (Copy A)) (-> Plugin String (Result A LoadError) ! wasm)))
     (define (plugin-function plugin name)
       (let ((program (Plugin-program plugin)))
         (match (Pair (module-export program name)
@@ -291,7 +291,8 @@
     (define (descriptor signature)
       ((ann (unsafe-cast signature) (-> (Vector I64)))))
 
-    (: checked-function (All (A) (-> String Funcref (Vector I64) (Result A LoadError))))
+    (: checked-function
+       (All (A) (requires (Copy A)) (-> String Funcref (Vector I64) (Result A LoadError))))
     (define (checked-function name function signature)
       (match (vector->list
               (dynamic-cast function (lambda (expected) (same-signature? signature expected))))

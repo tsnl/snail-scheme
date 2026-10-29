@@ -174,12 +174,12 @@
        (helpers (Ref (Table String)))
        (callees (Option Callees))))
 
-    (: push! (All (T) (-> (Ref (List T)) T Unit ! mut)))
+    (: push! (All (T) (requires (Copy T)) (-> (Ref (List T)) T Unit ! mut)))
     (define (push! cell value)
       (ref-set! cell (Cons value (ref-get cell))))
 
     ;; Replaces a cell's table with one that maps `key` to `value`.
-    (: put! (All (V) (-> (Ref (Table V)) String V Unit ! mut)))
+    (: put! (All (V) (requires (Copy V)) (-> (Ref (Table V)) String V Unit ! mut)))
     (define (put! cell key value)
       (ref-set! cell (table-set (ref-get cell) key value)))
 
@@ -1966,7 +1966,7 @@
     (: operation-type (-> Module String Type))
     (define (operation-type m operation)
       (match (program-value (program-of m) operation)
-        ((Some (Operation _ (Scheme _ _ (TFun params result _)))) (TFun params result empty-row))
+        ((Some (Operation _ (Scheme _ _ _ (TFun params result _)))) (TFun params result empty-row))
         (_ (panic "internal error: not an operation"))))
 
     (: operation-result (-> Module String Type))
@@ -3859,7 +3859,7 @@
            (sort-named (map (lambda (declaration) (Pair (declaration-id declaration) declaration))
                             declarations))))
 
-    (: sort-named (All (A) (-> (List (Pair String A)) (List (Pair String A)))))
+    (: sort-named (All (A) (requires (Copy A)) (-> (List (Pair String A)) (List (Pair String A)))))
     (define (sort-named entries)
       (let ((count (length entries)))
         (if (< count 2)
@@ -3868,7 +3868,9 @@
                          (sort-named (list-drop entries (quotient count 2)))))))
 
     (: merge-named
-       (All (A) (-> (List (Pair String A)) (List (Pair String A)) (List (Pair String A)))))
+       (All (A)
+            (requires (Copy A))
+            (-> (List (Pair String A)) (List (Pair String A)) (List (Pair String A)))))
     (define (merge-named a b)
       (match (Pair a b)
         ((Pair (Nil) _) b)

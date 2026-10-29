@@ -168,7 +168,7 @@
       (mix (+ (mix (+ (mix (+ (* seed 64) key)) x)) (* y 65536))))
 
     ;; One of `items` chosen by the seed and a key, if there are any.
-    (: pick (All (A) (-> I64 I64 (List A) (Option A))))
+    (: pick (All (A) (requires (Copy A)) (-> I64 I64 (List A) (Option A))))
     (define (pick seed key items)
       (if (null? items)
           (None)

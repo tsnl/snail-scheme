@@ -187,7 +187,7 @@
     ;; cell.
     (define chunk-size 4096)
 
-    (: drain (All (T e) (-> (-> (Option T) ! e) (Vector T) ! e)))
+    (: drain (All (T e) (requires (Copy T)) (-> (-> (Option T) ! e) (Vector T) ! e)))
     (define (drain next)
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
@@ -196,7 +196,7 @@
               (loop (Cons chunk chunks))))))
 
     ;; Up to `chunk-size` items, fewer only at the end.
-    (: next-chunk (All (T e) (-> (-> (Option T) ! e) (Vector T) ! e)))
+    (: next-chunk (All (T e) (requires (Copy T)) (-> (-> (Option T) ! e) (Vector T) ! e)))
     (define (next-chunk next)
       (let loop ((items (Nil)) (count 0))
         (if (= count chunk-size)

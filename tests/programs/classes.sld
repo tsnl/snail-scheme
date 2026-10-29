@@ -23,7 +23,7 @@
       ((None) "nothing")
       ((Some x) (string-append "just " (describe x))))))
 
-(: describe-twice (All (T) (requires (Describe T)) (-> T String)))
+(: describe-twice (All (T) (requires (Describe T) (Copy T)) (-> T String)))
 (define (describe-twice value)
   (string-append (describe value) (string-append " / " (describe value))))
 

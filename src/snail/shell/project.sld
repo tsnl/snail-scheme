@@ -167,7 +167,7 @@
                                     "; first declared at "
                                     (loc->string previous))))
 
-    (: unique-field (All (T) (-> String Loc (Option T) T (Option T) ! compile)))
+    (: unique-field (All (T) (requires (Copy T)) (-> String Loc (Option T) T (Option T) ! compile)))
     (define (unique-field name loc previous value)
       (match previous
         ((Some _) (compile-error loc (string-append "duplicate option " name)))

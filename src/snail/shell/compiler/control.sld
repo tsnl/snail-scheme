@@ -565,7 +565,10 @@
       ;; Abort in its type.
       (define (operation effect latent)
         (Operation effect
-                   (Scheme (Nil) (Nil) (TFun (list i64) i64 (TRow (Cons effect latent) (None))))))
+                   (Scheme (Nil)
+                           (Nil)
+                           (Nil)
+                           (TFun (list i64) i64 (TRow (Cons effect latent) (None))))))
 
       (define program
         (fold-left (lambda (program entry)

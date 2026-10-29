@@ -22,7 +22,7 @@
     ;; ---- Dealing ----
 
     ;; One item of a list, and the generator after the draw.
-    (: deal (All (T) (-> Random (List T) (Pair T Random))))
+    (: deal (All (T) (requires (Copy T)) (-> Random (List T) (Pair T Random))))
     (define (deal random items)
       (Pair (list-ref items (random-below random (length items))) (random-next random)))
 

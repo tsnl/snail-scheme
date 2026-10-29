@@ -295,7 +295,7 @@
     ;; `step` over each item in order, threading the context and collecting
     ;; the values, so a sequence of steps is itself one step.
     (: each
-       (All (A B e)
+       (All (A B e) (requires (Copy B))
             (-> Context (-> Context A (Pair B Context) ! e) (List A) (Pair (List B) Context) ! e)))
     (define (each cx step items)
       (let ((done (fold-left (lambda (done item)
@@ -1755,6 +1755,7 @@
              (constructor (Constructor case
                                        (Scheme params
                                                (Nil)
+                                               (Nil)
                                                (TFun (map Field-type (Case-fields case))
                                                      self
                                                      empty-row)))))
@@ -1780,6 +1781,7 @@
                                                     index
                                                     (Scheme params
                                                             (Nil)
+                                                            (Nil)
                                                             (TFun (list self) type empty-row))))))
         (if setters?
             (program-with-value program
@@ -1787,6 +1789,7 @@
                                 (Replacer case
                                           index
                                           (Scheme params
+                                                  (Nil)
                                                   (Nil)
                                                   (TFun (list self type) self empty-row))))
             program)))
@@ -1847,6 +1850,7 @@
                             (Method class
                                     (Scheme (append (map Ident-name params) (Scheme-vars own))
                                             (Cons self (Scheme-constraints own))
+                                            (Scheme-copy own)
                                             (Scheme-type own)))))))
         (_ (compile-error (syntax-loc signature) "expected (: method type)"))))
 
@@ -1892,13 +1896,15 @@
                                       (concatenate
                                        (map (lambda (type) (free-type-names cx env type))
                                             type-args))))
-             (scope (type-scope env (map (lambda (name) (Ident name (None) loc)) vars))))
+             (scope (type-scope env (map (lambda (name) (Ident name (None) loc)) vars)))
+             (requirements (resolve-requirements cx scope vars requires)))
         (expanding cx ((name (fresh-global (short-name (Class-name class)))))
                    (Pair (Instance name
                                    (Class-name class)
                                    vars
                                    (map (lambda (type) (resolve-type cx scope type)) type-args)
-                                   (map (lambda (c) (resolve-constraint cx scope c)) requires)
+                                   (Pair-first requirements)
+                                   (Pair-second requirements)
                                    (Nil))
                          cx))))
 
@@ -1952,12 +1958,13 @@
     (: instance-method-scheme (-> Program Class String Instance Scheme))
     (define (instance-method-scheme program class method instance)
       (match (program-value program method)
-        ((Some (Method _ (Scheme method-vars (Cons _ own) type)))
+        ((Some (Method _ (Scheme method-vars (Cons _ own) copy type)))
          (let* ((class-vars (Class-params class))
                 (substitution (zip class-vars (Instance-types instance))))
            (Scheme (append (Instance-vars instance) (list-drop method-vars (length class-vars)))
                    (append (Instance-requires instance)
                            (map (lambda (c) (substitute-constraint substitution c)) own))
+                   (append (Instance-copy instance) copy)
                    (substitute substitution type))))
         (_ (panic "internal error: not a method"))))
 
@@ -2102,7 +2109,7 @@
        (-> Context Env String Syntax Syntax Bool (Pair (Pair String Bool) Context) ! compile))
     (define (declare-operation-type cx env effect name type control?)
       (match (resolve-scheme cx env type)
-        ((Scheme vars constraints (TFun params result (TRow latent (None))))
+        ((Scheme vars constraints _ (TFun params result (TRow latent (None))))
          (unless (and (null? vars) (null? constraints))
            (compile-error (syntax-loc type)
                           "an operation's type cannot be polymorphic: a handler implements it once, at one type"))
@@ -2242,8 +2249,9 @@
       (match (program-value (Context-program cx) operation)
         ((Some (Operation effect scheme))
          (match scheme
-           ((Scheme (Nil) (Nil) (TFun params result _))
+           ((Scheme (Nil) (Nil) _ (TFun params result _))
             (Scheme (Nil)
+                    (Nil)
                     (Nil)
                     (TFun params result (TRow (operation-latent effect scheme) (None)))))
            (_ (compile-error loc "an operation with a default must have a monomorphic type"))))
@@ -2276,7 +2284,7 @@
     (: operation-arity (-> Context String I64))
     (define (operation-arity cx operation)
       (match (program-value (Context-program cx) operation)
-        ((Some (Operation _ (Scheme _ _ (TFun params _ _)))) (length params))
+        ((Some (Operation _ (Scheme _ _ _ (TFun params _ _)))) (length params))
         (_ (panic "internal error: not an operation"))))
 
     ;; ---- Primitives ----
@@ -2311,15 +2319,48 @@
       (match syntax
         ((Form (Cons (Ident "All" _ _) (Cons (Form params _) rest)) loc)
          (let* ((params (map (lambda (param) (expect-ident param "a type variable")) params))
-                (scope (type-scope env params)) (parts (split-requires rest)))
+                (vars (map Ident-name params)) (scope (type-scope env params))
+                (parts (split-requires rest))
+                (requirements (resolve-requirements cx scope vars (Pair-first parts))))
            (match (Pair-second parts)
              ((Cons type (Nil))
-              (Scheme (map Ident-name params)
-                      (map (lambda (c) (resolve-constraint cx scope c)) (Pair-first parts))
+              (Scheme vars
+                      (Pair-first requirements)
+                      (Pair-second requirements)
                       (resolve-type cx scope type)))
              (_ (compile-error loc
                                "expected (All (variable ...) [(requires constraint ...)] type)")))))
         (_ (mono-scheme (resolve-type cx env syntax)))))
+
+    ;; A scheme's or an instance's requirements: its class constraints, and
+    ;; the variables `(Copy A)` declares ω. Copy is no class, so it names
+    ;; one of the quantified variables, by name as `All` and `requires` are.
+    (: resolve-requirements
+       (-> Context
+           Env
+           (List String)
+           (List Syntax)
+           (Pair (List Constraint) (List String))
+           ! compile))
+    (define (resolve-requirements cx env vars requirements)
+      (fold-right (lambda (requirement found)
+                    (match requirement
+                      ((Form (Cons (Ident "Copy" _ _) args) loc)
+                       (Pair (Pair-first found)
+                             (Cons (copy-variable vars args loc) (Pair-second found))))
+                      (_ (Pair (Cons (resolve-constraint cx env requirement) (Pair-first found))
+                               (Pair-second found)))))
+                  (Pair (Nil) (Nil)) requirements))
+
+    (: copy-variable (-> (List String) (List Syntax) Loc String ! compile))
+    (define (copy-variable vars args loc)
+      (match args
+        ((Cons (Ident name _ _) (Nil))
+         (if (member? name vars)
+             name
+             (compile-error loc
+                            (string-append "Copy names a quantified type variable, not " name))))
+        (_ (compile-error loc "expected (Copy variable)"))))
 
     (: resolve-constraint (-> Context Env Syntax Constraint ! compile))
     (define (resolve-constraint cx env syntax)

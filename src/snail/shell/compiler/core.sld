@@ -19,6 +19,7 @@
    Scheme
    Scheme-vars
    Scheme-constraints
+   Scheme-copy
    Scheme-type
    mono-scheme
    Substitution
@@ -98,6 +99,7 @@
    Instance-vars
    Instance-types
    Instance-requires
+   Instance-copy
    Instance-methods
    Instance-methods-set
    Import
@@ -203,14 +205,20 @@
        (types (List Type))))
 
     ;; A scheme quantifies rigid variables, which may stand for types or rows.
+    ;; `copy` names those a `(requires (Copy A))` declares ω, whose values
+    ;; may be duplicated and discarded. It is no class constraint, as it has
+    ;; no evidence: a constraint's evidence is its position among the
+    ;; constraints. The others will be linear (#550); until then every
+    ;; variable ranges over ω types.
     (struct Scheme
       ((vars (List String))
        (constraints (List Constraint))
+       (copy (List String))
        (type Type)))
 
     (: mono-scheme (-> Type Scheme))
     (define (mono-scheme type)
-      (Scheme (Nil) (Nil) type))
+      (Scheme (Nil) (Nil) (Nil) type))
 
     ;; The names of the core forms, which the expander binds in
     ;; (snail core forms) and (snail shell highlight) colors as keywords.
@@ -664,12 +672,15 @@
        (methods (List String))))
 
     ;; Each method maps to the top-level definition that implements it.
+    ;; `copy` names the instance variables its requirements declare ω, as a
+    ;; scheme's does.
     (struct Instance
       ((name String)
        (class String)
        (vars (List String))
        (types (List Type))
        (requires (List Constraint))
+       (copy (List String))
        (methods (List (Pair String String)))))
 
     (struct Import
@@ -880,7 +891,7 @@
                  (owned (Program-effects program) owner)
                  (take (Program-items program) count) (take (Program-libraries program) 1))))
 
-    (: owned (All (V) (-> (Table V) String (Table V))))
+    (: owned (All (V) (requires (Copy V)) (-> (Table V) String (Table V))))
     (define (owned table owner)
       (fold-left (lambda (result key)
                    (match (table-ref table key)
@@ -925,7 +936,7 @@
 
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
-    (: table-union (All (V) (-> (Table V) (Table V) (Table V))))
+    (: table-union (All (V) (requires (Copy V)) (-> (Table V) (Table V) (Table V))))
     (define (table-union table additions)
       (fold-left (lambda (result key)
                    (match (table-ref additions key)

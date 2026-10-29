@@ -170,8 +170,9 @@
     ;; Returned failures close here. Traps and cancellation in an unrelated
     ;; handler effect cannot unwind through this code; runtime shutdown owns
     ;; their remaining native resources. Active native I/O cancels its socket.
-    (: serve-one (All (E e) (-> Connection I32 (-> Request (Result Response E) ! e)
-                                (Result Unit (ExchangeError E)) ! tcp e)))
+    (: serve-one
+       (All (E e) (requires (Copy E)) (-> Connection I32 (-> Request (Result Response E) ! e)
+                                          (Result Unit (ExchangeError E)) ! tcp e)))
     (define (serve-one connection grace handler)
       (let ((result (exchange connection grace handler)))
         (match result

@@ -41,7 +41,7 @@
        (headings I64)
        (strip (-> M I64 Strip))))
 
-    (: strip-texture (All (M) (-> (Spritebook M) Strip Texture)))
+    (: strip-texture (All (M) (requires (Copy M)) (-> (Spritebook M) Strip Texture)))
     (define (strip-texture book strip)
       (let ((width (Spritebook-cell-width book)) (height (Spritebook-cell-height book)))
         (Texture (Spritebook-picture book)
@@ -74,7 +74,7 @@
     ;; The book's motion seen from the heading `camera` gives a figure facing
     ;; `facing`, as a sprite `height` world units tall with its bottom center
     ;; at `position`. Its width keeps the cells' proportions.
-    (: pose (All (M) (-> (Spritebook M) M Vec3 Vec3 F32 Camera Item)))
+    (: pose (All (M) (requires (Copy M)) (-> (Spritebook M) M Vec3 Vec3 F32 Camera Item)))
     (define (pose book motion position facing height camera)
       (sprite (posed-texture book motion facing camera)
               position
@@ -83,14 +83,14 @@
 
     ;; The same, lying flat on the ground for a camera looking straight
     ;; down: a figure on a 2D map.
-    (: pose-flat (All (M) (-> (Spritebook M) M Vec3 Vec3 F32 Camera Item)))
+    (: pose-flat (All (M) (requires (Copy M)) (-> (Spritebook M) M Vec3 Vec3 F32 Camera Item)))
     (define (pose-flat book motion position facing height camera)
       (flat-sprite (posed-texture book motion facing camera)
                    position
                    (cell-width-for book height)
                    height))
 
-    (: posed-texture (All (M) (-> (Spritebook M) M Vec3 Camera Texture)))
+    (: posed-texture (All (M) (requires (Copy M)) (-> (Spritebook M) M Vec3 Camera Texture)))
     (define (posed-texture book motion facing camera)
       (strip-texture book
                      ((Spritebook-strip book)
@@ -98,7 +98,7 @@
                       (heading (Spritebook-headings book) facing camera))))
 
     ;; The width that keeps a cell's proportions at `height`.
-    (: cell-width-for (All (M) (-> (Spritebook M) F32 F32)))
+    (: cell-width-for (All (M) (requires (Copy M)) (-> (Spritebook M) F32 F32)))
     (define (cell-width-for book height)
       (/ (* height (i32->f32 (Spritebook-cell-width book)))
          (i32->f32 (Spritebook-cell-height book))))

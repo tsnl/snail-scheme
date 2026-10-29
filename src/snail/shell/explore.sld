@@ -28,7 +28,7 @@
 
     ;; `moves` lists what may happen in a state, `step` applies one, and
     ;; `invariant` explains why a state is wrong, if it is.
-    (: explore (All (S M) (requires (Serialize S))
+    (: explore (All (S M) (requires (Serialize S) (Copy S) (Copy M))
                     (-> S
                         (-> S (List M))
                         (-> S M S)
@@ -45,7 +45,7 @@
 
     ;; Checks one frontier, then the states its moves reach for the first
     ;; time. `seen` holds every state reached so far.
-    (: search (All (S M) (requires (Serialize S))
+    (: search (All (S M) (requires (Serialize S) (Copy M) (Copy S))
                    (-> (List (Visit S M))
                        (-> S (List M))
                        (-> S M S)
@@ -63,7 +63,9 @@
                ((Pair next seen) (search next moves step invariant (- depth 1) seen)))))))
 
     (: first-violation
-       (All (S M) (-> (List (Visit S M)) (-> S (Option String)) (Option (Violation S M)))))
+       (All (S M)
+            (requires (Copy M) (Copy S))
+            (-> (List (Visit S M)) (-> S (Option String)) (Option (Violation S M)))))
     (define (first-violation frontier invariant)
       (match frontier
         ((Nil) (None))
@@ -75,7 +77,7 @@
 
     ;; The states the frontier reaches for the first time, with `seen`
     ;; grown by them.
-    (: successors (All (S M) (requires (Serialize S))
+    (: successors (All (S M) (requires (Serialize S) (Copy M) (Copy S))
                        (-> (List (Visit S M))
                            (-> S (List M))
                            (-> S M S)
@@ -99,7 +101,7 @@
         ((Pair next seen) (Pair (reverse next) seen))))
 
     ;; The encoding as text, one character per byte, to key the table.
-    (: state-key (All (S) (requires (Serialize S)) (-> S String)))
+    (: state-key (All (S) (requires (Serialize S) (Copy S)) (-> S String)))
     (define (state-key state)
       (let ((bytes (serialize state)))
         (string-generate (vector-length bytes)

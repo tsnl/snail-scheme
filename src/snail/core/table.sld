@@ -46,7 +46,7 @@
     (define (below hash bit)
       (i64-and hash (- bit 1)))
 
-    (: table-ref (All (V) (-> (Table V) String (Option V))))
+    (: table-ref (All (V) (requires (Copy V)) (-> (Table V) String (Option V))))
     (define (table-ref table key)
       (let ((hash (string-hash key)))
         (let loop ((table table))
@@ -55,13 +55,13 @@
             ((Leaf leaf-hash entries) (if (= leaf-hash hash) (assoc-ref entries key) (None)))
             ((Branch _ bit zero one) (loop (if (= (i64-and hash bit) 0) zero one)))))))
 
-    (: table-contains? (All (V) (-> (Table V) String Bool)))
+    (: table-contains? (All (V) (requires (Copy V)) (-> (Table V) String Bool)))
     (define (table-contains? table key)
       (match (table-ref table key)
         ((Some _) #t)
         ((None) #f)))
 
-    (: table-set (All (V) (-> (Table V) String V (Table V))))
+    (: table-set (All (V) (requires (Copy V)) (-> (Table V) String V (Table V))))
     (define (table-set table key value)
       (let ((hash (string-hash key)))
         (let insert ((table table))
@@ -97,15 +97,15 @@
         ((Leaf _ entries) (fold-left f initial entries))
         ((Branch _ _ zero one) (table-fold f (table-fold f initial zero) one))))
 
-    (: table-count (All (V) (-> (Table V) I64)))
+    (: table-count (All (V) (requires (Copy V)) (-> (Table V) I64)))
     (define (table-count table)
       (table-fold (lambda (count entry) (+ count 1)) 0 table))
 
-    (: table-keys (All (V) (-> (Table V) (List String))))
+    (: table-keys (All (V) (requires (Copy V)) (-> (Table V) (List String))))
     (define (table-keys table)
       (reverse (table-fold (lambda (keys entry) (Cons (Pair-first entry) keys)) (Nil) table)))
 
-    (: table-values (All (V) (-> (Table V) (List V))))
+    (: table-values (All (V) (requires (Copy V)) (-> (Table V) (List V))))
     (define (table-values table)
       (reverse (table-fold (lambda (values entry) (Cons (Pair-second entry) values)) (Nil) table)))
 
