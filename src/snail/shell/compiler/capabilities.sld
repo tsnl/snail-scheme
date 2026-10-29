@@ -3,7 +3,7 @@
 ;; contains itself. A procedure's arrow does not describe its captured
 ;; environment.
 (define-library (snail shell compiler capabilities)
-  (export linear-type? first-order-type? contains-itself?)
+  (export linear-type? missing-copy copy-declaration first-order-type? contains-itself?)
   (import
    (snail core base)
    (snail shell compiler core))
@@ -58,47 +58,75 @@
       ((found? Bool)
        (entered (List String))))
 
-    ;; Type variables range over unrestricted values. Concrete fields can
-    ;; make a record linear; ordinary arrows never describe owned captures.
-    (: linear-type? (-> Program Type Bool))
-    (define (linear-type? program type)
-      (Linearity-found? (linear-search program type (Nil))))
+    ;; A type variable is linear unless `copy` names it, as a signature's
+    ;; `(requires (Copy A))` does. Concrete fields can make a record linear;
+    ;; ordinary arrows never describe owned captures.
+    (: linear-type? (-> Program (List String) Type Bool))
+    (define (linear-type? program copy type)
+      (Linearity-found? (linear-search program copy type (Nil))))
 
-    (: linear-search (-> Program Type (List String) Linearity))
-    (define (linear-search program type entered)
+    (: linear-search (-> Program (List String) Type (List String) Linearity))
+    (define (linear-search program copy type entered)
       (match type
         ((TCon "Once" _) (Linearity #t entered))
         ((TCon name args)
-         (let ((found (linear-any program args entered)))
+         (let ((found (linear-any program copy args entered)))
            (cond ((Linearity-found? found) found)
                  ((or (member? name (Linearity-entered found))
                       (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
                   found)
-                 (else (linear-fields program name args (Cons name (Linearity-entered found)))))))
+                 (else
+                  (linear-fields program copy name args (Cons name (Linearity-entered found)))))))
+        ((TRigid name) (Linearity (not (member? name copy)) entered))
         (_ (Linearity #f entered))))
 
     ;; Arguments are searched before a recursive declaration is cut by name.
     ;; Thus List<Ref<I64>> cannot pass because List has been entered already.
-    (: linear-any (-> Program (List Type) (List String) Linearity))
-    (define (linear-any program types entered)
-      (fold-left (lambda (found type) (linear-next program type found))
+    (: linear-any (-> Program (List String) (List Type) (List String) Linearity))
+    (define (linear-any program copy types entered)
+      (fold-left (lambda (found type) (linear-next program copy type found))
                  (Linearity #f entered) types))
 
-    (: linear-next (-> Program Type Linearity Linearity))
-    (define (linear-next program type found)
-      (if (Linearity-found? found) found (linear-search program type (Linearity-entered found))))
+    (: linear-next (-> Program (List String) Type Linearity Linearity))
+    (define (linear-next program copy type found)
+      (if (Linearity-found? found)
+          found
+          (linear-search program copy type (Linearity-entered found))))
 
-    (: linear-fields (-> Program String (List Type) (List String) Linearity))
-    (define (linear-fields program name args entered)
+    ;; A declaration's parameters are bound to `args`, so its fields hold
+    ;; only the variables of the type being searched.
+    (: linear-fields (-> Program (List String) String (List Type) (List String) Linearity))
+    (define (linear-fields program copy name args entered)
       (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
-        (fold-left (lambda (found case) (linear-case program bindings case found))
+        (fold-left (lambda (found case) (linear-case program copy bindings case found))
                    (Linearity #f entered) (DataType-cases data))))
 
-    (: linear-case (-> Program Substitution Case Linearity Linearity))
-    (define (linear-case program bindings case found)
-      (fold-left
-       (lambda (found field) (linear-next program (substitute bindings (Field-type field)) found))
-       found (Case-fields case)))
+    (: linear-case (-> Program (List String) Substitution Case Linearity Linearity))
+    (define (linear-case program copy bindings case found)
+      (fold-left (lambda (found field)
+                   (linear-next program copy (substitute bindings (Field-type field)) found))
+                 found (Case-fields case)))
+
+    ;; The variables a signature would have to declare Copy to make `type`
+    ;; unrestricted, or none when a concrete part of it is linear, which
+    ;; no declaration changes. A variable reached through data makes its
+    ;; type linear; one inside an arrow does not.
+    (: missing-copy (-> Program (List String) Type (List String)))
+    (define (missing-copy program copy type)
+      (let ((free (filter (lambda (name) (not (member? name copy))) (data-variables type))))
+        (if (linear-type? program (append free copy) type) (Nil) free)))
+
+    (: data-variables (-> Type (List String)))
+    (define (data-variables type)
+      (match type
+        ((TRigid name) (list name))
+        ((TCon _ args) (delete-duplicates string=? (concatenate (map data-variables args))))
+        (_ (Nil))))
+
+    ;; The requirements naming `names`, as a diagnostic quotes them.
+    (: copy-declaration (-> (List String) String))
+    (define (copy-declaration names)
+      (string-join (map (lambda (name) (string-append "(Copy " name ")")) names) " "))
 
     ;; ---- Buildable structs ----
 

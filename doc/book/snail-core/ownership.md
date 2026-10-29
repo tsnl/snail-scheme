@@ -47,8 +47,8 @@ so is a second use.
   its scopes. An abortive operation answers `Never`
   ([effects](effects.md#operations-that-never-return)), so
   `(absurd (fail diagnostic))` ends a path as a panic does.
-- **Linear data.** A concrete struct or enum containing a linear field is
-  itself linear. Destructure it with `match`, which moves the fields out;
+- **Linear data.** A struct or enum containing a linear field, or applied
+  to a linear type, is itself linear: `(List (Once (-> Unit)))` is. Destructure it with `match`, which moves the fields out;
   a wildcard cannot discard a linear field, and the generated accessors and
   replacements cannot be used, since they would give a field two owners.
   An enum is linear even when its current variant has no fields.
@@ -56,16 +56,41 @@ so is a second use.
   linear values, and constructing it moves them in. An ordinary procedure
   is reusable, so capturing a linear value in one is an error. Taking a
   linear argument is fine: each invocation receives its own owner.
+- **Type variables.** A type variable is linear unless its definition
+  requires `(Copy A)`, so a generic body may only move a value of type
+  `A`. Using one twice, discarding it, or passing it where `Copy` is
+  required is an error that names the missing requirement. A definition
+  that requires `(Copy A)` may duplicate and discard, and is used only at
+  unrestricted types, so a generic `duplicate` cannot be instantiated with
+  a work item. No class implies `Copy`: `max` requires `(Ord T)` and
+  `(Copy T)`. An instance requires `Copy` the same way, in its `requires`.
 - **What cannot hold one.** Linear values cannot be globals, elements of
   `Ref`, `Array` or `Vector`, payloads erased into `Any`, or exports, and a
-  statement cannot discard one. Generic type variables range over
-  unrestricted types only, so a generic `duplicate` cannot be instantiated
-  with a work item.
+  statement cannot discard one. Reading an element of a vector leaves it in
+  place, so the vector and array primitives require `(Copy A)`, as do
+  `ref-get` and `ref-set!`.
 - **Handlers.** `resume` is a `Once`. An implementation that does not
   resume writes `(drop resume)`; one whose operation answers `Never` is
   handed no `resume` at all.
 
-The check runs on each library's checked items, before specialization.
+```scheme
+(: swap (All (A B) (-> (Pair A B) (Pair B A))))
+(define (swap pair)
+  (match pair
+    ((Pair a b) (Pair b a))))
+
+(: twice (All (A) (requires (Copy A)) (-> A (Pair A A))))
+(define (twice value)
+  (Pair value value))
+```
+
+`swap` exchanges two work items; `twice` cannot take one. `map`, `for-each`
+and the folds move each element once, so they take lists of work items;
+`length`, `filter` and `member?` discard or duplicate elements, and require
+`Copy`.
+
+The check runs on each library's checked items, before specialization, so
+a generic body is checked once for every instantiation.
 Dropping a `resume`, or ending a path that never returns, abandons the
 linear values held there, since nothing runs them. Leaks are safe, as in
 Rust.
@@ -97,14 +122,9 @@ A type stays **linear** or **omega**, and linearity reaches beyond `Once`:
 - A concrete struct or enum is omega unless a field is linear, it carries
   the compiler-owned `Move` marker, or it has a `Drop` instance. Most
   declarations need no annotation.
-- A type variable is linear by default. `(Copy A)` makes it omega with
-  implicit duplication; `(Clone e A)` duplicates explicitly, with
-  `clone : (-> A (Pair A A) ! e)`. Requirements are declared in
-  signatures, and a body that duplicates without one is told "this use
-  needs `(Copy A)`". Signatures and instances already accept
-  `(requires (Copy A))`, and the libraries declare it wherever they
-  duplicate or discard a value, but every type variable is still
-  unrestricted.
+- `(Clone e A)` duplicates explicitly, with
+  `clone : (-> A (Pair A A) ! e)`. Like `Drop`, it is a class over an
+  effect row; `(Copy A)` is implemented, above.
 - `Vector`, `Array`, `Any`, globals and exports hold omega values only.
 
 ### Drop as a class
