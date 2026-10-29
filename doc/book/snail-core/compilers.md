@@ -201,7 +201,8 @@ function of the expander has `mut` in its row — and where it does not, the
   unless its definition requires `(Copy A)`, so each generic body is
   checked once, for every instantiation. A field operation applied to a
   linear local leaves it live, the place rule, and may not read or
-  discard a linear value.
+  discard a linear value; a replacement instead consumes its record and
+  answers it.
 - **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence
@@ -246,7 +247,10 @@ function of the expander has `mut` in its row — and where it does not, the
   no fields is an `i32`; other data are GC structs, and enum cases are final
   subtypes of a base holding the tag. A mutable field is a `mut` struct
   field, written with `struct.set`; a swap reads the old content and writes
-  the new in one helper. Sequences are GC arrays. Functions are
+  the new in one helper. Every field of a struct whose ground type is
+  linear is `mut` too, since its reference has one owner: a replacement of
+  one writes the field in place and answers the same reference, where an
+  omega struct's is copied. Sequences are GC arrays. Functions are
   closures: a struct whose first field is a typed function reference, with
   captured variables in a subtype. An `Fn` is that function reference
   alone, `ref.func` of a top-level function or of a `fn` compiled to a

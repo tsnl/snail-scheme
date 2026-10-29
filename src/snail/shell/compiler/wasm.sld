@@ -471,12 +471,31 @@
         (_ (panic "internal error: not a data type"))))
 
     (: case-fields (-> Module Type Case (List Wat) ! mut))
-    ;; A mutable field is a `mut` field of the GC struct, written in place.
+    ;; A mutable field is a `mut` field of the GC struct, written in place,
+    ;; and so is every field of a struct whose replacements reuse it.
     (define (case-fields m type case)
-      (map (lambda (pair)
-             (let ((content (rep->wat (rep m (Pair-second pair)))))
-               (wat "field" (if (Field-mutable? (Pair-first pair)) (wat "mut" content) content))))
-           (zip (Case-fields case) (case-field-types m type case))))
+      (let ((reused (reused-in-place? m type)))
+        (map (lambda (pair)
+               (let ((content (rep->wat (rep m (Pair-second pair)))))
+                 (wat "field"
+                      (if (or reused (Field-mutable? (Pair-first pair)))
+                          (wat "mut" content)
+                          content))))
+             (zip (Case-fields case) (case-field-types m type case)))))
+
+    ;; A linear struct leaves only by being taken apart, dropped or
+    ;; replaced, so its reference has one owner, and a replacement, which
+    ;; consumes the record, may write the field where it is: no other
+    ;; reference could see it change. That holds of a ground type that is
+    ;; linear; an unrestricted one, which a generic body checked as linear
+    ;; may be specialized at, can be shared, so its replacement copies.
+    (: reused-in-place? (-> Module Type Bool))
+    (define (reused-in-place? m type)
+      (match type
+        ((TCon name _)
+         (and (not (DataType-enum? (data-type-of m name)))
+              (linear-type? (program-of m) (Nil) type)))
+        (_ #f)))
 
     (: type-name (-> Type String))
     (define (type-name type)
@@ -1250,23 +1269,33 @@
                              (wat "local.get" (id "$record"))
                              (wat "local.get" (id "$value"))))))))
 
+    ;; A replacement copies the record with one field replaced, or writes
+    ;; the field of a record it may reuse (`reused-in-place?`) and answers
+    ;; the same reference. The record is evaluated before the replacement
+    ;; either way.
     (: replace-field (-> Fn Case I64 Expr Expr Wat ! mut))
     (define (replace-field fn case index value replacement)
       (let* ((m (Fn-module fn))
              (type-id (data-type m (Expr-type value)))
-             (temp (declare-temp! fn (rep->wat (Reference type-id)))))
-        (wat "block" (wat "result" (wat "ref" (id type-id)))
-             (wat "local.set" (id temp) (emit1 fn value))
-             (wat* "struct.new"
-                   (Cons (id type-id)
-                         (map (lambda (i)
-                                (if (= i index)
-                                    (emit1 fn replacement)
-                                    (wat "struct.get"
-                                         (id type-id)
-                                         (int i)
-                                         (wat "local.get" (id temp)))))
-                              (iota (length (Case-fields case)))))))))
+             (temp (declare-temp! fn (rep->wat (Reference type-id))))
+             (record (wat "local.get" (id temp))))
+        (wat* "block"
+              (append (list (wat "result" (wat "ref" (id type-id)))
+                            (wat "local.set" (id temp) (emit1 fn value)))
+                      (if (reused-in-place? m (Expr-type value))
+                          (list
+                           (wat "struct.set" (id type-id) (int index) record (emit1 fn replacement))
+                           record)
+                          (list (wat* "struct.new"
+                                      (Cons (id type-id)
+                                            (map (lambda (i)
+                                                   (if (= i index)
+                                                       (emit1 fn replacement)
+                                                       (wat "struct.get"
+                                                            (id type-id)
+                                                            (int i)
+                                                            record)))
+                                                 (iota (length (Case-fields case))))))))))))
 
     ;; ---- Host calls ----
 
