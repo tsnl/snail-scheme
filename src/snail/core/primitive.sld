@@ -49,8 +49,14 @@
    string-generate
    string->vector vector->string
    vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
-   make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
-   ref ref-get ref-set! ref-replace!)
+   make-array
+   array-length
+   array-ref
+   array-set!
+   array->vector
+   vector->array
+   array-copy!
+   vector-copy!)
   (import
    (snail core forms))
   (begin
@@ -233,12 +239,4 @@
     (primitive array-copy!
                (All (A) (requires (Copy A)) (-> (Array A) I64 (Array A) I64 I64 Unit ! mut)))
     (primitive vector-copy!
-               (All (A) (requires (Copy A)) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))
-    ;; A cell's handle is unrestricted, and its content may be linear.
-    ;; `ref` moves a value in, and `ref-replace!` swaps in a new one and
-    ;; hands back the old. `ref-get` duplicates the content and `ref-set!`
-    ;; discards it, so both require (Copy A).
-    (primitive ref (All (A) (-> A (Ref A) ! mut)))
-    (primitive ref-replace! (All (A) (-> (Ref A) A A ! mut)))
-    (primitive ref-get (All (A) (requires (Copy A)) (-> (Ref A) A ! mut)))
-    (primitive ref-set! (All (A) (requires (Copy A)) (-> (Ref A) A Unit ! mut)))))
+               (All (A) (requires (Copy A)) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))))

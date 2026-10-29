@@ -29,7 +29,7 @@
    (write-size I64)
    (fault String)))
 
-(: stream (-> Bytes I64 I64 String Stream ! mut))
+(: stream (-> Bytes I64 I64 String Stream))
 (define (stream input read-size write-size fault)
   (Stream input (ref 0) (ref (ann (Nil) (List Bytes))) (ref 0) (ref 0) read-size write-size fault))
 

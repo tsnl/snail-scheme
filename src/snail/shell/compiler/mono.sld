@@ -333,7 +333,7 @@
 
     ;; ---- Programs ----
 
-    (: new-state (-> Specialization (Option String) State ! mut))
+    (: new-state (-> Specialization (Option String) State))
     (define (new-state input owner)
       (State input (ref empty-table) (ref empty-table) (ref (Nil)) owner (ref empty-table)
              (control-effects (Typed-program (Specialization-typed input)))))

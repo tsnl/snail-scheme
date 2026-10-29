@@ -362,7 +362,6 @@
            (("Any") (Reference (any-type m)))
            (("Funcref") (Scalar "funcref"))
            (("Array" "Vector") (Reference (array-type m (element-rep m (first-type args)))))
-           (("Ref") (Reference (cell-type m (rep m (first-type args)))))
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
         ((TFun params result _)
          (Reference (closure-type m (map (lambda (param) (rep m param)) params) (rep m result))))
@@ -407,19 +406,6 @@
                            (wat "type"
                                 (id (wasm-id key))
                                 (wat "array" (wat "mut" (rep->wat element)))))))))
-
-    (: cell-type (-> Module Rep String ! mut))
-    (define (cell-type m content)
-      (let ((key (string-append "cell." (rep-key content))))
-        (match (known-type m key)
-          ((Some type) type)
-          ((None)
-           (register-type! m
-                           key
-                           (wasm-id key)
-                           (wat "type"
-                                (id (wasm-id key))
-                                (wat "struct" (wat "field" (wat "mut" (rep->wat content))))))))))
 
     ;; A closure is a struct whose first field is its code. Each lambda with
     ;; captured variables extends the base struct with their fields.
@@ -561,7 +547,7 @@
 
     ;; A function's evidence is its `$ev` parameter, the handlers in scope at
     ;; the call; a `handle` body reads the node it installed instead.
-    (: new-fn (-> Module Fn ! mut))
+    (: new-fn (-> Module Fn))
     (define (new-fn m)
       (Fn m
           (ref (Nil))
@@ -2577,8 +2563,6 @@
                  (id representation)
                  (wat "i32.const" (int -1))
                  (wat "ref.null" (Word "any"))))
-           ((TCon "Ref" (Cons content _))
-            (wat "struct.new" (id representation) (placeholder-value m content seen loc)))
            ((TCon name _)
             (if (member? name (list "String" "Array" "Vector"))
                 (wat "array.new_fixed" (id representation) (int 0))
@@ -3454,41 +3438,7 @@
            (list (wat* "call"
                        (Cons (id (generate-helper m (sequence type) (list-ref types 1)))
                              (append code (list (Fn-evidence fn)))))))
-          (("ref")
-           (list (wat* "struct.new" (Cons (id (cell-type m (fn-rep fn (first-type types)))) code))))
-          (("ref-get")
-           (list
-            (wat* "struct.get" (Cons (id (cell-type m (fn-rep fn type))) (Cons (int 0) code)))))
-          (("ref-set!")
-           (list (wat* "struct.set"
-                       (Cons (id (cell-type m (fn-rep fn (list-ref types 1)))) (Cons (int 0) code)))
-                 (wat "i32.const" (int 0))))
-          (("ref-replace!")
-           (list (wat* "call" (Cons (id (replace-helper m (fn-rep fn type))) code))))
           (else (panic (string-append "internal error: unknown primitive " operation))))))
-
-    ;; Swaps a cell's content for a new value and answers the old one, which
-    ;; stays on the operand stack while the new one is stored. The content
-    ;; moves without a copy, so the caller is its only owner, and a cell
-    ;; may hold a linear value.
-    (: replace-helper (-> Module Rep String ! mut))
-    (define (replace-helper m content)
-      (let ((cell (cell-type m content)) (type (rep->wat content)))
-        (helper! m
-                 "ref-replace"
-                 (rep-key content)
-                 (lambda (function-id)
-                   (wat "func"
-                        (id function-id)
-                        (wat "param" (id "$cell") (wat "ref" (id cell)))
-                        (wat "param" (id "$value") type)
-                        (wat "result" type)
-                        (wat "struct.get" (id cell) (int 0) (wat "local.get" (id "$cell")))
-                        (wat "struct.set"
-                             (id cell)
-                             (int 0)
-                             (wat "local.get" (id "$cell"))
-                             (wat "local.get" (id "$value"))))))))
 
     ;; ---- Owned values ----
 
@@ -3883,7 +3833,7 @@
         (for-each (lambda (name) (export-definition! m name)) (Mono-exported mono))
         (module-wat m)))
 
-    (: new-module (-> Mono (Option String) Module ! mut))
+    (: new-module (-> Mono (Option String) Module))
     (define (new-module mono owner)
       (Module (Mono-program mono)
               (item-definitions (Mono-items mono))

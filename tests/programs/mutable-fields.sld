@@ -61,3 +61,14 @@
   (write-line (string-append "tries " (i64->string (Task-tries task))))
   (match task
     ((Task work _) (call-once work))))
+
+;; A cell is the struct `Ref`, with one mutable field, so building one is
+;; pure, and `ref-get` and `ref-set!` are its field operations under short
+;; names.
+(: fresh (-> I64 (Ref I64)))
+(define (fresh value)
+  (ref value))
+
+(let ((cell (fresh 41)))
+  (Ref-contents-set! cell (+ (ref-get cell) 1))
+  (write-line (i64->string (Ref-contents cell))))

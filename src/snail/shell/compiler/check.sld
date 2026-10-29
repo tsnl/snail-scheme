@@ -1455,10 +1455,11 @@
            ((Some scheme) (Scheme-type scheme))
            ((None) (panic (string-append "internal error: no type for " name)))))))
 
-    ;; Whether a value of the type can hold or reach mutable storage: a `Ref`,
-    ;; an `Array`, an `Any` that may hide one, data with a mutable field or
-    ;; a field of such a type, or a function that may perform `mut`. Code cannot use a value of a type
-    ;; variable as storage, so type variables hold none.
+    ;; Whether a value of the type can hold or reach mutable storage: an
+    ;; `Array`, an `Any` that may hide one, data with a mutable field, a
+    ;; `Ref` among them, or with a field of such a type, or a function that
+    ;; may perform `mut`. Code cannot use a value of a type variable as
+    ;; storage, so type variables hold none.
     (: holds-storage? (-> Program Type Bool))
     (define (holds-storage? program type)
       (holds-storage-within? program type (Nil)))
@@ -1467,7 +1468,7 @@
     (define (holds-storage-within? program type visiting)
       (match type
         ((TCon name args)
-         (or (member? name (list "Ref" "Array" "Any"))
+         (or (member? name (list "Array" "Any"))
              (any? (lambda (arg) (holds-storage-within? program arg visiting)) args)
              (and (not (member? name visiting))
                   (fields-hold-storage? program name (Cons name visiting)))))
@@ -1483,7 +1484,7 @@
         ((TRow labels _) (member? "mut" labels))
         (_ #f)))
 
-    ;; Builtin types other than `Ref`, `Array` and `Any` have no fields.
+    ;; Builtin types other than `Array` and `Any` have no fields.
     (: fields-hold-storage? (-> Program String (List String) Bool))
     (define (fields-hold-storage? program name visiting)
       (and (not (any? (lambda (entry) (string=? (Pair-first entry) name)) builtin-types))
