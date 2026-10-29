@@ -47,8 +47,11 @@ so is a second use.
   its scopes. An abortive operation answers `Never`
   ([effects](effects.md#operations-that-never-return)), so
   `(absurd (fail diagnostic))` ends a path as a panic does.
-- **Linear data.** A struct or enum containing a linear field, or applied
-  to a linear type, is itself linear: `(List (Once (-> Unit)))` is. Destructure it with `match`, which moves the fields out;
+- **Linear data.** A struct or enum with a linear field, once its
+  parameters are bound, is itself linear: `(List (Once (-> Unit)))` is. A
+  field holding a linear value only inside a `Ref` does not count, so a
+  `(Mailbox (Once (-> Unit)))` is unrestricted. Destructure linear data
+  with `match`, which moves the fields out;
   a wildcard cannot discard a linear field, and the generated accessors and
   replacements cannot be used, since they would give a field two owners.
   An enum is linear even when its current variant has no fields.

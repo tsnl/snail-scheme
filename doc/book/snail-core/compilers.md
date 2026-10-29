@@ -166,7 +166,10 @@ function of the expander has `mut` in its row — and where it does not, the
   type is first-order data, which dynamic exports require, and whether it
   is linear, given the type variables a definition requires `Copy` of,
   which the checker and ownership use. Ordinary arrows say nothing about
-  their captures, and a `Ref` is a shared handle whatever it holds.
+  their captures, and a `Ref` is a shared handle whatever it holds. The
+  linear search follows each declaration's fields with its arguments
+  bound, once per instantiation, so an argument held only in a `Ref`
+  leaves the type unrestricted.
 - **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** checks each
   library's linear values once its types are final, before
   specialization. It follows each path through a body: a use consumes a
@@ -174,7 +177,7 @@ function of the expander has `mut` in its row — and where it does not, the
   is an error. Alternatives must consume the same values, except those
   that panic or reach `Never`, which never return. It inserts nothing.
   Only one-shot closures can own linear captures. Records inherit the
-  grade of their fields and arguments, and a type variable is linear
+  grade of their fields, and a type variable is linear
   unless its definition requires `(Copy A)`, so each generic body is
   checked once, for every instantiation.
 - **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/mono.sld)** starts from the program's
