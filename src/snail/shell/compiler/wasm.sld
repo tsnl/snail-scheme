@@ -343,14 +343,11 @@
         ((Scalar name) (wat (string-append name ".const") (Word "0")))
         ((Reference type) (wat "ref.null" (id type)))))
 
+    ;; A linear value is its payload: linearity is a fact the ownership
+    ;; check proves, and nothing at run time keeps it. A FnOnce is the
+    ;; closure of its function type.
     (: rep (-> Module Type Rep ! mut))
     (define (rep m type)
-      (if (linear-type? (program-of m) (Nil) type)
-          (Reference (owned-type m))
-          (unrestricted-rep m type)))
-
-    (: unrestricted-rep (-> Module Type Rep ! mut))
-    (define (unrestricted-rep m type)
       (match type
         ((TCon name args)
          (case name
@@ -362,6 +359,7 @@
            (("Any") (Reference (any-type m)))
            (("Funcref") (Scalar "funcref"))
            (("Array" "Vector") (Reference (array-type m (element-rep m (first-type args)))))
+           (("FnOnce") (rep m (first-type args)))
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
         ((TFun params result _)
          (Reference (closure-type m (map (lambda (param) (rep m param)) params) (rep m result))))
@@ -776,7 +774,7 @@
     (define (variable fn name type)
       (let ((m (Fn-module fn)))
         (match (local-access fn name)
-          ((Some access) (move-value m (capture-rep fn name) access))
+          ((Some access) access)
           ((None)
            (match (definition-of m name)
              ((Some definition)
@@ -1050,36 +1048,12 @@
         ((Nil) (panic "internal error: missing argument"))))
 
     ;; The callee is evaluated once, into a temporary unless it is already a
-    ;; variable read.
+    ;; variable read. Calling a FnOnce calls the closure it is; the
+    ;; ownership check has proved nothing calls it again.
     (: closure-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
     (define (closure-call fn callee args tail?)
-      (match (Expr-type callee)
-        ((TCon "FnOnce" (Cons procedure (Nil))) (once-call fn callee procedure args tail?))
-        (_ (plain-closure-call fn callee args tail?))))
-
-    ;; Calling a `FnOnce` takes its procedure out of the owner, which traps if
-    ;; it was taken already, and calls it.
-    (: once-call (-> Fn Expr Type (List Expr) Bool (List Wat) ! mut))
-    (define (once-call fn callee procedure args tail?)
-      (let* ((m (Fn-module fn)) (signature (function-signature m procedure))
-             (base (closure-type m (Pair-first signature) (Pair-second signature)))
-             (owner (emit1 fn callee))
-             (arguments (emit-args fn args))
-             (temp (declare-temp! fn (rep->wat (Reference base)))))
-        (list (wat "local.set"
-                   (id temp)
-                   (wat "ref.cast"
-                        (wat "ref" (id base))
-                        (wat "call" (id (take-owned-helper m)) owner)))
-              (closure-call-wat m
-                                base
-                                (wat "local.get" (id temp))
-                                (Cons (Fn-evidence fn) arguments)
-                                tail?))))
-
-    (: plain-closure-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
-    (define (plain-closure-call fn callee args tail?)
-      (let* ((m (Fn-module fn)) (signature (function-signature m (Expr-type callee)))
+      (let* ((m (Fn-module fn))
+             (signature (function-signature m (procedure-type (Expr-type callee))))
              (base (closure-type m (Pair-first signature) (Pair-second signature)))
              (value (emit1 fn callee)))
         (if (variable-read? value)
@@ -1091,6 +1065,12 @@
                                       (wat "local.get" (id temp))
                                       (Cons (Fn-evidence fn) (emit-args fn args))
                                       tail?))))))
+
+    (: procedure-type (-> Type Type))
+    (define (procedure-type type)
+      (match type
+        ((TCon "FnOnce" (Cons procedure (Nil))) procedure)
+        (_ type)))
 
     ;; The arguments begin with the evidence.
     (: closure-call-wat (-> Module String Wat (List Wat) Bool Wat ! mut))
@@ -1110,13 +1090,6 @@
     ;; nothing.
     (: construct (-> Fn Case Type (List Wat) Wat ! mut))
     (define (construct fn case type args)
-      (let ((value (construct-data fn case type args)))
-        (if (linear-type? (program-of (Fn-module fn)) (Nil) type)
-            (wat "struct.new" (id (owned-type (Fn-module fn))) value)
-            value)))
-
-    (: construct-data (-> Fn Case Type (List Wat) Wat ! mut))
-    (define (construct-data fn case type args)
       (let* ((m (Fn-module fn)) (name (Case-type case)))
         (cond ((tag-enum? m name) (wat "i32.const" (int (Case-tag case))))
               ((not (DataType-enum? (data-type-of m name)))
@@ -1149,8 +1122,8 @@
               (wat "struct.get"
                    (id case-id)
                    (int (+ index 1))
-                   (wat "ref.cast" (wat "ref" (id case-id)) (place-value fn value))))
-            (wat "struct.get" (id (data-type m type)) (int index) (place-value fn value)))))
+                   (wat "ref.cast" (wat "ref" (id case-id)) (emit1 fn value))))
+            (wat "struct.get" (id (data-type m type)) (int index) (emit1 fn value)))))
 
     ;; Only a struct's fields can be mutable.
     (: set-field (-> Fn I64 Expr Expr Wat ! mut))
@@ -1158,7 +1131,7 @@
       (wat "struct.set"
            (id (data-type (Fn-module fn) (Expr-type record)))
            (int index)
-           (place-value fn record)
+           (emit1 fn record)
            (emit1 fn content)))
 
     (: swap-field (-> Fn Case I64 Expr Expr Wat ! mut))
@@ -1169,7 +1142,7 @@
                               (data-type m type)
                               index
                               (rep m (list-ref (case-field-types m type case) index))))
-             (place-value fn record)
+             (emit1 fn record)
              (emit1 fn content))))
 
     ;; Swaps a mutable field's content for a new value and answers the old
@@ -1194,28 +1167,6 @@
                              (int index)
                              (wat "local.get" (id "$record"))
                              (wat "local.get" (id "$value"))))))))
-
-    ;; The record a field operation acts on. The place rule leaves a linear
-    ;; local live across one (see ownership.sld), so the operation peeks
-    ;; into the local's owner rather than moving the record out of it.
-    (: place-value (-> Fn Expr Wat ! mut))
-    (define (place-value fn record)
-      (let* ((m (Fn-module fn)) (type (Expr-type record)))
-        (if (linear-type? (program-of m) (Nil) type)
-            (wat "ref.cast"
-                 (wat "ref" (id (data-type m type)))
-                 (wat "struct.get" (id (owned-type m)) (int 0) (owner-in-place fn record)))
-            (emit1 fn record))))
-
-    ;; The owner a linear local holds, read without moving the record out.
-    (: owner-in-place (-> Fn Expr Wat ! mut))
-    (define (owner-in-place fn record)
-      (match (Expr-term record)
-        ((Var name _ _)
-         (match (local-access fn name)
-           ((Some access) access)
-           ((None) (panic "internal error: a field operation's linear record is a local"))))
-        (_ (panic "internal error: a field operation's linear record is a local"))))
 
     (: replace-field (-> Fn Case I64 Expr Expr Wat ! mut))
     (define (replace-field fn case index value replacement)
@@ -1403,10 +1354,7 @@
     (define (clause-block fn clause value done tail?)
       (let* ((next (local-id fn "clause"))
              (pattern (Clause-pattern clause))
-             (tests (if (linear-type? (program-of (Fn-module fn)) (Nil) (pattern-type pattern))
-                        (let ((plan (owned-pattern fn pattern (wat "local.get" (id value)) next)))
-                          (append (Pair-first plan) (Pair-second plan)))
-                        (pattern-code fn pattern (wat "local.get" (id value)) next)))
+             (tests (pattern-code fn pattern (wat "local.get" (id value)) next))
              (body (emit1-tail fn (Clause-body clause) tail?)))
         (wat* "block" (Cons (id next) (append tests (list (wat "br" (id done) body)))))))
 
@@ -1420,68 +1368,6 @@
          (list (wat "br_if" (id fail) (literal-differs fn literal-value type value))))
         ((PCon constructor args type)
          (constructor-pattern-code fn constructor args type value fail))))
-
-    ;; Owned matches test first, then move bindings and clear containers.
-    ;; Peeks stay on the operand stack: a failed clause must leave neither
-    ;; changed owners nor raw payload scratch roots reaching their children.
-    (: owned-pattern (-> Fn Pattern Wat String (Pair (List Wat) (List Wat)) ! mut))
-    (define (owned-pattern fn pattern value fail)
-      (match pattern
-        ((PWild _) (Pair (Nil) (Nil)))
-        ((PVar name type)
-         (let ((representation (fn-rep fn type)))
-           (Pair (Nil) (list (wat "local.set" (id (declare-local! fn name representation))
-                                  (move-value (Fn-module fn) representation value))))))
-        ((PLit literal-value type)
-         (Pair (list (wat "br_if" (id fail) (literal-differs fn literal-value type value))) (Nil)))
-        ((PCon constructor args type)
-         (owned-constructor-pattern fn constructor args type value fail))))
-
-    (: owned-constructor-pattern
-       (-> Fn String (List Pattern) Type Wat String (Pair (List Wat) (List Wat)) ! mut))
-    (define (owned-constructor-pattern fn constructor args type value fail)
-      (let* ((m (Fn-module fn))
-             (case (match (program-value (program-of m) constructor)
-                     ((Some (Constructor case _)) case)
-                     (_ (panic "internal error: not a constructor"))))
-             (owned (linear-type? (program-of m) (Nil) type))
-             (raw (if owned (wat "ref.cast" (wat "ref" (id (data-type m type)))
-                                 (wat "struct.get" (id (owned-type m)) (int 0) value)) value))
-             (plan (data-pattern fn case args type raw fail)))
-        (Pair (Pair-first plan)
-              (append (Pair-second plan) (if owned (list (clear-owner m value)) (Nil))))))
-
-    (: data-pattern (-> Fn Case (List Pattern) Type Wat String (Pair (List Wat) (List Wat)) ! mut))
-    (define (data-pattern fn case args type value fail)
-      (let* ((m (Fn-module fn))
-             (name (Case-type case))
-             (enum? (DataType-enum? (data-type-of m name))))
-        (if (tag-enum? m name)
-            (Pair (list (wat "br_if"
-                             (id fail)
-                             (wat "i32.ne" value (wat "i32.const" (int (Case-tag case))))))
-                  (Nil))
-            (let* ((container (if enum? (case-type m type case) (data-type m type)))
-                   (raw (if enum? (wat "ref.cast" (wat "ref" (id container)) value) value))
-                   (fields (map-indexed (lambda (index arg)
-                                          (owned-pattern fn
-                                                         arg
-                                                         (wat "struct.get"
-                                                              (id container)
-                                                              (int (+ index (if enum? 1 0)))
-                                                              raw)
-                                                         fail))
-                                        args))
-                   (tag (if enum? (list (wat "br_if" (id fail)
-                                             (wat "i32.ne"
-                                                  (wat "struct.get"
-                                                       (id (data-type m type))
-                                                       (int 0)
-                                                       value)
-                                                  (wat "i32.const" (int (Case-tag case))))))
-                            (Nil))))
-              (Pair (append tag (concatenate (map Pair-first fields)))
-                    (concatenate (map Pair-second fields)))))))
 
     (: literal-differs (-> Fn Datum Type Wat Wat ! mut))
     (define (literal-differs fn literal-value type scrutinee)
@@ -2053,9 +1939,7 @@
     (define (emit-returning-handle fn expr effect implementations body)
       (let* ((installed (install-handler fn effect implementations)) (node (Pair-first installed)))
         (list (Pair-second installed)
-              (move-value (Fn-module fn)
-                          (fn-rep fn (Expr-type expr))
-                          (emit1 (Fn-evidence-set fn (wat "local.get" (id node))) body)))))
+              (emit1 (Fn-evidence-set fn (wat "local.get" (id node))) body))))
 
     ;; A new evidence node in a local: the local's name, and the instruction
     ;; that sets it to the node holding the handler.
@@ -2226,7 +2110,7 @@
     ;; no test, so a tail call stays a tail call. Nothing reads a
     ;; placeholder, since every caller tests first and leaves too. The
     ;; record is clear whenever Snail-Core code runs outside a yield, so
-    ;; none is live across a host suspension.
+    ;; none is live while the host runs between calls.
 
     ;; Where a yield leaves the code being emitted, with a placeholder: a
     ;; function returns one of its result type to its caller; a block, the
@@ -2528,13 +2412,10 @@
     ;; A value of `type` to leave with. Nothing reads it, so any value of
     ;; its representation will do: zero, an empty array, an enum's base
     ;; with no case's tag, a closure whose code is unreachable, a struct of
-    ;; placeholders, each kept in a global. An owner is a fresh one with a
-    ;; payload, since moving a value out of an owner, as a handle site and
-    ;; a drop do, requires one.
+    ;; placeholders, each kept in a global. A FnOnce's is its procedure's.
     (: placeholder (-> Module Type Loc Wat ! mut))
     (define (placeholder m type loc)
       (match (rep m type)
-        ((Reference "$owned") (fresh-owner m))
         ((Reference representation)
          (memoize! m (string-append "placeholder:" (type-key type))
                    (lambda ()
@@ -2553,9 +2434,9 @@
     (define (placeholder-value m type seen loc)
       (match (rep m type)
         ((Scalar name) (default-value (Scalar name)))
-        ((Reference "$owned") (fresh-owner m))
         ((Reference representation)
          (match type
+           ((TCon "FnOnce" (Cons procedure (Nil))) (placeholder-value m procedure seen loc))
            ((TCon "Any" _)
             (wat "struct.new"
                  (id representation)
@@ -2600,10 +2481,6 @@
                                                  (Pair-first signature))
                                             (list (wat "result" (rep->wat (Pair-second signature)))
                                                   (wat "unreachable")))))))))
-
-    (: fresh-owner (-> Module Wat ! mut))
-    (define (fresh-owner m)
-      (wat "struct.new" (id (owned-type m)) (wat "ref.i31" (wat "i32.const" (int 0)))))
 
     ;; ---- Performing and catching ----
 
@@ -2672,7 +2549,7 @@
                    (id value)
                    (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat result)) code))))
               catch
-              (move-value m result (wat "local.get" (id value))))))
+              (wat "local.get" (id value)))))
 
     (: catch-yield (-> Module Effect Type Wat String Loc Wat ! mut))
     (define (catch-yield m info type node value loc)
@@ -2766,7 +2643,11 @@
                                               arguments
                                               (append arguments
                                                       (list
-                                                       (resume-owner m info operation type loc)))))
+                                                       (resume-closure m
+                                                                       info
+                                                                       operation
+                                                                       type
+                                                                       loc)))))
                                     #t)))))
 
     (: implementation-local (-> Effect String Wat))
@@ -2774,15 +2655,15 @@
       (Word (string-append "$implementation." (i64->string (operation-index info operation)))))
 
     ;; An implementation's closure type: the operation's arguments and
-    ;; `resume`, an owner, to the handle's result. An operation that answers
-    ;; Never has no `resume`.
+    ;; `resume` to the handle's result. An operation that answers Never has
+    ;; no `resume`.
     (: implementation-base (-> Module String Type String ! mut))
     (define (implementation-base m operation type)
       (let ((params (Pair-first (function-signature m (operation-type m operation)))))
         (closure-type m
                       (if (answers-never? m operation)
                           params
-                          (append params (list (Reference (owned-type m)))))
+                          (append params (list (Reference (resume-base m operation type)))))
                       (rep m type))))
 
     (: handler-field (-> Module Effect Wat I64 Wat ! mut))
@@ -2808,7 +2689,7 @@
 
     ;; A continuation is the frames saved inside a handle's body, innermost
     ;; first, and the handle's node. `resume` is a closure over the one a
-    ;; caught yield saved, which its owner makes one-shot. Calling it takes
+    ;; caught yield saved, which the ownership check makes one-shot. Calling it takes
     ;; the frames out, sets the node's outer evidence to the caller's, so
     ;; that the computation resumes under the handlers in scope where
     ;; `resume` is called, and runs the frames on the answer, as the handle
@@ -2818,8 +2699,7 @@
     ;; its site or resumed, becomes one frame holding the continuation
     ;; inside it, so resuming the outer computation enters the handle again
     ;; too. Dropping `resume` drops the continuation: its frames are garbage,
-    ;; and the owned values they hold are dropped with them, as with any
-    ;; dropped `FnOnce`.
+    ;; and the linear values they hold are abandoned with them.
     (: continuation-type (-> Module String ! mut))
     (define (continuation-type m)
       (match (known-type m "continuation")
@@ -2851,14 +2731,13 @@
     (define (resume-base m operation type)
       (closure-type m (list (rep m (operation-result m operation))) (rep m type)))
 
-    (: resume-owner (-> Module Effect String Type Loc Wat ! mut))
-    (define (resume-owner m info operation type loc)
+    (: resume-closure (-> Module Effect String Type Loc Wat ! mut))
+    (define (resume-closure m info operation type loc)
       (let ((base (resume-base m operation type)))
-        (wat "struct.new" (id (owned-type m))
-             (wat "struct.new"
-                  (id (resume-type m base))
-                  (wat "ref.func" (id (resume-code m info operation type loc)))
-                  (wat "local.get" (Word "$continuation"))))))
+        (wat "struct.new"
+             (id (resume-type m base))
+             (wat "ref.func" (id (resume-code m info operation type loc)))
+             (wat "local.get" (Word "$continuation")))))
 
     ;; The code of an operation's `resume`: the handle again, run on the
     ;; boxed answer under the caller's evidence.
@@ -3294,36 +3173,33 @@
     ;; ---- Inherited handlers ----
 
     ;; `inherit-handlers` closes a one-shot procedure over the handlers in
-    ;; scope where it is called. The FnOnce it makes owns a closure holding
-    ;; that evidence and the procedure's owner, moved in; its code ignores
-    ;; the evidence it is called with, takes the procedure out of its owner
-    ;; and tail-calls it under the evidence it holds. So whoever calls the
-    ;; FnOnce, the procedure's operations reach the handlers of the place it
+    ;; scope where it is called. The FnOnce it makes is a closure holding
+    ;; that evidence and the procedure, moved in; its code ignores the
+    ;; evidence it is called with and tail-calls the procedure under the
+    ;; evidence it holds. So whoever calls the FnOnce, the procedure's
+    ;; operations reach the handlers of the place it
     ;; was closed. A `resume` closed this way resumes under them too, since
     ;; resuming rebases its handler's node onto the evidence it is called
     ;; with (see Resuming). Nothing yields through it: control.sld refuses a
     ;; procedure that may yield to a control effect.
     (: inherited (-> Fn Type Wat Wat ! mut))
-    (define (inherited fn type owner)
+    (define (inherited fn type procedure)
       (match type
-        ((TCon "FnOnce" (Cons procedure (Nil)))
-         (let* ((m (Fn-module fn)) (signature (function-signature m procedure)))
+        ((TCon "FnOnce" (Cons procedure-type (Nil)))
+         (let* ((m (Fn-module fn)) (signature (function-signature m procedure-type)))
            (wat "struct.new"
-                (id (owned-type m))
-                (wat "struct.new"
-                     (id (inherit-closure m signature))
-                     (wat "ref.func" (id (inherit-code m signature)))
-                     (Fn-evidence fn)
-                     owner))))
+                (id (inherit-closure m signature))
+                (wat "ref.func" (id (inherit-code m signature)))
+                (Fn-evidence fn)
+                procedure)))
         (_ (panic "internal error: inherit-handlers makes a FnOnce"))))
 
     ;; Closures of one signature share the subtype that holds the evidence
-    ;; and the owner.
+    ;; and the procedure.
     (: inherit-closure (-> Module (Pair (List Rep) Rep) String ! mut))
     (define (inherit-closure m signature)
-      (capture-type m
-                    (closure-type m (Pair-first signature) (Pair-second signature))
-                    (list (evidence-rep m) (Reference (owned-type m)))))
+      (let ((base (closure-type m (Pair-first signature) (Pair-second signature))))
+        (capture-type m base (list (evidence-rep m) (Reference base)))))
 
     (: inherit-code (-> Module (Pair (List Rep) Rep) String ! mut))
     (define (inherit-code m signature)
@@ -3336,13 +3212,7 @@
                     function-id
                     signature
                     (list (wat "local" (Word "$procedure") (wat "ref" (id base)))
-                          (wat "local.set"
-                               (Word "$procedure")
-                               (wat "ref.cast"
-                                    (wat "ref" (id base))
-                                    (wat "call"
-                                         (id (take-owned-helper m))
-                                         (held-capture closure 2))))
+                          (wat "local.set" (Word "$procedure") (held-capture closure 2))
                           (closure-call-wat m
                                             base
                                             (wat "local.get" (Word "$procedure"))
@@ -3456,10 +3326,10 @@
              (sequence (lambda (t) (reference-type (rep m t)))))
         (case operation
           (("unit") (list (wat "i32.const" (int 0))))
-          (("once") (list (wat "struct.new" (id (owned-type m)) (arg 0))))
+          (("once") (list (arg 0)))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
-          (("drop") (list (dropped m (list-ref types 0) (arg 0)) (wat "i32.const" (int 0))))
+          (("drop") (list (wat "drop" (arg 0)) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))
@@ -3507,63 +3377,15 @@
                              (append code (list (Fn-evidence fn)))))))
           (else (panic (string-append "internal error: unknown primitive " operation))))))
 
-    ;; ---- Owned values ----
-
-    ;; Every linear value is a cell with a nullable payload. A move clears
-    ;; its source and allocates a fresh cell, so stale locals and captures
-    ;; cannot retain owned descendants after the new owner drops them.
-    ;; This is shallow transfer, not a deep copy or a GC timing promise.
-    (: owned-type (-> Module String ! mut))
-    (define (owned-type m)
-      (match (known-type m "owned")
-        ((Some type) type)
-        ((None) (register-type! m "owned" "$owned"
-                                (wat "type"
-                                     (id "$owned")
-                                     (wat "struct" (wat "field" (wat "mut" (Word "anyref")))))))))
-
-    (: clear-owner (-> Module Wat Wat ! mut))
-    (define (clear-owner m value)
-      (wat "struct.set" (id (owned-type m)) (int 0) value (wat "ref.null" (Word "any"))))
-
-    ;; Dropping a one-shot clears its owner, so nothing can call it later;
-    ;; any other value is released as it is.
-    (: dropped (-> Module Type Wat Wat ! mut))
-    (define (dropped m type value)
-      (match type
-        ((TCon "FnOnce" _) (clear-owner m value))
-        (_ (wat "drop" value))))
-
-    (: move-value (-> Module Rep Wat Wat ! mut))
-    (define (move-value m representation value)
-      (match representation
-        ((Reference "$owned")
-         (wat "struct.new" (id (owned-type m)) (wat "call" (id (take-owned-helper m)) value)))
-        (_ value)))
-
-    ;; The raw payload lives only in this helper's frame. In particular it
-    ;; never remains in a caller's scratch local across an I/O suspension.
-    (: take-owned-helper (-> Module String ! mut))
-    (define (take-owned-helper m)
-      (template-helper! m "take-owned" ""
-                        "(func {id} (param $owner (ref {owner})) (result (ref any))
-  (local $value (ref any))
-  (local.set $value (ref.as_non_null (struct.get {owner} 0 (local.get $owner))))
-  (struct.set {owner} 0 (local.get $owner) (ref.null any))
-  (local.get $value))" (list (Pair "owner" (owned-type m)))))
-
+    ;; `call-once` calls the thunk it is given, which is its own closure.
     (: call-once-helper (-> Module String ! mut))
     (define (call-once-helper m)
       (let ((closure (closure-type m (Nil) (Scalar "i32"))))
         (template-helper! m "call-once" ""
-                          "(func {id} (param $owner (ref {owner})) (param $ev (ref {evidence})) (result i32)
-  (local $closure (ref {closure}))
-  (local.set $closure (ref.cast (ref {closure}) (call {take} (local.get $owner))))
+                          "(func {id} (param $closure (ref {closure})) (param $ev (ref {evidence})) (result i32)
   (return_call_ref {code} (local.get $closure) (local.get $ev) (struct.get {closure} 0 (local.get $closure))))"
-                          (list (Pair "owner" (owned-type m))
-                                (Pair "closure" closure)
+                          (list (Pair "closure" closure)
                                 (Pair "code" (code-type m closure))
-                                (Pair "take" (take-owned-helper m))
                                 (Pair "evidence" (evidence-type m))))))
 
     ;; ---- Runtime helpers ----

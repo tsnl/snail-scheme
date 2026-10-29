@@ -144,18 +144,18 @@ Rust.
 
 ### Representation
 
-The backend represents a linear value as a cell holding a nullable
-managed reference. A move clears the old cell and creates a new cell for
-the same payload, without copying the payload. Calling and dropping clear
-the final cell. Pattern tests only peek, as do field operations on a
-linear local; a successful pattern then moves its fields and clears the
-consumed containers.
+A linear value is represented as an omega value of the same shape would
+be: a `FnOnce` as the closure of its function type, and a linear struct
+as the struct. Linearity is a fact the checker proves; nothing at run
+time records it, and calling a `FnOnce`, matching a linear struct or
+reading a field of one compiles as it would for an omega value. `drop`
+releases its argument and does nothing else.
 
-These rules release ownership and keep old aliases from retaining what
-they no longer own. WasmGC still decides when to reclaim memory. There are
-no user destructors, and clearing a closure is not a substitute for
-cancelling an I/O registration: the runtime owns and cancels those
-explicitly.
+So a moved-from local still refers to what it held until its frame
+returns, and WasmGC decides when the payload is reclaimed: the engine's
+liveness, not the language, bounds that retention. There are no user
+destructors, and abandoning a closure is not a substitute for cancelling
+an I/O registration: the runtime owns and cancels those explicitly.
 
 ## Proposed: linear types and `Drop`
 
@@ -183,8 +183,8 @@ A type stays **linear** or **omega**, and linearity reaches beyond
 
 ### Drop as a class
 
-Today `drop` takes any value, and only releases it, clearing a `FnOnce`
-so nothing can call it. It becomes the method of a class:
+Today `drop` takes any value and only releases it. It becomes the method
+of a class:
 
 ```scheme
 (: drop (All (A e) (requires (Drop e A)) (-> A Unit ! e)))
