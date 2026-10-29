@@ -1,0 +1,1 @@
+a field operation works on a linear record in place; bind the record to a name first

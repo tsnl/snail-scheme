@@ -119,10 +119,14 @@
         (fold-left (lambda (found case) (linear-case program copy bindings case found))
                    progress (DataType-cases data))))
 
+    ;; A mutable field never makes its holder linear: its content leaves
+    ;; only by being swapped out, so sharing the holder never duplicates it.
     (: linear-case (-> Program (List String) Substitution Case Linearity Linearity))
     (define (linear-case program copy bindings case found)
       (fold-left (lambda (found field)
-                   (linear-next program copy (substitute bindings (Field-type field)) found))
+                   (if (Field-mutable? field)
+                       found
+                       (linear-next program copy (substitute bindings (Field-type field)) found)))
                  found (Case-fields case)))
 
     ;; The variables a signature would have to declare Copy to make `type`

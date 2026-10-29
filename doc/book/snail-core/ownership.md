@@ -51,10 +51,42 @@ so is a second use.
   parameters are bound, is itself linear: `(List (Once (-> Unit)))` is. A
   field holding a linear value only inside a `Ref` does not count, so a
   `(Mailbox (Once (-> Unit)))` is unrestricted. Destructure linear data
-  with `match`, which moves the fields out;
-  a wildcard cannot discard a linear field, and the generated accessors and
-  replacements cannot be used, since they would give a field two owners.
-  An enum is linear even when its current variant has no fields.
+  with `match`, which moves the fields out; a wildcard cannot discard a
+  linear field, and a pure replacement cannot be used, since it would copy
+  the other fields. An enum is linear even when its current variant has no
+  fields.
+- **The place rule.** A field operation acts on its record where it is,
+  so applying one to a linear local does not consume the local. It may
+  read only an omega field: a linear field leaves its record by
+  destructuring. A linear record that is not a local has nowhere to stay,
+  and a field operation used as a value would consume the record it is
+  applied to; both would leave the other fields with no owner, and are
+  refused.
+- **Mutable fields.** Locals are immutable. The writable places are a
+  struct's mutable fields, a `Ref`'s content and an `Array`'s elements,
+  and nothing else: there is no linear memory in the language. A field is
+  mutable when its declaration says so, `(count mut I64)`:
+
+  ```scheme
+  {{#include ../../../tests/programs/mutable-fields.sld:counter}}
+  ```
+
+  - `Counter-count` reads the field and `Counter-count-set!` writes it,
+    and both perform `mut`. Reading an immutable field and constructing a
+    struct are pure, and so a function may build a counter without `mut`.
+  - A struct with a mutable field has identity: two names for it see the
+    same writes. So it has no pure replacements and derives no instances.
+    A struct without one has no identity, so it could later be stored
+    inline.
+  - A mutable field never makes its struct linear. Its content leaves only
+    by `Counter-count-replace!`, which stores a new value and returns the
+    old one. Reading linear content would duplicate it and setting would
+    discard it, so both are refused.
+  - A pattern can only skip a mutable field with `_`, since reading one
+    performs `mut`. Skipping one that holds linear content abandons it if
+    the record is consumed there, as a lost cell abandons its content.
+  - An enum's fields stay immutable: its case accessors are partial. A
+    case that needs one holds a struct with a mutable field.
 - **Captures.** Only a lambda supplied directly to `once` may capture
   linear values, and constructing it moves them in. An ordinary procedure
   is reusable, so capturing a linear value in one is an error. Taking a
@@ -155,34 +187,12 @@ effects in a drop's row are refused. A data type without an instance gets
 derived glue; a type with an instance can be matched apart only inside its
 own library.
 
-### Mutable fields
+### Cells as structs
 
-Locals are immutable. The writable places are a struct's mutable fields
-and an `Array`'s elements, and nothing else: there is no linear memory in
-the language. A field is mutable when its declaration says so:
-
-```scheme
-(struct Counter
-  ((name String)
-   (count mut I64)))
-```
-
-- **Effects.** `Counter-count` reads the field and `Counter-count-set!`
-  writes it, and both perform `mut`. Reading an immutable field and
-  constructing a struct are pure.
-- **Identity.** A struct with a mutable field has identity. One without
-  has none, so it could later be stored inline.
-- **Linear content.** A mutable field never makes its struct linear. Its
-  content leaves only by `Counter-count-replace!`, which stores a new
-  value and returns the old one; reading linear content needs `(Copy A)`.
-- **Patterns** bind only immutable fields; a mutable position takes only
-  `_`. Enum payloads stay immutable.
-- **Cells.** `Ref` becomes a library struct with one mutable field, as
-  OCaml's `ref` is, and keeps `ref`, `ref-get`, `ref-set!` and
-  `ref-replace!`. Cells that hold linear values are implemented, above.
-- **The place rule.** Reading an omega field of a linear binding, through
-  an accessor or a `match` that moves nothing, does not consume it.
-- Safe borrows may come later.
+`Ref` becomes a library struct with one mutable field, as OCaml's `ref`
+is, and keeps `ref`, `ref-get`, `ref-set!` and `ref-replace!`. Mutable
+fields and cells that hold linear values are implemented, above. Safe
+borrows may come later.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).
