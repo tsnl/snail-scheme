@@ -1,5 +1,6 @@
 ;; The standard prelude: core forms, derived syntax, numeric classes, text,
-;; and the immutable collections. Mutable arrays and cells perform `mut`.
+;; the immutable collections, and cells. Reading and writing arrays and
+;; cells performs `mut`.
 (define-library (snail core base)
   (export
    define lambda if begin let define-syntax syntax-rules quote : struct enum type
@@ -57,7 +58,13 @@
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
-   ref ref-get ref-set! ref-replace!)
+   Ref-contents
+   Ref-contents-set!
+   Ref-contents-replace!
+   (rename Ref ref)
+   (rename Ref-contents ref-get)
+   (rename Ref-contents-set! ref-set!)
+   (rename Ref-contents-replace! ref-replace!))
   (import
    (snail core forms)
    (snail core primitive)
@@ -309,6 +316,17 @@
     (struct (Pair A B)
       ((first A)
        (second B)))
+
+    ;; A cell is a struct with one mutable field, as OCaml's `ref` is, and
+    ;; its operations are exported under short names too: `ref` builds one,
+    ;; purely; `ref-get` and `ref-set!` read and write it in place; and
+    ;; `ref-replace!` swaps in a new value and hands back the old. Being the
+    ;; field's own operations, they keep its rules: the handle is
+    ;; unrestricted even when the content is linear, which only
+    ;; `ref-replace!` may move out, and a function whose type has no `mut`
+    ;; may still use them on a cell it allocates.
+    (struct (Ref A)
+      ((contents mut A)))
 
     ;; The type with no values. An operation that answers Never never
     ;; returns to its performer, so its handler is handed no `resume`, and

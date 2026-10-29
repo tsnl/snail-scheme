@@ -99,12 +99,17 @@ so is a second use.
   unrestricted types, so a generic `duplicate` cannot be instantiated with
   a work item. No class implies `Copy`: `max` requires `(Ord T)` and
   `(Copy T)`. An instance requires `Copy` the same way, in its `requires`.
-- **Cells.** A `Ref`'s handle is unrestricted even when its content is
-  linear, so a cell of work items may be shared, captured by an ordinary
-  procedure, or named by a global. `ref` moves a value in, and
-  `ref-replace!` swaps in a new one and hands back the old for the caller
-  to consume. `ref-get` would duplicate the content and `ref-set!` discard
-  it, so both require `(Copy A)`.
+- **Cells.** `Ref` is a struct with one mutable field, declared in
+  `(snail core base)` as `(struct (Ref A) ((contents mut A)))`, the way
+  OCaml declares `ref`. `ref`, `ref-get`, `ref-set!` and `ref-replace!`
+  are its constructor and field operations, exported under short names
+  beside their own, so a cell keeps the rules of mutable fields. Its
+  handle is unrestricted even when its content is linear, so a cell of
+  work items may be shared, captured by an ordinary procedure, or named by
+  a global. `ref` moves a value in, and `ref-replace!` swaps in a new one
+  and hands back the old for the caller to consume. `ref-get` would
+  duplicate linear content and `ref-set!` discard it, so neither accepts
+  it.
 - **What cannot hold one.** Linear values cannot be globals, elements of
   `Array` or `Vector`, payloads erased into `Any`, or exports, and a
   statement cannot discard one. Reading an element of a vector leaves it in
@@ -140,8 +145,9 @@ Rust.
 The backend represents a linear value as a cell holding a nullable
 managed reference. A move clears the old cell and creates a new cell for
 the same payload, without copying the payload. Calling and dropping clear
-the final cell. Pattern tests only peek; a successful pattern then moves
-its fields and clears the consumed containers.
+the final cell. Pattern tests only peek, as do field operations on a
+linear local; a successful pattern then moves its fields and clears the
+consumed containers.
 
 These rules release ownership and keep old aliases from retaining what
 they no longer own. WasmGC still decides when to reclaim memory. There are
@@ -149,11 +155,12 @@ no user destructors, and clearing a closure is not a substitute for
 cancelling an I/O registration: the runtime owns and cancels those
 explicitly.
 
-## Proposed: linear types, mutable fields and `Drop`
+## Proposed: linear types and `Drop`
 
 *Proposed, not implemented; the remaining steps are in
 [#550](https://github.com/tsnl/snail-scheme/issues/550).* The grades are
-Rust's and the mutable fields OCaml's, with GC as the only heap.
+Rust's, with GC as the only heap; the mutable fields, OCaml's, are
+implemented, above. Safe borrows may come later.
 
 ### Grades
 
@@ -186,13 +193,6 @@ where `drop` is written, in the row of the code that writes it. Control
 effects in a drop's row are refused. A data type without an instance gets
 derived glue; a type with an instance can be matched apart only inside its
 own library.
-
-### Cells as structs
-
-`Ref` becomes a library struct with one mutable field, as OCaml's `ref`
-is, and keeps `ref`, `ref-get`, `ref-set!` and `ref-replace!`. Mutable
-fields and cells that hold linear values are implemented, above. Safe
-borrows may come later.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).

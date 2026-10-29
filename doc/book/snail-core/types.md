@@ -6,7 +6,8 @@ Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
 `Any` is a value of any type, used with `type-convert`.
 `String` is an immutable sequence of Unicode scalars. `(Vector T)` is an
 immutable sequence and `(Array T)` a mutable one; `(Ref T)` is a mutable
-cell. `Bytes` is `(Vector U8)`, stored packed. A byte vector literal,
+cell, a struct with one [mutable field](#data) that `(snail core base)`
+declares. `Bytes` is `(Vector U8)`, stored packed. A byte vector literal,
 `#u8(137 80 78 71)`, compiles to a data segment of exactly its bytes, so a
 program can carry large binary data, such as images; it cannot be a
 pattern. `(include-bytes "pixel.png")` is another spelling of the literal

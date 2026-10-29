@@ -54,7 +54,7 @@
       ((messages (Ref (Queue T)))
        (receivers (Ref (Queue I64)))))
 
-    (: make-mailbox (All (T) (-> (Mailbox T) ! mut)))
+    (: make-mailbox (All (T) (-> (Mailbox T))))
     (define (make-mailbox)
       (Mailbox (ref (empty-queue)) (ref (empty-queue))))
 
