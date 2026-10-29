@@ -1,0 +1,1 @@
+Handle is linear by its declaration, so only a Clone instance copies one

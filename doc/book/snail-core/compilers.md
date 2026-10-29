@@ -145,10 +145,11 @@ function of the expander has `mut` in its row — and where it does not, the
   open tails. Matches are checked with Maranget's usefulness algorithm.
   A use of a definition that requires `(Copy A)` asks that `A`'s
   instantiation be unrestricted, judged under the `Copy` variables of the
-  definition containing the use. `(Drop e T)` is solved apart: its row is
-  found from `T` (`drop-rows`), and each row a drop performs is performed
-  in `e`, at the call the drop was raised in once that call is checked, so
-  a signature is held to what its drops perform.
+  definition containing the use. `(Drop e T)` and `(Clone e T)` are
+  solved apart: the row is found from `T` (`lifecycle-rows`), and each row
+  a drop or a clone performs is performed in `e`, at the call it was raised
+  in once that call is checked, so a signature is held to what its drops
+  and clones perform.
 
   The pass holds no mutable state. A `Checker` is plain data, threaded
   through: each step takes one and hands back the one it learned in, so
@@ -183,10 +184,12 @@ function of the expander has `mut` in its row — and where it does not, the
   arguments bound, once per instantiation, so an argument held only in a
   `Ref` leaves the type unrestricted; a declaration that says
   `(deriving Move)`, or has a Drop instance, is linear whatever its fields.
-  `release` says what a drop runs: nothing, an instance's method, or glue.
-  The checker asks it for a drop's rows and mono for its call, so the two
-  cannot disagree. An instance that requires `(Drop e A)` performs its
-  head's labels and what dropping the type it is given at `A` performs.
+  `lifecycle-plan` says what a drop or a clone runs: something trivial,
+  which discards or shares the value, an instance's method, or glue, or
+  why it cannot run, as for a clone of a `FnOnce`. The checker asks it for
+  the rows and mono for the call, so the two cannot disagree. An instance
+  that requires `(Drop e A)` performs its head's labels and what dropping
+  the type it is given at `A` performs.
 - **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** checks each
   library's linear values once its types are final, before
   specialization. It follows each path through a body: a use consumes a
@@ -207,6 +210,9 @@ function of the expander has `mut` in its row — and where it does not, the
   releases its ground type: the primitive `discard`, an instance's method,
   or glue, a function made here once per type, which matches the value
   apart and drops each linear immutable field, the last in tail position.
+  A clone becomes glue that pairs an omega value with itself, an
+  instance's method, or glue that clones each linear immutable field and
+  builds two values from the halves and the shared other fields.
 - **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/control.sld)** prepares the calls
   that may yield to a control handler. After specialization a row keeps
   only control effects, so a call may yield exactly when its callee's row

@@ -1,0 +1,1 @@
+a FnOnce runs once, so it has no clone

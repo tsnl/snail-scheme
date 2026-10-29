@@ -8,7 +8,7 @@
    Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Ref Bytes FnOnce Fn mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
-   not unit panic unsafe-total once call-once Drop drop
+   not unit panic unsafe-total once call-once Drop drop Clone clone
    Num + - * negate abs
    Ord = < <= > >= min max
    Integral quotient remainder modulo
@@ -351,6 +351,18 @@
     ;;       (define (drop handle) ...))
     (typeclass (Drop e T)
       (: drop (-> T Unit ! e)))
+
+    ;; ---- Cloning ----
+
+    ;; `clone` duplicates a value, the one it is handed and a copy, and
+    ;; performs what copying it does, found from its type as a drop's is:
+    ;; nothing for an unrestricted value, which both halves share; the
+    ;; method of the type's instance; and otherwise a clone of each linear
+    ;; field. A FnOnce runs once, so it has none, and a type its library
+    ;; made linear has one only by an instance. A definition that clones a
+    ;; value of a type variable A requires (Clone e A).
+    (typeclass (Clone e T)
+      (: clone (-> T (Pair T T) ! e)))
 
     ;; ---- Lists ----
 

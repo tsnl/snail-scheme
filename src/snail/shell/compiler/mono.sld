@@ -1,8 +1,8 @@
 ;; Typed program to monomorphic program. Starting from the statements and
 ;; top-level values, each reachable definition is copied once per ground type
 ;; instantiation. Method references become references to the instance method
-;; their evidence names, so no instance is selected twice; a drop becomes
-;; what releases its ground type, glue among it, which is made here. A
+;; their evidence names, so no instance is selected twice; a drop or a
+;; clone becomes what its ground type runs, glue among it, made here. A
 ;; library can also be specialized alone, as one module of a program linked
 ;; when it runs.
 (define-library (snail shell compiler mono)
@@ -55,7 +55,7 @@
 
     ;; Every emission owns fresh requests, copies in creation order, and
     ;; imports. `owner` names a library, or None for the whole program.
-    ;; `glue` holds the drop glue made so far, newest first, which belongs
+    ;; `glue` holds the glue made so far, newest first, which belongs
     ;; to no definition, so each module emits its own.
     (struct State
       ((input Specialization)
@@ -274,8 +274,8 @@
       (match (program-value (program-of state) name)
         ((Some (Defined _ _ _)) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
-         (if (string=? class drop-class)
-             (drop-reference state name (list-ref types 1) type loc)
+         (if (lifecycle-class? class)
+             (lifecycle-reference state class name (list-ref types 1) type loc)
              (match evidence
                ((Cons (EvInstance instance instance-types subs) rest)
                 (let ((class-arity
@@ -288,101 +288,238 @@
         ((Some (Operation effect _)) (operation-reference state effect name type loc))
         (_ (Expr (Var name (Nil) (Nil)) type loc))))
 
-    ;; ---- Drops ----
+    ;; ---- Drops and clones ----
 
-    ;; A drop of a ground type runs what releases that type (`release`):
-    ;; nothing, as the primitive `discard`; the method of the type's Drop
-    ;; instance; or the type's glue. `method` is `drop`'s own name.
-    (: drop-reference (-> State String Type Type Loc Expr ! mut))
-    (define (drop-reference state method dropped type loc)
-      (match (release (program-of state) (Nil) dropped)
-        ((Discard) (Expr (Var "prim:discard" (Nil) (Nil)) type loc))
-        ((Destroy instance)
+    ;; A drop or a clone of a ground type runs what its plan says
+    ;; (`lifecycle-plan`). A trivial drop is the primitive `discard`, and a
+    ;; trivial clone is glue that pairs the value with itself; a type with
+    ;; an instance runs its method; other data runs its glue. `method` is
+    ;; the class method's own name, `drop` or `clone`.
+    (: lifecycle-reference (-> State String String Type Type Loc Expr ! mut))
+    (define (lifecycle-reference state class method subject type loc)
+      (match (lifecycle-plan (program-of state) class (Nil) subject)
+        ((Trivial)
+         (if (string=? class drop-class)
+             (Expr (Var "prim:discard" (Nil) (Nil)) type loc)
+             (glue-reference state
+                             "share"
+                             subject
+                             type
+                             loc
+                             (lambda () (share-function subject loc)))))
+        ((Implemented instance)
          (definition-reference state
            (instance-method state (Instance-name instance) method)
-           (instance-arguments instance dropped)
+           (instance-arguments instance subject)
            (Nil)
            type
            loc))
-        ((Glue) (Expr (Var (glue! state method dropped loc) (Nil) (Nil)) type loc))))
+        ((Glue)
+         (if (string=? class drop-class)
+             (glue-reference state "drop" subject type loc
+                             (lambda () (drop-function state method subject loc)))
+             (glue-reference state "clone" subject type loc
+                             (lambda () (clone-function state method subject loc)))))
+        ((Refused reason)
+         (panic (string-append "internal error: the checker allowed this: " reason)))))
 
     ;; The instance's variables, as the ground type binds them in its head.
-    ;; The row its head ends with, if it names one, is left empty: a drop
-    ;; performs no control effect, and only those specialize code.
+    ;; The row its head ends with, if it names one, is left empty: a drop or
+    ;; a clone performs no control effect, and only those specialize code.
     (: instance-arguments (-> Instance Type (List Type)))
-    (define (instance-arguments instance dropped)
-      (let ((bindings (instance-bindings instance dropped)))
+    (define (instance-arguments instance subject)
+      (let ((bindings (instance-bindings instance subject)))
         (map (lambda (var)
                (match (assoc-ref bindings var)
                  ((Some type) type)
                  ((None) empty-row)))
              (Instance-vars instance))))
 
-    ;; Glue is a function of one ground type, made the first time a drop
-    ;; needs it: it matches the value apart and drops each linear immutable
-    ;; field, skipping the rest. It is built ground, so nothing copies it;
-    ;; the drops it makes of the fields reach their own releases, its own
-    ;; for a recursive type.
-    (: glue! (-> State String Type Loc String ! mut))
-    (define (glue! state method dropped loc)
-      (let ((name (string-append "glue:drop<" (spec-key dropped) ">")))
+    ;; Glue is a function of one ground type, made the first time a drop or
+    ;; a clone needs it, and named before it is made, so that the drops and
+    ;; clones it makes of the fields reach their own glue, its own for a
+    ;; recursive type. It is built ground, so nothing copies it.
+    (: glue-reference (-> State String Type Type Loc (-> Expr ! mut) Expr ! mut))
+    (define (glue-reference state kind subject type loc make)
+      (let ((name (string-append "glue:" kind "<" (spec-key subject) ">")))
         (unless (table-contains? (ref-get (State-done state)) name)
           (ref-set! (State-done state) (table-set (ref-get (State-done state)) name name))
-          (let ((value (glue-function state method dropped loc)))
+          (let ((value (make)))
             (ref-set! (State-glue state) (Cons (Define name value) (ref-get (State-glue state))))))
-        name))
+        (Expr (Var name (Nil) (Nil)) type loc)))
 
-    (: glue-function (-> State String Type Loc Expr ! mut))
-    (define (glue-function state method dropped loc)
-      (let ((data (match dropped
-                    ((TCon name _) (program-type (program-of state) name))
-                    (_ (panic "internal error: glue drops data"))))
-            (value (Expr (Var "glue%value" (Nil) (Nil)) dropped loc)))
-        (Expr (Lambda (list "glue%value")
-                      (Expr (Match value
-                                   (map (lambda (case) (glue-clause state method dropped case loc))
-                                        (DataType-cases data)))
-                            unit-type
-                            loc)
-                      #f)
-              (TFun (list dropped) unit-type empty-row)
-              loc)))
+    ;; Drop glue matches the value apart and drops each linear immutable
+    ;; field, skipping the rest.
+    (: drop-function (-> State String Type Loc Expr ! mut))
+    (define (drop-function state method dropped loc)
+      (glue-lambda state
+                   dropped
+                   unit-type
+                   (lambda (case) (drop-clause state method dropped case loc))
+                   loc))
 
     ;; One case's clause binds each field glue drops to a local of its own
     ;; and skips the others, then drops what it bound, in field order.
-    (: glue-clause (-> State String Type Case Loc Clause ! mut))
-    (define (glue-clause state method dropped case loc)
-      (let ((released (released-fields (program-of state) (Nil) dropped case)))
-        (Clause (PCon (Case-name case) (glue-patterns state dropped case released) dropped)
+    (: drop-clause (-> State String Type Case Loc Clause ! mut))
+    (define (drop-clause state method dropped case loc)
+      (let* ((program (program-of state)) (released (glue-fields program (Nil) dropped case)))
+        (Clause (PCon (Case-name case)
+                      (map-indexed (lambda (index type)
+                                     (if
+                                      (any? (lambda (entry) (= (Pair-first entry) index)) released)
+                                      (PVar (glue-local case index) type)
+                                      (PWild type)))
+                                   (field-types program dropped case))
+                      dropped)
                 (in-sequence (map (lambda (field) (glue-drop state method case field loc)) released)
                              loc))))
-
-    (: glue-patterns (-> State Type Case (List (Pair I64 Type)) (List Pattern)))
-    (define (glue-patterns state dropped case released)
-      (let ((bindings (match dropped
-                        ((TCon name args)
-                         (zip (DataType-params (program-type (program-of state) name)) args))
-                        (_ (Nil)))))
-        (map-indexed (lambda (index field)
-                       (let ((type (substitute bindings (Field-type field))))
-                         (if (any? (lambda (entry) (= (Pair-first entry) index)) released)
-                             (PVar (glue-local case index) type)
-                             (PWild type))))
-                     (Case-fields case))))
 
     (: glue-drop (-> State String Case (Pair I64 Type) Loc Expr ! mut))
     (define (glue-drop state method case field loc)
       (let ((type (Pair-second field)))
-        (Expr (App (drop-reference state method type (TFun (list type) unit-type empty-row) loc)
+        (Expr (App (lifecycle-reference state
+                                        drop-class
+                                        method
+                                        type
+                                        (TFun (list type) unit-type empty-row)
+                                        loc)
                    (list (Expr (Var (glue-local case (Pair-first field)) (Nil) (Nil)) type loc)))
               unit-type
               loc)))
 
+    ;; Clone glue matches the value apart, binding every field; clones each
+    ;; linear immutable field in field order, taking the pair apart into a
+    ;; local for each half; and pairs two values of the case, built from
+    ;; the halves and the shared other fields. The plan has refused data
+    ;; with a mutable field, so every field is immutable here.
+    (: clone-function (-> State String Type Loc Expr ! mut))
+    (define (clone-function state method cloned loc)
+      (glue-lambda state
+                   cloned
+                   (pair-type cloned)
+                   (lambda (case) (clone-clause state method cloned case loc))
+                   loc))
+
+    (: clone-clause (-> State String Type Case Loc Clause ! mut))
+    (define (clone-clause state method cloned case loc)
+      (let* ((program (program-of state))
+             (types (field-types program cloned case))
+             (linear (glue-fields program (Nil) cloned case)))
+        (Clause (PCon (Case-name case)
+                      (map-indexed (lambda (index type) (PVar (glue-local case index) type)) types)
+                      cloned)
+                (clone-fields state method cloned case types (map Pair-first linear) linear loc))))
+
+    ;; The clone of the first of the linear fields left, taken apart for the
+    ;; rest, and once none is left, the pair of values rebuilt from the
+    ;; halves of every linear field, `halves`.
+    (: clone-fields
+       (-> State String Type Case (List Type) (List I64) (List (Pair I64 Type)) Loc Expr ! mut))
+    (define (clone-fields state method cloned case types halves left loc)
+      (match left
+        ((Nil)
+         (pair-of cloned
+                  (rebuilt cloned case types halves "a" loc)
+                  (rebuilt cloned case types halves "b" loc)
+                  loc))
+        ((Cons field rest)
+         (let ((index (Pair-first field)) (type (Pair-second field)))
+           (Expr (Match (field-clone state method case index type loc)
+                        (list (Clause (PCon pair-name
+                                            (list (PVar (half-local case index "a") type)
+                                                  (PVar (half-local case index "b") type))
+                                            (pair-type type))
+                                      (clone-fields state
+                                                    method
+                                                    cloned
+                                                    case
+                                                    types
+                                                    halves
+                                                    rest
+                                                    loc))))
+                 (pair-type cloned)
+                 loc)))))
+
+    (: field-clone (-> State String Case I64 Type Loc Expr ! mut))
+    (define (field-clone state method case index type loc)
+      (Expr (App (lifecycle-reference state
+                                      clone-class
+                                      method
+                                      type
+                                      (TFun (list type) (pair-type type) empty-row)
+                                      loc)
+                 (list (Expr (Var (glue-local case index) (Nil) (Nil)) type loc)))
+            (pair-type type)
+            loc))
+
+    ;; One value of the case, from the `half` of each field in `halves` and
+    ;; the field itself otherwise.
+    (: rebuilt (-> Type Case (List Type) (List I64) String Loc Expr))
+    (define (rebuilt cloned case types halves half loc)
+      (Expr (App (Expr (Var (Case-name case) (Nil) (Nil)) (TFun types cloned empty-row) loc)
+                 (map-indexed (lambda (index type)
+                                (Expr (Var (if (member? index halves)
+                                               (half-local case index half)
+                                               (glue-local case index))
+                                           (Nil)
+                                           (Nil))
+                                      type
+                                      loc))
+                              types))
+            cloned
+            loc))
+
+    ;; A trivial clone pairs the value with itself.
+    (: share-function (-> Type Loc Expr))
+    (define (share-function shared loc)
+      (let ((value (Expr (Var "glue%value" (Nil) (Nil)) shared loc)))
+        (Expr (Lambda (list "glue%value") (pair-of shared value value loc) #f)
+              (TFun (list shared) (pair-type shared) empty-row)
+              loc)))
+
+    ;; A function of one value of `subject` that matches it apart, with a
+    ;; clause for each case.
+    (: glue-lambda (-> State Type Type (-> Case Clause ! mut) Loc Expr ! mut))
+    (define (glue-lambda state subject result clause loc)
+      (let ((data (program-type (program-of state) (type-name subject)))
+            (value (Expr (Var "glue%value" (Nil) (Nil)) subject loc)))
+        (Expr (Lambda (list "glue%value")
+                      (Expr (Match value (map clause (DataType-cases data))) result loc)
+                      #f)
+              (TFun (list subject) result empty-row)
+              loc)))
+
+    (: type-name (-> Type String))
+    (define (type-name type)
+      (match type
+        ((TCon name _) name)
+        (_ (panic "internal error: glue takes data apart"))))
+
+    (: pair-name String)
+    (define pair-name "snail.core.base:Pair")
+
+    (: pair-type (-> Type Type))
+    (define (pair-type type)
+      (TCon pair-name (list type type)))
+
+    (: pair-of (-> Type Expr Expr Loc Expr))
+    (define (pair-of type first second loc)
+      (Expr (App (Expr (Var pair-name (Nil) (Nil))
+                       (TFun (list type type) (pair-type type) empty-row)
+                       loc)
+                 (list first second))
+            (pair-type type)
+            loc))
+
     ;; Each case's fields have locals of their own, since the clauses of a
-    ;; function share its locals.
+    ;; function share its locals, and so does each half of a clone.
     (: glue-local (-> Case I64 String))
     (define (glue-local case index)
       (string-append "glue%" (i64->string (Case-tag case)) "%" (i64->string index)))
+
+    (: half-local (-> Case I64 String String))
+    (define (half-local case index half)
+      (string-append (glue-local case index) "%" half))
 
     ;; The drops in order, the last one in tail position, so glue for a
     ;; list runs in constant stack.

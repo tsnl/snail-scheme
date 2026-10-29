@@ -30,6 +30,8 @@
    any-type?
    never-type?
    drop-class
+   clone-class
+   lifecycle-class?
    local-name
    string-type?
    bytes-type?
@@ -393,11 +395,19 @@
         ((TCon "snail.core.base:Never" (Nil)) #t)
         (_ #f)))
 
-    ;; The class whose method releases a value: `(Drop e T)` performs `e`
-    ;; to drop a T. Its row is found from T, so the checker and mono treat
-    ;; it apart from other classes.
+    ;; The lifecycle classes, whose methods release a value, `(Drop e T)`,
+    ;; and copy one, `(Clone e T)`, performing `e` for a T. What they run,
+    ;; and so their rows, is found from T rather than chosen by matching
+    ;; instances, so the checker and mono treat them apart.
     (: drop-class String)
     (define drop-class "snail.core.base:Drop")
+
+    (: clone-class String)
+    (define clone-class "snail.core.base:Clone")
+
+    (: lifecycle-class? (-> String Bool))
+    (define (lifecycle-class? class)
+      (or (string=? class drop-class) (string=? class clone-class)))
 
     (: string-type? (-> Type Bool))
     (define (string-type? type)
@@ -549,10 +559,10 @@
 
     ;; Evidence says which instance satisfies a constraint: an instance applied
     ;; to type arguments and the evidence for its requirements, or the
-    ;; enclosing definition's own requirement at `index`. A Drop constraint's
-    ;; is derived: mono finds what releases a value from its ground type
-    ;; (`release` in capabilities.sld), as the checker found its row. Holes
-    ;; exist only while checking.
+    ;; enclosing definition's own requirement at `index`. A Drop or Clone
+    ;; constraint's is derived: mono finds what a drop or a clone runs from
+    ;; the ground type (`lifecycle-plan` in capabilities.sld), as the checker
+    ;; found its row. Holes exist only while checking.
     (enum Evidence
       (EvInstance
        ((instance String)
