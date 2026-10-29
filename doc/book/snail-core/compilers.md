@@ -205,12 +205,13 @@ function of the expander has `mut` in its row — and where it does not, the
   control row where nothing could carry a yield: in a `vector-generate` or
   `string-generate` callback, which a WAT loop calls; in an `unsafe-total`
   thunk, whose row the call discards; in `dispatch-local` work, which runs
-  later on a task's own stack; and in the implementation of an operation
-  declared without `ctl`, which returns into a handled body that tests for
-  a yield there only to the control effects the operation's type names.
-  It checks, too, the one rule the backend relies on that needs
-  specialized definitions: an exposed function's definition, this
-  library's or an imported one, has a lambda as its value.
+  later on a task's own stack; in a procedure given to `inherit-handlers`,
+  which may run after its handles have returned; and in the implementation
+  of an operation declared without `ctl`, which returns into a handled
+  body that tests for a yield there only to the control effects the
+  operation's type names. It checks, too, the one rule the backend relies
+  on that needs specialized definitions: an exposed function's definition,
+  this library's or an imported one, has a lambda as its value.
 - **[`wasm.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/wasm.sld)** chooses representations and
   emits WebAssembly text. Scalars are Wasm numbers. An enum whose cases have
   no fields is an `i32`; other data are GC structs, and enum cases are final
@@ -226,7 +227,10 @@ function of the expander has `mut` in its row — and where it does not, the
   Snail-Core function run with the performer's list. The implementation of
   an operation with a latent row runs under a forwarding node for each
   effect the row names, which sends that effect's operations, and re-aims
-  its yields, to the performer's handlers. A control operation
+  its yields, to the performer's handlers. `inherit-handlers` makes a
+  `Once` of a closure that holds its caller's list and the procedure's
+  owner, and calls the procedure under that list, whatever list it is
+  called with. A control operation
   instead leaves a yield record in one global: the node it is aimed at, the
   operation and its arguments, and returns a placeholder of its result type.
   After each let whose value may yield the record is tested, and while it is

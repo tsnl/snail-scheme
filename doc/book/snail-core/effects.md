@@ -171,6 +171,13 @@ still replace them: `tests/programs/files.sld` handles `fs` to answer
 default must be handled: performing it where no handler is in scope is an
 error (`tests/programs/error-unhandled.sld`).
 
+`host` is the row of code that may run anything the host implements, such
+as a program's top level, which may perform `mut` and every effect with
+defaults, and a task scheduler. It is a builtin effect, like `mut`, imported
+from `(snail core forms)`; no handler implements it, and a function whose
+row names it can be called only where `host` is in the row too. Work closed
+over its handlers performs it ([below](#closing-over-handlers)).
+
 ## Handlers
 
 ### Declaring an effect
@@ -438,6 +445,38 @@ in scope when it started: `tests/programs/control-stored-resume.sld`
 resumes two logging generators under a different `Log` handler from the
 one they began under.
 
+### Closing over handlers
+
+`inherit-handlers`, from `(snail core primitive)`, closes a one-shot thunk
+over the handlers in scope where it is called, and `inherit-handlers-1`
+closes a procedure of one argument, such as a `resume`. Wherever the `Once`
+it makes is called, the procedure's operations reach those handlers, even
+after their handles have returned:
+
+```scheme
+{{#include ../../../tests/programs/control-inherit.sld:thunk}}
+```
+
+```text
+second log: before the thunk
+first log: a thunk
+```
+
+The caller of `inherit-handlers` is charged the procedure's row, as if it
+ran the procedure there. The `Once` it makes performs `host` instead: the
+captured handlers answer the effects the row declares, and what remains,
+`mut` and the effects the host implements, happens when it runs. So pure
+code cannot call it (`tests/programs/error-inherit-pure.sld`), and one type
+serves work of every row, as the steps of a scheduler need:
+
+```scheme
+{{#include ../../../tests/programs/control-inherit.sld:resume}}
+```
+
+Each step resumes under the log in scope where the generator yielded,
+unlike `control-stored-resume`'s. A closed procedure cannot yield to a
+control effect, whose handle may be gone by the time it runs.
+
 ### The type of `resume`
 
 `resume` takes the operation's result and returns the handler's answer,
@@ -517,8 +556,10 @@ A yield returns through each frame between the operation and its handler,
 so every frame on that path must expect it. A control row cannot reach a
 `vector-generate` or `string-generate` callback, which a WAT loop calls; an
 `unsafe-total` thunk, whose row the call discards; `dispatch-local` work,
-which runs later on a task's own stack; or the implementation of an
-operation declared without `ctl`, the subject of the next section. Each is
+which runs later on a task's own stack; a procedure closed over its
+handlers, which may run after their handles have returned; or the
+implementation of an operation declared without `ctl`, the subject of the
+next section. Each is
 an error after specialization. A generic function used where a control
 operation may be performed is specialized at that row, so its callback rows
 name the effect too: `vector-map`, which calls `vector-generate`, cannot be

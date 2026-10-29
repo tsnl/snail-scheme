@@ -13,7 +13,8 @@
 ;; The pass also refuses a control row wherever nothing could carry a
 ;; yield: in the callbacks that the WAT loops of vector-generate and
 ;; string-generate call, in an unsafe-total thunk, in dispatch-local work,
-;; and in the implementation of an operation declared without ctl.
+;; in a procedure closed over its handlers, and in the implementation of an
+;; operation declared without ctl.
 (define-library (snail shell compiler control)
   (export
    name-yield-points
@@ -183,13 +184,17 @@
     ;; reach: the argument's position, and what to call it in a diagnostic.
     ;; The generate helpers loop in WAT; unsafe-total discards its thunk's
     ;; row, so nothing after it tests; dispatched work runs later, on a
-    ;; task's own stack, where the dispatcher's handlers are not.
+    ;; task's own stack, where the dispatcher's handlers are not; and a
+    ;; procedure closed over its handlers runs whenever it is called, when
+    ;; the handles it would yield to may have returned.
     (: restricted-primitives (List (Pair String (Pair I64 String))))
     (define restricted-primitives
       (list (Pair "prim:vector-generate" (Pair 1 "a vector-generate callback"))
             (Pair "prim:string-generate" (Pair 1 "a string-generate callback"))
             (Pair "prim:unsafe-total" (Pair 0 "an unsafe-total thunk"))
-            (Pair "prim:dispatch-local" (Pair 0 "work given to dispatch-local"))))
+            (Pair "prim:dispatch-local" (Pair 0 "work given to dispatch-local"))
+            (Pair "prim:inherit-handlers" (Pair 0 "a procedure given to inherit-handlers"))
+            (Pair "prim:inherit-handlers-1" (Pair 0 "a procedure given to inherit-handlers-1"))))
 
     (: restriction (-> Expr (Option (Pair I64 String))))
     (define (restriction callee)

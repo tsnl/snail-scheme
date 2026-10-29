@@ -1,0 +1,8 @@
+second log: before the thunk
+first log: a thunk
+first log: produces 1
+second log: draining
+got 1
+first log: produces 2
+got 2
+done
