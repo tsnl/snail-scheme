@@ -50,59 +50,74 @@
     ;; ---- Type grades ----
 
     ;; One query's progress: whether it has found a linear field yet, and
-    ;; which declarations it has entered. A declaration is entered once per
-    ;; query, including across sibling fields, because re-exploring a
-    ;; recursive graph by every path is exponential. Carrying the set rather
-    ;; than mutating one keeps the query a function of its arguments.
+    ;; what it has entered. Each instantiation of a declaration, named in
+    ;; `keys` by its `type-key`, is entered once per query, including across
+    ;; sibling fields, because re-exploring a recursive graph by every path
+    ;; is exponential. `names` holds their declarations: one met again at
+    ;; other arguments, as non-regular recursion would, has its arguments
+    ;; searched as if it held them directly, which keeps the query finite.
+    ;; Carrying the sets rather than mutating them keeps the query a
+    ;; function of its arguments.
     (struct Linearity
       ((found? Bool)
-       (entered (List String))))
+       (keys (List String))
+       (names (List String))))
 
     ;; A type variable is linear unless `copy` names it, as a signature's
     ;; `(requires (Copy A))` does. Concrete fields can make a record linear;
     ;; ordinary arrows never describe owned captures. A Ref is a shared
     ;; handle whatever it holds: its content moves only through
-    ;; `ref-replace!`, so sharing the handle never duplicates it.
+    ;; `ref-replace!`, so sharing the handle never duplicates it, and a
+    ;; declaration that holds a parameter only in a Ref is unrestricted.
     (: linear-type? (-> Program (List String) Type Bool))
     (define (linear-type? program copy type)
-      (Linearity-found? (linear-search program copy type (Nil))))
+      (Linearity-found? (linear-search program copy type (Linearity #f (Nil) (Nil)))))
 
-    (: linear-search (-> Program (List String) Type (List String) Linearity))
-    (define (linear-search program copy type entered)
+    (: linear-search (-> Program (List String) Type Linearity Linearity))
+    (define (linear-search program copy type progress)
       (match type
-        ((TCon "Once" _) (Linearity #t entered))
-        ((TCon "Ref" _) (Linearity #f entered))
-        ((TCon name args)
-         (let ((found (linear-any program copy args entered)))
-           (cond ((Linearity-found? found) found)
-                 ((or (member? name (Linearity-entered found))
-                      (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
-                  found)
-                 (else
-                  (linear-fields program copy name args (Cons name (Linearity-entered found)))))))
-        ((TRigid name) (Linearity (not (member? name copy)) entered))
-        (_ (Linearity #f entered))))
+        ((TCon "Once" _) (Linearity-found?-set progress #t))
+        ((TCon "Ref" _) progress)
+        ((TCon name args) (linear-instance program copy name args progress))
+        ((TRigid name) (if (member? name copy) progress (Linearity-found?-set progress #t)))
+        (_ progress)))
 
-    ;; Arguments are searched before a recursive declaration is cut by name.
-    ;; Thus List<Ref<I64>> cannot pass because List has been entered already.
-    (: linear-any (-> Program (List String) (List Type) (List String) Linearity))
-    (define (linear-any program copy types entered)
-      (fold-left (lambda (found type) (linear-next program copy type found))
-                 (Linearity #f entered) types))
+    ;; A builtin holds its arguments directly, and so, conservatively, does
+    ;; a declaration met again at other arguments. Any other declaration is
+    ;; searched through its fields, with its parameters bound to `args`.
+    (: linear-instance (-> Program (List String) String (List Type) Linearity Linearity))
+    (define (linear-instance program copy name args progress)
+      (let ((key (type-key (TCon name args))))
+        (cond ((member? key (Linearity-keys progress)) progress)
+              ((or (member? name (Linearity-names progress))
+                   (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
+               (linear-any program copy args progress))
+              (else
+               (linear-fields program
+                              copy
+                              name
+                              args
+                              (Linearity #f
+                                         (Cons key (Linearity-keys progress))
+                                         (Cons name (Linearity-names progress))))))))
+
+    (: linear-any (-> Program (List String) (List Type) Linearity Linearity))
+    (define (linear-any program copy types progress)
+      (fold-left (lambda (found type) (linear-next program copy type found)) progress types))
 
     (: linear-next (-> Program (List String) Type Linearity Linearity))
     (define (linear-next program copy type found)
       (if (Linearity-found? found)
           found
-          (linear-search program copy type (Linearity-entered found))))
+          (linear-search program copy type found)))
 
     ;; A declaration's parameters are bound to `args`, so its fields hold
     ;; only the variables of the type being searched.
-    (: linear-fields (-> Program (List String) String (List Type) (List String) Linearity))
-    (define (linear-fields program copy name args entered)
+    (: linear-fields (-> Program (List String) String (List Type) Linearity Linearity))
+    (define (linear-fields program copy name args progress)
       (let* ((data (program-type program name)) (bindings (zip (DataType-params data) args)))
         (fold-left (lambda (found case) (linear-case program copy bindings case found))
-                   (Linearity #f entered) (DataType-cases data))))
+                   progress (DataType-cases data))))
 
     (: linear-case (-> Program (List String) Substitution Case Linearity Linearity))
     (define (linear-case program copy bindings case found)
