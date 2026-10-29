@@ -5,15 +5,15 @@
 // A task's effect handlers are evidence on its own Wasm stack, so nothing
 // is saved or restored around a switch.
 //
-// Task ids are numbered across every scheduler of the page. A relink makes
+// Tickets are numbered across every scheduler of the page. A relink makes
 // a new scheduler while the application's state crosses unchanged, so a
-// Mailbox kept in it still lists the ids of tasks the old scheduler
-// cancelled. Unparking one of those must wake nothing, so that the Mailbox
-// moves on to its next receiver, as it does for any stale id.
-let lastTaskId = 0;
+// Mailbox kept in it still lists the tickets of receivers the old
+// scheduler cancelled. Waking one of those must wake nothing, so that the
+// Mailbox moves on to its next receiver, as it does for any stale ticket.
+let lastTicket = 0;
 
 export function createScheduler({reportError = () => {}} = {}) {
-  const live = new Set(), ready = [], drains = [], parked = new Map();
+  const live = new Set(), ready = [], drains = [], tickets = new Map();
   let active = null, scheduled = false, closed = false, steps = 0;
 
   function schedule() {
@@ -49,6 +49,7 @@ export function createScheduler({reportError = () => {}} = {}) {
     if (!live.delete(task)) return;
     release(task);
     task.work = task.discard = task.next = null;
+    for (const ticket of task.tickets) tickets.delete(ticket);
     if (ok && task.controller.signal.aborted) { ok = false; result = task.controller.signal.reason; }
     if (ok) task.completion.resolve(result);
     else task.completion.reject(result);
@@ -70,7 +71,7 @@ export function createScheduler({reportError = () => {}} = {}) {
   }
   function spawn(work, discard, detached) {
     if (closed) throw new Error('the task runtime has closed');
-    const task = {id: ++lastTaskId, work, discard, detached, controller: new AbortController(), completion: Promise.withResolvers(), next: null};
+    const task = {work, discard, detached, controller: new AbortController(), completion: Promise.withResolvers(), next: null, tickets: new Set()};
     task.completion.promise.catch(() => {});
     live.add(task); // Reserve before the dispatching task can return.
     enqueue(task, () => {
@@ -111,29 +112,38 @@ export function createScheduler({reportError = () => {}} = {}) {
     Promise.resolve(pending).then(value => completed(true, value), error => completed(false, error));
     return gate.promise;
   }
-  // A parked task waits for `unpark` to name its id. Waking a task that is
-  // not parked does nothing and answers false, so a stale id, such as one
-  // whose task was cancelled while parked, never wakes another task. Only
-  // the parking task's own Wasm decides when it parks, so a queue it
-  // checked before parking cannot change before it is parked.
-  function park() {
-    const id = active?.id;
+  // A ticket names one wait of the task that takes it, which only that
+  // task awaits. `wake` resumes the task while it awaits the ticket, and
+  // otherwise does nothing and answers false, so a stale ticket, such as
+  // one whose task was cancelled while it waited, never wakes another task.
+  // Only the task's own Wasm runs between taking a ticket and awaiting it,
+  // so neither a host completion nor a Mailbox post can come first.
+  function running(what) {
+    if (!active) throw new Error(`${what} requires a running task`);
+    return active;
+  }
+  function ticket() {
+    const task = running('a ticket'), id = ++lastTicket;
+    tickets.set(id, {task, resume: null});
+    task.tickets.add(id);
+    return id;
+  }
+  function awaitTicket(id) {
+    const entry = tickets.get(id);
+    if (entry?.task !== running('awaiting a ticket') || entry.resume) throw new Error('a task awaits only a ticket it took, once');
     return suspend(signal => new Promise((resolve, reject) => {
-      const abort = () => { parked.delete(id); reject(signal.reason); };
-      parked.set(id, () => { signal.removeEventListener('abort', abort); resolve(); });
+      const abort = () => { tickets.delete(id); reject(signal.reason); };
+      entry.resume = () => { signal.removeEventListener('abort', abort); resolve(); };
       signal.addEventListener('abort', abort, {once: true});
     }));
   }
-  function unpark(id) {
-    const wake = parked.get(id);
-    if (!wake) return false;
-    parked.delete(id);
-    wake();
+  function wake(id) {
+    const entry = tickets.get(id);
+    if (!entry?.resume) return false;
+    tickets.delete(id);
+    entry.task.tickets.delete(id);
+    entry.resume();
     return true;
-  }
-  function current() {
-    if (!active) throw new Error('a task id requires a running task');
-    return active.id;
   }
   function drain() {
     return live.size ? new Promise(resolve => drains.push(resolve)) : Promise.resolve();
@@ -142,9 +152,11 @@ export function createScheduler({reportError = () => {}} = {}) {
     start: work => spawn(work, null, false),
     dispatch: (work, discard = null) => spawn(work, discard, true),
     suspend,
-    park,
-    unpark,
-    current,
+    ticket,
+    await: awaitTicket,
+    wake,
+    // The running task's signal, which aborts when it is cancelled.
+    signal: () => running('a task signal').controller.signal,
     drain,
     close(reason) {
       closed = true;
@@ -185,9 +197,9 @@ export function taskImports(scheduler) {
       if (milliseconds < 0n || milliseconds > 2147483647n) throw new RangeError('sleep expects 0..2147483647 milliseconds');
       return delay(signal, Number(milliseconds));
     })),
-    // Task ids are I64s in Snail-Core, so they cross as BigInts.
-    park: new WebAssembly.Suspending(() => scheduler().park()),
-    unpark: id => scheduler().unpark(Number(id)) ? 1 : 0,
-    current: () => BigInt(scheduler().current()),
+    // Tickets are I64s in Snail-Core, so they cross as BigInts.
+    ticket: () => BigInt(scheduler().ticket()),
+    await: new WebAssembly.Suspending(ticket => scheduler().await(Number(ticket))),
+    wake: ticket => scheduler().wake(Number(ticket)) ? 1 : 0,
   };
 }

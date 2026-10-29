@@ -27,12 +27,13 @@ using its parent's handlers after the parent returns. Root entries start
 with the empty list, where every operation reaches its runtime default.
 
 Because nothing about handlers is global, a JSPI wait saves and restores
-nothing: the runtime releases the permit, and I/O completion only makes a
+nothing: the runtime releases the permit, and a wake only makes a
 resumption ready. The scheduler later resolves or rejects its wait
 Promise. It keeps the permit until the resumed Wasm suspends again or
 settles; resolving the Promise alone does not establish that Wasm has run
-yet. One scheduler owns each program; runtime authors must route
-suspending imports through its suspension bridge.
+yet. Three imports suspend: `yield`, `sleep` and a ticket's `await`. A
+host operation does not suspend at all; it starts, and its task awaits a
+ticket that its completion wakes ([waiting on the host](tasks.md#waiting-on-the-host)).
 
 ## Cancellation and adapters
 
@@ -50,13 +51,13 @@ that cannot abort may finish normally; the runtime then rejects its
 resumption because cancellation was requested. Its external effects are
 not rolled back.
 
-`suspend(operation, discard)` can take a synchronous native disposer for a
-successful result. The suspension owns that result until the scheduler accepts
-delivery. If cancellation wins while the result is queued, or a non-abortable
-operation succeeds after cancellation, the runtime disposes the result exactly
-once and rejects the parked invocation. It does not dispose delivered results or
-operation failures. A disposer failure also rejects the parked invocation, so
-Wasm still unwinds before task completion.
+A host operation's successful result is owned by the completion table
+(`host/browser/completions.mjs`) until its task finishes the ticket. If the
+ticket wakes nothing, because its task was cancelled or has gone, or the
+task is cancelled between the wake and the finish, the table disposes of
+the result exactly once, through the operation's synchronous native
+disposer: an accepted connection is closed. It does not dispose delivered
+results or operation failures.
 
 The disposer must not suspend or reenter Snail-Core. If it starts OS resource closure,
 the native owner awaits that remaining cleanup during shutdown.

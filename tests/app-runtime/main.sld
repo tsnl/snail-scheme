@@ -43,14 +43,14 @@
 (expose unpresented-main "unpresented_main")
 
 ;; Detached tasks cannot enter the application's loop-owned protocol.
-(: child-load (-> Unit ! storage))
+(: child-load (-> Unit ! storage tasks))
 (define (child-load)
   (load-save)
   (unit))
-(: child-store (-> Unit ! storage))
+(: child-store (-> Unit ! storage tasks))
 (define (child-store)
   (store-save #u8(20)))
-(: child-event (-> Unit ! events))
+(: child-event (-> Unit ! events tasks))
 (define (child-event)
   (next-event)
   (unit))
@@ -128,7 +128,6 @@
 
 (define-application Counter
   (reset: reset-test)
-  (effects: tasks)
   (init: initial)
   (update: step)
   (view: draw)

@@ -1,6 +1,7 @@
 (import
  (snail core base)
  (snail core io)
+ (only (snail shell task) tasks)
  (snail shell utf8)
  (snail shell process))
 
@@ -10,12 +11,12 @@
     ((Ok value) value)
     ((Err error) (panic (ProcessError-code error)))))
 
-(: shell (-> String Process ! process))
+(: shell (-> String Process ! process tasks))
 (define (shell script)
   (require (spawn (Command "/bin/sh" (list "-c" script) "."))))
 
 ;; A stream's bytes up to its end, as text.
-(: read-all (-> Process Stream String ! process))
+(: read-all (-> Process Stream String ! process tasks))
 (define (read-all child stream)
   (let loop ((bytes #u8()))
     (match (require (read-output child stream 4096))

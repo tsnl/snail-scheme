@@ -205,42 +205,50 @@ async function repeatedSuspension() {
   assert.deepEqual(f.cleaned, [10, 11]); f.settled();
 }
 
-// A parked task wakes only when unpark names it, and a stale id, such as
-// one whose task was cancelled while parked, wakes nothing.
-async function parking() {
+// A task awaiting its ticket wakes only when that ticket is woken, and a
+// stale ticket, such as one whose task was cancelled while it waited, or
+// one already woken, wakes nothing.
+async function tickets() {
   const scheduler = createScheduler();
-  let id;
-  const woken = scheduler.start(() => { id = scheduler.current(); return scheduler.park().then(() => 'woken'); });
+  let ticket;
+  const woken = scheduler.start(() => { ticket = scheduler.ticket(); return scheduler.await(ticket).then(() => 'woken'); });
   await turn();
-  assert.equal(scheduler.unpark(id + 1), false, 'unparking another id wakes nothing');
-  assert.equal(scheduler.unpark(id), true);
-  assert.equal(scheduler.unpark(id), false, 'a woken task is no longer parked');
+  assert.equal(scheduler.wake(ticket + 1), false, 'waking another ticket wakes nothing');
+  assert.equal(scheduler.wake(ticket), true);
+  assert.equal(scheduler.wake(ticket), false, 'a woken ticket wakes nothing again');
   assert.equal(await woken.done, 'woken');
-  const cancelled = scheduler.start(() => { id = scheduler.current(); return scheduler.park(); });
+  const cancelled = scheduler.start(() => { ticket = scheduler.ticket(); return scheduler.await(ticket); });
   await turn(); cancelled.cancel();
   await assert.rejects(cancelled.done, {name: 'AbortError'});
-  assert.equal(scheduler.unpark(id), false, 'a task cancelled while parked leaves no waiter');
-  assert.throws(() => scheduler.current(), /running task/);
+  assert.equal(scheduler.wake(ticket), false, 'a task cancelled while it waited leaves no waiter');
+  assert.throws(() => scheduler.ticket(), /running task/);
+  const other = scheduler.start(() => scheduler.ticket()), mine = await other.done;
+  const thief = scheduler.start(() => scheduler.await(mine));
+  await assert.rejects(thief.done, /only a ticket it took/);
   assert.equal(scheduler.size, 0);
 }
 
 // A relink closes one scheduler and makes another, while a Mailbox in the
-// application's state keeps the ids of the tasks parked on it. None of
-// them names a task of the new scheduler.
-async function parkingAcrossRelink() {
+// application's state keeps the tickets of the receivers waiting on it.
+// None of them names a wait of the new scheduler.
+async function ticketsAcrossRelink() {
   const before = createScheduler();
   let stale;
-  const old = before.start(() => { stale = before.current(); return before.park(); });
+  const old = before.start(() => { stale = before.ticket(); return before.await(stale); });
   await turn();
   await before.close(new DOMException('relinked', 'AbortError'));
   await assert.rejects(old.done, {name: 'AbortError'});
-  const after = createScheduler(), ids = [];
-  const parked = [0, 1].map(() => after.start(() => { ids.push(after.current()); return after.park().then(() => 'woken'); }));
+  const after = createScheduler(), taken = [];
+  const waiting = [0, 1].map(() => after.start(() => {
+    const ticket = after.ticket();
+    taken.push(ticket);
+    return after.await(ticket).then(() => 'woken');
+  }));
   await turn();
-  assert.equal(ids.includes(stale), false, 'a new scheduler reuses no id of the one before');
-  assert.equal(after.unpark(stale), false, 'an id from before the relink wakes nothing');
-  for (const id of ids) assert.equal(after.unpark(id), true);
-  assert.deepEqual(await Promise.all(parked.map(task => task.done)), ['woken', 'woken']);
+  assert.equal(taken.includes(stale), false, 'a new scheduler reuses no ticket of the one before');
+  assert.equal(after.wake(stale), false, 'a ticket from before the relink wakes nothing');
+  for (const ticket of taken) assert.equal(after.wake(ticket), true);
+  assert.deepEqual(await Promise.all(waiting.map(task => task.done)), ['woken', 'woken']);
 }
 
 await isolation();
@@ -252,6 +260,6 @@ await fairness();
 await failedDiscard();
 await failedResultDiscard();
 await repeatedSuspension();
-await parking();
-await parkingAcrossRelink();
-console.log('tasks: JSPI permits, exhaustion, cancellation, cleanup, fairness, parking and relinks');
+await tickets();
+await ticketsAcrossRelink();
+console.log('tasks: JSPI permits, exhaustion, cancellation, cleanup, fairness, tickets and relinks');

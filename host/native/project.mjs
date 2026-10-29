@@ -200,7 +200,7 @@ function placeLinks(directory, links) {
   }
 }
 
-const browserFiles = ['host.mjs', 'runtime.mjs', 'tasks.mjs', 'entry.mjs', 'renderer.mjs', 'hud.mjs', 'pictures.mjs', 'storage.mjs', 'load.mjs', 'style.css'];
+const browserFiles = ['host.mjs', 'runtime.mjs', 'tasks.mjs', 'completions.mjs', 'entry.mjs', 'renderer.mjs', 'hud.mjs', 'pictures.mjs', 'storage.mjs', 'load.mjs', 'style.css'];
 
 function packageBrowser(root, project, target, output, mode) {
   for (const name of browserFiles) copyFileSync(join(root, 'host/browser', name), join(output, name));

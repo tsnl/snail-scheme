@@ -20,7 +20,7 @@
   (string-generate (vector-length bytes)
                    (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
 
-(: write-all (-> Connection Bytes Unit ! tcp))
+(: write-all (-> Connection Bytes Unit ! tcp tasks))
 (define (write-all connection bytes)
   (let loop ((offset 0))
     (when (< offset (vector-length bytes))
@@ -28,7 +28,7 @@
         (unless (> count 0) (panic "write did not progress"))
         (loop (+ offset (i32->i64 count)))))))
 
-(: read-all (-> Connection Bytes ! tcp))
+(: read-all (-> Connection Bytes ! tcp tasks))
 (define (read-all connection)
   (let loop ((chunks (ann (Nil) (List Bytes))))
     (match (require (read connection 65536))

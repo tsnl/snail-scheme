@@ -10,7 +10,7 @@
     ((Ok value) value)
     ((Err error) (panic (SocketError-code error)))))
 
-(: receive-four (-> Connection Bytes ! tcp))
+(: receive-four (-> Connection Bytes ! tcp tasks))
 (define (receive-four connection)
   (let loop ((bytes #u8()))
     (if (= (vector-length bytes) 4)

@@ -76,7 +76,7 @@
   (Err (SocketError "TEST_CLOSE")))
 
 (: run (All (e) (-> Stream (-> Request (Result Response String) ! e)
-                    (Result Unit (ExchangeError String)) ! tcp e)))
+                    (Result Unit (ExchangeError String)) ! tcp tasks e)))
 (define (run state handler)
   (serve-one (Connection (type-convert state Any)) 250 handler))
 

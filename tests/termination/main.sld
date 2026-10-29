@@ -8,7 +8,7 @@
 ;; that it is waiting before "ready" is printed: a signal after that is the
 ;; waiter's to observe. Run without it, no task waits, and a signal ends the
 ;; program as it always has.
-(: observe (-> Unit ! console signals))
+(: observe (-> Unit ! console signals tasks))
 (define (observe)
   (match (termination)
     ((Terminate) (write-line "observed Terminate"))
