@@ -63,7 +63,7 @@
     ;; mutation stays in storage the function allocates. `unsafe-cast` makes
     ;; a function of whatever type is expected from a Funcref, a function
     ;; another module exports (`(snail shell wasm)`), checking only its Wasm
-    ;; type. `dynamic-cast` is its checked counterpart, for a function exposed
+    ;; type: a closure that calls it, or, at an Fn, the code itself. `dynamic-cast` is its checked counterpart, for a function exposed
     ;; with `dynamic`: it calls the importer's policy with the signature the
     ;; expected type has, and makes the function only if the policy accepts
     ;; it, as a vector of one; otherwise the vector is empty, since Option is

@@ -4,9 +4,10 @@
  (snail shell wasm))
 
 ;; A module loaded while the program runs, and the function it exports
-;; called at the type the program expects. The program writes the module
-;; itself: each of its bytes is below 128, so its text is its binary. Its
-;; function takes the evidence first, as a Snail-Core function does.
+;; called at the type the program expects: as a closure, or as an Fn,
+;; which is the code itself. The program writes the module itself: each of
+;; its bytes is below 128, so its text is its binary. Its function takes
+;; the evidence first, as a Snail-Core function does.
 ;;   (module
 ;;     (type $evidence (struct (field i32) (field (ref null any)) (field (mut (ref null $evidence)))))
 ;;     (func (export "add") (param (ref $evidence) i64 i64) (result i64)
@@ -26,10 +27,13 @@
 (define (use-adder module)
   (match (module-export module "add")
     ((Ok function)
-     (let ((add (ann (unsafe-cast function) (-> I64 I64 I64))))
+     (let ((add (ann (unsafe-cast function) (-> I64 I64 I64)))
+           (code (ann (unsafe-cast function) (Fn I64 I64 I64))))
        (display (add 40 2))
        (newline)
        (display (fold-left (lambda (total n) (add total n)) 0 (list 1 2 3)))
+       (newline)
+       (display (code 40 1))
        (newline)))
     ((Err error) (write-line (load-error-message error)))))
 

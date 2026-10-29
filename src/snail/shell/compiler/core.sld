@@ -12,6 +12,7 @@
    TRigid
    TVar-id
    empty-row
+   fn-arrow
    mut-row
    unchecked
    Constraint
@@ -203,6 +204,14 @@
     (: empty-row Type)
     (define empty-row (TRow (Nil) (None)))
 
+    ;; The function type an `(Fn A B ! e)` holds, which its code has; any
+    ;; other type is its own.
+    (: fn-arrow (-> Type Type))
+    (define (fn-arrow type)
+      (match type
+        ((TCon "Fn" (Cons arrow (Nil))) arrow)
+        (_ type)))
+
     ;; The row of an operation on a mutable field, which reads or writes
     ;; storage and nothing else.
     (: mut-row Type)
@@ -279,7 +288,8 @@
             (Pair "String" 0)
             (Pair "Array" 1)
             (Pair "Vector" 1)
-            (Pair "FnOnce" 1)))
+            (Pair "FnOnce" 1)
+            (Pair "Fn" 1)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
     ;; name. Text is scanned as a vector of characters, which both hosts index
@@ -329,6 +339,7 @@
       (match type
         ((TCon "FnOnce" (Cons (TFun params result row) (Nil)))
          (arrow->string "(FnOnce" params result row))
+        ((TCon "Fn" (Cons (TFun params result row) (Nil))) (arrow->string "(Fn" params result row))
         ((TCon name (Nil)) (short-name name))
         ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
         ((TFun params result row) (arrow->string "(->" params result row))
@@ -336,8 +347,8 @@
         ((TVar id) (string-append "?" (i64->string id)))
         ((TRigid name) name)))
 
-    ;; `(-> A B ! e)`, and the one-shot `(FnOnce A B ! e)`, which holds that
-    ;; function type.
+    ;; `(-> A B ! e)`, the one-shot `(FnOnce A B ! e)`, and `(Fn A B ! e)`,
+    ;; which has no environment; the last two hold the function type.
     (: arrow->string (-> String (List Type) Type Type String))
     (define (arrow->string head params result row)
       (string-append head (types->string params) " " (type->string result) (row->string row) ")"))
@@ -744,8 +755,11 @@
 
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
-    ;; that `(: name type)` was written. An instance method has its class
-    ;; method's scheme and no signature of its own. A field has four
+    ;; that `(: name type)` was written; `function?` says its value is a
+    ;; lambda, which a top-level definition's has no environment around, so
+    ;; its name has type Fn where one is expected. An instance method has
+    ;; its class method's scheme and no signature of its own, and like a
+    ;; default no program names it. A field has four
     ;; operations: an Accessor reads it, `Name-field`; a Replacer copies an
     ;; immutable struct with it replaced, `Name-field-set`; and a mutable
     ;; field's Setter writes it in place, `Name-field-set!`, as its Swapper
@@ -753,7 +767,8 @@
     (enum Value
       (Defined
         ((scheme (Option Scheme))
-         (signature (Option Loc))))
+         (signature (Option Loc))
+         (function? Bool)))
       (Constructor
        ((case Case)
         (scheme Scheme)))
@@ -790,7 +805,7 @@
     (: value-scheme (-> Value (Option Scheme)))
     (define (value-scheme value)
       (match value
-        ((Defined scheme _) scheme)
+        ((Defined scheme _ _) scheme)
         ((Constructor _ scheme) (Some scheme))
         ((Accessor _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))

@@ -345,7 +345,7 @@
 
     ;; A linear value is its payload: linearity is a fact the ownership
     ;; check proves, and nothing at run time keeps it. A FnOnce is the
-    ;; closure of its function type.
+    ;; closure of its function type, and an Fn a reference to code alone.
     (: rep (-> Module Type Rep ! mut))
     (define (rep m type)
       (match type
@@ -360,6 +360,9 @@
            (("Funcref") (Scalar "funcref"))
            (("Array" "Vector") (Reference (array-type m (element-rep m (first-type args)))))
            (("FnOnce") (rep m (first-type args)))
+           (("Fn")
+            (let ((signature (function-signature m type)))
+              (Reference (funcref-type m (Pair-first signature) (Pair-second signature)))))
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
         ((TFun params result _)
          (Reference (closure-type m (map (lambda (param) (rep m param)) params) (rep m result))))
@@ -446,6 +449,7 @@
     (define (function-signature m type)
       (match type
         ((TFun params result _) (Pair (map (lambda (param) (rep m param)) params) (rep m result)))
+        ((TCon "Fn" _) (function-signature m (fn-arrow type)))
         (_ (panic "internal error: not a function type"))))
 
     (: data-type-of (-> Module String DataType))
@@ -769,7 +773,8 @@
 
     ;; ---- Variables ----
 
-    ;; A global function or operation used as a value becomes a closure.
+    ;; A global function or operation used as a value becomes a closure, and
+    ;; a global function at type Fn a reference to its code.
     (: variable (-> Fn String Type Wat ! mut))
     (define (variable fn name type)
       (let ((m (Fn-module fn)))
@@ -778,9 +783,11 @@
           ((None)
            (match (definition-of m name)
              ((Some definition)
-              (cond ((lambda-expr? definition) (function-value m name type))
-                    ((scalar? (fn-rep fn type)) (wat "global.get" (id (global-id m name type))))
-                    (else (wat "ref.as_non_null" (wat "global.get" (id (global-id m name type)))))))
+              (cond
+               ((and (lambda-expr? definition) (fn-type? type)) (code-of m (function-id m name)))
+               ((lambda-expr? definition) (function-value m name type))
+               ((scalar? (fn-rep fn type)) (wat "global.get" (id (global-id m name type))))
+               (else (wat "ref.as_non_null" (wat "global.get" (id (global-id m name type)))))))
              ((None)
               (match (program-value (program-of m) name)
                 ((Some (Constructor case _))
@@ -852,13 +859,17 @@
     ;; variables are copied into the closure and loaded on entry; `self` names
     ;; a recursive local function, which reads as the closure itself. A
     ;; closure that may not capture has nothing to copy, which the checker
-    ;; established (`check-closed`), so it is always one global.
+    ;; established (`check-closed`), so it is always one global, and at type
+    ;; Fn it is no closure but its code (`code-reference`).
     (: closure (-> Fn Expr (Option String) Wat ! mut))
     (define (closure fn function self)
       (let ((captured (filter (lambda (name) (and (not (self-name? self name)) (local? fn name)))
                               (expr-references function))))
         (match (Pair captured (Expr-term function))
-          ((Pair (Nil) _) (closure-value (Fn-module fn) function self))
+          ((Pair (Nil) _)
+           (if (fn-type? (Expr-type function))
+               (code-reference (Fn-module fn) function self)
+               (closure-value (Fn-module fn) function self)))
           ((Pair _ (Lambda _ _ captures?))
            (unless captures?
              (panic "internal error: a fn captures"))
@@ -991,6 +1002,65 @@
                                     (wat "local.get" (Word "$closure"))))))
                    captured))
 
+    ;; ---- Code references ----
+
+    ;; An Fn is a reference to code that takes the evidence and then the
+    ;; arguments, as a top-level function's does, and no closure: the
+    ;; checker gives the type only to what has no environment. A top-level
+    ;; function is such code already. A `fn` becomes a function of that
+    ;; type, named by its hash as a lambda is; a recursive one reads its own
+    ;; name as its reference. A call passes the caller's evidence, so the
+    ;; code runs under the handlers in scope where it is called.
+    (: fn-type? (-> Type Bool))
+    (define (fn-type? type)
+      (match type
+        ((TCon "Fn" _) #t)
+        (_ #f)))
+
+    (: code-of (-> Module String Wat ! mut))
+    (define (code-of m function-id)
+      (push! (Module-declared m) function-id)
+      (wat "ref.func" (id function-id)))
+
+    (: code-reference (-> Module Expr (Option String) Wat ! mut))
+    (define (code-reference m function self)
+      (match (Expr-term function)
+        ((Lambda params body _)
+         (let* ((signature (function-signature m (Expr-type function)))
+                (reps (Pair-first signature))
+                (own (funcref-type m reps (Pair-second signature)))
+                (fn (Fn-exit-set (new-fn m) (function-exit (Expr-type function)))))
+           (match self
+             ((Some name)
+              (bind-local! fn name (wat "ref.func" (Word "$lambda.self")) (Reference own)))
+             ((None) (unit)))
+           (bind-params! fn params reps)
+           (let* ((code (emit fn body #t))
+                  (draft (function-wat fn "$lambda.self"
+                                       (Cons (wat "type" (id own))
+                                             (Cons (evidence-param m) (param-wats params reps)))
+                                       (Pair-second signature) code)))
+             (wat "ref.func" (id (lambda-id m "fn" draft 0))))))
+        (_ (panic "internal error: not a lambda"))))
+
+    ;; The callee is evaluated once, first, into a temporary unless it is
+    ;; already a variable read, as a closure is.
+    (: code-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
+    (define (code-call fn callee args tail?)
+      (let* ((m (Fn-module fn))
+             (signature (function-signature m (Expr-type callee)))
+             (own (funcref-type m (Pair-first signature) (Pair-second signature)))
+             (value (emit1 fn callee))
+             (call (lambda (read)
+                     (wat* (if tail? "return_call_ref" "call_ref")
+                           (Cons (id own)
+                                 (Cons (Fn-evidence fn)
+                                       (append (emit-args fn args) (list read))))))))
+        (if (variable-read? value)
+            (list (call value))
+            (let ((temp (declare-temp! fn (rep->wat (Reference own)))))
+              (list (wat "local.set" (id temp) value) (call (wat "local.get" (id temp))))))))
+
     ;; ---- Calls ----
 
     (: call-op (-> Bool String))
@@ -1058,6 +1128,12 @@
     ;; ownership check has proved nothing calls it again.
     (: closure-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
     (define (closure-call fn callee args tail?)
+      (if (fn-type? (Expr-type callee))
+          (code-call fn callee args tail?)
+          (value-call fn callee args tail?)))
+
+    (: value-call (-> Fn Expr (List Expr) Bool (List Wat) ! mut))
+    (define (value-call fn callee args tail?)
       (let* ((m (Fn-module fn))
              (signature (function-signature m (procedure-type (Expr-type callee))))
              (base (closure-type m (Pair-first signature) (Pair-second signature)))
@@ -1561,9 +1637,11 @@
     ;; and nothing compares Snail-Core types, which is what makes the cast unsafe.
     ;; That type is a Snail-Core function's, which takes the evidence first,
     ;; so the held function is one another module compiled from Snail-Core.
+    ;; At an Fn, which is such code, the cast alone makes the value.
     (: funcref-closure (-> Module Type Wat Wat ! mut))
     (define (funcref-closure m type reference)
       (match type
+        ((TCon "Fn" _) (wat "ref.cast" (rep->wat (rep m type)) reference))
         ((TFun _ _ _)
          (let* ((signature (function-signature m type))
                 (base (closure-type m (Pair-first signature) (Pair-second signature)))
@@ -2135,6 +2213,7 @@
     (define (function-exit type)
       (match type
         ((TFun _ result _) (Some (ToCaller result)))
+        ((TCon "Fn" _) (function-exit (fn-arrow type)))
         (_ (panic "internal error: not a function type"))))
 
     (: yield-type (-> Module String ! mut))
@@ -2418,7 +2497,8 @@
     ;; A value of `type` to leave with. Nothing reads it, so any value of
     ;; its representation will do: zero, an empty array, an enum's base
     ;; with no case's tag, a closure whose code is unreachable, a struct of
-    ;; placeholders, each kept in a global. A FnOnce's is its procedure's.
+    ;; placeholders, each kept in a global. A FnOnce's is its procedure's,
+    ;; and an Fn's is code that is unreachable.
     (: placeholder (-> Module Type Loc Wat ! mut))
     (define (placeholder m type loc)
       (match (rep m type)
@@ -2443,6 +2523,7 @@
         ((Reference representation)
          (match type
            ((TCon "FnOnce" (Cons procedure (Nil))) (placeholder-value m procedure seen loc))
+           ((TCon "Fn" _) (code-of m (unreachable-code-of m type representation)))
            ((TCon "Any" _)
             (wat "struct.new"
                  (id representation)
@@ -2471,6 +2552,20 @@
                                                   (placeholder-value m field (Cons key seen) loc))
                                                 (case-field-types m type case)))))
                  ((Nil) (panic "internal error: a struct has one case")))))))
+
+    (: unreachable-code-of (-> Module Type String String ! mut))
+    (define (unreachable-code-of m type own)
+      (let ((signature (function-signature m type)))
+        (helper! m "unreachable" own
+                 (lambda (function-id)
+                   (wat* "func"
+                         (concatenate (list (list (id function-id)
+                                                  (wat "type" (id own))
+                                                  (evidence-param m))
+                                            (map (lambda (param) (wat "param" (rep->wat param)))
+                                                 (Pair-first signature))
+                                            (list (wat "result" (rep->wat (Pair-second signature)))
+                                                  (wat "unreachable")))))))))
 
     (: unreachable-code (-> Module Type String String ! mut))
     (define (unreachable-code m type base)

@@ -382,7 +382,7 @@
     ;; live in the body either, so the body's use of it is a second use.
     (: check-lambda (-> Path Expr Bool Path ! compile))
     (define (check-lambda path expr once?)
-      (match (Pair (Expr-term expr) (Expr-type expr))
+      (match (Pair (Expr-term expr) (fn-arrow (Expr-type expr)))
         ((Pair (Lambda params body _) (TFun types _ _))
          (let ((captured (let ((references (expr-references expr)))
                            (filter (lambda (owner) (member? (Owner-name owner) references))

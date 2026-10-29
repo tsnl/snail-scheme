@@ -17,8 +17,12 @@ path, and nothing else may be named `include-bytes`. A large file is better
 linked than included: see [linked files](#linked-files).
 
 A function type is `(-> Param ... Result)`, optionally followed by an
-[effect row](effects.md): `(-> String Unit ! console)`. A polymorphic signature quantifies type
-and row variables and lists its class requirements:
+[effect row](effects.md): `(-> String Unit ! console)`. Two other arrows
+are written the same way: `(FnOnce Param ... Result)` is called at most
+once, and `(Fn Param ... Result)` has no environment, a reference to code
+alone ([ownership](ownership.md#closures-without-an-environment)). A
+polymorphic signature quantifies type and row variables and lists its
+class requirements:
 
 ```scheme
 (: map (All (A B e) (-> (-> A B ! e) (List A) (List B) ! e)))
