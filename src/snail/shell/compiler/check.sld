@@ -587,9 +587,8 @@
                      (Pair (Expr (Seq first rest) (Expr-type rest) loc) ck)))
           ((Match scrutinee clauses) (infer-match ck scrutinee clauses row loc))
           ((Ann inner type)
-           (learning ck ((inner (infer inner row))
-                         (then (unify type (Expr-type inner) loc)))
-                     (Pair inner ck)))
+           (learning ck ((inner (infer inner row)))
+                     (fit ck type inner loc)))
           ((Handle effect implementations body)
            (infer-handle ck effect implementations body row loc))
           ;; The direction is decided once types are ground: to Any, from
@@ -633,14 +632,15 @@
     ;; is confined once its types are final.
     (: check-value (-> Checker Expr Type Type (Pair Expr Checker) ! compile))
     (define (check-value ck expr type row)
-      (match (Expr-term expr)
-        ((Lambda params body captures?)
-         (match (prune (solution ck) type)
-           ((TFun param-types result body-row)
-            (if (= (length params) (length param-types))
-                (check-lambda ck expr params body captures? type param-types result body-row)
-                (infer ck expr row)))
-           (_ (infer ck expr row))))
+      (match (Pair (Expr-term expr) (prune (solution ck) type))
+        ((Pair (Lambda params body captures?) (TFun param-types result body-row))
+         (if (= (length params) (length param-types))
+             (check-lambda ck expr params body captures? type param-types result body-row)
+             (infer ck expr row)))
+        ;; A function at an Fn is checked at its arrow, then given the Fn.
+        ((Pair _ (TCon "Fn" (Cons arrow (Nil))))
+         (learning ck ((value (check-value expr arrow row)))
+                   (fit ck type value (Expr-loc value))))
         (_ (infer ck expr row))))
 
     ;; A lambda checked against its type. The body's row is a variable bound
@@ -709,13 +709,16 @@
                       (args (each (lambda (ck arg) (infer ck arg row)) args))
                       (result (fresh-meta))
                       (latent (fresh-meta))
-                      (then (unify-call (Expr-type callee) args result latent loc))
+                      (args (unify-call (Expr-type callee) args result latent loc))
                       (then (perform latent row loc))
                       (then (solve-drops before row)))
                   (Pair (Expr (App callee args) result loc) ck))))
 
-    ;; Arguments are compared one by one, so a mismatch names its argument.
-    (: unify-call (-> Checker Type (List Expr) Type Type Loc Checker ! compile))
+    ;; Arguments are compared one by one, so a mismatch names its argument,
+    ;; and each meets its parameter's type (`fit`), which may give it the
+    ;; type Fn.
+    (: unify-call
+       (-> Checker Type (List Expr) Type Type Loc (Pair (List Expr) Checker) ! compile))
     (define (unify-call ck callee-type args result latent loc)
       (match (prune (solution ck) callee-type)
         ((TFun params callee-result row)
@@ -725,22 +728,53 @@
                                          (i64->string (length params))
                                          " arguments, found "
                                          (i64->string (length args)))))
-         (learning ck ((then (unify-arguments params args))
-                       (then (unify callee-result result loc)))
-                   (unify ck row latent loc)))
-        ((TVar _) (unify ck callee-type (TFun (map Expr-type args) result latent) loc))
-        ;; Calling a `FnOnce` calls the procedure it holds; ownership consumes it.
+         (learning ck ((args (each (lambda (ck pair)
+                                     (fit ck
+                                          (Pair-first pair)
+                                          (Pair-second pair)
+                                          (Expr-loc (Pair-second pair))))
+                                   (zip params args)))
+                       (then (unify callee-result result loc))
+                       (then (unify row latent loc)))
+                   (Pair args ck)))
+        ((TVar _) (Pair args (unify ck callee-type (TFun (map Expr-type args) result latent) loc)))
+        ;; Calling a `FnOnce` calls the procedure it holds; ownership consumes
+        ;; it. Calling an `Fn` calls the code it is.
         ((TCon "FnOnce" (Cons procedure (Nil))) (unify-call ck procedure args result latent loc))
+        ((TCon "Fn" (Cons procedure (Nil))) (unify-call ck procedure args result latent loc))
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
-    (: unify-arguments (-> Checker (List Type) (List Expr) Checker ! compile))
-    (define (unify-arguments ck params args)
-      (fold-left (lambda (ck pair)
-                   (unify ck
-                          (Pair-first pair)
-                          (Expr-type (Pair-second pair))
-                          (Expr-loc (Pair-second pair))))
-                 ck (zip params args)))
+    ;; A value meets the type it is checked at: a parameter's, an
+    ;; annotation's or a signature's. At an Fn, a `fn` or the name of a
+    ;; top-level function is given that type, since neither has an
+    ;; environment: `check-closed` proves it of a `fn`, and the expander
+    ;; records which globals are functions. No other value has type Fn
+    ;; unless it already does, and none converts on its own.
+    (: fit (-> Checker Type Expr Loc (Pair Expr Checker) ! compile))
+    (define (fit ck expected expr loc)
+      (match (Pair (prune (solution ck) expected) (prune (solution ck) (Expr-type expr)))
+        ((Pair (TCon "Fn" (Cons arrow (Nil))) (TFun _ _ _))
+         (unless (environment-free? ck expr)
+           (compile-error loc
+                          (string-append "only a fn or a top-level function has type "
+                                         (type->string (resolve-type (solution ck) expected))
+                                         "; a lambda, or a local bound to one, may capture")))
+         (Pair (Expr (Expr-term expr) expected (Expr-loc expr))
+               (unify ck arrow (Expr-type expr) loc)))
+        ((Pair (TFun _ _ _) (TCon "Fn" _))
+         (compile-error loc
+                        "an Fn is not a closure, and does not become one; wrap it in a lambda, as (lambda (x) (f x))"))
+        (_ (Pair expr (unify ck expected (Expr-type expr) loc)))))
+
+    (: environment-free? (-> Checker Expr Bool))
+    (define (environment-free? ck expr)
+      (match (Expr-term expr)
+        ((Lambda _ _ captures?) (not captures?))
+        ((Var name _ _)
+         (match (program-value (program-of ck) name)
+           ((Some (Defined _ _ function?)) function?)
+           (_ #f)))
+        (_ #f)))
 
     ;; A function's own name is visible in its body, with a monomorphic type.
     (: infer-let (-> Checker String Expr Expr Type Loc (Pair Expr Checker) ! compile))
@@ -1728,8 +1762,12 @@
         ((Convert inner target)
          (refuse-hidden-effects "type-convert" (Expr-type inner) (Expr-loc expr))
          (refuse-hidden-effects "type-convert" target (Expr-loc expr))
+         (refuse-function-reference "type-convert" (Expr-type inner) (Expr-loc expr))
+         (refuse-function-reference "type-convert" target (Expr-loc expr))
          (check-through-any (Expr-type inner) target (Expr-loc expr)))
-        ((TypeTest _ target) (refuse-hidden-effects "type-test" target (Expr-loc expr)))
+        ((TypeTest _ target)
+         (refuse-hidden-effects "type-test" target (Expr-loc expr))
+         (refuse-function-reference "type-test" target (Expr-loc expr)))
         (_ (unit)))
       (for-each check-expression-conversions (subexpressions expr)))
 
@@ -1745,6 +1783,20 @@
                                       (type->string source)
                                       " to "
                                       (type->string target)))))
+
+    ;; An Any holds a reference to a GC object, and an Fn's code reference
+    ;; is not one, so neither side of a conversion is an Fn. Data holding
+    ;; one is an object, and crosses.
+    (: refuse-function-reference (-> String Type Loc Unit ! compile))
+    (define (refuse-function-reference form type loc)
+      (match type
+        ((TCon "Fn" _)
+         (compile-error loc
+                        (string-append form
+                                       " cannot take "
+                                       (type->string type)
+                                       ": an Any holds no function reference; wrap it in a lambda")))
+        (_ (unit))))
 
     (: refuse-hidden-effects (-> String Type Loc Unit ! compile))
     (define (refuse-hidden-effects form type loc)
@@ -1941,7 +1993,8 @@
     ;; neither is held to it.
     (: check-performed (-> Checker Item Scheme Unit ! compile))
     (define (check-performed ck definition scheme)
-      (match (Pair (signature-loc (program-of ck) (Define-name definition)) (Scheme-type scheme))
+      (match (Pair (signature-loc (program-of ck) (Define-name definition))
+                   (fn-arrow (Scheme-type scheme)))
         ((Pair (Some loc) (TFun _ _ row))
          (match (if (lambda-expr? (Define-value definition))
                     (unperformed-effects row (Checker-performed ck))
@@ -1982,7 +2035,7 @@
     (: check-exposed (-> Checker String Bool Loc Checker ! compile))
     (define (check-exposed ck name dynamic loc)
       (match (program-value (program-of ck) name)
-        ((Some (Defined _ _)) (unit))
+        ((Some (Defined _ _ _)) (unit))
         (_ (compile-error loc "an exposed function must be defined")))
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) _ (TFun params result row)))
@@ -2156,14 +2209,14 @@
     (: annotated-scheme (-> Program String (Option Scheme)))
     (define (annotated-scheme program name)
       (match (program-value program name)
-        ((Some (Defined scheme _)) scheme)
+        ((Some (Defined scheme _ _)) scheme)
         (_ (None))))
 
     ;; Where a definition's own signature was written, if it has one.
     (: signature-loc (-> Program String (Option Loc)))
     (define (signature-loc program name)
       (match (program-value program name)
-        ((Some (Defined _ loc)) loc)
+        ((Some (Defined _ loc _)) loc)
         (_ (None))))
 
     ;; ---- Dependency order ----

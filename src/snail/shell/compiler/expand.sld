@@ -1508,11 +1508,12 @@
        (-> Context (Table (Pair Scheme (Option Loc))) Env Syntax Context ! compile))
     (define (define-top-level cx signatures env form)
       (let ((name (global-binding cx env (definition-name form))))
-        (expanding cx ((then (add-value name (match (table-ref signatures name)
+        (expanding cx ((value (definition-value env form))
+                       (then (add-value name (match (table-ref signatures name)
                                                ((Some (Pair scheme loc))
-                                                (Defined (Some scheme) loc))
-                                               ((None) (Defined (None) (None))))))
-                       (value (definition-value env form)))
+                                                (Defined (Some scheme) loc (lambda-expr? value)))
+                                               ((None)
+                                                (Defined (None) (None) (lambda-expr? value)))))))
                    (add-item cx (Define name (top-level-value value))))))
 
     (: definition-value (-> Context Env Syntax (Pair Expr Context) ! compile))
@@ -2093,7 +2094,8 @@
                                                                                class
                                                                                method
                                                                                instance))
-                                          (None)))))
+                                          (None)
+                                          #f))))
                    (Pair (MethodDefinition method global
                                            (lambda (cx)
                                              (expanding cx ((value
@@ -2385,7 +2387,8 @@
            (expanding cx ((global (fresh-global (string-append (short-name operation) "-default")))
                           (then (add-value global
                                            (Defined (Some (default-scheme cx operation loc))
-                                             (None)))))
+                                             (None)
+                                             #f))))
                       (Pair (DefaultDefinition operation
                               global
                               (lambda (cx) (expand-default cx env global operation value loc)))
@@ -2530,6 +2533,8 @@
         ((Form (Cons (Ident "->" _ _) items) loc) (resolve-arrow cx env items (Nil) loc))
         ((Form (Cons (Ident "FnOnce" _ _) items) loc)
          (TCon "FnOnce" (list (resolve-arrow cx env items (Nil) loc))))
+        ((Form (Cons (Ident "Fn" _ _) items) loc)
+         (TCon "Fn" (list (resolve-arrow cx env items (Nil) loc))))
         ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
         ((Form (Cons head args) loc)
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
