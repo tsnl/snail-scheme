@@ -1723,6 +1723,18 @@
     (define (derived-classes form)
       (concatenate (map form-tail (filter deriving-clause? (form-tail form)))))
 
+    ;; `(deriving Move)` derives no instance: it makes the type linear by
+    ;; its declaration (`DataType-owned?`).
+    (: move-class? (-> Syntax Bool))
+    (define (move-class? class)
+      (match class
+        ((Ident "Move" _ _) #t)
+        (_ #f)))
+
+    (: derived-instance-classes (-> Syntax (List Syntax)))
+    (define (derived-instance-classes form)
+      (filter (lambda (class) (not (move-class? class))) (derived-classes form)))
+
     ;; A type parameter scope binds each parameter to a rigid variable.
     (: type-scope (-> Env (List Syntax) Env))
     (define (type-scope env params)
@@ -1746,7 +1758,8 @@
                              (map Ident-name params)
                              (map-indexed (lambda (tag case) (resolve-case cx scope case id tag))
                                           cases)
-                             enum?)))
+                             enum?
+                             (any? move-class? (derived-classes form)))))
         (Context-program-set cx
                              (fold-left (lambda (program case)
                                           (with-case-values program data case (not enum?)))
@@ -1919,12 +1932,66 @@
                       (check-overlap (Context-program cx) instance loc)
                       (Pair (map MethodDefinition-expand methods)
                             (Context-program-set cx
-                                                 (program-with-instance (Context-program cx)
+                                                 (program-with-instance (destroyed-program cx
+                                                                                           instance
+                                                                                           loc)
                                                                         (instance-with-methods
                                                                          instance
                                                                          methods)))))))
         (_
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
+
+    ;; The program with a Drop instance's type made linear, after the
+    ;; instance's own checks; any other instance changes nothing.
+    (: destroyed-program (-> Context Instance Loc Program ! compile))
+    (define (destroyed-program cx instance loc)
+      (let ((program (Context-program cx)))
+        (if (string=? (Instance-class instance) drop-class)
+            (match (Instance-types instance)
+              ((Cons row (Cons (TCon name args) (Nil)))
+               (check-drop-row program row loc)
+               (check-drop-head cx instance name args loc)
+               (program-with-type program (DataType-owned?-set (program-type program name) #t)))
+              (_ (compile-error loc "a Drop instance names a row and a declared type")))
+            program)))
+
+    ;; A Drop instance's row is written in its head and closed, `(! label
+    ;; ...)`, since mono finds the instance from a ground type, where no row
+    ;; variable could be solved. It names no control effect: a drop runs to
+    ;; completion, wherever it is written, glue included.
+    (: check-drop-row (-> Program Type Loc Unit ! compile))
+    (define (check-drop-row program row loc)
+      (match row
+        ((TRow labels (None))
+         (for-each (lambda (label)
+                     (match (table-ref (Program-effects program) label)
+                       ((Some effect)
+                        (unless (null? (Effect-control effect))
+                          (compile-error loc
+                                         (string-append "a drop cannot perform the control effect "
+                                                        (short-name label)))))
+                       ((None) (unit))))
+                   labels))
+        (_
+         (compile-error loc "a Drop instance writes its row in its head, closed: (! label ...)"))))
+
+    ;; It is declared beside its type, for the type at distinct variables
+    ;; and with no class requirement, so a type has one, which its name
+    ;; finds, and its library alone may take the type's values apart.
+    (: check-drop-head (-> Context Instance String (List Type) Loc Unit ! compile))
+    (define (check-drop-head cx instance name args loc)
+      (unless (string=? (name-owner name) (Context-prefix cx))
+        (compile-error loc "a Drop instance is declared in the library of its type"))
+      (let ((names (map (lambda (arg)
+                          (match arg
+                            ((TRigid name) name)
+                            (_ "")))
+                        args)))
+        (unless (and (not (member? "" names))
+                     (= (length (delete-duplicates string=? names)) (length names)))
+          (compile-error loc "a Drop instance is for its type at distinct variables")))
+      (unless (null? (Instance-requires instance))
+        (compile-error loc "a Drop instance can require only (Copy A)")))
 
     (: instance-with-methods (-> Instance (List MethodDefinition) Instance))
     (define (instance-with-methods instance methods)
@@ -2055,6 +2122,8 @@
          (match (resolve cx env syntax)
            ((Some _) (Nil))
            ((None) (list name))))
+        ((Form (Cons (Ident "!" _ _) labels) _)
+         (concatenate (map (lambda (label) (free-type-names cx env label)) labels)))
         ((Form items _) (concatenate (map (lambda (item) (free-type-names cx env item)) items)))
         (_ (Nil))))
 
@@ -2425,6 +2494,7 @@
         ((Form (Cons (Ident "->" _ _) items) loc) (resolve-arrow cx env items (Nil) loc))
         ((Form (Cons (Ident "FnOnce" _ _) items) loc)
          (TCon "FnOnce" (list (resolve-arrow cx env items (Nil) loc))))
+        ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
         ((Form (Cons head args) loc)
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
         (_ (compile-error (syntax-loc syntax) "expected a type"))))
@@ -2850,7 +2920,7 @@
                              (enum-cases form))
                         (list (Pair (declared-name head) (length (struct-fields form)))))))
         (when (and (not enum?)
-                   (not (null? (derived-classes form)))
+                   (not (null? (derived-instance-classes form)))
                    (any? (lambda (field) (FieldSyntax-mutable? (parse-field field)))
                          (struct-fields form)))
           (compile-error loc
@@ -2861,8 +2931,8 @@
                   ((Ident "Serialize" _ _) (serialize-instance cx head cases loc))
                   ((Ident "Deserialize" _ _) (deserialize-instance cx head cases loc))
                   (_ (compile-error (syntax-loc class)
-                                    "only Serialize and Deserialize can be derived"))))
-              (derived-classes form))))
+                                    "only Move, Serialize and Deserialize can be derived"))))
+              (derived-instance-classes form))))
 
     ;; The scope derived instances resolve in, made at the build's first
     ;; deriving clause, which loads the implicit libraries, and shared by
@@ -3068,9 +3138,24 @@
                unchecked))
         (_ (compile-error (syntax-loc syntax) "expected a pattern"))))
 
+    ;; A type with a Drop instance is taken apart only in its own library,
+    ;; which the instance trusts to release what a value holds; elsewhere a
+    ;; value of it is dropped, or given to a function of its library.
     (: pattern-constructor (-> Context Env Syntax String ! compile))
     (define (pattern-constructor cx env head)
-      (constructor-name cx env (expect-ident head "a constructor")))
+      (let ((name (constructor-name cx env (expect-ident head "a constructor"))))
+        (match (program-value (Context-program cx) name)
+          ((Some (Constructor case _))
+           (let ((type (Case-type case)))
+             (match (drop-instance (Context-program cx) type)
+               ((Some _)
+                (unless (string=? (name-owner type) (Context-prefix cx))
+                  (compile-error (syntax-loc head)
+                                 (string-append (short-name type)
+                                                " has a Drop instance, so only its own library can take it apart; drop it instead"))))
+               ((None) (unit)))))
+          (_ (unit)))
+        name))
 
     ;; ---- Syntax rules ----
 

@@ -3329,7 +3329,7 @@
           (("once") (list (arg 0)))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
-          (("drop") (list (wat "drop" (arg 0)) (wat "i32.const" (int 0))))
+          (("discard") (list (wat "drop" (arg 0)) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
           (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))

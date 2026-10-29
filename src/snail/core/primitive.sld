@@ -12,7 +12,7 @@
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast dynamic-cast
-   once call-once drop inherit-handlers inherit-handlers-1
+   once call-once discard inherit-handlers inherit-handlers-1
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -80,12 +80,12 @@
 
     ;; A FnOnce owns a procedure that runs once: it is linear, so each one is
     ;; called or dropped exactly once. `once` makes one from a thunk, and a
-    ;; control handler is handed `resume` as another. `drop` releases any
-    ;; value without using it: a FnOnce without calling it, a linear struct
-    ;; without matching it.
+    ;; control handler is handed `resume` as another. `discard` releases a
+    ;; value and runs nothing: it is what (snail core base)'s `drop` becomes
+    ;; for a value whose release runs nothing.
     (primitive once (All (A e) (-> (-> A ! e) (FnOnce A ! e))))
     (primitive call-once (All (e) (-> (FnOnce Unit ! e) Unit ! e)))
-    (primitive drop (All (A) (-> A Unit)))
+    (primitive discard (All (A) (-> A Unit)))
 
     ;; `inherit-handlers` closes a one-shot thunk over the handlers in scope
     ;; where it is called, and `inherit-handlers-1` a procedure of one

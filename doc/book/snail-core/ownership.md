@@ -31,8 +31,9 @@ or ignored.
 
 `call-once` consumes the work item before entering its body, and so does
 calling it directly, as `(work)`. `drop` releases one without calling it,
-and releases any other value too. A `FnOnce` may take any number of
-arguments, as `(FnOnce I64 I64)` takes one; `once` builds thunks, and a
+and releases any other value too ([releasing](#releasing)). A `FnOnce`
+may take any number of arguments, as `(FnOnce I64 I64)` takes one; `once`
+builds thunks, and a
 control handler's `resume` is the other kind
 ([effects and handlers](effects.md#control-handlers)).
 
@@ -142,6 +143,67 @@ Dropping a `resume`, or ending a path that never returns, abandons the
 linear values held there, since nothing runs them. Leaks are safe, as in
 Rust.
 
+### Releasing
+
+`drop` is the method of a class over a row, declared in `(snail core
+base)`:
+
+```scheme
+(typeclass (Drop e T)
+  (: drop (-> T Unit ! e)))
+```
+
+What a drop runs, and so the row it performs, is found from `T` rather
+than matched (`release` and `drop-rows` in `capabilities.sld`):
+
+- An omega value and a `FnOnce` are released at no cost, and perform
+  nothing; so is linear data whose drop would run nothing else, such as a
+  list of `FnOnce`s, which is not walked.
+- A type with an instance runs the instance's method, and performs the
+  row the instance's head names:
+
+  ```scheme
+  {{#include ../../../tests/programs/drop-instance.sld:handle}}
+  ```
+
+- Other linear data runs **glue**, which takes the value apart and drops
+  each linear immutable field in order: `(drop (Pair (Handle "two")
+  (Handle "three")))` releases both handles, and a list of handles each
+  of its elements. Glue is made by specialization, one function for each
+  type it releases, and only where a field it reaches has an instance. A
+  mutable field's content is abandoned, as a lost cell's is.
+- A definition that drops a value of a type variable `A` requires
+  `(Drop e A)`, with `e` in its row, and its callers are charged what
+  dropping their `A` performs. Without the requirement, the drop is
+  refused, as it is for a type that holds itself at other type arguments,
+  whose glue would need a function for every depth.
+
+A drop's effects are charged where it is written: once a call is checked,
+the drops raised in it whose types are known are solved in its scope, so a
+signature must allow what its drops perform. A drop whose type a later
+use decides is solved with the program's other constraints.
+
+An instance is checked where it is declared. Its row is written in its
+head, closed, as `(! log)`, since a drop of a ground type finds its
+instance by the type's name alone, where no row variable could be solved.
+It names no control effect: a drop runs to completion. And it is declared
+in its type's library, for the type at distinct variables, requiring no
+class but `Copy`.
+
+An instance makes its type linear, as `(deriving Move)` makes linear a
+type with nothing to release: `(struct Token ((id I64)) (deriving Move))`
+must be used or dropped although its field is omega. Only the type's own
+library may take a value with an instance apart with `match`, so the
+instance decides how what it holds is released; elsewhere the value is
+dropped, or given to a function of its library. A pure replacement is
+refused on any linear record already.
+
+The compiler still inserts no drops, so an instance runs exactly where a
+`drop` was written, or in glue such a drop runs. What a path that never
+returns holds, what a dropped `resume`'s frames hold, and what an
+unreachable cell holds are never released, so an instance's method is not
+guaranteed to run. Leaks are safe.
+
 ### Representation
 
 A linear value is represented as an omega value of the same shape would
@@ -153,48 +215,32 @@ releases its argument and does nothing else.
 
 So a moved-from local still refers to what it held until its frame
 returns, and WasmGC decides when the payload is reclaimed: the engine's
-liveness, not the language, bounds that retention. There are no user
-destructors, and abandoning a closure is not a substitute for cancelling
-an I/O registration: the runtime owns and cancels those explicitly.
+liveness, not the language, bounds that retention. A Drop instance runs
+where a drop is written, not when memory is reclaimed, and abandoning a
+closure is not a substitute for cancelling an I/O registration: the
+runtime owns and cancels those explicitly.
 
-## Proposed: linear types and `Drop`
+## Proposed: the rest of the linear design
 
 *Proposed, not implemented; the remaining steps are in
 [#550](https://github.com/tsnl/snail-scheme/issues/550).* The grades are
-Rust's, with GC as the only heap; the mutable fields, OCaml's, are
-implemented, above. Safe borrows may come later.
+Rust's, with GC as the only heap; the mutable fields, OCaml's, and `Drop`
+are implemented, above. Safe borrows may come later.
 
 ### Grades
 
-A type stays **linear** or **omega**, and linearity reaches beyond
-`FnOnce`:
-
-- A concrete struct or enum is omega unless an immutable field is linear,
-  it carries the compiler-owned `Move` marker, or it has a `Drop`
-  instance. Most declarations need no annotation. A linear struct leaves
-  only by being destructured or dropped, so its reference has one owner,
-  and a functional update of it may reuse the object in place.
+- A linear struct leaves only by being destructured or dropped, so its
+  reference has one owner, and a functional update of it may reuse the
+  object in place.
 - `(Clone e A)` duplicates explicitly, with
   `clone : (-> A (Pair A A) ! e)`. Like `Drop`, it is a class over an
   effect row; `(Copy A)` is implemented, above.
-- `Any`, globals and exports hold omega values only. A `Vector`'s elements
-  are immutable, so it may later take their grade, as `List` does; that
-  waits for vector constructors that need no `Copy`.
-
-### Drop as a class
-
-Today `drop` takes any value and only releases it. It becomes the method
-of a class:
-
-```scheme
-(: drop (All (A e) (requires (Drop e A)) (-> A Unit ! e)))
-```
-
-`Drop` is polymorphic over its effect, so a drop's effects appear exactly
-where `drop` is written, in the row of the code that writes it. Control
-effects in a drop's row are refused. A data type without an instance gets
-derived glue; a type with an instance can be matched apart only inside its
-own library.
+- A `Vector`'s elements are immutable, so it may later take their grade,
+  as `List` does; that waits for vector constructors that need no `Copy`.
+- A Drop instance for a generic owning wrapper would perform its own row
+  and its parameters' drops, as `(instance (Drop (! socket e) (Wrapper A))
+  (requires (Drop e A)) ...)`. That waits for an instance's requirements
+  to be solved before its row is known.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).
@@ -205,9 +251,3 @@ An ordinary closure cannot capture a linear value. A `once` closure may,
 and is then linear itself. Independently, the core closure form states
 whether it may capture at all; the surface `lambda` defaults to "may
 capture", and a closure marked capture-free that captures is an error.
-
-### What linearity does not cover
-
-A linear value left in an unreachable `Ref` or mutable field is never
-released, as a dropped `resume` abandons what its frames hold. Leaks are safe; this is
-documented, not prevented.
