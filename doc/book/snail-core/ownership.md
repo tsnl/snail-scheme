@@ -116,8 +116,10 @@ so is a second use.
   it.
 - **What cannot hold one.** Linear values cannot be globals, elements of
   `Array` or `Vector`, payloads erased into `Any`, or exports, and a
-  statement cannot discard one. Reading an element of a vector leaves it in
-  place, so the vector and array primitives require `(Copy A)`.
+  statement cannot discard one. A vector is a reference that may be
+  aliased, so it is always unrestricted, and reading an element leaves it
+  in place, so the vector and array primitives require `(Copy A)`. Linear
+  work goes in a vector behind a cell, as `(Vector (Ref (FnOnce Unit)))`.
 - **Handlers.** `resume` is a `FnOnce`. An implementation that does not
   resume writes `(drop resume)`; one whose operation answers `Never` is
   handed no `resume` at all.
@@ -185,11 +187,21 @@ signature must allow what its drops perform. A drop whose type a later
 use decides is solved with the program's other constraints.
 
 An instance is checked where it is declared. Its row is written in its
-head, closed, as `(! log)`, since a drop of a ground type finds its
-instance by the type's name alone, where no row variable could be solved.
-It names no control effect: a drop runs to completion. And it is declared
-in its type's library, for the type at distinct variables, requiring no
-class but `Copy`.
+head, as `(! log)`, since a drop of a ground type finds its instance by
+the type's name alone, where no row variable could be solved. The row is
+closed, or it ends with the row `e` of the instance's requirements
+`(Drop e A)`, which a drop decides from the type it gives `A`:
+
+```scheme
+{{#include ../../../tests/programs/drop-requires.sld:labelled}}
+```
+
+Dropping a `(Labelled Handle)` performs `log` and what dropping the
+handle performs; a `(Labelled I64)`, only `log`. The row names no control
+effect: a drop runs to completion. And the instance is declared in its
+type's library, for the type at distinct variables, requiring only
+`Copy` and the drops of its variables, since what a drop runs is found
+from its type alone.
 
 An instance makes its type linear, as `(deriving Move)` makes linear a
 type with nothing to release: `(struct Token ((id I64)) (deriving Move))`
@@ -257,12 +269,6 @@ are implemented, above. Safe borrows may come later.
 - `(Clone e A)` duplicates explicitly, with
   `clone : (-> A (Pair A A) ! e)`. Like `Drop`, it is a class over an
   effect row; `(Copy A)` is implemented, above.
-- A `Vector`'s elements are immutable, so it may later take their grade,
-  as `List` does; that waits for vector constructors that need no `Copy`.
-- A Drop instance for a generic owning wrapper would perform its own row
-  and its parameters' drops, as `(instance (Drop (! socket e) (Wrapper A))
-  (requires (Drop e A)) ...)`. That waits for an instance's requirements
-  to be solved before its row is known.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).

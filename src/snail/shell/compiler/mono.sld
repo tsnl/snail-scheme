@@ -307,21 +307,15 @@
         ((Glue) (Expr (Var (glue! state method dropped loc) (Nil) (Nil)) type loc))))
 
     ;; The instance's variables, as the ground type binds them in its head.
+    ;; The row its head ends with, if it names one, is left empty: a drop
+    ;; performs no control effect, and only those specialize code.
     (: instance-arguments (-> Instance Type (List Type)))
     (define (instance-arguments instance dropped)
-      (let ((bindings (match (Pair (Instance-types instance) dropped)
-                        ((Pair (Cons _ (Cons (TCon _ params) (Nil))) (TCon _ args))
-                         (zip (map (lambda (param)
-                                     (match param
-                                       ((TRigid name) name)
-                                       (_ "")))
-                                   params)
-                              args))
-                        (_ (Nil)))))
+      (let ((bindings (instance-bindings instance dropped)))
         (map (lambda (var)
                (match (assoc-ref bindings var)
                  ((Some type) type)
-                 ((None) (TCon "Unit" (Nil)))))
+                 ((None) empty-row)))
              (Instance-vars instance))))
 
     ;; Glue is a function of one ground type, made the first time a drop
