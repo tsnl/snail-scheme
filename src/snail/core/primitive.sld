@@ -17,7 +17,8 @@
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast dynamic-cast
-   once call-once drop dispatch-local yield-task sleep-task park-task unpark-task current-task
+   once call-once drop inherit-handlers inherit-handlers-1
+   dispatch-local yield-task sleep-task park-task unpark-task current-task
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -87,9 +88,23 @@
     ;; called or dropped exactly once. `once` makes one from a thunk, and a
     ;; control handler is handed `resume` as another. `drop` releases one
     ;; without calling it.
-    (primitive once (All (e) (-> (-> Unit ! e) (Once (-> Unit ! e)))))
+    (primitive once (All (A e) (-> (-> A ! e) (Once (-> A ! e)))))
     (primitive call-once (All (e) (-> (Once (-> Unit ! e)) Unit ! e)))
     (primitive drop (All (F) (-> (Once F) Unit)))
+
+    ;; `inherit-handlers` closes a one-shot thunk over the handlers in scope
+    ;; where it is called, and `inherit-handlers-1` a procedure of one
+    ;; argument, such as a `resume`: the Once it makes runs the procedure
+    ;; under those handlers, wherever it is called. The caller is charged
+    ;; the procedure's row, as dispatching is. The handlers answer the
+    ;; effects the row declares; what remains, `mut` and the effects the
+    ;; host implements, happens when the Once runs, so it performs `host`,
+    ;; which only code that may run anything the host implements, such as
+    ;; a scheduler, can perform. The procedure may not yield to a control
+    ;; effect, since the handles it would yield to may have returned by then.
+    (primitive inherit-handlers (All (A e) (-> (Once (-> A ! e)) (Once (-> A ! host)) ! e)))
+    (primitive inherit-handlers-1
+               (All (A B e) (-> (Once (-> A B ! e)) (Once (-> A B ! host)) ! e)))
     (primitive dispatch-local (All (e) (-> (Once (-> Unit ! e)) Unit ! tasks e)))
     (primitive yield-task (-> Unit ! tasks))
     (primitive sleep-task (-> I64 Unit ! tasks))

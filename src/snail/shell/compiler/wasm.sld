@@ -2098,9 +2098,7 @@
                  (let* ((signature (function-signature m (operation-type m operation)))
                         (params (Pair-first signature))
                         (result (Pair-second signature))
-                        (names
-                         (map (lambda (index) (string-append "$argument." (i64->string index)))
-                              (iota (length params))))
+                        (names (argument-names signature))
                         (info (program-effect (program-of m) effect)))
                    (wat* "func"
                          (concatenate
@@ -3187,41 +3185,53 @@
     (define (forwarding-code m info operation)
       (helper! m "forward" operation
                (lambda (function-id)
-                 (let* ((signature (function-signature m (operation-type m operation)))
-                        (closure (forwarding-closure m operation))
-                        (base (closure-type m (Pair-first signature) (Pair-second signature)))
-                        (names
-                         (map (lambda (index) (string-append "$argument." (i64->string index)))
-                              (iota (length (Pair-first signature)))))
-                        (held (wat "struct.get"
-                                   (id closure)
-                                   (int 1)
-                                   (wat "ref.cast"
-                                        (wat "ref" (id closure))
-                                        (wat "local.get" (Word "$closure"))))))
-                   (push! (Module-declared m) function-id)
-                   (wat* "func"
-                         (concatenate (list (list (id function-id)
-                                                  (wat "type" (id (code-type m base)))
-                                                  (wat "param"
-                                                       (Word "$closure")
-                                                       (wat "ref" (id base)))
-                                                  (evidence-param m))
-                                            (map (lambda (pair)
-                                                   (wat "param"
-                                                        (id (Pair-first pair))
-                                                        (rep->wat (Pair-second pair))))
-                                                 (zip names (Pair-first signature)))
-                                            (list (wat "result" (rep->wat (Pair-second signature)))
-                                                  (wat* "return_call"
-                                                        (Cons (id (performer m
-                                                                             (Effect-name info)
-                                                                             operation))
-                                                              (Cons held
-                                                                    (map (lambda (name)
-                                                                           (wat "local.get"
-                                                                                (id name)))
-                                                                         names))))))))))))
+                 (let ((signature (function-signature m (operation-type m operation)))
+                       (closure (forwarding-closure m operation)))
+                   (code-function m
+                                  function-id
+                                  signature
+                                  (list (wat* "return_call"
+                                              (Cons (id (performer m (Effect-name info) operation))
+                                                    (Cons (held-capture closure 1)
+                                                          (argument-reads signature))))))))))
+
+    ;; The function of a closure's code, which the module declares for
+    ;; `ref.func`: the closure, the evidence and the arguments, read by
+    ;; `argument-reads`, then `body`.
+    (: code-function (-> Module String (Pair (List Rep) Rep) (List Wat) Wat ! mut))
+    (define (code-function m function-id signature body)
+      (let ((base (closure-type m (Pair-first signature) (Pair-second signature))))
+        (push! (Module-declared m) function-id)
+        (wat* "func"
+              (concatenate (list (list (id function-id)
+                                       (wat "type" (id (code-type m base)))
+                                       (wat "param" (Word "$closure") (wat "ref" (id base)))
+                                       (evidence-param m))
+                                 (map (lambda (pair)
+                                        (wat "param"
+                                             (id (Pair-first pair))
+                                             (rep->wat (Pair-second pair))))
+                                      (zip (argument-names signature) (Pair-first signature)))
+                                 (list (wat "result" (rep->wat (Pair-second signature))))
+                                 body)))))
+
+    (: argument-names (-> (Pair (List Rep) Rep) (List String)))
+    (define (argument-names signature)
+      (map (lambda (index) (string-append "$argument." (i64->string index)))
+           (iota (length (Pair-first signature)))))
+
+    (: argument-reads (-> (Pair (List Rep) Rep) (List Wat)))
+    (define (argument-reads signature)
+      (map (lambda (name) (wat "local.get" (id name))) (argument-names signature)))
+
+    ;; A field of the closure a code function runs, which is of the subtype
+    ;; `closure`; field 0 is the code.
+    (: held-capture (-> String I64 Wat))
+    (define (held-capture closure index)
+      (wat "struct.get"
+           (id closure)
+           (int index)
+           (wat "ref.cast" (wat "ref" (id closure)) (wat "local.get" (Word "$closure")))))
 
     ;; A forwarding node's catch: a yield aimed at the node is re-aimed at
     ;; the performer's handler. Either way the yield leaves, and the node's
@@ -3280,6 +3290,65 @@
       (match (Effect-control info)
         ((Cons operation _) operation)
         ((Nil) (panic "internal error: not a control effect"))))
+
+    ;; ---- Inherited handlers ----
+
+    ;; `inherit-handlers` closes a one-shot procedure over the handlers in
+    ;; scope where it is called. The Once it makes owns a closure holding
+    ;; that evidence and the procedure's owner, moved in; its code ignores
+    ;; the evidence it is called with, takes the procedure out of its owner
+    ;; and tail-calls it under the evidence it holds. So whoever calls the
+    ;; Once, the procedure's operations reach the handlers of the place it
+    ;; was closed. A `resume` closed this way resumes under them too, since
+    ;; resuming rebases its handler's node onto the evidence it is called
+    ;; with (see Resuming). Nothing yields through it: control.sld refuses a
+    ;; procedure that may yield to a control effect.
+    (: inherited (-> Fn Type Wat Wat ! mut))
+    (define (inherited fn type owner)
+      (match type
+        ((TCon "Once" (Cons procedure (Nil)))
+         (let* ((m (Fn-module fn)) (signature (function-signature m procedure)))
+           (wat "struct.new"
+                (id (owned-type m))
+                (wat "struct.new"
+                     (id (inherit-closure m signature))
+                     (wat "ref.func" (id (inherit-code m signature)))
+                     (Fn-evidence fn)
+                     owner))))
+        (_ (panic "internal error: inherit-handlers makes a Once"))))
+
+    ;; Closures of one signature share the subtype that holds the evidence
+    ;; and the owner.
+    (: inherit-closure (-> Module (Pair (List Rep) Rep) String ! mut))
+    (define (inherit-closure m signature)
+      (capture-type m
+                    (closure-type m (Pair-first signature) (Pair-second signature))
+                    (list (evidence-rep m) (Reference (owned-type m)))))
+
+    (: inherit-code (-> Module (Pair (List Rep) Rep) String ! mut))
+    (define (inherit-code m signature)
+      (let ((base (closure-type m (Pair-first signature) (Pair-second signature)))
+            (closure (inherit-closure m signature)))
+        (helper! m "inherit" (substring base 1 (string-length base))
+                 (lambda (function-id)
+                   (code-function
+                    m
+                    function-id
+                    signature
+                    (list (wat "local" (Word "$procedure") (wat "ref" (id base)))
+                          (wat "local.set"
+                               (Word "$procedure")
+                               (wat "ref.cast"
+                                    (wat "ref" (id base))
+                                    (wat "call"
+                                         (id (take-owned-helper m))
+                                         (held-capture closure 2))))
+                          (closure-call-wat m
+                                            base
+                                            (wat "local.get" (Word "$procedure"))
+                                            (Cons (held-capture closure 1)
+                                                  (argument-reads signature))
+                                            #t)))))))
 
     ;; ---- Primitives ----
 
@@ -3389,6 +3458,7 @@
           (("unit") (list (wat "i32.const" (int 0))))
           (("once") (list (wat "struct.new" (id (owned-type m)) (arg 0))))
           (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (Fn-evidence fn))))
+          (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
           (("dispatch-local") (dispatch-work m (arg 0) (Fn-evidence fn)))
           (("yield-task" "sleep-task" "park-task" "unpark-task" "current-task")
            (host-call m (task-import operation) (TFun types type empty-row) code no-loc))

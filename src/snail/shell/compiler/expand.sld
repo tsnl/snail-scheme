@@ -483,8 +483,11 @@
     ;; ---- The core library ----
 
     ;; (snail core forms) is the one library without a file: the core forms
-    ;; and the builtin types, both listed in core.sld, and the effects the
-    ;; compiler itself performs. Every other library, (snail core primitive)
+    ;; and the builtin types, both listed in core.sld, and the builtin
+    ;; effects, which no handler implements: `mut` and `tasks`, which the
+    ;; compiler itself performs, and `host`, the effect of code that may run
+    ;; anything the host implements, such as work closed over its handlers
+    ;; by `inherit-handlers`. Every other library, (snail core primitive)
     ;; among them, is a file.
     (: core-library (-> Exports))
     (define (core-library)
@@ -493,7 +496,9 @@
                              (Pair (Pair-first entry)
                                    (TypeName (Pair-first entry) (Pair-second entry) (None))))
                            builtin-types)
-                      (list (Pair "mut" (EffectName "mut")) (Pair "tasks" (EffectName "tasks"))))))
+                      (list (Pair "mut" (EffectName "mut"))
+                            (Pair "tasks" (EffectName "tasks"))
+                            (Pair "host" (EffectName "host"))))))
 
     (: builtin-library? (-> String Bool))
     (define (builtin-library? key)
@@ -2777,6 +2782,11 @@
                      ((Some (EffectName id)) id)
                      (_ (compile-error (syntax-loc effect)
                                        (string-append "not an effect: " (Ident-name effect)))))))
+           (when (member? id (list "mut" "host"))
+             (compile-error (syntax-loc effect)
+                            (string-append "the builtin effect "
+                                           id
+                                           " has no operations to handle")))
            (expanding cx ((implementations (each (lambda (cx implementation)
                                                    (expand-implementation cx env id implementation))
                                                  implementations))
