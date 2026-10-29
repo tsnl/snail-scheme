@@ -5,7 +5,10 @@
 ;; names. It inserts nothing. A value is released by a call someone wrote,
 ;; such as `drop` or `call-once`, or by a match that moves its fields out.
 ;; Ordinary arrows stay unrestricted; only an immediate `once` lambda may
-;; move linear captures into its environment.
+;; move linear captures into its environment. A type variable is linear
+;; unless its definition requires (Copy A), so each generic body is
+;; checked once, before specialization, for every instantiation, and a
+;; refusal it causes names the requirement that would lift it.
 (define-library (snail shell compiler ownership)
   (export check-ownership check-owned-types)
   (import
@@ -21,45 +24,87 @@
 
     ;; ---- Representable ownership ----
 
-    (: check-type (-> Program Type Loc Unit ! compile))
-    (define (check-type program type loc)
+    ;; A Vector, an Array or a Ref holds only ω values, since reading one
+    ;; leaves its element in place. Other data may hold a linear value, and
+    ;; is linear then. `copy` names the type variables declared ω.
+    (: check-type (-> Program (List String) Type Loc Unit ! compile))
+    (define (check-type program copy type loc)
       (match type
         ((TCon "Once" args)
          (match args
            ((Cons (TFun params result _) (Nil))
-            (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
+            (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
            (_ (compile-error loc "Once requires a procedure type"))))
-        ((TCon _ args)
+        ((TCon name args)
          (for-each (lambda (arg)
-                     (when (linear-type? program arg)
+                     (when (and (member? name (list "Array" "Vector" "Ref"))
+                                (linear-type? program copy arg))
                        (compile-error loc
-                                      "a type argument must be unrestricted; use a concrete linear field"))
-                     (check-type program arg loc)) args))
+                                      (explain-type program
+                                                    copy
+                                                    arg
+                                                    "a type argument must be unrestricted: a Vector, Array or Ref holds no linear value")))
+                     (check-type program copy arg loc)) args))
         ((TFun params result _)
-         (for-each (lambda (part) (check-type program part loc)) (Cons result params)))
+         (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
         (_ (unit))))
 
-    (: check-owned-types (-> Program (List Item) Unit ! compile))
-    (define (check-owned-types program items)
+    ;; A message about a value of a linear type, with the Copy that would
+    ;; have made the type unrestricted, if one would.
+    (: explain-type (-> Program (List String) Type String String))
+    (define (explain-type program copy type message)
+      (match (missing-copy program copy type)
+        ((Nil) message)
+        (names
+         (string-append message
+                        " (its type is linear unless the definition requires "
+                        (copy-declaration names)
+                        ")"))))
+
+    ;; A declaration's fields are checked with its parameters ω, since they
+    ;; are checked where the declaration is used; each item with the
+    ;; variables its scheme declares ω.
+    (: check-owned-types (-> Program (Table Scheme) (List Item) Unit ! compile))
+    (define (check-owned-types program schemes items)
       (for-each (lambda (data)
                   (for-each (lambda (case)
-                              (for-each
-                               (lambda (field) (check-type program (Field-type field) no-loc))
-                               (Case-fields case)))
+                              (for-each (lambda (field)
+                                          (check-type program
+                                                      (DataType-params data)
+                                                      (Field-type field)
+                                                      no-loc))
+                                        (Case-fields case)))
                             (DataType-cases data))) (table-values (Program-types program)))
       (for-each (lambda (item)
                   (match item
-                    ((Define _ value)
-                     (when (linear-type? program (Expr-type value))
+                    ((Define name value)
+                     (when (linear-type? program (scheme-vars schemes name) (Expr-type value))
                        (compile-error (Expr-loc value) "a linear value cannot be a global"))
-                     (check-expression-types program value))
-                    ((Do value) (check-expression-types program value))
+                     (check-expression-types program (item-copy schemes item) value))
+                    ((Do value) (check-expression-types program (Nil) value))
                     (_ (unit)))) items))
 
-    (: check-expression-types (-> Program Expr Unit ! compile))
-    (define (check-expression-types program expr)
-      (check-type program (Expr-type expr) (Expr-loc expr))
-      (for-each (lambda (child) (check-expression-types program child)) (children expr)))
+    ;; A global's own type variables. A polymorphic global's initializer
+    ;; is total, so it holds no value of them, and its uses may share it.
+    (: scheme-vars (-> (Table Scheme) String (List String)))
+    (define (scheme-vars schemes name)
+      (match (table-ref schemes name)
+        ((Some scheme) (Scheme-vars scheme))
+        ((None) (Nil))))
+
+    ;; The type variables an item's scheme declares ω.
+    (: item-copy (-> (Table Scheme) Item (List String)))
+    (define (item-copy schemes item)
+      (match item
+        ((Define name _) (match (table-ref schemes name)
+                           ((Some scheme) (Scheme-copy scheme))
+                           ((None) (Nil))))
+        (_ (Nil))))
+
+    (: check-expression-types (-> Program (List String) Expr Unit ! compile))
+    (define (check-expression-types program copy expr)
+      (check-type program copy (Expr-type expr) (Expr-loc expr))
+      (for-each (lambda (child) (check-expression-types program copy child)) (children expr)))
 
     (: children (-> Expr (List Expr)))
     (define (children expr)
@@ -79,43 +124,69 @@
     ;; ---- Paths ----
 
     ;; One path through a body, as far as the check has followed it: the
-    ;; linear names still live on it, and whether it can still return.
+    ;; type variables the body's scheme declares ω, the linear names still
+    ;; live on it, and whether it can still return.
     ;; Names are unique, so a name's liveness needs no scoping. A path that
     ;; reaches a panic or a value of type Never cannot return, so it never
     ;; reaches the end of a scope: what it leaves live is abandoned, as a
     ;; dropped `resume` abandons its frames.
     (struct Path
       ((program Program)
-       (live (List String))
+       (copy (List String))
+       (live (List Owner))
        (returns Bool)))
+
+    ;; A live linear name, with the type that makes it linear, which a
+    ;; diagnostic about it explains.
+    (struct Owner
+      ((name String)
+       (type Type)))
 
     (: linear? (-> Path Type Bool))
     (define (linear? path type)
-      (linear-type? (Path-program path) type))
+      (linear-type? (Path-program path) (Path-copy path) type))
+
+    (: live? (-> Path String Bool))
+    (define (live? path name)
+      (any? (lambda (owner) (string=? (Owner-name owner) name)) (Path-live path)))
+
+    ;; The same for a value on this path, under its definition's Copy.
+    (: explain (-> Path Type String String))
+    (define (explain path type message)
+      (explain-type (Path-program path) (Path-copy path) type message))
 
     ;; A linear name is live from its binding until it is consumed.
     (: bind (-> Path String Type Path))
     (define (bind path name type)
-      (if (linear? path type) (Path-live-set path (Cons name (Path-live path))) path))
+      (if (linear? path type) (Path-live-set path (Cons (Owner name type) (Path-live path))) path))
 
-    (: consume (-> Path String Loc Path ! compile))
-    (define (consume path name loc)
-      (unless (member? name (Path-live path))
-        (compile-error loc (string-append "linear value used more than once: " (local-name name))))
-      (Path-live-set path (filter (lambda (live) (not (string=? live name))) (Path-live path))))
+    (: consume (-> Path Owner Loc Path ! compile))
+    (define (consume path owner loc)
+      (let ((name (Owner-name owner)))
+        (unless (live? path name)
+          (compile-error loc
+                         (explain path
+                                  (Owner-type owner)
+                                  (string-append "linear value used more than once: "
+                                                 (local-name name)))))
+        (Path-live-set path
+                       (filter (lambda (live) (not (string=? (Owner-name live) name)))
+                               (Path-live path)))))
 
     ;; The end of a scope opened on `outer`: if the path returns, it has
     ;; consumed each linear name the scope bound.
     (: close-scope (-> Path Path Loc Path ! compile))
     (define (close-scope outer inner loc)
-      (let ((outside? (lambda (name) (member? name (Path-live outer)))))
-        (match (filter (lambda (name) (not (outside? name))) (Path-live inner))
-          ((Cons name _)
+      (let ((outside? (lambda (owner) (live? outer (Owner-name owner)))))
+        (match (filter (lambda (owner) (not (outside? owner))) (Path-live inner))
+          ((Cons owner _)
            (when (Path-returns inner)
              (compile-error loc
-                            (string-append "linear value never consumed: "
-                                           (local-name name)
-                                           "; use it once, or drop it"))))
+                            (explain inner
+                                     (Owner-type owner)
+                                     (string-append "linear value never consumed: "
+                                                    (local-name (Owner-name owner))
+                                                    "; use it once, or drop it")))))
           ((Nil) (unit)))
         (Path-live-set inner (filter outside? (Path-live inner)))))
 
@@ -131,12 +202,15 @@
 
     (: agree (-> Path Path Loc Unit ! compile))
     (define (agree one other loc)
-      (for-each (lambda (name)
-                  (unless (and (member? name (Path-live one)) (member? name (Path-live other)))
-                    (compile-error loc
-                                   (string-append
-                                    "alternatives must consume the same linear values: "
-                                    (local-name name)))))
+      (for-each (lambda (owner)
+                  (let ((name (Owner-name owner)))
+                    (unless (and (live? one name) (live? other name))
+                      (compile-error loc
+                                     (explain one
+                                              (Owner-type owner)
+                                              (string-append
+                                               "alternatives must consume the same linear values: "
+                                               (local-name name)))))))
                 (append (Path-live one) (Path-live other))))
 
     ;; ---- Expressions ----
@@ -165,8 +239,7 @@
            (let ((path (check path value)))
              (close-scope path (check (bind path name (Expr-type value)) body) loc)))
           ((Seq first rest)
-           (when (linear? path (Expr-type first))
-             (compile-error (Expr-loc first) "a linear value cannot be discarded; drop it"))
+           (check-discardable path first)
            (check (check path first) rest))
           ((Match value clauses)
            (let ((path (check path value)))
@@ -177,15 +250,19 @@
           ((Convert inner target) (check-conversion path expr inner target))
           ((TypeTest inner target) (check-conversion path expr inner target)))))
 
-    ;; A use of a linear name consumes it. A linear record's accessors and
-    ;; replacements would give its fields a second owner.
+    ;; A use of a linear local consumes it. A global is shared, as nothing
+    ;; linear is one. A linear record's accessors and replacements would
+    ;; give its fields a second owner.
     (: check-reference (-> Path Expr String Path ! compile))
     (define (check-reference path expr name)
       (match (program-value (Path-program path) name)
-        ((Some (Accessor _ _ _)) (check-accessor path expr))
-        ((Some (Replacer _ _ _)) (check-accessor path expr))
-        (_ (unit)))
-      (if (linear? path (Expr-type expr)) (consume path name (Expr-loc expr)) path))
+        ((Some (Accessor _ _ _)) (check-accessor path expr) path)
+        ((Some (Replacer _ _ _)) (check-accessor path expr) path)
+        ((Some _) path)
+        ((None)
+         (if (linear? path (Expr-type expr))
+             (consume path (Owner name (Expr-type expr)) (Expr-loc expr))
+             path))))
 
     (: check-accessor (-> Path Expr Unit ! compile))
     (define (check-accessor path expr)
@@ -193,7 +270,9 @@
         ((TFun (Cons type _) _ _)
          (when (linear? path type)
            (compile-error (Expr-loc expr)
-                          "destructure a linear record with match; accessors would duplicate ownership")))
+                          (explain path
+                                   type
+                                   "destructure a linear record with match; accessors would duplicate ownership"))))
         (_ (unit))))
 
     ;; `once` may move a lambda's linear captures into it. A panic never
@@ -215,18 +294,24 @@
     (define (check-lambda path expr once?)
       (match (Pair (Expr-term expr) (Expr-type expr))
         ((Pair (Lambda params body) (TFun types _ _))
-         (let ((captured (filter (lambda (name) (member? name (Path-live path)))
-                                 (expr-references expr)))
+         (let ((captured (let ((references (expr-references expr)))
+                           (filter (lambda (owner) (member? (Owner-name owner) references))
+                                   (Path-live path))))
                (loc (Expr-loc expr)))
-           (unless (or once? (null? captured))
-             (compile-error loc "an unrestricted procedure cannot capture a linear value"))
-           (let* ((empty (Path (Path-program path) (Nil) #t))
+           (match (Pair once? captured)
+             ((Pair #f (Cons owner _))
+              (compile-error loc
+                             (explain path
+                                      (Owner-type owner)
+                                      "an unrestricted procedure cannot capture a linear value")))
+             (_ (unit)))
+           (let* ((empty (Path (Path-program path) (Path-copy path) (Nil) #t))
                   (start (fold-left (lambda (inner pair)
                                       (bind inner (Pair-first pair) (Pair-second pair)))
                                     (Path-live-set empty captured)
                                     (zip params types))))
              (close-scope empty (check start body) loc)
-             (fold-left (lambda (path name) (consume path name loc)) path captured))))
+             (fold-left (lambda (path owner) (consume path owner loc)) path captured))))
         (_ (panic "internal error: untyped closure"))))
 
     ;; A clause's pattern binds the fields it names. A wildcard cannot
@@ -243,7 +328,10 @@
       (match pattern
         ((PWild type)
          (when (linear? path type)
-           (compile-error loc "a wildcard cannot discard a linear value; bind it and use it"))
+           (compile-error loc
+                          (explain path
+                                   type
+                                   "a wildcard cannot discard a linear value; bind it and use it")))
          path)
         ((PVar name type) (bind path name type))
         ((PLit _ _) path)
@@ -255,21 +343,28 @@
         (compile-error (Expr-loc expr) "a linear value cannot cross a dynamic type boundary"))
       (check path inner))
 
+    ;; A statement's value is discarded, so it cannot be linear.
+    (: check-discardable (-> Path Expr Unit ! compile))
+    (define (check-discardable path statement)
+      (let ((type (Expr-type statement)))
+        (when (linear? path type)
+          (compile-error (Expr-loc statement)
+                         (explain path type "a linear value cannot be discarded; drop it")))))
+
     ;; ---- Items ----
 
-    ;; Each item is a path of its own: no linear value is a global, and a
-    ;; statement cannot discard one.
-    (: check-ownership (-> Program (List Item) Unit ! compile))
-    (define (check-ownership program items)
-      (for-each (lambda (item) (check-item (Path program (Nil) #t) item)) items))
+    ;; Each item is a path of its own, under the variables its scheme
+    ;; declares ω: no linear value is a global, and a statement cannot
+    ;; discard one.
+    (: check-ownership (-> Program (Table Scheme) (List Item) Unit ! compile))
+    (define (check-ownership program schemes items)
+      (for-each (lambda (item)
+                  (check-item (Path program (item-copy schemes item) (Nil) #t) item))
+                items))
 
     (: check-item (-> Path Item Unit ! compile))
     (define (check-item path item)
       (match item
         ((Define _ value) (check path value) (unit))
-        ((Do value)
-         (when (linear? path (Expr-type value))
-           (compile-error (Expr-loc value) "a linear value cannot be discarded; drop it"))
-         (check path value)
-         (unit))
+        ((Do value) (check-discardable path value) (check path value) (unit))
         (_ (unit))))))

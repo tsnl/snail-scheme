@@ -140,6 +140,9 @@ function of the expander has `mut` in its row — and where it does not, the
   at a time; when a library is checked, its literals default, and each
   class constraint is solved once, filling its hole. Rows unify as sets with
   open tails. Matches are checked with Maranget's usefulness algorithm.
+  A use of a definition that requires `(Copy A)` asks that `A`'s
+  instantiation be unrestricted, judged under the `Copy` variables of the
+  definition containing the use.
 
   The pass holds no mutable state. A `Checker` is plain data, threaded
   through: each step takes one and hands back the one it learned in, so
@@ -161,16 +164,19 @@ function of the expander has `mut` in its row — and where it does not, the
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds two
   structural properties of types from their declared fields: whether a
   type is first-order data, which dynamic exports require, and whether it
-  is linear, which ownership uses. Ordinary arrows say nothing about their
-  captures.
+  is linear, given the type variables a definition requires `Copy` of,
+  which the checker and ownership use. Ordinary arrows say nothing about
+  their captures.
 - **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** checks each
   library's linear values once its types are final, before
   specialization. It follows each path through a body: a use consumes a
   linear local, and a second use, or one still live where its scope ends,
   is an error. Alternatives must consume the same values, except those
   that panic or reach `Never`, which never return. It inserts nothing.
-  Only one-shot closures can own linear captures. Concrete records inherit
-  their fields' grade; generic parameters remain unrestricted.
+  Only one-shot closures can own linear captures. Records inherit the
+  grade of their fields and arguments, and a type variable is linear
+  unless its definition requires `(Copy A)`, so each generic body is
+  checked once, for every instantiation.
 - **[`mono.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/mono.sld)** starts from the program's
   statements and values and copies each reachable definition once per ground
   instantiation. A method reference becomes the instance method its evidence

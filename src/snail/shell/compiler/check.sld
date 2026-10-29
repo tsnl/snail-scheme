@@ -28,11 +28,11 @@
     ;; Scope, which a sub-check may replace and which the caller gets back
     ;; unchanged: `program`, `locals` mapping unique local names to
     ;; monomorphic types, `givens` the requirements of the annotated
-    ;; definition being checked, `confining` the row variable of a
-    ;; function body whose type forbids `mut`, so calls in that body may
-    ;; mutate, and `signed` the row variable of a function body checked
-    ;; against its signature, so calls in that body record what they
-    ;; perform.
+    ;; definition being checked and `copy` the type variables it declares
+    ;; ω, `confining` the row variable of a function body whose type
+    ;; forbids `mut`, so calls in that body may mutate, and `signed` the
+    ;; row variable of a function body checked against its signature, so
+    ;; calls in that body record what they perform.
     ;;
     ;; What it has learned, which flows forward out of every sub-check:
     ;; `counter` numbering metavariables and evidence holes, `solution`,
@@ -48,6 +48,7 @@
       ((program Program)
        (locals (Table Type))
        (givens (List Constraint))
+       (copy (List String))
        (confining (Option I64))
        (signed (Option I64))
        (counter I64)
@@ -87,6 +88,7 @@
       (Checker (Checker-program outer)
                (Checker-locals outer)
                (Checker-givens outer)
+               (Checker-copy outer)
                (Checker-confining outer)
                (Checker-signed outer)
                (Checker-counter inner)
@@ -125,7 +127,8 @@
     (define (solved-evidence solution id)
       (table-ref (Solution-evidence solution) (identity-key id)))
 
-    ;; A class constraint keeps the givens in scope where it arose.
+    ;; A class constraint keeps the givens in scope where it arose, and a
+    ;; Copy requirement the type variables declared ω there.
     (enum Wanted
       (WantClass
        ((constraint Constraint)
@@ -136,8 +139,9 @@
        ((value Datum)
         (type Type)
         (loc Loc)))
-      (WantOmega
+      (WantCopy
        ((type Type)
+        (copy (List String))
         (loc Loc))))
 
     ;; The checker's output: typed items in program order and every
@@ -165,7 +169,7 @@
     ;; applied first; a metavariable on its own is not known to be linear.
     (: linear? (-> Checker Type Bool))
     (define (linear? ck type)
-      (linear-type? (program-of ck) (resolve-type (solution ck) type)))
+      (linear-type? (program-of ck) (Checker-copy ck) (resolve-type (solution ck) type)))
 
     (: bind-solved (-> Checker Type Type Checker))
     (define (bind-solved ck meta type)
@@ -455,9 +459,17 @@
                     (evidence (each (lambda (ck constraint)
                                       (want-class ck (substitute-constraint metas constraint) loc))
                                     (Scheme-constraints scheme)))
-                    (then
-                     (want-each (map (lambda (meta) (WantOmega (Pair-second meta) loc)) metas))))
+                    (then (want-each (copy-requirements ck scheme metas loc))))
                 (Pair (Instantiated type (map Pair-second metas) evidence) ck)))
+
+    ;; The types a use binds to the variables its scheme declares ω must be
+    ;; ω where it is: concrete types without a linear part, or variables the
+    ;; enclosing definition declares ω in turn. The other variables may
+    ;; take linear types.
+    (: copy-requirements (-> Checker Scheme Substitution Loc (List Wanted)))
+    (define (copy-requirements ck scheme metas loc)
+      (map (lambda (meta) (WantCopy (Pair-second meta) (Checker-copy ck) loc))
+           (filter (lambda (meta) (member? (Pair-first meta) (Scheme-copy scheme))) metas)))
 
     ;; A fresh metavariable per quantified variable, in order.
     (: fresh-bindings (-> Checker (List String) (Pair Substitution Checker)))
@@ -1086,10 +1098,7 @@
                   (for-each (lambda (want)
                               (match want
                                 ((WantLiteral value type loc) (check-literal ck value type loc))
-                                ((WantOmega type loc)
-                                 (when (linear? ck type)
-                                   (compile-error loc
-                                                  "a type variable requires an unrestricted type; this value is linear")))
+                                ((WantCopy type copy loc) (check-copy ck type copy loc))
                                 (_ (unit))))
                             pending)
                   (fold-left (lambda (ck want)
@@ -1673,6 +1682,24 @@
         ((TVar id) id)
         (_ -1)))
 
+    ;; A type bound to a Copy variable. A variable of the enclosing
+    ;; definition that it does not declare ω is linear, so the definition
+    ;; must declare it; a concrete linear type cannot be bound at all.
+    (: check-copy (-> Checker Type (List String) Loc Unit ! compile))
+    (define (check-copy ck type copy loc)
+      (let ((type (resolve-type (solution ck) type)) (program (program-of ck)))
+        (when (linear-type? program copy type)
+          (compile-error loc
+                         (match (missing-copy program copy type)
+                           ((Nil)
+                            (string-append "a type variable requires an unrestricted type, and "
+                                           (type->string type)
+                                           " is linear"))
+                           (names
+                            (string-append "this use needs "
+                                           (copy-declaration names)
+                                           ", which the definition must require")))))))
+
     (: wanted-metas (-> Solution Wanted (List Type)))
     (define (wanted-metas solution want)
       (match want
@@ -1680,7 +1707,7 @@
          (concatenate
           (map (lambda (type) (free-metas solution type)) (Constraint-types constraint))))
         ((WantLiteral _ type _) (free-metas solution type))
-        ((WantOmega _ _) (Nil))))
+        ((WantCopy _ _ _) (Nil))))
 
     (: free-metas (-> Solution Type (List Type)))
     (define (free-metas solution type)
@@ -1702,10 +1729,11 @@
     (: check-annotated (-> Checker Item Scheme (Pair Item Checker) ! compile))
     (define (check-annotated ck definition scheme)
       (within ck
-              (Checker-givens-set ck
-                                  (if (null? (Scheme-vars scheme))
-                                      (Nil)
-                                      (Scheme-constraints scheme)))
+              (Checker-copy-set (Checker-givens-set ck
+                                                    (if (null? (Scheme-vars scheme))
+                                                        (Nil)
+                                                        (Scheme-constraints scheme)))
+                                (Scheme-copy scheme))
               (lambda (inner) (check-annotated-value inner definition scheme))))
 
     (: check-annotated-value (-> Checker Item Scheme (Pair Item Checker) ! compile))
@@ -1841,6 +1869,7 @@
       (let ((ck (Checker program
                          empty-table
                          (Nil)
+                         (Nil)
                          (None)
                          (None)
                          0
@@ -1860,8 +1889,8 @@
                          (Typed program (map (lambda (item) (zonk-item (solution ck) item)) typed)
                                 (final-schemes ck items))))
                     (for-each check-conversions (Typed-items result))
-                    (check-owned-types program (Typed-items result))
-                    (check-ownership program (Typed-items result))
+                    (check-owned-types program (Typed-schemes result) (Typed-items result))
+                    (check-ownership program (Typed-schemes result) (Typed-items result))
                     (for-each
                      (lambda (function) (check-confined result (zonk-expr (solution ck) function)))
                      (Checker-confined ck))

@@ -345,7 +345,7 @@
 
     (: rep (-> Module Type Rep ! mut))
     (define (rep m type)
-      (if (linear-type? (program-of m) type)
+      (if (linear-type? (program-of m) (Nil) type)
           (Reference (owned-type m))
           (unrestricted-rep m type)))
 
@@ -1117,7 +1117,7 @@
     (: construct (-> Fn Case Type (List Wat) Wat ! mut))
     (define (construct fn case type args)
       (let ((value (construct-data fn case type args)))
-        (if (linear-type? (program-of (Fn-module fn)) type)
+        (if (linear-type? (program-of (Fn-module fn)) (Nil) type)
             (wat "struct.new" (id (owned-type (Fn-module fn))) value)
             value)))
 
@@ -1344,7 +1344,7 @@
     (define (clause-block fn clause value done tail?)
       (let* ((next (local-id fn "clause"))
              (pattern (Clause-pattern clause))
-             (tests (if (linear-type? (program-of (Fn-module fn)) (pattern-type pattern))
+             (tests (if (linear-type? (program-of (Fn-module fn)) (Nil) (pattern-type pattern))
                         (let ((plan (owned-pattern fn pattern (wat "local.get" (id value)) next)))
                           (append (Pair-first plan) (Pair-second plan)))
                         (pattern-code fn pattern (wat "local.get" (id value)) next)))
@@ -1385,7 +1385,7 @@
              (case (match (program-value (program-of m) constructor)
                      ((Some (Constructor case _)) case)
                      (_ (panic "internal error: not a constructor"))))
-             (owned (linear-type? (program-of m) type))
+             (owned (linear-type? (program-of m) (Nil) type))
              (raw (if owned (wat "ref.cast" (wat "ref" (id (data-type m type)))
                                  (wat "struct.get" (id (owned-type m)) (int 0) value)) value))
              (plan (data-pattern fn case args type raw fail)))
