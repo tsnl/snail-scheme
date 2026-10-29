@@ -256,7 +256,7 @@
            (< (manhattan front (Building-cell building)) limit)))
 
     ;; The first of the nearest, so ties go to the oldest.
-    (: nearest (All (A) (-> (List A) (-> A I64) (Option A))))
+    (: nearest (All (A) (requires (Copy A)) (-> (List A) (-> A I64) (Option A))))
     (define (nearest items distance)
       (fold-left (lambda (best item)
                    (match best

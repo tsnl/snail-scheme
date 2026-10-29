@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(: head (All (T) (-> (List T) T)))
+(: head (All (T) (requires (Copy T)) (-> (List T) T)))
 (define (head items)
   (match items
     ((Cons item _) item)

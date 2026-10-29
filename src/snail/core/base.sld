@@ -281,15 +281,15 @@
       (define round f64-round)
       (define truncate f64-truncate))
 
-    (: abs (All (T) (requires (Num T) (Ord T)) (-> T T)))
+    (: abs (All (T) (requires (Num T) (Ord T) (Copy T)) (-> T T)))
     (define (abs x)
       (if (< x (- x x)) (negate x) x))
 
-    (: min (All (T) (requires (Ord T)) (-> T T T)))
+    (: min (All (T) (requires (Ord T) (Copy T)) (-> T T T)))
     (define (min a b)
       (if (< b a) b a))
 
-    (: max (All (T) (requires (Ord T)) (-> T T T)))
+    (: max (All (T) (requires (Ord T) (Copy T)) (-> T T T)))
     (define (max a b)
       (if (< a b) b a))
 
@@ -331,13 +331,13 @@
         ((_) (Nil))
         ((_ item rest ...) (Cons item (list rest ...)))))
 
-    (: null? (All (T) (-> (List T) Bool)))
+    (: null? (All (T) (requires (Copy T)) (-> (List T) Bool)))
     (define (null? items)
       (match items
         ((Nil) #t)
         ((Cons _ _) #f)))
 
-    (: length (All (T) (-> (List T) I64)))
+    (: length (All (T) (requires (Copy T)) (-> (List T) I64)))
     (define (length items)
       (fold-left (lambda (count item) (+ count 1)) 0 items))
 
@@ -370,7 +370,7 @@
         ((Nil) (unit))
         ((Cons item rest) (f item) (for-each f rest))))
 
-    (: filter (All (A e) (-> (-> A Bool ! e) (List A) (List A) ! e)))
+    (: filter (All (A e) (requires (Copy A)) (-> (-> A Bool ! e) (List A) (List A) ! e)))
     (define (filter keep? items)
       (reverse
        (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
@@ -385,7 +385,7 @@
     (define (fold-right f initial items)
       (fold-left (lambda (result item) (f item result)) initial (reverse items)))
 
-    (: list-tail (All (T) (-> (List T) I64 (List T))))
+    (: list-tail (All (T) (requires (Copy T)) (-> (List T) I64 (List T))))
     (define (list-tail items index)
       (if (= index 0)
           items
@@ -393,36 +393,37 @@
             ((Cons _ rest) (list-tail rest (- index 1)))
             ((Nil) (panic "list-tail: index out of range")))))
 
-    (: list-ref (All (T) (-> (List T) I64 T)))
+    (: list-ref (All (T) (requires (Copy T)) (-> (List T) I64 T)))
     (define (list-ref items index)
       (match (list-tail items index)
         ((Cons item _) item)
         ((Nil) (panic "list-ref: index out of range"))))
 
-    (: any? (All (A e) (-> (-> A Bool ! e) (List A) Bool ! e)))
+    (: any? (All (A e) (requires (Copy A)) (-> (-> A Bool ! e) (List A) Bool ! e)))
     (define (any? test items)
       (match items
         ((Nil) #f)
         ((Cons item rest) (if (test item) #t (any? test rest)))))
 
-    (: every? (All (A e) (-> (-> A Bool ! e) (List A) Bool ! e)))
+    (: every? (All (A e) (requires (Copy A)) (-> (-> A Bool ! e) (List A) Bool ! e)))
     (define (every? test items)
       (match items
         ((Nil) #t)
         ((Cons item rest) (if (test item) (every? test rest) #f))))
 
-    (: find (All (A e) (-> (-> A Bool ! e) (List A) (Option A) ! e)))
+    (: find (All (A e) (requires (Copy A)) (-> (-> A Bool ! e) (List A) (Option A) ! e)))
     (define (find test items)
       (match items
         ((Nil) (None))
         ((Cons item rest) (if (test item) (Some item) (find test rest)))))
 
-    (: member? (All (A) (requires (Ord A)) (-> A (List A) Bool)))
+    (: member? (All (A) (requires (Ord A) (Copy A)) (-> A (List A) Bool)))
     (define (member? value items)
       (any? (lambda (item) (= item value)) items))
 
     ;; Keeps the first of each group of equal items.
-    (: delete-duplicates (All (A e) (-> (-> A A Bool ! e) (List A) (List A) ! e)))
+    (: delete-duplicates
+       (All (A e) (requires (Copy A)) (-> (-> A A Bool ! e) (List A) (List A) ! e)))
     (define (delete-duplicates same? items)
       (reverse (fold-left (lambda (kept item)
                             (if (any? (lambda (other) (same? other item)) kept)
@@ -430,7 +431,7 @@
                                 (Cons item kept)))
                           (Nil) items)))
 
-    (: take (All (T) (-> (List T) I64 (List T))))
+    (: take (All (T) (requires (Copy T)) (-> (List T) I64 (List T))))
     (define (take items count)
       (let loop ((items items) (count count) (taken (Nil)))
         (match items
@@ -438,7 +439,7 @@
            (if (= count 0) (reverse taken) (loop rest (- count 1) (Cons item taken))))
           ((Nil) (reverse taken)))))
 
-    (: list-drop (All (T) (-> (List T) I64 (List T))))
+    (: list-drop (All (T) (requires (Copy T)) (-> (List T) I64 (List T))))
     (define (list-drop items count)
       (if (= count 0)
           items
@@ -446,14 +447,14 @@
             ((Cons _ rest) (list-drop rest (- count 1)))
             ((Nil) (Nil)))))
 
-    (: last (All (T) (-> (List T) (Option T))))
+    (: last (All (T) (requires (Copy T)) (-> (List T) (Option T))))
     (define (last items)
       (match items
         ((Nil) (None))
         ((Cons item (Nil)) (Some item))
         ((Cons _ rest) (last rest))))
 
-    (: list-index (All (A e) (-> (-> A Bool ! e) (List A) (Option I64) ! e)))
+    (: list-index (All (A e) (requires (Copy A)) (-> (-> A Bool ! e) (List A) (Option I64) ! e)))
     (define (list-index test items)
       (let loop ((items items) (index 0))
         (match items
@@ -461,7 +462,8 @@
           ((Cons item rest) (if (test item) (Some index) (loop rest (+ index 1)))))))
 
     ;; The value paired with the first occurrence of `key`.
-    (: assoc-ref (All (K V) (requires (Ord K)) (-> (List (Pair K V)) K (Option V))))
+    (: assoc-ref
+       (All (K V) (requires (Ord K) (Copy K) (Copy V)) (-> (List (Pair K V)) K (Option V))))
     (define (assoc-ref entries key)
       (match entries
         ((Nil) (None))
@@ -469,7 +471,7 @@
          (if (= (Pair-first entry) key) (Some (Pair-second entry)) (assoc-ref rest key)))))
 
     ;; Pairs the items of two lists, stopping at the end of the shorter.
-    (: zip (All (A B) (-> (List A) (List B) (List (Pair A B)))))
+    (: zip (All (A B) (requires (Copy A) (Copy B)) (-> (List A) (List B) (List (Pair A B)))))
     (define (zip as bs)
       (let loop ((as as) (bs bs) (pairs (Nil)))
         (match as
@@ -486,31 +488,32 @@
 
     ;; ---- Vectors and arrays ----
 
-    (: vector-map (All (A B e) (-> (-> A B ! e) (Vector A) (Vector B) ! e)))
+    (: vector-map
+       (All (A B e) (requires (Copy A) (Copy B)) (-> (-> A B ! e) (Vector A) (Vector B) ! e)))
     (define (vector-map f items)
       (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
 
-    (: vector-for-each (All (A e) (-> (-> A Unit ! e) (Vector A) Unit ! e)))
+    (: vector-for-each (All (A e) (requires (Copy A)) (-> (-> A Unit ! e) (Vector A) Unit ! e)))
     (define (vector-for-each f items)
       (let loop ((index 0))
         (when (< index (vector-length items))
           (f (vector-ref items index))
           (loop (+ index 1)))))
 
-    (: vector-fold (All (A B e) (-> (-> B A B ! e) B (Vector A) B ! e)))
+    (: vector-fold (All (A B e) (requires (Copy A)) (-> (-> B A B ! e) B (Vector A) B ! e)))
     (define (vector-fold f initial items)
       (let loop ((index 0) (result initial))
         (if (< index (vector-length items))
             (loop (+ index 1) (f result (vector-ref items index)))
             result)))
 
-    (: vector->list (All (T) (-> (Vector T) (List T))))
+    (: vector->list (All (T) (requires (Copy T)) (-> (Vector T) (List T))))
     (define (vector->list items)
       (let loop ((index (- (vector-length items) 1)) (result (Nil)))
         (if (< index 0) result (loop (- index 1) (Cons (vector-ref items index) result)))))
 
     ;; The array is local to this call, so the conversion is total.
-    (: list->vector (All (T) (-> (List T) (Vector T))))
+    (: list->vector (All (T) (requires (Copy T)) (-> (List T) (Vector T))))
     (define (list->vector items)
       (match items
         ((Nil) (vector-generate 0 (lambda (index) (panic "list->vector: empty"))))
@@ -522,7 +525,7 @@
     ;; Copies each vector once into one array of the total length, which is
     ;; local to this call. The array's initial element comes from the first
     ;; vector that has one.
-    (: vector-concatenate (All (T) (-> (List (Vector T)) (Vector T))))
+    (: vector-concatenate (All (T) (requires (Copy T)) (-> (List (Vector T)) (Vector T))))
     (define (vector-concatenate vectors)
       (match (find (lambda (items) (> (vector-length items) 0)) vectors)
         ((None) (list->vector (Nil)))

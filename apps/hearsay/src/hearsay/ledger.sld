@@ -254,7 +254,7 @@
        (last-round (List String)))
       (deriving Serialize Deserialize))
 
-    (: replace-at (All (T) (-> (List T) I64 T (List T))))
+    (: replace-at (All (T) (requires (Copy T)) (-> (List T) I64 T (List T))))
     (define (replace-at items index value)
       (map-indexed (lambda (at item) (if (= at index) value item)) items))
 

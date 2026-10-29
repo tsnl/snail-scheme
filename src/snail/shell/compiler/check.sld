@@ -473,7 +473,7 @@
     ;; `step` over each item in order, threading the checker and collecting
     ;; the values, so a sequence of learning steps is itself one step.
     (: each
-       (All (A B e)
+       (All (A B e) (requires (Copy B))
             (-> Checker (-> Checker A (Pair B Checker) ! e) (List A) (Pair (List B) Checker) ! e)))
     (define (each ck step items)
       (let ((done (fold-left (lambda (done item)
@@ -1663,6 +1663,7 @@
                                    name
                                    (Scheme names
                                            (Nil)
+                                           (Nil)
                                            (resolve-type (solution ck) (scheme-type ck name))))))
                    bound definitions)))
 
@@ -1774,7 +1775,7 @@
         ((Some (Defined _ _)) (unit))
         (_ (compile-error loc "an exposed function must be defined")))
       (match (global-scheme ck name)
-        ((Some (Scheme (Nil) (Nil) (TFun params result row)))
+        ((Some (Scheme (Nil) (Nil) _ (TFun params result row)))
          (when (any? (lambda (type) (linear? ck type)) (Cons result params))
            (compile-error loc "an exposed function cannot take or return a linear value"))
          (when dynamic (check-dynamic ck (Cons result params) row loc))
@@ -1925,6 +1926,7 @@
                                                    name
                                                    (Scheme (Scheme-vars scheme)
                                                            (Scheme-constraints scheme)
+                                                           (Scheme-copy scheme)
                                                            (zonk (solution ck)
                                                                  (Scheme-type scheme)))))
                                       ((None) ck)))

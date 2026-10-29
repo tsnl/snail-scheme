@@ -84,7 +84,7 @@
 ;; diagnostic's or the request's record is sent. The host finds the record
 ;; after a normal return; for a request it supplies the input and calls
 ;; again with what it had.
-(: resident (All (T e) (-> (-> T ! compile e) T T ! compiler-output e)))
+(: resident (All (T e) (requires (Copy T)) (-> (-> T ! compile e) T T ! compiler-output e)))
 (define (resident work given)
   (match (compiling work)
     ((Ok value) value)
