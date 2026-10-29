@@ -156,8 +156,7 @@ allowed. A helper defined elsewhere that mutates its argument is therefore
 rejected even when the argument is local; define it inside the function.
 `unsafe-total` runs a thunk and discards all its effects without a check, for
 the cases this rule rejects; each use says in a comment why nothing escapes.
-Renaming `Ref` to `Cell` and adding a `gc` effect, "may allocate traced
-memory", are proposed in
+A `gc` effect, "may allocate traced memory", is proposed in
 [issue #550](https://github.com/tsnl/snail-scheme/issues/550).
 
 ### Defaults from the host

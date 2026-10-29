@@ -3390,7 +3390,32 @@
            (list (wat* "struct.set"
                        (Cons (id (cell-type m (fn-rep fn (list-ref types 1)))) (Cons (int 0) code)))
                  (wat "i32.const" (int 0))))
+          (("ref-replace!")
+           (list (wat* "call" (Cons (id (replace-helper m (fn-rep fn type))) code))))
           (else (panic (string-append "internal error: unknown primitive " operation))))))
+
+    ;; Swaps a cell's content for a new value and answers the old one, which
+    ;; stays on the operand stack while the new one is stored. The content
+    ;; moves without a copy, so the caller is its only owner, and a cell
+    ;; may hold a linear value.
+    (: replace-helper (-> Module Rep String ! mut))
+    (define (replace-helper m content)
+      (let ((cell (cell-type m content)) (type (rep->wat content)))
+        (helper! m
+                 "ref-replace"
+                 (rep-key content)
+                 (lambda (function-id)
+                   (wat "func"
+                        (id function-id)
+                        (wat "param" (id "$cell") (wat "ref" (id cell)))
+                        (wat "param" (id "$value") type)
+                        (wat "result" type)
+                        (wat "struct.get" (id cell) (int 0) (wat "local.get" (id "$cell")))
+                        (wat "struct.set"
+                             (id cell)
+                             (int 0)
+                             (wat "local.get" (id "$cell"))
+                             (wat "local.get" (id "$value"))))))))
 
     ;; ---- Owned values ----
 

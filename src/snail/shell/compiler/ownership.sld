@@ -24,9 +24,10 @@
 
     ;; ---- Representable ownership ----
 
-    ;; A Vector, an Array or a Ref holds only ω values, since reading one
-    ;; leaves its element in place. Other data may hold a linear value, and
-    ;; is linear then. `copy` names the type variables declared ω.
+    ;; A Vector or an Array holds only ω values, since reading one leaves
+    ;; its element in place. A Ref's content moves out with `ref-replace!`,
+    ;; and other data moves its fields out with `match`, so both may hold a
+    ;; linear value. `copy` names the type variables declared ω.
     (: check-type (-> Program (List String) Type Loc Unit ! compile))
     (define (check-type program copy type loc)
       (match type
@@ -37,13 +38,13 @@
            (_ (compile-error loc "Once requires a procedure type"))))
         ((TCon name args)
          (for-each (lambda (arg)
-                     (when (and (member? name (list "Array" "Vector" "Ref"))
+                     (when (and (member? name (list "Array" "Vector"))
                                 (linear-type? program copy arg))
                        (compile-error loc
                                       (explain-type program
                                                     copy
                                                     arg
-                                                    "a type argument must be unrestricted: a Vector, Array or Ref holds no linear value")))
+                                                    "a type argument must be unrestricted: a Vector or Array holds no linear value")))
                      (check-type program copy arg loc)) args))
         ((TFun params result _)
          (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))

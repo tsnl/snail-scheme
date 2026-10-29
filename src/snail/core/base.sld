@@ -57,7 +57,7 @@
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
-   ref ref-get ref-set!)
+   ref ref-get ref-set! ref-replace!)
   (import
    (snail core forms)
    (snail core primitive)
