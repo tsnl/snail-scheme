@@ -1477,10 +1477,12 @@
                    (Cons result params))))
         (_ #f)))
 
+    ;; A function that performs `host` may run anything the host
+    ;; implements, mutation among it.
     (: row-mutates? (-> Type Bool))
     (define (row-mutates? row)
       (match row
-        ((TRow labels _) (member? "mut" labels))
+        ((TRow labels _) (or (member? "mut" labels) (member? "host" labels)))
         (_ #f)))
 
     ;; Builtin types other than `Ref`, `Array` and `Any` have no fields.
@@ -1850,11 +1852,11 @@
                        "a dynamic export cannot perform effects: the program that loads it could not check them")))
 
     ;; Effects performed at program start need defaults for every
-    ;; operation.
+    ;; operation; the builtin effects are the host's own.
     (: check-host-effects (-> Checker Type Loc Checker ! compile))
     (define (check-host-effects ck row loc)
       (for-each (lambda (label)
-                  (unless (or (member? label (list "mut" "tasks"))
+                  (unless (or (member? label (list "mut" "tasks" "host"))
                               (let ((effect (program-effect (program-of ck) label)))
                                 (= (length (Effect-defaults effect))
                                    (length (Effect-operations effect)))))
