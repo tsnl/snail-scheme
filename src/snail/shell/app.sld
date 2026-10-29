@@ -1049,9 +1049,11 @@
       (Hidden)
       (Reload))
 
+    ;; Waiting for an event, like loading and storing a save below, starts
+    ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
     (effect events
       ((poll-event (-> I32))
-       (wait-event (-> Unit))
+       (wait-event (-> Unit ! tasks))
        (event-field (-> I32 I32))
        (random-seed (-> I32))
        (canvas-width (-> I32))
@@ -1059,14 +1061,18 @@
        (report-boot (-> I32 Unit)))
       (host "snail.runtime.browser.events"
             ((poll-event "poll")
-             (wait-event "wait")
              (event-field "field")
              (random-seed "seed")
              (canvas-width "width")
              (canvas-height "height")
-             (report-boot "boot"))))
+             (report-boot "boot")))
+      (default
+        ((wait-event (lambda () (through-host start-wait finish-wait))))))
 
-    (: next-event (-> Event ! events))
+    (extern start-wait "snail.runtime.browser.events" "start-wait" (-> I64 Unit))
+    (extern finish-wait "snail.runtime.browser.events" "finish-wait" (-> I64 Unit))
+
+    (: next-event (-> Event ! events tasks))
     (define (next-event)
       (match (poll-event)
         (0 (wait-event) (next-event))
@@ -1082,15 +1088,22 @@
     ;; The application root owns this checkpoint protocol. Detached tasks
     ;; need their own storage binding; they cannot replace the loop's save.
     (effect storage
-      ((load-count (-> I32))
+      ((load-count (-> I32 ! tasks))
        (loaded-byte (-> I32 U8))
-       (store-save (-> Bytes Unit)))
+       (store-save (-> Bytes Unit ! tasks)))
       (host "snail.runtime.browser.storage"
-            ((load-count "load")
-             (loaded-byte "byte")
-             (store-save "store"))))
+            ((loaded-byte "byte")))
+      (default
+        ((load-count (lambda () (through-host start-load finish-load)))
+         (store-save (lambda (bytes)
+                       (through-host (lambda (ticket) (start-store ticket bytes)) finish-store))))))
 
-    (: load-save (-> (Option Bytes) ! storage))
+    (extern start-load "snail.runtime.browser.storage" "start-load" (-> I64 Unit))
+    (extern finish-load "snail.runtime.browser.storage" "finish-load" (-> I64 I32))
+    (extern start-store "snail.runtime.browser.storage" "start-store" (-> I64 Bytes Unit))
+    (extern finish-store "snail.runtime.browser.storage" "finish-store" (-> I64 Unit))
+
+    (: load-save (-> (Option Bytes) ! storage tasks))
     (define (load-save)
       (let ((count (load-count)))
         (if (< count 0)
@@ -1109,7 +1122,8 @@
     ;; Only the loop calls application messages. The cell is the last state
     ;; whose entire event succeeded; a trap never publishes its candidate.
     ;; States must be immutable data, so a handed-over checkpoint stays reusable.
-    ;; The loop itself performs `mut screen events storage`. A reset binder
+    ;; The loop itself performs `mut screen events storage tasks`, tasks for
+    ;; its waits on the host. A reset binder
     ;; that performs more, such as one that dispatches tasks, names those
     ;; effects with `effects:`, because the checker holds `app-main`'s row to
     ;; what its body performs.
@@ -1129,7 +1143,7 @@
 
            ;; A live migration must refuse an absent or incompatible save.
            ;; Cold startup alone may initialize when there is no saved game.
-           (: app-restore (-> Bool (Option (Pair State I32)) ! events storage))
+           (: app-restore (-> Bool (Option (Pair State I32)) ! events storage tasks))
            (define (app-restore cold?)
              (match (load-save)
                ((Some bytes) (Some (Pair (app-restore-bytes bytes) 1)))
@@ -1141,7 +1155,7 @@
                                        2))
                            (None)))))
 
-           (: app-boot (-> (Option Any) (Option (Pair State I32)) ! events storage))
+           (: app-boot (-> (Option Any) (Option (Pair State I32)) ! events storage tasks))
            (define (app-boot handover)
              (match handover
                ((Some state) (if (type-test state State)
@@ -1159,7 +1173,7 @@
 
            ;; Counters are loop variables, committed with the state. Build
            ;; pure frame/HUD values before their presentation can have effects.
-           (: app-frame (-> State I32 I32 I32 (Option Any) ! mut screen events storage))
+           (: app-frame (-> State I32 I32 I32 (Option Any) ! mut screen events storage tasks))
            (define (app-frame state elapsed since-hud since-save)
              (let* ((next ((ann step (-> State Input State)) state (Elapsed elapsed)))
                     (frame ((ann draw (-> State Frame)) next))
@@ -1172,7 +1186,7 @@
                (when (>= save-time 5000) (store-save (app-save-bytes next)))
                (app-run next (if show-hud? 0 hud-time) (if (>= save-time 5000) 0 save-time))))
 
-           (: app-run (-> State I32 I32 (Option Any) ! mut screen events storage))
+           (: app-run (-> State I32 I32 (Option Any) ! mut screen events storage tasks))
            (define (app-run state since-hud since-save)
              (ref-set! current (Some state))
              (match (next-event)
@@ -1187,7 +1201,7 @@
 
            ;; The host's first Resize and Frame(0) own initial presentation.
            ;; reset installs its handlers around this monomorphic run.
-           (: app-main (-> (Option Any) (Option Any) ! mut screen events storage effect ...))
+           (: app-main (-> (Option Any) (Option Any) ! mut screen events storage tasks effect ...))
            (define (app-main handover)
              ((reset-run)
               (lambda ()

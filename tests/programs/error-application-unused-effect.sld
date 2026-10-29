@@ -1,7 +1,7 @@
 (import
  (snail core base)
- (snail shell app)
- (snail shell task))
+ (snail core io)
+ (snail shell app))
 
 (: initial (-> I32 I32 I32 I64))
 (define (initial seed width height)
@@ -23,11 +23,11 @@
 (define (saved state)
   state)
 
-;; The default reset dispatches nothing, so claiming `tasks` for the root
+;; The default reset prints nothing, so claiming `console` for the root
 ;; claims an effect its body never performs.
 (define-application I64
   (reset: default-reset)
-  (effects: tasks)
+  (effects: console)
   (init: initial)
   (update: step)
   (view: draw)

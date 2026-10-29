@@ -2,6 +2,7 @@
 import {programEntry} from './entry.mjs';
 import {byteSnapshot} from './load.mjs';
 import {createScheduler, taskImports} from './tasks.mjs';
+import {createCompletions} from './completions.mjs';
 
 export const FRAME = 11, HIDDEN = 12, RELOAD = 13;
 const MOVE = 4, RESIZE = 8;
@@ -84,7 +85,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
   const pending = [];
   // This scope starts exactly one root, which owns the application protocol.
   // Children must not consume its input or replace checkpoint bytes while
-  // its storage operation is parked.
+  // its storage operation is outstanding.
   function applicationRun() {
     if (!current?.scheduler.inRoot) throw new Error('application events and checkpoint storage belong to the root task');
     return current;
@@ -106,10 +107,12 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
         run.event = event;
         return event[0];
       },
-      wait: new WebAssembly.Suspending(() => {
+      // Waiting for an event is a ticket the queue's next push completes.
+      'start-wait'(ticket) {
         const run = applicationRun();
-        return run.scheduler.suspend(signal => run.queue.wait(signal));
-      }),
+        run.completions.start(Number(ticket), run.scheduler.signal(), signal => run.queue.wait(signal), () => 0);
+      },
+      'finish-wait': ticket => applicationRun().completions.finish(Number(ticket)),
       field: index => applicationRun().event[index + 1] ?? 0,
       seed: () => seed,
       width: () => size()[0],
@@ -117,22 +120,24 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       boot: kind => { applicationRun().boot = kind; },
     },
     'snail.runtime.browser.storage': {
-      load: new WebAssembly.Suspending(() => {
+      'start-load'(ticket) {
         const run = applicationRun();
-        return run.scheduler.suspend(async signal => {
+        run.completions.start(Number(ticket), run.scheduler.signal(), async signal => {
           run.loaded = run.restore === undefined ? await load(signal) : run.restore;
           return run.loaded == null ? -1 : run.loaded.length;
-        });
-      }),
+        }, count => count);
+      },
+      'finish-load': ticket => applicationRun().completions.finish(Number(ticket)),
       byte: index => applicationRun().loaded[index],
-      store: new WebAssembly.Suspending(address => {
+      'start-store'(ticket, address) {
         const run = applicationRun(), bytes = byteSnapshot(run.entry.memory, address);
         run.saved = bytes;
-        return run.scheduler.suspend(async signal => {
+        run.completions.start(Number(ticket), run.scheduler.signal(), async signal => {
           try { await store(bytes, signal); }
           catch (error) { if (!signal.aborted) warn(`save failed: ${error.message}`); }
-        });
-      }),
+        }, () => 0);
+      },
+      'finish-store': ticket => applicationRun().completions.finish(Number(ticket)),
     },
   };
   function finish(run, state, error) {
@@ -149,8 +154,8 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
     if (current && !current.queue.closed) throw new Error('application entries must not overlap');
     if (!transfer) stopping = null;
     const ready = Promise.withResolvers(), queue = createEventQueue(transfer ? null : frames);
-    const scheduler = createScheduler({reportError});
-    const run = {entry, ready, queue, restore, scheduler, accepted: false, saved: null, loaded: null,
+    const scheduler = createScheduler({reportError}), completions = createCompletions(ticket => scheduler.wake(ticket));
+    const run = {entry, ready, queue, restore, scheduler, completions, accepted: false, saved: null, loaded: null,
                  event: null, boot: null, root: null, done: null};
     ready.promise.catch(() => {});
     current = run;

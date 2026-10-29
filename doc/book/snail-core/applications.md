@@ -31,8 +31,8 @@ that installs effect handlers around startup and the whole loop; its result
 and effect row are quantified on the reset function, so the returned binder
 is monomorphic. The loop exports `app_main : (Option Any) -> (Option Any)`.
 The task scheduler calls it through `WebAssembly.promising`; `next-event`
-drains the host queue and suspends through `WebAssembly.Suspending` when it
-is empty. `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
+drains the host queue and, when it is empty, waits for the next event by
+ticket ([waiting on the host](../runtimes/tasks.md#waiting-on-the-host)). `FrameEvent` carries elapsed milliseconds, `InputEvent` carries an
 `Input`, `Hidden` saves without stopping, and `Reload` saves and returns the
 state. The `Frame` type continues to describe drawing data.
 
@@ -47,9 +47,10 @@ it at any frame. Browser applications and headless tests need JSPI; the
 pinned Node 26 runs both packaging modes.
 
 The loop and locally dispatched work share one runtime. The root performs
-`mut`, `screen`, `events` and `storage`; a reset binder that performs more,
-such as one that dispatches background tasks, names those effects with
-`(effects: tasks)`, since a signature may not claim effects its body never
+`mut`, `screen`, `events`, `storage` and `tasks`, since it waits for events
+and saves by ticket; a reset binder that performs more, such as one that
+installs a handler with effects of its own, names those effects with
+`(effects: ...)`, since a signature may not claim effects its body never
 performs. Suspensions preserve each task's handlers. Reload lets the loop save and return, then cancels and
 drains remaining work before relinking. Module globals still initialize
 synchronously; dispatch application work from the reset binder or the
@@ -165,8 +166,9 @@ Consuming a pending frame requests the next animation frame, so slow work does
 not accumulate ticks. HUD values update at most every 100 milliseconds and
 periodic saves occur every five seconds.
 
-Event waits and complete storage operations suspend through JSPI. Save imports
-copy borrowed byte arguments before awaiting IndexedDB; a failed persistence
+Event waits and complete storage operations wait by ticket, which the task
+scheduler still suspends through JSPI. Starting a save copies its borrowed
+byte argument before awaiting IndexedDB; a failed persistence
 operation still leaves an owned snapshot for migration. GPU drawing currently
 uses synchronous screen bindings. Only Snail-Core calls suspending imports: the Rust
 scalar services keep a linear-memory stack that JSPI does not switch.

@@ -54,14 +54,35 @@ program importing both libraries would have conflicting imports.
   (dispatch-local (once (lambda () (mailbox-post mailbox "hello")))))
 ```
 
-A receiver that finds the queue empty adds its task's id to the mailbox's
-receivers and parks; a post wakes the receiver that has waited longest. A
-parked task does not run again until it is woken, so waiting costs nothing
-while nothing is posted, where a loop of `yield`s would run every event-loop
-turn. A woken receiver looks again, since a receiver that was already
-running may have taken the message first. A receiver whose task was
-cancelled while it waited is skipped. `tests/programs/mailbox.sld` has two
-tasks posting and one receiving.
+A receiver that finds the queue empty takes a ticket, adds it to the
+mailbox's receivers and awaits it; a post wakes the receiver that has
+waited longest. A waiting task does not run again until it is woken, so
+waiting costs nothing while nothing is posted, where a loop of `yield`s
+would run every event-loop turn. A woken receiver looks again, since a
+receiver that was already running may have taken the message first. A
+receiver whose task was cancelled while it waited is skipped.
+`tests/programs/mailbox.sld` has two tasks posting and one receiving.
+
+## Waiting on the host
+
+A host operation that completes later, such as a socket read, waits the
+same way. Its default takes a ticket, starts the operation on the host,
+which reads its arguments and returns at once, awaits the ticket, and
+finishes by taking the result the host built for it:
+
+```scheme
+(define (through-host start finish)
+  (let ((ticket (ticket-task)))
+    (start ticket)
+    (await-task ticket)
+    (finish ticket)))
+```
+
+`(snail shell socket)`, `(snail shell process)` and the application's
+event and storage waits all wait through `through-host`, so each waiting
+operation's latent row names `tasks`: a program that reads a socket can
+see that it waits. A handler can still replace the effect, and its
+implementations may perform `tasks` there too.
 
 ## Effects and locality
 
@@ -94,20 +115,28 @@ running it. JavaScript neither inspects the closure nor constructs Snail-Core
 objects. These entries also enforce one-shot use at the trusted host
 boundary.
 
-Parking needs two more imports and a third to name the task. `park`
-suspends the running task until `unpark` is called with its id, which
-`current` gives as an `I64`. `unpark` returns whether a task with that id
-was parked, and wakes nothing otherwise, so an id left behind by a
-cancelled task cannot wake a different task. In the browser, ids are
-numbered across the whole page, not per scheduler: a relink makes a new
-scheduler while a `Mailbox` in the application's state keeps the ids of
-the tasks the old one cancelled, and those must not name new tasks
-(`tests/tasks/check.mjs`). Parking is safe without a
-lock because a task runs until it waits: nothing else runs between a
-receiver's finding the queue empty and its parking. The queue the waits
-serve stays in Snail-Core; the host keeps only the parked tasks. When
-tasks become effects, `park` becomes a wait on the Snail-Core scheduler
-and the mailbox operations keep their types.
+Tickets need three more imports. `ticket` gives the running task a fresh
+ticket as an `I64`, `await` suspends the task until the ticket is woken,
+and `wake` wakes the task awaiting a ticket and answers whether one was,
+waking nothing otherwise, so a ticket left behind by a cancelled task
+cannot wake a different task. In the browser, tickets are numbered across
+the whole page, not per scheduler: a relink makes a new scheduler while a
+`Mailbox` in the application's state keeps the tickets of the receivers
+the old one cancelled, and those must not name new waits
+(`tests/tasks/check.mjs`). Waiting needs no lock because a task runs until
+it waits: nothing else runs between a task's taking a ticket and awaiting
+it, so neither a post nor a host completion can come first. The queue the
+waits serve stays in Snail-Core; the host keeps only the waiting tasks.
+
+A host operation's start and finish are synchronous imports. The host
+keeps each outcome under its ticket until the finish takes it
+(`host/browser/completions.mjs`), and builds the managed result through
+the library's exposed helpers inside the finish, in the waiting task's own
+call. An outcome whose task was cancelled, before the wake or after it,
+is disposed of instead: an accepted connection is closed. When tasks
+become effects, `await` becomes a wait on the Snail-Core scheduler, and
+the host wakes a ticket through an export instead of the JavaScript
+scheduler; the mailbox and the operations keep their types.
 
 Optimization must preserve those external calls. The build no longer
 enables Binaryen's `--closed-world`: that mode assumes outgoing function

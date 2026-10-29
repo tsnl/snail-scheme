@@ -1,5 +1,7 @@
-;; Concrete TCP and UDP operations. A handler can replace either effect in a test;
-;; the native runner supplies the default implementation through JSPI.
+;; Concrete TCP and UDP operations. A handler can replace either effect in a
+;; test. By default, an operation that waits starts on the native host and
+;; waits for its completion as a task does, by ticket ((snail shell task)'s
+;; `through-host`), so each such operation's latent row names `tasks`.
 (define-library (snail shell socket)
   (export
    tcp listen connect accept read write finish-connection close-listener close-connection
@@ -11,7 +13,8 @@
    Datagram Datagram-peer Datagram-bytes
    SocketError SocketError-code)
   (import
-   (snail core base))
+   (snail core base)
+   (only (snail shell task) tasks through-host))
   (begin
 
     ;; ---- Public values ----
@@ -42,34 +45,109 @@
       ((code String)))
 
     (effect tcp
-      ((listen (-> Endpoint (Result Listener SocketError)))
-       (connect (-> Endpoint (Result Connection SocketError)))
-       (accept (-> Listener (Result Connection SocketError)))
-       (read (-> Connection I32 (Result (Option Bytes) SocketError)))
-       (write (-> Connection Bytes (Result I32 SocketError)))
-       (finish-connection (-> Connection I32 (Result Unit SocketError)))
+      ((listen (-> Endpoint (Result Listener SocketError) ! tasks))
+       (connect (-> Endpoint (Result Connection SocketError) ! tasks))
+       (accept (-> Listener (Result Connection SocketError) ! tasks))
+       (read (-> Connection I32 (Result (Option Bytes) SocketError) ! tasks))
+       (write (-> Connection Bytes (Result I32 SocketError) ! tasks))
+       (finish-connection (-> Connection I32 (Result Unit SocketError) ! tasks))
        (close-listener (-> Listener (Result Unit SocketError)))
        (close-connection (-> Connection (Result Unit SocketError))))
       (host "snail.runtime.native.socket"
-            ((listen "listen")
-             (connect "connect")
-             (accept "accept")
-             (read "read")
-             (write "write")
-             (finish-connection "finish-connection")
-             (close-listener "close-listener")
-             (close-connection "close-connection"))))
+            ((close-listener "close-listener")
+             (close-connection "close-connection")))
+      (default
+        ((listen (lambda (endpoint)
+                   (through-host (lambda (ticket) (start-listen ticket endpoint)) finish-listen)))
+         (connect (lambda (endpoint)
+                    (through-host (lambda (ticket) (start-connect ticket endpoint))
+                                  finish-connect)))
+         (accept (lambda (listener)
+                   (through-host (lambda (ticket) (start-accept ticket listener)) finish-accept)))
+         (read (lambda (connection maximum)
+                 (through-host (lambda (ticket) (start-read ticket connection maximum))
+                               finish-read)))
+         (write (lambda (connection bytes)
+                  (through-host (lambda (ticket) (start-write ticket connection bytes))
+                                finish-write)))
+         (finish-connection
+          (lambda (connection grace)
+            (through-host (lambda (ticket) (start-finish-connection ticket connection grace))
+                          finish-finish-connection))))))
 
     (effect udp
-      ((bind (-> Endpoint (Result UdpSocket SocketError)))
-       (send (-> UdpSocket Endpoint Bytes (Result I32 SocketError)))
-       (receive (-> UdpSocket I32 (Result Datagram SocketError)))
+      ((bind (-> Endpoint (Result UdpSocket SocketError) ! tasks))
+       (send (-> UdpSocket Endpoint Bytes (Result I32 SocketError) ! tasks))
+       (receive (-> UdpSocket I32 (Result Datagram SocketError) ! tasks))
        (close-udp (-> UdpSocket (Result Unit SocketError))))
       (host "snail.runtime.native.socket"
-            ((bind "bind")
-             (send "send")
-             (receive "receive")
-             (close-udp "close-udp"))))
+            ((close-udp "close-udp")))
+      (default
+        ((bind (lambda (endpoint)
+                 (through-host (lambda (ticket) (start-bind ticket endpoint)) finish-bind)))
+         (send (lambda (socket peer bytes)
+                 (through-host (lambda (ticket) (start-send ticket socket peer bytes))
+                               finish-send)))
+         (receive (lambda (socket maximum)
+                    (through-host (lambda (ticket) (start-receive ticket socket maximum))
+                                  finish-receive))))))
+
+    ;; ---- Native waits ----
+
+    ;; Each operation that waits starts on the host, which reads its
+    ;; arguments at once, and finishes with the result the host built for
+    ;; its ticket. Both halves return at once.
+    (extern start-listen "snail.runtime.native.socket" "start-listen" (-> I64 Endpoint Unit))
+    (extern finish-listen
+            "snail.runtime.native.socket"
+            "finish-listen"
+            (-> I64 (Result Listener SocketError)))
+    (extern start-connect "snail.runtime.native.socket" "start-connect" (-> I64 Endpoint Unit))
+    (extern finish-connect
+            "snail.runtime.native.socket"
+            "finish-connect"
+            (-> I64 (Result Connection SocketError)))
+    (extern start-accept "snail.runtime.native.socket" "start-accept" (-> I64 Listener Unit))
+    (extern finish-accept
+            "snail.runtime.native.socket"
+            "finish-accept"
+            (-> I64 (Result Connection SocketError)))
+    (extern start-read "snail.runtime.native.socket" "start-read" (-> I64 Connection I32 Unit))
+    (extern finish-read
+            "snail.runtime.native.socket"
+            "finish-read"
+            (-> I64 (Result (Option Bytes) SocketError)))
+    (extern start-write "snail.runtime.native.socket" "start-write" (-> I64 Connection Bytes Unit))
+    (extern finish-write
+            "snail.runtime.native.socket"
+            "finish-write"
+            (-> I64 (Result I32 SocketError)))
+    (extern start-finish-connection
+            "snail.runtime.native.socket"
+            "start-finish-connection"
+            (-> I64 Connection I32 Unit))
+    (extern finish-finish-connection
+            "snail.runtime.native.socket"
+            "finish-finish-connection"
+            (-> I64 (Result Unit SocketError)))
+    (extern start-bind "snail.runtime.native.socket" "start-bind" (-> I64 Endpoint Unit))
+    (extern finish-bind
+            "snail.runtime.native.socket"
+            "finish-bind"
+            (-> I64 (Result UdpSocket SocketError)))
+    (extern start-send
+            "snail.runtime.native.socket"
+            "start-send"
+            (-> I64 UdpSocket Endpoint Bytes Unit))
+    (extern finish-send
+            "snail.runtime.native.socket"
+            "finish-send"
+            (-> I64 (Result I32 SocketError)))
+    (extern start-receive "snail.runtime.native.socket" "start-receive" (-> I64 UdpSocket I32 Unit))
+    (extern finish-receive
+            "snail.runtime.native.socket"
+            "finish-receive"
+            (-> I64 (Result Datagram SocketError)))
 
     ;; ---- Native tokens ----
 
@@ -127,7 +205,7 @@
     ;; ---- Host result construction ----
 
     ;; JavaScript carries GC references opaquely. These synchronous helpers
-    ;; run only after the waiting task reacquires the execution permit.
+    ;; run only inside a finish, which the waiting task calls.
     (: buffer (-> I32 (Array U8) ! mut))
     (define (buffer count)
       (make-array (i32->i64 count) (i32->u8 0)))

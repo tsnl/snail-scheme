@@ -1,5 +1,6 @@
 (import
  (snail core base)
+ (only (snail shell task) tasks)
  (rename (snail shell socket)
          (send udp-send)
          (receive udp-receive)))
@@ -10,7 +11,7 @@
     ((Ok value) value)
     ((Err error) (panic (SocketError-code error)))))
 
-(: open (-> (Result Listener SocketError) ! tcp))
+(: open (-> (Result Listener SocketError) ! tcp tasks))
 (define (open)
   (listen (Endpoint "127.0.0.1" 0)))
 
@@ -20,17 +21,17 @@
 (: port (-> Listener I32))
 (define (port listener) (Listener-port listener))
 
-(: dial (-> I32 (Result Connection SocketError) ! tcp))
+(: dial (-> I32 (Result Connection SocketError) ! tcp tasks))
 (define (dial port)
   (connect (Endpoint "127.0.0.1" port)))
 
-(: take (-> Listener (Result Connection SocketError) ! tcp))
+(: take (-> Listener (Result Connection SocketError) ! tcp tasks))
 (define (take listener) (accept listener))
 
 (: connection (-> (Result Connection SocketError) Connection))
 (define (connection result) (require result))
 
-(: receive (-> Connection I32 (Result (Option Bytes) SocketError) ! tcp))
+(: receive (-> Connection I32 (Result (Option Bytes) SocketError) ! tcp tasks))
 (define (receive connection count) (read connection count))
 
 (: read-count (-> (Result (Option Bytes) SocketError) I32))
@@ -51,13 +52,13 @@
     ((Err error) (string=? (SocketError-code error) "EBADF"))
     ((Ok _) #f)))
 
-(: send (-> Connection (Result I32 SocketError) ! tcp))
+(: send (-> Connection (Result I32 SocketError) ! tcp tasks))
 (define (send connection) (write connection #u8(0 255 128 1)))
 
 (: written (-> (Result I32 SocketError) I32))
 (define (written result) (require result))
 
-(: overwrite (-> Bool ! tcp))
+(: overwrite (-> Bool ! tcp tasks))
 (define (overwrite)
   (match (write (Connection (type-convert (ann 1 I32) Any)) #u8(9 8 7))
     ((Err error) (string=? (SocketError-code error) "EBADF"))
@@ -69,7 +70,7 @@
 (: stop-connection (-> Connection Unit ! tcp))
 (define (stop-connection connection) (require (close-connection connection)))
 
-(: finish (-> Connection I32 (Result Unit SocketError) ! tcp))
+(: finish (-> Connection I32 (Result Unit SocketError) ! tcp tasks))
 (define (finish connection grace) (finish-connection connection grace))
 
 (: finished? (-> (Result Unit SocketError) Bool))
@@ -101,17 +102,17 @@
 (expose finished? "finished")
 (expose timed-out? "timed-out")
 
-(: open-udp (-> UdpSocket ! udp))
+(: open-udp (-> UdpSocket ! udp tasks))
 (define (open-udp) (require (bind (Endpoint "127.0.0.1" 0))))
 
 (: udp-port (-> UdpSocket I32))
 (define (udp-port socket) (UdpSocket-port socket))
 
-(: send-udp (-> UdpSocket I32 (Result I32 SocketError) ! udp))
+(: send-udp (-> UdpSocket I32 (Result I32 SocketError) ! udp tasks))
 (define (send-udp socket port)
   (udp-send socket (Endpoint "127.0.0.1" port) #u8(0 255 128 1)))
 
-(: receive-udp (-> UdpSocket I32 (Result Datagram SocketError) ! udp))
+(: receive-udp (-> UdpSocket I32 (Result Datagram SocketError) ! udp tasks))
 (define (receive-udp socket count) (udp-receive socket count))
 
 (: packet-port (-> (Result Datagram SocketError) I32))
