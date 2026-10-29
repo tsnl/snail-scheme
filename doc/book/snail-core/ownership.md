@@ -55,16 +55,19 @@ so is a second use.
   field holding a linear value only inside a `Ref` does not count, so a
   `(Mailbox (FnOnce Unit))` is unrestricted. Destructure linear data
   with `match`, which moves the fields out; a wildcard cannot discard a
-  linear field, and a pure replacement cannot be used, since it would copy
-  the other fields. An enum is linear even when its current variant has no
-  fields.
-- **The place rule.** A field operation acts on its record where it is,
-  so applying one to a linear local does not consume the local. It may
-  read only an omega field: a linear field leaves its record by
-  destructuring. A linear record that is not a local has nowhere to stay,
-  and a field operation used as a value would consume the record it is
-  applied to; both would leave the other fields with no owner, and are
-  refused.
+  linear field. A pure replacement, `(Job-attempts-set job 2)`, consumes a
+  linear record and answers it with the other fields moved along, so it
+  may replace an omega field, but not a linear one, whose content it would
+  discard. An enum is linear even when its current variant has no fields.
+- **The place rule.** A field operation other than a replacement acts on
+  its record where it is, so applying one to a linear local does not
+  consume the local. It may read only an omega field: a linear field
+  leaves its record by destructuring. A linear record that is not a local
+  has nowhere to stay, and such a field operation used as a value would
+  consume the record it is applied to; both would leave the other fields
+  with no owner, and are refused. A replacement's other operand is checked
+  first, so it may read the record in place, as `(Job-attempts-set job (+
+  (Job-attempts job) 1))` does.
 - **Mutable fields.** Locals are immutable. The writable places are a
   struct's mutable fields, a `Ref`'s content and an `Array`'s elements,
   and nothing else: there is no linear memory in the language. A field is
@@ -209,8 +212,8 @@ type with nothing to release: `(struct Token ((id I64)) (deriving Move))`
 must be used or dropped although its field is omega. Only the type's own
 library may take a value with an instance apart with `match`, so the
 instance decides how what it holds is released; elsewhere the value is
-dropped, or given to a function of its library. A pure replacement is
-refused on any linear record already.
+dropped, or given to a function of its library, and so is a replacement
+of one of its fields.
 
 The compiler still inserts no drops, so an instance runs exactly where a
 `drop` was written, or in glue such a drop runs. What a path that never
@@ -308,7 +311,22 @@ be: a `FnOnce` as the closure of its function type, and a linear struct
 as the struct. Linearity is a fact the checker proves; nothing at run
 time records it, and calling a `FnOnce`, matching a linear struct or
 reading a field of one compiles as it would for an omega value. `drop`
-releases its argument and does nothing else.
+releases its argument and does nothing else. The one thing linearity
+changes is a replacement, below.
+
+A linear struct leaves only by being taken apart, dropped or replaced, so
+its reference has one owner, and a replacement of one writes the field
+where it is and answers the same reference, where an omega struct is
+copied:
+
+```scheme
+{{#include ../../../tests/programs/replace-linear.sld:retry}}
+```
+
+The decision is made for each ground type, so a generic body that the
+checker treated as linear copies at an omega instantiation, whose caller
+may still hold the record; a linear struct's fields are `mut` in Wasm for
+that write.
 
 So a moved-from local still refers to what it held until its frame
 returns, and WasmGC decides when the payload is reclaimed: the engine's
@@ -321,14 +339,9 @@ runtime owns and cancels those explicitly.
 
 *Proposed, not implemented; the remaining steps are in
 [#550](https://github.com/tsnl/snail-scheme/issues/550).* The grades are
-Rust's, with GC as the only heap; the mutable fields, OCaml's, `Drop` and
-`Clone` are implemented, above. Safe borrows may come later.
-
-### Grades
-
-- A linear struct leaves only by being destructured or dropped, so its
-  reference has one owner, and a functional update of it may reuse the
-  object in place.
+Rust's, with GC as the only heap; the mutable fields, OCaml's, `Drop`,
+`Clone` and in-place replacement are implemented, above. Safe borrows may
+come later.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).

@@ -1,5 +1,5 @@
 (define-library (owned handle)
-  (export log say Handle)
+  (export log say Handle Handle-name-set)
   (import
    (snail core base))
   (begin
