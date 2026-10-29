@@ -2688,7 +2688,12 @@
     (define (expand-reference cx env ident loc)
       (match (resolve cx env ident)
         ((Some (Local name)) (expr (Var name (Nil) (Nil)) loc))
-        ((Some (Global name)) (expr (Var name (Nil) (Nil)) loc))
+        ((Some (Global name))
+         (match (program-value (Context-program cx) name)
+           ((Some (Replacer case _ _))
+            (check-own-library cx (Case-type case) loc "replace its fields"))
+           (_ (unit)))
+         (expr (Var name (Nil) (Nil)) loc))
         ((Some (TypeName _ _ (Some constructor))) (expr (Var constructor (Nil) (Nil)) loc))
         ((Some (TypeName _ _ (None)))
          (compile-error loc (string-append "a type is not a value: " (Ident-name ident))))
@@ -3211,24 +3216,32 @@
                unchecked))
         (_ (compile-error (syntax-loc syntax) "expected a pattern"))))
 
-    ;; A type with a Drop instance is taken apart only in its own library,
-    ;; which the instance trusts to release what a value holds; elsewhere a
-    ;; value of it is dropped, or given to a function of its library.
     (: pattern-constructor (-> Context Env Syntax String ! compile))
     (define (pattern-constructor cx env head)
       (let ((name (constructor-name cx env (expect-ident head "a constructor"))))
         (match (program-value (Context-program cx) name)
           ((Some (Constructor case _))
-           (let ((type (Case-type case)))
-             (match (lifecycle-instance (Context-program cx) drop-class type)
-               ((Some _)
-                (unless (string=? (name-owner type) (Context-prefix cx))
-                  (compile-error (syntax-loc head)
-                                 (string-append (short-name type)
-                                                " has a Drop instance, so only its own library can take it apart; drop it instead"))))
-               ((None) (unit)))))
+           (check-own-library cx
+                              (Case-type case)
+                              (syntax-loc head)
+                              "take it apart; drop it instead"))
           (_ (unit)))
         name))
+
+    ;; A type with a Drop instance is taken apart, or has a field replaced,
+    ;; only in its own library, which the instance trusts to release what a
+    ;; value holds; elsewhere a value of it is dropped, or given to a
+    ;; function of its library.
+    (: check-own-library (-> Context String Loc String Unit ! compile))
+    (define (check-own-library cx type loc what)
+      (match (lifecycle-instance (Context-program cx) drop-class type)
+        ((Some _)
+         (unless (string=? (name-owner type) (Context-prefix cx))
+           (compile-error loc
+                          (string-append (short-name type)
+                                         " has a Drop instance, so only its own library can "
+                                         what))))
+        ((None) (unit))))
 
     ;; ---- Syntax rules ----
 

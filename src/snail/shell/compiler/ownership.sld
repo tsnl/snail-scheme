@@ -6,7 +6,8 @@
 ;; such as `drop` or `call-once`, or by a match that moves its fields out.
 ;; Ordinary arrows stay unrestricted; only an immediate `once` lambda may
 ;; move linear captures into its environment. A field operation acts on
-;; its record in place, so a linear local it is applied to stays live. A
+;; its record in place, so a linear local it is applied to stays live,
+;; except a replacement, which consumes its record and answers it. A
 ;; type variable is linear unless its definition requires (Copy A), so
 ;; each generic body is checked once, before specialization, for every
 ;; instantiation, and a refusal it causes names the requirement that would
@@ -279,7 +280,12 @@
          (match (field-operation path name)
            ((Some operation)
             (check-field-grades path operation (Expr-type callee) (Expr-loc callee))
-            (check-all (check-place path record) rest))
+            (match operation
+              ;; A replacement answers its record with the field replaced, so
+              ;; it consumes the record, after its other operand, which may
+              ;; read the record in place.
+              ((Replacer _ _ _) (check (check-all path rest) record))
+              (_ (check-all (check-place path record) rest))))
            ((None) (check-all path (Cons callee args)))))
         (_ (check-all path (Cons callee args)))))
 
@@ -304,9 +310,9 @@
 
     ;; What a field operation may not do with a linear value, given its
     ;; type at this use: read one, which would leave a second owner where
-    ;; it was; discard the one a setter overwrites; or copy a linear
-    ;; record's other fields into a replacement. A swapper moves the old
-    ;; content out, so it may do anything.
+    ;; it was, or discard the one a setter or a replacement overwrites. A
+    ;; replacement moves its record's other fields into its answer, and a
+    ;; swapper moves the old content out, so neither duplicates anything.
     (: check-field-grades (-> Path Value Type Loc Unit ! compile))
     (define (check-field-grades path operation type loc)
       (match (Pair operation type)
@@ -321,12 +327,12 @@
                                    (string-append
                                     "setting a mutable field would discard its linear content; swap it out with "
                                     (swapper-name case index))))))
-        ((Pair (Replacer _ _ _) (TFun (Cons record _) _ _))
-         (when (linear? path record)
+        ((Pair (Replacer _ _ _) (TFun (Cons _ (Cons content _)) _ _))
+         (when (linear? path content)
            (compile-error loc
                           (explain path
-                                   record
-                                   "destructure a linear record with match; a replacement would copy its other fields"))))
+                                   content
+                                   "a replacement would discard its field's linear content; take the record apart with match"))))
         (_ (unit))))
 
     (: linear-read-advice (-> Case I64 String))
@@ -346,12 +352,14 @@
 
     ;; A field operation used as a value is checked as a call to it is, and
     ;; it consumes the record it is later applied to: on a linear record
-    ;; that would leave the other fields with no owner.
+    ;; that would leave the other fields with no owner, unless it is a
+    ;; replacement, which answers them.
     (: check-field-value (-> Path Value Expr Unit ! compile))
     (define (check-field-value path operation expr)
       (check-field-grades path operation (Expr-type expr) (Expr-loc expr))
-      (match (Expr-type expr)
-        ((TFun (Cons record _) _ _)
+      (match (Pair operation (Expr-type expr))
+        ((Pair (Replacer _ _ _) _) (unit))
+        ((Pair _ (TFun (Cons record _) _ _))
          (when (linear? path record)
            (compile-error (Expr-loc expr)
                           (explain path
