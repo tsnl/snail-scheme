@@ -1,11 +1,12 @@
 ;; Compiler-owned properties of types, found from their structure: whether a
-;; type is first-order data, whether it is linear, what dropping one of its
-;; values runs, and whether a struct contains itself. A procedure's arrow
-;; does not describe its captured environment.
+;; type is first-order data, whether it is linear, what dropping or cloning
+;; one of its values runs, and whether a struct contains itself. A
+;; procedure's arrow does not describe its captured environment.
 (define-library (snail shell compiler capabilities)
   (export
    linear-type? missing-copy copy-declaration first-order-type? contains-itself?
-   Release Discard Destroy Glue release released-fields drop-instance instance-bindings drop-rows)
+   Plan Trivial Implemented Glue Refused lifecycle-plan glue-fields field-types lifecycle-instance
+   instance-bindings lifecycle-rows)
   (import
    (snail core base)
    (snail shell compiler core))
@@ -153,34 +154,70 @@
     (define (copy-declaration names)
       (string-join (map (lambda (name) (string-append "(Copy " name ")")) names) " "))
 
-    ;; ---- Releasing ----
+    ;; ---- Releasing and cloning ----
 
-    ;; What `drop` runs for a value of a type that is not a type variable,
-    ;; found from the type alone, so that the checker, which charges its
-    ;; row, and mono, which emits its call, agree. An unrestricted value and
-    ;; a FnOnce are discarded: a FnOnce's frames hold nothing a drop must
-    ;; run. A type with a Drop instance runs its method. Other linear data
-    ;; runs glue, which matches the value apart and drops each linear
-    ;; immutable field, when dropping one of those runs anything; otherwise
-    ;; it is discarded too, so dropping a list of work items walks nothing.
-    ;; A mutable field's content is abandoned, as a lost cell's is.
-    (enum Release
-      (Discard)
-      (Destroy
+    ;; `drop` and `clone` are the methods of the lifecycle classes, Drop and
+    ;; Clone. What one runs for a value of a type that is not a type
+    ;; variable is found from the type alone, so that the checker, which
+    ;; charges its row, and mono, which emits its call, agree:
+    ;;
+    ;; - Trivial: a drop discards the value, and a clone shares it, both
+    ;;   halves of its pair one reference. An unrestricted value is
+    ;;   trivial, and so, to a drop, are a FnOnce, whose frames hold nothing
+    ;;   a drop must run, and data whose glue would run nothing else, so
+    ;;   dropping a list of work items walks nothing.
+    ;; - Implemented: a type with an instance of the class runs its method.
+    ;; - Glue: other linear data is matched apart. A drop drops each linear
+    ;;   immutable field; a clone clones each, shares the others, and builds
+    ;;   the two values. A drop abandons a mutable field's content, as a
+    ;;   lost cell's is abandoned.
+    ;; - Refused: a FnOnce runs once, so it has no clone. Nor has, without a
+    ;;   Clone instance, a type its library made linear with a Drop instance
+    ;;   or Move, whose library decides what a copy of one is, or linear data
+    ;;   with a mutable field, whose content a clone could only share.
+    (enum Plan
+      (Trivial)
+      (Implemented
        ((instance Instance)))
-      (Glue))
+      (Glue)
+      (Refused
+       ((reason String))))
 
-    (: release (-> Program (List String) Type Release))
-    (define (release program copy type)
+    (: lifecycle-plan (-> Program String (List String) Type Plan))
+    (define (lifecycle-plan program class copy type)
       (match type
-        ((TCon "FnOnce" _) (Discard))
-        ((TCon name args)
-         (cond ((not (linear-type? program copy type)) (Discard))
-               ((any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types) (Discard))
-               (else (match (drop-instance program name)
-                       ((Some instance) (Destroy instance))
-                       ((None) (if (drop-runs? program copy type (Nil) (Nil)) (Glue) (Discard)))))))
-        (_ (Discard))))
+        ((TCon "FnOnce" _)
+         (if (string=? class drop-class)
+             (Trivial)
+             (Refused "a FnOnce runs once, so it has no clone")))
+        ((TCon name _)
+         (if (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types)
+             (Trivial)
+             (match (lifecycle-instance program class name)
+               ((Some instance) (Implemented instance))
+               ((None) (data-plan program class copy type)))))
+        (_ (Trivial))))
+
+    ;; Declared data without an instance of the class.
+    (: data-plan (-> Program String (List String) Type Plan))
+    (define (data-plan program class copy type)
+      (let* ((name (type-name type)) (data (program-type program name)))
+        (cond ((not (linear-type? program copy type)) (Trivial))
+              ((string=? class drop-class)
+               (if (drop-runs? program copy type (Nil) (Nil)) (Glue) (Trivial)))
+              ((DataType-owned? data)
+               (Refused (string-append (short-name name)
+                                       " is linear by its declaration, so only a Clone instance copies one")))
+              ((any? (lambda (case) (any? Field-mutable? (Case-fields case))) (DataType-cases data))
+               (Refused (string-append (short-name name)
+                                       " has a mutable field, which a clone could only share; give it a Clone instance")))
+              (else (Glue)))))
+
+    (: type-name (-> Type String))
+    (define (type-name type)
+      (match type
+        ((TCon name _) name)
+        (_ (panic "internal error: data has a name"))))
 
     ;; Whether dropping a value of `type` runs anything: an instance's
     ;; method, or the drop of a type variable, which a ground type may give
@@ -197,7 +234,7 @@
          (cond ((member? (type-key type) keys) #f)
                ((member? name names) #t)
                ((any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types) #f)
-               (else (match (drop-instance program name)
+               (else (match (lifecycle-instance program drop-class name)
                        ((Some _) #t)
                        ((None) (fields-drop-run? program copy type keys names))))))
         (_ #f)))
@@ -213,102 +250,128 @@
                                      (Pair-second field)
                                      (Cons (type-key type) keys)
                                      (Cons name names)))
-                       (released-fields program copy type case)))
+                       (glue-fields program copy type case)))
                (DataType-cases (program-type program name))))
         (_ #f)))
 
-    ;; The fields of `case` that glue drops, by index, at the type `type`
-    ;; gives its declaration's parameters: the immutable linear ones.
-    (: released-fields (-> Program (List String) Type Case (List (Pair I64 Type))))
-    (define (released-fields program copy type case)
+    ;; The fields of `case` that glue drops or clones, by index, at the type
+    ;; `type` gives its declaration's parameters: the immutable linear ones.
+    (: glue-fields (-> Program (List String) Type Case (List (Pair I64 Type))))
+    (define (glue-fields program copy type case)
+      (filter (lambda (field) (linear-type? program copy (Pair-second field)))
+              (concatenate
+               (map-indexed (lambda (index pair)
+                              (if (Field-mutable? (Pair-first pair))
+                                  (Nil)
+                                  (list (Pair index (Pair-second pair)))))
+                            (zip (Case-fields case) (field-types program type case))))))
+
+    ;; Each field of `case` at the type `type` gives its declaration's
+    ;; parameters.
+    (: field-types (-> Program Type Case (List Type)))
+    (define (field-types program type case)
       (let ((bindings (match type
                         ((TCon name args) (zip (DataType-params (program-type program name)) args))
                         (_ (Nil)))))
-        (filter (lambda (field) (linear-type? program copy (Pair-second field)))
-                (concatenate
-                 (map-indexed (lambda (index field)
-                                (if (Field-mutable? field)
-                                    (Nil)
-                                    (list (Pair index (substitute bindings (Field-type field))))))
-                              (Case-fields case))))))
+        (map (lambda (field) (substitute bindings (Field-type field))) (Case-fields case))))
 
-    ;; A Drop instance is declared in its type's library for the type at
-    ;; distinct variables, so a type has at most one, found by its name.
-    (: drop-instance (-> Program String (Option Instance)))
-    (define (drop-instance program name)
+    ;; An instance of a lifecycle class is declared in its type's library
+    ;; for the type at distinct variables, so a type has at most one of
+    ;; each, found by its name.
+    (: lifecycle-instance (-> Program String String (Option Instance)))
+    (define (lifecycle-instance program class name)
       (find (lambda (instance)
               (match (Instance-types instance)
                 ((Cons _ (Cons (TCon head _) (Nil))) (string=? head name))
                 (_ #f)))
-            (class-instances program drop-class)))
+            (class-instances program class)))
 
-    ;; The rows dropping a value of `type` performs, or why it cannot be
-    ;; dropped, under the enclosing definition's Copy variables and
-    ;; requirements: a type variable's row is its `(Drop e A)`'s, an
-    ;; instance's is in its head, and glue performs its fields' rows. Each
-    ;; instantiation of a declaration is entered once, so a recursive type
-    ;; adds its fields' rows once. A declaration met again at other
-    ;; arguments would need glue at unboundedly many types, so it needs an
-    ;; instance instead.
-    (struct Dropping
+    ;; The rows a drop or a clone of a value of `type` performs, or why it
+    ;; cannot run, under the enclosing definition's Copy variables and
+    ;; requirements: a type variable's row is its requirement's, as
+    ;; `(Drop e A)`'s, an instance's is in its head, and glue performs its
+    ;; fields' rows. Each instantiation of a declaration is entered once, so
+    ;; a recursive type adds its fields' rows once. A declaration met again
+    ;; at other arguments would need glue at unboundedly many types, so it
+    ;; needs an instance instead.
+    (struct RowSearch
       ((rows (List Type))
        (keys (List String))
        (names (List String))))
 
-    (: drop-rows
-       (-> Program (List String) (List Constraint) Type (Result (List Type) String)))
-    (define (drop-rows program copy givens type)
-      (match (drop-search program copy givens type (Ok (Dropping (Nil) (Nil) (Nil))))
-        ((Ok found) (Ok (reverse (Dropping-rows found))))
+    (: lifecycle-rows
+       (-> Program String (List String) (List Constraint) Type (Result (List Type) String)))
+    (define (lifecycle-rows program class copy givens type)
+      (match (lifecycle-search program class copy givens type (Ok (RowSearch (Nil) (Nil) (Nil))))
+        ((Ok found) (Ok (reverse (RowSearch-rows found))))
         ((Err message) (Err message))))
 
-    (: drop-search
+    (: lifecycle-search
        (-> Program
+           String
            (List String)
            (List Constraint)
            Type
-           (Result Dropping String)
-           (Result Dropping String)))
-    (define (drop-search program copy givens type progress)
+           (Result RowSearch String)
+           (Result RowSearch String)))
+    (define (lifecycle-search program class copy givens type progress)
       (match (Pair type progress)
         ((Pair _ (Err message)) (Err message))
         ((Pair (TRigid name) (Ok found))
          (cond ((member? name copy) progress)
-               (else (match (given-drop-row givens name)
-                       ((Some row) (Ok (Dropping-rows-set found (Cons row (Dropping-rows found)))))
-                       ((None) (Err (string-append "dropping a value of type "
-                                                   name
-                                                   " needs (Drop e "
-                                                   name
-                                                   "); give the definition that requirement")))))))
+               (else (match (given-row givens class name)
+                       ((Some row)
+                        (Ok (RowSearch-rows-set found (Cons row (RowSearch-rows found)))))
+                       ((None) (Err (missing-requirement class name)))))))
         ((Pair _ (Ok found))
-         (match (release program copy type)
-           ((Discard) progress)
-           ((Destroy instance) (destroy-search program copy givens type instance found))
-           ((Glue) (glue-search program copy givens type found))))))
+         (match (lifecycle-plan program class copy type)
+           ((Trivial) progress)
+           ((Implemented instance) (instance-search program class copy givens type instance found))
+           ((Glue) (glue-search program class copy givens type found))
+           ((Refused reason) (Err reason))))))
+
+    (: missing-requirement (-> String String String))
+    (define (missing-requirement class name)
+      (string-append (if (string=? class drop-class) "dropping" "cloning")
+                     " a value of type "
+                     name
+                     " needs ("
+                     (short-name class)
+                     " e "
+                     name
+                     "); give the definition that requirement"))
 
     ;; An instance performs the labels its head names, and, for each
-    ;; requirement `(Drop e A)`, what dropping the type `type` gives `A`
-    ;; performs, which is the row `e` its head ends with. That type is part
-    ;; of `type`, so the search ends.
-    (: destroy-search
-       (-> Program (List String) (List Constraint) Type Instance Dropping (Result Dropping String)))
-    (define (destroy-search program copy givens type instance found)
+    ;; requirement, as `(Drop e A)`, what the class's method performs at the
+    ;; type `type` gives `A`, which is the row `e` its head ends with. That
+    ;; type is part of `type`, so the search ends.
+    (: instance-search
+       (-> Program
+           String
+           (List String)
+           (List Constraint)
+           Type
+           Instance
+           RowSearch
+           (Result RowSearch String)))
+    (define (instance-search program class copy givens type instance found)
       (match (Instance-types instance)
         ((Cons (TRow labels _) _)
          (fold-left (lambda (progress required)
-                      (drop-search program
-                                   copy
-                                   givens
-                                   (substitute (instance-bindings instance type)
-                                               (list-ref (Constraint-types required) 1))
-                                   progress))
-                    (Ok (Dropping-rows-set found (Cons (TRow labels (None)) (Dropping-rows found))))
+                      (lifecycle-search program
+                                        class
+                                        copy
+                                        givens
+                                        (substitute (instance-bindings instance type)
+                                                    (list-ref (Constraint-types required) 1))
+                                        progress))
+                    (Ok
+                     (RowSearch-rows-set found (Cons (TRow labels (None)) (RowSearch-rows found))))
                     (Instance-requires instance)))
-        (_ (panic "internal error: a Drop instance names its row"))))
+        (_ (panic "internal error: a lifecycle instance names its row"))))
 
-    ;; The types `type` gives a Drop instance's variables, matched against
-    ;; its head, which names its type at distinct variables.
+    ;; The types `type` gives a lifecycle instance's variables, matched
+    ;; against its head, which names its type at distinct variables.
     (: instance-bindings (-> Instance Type Substitution))
     (define (instance-bindings instance type)
       (match (Pair (Instance-types instance) type)
@@ -319,37 +382,42 @@
                        (_ "")))
                    params)
               args))
-        (_ (panic "internal error: a Drop instance names a row and a declared type"))))
+        (_ (panic "internal error: a lifecycle instance names a row and a declared type"))))
 
     (: glue-search
-       (-> Program (List String) (List Constraint) Type Dropping (Result Dropping String)))
-    (define (glue-search program copy givens type found)
-      (match type
-        ((TCon name _)
-         (let ((key (type-key type)))
-           (cond ((member? key (Dropping-keys found)) (Ok found))
-                 ((member? name (Dropping-names found))
-                  (Err (string-append "glue cannot drop "
-                                      (type->string type)
-                                      ", which contains itself at other type arguments; give "
-                                      (short-name name)
-                                      " a Drop instance")))
-                 (else
-                  (fold-left (lambda (progress field)
-                               (drop-search program copy givens (Pair-second field) progress))
-                             (Ok (Dropping (Dropping-rows found)
-                                           (Cons key (Dropping-keys found))
-                                           (Cons name (Dropping-names found))))
-                             (concatenate (map (lambda (case)
-                                                 (released-fields program copy type case))
-                                               (DataType-cases (program-type program name)))))))))
-        (_ (panic "internal error: glue drops data"))))
+       (-> Program String (List String) (List Constraint) Type RowSearch (Result RowSearch String)))
+    (define (glue-search program class copy givens type found)
+      (let ((name (type-name type)) (key (type-key type)))
+        (cond ((member? key (RowSearch-keys found)) (Ok found))
+              ((member? name (RowSearch-names found))
+               (Err (string-append "glue cannot "
+                                   (if (string=? class drop-class) "drop " "clone ")
+                                   (type->string type)
+                                   ", which contains itself at other type arguments; give "
+                                   (short-name name)
+                                   " a "
+                                   (short-name class)
+                                   " instance")))
+              (else
+               (fold-left (lambda (progress field)
+                            (lifecycle-search program
+                                              class
+                                              copy
+                                              givens
+                                              (Pair-second field)
+                                              progress))
+                          (Ok (RowSearch (RowSearch-rows found)
+                                         (Cons key (RowSearch-keys found))
+                                         (Cons name (RowSearch-names found))))
+                          (concatenate (map (lambda (case) (glue-fields program copy type case))
+                                            (DataType-cases (program-type program name)))))))))
 
-    ;; The row of the enclosing definition's `(Drop e A)` for `A`.
-    (: given-drop-row (-> (List Constraint) String (Option Type)))
-    (define (given-drop-row givens name)
+    ;; The row of the enclosing definition's requirement of the class for
+    ;; `A`, as `(Drop e A)`'s.
+    (: given-row (-> (List Constraint) String String (Option Type)))
+    (define (given-row givens class name)
       (match (find (lambda (given)
-                     (and (string=? (Constraint-class given) drop-class)
+                     (and (string=? (Constraint-class given) class)
                           (match (Constraint-types given)
                             ((Cons _ (Cons (TRigid other) (Nil))) (string=? other name))
                             (_ #f))))

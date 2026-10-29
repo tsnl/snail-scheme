@@ -128,7 +128,8 @@
       (table-ref (Solution-evidence solution) (identity-key id)))
 
     ;; A class constraint keeps the givens in scope where it arose, and the
-    ;; type variables declared ω there, which decide what a drop releases;
+    ;; type variables declared ω there, which decide what a drop releases
+    ;; and a clone shares;
     ;; a Copy requirement keeps those variables too.
     (enum Wanted
       (WantClass
@@ -711,7 +712,7 @@
                       (latent (fresh-meta))
                       (args (unify-call (Expr-type callee) args result latent loc))
                       (then (perform latent row loc))
-                      (then (solve-drops before row)))
+                      (then (solve-lifecycles before row)))
                   (Pair (Expr (App callee args) result loc) ck))))
 
     ;; Arguments are compared one by one, so a mismatch names its argument,
@@ -1148,9 +1149,9 @@
     ;; determined default to F64 or I64, every literal is range-checked, and
     ;; every class constraint is solved with the givens it arose under.
     ;; Solving binds no metavariables, so waiting until now loses nothing,
-    ;; except a drop's, which charges its row: most are solved at their call
-    ;; (`solve-drops`), and one left until now is a drop of a type that a
-    ;; later use decided.
+    ;; except a drop's or a clone's, which charges its row: most are solved
+    ;; at their call (`solve-lifecycles`), and one left until now is of a
+    ;; type that a later use decided.
     (: solve-pending (-> Checker Checker ! compile))
     (define (solve-pending ck)
       (let ((pending (reverse (Checker-pending ck))))
@@ -1217,8 +1218,8 @@
     (: solve-class
        (-> Checker Constraint I64 (List Constraint) (List String) Loc Checker ! compile))
     (define (solve-class ck constraint hole givens copy loc)
-      (if (string=? (Constraint-class constraint) drop-class)
-          (solve-drop ck constraint hole givens copy (None) loc)
+      (if (lifecycle-class? (Constraint-class constraint))
+          (solve-lifecycle ck constraint hole givens copy (None) loc)
           (match (find-evidence ck constraint givens loc)
             ((Some evidence) (with-evidence ck hole evidence))
             ((None) (compile-error loc (ambiguous-constraint ck constraint))))))
@@ -1238,12 +1239,13 @@
                                               (Constraint-types constraint)))
                      "; add a signature or an annotation"))
 
-    ;; `(Drop e T)`'s row is found from T, not matched: dropping a T runs
-    ;; what releases one (`drop-rows`), and each row that performs is
-    ;; performed in `e`. Mono finds the release again from the ground
-    ;; type, so the evidence only says so. `context` is the row of the call
-    ;; the drop was raised in, when it is solved there.
-    (: solve-drop
+    ;; A lifecycle class's row, as `(Drop e T)`'s, is found from T, not
+    ;; matched: dropping or cloning a T runs what the type says
+    ;; (`lifecycle-rows`), and each row that performs is performed in `e`.
+    ;; Mono finds what runs again from the ground type, so the evidence only
+    ;; says so. `context` is the row of the call the constraint was raised
+    ;; in, when it is solved there.
+    (: solve-lifecycle
        (-> Checker
            Constraint
            I64
@@ -1253,30 +1255,28 @@
            Loc
            Checker
            ! compile))
-    (define (solve-drop ck constraint hole givens copy context loc)
+    (define (solve-lifecycle ck constraint hole givens copy context loc)
       (match (Constraint-types constraint)
         ((Cons row (Cons type (Nil)))
          (let ((type (resolve-type (solution ck) type)))
            (when (has-meta? (solution ck) type)
              (compile-error loc (ambiguous-constraint ck constraint)))
-           (match (drop-rows (program-of ck) copy givens type)
+           (match (lifecycle-rows (program-of ck) (Constraint-class constraint) copy givens type)
              ((Ok rows)
               (with-evidence
-               (fold-left (lambda (ck performed) (charge-drop ck performed row context loc))
-                          ck
-                          rows)
+               (fold-left (lambda (ck performed) (charge ck performed row context loc)) ck rows)
                hole
                (EvDerived)))
              ((Err message) (compile-error loc message)))))
-        (_ (panic "internal error: Drop has a row and a type"))))
+        (_ (panic "internal error: a lifecycle class has a row and a type"))))
 
-    ;; A drop performs `performed` in its own row. When that row has joined
-    ;; the call's context, as it has when the drop is called there or
-    ;; handed to a callee that calls it, the context performs it too, which
-    ;; a signed body counts (`record-performed`); a drop only stored, as in
-    ;; a struct, charges nothing here.
-    (: charge-drop (-> Checker Type Type (Option Type) Loc Checker ! compile))
-    (define (charge-drop ck performed row context loc)
+    ;; A drop or a clone performs `performed` in its own row. When that row
+    ;; has joined the call's context, as it has when the method is called
+    ;; there or handed to a callee that calls it, the context performs it
+    ;; too, which a signed body counts (`record-performed`); one only
+    ;; stored, as in a struct, charges nothing here.
+    (: charge (-> Checker Type Type (Option Type) Loc Checker ! compile))
+    (define (charge ck performed row context loc)
       (let ((ck (perform ck performed row loc)))
         (match context
           ((Some context)
@@ -1289,17 +1289,18 @@
                ck))
           ((None) ck))))
 
-    ;; A drop is charged where it is written: once a call is checked, each
-    ;; Drop constraint raised in it whose type is known by now is solved in
-    ;; the call's scope, so a signed body is seen to perform what its drops
-    ;; do. One whose type a later use decides waits for `solve-pending`.
-    (: solve-drops (-> Checker I64 Type Checker ! compile))
-    (define (solve-drops ck before context)
+    ;; A drop or a clone is charged where it is written: once a call is
+    ;; checked, each lifecycle constraint raised in it whose type is known
+    ;; by now is solved in the call's scope, so a signed body is seen to
+    ;; perform what its drops and clones do. One whose type a later use
+    ;; decides waits for `solve-pending`.
+    (: solve-lifecycles (-> Checker I64 Type Checker ! compile))
+    (define (solve-lifecycles ck before context)
       (let* ((count (- (Checker-pending-count ck) before))
              (recent (take (Checker-pending ck) count))
              (older (list-drop (Checker-pending ck) count)))
-        (if (any? (lambda (want) (known-drop? ck want)) recent)
-            (match (fold-left (lambda (progress want) (solve-known-drop progress want context))
+        (if (any? (lambda (want) (known-lifecycle? ck want)) recent)
+            (match (fold-left (lambda (progress want) (solve-known-lifecycle progress want context))
                               (Pair (Nil) ck)
                               (reverse recent))
               ((Pair kept ck)
@@ -1307,25 +1308,26 @@
                                           (+ before (length kept)))))
             ck)))
 
-    ;; One wanted constraint, oldest first: solved when it is a drop of a
-    ;; known type, and otherwise kept, newest first, as `pending` keeps them.
-    (: solve-known-drop
+    ;; One wanted constraint, oldest first: solved when it is a lifecycle
+    ;; constraint of a known type, and otherwise kept, newest first, as
+    ;; `pending` keeps them.
+    (: solve-known-lifecycle
        (-> (Pair (List Wanted) Checker) Wanted Type (Pair (List Wanted) Checker) ! compile))
-    (define (solve-known-drop progress want context)
+    (define (solve-known-lifecycle progress want context)
       (match progress
         ((Pair kept ck)
          (match want
            ((WantClass constraint hole givens copy loc)
-            (if (known-drop? ck want)
-                (Pair kept (solve-drop ck constraint hole givens copy (Some context) loc))
+            (if (known-lifecycle? ck want)
+                (Pair kept (solve-lifecycle ck constraint hole givens copy (Some context) loc))
                 (Pair (Cons want kept) ck)))
            (_ (Pair (Cons want kept) ck))))))
 
-    (: known-drop? (-> Checker Wanted Bool))
-    (define (known-drop? ck want)
+    (: known-lifecycle? (-> Checker Wanted Bool))
+    (define (known-lifecycle? ck want)
       (match want
         ((WantClass constraint _ _ _ _)
-         (and (string=? (Constraint-class constraint) drop-class)
+         (and (lifecycle-class? (Constraint-class constraint))
               (match (Constraint-types constraint)
                 ((Cons _ (Cons type (Nil))) (not (has-meta? (solution ck) type)))
                 (_ #f))))

@@ -1942,7 +1942,7 @@
                       (check-overlap (Context-program cx) instance loc)
                       (Pair (map MethodDefinition-expand methods)
                             (Context-program-set cx
-                                                 (program-with-instance (destroyed-program cx
+                                                 (program-with-instance (lifecycle-program cx
                                                                                            instance
                                                                                            loc)
                                                                         (instance-with-methods
@@ -1951,28 +1951,32 @@
         (_
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
 
-    ;; The program with a Drop instance's type made linear, after the
-    ;; instance's own checks; any other instance changes nothing.
-    (: destroyed-program (-> Context Instance Loc Program ! compile))
-    (define (destroyed-program cx instance loc)
-      (let ((program (Context-program cx)))
-        (if (string=? (Instance-class instance) drop-class)
+    ;; The program after a lifecycle instance's own checks, with a Drop
+    ;; instance's type made linear; any other instance changes nothing.
+    (: lifecycle-program (-> Context Instance Loc Program ! compile))
+    (define (lifecycle-program cx instance loc)
+      (let ((program (Context-program cx)) (class (Instance-class instance)))
+        (if (lifecycle-class? class)
             (match (Instance-types instance)
               ((Cons row (Cons (TCon name args) (Nil)))
-               (check-drop-row program instance row loc)
-               (check-drop-head cx name args loc)
-               (program-with-type program (DataType-owned?-set (program-type program name) #t)))
-              (_ (compile-error loc "a Drop instance names a row and a declared type")))
+               (check-lifecycle-row program class instance row loc)
+               (check-lifecycle-head cx class name args loc)
+               (if (string=? class drop-class)
+                   (program-with-type program (DataType-owned?-set (program-type program name) #t))
+                   program))
+              (_ (compile-error loc (string-append (instance-noun class)
+                                                   " names a row and a declared type"))))
             program)))
 
-    ;; A Drop instance's row is written in its head, `(! label ...)`, since
-    ;; mono finds the instance from a ground type, where no row variable
-    ;; could be solved. It is closed, or it ends with the row `e` of the
-    ;; instance's requirements `(Drop e A)`, which the type a drop gives `A`
-    ;; decides (`drop-rows`). It names no control effect: a drop runs to
-    ;; completion, wherever it is written, glue included.
-    (: check-drop-row (-> Program Instance Type Loc Unit ! compile))
-    (define (check-drop-row program instance row loc)
+    ;; A lifecycle instance's row is written in its head, `(! label ...)`,
+    ;; since mono finds the instance from a ground type, where no row
+    ;; variable could be solved. It is closed, or it ends with the row `e`
+    ;; of the instance's requirements, as `(Drop e A)`, which the type a
+    ;; drop gives `A` decides (`lifecycle-rows`). It names no control
+    ;; effect: a drop or a clone runs to completion, wherever it is
+    ;; written, glue included.
+    (: check-lifecycle-row (-> Program String Instance Type Loc Unit ! compile))
+    (define (check-lifecycle-row program class instance row loc)
       (match row
         ((TRow labels tail)
          (for-each (lambda (label)
@@ -1980,44 +1984,60 @@
                        ((Some effect)
                         (unless (null? (Effect-control effect))
                           (compile-error loc
-                                         (string-append "a drop cannot perform the control effect "
+                                         (string-append (if (string=? class drop-class)
+                                                            "a drop"
+                                                            "a clone")
+                                                        " cannot perform the control effect "
                                                         (short-name label)))))
                        ((None) (unit))))
                    labels)
-         (check-drop-requirements instance tail loc))
-        (_ (compile-error loc drop-row-usage))))
+         (check-lifecycle-requirements class instance tail loc))
+        (_ (compile-error loc (lifecycle-row-usage class)))))
 
-    ;; Each requirement drops one of the instance's variables in the row its
-    ;; head ends with, so one row holds what all of them perform; without
-    ;; one, the row is closed.
-    (: check-drop-requirements (-> Instance (Option Type) Loc Unit ! compile))
-    (define (check-drop-requirements instance tail loc)
+    ;; Each requirement runs the class's method at one of the instance's
+    ;; variables in the row its head ends with, so one row holds what all
+    ;; of them perform; without one, the row is closed.
+    (: check-lifecycle-requirements (-> String Instance (Option Type) Loc Unit ! compile))
+    (define (check-lifecycle-requirements class instance tail loc)
       (let ((required (Instance-requires instance)))
         (for-each (lambda (constraint)
-                    (unless (string=? (Constraint-class constraint) drop-class)
+                    (unless (string=? (Constraint-class constraint) class)
                       (compile-error loc
-                                     "a Drop instance can require only (Copy A) and (Drop e A)"))
+                                     (string-append (instance-noun class)
+                                                    " can require only (Copy A) and ("
+                                                    (short-name class)
+                                                    " e A)")))
                     (match (Pair tail (Constraint-types constraint))
                       ((Pair (Some (TRigid name)) (Cons (TRigid row) (Cons (TRigid var) (Nil))))
                        (unless (and (string=? name row) (member? var (Instance-vars instance)))
-                         (compile-error loc drop-row-usage)))
-                      (_ (compile-error loc drop-row-usage))))
+                         (compile-error loc (lifecycle-row-usage class))))
+                      (_ (compile-error loc (lifecycle-row-usage class)))))
                   required)
         (match (Pair tail required)
-          ((Pair (Some _) (Nil)) (compile-error loc drop-row-usage))
+          ((Pair (Some _) (Nil)) (compile-error loc (lifecycle-row-usage class)))
           (_ (unit)))))
 
-    (: drop-row-usage String)
-    (define drop-row-usage
-      "a Drop instance's row is closed, (! label ...), or ends with the row e of its requirements (Drop e A), as (! label ... e)")
+    (: lifecycle-row-usage (-> String String))
+    (define (lifecycle-row-usage class)
+      (string-append (instance-noun class)
+                     "'s row is closed, (! label ...), or ends with the row e of its requirements ("
+                     (short-name class)
+                     " e A), as (! label ... e)"))
+
+    (: instance-noun (-> String String))
+    (define (instance-noun class)
+      (string-append "a " (short-name class) " instance"))
 
     ;; It is declared beside its type, for the type at distinct variables,
-    ;; so a type has one, which its name finds, and its library alone may
-    ;; take the type's values apart.
-    (: check-drop-head (-> Context String (List Type) Loc Unit ! compile))
-    (define (check-drop-head cx name args loc)
+    ;; so a type has one of each class, which its name finds, and its
+    ;; library alone may take the type's values apart when it has a Drop
+    ;; instance.
+    (: check-lifecycle-head (-> Context String String (List Type) Loc Unit ! compile))
+    (define (check-lifecycle-head cx class name args loc)
       (unless (string=? (name-owner name) (Context-prefix cx))
-        (compile-error loc "a Drop instance is declared in the library of its type"))
+        (compile-error loc
+                       (string-append (instance-noun class)
+                                      " is declared in the library of its type")))
       (let ((names (map (lambda (arg)
                           (match arg
                             ((TRigid name) name)
@@ -2025,7 +2045,9 @@
                         args)))
         (unless (and (not (member? "" names))
                      (= (length (delete-duplicates string=? names)) (length names)))
-          (compile-error loc "a Drop instance is for its type at distinct variables"))))
+          (compile-error loc
+                         (string-append (instance-noun class)
+                                        " is for its type at distinct variables")))))
 
     (: instance-with-methods (-> Instance (List MethodDefinition) Instance))
     (define (instance-with-methods instance methods)
@@ -3198,7 +3220,7 @@
         (match (program-value (Context-program cx) name)
           ((Some (Constructor case _))
            (let ((type (Case-type case)))
-             (match (drop-instance (Context-program cx) type)
+             (match (lifecycle-instance (Context-program cx) drop-class type)
                ((Some _)
                 (unless (string=? (name-owner type) (Context-prefix cx))
                   (compile-error (syntax-loc head)

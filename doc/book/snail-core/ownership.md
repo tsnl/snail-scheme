@@ -157,7 +157,8 @@ base)`:
 ```
 
 What a drop runs, and so the row it performs, is found from `T` rather
-than matched (`release` and `drop-rows` in `capabilities.sld`):
+than matched (`lifecycle-plan` and `lifecycle-rows` in
+`capabilities.sld`):
 
 - An omega value and a `FnOnce` are released at no cost, and perform
   nothing; so is linear data whose drop would run nothing else, such as a
@@ -216,6 +217,44 @@ The compiler still inserts no drops, so an instance runs exactly where a
 returns holds, what a dropped `resume`'s frames hold, and what an
 unreachable cell holds are never released, so an instance's method is not
 guaranteed to run. Leaks are safe.
+
+### Cloning
+
+`clone` duplicates a value explicitly, and is the method of the other
+class over a row:
+
+```scheme
+(typeclass (Clone e T)
+  (: clone (-> T (Pair T T) ! e)))
+```
+
+It takes the value and hands it back with a copy, since a linear value
+cannot be read without being consumed. What it runs is found from `T`,
+as a drop's is:
+
+- An omega value is shared: both halves of the pair are the one
+  reference, and nothing is performed.
+- A type with a Clone instance runs its method, and performs the row the
+  instance's head names, as a Drop instance does, under the same rules. A
+  type that a Drop instance or `(deriving Move)` made linear is copied
+  only by an instance, since its library decides what a copy of one is:
+
+  ```scheme
+  {{#include ../../../tests/programs/clone.sld:ticket}}
+  ```
+
+- Other linear data runs glue, which takes the value apart, clones each
+  linear immutable field, shares the others and builds the two values:
+  cloning `(Pair (Ticket 2) "row two")` copies the ticket and shares the
+  string, and a list of tickets is cloned element by element.
+- A `FnOnce` runs once, so it has no clone, and neither has linear data
+  with a mutable field without an instance, since a clone could only
+  share that field's content.
+- A definition that clones a value of a type variable `A` requires
+  `(Clone e A)`, and an instance may require the clones of its
+  variables, as a Drop instance may require their drops.
+
+A clone's effects are charged where it is written, as a drop's are.
 
 ### Closures without an environment
 
@@ -282,17 +321,14 @@ runtime owns and cancels those explicitly.
 
 *Proposed, not implemented; the remaining steps are in
 [#550](https://github.com/tsnl/snail-scheme/issues/550).* The grades are
-Rust's, with GC as the only heap; the mutable fields, OCaml's, and `Drop`
-are implemented, above. Safe borrows may come later.
+Rust's, with GC as the only heap; the mutable fields, OCaml's, `Drop` and
+`Clone` are implemented, above. Safe borrows may come later.
 
 ### Grades
 
 - A linear struct leaves only by being destructured or dropped, so its
   reference has one owner, and a functional update of it may reuse the
   object in place.
-- `(Clone e A)` duplicates explicitly, with
-  `clone : (-> A (Pair A A) ! e)`. Like `Drop`, it is a class over an
-  effect row; `(Copy A)` is implemented, above.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).
