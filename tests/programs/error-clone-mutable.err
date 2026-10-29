@@ -1,0 +1,1 @@
+Job has a mutable field, which a clone could only share
