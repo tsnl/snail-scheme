@@ -6,7 +6,7 @@
 
 ;; `inherit-handlers` closes a one-shot procedure over the handlers in
 ;; scope where it is called, so the procedure reaches them wherever it is
-;; later called, even after their handles have returned. The Once it makes
+;; later called, even after their handles have returned. The FnOnce it makes
 ;; performs `host`, as code may that runs whatever the host implements,
 ;; which a program's top level may. The book's chapter on effects includes
 ;; the text between each ANCHOR and ANCHOR_END.
@@ -43,7 +43,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (Once (-> Unit Step ! host))))))
+    (next (FnOnce Unit Step ! host)))))
 
 (: start (-> (-> Unit ! Gen Log) Step ! Log))
 (define (start body)

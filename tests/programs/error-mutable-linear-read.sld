@@ -4,7 +4,7 @@
 ;; Reading a mutable field leaves its content in place, so linear content
 ;; must be swapped out instead.
 (struct Holder
-  ((work mut (Once (-> Unit)))))
+  ((work mut (FnOnce Unit))))
 
 (let ((holder (Holder (once (lambda () (unit))))))
   (call-once (Holder-work holder)))

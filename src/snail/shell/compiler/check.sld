@@ -721,8 +721,8 @@
                        (then (unify callee-result result loc)))
                    (unify ck row latent loc)))
         ((TVar _) (unify ck callee-type (TFun (map Expr-type args) result latent) loc))
-        ;; Calling a `Once` calls the procedure it holds; ownership consumes it.
-        ((TCon "Once" (Cons procedure (Nil))) (unify-call ck procedure args result latent loc))
+        ;; Calling a `FnOnce` calls the procedure it holds; ownership consumes it.
+        ((TCon "FnOnce" (Cons procedure (Nil))) (unify-call ck procedure args result latent loc))
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
     (: unify-arguments (-> Checker (List Type) (List Expr) Checker ! compile))
@@ -892,7 +892,7 @@
       (cond ((not (member? operation (Answer-control answer))) (TFun params result latent))
             ((never-type? result) (TFun params (Answer-result answer) latent))
             (else (TFun (append params
-                                (list (TCon "Once"
+                                (list (TCon "FnOnce"
                                             (list (TFun (list result)
                                                         (Answer-result answer)
                                                         context)))))

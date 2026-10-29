@@ -76,29 +76,30 @@
     (primitive dynamic-cast
                (All (A) (requires (Copy A)) (-> Funcref (-> (Vector I64) Bool) (Vector A))))
 
-    ;; ---- Once and tasks ----
+    ;; ---- One-shot procedures ----
 
-    ;; A Once owns a procedure that runs once: it is linear, so each one is
+    ;; A FnOnce owns a procedure that runs once: it is linear, so each one is
     ;; called or dropped exactly once. `once` makes one from a thunk, and a
-    ;; control handler is handed `resume` as another. `drop` releases one
-    ;; without calling it.
-    (primitive once (All (A e) (-> (-> A ! e) (Once (-> A ! e)))))
-    (primitive call-once (All (e) (-> (Once (-> Unit ! e)) Unit ! e)))
-    (primitive drop (All (F) (-> (Once F) Unit)))
+    ;; control handler is handed `resume` as another. `drop` releases any
+    ;; value without using it: a FnOnce without calling it, a linear struct
+    ;; without matching it.
+    (primitive once (All (A e) (-> (-> A ! e) (FnOnce A ! e))))
+    (primitive call-once (All (e) (-> (FnOnce Unit ! e) Unit ! e)))
+    (primitive drop (All (A) (-> A Unit)))
 
     ;; `inherit-handlers` closes a one-shot thunk over the handlers in scope
     ;; where it is called, and `inherit-handlers-1` a procedure of one
-    ;; argument, such as a `resume`: the Once it makes runs the procedure
+    ;; argument, such as a `resume`: the FnOnce it makes runs the procedure
     ;; under those handlers, wherever it is called. The caller is charged
     ;; the procedure's row, as dispatching is. The handlers answer the
     ;; effects the row declares; what remains, `mut` and the effects the
-    ;; host implements, happens when the Once runs, so it performs `host`,
+    ;; host implements, happens when the FnOnce runs, so it performs `host`,
     ;; which only code that may run anything the host implements, such as
     ;; a scheduler, can perform. The procedure may not yield to a control
     ;; effect, since the handles it would yield to may have returned by then.
-    (primitive inherit-handlers (All (A e) (-> (Once (-> A ! e)) (Once (-> A ! host)) ! e)))
+    (primitive inherit-handlers (All (A e) (-> (FnOnce A ! e) (FnOnce A ! host) ! e)))
     (primitive inherit-handlers-1
-               (All (A B e) (-> (Once (-> A B ! e)) (Once (-> A B ! host)) ! e)))
+               (All (A B e) (-> (FnOnce A B ! e) (FnOnce A B ! host) ! e)))
 
     ;; ---- Integers ----
 

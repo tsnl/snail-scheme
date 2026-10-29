@@ -8,16 +8,17 @@ not yet implemented.
 
 ## Implemented: linear one-shot work
 
-`Once` makes a procedure **linear**: every path that returns uses it
-exactly once. Ordinary procedures and ordinary data have grade `omega` and
-can be reused or ignored.
+`(FnOnce A B ! e)` is the **linear** arrow, beside the omega `->`: a
+procedure of that type is used exactly once on every path that returns.
+Ordinary procedures and ordinary data have grade `omega` and can be reused
+or ignored.
 
 ```scheme
 (import
  (snail core base)
  (snail core io))
 
-(: greeting (-> String (Once (-> Unit ! console))))
+(: greeting (-> String (FnOnce Unit ! console)))
 (define (greeting name)
   (once (lambda () (write-line name))))
 
@@ -29,16 +30,17 @@ can be reused or ignored.
 ```
 
 `call-once` consumes the work item before entering its body, and so does
-calling it directly, as `(work)`. `drop` releases one without calling it.
-A `Once` may hold a procedure of any arity, such as `(Once (-> I64 I64))`;
-`once` builds thunks, and a control handler's `resume` is the other kind
+calling it directly, as `(work)`. `drop` releases one without calling it,
+and releases any other value too. A `FnOnce` may take any number of
+arguments, as `(FnOnce I64 I64)` takes one; `once` builds thunks, and a
+control handler's `resume` is the other kind
 ([effects and handlers](effects.md#control-handlers)).
 
 The compiler inserts no drops. A linear name still live at the end of the
 scope that bound it is a compile error, "linear value never consumed", and
 so is a second use.
 
-- **Moves.** Moving a `Once` to another binding, an argument, a result or
+- **Moves.** Moving a `FnOnce` to another binding, an argument, a result or
   a one-shot closure consumes the old binding.
 - **Alternatives.** Both arms of an `if`, and every clause of a `match`,
   must consume the same linear values, because only one of them runs.
@@ -48,9 +50,9 @@ so is a second use.
   ([effects](effects.md#operations-that-never-return)), so
   `(absurd (fail diagnostic))` ends a path as a panic does.
 - **Linear data.** A struct or enum with a linear field, once its
-  parameters are bound, is itself linear: `(List (Once (-> Unit)))` is. A
+  parameters are bound, is itself linear: `(List (FnOnce Unit))` is. A
   field holding a linear value only inside a `Ref` does not count, so a
-  `(Mailbox (Once (-> Unit)))` is unrestricted. Destructure linear data
+  `(Mailbox (FnOnce Unit))` is unrestricted. Destructure linear data
   with `match`, which moves the fields out; a wildcard cannot discard a
   linear field, and a pure replacement cannot be used, since it would copy
   the other fields. An enum is linear even when its current variant has no
@@ -114,7 +116,7 @@ so is a second use.
   `Array` or `Vector`, payloads erased into `Any`, or exports, and a
   statement cannot discard one. Reading an element of a vector leaves it in
   place, so the vector and array primitives require `(Copy A)`.
-- **Handlers.** `resume` is a `Once`. An implementation that does not
+- **Handlers.** `resume` is a `FnOnce`. An implementation that does not
   resume writes `(drop resume)`; one whose operation answers `Never` is
   handed no `resume` at all.
 
@@ -164,10 +166,9 @@ implemented, above. Safe borrows may come later.
 
 ### Grades
 
-A type stays **linear** or **omega**, and linearity reaches beyond `Once`:
+A type stays **linear** or **omega**, and linearity reaches beyond
+`FnOnce`:
 
-- `(FnOnce A B ! e)` spells today's `(Once (-> A B ! e))`: the linear
-  arrow, beside the omega `->`.
 - A concrete struct or enum is omega unless an immutable field is linear,
   it carries the compiler-owned `Move` marker, or it has a `Drop`
   instance. Most declarations need no annotation. A linear struct leaves
@@ -182,7 +183,8 @@ A type stays **linear** or **omega**, and linearity reaches beyond `Once`:
 
 ### Drop as a class
 
-Today `drop` takes only a `Once`. It becomes the method of a class:
+Today `drop` takes any value, and only releases it, clearing a `FnOnce`
+so nothing can call it. It becomes the method of a class:
 
 ```scheme
 (: drop (All (A e) (requires (Drop e A)) (-> A Unit ! e)))

@@ -32,7 +32,7 @@
 ;; A generic mutable field may hold linear content, which leaves only by
 ;; being swapped out, so the slot stays unrestricted and may be named
 ;; twice: the work item runs once, through whichever name swaps it first.
-(type Work (Once (-> Unit ! console)))
+(type Work (FnOnce Unit ! console))
 
 (struct (Slot A)
   ((content mut A)))

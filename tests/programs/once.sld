@@ -4,12 +4,12 @@
  (owned work))
 
 (struct Job
-  ((work (Once (-> Unit ! console)))))
+  ((work (FnOnce Unit ! console))))
 (enum Bundle
   (Full ((job Job) (tag I64)))
   (Empty))
 (enum Chain
-  (Link ((work (Once (-> Unit ! console))) (rest Chain)))
+  (Link ((work (FnOnce Unit ! console)) (rest Chain)))
   (End))
 
 (effect Probe ((ping (-> Unit))))

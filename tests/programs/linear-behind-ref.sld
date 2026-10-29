@@ -6,7 +6,7 @@
 ;; one that holds a linear value only in a Ref is unrestricted, through
 ;; recursion too: this chain of cells of work items is named twice. Each
 ;; item is swapped out of its cell, so the second walk finds them gone.
-(type Work (Once (-> Unit ! console)))
+(type Work (FnOnce Unit ! console))
 
 (enum (Chain T)
   (End)

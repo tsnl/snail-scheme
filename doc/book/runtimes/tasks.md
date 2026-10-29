@@ -5,7 +5,7 @@ handles it, both in Snail-Core:
 
 | Operation | Meaning |
 | --- | --- |
-| `(dispatch-local work)` | Transfer a `Once` thunk into an independent local task. |
+| `(dispatch-local work)` | Transfer a `FnOnce` thunk into an independent local task. |
 | `(dispatch-task work)` | The same, answering the new task's `I64` id. |
 | `(yield)` | Let every other ready task run first. |
 | `(sleep milliseconds)` | Wait for an `I64` number of milliseconds. |
@@ -45,7 +45,7 @@ it, and to an application, whose loop is a task ([applications](../snail-core/ap
 
 ## How a task runs
 
-A task is a `Once` that runs one step of it, closed over the handlers in
+A task is a `FnOnce` that runs one step of it, closed over the handlers in
 scope where the task was dispatched. Its first step runs the work under
 the task's own handler of `tasks`, whose control operations do not
 resume: each answers a `Step` holding the rest of the task, closed over
@@ -54,9 +54,9 @@ the same handlers.
 ```scheme
 (enum Step
   (Finished)
-  (Yielded ((next (Once (-> Step ! host)))))
-  (Sleeping ((delay I64) (next (Once (-> Step ! host)))))
-  (Waiting ((ticket I64) (next (Once (-> Step ! host))))))
+  (Yielded ((next (FnOnce Step ! host))))
+  (Sleeping ((delay I64) (next (FnOnce Step ! host))))
+  (Waiting ((ticket I64) (next (FnOnce Step ! host)))))
 ```
 
 The scheduler keeps every task that is not running in exactly one place:

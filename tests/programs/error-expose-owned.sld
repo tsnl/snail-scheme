@@ -2,7 +2,7 @@
  (snail core base))
 
 (struct Work
-  ((run (Once (-> Unit)))))
+  ((run (FnOnce Unit))))
 
 (: make (-> Work))
 (define (make)

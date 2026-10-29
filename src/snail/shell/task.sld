@@ -75,15 +75,15 @@
     (enum Step
       (Finished)
       (Yielded
-       ((next (Once (-> Step ! host)))))
+       ((next (FnOnce Step ! host))))
       (Sleeping
        ((delay I64)
-        (next (Once (-> Step ! host)))))
+        (next (FnOnce Step ! host))))
       (Waiting
        ((ticket I64)
-        (next (Once (-> Step ! host))))))
+        (next (FnOnce Step ! host)))))
 
-    (type Run (Once (-> Step ! host)))
+    (type Run (FnOnce Step ! host))
 
     ;; A task that is ready, under its id.
     (struct Task
@@ -178,7 +178,7 @@
     ;; context, which holds the dispatcher's handlers, and close the rest of
     ;; the task over them. A `resume` runs the rest of the work under this
     ;; handle again, so closing it cannot let a yield to `tasks` escape.
-    (: start-task (All (e) (-> (Once (-> Unit ! tasks e)) Step ! mut e)))
+    (: start-task (All (e) (-> (FnOnce Unit ! tasks e) Step ! mut e)))
     (define (start-task work)
       (handle tasks
           ((yield (lambda (resume)
@@ -200,12 +200,12 @@
     ;; Dispatching charges the work's effects to the dispatcher, so it
     ;; cannot hide an unhandled operation. The work runs on a later turn,
     ;; as a task whose id `dispatch-task` answers.
-    (: dispatch-local (All (e) (-> (Once (-> Unit ! tasks e)) Unit ! mut e)))
+    (: dispatch-local (All (e) (-> (FnOnce Unit ! tasks e) Unit ! mut e)))
     (define (dispatch-local work)
       (dispatch-task work)
       (unit))
 
-    (: dispatch-task (All (e) (-> (Once (-> Unit ! tasks e)) I64 ! mut e)))
+    (: dispatch-task (All (e) (-> (FnOnce Unit ! tasks e) I64 ! mut e)))
     (define (dispatch-task work)
       (let ((id (+ (Scheduler-last-task scheduler) 1)))
         (Scheduler-last-task-set! scheduler id)
