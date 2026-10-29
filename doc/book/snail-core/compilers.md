@@ -169,7 +169,9 @@ function of the expander has `mut` in its row — and where it does not, the
   next, so this is the last pass that could tell. It also refuses a
   closure that may not capture, a `fn` or a top-level function, that
   reads a local from around it (`check-closed`), so the backend knows such
-  a closure has no environment.
+  a closure has no environment. Those two are also all that `fit` gives
+  the type `(Fn A B ! e)`, where an argument, an annotation or a signature
+  expects one; every other value meets its expected type by unifying.
 - **[`capabilities.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/capabilities.sld)** finds
   structural properties of types from their declared fields: whether a
   type is first-order data, which dynamic exports require; whether it
@@ -240,7 +242,10 @@ function of the expander has `mut` in its row — and where it does not, the
   field, written with `struct.set`; a swap reads the old content and writes
   the new in one helper. Sequences are GC arrays. Functions are
   closures: a struct whose first field is a typed function reference, with
-  captured variables in a subtype. Tail calls become `return_call`. Every
+  captured variables in a subtype. An `Fn` is that function reference
+  alone, `ref.func` of a top-level function or of a `fn` compiled to a
+  function of the same type, and calling one is `call_ref` with the
+  caller's evidence. Tail calls become `return_call`. Every
   function takes the handlers in scope as its first parameter, a list of
   evidence nodes; `handle` extends the list for its body, and an operation
   walks it for its effect's node and runs the implementation with the list
@@ -416,9 +421,11 @@ its `main`. A function the module exports comes out as a `Funcref`, and
 `unsafe-cast` is a primitive. It wraps the reference in a closure whose
 code casts it to the WebAssembly type of a Snail-Core function of the
 expected type, which takes the evidence first, and calls it with the
-handlers in scope where the closure is called. The cast is the only check:
-the engine traps when the WebAssembly types differ, and nothing compares
-Snail-Core types, so the unsafe assumption is visible where it is made.
+handlers in scope where the closure is called. At an `Fn`, `(ann
+(unsafe-cast run) (Fn I64 I64))`, the cast is the whole value, with no
+closure around it. The cast is the only check: the engine traps when the
+WebAssembly types differ, and nothing compares Snail-Core types, so the
+unsafe assumption is visible where it is made.
 
 ### Plugins
 

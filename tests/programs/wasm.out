@@ -1,5 +1,6 @@
 42
 6
+41
 nothing is exported as subtract
 a module named adder is linked already
 cannot read build/tests/missing.wasm

@@ -272,7 +272,7 @@
     (: reference (-> State String (List Type) (List Evidence) Type Loc Expr ! mut))
     (define (reference state name types evidence type loc)
       (match (program-value (program-of state) name)
-        ((Some (Defined _ _)) (definition-reference state name types evidence type loc))
+        ((Some (Defined _ _ _)) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
          (if (string=? class drop-class)
              (drop-reference state name (list-ref types 1) type loc)

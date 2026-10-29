@@ -57,12 +57,13 @@
 
     ;; The control effects a value of a procedure type may yield to when
     ;; called: those its row names. Calling a `FnOnce` calls the procedure it
-    ;; holds.
+    ;; holds, and calling an `Fn` the code it is.
     (: call-row (-> Type (List String)))
     (define (call-row type)
       (match type
         ((TFun _ _ (TRow labels _)) labels)
         ((TCon "FnOnce" (Cons procedure (Nil))) (call-row procedure))
+        ((TCon "Fn" (Cons procedure (Nil))) (call-row procedure))
         (_ (Nil))))
 
     ;; What calling `callee` may yield to. The checker opens the row of each
@@ -547,10 +548,7 @@
         ((Nil) (Pair (Bound (Nil) (Nil)) count))))
 
     ;; Evaluating a literal, a variable or a lambda has no effect a yield
-    ;; could reorder. Reading an owned variable moves it out of its owner,
-    ;; and left in place it is read after the operand that yields. On that
-    ;; path the frame moves the value into itself first, and the resumed
-    ;; frame reads it from there, so the call still receives the value.
+    ;; could reorder.
     (: inert? (-> Expr Bool))
     (define (inert? expr)
       (match (Expr-term expr)

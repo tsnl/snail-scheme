@@ -236,7 +236,31 @@ A `fn`'s type is the ordinary arrow, so it goes wherever a lambda does.
 The checker establishes the fact, and the backend relies on it: a closure
 that may not capture compiles to one immutable global, as any closure
 without captures does, and the backend asserts that it found nothing to
-copy. Nothing yet asks for one by type; see [proposed](#closures).
+copy.
+
+An interface asks for a function without an environment by its type,
+`(Fn A B ! e)`, a third arrow beside `->` and `FnOnce`. It is
+unrestricted, and it is a reference to code alone, which takes the
+evidence and then the arguments and no closure, so a host or another
+instance could call it with nothing to hand it:
+
+```scheme
+{{#include ../../../tests/programs/fn-type.sld:fn-type}}
+```
+
+A `fn`, and the name of a top-level function, have type `Fn` where it is
+expected: as an argument to a parameter of that type, under `ann`, or as
+a definition with that signature. Nothing else has it, not even a local
+bound to a `fn`. A value called before its type is known is taken to be
+an ordinary arrow, so a lambda that calls its `Fn` parameter, `(lambda (f)
+(f x))`, needs that type from somewhere first, such as a pattern over a
+list whose type is known. And no value converts on its own: an `Fn` is called
+directly, as `(f x)`, and goes where a closure is expected inside a
+lambda, `(lambda (x) (f x))`. Calling one passes the caller's handlers,
+so it performs what its row says where it is called. An `Any` holds no
+`Fn`, since a code reference is not the GC reference an `Any` holds;
+data that holds one is, and crosses. `unsafe-cast` at an `Fn` is the
+engine's cast of a `Funcref` alone, with no closure around it.
 
 ### Representation
 
@@ -272,13 +296,3 @@ are implemented, above. Safe borrows may come later.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).
-
-### Closures
-
-An interface will require a function without an environment by its type,
-such as a host callback or the entry of another instance: a third arrow
-beside `->` and `FnOnce`, unrestricted, represented as a bare function
-reference that takes `$ev` first. A `fn` or a top-level name would be
-accepted where that type is expected, and converted to `->` explicitly
-where a closure is. Its name is open: Rust's `fn` pointer is the meaning,
-but Rust's `Fn` names a closure that may capture.
