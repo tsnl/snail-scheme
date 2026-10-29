@@ -22,13 +22,13 @@ const description = (args = 'configured', includeApp = true) => `(
   ${includeApp ? `(run-target app (run main (args ("${args}"))))` : ''}
   (run-target side (run other)))`;
 const program = message => `(import (snail core base) (snail core io) (snail shell task))
-  (write-line "${message}") (for-each write-line (command-line)) (sleep 600000)`;
+  (write-line "${message}") (for-each write-line (command-line)) (dispatch-local (once (lambda () (sleep 600000))))`;
 const slow = `(generate-library (slow)
     (import (snail core base) (snail core io) (snail shell syntax))
     (library-syntax (list "slow") (list "message") (list (list "snail" "core" "base"))
       (list (form ":" (list (SymbolSyntax "message") (SymbolSyntax "String")))
         (form "define" (list (SymbolSyntax "message") (StringSyntax (read-file "${gate}")))))))`;
-const slowProgram = '(import (snail core base) (snail core io) (snail shell task) (slow)) (write-line message) (for-each write-line (command-line)) (sleep 600000)';
+const slowProgram = '(import (snail core base) (snail core io) (snail shell task) (slow)) (write-line message) (for-each write-line (command-line)) (dispatch-local (once (lambda () (sleep 600000))))';
 function pipe() {
   fs.rmSync(gate, {force: true});
   assert.equal(spawnSync('mkfifo', [gate]).status, 0);

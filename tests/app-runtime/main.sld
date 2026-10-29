@@ -3,14 +3,15 @@
  (snail shell task)
  (snail shell app))
 
-;; Each task retains the private handler across storage and event suspension.
-;; Its host default lets the runner detect a leaked handler between turns.
+;; Each task retains the private handler across its waits on storage and
+;; events. Its host default lets the runner detect a leaked handler between
+;; turns.
 (effect Marker
   ((marker (-> I32)))
   (host "snail.test"
         ((marker "marker"))))
 
-(: reset-test (All (T e) (-> (-> (-> T ! Marker tasks e) T ! tasks e))))
+(: reset-test (All (T e) (-> (-> (-> T ! Marker mut tasks e) T ! mut tasks e))))
 (define (reset-test)
   (lambda (run)
     (handle Marker
@@ -23,26 +24,29 @@
 
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
+;; Each root is a task, as the loop of `define-application` is.
 (extern background-boot "snail.runtime.browser.events" "boot" (-> I32 Unit ! events))
 (extern background-poll "snail.runtime.browser.events" "poll" (-> I32 ! events))
-(: background-main (-> (Option Any) (Option Any) ! tasks events))
+(: background-main (-> (Option Any) I64 ! mut events))
 (define (background-main handover)
-  (background-boot 2)
-  (background-poll) ; Resize.
-  (background-poll) ; Frame.
-  (background-poll) ; Acknowledge presentation.
-  (dispatch-local (once (lambda () (sleep 100000))))
-  handover)
+  (app-start (once (lambda ()
+                     (background-boot 2)
+                     (background-poll) ; Resize.
+                     (background-poll) ; Frame.
+                     (background-poll) ; Acknowledge presentation.
+                     (dispatch-local (once (lambda () (sleep 100000))))
+                     handover))))
 (expose background-main "background_main")
 
-(: unpresented-main (-> (Option Any) (Option Any) ! tasks events))
+(: unpresented-main (-> (Option Any) I64 ! mut events))
 (define (unpresented-main handover)
-  (background-boot 2)
-  (dispatch-local (once (lambda () (sleep 100000))))
-  handover)
+  (app-start (once (lambda ()
+                     (background-boot 2)
+                     (dispatch-local (once (lambda () (sleep 100000))))
+                     handover))))
 (expose unpresented-main "unpresented_main")
 
-;; Detached tasks cannot enter the application's loop-owned protocol.
+;; Tasks beside the loop cannot enter its protocol: each of these traps.
 (: child-load (-> Unit ! storage tasks))
 (define (child-load)
   (load-save)
@@ -57,10 +61,16 @@
 (: child-boot (-> Unit ! events))
 (define (child-boot)
   (background-boot 99))
-(expose child-load "child_load")
-(expose child-store "child_store")
-(expose child-event "child_event")
-(expose child-boot "child_boot")
+
+(: spawn-child (-> I32 Unit ! mut storage events))
+(define (spawn-child which)
+  (dispatch-local (once (lambda ()
+                          (match which
+                            (0 (child-load))
+                            (1 (child-store))
+                            (2 (child-event))
+                            (_ (child-boot)))))))
+(expose spawn-child "spawn_child")
 
 (struct Counter
   ((count I64)

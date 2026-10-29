@@ -336,7 +336,7 @@ async function testSymlinked(directory) {
 
 async function testWatch(directory) {
   const source = join(directory, 'hello.sld');
-  const program = message => `(import (snail core base) (snail core io) (snail shell task))\n(write-string "${message}\\n")\n(sleep 60000)\n`;
+  const program = message => `(import (snail core base) (snail core io) (snail shell task))\n(write-string "${message}\\n")\n(dispatch-local (once (lambda () (sleep 60000))))\n`;
   await writeFile(source, program('first run'));
   const watcher = start(['watch', source]);
   let child;

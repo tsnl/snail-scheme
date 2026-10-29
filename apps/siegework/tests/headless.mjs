@@ -1,7 +1,7 @@
 // Runs the compiled game without a browser: a recording screen host, keys
 // that pan, the opening's banner and pulsing crystals, taps that select
 // cells, an order given through the HUD's card, five minutes of play, a drag
-// of the camera, and a save replayed through the JSPI application loop.
+// of the camera, and a save replayed through the application loop.
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import assert from 'node:assert/strict';

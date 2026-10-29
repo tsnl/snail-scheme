@@ -1,0 +1,7 @@
+logical 2
+at 100
+logical 1
+at 200
+main returns
+real 2
+real 1

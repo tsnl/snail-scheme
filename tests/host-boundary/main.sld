@@ -4,7 +4,6 @@
 
 (extern note-text "snail.test" "text" (-> String I32))
 (extern note-bytes "snail.test" "bytes" (-> I32 Bytes I32))
-(extern hold-bytes "snail.test" "hold" (-> Bytes I32))
 (extern receive-managed "snail.test" "managed" (-> (Result Payload String)))
 
 (: checkpoint (Ref Any))
@@ -34,10 +33,6 @@
 (define (empty)
   (note-bytes 0 #u8()))
 
-(: held (-> I32))
-(define (held)
-  (hold-bytes #u8(0 255 128 1)))
-
 (: discard (-> (Option Any) Unit))
 (define (discard handover)
   (unit))
@@ -51,7 +46,6 @@
 (expose value "value")
 (expose binary "binary")
 (expose empty "empty")
-(expose held "held")
 (expose discard "discard")
 (expose fail "fail")
 

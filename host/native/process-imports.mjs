@@ -1,7 +1,7 @@
 // The native process effect boundary, bound as socket-imports.mjs binds
 // sockets. Managed construction happens in the finishing task's own Wasm
 // call; pending I/O touches native data only.
-import {coded} from '../browser/completions.mjs';
+import {coded} from '../browser/tasks.mjs';
 import {byteSnapshot} from '../browser/load.mjs';
 
 const isCoded = error => error instanceof Error && typeof error.code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(error.code);
@@ -31,7 +31,7 @@ function commandParts(api, command) {
 
 // Each operation that waits is started by `start-NAME` and finished by one
 // `finish`, as socket-imports.mjs does.
-export function processImports(program, scheduler, completions, processes, termination) {
+export function processImports(program, tasks, processes, termination) {
   const helpers = () => {
     const current = program();
     return current.names ? current.linked.get('snail.shell.process').exports : current.runtime.exports;
@@ -41,7 +41,7 @@ export function processImports(program, scheduler, completions, processes, termi
   // builds the Err of a coded failure. `dispose` releases a success that
   // no task finished.
   function start(ticket, failure, operation, deliver, dispose = () => {}) {
-    completions.start(Number(ticket), scheduler.signal(), coded(operation),
+    tasks.start(Number(ticket), coded(operation),
                       outcome => {
                         const api = helpers();
                         return 'code' in outcome ? api[failure](errorCode(api, outcome.code)) : deliver(api, outcome.value);
@@ -59,7 +59,7 @@ export function processImports(program, scheduler, completions, processes, termi
     }
   }
 
-  const finish = ticket => completions.finish(Number(ticket));
+  const finish = ticket => tasks.finish(Number(ticket));
   return {
     // Delivery transfers native ownership. If constructing the managed
     // wrapper traps, no Snail-Core code received the handle and it must be closed.

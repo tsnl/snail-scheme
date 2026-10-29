@@ -1,8 +1,8 @@
 # Tasks, ownership and runtimes
 
 This is the language contract for tasks and effects. The [runtime overview](index.md)
-distinguishes its implemented subset from future requirements. There is one shipping target: WebAssembly GC with JSPI, on one
-JavaScript execution agent. A second backend is future research.
+distinguishes its implemented subset from future requirements. There is one shipping target: WebAssembly GC, on one
+execution agent. A second backend is future research.
 
 ## Computations
 
@@ -16,13 +16,13 @@ Tasks may overlap in lifetime. The language permits a runtime to execute
 eligible tasks on different threads. The current implementation interleaves
 them cooperatively: a task runs until it returns, fails, explicitly yields,
 or awaits a runtime operation. A CPU loop that never yields monopolizes
-the execution agent. Suspension is not CPU parallelism.
+the execution agent. Waiting is not CPU parallelism.
 
-A runtime is exhausted only when all its tasks have settled. A suspended
-task, an outstanding event registration and cancellation cleanup remain
-live work. An empty ready queue is not exhaustion. Spawning reserves work
-before returning to the caller, so a parent can finish immediately after
-dispatch without letting the runtime exit early.
+A runtime is exhausted only when all its tasks have settled. A waiting
+task, an outstanding host operation and cancellation cleanup remain live
+work. An empty ready queue is not exhaustion. Dispatch counts the new task
+live before returning to the caller, so a parent can finish immediately
+after dispatch without letting the runtime exit early.
 
 ## Grades and transfer
 
@@ -73,19 +73,19 @@ bindings. Each task owns its binding vector; the reusable implementations
 may be shared. This preserves the dispatched closure's declared effects.
 It does not establish rules for cloning future control delimiters.
 
-Runtime event waits are control operations: the runtime retains a one-shot
-resumption and later makes it ready with a result or cancellation. JSPI
-implements this restricted control boundary today. User-defined `ctl`
-operations compile instead to evidence passing, with a one-shot,
-first-class `resume` (see
+Waits are control operations of `tasks`: the scheduler retains a one-shot
+resumption and later makes it ready, when a timer passes or the host
+wakes its ticket. Like every `ctl` operation they compile to evidence
+passing, with a one-shot, first-class `resume` (see
 [control handlers](../snail-core/effects.md#control-handlers)), and never
-reach the host. Ordinary handlers remain tail-resumptive: their result
-returns once to the operation caller.
+reach the host, which only drives the scheduler
+([task operations](tasks.md)). Ordinary handlers remain tail-resumptive:
+their result returns once to the operation caller.
 
 ## Events and application state
 
 The runtime turns platform callbacks into completed waits. It may buffer
-input while application code is suspended, and coalesce redundant motion,
+input while application code waits, and coalesce redundant motion,
 resize and frame notifications. A frame wait can return the input received
 since the previous frame. Each input is consumed once by its owning loop.
 The runtime does not infer a shared current application state.
