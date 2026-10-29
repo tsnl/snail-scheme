@@ -1958,20 +1958,22 @@
         (if (string=? (Instance-class instance) drop-class)
             (match (Instance-types instance)
               ((Cons row (Cons (TCon name args) (Nil)))
-               (check-drop-row program row loc)
-               (check-drop-head cx instance name args loc)
+               (check-drop-row program instance row loc)
+               (check-drop-head cx name args loc)
                (program-with-type program (DataType-owned?-set (program-type program name) #t)))
               (_ (compile-error loc "a Drop instance names a row and a declared type")))
             program)))
 
-    ;; A Drop instance's row is written in its head and closed, `(! label
-    ;; ...)`, since mono finds the instance from a ground type, where no row
-    ;; variable could be solved. It names no control effect: a drop runs to
+    ;; A Drop instance's row is written in its head, `(! label ...)`, since
+    ;; mono finds the instance from a ground type, where no row variable
+    ;; could be solved. It is closed, or it ends with the row `e` of the
+    ;; instance's requirements `(Drop e A)`, which the type a drop gives `A`
+    ;; decides (`drop-rows`). It names no control effect: a drop runs to
     ;; completion, wherever it is written, glue included.
-    (: check-drop-row (-> Program Type Loc Unit ! compile))
-    (define (check-drop-row program row loc)
+    (: check-drop-row (-> Program Instance Type Loc Unit ! compile))
+    (define (check-drop-row program instance row loc)
       (match row
-        ((TRow labels (None))
+        ((TRow labels tail)
          (for-each (lambda (label)
                      (match (table-ref (Program-effects program) label)
                        ((Some effect)
@@ -1980,15 +1982,39 @@
                                          (string-append "a drop cannot perform the control effect "
                                                         (short-name label)))))
                        ((None) (unit))))
-                   labels))
-        (_
-         (compile-error loc "a Drop instance writes its row in its head, closed: (! label ...)"))))
+                   labels)
+         (check-drop-requirements instance tail loc))
+        (_ (compile-error loc drop-row-usage))))
 
-    ;; It is declared beside its type, for the type at distinct variables
-    ;; and with no class requirement, so a type has one, which its name
-    ;; finds, and its library alone may take the type's values apart.
-    (: check-drop-head (-> Context Instance String (List Type) Loc Unit ! compile))
-    (define (check-drop-head cx instance name args loc)
+    ;; Each requirement drops one of the instance's variables in the row its
+    ;; head ends with, so one row holds what all of them perform; without
+    ;; one, the row is closed.
+    (: check-drop-requirements (-> Instance (Option Type) Loc Unit ! compile))
+    (define (check-drop-requirements instance tail loc)
+      (let ((required (Instance-requires instance)))
+        (for-each (lambda (constraint)
+                    (unless (string=? (Constraint-class constraint) drop-class)
+                      (compile-error loc
+                                     "a Drop instance can require only (Copy A) and (Drop e A)"))
+                    (match (Pair tail (Constraint-types constraint))
+                      ((Pair (Some (TRigid name)) (Cons (TRigid row) (Cons (TRigid var) (Nil))))
+                       (unless (and (string=? name row) (member? var (Instance-vars instance)))
+                         (compile-error loc drop-row-usage)))
+                      (_ (compile-error loc drop-row-usage))))
+                  required)
+        (match (Pair tail required)
+          ((Pair (Some _) (Nil)) (compile-error loc drop-row-usage))
+          (_ (unit)))))
+
+    (: drop-row-usage String)
+    (define drop-row-usage
+      "a Drop instance's row is closed, (! label ...), or ends with the row e of its requirements (Drop e A), as (! label ... e)")
+
+    ;; It is declared beside its type, for the type at distinct variables,
+    ;; so a type has one, which its name finds, and its library alone may
+    ;; take the type's values apart.
+    (: check-drop-head (-> Context String (List Type) Loc Unit ! compile))
+    (define (check-drop-head cx name args loc)
       (unless (string=? (name-owner name) (Context-prefix cx))
         (compile-error loc "a Drop instance is declared in the library of its type"))
       (let ((names (map (lambda (arg)
@@ -1998,9 +2024,7 @@
                         args)))
         (unless (and (not (member? "" names))
                      (= (length (delete-duplicates string=? names)) (length names)))
-          (compile-error loc "a Drop instance is for its type at distinct variables")))
-      (unless (null? (Instance-requires instance))
-        (compile-error loc "a Drop instance can require only (Copy A)")))
+          (compile-error loc "a Drop instance is for its type at distinct variables"))))
 
     (: instance-with-methods (-> Instance (List MethodDefinition) Instance))
     (define (instance-with-methods instance methods)

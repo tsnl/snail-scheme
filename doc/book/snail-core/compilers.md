@@ -183,7 +183,8 @@ function of the expander has `mut` in its row — and where it does not, the
   `(deriving Move)`, or has a Drop instance, is linear whatever its fields.
   `release` says what a drop runs: nothing, an instance's method, or glue.
   The checker asks it for a drop's rows and mono for its call, so the two
-  cannot disagree.
+  cannot disagree. An instance that requires `(Drop e A)` performs its
+  head's labels and what dropping the type it is given at `A` performs.
 - **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** checks each
   library's linear values once its types are final, before
   specialization. It follows each path through a body: a use consumes a

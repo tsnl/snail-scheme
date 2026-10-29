@@ -5,7 +5,7 @@
 (define-library (snail shell compiler capabilities)
   (export
    linear-type? missing-copy copy-declaration first-order-type? contains-itself?
-   Release Discard Destroy Glue release released-fields drop-instance drop-rows)
+   Release Discard Destroy Glue release released-fields drop-instance instance-bindings drop-rows)
   (import
    (snail core base)
    (snail shell compiler core))
@@ -284,10 +284,42 @@
         ((Pair _ (Ok found))
          (match (release program copy type)
            ((Discard) progress)
-           ((Destroy instance)
-            (Ok (Dropping-rows-set found (Cons (first-type (Instance-types instance))
-                                               (Dropping-rows found)))))
+           ((Destroy instance) (destroy-search program copy givens type instance found))
            ((Glue) (glue-search program copy givens type found))))))
+
+    ;; An instance performs the labels its head names, and, for each
+    ;; requirement `(Drop e A)`, what dropping the type `type` gives `A`
+    ;; performs, which is the row `e` its head ends with. That type is part
+    ;; of `type`, so the search ends.
+    (: destroy-search
+       (-> Program (List String) (List Constraint) Type Instance Dropping (Result Dropping String)))
+    (define (destroy-search program copy givens type instance found)
+      (match (Instance-types instance)
+        ((Cons (TRow labels _) _)
+         (fold-left (lambda (progress required)
+                      (drop-search program
+                                   copy
+                                   givens
+                                   (substitute (instance-bindings instance type)
+                                               (list-ref (Constraint-types required) 1))
+                                   progress))
+                    (Ok (Dropping-rows-set found (Cons (TRow labels (None)) (Dropping-rows found))))
+                    (Instance-requires instance)))
+        (_ (panic "internal error: a Drop instance names its row"))))
+
+    ;; The types `type` gives a Drop instance's variables, matched against
+    ;; its head, which names its type at distinct variables.
+    (: instance-bindings (-> Instance Type Substitution))
+    (define (instance-bindings instance type)
+      (match (Pair (Instance-types instance) type)
+        ((Pair (Cons _ (Cons (TCon _ params) (Nil))) (TCon _ args))
+         (zip (map (lambda (param)
+                     (match param
+                       ((TRigid name) name)
+                       (_ "")))
+                   params)
+              args))
+        (_ (panic "internal error: a Drop instance names a row and a declared type"))))
 
     (: glue-search
        (-> Program (List String) (List Constraint) Type Dropping (Result Dropping String)))
