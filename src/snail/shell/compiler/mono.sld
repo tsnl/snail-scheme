@@ -228,7 +228,7 @@
         (match term
           ((Lit value) (Lit value))
           ((Var name types evidence) (Var name types evidence))
-          ((Lambda params body) (Lambda params (copy body)))
+          ((Lambda params body captures?) (Lambda params (copy body) captures?))
           ((App callee args)
            (let* ((callee (copy callee)) (args (map copy args))) (App callee args)))
           ((If test then otherwise)
@@ -349,7 +349,8 @@
                                    (map (lambda (case) (glue-clause state method dropped case loc))
                                         (DataType-cases data)))
                             unit-type
-                            loc))
+                            loc)
+                      #f)
               (TFun (list dropped) unit-type empty-row)
               loc)))
 

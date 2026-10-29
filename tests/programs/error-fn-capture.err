@@ -1,0 +1,1 @@
+a fn has no environment, so it cannot read the local name; use lambda

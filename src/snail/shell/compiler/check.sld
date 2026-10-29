@@ -567,7 +567,7 @@
                                  (Instantiated-type use)
                                  loc)
                            ck)))
-          ((Lambda params body) (infer-lambda ck params body loc))
+          ((Lambda params body captures?) (infer-lambda ck params body captures? loc))
           ((App callee args) (infer-app ck callee args row loc))
           ;; `then` is `learning`'s own keyword, so the branches are named
           ;; for what they are rather than by their field names.
@@ -603,18 +603,20 @@
                          (then (unify (TCon "Any" (Nil)) (Expr-type inner) (Expr-loc inner))))
                      (Pair (Expr (TypeTest inner target) (TCon "Bool" (Nil)) loc) ck))))))
 
-    (: infer-lambda (-> Checker (List String) Expr Loc (Pair Expr Checker) ! compile))
-    (define (infer-lambda ck params body loc)
+    (: infer-lambda (-> Checker (List String) Expr Bool Loc (Pair Expr Checker) ! compile))
+    (define (infer-lambda ck params body captures? loc)
       (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params)))
-                (infer-lambda-at ck params body types loc)))
+                (infer-lambda-at ck params body captures? types loc)))
 
     ;; A lambda whose parameter types are known before its body is seen.
     (: infer-lambda-at
-       (-> Checker (List String) Expr (List Type) Loc (Pair Expr Checker) ! compile))
-    (define (infer-lambda-at ck params body types loc)
+       (-> Checker (List String) Expr Bool (List Type) Loc (Pair Expr Checker) ! compile))
+    (define (infer-lambda-at ck params body captures? types loc)
       (learning ck ((body-row (fresh-meta))
                     (body (scoped (bind-locals ck params types) body body-row)))
-                (Pair (Expr (Lambda params body) (TFun types (Expr-type body) body-row) loc) ck)))
+                (Pair
+                 (Expr (Lambda params body captures?) (TFun types (Expr-type body) body-row) loc)
+                 ck)))
 
     ;; A sub-check under `inner`'s scope, resumed in this checker's. `inner`
     ;; is built from this one, so everything it learns flows back; only its
@@ -632,11 +634,11 @@
     (: check-value (-> Checker Expr Type Type (Pair Expr Checker) ! compile))
     (define (check-value ck expr type row)
       (match (Expr-term expr)
-        ((Lambda params body)
+        ((Lambda params body captures?)
          (match (prune (solution ck) type)
            ((TFun param-types result body-row)
             (if (= (length params) (length param-types))
-                (check-lambda ck expr params body type param-types result body-row)
+                (check-lambda ck expr params body captures? type param-types result body-row)
                 (infer ck expr row)))
            (_ (infer ck expr row))))
         (_ (infer ck expr row))))
@@ -652,13 +654,14 @@
            Expr
            (List String)
            Expr
+           Bool
            Type
            (List Type)
            Type
            Type
            (Pair Expr Checker)
            ! compile))
-    (define (check-lambda ck expr params body type param-types result body-row)
+    (define (check-lambda ck expr params body captures? type param-types result body-row)
       (learning ck ((row (fresh-meta))
                     (then (unify row body-row (Expr-loc expr)))
                     (body (within (signed-body (bind-locals ck params param-types) row)
@@ -667,7 +670,7 @@
                                         (check-confining-body inner body row)
                                         (infer inner body row)))))
                     (then (unify result (Expr-type body) (Expr-loc body))))
-                (let ((value (Expr (Lambda params body) type (Expr-loc expr))))
+                (let ((value (Expr (Lambda params body captures?) type (Expr-loc expr))))
                   (Pair value (if (Checker-discharged ck)
                                   (Checker-confined-set (Checker-discharged-set ck #f)
                                                         (Cons value (Checker-confined ck)))
@@ -881,9 +884,9 @@
     (: infer-implementation-value (-> Checker Expr Type Type (Pair Expr Checker) ! compile))
     (define (infer-implementation-value ck value expected row)
       (match (Pair (Expr-term value) expected)
-        ((Pair (Lambda params body) (TFun types _ _))
+        ((Pair (Lambda params body captures?) (TFun types _ _))
          (if (= (length params) (length types))
-             (infer-lambda-at ck params body types (Expr-loc value))
+             (infer-lambda-at ck params body captures? types (Expr-loc value))
              (infer ck value row)))
         (_ (infer ck value row))))
 
@@ -1449,7 +1452,7 @@
                (Var name
                     (map (lambda (type) (zonk solution type)) types)
                     (map (lambda (e) (zonk-evidence solution e)) evidence)))
-              ((Lambda params body) (Lambda params (zonk-expr solution body)))
+              ((Lambda params body captures?) (Lambda params (zonk-expr solution body) captures?))
               ((App callee args)
                (App (zonk-expr solution callee) (map (lambda (arg) (zonk-expr solution arg)) args)))
               ((If test then otherwise)
@@ -1501,7 +1504,7 @@
     (: check-confined (-> Typed Expr Unit ! compile))
     (define (check-confined typed function)
       (match (Pair (Expr-term function) (Expr-type function))
-        ((Pair (Lambda params _) (TFun param-types result _))
+        ((Pair (Lambda params _ _) (TFun param-types result _))
          (let ((program (Typed-program typed)))
            (for-each (lambda (pair)
                        (when (holds-storage? program (Pair-second pair))
@@ -1624,7 +1627,7 @@
     (: binders (-> Expr (List String)))
     (define (binders expr)
       (append (match (Expr-term expr)
-                ((Lambda params _) params)
+                ((Lambda params _ _) params)
                 ((Let name _ _) (list name))
                 ((Match _ clauses)
                  (concatenate
@@ -1644,7 +1647,7 @@
       (match (Expr-term expr)
         ((Lit _) (Nil))
         ((Var _ _ _) (Nil))
-        ((Lambda _ body) (list body))
+        ((Lambda _ body _) (list body))
         ((App callee args) (Cons callee args))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
@@ -1654,6 +1657,54 @@
         ((Convert inner _) (list inner))
         ((TypeTest inner _) (list inner))
         ((Handle _ implementations body) (append (map Pair-second implementations) (list body)))))
+
+    ;; ---- Closed functions ----
+
+    ;; A closure that may not capture reads no local of the code around it:
+    ;; only its parameters, the locals it binds, globals, and, when a `let`
+    ;; binds it, its own name, which the backend reads from the closure
+    ;; itself. Names are unique, so a read of a name it does not bind is a
+    ;; read from outside, and one the program does not know is a local.
+    (: check-closed-item (-> Program Item Unit ! compile))
+    (define (check-closed-item program item)
+      (match item
+        ((Define _ value) (check-closed program (Nil) value))
+        ((Do value) (check-closed program (Nil) value))
+        (_ (unit))))
+
+    ;; `own` is the name a `let` binds the closure to, if it does.
+    (: check-closed (-> Program (List String) Expr Unit ! compile))
+    (define (check-closed program own expr)
+      (match (Expr-term expr)
+        ((Lambda _ _ captures?)
+         (unless captures?
+           (match (filter (lambda (read) (captured-read? program own read)) (outside-reads expr))
+             ((Cons read _)
+              (compile-error (Expr-loc read)
+                             (string-append "a fn has no environment, so it cannot read the local "
+                                            (local-name (var-name read))
+                                            "; use lambda")))
+             ((Nil) (unit)))))
+        (_ (unit)))
+      (match (Expr-term expr)
+        ((Let name value body)
+         (check-closed program (list name) value)
+         (check-closed program (Nil) body))
+        (_ (for-each (lambda (child) (check-closed program (Nil) child)) (subexpressions expr)))))
+
+    (: captured-read? (-> Program (List String) Expr Bool))
+    (define (captured-read? program own read)
+      (let ((name (var-name read)))
+        (and (not (member? name own))
+             (match (program-value program name)
+               ((Some _) #f)
+               ((None) #t)))))
+
+    (: var-name (-> Expr String))
+    (define (var-name read)
+      (match (Expr-term read)
+        ((Var name _ _) name)
+        (_ (panic "internal error: a read is a variable"))))
 
     ;; ---- Conversions ----
 
@@ -2020,6 +2071,7 @@
                          (Typed program (map (lambda (item) (zonk-item (solution ck) item)) typed)
                                 (final-schemes ck items))))
                     (for-each check-conversions (Typed-items result))
+                    (for-each (lambda (item) (check-closed-item program item)) (Typed-items result))
                     (check-owned-types program (Typed-schemes result) (Typed-items result))
                     (check-ownership program (Typed-schemes result) (Typed-items result))
                     (for-each

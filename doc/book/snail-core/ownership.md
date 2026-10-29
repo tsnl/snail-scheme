@@ -93,7 +93,8 @@ so is a second use.
 - **Captures.** Only a lambda supplied directly to `once` may capture
   linear values, and constructing it moves them in. An ordinary procedure
   is reusable, so capturing a linear value in one is an error. Taking a
-  linear argument is fine: each invocation receives its own owner.
+  linear argument is fine: each invocation receives its own owner. A
+  `fn` captures nothing at all ([below](#closures-without-an-environment)).
 - **Type variables.** A type variable is linear unless its definition
   requires `(Copy A)`, so a generic body may only move a value of type
   `A`. Using one twice, discarding it, or passing it where `Copy` is
@@ -204,6 +205,27 @@ returns holds, what a dropped `resume`'s frames hold, and what an
 unreachable cell holds are never released, so an instance's method is not
 guaranteed to run. Leaks are safe.
 
+### Closures without an environment
+
+The core closure form says whether it may capture. A surface `lambda`
+may; a `fn`, written as a lambda is, may not:
+
+```scheme
+{{#include ../../../tests/programs/fn.sld:fn}}
+```
+
+A `fn` reads its parameters, the locals it binds, globals, and its own
+name when a definition binds it, and it may perform any effect. Reading a
+local of the code around it is an error, "a fn has no environment", and so
+is reading one from a lambda inside it. A top-level function has no locals
+around it, so the expander marks every one as a `fn`.
+
+A `fn`'s type is the ordinary arrow, so it goes wherever a lambda does.
+The checker establishes the fact, and the backend relies on it: a closure
+that may not capture compiles to one immutable global, as any closure
+without captures does, and the backend asserts that it found nothing to
+copy. Nothing yet asks for one by type; see [proposed](#closures).
+
 ### Representation
 
 A linear value is represented as an omega value of the same shape would
@@ -247,7 +269,10 @@ Shared memory between instances is a separate, unsafe library
 
 ### Closures
 
-An ordinary closure cannot capture a linear value. A `once` closure may,
-and is then linear itself. Independently, the core closure form states
-whether it may capture at all; the surface `lambda` defaults to "may
-capture", and a closure marked capture-free that captures is an error.
+An interface will require a function without an environment by its type,
+such as a host callback or the entry of another instance: a third arrow
+beside `->` and `FnOnce`, unrestricted, represented as a bare function
+reference that takes `$ev` first. A `fn` or a top-level name would be
+accepted where that type is expected, and converted to `->` explicitly
+where a closure is. Its name is open: Rust's `fn` pointer is the meaning,
+but Rust's `Fn` names a closure that may capture.
