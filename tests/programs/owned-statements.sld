@@ -2,10 +2,10 @@
  (snail core base)
  (snail core io))
 
-;; A Holder is linear: it has a Once field. Matching it moves the field
+;; A Holder is linear: it has a FnOnce field. Matching it moves the field
 ;; out, and the clause must use it once: here it drops it uncalled.
 (struct Holder
-  ((work (Once (-> Unit ! console)))))
+  ((work (FnOnce Unit ! console))))
 
 (match (Holder (once (lambda () (write-line "a"))))
   ((Holder work)

@@ -54,7 +54,7 @@
                                                  (lambda (value resume) (drop resume) (- 0 value))))
                                    (sum tree)))))
 
-;; A `Once` held across the operation is dropped with the frame that held
+;; A `FnOnce` held across the operation is dropped with the frame that held
 ;; it, and never runs.
 (: guarded (-> (List I64) I64 ! console))
 (define (guarded items)

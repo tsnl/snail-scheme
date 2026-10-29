@@ -2423,6 +2423,8 @@
       (match syntax
         ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
         ((Form (Cons (Ident "->" _ _) items) loc) (resolve-arrow cx env items (Nil) loc))
+        ((Form (Cons (Ident "FnOnce" _ _) items) loc)
+         (TCon "FnOnce" (list (resolve-arrow cx env items (Nil) loc))))
         ((Form (Cons head args) loc)
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
         (_ (compile-error (syntax-loc syntax) "expected a type"))))
@@ -3481,7 +3483,7 @@
           (expect (primitive-scheme program "array-ref")
                   (list (list "A") "(-> (Array A) I64 A ! mut)"))
           (expect (primitive-scheme program "inherit-handlers")
-                  (list (list "A" "e") "(-> (Once (-> A ! e)) (Once (-> A ! host)) ! e)"))
+                  (list (list "A" "e") "(-> (FnOnce A ! e) (FnOnce A ! host) ! e)"))
           (expect (map Pair-first (library-items program (program-items program))) (list "main"))))
 
       ;; A library that derives without importing (snail shell wire) loads

@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(: use (-> (Once (-> Unit)) Unit))
+(: use (-> (FnOnce Unit) Unit))
 (define (use work)
   (call-once work))
 

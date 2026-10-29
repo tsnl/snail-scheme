@@ -15,7 +15,7 @@
 (: slots (Ref (List (Pair I64 (Ref (Option Any))))))
 (define slots (ref (Nil)))
 
-(: request (-> (Once (-> Any ! tcp udp tasks)) I64 ! mut tcp udp))
+(: request (-> (FnOnce Any ! tcp udp tasks) I64 ! mut tcp udp))
 (define (request work)
   (let* ((slot (ref (ann (None) (Option Any))))
          (id (dispatch-task (once (lambda () (ref-set! slot (Some (work))))))))

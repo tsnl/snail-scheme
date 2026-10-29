@@ -234,7 +234,7 @@ function of the expander has `mut` in its row — and where it does not, the
   an operation with a latent row runs under a forwarding node for each
   effect the row names, which sends that effect's operations, and re-aims
   its yields, to the performer's handlers. `inherit-handlers` makes a
-  `Once` of a closure that holds its caller's list and the procedure's
+  `FnOnce` of a closure that holds its caller's list and the procedure's
   owner, and calls the procedure under that list, whatever list it is
   called with. A control operation
   instead leaves a yield record in one global: the node it is aimed at, the

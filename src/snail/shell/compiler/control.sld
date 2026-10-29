@@ -56,13 +56,13 @@
                (None)))
 
     ;; The control effects a value of a procedure type may yield to when
-    ;; called: those its row names. Calling a `Once` calls the procedure it
+    ;; called: those its row names. Calling a `FnOnce` calls the procedure it
     ;; holds.
     (: call-row (-> Type (List String)))
     (define (call-row type)
       (match type
         ((TFun _ _ (TRow labels _)) labels)
-        ((TCon "Once" (Cons procedure (Nil))) (call-row procedure))
+        ((TCon "FnOnce" (Cons procedure (Nil))) (call-row procedure))
         (_ (Nil))))
 
     ;; What calling `callee` may yield to. The checker opens the row of each

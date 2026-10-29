@@ -71,7 +71,7 @@
 
     (define (panic message) (error message))
 
-    ;; Stage 0 has no Once: the `resume` its handlers are handed cannot
+    ;; Stage 0 has no FnOnce: the `resume` its handlers are handed cannot
     ;; resume (see (snail stage0 forms)), so dropping one releases nothing.
     (define (drop owned) (unit))
 

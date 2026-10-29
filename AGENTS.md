@@ -42,7 +42,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   semantics for the same program; evidence passing is a translation, needs no
   runtime support, and reuses machinery the compiler already has for
   typeclasses. The consequence is the continuation tier: one-shot and
-  delimited by its handler. `resume` is a linear closure, `Once`, so it is
+  delimited by its handler. `resume` is a linear closure, `FnOnce`, so it is
   first-class — a scheduler can hold it and call it later as a thunk, which
   is how tasks are effects (`src/snail/shell/task.sld`) — and the ownership checker proves it is
   called or dropped exactly once. Multi-shot continuations are out of scope, since

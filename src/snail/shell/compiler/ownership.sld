@@ -32,11 +32,8 @@
     (: check-type (-> Program (List String) Type Loc Unit ! compile))
     (define (check-type program copy type loc)
       (match type
-        ((TCon "Once" args)
-         (match args
-           ((Cons (TFun params result _) (Nil))
-            (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
-           (_ (compile-error loc "Once requires a procedure type"))))
+        ((TCon "FnOnce" (Cons (TFun params result _) (Nil)))
+         (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
         ((TCon name args)
          (for-each (lambda (arg)
                      (when (and (member? name (list "Array" "Vector"))

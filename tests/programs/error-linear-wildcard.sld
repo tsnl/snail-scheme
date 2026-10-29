@@ -3,7 +3,7 @@
 
 ;; Matching moves the fields out, and a wildcard would discard one.
 (struct Job
-  ((work (Once (-> Unit)))))
+  ((work (FnOnce Unit))))
 
 (match (Job (once (lambda () (unit))))
   ((Job _) (unit)))

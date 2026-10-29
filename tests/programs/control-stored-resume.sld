@@ -17,7 +17,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (Once (-> Unit Step ! Log))))))
+    (next (FnOnce Unit Step ! Log)))))
 
 ;; The generator's first step: the handler hands back each value with the
 ;; rest of the body still to run.
@@ -75,7 +75,7 @@
   (Finished)
   (Gave
    ((value I64)
-    (next (Once (-> Unit Asking ! Ask))))))
+    (next (FnOnce Unit Asking ! Ask)))))
 
 (: scaled (-> I64 Asking ! Ask))
 (define (scaled count)

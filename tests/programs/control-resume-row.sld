@@ -15,7 +15,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (Once (-> I64 Step ! Log))))))
+    (next (FnOnce I64 Step ! Log)))))
 
 (: start (-> (-> Unit ! Gen) Step ! Log))
 (define (start body)

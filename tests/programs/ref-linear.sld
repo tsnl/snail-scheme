@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(type Work (Once (-> Unit ! console)))
+(type Work (FnOnce Unit ! console))
 
 (: say (-> String Work))
 (define (say text)

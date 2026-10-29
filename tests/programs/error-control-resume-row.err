@@ -1,1 +1,1 @@
-error-control-resume-row.sld:26:36: type mismatch: expected (Once (-> I64 Step)), found (Once (-> I64 Step ! Log))
+error-control-resume-row.sld:26:36: type mismatch: expected (FnOnce I64 Step), found (FnOnce I64 Step ! Log)

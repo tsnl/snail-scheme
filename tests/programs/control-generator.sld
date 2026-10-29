@@ -88,7 +88,7 @@
                        (+ inner 1)))))
 
 ;; Locals of other representations live across a yield too: a float,
-;; boxed in the frame, and a `Once`, moved into it and called once the
+;; boxed in the frame, and a `FnOnce`, moved into it and called once the
 ;; body resumes.
 (: halves (-> (List I64) F64 ! Gen))
 (define (halves items)

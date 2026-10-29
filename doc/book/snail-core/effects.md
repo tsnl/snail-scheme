@@ -344,7 +344,7 @@ An implementation's result is the handler's answer: the value of the whole
 body, here `I64`. `raise`'s own result type, also `I64`, is what `resume`
 would take. This implementation drops `resume`, so nothing after the
 `raise` runs, in `digit`, in `number`'s fold, or anywhere between them and
-the handler, and `parse-or` answers `default`. A `Once` held across an
+the handler, and `parse-or` answers `default`. A `FnOnce` held across an
 abandoned operation is dropped and never called; there is no `finally`
 clause (`tests/programs/control-early-exit.sld`). An implementation that
 raises again reaches the handler outside it, as an ordinary one does.
@@ -423,7 +423,7 @@ choose, value by value, whether to resume:
 
 ### Storing `resume`
 
-`resume` is a `Once`: a function that is called, or dropped, exactly once. It is
+`resume` is a `FnOnce`: a function that is called, or dropped, exactly once. It is
 also first-class. An implementation may return it inside a value, and
 whoever holds that value may call it later, after the `handle` has
 returned:
@@ -438,7 +438,7 @@ returned:
 
 `start` runs a generator to its first `yield`, and the implementation
 returns the value with `resume` instead of calling it. `interleave` calls
-each `next` long after `start` returned. A `Step` that holds a `Once` is
+each `next` long after `start` returned. A `Step` that holds a `FnOnce` is
 linear itself, used exactly once ([ownership](ownership.md)).
 
 The handler is deep: resuming re-installs it around the rest of the body,
@@ -453,7 +453,7 @@ one they began under.
 
 `inherit-handlers`, from `(snail core primitive)`, closes a one-shot thunk
 over the handlers in scope where it is called, and `inherit-handlers-1`
-closes a procedure of one argument, such as a `resume`. Wherever the `Once`
+closes a procedure of one argument, such as a `resume`. Wherever the `FnOnce`
 it makes is called, the procedure's operations reach those handlers, even
 after their handles have returned:
 
@@ -467,7 +467,7 @@ first log: a thunk
 ```
 
 The caller of `inherit-handlers` is charged the procedure's row, as if it
-ran the procedure there. The `Once` it makes performs `host` instead: the
+ran the procedure there. The `FnOnce` it makes performs `host` instead: the
 captured handlers answer the effects the row declares, and what remains,
 `mut` and the effects the host implements, happens when it runs. So pure
 code cannot call it (`tests/programs/error-inherit-pure.sld`), and one type
@@ -491,7 +491,7 @@ These are how a scheduler closes each step of a task
 `resume` takes the operation's result and returns the handler's answer,
 and it performs the row of the code around the `handle`, its **context
 row**. For `(ctl yield (-> I64 I64))` handled in a function of row `Log`,
-whose handler answers `Step`, `resume` is `(Once (-> I64 Step ! Log))`.
+whose handler answers `Step`, `resume` is `(FnOnce I64 Step ! Log)`.
 
 Calling `resume` runs under the caller's handlers everything the `handle`
 would perform outward: the rest of the body, and, since the handler is
@@ -508,7 +508,7 @@ effect once more. Both are in the context row. So a `Step` that stores
 {{#include ../../../tests/programs/error-control-resume-row.err}}
 ```
 
-Typed `(Once (-> I64 Step ! Log))`, the stored `next` is resumed under a
+Typed `(FnOnce I64 Step ! Log)`, the stored `next` is resumed under a
 `Log` handler, the one where it is called
 (`tests/programs/control-resume-row.sld`):
 
