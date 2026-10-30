@@ -34,7 +34,6 @@ Compiler contributors can also inspect and execute individual source files:
 ./scripts/snail-tool run examples/fibonacci.sld
 ./scripts/snail-tool compile -o build/fibonacci.wasm examples/fibonacci.sld
 ./scripts/snail-tool wat examples/effects.sld
-./scripts/snail-tool watch examples/fibonacci.sld   # runs it again after each edit
 ```
 
 Chibi Scheme, Binaryen, Rust and Node 26.4 or later are required. `shell.nix` provides
@@ -61,21 +60,20 @@ make site
 python3 -m http.server 4191 --directory apps/siegework/build/site
 ```
 
-While you change it, `./scripts/snail-tool serve apps/siegework` serves it at
-<http://127.0.0.1:8000/>, rebuilds only the libraries you edit, and relinks
-them into the open page, which keeps the game and the camera.
-`./snail dev --port 8001 apps/siegework` starts the native project compiler and
-browser editor. It reads `project.datum`; saving writes disk, and one shared
-watcher notifies both compiler and editor, including edits made by other tools.
-The editor keeps highlighting, Scheme indentation, format-on-save and split
-panes. Builds publish fresh diagnostics with source points in saved buffers.
-`make ide` starts this service for Siegework on port 8000.
+While you change it, `./snail dev apps/siegework` (or `make ide`) serves the
+browser editor at <http://127.0.0.1:8000/> and the game at
+<http://127.0.0.1:8001/site/>. It reads `project.datum`, rebuilds only the
+libraries you edit, and relinks them into the open page, which keeps the game
+and the camera. Saving writes disk, and one shared watcher notifies both
+compiler and editor, including edits made by other tools. The editor keeps
+highlighting, Scheme indentation, format-on-save and split panes. Builds
+publish fresh diagnostics with source points in saved buffers.
 
 The Applications panel starts, stops and restarts named program targets. Accepted
 builds replace affected wanted processes; failed builds leave them running.
-The [development workflow](doc/book/snail-core/toolchain.md) still needs browser bundle
-and durable-state reload integration. Use internal `serve` for the existing browser
-reload loop. The [typed-state API](doc/book/snail-core/state.md) remains under review.
+The [development workflow](doc/book/snail-core/toolchain.md) still needs
+durable-state reload; the [typed-state API](doc/book/snail-core/state.md)
+remains under review.
 
 ## Reading on
 

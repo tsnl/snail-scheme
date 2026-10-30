@@ -2,13 +2,14 @@
 // on its applications' origin, and headless Chromium adds to the counter
 // while the test edits the source. A new greeting arrives with the count kept, the
 // state passing as it is; a broken edit is shown over the page; a changed
-// state type passes the count through the save; and a state and save that
+// state type passes the count through the save; a state and save that
 // both change keep the old program running until the developer starts
-// over.
+// over; and a linked file's edit relinks the page from the module that
+// links it.
 //
 //   CHROMIUM=... node tests/browser/reload.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
-import {cp, mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
+import {cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {startDevelopment} from '../development-service.mjs';
@@ -124,6 +125,27 @@ try {
   await browser.evaluate('resumeSavedLoad()');
   await until(async () => await text('greeting') === 'after slow startup' && await text('count') === '1', 'the retry followed by relink');
   await browser.send('Page.removeScriptToEvaluateOnNewDocument', {identifier: gate.result.identifier});
+
+  // The greeting becomes the text of a file a library links. Editing the
+  // file compiles nothing and leaves every module's file as it was, but the
+  // page relinks from the module that links it, which reads it again,
+  // rather than loading again.
+  const banner = join(app, 'src/sample/banner.txt');
+  await mkdir(join(app, 'src/sample'), {recursive: true});
+  await writeFile(banner, 'linked');
+  await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export banner)
+    (import (snail core base) (snail shell resource))
+    (begin (: banner Resource) (define banner (link-bytes "banner.txt"))))`);
+  await edit(join(app, 'project.datum'), '(public "public")', '(public "public")\n    (library-roots ("src"))');
+  await edit(source, '(snail shell app))', '(snail shell app)\n (snail shell resource)\n (sample banner))',
+    '(define greeting "after slow startup")',
+    '(define greeting (list->string (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource banner)))))');
+  await until(async () => await text('greeting') === 'linked', 'the linked greeting');
+  await browser.evaluate('globalThis.stayed = true');
+  await writeFile(banner, 'linked again');
+  await until(async () => await text('greeting') === 'linked again', 'the linked file read again');
+  assert.equal(await browser.evaluate('globalThis.stayed'), true, 'the page relinked rather than loading again');
+  assert.equal(await text('count'), '1', 'and kept its state');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('reload: the page kept its state across modules');
 } finally {

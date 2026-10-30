@@ -34,6 +34,16 @@ a public file is an input once a reply names the directory
   touched /r/apps/p/public/index.html -> nothing
   built 1 a candidate -> reconcile
   reconciled -> discard 1
+a linked file is an input once a published program links it
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  touched /r/apps/p/art.bin -> nothing
+  built 1 a candidate -> reconcile
+  reconciled -> publish 1
+  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  touched /r/apps/p/art.bin -> arm
+  timer -> notify building 2 published 1 run app available; build 2
 a reply for another epoch is fatal
   resident started -> reconcile
   reconciled -> arm

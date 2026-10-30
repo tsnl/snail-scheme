@@ -130,13 +130,15 @@ rules change, change it to match. Browser changes should be seen running:
 
 ## Live reload
 
-Iterate on applications with `./scripts/snail-tool serve apps/NAME`, left
-running. It rebuilds only the libraries an edit reaches, about 100 ms for a
-function body in Siegework, and relinks them into each open page, keeping the
-running state; point `tests/browser/page.mjs` at the served URL to see an edit
-land. Each build first runs the producers of the `generate-library` recipes it
-reaches, so Hearsay serves too, rebuilding in about 500 ms since its producers
-run every time. An `artifact-bundle` still needs a project build. The book's
+Iterate on applications with `./snail dev apps/NAME`, left running; `make
+ide` starts it for Siegework. It serves the browser editor at
+`http://127.0.0.1:8000/` and each browser target at
+`http://127.0.0.1:8001/TARGET/`, rebuilds only the libraries an edit reaches,
+about 100 ms for a function body in Siegework, and relinks them into each open
+page, keeping the running state; point `tests/browser/page.mjs` at the
+target's URL to see an edit land. Each build first runs the producers of the
+`generate-library` recipes it reaches, so Hearsay serves too, rebuilding in
+about 750 ms since its producers run every time. The book's
 [application model](doc/book/snail-core/applications.md) gives the reload
 rules; what matters when writing code:
 
@@ -145,23 +147,23 @@ rules; what matters when writing code:
   `restore` otherwise, so keep what should survive an edit in the Save.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give constants their signatures.
-- `./scripts/snail-tool watch SOURCE [ARGUMENT ...]` is the same loop for
-  programs. `./snail dev PROJECT` runs the native project compiler and browser
-  editor; `make ide` starts it for Siegework. Save writes disk; the shared
-  watcher drives compiler and editor updates. Its application controls launch
-  named program targets and replace affected processes after accepted builds;
-  it serves browser targets on an origin of its own, at `/NAME/`, whose pages
-  relink as each build is published.
+- A program runs as a project's `run-target`, restarted from each accepted
+  build; the editor's Applications panel starts and stops it. Save writes
+  disk; the shared watcher drives compiler and editor updates, and an edit to
+  a file a program links builds again once a build that links it is
+  published.
 - Builds in one checkout keep private compiler scratch under `build/snail-run/`.
   Public `snail run` executes its completed project generation in the caller's
   working directory after removing build scratch. Rebuilding the compiled
   compiler or development tools takes an exclusive lock on `build/lock`, so
   `make test` may run beside a server.
-- The existing application loop is `src/snail/shell/develop.sld` on the native
-  `host/native/develop.mjs` host; the page's reload client is `host/browser/reload.sld`,
-  `relinkProgram` in `host/browser/load.mjs` relinks after the application's
-  loop, a task that `host/browser/runtime.mjs` drives, saves, returns its state and settles. `tests/develop.mjs` (in
-  `make test`) covers the loop, and `tests/browser/reload.mjs`, the client
-  under `snail dev`, and `tests/browser/ide.mjs` (`make test-browser`, needs
-  `CHROMIUM`) cover the pages. See
+- The service is `src/snail/shell/project/service.sld`, which carries out the
+  pure step of `src/snail/shell/development.sld`; it mounts each browser
+  target with `(snail shell project bundle)`. The page's reload client is
+  `host/browser/reload.sld`, and `relinkProgram` in `host/browser/load.mjs`
+  relinks after the application's loop, a task that `host/browser/runtime.mjs`
+  drives, saves, returns its state and settles. `tests/project-bundles.mjs`
+  and the other project suites (in `make test`) cover the service, and
+  `tests/browser/reload.mjs` and `tests/browser/ide.mjs` (`make
+  test-browser`, needs `CHROMIUM`) cover the pages. See
   [the development toolchain](doc/book/snail-core/toolchain.md).

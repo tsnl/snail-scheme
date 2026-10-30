@@ -1,7 +1,7 @@
 // Headless Chromium with software WebGPU, driven through the DevTools
 // protocol: one page, whose console output and exceptions are printed.
-// CHROMIUM names the browser's executable. The tests that drive it, and
-// tests/develop.mjs, wait for what they expect with `until`.
+// CHROMIUM names the browser's executable. The tests that drive it wait
+// for what they expect with `until`.
 import {spawn} from 'node:child_process';
 import {mkdtemp, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';

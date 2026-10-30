@@ -36,6 +36,7 @@
    Output-directory
    Output-digest
    Output-files
+   Output-linked
    Output-compiled
    Output-modules
    Candidate
@@ -211,14 +212,16 @@
     ;; modules it holds and how many of those it compiled; a linked build
     ;; holds one, which it compiled. `files` are the digests of its files
     ;; but its modules, whose names are already the digests of their text,
-    ;; by relative name.
+    ;; by relative name. `linked` holds the paths of the files its program
+    ;; links; editing one compiles nothing.
     (struct Output
       ((name String)
        (directory String)
        (digest String)
        (compiled I64)
        (modules I64)
-       (files (List (Pair String String)))))
+       (files (List (Pair String String)))
+       (linked (List String))))
 
     ;; What a build made and has not published: each target's generation,
     ;; in plan order, which puts the first root first.
@@ -455,10 +458,12 @@
          (absurd (stop failure)))))
 
     ;; What building a target's program left: how many modules it compiled
-    ;; of how many, and the sessions as they are after it.
+    ;; of how many, the files it links, by their sources' paths, and the
+    ;; sessions as they are after it.
     (struct Program
       ((compiled I64)
        (modules I64)
+       (linked (List String))
        (retained (List Retained))))
 
     (: program-output (-> Program String String (List (Pair String String)) Output ! fs))
@@ -469,7 +474,8 @@
                 (generation-digest files digests)
                 (Program-compiled program)
                 (Program-modules program)
-                digests)))
+                digests
+                (Program-linked program))))
 
     ;; The target's program in its generation, with the files it links: one
     ;; module for a debug or release build, a module per library for a
@@ -482,14 +488,17 @@
                     (match (Builder-mode builder)
                       ((Development) (develop-program builder target directory working progress))
                       (_
-                       (place-links directory
-                                    (link-program builder
+                       (let ((links (link-program builder
                                                   (Target-entry target)
                                                   (Target-directories target)
                                                   (Progress-inputs progress)
                                                   working
-                                                  (string-append directory "/program.wasm")))
-                       (Program 1 1 (Progress-retained progress)))))))
+                                                  (string-append directory "/program.wasm"))))
+                         (place-links directory links)
+                         (Program 1
+                                  1
+                                  (map LinkedFile-path links)
+                                  (Progress-retained progress))))))))
 
     ;; A browser target's host files and public tree; then the files the
     ;; generation holds.
@@ -565,11 +574,13 @@
                                                                    loading
                                                                    forms))
                                                (Progress-inputs progress)))))
-             (modules (assemble-modules (Pair-first built) (Retained-modules previous))))
+             (modules (assemble-modules (Pair-first built) (Retained-modules previous)))
+             (links (concatenate (map Built-links (Pair-first built)))))
         (write-modules builder directory modules)
-        (place-links directory (concatenate (map Built-links (Pair-first built))))
+        (place-links directory links)
         (Program (length (filter Built-compiled? (Pair-first built)))
                  (length modules)
+                 (map LinkedFile-path links)
                  (Cons (Retained (Target-name target)
                                  (Target-entry target)
                                  (Target-directories target)
