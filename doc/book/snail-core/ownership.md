@@ -2,9 +2,8 @@
 
 A value has a **grade**: how many times a program may use it. Grades
 belong to types, not to individual bindings. This chapter states the rules
-the compiler enforces today, then the rest of the linear design, which is
-proposed in [#550](https://github.com/tsnl/snail-scheme/issues/550) and
-not yet implemented.
+the compiler enforces, then what
+[#550](https://github.com/tsnl/snail-scheme/issues/550) still proposes.
 
 ## Implemented: linear one-shot work
 
@@ -105,7 +104,10 @@ so is a second use.
   that requires `(Copy A)` may duplicate and discard, and is used only at
   unrestricted types, so a generic `duplicate` cannot be instantiated with
   a work item. No class implies `Copy`: `max` requires `(Ord T)` and
-  `(Copy T)`. An instance requires `Copy` the same way, in its `requires`.
+  `(Copy T)`. An instance requires `Copy` the same way, in its `requires`,
+  and is used only where its head gives that variable an unrestricted
+  type: an instance of `(Twice (Option A))` that pairs a value with
+  itself cannot be used at `(Option (FnOnce Unit))`.
 - **Cells.** `Ref` is a struct with one mutable field, declared in
   `(snail core base)` as `(struct (Ref A) ((contents mut A)))`, the way
   OCaml declares `ref`. `ref`, `ref-get`, `ref-set!` and `ref-replace!`
@@ -163,9 +165,12 @@ What a drop runs, and so the row it performs, is found from `T` rather
 than matched (`lifecycle-plan` and `lifecycle-rows` in
 `capabilities.sld`):
 
-- An omega value and a `FnOnce` are released at no cost, and perform
-  nothing; so is linear data whose drop would run nothing else, such as a
-  list of `FnOnce`s, which is not walked.
+- An omega value is released at no cost, and performs nothing; so is a
+  `FnOnce`, without running it, and so is linear data whose drop would
+  run nothing else, such as a list of `FnOnce`s, which is not walked. A
+  `FnOnce`'s type does not say what it captured, so what a `once` lambda
+  moved in is abandoned with it, not dropped: release it in the lambda,
+  or keep it where a drop can reach it.
 - A type with an instance runs the instance's method, and performs the
   row the instance's head names:
 
@@ -183,7 +188,9 @@ than matched (`lifecycle-plan` and `lifecycle-rows` in
   `(Drop e A)`, with `e` in its row, and its callers are charged what
   dropping their `A` performs. Without the requirement, the drop is
   refused, as it is for a type that holds itself at other type arguments,
-  whose glue would need a function for every depth.
+  whose glue would need a function for every depth. An instance of any
+  class may require one too, with a row its method allows, as
+  `(requires (Drop (! log) A))`, and each use is charged the same way.
 
 A drop's effects are charged where it is written: once a call is checked,
 the drops raised in it whose types are known are solved in its scope, so a
@@ -217,9 +224,10 @@ of one of its fields.
 
 The compiler still inserts no drops, so an instance runs exactly where a
 `drop` was written, or in glue such a drop runs. What a path that never
-returns holds, what a dropped `resume`'s frames hold, and what an
-unreachable cell holds are never released, so an instance's method is not
-guaranteed to run. Leaks are safe.
+returns holds, what a dropped `resume`'s frames hold, what a dropped
+`once` lambda captured, and what an unreachable cell holds are never
+released, so an instance's method is not guaranteed to run. Leaks are
+safe.
 
 ### Cloning
 

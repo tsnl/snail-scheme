@@ -54,6 +54,11 @@
    EvParam
    EvDerived
    EvHole
+   Plan
+   Trivial
+   Implemented
+   Glue
+   Refused
    Expr
    Expr-term
    Expr-type
@@ -560,9 +565,11 @@
     ;; Evidence says which instance satisfies a constraint: an instance applied
     ;; to type arguments and the evidence for its requirements, or the
     ;; enclosing definition's own requirement at `index`. A Drop or Clone
-    ;; constraint's is derived: mono finds what a drop or a clone runs from
-    ;; the ground type (`lifecycle-plan` in capabilities.sld), as the checker
-    ;; found its row. Holes exist only while checking.
+    ;; constraint's is derived: the checker records the plan it charged,
+    ;; or None for a type variable, whose instantiation's plan its caller
+    ;; charged, and mono finds the plan again from the ground type and
+    ;; checks that it runs no more (`plan-covers?` in capabilities.sld).
+    ;; Holes exist only while checking.
     (enum Evidence
       (EvInstance
        ((instance String)
@@ -570,9 +577,21 @@
         (subs (List Evidence))))
       (EvParam
        ((index I64)))
-      (EvDerived)
+      (EvDerived
+       ((plan (Option Plan))))
       (EvHole
        ((id I64))))
+
+    ;; What a drop or a clone of a type runs: nothing but a discard or a
+    ;; share, an instance's method, or glue, which takes the value apart, or
+    ;; why it cannot run (`lifecycle-plan` in capabilities.sld).
+    (enum Plan
+      (Trivial)
+      (Implemented
+       ((instance Instance)))
+      (Glue)
+      (Refused
+       ((reason String))))
 
     ;; ---- Expressions ----
 

@@ -203,7 +203,7 @@
          (EvInstance instance
                      (map (lambda (type) (ground inst type)) types)
                      (map (lambda (sub) (ground-evidence inst sub)) subs)))
-        ((EvDerived) (EvDerived))
+        ((EvDerived plan) (EvDerived plan))
         ((EvHole _) (panic "internal error: unsolved evidence"))))
 
     (: copy-expr (-> State Instantiation Expr Expr ! mut))
@@ -275,7 +275,13 @@
         ((Some (Defined _ _ _)) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
          (if (lifecycle-class? class)
-             (lifecycle-reference state class name (list-ref types 1) type loc)
+             (lifecycle-reference state
+                                  class
+                                  name
+                                  (list-ref types 1)
+                                  (charged-plan evidence)
+                                  type
+                                  loc)
              (match evidence
                ((Cons (EvInstance instance instance-types subs) rest)
                 (let ((class-arity
@@ -294,10 +300,12 @@
     ;; (`lifecycle-plan`). A trivial drop is the primitive `discard`, and a
     ;; trivial clone is glue that pairs the value with itself; a type with
     ;; an instance runs its method; other data runs its glue. `method` is
-    ;; the class method's own name, `drop` or `clone`.
-    (: lifecycle-reference (-> State String String Type Type Loc Expr ! mut))
-    (define (lifecycle-reference state class method subject type loc)
-      (match (lifecycle-plan (program-of state) class (Nil) subject)
+    ;; the class method's own name, `drop` or `clone`. `charged` is the plan
+    ;; the checker charged for one written in the program, which the ground
+    ;; plan may not exceed (`plan-covers?`), and None for one glue makes.
+    (: lifecycle-reference (-> State String String Type (Option Plan) Type Loc Expr ! mut))
+    (define (lifecycle-reference state class method subject charged type loc)
+      (match (covered-plan (lifecycle-plan (program-of state) class (Nil) subject) charged subject)
         ((Trivial)
          (if (string=? class drop-class)
              (Expr (Var "prim:discard" (Nil) (Nil)) type loc)
@@ -322,6 +330,20 @@
                              (lambda () (clone-function state method subject loc)))))
         ((Refused reason)
          (panic (string-append "internal error: the checker allowed this: " reason)))))
+
+    (: charged-plan (-> (List Evidence) (Option Plan)))
+    (define (charged-plan evidence)
+      (match evidence
+        ((Cons (EvDerived plan) _) plan)
+        (_ (panic "internal error: a drop or a clone has derived evidence"))))
+
+    (: covered-plan (-> Plan (Option Plan) Type Plan))
+    (define (covered-plan plan charged subject)
+      (if (plan-covers? charged plan)
+          plan
+          (panic (string-append "internal error: releasing "
+                                (type->string subject)
+                                " runs more than the checker charged"))))
 
     ;; The instance's variables, as the ground type binds them in its head.
     ;; The row its head ends with, if it names one, is left empty: a drop or
@@ -381,6 +403,7 @@
                                         drop-class
                                         method
                                         type
+                                        (None)
                                         (TFun (list type) unit-type empty-row)
                                         loc)
                    (list (Expr (Var (glue-local case (Pair-first field)) (Nil) (Nil)) type loc)))
@@ -446,6 +469,7 @@
                                       clone-class
                                       method
                                       type
+                                      (None)
                                       (TFun (list type) (pair-type type) empty-row)
                                       loc)
                  (list (Expr (Var (glue-local case index) (Nil) (Nil)) type loc)))
