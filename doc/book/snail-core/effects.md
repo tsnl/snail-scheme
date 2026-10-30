@@ -171,7 +171,11 @@ performed where no handler of its effect is in scope calls the host. That
 is why the programs above call `report` at their top level with no handler
 around them. A handler can
 still replace them: `tests/programs/files.sld` handles `fs` to answer
-`file-exists?` and `list-directory` from memory. An effect without a
+`file-exists?` and `list-directory` from memory. Such a handler may leave
+the rest of its row polymorphic, as any can:
+`tests/programs/effects-host-handler-row.sld` handles `clock` for a body
+of row `(clock e)`, answering through `console`, and is itself of row
+`(console e)`. An effect without a
 default must be handled: performing it where no handler is in scope is an
 error (`tests/programs/error-unhandled.sld`).
 
@@ -447,7 +451,11 @@ so the generator's next `yield` reaches the same implementation, and
 under the handlers in scope where `resume` is called, not those that were
 in scope when it started: `tests/programs/control-stored-resume.sld`
 resumes two logging generators under a different `Log` handler from the
-one they began under.
+one they began under. Called inside another handler's implementation,
+`resume` runs under that implementation's handlers: those outside its
+`handle`, not those where its operation was performed. The re-installed
+handler's own implementation runs outside it there too
+(`tests/programs/control-resume-in-implementation.sld`).
 
 ### Closing over handlers
 
@@ -624,6 +632,12 @@ operations go to the handlers **in scope where `fetch` was performed**, not
 to those outside the `Io` handler. Its other operations go to the handlers
 outside `Io`'s, as for any implementation. A yield leaves the
 implementation through the performer, and `resume` comes back into it.
+After that, its latent operations still go to the handlers where `fetch`
+was performed, as the resume left them: the task's own handler,
+re-installed, and beyond it the handlers in scope where the task was
+resumed. Resumed inside another task, `fetch` still waits on its own
+task's handler, and logs to the log around the resume
+(`tests/programs/control-latent-resumed.sld`).
 
 ### A way to avoid sneaking effects into callers
 

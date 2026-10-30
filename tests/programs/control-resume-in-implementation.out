@@ -1,0 +1,10 @@
+start: the body produces 1
+start: the handler yields 1
+got 1
+outside the runner: the body produces 2
+outside the runner: the handler yields 2
+got 2
+finishing: the body produces 3
+finishing: the handler yields 3
+got 3
+done
