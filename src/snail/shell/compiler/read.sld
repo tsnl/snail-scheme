@@ -186,12 +186,15 @@
       (if a b (not b)))
 
     (: loc->string (-> Loc String))
+    ;; A location in line 0 is the file as a whole.
     (define (loc->string loc)
-      (string-append (Loc-file loc)
-                     ":"
-                     (i64->string (Loc-line loc))
-                     ":"
-                     (i64->string (Loc-column loc))))
+      (if (= (Loc-line loc) 0)
+          (Loc-file loc)
+          (string-append (Loc-file loc)
+                         ":"
+                         (i64->string (Loc-line loc))
+                         ":"
+                         (i64->string (Loc-column loc)))))
 
     ;; ---- Source failures ----
 

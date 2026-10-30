@@ -82,7 +82,10 @@ try {
   const wat = join(fresh(), 'program.wat');
   compiler.static(empty, source, wat, fresh(), libraries);
   execute([{name: 'program', text: readFileSync(wat, 'utf8')}], '43\n');
-  assert.equal(failure(() => compiler.static(empty, join(directory, 'absent.sld'), wat, fresh(), libraries), /absent.sld/).diagnostic, null, 'IO failures cannot inherit a preceding source point');
+  // A missing source is a diagnostic about the file as a whole, which names
+  // it and has no source point, so it cannot inherit a preceding one.
+  const absent = failure(() => compiler.static(empty, join(directory, 'absent.sld'), wat, fresh(), libraries), /absent\.sld: no such file or directory$/);
+  assert.equal(absent.diagnostic.source, null);
   assert.deepEqual(compiler.modules(repaired.session, empty, source, fresh()).modules.filter(module => module.compiled), []);
 
   // Missing inputs unwind before native work. A new logical compilation
@@ -224,15 +227,16 @@ try {
     trapped.close();
   }
 
-  // A compile that exits, as one whose source is missing does, is told by
-  // the diagnostic stream. A failure to read it retires the instance and
+  // A compile that exits, as one whose source cannot be read does, is told
+  // by the diagnostic stream. A failure to read it retires the instance and
   // must tell the project worker to stop, rather than accepting another
   // recoverable build.
   const readSync = fs.readSync, unavailable = new Error('diagnostic read failed');
+  fs.mkdirSync(join(directory, 'unreadable.sld'));
   fs.readSync = () => { throw unavailable; };
   syncBuiltinESMExports();
   try {
-    assert.throws(() => compiler.static(empty, join(directory, 'missing.sld'), wat, fresh(), libraries),
+    assert.throws(() => compiler.static(empty, join(directory, 'unreadable.sld'), wat, fresh(), libraries),
       error => error instanceof CompilerCrashed && error.cause === unavailable);
   } finally { fs.readSync = readSync; syncBuiltinESMExports(); }
   assert.throws(() => compiler.project(project), /compiler is closed/);

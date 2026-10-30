@@ -34,6 +34,12 @@ async function throughTheCommandLine() {
     await assert.rejects(build('main'), error => error.stderr.includes(expected));
   }
   assert.deepEqual(inventory(), [], 'a failed build discards the generation it created');
+  // An entry that is not there is a diagnostic naming it, as an editor's
+  // deletion leaves it, and not a failure of the builder.
+  fs.rmSync(join(project, 'main.sld'));
+  await assert.rejects(build('main'), error => /main\.sld: no such file or directory/.test(error.stderr)
+    && !/os error/.test(error.stderr));
+  assert.deepEqual(inventory(), [], 'a build of a missing entry makes nothing');
 
   // A producer reads real input files when the build runs it, and is
   // compiled and run in private compiler scratch, so the project's build

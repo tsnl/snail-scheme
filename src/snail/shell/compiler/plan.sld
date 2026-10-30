@@ -52,7 +52,8 @@
          producer-key
          generated-output
          print-producer
-         generating-stack)
+         generating-stack
+         read-source-file)
    (only (snail shell compiler core) strong-components)
    (only (snail shell compiler expand)
          ArtifactUse
@@ -360,7 +361,7 @@
     (: entry-program (-> Target PhaseProgram ! fs compile))
     (define (entry-program target)
       (let* ((entry (Target-entry target))
-             (source (generating-stack (read-text (read-file entry) entry))))
+             (source (generating-stack (read-source-file entry))))
         (PhaseProgram entry
                       (Target-directories target)
                       (Pair-first source)

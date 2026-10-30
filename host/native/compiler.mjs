@@ -62,8 +62,9 @@ function recordImports(receive, memory) {
       if (!Number.isSafeInteger(line) || !Number.isSafeInteger(column)) throw new Error('invalid compiler source point');
       // Internal no-loc sentinels are not source locations. Positive columns
       // count Unicode scalar values, starting at one, just like the reader.
+      // A location in line 0 is a file as a whole, which the message names.
       const source = file && line > 0 && column > 0 ? {file, line, column} : null;
-      receive({severity: 'error', message, source});
+      receive({severity: 'error', message: file && line === 0 ? `${file}: ${message}` : message, source});
     },
     artifact(line, column) {
       const [name, file] = take();

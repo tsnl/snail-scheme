@@ -22,7 +22,8 @@
    generated-syntax
    print-producer
    printed-producer-text
-   generating-stack)
+   generating-stack
+   read-source-file)
   (import
    (snail core base)
    (snail core table)
@@ -195,8 +196,7 @@
     ;; it for the forms it was printed from.
     (: printed-producer-text (-> (List String) String String ! fs compile))
     (define (printed-producer-text directories path)
-      (producer-text directories
-                     (Pair-second (generating-stack (read-text (read-file path) path)))))
+      (producer-text directories (Pair-second (generating-stack (read-source-file path)))))
 
     (: generating-line (-> (List String) String))
     (define (generating-line loading)
@@ -204,6 +204,18 @@
                      (string-concatenate
                       (map (lambda (key) (string-append " " (quoted key))) loading))
                      ")"))
+
+    ;; ---- Source files ----
+
+    ;; The forms of the source file at `path`. One that is not there, as a
+    ;; build's entry an editor has just deleted, fails the compile with a
+    ;; diagnostic about the file as a whole, so a resident caller reports
+    ;; it and builds again once the file is back.
+    (: read-source-file (-> String (List Syntax) ! fs compile))
+    (define (read-source-file path)
+      (if (file-exists? path)
+          (read-text (read-file path) path)
+          (compile-error (Loc path 0 0) "no such file or directory")))
 
     ;; The libraries a program's first form says were loading when it was
     ;; printed, and the forms after it. A program that does not begin with
@@ -248,7 +260,8 @@
                     "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"
                     "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)"))
         (test-generating-stack)
-        (test-generated-inputs))
+        (test-generated-inputs)
+        (test-missing-source))
 
       ;; The printed stack reads back as the same keys, ahead of the
       ;; producer's own forms; a program without one has nothing loading.
@@ -262,6 +275,11 @@
           (expect (length (Pair-second printed)) 1)
           (expect (Pair-first plain) (list))
           (expect (length (Pair-second plain)) 1)))
+
+      ;; A source that is not there is a diagnostic naming the file.
+      (define (test-missing-source)
+        (expect (compile-failure (lambda () (read-source-file "build/tests/missing/main.sld")))
+                "build/tests/missing/main.sld: no such file or directory"))
 
       ;; A supplied output is found by its producer's text, which reads back
       ;; from the printed producer unchanged. The same program under other
