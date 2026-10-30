@@ -1,12 +1,53 @@
 #!/bin/sh
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+# The tools a command runs, a path a line, as stage 0 names them. Stage 0
+# rebuilds whichever is stale under build/lock and is the only judge of
+# which is; it starts Chibi and Cargo, so it takes most of a second even
+# when nothing is. Its answer is kept in build/tools-KIND.txt, and used
+# again while every tool it names is there and no file its rule reads is
+# newer: the .sld files under src/ and the tools' own directories, the
+# runtime crate and the pinned toolchain, and stage 0's driver, which says
+# where the tools go. That over-approximates the rule, so a false alarm
+# costs only stage 0's run. The list takes the time stage 0 began, so an
+# edit made while it builds is newer than the list.
+tools() {
+  list=$root/build/tools-$1.txt
+  if [ -f "$list" ] && unchanged "$list" && present "$list"; then
+    cat "$list"
+    return
+  fi
+  mkdir -p "$root/build"
+  began=$(mktemp "$root/build/tools-$1.XXXXXX") || return 1
+  if answer=$("$root/scripts/snail-tool" "$1"); then
+    printf '%s\n' "$answer" > "$began.list" && touch -r "$began" "$began.list" && mv "$began.list" "$list"
+    rm -f "$began"
+    printf '%s\n' "$answer"
+  else
+    rm -f "$began"
+    return 1
+  fi
+}
+
+unchanged() {
+  [ -z "$(find "$root/src" "$root/bootstrap" "$root/host/ide" "$root/host/browser" -name '*.sld' -newer "$1" -print -quit)" ] &&
+    [ -z "$(find "$root/crates/snail-core-support" -path '*/target' -prune -o -newer "$1" -print -quit)" ] &&
+    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/snail.scm" "$root/host/chibi" -newer "$1" -print -quit)" ]
+}
+
+present() {
+  while read -r tool; do
+    [ -f "$tool" ] || return 1
+  done < "$1"
+}
+
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
   # The development service is the command line's `dev`, with the editor's
   # program and the reload client's; stage 0 names those first.
   dev)
     shift
-    tools=$("$root/scripts/snail-tool" dev-tools) || exit 1
+    tools=$(tools dev-tools) || exit 1
     { read -r editor && read -r client && read -r cli && read -r runtime; } <<TOOLS
 $tools
 TOOLS
@@ -14,7 +55,7 @@ TOOLS
   # The command line is a Snail program (bootstrap/cli.sld). Stage 0 rebuilds
   # it and the runtime when their sources change, and names them a line each.
   build|run)
-    tools=$("$root/scripts/snail-tool" cli-tools) || exit 1
+    tools=$(tools cli-tools) || exit 1
     { read -r cli && read -r runtime; } <<TOOLS
 $tools
 TOOLS

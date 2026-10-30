@@ -432,6 +432,14 @@
     (or (zero? (caddr result))
         (report "project development" "failed" (string-append (car result) (cadr result))))))
 
+;; ./snail reuses stage 0's tool list only while nothing its rule reads
+;; changed, in a root of stubs that builds nothing.
+(define (check-launcher root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/launcher.mjs") root))))
+    (or (zero? (caddr result))
+        (report "launcher" "failed" (string-append (car result) (cadr result))))))
+
 (define (check-project-bundles root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/project-bundles.mjs") root))))
@@ -758,6 +766,7 @@
                                   (lambda () (check-development-runs root))
                                   (lambda () (check-project-http root))
                                   (lambda () (check-project-bundles root))
+                                  (lambda () (check-launcher root))
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))
