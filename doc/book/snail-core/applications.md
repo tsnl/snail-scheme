@@ -119,6 +119,14 @@ carry (`Capture`) and when the host prevents their default action
 (`Prevent`, never, always, or for listed key chords). Functions stay in
 Snail-Core: the host sees nodes and listeners only as handles.
 
+A command does what a view cannot say by finding a node by its `id`
+attribute with `element-by-id`. It can then focus it, scroll it through
+its scroll properties, select a range of it, insert text into it as typing
+would (`insert-text`, which the page can undo and which fires the field's
+`input` event), and `measure` it. A command can run after the view has
+removed its node, so on a removed node these do nothing, and reads of it
+answer "" or 0.
+
 `with-memory-dom` from `(snail shell dom memory)` handles `dom` over a
 document in memory, delivering a script of cues (events fired at elements
 by their `id`, and the page hidden), and answers the document it left, as
@@ -137,7 +145,8 @@ run interfaces this way under `make test`.
   (restore: restore))
 ```
 
-`init` takes the seed alone, and `update`'s commands may wait on tasks.
+`init` takes the seed alone, and `update`'s commands are `(Command Msg)`,
+which may wait on tasks and reach the document.
 The interface boots as an application does, from a handed-over model of
 its type, else the stored save, else `init`. It runs `run-ui` as the
 page's root task under `with-page-dom` from `(snail shell dom page)`,

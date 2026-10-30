@@ -4,16 +4,22 @@
 ;; which `document->html` prints, and the trace of every operation, one
 ;; line each. Its events are a script, delivered in turn as the work
 ;; waits for them: firing a listener on the element with an `id`, or
-;; hiding the page. A `wake` is delivered before the script goes on, and
-;; once the script is done and no wake is waiting, the document is closed.
+;; hiding the page. The input events of inserted text and then a `wake`
+;; are delivered before the script goes on, in the order a page would
+;; queue them, and once the script is done and nothing waits, the document
+;; is closed.
 ;; As a page delivers only between the tasks it runs, each delivery waits
 ;; until every other ready task has run, so it finds the document as they
 ;; left it.
 ;;
-;; The document is strict where a page would forgive: a node used after
-;; it was removed, a listener dropped after its node was, or a node
-;; inserted into itself, is a panic, so the tests of an interface catch
-;; what a page would hide.
+;; The document is strict where a page would forgive: a node the
+;; reconciler uses after it was removed, a listener dropped after its node
+;; was, or a node inserted into itself, is a panic, so the tests of an
+;; interface catch what a page would hide. What a command may do after
+;; the view removed its node (focus, properties, selection, inserting text
+;; and measuring) does nothing then, as on a page, and its trace line
+;; ends "(removed)". Inserting text delivers the field's `input` event, as
+;; typing would.
 (define-library (snail shell dom memory)
   (export
    Document
@@ -164,12 +170,12 @@
 
     (: property-set (-> Document Node String Property Document))
     (define (property-set document node name value)
-      (let* ((handle (Node-handle node)) (changed (entry document handle)))
-        (traced (put document
-                     handle
-                     (Entry-properties-set changed
-                                           (assigned (Entry-properties changed) name (Some value))))
-                (list "set-property" (show handle) name (property->string value)))))
+      (commanded document
+                 node
+                 (list "set-property" (show (Node-handle node)) name (property->string value))
+                 (lambda (changed)
+                   (Entry-properties-set changed
+                                         (assigned (Entry-properties changed) name (Some value))))))
 
     (: property->string (-> Property String))
     (define (property->string property)
@@ -180,9 +186,11 @@
 
     (: property-of (-> Document Node String (Option Property)))
     (define (property-of document node name)
-      (match (find (lambda (pair) (string=? (Pair-first pair) name))
-                   (Entry-properties (entry document (Node-handle node))))
-        ((Some pair) (Some (Pair-second pair)))
+      (match (live document (Node-handle node))
+        ((Some found)
+         (match (find (lambda (pair) (string=? (Pair-first pair) name)) (Entry-properties found))
+           ((Some pair) (Some (Pair-second pair)))
+           ((None) (None))))
         ((None) (None))))
 
     ;; A child inserted where it is, or into a node under it, would leave
@@ -332,15 +340,111 @@
 
     (: target-entry (-> Document String Entry))
     (define (target-entry document target)
-      (match (find (lambda (node)
-                     (and (Entry-live node)
-                          (any? (lambda (pair)
-                                  (and (string=? (Pair-first pair) "id")
-                                       (string=? (Pair-second pair) target)))
-                                (Entry-attributes node))))
-                   (table-values (Document-entries document)))
-        ((Some found) found)
+      (match (element-handle document target 0)
+        ((Some handle) (entry document handle))
         ((None) (panic (string-append "no element has the id " target)))))
+
+    ;; ---- Commands ----
+
+    ;; A node, unless it was removed.
+    (: live (-> Document I32 (Option Entry)))
+    (define (live document handle)
+      (match (table-ref (Document-entries document) (show handle))
+        ((Some found) (if (Entry-live found) (Some found) (None)))
+        ((None) (panic (string-append "no node has the handle " (show handle))))))
+
+    ;; A command's change to a node, traced by `words`, or the trace alone
+    ;; when the node was removed.
+    (: commanded (-> Document Node (List String) (-> Entry Entry) Document))
+    (define (commanded document node words change)
+      (let ((handle (Node-handle node)))
+        (match (live document handle)
+          ((Some found) (traced (put document handle (change found)) words))
+          ((None) (traced document (append words (list "(removed)")))))))
+
+    ;; The first node from `handle` on whose `id` is `target`.
+    (: element-handle (-> Document String I32 (Option I32)))
+    (define (element-handle document target handle)
+      (cond ((>= handle (Document-next document)) (None))
+            ((match (live document handle)
+               ((Some found)
+                (any? (lambda (pair)
+                        (and (string=? (Pair-first pair) "id")
+                             (string=? (Pair-second pair) target)))
+                      (Entry-attributes found)))
+               ((None) #f))
+             (Some handle))
+            (else (element-handle document target (+ handle 1)))))
+
+    (: selected (-> Document Node I32 I32 Document))
+    (define (selected document node start end)
+      (commanded document
+                 node
+                 (list "select" (show (Node-handle node)) (show start) (show end))
+                 (lambda (found) (selection-set found start end))))
+
+    (: selection-set (-> Entry I32 I32 Entry))
+    (define (selection-set found start end)
+      (Entry-properties-set found
+                            (assigned (assigned (Entry-properties found)
+                                                "selectionStart"
+                                                (Some (Number (i32->f64 start))))
+                                      "selectionEnd"
+                                      (Some (Number (i32->f64 end))))))
+
+    ;; The field's value with the range replaced by `text`, and the caret
+    ;; after it.
+    (: text-inserted (-> Document Node I32 I32 String Document))
+    (define (text-inserted document node start end text)
+      (commanded document
+                 node
+                 (list "insert-text"
+                       (show (Node-handle node))
+                       (show start)
+                       (show end)
+                       (quoted text))
+                 (lambda (found)
+                   (let* ((value (match (find (lambda (pair) (string=? (Pair-first pair) "value"))
+                                              (Entry-properties found))
+                                   ((Some (Pair _ (Text value))) value)
+                                   (_ "")))
+                          (changed (string-append (substring value 0 (i32->i64 start))
+                                                  text
+                                                  (substring value
+                                                             (i32->i64 end)
+                                                             (string-length value))))
+                          (caret (+ start (i64->i32 (string-length text)))))
+                     (selection-set (Entry-properties-set found
+                                                          (assigned (Entry-properties found)
+                                                                    "value"
+                                                                    (Some (Text changed))))
+                                    caret
+                                    caret)))))
+
+    ;; The `input` event a field's listener hears after text is inserted
+    ;; into it.
+    (: input-fired (-> Document Node (Option Delivery)))
+    (define (input-fired document node)
+      (match (live document (Node-handle node))
+        ((Some found)
+         (match (find (lambda (pair) (string=? (Pair-second pair) "input")) (Entry-listeners found))
+           ((Some pair)
+            (Some (Fired (Listener (Pair-first pair))
+                         (Event-value-set no-event
+                                          (match (property-of document node "value")
+                                            ((Some (Text value)) value)
+                                            (_ ""))))))
+           ((None) (None))))
+        ((None) (None))))
+
+    ;; A document in memory has no layout: every measure is 0.
+    (: measured (-> Document Node (Pair Measure Document)))
+    (define (measured document node)
+      (Pair (Measure 0.0 0.0 0.0 0.0 0.0 0.0 0.0)
+            (commanded document
+                       node
+                       (list "measure" (show (Node-handle node)))
+                       (lambda (found) found))))
 
     ;; ---- Handling ----
 
@@ -361,7 +465,7 @@
             (requires (Copy T))
             (-> (List Cue) (-> T ! dom e) (Pair T Document) ! mut e)))
     (define (with-memory-dom script work)
-      (let ((state (ref empty-document)) (cues (ref script)) (woken (ref #f)))
+      (let ((state (ref empty-document)) (cues (ref script)) (woken (ref #f)) (inputs (ref (Nil))))
         (let ((value
                (handle dom
                    ((document-root (lambda () (Node 0)))
@@ -416,8 +520,28 @@
                      (lambda (node)
                        (alter! state
                                (lambda (document)
-                                 (entry document (Node-handle node))
-                                 (traced document (list "focus" (show (Node-handle node))))))))
+                                 (commanded document
+                                            node
+                                            (list "focus" (show (Node-handle node)))
+                                            (lambda (found) found))))))
+                    (element-by-id
+                     (lambda (id)
+                       (match (element-handle (ref-get state) id 0)
+                         ((Some handle) (Some (Node handle)))
+                         ((None) (None)))))
+                    (select-range
+                     (lambda (node start end)
+                       (alter! state (lambda (document) (selected document node start end)))))
+                    (insert-text
+                     (lambda (node start end text)
+                       (alter! state
+                               (lambda (document) (text-inserted document node start end text)))
+                       (match (input-fired (ref-get state) node)
+                         ((Some delivery)
+                          (ref-set! inputs (append (ref-get inputs) (list delivery))))
+                         ((None) (unit)))))
+                    (measure
+                     (lambda (node) (change! state (lambda (document) (measured document node)))))
                     (wake
                      (lambda ()
                        (ref-set! woken #t)
@@ -425,15 +549,22 @@
                     (next-event
                      (lambda ()
                        (yield)
-                       (cond ((ref-get woken) (ref-set! woken #f) (Woken))
-                             (else
+                       (match (ref-get inputs)
+                         ((Cons delivery rest)
+                          (ref-set! inputs rest)
+                          delivery)
+                         ((Nil)
+                          (if (ref-get woken)
+                              (begin
+                                (ref-set! woken #f)
+                                (Woken))
                               (match (ref-get cues)
                                 ((Cons cue rest)
                                  (ref-set! cues rest)
                                  (change! state (lambda (document) (cued document cue))))
                                 ((Nil)
                                  (alter! state (lambda (document) (traced document (list "close"))))
-                                 (Closed))))))))
+                                 (Closed)))))))))
                  (work))))
           (Pair value (ref-get state)))))
 
