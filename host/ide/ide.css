@@ -38,17 +38,14 @@ button { font: inherit; color: inherit; }
 .file.dirty::after { content: " ●"; color: var(--muted); }
 .file.conflict { color: var(--error); }
 
-.panes { display: flex; min-width: 0; min-height: 0; }
-.panes > * { flex: 1; }
-.split { display: flex; min-width: 0; min-height: 0; }
-.split.row { flex-direction: row; }
-.split.column { flex-direction: column; }
-.split > .divider { flex: 0 0 4px; background: var(--line); }
-.split.row > .divider { cursor: col-resize; }
-.split.column > .divider { cursor: row-resize; }
-.split > .divider:hover { background: var(--accent); }
+/* Each pane is placed in its part of the room, and a divider lies over the edge between two. */
+.panes { position: relative; min-width: 0; min-height: 0; }
+.divider { position: absolute; z-index: 2; background: var(--line); }
+.divider.row { width: 4px; margin-left: -2px; cursor: col-resize; }
+.divider.column { height: 4px; margin-top: -2px; cursor: row-resize; }
+.divider:hover { background: var(--accent); }
 
-.pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.pane { position: absolute; display: flex; flex-direction: column; box-sizing: border-box; min-width: 0; min-height: 0; }
 .pane-header { display: flex; align-items: center; gap: 2px; height: 28px; padding: 0 4px 0 10px; border-bottom: 1px solid var(--line);
   background: var(--surface); color: var(--muted); }
 .pane.active .pane-header { color: var(--text); box-shadow: inset 0 -2px var(--accent); }

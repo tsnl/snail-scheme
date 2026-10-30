@@ -403,16 +403,66 @@
     ((Leaf id) id)
     ((Split _ _ _ first _) (first-leaf first))))
 
-(: split-direction (-> Layout I64 (Option String)))
-(define (split-direction layout split)
+;; ---- Placing panes ----
+
+;; A part of the panes' room, in fractions of it.
+(struct Area
+  ((left F64)
+   (top F64)
+   (width F64)
+   (height F64)))
+
+(: whole Area)
+(define whole
+  (Area 0.0 0.0 1.0 1.0))
+
+;; The two parts of `area` a split in `direction` at `ratio` makes.
+(: halves (-> Area String F64 (Pair Area Area)))
+(define (halves area direction ratio)
+  (if (string=? direction "column")
+      (let ((first (* (Area-height area) ratio)))
+        (Pair (Area-height-set area first)
+              (Area (Area-left area)
+                    (+ (Area-top area) first)
+                    (Area-width area)
+                    (- (Area-height area) first))))
+      (let ((first (* (Area-width area) ratio)))
+        (Pair (Area-width-set area first)
+              (Area (+ (Area-left area) first)
+                    (Area-top area)
+                    (- (Area-width area) first)
+                    (Area-height area))))))
+
+;; Each pane's part of `area`, by the pane's id.
+(: pane-areas (-> Layout Area (List (Pair I64 Area))))
+(define (pane-areas layout area)
   (match layout
-    ((Leaf _) (None))
-    ((Split id direction _ first second)
-     (if (= id split)
-         (Some direction)
-         (match (split-direction first split)
-           ((Some found) (Some found))
-           ((None) (split-direction second split)))))))
+    ((Leaf id) (list (Pair id area)))
+    ((Split _ direction ratio first second)
+     (match (halves area direction ratio)
+       ((Pair one other) (append (pane-areas first one) (pane-areas second other)))))))
+
+;; A split, by its id, with its direction and ratio and the part of the
+;; room it divides.
+(struct Division
+  ((split I64)
+   (direction String)
+   (ratio F64)
+   (area Area)))
+
+(: divisions (-> Layout Area (List Division)))
+(define (divisions layout area)
+  (match layout
+    ((Leaf _) (Nil))
+    ((Split id direction ratio first second)
+     (match (halves area direction ratio)
+       ((Pair one other)
+        (Cons (Division id direction ratio area)
+              (append (divisions first one) (divisions second other))))))))
+
+(: division-of (-> Layout I64 (Option Division)))
+(define (division-of layout split)
+  (find (lambda (division) (= (Division-split division) split)) (divisions layout whole)))
 
 ;; The layout with split `split` dividing at `ratio`, kept to a tenth of
 ;; the room either side.
@@ -432,10 +482,6 @@
 (: scroller-id (-> I64 String))
 (define (scroller-id pane)
   (string-append "editor-" (show pane)))
-
-(: split-id (-> I64 String))
-(define (split-id split)
-  (string-append "split-" (show split)))
 
 ;; ---- Requests ----
 
@@ -754,7 +800,7 @@
   (Divider ((split I64))))
 
 ;; A drag under way: of the files' edge, within the page's width, or of a
-;; split's divider, within the split's box.
+;; split's divider, within the box of the panes' room.
 (enum Drag
   (Resizing ((width F64)))
   (Dividing ((split I64)
@@ -1552,7 +1598,7 @@
 (define (grabbed grip)
   (match grip
     ((FilesEdge) (Grabbed (Resizing (Measure-width (measured "workbench")))))
-    ((Divider split) (Grabbed (Dividing split (measured (split-id split)))))))
+    ((Divider split) (Grabbed (Dividing split (measured "panes"))))))
 
 (: measured (-> String Measure ! dom))
 (define (measured id)
@@ -1567,13 +1613,21 @@
   (match (Ide-drag model)
     ((Some (Resizing width)) (Ide-files-width-set model (max 120.0 (min (* width 0.7) x))))
     ((Some (Dividing split box))
-     (Ide-layout-set model
-                     (ratio-set (Ide-layout model)
-                                split
-                                (match (split-direction (Ide-layout model) split)
-                                  ((Some "column") (/ (- y (Measure-top box)) (Measure-height box)))
-                                  (_ (/ (- x (Measure-left box)) (Measure-width box)))))))
+     (match (division-of (Ide-layout model) split)
+       ((Some division)
+        (Ide-layout-set model (ratio-set (Ide-layout model) split (pointed division box x y))))
+       ((None) model)))
     ((None) model)))
+
+;; Where the pointer lies across the split, in the room's box on the page.
+(: pointed (-> Division Measure F64 F64 F64))
+(define (pointed division box x y)
+  (let ((area (Division-area division)))
+    (if (string=? (Division-direction division) "column")
+        (/ (- y (+ (Measure-top box) (* (Area-top area) (Measure-height box))))
+           (* (Area-height area) (Measure-height box)))
+        (/ (- x (+ (Measure-left box) (* (Area-left area) (Measure-width box))))
+           (* (Area-width area) (Measure-width box))))))
 
 ;; The page's shortcuts, keys held with Control or Command.
 (: shortcut (-> Ide String Msg))
@@ -1839,7 +1893,7 @@
                           (list (Attr "id" "panes")
                                 (Attr "class" "panes")
                                 (Attr "aria-label" "Editors"))
-                          (list (node-view model (Ide-layout model)))))))
+                          (panes-view model)))))
 
 ;; ---- Files ----
 
@@ -1971,41 +2025,66 @@
 
 ;; ---- Panes' view ----
 
-(: node-view (-> Ide Layout (Html Msg)))
-(define (node-view model layout)
-  (match layout
-    ((Leaf id) (pane-view model id))
-    ((Split id direction ratio first second)
-     (Element "div"
-              (list (Keyed (split-id id))
-                    (Attr "id" (split-id id))
-                    (Attr "class" (string-append "split " direction)))
-              (list (shared (node-view model first) ratio)
-                    (Element "div"
-                             (list (Attr "class" "divider")
-                                   (On "pointerdown"
-                                       (Nil)
-                                       (Always)
-                                       (lambda (event) (Grab (Divider id)))))
-                             (Nil))
-                    (shared (node-view model second) (- 1.0 ratio)))))))
+;; The panes are the room's children, each placed in its part of it, and
+;; the dividers lie over their edges. A split adds a pane and moves the
+;; others, so each keeps its field, with its caret and undo history.
+(: panes-view (-> Ide (List (Html Msg))))
+(define (panes-view model)
+  (let ((areas (pane-areas (Ide-layout model) whole)))
+    (append (map (lambda (pane)
+                   (pane-view model
+                              (Pane-id pane)
+                              (match (assoc-ref areas (Pane-id pane))
+                                ((Some area) area)
+                                ((None) whole))))
+                 (Ide-panes model))
+            (map divider-view (divisions (Ide-layout model) whole)))))
 
-;; A node of a split, taking its share of the room.
-(: shared (-> (Html Msg) F64 (Html Msg)))
-(define (shared html ratio)
-  (match html
-    ((Element tag attributes children)
-     (Element tag
-              (Cons (Attr "style" (string-append "flex: " (f64->string ratio) " 1 0")) attributes)
-              children))
-    (text text)))
+(: percent (-> F64 String))
+(define (percent fraction)
+  (string-append (f64->string (* fraction 100.0)) "%"))
 
-(: pane-view (-> Ide I64 (Html Msg)))
-(define (pane-view model id)
+(: placed (-> Area String))
+(define (placed area)
+  (string-append "left: "
+                 (percent (Area-left area))
+                 "; top: "
+                 (percent (Area-top area))
+                 "; width: "
+                 (percent (Area-width area))
+                 "; height: "
+                 (percent (Area-height area))))
+
+;; A divider lies along the edge the split's ratio puts between its halves,
+;; as long as the edge; ide.css gives it its thickness.
+(: divider-view (-> Division (Html Msg)))
+(define (divider-view division)
+  (let* ((direction (Division-direction division))
+         (edge (Pair-second (halves (Division-area division) direction (Division-ratio division))))
+         (corner (string-append "left: "
+                                (percent (Area-left edge))
+                                "; top: "
+                                (percent (Area-top edge)))))
+    (Element "div"
+             (list (Keyed (string-append "divider-" (show (Division-split division))))
+                   (Attr "class" (string-append "divider " direction))
+                   (Attr "style"
+                         (if (string=? direction "column")
+                             (string-append corner "; width: " (percent (Area-width edge)))
+                             (string-append corner "; height: " (percent (Area-height edge)))))
+                   (On "pointerdown"
+                       (Nil)
+                       (Always)
+                       (lambda (event) (Grab (Divider (Division-split division))))))
+             (Nil))))
+
+(: pane-view (-> Ide I64 Area (Html Msg)))
+(define (pane-view model id area)
   (let* ((pane (pane-of model id)) (buffer (pane-buffer model id)))
     (Element "div"
              (list (Keyed (string-append "pane-" (show id)))
-                   (Attr "class" (if (= id (Ide-active model)) "pane active" "pane")))
+                   (Attr "class" (if (= id (Ide-active model)) "pane active" "pane"))
+                   (Attr "style" (placed area)))
              (list (Element "div"
                             (list (Attr "class" "pane-header"))
                             (list (Element "span"
@@ -2256,9 +2335,10 @@
                     (list (Attr "class"
                                 (match drag
                                   ((Dividing split _)
-                                   (match (split-direction (Ide-layout model) split)
-                                     ((Some "column") "drag-overlay column")
-                                     (_ "drag-overlay row")))
+                                   (match (division-of (Ide-layout model) split)
+                                     ((Some division)
+                                      (string-append "drag-overlay " (Division-direction division)))
+                                     ((None) "drag-overlay row")))
                                   ((Resizing _) "drag-overlay row")))
                           (On "pointermove"
                               (list (Pointer))
