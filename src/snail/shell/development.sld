@@ -27,6 +27,9 @@
    Candidate-description
    Candidate-generations
    SourcePoint
+   SourcePoint-file
+   SourcePoint-line
+   SourcePoint-column
    Diagnostic
    Diagnostic-message
    Diagnostic-source

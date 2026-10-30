@@ -9,7 +9,11 @@
 ;;     run's arguments and then these, in the caller's directory;
 ;;   resident PROJECT
 ;;     builds for the development service, keeping each target's compiler
-;;     session from one build to the next (below).
+;;     session from one build to the next (below);
+;;   dev FORMATTER [--port PORT] PROJECT
+;;     runs the development service, (snail shell project service), with
+;;     the editor's formatter, until it is interrupted, as ./snail dev
+;;     does.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -29,6 +33,7 @@
  (snail shell json read)
  (snail shell project)
  (snail shell project build)
+ (snail shell project service)
  (snail shell process))
 
 ;; ---- Requests ----
@@ -387,9 +392,40 @@
                     (Pair "message" (JsonString message))
                     (Pair "source" source))))
 
+;; ---- The development service ----
+
+;; The service's setup, from `dev`'s arguments after the command line's
+;; own: its path, the root and the runtime.
+(: dev-setup (-> String String String (List String) Setup))
+(define (dev-setup cli root runtime arguments)
+  (let ((node (match (environment-variable "NODE")
+                ((Some node) node)
+                ((None) "node"))))
+    (match arguments
+      ((Cons formatter (Cons "--port" (Cons port (Cons project (Nil)))))
+       (Setup root cli runtime node formatter (resolved project) (port-number port)))
+      ((Cons formatter (Cons project (Nil)))
+       (Setup root cli runtime node formatter (resolved project) 8000))
+      (_ (panic "usage: snail dev [--port PORT] PROJECT")))))
+
+(: port-number (-> String I32))
+(define (port-number text)
+  (let ((digits (string->list text)))
+    (if (and (not (null? digits))
+             (<= (length digits) 5)
+             (every? (lambda (char) (and (>= (char->i32 char) 48) (<= (char->i32 char) 57)))
+                     digits))
+        (let ((number (fold-left (lambda (number char) (+ (* number 10) (- (char->i32 char) 48)))
+                                 0
+                                 digits)))
+          (if (<= number 65535) number (panic "port must be an integer from 0 to 65535")))
+        (panic "port must be an integer from 0 to 65535"))))
+
 ;; ---- The invocation ----
 
-(let ((job (request (command-line))))
+;; A build, a run, or the resident builder.
+(: invoke (-> Job Unit ! mut fs clock process console))
+(define (invoke job)
   (match (Job-mode job)
     ((Development) (serve (Resident job (Nil) (None))))
     (_
@@ -401,3 +437,8 @@
             (begin
               (build-and-publish job description (Job-target job))
               (write-line (string-append (Job-project job) "/build/" (Job-target job))))))))))
+
+(match (command-line)
+  ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))
+   (develop (dev-setup cli root runtime arguments)))
+  (arguments (invoke (request arguments))))

@@ -266,7 +266,7 @@ pub fn compile_module(engine: &Engine, file: &Path) -> wasmtime::Result<Module> 
         .find(|module| NODE_ONLY.contains(&module.as_str()))
     {
         bail!(
-            "{} imports {node}: a program that uses sockets, processes or file modes runs on Node",
+            "{} imports {node}: a program that uses sockets, processes, file modes or watches runs on Node",
             file.display()
         )
     }
@@ -417,7 +417,7 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.ends_with(
-            "imports snail.runtime.native.socket: a program that uses sockets, processes or file modes runs on Node"
+            "imports snail.runtime.native.socket: a program that uses sockets, processes, file modes or watches runs on Node"
         ));
         assert_eq!(run(&file, &[]), 2);
     }
