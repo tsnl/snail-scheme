@@ -13,6 +13,9 @@ read .git/config -> not served: invalid project text path
 read lib\util.sld -> not served: invalid project text path
 read linked/util.sld -> not served: project paths cannot traverse symlinks or non-directories
 read missing.sld -> disk failed: no such file or directory
+read binary.sld -> not served: expected valid UTF-8 text
+read zero.sld -> not served: text files cannot contain NUL bytes
+read large.txt -> not served: text files may contain at most 8 MiB
 save main.sld -> (main 2) at 0bc792e983e5
 read main.sld -> (main 2) at 0bc792e983e5
 save main.sld again from the old revision -> changed on disk
@@ -20,6 +23,10 @@ read main.sld -> (main 2) at 0bc792e983e5
 save a NUL -> not served: expected well-formed text without NUL
 save a path not served -> not served: invalid project text path
 save a file not there -> changed on disk
+save exact.sld unchanged -> the same bytes, the same revision
+save exact.sld over bytes not text -> changed on disk
+bytes of exact.sld -> 1
+save with the build output a link -> not served: project build output must be a directory, not a link
 mode of tool.mjs -> 755
 save tool.mjs -> tool 2 at bec59b526c4a
 mode of tool.mjs -> 755

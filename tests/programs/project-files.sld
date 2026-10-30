@@ -5,9 +5,19 @@
 
 ;; The project file service on a scratch project: what it lists, reads and
 ;; refuses, a save that names the revision it replaces and one that does
-;; not, a save that keeps the file's mode, and nothing left in the build
-;; output after. Each line is a request and what the service answered.
+;; not, a save that keeps the file's bytes or its mode, one over a file no
+;; longer text, one whose build output is a link, and nothing left in the
+;; build output after. Each line is a request and what the service
+;; answered.
 (define root "build/tests/project-files")
+
+;; A byte order mark, a CRLF and no final newline, which a save keeps.
+(: exact-text String)
+(define exact-text
+  (string-append (make-string 1 (i32->char 65279))
+                 "(hello)"
+                 (list->string (list #\return #\newline))
+                 "no final newline"))
 
 (: at (-> String String))
 (define (at name)
@@ -67,6 +77,10 @@
 (write-file (at ".git/config") "git")
 (write-file (at "build/out.sld") "built")
 (write-file (at "tool.mjs") "tool")
+(write-file (at "exact.sld") exact-text)
+(write-bytes (at "binary.sld") (list->vector (list (i32->u8 255))))
+(write-file (at "zero.sld") (list->string (list #\A #\null #\B)))
+(write-file (at "large.txt") (make-string 8388609 #\A))
 (make-symbolic-link "lib" (at "linked"))
 (set-file-mode (at "tool.mjs") 493)
 
@@ -97,6 +111,9 @@
 (read-report "lib\\util.sld")
 (read-report "linked/util.sld")
 (read-report "missing.sld")
+(read-report "binary.sld")
+(read-report "zero.sld")
+(read-report "large.txt")
 
 (let ((before (revision-of "main.sld")))
   (text-report "save main.sld" (save-project-text root "main.sld" before "(main 2)"))
@@ -108,6 +125,33 @@
              (save-project-text root "main.sld" (revision-of "main.sld") (make-string 1 #\null)))
 (text-report "save a path not served" (save-project-text root "notes.bin" "" "text"))
 (text-report "save a file not there" (save-project-text root "missing.sld" "" "text"))
+
+(let ((before (revision-of "exact.sld")))
+  (save-project-text root "exact.sld" before exact-text)
+  (report "save exact.sld unchanged"
+          (string-append (if (string=? (read-file (at "exact.sld")) exact-text)
+                             "the same bytes"
+                             "other bytes")
+                         (if (string=? (revision-of "exact.sld") before)
+                             ", the same revision"
+                             ", another revision"))))
+
+(let ((before (revision-of "exact.sld")))
+  (write-bytes (at "exact.sld") (list->vector (list (i32->u8 255))))
+  (text-report "save exact.sld over bytes not text"
+               (save-project-text root "exact.sld" before "text"))
+  (report "bytes of exact.sld" (show (vector-length (read-bytes (at "exact.sld"))))))
+
+(match (rename-file (at "build") (string-append root "-build"))
+  ((Ok _) (unit))
+  ((Err error) (panic (show error))))
+(make-symbolic-link (string-append "../project-files-build") (at "build"))
+(text-report "save with the build output a link"
+             (save-project-text root "main.sld" (revision-of "main.sld") "(main 4)"))
+(remove-file (at "build"))
+(match (rename-file (string-append root "-build") (at "build"))
+  ((Ok _) (unit))
+  ((Err error) (panic (show error))))
 
 (mode-report "tool.mjs")
 (text-report "save tool.mjs" (save-project-text root "tool.mjs" (revision-of "tool.mjs") "tool 2"))

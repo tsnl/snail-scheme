@@ -391,14 +391,6 @@
     (or (zero? (caddr result))
         (report "project run" "failed" (string-append (car result) (cadr result))))))
 
-(define (check-application-process root)
-  (let ((result (capture-process (list "node"
-                                       "--no-warnings"
-                                       (path-join root "tests/application-process.mjs")
-                                       root))))
-    (or (zero? (caddr result))
-        (report "application process" "failed" (string-append (car result) (cadr result))))))
-
 (define (check-project-failures root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/project-failures.mjs") root))))
@@ -430,11 +422,6 @@
     (or (zero? (caddr result))
         (report "project development" "failed" (string-append (car result) (cadr result))))))
 
-(define (check-project-watcher root)
-  (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/watch.mjs")))))
-    (or (zero? (caddr result))
-        (report "project watcher" "failed" (string-append (car result) (cadr result))))))
-
 (define (check-project-attempts root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/project-attempts.mjs") root))))
@@ -452,12 +439,6 @@
                  (list "node" "--no-warnings" (path-join root "tests/project-http.mjs") root))))
     (or (zero? (caddr result))
         (report "project HTTP" "test failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-files root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-files.mjs")))))
-    (or (zero? (caddr result))
-        (report "project files" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-tcp root)
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/tcp.mjs")))))
@@ -766,15 +747,12 @@
                                   (lambda () (check-host-agreement root))
                                   (lambda () (check-project-builds root))
                                   (lambda () (check-project-run root))
-                                  (lambda () (check-application-process root))
                                   (lambda () (check-project-failures root))
                                   (lambda () (check-project-artifacts root))
                                   (lambda () (check-project-resources root))
                                   (lambda () (check-project-development root))
-                                  (lambda () (check-project-watcher root))
                                   (lambda () (check-project-attempts root))
                                   (lambda () (check-development-runs root))
-                                  (lambda () (check-project-files root))
                                   (lambda () (check-project-http root))
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))

@@ -249,6 +249,9 @@
                   (list (ResidentExited "status 1: snail: out of memory")
                         (ResidentExited "again"))))
 
+(scenario "the resident's exit before the first reconciliation stays what failed"
+          (list (ResidentStarted) (ResidentExited "SIGKILL") (Reconciled (Ok (unit))) (TimerFired)))
+
 (scenario "run targets follow what is wanted and what is published"
           (append first-published
                   (list (StartRun "app")

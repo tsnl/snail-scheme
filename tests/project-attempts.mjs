@@ -7,11 +7,8 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
-import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
-import {developProject} from '../host/native/project-develop.mjs';
-import {editorTools} from '../host/native/resident.mjs';
 import {delay, startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], parent = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-attempts-')));
@@ -174,68 +171,8 @@ async function throughTheService() {
   }
 }
 
-// ---- In process until step 8 ----
-
-async function until(test) {
-  for (let n = 0; n < 600; n++) { if (test()) return; await delay(50); }
-  assert.fail('timed out waiting for project attempt');
-}
-
-async function inProcess() {
-  const tools = editorTools(root);
-
-  // Status observers can stop synchronously. No build may be queued after the
-  // resident's input closes, even though both would fit in one parent turn.
-  // Only an observer in this process can close within the turn that reports
-  // the attempt; step 8's pure `step` makes it a test of that transition.
-  const beforeStop = outputs();
-  let stoppedOnStart = null;
-  const early = developProject({root, project, tools});
-  early.subscribe(event => { if (event.phase === 'building') stoppedOnStart = early.close(); });
-  await until(() => stoppedOnStart !== null);
-  await stoppedOnStart;
-  assert.deepEqual(outputs(), beforeStop);
-
-  // An initial reconciliation can still be pending when the resident dies.
-  // Its cancellation must not replace the terminal diagnostic. Holding the
-  // reconciliation takes a patch in this process; the status names the
-  // resident by pid.
-  const read = fsp.readdir, entered = Promise.withResolvers(), release = Promise.withResolvers();
-  let dying = null;
-  fsp.readdir = async function(path, ...args) {
-    if (path === project) { entered.resolve(); await release.promise; }
-    return read(path, ...args);
-  };
-  syncBuiltinESMExports();
-  try {
-    dying = developProject({root, project, tools});
-    await entered.promise;
-    process.kill(dying.status.worker, 'SIGKILL');
-    await until(() => dying.status.phase === 'fatal');
-    const diagnostic = dying.status.diagnostics[0].message;
-    assert.match(diagnostic, /SIGKILL/);
-    release.resolve();
-    await dying.close();
-    assert.equal(dying.status.phase, 'fatal');
-    assert.equal(dying.status.diagnostics[0].message, diagnostic);
-  } finally {
-    release.resolve();
-    await dying?.close();
-    fsp.readdir = read; syncBuiltinESMExports();
-  }
-
-  // A resident that cannot start is fatal too, with what it said. `snail
-  // dev` always supplies the command line it built, so naming a missing one
-  // stays in process.
-  const broken = developProject({root, project, tools: {...tools, cli: join(parent, 'missing.wasm')}});
-  await until(() => broken.status.phase === 'fatal');
-  await broken.close();
-  assert.match(broken.status.diagnostics[0].message, /missing.wasm/);
-}
-
 try {
   await throughTheService();
-  await inProcess();
 } finally {
   fs.rmSync(parent, {recursive: true, force: true});
 }

@@ -737,8 +737,8 @@ diagnostics; the resident holds the candidate until a `publish` or a
 cross. A development build assembles each module the session compiled
 again with `(snail shell assembler)`, in the same process; a module the
 session replayed keeps the file and bytes it was assembled into
-(`Retained`). `host/native/resident.mjs` frames the lines until the service
-itself moves to Snail-Core.
+(`Retained`). The service, `(snail shell project service)`, writes the
+requests and reads the replies.
 
 A build's failures reach the service as `{severity, message, source}`;
 `source` is null or `{file, line, column}`. Lines and Unicode scalar columns start at one. IO and

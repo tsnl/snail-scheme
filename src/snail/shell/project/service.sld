@@ -16,9 +16,7 @@
 ;;   for an event stream, writes what the owner sends it.
 ;;
 ;; No cell holds state: each task threads its own through its loop. It is
-;; #567 step B3; host/native/project-http.mjs, project-develop.mjs,
-;; application-process.mjs and watch.mjs are the JavaScript service this
-;; replaces.
+;; #567 steps B3 to B5, which replaced a service in JavaScript.
 (define-library (snail shell project service)
   (export
    Setup
@@ -1273,7 +1271,7 @@
              supervisor))
         ((None) supervisor)))
 
-    ;; The target's status, as application-process.mjs reports it.
+    ;; The target's status: what is wanted, and the process it owns.
     (: supervisor->json (-> Supervisor Json))
     (define (supervisor->json supervisor)
       (JsonObject (list (Pair "target" (JsonString (Supervisor-name supervisor)))

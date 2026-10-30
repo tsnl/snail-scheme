@@ -100,6 +100,11 @@ the resident's exit is fatal
   timer -> notify building 1; build 1
   resident exited: status 1: snail: out of memory -> notify fatal 1 [status 1: snail: out of memory]; shutdown; abandon 1; closed
   resident exited: again -> nothing
+the resident's exit before the first reconciliation stays what failed
+  resident started -> reconcile
+  resident exited: SIGKILL -> notify fatal 0 [SIGKILL]; shutdown; closed
+  reconciled -> nothing
+  timer -> nothing
 run targets follow what is wanted and what is published
   resident started -> reconcile
   reconciled -> arm

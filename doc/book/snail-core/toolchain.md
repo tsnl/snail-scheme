@@ -59,10 +59,10 @@ URL. `--port PORT` selects a port (8000 by default; 0 chooses a free one).
 the native service owns disk files, observation and compilation.
 
 ```text
-editor Save or external writer -> disk -> shared observer
+editor Save or external writer -> disk -> disk task
                                            |          |
-                                      compiler     editor reads
-                                      worker       saved files
+                                      resident     editor reads
+                                      builder      saved files
                                            |
                                   candidate + diagnostics
                                            |
@@ -73,7 +73,7 @@ editor Save or external writer -> disk -> shared observer
                               affected wanted run targets
 ```
 
-Save only writes disk. The observer triggers compilation regardless of which
+Save only writes disk. The disk task triggers compilation regardless of which
 application wrote the file. Manual Build also requests an attempt. Unsaved text
 never enters compilation. Each attempt starts with fresh diagnostics while
 retaining valid compiler caches; an error does not display stale diagnostics
@@ -104,9 +104,9 @@ every message; the disk task, which holds the latest inventory; a task writing
 the resident's requests and two reading its output; a supervisor for each run
 target, which owns that target's process; and a task for each HTTP connection.
 No cell holds state: each task threads its own through its loop, and tasks
-share only mailboxes. `SNAIL_DEV_HOST=js` runs the JavaScript service it
-replaces, `host/native/dev.mjs`, until that is deleted
-([#567](https://github.com/tsnl/snail-scheme/issues/567)).
+share only mailboxes. It replaced a service in JavaScript
+([#567](https://github.com/tsnl/snail-scheme/issues/567)), whose few cases
+tested in process became scenarios of the step's race tests.
 
 ### Observation and acceptance
 
@@ -193,7 +193,7 @@ operations: filter the disk task's filenames, read text with a revision, and
 save against that revision. Listing awaits a fresh complete inventory; a failed
 one rejects the request instead of returning stale names. There is no second
 directory traversal. No contents or revisions persist in the service. The editor holds
-its unsaved text and the revision of its saved baseline; the shared disk observer
+its unsaved text and the revision of its saved baseline; the disk task
 remains the only source of file-change notifications. Save has no compiler call.
 
 The text subset is valid UTF-8 without NUL, up to 8 MiB, preserving BOM, newline
@@ -220,11 +220,9 @@ a sandbox against a hostile local process. This API makes no crash-durability,
 ACL, extended-attribute or hardlink-preservation promise. It edits existing files;
 creation, rename, deletion, merging and automatic conflict retry are omitted.
 
-The JavaScript file service that `SNAIL_DEV_HOST=js` runs,
-`host/native/project-files.mjs`, also names a file's device and inode in its
-revisions, which Rust's standard library gives WASI only as unstable API. A
-file replaced by another with the same bytes is the same revision here, and
-saving over it loses nothing.
+A revision names no device or inode, which Rust's standard library gives WASI
+only as unstable API. A file replaced by another with the same bytes is the
+same revision, and saving over it loses nothing.
 
 WASI preview1 cannot read or set permission bits, so its `modes` effect does,
 on Node (`host/native/run-snail.mjs`). `tests/programs/project-files.sld`
@@ -289,9 +287,9 @@ depends on how the service is written; `tests/development-service.mjs` is
 that client. A case about compiler sessions asks for each attempt with
 Build, as the editor does, and reads what each target compiled and its digest
 from the snapshot. The tests of `snail build` and `snail run` likewise see
-only the command's exit status, its output and the build directory. The few
-cases that must act within one turn of the session, or hold its disk
-reconciliation, still run the JavaScript service in process and say why.
+only the command's exit status, its output and the build directory. What
+must happen within one turn of the session is a transition of the step, and
+`tests/programs/development-step.sld` tests it as one.
 
 Request bodies are framed by Content-Length alone, as in the
 [Snail HTTP library](http.md): a request naming a Transfer-Encoding is
@@ -358,7 +356,7 @@ disk. A failed read leaves that baseline and an error; later typing is a new dra
 and survives the read. A current file read returning 404 clears a clean/loading buffer;
 a dirty deleted file remains selectable with its text. Saves cannot recreate it.
 The UI handles an empty project and later discovers files through the same
-observer. A project listing alone never discards a buffer: lists and reads are
+disk task. A project listing alone never discards a buffer: lists and reads are
 different observations, with independent ordering.
 
 Build status replaces the preceding diagnostic collection at each attempt. The
@@ -374,7 +372,7 @@ LF display text, including CRLF files. Generated scratch and external library
 locations remain messages rather than being mapped to another file. These are
 source points, not guessed expression ranges or full source spans.
 Manual Build requests compilation; Save writes disk and leaves scheduling to the
-shared observer. Reconnecting the event stream supplies current status and file
+disk task. Reconnecting the event stream supplies current status and file
 invalidation without a replay log. An exact repeat of the retained status keeps
 its diagnostic observations, including invalidation by Save or a changed read.
 It still restores status presentation and refreshes files. Going back online replaces the stream too,

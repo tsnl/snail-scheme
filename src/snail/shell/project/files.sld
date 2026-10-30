@@ -4,8 +4,7 @@
 ;; names the revision it replaces, so a save over a file that changed
 ;; since it was read is refused rather than lost. A save is written beside
 ;; the build output and renamed over the file, so a build never reads half
-;; of one, and the file keeps its mode. host/native/project-files.mjs is
-;; the JavaScript service this replaces (#567, step B3).
+;; of one, and the file keeps its mode.
 (define-library (snail shell project files)
   (export
    modes

@@ -8,9 +8,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {serveProject} from '../host/native/project-http.mjs';
-import {editorTools} from '../host/native/resident.mjs';
-import {connect, dead, delay, spawnDevelopment, startDevelopment} from './development-service.mjs';
+import {dead, delay, spawnDevelopment, startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], project = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-http-')));
 const source = join(project, 'main.sld'), pipe = join(project, 'slow.sld'), notes = join(project, 'notes.txt');
@@ -248,33 +246,4 @@ try {
   fs.rmSync(project, {recursive: true, force: true});
 }
 
-// ---- In process until step 9 ----
-
-// One observation that changes both the compiler status and the runs goes out
-// in one write, so a large status cannot leave the runs frame to close a
-// healthy reader before it drains. No real sequence makes that observation
-// with a large status: only failures carry diagnostics, and a failure changes
-// no run. So this case patches the session's diagnostics in process, until
-// step 9 of the development-loop plan gives the editor's streams tests of
-// their own.
-const framed = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-http-frames-')));
-fs.writeFileSync(join(framed, 'project.datum'), '((build-target main (program (entry "main.sld"))) (run-target dev (run main)))');
-fs.writeFileSync(join(framed, 'main.sld'), program('framed'));
-const local = await serveProject({root, project: framed, tools: editorTools(root)}), client = connect(local.url);
-const frames = await client.events();
-try {
-  await client.settled(0);
-  assert.equal((await client.command('/api/run/start?target=dev')).status, 204);
-  await client.until(async () => (await client.status()).runs[0].attempt?.phase === 'exited', 'the run to exit');
-  const updates = frames.seen.length, largeMessage = 'diagnostic '.repeat(20_000), {diagnostics} = local.development.status;
-  diagnostics.push({severity: 'error', message: largeMessage});
-  assert.equal((await client.command('/api/run/stop?target=dev')).status, 204);
-  await client.until(() => frames.seen.slice(updates).some(event => event.kind === 'status' && event.data.diagnostics[0]?.message === largeMessage)
-    && frames.seen.slice(updates).some(event => event.kind === 'runs' && !event.data[0].wanted), 'both frames of one observation');
-  diagnostics.pop();
-} finally {
-  await frames.close();
-  await local.close();
-  fs.rmSync(framed, {recursive: true, force: true});
-}
 console.log('project HTTP: origin boundary, conditional saves, status, SSE, responsive compilation, runs and shutdown');

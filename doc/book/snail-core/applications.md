@@ -207,8 +207,8 @@ starts over.
 
 ## Native application process owner
 
-`host/native/application-process.mjs` implements ownership of one ordinary OS child
-for one run target. The native development service, HTTP API and editor use it.
+A supervisor task in `(snail shell project service)` owns one ordinary OS child
+for one run target. The development service's HTTP API and editor use it.
 The public `snail run` command executes a cold
 project build with ordinary shell IO.
 
