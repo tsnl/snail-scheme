@@ -36,13 +36,9 @@ use std::{
 enum PathError {
     NotFound = -1,
     AlreadyExists = -2,
-    NotEmpty = -3,
-    NotADirectory = -4,
-    IsADirectory = -5,
-    PermissionDenied = -6,
-    InvalidPath = -7,
-    NotSupported = -8,
-    Other = -9,
+    NotADirectory = -3,
+    PermissionDenied = -4,
+    Other = -5,
 }
 
 impl From<std::io::Error> for PathError {
@@ -50,27 +46,20 @@ impl From<std::io::Error> for PathError {
         match error.kind() {
             ErrorKind::NotFound => Self::NotFound,
             ErrorKind::AlreadyExists => Self::AlreadyExists,
-            ErrorKind::DirectoryNotEmpty => Self::NotEmpty,
             ErrorKind::NotADirectory => Self::NotADirectory,
-            ErrorKind::IsADirectory => Self::IsADirectory,
             ErrorKind::PermissionDenied | ErrorKind::ReadOnlyFilesystem => Self::PermissionDenied,
-            // A path with a NUL is refused before it reaches the host.
-            ErrorKind::InvalidInput | ErrorKind::InvalidFilename => Self::InvalidPath,
-            ErrorKind::Unsupported => Self::NotSupported,
             _ => uncategorized(&error),
         }
     }
 }
 
-// Rust's WASI target gives two errors no kind, so their WASI preview1
-// numbers decide: ENOTEMPTY, and ENOTCAPABLE, a path outside every
-// preopened directory. Another target numbers its errors differently.
-const WASI_NOT_EMPTY: i32 = 55;
+// Rust's WASI target gives ENOTCAPABLE, a path outside every preopened
+// directory, no kind, so its WASI preview1 number decides. Another target
+// numbers its errors differently.
 const WASI_NOT_CAPABLE: i32 = 76;
 
 fn uncategorized(error: &std::io::Error) -> PathError {
     match error.raw_os_error() {
-        Some(WASI_NOT_EMPTY) if cfg!(target_os = "wasi") => PathError::NotEmpty,
         Some(WASI_NOT_CAPABLE) if cfg!(target_os = "wasi") => PathError::PermissionDenied,
         _ => PathError::Other,
     }
@@ -94,7 +83,7 @@ fn done(result: std::io::Result<()>) -> i32 {
 fn split_pair(text: String) -> Result<(String, String), PathError> {
     text.split_once('\0')
         .map(|(first, second)| (first.to_string(), second.to_string()))
-        .ok_or(PathError::InvalidPath)
+        .ok_or(PathError::Other)
 }
 
 fn staged_pair(count: u32) -> Result<(String, String), PathError> {
@@ -137,7 +126,7 @@ fn names(path: &str) -> Result<Vec<String>, PathError> {
     let mut names = Vec::new();
     for entry in std::fs::read_dir(path)? {
         let name = entry?.file_name().into_string();
-        names.push(name.map_err(|_| PathError::InvalidPath)?);
+        names.push(name.map_err(|_| PathError::Other)?);
     }
     names.sort();
     Ok(names)
@@ -241,7 +230,7 @@ pub extern "C" fn make_symbolic_link(count: u32) -> i32 {
 
 fn link_target(path: &str) -> Result<i32, PathError> {
     let target = std::fs::read_link(path)?.into_os_string().into_string();
-    reply(&target.map_err(|_| PathError::InvalidPath)?)
+    reply(&target.map_err(|_| PathError::Other)?)
 }
 
 /// The target, as the reply.
@@ -259,10 +248,10 @@ pub extern "C" fn read_symbolic_link(count: u32) -> i32 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(i32)]
 enum Refusal {
-    NotRegularFile = -10,
-    TooLong = -11,
-    NotText = -12,
-    Changed = -13,
+    NotRegularFile = -6,
+    TooLong = -7,
+    NotText = -8,
+    Changed = -9,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -392,12 +381,12 @@ mod tests {
             split_pair("a\0b\0c".into()),
             Ok(("a".into(), "b\0c".into()))
         );
-        assert_eq!(split_pair("a".into()), Err(PathError::InvalidPath));
+        assert_eq!(split_pair("a".into()), Err(PathError::Other));
         let directory = scratch("nul");
         let from = text(&directory.join("from"));
         std::fs::write(&from, "x").unwrap();
         let rename = |to: String| std::fs::rename(&from, to).map_err(PathError::from);
-        assert_eq!(rename(format!("{from}\0more")), Err(PathError::InvalidPath));
+        assert_eq!(rename(format!("{from}\0more")), Err(PathError::Other));
         std::fs::remove_dir_all(directory).unwrap();
     }
 
@@ -420,7 +409,7 @@ mod tests {
             Err(PathError::NotADirectory)
         );
         let removed = std::fs::remove_dir(&directory).map_err(PathError::from);
-        assert_eq!(removed, Err(PathError::NotEmpty));
+        assert_eq!(removed, Err(PathError::Other));
         let made = std::fs::create_dir(directory.join("sub")).map_err(PathError::from);
         assert_eq!(made, Err(PathError::AlreadyExists));
         std::fs::remove_dir_all(directory).unwrap();
@@ -442,7 +431,7 @@ mod tests {
         assert_eq!(status(&text(&directory.join("link"))), Ok(2));
         assert_eq!(link_target(&text(&directory.join("link"))), Ok(4));
         assert_eq!(reply_text(), "file");
-        assert_eq!(link_target(&text(&file)), Err(PathError::InvalidPath));
+        assert_eq!(link_target(&text(&file)), Err(PathError::Other));
         assert_eq!(
             status(&text(&directory.join("missing"))),
             Err(PathError::NotFound)
@@ -496,7 +485,7 @@ mod tests {
         assert_eq!(file_text(&text(&directory), 8), refused);
         let missing = file_text(&text_path(&directory, "missing"), 8);
         assert_eq!(missing, Err(TextError::Path(PathError::NotFound)));
-        assert_eq!(TextError::Refused(Refusal::Changed).code(), -13);
+        assert_eq!(TextError::Refused(Refusal::Changed).code(), -9);
         let written = text_path(&directory, "written");
         assert_eq!(write_whole(written.clone(), "a\0b".into()), Ok(0));
         assert_eq!(std::fs::read_to_string(&written).unwrap(), "a\0b");
@@ -512,7 +501,7 @@ mod tests {
         let second = std::time::Duration::from_secs(1);
         assert_eq!(nanoseconds(UNIX_EPOCH + second), 1_000_000_000);
         assert_eq!(nanoseconds(UNIX_EPOCH - second), -1_000_000_000);
-        assert_eq!(answer(Err(PathError::Other)), -9);
+        assert_eq!(answer(Err(PathError::Other)), -5);
         assert_eq!(answer(Ok(3)), 3);
     }
 }
