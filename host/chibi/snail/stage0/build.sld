@@ -103,25 +103,17 @@
 
     ;; ---- Compiling ----
 
-    ;; The command that runs the compiled compiler `program`. Node runs it
-    ;; by default, through host/native/run-compiler.mjs; with
-    ;; SNAIL_ENGINE=wasmtime, build/snail does, by the same protocol. The
-    ;; native executable stays an opt-in because wasmtime's collector makes
-    ;; a compile 9 to 37 times slower than on V8 (see "The native
-    ;; executable" in doc/book/snail-core/bootstrap.md).
+    ;; The command that runs the compiled compiler `program`, which is an
+    ;; ordinary program: Node runs it through host/native/run-snail.mjs by
+    ;; default, and with SNAIL_ENGINE=wasmtime, build/snail's `run-wasm`
+    ;; does, from its machine code. The native executable stays an opt-in
+    ;; because wasmtime's collector makes a compile 9 to 37 times slower
+    ;; than on V8 (see "The native executable" in
+    ;; doc/book/snail-core/bootstrap.md).
     (define (compiler-command root program)
       (if (wasmtime-engine?)
-          (list (snail-binary root) "run-compiler" program)
-          (node-compiler-command root program)))
-
-    ;; The compiler is synchronous and has no application scheduler. Keep
-    ;; the previous compiler worker's heap and native stack allowance.
-    (define (node-compiler-command root program)
-      (list (or (get-environment-variable "NODE") "node")
-            "--no-warnings"
-            "--max-semi-space-size=128"
-            "--stack-size=3904"
-            (path-join root "host/native/run-compiler.mjs") program))
+          (list (snail-binary root) "run-wasm" program)
+          (node-command root program)))
 
     ;; Chibi sweeps its whole heap on every collection, and compiling the
     ;; compiler allocates gigabytes, so a large heap keeps collections rare.
@@ -204,9 +196,10 @@
         (create-staging-directory directory)))
 
     ;; Remove the old request immediately before starting each process;
-    ;; stderr is only diagnostic text, never a work request. Only normal
-    ;; compiler failure (exit 1, waitpid status 256) can supply a request.
-    ;; Publication/host failure exits 2 and must not consume a partial file.
+    ;; stderr is only diagnostic text, never a work request. Only the
+    ;; compile's own exit, status 1 (waitpid status 256), can supply a
+    ;; request; a trap or a failure of the host is status 2 and must not
+    ;; consume a partial file.
     ;; Nested producer compiles have their own scratch.
     (define (run-compiler-into root command mode directories source output generated)
       (let ((request (path-join generated "request.datum")))

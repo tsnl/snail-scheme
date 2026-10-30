@@ -1,10 +1,9 @@
-// Concrete Node child-process ownership, and the termination signals the
-// main thread forwards. Scalar handles never retain managed wrappers.
+// Concrete Node child-process ownership, replacing the process, and the
+// termination signals. Scalar handles never retain managed wrappers.
 import {spawn as startChild, spawnSync} from 'node:child_process';
 import {on, once} from 'node:events';
 import {accessSync, constants, statSync} from 'node:fs';
 import {join} from 'node:path';
-import {receiveMessageOnPort} from 'node:worker_threads';
 
 const chunkSize = 64 * 1024;
 const fault = (code, message) => Object.assign(new Error(message), {code});
@@ -190,36 +189,19 @@ export function runChild(directory, program, args, input) {
 
 // ---- Replacing the program ----
 
-// The program runs on a worker, which cannot replace its process, so
-// `exec` asks the main thread, over a port of its own, and blocks on
-// `state` until the answer: none, once the process is replaced, or the
-// code of the attempt that failed.
-export function createReplacement(port, state) {
-  return (directory, program, args) => {
-    Atomics.store(state, 0, 0);
-    port.postMessage({directory, program, args});
-    Atomics.wait(state, 0, 0);
-    return receiveMessageOnPort(port).message;
-  };
-}
-
-// The main thread's half. The directory is the process's to change, and
-// it changes back when the attempt fails. execve searches no PATH, so a
-// program with no slash is found on PATH here, as spawn finds one.
-export function serveReplacement(port, state) {
-  port.on('message', ({directory, program, args}) => {
-    const home = process.cwd();
-    try {
-      process.chdir(directory);
-      process.execve(executable(program), [program, ...args], process.env);
-    } catch (error) {
-      try { process.chdir(home); } catch {}
-      port.postMessage(/^E[A-Z0-9]+$/.test(error.code) ? error.code : String(error.code).startsWith('ERR_') ? 'EINVAL' : 'EIO');
-      Atomics.store(state, 0, 1);
-      Atomics.notify(state, 0);
-    }
-  });
-  port.unref();
+// `exec` replaces the process. The directory is the process's to change,
+// and it changes back when the attempt fails, which answers its code.
+// execve searches no PATH, so a program with no slash is found on PATH
+// here, as spawn finds one.
+export function replaceProcess(directory, program, args) {
+  const home = process.cwd();
+  try {
+    process.chdir(directory);
+    process.execve(executable(program), [program, ...args], process.env);
+  } catch (error) {
+    try { process.chdir(home); } catch {}
+    return /^E[A-Z0-9]+$/.test(error.code) ? error.code : String(error.code).startsWith('ERR_') ? 'EINVAL' : 'EIO';
+  }
 }
 
 function executable(program) {
@@ -233,52 +215,54 @@ function executable(program) {
 
 // ---- Termination ----
 
-// SIGINT and SIGTERM, for the tasks waiting for them. The main thread owns
-// the signal handlers (host/native/run-snail.mjs); when a signal arrives it
-// reads `waiting`, shared memory holding the number of waiters, and forwards
-// the signal here only if a task waits. The number is written before a wait
-// suspends, so no signal can arrive in between and miss it. The second slot
-// counts the deliveries that ended waits, and the main thread stamps each
-// signal it forwards with the count it read.
+// SIGINT and SIGTERM, for the tasks waiting for them. A signal reaches
+// every task waiting when it arrives, and each wait ends. One that finds
+// no waiter while a delivered wait is still to be finished by its task
+// arrived alongside that delivery, as a quick second Ctrl-C does, and it
+// is kept for the next wait, at most one. The handlers are the process's
+// only while a task waits or has such a wait to finish, so any other
+// signal ends the process by Node's default at once, even while a turn
+// computes and no handler could run.
 const terminationNumbers = new Map([['SIGINT', 2], ['SIGTERM', 15]]);
 
-export function createTermination(waiting) {
+export function createTermination() {
   const waiters = new Set();
-  let held = null;
-  const publish = () => Atomics.store(waiting, 0, waiters.size);
+  let held = null, unfinished = 0, listening = false;
+
+  function listen(wanted = waiters.size > 0 || unfinished > 0) {
+    if (wanted === listening) return;
+    listening = wanted;
+    for (const name of terminationNumbers.keys()) {
+      if (wanted) process.on(name, arrive);
+      else process.removeListener(name, arrive);
+    }
+  }
 
   function remove(waiter) {
     waiters.delete(waiter);
-    publish();
     waiter.signal.removeEventListener('abort', waiter.abort);
+  }
+
+  // A signal the handlers took after their last waiter left is raised
+  // again, by the default once they are gone.
+  function arrive(name) {
+    const number = terminationNumbers.get(name);
+    if (waiters.size) for (const waiter of [...waiters]) { remove(waiter); unfinished++; waiter.resolve(number); }
+    else if (unfinished) held ??= number;
+    else { listen(false); process.kill(process.pid, name); }
   }
 
   function wait(signal) {
     signal.throwIfAborted();
-    if (held !== null) { const number = held; held = null; return Promise.resolve(number); }
+    if (held !== null) { const number = held; held = null; unfinished++; listen(); return Promise.resolve(number); }
     return new Promise((resolve, reject) => {
-      const waiter = {signal, resolve, abort: () => { remove(waiter); reject(signal.reason); }};
+      const waiter = {signal, resolve, abort: () => { remove(waiter); listen(); reject(signal.reason); }};
       waiters.add(waiter);
-      publish();
+      listen();
       signal.addEventListener('abort', waiter.abort, {once: true});
     });
   }
 
-  // A signal reaches every task waiting when it arrives, and each wait
-  // ends: a second signal ends the process unless a task waits again. A
-  // signal that finds no waiter here arrived while tasks waited, since the
-  // main thread forwarded it. If a delivery has ended their wait since it
-  // was stamped, it arrived alongside that delivery, as a quick second
-  // Ctrl-C does, and it is kept for the next wait, at most one. Otherwise
-  // its waiter was cancelled on the way, and it is raised again: the main
-  // thread, seeing no waiter, ends the process by it.
-  function deliver({name, deliveries}) {
-    if (waiters.size) {
-      for (const waiter of [...waiters]) { remove(waiter); waiter.resolve(terminationNumbers.get(name)); }
-      Atomics.add(waiting, 1, 1);
-    } else if (Atomics.load(waiting, 1) > deliveries) held ??= terminationNumbers.get(name);
-    else process.kill(process.pid, name);
-  }
-
-  return {wait, deliver};
+  // `settled` says a task finished, or dropped, a wait a signal ended.
+  return {wait, settled() { unfinished--; listen(); }, close() { listen(false); }};
 }

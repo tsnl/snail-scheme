@@ -42,11 +42,13 @@ pub fn engine() -> wasmtime::Result<Engine> {
 
 // A `.cwasm` file is machine code `snail precompile` wrote; anything else
 // is a module to compile.
-pub fn load(engine: &Engine, path: &str) -> wasmtime::Result<Module> {
-    if Path::new(path)
-        .extension()
+pub fn is_precompiled(path: &Path) -> bool {
+    path.extension()
         .is_some_and(|extension| extension == "cwasm")
-    {
+}
+
+pub fn load(engine: &Engine, path: &Path) -> wasmtime::Result<Module> {
+    if is_precompiled(path) {
         // SAFETY: deserializing trusts the file to be wasmtime's own output,
         // which the build driver writes beside the module it compiled.
         // Wasmtime still refuses one from another version or configuration.
@@ -79,7 +81,7 @@ pub fn precompile(module: &str, output: &str) -> u8 {
 
 // ---- WASI ----
 
-// What host/native/run-compiler.mjs gives Node's WASI: the module first
+// What host/native/run-snail.mjs gives Node's WASI: the module first
 // among the arguments, the host's environment with SNAIL_CWD naming the
 // working directory, and the host's root preopened as `/`. wasi-libc
 // resolves a relative path against `/`, so a module resolves one against
@@ -213,8 +215,12 @@ pub mod tests {
         assert_eq!(precompile(&source, &precompiled), 0);
         let engine = engine().unwrap();
         let mut store = wasmtime::Store::new(&engine, ());
-        let instance =
-            Instance::new(&mut store, &load(&engine, &precompiled).unwrap(), &[]).unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &load(&engine, Path::new(&precompiled)).unwrap(),
+            &[],
+        )
+        .unwrap();
         assert_eq!(call::<i32>(&mut store, &instance, "answer").unwrap(), 42);
     }
 
