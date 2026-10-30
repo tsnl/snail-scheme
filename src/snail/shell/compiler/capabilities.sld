@@ -68,11 +68,14 @@
     ;; what it has entered. Each instantiation of a declaration, named in
     ;; `keys` by its `type-key`, is entered once per query, including across
     ;; sibling fields, because re-exploring a recursive graph by every path
-    ;; is exponential. `names` holds their declarations: one met again at
-    ;; other arguments, as non-regular recursion would, has its arguments
-    ;; searched as if it held them directly, which keeps the query finite.
-    ;; Carrying the sets rather than mutating them keeps the query a
-    ;; function of its arguments.
+    ;; is exponential. `names` holds the declarations on the path from the
+    ;; query's type to the one being searched: one met again on it at other
+    ;; arguments, as non-regular recursion would, has its arguments searched
+    ;; as if it held them directly, which keeps the query finite. Sibling
+    ;; fields that hold one declaration at different arguments, as
+    ;; `(Ref (Queue T))` and `(Ref T)` do, are not recursion, so each is
+    ;; searched through its fields. Carrying the sets rather than mutating
+    ;; them keeps the query a function of its arguments.
     (struct Linearity
       ((found? Bool)
        (keys (List String))
@@ -97,8 +100,9 @@
         (_ progress)))
 
     ;; A builtin holds its arguments directly, and so, conservatively, does
-    ;; a declaration met again at other arguments. Any other declaration is
-    ;; searched through its fields, with its parameters bound to `args`.
+    ;; a declaration met again on the path at other arguments. Any other
+    ;; declaration is searched through its fields, with its parameters bound
+    ;; to `args`.
     (: linear-instance (-> Program (List String) String (List Type) Linearity Linearity))
     (define (linear-instance program copy name args progress)
       (let ((key (type-key (TCon name args))))
@@ -107,13 +111,10 @@
                    (any? (lambda (entry) (string=? name (Pair-first entry))) builtin-types))
                (linear-any program copy args progress))
               (else
-               (linear-fields program
-                              copy
-                              name
-                              args
-                              (Linearity #f
-                                         (Cons key (Linearity-keys progress))
-                                         (Cons name (Linearity-names progress))))))))
+               (let* ((names (Linearity-names progress))
+                      (entered
+                       (Linearity #f (Cons key (Linearity-keys progress)) (Cons name names))))
+                 (Linearity-names-set (linear-fields program copy name args entered) names))))))
 
     (: linear-any (-> Program (List String) (List Type) Linearity Linearity))
     (define (linear-any program copy types progress)
@@ -360,9 +361,12 @@
     ;; requirements: a type variable's row is its requirement's, as
     ;; `(Drop e A)`'s, an instance's is in its head, and glue performs its
     ;; fields' rows. Each instantiation of a declaration is entered once, so
-    ;; a recursive type adds its fields' rows once. A declaration met again
-    ;; at other arguments would need glue at unboundedly many types, so it
-    ;; needs an instance instead.
+    ;; a recursive type adds its fields' rows once. `names` holds the
+    ;; declarations on the path here, as `Linearity`'s does: one met again
+    ;; on it at other arguments would need glue at unboundedly many types,
+    ;; so it needs an instance instead, while sibling fields may hold one
+    ;; declaration at different arguments, as `(Option Handle)` and
+    ;; `(Option Token)`.
     (struct RowSearch
       ((rows (List Type))
        (keys (List String))
@@ -469,18 +473,26 @@
         (cond ((member? key (RowSearch-keys found)) (Ok found))
               ((member? name (RowSearch-names found)) (Err (nonregular-glue class type)))
               (else
-               (fold-left (lambda (progress field)
-                            (lifecycle-search program
-                                              class
-                                              copy
-                                              givens
-                                              (Pair-second field)
-                                              progress))
-                          (Ok (RowSearch (RowSearch-rows found)
-                                         (Cons key (RowSearch-keys found))
-                                         (Cons name (RowSearch-names found))))
-                          (concatenate (map (lambda (case) (glue-fields program copy type case))
-                                            (DataType-cases (program-type program name)))))))))
+               (match (glue-fields-search program
+                                          class
+                                          copy
+                                          givens
+                                          type
+                                          (RowSearch (RowSearch-rows found)
+                                                     (Cons key (RowSearch-keys found))
+                                                     (Cons name (RowSearch-names found))))
+                 ((Ok inner) (Ok (RowSearch-names-set inner (RowSearch-names found))))
+                 (failed failed))))))
+
+    ;; Glue performs what dropping or cloning each field it reaches does.
+    (: glue-fields-search
+       (-> Program String (List String) (List Constraint) Type RowSearch (Result RowSearch String)))
+    (define (glue-fields-search program class copy givens type found)
+      (fold-left (lambda (progress field)
+                   (lifecycle-search program class copy givens (Pair-second field) progress))
+                 (Ok found)
+                 (concatenate (map (lambda (case) (glue-fields program copy type case))
+                                   (DataType-cases (program-type program (type-name type)))))))
 
     ;; A declaration met again at other arguments would need glue for every
     ;; depth, so it needs an instance instead.
