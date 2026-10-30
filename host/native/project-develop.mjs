@@ -1,10 +1,10 @@
-// One project, one compiler worker, one disk observer. The parent owns attempts
-// and accepts completed directories; the worker owns successful compiler caches.
+// One project, one resident builder, one disk observer. The service owns
+// attempts and decides which candidate to publish; the resident builder
+// (resident.mjs) owns successful compiler sessions and every candidate.
 import {lstatSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync} from 'node:fs';
 import {basename, join, sep} from 'node:path';
-import {Worker} from 'node:worker_threads';
 import {applicationProcess} from './application-process.mjs';
-import {discardProject, publishProject} from './project.mjs';
+import {startResident} from './resident.mjs';
 import {watchProject} from './watch.mjs';
 
 export class UnknownRunTarget extends Error {
@@ -25,7 +25,7 @@ function inputPath(root, project, description, path) {
   }) ?? false;
 }
 
-// Atomically reserve a namespace before the worker can create generations.
+// Atomically reserve a namespace before the resident can create generations.
 // Sibling generation names preserve the builder's basename-only output links.
 function reserve(project) {
   const build = join(project, 'build');
@@ -35,7 +35,7 @@ function reserve(project) {
 }
 
 // Sweep unpublished namespaces only after a reply relinquishes the attempt or
-// the worker exits. Publication consumes ownership even when it partly fails.
+// the resident exits. Publication consumes ownership even when it partly fails.
 function abandon(project, attempt) {
   let names;
   try { names = readdirSync(join(project, 'build')); }
@@ -48,20 +48,12 @@ function abandon(project, attempt) {
 
 export function developProject({root, project, tools}) {
   root = realpathSync(root); project = realpathSync(project);
-  mkdirSync(join(root, 'build/snail-run'), {recursive: true});
-  const directory = mkdtempSync(join(root, 'build/snail-run/project-'));
   const files = watchProject({roots: [project, join(root, 'src'), join(root, 'host/browser')],
     exclude: [join(project, 'build'), join(project, '.git'), join(root, 'build')]});
-  let worker;
-  try {
-    worker = new Worker(new URL('./project-worker.mjs', import.meta.url), {
-      workerData: {root, project, tools, directory}, name: 'snail-project-compiler',
-      resourceLimits: {maxYoungGenerationSizeMb: 384},
-    });
-  } catch (error) { void files.close(); rmSync(directory, {recursive: true, force: true}); throw error; }
+  const resident = startResident({root, project, tools});
 
-  const listeners = new Set(), runs = new Map(), ready = Promise.withResolvers(), exited = Promise.withResolvers();
-  // One epoch numbers every attempt, the job sent to the worker, the reply it
+  const listeners = new Set(), runs = new Map();
+  // One epoch numbers every attempt, the build asked of the resident, the reply it
   // returns, and the publication that results, so a late or duplicate reply is
   // recognized by comparing numbers rather than by tracking which is current.
   // Subscribers see it as `id`, both the current attempt's and the published
@@ -77,7 +69,7 @@ export function developProject({root, project, tools}) {
   // record kept beside it. Subscribers are trusted host code and must not
   // throw; subscribing delivers the current value.
   function snapshot() {
-    return {phase, id: epoch, diagnostics, published, worker: worker.threadId,
+    return {phase, id: epoch, diagnostics, published, worker: resident.pid,
       runs: [...runs].map(([name, run]) => ({...run.owner.status, wanted: run.wanted,
         available: launchable(name)}))};
   }
@@ -184,7 +176,9 @@ export function developProject({root, project, tools}) {
     try {
       const reservation = reserve(project), prefix = basename(reservation) + '-';
       attempt = {reservation, prefix, paths: new Set(), owned: true};
-      worker.postMessage({kind: 'build', epoch, prefix});
+      resident.build(epoch, prefix).then(result => {
+        finishing = complete(result).catch(fatal).finally(() => { finishing = null; });
+      }, fatal);
     } catch (error) { fatal(error); }
   }
 
@@ -198,11 +192,12 @@ export function developProject({root, project, tools}) {
     const superseded = dirty || [...current.paths].some(path => inputPath(root, project, description, path));
     if (superseded) dirty = true;
     if (result.candidate) {
-      if (closing || superseded || diskFailed) discardProject(result.candidate);
+      if (closing || superseded || diskFailed) await resident.discard(built);
       else {
-        current.owned = false; // publishProject consumes even a partially published failure.
-        try { publishProject(result.candidate); published = {id: built, ...result.candidate}; }
-        catch (error) { messages = [{severity: 'error', message: error.message}]; }
+        current.owned = false; // Publication consumes even a partially published failure.
+        const {error} = await resident.publish(built);
+        if (error === null) published = {id: built, ...result.candidate};
+        else messages = [{severity: 'error', message: error}];
       }
     }
     if (current.owned) abandon(project, current);
@@ -219,28 +214,18 @@ export function developProject({root, project, tools}) {
     void close().catch(() => {}); // Explicit close() callers still receive cleanup errors.
   }
 
-  worker.on('message', result => {
-    if (result.kind === 'ready') { ready.resolve(); return; }
-    finishing = complete(result).catch(fatal).finally(() => { finishing = null; });
-  });
-  worker.on('error', error => { ready.reject(error); fatal(error); });
-  worker.on('exit', code => {
-    exited.resolve();
-    const error = new Error(`compiler worker exited with status ${code}`);
-    ready.reject(error);
-    if (!closing) fatal(error);
-  });
+  void resident.exited.then(({error}) => { if (!closing) fatal(error); });
 
-  // A worker message cannot interrupt synchronous Wasm or native IO. Request
-  // graceful close, then termination; cleanup waits for actual worker exit.
-  // Blocking OS operations can delay exit. This is not a shutdown deadline.
+  // The resident answers one request at a time, so closing its input lets it
+  // finish the one it is on; it is killed if that takes too long. Cleanup
+  // waits for it to exit.
   function close() {
     if (closing) return closing;
     clearTimeout(timer);
-    worker.postMessage({kind: 'close'});
-    const timeout = setTimeout(() => { void worker.terminate(); }, 2000);
+    resident.close();
+    const timeout = setTimeout(() => resident.kill(), 2000);
     closing = Promise.resolve().then(async () => {
-      const results = await Promise.allSettled([files.close(), exited.promise,
+      const results = await Promise.allSettled([files.close(), resident.exited,
         ...[...runs.values()].map(run => run.owner.close())]);
       clearTimeout(timeout);
       await finishing;
@@ -249,8 +234,6 @@ export function developProject({root, project, tools}) {
         if (attempt?.owned) abandon(project, attempt);
         else if (attempt) rmSync(attempt.reservation, {recursive: true, force: true});
       } catch (error) { failure ??= error; }
-      try { rmSync(directory, {recursive: true, force: true}); }
-      catch (error) { failure ??= error; }
       listeners.clear();
       if (failure) throw failure;
     });
@@ -258,7 +241,7 @@ export function developProject({root, project, tools}) {
   }
 
   void (async () => {
-    await ready.promise;
+    await resident.started;
     if (closing) return;
     try { await files.reconcile(); }
     catch (error) {

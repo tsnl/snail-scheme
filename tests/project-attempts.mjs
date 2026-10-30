@@ -10,9 +10,8 @@ import fsp from 'node:fs/promises';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
-import threads from 'node:worker_threads';
 import {developProject} from '../host/native/project-develop.mjs';
-import {projectTools} from '../host/native/project.mjs';
+import {editorTools} from '../host/native/resident.mjs';
 import {delay, startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], parent = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-attempts-')));
@@ -63,8 +62,15 @@ async function throughTheService() {
     const failedAgain = await service.settled(failed.id, 'failed');
     assert.match(failedAgain.diagnostics[0].message, /second-missing/);
     assert.doesNotMatch(failedAgain.diagnostics[0].message, /first-missing/);
+    // An entry an editor deletes fails the build, naming it, and the
+    // resident keeps building once it is back.
+    fs.rmSync(join(project, 'main.sld'));
+    const deleted = await service.settled(failedAgain.id, 'failed');
+    assert.equal(deleted.diagnostics[0].message, `${join(project, 'main.sld')}: no such file or directory`);
+    assert.equal(deleted.diagnostics[0].source, null);
+    assert.equal(server(deleted).directory, initial);
     write('main.sld', program('repaired'));
-    let repaired = await service.settled(failedAgain.id);
+    let repaired = await service.settled(deleted.id);
     assert.deepEqual(repaired.diagnostics, []);
     assert.ok(stream.seen.filter(event => event.kind === 'status' && event.data.phase === 'building').every(event => event.data.diagnostics.length === 0));
     assert.ok(invalidations() > observed, 'the observer reports the edits to the editor too');
@@ -144,7 +150,7 @@ async function throughTheService() {
     assert.match(fs.readFileSync(join(project, 'build/client/index.html'), 'utf8'), /<title>after<\/title>/);
 
     // Stop while a producer is in flight. The reply cannot publish, and cleanup
-    // removes only this attempt's private namespace after worker ownership ends.
+    // removes only this attempt's private namespace after the resident exits.
     // The service ends its event streams as it begins to close.
     const beforeStop = outputs();
     const acceptedPath = fs.realpathSync(join(project, 'build/server'));
@@ -168,7 +174,7 @@ async function throughTheService() {
   }
 }
 
-// ---- In process until steps 8 and 10 ----
+// ---- In process until step 8 ----
 
 async function until(test) {
   for (let n = 0; n < 600; n++) { if (test()) return; await delay(50); }
@@ -176,10 +182,10 @@ async function until(test) {
 }
 
 async function inProcess() {
-  const tools = projectTools(root);
+  const tools = editorTools(root);
 
   // Status observers can stop synchronously. No build may be queued after the
-  // worker's close command, even though both would fit in one parent turn.
+  // resident's input closes, even though both would fit in one parent turn.
   // Only an observer in this process can close within the turn that reports
   // the attempt; step 8's pure `step` makes it a test of that transition.
   const beforeStop = outputs();
@@ -190,13 +196,12 @@ async function inProcess() {
   await stoppedOnStart;
   assert.deepEqual(outputs(), beforeStop);
 
-  // An initial reconciliation can still be pending when a worker dies. Its
-  // cancellation must not replace the terminal worker diagnostic. Holding the
-  // reconciliation and killing the worker take patches in this process until
-  // step 10 makes the compiler a child that /api/status names by pid.
-  const read = fsp.readdir, NativeWorker = threads.Worker, entered = Promise.withResolvers(), release = Promise.withResolvers();
-  let captured = null, dying = null;
-  threads.Worker = class extends NativeWorker { constructor(...args) { super(...args); captured = this; } };
+  // An initial reconciliation can still be pending when the resident dies.
+  // Its cancellation must not replace the terminal diagnostic. Holding the
+  // reconciliation takes a patch in this process; the status names the
+  // resident by pid.
+  const read = fsp.readdir, entered = Promise.withResolvers(), release = Promise.withResolvers();
+  let dying = null;
   fsp.readdir = async function(path, ...args) {
     if (path === project) { entered.resolve(); await release.promise; }
     return read(path, ...args);
@@ -205,9 +210,10 @@ async function inProcess() {
   try {
     dying = developProject({root, project, tools});
     await entered.promise;
-    await captured.terminate();
-    assert.equal(dying.status.phase, 'fatal');
+    process.kill(dying.status.worker, 'SIGKILL');
+    await until(() => dying.status.phase === 'fatal');
     const diagnostic = dying.status.diagnostics[0].message;
+    assert.match(diagnostic, /SIGKILL/);
     release.resolve();
     await dying.close();
     assert.equal(dying.status.phase, 'fatal');
@@ -215,13 +221,13 @@ async function inProcess() {
   } finally {
     release.resolve();
     await dying?.close();
-    fsp.readdir = read; threads.Worker = NativeWorker; syncBuiltinESMExports();
+    fsp.readdir = read; syncBuiltinESMExports();
   }
 
-  // A compiler that cannot load is fatal too. `snail dev` always supplies the
-  // compiler it built, so naming a missing one stays in process with the
-  // worker's death until step 10.
-  const broken = developProject({root, project, tools: {...tools, compiler: join(parent, 'missing.wasm')}});
+  // A resident that cannot start is fatal too, with what it said. `snail
+  // dev` always supplies the command line it built, so naming a missing one
+  // stays in process.
+  const broken = developProject({root, project, tools: {...tools, cli: join(parent, 'missing.wasm')}});
   await until(() => broken.status.phase === 'fatal');
   await broken.close();
   assert.match(broken.status.diagnostics[0].message, /missing.wasm/);

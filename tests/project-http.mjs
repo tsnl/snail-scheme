@@ -9,7 +9,7 @@ import http from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {serveProject} from '../host/native/project-http.mjs';
-import {projectTools} from '../host/native/project.mjs';
+import {editorTools} from '../host/native/resident.mjs';
 import {connect, dead, delay, spawnDevelopment, startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], project = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-http-')));
@@ -260,7 +260,7 @@ try {
 const framed = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-http-frames-')));
 fs.writeFileSync(join(framed, 'project.datum'), '((build-target main (program (entry "main.sld"))) (run-target dev (run main)))');
 fs.writeFileSync(join(framed, 'main.sld'), program('framed'));
-const local = await serveProject({root, project: framed, tools: projectTools(root)}), client = connect(local.url);
+const local = await serveProject({root, project: framed, tools: editorTools(root)}), client = connect(local.url);
 const frames = await client.events();
 try {
   await client.settled(0);

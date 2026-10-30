@@ -8,10 +8,8 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
-import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
-import {createProjectBuilder, projectTools, publishProject} from '../host/native/project.mjs';
 import {startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], parent = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-development-')));
@@ -61,8 +59,6 @@ function gateProducer() {
   fs.writeFileSync(path, text);
   fs.writeFileSync(gate, 'open');
 }
-
-// ---- Through the service ----
 
 async function throughTheService() {
   artifactProject(project);
@@ -184,62 +180,9 @@ async function throughTheService() {
   }
 }
 
-// ---- In process until step 7 ----
-
-// Failures injected into the builder's own removals and renames, and the
-// compile scratch only its caller can name. Nothing outside the process can
-// make one removal or one rename fail; step 7 replaces this builder with the
-// resident compiler's build library, which takes these cases with it.
-async function inProcess() {
-  const directory = join(parent, 'resident'), working = join(parent, 'working');
-  artifactProject(directory);
-  fs.mkdirSync(working);
-  const output = name => fs.realpathSync(join(directory, 'build', name));
-  const source = fs.readFileSync(join(directory, 'server.sld'), 'utf8');
-  const builder = await createProjectBuilder({root, project: directory, tools: projectTools(root), directory: working});
-  try {
-    publishProject(builder.build(builder.describe(), ['server']));
-    const initialServer = output('server'), initialClient = output('client');
-
-    // A compile's scratch that cannot be removed leaves the compiler's
-    // diagnostic as the error the build reports.
-    const remove = fs.rmSync;
-    write('server.sld', '(import (snail core base)) (missing-function)', directory);
-    fs.rmSync = function(path, options) {
-      if (options?.recursive && String(path).startsWith(join(working, 'compile-'))) throw new Error('injected cleanup failure');
-      return remove(path, options);
-    };
-    syncBuiltinESMExports();
-    try { assert.throws(() => builder.build(builder.describe(), ['server']), /missing-function/, 'cleanup preserves the compiler diagnostic'); }
-    finally {
-      fs.rmSync = remove; syncBuiltinESMExports();
-      for (const name of fs.readdirSync(working)) if (name.startsWith('compile-')) fs.rmSync(join(working, name), {recursive: true});
-    }
-    write('server.sld', source, directory);
-
-    // A later rename failure keeps its published prefix and removes only the
-    // unpublished suffix. Embedded bundles make the retained program complete.
-    const next = builder.build(builder.describe(), ['server']), rename = fs.renameSync, failedTarget = next.targets[1];
-    fs.renameSync = function(from, to) {
-      if (to === join(directory, 'build', failedTarget.name)) throw new Error('injected publication failure');
-      return rename(from, to);
-    };
-    syncBuiltinESMExports();
-    try { assert.throws(() => publishProject(next), /injected publication failure/); }
-    finally { fs.renameSync = rename; syncBuiltinESMExports(); }
-    assert.equal(output(next.targets[0].name), next.targets[0].directory);
-    assert.ok(next.targets.slice(1).every(target => !fs.existsSync(target.directory)));
-    assert.match(execute(next.targets[0].directory), /65,0,255,/);
-    assert.match(execute(initialServer), /65,0,255,/, 'old generations remain readable');
-    assert.equal(output('client'), initialClient);
-    assert.deepEqual(fs.readdirSync(working), ['errors'], 'logical compile scratch is removed');
-  } finally { builder.close(); }
-}
-
 try {
   await throughTheService();
-  await inProcess();
 } finally {
   fs.rmSync(parent, {recursive: true, force: true});
 }
-console.log('project development: sessions, supersession, failure, partial publication and fresh producers');
+console.log('project development: sessions, supersession, failure and fresh producers');
