@@ -467,15 +467,7 @@
     (define (glue-search program class copy givens type found)
       (let ((name (type-name type)) (key (type-key type)))
         (cond ((member? key (RowSearch-keys found)) (Ok found))
-              ((member? name (RowSearch-names found))
-               (Err (string-append "glue cannot "
-                                   (if (string=? class drop-class) "drop " "clone ")
-                                   (type->string type)
-                                   ", which contains itself at other type arguments; give "
-                                   (short-name name)
-                                   " a "
-                                   (short-name class)
-                                   " instance")))
+              ((member? name (RowSearch-names found)) (Err (nonregular-glue class type)))
               (else
                (fold-left (lambda (progress field)
                             (lifecycle-search program
@@ -489,6 +481,19 @@
                                          (Cons name (RowSearch-names found))))
                           (concatenate (map (lambda (case) (glue-fields program copy type case))
                                             (DataType-cases (program-type program name)))))))))
+
+    ;; A declaration met again at other arguments would need glue for every
+    ;; depth, so it needs an instance instead.
+    (: nonregular-glue (-> String Type String))
+    (define (nonregular-glue class type)
+      (string-append "glue cannot "
+                     (if (string=? class drop-class) "drop " "clone ")
+                     (type->string type)
+                     ", which contains itself at other type arguments; give "
+                     (short-name (type-name type))
+                     " a "
+                     (short-name class)
+                     " instance"))
 
     ;; The row of the enclosing definition's requirement of the class for
     ;; `A`, as `(Drop e A)`'s.

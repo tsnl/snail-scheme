@@ -728,7 +728,8 @@
             (Pair "handle" 2)
             (Pair "learning" 2)
             (Pair "expanding" 2)
-            (Pair "naming" 2)))
+            (Pair "naming" 2)
+            (Pair "specializing" 2)))
 
     ;; A name's shape follows its indentation rule: a special form keeps
     ;; only its first distinguished argument beside its name, and a
