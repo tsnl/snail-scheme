@@ -10,10 +10,10 @@
 ;;   resident PROJECT
 ;;     builds for the development service, keeping each target's compiler
 ;;     session from one build to the next (below);
-;;   dev FORMATTER [--port PORT] PROJECT
+;;   dev EDITOR [--port PORT] PROJECT
 ;;     runs the development service, (snail shell project service), with
-;;     the editor's formatter, until it is interrupted, as ./snail dev
-;;     does.
+;;     the editor's program, host/ide/ide.sld built, until it is
+;;     interrupted, as ./snail dev does.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -408,10 +408,10 @@
                 ((Some node) node)
                 ((None) "node"))))
     (match arguments
-      ((Cons formatter (Cons "--port" (Cons port (Cons project (Nil)))))
-       (Setup root cli runtime node formatter (resolved project) (port-number port)))
-      ((Cons formatter (Cons project (Nil)))
-       (Setup root cli runtime node formatter (resolved project) 8000))
+      ((Cons editor (Cons "--port" (Cons port (Cons project (Nil)))))
+       (Setup root cli runtime node editor (resolved project) (port-number port)))
+      ((Cons editor (Cons project (Nil)))
+       (Setup root cli runtime node editor (resolved project) 8000))
       (_ (panic "usage: snail dev [--port PORT] PROJECT")))))
 
 (: port-number (-> String I32))

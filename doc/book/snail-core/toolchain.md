@@ -233,8 +233,8 @@ drives it.
 The service listens on `127.0.0.1`, and prints its editor URL once it does. It
 answers each connection's one request in the connection's own task, through
 the [Snail HTTP library](http.md). It serves a fixed list of trusted editor
-assets and the formatter; it never serves project HTML or arbitrary filesystem
-paths.
+assets, the editor's page, style and program and the browser host's modules
+that run it; it never serves project HTML or arbitrary filesystem paths.
 
 | Request | Result |
 | --- | --- |
@@ -318,10 +318,15 @@ status 1 and its message; failing to listen ends it before anything starts.
 
 ## Browser editor
 
-The editor has a file browser and split panes. `(snail shell format)` runs in the page
-for Tab/Enter indentation and format-on-save of Scheme files (`.sld`, `.scm`
-and `.datum`), and `(snail shell highlight)` colors them as the
-[book does](#code-highlighting). Other supported files use ordinary text
+The editor is a Snail program, `host/ide/ide.sld`: a
+[document interface](applications.md#document-interfaces) that `snail dev`
+serves with the browser host's `ui.mjs`, built by stage 0 with the other
+development tools. It has a file browser and split panes. `(snail shell
+format)` runs in the same program for Tab/Enter indentation and
+format-on-save of Scheme files (`.sld`, `.scm` and `.datum`), and `(snail
+shell highlight)` colors them as the [book does](#code-highlighting). Each
+pane is one scroller holding its line numbers, its highlighting and its text
+field, which is as big as its text, so they scroll together. Other supported files use ordinary text
 editing. Browser textareas use LF in edited text; the native file API
 preserves exact bytes until saved.
 The browser has no compiler, copied project, directory handles or persistent
@@ -335,7 +340,8 @@ stoppable. Application pages remain ordinary clients of their own server.
 
 Run snapshots arrive only through the current event connection. One command may
 be in flight; its response changes feedback, never the observed process state.
-A lost response or timeout reports an unknown outcome without retrying. That
+A lost response reports an unknown outcome without retrying; a response that
+never comes keeps the controls waiting, as requests have no timeout yet. That
 message names its command and target, survives output, selection and reconnect,
 and clears on the next deliberate run command. An empty run catalog does not hide
 pending command feedback. The controls are not a terminal, log archive or debugger.
@@ -367,8 +373,9 @@ reads withdraw it until the same revision is confirmed; Save invalidates it.
 Drafts and conflicts suppress it. This is an editor observation, not proof of
 the compiler's exact filesystem snapshot; the watcher rejects observed
 supersession without claiming an atomic filesystem revision. Columns count
-Unicode scalars in the original file, converted to textarea UTF-16 offsets and
-LF display text, including CRLF files. Generated scratch and external library
+Unicode scalars in the original file, as the editor's offsets do, over LF
+display text, including CRLF files; the page's `dom` binding converts offsets
+to the textarea's UTF-16. Generated scratch and external library
 locations remain messages rather than being mapped to another file. These are
 source points, not guessed expression ranges or full source spans.
 Manual Build requests compilation; Save writes disk and leaves scheduling to the
@@ -405,8 +412,8 @@ themes; highlight.js skips code of class `nohighlight`, and still highlights
 the book's other blocks. `./scripts/snail-tool book-tools` builds the
 program when it is stale, so `mdbook build` works from a fresh checkout that
 can build the compiler. `tests/highlight-book.mjs` runs the preprocessor on a small book.
-The editor's formatter, `host/ide/format.sld`, reduces the same tokens to one
-letter per character for its highlight layer.
+The editor, `host/ide/ide.sld`, draws the same tokens as `tok-` spans for the
+lines in view, read from the start of their top-level form.
 
 Proposed: once the book is itself a Snail-Core project, the classifier can run
 in a `generate-library` recipe that writes the highlighted pages, and the mdbook

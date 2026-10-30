@@ -273,13 +273,15 @@
         ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
         (else (text-index text pattern (+ from 1)))))
 
-;; The IDE's formatter, (snail shell format) as a program, leaves every Scheme
-;; file in the repository as the Emacs formatter that `make check` runs
-;; left it.
+;; (snail shell format) as a program, tests/format-check.sld, leaves every
+;; Scheme file in the repository as the Emacs formatter that `make check`
+;; runs left it.
 (define (compile-formatter root)
   (guard (failure (#t (report "formatter" "compile failed" (error-text failure))))
     (let ((text
-           (program->wat root (standard-directories root) (path-join root "host/ide/format.sld"))))
+           (program->wat root
+                         (standard-directories root)
+                         (path-join root "tests/format-check.sld"))))
       (lambda () (check-formatter root text)))))
 
 (define (check-formatter root text)

@@ -5,38 +5,7 @@
 <title>Snail-Core IDE</title>
 <link rel="stylesheet" href="./ide.css">
 <body>
-  <header class="toolbar">
-    <button id="toggle-files" class="tool" aria-pressed="true" title="Files (Ctrl+B)">☰</button>
-    <span id="project" class="project"></span>
-    <button id="save" class="tool" title="Save (Ctrl+S)" disabled>Save</button>
-    <button id="reload" class="tool" title="Reload the selected file from disk" disabled>Reload</button>
-    <button id="build" class="tool" title="Build the files saved on disk">Build</button>
-    <span id="status" class="status" role="status"></span>
-    <button id="format" class="tool" title="Format (Ctrl+Shift+F)">Format</button>
-    <button id="split-right" class="tool" title="Split right (Ctrl+\)">⇥</button>
-    <button id="split-down" class="tool" title="Split down (Ctrl+Shift+\)">⤓</button>
-  </header>
-  <main class="project-layout">
-    <nav id="files" class="dock files" aria-label="Files"></nav>
-    <div id="files-resizer" class="resizer"></div>
-    <section id="panes" class="panes" aria-label="Editors"></section>
-  </main>
-  <div id="diagnostics" class="diagnostics" role="status" hidden></div>
-  <section id="runs" class="runs" aria-label="Applications" hidden>
-    <div class="run-toolbar">
-      <label for="run-target">Application</label>
-      <select id="run-target"></select>
-      <button id="run-start" class="tool">Start</button>
-      <button id="run-stop" class="tool">Stop</button>
-      <button id="run-restart" class="tool">Restart</button>
-      <span id="run-status" role="status"></span>
-    </div>
-    <p id="run-problem" role="alert" hidden></p>
-    <div class="run-output">
-      <section aria-label="Standard output"><h2>stdout</h2><pre id="run-stdout" tabindex="0"></pre></section>
-      <section aria-label="Standard error"><h2>stderr</h2><pre id="run-stderr" tabindex="0"></pre></section>
-    </div>
-  </section>
+  <div id="ide"></div>
   <script type="module" src="./ide.mjs"></script>
 </body>
 </html>

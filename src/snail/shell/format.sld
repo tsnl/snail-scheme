@@ -10,7 +10,7 @@
 ;; `format-width` unless the caller says otherwise, is broken before the
 ;; next is indented: a call before its arguments, a binding form before
 ;; each binding and body form. Nothing ever joins lines. The IDE
-;; (host/ide/format.sld) formats on save and indents a line when Tab is
+;; (host/ide/ide.sld) formats on save and indents a line when Tab is
 ;; pressed; it colors the text with (snail shell highlight), which follows
 ;; the compiler's reader.
 (define-library (snail shell format)
