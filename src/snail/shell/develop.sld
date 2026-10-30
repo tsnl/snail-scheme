@@ -280,7 +280,7 @@
 
     ;; What the watched directories hold, without the build/ directories
     ;; builds write to or version control's own files.
-    (: watched-inventory (-> Loop Inventory ! fs))
+    (: watched-inventory (-> Loop (Result Inventory String) ! fs))
     (define (watched-inventory loop)
       (let ((directories (watched (Loop-root loop) (Loop-request loop))))
         (inventory directories
@@ -289,6 +289,15 @@
                                              (list (string-append directory "/build")
                                                    (string-append directory "/.git")))
                                            directories))))))
+
+    ;; What the watched directories hold, or when that cannot be read, what
+    ;; they held when it last could: the next inventory finds what this one
+    ;; would have.
+    (: current-inventory (-> Loop Inventory ! mut fs))
+    (define (current-inventory loop)
+      (match (watched-inventory loop)
+        ((Ok taken) taken)
+        ((Err _) (ref-get (Loop-inventory loop)))))
 
     (: main-source (-> Request String))
     (define (main-source request)
@@ -352,7 +361,7 @@
     (: reconcile! (-> Loop Unit ! mut fs develop))
     (define (reconcile! loop)
       (for-each (lambda (path) (source-changed! loop path))
-                (inventory-changes (ref-get (Loop-inventory loop)) (watched-inventory loop))))
+                (inventory-changes (ref-get (Loop-inventory loop)) (current-inventory loop))))
 
     ;; The host's events, by number, as both hosts send them: 1 is a changed
     ;; file, with its path; 2 the timer the loop asked for; 3 a build that
@@ -378,7 +387,7 @@
     (: build! (-> Loop Unit ! mut fs console clock develop))
     (define (build! loop)
       (let ((started (monotonic-nanoseconds)))
-        (ref-set! (Loop-inventory loop) (watched-inventory loop))
+        (ref-set! (Loop-inventory loop) (current-inventory loop))
         (broadcast! (string-append "(building " (ref-get (Loop-manifest loop)) ")"))
         (match (compiling (lambda () (next-build! loop (main-source (Loop-request loop)))))
           ((Ok builds) (built! loop builds started))

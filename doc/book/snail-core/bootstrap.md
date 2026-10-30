@@ -124,7 +124,7 @@ Wasm frames after it, and so is a run whose tasks all wait on tickets,
 since this host completes no host operations. A module that imports
 `snail.runtime.native.socket`, `snail.runtime.native.process` or
 `snail.runtime.native.files` is refused before it is compiled: a program
-that uses sockets, processes or file modes runs on Node.
+that uses sockets, processes, file modes or watches runs on Node.
 
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
 on `build/snail` instead, the bootstrap's stages included, and every program
