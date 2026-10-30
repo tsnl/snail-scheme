@@ -7,7 +7,7 @@
 | `(snail core forms)` | The core forms, the builtin types, and the builtin `mut` and `host` effects. The compiler serves it; it has no file. |
 | `(snail core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail core base)` gives most of them their everyday names. |
 | `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, vectors, arrays, strings, `Show`. |
-| `(snail core io)` | The `console`, `fs` and `clock` effects: text output, lines of input, files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock. |
+| `(snail core io)` | The `console`, `fs` and `clock` effects: text output, lines of input, files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock; and, as total reads, `command-line`, `environment-variable` and `working-directory`. |
 | `(snail shell resource)` | Files a library links rather than embeds: `link-bytes`, the `Resource` handle, and `read-resource` through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail shell task)` | The `tasks` effect and its scheduler, written in Snail-Core: one-shot local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
 | `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
@@ -56,7 +56,10 @@ A `FileError` is `NotFound`, `AlreadyExists`, `NotEmpty`, `NotADirectory`,
 `IsADirectory`, `PermissionDenied`, `InvalidPath` (a path holding a NUL, or
 reading a link that is not one), `NotSupported` or `OtherError`, and `show`
 describes it. A relative path is resolved against the working directory the
-host passes. The runtime performs each operation through WASI preview1
+host passes, which `(working-directory)` gives, or `None` on a host with no
+filesystem. `(environment-variable name)` is a variable of the environment the
+program started with, or `None` when it is unset; the host's own channel for
+the working directory, `SNAIL_CWD`, reads as unset. The runtime performs each operation through WASI preview1
 (`crates/snail-core-support/src/paths.rs`); a page has no preopened directory, so every
 path operation there fails with `OtherError`. WASI preview1 has no file
 modes or owners; it reports device and inode numbers and a status-change
