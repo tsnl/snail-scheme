@@ -27,6 +27,8 @@
    app-start)
   (import
    (snail core base)
+   (prefix (snail runtime browser events) host-)
+   (prefix (snail runtime browser storage) host-)
    (snail shell task))
   (begin
 
@@ -48,18 +50,14 @@
        (canvas-width (-> I32))
        (canvas-height (-> I32))
        (report-boot (-> I32 Unit)))
-      (host "snail.runtime.browser.events"
-            ((poll-event "poll")
-             (event-field "field")
-             (random-seed "seed")
-             (canvas-width "width")
-             (canvas-height "height")
-             (report-boot "boot")))
       (default
-        ((wait-event (lambda () (through-host start-wait finish-wait))))))
-
-    (extern start-wait "snail.runtime.browser.events" "start-wait" (-> I64 Unit))
-    (extern finish-wait "snail.runtime.browser.events" "finish-wait" (-> I64 Unit))
+        ((poll-event host-poll)
+         (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
+         (event-field host-field)
+         (random-seed host-seed)
+         (canvas-width host-width)
+         (canvas-height host-height)
+         (report-boot host-boot))))
 
     ;; ---- Storage ----
 
@@ -69,17 +67,12 @@
       ((load-count (-> I32 ! tasks))
        (loaded-byte (-> I32 U8))
        (store-save (-> Bytes Unit ! tasks)))
-      (host "snail.runtime.browser.storage"
-            ((loaded-byte "byte")))
       (default
-        ((load-count (lambda () (through-host start-load finish-load)))
+        ((load-count (lambda () (through-host host-start-load host-finish-load)))
+         (loaded-byte host-byte)
          (store-save (lambda (bytes)
-                       (through-host (lambda (ticket) (start-store ticket bytes)) finish-store))))))
-
-    (extern start-load "snail.runtime.browser.storage" "start-load" (-> I64 Unit))
-    (extern finish-load "snail.runtime.browser.storage" "finish-load" (-> I64 I32))
-    (extern start-store "snail.runtime.browser.storage" "start-store" (-> I64 Bytes Unit))
-    (extern finish-store "snail.runtime.browser.storage" "finish-store" (-> I64 Unit))
+                       (through-host (lambda (ticket) (host-start-store ticket bytes))
+                                     host-finish-store))))))
 
     (: load-save (-> (Option Bytes) ! storage tasks))
     (define (load-save)

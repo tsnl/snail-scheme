@@ -165,11 +165,24 @@ nothing escapes. A `gc` effect, "may allocate traced memory", is proposed in
 
 ### Defaults from the host
 
-`console`, `fs` and `clock` need no handler. Their declarations give a
-`host` clause, naming a Wasm import for each operation, and an operation
-performed where no handler of its effect is in scope calls the host. That
-is why the programs above call `report` at their top level with no handler
-around them. A handler can
+`console`, `fs` and `clock` need no handler. Each of their operations has a
+[default](#defaults-in-snail-core) that names an `extern`, a Wasm import
+the host provides, so an operation performed where no handler of its
+effect is in scope calls the host. That is why the programs above call
+`report` at their top level with no handler around them.
+
+Every platform effect is declared the same way. `(snail core io)` declares
+its externs beside its effects, since core imports nothing; a shell
+library imports a `(snail runtime …)` library, which declares the host's
+imports and nothing else, under the prefix `host-`. For example, `(snail
+runtime browser screen)` declares the page's drawing commands, and
+`(snail shell app)`'s `screen` effect defaults each operation to one. The
+TCP, UDP and process effects still name their imports in a `host` clause
+instead, because those imports take the shell's own structs, which a
+runtime library cannot import
+([#566](https://github.com/tsnl/snail-scheme/issues/566)).
+
+A handler can
 still replace them: `tests/programs/files.sld` handles `fs` to answer
 `file-exists?` and `list-directory` from memory. Such a handler may leave
 the rest of its row polymorphic, as any can:

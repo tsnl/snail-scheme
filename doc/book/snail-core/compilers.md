@@ -587,13 +587,17 @@ implements, `snail.runtime.…` (#566): `snail.runtime.link` and
 `snail.runtime.wasm`, `snail.runtime.native.socket`,
 `snail.runtime.native.process`, `snail.runtime.native.files` and
 `snail.runtime.native.develop` on Node,
-and `snail.runtime.browser.screen`, `.events` and `.storage` on the page.
+and `snail.runtime.browser.screen`, `.events`, `.storage`, `.dom` and
+`.fetch` on the page. A `(snail runtime …)` library declares one of these
+interfaces as externs, and nothing else, so it has no items and emits no
+module: each of its importers imports from the host itself
+(`emit-libraries` in `session.sld`).
 The Rust support module, built from `crates/snail-core-support`, is
 `snail.core.support`, and the compiler's control module
-`snail.core.control`. A library named under `(snail runtime …)`, or
+`snail.core.control`. A module linked under a `(snail runtime …)` name, or
 `(snail core support)`, would have one of the hosts' names as its module
 key, and the program's modules would import it in place of the host's
-interface, so a loader refuses a library linked under such a name, at
+interface, so a loader refuses one, at
 startup and when the program loads one (`hostProvided` in `load.mjs`,
 `host_provided` in `crates/snail/src/modules.rs`).
 
