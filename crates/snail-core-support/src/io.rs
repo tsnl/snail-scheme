@@ -51,8 +51,10 @@ impl Files {
 
 // WASI has no working directory of its own; the host passes it as SNAIL_CWD
 // and relative paths are resolved against it.
+const WORKING_DIRECTORY: &str = "SNAIL_CWD";
+
 pub(crate) fn resolved(path: String) -> String {
-    match std::env::var("SNAIL_CWD") {
+    match std::env::var(WORKING_DIRECTORY) {
         Ok(directory) if !path.starts_with('/') => format!("{directory}/{path}"),
         _ => path,
     }
@@ -203,7 +205,20 @@ pub extern "C" fn console_read() -> i32 {
 // ---- Command-line arguments ----
 
 // The arguments never change during an invocation, so Snail-Core reads them as
-// total functions: a count, then each argument one scalar at a time.
+// total functions: a count, then each argument one scalar at a time. The
+// environment's reads below hand their texts over the same way.
+fn scalar_count(text: &str) -> i32 {
+    i32::try_from(text.chars().count()).unwrap_or(i32::MAX)
+}
+
+fn scalar_at(text: &str, position: i32) -> Result<u32, String> {
+    usize::try_from(position)
+        .ok()
+        .and_then(|position| text.chars().nth(position))
+        .map(u32::from)
+        .ok_or_else(|| format!("no character {position} in {text:?}"))
+}
+
 fn argument(index: i32) -> Result<String, String> {
     usize::try_from(index)
         .ok()
@@ -218,21 +233,53 @@ pub extern "C" fn argument_count() -> i32 {
 
 #[unsafe(export_name = "snail:process/argument-length")]
 pub extern "C" fn argument_length(index: i32) -> i32 {
-    let result =
-        argument(index).map(|text| i32::try_from(text.chars().count()).unwrap_or(i32::MAX));
-    checked(result)
+    checked(argument(index).map(|text| scalar_count(&text)))
 }
 
 #[unsafe(export_name = "snail:process/argument-character")]
 pub extern "C" fn argument_character(index: i32, position: i32) -> u32 {
-    let result = argument(index).and_then(|text| {
-        usize::try_from(position)
-            .ok()
-            .and_then(|position| text.chars().nth(position))
-            .map(u32::from)
-            .ok_or_else(|| format!("no character {position} in argument {index}"))
-    });
-    checked(result)
+    checked(argument(index).and_then(|text| scalar_at(&text, position)))
+}
+
+// ---- Environment ----
+
+// The environment never changes during an invocation either, so Snail-Core
+// reads a variable as a total function, staging its name for each read: its
+// length, or -1 when it is unset or not Unicode, then each scalar. SNAIL_CWD
+// is the host's channel for the working directory, not the program's
+// environment, so it reads as unset; `working-directory` reads it instead.
+fn variable(name: &str) -> Option<String> {
+    if name == WORKING_DIRECTORY {
+        None
+    } else {
+        std::env::var(name).ok()
+    }
+}
+
+#[unsafe(export_name = "snail:process/variable-length")]
+pub extern "C" fn variable_length(count: u32) -> i32 {
+    let name = checked(staged_text(count));
+    variable(&name).map_or(-1, |value| scalar_count(&value))
+}
+
+#[unsafe(export_name = "snail:process/variable-character")]
+pub extern "C" fn variable_character(position: i32, count: u32) -> u32 {
+    let name = checked(staged_text(count));
+    let value = variable(&name).ok_or_else(|| format!("{name} is not set"));
+    checked(value.and_then(|value| scalar_at(&value, position)))
+}
+
+// The directory relative paths resolve against, or -1 on a host that
+// passes none, as a page's does.
+#[unsafe(export_name = "snail:process/directory-length")]
+pub extern "C" fn directory_length() -> i32 {
+    std::env::var(WORKING_DIRECTORY).map_or(-1, |directory| scalar_count(&directory))
+}
+
+#[unsafe(export_name = "snail:process/directory-character")]
+pub extern "C" fn directory_character(position: i32) -> u32 {
+    let directory = std::env::var(WORKING_DIRECTORY).map_err(|_| "no working directory".into());
+    checked(directory.and_then(|directory| scalar_at(&directory, position)))
 }
 
 // ---- Explicit resource release ----

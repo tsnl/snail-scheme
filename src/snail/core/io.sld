@@ -51,7 +51,9 @@
    read-symbolic-link
    clock
    monotonic-nanoseconds
-   command-line)
+   command-line
+   environment-variable
+   working-directory)
   (import
    (snail core base))
   (begin
@@ -468,5 +470,40 @@
                                 (lambda (position)
                                   (argument-character argument (i64->i32 position))))))
            (iota (i32->i64 (argument-count)))))
+
+    ;; ---- Environment ----
+
+    ;; A variable of the environment the program started with. It never
+    ;; changes while the program runs, so reading it is total, as reading
+    ;; the arguments is. The working directory is the one relative paths
+    ;; resolve against; a host with no filesystem, such as a page, has none.
+    (extern variable-length "snail.core.support" "snail:process/variable-length" (-> String I32))
+    (extern variable-character
+            "snail.core.support"
+            "snail:process/variable-character"
+            (-> I32 String Char))
+    (extern directory-length "snail.core.support" "snail:process/directory-length" (-> I32))
+    (extern directory-character
+            "snail.core.support"
+            "snail:process/directory-character"
+            (-> I32 Char))
+
+    (: environment-variable (-> String (Option String)))
+    (define (environment-variable name)
+      (let ((length (variable-length name)))
+        (if (< length 0)
+            (None)
+            (Some (string-generate (i32->i64 length)
+                                   (lambda (position)
+                                     (variable-character (i64->i32 position) name)))))))
+
+    (: working-directory (-> (Option String)))
+    (define (working-directory)
+      (let ((length (directory-length)))
+        (if (< length 0)
+            (None)
+            (Some (string-generate (i32->i64 length)
+                                   (lambda (position)
+                                     (directory-character (i64->i32 position))))))))
 
     ))
