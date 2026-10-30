@@ -291,22 +291,18 @@ A wait ends with its signal, so a second Ctrl-C during that shutdown ends
 the program at once, unless a task waits again. A second Ctrl-C that comes
 so quickly it is still on its way while the first ends the wait is kept for
 the program's next wait instead, at most one, so a double tap reaches a
-program that waits again, and does not end one that does not. There is no window between
-a task's starting to wait and the signal's reaching it: in Node only the
-main thread receives signals, and the program runs on a worker, so the
-worker counts its waiters in shared memory and the main thread reads the
-count when a signal arrives. With waiters it forwards the signal to the
-worker; without, it removes its handlers and raises the signal again, so
-the process ends by that signal, with the status Node's default gives. A
-signal forwarded to a worker whose last waiter was cancelled on the way is
-raised again the same way. The worker tells the two apart by a second
-count in the shared memory, of the deliveries that ended waits: the main
-thread stamps each signal it forwards with the count it read, and a
-signal that finds no waiter after a newer delivery came with that one.
-`tests/termination/check.mjs` sends SIGTERM and SIGINT to a waiting
-program, which observes each and exits cleanly, and SIGTERM to one that
-does not wait, which it ends, and delivers a double tap with the stamps
-the main thread would give it.
+program that waits again, and does not end one that does not. The program
+runs on Node's main thread, which receives the signals. The runner handles
+them only while a task waits, from the moment the wait starts, or has yet
+to finish a wait a signal ended; a signal then is kept when it finds no
+waiter. At any other time Node's default ends the process by the signal at
+once, even while a turn computes, when no handler could run. A task that
+waits for termination while another computes without yielding hears of a
+signal when that turn ends. `tests/termination/check.mjs` sends SIGTERM and
+SIGINT to a waiting program, which observes each and exits cleanly, SIGTERM
+to one that does not wait and SIGINT to one that computes without end,
+which they end, and delivers a double tap by calling the handlers as two
+signals would.
 
 ### The process boundary
 
@@ -315,8 +311,8 @@ behind positive I32 handles, which never repeat within that owner. A child is
 owned from spawn until it has exited and its pipes have closed; its public
 handle exists from a successful spawn until close. `process-imports.mjs`
 reads a command a character at a time through the library's exposed
-projections, and builds every result in Wasm after the waiting task
-reacquires the execution permit, as `socket-imports.mjs` does.
+projections, and builds every result in Wasm in the waiting task's own
+finish call, as `socket-imports.mjs` does.
 
 | Operation | Result |
 | --- | --- |
@@ -330,20 +326,18 @@ reacquires the execution permit, as `socket-imports.mjs` does.
 | `shutdown()` | Rejects new spawns, closes every child and waits until each has exited. |
 
 `runChild(directory, program, arguments, input)` in the same file is `run`'s
-`spawnSync`, which blocks the worker until the child exits. `exec` cannot run
-on the worker, since Node replaces a process only from its main thread: the
-worker's `createReplacement` posts the command on a port of its own and
-blocks on shared memory, and the main thread's `serveReplacement` changes to
-the command's directory and calls `process.execve`, after finding a program
-with no slash on `PATH`, which `execve` does not search. Only a failure
-answers, with its code, after the directory is changed back.
+`spawnSync`, which blocks the program until the child exits; a signal sent
+meanwhile reaches the program once it returns. `replaceProcess(directory,
+program, arguments)` is `exec`: it changes to the command's directory and
+calls `process.execve`, after finding a program with no slash on `PATH`,
+which `execve` does not search. Only a failure answers, with its code,
+after the directory is changed back.
 
-`createTermination(waiting)` in the same file holds the termination waiters
-and publishes their number in `waiting`, the shared `Int32Array` the main
-thread reads: `wait(signal)`
-resolves with the signal's number, 2 or 15, and `deliver({name, deliveries})`
-resolves every waiter, keeps a signal that came alongside the last
-delivery, or raises the signal again.
+`createTermination()` in the same file holds the termination waiters and
+the process's handlers for SIGINT and SIGTERM while they are needed:
+`wait(signal)` resolves with the signal's number, 2 or 15; `settled()` says
+a task finished or dropped the wait a signal ended; and a signal resolves
+every waiter or keeps itself while a delivery is unsettled.
 
 Node discards a child's output when it exits unless a `'readable'` listener
 is waiting for it, so each output stream keeps one, and its bytes wait in

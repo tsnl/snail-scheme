@@ -24,13 +24,12 @@ are internal to the driver and the tests:
 
 | Subcommand | Does |
 | --- | --- |
-| `build/snail run-compiler MODULE ARGUMENT ...` | Runs the compiled compiler as `host/native/run-compiler.mjs` does on Node, with the same exit statuses. |
-| `build/snail precompile MODULE OUTPUT` | Writes the module's machine code as a `.cwasm` file, which `run-compiler` loads in place of the module. |
-| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module or a per-library `modules.json`, as `host/native/run-snail.mjs` does, unless it imports tasks, sockets or processes. |
+| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library `modules.json`, as `host/native/run-snail.mjs` does, with the same exit statuses, unless it imports sockets, processes, file modes or watches. The compiled compiler is one such program. |
+| `build/snail precompile MODULE OUTPUT` | Writes the module's machine code as a `.cwasm` file, which `run-wasm` loads in place of the module. |
 | `build/snail imports PROGRAM` | Lists the modules a program's modules import from, a line each, without compiling them. |
 
 `SNAIL_ENGINE=wasmtime` makes the driver run every compile on it, and
-every program that needs no tasks, sockets or processes, and makes
+every program that needs no sockets, processes, file modes or watches, and makes
 `make bootstrap` build it first; [the bootstrap](bootstrap.md#the-native-executable)
 explains why Node stays the default. The public `./snail` launcher is
 unchanged. One native `snail` that replaces it, running the project builder
@@ -474,8 +473,8 @@ is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 | Browser ↔ application server | Ordinary HTTP. In development, each page's build's manifest and the events of the builds after it. |
 
 A future debugger attaches to a run's process and build. Its inspector endpoint
-expires with that run. `run-snail.mjs` executes Wasm in a Node worker: attachment
-must reach that agent, not just its wrapper. Debug commands use the inspector
+expires with that run. `run-snail.mjs` executes Wasm on the process's main
+thread, so attachment reaches the program itself. Debug commands use the inspector
 connection rather than compiler requests or parsed stdout. The development
 service stays responsive while an application is paused. Source mappings and
 breakpoints require a separate compiler/assembler proof; debugger support is

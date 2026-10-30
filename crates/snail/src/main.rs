@@ -2,17 +2,15 @@
 //!
 //! The subcommands are internal to the build driver and the tests:
 //!
-//! - `snail run-compiler MODULE ARGUMENT ...` runs the compiled compiler,
-//!   `build/compiler/snailc.wasm`, through its reactor protocol
-//!   (`compiler.rs`).
-//! - `snail precompile MODULE OUTPUT` writes Cranelift's machine code for a
-//!   module as a `.cwasm` file, which `run-compiler` loads in place of
-//!   compiling the module again (`engine.rs`).
 //! - `snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program, one
 //!   linked module or a per-library build's modules.json, as
 //!   host/native/run-snail.mjs does on Node, when it needs no sockets or
 //!   processes (`program.rs`, with `links.rs` for the files it links and
-//!   `modules.rs` for linking modules).
+//!   `modules.rs` for linking modules). The compiled compiler,
+//!   `build/compiler/snailc.wasm`, is one such program.
+//! - `snail precompile MODULE OUTPUT` writes Cranelift's machine code for a
+//!   module as a `.cwasm` file, which `run-wasm` loads in place of
+//!   compiling the module again (`engine.rs`).
 //! - `snail imports PROGRAM` lists the modules a program imports from, so
 //!   the build driver can tell whether `run-wasm` runs it (`program.rs`).
 //!
@@ -22,7 +20,6 @@
 
 use std::process::ExitCode;
 
-mod compiler;
 mod engine;
 mod links;
 mod modules;
@@ -30,9 +27,8 @@ mod program;
 
 // ---- Command line ----
 
-const USAGE: &str = "usage: snail run-compiler MODULE [ARGUMENT ...]
+const USAGE: &str = "usage: snail run-wasm PROGRAM [ARGUMENT ...]
        snail precompile MODULE OUTPUT
-       snail run-wasm PROGRAM [ARGUMENT ...]
        snail imports PROGRAM";
 
 fn main() -> ExitCode {
@@ -42,7 +38,6 @@ fn main() -> ExitCode {
 
 fn dispatch(arguments: &[String]) -> u8 {
     match arguments {
-        [_, command, module, rest @ ..] if command == "run-compiler" => compiler::run(module, rest),
         [_, command, module, output] if command == "precompile" => {
             engine::precompile(module, output)
         }

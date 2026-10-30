@@ -105,7 +105,7 @@ remains proposed.
 | Application process | An OS process running a program. A browser frontend is a client of a server process, not a run target. |
 | Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from both the compiler session and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |
-| Worker | A separate execution agent used for CPU work, such as the thread `host/native/run-snail.mjs` runs a program on; it is not a browser Service Worker or a Snail-Core task. |
+| Worker | A separate execution agent used for CPU work, such as a Node worker thread; it is not a browser Service Worker or a Snail-Core task. |
 | Working state | In-memory values used by the running application, including changes not yet saved. |
 | Persisted data | The application's chosen representation committed to storage independently of the running code. It need not encode every transient resource or cache. |
 

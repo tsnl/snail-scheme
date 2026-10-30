@@ -39,7 +39,7 @@ use wasmtime::{
 use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
 
-use crate::engine::{call, engine, exit_status, report, wasi};
+use crate::engine::{call, engine, exit_status, is_precompiled, load, report, wasi};
 use crate::links::{self, Files};
 use crate::modules::{self, Libraries, Loading, Manifest};
 
@@ -257,20 +257,30 @@ pub const NODE_ONLY: [&str; 3] = [
 
 /// The module in `file`, compiled, unless it imports what only Node
 /// provides; its import section is read first, so a refused module costs
-/// no compile.
+/// no compile. A `.cwasm` file is machine code `snail precompile` wrote,
+/// as the compiled compiler's is, and its imports are read once it loads.
 pub fn compile_module(engine: &Engine, file: &Path) -> wasmtime::Result<Module> {
+    if is_precompiled(file) {
+        let module = load(engine, file)?;
+        refuse_node_only(file, module.imports().map(|import| import.module()))?;
+        return Ok(module);
+    }
     let bytes = read(file)?;
-    let imported = import_modules(&bytes)?;
-    if let Some(node) = imported
-        .iter()
-        .find(|module| NODE_ONLY.contains(&module.as_str()))
-    {
-        bail!(
+    refuse_node_only(file, import_modules(&bytes)?.iter().map(String::as_str))?;
+    Module::new(engine, &bytes)
+}
+
+fn refuse_node_only<'a>(
+    file: &Path,
+    mut imported: impl Iterator<Item = &'a str>,
+) -> wasmtime::Result<()> {
+    match imported.find(|module| NODE_ONLY.contains(module)) {
+        Some(node) => bail!(
             "{} imports {node}: a program that uses sockets, processes, file modes or watches runs on Node",
             file.display()
-        )
+        ),
+        None => Ok(()),
     }
-    Module::new(engine, &bytes)
 }
 
 fn read(file: &Path) -> wasmtime::Result<Vec<u8>> {
@@ -326,6 +336,7 @@ fn import_modules(bytes: &[u8]) -> wasmtime::Result<BTreeSet<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine::precompile;
     use crate::engine::tests::module_file;
 
     // A program importing `imports` whose main is `main` and whose
@@ -420,6 +431,28 @@ mod tests {
             "imports snail.runtime.native.socket: a program that uses sockets, processes, file modes or watches runs on Node"
         ));
         assert_eq!(run(&file, &[]), 2);
+    }
+
+    // The compiled compiler runs from its machine code, which says what it
+    // imports only once it loads.
+    #[test]
+    fn a_precompiled_program_runs_as_its_module_does() {
+        let precompiled = |name: &str, imports: &str, main: &str| {
+            let source = module_file(name, &program(imports, main, 0));
+            let output = source.replace(".wasm", ".cwasm");
+            assert_eq!(precompile(&source, &output), 0);
+            output
+        };
+        assert_eq!(
+            run(
+                &precompiled("precompiled-program", "", "(i32.const 3)"),
+                &[]
+            ),
+            3
+        );
+        let sockets = r#"(import "snail.runtime.native.socket" "start-read" (func (param i64)))"#;
+        let refused = precompiled("precompiled-sockets", sockets, "(i32.const 0)");
+        assert_eq!(run(&refused, &[]), 2);
     }
 
     #[test]

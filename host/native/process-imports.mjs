@@ -3,7 +3,7 @@
 // call; pending I/O touches native data only.
 import {coded} from '../browser/tasks.mjs';
 import {byteSnapshot} from '../browser/load.mjs';
-import {runChild} from './process.mjs';
+import {replaceProcess, runChild} from './process.mjs';
 
 const isCoded = error => error instanceof Error && typeof error.code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(error.code);
 
@@ -31,9 +31,8 @@ function commandParts(api, command) {
 }
 
 // Each operation that waits is started by `start-NAME` and finished by one
-// `finish`, as socket-imports.mjs does. `replace` is the worker's half of
-// exec (process.mjs's createReplacement).
-export function processImports(program, tasks, processes, termination, replace) {
+// `finish`, as socket-imports.mjs does.
+export function processImports(program, tasks, processes, termination) {
   const helpers = () => {
     const current = program();
     return current.names ? current.linked.get('snail.shell.process').exports : current.runtime.exports;
@@ -92,9 +91,12 @@ export function processImports(program, tasks, processes, termination, replace) 
             (api, exit) => 'code' in exit ? api['process:exited'](exit.code)
                                           : api['process:signaled'](buffer(api, new TextEncoder().encode(exit.signal))));
     },
-    // The signal's number is delivered once the waiting task finishes.
+    // The signal's number is delivered once the waiting task finishes,
+    // which settles the delivery for `termination`, as dropping it does.
     'start-termination'(ticket) {
-      start(ticket, null, signal => termination.wait(signal), (api, number) => api['process:received-signal'](number));
+      start(ticket, null, signal => termination.wait(signal),
+            (api, number) => { termination.settled(); return api['process:received-signal'](number); },
+            () => termination.settled());
     },
     'close-process': child => immediately(api => {
       const id = api['process:handle'](child);
@@ -102,7 +104,7 @@ export function processImports(program, tasks, processes, termination, replace) 
       processes.close(id);
     }),
     // The input is copied before the command is projected: any Wasm call
-    // can reuse staging. The worker waits here until the child exits.
+    // can reuse staging. The program waits here until the child exits.
     'run'(command, pointer) {
       const input = byteSnapshot(program().runtime.exports.memory, pointer), api = helpers();
       const [directory, executable, ...args] = commandParts(api, command);
@@ -115,10 +117,10 @@ export function processImports(program, tasks, processes, termination, replace) 
       return api['process:captured'](result.code, buffer(api, new TextEncoder().encode(result.signal)),
                                      buffer(api, result.stdout), buffer(api, result.stderr));
     },
-    // Returns only when the main thread could not replace the process.
+    // Returns only when the process could not be replaced.
     'exec'(command) {
       const api = helpers(), [directory, executable, ...args] = commandParts(api, command);
-      return errorCode(api, replace(directory, executable, args));
+      return errorCode(api, replaceProcess(directory, executable, args));
     },
     'finish-spawn': finish, 'finish-read-output': finish, 'finish-write-input': finish,
     'finish-wait-exit': finish, 'finish-termination': finish,

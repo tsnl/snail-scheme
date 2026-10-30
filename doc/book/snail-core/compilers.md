@@ -780,13 +780,13 @@ the library that failed to check. These operations are implemented and tested.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/snail/shell/compiler/driver.sld`, `bootstrap/compile.sld` | Typed source invocation shared by both hosts; compilation and post-exit request publication are separate entries. |
-| `host/chibi/compile.scm`, `host/native/run-compiler.mjs` | Process unwind boundaries; publish missing-input requests only after trusted exit. |
-| `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs the compiled compiler by `run-compiler.mjs`'s protocol, and programs that need only WASI, linked files and module loading by `run-snail.mjs`'s, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
+| `src/snail/shell/compiler/driver.sld`, `bootstrap/compile.sld` | Typed source invocation shared by both hosts: a compile that fails, or that needs an input after publishing its request, exits with status 1. `bootstrap/compile.sld` is the compiled compiler, an ordinary program. |
+| `host/chibi/compile.scm` | Chibi's unwind boundary, which turns a failure into the same status. |
+| `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs programs that need only WASI, linked files and module loading by `run-snail.mjs`'s protocol, the compiled compiler among them, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
 | `host/chibi/snail/stage0/build.sld` | Bootstrap, standalone generated libraries, tool builds and Binaryen/runtime linking policy. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
 | `host/chibi/snail/stage0/process.sld` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. This avoids Chibi 0.12 pipe-finalizer and sequential pipe-draining failures. |
 | `crates/snail-core-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. Its `assembler` feature builds the toolchain's runtime, which tools written in Snail-Core link (`build-toolchain-tool`), with in-process assembly for `(snail shell assembler)`. |
-| `host/native/run-snail.mjs` | Node/WASI program execution, in a worker with a tuned GC heap, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. |
+| `host/native/run-snail.mjs` | Node/WASI program execution, the compiled compiler's included, on Node's main thread, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. A trap is status 2 and a WASI exit its own, as on wasmtime. |
 | `src/`, `host/chibi/snail/`, `bootstrap/chibi-include/` | Every library that ships with the language, the compiler among them, and the separate stage-0 implementations of the three it imports. Stage 0's only search root is `bootstrap/chibi-include/`, one symlink per library the compiler reaches. |
 
 Running project build plans and publication belong to the [project builder](projects.md),

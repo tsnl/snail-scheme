@@ -321,17 +321,15 @@
         (or (zero? (caddr result))
             (report "book highlighter" "failed" (string-append (car result) (cadr result))))))))
 
-;; The internal compiler driver: printing text and running a program.
+;; The internal compiler driver: printing text and running a program. A
+;; run's status is its program's, on either engine: a panic exits with 1,
+;; and a trap is 2 (waitpid statuses 256 and 512).
 (define (run-command-line root)
-  (let ((wat (capture-process (list (path-join root "scripts/snail-tool")
-                                    "wat"
-                                    (path-join root "examples/fibonacci.sld"))))
-        (run (capture-process (list (path-join root "scripts/snail-tool")
-                                    "run"
-                                    (path-join root "examples/fibonacci.sld"))))
-        (failed (capture-process (list (path-join root "scripts/snail-tool")
-                                       "run"
-                                       (path-join root "tests/tasks/failure.sld")))))
+  (let ((wat (tool-run root "wat" "examples/fibonacci.sld"))
+        (run (tool-run root "run" "examples/fibonacci.sld"))
+        (failed (tool-run root "run" "tests/tasks/failure.sld"))
+        (panicked (tool-run root "run" "tests/programs/panic.sld"))
+        (trapped (tool-run root "run" "tests/programs/traps.sld")))
     (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main")))
            (report "compiler wat" "no module text" (cadr wat)))
           ((not (equal? (car run) "832040\n"))
@@ -340,7 +338,15 @@
            (report "compiler run"
                    "a failed child must set failure status and let its sibling finish"
                    (string-append (car failed) (cadr failed))))
+          ((not (= (caddr panicked) 256))
+           (report "compiler run" "a panic must exit with status 1" (cadr panicked)))
+          ((not (= (caddr trapped) 512))
+           (report "compiler run" "a trap must be status 2" (cadr trapped)))
           (else #t))))
+
+(define (tool-run root command program)
+  (capture-process
+   (list (path-join root "scripts/snail-tool") command (path-join root program))))
 
 ;; The compiled compiler and its source on Chibi must emit the same text
 ;; for the same program; `make bootstrap` checks the compiler itself. The

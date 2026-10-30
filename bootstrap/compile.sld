@@ -1,13 +1,9 @@
-;; The compiled compiler's synchronous entry.
+;; The compiled compiler, an ordinary program: one compile, from its
+;; command line, which exits with status 1 when the compile fails or needs
+;; an input.
 (import
  (snail core base)
  (snail core io)
  (snail shell compiler driver))
 
-(: compile-source (-> Unit ! mut fs))
-(define (compile-source)
-  (compile-command-line))
-
-(expose compile-source "compiler-compile")
-
-(unit)
+(compile-command-line)

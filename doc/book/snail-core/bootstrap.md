@@ -83,45 +83,36 @@ bootstrap and of `make test-chibi`.
 ## The native executable
 
 `crates/snail` builds `build/snail`, a native executable that embeds
-[wasmtime](https://wasmtime.dev) 48 and runs the compiled compiler without
-Node. The compiler needs nothing else: the Rust runtime is merged into
-`snailc.wasm`, so its only imports are 21 `wasi_snapshot_preview1`
-functions. `build/snail run-compiler MODULE ARGUMENT ...` follows the
-protocol `host/native/run-compiler.mjs` follows on Node:
-
-1. WASI gets the module as its first argument, the environment with
-   `SNAIL_CWD` naming the working directory, and the host's `/` preopened.
-2. The module is instantiated, and `_initialize`, `main` and
-   `compiler-compile` are called in turn.
-3. A WASI exit with status 1 ends a failed compile and one that needs an
-   input alike; the compile wrote that one's `request.datum` before it
-   exited.
-4. `close-resources` runs whatever happened. A nonzero answer, a trap or a
-   failure of the host is status 2; a trap prints its Wasm frames.
-
-`build/snail precompile MODULE OUTPUT` writes Cranelift's machine code for
-a module as a `.cwasm` file, which loads in place of compiling the module:
-the driver keeps `build/compiler/snailc.cwasm` beside the compiler, which
-saves each compile about 0.7 s. The file belongs to one wasmtime version,
-configuration and CPU, so it is a build output and is never committed.
+[wasmtime](https://wasmtime.dev) 48 and runs compiled programs without
+Node, the compiled compiler among them. The compiler needs nothing else:
+the Rust runtime is merged into `snailc.wasm`, so its only imports are 21
+`wasi_snapshot_preview1` functions. It is an ordinary program,
+`bootstrap/compile.sld`, which makes one compile from its command line. A
+compile that fails exits with status 1, and so does one that needs an
+input, having written its `request.datum` first.
 
 `build/snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program as
-`host/native/run-snail.mjs` does, for one that needs of its host only WASI,
-the files it links and loading modules (`crates/snail/src/program.rs`).
+`host/native/run-snail.mjs` does on Node, for one that needs of its host
+only WASI, the files it links and loading modules
+(`crates/snail/src/program.rs`).
 PROGRAM is one linked module, or the `modules.json` of a per-library build,
 whose runtime is instantiated first and each library's module after those
 it imports from (`modules.rs`). Every file the program links is read from
 `resources/` beside it before any module is instantiated (`links.rs`).
-WASI gets PROGRAM and the arguments as above; then `_initialize`, and each
+WASI gets PROGRAM and the arguments, the environment with `SNAIL_CWD`
+naming the working directory, and the host's `/` preopened; then
+`_initialize`, and each
 module's `main` in program order, and then the program's tasks, driven
 until none is live ([driving the scheduler](../runtimes/scheduling.md)).
 The last `main`'s result is the status when it is 0 to 255, and 1
-otherwise, and 1 when a task trapped; a WASI exit is its own status.
+otherwise, and 1 when a task trapped or exited; a WASI exit in a `main` is
+its own status, and ends the program before its tasks run.
 `close-resources`, or the runtime's `snail:io/close-all`, runs whatever
 happened, and a nonzero answer fails a run that succeeded. A trap or a
 failure of the host is status 2, with V8's message after `snail: ` and the
 Wasm frames after it, and so is a run whose tasks all wait on tickets,
-since this host completes no host operations. A module that imports
+since this host completes no host operations. Node's runner gives the
+same statuses. A module that imports
 `snail.runtime.native.socket`, `snail.runtime.native.process` or
 `snail.runtime.native.files` is refused before it is compiled: a program
 that uses sockets, processes, file modes or watches runs on Node.
@@ -133,6 +124,13 @@ in `host/chibi/snail/stage0/build.sld` asks `build/snail imports PROGRAM`,
 which reads the import sections without compiling them, and runs the rest
 on Node. Under that engine the driver builds the executable with Cargo
 when it is stale, and `make bootstrap` builds it first.
+
+`build/snail precompile MODULE OUTPUT` writes Cranelift's machine code for
+a module as a `.cwasm` file, which `run-wasm` loads in place of compiling
+the module: the driver keeps `build/compiler/snailc.cwasm` beside the
+compiler, which saves each compile about 0.7 s. The file belongs to one
+wasmtime version, configuration and CPU, so it is a build output and is
+never committed.
 
 The engine is opt-in because it is slow. Wasmtime's one working collector,
 deferred reference counting, collects whenever its list of possible stack
