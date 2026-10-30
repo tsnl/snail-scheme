@@ -55,6 +55,8 @@
 (report "make without a parent" (answer done (make-directory (at "a/b"))))
 (report "make with parents" (answer done (make-directories (at "a/b/c"))))
 (report "make with parents again" (answer done (make-directories (at "a/b"))))
+(report "make with parents and a trailing slash" (answer done (make-directories (at "a/b/s/t/"))))
+(report "make with parents and a doubled slash" (answer done (make-directories (at "a/b/g/m//n"))))
 (write-file (at "a/four.txt") "four")
 (report "make with parents over a file" (answer done (make-directories (at "a/four.txt"))))
 
