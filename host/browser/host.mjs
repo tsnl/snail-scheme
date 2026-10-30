@@ -244,8 +244,11 @@ export function saveAll() {
   return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
 }
 
-export async function relinkAll(from, fresh) {
-  for (const application of running) await relinkApplication(application, from, fresh);
+// `manifest`, when given, is the modules.json of the build to relink from,
+// which a page `snail dev` serves names; each program reads its modules
+// relative to it from then on.
+export async function relinkAll(from, fresh, manifest) {
+  for (const application of running) await relinkApplication(application, from, fresh, manifest);
 }
 
 function forgetPresentation(application) {
@@ -256,13 +259,14 @@ function forgetPresentation(application) {
 // No Snail-Core stack remains while modules relink. Keep the old program and its
 // immutable handover until the candidate finishes its initial presentation.
 // Rejected migration restarts the old entry; host resources outlive both.
-async function relinkApplication(application, from, fresh) {
+async function relinkApplication(application, from, fresh, manifest) {
   await application.startup;
   const {runtime, program: previous} = application;
   application.capture = [];
   const {state, saved} = await runtime.stop();
   try {
-    const program = await relinkProgram(previous, from);
+    const program = manifest ? await relinkProgram(previous, from, manifest, fetchRead(manifest))
+                             : await relinkProgram(previous, from);
     forgetPresentation(application);
     const run = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
     await run.ready.promise;

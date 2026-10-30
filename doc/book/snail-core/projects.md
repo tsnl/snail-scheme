@@ -36,8 +36,8 @@ runs a named program. `snail dev [--port PORT] PROJECT` retains compiler
 sessions, serves the editor, and serves each browser target's latest builds
 on an origin of their own.
 The [toolchain](toolchain.md) describes command lifetimes and development,
-including the editor's application controls. Durable application data and
-reloading a running page remain in progress.
+including the editor's application controls and the pages' reload. Durable
+application data remains in progress.
 
 ## Description format
 

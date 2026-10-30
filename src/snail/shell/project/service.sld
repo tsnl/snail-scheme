@@ -47,6 +47,7 @@
     ;; What the service runs with: the repository's root; the command
     ;; line's program and the runtime it links programs with, which the
     ;; resident runs as; Node, which runs them; the editor's program; the
+    ;; reload client's program, which browser targets' pages load; the
     ;; project, absolute; and the port to listen on, 0 for any.
     (struct Setup
       ((root String)
@@ -54,6 +55,7 @@
        (runtime String)
        (node String)
        (editor String)
+       (client String)
        (project String)
        (port I32)))
 
@@ -87,6 +89,7 @@
       (RunStopped)
       (Joined
        ((id I64)
+        (watching (Option String))
         (connection Connection)
         (frames (Mailbox (Option Bytes)))
         (reply (Mailbox Answer))))
@@ -137,10 +140,12 @@
       ((name String)
        (builds (List BuildDirectory))))
 
-    ;; An event stream, by its connection's number, and how many bytes the
-    ;; owner sent it that its writer has not written yet.
+    ;; An event stream, by its connection's number: the browser target a
+    ;; page's stream hears of builds of, or none for an editor's; and how
+    ;; many bytes the owner sent it that its writer has not written yet.
     (struct Client
       ((id I64)
+       (watching (Option String))
        (connection Connection)
        (frames (Mailbox (Option Bytes)))
        (pending I64)))
@@ -155,7 +160,8 @@
     ;; published, as the status shows them. `frames` are the last status
     ;; and runs frames sent, so a frame is sent only when it changes.
     ;; `connections` are the ones whose handlers have not finished, by
-    ;; number, and `clients` those of them that are event streams.
+    ;; number, and `clients` those of them that are event streams; `told`
+    ;; is the event last sent to each browser target's pages.
     ;; `stopping` holds the commands after Shutdown, run once `waiting`, the
     ;; resident, the supervisors and the handlers still running, reaches
     ;; zero.
@@ -176,6 +182,7 @@
        (published Json)
        (runs (List Supervised))
        (clients (List Client))
+       (told (List (Pair String String)))
        (connections (List (Pair I64 Connection)))
        (frames (Pair String String))
        (stopping (Option (List Command)))
@@ -208,7 +215,7 @@
         (dispatch-local (once (lambda () (read-replies resident owner (Nil)))))
         (dispatch-local (once (lambda () (await-resident resident owner (Nil)))))
         (dispatch-local (once (lambda () (accept-connections setup listener owner disk))))
-        (dispatch-local (once (lambda () (accept-applications applications owner))))
+        (dispatch-local (once (lambda () (accept-applications setup applications owner))))
         (dispatch-local (once (lambda () (mailbox-post owner (Step (wait-for-signal))))))
         (mailbox-post owner (Step (ResidentStarted)))
         (write-line (string-append "editing " (Setup-project setup) " at " (origin setup) "/"))
@@ -282,6 +289,7 @@
             (Nil)
             (Nil)
             (Nil)
+            (Nil)
             (Pair "" "")
             (None)
             0
@@ -321,7 +329,8 @@
         ((Overdue) (overdue host))
         ((RunChanged name status) (broadcast-changes (run-changed host name status)))
         ((RunStopped) (stopped-one host))
-        ((Joined id connection frames reply) (joined host id connection frames reply))
+        ((Joined id watching connection frames reply)
+         (joined host id watching connection frames reply))
         ((Written id count) (written host id count))
         ((Connected id connection) (connected host id connection))
         ((Disconnected id) (disconnected host id))))
@@ -525,9 +534,10 @@
 
     ;; A snapshot to every event stream, as the frames that changed. A
     ;; fatal one closes the service.
-    (: notify (-> Host Snapshot Host ! mut tcp))
+    (: notify (-> Host Snapshot Host ! mut tcp fs))
     (define (notify host snapshot)
-      (let ((host (broadcast-changes (Host-snapshot-set (published host snapshot) snapshot))))
+      (let ((host (told-pages
+                   (broadcast-changes (Host-snapshot-set (published host snapshot) snapshot)))))
         (match (Snapshot-phase snapshot)
           ((Fatal) (mailbox-post (Host-owner host) (Step (Close))) host)
           (_ host))))
@@ -587,7 +597,10 @@
       (concatenate (map (lambda (published)
                           (map (lambda (generation)
                                  (BuildDirectory (Published-id published)
-                                                 (Generation-directory generation)))
+                                                 (Generation-directory generation)
+                                                 (Generation-files generation)
+                                                 (Candidate-milliseconds
+                                                  (Published-candidate published))))
                                (filter
                                 (lambda (generation) (string=? (Generation-name generation) name))
                                 (Candidate-generations (Published-candidate published)))))
@@ -713,28 +726,34 @@
     ;; and reconnecting gets it the current status.
     (: broadcast (-> Host String Host ! mut tcp))
     (define (broadcast host text)
-      (Host-clients-set host (sent-to (Host-clients host) (string->utf8 text))))
+      (Host-clients-set host
+                        (sent-to (Host-clients host)
+                                 (lambda (client) (not (option-some? (Client-watching client))))
+                                 (string->utf8 text))))
 
-    (: sent-to (-> (List Client) Bytes (List Client) ! mut tcp))
-    (define (sent-to clients bytes)
+    ;; Each client `chosen` picks gets the frame; the rest are left as they
+    ;; are.
+    (: sent-to (-> (List Client) (-> Client Bool) Bytes (List Client) ! mut tcp))
+    (define (sent-to clients chosen bytes)
       (match clients
         ((Nil) (Nil))
         ((Cons client rest)
-         (if (>= (Client-pending client) 16384)
-             (begin
-               (close-connection (Client-connection client))
-               (mailbox-post (Client-frames client) (None))
-               (sent-to rest bytes))
-             (begin
-               (mailbox-post (Client-frames client) (Some bytes))
-               (Cons (Client-pending-set client (+ (Client-pending client) (vector-length bytes)))
-                     (sent-to rest bytes)))))))
+         (cond ((not (chosen client)) (Cons client (sent-to rest chosen bytes)))
+               ((>= (Client-pending client) 16384)
+                (close-connection (Client-connection client))
+                (mailbox-post (Client-frames client) (None))
+                (sent-to rest chosen bytes))
+               (else
+                (mailbox-post (Client-frames client) (Some bytes))
+                (Cons (Client-pending-set client (+ (Client-pending client) (vector-length bytes)))
+                      (sent-to rest chosen bytes)))))))
 
     ;; A new event stream gets the status, the runs and a prompt to list
     ;; files, unless there are 64 already or the service is closing.
     (: joined
-       (-> Host I64 Connection (Mailbox (Option Bytes)) (Mailbox Answer) Host ! mut tcp))
-    (define (joined host id connection frames reply)
+       (-> Host I64 (Option String) Connection (Mailbox (Option Bytes)) (Mailbox Answer) Host
+           ! mut tcp fs))
+    (define (joined host id watching connection frames reply)
       (cond ((option-some? (Host-stopping host))
              (mailbox-post reply (Answer 503 (message->json "project development is closing")))
              host)
@@ -744,9 +763,93 @@
             (else
              (mailbox-post reply (Answer 200 (JsonNull)))
              (Host-clients-set host
-                               (append (sent-to (list (Client id connection frames 0))
-                                                (string->utf8 (first-frames host)))
+                               (append (sent-to (list (Client id watching connection frames 0))
+                                                (lambda (client) #t)
+                                                (string->utf8 (match watching
+                                                                ((Some name)
+                                                                 (page-first-frames host name))
+                                                                ((None) (first-frames host)))))
                                        (Host-clients host))))))
+
+    ;; ---- Pages' event streams ----
+
+    ;; What a browser target's pages hear of the latest attempt, with the
+    ;; target's latest build: the reload client relinks a page when one is
+    ;; published, and shows when one is under way or why one failed.
+    (: page-event (-> Snapshot Application String ! fs))
+    (define (page-event snapshot application)
+      (bundle-event (string-append "/" (Application-name application) "/")
+                    (match (Snapshot-phase snapshot)
+                      ((Succeeded) (BuildPublished))
+                      ((Failed) (BuildFailed (diagnostic-text snapshot)))
+                      ((Fatal) (BuildFailed (diagnostic-text snapshot)))
+                      (_ (BuildUnderway)))
+                    (match (Application-builds application)
+                      ((Cons latest _) (Some latest))
+                      ((Nil) (None)))))
+
+    ;; Each diagnostic as a compiler prints it, after its place when it has
+    ;; one.
+    (: diagnostic-text (-> Snapshot String))
+    (define (diagnostic-text snapshot)
+      (string-join (map (lambda (diagnostic)
+                          (match (Diagnostic-source diagnostic)
+                            ((Some point)
+                             (string-append (SourcePoint-file point)
+                                            ":"
+                                            (show (SourcePoint-line point))
+                                            ":"
+                                            (show (SourcePoint-column point))
+                                            ": "
+                                            (Diagnostic-message diagnostic)))
+                            ((None) (Diagnostic-message diagnostic))))
+                        (Snapshot-diagnostics snapshot))
+                   "\n\n"))
+
+    ;; An event as the browser's EventSource reads it. It is one line, as
+    ;; the strings in it are written with their newlines escaped.
+    (: page-frame (-> String String))
+    (define (page-frame text)
+      (string-append "data: " text "\n\n"))
+
+    ;; A page's stream starts with its target's current event, so a page
+    ;; that reconnects hears of the build it missed.
+    (: page-first-frames (-> Host String String ! fs))
+    (define (page-first-frames host name)
+      (let ((snapshot (Host-snapshot host)))
+        (string-append "retry: 1000\n\n"
+                       (page-frame (page-event snapshot
+                                               (Application name
+                                                            (builds-of
+                                                             (Snapshot-publications snapshot)
+                                                             name)))))))
+
+    ;; Each browser target's pages hear its event when it changes.
+    (: told-pages (-> Host Host ! mut tcp fs))
+    (define (told-pages host)
+      (fold-left (lambda (host application)
+                   (let ((name (Application-name application))
+                         (event (page-event (Host-snapshot host) application)))
+                     (match (assoc-ref (Host-told host) name)
+                       ((Some told) (if (string=? told event) host (told-page host name event)))
+                       ((None) (told-page host name event)))))
+                 host
+                 (served-applications host)))
+
+    ;; `event` to the pages of target `name`, kept as the last they heard.
+    (: told-page (-> Host String String Host ! mut tcp))
+    (define (told-page host name event)
+      (Host-clients-set
+       (Host-told-set host
+                      (Cons (Pair name event)
+                            (filter (lambda (told) (not (string=? (Pair-first told) name)))
+                                    (Host-told host))))
+       (sent-to (Host-clients host)
+                (lambda (client)
+                  (match (Client-watching client)
+                    ((Some watched) (string=? watched name))
+                    ((None) #f)))
+                (string->utf8 (page-frame event)))))
 
     (: first-frames (-> Host String))
     (define (first-frames host)
@@ -1115,8 +1218,16 @@
                  (map (lambda (target)
                         (Generation (json-text target "name")
                                     (json-text target "directory")
-                                    (json-text target "digest")))
-                      (json-items json "targets"))))
+                                    (json-text target "digest")
+                                    (match (json-member target "files")
+                                      ((Some (JsonObject members))
+                                       (map (lambda (member)
+                                              (Pair (Pair-first member)
+                                                    (json-string-value (Pair-second member))))
+                                            members))
+                                      (_ (Nil)))))
+                      (json-items json "targets"))
+                 (json-integer json "milliseconds")))
 
     ;; The candidate's targets as the status shows them.
     (: candidate-targets (-> Json Json))
@@ -1527,7 +1638,7 @@
         (cond ((not (string=? method "GET"))
                (Some (api setup owner disk request method path (Target-query target))))
               ((same-strings? path (list "api" "events"))
-               (stream-events owner id connection)
+               (stream-events owner id connection (None))
                (None))
               (else
                (Some (match (asset setup path)
@@ -1722,46 +1833,56 @@
 
     ;; One handler task for each connection, numbered apart from the
     ;; editor's, so the owner tracks both alike and shutdown waits for both.
-    (: accept-applications (-> Listener (Mailbox Message) Unit ! mut tasks tcp fs))
-    (define (accept-applications listener owner)
+    (: accept-applications (-> Setup Listener (Mailbox Message) Unit ! mut tasks tcp fs))
+    (define (accept-applications setup listener owner)
       (let loop ((id 1099511627776))
         (match (accept listener)
           ((Ok connection)
            (mailbox-post owner (Connected id connection))
            (dispatch-local (once (lambda ()
-                                   (serve-application listener owner connection)
+                                   (serve-application setup listener owner id connection)
                                    (mailbox-post owner (Disconnected id)))))
            (loop (+ id 1)))
           ((Err _) (unit)))))
 
-    (: serve-application (-> Listener (Mailbox Message) Connection Unit ! mut tasks tcp fs))
-    (define (serve-application listener owner connection)
+    (: serve-application
+       (-> Setup Listener (Mailbox Message) I64 Connection Unit ! mut tasks tcp fs))
+    (define (serve-application setup listener owner id connection)
       (match (read-request connection)
         ((Ok request)
          (let ((head (Request-head request)))
-           (finish-exchange connection
-                            (Some (RequestHead-method head))
-                            (application-response listener owner head))))
+           (match (application-response setup listener owner id connection head)
+             ((Some response)
+              (finish-exchange connection (Some (RequestHead-method head)) response))
+             ((None) (unit)))))
         ((Err error) (finish-exchange connection (None) (exchange-refusal error)))))
 
     ;; Only reads, and only for this origin's own host, so a page of another
-    ;; site that rebinds a name to this address reads nothing.
-    (: application-response (-> Listener (Mailbox Message) RequestHead Response ! mut tasks fs))
-    (define (application-response listener owner head)
+    ;; site that rebinds a name to this address reads nothing. None for a
+    ;; page's event stream, which this task then writes until it ends.
+    (: application-response
+       (-> Setup Listener (Mailbox Message) I64 Connection RequestHead (Option Response)
+           ! mut tasks tcp fs))
+    (define (application-response setup listener owner id connection head)
       (let ((method (RequestHead-method head)))
         (cond ((not (same-strings? (header-values (RequestHead-headers head) "host")
                                    (list (listener-host listener))))
-               (refused 403 "unexpected host"))
+               (Some (refused 403 "unexpected host")))
               ((not (or (string=? method "GET") (string=? method "HEAD")))
-               (refused 405 "the applications' origin only serves files"))
+               (Some (refused 405 "the applications' origin only serves files")))
               (else
                (match (parse-target (RequestHead-target head))
-                 ((Ok target) (application-file owner (Target-path target)))
-                 ((Err _) (refused 400 "malformed request target")))))))
+                 ((Ok target)
+                  (match (Target-path target)
+                    ((Cons name (Cons ".snail" (Cons "events" (Nil))))
+                     (stream-events owner id connection (Some name))
+                     (None))
+                    (path (Some (application-file setup owner path)))))
+                 ((Err _) (Some (refused 400 "malformed request target"))))))))
 
     ;; `/` lists the browser targets, and /NAME/ serves one's builds.
-    (: application-file (-> (Mailbox Message) (List String) Response ! mut tasks fs))
-    (define (application-file owner path)
+    (: application-file (-> Setup (Mailbox Message) (List String) Response ! mut tasks fs))
+    (define (application-file setup owner path)
       (let ((reply (make-mailbox)))
         (mailbox-post owner (Applications reply))
         (let ((applications (mailbox-receive reply)))
@@ -1772,6 +1893,8 @@
                           applications)
                ((Some application)
                 (bundle-response (string-append "/" name "/")
+                                 (Reloading (string-append (Setup-root setup) "/host/browser")
+                                            (Setup-client setup))
                                  (Application-builds application)
                                  rest))
                ((None) (refused 404 (string-append "no browser target " name)))))))))
@@ -1865,10 +1988,10 @@
     ;; Joins the owner's streams, then writes each frame it sends until it
     ;; sends none, or a write fails. The handler's end tells the owner the
     ;; stream has gone.
-    (: stream-events (-> (Mailbox Message) I64 Connection Unit ! mut tasks tcp))
-    (define (stream-events owner id connection)
+    (: stream-events (-> (Mailbox Message) I64 Connection (Option String) Unit ! mut tasks tcp))
+    (define (stream-events owner id connection watching)
       (let ((frames (make-mailbox)) (reply (make-mailbox)))
-        (mailbox-post owner (Joined id connection frames reply))
+        (mailbox-post owner (Joined id watching connection frames reply))
         (let ((answer (mailbox-receive reply)))
           (if (= (Answer-status answer) 200)
               (match (encode-stream-head 200
