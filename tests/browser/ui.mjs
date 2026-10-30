@@ -4,8 +4,10 @@
 // keeps from its default action, and removes one. The count of notes added
 // arrives by a command's wake, and the command focuses the field it finds
 // by id. Another command inserts text into the field as typing would,
-// which the page can undo. Hiding the page stores the save, and a fresh
-// load restores the notes from it.
+// which the page can undo. The page asks its server for a greeting, shares
+// its notes with headers and a body, and hears a stream of events until
+// the server ends it. Hiding the page stores the save, and a fresh load
+// restores the notes from it.
 //
 //   CHROMIUM=... node tests/browser/ui.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -20,9 +22,33 @@ import {openBrowser, until} from './chromium.mjs';
 const [root, screenshot] = process.argv.slice(2);
 const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm'};
 
-// Serves a directory's files, and nothing outside it.
+// The interface's server: a greeting, notes it echoes back with the headers
+// that came with them, and a stream of events of three kinds, one of which
+// the page does not hear, that ends for good, as the second connection is
+// refused.
+let streams = 0;
+async function answerApi(request, response) {
+  if (request.url === '/api/greeting') { response.writeHead(200, {'content-type': 'text/plain'}); response.end('hello from the server'); return; }
+  if (request.url === '/api/notes' && request.method === 'POST') {
+    let body = '';
+    for await (const chunk of request) body += chunk;
+    response.writeHead(201, {'content-type': 'text/plain'});
+    response.end(`${request.headers['content-type']} ${request.headers['if-match']} ${JSON.stringify(body)}`);
+    return;
+  }
+  if (request.url === '/api/events' && streams++ === 0) {
+    response.writeHead(200, {'content-type': 'text/event-stream', 'cache-control': 'no-store'});
+    response.end('retry: 100\ndata: one\n\nevent: note\ndata: two\n\nevent: unheard\ndata: three\n\n');
+    return;
+  }
+  response.writeHead(204);
+  response.end();
+}
+
+// Serves a directory's files, and nothing outside it, and the API.
 function serve(directory) {
   const server = createServer(async (request, response) => {
+    if (request.url.startsWith('/api/')) { await answerApi(request, response); return; }
     const path = normalize(decodeURIComponent(new URL(request.url, 'http://host').pathname)).replace(/^\/+/, '');
     try {
       const bytes = await readFile(join(directory, path === '' ? 'index.html' : path));
@@ -78,6 +104,19 @@ try {
   await browser.evaluate(`document.getElementById('remove-0').click()`);
   await until(async () => await notes() === '- eggs', 'the removal');
   await until(async () => await added() === '2 added', 'the second count');
+
+  const said = id => browser.evaluate(`document.getElementById('${id}').textContent`);
+  await browser.evaluate(`document.getElementById('load').click()`);
+  await until(async () => await said('greeting') === '200 hello from the server', 'the greeting');
+  await type('tea');
+  await browser.evaluate(`document.getElementById('add').click()`);
+  await until(async () => await notes() === '- eggs,tea', 'the note to share');
+  await browser.evaluate(`document.getElementById('share').click()`);
+  assert.equal(await until(async () => (await said('shared')) || false, 'the shared notes'), '201 text/plain 3 "- eggs\\ntea"');
+  await browser.evaluate(`document.getElementById('listen').click()`);
+  await until(async () => await said('heard') === 'message:one,note:two,ended', 'the stream heard to its end');
+  await browser.evaluate(`document.getElementById('remove-2').click()`);
+  await until(async () => await notes() === '- eggs', 'the shared note removed');
 
   await browser.evaluate(`Object.defineProperty(document, 'hidden', {configurable: true, get: () => true}),
     document.dispatchEvent(new Event('visibilitychange', {bubbles: true}))`);

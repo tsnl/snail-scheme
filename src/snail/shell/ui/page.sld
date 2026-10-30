@@ -8,7 +8,8 @@
 ;;   restore : Save -> Model
 ;;
 ;; `define-ui` runs `run-ui` as the page's root task, over the page's
-;; document (host/browser/ui.mjs). It boots as an application does: from
+;; document and with the page's requests to its server
+;; (host/browser/ui.mjs). It boots as an application does: from
 ;; the model a reloading program hands over, when it is still of the
 ;; model's type, else from the stored save, else from `init`. It stores
 ;; the save when the page is hidden and when a reload closes the
@@ -26,15 +27,17 @@
    (snail shell page)
    (snail shell dom)
    (snail shell dom page)
+   (snail shell fetch)
+   (snail shell fetch page)
    (snail shell ui))
   (begin
 
     ;; ---- Interfaces ----
 
-    ;; What an interface's commands may do: wait on tasks, and reach the
-    ;; page's document by element id.
+    ;; What an interface's commands may do: wait on tasks, reach the page's
+    ;; document by element id, and ask the server.
     (type (Command M)
-          (FnOnce M ! tasks dom))
+          (FnOnce M ! tasks dom fetch))
 
     ;; The cell is the model last checkpointed or booted. Commands share a
     ;; row with the checkpoint, which names storage, so each is wrapped in
@@ -69,14 +72,16 @@
                                  (ui-restore #f)))
                ((None) (ui-restore #t))))
 
-           (: ui-update (-> Model Msg (Pair Model (List (FnOnce Msg ! mut storage tasks dom)))))
+           (: ui-update
+              (-> Model Msg (Pair Model (List (FnOnce Msg ! mut storage tasks dom fetch)))))
            (define (ui-update model message)
              (match ((ann step (-> Model Msg (Pair Model (List (Command Msg)))))
                      model
                      message)
                ((Pair next commands) (Pair next (ui-widened commands)))))
 
-           (: ui-widened (-> (List (Command Msg)) (List (FnOnce Msg ! mut storage tasks dom))))
+           (: ui-widened
+              (-> (List (Command Msg)) (List (FnOnce Msg ! mut storage tasks dom fetch))))
            (define (ui-widened commands)
              (match commands
                ((Cons command rest) (Cons (once (lambda () (command))) (ui-widened rest)))
@@ -97,10 +102,12 @@
                          (report-boot (Pair-second boot))
                          (Some (type-convert (with-page-dom
                                               (lambda ()
-                                                (run-ui (Pair-first boot)
-                                                        ui-update
-                                                        (ann render (-> Model (Html Msg)))
-                                                        ui-checkpoint)))
+                                                (with-page-fetch
+                                                 (lambda ()
+                                                   (run-ui (Pair-first boot)
+                                                           ui-update
+                                                           (ann render (-> Model (Html Msg)))
+                                                           ui-checkpoint)))))
                                              Any)))
                         ((None) (None)))))))
 
