@@ -19,6 +19,7 @@
   - [Notable omissions](snail-core/omissions.md)
   - [References](snail-core/references.md)
 - [Tutorials](snail-core/tutorials/index.md)
+  - [Snail-Core in ten minutes](snail-core/tutorials/tour.md)
   - [Fibonacci](snail-core/tutorials/fibonacci.md)
   - [Colors](snail-core/tutorials/colors.md)
   - [Effects](snail-core/tutorials/effects.md)

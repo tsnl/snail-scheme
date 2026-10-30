@@ -8,7 +8,8 @@ itself.
 - [Snail-Core](snail-core/index.md): the language, its types,
   libraries, compiler and application model.
 - [Tutorials](snail-core/tutorials/index.md): small complete programs to read and
-  run. Start here to write something.
+  run, opening with [Snail-Core in ten minutes](snail-core/tutorials/tour.md).
+  Start here to write something.
 
 As an extra, [Siegework](games/index.md) is a colony game written entirely
 in Snail-Core. **[Play it](play/siegework/)** in a browser with WebGPU.
