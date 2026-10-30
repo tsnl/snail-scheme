@@ -2,16 +2,10 @@
 // a stopped record immediately rejects every alias of its public handle.
 import {createSocket} from 'node:dgram';
 import {once} from 'node:events';
-import {isIPv4} from 'node:net';
 
 const datagramLimit = 65507, queueLimit = 32;
 const fault = (code, message) => Object.assign(new Error(message), {code});
 const closedError = () => fault('EBADF', 'UDP socket is closed');
-
-function endpoint(address, port, zero) {
-  if (typeof address !== 'string' || !isIPv4(address)) throw fault('EINVAL', 'UDP requires a numeric IPv4 address');
-  if (!Number.isInteger(port) || port < (zero ? 0 : 1) || port > 65535) throw fault('EINVAL', 'UDP port is outside its range');
-}
 
 export function createUdp() {
   const resources = new Map();
@@ -47,7 +41,7 @@ export function createUdp() {
   }
 
   async function bind(signal, address, port) {
-    signal.throwIfAborted(); endpoint(address, port, true);
+    signal.throwIfAborted();
     if (stopped) throw closedError();
     const resource = own();
     try {
@@ -84,7 +78,7 @@ export function createUdp() {
   // Borrow immutable bytes through native completion. Cancellation cannot
   // retract a send, so it waits for the callback and leaves the socket usable.
   async function send(signal, id, address, port, bytes) {
-    signal.throwIfAborted(); endpoint(address, port, false);
+    signal.throwIfAborted();
     if (!(bytes instanceof Uint8Array)) throw fault('EINVAL', 'UDP send requires bytes');
     if (bytes.length > datagramLimit) throw fault('EMSGSIZE', 'UDP datagram exceeds 65507 bytes');
     const resource = get(id), count = bytes.length;

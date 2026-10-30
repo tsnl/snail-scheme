@@ -16,12 +16,20 @@ remaining work.
 Import `(snail shell socket)` and include `tcp` or `udp` in the effect row of code using it.
 Every operation returns `Result` with a `SocketError` whose `code` is a string
 such as `"EBADF"`, `"EINVAL"` or a native network error code. Cancellation
-unwinds the task; it is not a recoverable `SocketError`. TCP operations are:
+unwinds the task; it is not a recoverable `SocketError`.
+
+An `Endpoint` is an IPv4 address and a port, and only `(endpoint address
+port)` makes one, from dotted text: four decimal octets from 0 to 255
+without leading zeros, and a port from 0 to 65,535, or `EINVAL`. The type
+is exported without its constructor, so holding an `Endpoint` is evidence
+that both are usable, and no host checks them again. `Endpoint-address`
+gives the dotted text and `Endpoint-port` the port. Hostnames are outside
+this API. TCP operations are:
 
 | Operation | Success value |
 | --- | --- |
-| `listen (Endpoint address port)` | `Listener`; `Listener-port` is the actual bound port. |
-| `connect (Endpoint address port)` | `Connection`. |
+| `listen endpoint` | `Listener`; `Listener-port` is the actual bound port. |
+| `connect endpoint` | `Connection`. |
 | `accept listener` | `Connection`. |
 | `read connection maximum` | `Some Bytes` containing an available nonempty prefix, or `None` at EOF. |
 | `write connection bytes` | `I32` count accepted locally, possibly smaller than the input. |
@@ -31,14 +39,14 @@ unwinds the task; it is not a recoverable `SocketError`. TCP operations are:
 
 TCP read limits are 1–65,536 bytes; one write accepts at most 65,536. Reads may
 split or combine peer writes. Callers must loop to transfer an exact length.
-Addresses are numeric IPv4 and ports are 0–65,535; listen port 0 selects a free
-port. Hostnames, TLS and stream framing are outside this API.
+Listen port 0 selects a free port. TLS and stream framing are outside this
+API.
 
 UDP operations are:
 
 | Operation | Success value |
 | --- | --- |
-| `bind (Endpoint address port)` | `UdpSocket`; `UdpSocket-port` is the actual bound port. |
+| `bind endpoint` | `UdpSocket`; `UdpSocket-port` is the actual bound port. |
 | `send socket peer bytes` | `I32` count of the entire datagram accepted locally, including zero; never a partial prefix. |
 | `receive socket maximum` | `Datagram` with an `Endpoint` peer and immutable bytes. |
 | `close-udp socket` | `Unit`. |
@@ -47,7 +55,8 @@ UDP payloads and receive bounds are 0–65,507 bytes. Empty packets are messages
 not EOF. An oversized receive consumes and discards that packet with `EMSGSIZE`;
 the next receive starts at the next packet. `Datagram-peer` supplies the sender's
 address and port, and `Datagram-bytes` supplies the whole payload. Bind port 0
-selects a free port; send destination ports are 1–65,535. UDP does not guarantee
+selects a free port; a send to port 0 fails with `EINVAL` before it reaches
+the host. UDP does not guarantee
 delivery, order or uniqueness.
 
 `Listener`, `Connection` and `UdpSocket` carry an opaque `Any` token belonging to their
@@ -74,8 +83,10 @@ these managed values. Host code remains trusted to use the correct Snail-Core ty
 
 Outgoing bytes are copied from staging before any other Wasm call or await.
 Incoming bytes are written into a temporary managed array and copied to an
-immutable vector; there is currently one helper call per byte. Endpoint text
-uses bounded character projection. This simple bridge avoids a global reply
+immutable vector; there is currently one helper call per byte. An endpoint
+crosses as two I32s, its port and its address, whose four octets are the
+I32's unsigned bits, most significant first. A datagram's sender crosses
+back as Node's dotted text, which `endpoint` parses. This simple bridge avoids a global reply
 slot or callback protocol; bulk copying can be optimized separately.
 
 A pending acquisition carries its native handle and bound-port metadata, where
@@ -106,7 +117,8 @@ Every operation must use the owner that issued its handle.
 | `close(handle)` | Immediate revocation of aliases and initiation of native cleanup; repeated close does nothing. |
 | `shutdown()` | Reject new work, close all resources, and await native cleanup. |
 
-Addresses are numeric IPv4 and ports are 0–65,535. There is one pending accept
+The address is the dotted text of an `Endpoint`'s, and the port its port.
+There is one pending accept
 per listener and at most one pending read and one write per connection; a read
 and write can overlap. Duplicate operations fail with `EBUSY`, revoked handles
 with `EBADF`, and invalid arguments with `EINVAL`. Native network errors retain
@@ -188,7 +200,7 @@ opening state, DNS lookup or bind cancellation registration.
 | `shutdown()` | Stop new binds, close remaining sockets and await native cleanup. |
 
 Handles never repeat within their owner, including after failed bind attempts.
-Addresses must be numeric IPv4; send destination ports are 1–65,535. A payload
+Addresses and ports come from `Endpoint`s, as for TCP. A payload
 may contain 0–65,507 bytes. Zero-length datagrams are messages, not EOF.
 Receive accepts a maximum in the same range. If the next datagram is too large,
 it is consumed and discarded with `EMSGSIZE`; there is no partial result or

@@ -14,10 +14,10 @@
 ;; main returns.
 (dispatch-local
  (once (lambda ()
-         (let* ((first (require (bind (Endpoint "127.0.0.1" 0))))
-                (second (require (bind (Endpoint "127.0.0.1" 0))))
-                (peer (Endpoint "127.0.0.1" (UdpSocket-port second)))
-                (listener (require (listen (Endpoint "127.0.0.1" 0)))))
+         (let* ((first (require (bind (require (endpoint "127.0.0.1" 0)))))
+                (second (require (bind (require (endpoint "127.0.0.1" 0)))))
+                (peer (require (endpoint "127.0.0.1" (UdpSocket-port second))))
+                (listener (require (listen (require (endpoint "127.0.0.1" 0))))))
            ;; Owner-local handle numbers can coincide. Their token types cannot.
            (match (close-udp (UdpSocket (Listener-token listener) 0))
              ((Err error) (write-line (SocketError-code error)))
@@ -40,6 +40,9 @@
              ((Err error) (write-line (SocketError-code error)))
              ((Ok _) (panic "oversized UDP receive succeeded")))
            (require (send first peer #u8(3)))
+           (match (send first (require (endpoint "127.0.0.1" 0)) #u8(4))
+             ((Err error) (write-line (SocketError-code error)))
+             ((Ok _) (panic "a datagram was sent to port 0")))
            (display (vector->list (Datagram-bytes (require (receive second 1)))))
            (newline)
            (require (close-udp first))
@@ -47,5 +50,5 @@
            (require (close-udp second)))
 
          ;; Runtime shutdown also closes delivered datagram sockets left open.
-         (require (bind (Endpoint "127.0.0.1" 0)))
+         (require (bind (require (endpoint "127.0.0.1" 0))))
          (unit))))

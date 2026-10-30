@@ -71,11 +71,7 @@ try {
   await transmit([90]);
   assert.deepEqual([...(await udp.receive(signal, second, 1)).bytes], [90], 'overflow dropped the newest packets');
 
-  for (const [address, port] of [['localhost', 0], ['::1', 0], ['127.0.0.1', -1], ['127.0.0.1', 65536]]) {
-    await assert.rejects(udp.bind(signal, address, port), error('EINVAL'));
-  }
   for (const maximum of [-1, 65508, 1.5]) await assert.rejects(udp.receive(signal, second, maximum), error('EINVAL'));
-  await assert.rejects(udp.send(signal, first, '127.0.0.1', 0, new Uint8Array()), error('EINVAL'));
   await assert.rejects(udp.send(signal, first, '127.0.0.1', secondPort, []), error('EINVAL'));
   const aborted = AbortSignal.abort(reason), before = sockets.length;
   await assert.rejects(udp.bind(aborted, '127.0.0.1', 0), value => value === reason);

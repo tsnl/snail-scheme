@@ -138,8 +138,6 @@ async function cancelledWrite() {
 
 async function shutdownAndStartup() {
   const tcp = createTcp();
-  await assert.rejects(tcp.listen(signal, 'localhost', 0), {code: 'EINVAL'});
-  await assert.rejects(tcp.listen(signal, '127.0.0.1', -1), {code: 'EINVAL'});
   await assert.rejects(tcp.connect(signal, '127.0.0.1', 0), {code: 'ECONNREFUSED'});
   const controller = new AbortController(), reason = new Error('cancel startup');
   const listening = tcp.listen(controller.signal, '127.0.0.1', 0);

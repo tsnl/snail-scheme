@@ -1,16 +1,11 @@
 // Concrete Node TCP ownership. Scalar handles never retain managed wrappers.
 // Close invalidates aliases now; shutdown waits for the remaining native close.
 import {on, once} from 'node:events';
-import {isIPv4, Server, Socket} from 'node:net';
+import {Server, Socket} from 'node:net';
 
 const chunkSize = 64 * 1024, queueLimit = 64;
 const fault = (code, message) => Object.assign(new Error(message), {code});
 const closedError = () => fault('EBADF', 'TCP resource is closed');
-
-function endpoint(address, port) {
-  if (typeof address !== 'string' || !isIPv4(address)) throw fault('EINVAL', 'TCP requires a numeric IPv4 address');
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw fault('EINVAL', 'TCP port must be 0..65535');
-}
 
 // Node's event helpers wrap abort reasons. Preserve the task's exact reason so
 // ordinary cancellation is not reported as a detached task failure.
@@ -81,8 +76,10 @@ export function createTcp() {
     socket.once('close', () => listener.queue.delete(connection));
   }
 
+  // The address and port come from an Endpoint, (snail shell socket)'s
+  // parsed IPv4 address and port.
   async function listen(signal, address, port) {
-    signal.throwIfAborted(); endpoint(address, port);
+    signal.throwIfAborted();
     if (stopped) throw closedError();
     const listener = own(new Server({pauseOnConnect: true, allowHalfOpen: true}), 'listener');
     listener.io.on('connection', socket => incoming(listener, socket));
@@ -99,7 +96,7 @@ export function createTcp() {
   }
 
   async function connect(signal, address, port) {
-    signal.throwIfAborted(); endpoint(address, port);
+    signal.throwIfAborted();
     if (stopped) throw closedError();
     const connection = own(new Socket({allowHalfOpen: true}), 'connection');
     const abort = () => closeResource(connection, signal.reason);

@@ -13,12 +13,10 @@ function errorCode(api, code) {
   return api['socket:error-code'](buffer(api, new TextEncoder().encode(code)));
 }
 
-function address(api, endpoint) {
-  const count = api['socket:address-length'](endpoint);
-  let text = '';
-  for (let index = 0; index < count; index++) text += String.fromCodePoint(api['socket:address-character'](endpoint, index));
-  return text;
-}
+// An endpoint crosses as its address, whose four octets are the I32's
+// unsigned bits, most significant first, and its port. (snail shell
+// socket)'s `endpoint` parsed both, so neither is checked here.
+const dotted = address => [24, 16, 8, 0].map(shift => (address >>> shift) & 255).join('.');
 
 // Each operation that waits is started by `start-NAME`, which reads its
 // arguments at once, and finished by one `finish` (tasks.mjs). Each finish
@@ -72,14 +70,12 @@ export function socketImports(program, tasks, tcp, udp) {
 
   const finish = ticket => tasks.finish(Number(ticket));
   return {
-    'start-listen'(ticket, endpoint) {
-      const api = helpers(), host = address(api, endpoint), port = api['socket:endpoint-port'](endpoint);
-      acquire(ticket, tcp, 'tcp:listen-error', signal => listening(signal, host, port),
+    'start-listen'(ticket, address, port) {
+      acquire(ticket, tcp, 'tcp:listen-error', signal => listening(signal, dotted(address), port),
               (api, result) => api['tcp:listening'](result.handle, result.port));
     },
-    'start-connect'(ticket, endpoint) {
-      const api = helpers(), host = address(api, endpoint), port = api['socket:endpoint-port'](endpoint);
-      acquire(ticket, tcp, 'tcp:connection-error', async signal => ({handle: await tcp.connect(signal, host, port)}),
+    'start-connect'(ticket, address, port) {
+      acquire(ticket, tcp, 'tcp:connection-error', async signal => ({handle: await tcp.connect(signal, dotted(address), port)}),
               (api, result) => api['tcp:connected'](result.handle));
     },
     'start-accept'(ticket, listener) {
@@ -104,15 +100,13 @@ export function socketImports(program, tasks, tcp, udp) {
     },
     'close-listener'(listener) { const api = helpers(); return close(api, tcp, api['tcp:listener-handle'](listener)); },
     'close-connection'(connection) { const api = helpers(); return close(api, tcp, api['tcp:connection-handle'](connection)); },
-    'start-bind'(ticket, endpoint) {
-      const api = helpers(), host = address(api, endpoint), port = api['socket:endpoint-port'](endpoint);
-      acquire(ticket, udp, 'udp:bind-error', signal => bound(signal, host, port),
+    'start-bind'(ticket, address, port) {
+      acquire(ticket, udp, 'udp:bind-error', signal => bound(signal, dotted(address), port),
               (api, result) => api['udp:bound'](result.handle, result.port));
     },
-    'start-send'(ticket, socket, peer, pointer) {
-      const bytes = byteSnapshot(program().runtime.exports.memory, pointer), api = helpers();
-      const id = api['udp:socket-handle'](socket), host = address(api, peer), port = api['socket:endpoint-port'](peer);
-      start(ticket, 'socket:write-error', signal => udp.send(signal, id, host, port, bytes), (api, count) => api['socket:written'](count));
+    'start-send'(ticket, socket, address, port, pointer) {
+      const bytes = byteSnapshot(program().runtime.exports.memory, pointer), id = helpers()['udp:socket-handle'](socket);
+      start(ticket, 'socket:write-error', signal => udp.send(signal, id, dotted(address), port, bytes), (api, count) => api['socket:written'](count));
     },
     'start-receive'(ticket, socket, maximum) {
       const id = helpers()['udp:socket-handle'](socket);
