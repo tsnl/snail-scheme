@@ -146,22 +146,32 @@ run interfaces this way under `make test`.
 ```
 
 `init` takes the seed alone, and `update`'s commands are `(Command Msg)`,
-which may wait on tasks and reach the document.
+which may wait on tasks, reach the document, and ask the server through
+the `fetch` effect of `(snail shell fetch)`. `request method url headers
+body` answers the server's reply, its status and body, or why there was
+none. A stream is the server-sent events of the kinds it names at a URL:
+`stream-next` waits for the next, its kind and data, and answers none once
+the stream is closed for good. One command waits on a stream at a time, and the update that hears
+an event issues the next wait, so a stream needs no machinery beyond
+one-shot commands.
 The interface boots as an application does, from a handed-over model of
 its type, else the stored save, else `init`. It runs `run-ui` as the
-page's root task under `with-page-dom` from `(snail shell dom page)`,
-whose `checkpoint` stores the save. The page loads `startInterface` from
+page's root task under `with-page-dom` from `(snail shell dom page)` and
+`with-page-fetch` from `(snail shell fetch page)`, whose `checkpoint`
+stores the save. The page loads `startInterface` from
 `ui.mjs`, which a browser build ships, with a container element in place
 of the canvas. `host/browser/dom.mjs` keeps the interface's nodes and
 listeners in tables by handle and frees a removed node's subtree. A
 listener reads what it captures and prevents the default action while
 the event is dispatched, then queues the event (kind 14). A `wake` queues
-kind 15 from any task. `tests/apps/notes` is the example, and
-`tests/browser/ui.mjs` drives it in Chromium.
+kind 15 from any task. `host/browser/fetch.mjs` runs a request or a stream's next event as a
+host operation of the command's own task, and closes every stream when a
+program starts. `tests/apps/notes` is the example, and
+`tests/browser/ui.mjs` drives it in Chromium against a server of its
+own.
 
-*Proposed* ([#514](https://github.com/tsnl/snail-scheme/issues/514)): fetch
-and server-sent event effects for commands, periodic saves, and live
-reload of an interface's page. Today `ui.mjs` loads a release build's
+*Proposed* ([#514](https://github.com/tsnl/snail-scheme/issues/514)):
+periodic saves, and live reload of an interface's page. Today `ui.mjs` loads a release build's
 `program.wasm`, and the interface saves only when the page is hidden or
 reloads.
 
