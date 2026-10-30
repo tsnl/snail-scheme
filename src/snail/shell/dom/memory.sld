@@ -424,6 +424,12 @@
                                       "selectionEnd"
                                       (Some (Number (i32->f64 end))))))
 
+    (: offset-property (-> Document Node String I32))
+    (define (offset-property document node name)
+      (match (property-of document node name)
+        ((Some (Number offset)) (f64->i32 offset))
+        (_ 0)))
+
     ;; The field's value with the range replaced by `text`, and the caret
     ;; after it.
     (: text-inserted (-> Document Node I32 I32 String Document))
@@ -565,6 +571,10 @@
                     (select-range
                      (lambda (node start end)
                        (alter! state (lambda (document) (selected document node start end)))))
+                    (selection-range
+                     (lambda (node)
+                       (Pair (offset-property (ref-get state) node "selectionStart")
+                             (offset-property (ref-get state) node "selectionEnd"))))
                     (window-node (lambda () (Node -1)))
                     (confirm
                      (lambda (question)

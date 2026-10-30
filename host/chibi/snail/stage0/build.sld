@@ -758,13 +758,14 @@
                                         (standard-directories root)))
             (cons "runtime" (build-crate root "snail-core-support"))))
 
-    ;; The editor adds only its formatter to the command line's tools, whose
-    ;; `resident` builds for it.
+    ;; The editor adds only its own program, the interface the development
+    ;; service serves, to the command line's tools, whose `resident` builds
+    ;; for it.
     (define (build-editor-tools root)
-      (cons (cons "formatter"
+      (cons (cons "editor"
                   (build-tool root
-                              (path-join root "host/ide/format.sld")
-                              (path-join root "build/ide-tools/format.wasm")
+                              (path-join root "host/ide/ide.sld")
+                              (path-join root "build/ide-tools/ide.wasm")
                               (standard-directories root)))
             (build-cli-tools root)))
 

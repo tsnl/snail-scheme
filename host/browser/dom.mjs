@@ -195,6 +195,8 @@ export function createDom(container, runtime) {
       if (typeof target.selectionStart !== 'number') return;
       target.setSelectionRange(units(target.value, start), units(target.value, end));
     },
+    'selection-start': handle => scalars(String(node(handle).value ?? ''), node(handle).selectionStart ?? 0),
+    'selection-end': handle => scalars(String(node(handle).value ?? ''), node(handle).selectionEnd ?? 0),
     // As typing would, so the page can undo it; a field that cannot take
     // the command has its range replaced and hears the input it missed.
     // A command that fails leaves the field as it was.

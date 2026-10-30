@@ -10,7 +10,8 @@
 ;; The interface starts with a message whose command answers at once.
 ;; Indenting inserts two spaces at the start of the field, as typing would,
 ;; so the field's input event brings the model's text up to date, then
-;; selects after them, focuses the field and measures it. A late edit finds
+;; selects after them, reads the selection back, focuses the field and
+;; measures it. A late edit finds
 ;; the field, waits, and inserts after the view has removed the field, so
 ;; its insertion does nothing, its trace line says so, and it answers that
 ;; the field did not take it; once the field is gone, looking it up finds
@@ -62,6 +63,10 @@
        (focus-node node)
        (Done (string-append "indented: "
                             (if took "taken" "refused")
+                            ", selection "
+                            (show (Pair-first (selection-range node)))
+                            "-"
+                            (show (Pair-second (selection-range node)))
                             ", line height "
                             (show (Measure-line-height (measure node)))))))
     ((None) (Done "no field"))))

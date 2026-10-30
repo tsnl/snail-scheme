@@ -62,7 +62,10 @@ try {
   assert.equal(page.status, 200);
   assert.equal(page.headers['x-frame-options'], 'DENY');
   assert.match(page.headers['content-security-policy'], /frame-ancestors 'none'/);
-  assert.match(page.text, /id="save"/);
+  assert.match(page.text, /src="\.\/ide\.mjs"/, 'the page starts the editor');
+  const editor = await service.get('/ide.wasm');
+  assert.equal(editor.status, 200, "the editor's program is an asset");
+  assert.equal(editor.headers.get('content-type'), 'application/wasm');
   assert.equal((await service.request('/', 'GET', {'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'iframe'})).status, 403);
   assert.equal((await service.get('/main.sld')).status, 404, 'no arbitrary project files on the editor origin');
   assert.equal((await service.get('/host/ide/ide.mjs')).status, 404, 'asset lookup is an allowlist');

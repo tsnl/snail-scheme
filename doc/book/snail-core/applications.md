@@ -130,7 +130,8 @@ though the page counts UTF-16 code units.
 
 A command does what a view cannot say by finding a node by its `id`
 attribute with `element-by-id`. It can then focus it, scroll it through
-its scroll properties, select a range of it, insert text into it as typing
+its scroll properties, select a range of it or read its selection
+(`selection-range`), insert text into it as typing
 would (`insert-text`, which the page can undo and which fires the field's
 `input` event, and which answers whether the field took the text), and
 `measure` it. A command can run after the view has removed its node, so on
