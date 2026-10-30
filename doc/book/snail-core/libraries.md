@@ -29,6 +29,7 @@
 | `(snail shell integer)`, `(snail shell rational)`, `(snail shell number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(snail shell datum)`, `(snail shell read)`, `(snail shell write)` | Scheme data and its external representation. |
 | `(snail shell syntax)` | The syntax a `generate-library` recipe returns, and the bytes its producer writes. |
+| `(snail shell project build)` | A project's build, which `snail build` and `snail run` run: `read-project`, `build-project`, which compiles, links and packages each target into a generation of its own, and `publish-project` ([projects](projects.md)). |
 | `(snail shell explore)` | Bounded model checking of a total state machine's invariant. |
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
 | `(scheme compiler)`, `(scheme runtime)` | The R7RS translator, and the standard procedures its output calls. |

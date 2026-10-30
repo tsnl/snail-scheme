@@ -86,6 +86,12 @@
   (let ((status (cadr (apply system (append (program-command root program) arguments)))))
     (quotient status 256)))
 
+;; The command line's tools, built if needed, one path a line in the order
+;; build-cli-tools gives them, for the ./snail launcher to read.
+(define (print-lines tools)
+  (for-each (lambda (tool) (write-string (string-append (cdr tool) "\n"))) tools)
+  0)
+
 ;; The tools the development server runs, built if needed, as JSON for
 ;; host/native/develop.mjs.
 (define (print-tools tools)
@@ -104,6 +110,8 @@
                 ((equal? (cddr arguments) '("tools")) (print-tools (build-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("project-tools"))
                  (print-tools (build-project-tools (cadr arguments))))
+                ((equal? (cddr arguments) '("cli-tools"))
+                 (print-lines (build-cli-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("editor-tools"))
                  (print-tools (build-editor-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("book-tools"))
