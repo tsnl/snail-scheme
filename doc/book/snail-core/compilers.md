@@ -377,7 +377,10 @@ and again, as the development loop does, keeping everything in memory:
 - The expander replays a library, adding what it added before, when its
   declarations read the same and its imports show the same interfaces. A
   library that derived instances loads the implicit libraries first, as its
-  expansion did, so its run follows theirs in every build.
+  expansion did, so its run follows theirs in every build. Its instances
+  are made of their names, so it replays only while their interfaces are
+  the ones it derived against, which its checked-body key and its interface
+  include, as they include the stamp of a library that embeds artifacts.
 - A library's **interface** is what importers depend on: its imports and
   exports, every declaration except the bodies of definitions whose
   signatures are monomorphic, and its imports' interfaces, since its

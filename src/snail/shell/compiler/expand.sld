@@ -348,8 +348,8 @@
     ;; of its declarations with the interfaces of its imports, which decides
     ;; whether a later build may replay it; its own interface; its exports;
     ;; everything it added to the program; the targets whose files it
-    ;; embeds; the files it links; and a declaration it derived instances
-    ;; for, if any.
+    ;; embeds; the files it links; and what it derived instances against,
+    ;; if it did.
     (struct Expanded
       ((key String)
        (body-key String)
@@ -358,7 +358,15 @@
        (delta Program)
        (artifacts (List ArtifactUse))
        (links (List LinkedFile))
-       (derives (Option Loc))))
+       (derives (Option Derivation))))
+
+    ;; A library's derived instances are made of the implicit libraries'
+    ;; names, so they hold while those libraries' interfaces do (#546).
+    ;; `loc` is the declaration whose deriving clause loaded them, which
+    ;; loads them again when the library is replayed.
+    (struct Derivation
+      ((loc Loc)
+       (interfaces String)))
 
     ;; What a build expanded: the program, its libraries, and the counters,
     ;; scopes and top levels a later build continues from, so that the names
@@ -1062,20 +1070,36 @@
         (_ #f)))
 
     ;; The library as the build before expanded it, if this build may replay
-    ;; it: its declarations and its imports' interfaces are unchanged, its
-    ;; embedded files current and its linked files present.
+    ;; it: its declarations and its imports' interfaces are unchanged, the
+    ;; instances it derived still hold, its embedded files are current and
+    ;; its linked files present.
     (: replayable (-> Context String (Pair (Option Expanded) Context) ! fs compile))
     (define (replayable cx key)
       (match (table-ref (Context-predecessor cx) (Context-prefix cx))
         ((Some entry)
          (if (string=? (Expanded-key entry) key)
-             (expanding cx ((current (artifacts-current? (Expanded-artifacts entry))))
-                        (Pair (if (and current (every? linked-file-present? (Expanded-links entry)))
+             (expanding cx ((derived (derived-as-before? entry))
+                            (current (artifacts-current? (Expanded-artifacts entry))))
+                        (Pair (if (and derived
+                                       current
+                                       (every? linked-file-present? (Expanded-links entry)))
                                   (Some entry)
                                   (None))
                               cx))
              (Pair (None) cx)))
         ((None) (Pair (None) cx))))
+
+    ;; Whether the implicit libraries' interfaces are those the library
+    ;; derived its instances against. Its declarations are unchanged, so it
+    ;; derives them again either way, and loading the implicit libraries is
+    ;; what its replay or its expansion would do first.
+    (: derived-as-before? (-> Context Expanded (Pair Bool Context) ! fs compile))
+    (define (derived-as-before? cx entry)
+      (match (Expanded-derives entry)
+        ((Some derivation)
+         (let ((cx (Pair-second (deriving-scope cx (Derivation-loc derivation)))))
+           (Pair (string=? (implicit-interfaces cx) (Derivation-interfaces derivation)) cx)))
+        ((None) (Pair #t cx))))
 
     ;; A library replayed adds what it added in the build before, after the
     ;; implicit libraries if it derived instances, since its run follows
@@ -1087,7 +1111,7 @@
     (: replay (-> Context Expanded (Pair Exports Context) ! fs compile))
     (define (replay cx entry)
       (let ((cx (match (Expanded-derives entry)
-                  ((Some loc) (Pair-second (deriving-scope cx loc)))
+                  ((Some derivation) (Pair-second (deriving-scope cx (Derivation-loc derivation))))
                   ((None) cx))))
         (Pair (Expanded-exports entry)
               (record
@@ -1113,21 +1137,42 @@
            ! fs compile))
     (define (expand-recorded cx sections env key)
       (expanding cx ((exports (expand-library-body sections env)))
-                 (let ((uses (Context-artifact-uses cx)) (links (reverse (Context-links cx))))
+                 (let* ((uses (Context-artifact-uses cx))
+                        (links (reverse (Context-links cx)))
+                        (derivation (derivation-of cx))
+                        (derived (derivation-key derivation)))
                    (expanding cx ((stamp (artifact-stamp uses)))
                               (for-each (lambda (link) (check-linked-file (Context-prefix cx) link))
                                         links)
                               (Pair exports
                                     (record cx
                                             (Expanded key
-                                                      (string-append key stamp)
+                                                      (string-append key derived stamp)
                                                       (string-append (interface-hash cx sections)
+                                                                     derived
                                                                      stamp)
                                                       exports
                                                       (library-delta cx)
                                                       uses
                                                       links
-                                                      (Context-derives cx))))))))
+                                                      derivation)))))))
+
+    ;; What the library's instances were derived against, if it derived any.
+    (: derivation-of (-> Context (Option Derivation)))
+    (define (derivation-of cx)
+      (match (Context-derives cx)
+        ((Some loc) (Some (Derivation loc (implicit-interfaces cx))))
+        ((None) (None))))
+
+    ;; A derivation enters the checked-body key and importers' interface
+    ;; keys as the artifact stamp does: a change to the implicit libraries'
+    ;; interfaces derives the instances again, and the instances' code is
+    ;; then new to whatever checked or specialized it.
+    (: derivation-key (-> (Option Derivation) String))
+    (define (derivation-key derivation)
+      (match derivation
+        ((Some derivation) (string-append " derived " (Derivation-interfaces derivation)))
+        ((None) "")))
 
     ;; What the library added, which a later build replays.
     (: library-delta (-> Context Program))
@@ -1184,12 +1229,23 @@
     (: imports-interfaces (-> Context (List (Pair String (List Syntax))) String ! compile))
     (define (imports-interfaces cx sections)
       (string-join (map (lambda (spec)
-                          (match (table-ref (Context-expanded cx)
-                                            (string-join (library-name (spec-library spec)) "."))
-                            ((Some entry) (Expanded-interface entry))
-                            ((None) "builtin")))
+                          (library-interface cx
+                                             (string-join (library-name (spec-library spec)) ".")))
                         (section-items sections "import"))
                    " "))
+
+    ;; The implicit libraries' interfaces, as this build expanded them.
+    (: implicit-interfaces (-> Context String))
+    (define (implicit-interfaces cx)
+      (string-join (map (lambda (name) (library-interface cx (string-join name ".")))
+                        implicit-libraries)
+                   " "))
+
+    (: library-interface (-> Context String String))
+    (define (library-interface cx name)
+      (match (table-ref (Context-expanded cx) name)
+        ((Some entry) (Expanded-interface entry))
+        ((None) "builtin")))
 
     ;; The key a build expanded a library under. Anything made from the
     ;; library's expansion, such as its checked items, stays valid while its
@@ -3528,7 +3584,8 @@
           (test-discovery (list discover library) discover)
           (test-links (string-append directory "/links"))
           (test-primitives (string-append directory "/primitive") library)
-          (test-deriving-runs (string-append directory "/deriving") library)))
+          (test-deriving-runs (string-append directory "/deriving") library)
+          (test-deriving-key (string-append directory "/deriving-key") library)))
 
       (define (test-library-file directories)
         (let ((loc (Loc "test.sld" 1 1)))
@@ -3681,6 +3738,43 @@
           (expect (run-length first "sample.shape") 2)
           (expect (deriving-order first) (list "snail.shell.wire" "sample.shape" "main"))
           (expect (deriving-order (expand first)) (list "snail.shell.wire" "sample.shape" "main"))))
+
+      ;; A library's derived instances hold while the implicit libraries'
+      ;; interfaces do (#546): a definition added to the wire changes its
+      ;; interface, so the library that derives is expanded under a new
+      ;; key, though its text is the same; a change to that definition's
+      ;; body alone leaves the key as it was. The wire is a copy of the
+      ;; standard one, found first.
+      (define (test-deriving-key root library)
+        (let* ((wire (read-file (string-append library "/snail/shell/wire.sld")))
+               (end (- (string-length wire) 2))
+               (marked (lambda (value)
+                         (string-append (substring wire 0 end)
+                                        " (begin (: wire-marker I64) (define wire-marker "
+                                        value
+                                        ")))\n")))
+               (expand (lambda (text predecessor)
+                         (write-file (string-append root "/snail/shell/wire.sld") text)
+                         (expand-program (list root library)
+                                         (lambda (loading forms) (panic "unexpected producer"))
+                                         no-inputs
+                                         (string-append root "/main.sld")
+                                         predecessor)))
+               (key (lambda (expansion) (library-key expansion "sample.shape"))))
+          (expect (substring wire end (string-length wire)) ")\n")
+          (create-directory* (string-append root "/sample"))
+          (create-directory* (string-append root "/snail/shell"))
+          (write-file (string-append root "/sample/shape.sld")
+                      (string-append
+                       "(define-library (sample shape) (export Shape) (import (snail core base))"
+                       " (begin (struct Shape ((side I64)) (deriving Serialize))))"))
+          (write-file (string-append root "/main.sld")
+                      "(import (snail core base) (sample shape)) (Shape 2)")
+          (let* ((first (expand wire empty-expansion))
+                 (second (expand (marked "1") first))
+                 (third (expand (marked "2") second)))
+            (expect (string=? (key first) (key second)) #f)
+            (expect (key third) (key second)))))
 
       (define (expansion-runs expansion)
         (let ((program (ExpandedProgram-program expansion)))
