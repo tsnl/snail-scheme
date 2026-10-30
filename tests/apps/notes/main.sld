@@ -1,7 +1,9 @@
 ;; The smallest document interface: notes typed into a field and added to a
 ;; keyed list, by the button or by Enter, each with a button that removes
 ;; it. Adding also starts a command that answers once it has yielded, so
-;; the count of notes added arrives by a wake. The browser test
+;; the count of notes added arrives by a wake, and focuses the field again.
+;; A bullet button's command inserts "- " at the start of the field as
+;; typing would, so the field's input event brings the draft up to date. The browser test
 ;; (tests/browser/ui.mjs) drives it, and checks that the save a hidden page
 ;; stores brings the notes back on a fresh load.
 (import
@@ -31,6 +33,7 @@
   (Typed ((text String)))
   (Pressed ((key String)))
   (Add)
+  (Bullet)
   (Added ((count I64)))
   (Remove ((id I64))))
 
@@ -38,12 +41,13 @@
 (define (start seed)
   (Notes (Nil) "" 0 0))
 
-(: update (-> Notes Message (Pair Notes (List (FnOnce Message ! tasks)))))
+(: update (-> Notes Message (Pair Notes (List (Command Message)))))
 (define (update model message)
   (match message
     ((Typed text) (Pair (Notes-draft-set model text) (Nil)))
     ((Pressed key) (if (string=? key "Enter") (update model (Add)) (Pair model (Nil))))
     ((Add) (added model))
+    ((Bullet) (Pair model (list (once bullet))))
     ((Added count) (Pair (Notes-added-set model count) (Nil)))
     ((Remove id)
      (Pair (Notes-notes-set model
@@ -53,7 +57,7 @@
 
 ;; A note from the draft, unless it is empty, and the command that counts
 ;; it once it has yielded.
-(: added (-> Notes (Pair Notes (List (FnOnce Message ! tasks)))))
+(: added (-> Notes (Pair Notes (List (Command Message)))))
 (define (added model)
   (if (string=? (Notes-draft model) "")
       (Pair model (Nil))
@@ -65,7 +69,22 @@
                 (Notes-added model))
          (list (once (lambda ()
                        (yield)
+                       (with-draft focus-node)
                        (Added count))))))))
+
+;; Does `act` to the draft field, if the view still shows it.
+(: with-draft (-> (-> Node Unit ! dom) Unit ! dom))
+(define (with-draft act)
+  (match (element-by-id "draft")
+    ((Some node) (act node))
+    ((None) (unit))))
+
+;; The field's input event, which inserting fires, carries the new draft;
+;; the command's own answer leaves it as it is.
+(: bullet (-> Message ! dom))
+(define (bullet)
+  (with-draft (lambda (node) (insert-text node 0 0 "- ")))
+  (Pressed ""))
 
 (: view (-> Notes (Html Message)))
 (define (view model)
@@ -87,6 +106,10 @@
                  (Element "button"
                           (list (Attr "id" "add") (On "click" (Nil) (Allow) (lambda (event) (Add))))
                           (list (Text "Add")))
+                 (Element "button"
+                          (list (Attr "id" "bullet")
+                                (On "click" (Nil) (Allow) (lambda (event) (Bullet))))
+                          (list (Text "Bullet")))
                  (Element "ul" (list (Attr "id" "notes")) (map note-view (Notes-notes model)))
                  (Element "p"
                           (list (Attr "id" "added"))

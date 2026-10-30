@@ -2,7 +2,9 @@
 // tests/apps/notes, a static server serves it, and headless Chromium types
 // notes, adds them by the button and by Enter, which the listener's chord
 // keeps from its default action, and removes one. The count of notes added
-// arrives by a command's wake. Hiding the page stores the save, and a fresh
+// arrives by a command's wake, and the command focuses the field it finds
+// by id. Another command inserts text into the field as typing would,
+// which the page can undo. Hiding the page stores the save, and a fresh
 // load restores the notes from it.
 //
 //   CHROMIUM=... node tests/browser/ui.mjs ROOT [SCREENSHOT]
@@ -51,22 +53,30 @@ try {
   assert.equal(await notes(), '');
 
   await type('milk');
-  await browser.evaluate(`document.getElementById('add').click()`);
+  await browser.evaluate(`document.getElementById('add').focus(), document.getElementById('add').click()`);
   await until(async () => await notes() === 'milk', 'the first note');
   await until(async () => await added() === '1 added', 'the command that counts it');
   assert.equal(await browser.evaluate(`document.getElementById('draft').value`), '', 'the field empties');
+  await until(() => browser.evaluate(`document.activeElement?.id === 'draft'`), 'the command focusing the field');
 
   await type('eggs');
+  await browser.evaluate(`document.getElementById('bullet').click()`);
+  const draft = () => browser.evaluate(`document.getElementById('draft').value`);
+  await until(async () => await draft() === '- eggs', 'the inserted bullet');
+  await browser.evaluate(`document.getElementById('draft').focus(), document.execCommand('undo')`);
+  await until(async () => await draft() === 'eggs', 'the bullet undone');
+  await browser.evaluate(`document.execCommand('redo')`);
+  await until(async () => await draft() === '- eggs', 'the bullet redone');
   const prevented = await browser.evaluate(`!document.getElementById('draft').dispatchEvent(
     new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true}))`);
   assert.equal(prevented, true, 'the Enter chord prevents the default action');
-  await until(async () => await notes() === 'milk,eggs', 'the note Enter adds');
+  await until(async () => await notes() === 'milk,- eggs', 'the note Enter adds');
   const other = await browser.evaluate(`!document.getElementById('draft').dispatchEvent(
     new KeyboardEvent('keydown', {key: 'a', bubbles: true, cancelable: true}))`);
   assert.equal(other, false, 'other keys keep their default action');
 
   await browser.evaluate(`document.getElementById('remove-0').click()`);
-  await until(async () => await notes() === 'eggs', 'the removal');
+  await until(async () => await notes() === '- eggs', 'the removal');
   await until(async () => await added() === '2 added', 'the second count');
 
   await browser.evaluate(`Object.defineProperty(document, 'hidden', {configurable: true, get: () => true}),
@@ -79,10 +89,10 @@ try {
 
   await browser.navigate(`http://127.0.0.1:${server.address().port}/`);
   assert.equal(await ready(), 'true');
-  await until(async () => await notes() === 'eggs', 'the restored notes');
+  await until(async () => await notes() === '- eggs', 'the restored notes');
   await type('tea');
   await browser.evaluate(`document.getElementById('add').click()`);
-  await until(async () => await notes() === 'eggs,tea', 'a note after the restore');
+  await until(async () => await notes() === '- eggs,tea', 'a note after the restore');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('a document interface types, adds, removes, saves and restores');
 } finally {
