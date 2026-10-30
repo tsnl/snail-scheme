@@ -340,6 +340,12 @@
         ((Launch name wanted) (launch host name wanted))
         ((Refuse _) host)
         ((Notify snapshot) (notify host snapshot))
+        ((Reclaim directories)
+         (for-each (lambda (directory)
+                     (remove-tree directory)
+                     (unit))
+                   directories)
+         host)
         ((Shutdown) host)
         ((Closed) (Host-done-set host #t))))
 

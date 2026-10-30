@@ -92,8 +92,9 @@ and have no symlink components, including in the path to the public directory.
 
 The public output is a relative symlink to a completed generation beside it.
 Rebuilds replace that link atomically after compilation and packaging succeed.
-Previous generations remain available to readers; automatic reclamation is not
-implemented. Resolve the link once before reading several files as one artifact.
+Previous generations remain available to readers: `snail build` reclaims none,
+and `snail dev` only those it published once nothing needs them
+([observation and acceptance](toolchain.md#observation-and-acceptance)). Resolve the link once before reading several files as one artifact.
 An ordinary file, directory or unrelated link at the output path is rejected
 and never removed by the builder.
 

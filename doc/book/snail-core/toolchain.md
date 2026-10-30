@@ -149,7 +149,8 @@ service and the commands its host carries out in order. The events are the
 observer's hints and reconciliations, the resident's replies by epoch, the
 debounce timer, run controls, the resident's exit and closing. The commands
 are building, reconciling, publishing or discarding a candidate, giving up an
-attempt's directory, arming the timer, launching a run and notifying.
+attempt's directory, arming the timer, launching a run, reclaiming generations
+and notifying.
 `tests/programs/development-step.sld` drives it through those races. The
 owner feeds it each event, and carries out the commands it answers with, in
 order.
@@ -179,7 +180,13 @@ the attempt's generations with it. A reply relinquishes that attempt; the
 resident's exit relinquishes any unfinished one. This lets the owner remove only
 abandoned private generations, including ones a crashed resident never returned.
 Publication consumes ownership even when some target links moved before failure,
-so those generations must never be swept afterward. Shutdown suppresses
+so those generations must never be swept afterward. The service reclaims the
+generations it published once nothing needs them: it keeps the latest
+publication and the one before it, which a page may still be loading from, and
+an older generation while a run target's process still runs from it, as an
+unchanged child does. What was published before the service started, and
+what a publication that failed part way linked, are not among its
+publications, and stay. Shutdown suppresses
 acceptance and closes observation. It ends the resident's input, so the resident
 finishes the request it is answering and exits, and kills it if it has not 2 s
 later; and it stops each run target's process. Cleanup waits for every exit.

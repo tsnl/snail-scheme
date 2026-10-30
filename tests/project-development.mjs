@@ -137,8 +137,12 @@ async function throughTheService() {
     assert.equal(target(repaired, 'client').compiled, 0, 'a successful dependency session survives consumer failure');
     assert.notEqual(target(repaired, 'client').digest, target(first, 'client').digest, 'cached work can differ from accepted output');
     assert.match(execute(target(repaired, 'server').directory), /90,0,255,/);
-    assert.match(execute(target(first, 'server').directory), /65,0,255,/, 'old generations remain readable');
-    assert.ok(fs.existsSync(target(first, 'client').directory));
+    // The publication before the latest stays readable; older ones no run
+    // runs from are reclaimed.
+    assert.match(execute(target(renamed, 'server').directory), /65,0,255,/, 'the publication before stays readable');
+    for (const output of [...first.published.targets, ...reused.published.targets]) {
+      assert.equal(fs.existsSync(output.directory), false, `${basename(output.directory)} is reclaimed`);
+    }
 
     // Library-root changes recreate a target's Session. Public settings do not
     // participate in that decision; the compiler checks artifact bytes itself.

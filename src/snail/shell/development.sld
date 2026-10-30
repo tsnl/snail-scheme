@@ -10,7 +10,9 @@
 ;; - each attempt's reserved build/.snail-attempt-* directory, which
 ;;   `Build` reserves and `Abandon` or `Release` gives up, by epoch;
 ;; - each run target's process, which `Launch` asks to run a request, or
-;;   none.
+;;   none;
+;; - the generations it published, which `Reclaim` removes once nothing
+;;   needs them.
 ;;
 ;; The step keeps what decides: the epoch that numbers every attempt and
 ;; the replies to it, so a late or duplicate reply is a number that does
@@ -85,6 +87,7 @@
    Launch
    Refuse
    Notify
+   Reclaim
    Shutdown
    Closed
    Refusal
@@ -190,11 +193,14 @@
     ;; What a run target last asked its process to run: the build, the
     ;; digest of its generation and the arguments, none once it asked for
     ;; nothing. A run is asked again only when this changes, so a process
-    ;; that ended is not run again by a publication that changed nothing.
+    ;; that ended is not run again by a publication that changed nothing,
+    ;; and a process asked again for the same digest keeps running from the
+    ;; generation `directory` it was started in.
     (struct Identity
       ((build String)
        (digest String)
-       (arguments (List String))))
+       (arguments (List String))
+       (directory String)))
 
     (struct RunRequest
       ((build I64)
@@ -206,11 +212,13 @@
        (wanted Bool)
        (issued (Option Identity))))
 
+    ;; `publications` are those whose generations are still on disk, newest
+    ;; first, the latest being the one published.
     (struct Service
       ((paths Paths)
        (epoch I64)
        (attempt (Option Attempt))
-       (published (Option Published))
+       (publications (List Published))
        (description (Option Description))
        (dirty Bool)
        (disk Disk)
@@ -224,7 +232,7 @@
       (Service (Paths root project)
                0
                (None)
-               (None)
+               (Nil)
                (None)
                #t
                (Unscanned)
@@ -272,8 +280,9 @@
       (UnknownRunTarget ((name String)))
       (ServiceClosed))
 
-    ;; `Shutdown` stops the observer, the resident and every process, and
-    ;; waits for them, before the commands after it run.
+    ;; `Reclaim` removes generations, as directories. `Shutdown` stops the
+    ;; observer, the resident and every process, and waits for them, before
+    ;; the commands after it run.
     (enum Command
       (Build ((epoch I64)))
       (Reconcile)
@@ -287,6 +296,7 @@
         (request (Option RunRequest))))
       (Refuse ((refusal Refusal)))
       (Notify ((snapshot Snapshot)))
+      (Reclaim ((directories (List String))))
       (Shutdown)
       (Closed))
 
@@ -461,7 +471,9 @@
         ((Some attempt)
          (match (Pair (Attempt-stage attempt) error)
            ((Pair (Publishing candidate messages) (None))
-            (finish (Service-published-set service (Some (Published epoch candidate)))
+            (finish (Service-publications-set service
+                                              (Cons (Published epoch candidate)
+                                                    (Service-publications service)))
                     attempt
                     #f
                     messages
@@ -489,12 +501,14 @@
     (define (finish service attempt owned messages superseded)
       (let* ((epoch (Attempt-epoch attempt))
              (accepted (accepting (Service-attempt-set service (None)) epoch))
-             (service (report (Pair-first accepted)
+             (reclaimed (reclaiming (Pair-first accepted)))
+             (service (report (Pair-first reclaimed)
                               (outcome messages superseded)
                               (if superseded (Nil) messages))))
         (Pair service
               (concatenate (list (list (if owned (Abandon epoch) (Release epoch)))
                                  (Pair-second accepted)
+                                 (Pair-second reclaimed)
                                  (list (Notify (snapshot service)))
                                  (arming service))))))
 
@@ -569,7 +583,7 @@
     ;; overlap the process it had. Then every run is asked again.
     (: accepting (-> Service I64 (Pair Service (List Command))))
     (define (accepting service epoch)
-      (match (Service-published service)
+      (match (published service)
         ((Some published)
          (if (= (Published-id published) epoch)
              (settle-runs (Service-runs-set service (accepted-runs service published)))
@@ -631,7 +645,7 @@
     ;; arguments.
     (: launch (-> Service String (Option (Pair Identity RunRequest))))
     (define (launch service name)
-      (match (Service-published service)
+      (match (published service)
         ((Some published)
          (let ((candidate (Published-candidate published)))
            (match (find (lambda (definition) (string=? (RunDefinition-name definition) name))
@@ -648,7 +662,8 @@
         ((Some generation)
          (Some (Pair (Identity (RunDefinition-build definition)
                                (Generation-digest generation)
-                               (RunDefinition-arguments definition))
+                               (RunDefinition-arguments definition)
+                               (Generation-directory generation))
                      (RunRequest (Published-id published)
                                  (string-append (Generation-directory generation) "/modules.json")
                                  (RunDefinition-arguments definition)))))
@@ -695,13 +710,70 @@
     (: controlled (-> Service Run (Pair Service (List Command))))
     (define (controlled service run)
       (let* ((settled (settle-run service run))
-             (service (Service-runs-set service
-                                        (map (lambda (each)
-                                               (if (string=? (Run-name each) (Run-name run))
-                                                   (Pair-first settled)
-                                                   each))
-                                             (Service-runs service)))))
-        (Pair service (append (Pair-second settled) (list (Notify (snapshot service)))))))
+             (reclaimed (reclaiming (Service-runs-set service
+                                                      (map (lambda (each)
+                                                             (if (string=? (Run-name each)
+                                                                           (Run-name run))
+                                                                 (Pair-first settled)
+                                                                 each))
+                                                           (Service-runs service)))))
+             (service (Pair-first reclaimed)))
+        (Pair service
+              (concatenate (list (Pair-second settled)
+                                 (Pair-second reclaimed)
+                                 (list (Notify (snapshot service))))))))
+
+    ;; ---- Reclaiming generations ----
+
+    ;; A publication's generations stay on disk while it is the latest or
+    ;; the one before, which a page may still be loading from, and an older
+    ;; one's while a run's process runs from it; the rest are reclaimed.
+    ;; What was published before the service started is not its own to
+    ;; reclaim, and what a publication that failed part way linked is not
+    ;; among its publications, so both stay.
+    (: reclaiming (-> Service (Pair Service (List Command))))
+    (define (reclaiming service)
+      (let* ((publications (Service-publications service))
+             (older (list-tail publications (min 2 (length publications))))
+             (kept (append (take publications (- (length publications) (length older)))
+                           (still-held older
+                                       (concatenate
+                                        (map issued-directory (Service-runs service))))))
+             (needed (concatenate (map published-directories kept)))
+             (dropped (filter (lambda (directory) (not (member? directory needed)))
+                              (concatenate (map published-directories older)))))
+        (Pair (Service-publications-set service kept)
+              (if (null? dropped) (Nil) (list (Reclaim dropped))))))
+
+    (: issued-directory (-> Run (List String)))
+    (define (issued-directory run)
+      (match (Run-issued run)
+        ((Some identity) (list (Identity-directory identity)))
+        ((None) (Nil))))
+
+    ;; The publications with a generation in `held`, each with only those.
+    (: still-held (-> (List Published) (List String) (List Published)))
+    (define (still-held publications held)
+      (filter (lambda (published) (not (null? (published-directories published))))
+              (map (lambda (published)
+                     (let ((candidate (Published-candidate published)))
+                       (Published (Published-id published)
+                                  (Candidate (Candidate-description candidate)
+                                             (filter (lambda (generation)
+                                                       (member? (Generation-directory generation)
+                                                                held))
+                                                     (Candidate-generations candidate))))))
+                   publications)))
+
+    (: published-directories (-> Published (List String)))
+    (define (published-directories published)
+      (map Generation-directory (Candidate-generations (Published-candidate published))))
+
+    (: published (-> Service (Option Published)))
+    (define (published service)
+      (match (Service-publications service)
+        ((Cons latest _) (Some latest))
+        ((Nil) (None))))
 
     ;; ---- Ending ----
 
@@ -749,7 +821,7 @@
       (Snapshot (Service-phase service)
                 (Service-epoch service)
                 (Service-diagnostics service)
-                (Service-published service)
+                (published service)
                 (map (lambda (run)
                        (RunStatus (Run-name run)
                                   (Run-wanted run)

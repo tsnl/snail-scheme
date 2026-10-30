@@ -31,6 +31,25 @@
 (define (succeeded digest)
   (Reply (Some description) (Some (candidate digest)) (Nil)))
 
+;; A build into generation `name`, whose files have the digest given, as a
+;; build of an unchanged program does into a new generation.
+(: built-in (-> String String Reply))
+(define (built-in name digest)
+  (Reply (Some description)
+         (Some (Candidate description
+                          (list
+                           (Generation "server" (string-append "/r/apps/p/build/" name) digest))))
+         (Nil)))
+
+;; An edit, and the attempt it starts built and published as `epoch`.
+(: rebuilt (-> I64 Reply (List Event)))
+(define (rebuilt epoch reply)
+  (list (Touched (list "/r/apps/p/main.sld"))
+        (TimerFired)
+        (BuildReplied epoch reply)
+        (Reconciled (Ok (unit)))
+        (PublishReplied epoch (None))))
+
 (: failed Reply)
 (define failed
   (Reply (Some description)
@@ -98,6 +117,7 @@
        ((UnknownRunTarget name) (string-append "refuse unknown " name))
        ((ServiceClosed) "refuse closed")))
     ((Notify snapshot) (snapshot->string snapshot))
+    ((Reclaim directories) (string-append "reclaim " (string-join directories " ")))
     ((Shutdown) "shutdown")
     ((Closed) "closed")))
 
@@ -277,3 +297,16 @@
                         (PublishReplied 4 (None))
                         (StartRun "app")
                         (StopRun "app"))))
+
+(scenario "generations stay while recent or while a run runs from one"
+          (concatenate
+           (list started
+                 (list (BuildReplied 1 (built-in "g1" "a"))
+                       (Reconciled (Ok (unit)))
+                       (PublishReplied 1 (None))
+                       (StartRun "app"))
+                 (rebuilt 2 (built-in "g2" "a"))
+                 (rebuilt 3 (built-in "g3" "a"))
+                 (list (StopRun "app") (StartRun "app"))
+                 (rebuilt 4 (built-in "g4" "b"))
+                 (rebuilt 5 (built-in "g5" "b")))))
