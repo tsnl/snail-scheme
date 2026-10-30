@@ -33,10 +33,11 @@ python3 -m http.server 4191 --directory apps/siegework/build/site
 `snail build [--release] PROJECT BUILD-TARGET` publishes one selected target and
 its required artifacts. `snail run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
 runs a named program. `snail dev [--port PORT] PROJECT` retains compiler
-sessions and serves the editor.
+sessions, serves the editor, and serves each browser target's latest builds
+on an origin of their own.
 The [toolchain](toolchain.md) describes command lifetimes and development,
-including the editor's application controls. Durable application data and browser
-reload integration remain in progress.
+including the editor's application controls. Durable application data and
+reloading a running page remain in progress.
 
 ## Description format
 
@@ -92,8 +93,9 @@ and have no symlink components, including in the path to the public directory.
 
 The public output is a relative symlink to a completed generation beside it.
 Rebuilds replace that link atomically after compilation and packaging succeed.
-Previous generations remain available to readers; automatic reclamation is not
-implemented. Resolve the link once before reading several files as one artifact.
+Previous generations remain available to readers: `snail build` reclaims none,
+and `snail dev` only those it published once nothing needs them
+([observation and acceptance](toolchain.md#observation-and-acceptance)). Resolve the link once before reading several files as one artifact.
 An ordinary file, directory or unrelated link at the output path is rejected
 and never removed by the builder.
 

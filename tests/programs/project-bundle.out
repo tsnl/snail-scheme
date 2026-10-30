@@ -1,0 +1,21 @@
+/ -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/">
+<title>four</title>
+
+/index.html -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/">
+<title>four</title>
+
+/modules.json -> 200 application/json: {"modules": "four"}
+/modules/a.wasm -> 200 application/wasm: four's module
+/STYLE.CSS -> 404 text/plain; charset=utf-8: no such file in the build
+/style.css -> 200 text/css: body {}
+/nested/ -> 200 text/html; charset=utf-8: nested
+/.snail/builds/3/modules.json -> 200 application/json: {"modules": "three"}
+/.snail/builds/3/ -> 200 text/html; charset=utf-8: <!DOCTYPE html>
+<script src="./host.mjs"></script>
+
+/.snail/builds/4/modules/a.wasm -> 200 application/wasm: four's module
+/.snail/builds/2/modules.json -> 404 text/plain; charset=utf-8: build 2 is no longer served
+/a%2Fb -> 404 text/plain; charset=utf-8: no such file in the build
+/modules -> 404 text/plain; charset=utf-8: no such file in the build
+/linked.txt -> 404 text/plain; charset=utf-8: no such file in the build
+/ before a build -> 503 text/plain; charset=utf-8: the application has not been built yet

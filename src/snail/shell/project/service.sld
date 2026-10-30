@@ -13,7 +13,9 @@
 ;;   standard error and exit;
 ;; - a supervisor for each run target, which owns that target's process;
 ;; - a task for each HTTP connection, which serves the editor's API, and
-;;   for an event stream, writes what the owner sends it.
+;;   for an event stream, writes what the owner sends it; and one for each
+;;   connection to the applications' origin, which serves each browser
+;;   target's builds ((snail shell project bundle)).
 ;;
 ;; No cell holds state: each task threads its own through its loop. It is
 ;; #567 steps B3 to B5, which replaced a service in JavaScript.
@@ -36,6 +38,7 @@
    (snail shell utf8)
    (snail shell watch)
    (snail shell development)
+   (snail shell project bundle)
    (snail shell project files))
   (begin
 
@@ -70,6 +73,7 @@
        ((event Event)
         (reply (Mailbox Answer))))
       (Status ((reply (Mailbox Answer))))
+      (Applications ((reply (Mailbox (List Application)))))
       (Fired ((serial I64)))
       (Built
        ((epoch I64)
@@ -127,6 +131,12 @@
 
     ;; ---- The owner's state ----
 
+    ;; A browser target as the applications' origin serves it: its name and
+    ;; the builds of it retained, newest first.
+    (struct Application
+      ((name String)
+       (builds (List BuildDirectory))))
+
     ;; An event stream, by its connection's number, and how many bytes the
     ;; owner sent it that its writer has not written yet.
     (struct Client
@@ -157,6 +167,7 @@
        (resident Process)
        (resident-alive Bool)
        (listener Listener)
+       (applications Listener)
        (service Service)
        (snapshot Snapshot)
        (serial I64)
@@ -180,11 +191,12 @@
     (define (develop setup)
       (dispatch-local (once (lambda () (start setup)))))
 
-    ;; Listens, starts the resident, announces the editor's URL, and
-    ;; dispatches every other task.
+    ;; Listens, starts the resident, announces the editor's URL and the
+    ;; applications', and dispatches every other task.
     (: start (-> Setup Unit ! mut tasks tcp process fs modes hints console signals))
     (define (start setup)
       (let* ((listener (listening setup))
+             (applications (applications-listening (Setup-port setup)))
              (setup (Setup-port-set setup (Listener-port listener)))
              (resident (resident-process setup))
              (owner (make-mailbox))
@@ -196,10 +208,14 @@
         (dispatch-local (once (lambda () (read-replies resident owner (Nil)))))
         (dispatch-local (once (lambda () (await-resident resident owner (Nil)))))
         (dispatch-local (once (lambda () (accept-connections setup listener owner disk))))
+        (dispatch-local (once (lambda () (accept-applications applications owner))))
         (dispatch-local (once (lambda () (mailbox-post owner (Step (wait-for-signal))))))
         (mailbox-post owner (Step (ResidentStarted)))
         (write-line (string-append "editing " (Setup-project setup) " at " (origin setup) "/"))
-        (own (new-host setup owner disk requests resident listener))))
+        (write-line (string-append "serving its browser targets at "
+                                   (listener-origin applications)
+                                   "/NAME/"))
+        (own (new-host setup owner disk requests resident listener applications))))
 
     (: wait-for-signal (-> Event ! tasks signals))
     (define (wait-for-signal)
@@ -220,10 +236,35 @@
     (define (origin setup)
       (string-append "http://127.0.0.1:" (show (Setup-port setup))))
 
+    ;; The applications' origin is apart from the editor's, so no page of
+    ;; the project can reach the editor's API. It takes the port after the
+    ;; editor's when the editor's was asked for, or any port when that one
+    ;; is taken or none was.
+    (: applications-listening (-> I32 Listener ! tasks tcp))
+    (define (applications-listening port)
+      (match (if (= port 0)
+                 (Err (SocketError "unasked"))
+                 (listen (Endpoint "127.0.0.1" (+ port 1))))
+        ((Ok listener) listener)
+        ((Err _)
+         (match (listen (Endpoint "127.0.0.1" 0))
+           ((Ok listener) listener)
+           ((Err error)
+            (panic (string-append "cannot listen for the applications: "
+                                  (SocketError-code error))))))))
+
+    (: listener-host (-> Listener String))
+    (define (listener-host listener)
+      (string-append "127.0.0.1:" (show (Listener-port listener))))
+
+    (: listener-origin (-> Listener String))
+    (define (listener-origin listener)
+      (string-append "http://" (listener-host listener)))
+
     (: new-host
        (-> Setup (Mailbox Message) (Mailbox Scan) (Mailbox (Option String)) Process Listener
-           Host))
-    (define (new-host setup owner disk requests resident listener)
+           Listener Host))
+    (define (new-host setup owner disk requests resident listener applications)
       (Host setup
             owner
             disk
@@ -231,8 +272,9 @@
             resident
             #t
             listener
+            applications
             (new-service (Setup-root setup) (Setup-project setup))
-            (Snapshot (Starting) 0 (Nil) (None) (Nil))
+            (Snapshot (Starting) 0 (Nil) (Nil) (Nil))
             0
             (None)
             (None)
@@ -271,6 +313,7 @@
         ((Step event) (stepped (touched-files host event) event))
         ((Ask event reply) (asked host event reply))
         ((Status reply) (mailbox-post reply (Answer 200 (status->json host))) host)
+        ((Applications reply) (mailbox-post reply (served-applications host)) host)
         ((Fired serial) (if (= serial (Host-serial host)) (stepped host (TimerFired)) host))
         ((Built epoch reply targets)
          (stepped (Host-targets-set host (Some (Pair epoch targets))) (BuildReplied epoch reply)))
@@ -340,6 +383,12 @@
         ((Launch name wanted) (launch host name wanted))
         ((Refuse _) host)
         ((Notify snapshot) (notify host snapshot))
+        ((Reclaim directories)
+         (for-each (lambda (directory)
+                     (remove-tree directory)
+                     (unit))
+                   directories)
+         host)
         ((Shutdown) host)
         ((Closed) (Host-done-set host #t))))
 
@@ -484,17 +533,65 @@
           (_ host))))
 
     ;; The published targets, once the snapshot names the build whose
-    ;; candidate the owner kept.
+    ;; candidate the owner kept; a browser target's has the URL it is
+    ;; served at.
     (: published (-> Host Snapshot Host))
     (define (published host snapshot)
-      (match (Pair (Snapshot-published snapshot) (Host-targets host))
-        ((Pair (Some build) (Some (Pair epoch targets)))
+      (match (Pair (Snapshot-publications snapshot) (Host-targets host))
+        ((Pair (Cons build _) (Some (Pair epoch targets)))
          (if (= (Published-id build) epoch)
              (Host-published-set host
                                  (JsonObject (list (Pair "id" (JsonInteger epoch))
-                                                   (Pair "targets" targets))))
+                                                   (Pair "targets"
+                                                         (with-urls host build targets)))))
              host))
         (_ host)))
+
+    (: with-urls (-> Host Published Json Json))
+    (define (with-urls host build targets)
+      (let ((browsers (Description-browsers (Candidate-description (Published-candidate build)))))
+        (match targets
+          ((JsonArray items)
+           (JsonArray (map (lambda (target) (with-url host browsers target)) items)))
+          (other other))))
+
+    (: with-url (-> Host (List String) Json Json))
+    (define (with-url host browsers target)
+      (let ((name (json-text target "name")))
+        (match target
+          ((JsonObject members)
+           (if (member? name browsers)
+               (JsonObject
+                (append members (list (Pair "url" (JsonString (application-url host name))))))
+               target))
+          (other other))))
+
+    (: application-url (-> Host String String))
+    (define (application-url host name)
+      (string-append (listener-origin (Host-applications host)) "/" name "/"))
+
+    ;; The browser targets of the publication, each with its builds the
+    ;; service retains, newest first. A target the latest description no
+    ;; longer has is not served.
+    (: served-applications (-> Host (List Application)))
+    (define (served-applications host)
+      (let ((publications (Snapshot-publications (Host-snapshot host))))
+        (match publications
+          ((Cons latest _)
+           (map (lambda (name) (Application name (builds-of publications name)))
+                (Description-browsers (Candidate-description (Published-candidate latest)))))
+          ((Nil) (Nil)))))
+
+    (: builds-of (-> (List Published) String (List BuildDirectory)))
+    (define (builds-of publications name)
+      (concatenate (map (lambda (published)
+                          (map (lambda (generation)
+                                 (BuildDirectory (Published-id published)
+                                                 (Generation-directory generation)))
+                               (filter
+                                (lambda (generation) (string=? (Generation-name generation) name))
+                                (Candidate-generations (Published-candidate published)))))
+                        publications)))
 
     (: editor-status (-> Snapshot Json))
     (define (editor-status snapshot)
@@ -676,12 +773,13 @@
 
     ;; ---- Shutting down ----
 
-    ;; No new work: the listener and every stream close, each supervisor
+    ;; No new work: the listeners and every stream close, each supervisor
     ;; stops its process, and the resident's input ends, so it finishes the
     ;; request it is answering and exits, or is killed after 2 s.
     (: shut-down (-> Host (List Command) Host ! mut tasks tcp process fs))
     (define (shut-down host rest)
       (close-listener (Host-listener host))
+      (close-listener (Host-applications host))
       (for-each (lambda (client) (mailbox-post (Client-frames client) (None))) (Host-clients host))
       (for-each (lambda (open) (close-connection (Pair-second open)) (unit))
                 (Host-connections host))
@@ -1000,6 +1098,9 @@
                                      (_ publics)))
                                  (Nil)
                                  builds)
+                     (map (lambda (build) (json-text build "name"))
+                          (filter (lambda (build) (string=? (json-text build "kind") "browser"))
+                                  builds))
                      (map (lambda (run)
                             (RunDefinition (json-text run "name")
                                            (json-text run "build")
@@ -1010,7 +1111,7 @@
     (define (json->candidate json)
       (Candidate (match (json-member json "description")
                    ((Some description) (json->description description))
-                   ((None) (Description (Nil) (Nil) (Nil))))
+                   ((None) (Description (Nil) (Nil) (Nil) (Nil))))
                  (map (lambda (target)
                         (Generation (json-text target "name")
                                     (json-text target "directory")
@@ -1616,6 +1717,90 @@
       (and (= (length left) (length right))
            (every? (lambda (pair) (string=? (Pair-first pair) (Pair-second pair)))
                    (zip left right))))
+
+    ;; ---- The applications' origin ----
+
+    ;; One handler task for each connection, numbered apart from the
+    ;; editor's, so the owner tracks both alike and shutdown waits for both.
+    (: accept-applications (-> Listener (Mailbox Message) Unit ! mut tasks tcp fs))
+    (define (accept-applications listener owner)
+      (let loop ((id 1099511627776))
+        (match (accept listener)
+          ((Ok connection)
+           (mailbox-post owner (Connected id connection))
+           (dispatch-local (once (lambda ()
+                                   (serve-application listener owner connection)
+                                   (mailbox-post owner (Disconnected id)))))
+           (loop (+ id 1)))
+          ((Err _) (unit)))))
+
+    (: serve-application (-> Listener (Mailbox Message) Connection Unit ! mut tasks tcp fs))
+    (define (serve-application listener owner connection)
+      (match (read-request connection)
+        ((Ok request)
+         (let ((head (Request-head request)))
+           (finish-exchange connection
+                            (Some (RequestHead-method head))
+                            (application-response listener owner head))))
+        ((Err error) (finish-exchange connection (None) (exchange-refusal error)))))
+
+    ;; Only reads, and only for this origin's own host, so a page of another
+    ;; site that rebinds a name to this address reads nothing.
+    (: application-response (-> Listener (Mailbox Message) RequestHead Response ! mut tasks fs))
+    (define (application-response listener owner head)
+      (let ((method (RequestHead-method head)))
+        (cond ((not (same-strings? (header-values (RequestHead-headers head) "host")
+                                   (list (listener-host listener))))
+               (refused 403 "unexpected host"))
+              ((not (or (string=? method "GET") (string=? method "HEAD")))
+               (refused 405 "the applications' origin only serves files"))
+              (else
+               (match (parse-target (RequestHead-target head))
+                 ((Ok target) (application-file owner (Target-path target)))
+                 ((Err _) (refused 400 "malformed request target")))))))
+
+    ;; `/` lists the browser targets, and /NAME/ serves one's builds.
+    (: application-file (-> (Mailbox Message) (List String) Response ! mut tasks fs))
+    (define (application-file owner path)
+      (let ((reply (make-mailbox)))
+        (mailbox-post owner (Applications reply))
+        (let ((applications (mailbox-receive reply)))
+          (match (if (root-path? path) (Nil) path)
+            ((Nil) (application-index applications))
+            ((Cons name rest)
+             (match (find (lambda (application) (string=? (Application-name application) name))
+                          applications)
+               ((Some application)
+                (bundle-response (string-append "/" name "/")
+                                 (Application-builds application)
+                                 rest))
+               ((None) (refused 404 (string-append "no browser target " name)))))))))
+
+    (: application-index (-> (List Application) Response))
+    (define (application-index applications)
+      (Response 200
+                (Cons (Header "Content-Type" "text/html; charset=utf-8") security-headers)
+                (string->utf8
+                 (string-append
+                  "<!doctype html>\n<meta charset=\"utf-8\">\n<title>Browser targets</title>\n"
+                  (if (null? applications)
+                      "<p>No browser target is built yet.</p>\n"
+                      (string-concatenate
+                       (map (lambda (application)
+                              (let ((name (html-text (Application-name application))))
+                                (string-append "<p><a href=\"/" name "/\">" name "</a></p>\n")))
+                            applications)))))))
+
+    (: html-text (-> String String))
+    (define (html-text text)
+      (string-concatenate
+       (map (lambda (char)
+              (cond ((char=? char #\<) "&lt;")
+                    ((char=? char #\>) "&gt;")
+                    ((char=? char #\&) "&amp;")
+                    ((char=? char #\") "&quot;")
+                    (else (make-string 1 char))))
+            (string->list text))))
 
     ;; ---- The editor's assets ----
 
