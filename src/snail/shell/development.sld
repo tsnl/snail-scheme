@@ -16,7 +16,7 @@
 ;; the replies to it, so a late or duplicate reply is a number that does
 ;; not match; whether an input changed since the last attempt began; what
 ;; the disk can be trusted for; and which run targets are wanted. It is
-;; #567 step B2, the core host/native/project-develop.mjs carries today.
+;; #567 step B2; (snail shell project service) carries out its commands.
 (define-library (snail shell development)
   (export
    Paths

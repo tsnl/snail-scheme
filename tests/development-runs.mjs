@@ -8,8 +8,6 @@ import fsp from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
-import {developProject, UnknownRunTarget} from '../host/native/project-develop.mjs';
-import {editorTools} from '../host/native/resident.mjs';
 import {dead, startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], directory = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-development-runs-')));
@@ -166,70 +164,8 @@ async function throughTheService() {
   }
 }
 
-// ---- In process until step 8 ----
-
-// Observers that issue a control or close the session within the turn that
-// reported a change. Only a subscriber in this process can act in that turn;
-// step 8's pure `step` makes each of these a test of one transition.
-async function inProcess() {
-  write('project.datum', description()); write('main.sld', program('first')); write('other.sld', program('side'));
-  const dev = developProject({root, project, tools: editorTools(root)}), events = [];
-  dev.subscribe(status => events.push(status));
-  const run = name => dev.status.runs.find(run => run.target === name);
-  const app = () => run('app'), side = () => run('side');
-  async function until(test) {
-    for (let count = 0; count < 1000; count++) { if (test()) return; await delay(20); }
-    assert.fail(`timed out waiting for development run: ${JSON.stringify({phase: dev.status.phase, id: dev.status.id, diagnostics: dev.status.diagnostics, runs: dev.status.runs})}`);
-  }
-  const ready = (name, text) => until(() => run(name)?.attempt?.stdout.includes(text));
-  const stopped = name => until(() => ['exited', 'failed'].includes(run(name)?.attempt?.phase));
-  async function settled(after, phase = 'succeeded') {
-    await until(() => dev.status.id > after && dev.status.phase === phase);
-    return dev.status;
-  }
-
-  try {
-    assert.throws(() => dev.startRun('app'), UnknownRunTarget);
-    let accepted = await settled(0);
-
-    // A Stop issued by the observer of Start overrides it before spawning.
-    let veto = true;
-    const unveto = dev.subscribe(() => { if (veto && app().wanted) { veto = false; dev.stopRun('app'); } });
-    dev.startRun('app'); await delay(30);
-    assert.equal(app().attempt, null, 'a reentrant Stop overrides Start before spawning'); unveto();
-    dev.startRun('app'); dev.startRun('side'); await ready('app', 'configured\n'); await ready('side', 'side\n');
-    let stableSide = side().attempt.pid;
-
-    // Reconciliation of one target can invoke controls for a later target.
-    let stoppedSibling = false;
-    const beforeSibling = accepted.id;
-    const unsibling = dev.subscribe(status => {
-      if (!stoppedSibling && status.published?.id > beforeSibling && app().desired?.build === status.published.id) {
-        stoppedSibling = true; dev.stopRun('side');
-      }
-    });
-    write('main.sld', program('reentrant')); write('other.sld', program('side latest'));
-    accepted = await settled(accepted.id); await ready('app', 'reentrant\n'); await stopped('side'); unsibling();
-    assert.equal(side().wanted, false); assert.notEqual(side().attempt.build, accepted.id); dead(stableSide);
-    dev.startRun('side'); await ready('side', 'side latest\n'); stableSide = side().attempt.pid;
-
-    // An acceptance observer may close the service before queued launches run.
-    let closing = null;
-    dev.subscribe(status => { if (status.published?.id > accepted.id && !closing) closing = dev.close(); });
-    write('main.sld', program('must not launch'));
-    await until(() => closing); await closing;
-    assert.equal(dev.close(), closing); dead(stableSide);
-    assert.ok(dev.status.runs.every(run => ['exited', 'failed'].includes(run.attempt.phase)));
-    assert.ok(!events.some(status => status.runs.some(run => run.attempt?.stdout.includes('must not launch'))));
-    assert.throws(() => dev.startRun('app'), /closed/);
-  } finally {
-    await dev.close();
-  }
-}
-
 try {
   await throughTheService();
-  await inProcess();
 } finally {
   fs.rmSync(directory, {recursive: true, force: true});
 }

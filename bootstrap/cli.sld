@@ -169,9 +169,9 @@
 
 ;; ---- The resident builder ----
 
-;; `snail resident PROJECT` builds for the development service
-;; (host/native/resident.mjs), which writes it one request a line and reads
-;; one reply a line, each a JSON object:
+;; `snail resident PROJECT` builds for the development service,
+;; (snail shell project service), which writes it one request a line and
+;; reads one reply a line, each a JSON object:
 ;;
 ;;   {"kind":"build","epoch":N,"prefix":P}
 ;;     builds every build target in development mode, naming each

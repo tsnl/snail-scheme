@@ -9,7 +9,7 @@
 ;; host/native/develop.mjs host performs the `develop` commands, such as
 ;; watching a directory or serving a page, and reports events. This older
 ;; application loop remains behind serve/watch while native project
-;; development and the editor use host/native/project-develop.mjs.
+;; development and the editor use (snail shell project service).
 (define-library (snail shell develop)
   (export
    develop
