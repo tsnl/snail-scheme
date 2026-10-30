@@ -219,7 +219,11 @@ function of the expander has `mut` in its row — and where it does not, the
   apart and drops each linear immutable field, the last in tail position.
   A clone becomes glue that pairs an omega value with itself, an
   instance's method, or glue that clones each linear immutable field and
-  builds two values from the halves and the shared other fields.
+  builds two values from the halves and the shared other fields. The
+  pass's state, the copies requested and made and the glue, is a value
+  that each step hands to the next, as the checker's is, so the order of
+  the copies is the order of the steps, and the pass is a function of
+  its input.
 - **[`control.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/control.sld)** prepares the calls
   that may yield to a control handler. After specialization a row keeps
   only control effects, so a call may yield exactly when its callee's row
