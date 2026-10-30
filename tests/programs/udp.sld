@@ -14,10 +14,10 @@
 ;; main returns.
 (dispatch-local
  (once (lambda ()
-         (let* ((first (require (bind (Endpoint "127.0.0.1" 0))))
-                (second (require (bind (Endpoint "127.0.0.1" 0))))
-                (peer (Endpoint "127.0.0.1" (UdpSocket-port second)))
-                (listener (require (listen (Endpoint "127.0.0.1" 0)))))
+         (let* ((first (require (bind (require (endpoint "127.0.0.1" 0)))))
+                (second (require (bind (require (endpoint "127.0.0.1" 0)))))
+                (peer (require (endpoint "127.0.0.1" (UdpSocket-port second))))
+                (listener (require (listen (require (endpoint "127.0.0.1" 0))))))
            ;; Owner-local handle numbers can coincide. Their token types cannot.
            (match (close-udp (UdpSocket (Listener-token listener) 0))
              ((Err error) (write-line (SocketError-code error)))
@@ -40,6 +40,18 @@
              ((Err error) (write-line (SocketError-code error)))
              ((Ok _) (panic "oversized UDP receive succeeded")))
            (require (send first peer #u8(3)))
+           (match (send first (require (endpoint "127.0.0.1" 0)) #u8(4))
+             ((Err error) (write-line (SocketError-code error)))
+             ((Ok _) (panic "a datagram was sent to port 0")))
+           ;; A receive takes 0 to 65,507 bytes, and a datagram carries at most that.
+           (for-each (lambda (maximum)
+                       (match (receive second maximum)
+                         ((Err error) (write-line (SocketError-code error)))
+                         ((Ok _) (panic "a receive out of bounds was started"))))
+                     (list (ann -1 I32) (ann 65508 I32)))
+           (match (send first peer (vector-generate 65508 (lambda (_) (i32->u8 0))))
+             ((Err error) (write-line (SocketError-code error)))
+             ((Ok _) (panic "an oversized datagram was sent")))
            (display (vector->list (Datagram-bytes (require (receive second 1)))))
            (newline)
            (require (close-udp first))
@@ -47,5 +59,5 @@
            (require (close-udp second)))
 
          ;; Runtime shutdown also closes delivered datagram sockets left open.
-         (require (bind (Endpoint "127.0.0.1" 0)))
+         (require (bind (require (endpoint "127.0.0.1" 0))))
          (unit))))

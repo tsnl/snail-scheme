@@ -58,7 +58,7 @@
 
 (: open (-> (Result Listener SocketError) ! tcp tasks))
 (define (open)
-  (listen (Endpoint "127.0.0.1" 0)))
+  (listen (require (endpoint "127.0.0.1" 0))))
 
 (: listener (-> Any Listener))
 (define (listener answer)
@@ -69,7 +69,7 @@
 
 (: dial (-> I32 (Result Connection SocketError) ! tcp tasks))
 (define (dial port)
-  (connect (Endpoint "127.0.0.1" port)))
+  (connect (require (endpoint "127.0.0.1" port))))
 
 (: take (-> Listener (Result Connection SocketError) ! tcp tasks))
 (define (take listener) (accept listener))
@@ -181,7 +181,7 @@
 (expose timed-out? "timed-out")
 
 (: open-udp (-> UdpSocket ! udp tasks))
-(define (open-udp) (require (bind (Endpoint "127.0.0.1" 0))))
+(define (open-udp) (require (bind (require (endpoint "127.0.0.1" 0)))))
 
 (: udp-socket (-> Any UdpSocket))
 (define (udp-socket answer)
@@ -192,7 +192,7 @@
 
 (: send-udp (-> UdpSocket I32 (Result I32 SocketError) ! udp tasks))
 (define (send-udp socket port)
-  (udp-send socket (Endpoint "127.0.0.1" port) #u8(0 255 128 1)))
+  (udp-send socket (require (endpoint "127.0.0.1" port)) #u8(0 255 128 1)))
 
 (: receive-udp (-> UdpSocket I32 (Result Datagram SocketError) ! udp tasks))
 (define (receive-udp socket count) (udp-receive socket count))

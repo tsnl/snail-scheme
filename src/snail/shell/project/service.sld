@@ -231,7 +231,7 @@
 
     (: listening (-> Setup Listener ! tasks tcp))
     (define (listening setup)
-      (match (listen (Endpoint "127.0.0.1" (Setup-port setup)))
+      (match (listen-locally (Setup-port setup))
         ((Ok listener) listener)
         ((Err error)
          (panic (string-append "cannot listen on port "
@@ -251,14 +251,21 @@
     (define (applications-listening port)
       (match (if (= port 0)
                  (Err (SocketError "unasked"))
-                 (listen (Endpoint "127.0.0.1" (+ port 1))))
+                 (listen-locally (+ port 1)))
         ((Ok listener) listener)
         ((Err _)
-         (match (listen (Endpoint "127.0.0.1" 0))
+         (match (listen-locally 0)
            ((Ok listener) listener)
            ((Err error)
             (panic (string-append "cannot listen for the applications: "
                                   (SocketError-code error))))))))
+
+    ;; The service listens on the loopback address alone.
+    (: listen-locally (-> I32 (Result Listener SocketError) ! tasks tcp))
+    (define (listen-locally port)
+      (match (endpoint "127.0.0.1" port)
+        ((Ok local) (listen local))
+        ((Err error) (Err error))))
 
     (: listener-host (-> Listener String))
     (define (listener-host listener)
@@ -1621,10 +1628,10 @@
           ((Ok target)
            (match (authorization setup head target)
              ((Some message) (Some (refused 403 message)))
-             ((None) (endpoint setup owner disk id connection request target)))))))
+             ((None) (serve-target setup owner disk id connection request target)))))))
 
     ;; A GET of an editor asset, the event stream, or the API.
-    (: endpoint
+    (: serve-target
        (-> Setup
            (Mailbox Message)
            (Mailbox Scan)
@@ -1634,7 +1641,7 @@
            Target
            (Option Response)
            ! mut tasks tcp fs modes))
-    (define (endpoint setup owner disk id connection request target)
+    (define (serve-target setup owner disk id connection request target)
       (let ((method (RequestHead-method (Request-head request))) (path (Target-path target)))
         (cond ((not (string=? method "GET"))
                (Some (api setup owner disk request method path (Target-query target))))
