@@ -1,0 +1,6 @@
+the first log: fetch in task 1
+the first log: task 1 waits on 1
+the second log: task 2 resumes task 1
+the second log: fetch resumed in task 1
+the second log: task 1 waits on 11
+11
