@@ -7,6 +7,8 @@
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+#[cfg(feature = "assembler")]
+mod assembler;
 mod datum;
 mod host;
 mod io;

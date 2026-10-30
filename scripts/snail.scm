@@ -59,7 +59,8 @@
                                             (directories root options)
                                             source
                                             output
-                                            (option options 'release #f)))))
+                                            (option options 'release #f)
+                                            (build-crate root "snail-core-support")))))
      ((string=? action "compile") (error "source compilation requires -o FILE"))
      ;; Without -o the program lives as long as its run, in a directory of
      ;; its own, so runs at once in one checkout never share a file.
@@ -74,7 +75,10 @@
                                                                                  "program.wasm")
                                                                       (option options
                                                                               'release
-                                                                              #f)))))))))
+                                                                              #f)
+                                                                      (build-crate
+                                                                       root
+                                                                       "snail-core-support")))))))))
 
 (define (run-if-requested root options program)
   (if (string=? (option options 'action "run") "compile")

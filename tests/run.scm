@@ -175,6 +175,46 @@
         (or (zero? (caddr result))
             (report "assembler" "test failed" (string-append (car result) (cadr result))))))))
 
+;; The toolchain's runtime assembles in-process too: a tool linked with it
+;; turns the same text into a module, which must print what the program
+;; prints, and names the line and column of broken text.
+(define (compile-toolchain-assembler root)
+  (guard (failure (#t (report "toolchain assembler" "compile failed" (error-text failure))))
+    (let ((text (program->wat root
+                              (cons (path-join root "examples") (standard-directories root))
+                              (path-join root "examples/fibonacci.sld"))))
+      (lambda () (check-toolchain-assembler root text)))))
+
+(define (check-toolchain-assembler root text)
+  (guard (failure (#t (report "toolchain assembler" "test failed" (error-text failure))))
+    (let* ((directory (path-join root "build/tests/toolchain"))
+           (wat (path-join directory "fibonacci.wat"))
+           (manifest (path-join directory "modules.json"))
+           (tool (build-toolchain-tool root
+                                       (path-join root "tests/toolchain/assemble.sld")
+                                       (path-join directory "assemble.wasm")
+                                       (standard-directories root)))
+           (assembled (begin
+                        (call-with-output-file wat (lambda (port) (write-string text port)))
+                        (run-wasm root tool wat (path-join directory "fibonacci.wasm")))))
+      (call-with-output-file manifest
+        (lambda (port)
+          (write-string (string-append "{\"runtime\":\"" (build-crate root "snail-core-support")
+                                       "\",\"modules\":[{\"name\":\"program\",\"file\":\"fibonacci.wasm\"}]}")
+                        port)))
+      (let ((expected "assembled the program\nbroken text names its line and column\n"))
+        (if (string=? assembled expected)
+            (check-assembled-module root manifest)
+            (report "toolchain assembler" "assembling failed" assembled))))))
+
+;; The module runs as the one library of a modules.json, on Node.
+(define (check-assembled-module root manifest)
+  (let ((ran (capture-process
+              (list "node" "--no-warnings" (path-join root "host/native/run-snail.mjs") manifest)))
+        (expected (read-file (path-join root "examples/fibonacci.out"))))
+    (or (string=? (string-append (car ran) (cadr ran)) expected)
+        (report "toolchain assembler" "the module printed" (string-append (car ran) (cadr ran))))))
+
 ;; An Any's TypeId describes its type's structure: reordering an enum's
 ;; cases keeps the enum's representation and gives it a new identity, so a
 ;; relinked program cannot adopt a state that means something else.
@@ -792,6 +832,7 @@
                                   (compile-app-runtime root)
                                   (compile-siegework root)
                                   (compile-assembler root)
+                                  (compile-toolchain-assembler root)
                                   (compile-formatter root)
                                   (compile-book-highlighter root))
                             '())))
