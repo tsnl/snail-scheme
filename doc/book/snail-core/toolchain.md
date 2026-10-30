@@ -362,16 +362,16 @@ derived forms and declaration words are listed once in the classifier. It
 also marks the name a `define`, `define-syntax` or `:` introduces, and colors
 what `#;` comments out as a comment.
 
-mdbook runs `host/native/highlight-book.mjs` as a preprocessor, which
-`book.toml` registers after the `links` preprocessor has included the
-examples. It replaces each fenced block whose language is `scheme` with a
+mdbook runs `scripts/highlight-book` as a preprocessor, which `book.toml`
+registers after the `links` preprocessor has included the examples. It is a
+Snail program, `bootstrap/highlight-book.sld`, which reads the book as mdbook
+writes it, JSON on its standard input, and writes it back. It replaces each fenced block whose language is `scheme` with a
 `<pre><code class="nohighlight">` of `tok-` spans, one per token but
 whitespace, which `doc/highlight.css` colors for mdbook's light and dark
 themes; highlight.js skips code of class `nohighlight`, and still highlights
-the book's other blocks. The classification is `host/native/highlight.sld`,
-the library compiled to Wasm, which `./scripts/snail-tool book-tools` builds
-when it is stale, so `mdbook build` works from a fresh checkout that can build
-the compiler. `tests/highlight-book.mjs` runs the preprocessor on a small book.
+the book's other blocks. `./scripts/snail-tool book-tools` builds the
+program when it is stale, so `mdbook build` works from a fresh checkout that
+can build the compiler. `tests/highlight-book.mjs` runs the preprocessor on a small book.
 The editor's formatter, `host/ide/format.sld`, reduces the same tokens to one
 letter per character for its highlight layer.
 

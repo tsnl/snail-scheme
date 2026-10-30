@@ -770,13 +770,13 @@
                               (standard-directories root)))
             (build-cli-tools root)))
 
-    ;; The book's highlighter, which host/native/highlight-book.mjs runs while
-    ;; mdbook builds the book.
+    ;; The book's highlighter, the preprocessor scripts/highlight-book runs
+    ;; while mdbook builds the book.
     (define (build-book-tools root)
       (list (cons "highlighter"
                   (build-tool root
-                              (path-join root "host/native/highlight.sld")
-                              (path-join root "build/book-tools/highlight.wasm")
+                              (path-join root "bootstrap/highlight-book.sld")
+                              (path-join root "build/book-tools/highlight-book.wasm")
                               (standard-directories root)))))
 
     ;; A program the tools run, built from `source` with the libraries in
