@@ -15,6 +15,7 @@ handles it, both in Snail-Core:
 | `(make-mailbox)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. |
 | `(mailbox-post mailbox message)` | Add a message at the back. Posting never waits. |
 | `(mailbox-receive mailbox)` | Take the message at the front, waiting until one is posted. |
+| `(mailbox-try-receive mailbox)` | Take the message at the front, or answer `None` at once when there is none. |
 
 ```scheme
 (import

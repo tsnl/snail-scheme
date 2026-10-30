@@ -1,0 +1,82 @@
+checkpoint: milk, eggs, tea; saved 2
+checkpoint: tea, milk; saved 3
+saved 3
+<main><input id="draft" .value="" @input></input><button id="add" @click>Add</button><button id="reverse" @click>Reverse</button><ul><li>tea<button id="remove-2" @click>x</button></li><li>milk<button id="remove-0" @click>x</button></li></ul>saved 3</main>
+create-element 1 main
+create-element 2 input
+set-attribute 2 id "draft"
+set-property 2 value ""
+listen 2 input #1 1 allow
+create-element 3 button
+set-attribute 3 id "add"
+create-text 4 "Add"
+insert 4 into 3
+listen 3 click #2 0 always
+create-element 5 button
+set-attribute 5 id "reverse"
+create-text 6 "Reverse"
+insert 6 into 5
+listen 5 click #3 0 allow
+create-element 7 ul
+create-text 8 "saved 0"
+insert 2 into 1
+insert 3 into 1
+insert 5 into 1
+insert 7 into 1
+insert 8 into 1
+insert 1 into 0
+fire draft input #1
+set-property 2 value "milk"
+fire add click #2
+set-property 2 value ""
+create-element 9 li
+create-text 10 "milk"
+create-element 11 button
+set-attribute 11 id "remove-0"
+create-text 12 "x"
+insert 12 into 11
+listen 11 click #4 0 allow
+insert 10 into 9
+insert 11 into 9
+insert 9 into 7
+fire draft input #1
+set-property 2 value "eggs"
+wake
+set-text 8 "saved 1"
+fire add click #2
+set-property 2 value ""
+create-element 13 li
+create-text 14 "eggs"
+create-element 15 button
+set-attribute 15 id "remove-1"
+create-text 16 "x"
+insert 16 into 15
+listen 15 click #5 0 allow
+insert 14 into 13
+insert 15 into 13
+insert 13 into 7
+fire draft input #1
+set-property 2 value "tea"
+wake
+set-text 8 "saved 2"
+fire add click #2
+set-property 2 value ""
+create-element 17 li
+create-text 18 "tea"
+create-element 19 button
+set-attribute 19 id "remove-2"
+create-text 20 "x"
+insert 20 into 19
+listen 19 click #6 0 allow
+insert 18 into 17
+insert 19 into 17
+insert 17 into 7
+hide
+wake
+set-text 8 "saved 3"
+fire reverse click #3
+insert 9 into 7
+insert 13 into 7 before 9
+fire remove-1 click #5
+remove 13
+close
