@@ -49,7 +49,10 @@ function of the expander has `mut` in its row — and where it does not, the
   `SourceDiagnostic`, a location and a message, and whose `need` takes a
   request for an input. `compile-error` performs `fail`, and each entry point
   handles the effect with `compiling`, which turns the compile into a
-  `Result`.
+  `Result`. A location in line 0 is a file as a whole: a source that is not
+  there, such as an entry an editor just deleted, fails with one
+  (`read-source-file` in `inputs.sld`), so a resident builder reports it
+  rather than stopping.
 - **[`core.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/core.sld)** defines the data the later
   passes share: `Type` (with effect rows), `Scheme`, class `Evidence`, the
   `Expr` tree, `Pattern`s, declared entities (`DataType`, `Class`,
@@ -774,7 +777,8 @@ are unlocated. A failing dependency reports its own origin. Printed
 producer programs report their actual scratch source, while decoded generated
 syntax retains the recipe location already established by expansion. No source
 mapping is invented. The command-line driver prints a diagnostic as the
-compiler always has, `FILE:LINE:COLUMN: MESSAGE`, and exits with status 1, and
+compiler always has, `FILE:LINE:COLUMN: MESSAGE`, or `FILE: MESSAGE` for the
+file as a whole, and exits with status 1, and
 the compiler still stops at its first error. These operations are implemented and tested.
 
 ## Supporting modules
