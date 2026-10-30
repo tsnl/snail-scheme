@@ -2,13 +2,13 @@
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
-import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
+import {MessageChannel, Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {linkedFileImports, linkProgram, wasmImports} from '../browser/load.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
 import {socketImports} from './socket-imports.mjs';
-import {createProcesses, createTermination} from './process.mjs';
+import {createProcesses, createReplacement, createTermination, serveReplacement} from './process.mjs';
 import {processImports} from './process-imports.mjs';
 
 // ---- One reactor initialization and one program invocation ----
@@ -28,7 +28,7 @@ function resultStatus(value) {
   return 1;
 }
 
-async function run(filename, arguments_, termination) {
+async function run(filename, arguments_, termination, replace) {
   const wasi = new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
   let program, failed = false, status = 1;
@@ -38,7 +38,7 @@ async function run(filename, arguments_, termination) {
   const tasks = createTasks(() => program && taskExports(program), {reportError: report});
   const host = {'snail.runtime.wasm': wasmImports(() => program),
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
-                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination)};
+                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination, replace)};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
@@ -110,18 +110,23 @@ const limits = {maxYoungGenerationSizeMb: 384};
 if (isMainThread) {
   process.exitCode = 1;
   const waiting = new Int32Array(new SharedArrayBuffer(8));
-  const worker = new Worker(new URL(import.meta.url), {workerData: {arguments: process.argv.slice(2), waiting}, resourceLimits: limits});
+  const replacement = new MessageChannel(), replacing = new Int32Array(new SharedArrayBuffer(4));
+  const worker = new Worker(new URL(import.meta.url), {
+    workerData: {arguments: process.argv.slice(2), waiting, replacement: replacement.port2, replacing},
+    transferList: [replacement.port2], resourceLimits: limits});
   forwardTerminations(worker, waiting);
+  serveReplacement(replacement.port1, replacing);
   worker.on('message', status => { process.exitCode = status; });
   worker.on('error', error => console.error(`snail: ${error.message}`));
 } else {
-  const {arguments: [filename, ...arguments_], waiting} = workerData, termination = createTermination(waiting);
+  const {arguments: [filename, ...arguments_], waiting, replacement, replacing} = workerData;
+  const termination = createTermination(waiting), replace = createReplacement(replacement, replacing);
   // Forwarded signals must not keep a finished program alive.
   parentPort.on('message', signal => termination.deliver(signal));
   parentPort.unref();
   try {
     if (!filename) throw new Error('usage: run-snail.mjs MODULE.wasm [ARGUMENT ...]');
-    parentPort.postMessage(await run(filename, arguments_, termination));
+    parentPort.postMessage(await run(filename, arguments_, termination, replace));
   } catch (error) {
     // A WASI exit unwinds as a non-Error value after its message is printed.
     if (error instanceof Error) console.error(`snail: ${error.message}`);

@@ -1,7 +1,10 @@
 // Concrete Node child-process ownership, and the termination signals the
 // main thread forwards. Scalar handles never retain managed wrappers.
-import {spawn as startChild} from 'node:child_process';
+import {spawn as startChild, spawnSync} from 'node:child_process';
 import {on, once} from 'node:events';
+import {accessSync, constants, statSync} from 'node:fs';
+import {join} from 'node:path';
+import {receiveMessageOnPort} from 'node:worker_threads';
 
 const chunkSize = 64 * 1024;
 const fault = (code, message) => Object.assign(new Error(message), {code});
@@ -169,6 +172,63 @@ export function createProcesses() {
 
   return {spawn, read, write, closeInput, kill, wait, shutdown,
     close(id) { const resource = handles.get(id); if (resource) closeResource(resource); }};
+}
+
+// ---- Running a command to its end ----
+
+// `run` blocks the calling thread until the child exits, so it serves a
+// tool that runs once, never a service. The input is written whole, and
+// both outputs are kept whole. A command that cannot start fails with the
+// codes spawn gives.
+export function runChild(directory, program, args, input) {
+  let result;
+  try { result = spawnSync(program, args, {cwd: directory, input, maxBuffer: Infinity}); }
+  catch (error) { throw String(error.code).startsWith('ERR_') ? fault('EINVAL', error.message) : error; }
+  if (result.error) throw result.error;
+  return {code: result.status ?? -1, signal: result.signal ?? '', stdout: result.stdout, stderr: result.stderr};
+}
+
+// ---- Replacing the program ----
+
+// The program runs on a worker, which cannot replace its process, so
+// `exec` asks the main thread, over a port of its own, and blocks on
+// `state` until the answer: none, once the process is replaced, or the
+// code of the attempt that failed.
+export function createReplacement(port, state) {
+  return (directory, program, args) => {
+    Atomics.store(state, 0, 0);
+    port.postMessage({directory, program, args});
+    Atomics.wait(state, 0, 0);
+    return receiveMessageOnPort(port).message;
+  };
+}
+
+// The main thread's half. The directory is the process's to change, and
+// it changes back when the attempt fails. execve searches no PATH, so a
+// program with no slash is found on PATH here, as spawn finds one.
+export function serveReplacement(port, state) {
+  port.on('message', ({directory, program, args}) => {
+    const home = process.cwd();
+    try {
+      process.chdir(directory);
+      process.execve(executable(program), [program, ...args], process.env);
+    } catch (error) {
+      try { process.chdir(home); } catch {}
+      port.postMessage(/^E[A-Z0-9]+$/.test(error.code) ? error.code : String(error.code).startsWith('ERR_') ? 'EINVAL' : 'EIO');
+      Atomics.store(state, 0, 1);
+      Atomics.notify(state, 0);
+    }
+  });
+  port.unref();
+}
+
+function executable(program) {
+  if (program.includes('/')) return program;
+  for (const directory of (process.env.PATH ?? '').split(':')) {
+    const path = join(directory || '.', program);
+    try { accessSync(path, constants.X_OK); if (statSync(path).isFile()) return path; } catch {}
+  }
+  throw fault('ENOENT', `${program} is not on PATH`);
 }
 
 // ---- Termination ----

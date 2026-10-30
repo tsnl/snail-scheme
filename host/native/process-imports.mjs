@@ -3,6 +3,7 @@
 // call; pending I/O touches native data only.
 import {coded} from '../browser/tasks.mjs';
 import {byteSnapshot} from '../browser/load.mjs';
+import {runChild} from './process.mjs';
 
 const isCoded = error => error instanceof Error && typeof error.code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(error.code);
 
@@ -30,8 +31,9 @@ function commandParts(api, command) {
 }
 
 // Each operation that waits is started by `start-NAME` and finished by one
-// `finish`, as socket-imports.mjs does.
-export function processImports(program, tasks, processes, termination) {
+// `finish`, as socket-imports.mjs does. `replace` is the worker's half of
+// exec (process.mjs's createReplacement).
+export function processImports(program, tasks, processes, termination, replace) {
   const helpers = () => {
     const current = program();
     return current.names ? current.linked.get('snail.shell.process').exports : current.runtime.exports;
@@ -99,6 +101,25 @@ export function processImports(program, tasks, processes, termination) {
       if (!id) throw Object.assign(new Error('process handle is foreign'), {code: 'EBADF'});
       processes.close(id);
     }),
+    // The input is copied before the command is projected: any Wasm call
+    // can reuse staging. The worker waits here until the child exits.
+    'run'(command, pointer) {
+      const input = byteSnapshot(program().runtime.exports.memory, pointer), api = helpers();
+      const [directory, executable, ...args] = commandParts(api, command);
+      let result;
+      try { result = runChild(directory, executable, args, input); }
+      catch (error) {
+        if (!isCoded(error)) throw error;
+        return api['process:run-error'](errorCode(api, error.code));
+      }
+      return api['process:captured'](result.code, buffer(api, new TextEncoder().encode(result.signal)),
+                                     buffer(api, result.stdout), buffer(api, result.stderr));
+    },
+    // Returns only when the main thread could not replace the process.
+    'exec'(command) {
+      const api = helpers(), [directory, executable, ...args] = commandParts(api, command);
+      return errorCode(api, replace(directory, executable, args));
+    },
     'finish-spawn': finish, 'finish-read-output': finish, 'finish-write-input': finish,
     'finish-wait-exit': finish, 'finish-termination': finish,
   };

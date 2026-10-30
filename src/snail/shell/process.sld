@@ -1,16 +1,18 @@
-;; Child processes with piped standard streams. A handler can replace the
+;; Child processes with piped standard streams, a command run to its end,
+;; and replacing the program with a command. A handler can replace the
 ;; effect in a test. By default an operation that waits starts on the
 ;; native host and waits by ticket, as (snail shell socket)'s do. Stage 0's tool runner,
 ;; host/chibi/snail/stage0/process.sld, has the same name; Chibi never sees src/.
 (define-library (snail shell process)
   (export
-   process spawn read-output write-input close-input send-signal wait-exit close-process
+   process spawn read-output write-input close-input send-signal wait-exit close-process run exec
    signals termination
    Command Command-program Command-arguments Command-directory
    Process Process-token Process-id
    Stream Stdout Stderr
    Signal Terminate Kill Interrupt
    Exit Exited Signaled
+   Captured Captured-exit Captured-stdout Captured-stderr
    ProcessError ProcessError-code)
   (import
    (snail core base)
@@ -52,6 +54,12 @@
       (Signaled
        ((name String))))
 
+    ;; How a command `run` waited for ended, and everything it wrote.
+    (struct Captured
+      ((exit Exit)
+       (stdout Bytes)
+       (stderr Bytes)))
+
     (struct ProcessError
       ((code String)))
 
@@ -59,6 +67,14 @@
     ;; the parent. Reading gives an available prefix of at most `maximum`
     ;; bytes, or None at the end of the stream; writing gives the count
     ;; accepted. Closing a process that is still running kills it.
+    ;;
+    ;; `run` runs a command to its end with `input` as its standard input,
+    ;; and gives how it ended and what it wrote. It blocks the program: no
+    ;; task runs until the child exits, so it serves a tool that runs once,
+    ;; and a service spawns instead. `exec` replaces the program with the
+    ;; command, as execve does: the command takes over this process and its
+    ;; standard streams, and nothing of the program runs after. It returns
+    ;; only when it cannot, with why.
     (effect process
       ((spawn (-> Command (Result Process ProcessError) ! tasks))
        (read-output (-> Process Stream I32 (Result (Option Bytes) ProcessError) ! tasks))
@@ -66,11 +82,15 @@
        (close-input (-> Process (Result Unit ProcessError)))
        (send-signal (-> Process Signal (Result Unit ProcessError)))
        (wait-exit (-> Process (Result Exit ProcessError) ! tasks))
-       (close-process (-> Process (Result Unit ProcessError))))
+       (close-process (-> Process (Result Unit ProcessError)))
+       (run (-> Command Bytes (Result Captured ProcessError)))
+       (exec (-> Command ProcessError)))
       (host "snail.runtime.native.process"
             ((close-input "close-input")
              (send-signal "send-signal")
-             (close-process "close-process")))
+             (close-process "close-process")
+             (run "run")
+             (exec "exec")))
       (default
         ((spawn (lambda (command)
                   (through-host (lambda (ticket) (start-spawn ticket command)) finish-spawn)))
@@ -243,6 +263,14 @@
     (define (signaled name)
       (Ok (Signaled (ascii-text name))))
 
+    ;; A command `run` waited for: its exit status, or, when `code` is -1,
+    ;; the signal `signal` names, and what it wrote.
+    (: captured (-> I32 (Array U8) (Array U8) (Array U8) (Result Captured ProcessError) ! mut))
+    (define (captured code signal stdout stderr)
+      (Ok (Captured (if (< code 0) (Signaled (ascii-text signal)) (Exited code))
+                    (array->vector stdout)
+                    (array->vector stderr))))
+
     ;; Each Result has its own concrete Wasm type, including its Err variant.
     (: spawn-error (-> ProcessError (Result Process ProcessError)))
     (define (spawn-error error) (Err error))
@@ -259,6 +287,9 @@
     (: exit-error (-> ProcessError (Result Exit ProcessError)))
     (define (exit-error error) (Err error))
 
+    (: run-error (-> ProcessError (Result Captured ProcessError)))
+    (define (run-error error) (Err error))
+
     (expose buffer "process:buffer")
     (expose put! "process:put")
     (expose error-code "process:error-code")
@@ -269,8 +300,10 @@
     (expose done "process:done")
     (expose exited "process:exited")
     (expose signaled "process:signaled")
+    (expose captured "process:captured")
     (expose spawn-error "process:spawn-error")
     (expose read-error "process:read-error")
     (expose write-error "process:write-error")
     (expose unit-error "process:unit-error")
-    (expose exit-error "process:exit-error")))
+    (expose exit-error "process:exit-error")
+    (expose run-error "process:run-error")))
