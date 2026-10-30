@@ -496,12 +496,9 @@
   (export \"diagnostics/report-error\" (func $report))
   (export \"close-resources\" (func $close)))\n")
 
-    ;; The crate crates/NAME, "snail-core-support" or "assembler", built for
-    ;; WASI into build/wasm-NAME; Cargo decides whether it is stale, and
-    ;; names the module after the crate's package, with `_` for `-`. The
-    ;; in-process assembler is a reactor too: text in, a binary module out,
-    ;; for a toolchain that runs as Wasm without Binaryen.
-    ;; host/native/assemble.mjs drives it.
+    ;; The crate crates/NAME built for WASI into build/wasm-NAME; Cargo
+    ;; decides whether it is stale, and names the module after the crate's
+    ;; package, with `_` for `-`.
     (define (build-crate root name)
       (build-crate-with root name (string-append "build/wasm-" name) '()))
 
@@ -728,25 +725,26 @@
 
     ;; ---- Development tools ----
 
-    ;; What `./scripts/snail-tool serve` and `./scripts/snail-tool watch` run: the development loop, a
-    ;; program that includes the compiler; the reload client pages load; the
-    ;; runtime; and the assembler. Each is built again only when its sources
-    ;; are newer. Returns their paths by name.
+    ;; What `./scripts/snail-tool serve` and `./scripts/snail-tool watch`
+    ;; run: the development loop, a program that includes the compiler and
+    ;; assembles its modules, so it links with the toolchain's runtime; the
+    ;; reload client pages load; and the runtime they link with. Each is
+    ;; built again only when its sources are newer. Returns their paths by
+    ;; name.
     (define (build-tools root)
       (let ((directory (path-join root "build/develop")))
         (create-directory* directory)
         (list (cons "develop"
-                    (build-tool root
-                                (path-join root "bootstrap/develop.sld")
-                                (path-join directory "develop.wasm")
-                                (standard-directories root)))
+                    (build-toolchain-tool root
+                                          (path-join root "bootstrap/develop.sld")
+                                          (path-join directory "develop.wasm")
+                                          (standard-directories root)))
               (cons "client"
                     (build-tool root
                                 (path-join root "host/browser/reload.sld")
                                 (path-join directory "reload.wasm")
                                 (standard-directories root)))
-              (cons "runtime" (build-crate root "snail-core-support"))
-              (cons "assembler" (build-crate root "assembler")))))
+              (cons "runtime" (build-crate root "snail-core-support")))))
 
     ;; The `snail` command line, a Snail program that builds projects with
     ;; the compiler inside it, linked with the toolchain's runtime, which

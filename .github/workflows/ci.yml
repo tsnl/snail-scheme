@@ -50,8 +50,6 @@ jobs:
           make check
           cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline --all-features
           cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check
-          cargo test --manifest-path crates/assembler/Cargo.toml --offline
-          cargo fmt --manifest-path crates/assembler/Cargo.toml --all -- --check
           cargo test --manifest-path crates/snail/Cargo.toml --offline
           cargo fmt --manifest-path crates/snail/Cargo.toml --all -- --check
           make test
