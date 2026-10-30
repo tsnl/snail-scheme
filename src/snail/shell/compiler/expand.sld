@@ -43,7 +43,8 @@
          generated-output
          request-input
          unsupplied
-         generating-stack)
+         generating-stack
+         read-source-file)
    (snail shell compiler core)
    (snail shell compiler capabilities))
   (begin
@@ -651,7 +652,7 @@
     ;; of the file at `path`, relative to the file the form is written in.
     (: read-source (-> String (List Syntax) ! fs compile))
     (define (read-source path)
-      (map with-included-bytes (read-text (read-file path) path)))
+      (map with-included-bytes (read-source-file path)))
 
     (: with-included-bytes (-> Syntax Syntax ! fs compile))
     (define (with-included-bytes syntax)
@@ -1015,7 +1016,7 @@
       (if (builtin-library? (string-join name "."))
           (DefinedLibrary (Nil))
           (let ((path (library-path directories name loc)))
-            (file-library name (read-text (read-file path) path) path))))
+            (file-library name (read-source-file path) path))))
 
     ;; ---- Discovering artifact uses ----
 
