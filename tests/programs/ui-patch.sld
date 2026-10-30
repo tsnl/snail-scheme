@@ -58,7 +58,13 @@
                                               (Fire "next" "click" no-event)
                                               (Fire "next" "click" no-event)
                                               (Fire "next" "click" no-event))
-                                        (lambda () (run-ui 0 update view (lambda (step) (unit)))))))
+                                        (lambda ()
+                                          (run-ui 0
+                                                  (Nil)
+                                                  update
+                                                  view
+                                                  (lambda (step) (Nil))
+                                                  (lambda (step) (unit)))))))
            (write-line (string-append "step " (show (Pair-first result))))
            (write-line (document->html (Pair-second result)))
            (for-each write-line (document-trace (Pair-second result)))))))

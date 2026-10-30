@@ -1,9 +1,13 @@
 text:   (car x)
-indented, line height 0.0
+began
+indented: taken, line height 0.0
+saved
+late: refused, value 0
 field gone
-late, value 0
+online
 <div><button id="indent" @click></button><button id="late" @click></button><button id="hide" @click></button></div>
 set-property 2 value ""
+wake
 fire text input #1
 set-property 2 value "(car x)"
 fire indent click #2
@@ -13,10 +17,14 @@ focus 2
 measure 2
 wake
 set-property 2 value "  (car x)"
+fire window keydown #6
 fire late click #3
 fire hide click #4
-remove 2
+confirm "Hide the field?"
 wake
+remove 2
 insert-text 2 0 0 "late " (removed)
 wake
+wake
+fire window online #5
 close

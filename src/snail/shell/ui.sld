@@ -10,6 +10,10 @@
 ;; only the listener's id. A command is one-shot work, run as a task, whose
 ;; answer is a message: it posts the answer to the interface's mailbox and
 ;; wakes the interface's task, the only one that waits on the document.
+;; The window is no node of the tree, so the listeners on it, for what
+;; reaches the whole page, are a list of their own the model gives; and an
+;; interface may start with messages, to start the commands it needs
+;; before anything happens.
 (define-library (snail shell ui)
   (export
    Html
@@ -372,15 +376,32 @@
           (filter (lambda (shown) (not (same-node? shown child))) unplaced)
           unplaced))
 
+    ;; ---- The window ----
+
+    ;; The window is shown as an element without attributes or children:
+    ;; only the listeners given it are patched, so any other attribute is
+    ;; ignored.
+    (: window-shown (All (M) (-> (List (Attribute M)) (Shown M) ! dom)))
+    (define (window-shown attributes)
+      (let ((node (window-node)))
+        (ShownElement node "#window" attributes (listen-all node attributes) (Nil))))
+
+    (: patch-window (All (M) (-> (Shown M) (List (Attribute M)) (Shown M) ! dom)))
+    (define (patch-window shown attributes)
+      (match shown
+        ((ShownElement node tag old listeners _)
+         (ShownElement node tag attributes (patch-listeners node old listeners attributes) (Nil)))
+        ((ShownText _ _) (panic "internal error: the window shown as text"))))
+
     ;; ---- Listeners ----
 
-    ;; Each listener's function, by the listener's id.
-    (: listener-table (All (M) (-> (Shown M) (Table (-> Event M)))))
-    (define (listener-table shown)
+    ;; Each listener's function in the trees, by the listener's id.
+    (: listener-table (All (M) (-> (List (Shown M)) (Table (-> Event M)))))
+    (define (listener-table trees)
       (fold-left (lambda (table pair)
                    (table-set table (show (Listener-id (Pair-second pair))) (Pair-first pair)))
                  empty-table
-                 (listener-functions shown)))
+                 (concatenate (map listener-functions trees))))
 
     (: listener-functions (All (M) (-> (Shown M) (List (Pair (-> Event M) Listener)))))
     (define (listener-functions shown)
@@ -397,21 +418,23 @@
 
     ;; ---- Running ----
 
-    ;; The interface between deliveries: its model, the tree shown, and
-    ;; the tree's listeners' functions by listener id, which only
-    ;; `showing` builds, so they agree.
+    ;; The interface between deliveries: its model, the tree shown, the
+    ;; window's listeners, and the listeners' functions by listener id,
+    ;; which only `showing` builds, so they agree.
     (struct (Running Model M)
       ((model Model)
        (shown (Shown M))
+       (window (Shown M))
        (listeners (Table (-> Event M)))))
 
-    (: showing (All (Model M) (-> Model (Shown M) (Running Model M))))
-    (define (showing model shown)
-      (Running model shown (listener-table shown)))
+    (: showing (All (Model M) (-> Model (Shown M) (Shown M) (Running Model M))))
+    (define (showing model shown window)
+      (Running model shown window (listener-table (list window shown))))
 
-    ;; Shows the view of `model` in the document's root and runs the
-    ;; interface, a delivery at a time, until the document closes, then
-    ;; answers the last model. An event at a listener the view has since
+    ;; Shows the view of `model` in the document's root, with the listeners
+    ;; `window` gives the window, updates it with each message in `start`,
+    ;; and runs the interface, a delivery at a time, until the document
+    ;; closes, then answers the last model. An event at a listener the view has since
     ;; dropped is ignored. `checkpoint` is given the model when the page is
     ;; hidden and when the document closes, to keep what would be lost; a
     ;; command still running then never answers. Both `view` and `update`
@@ -420,39 +443,52 @@
     (: run-ui
        (All (Model M e) (requires (Copy Model))
             (-> Model
+                (List M)
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
+                (-> Model (List (Attribute M)))
                 (-> Model Unit ! tasks e)
                 Model
                 ! mut dom tasks e)))
-    (define (run-ui model update view checkpoint)
+    (define (run-ui model start update view window checkpoint)
       (let ((box (make-mailbox)) (shown (create (view model))))
         (insert-node (document-root) (shown-node shown) (None))
-        (serve box update view checkpoint (showing model shown))))
+        (serve box
+               update
+               view
+               window
+               checkpoint
+               (fold-left (lambda (running message)
+                            (updated box update view window running message))
+                          (showing model shown (window-shown (window model)))
+                          start))))
 
     (: serve
        (All (Model M e) (requires (Copy Model))
             (-> (Mailbox M)
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
+                (-> Model (List (Attribute M)))
                 (-> Model Unit ! tasks e)
                 (Running Model M)
                 Model
                 ! mut dom tasks e)))
-    (define (serve box update view checkpoint running)
+    (define (serve box update view window checkpoint running)
       (match (next-event)
         ((Fired listener event)
          (serve box
                 update
                 view
+                window
                 checkpoint
                 (match (table-ref (Running-listeners running) (show (Listener-id listener)))
-                  ((Some message) (updated box update view running (message event)))
+                  ((Some message) (updated box update view window running (message event)))
                   ((None) running))))
-        ((Woken) (serve box update view checkpoint (answered box update view running)))
+        ((Woken)
+         (serve box update view window checkpoint (answered box update view window running)))
         ((Hidden)
          (checkpoint (Running-model running))
-         (serve box update view checkpoint running))
+         (serve box update view window checkpoint running))
         ((Closed)
          (checkpoint (Running-model running))
          (Running-model running))))
@@ -463,30 +499,35 @@
             (-> (Mailbox M)
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
+                (-> Model (List (Attribute M)))
                 (Running Model M)
                 (Running Model M)
                 ! mut dom e)))
-    (define (answered box update view running)
+    (define (answered box update view window running)
       (match (mailbox-try-receive box)
-        ((Some message) (answered box update view (updated box update view running message)))
+        ((Some message)
+         (answered box update view window (updated box update view window running message)))
         ((None) running)))
 
     ;; The update for one message, the commands it started dispatched, and
-    ;; the view of the next model shown.
+    ;; the view and window of the next model shown.
     (: updated
        (All (Model M e) (requires (Copy Model))
             (-> (Mailbox M)
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
+                (-> Model (List (Attribute M)))
                 (Running Model M)
                 M
                 (Running Model M)
                 ! mut dom e)))
-    (define (updated box update view running message)
+    (define (updated box update view window running message)
       (match (update (Running-model running) message)
         ((Pair model commands)
          (start-commands box commands)
-         (showing model (patch-root (Running-shown running) (view model))))))
+         (showing model
+                  (patch-root (Running-shown running) (view model))
+                  (patch-window (Running-window running) (window model))))))
 
     (: start-commands (All (M e) (-> (Mailbox M) (List (FnOnce M ! tasks e)) Unit ! mut dom e)))
     (define (start-commands box commands)

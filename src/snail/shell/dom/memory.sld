@@ -3,28 +3,29 @@
 ;; work and answers the work's value with the document it left: its tree,
 ;; which `document->html` prints, and the trace of every operation, one
 ;; line each. Its events are a script, delivered in turn as the work
-;; waits for them: firing a listener on the element with an `id`, or
-;; hiding the page. The input events of inserted text and then a `wake`
-;; are delivered before the script goes on, in the order a page would
-;; queue them, and once the script is done and nothing waits, the document
-;; is closed.
+;; waits for them: firing a listener on the element with an `id` or on
+;; the window, or hiding the page. The input events of inserted text and
+;; then a `wake` are delivered before the script goes on, in the order a
+;; page would queue them, and once the script is done and nothing waits,
+;; the document is closed.
 ;; As a page delivers only between the tasks it runs, each delivery waits
 ;; until every other ready task has run, so it finds the document as they
 ;; left it.
 ;;
 ;; The document is strict where a page would forgive: a node the
 ;; reconciler uses after it was removed, a listener dropped after its node
-;; was, or a node inserted into itself, is a panic, so the tests of an
-;; interface catch what a page would hide. What a command may do after
-;; the view removed its node (focus, properties, selection, inserting text
-;; and measuring) does nothing then, as on a page, and its trace line
-;; ends "(removed)". Inserting text delivers the field's `input` event, as
-;; typing would.
+;; was, a node inserted into itself, or a key fired at a listener that
+;; does not hear it, is a panic, so the tests of an interface catch what a
+;; page would hide. What a command may do after the view removed its node
+;; (focus, properties, selection, inserting text and measuring) does
+;; nothing then, as on a page, and its trace line ends "(removed)". Inserting text delivers the field's `input` event, as
+;; typing would. The person always agrees to what `confirm` asks.
 (define-library (snail shell dom memory)
   (export
    Document
    Cue
    Fire
+   FireWindow
    Hide
    document-trace
    document->html
@@ -51,8 +52,15 @@
        (properties (List (Pair String Property)))
        (children (List I32))
        (parent I32)
-       (listeners (List (Pair I32 String)))
+       (listeners (List Hearing))
        (live Bool)))
+
+    ;; A listener: its id, its event, and its prevention, which says which
+    ;; keys it hears.
+    (struct Hearing
+      ((id I32)
+       (event String)
+       (prevent Prevent)))
 
     (enum Property
       (Text ((value String)))
@@ -61,7 +69,8 @@
 
     ;; Every node made, by handle; the node each listener is on, by its id;
     ;; the next handle and listener id; and the trace's lines, newest
-    ;; first. Handle 0 is the root.
+    ;; first. Handle 0 is the root, and -1 the window, which holds only
+    ;; listeners.
     (struct Document
       ((entries (Table Entry))
        (owners (Table I32))
@@ -71,7 +80,13 @@
 
     (: empty-document Document)
     (define empty-document
-      (Document (table-set empty-table "0" (new-entry "#root" "")) empty-table 1 1 (Nil)))
+      (Document (table-set (table-set empty-table "0" (new-entry "#root" ""))
+                           "-1"
+                           (new-entry "#window" ""))
+                empty-table
+                1
+                1
+                (Nil)))
 
     (: new-entry (-> String String Entry))
     (define (new-entry tag text)
@@ -269,7 +284,7 @@
                              handle
                              (Entry-listeners-set on
                                                   (append (Entry-listeners on)
-                                                          (list (Pair id event)))))
+                                                          (list (Hearing id event prevent)))))
                         (+ id 1))
                        (table-set (Document-owners document) (show id) handle))
                       (list "listen"
@@ -305,38 +320,55 @@
         (traced (put document
                      handle
                      (Entry-listeners-set on
-                                          (filter (lambda (pair) (not (= (Pair-first pair) id)))
-                                                  (Entry-listeners on))))
+                                          (filter
+                                           (lambda (hearing) (not (= (Hearing-id hearing) id)))
+                                           (Entry-listeners on))))
                 (list "unlisten" (string-append "#" (show id))))))
 
     ;; ---- Events ----
 
     ;; A step of the script: an event to fire at the listener for `event`
-    ;; on the element whose `id` attribute is `target`, carrying `data`, or
-    ;; the page hidden.
+    ;; on the element whose `id` attribute is `target`, or on the window,
+    ;; carrying `data`, or the page hidden.
     (enum Cue
       (Fire ((target String)
              (event String)
              (data Event)))
+      (FireWindow ((event String)
+                   (data Event)))
       (Hide))
 
     ;; A cue's delivery.
     (: cued (-> Document Cue (Pair Delivery Document)))
     (define (cued document cue)
       (match cue
-        ((Fire target event data) (fired document target event data))
+        ((Fire target event data) (fired document target (target-entry document target) event data))
+        ((FireWindow event data) (fired document "window" (entry document -1) event data))
         ((Hide) (Pair (Hidden) (traced document (list "hide"))))))
 
-    ;; The listener a scripted event fires, which must be there.
-    (: fired (-> Document String String Event (Pair Delivery Document)))
-    (define (fired document target event data)
-      (match (find (lambda (pair) (string=? (Pair-second pair) event))
-                   (Entry-listeners (target-entry document target)))
-        ((Some pair)
-         (Pair (Fired (Listener (Pair-first pair)) data)
+    ;; The listener a scripted event fires, which must be there, and must
+    ;; hear its key when it hears only chords.
+    (: fired (-> Document String Entry String Event (Pair Delivery Document)))
+    (define (fired document target on event data)
+      (match (find (lambda (hearing) (string=? (Hearing-event hearing) event)) (Entry-listeners on))
+        ((Some hearing)
+         (unless (hears? (Hearing-prevent hearing) data)
+           (panic
+            (string-append "the " event " listener on " target " does not hear " (Event-key data))))
+         (Pair (Fired (Listener (Hearing-id hearing)) data)
                (traced document
-                       (list "fire" target event (string-append "#" (show (Pair-first pair)))))))
+                       (list "fire" target event (string-append "#" (show (Hearing-id hearing)))))))
         ((None) (panic (string-append "nothing listens for " event " on " target)))))
+
+    (: hears? (-> Prevent Event Bool))
+    (define (hears? prevent data)
+      (match prevent
+        ((Chords chords)
+         (any? (lambda (chord)
+                 (and (string=? (Chord-key chord) (Event-key data))
+                      (= (Chord-modifiers chord) (Event-modifiers data))))
+               chords))
+        (_ #t)))
 
     (: target-entry (-> Document String Entry))
     (define (target-entry document target)
@@ -427,9 +459,10 @@
     (define (input-fired document node)
       (match (live document (Node-handle node))
         ((Some found)
-         (match (find (lambda (pair) (string=? (Pair-second pair) "input")) (Entry-listeners found))
-           ((Some pair)
-            (Some (Fired (Listener (Pair-first pair))
+         (match (find (lambda (hearing) (string=? (Hearing-event hearing) "input"))
+                      (Entry-listeners found))
+           ((Some hearing)
+            (Some (Fired (Listener (Hearing-id hearing))
                          (Event-value-set no-event
                                           (match (property-of document node "value")
                                             ((Some (Text value)) value)
@@ -532,14 +565,25 @@
                     (select-range
                      (lambda (node start end)
                        (alter! state (lambda (document) (selected document node start end)))))
+                    (window-node (lambda () (Node -1)))
+                    (confirm
+                     (lambda (question)
+                       (alter! state
+                               (lambda (document)
+                                 (traced document (list "confirm" (quoted question)))))
+                       #t))
                     (insert-text
                      (lambda (node start end text)
-                       (alter! state
-                               (lambda (document) (text-inserted document node start end text)))
-                       (match (input-fired (ref-get state) node)
-                         ((Some delivery)
-                          (ref-set! inputs (append (ref-get inputs) (list delivery))))
-                         ((None) (unit)))))
+                       (let ((taken (match (live (ref-get state) (Node-handle node))
+                                      ((Some _) #t)
+                                      ((None) #f))))
+                         (alter! state
+                                 (lambda (document) (text-inserted document node start end text)))
+                         (match (input-fired (ref-get state) node)
+                           ((Some delivery)
+                            (ref-set! inputs (append (ref-get inputs) (list delivery))))
+                           ((None) (unit)))
+                         taken)))
                     (measure
                      (lambda (node) (change! state (lambda (document) (measured document node)))))
                     (wake
@@ -593,7 +637,7 @@
                                                   (property->string (Pair-second pair))))
                                  (Entry-properties node)))
                            (string-concatenate
-                            (map (lambda (pair) (string-append " @" (Pair-second pair)))
+                            (map (lambda (hearing) (string-append " @" (Hearing-event hearing)))
                                  (Entry-listeners node)))
                            ">"
                            (string-concatenate

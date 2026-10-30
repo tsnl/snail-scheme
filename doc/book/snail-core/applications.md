@@ -99,9 +99,14 @@ canvas, in the shape Elm gave them:
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
 | `update : Model M -> (Pair Model (List (FnOnce M ! tasks e)))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
 
-`run-ui model update view checkpoint` shows the view in the document's
-root through the `dom` effect of `(snail shell dom)`, then handles one
-delivery at a time until the document closes, and answers the last model.
+`run-ui model start update view window checkpoint` shows the view in the
+document's root through the `dom` effect of `(snail shell dom)`, updates
+it with each message in `start`, as when it must ask its server before
+anything else happens, then handles one delivery at a time until the
+document closes, and answers the last model. The window is no node of the
+view's tree, so `window : Model -> (List (Attribute M))` gives its
+listeners, for what reaches the whole page, such as a shortcut or the page
+going back online, and they are patched as an element's are.
 `next-event` delivers a listener's event, a wake, the page hidden, or the
 document closed; `checkpoint` is given the model when the page is hidden
 and when it closes. Only the interface's own task waits on the document,
@@ -116,22 +121,31 @@ cleared, and a listener is made again only when its captures or its
 prevention change. Since the host decides both while an event is
 dispatched, a listener declares them when it is made: the fields its events
 carry (`Capture`) and when the host prevents their default action
-(`Prevent`, never, always, or for listed key chords). Functions stay in
-Snail-Core: the host sees nodes and listeners only as handles.
+(`Prevent`, never, always, or for listed key chords). A listener with
+chords hears only them, so the keys it leaves alone never cross into
+Snail-Core, and never a key that ends an input method's composition.
+Functions stay in Snail-Core: the host sees nodes and listeners only as
+handles. A selection's offsets count scalars, as a String's indices do,
+though the page counts UTF-16 code units.
 
 A command does what a view cannot say by finding a node by its `id`
 attribute with `element-by-id`. It can then focus it, scroll it through
 its scroll properties, select a range of it, insert text into it as typing
 would (`insert-text`, which the page can undo and which fires the field's
-`input` event), and `measure` it. A command can run after the view has
-removed its node, so on a removed node these do nothing, and reads of it
-answer "" or 0.
+`input` event, and which answers whether the field took the text), and
+`measure` it. A command can run after the view has removed its node, so on
+a removed node these do nothing, and reads of it answer "" or 0. `confirm`
+asks the person a question and answers whether they agreed. When the view
+gives a field a new value, as when another view of its text changed it,
+the field keeps its selection and scroll as far as the new text reaches.
 
 `with-memory-dom` from `(snail shell dom memory)` handles `dom` over a
 document in memory, delivering a script of cues (events fired at elements
-by their `id`, and the page hidden), and answers the document it left, as
-HTML and as a trace of every operation. `tests/programs/ui-memory.sld` and `tests/programs/ui-patch.sld`
-run interfaces this way under `make test`.
+by their `id` or at the window, and the page hidden), and answers the
+document it left, as HTML and as a trace of every operation.
+`tests/programs/ui-memory.sld`, `tests/programs/ui-patch.sld` and
+`tests/programs/ui-commands.sld` run interfaces this way under `make
+test`.
 
 `define-ui` from `(snail shell ui page)` hosts an interface in a page as
 `define-application` hosts a scene:
@@ -141,17 +155,24 @@ run interfaces this way under `make test`.
   (init: start)
   (update: update)
   (view: view)
+  (window: window)
+  (start: (list (Load)))
   (save: save)
   (restore: restore))
 ```
 
-`init` takes the seed alone, and `update`'s commands are `(Command Msg)`,
+An interface without window listeners gives `(window: (lambda (model)
+(Nil)))`, as an Elm program without subscriptions gives `Sub.none`, and
+one without messages to start with gives `(start: (Nil))`. `init` takes
+the seed alone, and `update`'s commands are `(Command Msg)`,
 which may wait on tasks, reach the document, and ask the server through
 the `fetch` effect of `(snail shell fetch)`. `request method url headers
 body` answers the server's reply, its status and body, or why there was
 none. A stream is the server-sent events of the kinds it names at a URL:
 `stream-next` waits for the next, its kind and data, and answers none once
-the stream is closed for good. One command waits on a stream at a time, and the update that hears
+the stream is closed for good. The host connects again when a connection
+drops, and a stream that names the kind `error` hears an event each time.
+One command waits on a stream at a time, and the update that hears
 an event issues the next wait, so a stream needs no machinery beyond
 one-shot commands.
 The interface boots as an application does, from a handed-over model of
