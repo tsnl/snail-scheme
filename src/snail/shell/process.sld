@@ -94,10 +94,13 @@
       (default
         ((spawn (lambda (command)
                   (through-host (lambda (ticket) (start-spawn ticket command)) finish-spawn)))
+         ;; A read takes 1 to 65,536 bytes, which the host takes as given.
          (read-output (lambda (child stream maximum)
-                        (through-host
-                         (lambda (ticket) (start-read-output ticket child stream maximum))
-                         finish-read-output)))
+                        (if (and (>= maximum 1) (<= maximum 65536))
+                            (through-host
+                             (lambda (ticket) (start-read-output ticket child stream maximum))
+                             finish-read-output)
+                            (Err (ProcessError "EINVAL")))))
          (write-input (lambda (child bytes)
                         (through-host (lambda (ticket) (start-write-input ticket child bytes))
                                       finish-write-input)))

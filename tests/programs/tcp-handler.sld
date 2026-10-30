@@ -39,7 +39,7 @@
                                     #u8())
                                    (Ok (unit))))
               (close-connection (lambda (_) (Ok (unit)))))
-           (let ((connection (require (connect (Endpoint "test" 0)))))
+           (let ((connection (require (connect (require (endpoint "192.0.2.1" 0))))))
              (dispatch-local
               (once (lambda ()
                       (require (write connection #u8(7 8)))

@@ -2,11 +2,15 @@
 ;; test. By default, an operation that waits starts on the native host and
 ;; waits for its completion as a task does, by ticket ((snail shell task)'s
 ;; `through-host`), so each such operation's latent row names `tasks`.
+;;
+;; An Endpoint is parsed once, by `endpoint`: the type is exported without
+;; its constructor, so holding one is evidence that its address is IPv4
+;; and its port in range, and no host checks either again.
 (define-library (snail shell socket)
   (export
    tcp listen connect accept read write finish-connection close-listener close-connection
    udp bind send receive close-udp
-   Endpoint Endpoint-address Endpoint-port
+   Endpoint endpoint Endpoint-address Endpoint-port
    Listener Listener-token Listener-port
    Connection Connection-token
    UdpSocket UdpSocket-token UdpSocket-port
@@ -17,11 +21,74 @@
    (only (snail shell task) tasks through-host))
   (begin
 
-    ;; ---- Public values ----
+    ;; ---- Endpoints ----
 
-    (struct Endpoint
-      ((address String)
+    ;; An IPv4 address, its four octets in one number from 0 to 2^32 - 1,
+    ;; most significant first, and a port from 0 to 65535.
+    (struct Ipv4Endpoint
+      ((address I64)
        (port I32)))
+
+    (type Endpoint Ipv4Endpoint)
+
+    ;; The Endpoint for dotted IPv4 text and a port, or EINVAL, the code a
+    ;; host gives an address it cannot use.
+    (: endpoint (-> String I32 (Result Endpoint SocketError)))
+    (define (endpoint address port)
+      (match (ipv4-address address)
+        ((Some octets)
+         (if (and (>= port 0) (<= port 65535))
+             (Ok (Ipv4Endpoint octets port))
+             (Err (SocketError "EINVAL"))))
+        ((None) (Err (SocketError "EINVAL")))))
+
+    ;; Four decimal octets from 0 to 255 between dots, none with a leading
+    ;; zero, as Node's isIPv4 reads an address.
+    (: ipv4-address (-> String (Option I64)))
+    (define (ipv4-address text)
+      (let loop ((index 0) (dots 0) (digits 0) (octet 0) (address 0))
+        (if (= index (string-length text))
+            (if (and (= dots 3) (> digits 0)) (Some (+ (* address 256) octet)) (None))
+            (let* ((char (string-ref text index)) (next (+ (* octet 10) (digit-value char))))
+              (cond ((and (char=? char #\.) (> digits 0) (< dots 3))
+                     (loop (+ index 1) (+ dots 1) 0 0 (+ (* address 256) octet)))
+                    ((and (char-numeric? char) (not (and (= digits 1) (= octet 0))) (<= next 255))
+                     (loop (+ index 1) dots (+ digits 1) next address))
+                    (else (None)))))))
+
+    ;; The address as dotted text.
+    (: Endpoint-address (-> Endpoint String))
+    (define (Endpoint-address endpoint)
+      (let ((address (Ipv4Endpoint-address endpoint)))
+        (string-join (map (lambda (place) (i64->string (remainder (quotient address place) 256)))
+                          (list 16777216 65536 256 1))
+                     ".")))
+
+    (: Endpoint-port (-> Endpoint I32))
+    (define (Endpoint-port endpoint)
+      (Ipv4Endpoint-port endpoint))
+
+    ;; ---- Bounds ----
+
+    ;; What the operations accept, decided here so no host decides it: a
+    ;; read of 1 to 65,536 bytes, a datagram of at most 65,507, the most
+    ;; an IPv4 datagram carries, and a grace that is not negative. A
+    ;; listener keeps at most `accept-backlog` connections no accept has
+    ;; claimed, and a UDP socket `datagram-queue` datagrams no receive has
+    ;; taken; the host refuses what arrives beyond them.
+    (: read-limit I32)
+    (define read-limit 65536)
+
+    (: datagram-limit I32)
+    (define datagram-limit 65507)
+
+    (: accept-backlog I32)
+    (define accept-backlog 64)
+
+    (: datagram-queue I32)
+    (define datagram-queue 32)
+
+    ;; ---- Public values ----
 
     ;; Tokens belong to the effect handler that created them. Any keeps a
     ;; native endpoint opaque, and lets tests use their own tokens.
@@ -58,22 +125,34 @@
              (close-connection "close-connection")))
       (default
         ((listen (lambda (endpoint)
-                   (through-host (lambda (ticket) (start-listen ticket endpoint)) finish-listen)))
+                   (through-host (lambda (ticket)
+                                   (start-listen ticket
+                                                 (address-number endpoint)
+                                                 (Endpoint-port endpoint)
+                                                 accept-backlog))
+                                 finish-listen)))
          (connect (lambda (endpoint)
-                    (through-host (lambda (ticket) (start-connect ticket endpoint))
+                    (through-host (lambda (ticket)
+                                    (start-connect ticket
+                                                   (address-number endpoint)
+                                                   (Endpoint-port endpoint)))
                                   finish-connect)))
          (accept (lambda (listener)
                    (through-host (lambda (ticket) (start-accept ticket listener)) finish-accept)))
          (read (lambda (connection maximum)
-                 (through-host (lambda (ticket) (start-read ticket connection maximum))
-                               finish-read)))
+                 (if (and (>= maximum 1) (<= maximum read-limit))
+                     (through-host (lambda (ticket) (start-read ticket connection maximum))
+                                   finish-read)
+                     (Err (SocketError "EINVAL")))))
          (write (lambda (connection bytes)
                   (through-host (lambda (ticket) (start-write ticket connection bytes))
                                 finish-write)))
          (finish-connection
           (lambda (connection grace)
-            (through-host (lambda (ticket) (start-finish-connection ticket connection grace))
-                          finish-finish-connection))))))
+            (if (>= grace 0)
+                (through-host (lambda (ticket) (start-finish-connection ticket connection grace))
+                              finish-finish-connection)
+                (Err (SocketError "EINVAL"))))))))
 
     (effect udp
       ((bind (-> Endpoint (Result UdpSocket SocketError) ! tasks))
@@ -84,25 +163,41 @@
             ((close-udp "close-udp")))
       (default
         ((bind (lambda (endpoint)
-                 (through-host (lambda (ticket) (start-bind ticket endpoint)) finish-bind)))
+                 (through-host (lambda (ticket)
+                                 (start-bind ticket
+                                             (address-number endpoint)
+                                             (Endpoint-port endpoint)
+                                             datagram-queue))
+                               finish-bind)))
+         ;; Port 0 names no peer, though a socket may bind to it.
          (send (lambda (socket peer bytes)
-                 (through-host (lambda (ticket) (start-send ticket socket peer bytes))
-                               finish-send)))
+                 (cond ((= (Endpoint-port peer) 0) (Err (SocketError "EINVAL")))
+                       ((> (vector-length bytes) (i32->i64 datagram-limit))
+                        (Err (SocketError "EMSGSIZE")))
+                       (else (through-host (lambda (ticket)
+                                             (start-send ticket
+                                                         socket
+                                                         (address-number peer)
+                                                         (Endpoint-port peer)
+                                                         bytes))
+                                           finish-send)))))
          (receive (lambda (socket maximum)
-                    (through-host (lambda (ticket) (start-receive ticket socket maximum))
-                                  finish-receive))))))
+                    (if (and (>= maximum 0) (<= maximum datagram-limit))
+                        (through-host (lambda (ticket) (start-receive ticket socket maximum))
+                                      finish-receive)
+                        (Err (SocketError "EINVAL"))))))))
 
     ;; ---- Native waits ----
 
     ;; Each operation that waits starts on the host, which reads its
     ;; arguments at once, and finishes with the result the host built for
     ;; its ticket. Both halves return at once.
-    (extern start-listen "snail.runtime.native.socket" "start-listen" (-> I64 Endpoint Unit))
+    (extern start-listen "snail.runtime.native.socket" "start-listen" (-> I64 I32 I32 I32 Unit))
     (extern finish-listen
             "snail.runtime.native.socket"
             "finish-listen"
             (-> I64 (Result Listener SocketError)))
-    (extern start-connect "snail.runtime.native.socket" "start-connect" (-> I64 Endpoint Unit))
+    (extern start-connect "snail.runtime.native.socket" "start-connect" (-> I64 I32 I32 Unit))
     (extern finish-connect
             "snail.runtime.native.socket"
             "finish-connect"
@@ -130,7 +225,7 @@
             "snail.runtime.native.socket"
             "finish-finish-connection"
             (-> I64 (Result Unit SocketError)))
-    (extern start-bind "snail.runtime.native.socket" "start-bind" (-> I64 Endpoint Unit))
+    (extern start-bind "snail.runtime.native.socket" "start-bind" (-> I64 I32 I32 I32 Unit))
     (extern finish-bind
             "snail.runtime.native.socket"
             "finish-bind"
@@ -138,7 +233,7 @@
     (extern start-send
             "snail.runtime.native.socket"
             "start-send"
-            (-> I64 UdpSocket Endpoint Bytes Unit))
+            (-> I64 UdpSocket I32 I32 Bytes Unit))
     (extern finish-send
             "snail.runtime.native.socket"
             "finish-send"
@@ -183,24 +278,15 @@
             (NativeUdpSocket-handle (type-convert token NativeUdpSocket))
             0)))
 
-    (: address-length (-> Endpoint I32))
-    (define (address-length endpoint)
-      (i64->i32 (min 16 (string-length (Endpoint-address endpoint)))))
-
-    (: address-character (-> Endpoint I32 Char))
-    (define (address-character endpoint index)
-      (string-ref (Endpoint-address endpoint) (i32->i64 index)))
-
-    (: endpoint-port (-> Endpoint I32))
-    (define (endpoint-port endpoint)
-      (Endpoint-port endpoint))
+    ;; An endpoint crosses to the host as two I32s, its port and its
+    ;; address, whose octets the host reads as the I32's unsigned bits.
+    (: address-number (-> Endpoint I32))
+    (define (address-number endpoint)
+      (i64->i32 (Ipv4Endpoint-address endpoint)))
 
     (expose listener-handle "tcp:listener-handle")
     (expose connection-handle "tcp:connection-handle")
     (expose udp-handle "udp:socket-handle")
-    (expose endpoint-port "socket:endpoint-port")
-    (expose address-length "socket:address-length")
-    (expose address-character "socket:address-character")
 
     ;; ---- Host result construction ----
 
@@ -235,9 +321,13 @@
     (define (bound handle port)
       (Ok (UdpSocket (type-convert (NativeUdpSocket handle) Any) port)))
 
+    ;; Node names a datagram's sender by its dotted text, which `endpoint`
+    ;; parses as it would any other.
     (: received-datagram (-> (Array U8) I32 (Array U8) (Result Datagram SocketError) ! mut))
     (define (received-datagram address port bytes)
-      (Ok (Datagram (Endpoint (ascii-text address) port) (array->vector bytes))))
+      (match (endpoint (ascii-text address) port)
+        ((Ok peer) (Ok (Datagram peer (array->vector bytes))))
+        ((Err error) (Err error))))
 
     (: received (-> (Array U8) (Result (Option Bytes) SocketError) ! mut))
     (define (received bytes)

@@ -1,16 +1,11 @@
 // Concrete Node TCP ownership. Scalar handles never retain managed wrappers.
 // Close invalidates aliases now; shutdown waits for the remaining native close.
 import {on, once} from 'node:events';
-import {isIPv4, Server, Socket} from 'node:net';
+import {Server, Socket} from 'node:net';
 
-const chunkSize = 64 * 1024, queueLimit = 64;
+const chunkSize = 64 * 1024;
 const fault = (code, message) => Object.assign(new Error(message), {code});
 const closedError = () => fault('EBADF', 'TCP resource is closed');
-
-function endpoint(address, port) {
-  if (typeof address !== 'string' || !isIPv4(address)) throw fault('EINVAL', 'TCP requires a numeric IPv4 address');
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw fault('EINVAL', 'TCP port must be 0..65535');
-}
 
 // Node's event helpers wrap abort reasons. Preserve the task's exact reason so
 // ordinary cancellation is not reported as a detached task failure.
@@ -76,15 +71,19 @@ export function createTcp() {
 
   function incoming(listener, socket) {
     const connection = own(socket, 'connection');
-    if (stopped || listener.stop.signal.aborted || listener.queue.size >= queueLimit) { closeResource(connection); return; }
+    if (stopped || listener.stop.signal.aborted || listener.queue.size >= listener.backlog) { closeResource(connection); return; }
     listener.queue.add(connection);
     socket.once('close', () => listener.queue.delete(connection));
   }
 
-  async function listen(signal, address, port) {
-    signal.throwIfAborted(); endpoint(address, port);
+  // The arguments are (snail shell socket)'s, which decided them: an
+  // Endpoint's address and port, and how many connections no accept has
+  // claimed the listener keeps.
+  async function listen(signal, address, port, backlog) {
+    signal.throwIfAborted();
     if (stopped) throw closedError();
     const listener = own(new Server({pauseOnConnect: true, allowHalfOpen: true}), 'listener');
+    listener.backlog = backlog;
     listener.io.on('connection', socket => incoming(listener, socket));
     const abort = () => closeResource(listener, signal.reason);
     signal.addEventListener('abort', abort, {once: true});
@@ -99,7 +98,7 @@ export function createTcp() {
   }
 
   async function connect(signal, address, port) {
-    signal.throwIfAborted(); endpoint(address, port);
+    signal.throwIfAborted();
     if (stopped) throw closedError();
     const connection = own(new Socket({allowHalfOpen: true}), 'connection');
     const abort = () => closeResource(connection, signal.reason);
@@ -136,7 +135,6 @@ export function createTcp() {
 
   async function read(signal, id, maximum) {
     signal.throwIfAborted();
-    if (!Number.isInteger(maximum) || maximum <= 0 || maximum > chunkSize) throw fault('EINVAL', 'TCP read limit must be 1..65536');
     const connection = get(id, 'connection'), socket = connection.io;
     if (connection.reading) throw fault('EBUSY', 'TCP read is already pending');
     connection.reading = true;
@@ -182,7 +180,6 @@ export function createTcp() {
   // force close, but cannot begin more I/O. No discarded input is retained.
   async function finishConnection(signal, id, grace) {
     signal.throwIfAborted();
-    if (!Number.isInteger(grace) || grace < 0 || grace > 0x7fffffff) throw fault('EINVAL', 'TCP finish grace must be 0..2147483647 ms');
     const connection = get(id, 'connection');
     if (connection.reading || connection.writing) throw fault('EBUSY', 'TCP I/O is still pending');
     const abort = () => closeResource(connection, signal.reason);

@@ -44,8 +44,9 @@
 ;; main returns.
 (dispatch-local
  (once (lambda ()
-         (let* ((listener (require (listen (Endpoint "127.0.0.1" 0))))
-                (client (require (connect (Endpoint "127.0.0.1" (Listener-port listener)))))
+         (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
+                (client
+                 (require (connect (require (endpoint "127.0.0.1" (Listener-port listener))))))
                 (server (require (accept listener))))
            (require (close-listener listener))
            (dispatch-local

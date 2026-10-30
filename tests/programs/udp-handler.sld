@@ -26,10 +26,10 @@
               (receive (lambda (socket _)
                          (Ok (ref-get (type-convert (UdpSocket-token socket) (Ref Datagram))))))
               (close-udp (lambda (_) (Ok (unit)))))
-           (let ((socket (require (bind (Endpoint "test" 7)))))
+           (let ((socket (require (bind (require (endpoint "192.0.2.1" 7))))))
              (dispatch-local
               (once (lambda ()
-                      (require (send socket (Endpoint "peer" 8) #u8(9 10)))
+                      (require (send socket (require (endpoint "192.0.2.2" 8)) #u8(9 10)))
                       (let ((packet (require (receive socket 2))))
                         (write-line (Endpoint-address (Datagram-peer packet)))
                         (display (vector->list (Datagram-bytes packet)))
