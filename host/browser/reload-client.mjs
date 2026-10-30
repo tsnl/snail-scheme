@@ -42,9 +42,11 @@ function button(caption, handler) {
 
 // ---- The client ----
 
-// `page` gives `restyle(file, digest)`, `relink(module, fresh)`, which
-// resolves once every program on the page is relinked, and `save()`, which
-// resolves once every program's save is stored. The client is one linked
+// `page` gives `restyle(file, digest, base)`, `relink(module, fresh,
+// manifest)`, which resolves once every program on the page is relinked
+// from the modules.json at `manifest`, or the one each was linked from when
+// that is empty, and `save()`, which resolves once every program's save is
+// stored. The client is one linked
 // module with its own runtime.
 export async function createReloadClient(bytes, page) {
   const client = {exports: null, page, notice: createNotice()};
@@ -77,9 +79,9 @@ function pageCommands(client) {
   return {
     notice([text], kind) { notice.show(text, {failed: kind === 1, seconds: kind === 2 ? 2 : 0}); },
     hide() { notice.hide(); },
-    restyle([file, digest]) { page.restyle(file, digest); },
-    relink([module], fresh) {
-      page.relink(module, fresh === 1).then(() => enter(client, 'reload_relinked', '', 0), error => enter(client, 'reload_relinked', error.message, 1));
+    restyle([file, digest, base]) { page.restyle(file, digest, base); },
+    relink([module, manifest], fresh) {
+      page.relink(module, fresh === 1, manifest || undefined).then(() => enter(client, 'reload_relinked', '', 0), error => enter(client, 'reload_relinked', error.message, 1));
     },
     reload() { page.save().then(() => location.reload()); },
     'offer-fresh-start'([text]) {
@@ -89,10 +91,14 @@ function pageCommands(client) {
   };
 }
 
-// A page's style sheets, linked by URL, fetched again with the new digest.
-export function restyleLinks(file, digest) {
+// A page's style sheets, linked by URL, fetched again with the new digest,
+// from the base of the build they now belong to when there is one.
+export function restyleLinks(file, digest, base) {
   for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
     const url = new URL(link.href);
-    if (url.pathname.endsWith(`/${file}`)) { url.searchParams.set('v', digest); link.href = url.href; }
+    if (!url.pathname.endsWith(`/${file}`)) continue;
+    const next = base ? new URL(base + file, location.href) : url;
+    next.searchParams.set('v', digest);
+    link.href = next.href;
   }
 }

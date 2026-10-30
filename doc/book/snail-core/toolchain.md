@@ -432,8 +432,8 @@ preprocessor goes away.
 
 ## Existing application development loop
 
-`dev` currently compiles and edits projects. Application execution and reload
-still use `./scripts/snail-tool serve APP-DIRECTORY` and
+`dev` compiles, edits, runs and reloads projects. An application without a
+project still uses `./scripts/snail-tool serve APP-DIRECTORY`, and a program
 `./scripts/snail-tool watch SOURCE [ARGUMENT ...]`. Their loop is
 `src/snail/shell/develop.sld`, exposed by `bootstrap/develop.sld`; it retains a compiler
 session, debounces changes and publishes manifests. It plans each build as the
@@ -484,8 +484,9 @@ replacement children.
 
 The native service, HTTP API and editor implement [application run controls](applications.md#development-run-targets)
 and replacement after accepted builds, and the service serves each browser
-target's builds ([below](applications.md#browser-targets-in-development)). Durable
-state and reloading a running page remain [proposed work](applications.md#proposed-application-processes).
+target's builds to pages that reload as each new one is published
+([below](applications.md#browser-targets-in-development)). Durable
+state remains [proposed work](applications.md#proposed-application-processes).
 Production `serve` and package installation still need their own contracts;
 neither is a current public command.
 
@@ -509,9 +510,9 @@ is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 | Boundary | Information crossing it |
 | --- | --- |
 | Editor ↔ development process | File reads/saves, build requests, compiler diagnostics, run controls and current process/output snapshots. |
-| Development process ↔ resident builder | Attempt IDs, project descriptions, results, diagnostics and candidate output identities, as JSON lines. Compiler objects and candidates stay in the resident. |
+| Development process ↔ resident builder | Attempt IDs, project descriptions, results, diagnostics, candidate output identities and their files' digests, as JSON lines. Compiler objects and candidates stay in the resident. |
 | Development process ↔ application process | Entry, arguments, environment, working directory, standard streams, exit status and OS controls. Each process lifetime names its build and run target. |
-| Browser ↔ application server | Ordinary HTTP; build-specific reload delivery is proposed. |
+| Browser ↔ application server | Ordinary HTTP. In development, each page's build's manifest and the events of the builds after it. |
 
 A future debugger attaches to a run's process and build. Its inspector endpoint
 expires with that run. `run-snail.mjs` executes Wasm in a Node worker: attachment

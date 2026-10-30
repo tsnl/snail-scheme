@@ -1,4 +1,5 @@
-;; The reload client: the part of a page that `./scripts/snail-tool serve` adds. It compares
+;; The reload client: the part of a page that `snail dev` and
+;; `./scripts/snail-tool serve` add. It compares
 ;; the manifest of the build the page runs with the one each of the
 ;; server's events carries, and decides what the page does: fetch a style
 ;; sheet again, relink the program from the first module that changed,
@@ -58,15 +59,20 @@
 (define (hide!)
   (page-command "hide" (Nil) 0))
 
-(: restyle! (-> String String Unit ! page))
-(define (restyle! file digest)
-  (page-command "restyle" (list file digest) 0))
+;; Fetches a style sheet again, with its digest, from `base`, the build it
+;; now belongs to, or from where it was when `base` is empty.
+(: restyle! (-> String String String Unit ! page))
+(define (restyle! file digest base)
+  (page-command "restyle" (list file digest base) 0))
 
-;; Relinks the program from `module`, with a fresh state when `fresh`; the
-;; page reports how it went.
-(: relink! (-> String Bool Unit ! page))
-(define (relink! module fresh)
-  (page-command "relink" (list module) (if fresh 1 0)))
+;; Relinks the program from `module`, by the modules.json under `base`, or
+;; by its own again when `base` is empty, with a fresh state when `fresh`;
+;; the page reports how it went.
+(: relink! (-> String String Bool Unit ! page))
+(define (relink! module base fresh)
+  (page-command "relink"
+                (list module (if (string=? base "") "" (string-append base "modules.json")))
+                (if fresh 1 0)))
 
 ;; Stores every application's save, then reloads the page.
 (: reload-page! (-> Unit ! page))
@@ -80,10 +86,13 @@
 
 ;; ---- Manifests ----
 
-;; What a build serves: each file with a digest, and each module, in
-;; program order, with the file it lives in, which names its text.
+;; What a build serves: the base its files are served under, which `snail
+;; dev` pins each build's to and the old loop leaves empty; each file with
+;; a digest; and each module, in program order, with the file it lives in,
+;; which names its text.
 (struct Manifest
-  ((files (List (Pair String String)))
+  ((base String)
+   (files (List (Pair String String)))
    (modules (List (Pair String String)))))
 
 (enum Event
@@ -91,12 +100,20 @@
   (Built ((milliseconds String) (manifest Manifest)))
   (Failed ((message String) (manifest Manifest))))
 
-;; `(files (NAME DIGEST) ...) (modules (NAME FILE) ...)`.
+;; `[(base BASE)] (files (NAME DIGEST) ...) (modules (NAME FILE) ...)`.
 (: parse-manifest (-> (List Datum) Manifest))
 (define (parse-manifest data)
   (match data
-    ((Cons files (Cons modules (Nil))) (Manifest (string-pairs files) (string-pairs modules)))
-    (_ (panic "reload: a manifest is (files ...) (modules ...)"))))
+    ((Cons base (Cons files (Cons modules (Nil))))
+     (Manifest (base-of base) (string-pairs files) (string-pairs modules)))
+    ((Cons files (Cons modules (Nil))) (Manifest "" (string-pairs files) (string-pairs modules)))
+    (_ (panic "reload: a manifest is [(base ...)] (files ...) (modules ...)"))))
+
+(: base-of (-> Datum String))
+(define (base-of datum)
+  (match (datum->list datum)
+    ((Some (Cons (SymbolDatum "base") (Cons (StringDatum base) (Nil)))) base)
+    (_ (panic (string-append "reload: expected (base BASE), got " (datum->string datum))))))
 
 (: string-pairs (-> Datum (List (Pair String String))))
 (define (string-pairs datum)
@@ -198,7 +215,7 @@
 ;; target whose program could not take over the state, so it is not tried
 ;; again until the developer starts over.
 (: loaded (Ref Manifest))
-(define loaded (ref (Manifest (Nil) (Nil))))
+(define loaded (ref (Manifest "" (Nil) (Nil))))
 
 (: relinking (Ref (Option Manifest)))
 (define relinking (ref (None)))
@@ -224,9 +241,13 @@
   (let* ((manifest (event-manifest event)) (files (changed-files (ref-get loaded) manifest)))
     (cond ((refused? manifest) (unit))
           ((any? (lambda (file) (not (style-sheet? file))) files) (reload-page!))
-          (else (for-each (lambda (file) (restyle! file (digest-of manifest file))) files)
+          (else (for-each (lambda (file)
+                            (restyle! file (digest-of manifest file) (Manifest-base manifest)))
+                          files)
                 (match (first-changed-module (ref-get loaded) manifest)
-                  ((Some module) (ref-set! relinking (Some manifest)) (relink! module #f))
+                  ((Some module)
+                   (ref-set! relinking (Some manifest))
+                   (relink! module (Manifest-base manifest) #f))
                   ((None) (ref-set! loaded manifest) (show! event (not (null? files)))))))))
 
 (: refused? (-> Manifest Bool ! mut))
@@ -288,7 +309,9 @@
   (match (Pair (ref-get refused) (ref-get relinking))
     ((Pair (Some target) (None))
      (match (Manifest-modules target)
-       ((Cons (Pair first _) _) (ref-set! relinking (Some target)) (relink! first #t))
+       ((Cons (Pair first _) _)
+        (ref-set! relinking (Some target))
+        (relink! first (Manifest-base target) #t))
        ((Nil) (unit))))
     (_ (unit))))
 

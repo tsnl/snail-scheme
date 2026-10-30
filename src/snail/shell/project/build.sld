@@ -35,6 +35,7 @@
    Output-name
    Output-directory
    Output-digest
+   Output-files
    Output-compiled
    Output-modules
    Candidate
@@ -208,13 +209,16 @@
     ;; what was built for it, and its digest, which a change to any file in
     ;; it changes and nothing else does. A development build counts the
     ;; modules it holds and how many of those it compiled; a linked build
-    ;; holds one, which it compiled.
+    ;; holds one, which it compiled. `files` are the digests of its files
+    ;; but its modules, whose names are already the digests of their text,
+    ;; by relative name.
     (struct Output
       ((name String)
        (directory String)
        (digest String)
        (compiled I64)
-       (modules I64)))
+       (modules I64)
+       (files (List (Pair String String)))))
 
     ;; What a build made and has not published: each target's generation,
     ;; in plan order, which puts the first root first.
@@ -459,11 +463,13 @@
 
     (: program-output (-> Program String String (List (Pair String String)) Output ! fs))
     (define (program-output program name directory files)
-      (Output name
-              directory
-              (generation-digest files)
-              (Program-compiled program)
-              (Program-modules program)))
+      (let ((digests (file-digests files)))
+        (Output name
+                directory
+                (generation-digest files digests)
+                (Program-compiled program)
+                (Program-modules program)
+                digests)))
 
     ;; The target's program in its generation, with the files it links: one
     ;; module for a debug or release build, a module per library for a
@@ -940,24 +946,28 @@
       (sort-list (lambda (a b) (string<? (Pair-first a) (Pair-first b)))
                  (files-under directory "")))
 
-    ;; A digest of a generation's files: each relative name, with its length
-    ;; and bytes, but only the name of a module, which is the digest of the
-    ;; text it was assembled from.
-    (: generation-digest (-> (List (Pair String String)) String ! fs))
-    (define (generation-digest files)
-      (bytes->hex (sha256 (vector-concatenate (map file-evidence files)))))
+    ;; The digest of each file of a generation but its modules, by name.
+    (: file-digests (-> (List (Pair String String)) (List (Pair String String)) ! fs))
+    (define (file-digests files)
+      (map (lambda (file)
+             (Pair (Pair-first file) (bytes->hex (sha256 (read-bytes (Pair-second file))))))
+           (filter (lambda (file) (not (starts-with? (Pair-first file) "modules/"))) files)))
 
-    (: file-evidence (-> (Pair String String) Bytes ! fs))
-    (define (file-evidence file)
-      (let ((name (Pair-first file)))
-        (if (starts-with? name "modules/")
-            (string->utf8 (json->string (JsonArray (list (JsonString name)))))
-            (let ((bytes (read-bytes (Pair-second file))))
-              (vector-concatenate
-               (list (string->utf8 (json->string (JsonArray (list (JsonString name)
-                                                                  (JsonInteger
-                                                                   (vector-length bytes))))))
-                     bytes))))))
+    ;; A digest of a generation's files: each relative name, with its
+    ;; file's digest, but only the name of a module, which is the digest of
+    ;; the text it was assembled from.
+    (: generation-digest (-> (List (Pair String String)) (List (Pair String String)) String))
+    (define (generation-digest files digests)
+      (bytes->hex
+       (sha256
+        (string->utf8
+         (json->string
+          (JsonArray (map (lambda (file)
+                            (JsonArray (Cons (JsonString (Pair-first file))
+                                             (match (assoc-ref digests (Pair-first file))
+                                               ((Some digest) (list (JsonString digest)))
+                                               ((None) (Nil))))))
+                          files)))))))
 
     (: files-under (-> String String (List (Pair String String)) ! fs building))
     (define (files-under directory relative)

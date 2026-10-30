@@ -217,17 +217,18 @@ const missingHost = (from, name) => () => { throw new Error(`this host does not 
 // ---- Relinking ----
 
 // Links the program again from library `from`, by its modules.json as it
-// is now. The modules before `from` cannot import from it, so their
-// instances stay; `from` and every module after it are linked anew, reading
-// the files they link again, and initialized, so their globals start over.
-// Returns the new program and leaves the old one as it was, so a relink that
-// fails leaves it running.
-export async function relinkProgram(program, from) {
-  const {modules} = readModules(await program.read(program.manifest));
+// is now, or by another build's, `manifest`, whose files `read` gives. The
+// modules before `from` cannot import from it, so their instances stay;
+// `from` and every module after it are linked anew, reading the files they
+// link again, and initialized, so their globals start over. Returns the new
+// program and leaves the old one as it was, so a relink that fails leaves it
+// running.
+export async function relinkProgram(program, from, manifest = program.manifest, read = program.read) {
+  const {modules} = readModules(await read(manifest));
   const start = Math.max(0, modules.findIndex(entry => entry.name === from));
   const kept = modules.slice(0, start).map(entry => [entry.name, program.linked.get(entry.name)]);
-  const next = {...program, linked: new Map(kept), names: modules.map(entry => entry.name)};
-  const relinked = await compileModules(program.read, modules.slice(start));
+  const next = {...program, read, manifest, linked: new Map(kept), names: modules.map(entry => entry.name)};
+  const relinked = await compileModules(read, modules.slice(start));
   await linkModules(next, relinked);
   runProgram(next, relinked.map(entry => entry.name));
   return next;

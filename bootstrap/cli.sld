@@ -10,10 +10,11 @@
 ;;   resident PROJECT
 ;;     builds for the development service, keeping each target's compiler
 ;;     session from one build to the next (below);
-;;   dev EDITOR [--port PORT] PROJECT
+;;   dev EDITOR CLIENT [--port PORT] PROJECT
 ;;     runs the development service, (snail shell project service), with
-;;     the editor's program, host/ide/ide.sld built, until it is
-;;     interrupted, as ./snail dev does.
+;;     the editor's program, host/ide/ide.sld built, and the reload
+;;     client's, host/browser/reload.sld built, until it is interrupted,
+;;     as ./snail dev does.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -179,7 +180,9 @@
 ;;     builds every build target in development mode, naming each
 ;;     generation with P, and replies {"epoch":N,"description":D,
 ;;     "candidate":C,"diagnostics":[...]}, with D null when the project
-;;     cannot be read and C null when the build fails. The resident holds
+;;     cannot be read and C null when the build fails. C names each
+;;     target's generation, its digest and its files' digests, and how
+;;     long the build took. The resident holds
 ;;     C until a publish or a discard names its epoch, which the service
 ;;     sends before it asks for another build;
 ;;   {"kind":"publish","epoch":N}
@@ -233,19 +236,21 @@
        (reply (build-reply epoch (JsonNull) (JsonNull) failure))
        resident)
       ((Ok description)
-       (let ((built (build-project (Job-tools job)
-                                   (Job-project job)
-                                   description
-                                   (map build-name (Project-builds description))
-                                   (Development)
-                                   (scratch job)
-                                   prefix
-                                   (Resident-retained resident))))
+       (let* ((began (monotonic-nanoseconds))
+              (built (build-project (Job-tools job)
+                                    (Job-project job)
+                                    description
+                                    (map build-name (Project-builds description))
+                                    (Development)
+                                    (scratch job)
+                                    prefix
+                                    (Resident-retained resident)))
+              (milliseconds (quotient (- (monotonic-nanoseconds) began) 1000000)))
          (match (Pair-first built)
            ((Ok candidate)
             (reply (list (Pair "epoch" (JsonInteger epoch))
                          (Pair "description" (description->json description))
-                         (Pair "candidate" (candidate->json candidate description))
+                         (Pair "candidate" (candidate->json candidate description milliseconds))
                          (Pair "diagnostics" (JsonArray (Nil)))))
             (Resident job (Pair-second built) (Some (Pair epoch candidate))))
            ((Err failure)
@@ -350,12 +355,13 @@
                     (Pair "location" (JsonString (loc->string (RunTarget-loc run))))
                     (Pair "args" (JsonArray (map JsonString (RunTarget-arguments run)))))))
 
-;; Each target's generation, with its digest and how many of its modules
-;; the build compiled.
-(: candidate->json (-> Candidate Project Json))
-(define (candidate->json candidate description)
+;; How long the build took, and each target's generation, with its
+;; digests and how many of its modules the build compiled.
+(: candidate->json (-> Candidate Project I64 Json))
+(define (candidate->json candidate description milliseconds)
   (JsonObject
    (list (Pair "project" (JsonString (Candidate-project candidate)))
+         (Pair "milliseconds" (JsonInteger milliseconds))
          (Pair "description" (description->json description))
          (Pair "targets" (JsonArray (map output->json (Candidate-outputs candidate)))))))
 
@@ -365,7 +371,12 @@
                     (Pair "directory" (JsonString (Output-directory output)))
                     (Pair "digest" (JsonString (Output-digest output)))
                     (Pair "compiled" (JsonInteger (Output-compiled output)))
-                    (Pair "modules" (JsonInteger (Output-modules output))))))
+                    (Pair "modules" (JsonInteger (Output-modules output)))
+                    (Pair "files"
+                          (JsonObject (map (lambda (file)
+                                             (Pair (Pair-first file)
+                                                   (JsonString (Pair-second file))))
+                                           (Output-files output)))))))
 
 ;; A failure's diagnostics as the editor shows them: a compile's, each
 ;; naming its source point when it has one, or the build's one.
@@ -408,10 +419,10 @@
                 ((Some node) node)
                 ((None) "node"))))
     (match arguments
-      ((Cons editor (Cons "--port" (Cons port (Cons project (Nil)))))
-       (Setup root cli runtime node editor (resolved project) (port-number port)))
-      ((Cons editor (Cons project (Nil)))
-       (Setup root cli runtime node editor (resolved project) 8000))
+      ((Cons editor (Cons client (Cons "--port" (Cons port (Cons project (Nil))))))
+       (Setup root cli runtime node editor client (resolved project) (port-number port)))
+      ((Cons editor (Cons client (Cons project (Nil))))
+       (Setup root cli runtime node editor client (resolved project) 8000))
       (_ (panic "usage: snail dev [--port PORT] PROJECT")))))
 
 (: port-number (-> String I32))

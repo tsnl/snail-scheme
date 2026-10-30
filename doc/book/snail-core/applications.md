@@ -235,9 +235,8 @@ below define checkpoint recovery, acceptance and manifest reconciliation.
 before each build, as the project builder used by `snail build`, `snail dev`
 and `make site` does; only the project builder resolves artifact bundles.
 Program targets run through the editor's application controls, and `snail
-dev` serves each browser target's builds
-([below](#browser-targets-in-development)); reloading a running page from
-them remains in progress.
+dev` serves each browser target's builds to pages that reload the same way
+([below](#browser-targets-in-development)).
 
 `./scripts/snail-tool watch SOURCE` is the same loop for a program: it builds and runs the
 program again whenever its sources change, stopping a run still in
@@ -385,8 +384,10 @@ the editor's, and the status names each published browser target's `url`.
 
 | Request | Result |
 | --- | --- |
-| `/NAME/` | The latest build's `index.html`, with `<base href="/NAME/.snail/builds/EPOCH/">` first, or after its doctype. |
+| `/NAME/` | The latest build's `index.html`, with `<base href="/NAME/.snail/builds/EPOCH/">` first, or after its doctype, then the build's manifest and the reload client. |
 | `/NAME/.snail/builds/EPOCH/PATH` | `PATH` of that build's generation, while it is retained; 404 after. |
+| `/NAME/.snail/events` | An event stream that tells the target's pages of its builds. |
+| `/NAME/.snail/reload.mjs`, `reload.wasm` | The reload client, from the browser host and the development tools. |
 | `/NAME/PATH` | `PATH` of the latest build's generation. |
 
 The base pins a page to its build: its scripts, styles, `modules.json` and
@@ -400,9 +401,21 @@ and HEAD for its own Host, so a page of another site that rebinds a name to
 the address reads nothing; it is apart from the editor's, so no project
 page can reach the editor's API.
 
-A page served this way runs its build; it does not yet hear of the next.
-The reload client of `./scripts/snail-tool serve` (`host/browser/reload.sld`)
-moves here next, as the events of `/NAME/.snail/events`.
+A page served this way reloads as [above](#hot-reload). Its manifest is
+`(base BASE) (files (FILE DIGEST) ...) (modules (LIBRARY FILE) ...)`: the
+build's base, the digest of each of its files but `modules.json` and the
+modules, and each module, in program order, with its file, whose name is
+the digest of its text. The events stream carries `(building M)` while an
+attempt is under way, `(built MILLISECONDS M)` when one is published and
+`(failed MESSAGE M)` when one fails, each with the manifest `M` of the
+target's latest published build; a stream's first event is the current
+one, so a page that reconnects hears of the build it missed. The client,
+`host/browser/reload.sld`, compares each manifest with the one its page
+was built from: it relinks the program from the first module that changed,
+reading the new build's `modules.json` under its base, so the program's
+later reads come from that build too; it fetches a changed stylesheet again
+from the new base; and it reloads the page, after saving, for any other
+changed file, which gives the newest build's page.
 
 <a id="proposed-application-processes"></a>
 
@@ -435,10 +448,10 @@ until the replacement is reviewed and tested.
 
 The HTTP bundle helper, `(snail shell project bundle)`, serves a build's files
 and pins a page's assets to its build: a request for B never returns C's bytes
-([above](#browser-targets-in-development)). Proposed: it also serves
-development manifests and reload events, and keeps the server origin stable
-across restarts. Reconnect supplies the latest manifest. If B is unavailable,
-reconcile and retry using the latest manifest. Network failures and
+([above](#browser-targets-in-development)), and gives each page its build's
+manifest; the service's events give a page that reconnects the latest one.
+Proposed: keep the server origin stable across restarts, and when B is
+unavailable, reconcile and retry using the latest manifest. Network failures and
 incompatible stored data are distinct; neither permits clearing data silently.
 
 Advertise a bundle only after its server can serve it, as the service names a

@@ -26,7 +26,8 @@
 (: candidate (-> String Candidate))
 (define (candidate digest)
   (Candidate description
-             (list (Generation "server" (string-append "/r/apps/p/build/s-" digest) digest))))
+             (list (Generation "server" (string-append "/r/apps/p/build/s-" digest) digest (Nil)))
+             0))
 
 (: succeeded (-> String Reply))
 (define (succeeded digest)
@@ -38,8 +39,11 @@
 (define (built-in name digest)
   (Reply (Some description)
          (Some (Candidate description
-                          (list
-                           (Generation "server" (string-append "/r/apps/p/build/" name) digest))))
+                          (list (Generation "server"
+                                            (string-append "/r/apps/p/build/" name)
+                                            digest
+                                            (Nil)))
+                          0))
          (Nil)))
 
 ;; An edit, and the attempt it starts built and published as `epoch`.
@@ -62,7 +66,7 @@
 (define without-runs
   (let ((bare (Description (list "main.sld") (Nil) (Nil) (Nil))))
     (Reply (Some bare)
-           (Some (Candidate bare (list (Generation "server" "/r/apps/p/build/s-x" "x"))))
+           (Some (Candidate bare (list (Generation "server" "/r/apps/p/build/s-x" "x" (Nil))) 0))
            (Nil))))
 
 ;; ---- Printing ----

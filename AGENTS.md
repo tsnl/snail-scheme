@@ -149,9 +149,9 @@ rules; what matters when writing code:
   programs. `./snail dev PROJECT` runs the native project compiler and browser
   editor; `make ide` starts it for Siegework. Save writes disk; the shared
   watcher drives compiler and editor updates. Its application controls launch
-  named program targets and replace affected processes after accepted builds.
-  Browser reload still uses internal `serve` until durable-state/bundle
-  integration lands.
+  named program targets and replace affected processes after accepted builds;
+  it serves browser targets on an origin of its own, at `/NAME/`, whose pages
+  relink as each build is published.
 - Builds in one checkout keep private compiler scratch under `build/snail-run/`.
   Public `snail run` executes its completed project generation in the caller's
   working directory after removing build scratch. Rebuilding the compiled
@@ -161,6 +161,7 @@ rules; what matters when writing code:
   `host/native/develop.mjs` host; the page's reload client is `host/browser/reload.sld`,
   `relinkProgram` in `host/browser/load.mjs` relinks after the application's
   loop, a task that `host/browser/runtime.mjs` drives, saves, returns its state and settles. `tests/develop.mjs` (in
-  `make test`) and `tests/browser/reload.mjs` and `tests/browser/ide.mjs`
-  (`make test-browser`, needs `CHROMIUM`) cover them. See
+  `make test`) covers the loop, and `tests/browser/reload.mjs`, the client
+  under `snail dev`, and `tests/browser/ide.mjs` (`make test-browser`, needs
+  `CHROMIUM`) cover the pages. See
   [the development toolchain](doc/book/snail-core/toolchain.md).

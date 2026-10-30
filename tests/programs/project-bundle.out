@@ -1,10 +1,10 @@
-/ -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/">
+/ -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/"><script type="application/snail-manifest" id="snail-manifest">(base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "modules/a.wasm") ("main" "modules/b.wasm"))</script><script type="module" src="/site/.snail/reload.mjs"></script>
 <title>four</title>
 
-/index.html -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/">
+/index.html -> 200 text/html; charset=utf-8: <!doctype html><base href="/site/.snail/builds/4/"><script type="application/snail-manifest" id="snail-manifest">(base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "modules/a.wasm") ("main" "modules/b.wasm"))</script><script type="module" src="/site/.snail/reload.mjs"></script>
 <title>four</title>
 
-/modules.json -> 200 application/json: {"modules": "four"}
+/modules.json -> 200 application/json: {"runtime": "runtime.wasm", "modules": [{"name": "snail core base", "file": "modules/a.wasm"}, {"name": "main", "file": "modules/b.wasm"}]}
 /modules/a.wasm -> 200 application/wasm: four's module
 /STYLE.CSS -> 404 text/plain; charset=utf-8: no such file in the build
 /style.css -> 200 text/css: body {}
@@ -18,4 +18,11 @@
 /a%2Fb -> 404 text/plain; charset=utf-8: no such file in the build
 /modules -> 404 text/plain; charset=utf-8: no such file in the build
 /linked.txt -> 404 text/plain; charset=utf-8: no such file in the build
+/.snail/reload.mjs -> 200 text/javascript: reload
+/.snail/reload.wasm -> 200 application/wasm: the client's program
+/.snail/style.css -> 404 text/plain; charset=utf-8: no such file of the development server
 / before a build -> 503 text/plain; charset=utf-8: the application has not been built yet
+/.snail/reload.mjs before a build -> 200 text/javascript: reload
+(building (files) (modules))
+(built 120 (base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "modules/a.wasm") ("main" "modules/b.wasm")))
+(failed "a \"quoted\" message" (base "/site/.snail/builds/4/") (files ("index.html" "i4") ("style.css" "s4")) (modules ("snail core base" "modules/a.wasm") ("main" "modules/b.wasm")))

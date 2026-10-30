@@ -116,7 +116,7 @@
                  (print-lines (build-cli-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("editor-tools"))
                  (print-tools (build-editor-tools (cadr arguments))))
-                ;; The same tools a line each, the editor first, for
+                ;; The same tools a line each, the editor and the reload client first, for
                 ;; ./snail dev.
                 ((equal? (cddr arguments) '("dev-tools"))
                  (print-lines (build-editor-tools (cadr arguments))))
