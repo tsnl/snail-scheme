@@ -89,6 +89,49 @@ is the complete example, and
 [Hearsay](https://github.com/tsnl/snail-scheme/tree/main/apps/hearsay)'s
 prototypes draw their residents as LPC characters on a 2D map.
 
+## Document interfaces
+
+`(snail shell ui)` builds interfaces from a page's document rather than a
+canvas, in the shape Elm gave them:
+
+| Function | Meaning |
+| --- | --- |
+| `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
+| `update : Model M -> (Pair Model (List (FnOnce M ! tasks e)))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
+
+`run-ui model update view checkpoint` shows the view in the document's
+root through the `dom` effect of `(snail shell dom)`, then handles one
+delivery at a time until the document closes, and answers the last model.
+`next-event` delivers a listener's event, a wake, the page hidden, or the
+document closed; `checkpoint` is given the model when the page is hidden
+and when it closes. Only the interface's own task waits on the document,
+so a command posts its answer to the interface's mailbox and performs
+`wake`, and the interface drains the mailbox when it is woken; a command
+still running when the document closes never answers. After each update
+the interface changes only what differs from the tree it showed before. An element keeps its node while its tag and key stay the
+same, so the page keeps its focus, selection and scroll; a child with a
+`Keyed` attribute is matched by key and one without by its place among the
+others without one. Attributes and properties the view leaves out are
+cleared, and a listener is made again only when its captures or its
+prevention change. Since the host decides both while an event is
+dispatched, a listener declares them when it is made: the fields its events
+carry (`Capture`) and when the host prevents their default action
+(`Prevent`, never, always, or for listed key chords). Functions stay in
+Snail-Core: the host sees nodes and listeners only as handles.
+
+`with-memory-dom` from `(snail shell dom memory)` handles `dom` over a
+document in memory, delivering a script of cues (events fired at elements
+by their `id`, and the page hidden), and answers the document it left, as
+HTML and as a trace of every operation. `tests/programs/ui-memory.sld` and `tests/programs/ui-patch.sld`
+run interfaces this way under `make test`.
+
+*Proposed* ([#514](https://github.com/tsnl/snail-scheme/issues/514)): a
+browser handler of `dom` over host tables of nodes and listeners, events
+delivered through the application's event queue, `define-ui` to host an
+interface as `define-application` hosts a game, and fetch and server-sent
+event effects for commands. None of this is implemented; today an
+interface runs only under `with-memory-dom`.
+
 <a id="live-reload"></a>
 
 ## Hot reload

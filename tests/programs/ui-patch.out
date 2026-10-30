@@ -1,0 +1,61 @@
+step 4
+<div><button id="next" @click>next</button><span>two</span><em>tail</em><input .disabled=false></input><ul><li>c</li><li>b</li></ul></div>
+create-element 1 div
+create-element 2 button
+set-attribute 2 id "next"
+create-text 3 "next"
+insert 3 into 2
+listen 2 click #1 0 allow
+create-element 4 p
+set-attribute 4 class "first"
+create-text 5 "zero"
+insert 5 into 4
+create-text 6 "tail"
+create-element 7 input
+set-property 7 disabled true
+create-element 8 ul
+create-element 9 li
+create-text 10 "b"
+insert 10 into 9
+create-element 11 li
+create-text 12 "c"
+insert 12 into 11
+insert 9 into 8
+insert 11 into 8
+insert 2 into 1
+insert 4 into 1
+insert 6 into 1
+insert 7 into 1
+insert 8 into 1
+insert 1 into 0
+fire next click #1
+set-attribute 4 class ""
+set-text 5 "one"
+set-property 7 disabled false
+create-element 13 li
+create-text 14 "a"
+insert 14 into 13
+insert 13 into 8 before 9
+fire next click #1
+create-element 15 span
+create-text 16 "two"
+insert 16 into 15
+create-element 17 em
+create-text 18 "tail"
+insert 18 into 17
+create-element 19 li
+create-text 20 "x"
+insert 20 into 19
+insert 19 into 8 before 9
+remove 4
+remove 6
+insert 17 into 1 before 7
+insert 15 into 1 before 17
+fire next click #1
+unlisten #1
+listen 2 click #2 4 allow
+fire next click #2
+remove 13
+remove 19
+insert 9 into 8
+close

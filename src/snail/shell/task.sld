@@ -20,7 +20,7 @@
    tasks yield sleep await ticket
    dispatch-local dispatch-task
    through-host
-   Mailbox make-mailbox mailbox-post mailbox-receive)
+   Mailbox make-mailbox mailbox-post mailbox-receive mailbox-try-receive)
   (import
    (snail core base)
    (only (snail core forms) host)
@@ -438,6 +438,16 @@
            (put-back! messages rest)
            message)
           ((None) (wait-in-line mailbox)))))
+
+    ;; Receiving without waiting: the oldest message, or none.
+    (: mailbox-try-receive (All (T) (-> (Mailbox T) (Option T) ! mut)))
+    (define (mailbox-try-receive mailbox)
+      (let ((messages (Mailbox-messages mailbox)))
+        (match (dequeue (ref-replace! messages (empty-queue)))
+          ((Some (Pair message rest))
+           (put-back! messages rest)
+           (Some message))
+          ((None) (None)))))
 
     ;; Only a post wakes the ticket, and it hands the message first.
     (: wait-in-line (All (T) (-> (Mailbox T) T ! mut tasks)))
