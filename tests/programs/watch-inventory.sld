@@ -19,7 +19,9 @@
 
 (: take (-> Unit Inventory ! fs))
 (define (take ignored)
-  (inventory (list (at "src") (at "build") (at "missing")) excluded))
+  (match (inventory (list (at "src") (at "build") (at "missing")) excluded)
+    ((Ok taken) taken)
+    ((Err message) (panic message))))
 
 ;; Saves as an atomic save does: writes beside the file, then renames over
 ;; it.

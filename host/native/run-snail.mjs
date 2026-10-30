@@ -11,6 +11,7 @@ import {createUdp} from './udp.mjs';
 import {socketImports} from './socket-imports.mjs';
 import {createProcesses, createReplacement, createTermination, serveReplacement} from './process.mjs';
 import {processImports} from './process-imports.mjs';
+import {createHints} from './hints.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
@@ -40,14 +41,14 @@ async function run(filename, arguments_, termination, replace) {
   const wasi = new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
   let program, failed = false, status = 1;
-  const tcp = createTcp(), udp = createUdp(), processes = createProcesses();
+  const tcp = createTcp(), udp = createUdp(), processes = createProcesses(), hints = createHints();
   // WASI exits throw an opaque sentinel after printing their diagnostic.
   const report = error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); };
   const tasks = createTasks(() => program && taskExports(program), {reportError: report});
   const host = {'snail.runtime.wasm': wasmImports(() => program),
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
                 'snail.runtime.native.process': processImports(() => program, tasks, processes, termination, replace),
-                'snail.runtime.native.files': commandImports(modeCommands)};
+                'snail.runtime.native.files': {...commandImports({...modeCommands, ...hints.commands}), ...hints.waits(tasks)}};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
@@ -57,7 +58,7 @@ async function run(filename, arguments_, termination, replace) {
     await tasks.drive().catch(report);
     if (failed) status = 1;
   } finally {
-    try { tasks.close(); await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown()]); }
+    try { tasks.close(); hints.shutdown(); await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown()]); }
     finally {
       clearInterval(keepAlive);
       if (program) {

@@ -344,11 +344,11 @@ async function testWatch(directory) {
   let child;
   try {
     await until(() => watcher.text.includes('first run\n'), 'the first run', 300);
-    child = applicationChild(watcher.child.pid);
+    child = await applicationChild(watcher.child.pid);
     const first = child;
     await writeFile(source, program('second run'));
     await until(() => watcher.text.includes('second run\n'), 'the second run', 120);
-    child = applicationChild(watcher.child.pid);
+    child = await applicationChild(watcher.child.pid);
     assert.notEqual(child, first, 'a live predecessor exits before its replacement starts');
     assert.throws(() => process.kill(first, 0), {code: 'ESRCH'});
     for (const message of ['third run', 'fourth run']) {
@@ -356,7 +356,7 @@ async function testWatch(directory) {
       await rename(`${source}.next`, source);
       await until(() => watcher.text.includes(`${message}\n`), `the ${message} after a save by rename`, 120);
     }
-    child = applicationChild(watcher.child.pid);
+    child = await applicationChild(watcher.child.pid);
     await stop(watcher);
     assert.throws(() => process.kill(child, 0), {code: 'ESRCH'}, 'stopping the host stops its application subprocess');
     child = null;
@@ -366,11 +366,16 @@ async function testWatch(directory) {
   }
 }
 
+// The compiler worker is a thread, so the application is the host's only
+// child process. A late watch event can restart the application, as a save
+// by rename sends several, so the check waits out a restart in flight,
+// when the host has no child or the old and the new.
 function applicationChild(parent) {
-  const processes = execFileSync('ps', ['-e', '-o', 'pid=', '-o', 'ppid='], {encoding: 'utf8'});
-  const children = processes.trim().split('\n').map(line => line.trim().split(/\s+/).map(Number)).filter(([, pid]) => pid === parent);
-  assert.equal(children.length, 1, 'the compiler worker is a thread; the application is the only child process');
-  return children[0][0];
+  return until(() => {
+    const processes = execFileSync('ps', ['-e', '-o', 'pid=', '-o', 'ppid='], {encoding: 'utf8'});
+    const children = processes.trim().split('\n').map(line => line.trim().split(/\s+/).map(Number)).filter(([, pid]) => pid === parent);
+    return children.length === 1 && children[0][0];
+  }, 'the application to be the only child process', 30);
 }
 
 // ---- Compiler isolation ----

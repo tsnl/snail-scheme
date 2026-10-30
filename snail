@@ -2,7 +2,19 @@
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
-  dev) shift; exec "${NODE:-node}" --no-warnings "$root/host/native/dev.mjs" "$root" "$@" ;;
+  # The development service is the command line's `dev`, in Snail-Core.
+  # SNAIL_DEV_HOST=js runs the JavaScript one it replaces, until that is
+  # deleted (#567).
+  dev)
+    shift
+    if [ "${SNAIL_DEV_HOST:-snail}" != js ]; then
+      tools=$("$root/scripts/snail-tool" dev-tools) || exit 1
+      { read -r formatter && read -r cli && read -r runtime; } <<TOOLS
+$tools
+TOOLS
+      exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" dev "$formatter" "$@"
+    fi
+    exec "${NODE:-node}" --no-warnings "$root/host/native/dev.mjs" "$root" "$@" ;;
   # The command line is a Snail program (bootstrap/cli.sld). Stage 0 rebuilds
   # it and the runtime when their sources change, and names them a line each.
   build|run)

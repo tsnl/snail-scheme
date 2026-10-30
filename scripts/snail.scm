@@ -116,6 +116,10 @@
                  (print-lines (build-cli-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("editor-tools"))
                  (print-tools (build-editor-tools (cadr arguments))))
+                ;; The same tools a line each, the formatter first, for
+                ;; ./snail dev.
+                ((equal? (cddr arguments) '("dev-tools"))
+                 (print-lines (build-editor-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("book-tools"))
                  (print-lines (build-book-tools (cadr arguments))))
                 (else (perform (cadr arguments) (request (cddr arguments))))))))

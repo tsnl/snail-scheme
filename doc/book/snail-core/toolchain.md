@@ -97,53 +97,62 @@ Session. Producers run again each attempt, once each. The
 to a monomorphic function body recompiles its library; an interface change also
 recompiles importers. A cold start has no retained compiler cache.
 
+`snail dev` is the same program's `dev`, whose service is
+`(snail shell project service)`. Its tasks each wait on one thing: the owner,
+which holds the step below and everything it leaves to its host, and receives
+every message; the disk task, which holds the latest inventory; a task writing
+the resident's requests and two reading its output; a supervisor for each run
+target, which owns that target's process; and a task for each HTTP connection.
+No cell holds state: each task threads its own through its loop, and tasks
+share only mailboxes. `SNAIL_DEV_HOST=js` runs the JavaScript service it
+replaces, `host/native/dev.mjs`, until that is deleted
+([#567](https://github.com/tsnl/snail-scheme/issues/567)).
+
 ### Observation and acceptance
 
-`host/native/watch.mjs` supplies one disk observer with independent subscriptions.
-Construction installs recursive watches before the first inventory read; callers
-subscribe and then await `reconcile()`. Named native notifications are hints.
-Periodic inventories compare file identity, size and nanosecond modification/change
-times, recording symlinks without following them. Directory identity omits child
-timestamps so writes inside explicitly excluded output/data directories do not
-invalidate their parents. Exclusions are exact paths, not every folder named `build`.
+The disk task's inventories ([`(snail shell watch)`](libraries.md)) cover the
+project, `src/` and `host/browser/`, without the project's `build` and `.git`
+directories or the root's `build`. Exclusions are exact paths, not every folder
+named `build`. It takes one when the step asks it to reconcile, when the editor
+saves, each second, and on a hint from Node's recursive watch of a root, and
+reports the paths whose fingerprints changed since the last complete one. A
+file's fingerprint is its size and nanosecond modification time. A directory's
+is its kind alone, so writes inside an excluded directory do not invalidate its
+parent. A symbolic link is recorded, not followed. A hint names nothing: a
+watch can miss a change or be lost, and the next inventory finds what it
+missed. The caller decides which observed paths affect compilation.
 
-Missing names and lost watches report uncertainty; they do not by themselves mean
-source code changed. The caller decides which observed paths affect compilation.
-Missing roots are checked again, and replaced roots get new watches. A scan stops
-at the first unreadable root and retains the previous complete inventory. It
-reports one uncertainty for the failure episode, then one recovery after a complete
-scan succeeds; failures moving between roots do not publish partial inventories.
-`reconcile()` requests a
-fresh scan after any active one without waiting for global quiet and returns its
-regular filenames, detached from the internal inventory. Closing suppresses
-later notifications and waits for an active scan to finish. There is no content
-cache or filesystem snapshot. Metadata polling catches ordinary local writes but
-cannot guarantee detection on filesystems that hide changes behind unchanged or
-coarse metadata. The project development parent consumes this observer; the old
-commands still use their existing watches until command/application integration.
+A path that vanishes while an inventory is taken is left out, as removed. One
+that cannot be read otherwise fails the inventory. The task then keeps the last
+complete one and reports the failure once, when it begins. It answers a
+reconciliation with the failure, so the attempt fails with its message, and
+listing files fails rather than returning stale names. The first inventory
+that succeeds again reports what changed meanwhile, then the recovery, which
+builds. There is no content cache or filesystem snapshot. Metadata polling
+catches ordinary local writes but cannot guarantee detection on filesystems
+that hide changes behind unchanged or coarse metadata.
 
-`host/native/project-develop.mjs` owns serialized project attempts and one current
-status, with independent subscriptions. `host/native/resident.mjs` starts the
-resident builder and frames its requests. Each attempt starts with an ID and empty diagnostics. The parent
+The owner runs serialized project attempts and keeps one current status. It
+writes the resident's requests a line each, and reads its replies, by epoch.
+Each attempt starts with an ID and empty diagnostics. The service
 keeps distinct observed paths only for the active attempt, including paths outside
 the previous project's public inputs. A reply carries the newly parsed description
-even after a later build failure. The parent reconciles disk, tests those paths
+even after a later build failure. The service reconciles disk, tests those paths
 against the new description, and asks the resident to publish only if no observed
 input change, and no Build requested meanwhile, superseded it. Otherwise it discards and
 coalesces a successor, so the attempt that answers a Build began after it. Successful
 compiler cache entries remain useful in either case; accepted application files
 remain available after a failed build.
 
-`(snail shell development)` makes the same decisions as a pure step in
-Snail-Core. It is a function from the service and one event to the next
+`(snail shell development)` makes these decisions as a pure step. It is a function from the service and one event to the next
 service and the commands its host carries out in order. The events are the
 observer's hints and reconciliations, the resident's replies by epoch, the
 debounce timer, run controls, the resident's exit and closing. The commands
 are building, reconciling, publishing or discarding a candidate, giving up an
 attempt's directory, arming the timer, launching a run and notifying.
 `tests/programs/development-step.sld` drives it through those races. The
-JavaScript service does not use it yet: it is the core of the service's move to
-Snail-Core (#567, step B).
+owner feeds it each event, and carries out the commands it answers with, in
+order.
 
 The builder also hashes each completed target's sorted relative filenames and
 bytes, including the runtime, artifacts and public files; a module file adds only
@@ -164,23 +173,26 @@ builds. Arbitrary producer file reads are not tracked yet: use manual Build for
 those inputs. Unnamed watcher hints do not themselves declare source changes.
 The observer and compiler do not claim an atomic filesystem revision.
 
-Before sending work, the parent reserves a private generation-name prefix under
-the project's build directory. A worker result relinquishes that attempt; exit
-relinquishes any unfinished one. This lets the parent remove only abandoned private
-generations, including ones a crashed worker never returned. Publication consumes
-ownership even when some target links moved before failure, so those generations
-must never be swept afterward. Shutdown suppresses acceptance, closes observation
-and requests graceful worker exit, then termination. Synchronous native operations
-can delay actual exit; cleanup waits for it. Arbitrary compiler traps retire this
-development session; there is no automatic crash loop.
+Before sending work, the owner reserves `build/.snail-attempt-N`, a name that no
+entry of the project's build directory has or begins with, and the resident names
+the attempt's generations with it. A reply relinquishes that attempt; the
+resident's exit relinquishes any unfinished one. This lets the owner remove only
+abandoned private generations, including ones a crashed resident never returned.
+Publication consumes ownership even when some target links moved before failure,
+so those generations must never be swept afterward. Shutdown suppresses
+acceptance and closes observation. It ends the resident's input, so the resident
+finishes the request it is answering and exits, and kills it if it has not 2 s
+later; and it stops each run target's process. Cleanup waits for every exit.
+Arbitrary compiler traps retire this development session; there is no automatic
+crash loop.
 
 ## Project file service
 
-`host/native/project-files.mjs` owns one physical project directory and three native
-operations: filter the shared observer's filenames, read text with a revision,
-and save against that revision. Listing awaits a fresh complete reconciliation;
-a failed scan rejects the request instead of returning stale names. There is no
-second directory traversal. No contents or revisions persist in the service. The editor holds
+`(snail shell project files)` owns one physical project directory and three
+operations: filter the disk task's filenames, read text with a revision, and
+save against that revision. Listing awaits a fresh complete inventory; a failed
+one rejects the request instead of returning stale names. There is no second
+directory traversal. No contents or revisions persist in the service. The editor holds
 its unsaved text and the revision of its saved baseline; the shared disk observer
 remains the only source of file-change notifications. Save has no compiler call.
 
@@ -192,9 +204,10 @@ outside this first editor API. Paths reject traversal and symlinks. `.git` and
 the root `build` directory are excluded; `src/build` remains an ordinary source
 directory. A pipe cannot block the service while it checks for a regular file.
 
-Revisions describe file identity and exact bytes. A save compares the current
-revision, writes an exclusive temporary file under `project/build`, compares
-again, preserves ordinary permission bits and renames onto the destination. This
+A revision is the SHA-256 digest of the file's bytes. A read is one version of
+the file if the file's length and modification time stay the same. A save writes
+its text to a fresh directory under `project/build`, compares the current
+revision, preserves ordinary permission bits and renames onto the destination. This
 keeps temporary writes out of source/public trees and compiler inputs. It returns
 evidence for the submitted bytes, even if another writer subsequently changes the
 file. Failed writes or rename leave the old destination intact; saves across a
@@ -207,17 +220,11 @@ a sandbox against a hostile local process. This API makes no crash-durability,
 ACL, extended-attribute or hardlink-preservation promise. It edits existing files;
 creation, rename, deletion, merging and automatic conflict retry are omitted.
 
-`(snail shell project files)` is the same service in Snail-Core, for the
-service's move there (#567, step B3); nothing uses it yet. It keeps this
-contract, with three differences:
-- A revision is the SHA-256 digest of the file's bytes alone, without its
-  device and inode, which Rust's standard library gives WASI only as unstable
-  API. A file replaced by another with the same bytes is the same revision,
-  and saving over it loses nothing.
-- A read is one version of the file if the file's length and modification
-  time stay the same, without its status-change time.
-- A save checks the revision once, after writing its text and before the
-  rename. A check before the write as well would spare only the write.
+The JavaScript file service that `SNAIL_DEV_HOST=js` runs,
+`host/native/project-files.mjs`, also names a file's device and inode in its
+revisions, which Rust's standard library gives WASI only as unstable API. A
+file replaced by another with the same bytes is the same revision here, and
+saving over it loses nothing.
 
 WASI preview1 cannot read or set permission bits, so its `modes` effect does,
 on Node (`host/native/run-snail.mjs`). `tests/programs/project-files.sld`
@@ -225,11 +232,11 @@ drives it.
 
 ## Project HTTP service
 
-`host/native/project-http.mjs` connects the project attempt owner and file service on
-`127.0.0.1`. Its native API returns the URL, development session, completion promise
-and an idempotent close operation. `host/native/dev.mjs` supplies the `dev` command.
-The same HTTP service serves a fixed list of trusted editor assets and the
-formatter; it never serves project HTML or arbitrary filesystem paths.
+The service listens on `127.0.0.1`, and prints its editor URL once it does. It
+answers each connection's one request in the connection's own task, through
+the [Snail HTTP library](http.md). It serves a fixed list of trusted editor
+assets and the formatter; it never serves project HTML or arbitrary filesystem
+paths.
 
 | Request | Result |
 | --- | --- |
@@ -248,11 +255,11 @@ there is no event archive or replay cursor. Each run includes its target, availa
 intent, desired build and observed attempt, with PID, build, phase, exit outcome and
 bounded stdout/stderr tails. Compiler and run frames are sent independently when
 their respective values change: output does not replay compiler diagnostics.
-Each stream holds at most one pending write; a later event
-closes a reader whose previous write still needs drain. An idle blocked stream
+A stream's connection task writes what the owner sends it, and a frame closes a
+stream with 16 KiB already sent to it unwritten. An idle blocked stream
 stays open until another event or connection closure, within the 64-stream limit.
 File operations remain responsive while the real compiler waits on a source pipe
-in its worker.
+in the resident.
 
 The event stream carries what the editor draws. `GET /api/status` answers
 with everything else a client can observe of the session, in one value:
@@ -284,12 +291,12 @@ Build, as the editor does, and reads what each target compiled and its digest
 from the snapshot. The tests of `snail build` and `snail run` likewise see
 only the command's exit status, its output and the build directory. The few
 cases that must act within one turn of the session, or hold its disk
-reconciliation, still run it in process and say why.
+reconciliation, still run the JavaScript service in process and say why.
 
 Request bodies are framed by Content-Length alone, as in the
 [Snail HTTP library](http.md): a request naming a Transfer-Encoding is
-answered 411 before routing, or 400 by Node's parser if it also gives a
-Content-Length, so a body's size is known from its head. Bodies are limited
+answered 411 before routing, or 400 if it also gives a Content-Length, so a
+body's size is known from its head. Bodies are limited
 to 8 MiB and decoded strictly as UTF-8.
 
 The service requires its exact Host authority and rejects a supplied foreign
@@ -297,7 +304,7 @@ Origin or fetch context. Mutations require the exact Origin. It provides no CORS
 access. This boundary keeps other websites from reading or writing project files;
 it is not authentication against other native processes on the same machine.
 
-The native development owner admits run controls using the last accepted
+The step admits run controls using the last accepted
 definitions, even while compilation fails. HTTP maps its rejection of unknown
 names, and Start/Restart for removed names, to 404. The 204 response
 acknowledges applying intent; it contains no process snapshot that could overwrite
@@ -305,10 +312,11 @@ a newer SSE observation. A lost response leaves the outcome unknown and must not
 cause automatic retries. Closing an HTTP or event connection does not stop an
 application. Closing the development service does.
 
-Closing removes subscriptions, closes HTTP connections and pending request bodies,
-and awaits the development owner. A body that finishes after shutdown cannot save.
-A fatal compiler/service failure closes the session and rejects its completion
-promise; a failed bind also disposes the session it created.
+Closing closes the listener, every HTTP connection with any request body still
+arriving, and every event stream, then waits for the resident and the run
+targets' processes to exit. A body that finishes after shutdown cannot save. A
+fatal compiler or service failure closes the session, and `snail dev` exits with
+status 1 and its message; failing to listen ends it before anything starts.
 
 ## Browser editor
 
