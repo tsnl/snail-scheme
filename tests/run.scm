@@ -150,33 +150,8 @@
                     "headless run failed"
                     (string-append (car result) (cadr result))))))))
 
-;; The in-process assembler, itself Wasm, turns a program's text into a
-;; module that runs with the runtime as its own instance.
-(define (compile-assembler root)
-  (guard (failure (#t (report "assembler" "compile failed" (error-text failure))))
-    (let ((text (program->wat root
-                              (cons (path-join root "examples") (standard-directories root))
-                              (path-join root "examples/fibonacci.sld"))))
-      (lambda () (check-assembler root text)))))
-
-(define (check-assembler root text)
-  (guard (failure (#t (report "assembler" "test failed" (error-text failure))))
-    (let ((wat (path-join root "build/tests/assembler/fibonacci.wat")))
-      (create-directory* (path-join root "build/tests/assembler"))
-      (call-with-output-file wat (lambda (port) (write-string text port)))
-      (let ((result (capture-process
-                     (list "node"
-                           "--no-warnings"
-                           (path-join root "tests/assembler.mjs")
-                           (build-crate root "assembler")
-                           (build-crate root "snail-core-support")
-                           wat
-                           (path-join root "examples/fibonacci.out")))))
-        (or (zero? (caddr result))
-            (report "assembler" "test failed" (string-append (car result) (cadr result))))))))
-
-;; The toolchain's runtime assembles in-process too: a tool linked with it
-;; turns the same text into a module, which must print what the program
+;; The toolchain's runtime assembles in-process: a tool linked with it turns
+;; a program's text into a module, which must print what the program
 ;; prints, and names the line and column of broken text.
 (define (compile-toolchain-assembler root)
   (guard (failure (#t (report "toolchain assembler" "compile failed" (error-text failure))))
@@ -535,17 +510,18 @@
         (report "termination" "failed" (string-append (car result) (cadr result))))))
 
 ;; A compiler running as Wasm resolves concrete file snapshots, then emits
-;; static and cached library builds whose current bytes are executed.
+;; static and cached library builds whose current bytes are executed. It
+;; assembles them itself, so it links with the toolchain's runtime.
 (define (compile-artifacts root)
-  (let ((text (program->wat root
-                            (standard-directories root)
-                            (path-join root "tests/artifacts/compiler.sld"))))
-    (lambda ()
+  (lambda ()
+    (guard (failure (#t (report "artifacts" "compile failed" (error-text failure))))
       (let* ((output (path-join root "build/tests/artifacts"))
-             (compiler (path-join output "compiler.wasm")))
+             (compiler (build-toolchain-tool root
+                                             (path-join root "tests/artifacts/compiler.sld")
+                                             (path-join output "compiler.wasm")
+                                             (standard-directories root))))
         (for-each (lambda (name) (create-directory* (path-join output name)))
                   '("first" "unchanged" "changed"))
-        (link-wat root text compiler #f)
         (check-artifacts root output compiler)))))
 
 (define (check-artifacts root output compiler)
@@ -560,7 +536,6 @@
                 (string-append (car compiled) (cadr compiled)))
         (let ((result (capture-process
                        (list "node" "--no-warnings" (path-join root "tests/artifacts/check.mjs")
-                             (build-crate root "assembler")
                              (build-crate root "snail-core-support")
                              output
                              (path-join root "tests/artifacts/main.out")))))
@@ -811,7 +786,6 @@
                                   (compile-termination root)
                                   (compile-app-runtime root)
                                   (compile-siegework root)
-                                  (compile-assembler root)
                                   (compile-toolchain-assembler root)
                                   (compile-formatter root)
                                   (compile-book-highlighter root))

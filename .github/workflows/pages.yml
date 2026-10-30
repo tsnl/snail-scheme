@@ -45,7 +45,7 @@ jobs:
           persist-credentials: false
       # shell.nix reads its nixpkgs from npins/sources.json.
       - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012 # v31
-      # `snail build` compiles crates/snail-core-support and crates/assembler for WASI with
+      # `snail build` compiles crates/snail-core-support for WASI with
       # `cargo --offline`, so this job needs the target and the locked crates
       # in the registry, exactly as the test job does.
       - name: Install pinned Rust and fetch locked dependencies
