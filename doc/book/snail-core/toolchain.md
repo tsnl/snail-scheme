@@ -297,7 +297,7 @@ than reused. `compiler` identifies the resident builder by its process ID,
 `worker`, and is `null` once it has exited. `runs` is the stream's `runs`.
 
 The development loop's tests (`tests/project-http.mjs`,
-`tests/project-attempts.mjs`, `tests/development-runs.mjs`,
+`tests/project-attempts.mjs`, `tests/development-runs.mjs`, `tests/project-reload.mjs`,
 `tests/project-development.mjs`, `tests/project-resources.mjs`,
 `tests/browser/ide.mjs` and `tests/browser/ide-runs.mjs`) spawn `snail dev
 --port 0` and observe it only through the URL it prints, this snapshot, the

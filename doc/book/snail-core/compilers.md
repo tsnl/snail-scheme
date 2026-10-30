@@ -64,7 +64,10 @@ function of the expander has `mut` in its row — and where it does not, the
   the names of the core forms and builtin types that `(snail core forms)`
   provides. A `Program` is a value: the expander threads it through
   expansion, each addition handing back a larger one, and the later passes
-  read it without effects.
+  read it without effects. `expr-children` names the immediate structural
+  children in traversal order, including lambda bodies. The checker,
+  ownership pass, control analysis and reference collector share this
+  inventory; each pass still decides which children execute or bind names.
 - **[`expand.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/expand.sld)** is the only pass that
   knows binding forms. It loads libraries, replacing each `include-bytes`
   with the byte vector literal of its file, resolves every identifier through
@@ -353,7 +356,7 @@ function of the expander has `mut` in its row — and where it does not, the
   generators and immutable build inputs are passed to each build; sessions
   retain only compilation evidence. Each `Built` module carries the files its
   library links, compiled this build or not, so a build places them all.
-- **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/plan.sld)** orders a project build's
+- **[`plan.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/project/plan.sld)** orders a project build's
   phases before any of them runs: building a target, and running a
   producer. A phase needs the producers its program's closure reaches, then
   the targets a discovery expansion finds it embeds. Nodes number in
@@ -365,8 +368,11 @@ function of the expander has `mut` in its row — and where it does not, the
   order up to the first that waits, and `refine-plan` learns what the waiting
   steps need once those producers' outputs are supplied. The project builder,
   `(snail shell project build)`, resolves the project's targets and runs the
-  plan wave by wave. The development loop plans with no targets, which needs no discovery,
-  and runs only the producers.
+  plan wave by wave for cold and development builds alike. Planning is a
+  project-tooling consumer of compiler discovery APIs; the compiler itself
+  does not import it, so planner edits do not rebuild the bootstrap compiler.
+  Chibi reaches the project parser and planner only through test-local
+  symlinks; neither is in the bootstrap include tree.
 - **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text with the files it links, a
   `WholeProgram`, or to one module's text per library. The driver writes the
@@ -689,13 +695,11 @@ source error into `(Err (Failed diagnostics))`. Artifact expansion and request
 signaling have no filesystem effects; library loading and generated-source IO
 still do.
 
-A compile with no one to supply an input runs under `unsupplied`: a discovery
-expansion, which records artifact uses instead of asking for them, and the
-development loop, whose plan has run every producer its program reaches. There
-a producer request is an internal error, and an artifact request is the
-program's own error at its use, as in a standalone build; a source error goes
-on to the caller's handler. The development loop's `build!` reports one as a
-failed build, as it does a panic the host caught.
+Discovery records artifact uses instead of asking for their files. The plan
+has already supplied every producer's output; reaching a missing one is an
+internal error. Discovery therefore cannot request inputs and needs no
+separate request handler. Source diagnostics propagate through `compile` to
+the project builder's handler.
 
 Standalone source builds service generated-library requests and reject artifact
 requests with their source location: an artifact needs a project build. The
@@ -741,10 +745,10 @@ holds, and on its presence, never on its bytes. A replayed library first
 checks that each file it linked still exists; a missing one expands the
 library again, which fails with the library and the path. Editing a linked
 file therefore compiles nothing, while every build places every file from the
-modules it returns, compiled or replayed: a project build copies them into its
-new generation, and the development loop copies a file whose digest changed
-and names each module's file for its text and its files' digests, so the page
-relinks from the module that links the edited file and reads it again.
+modules it returns, compiled or replayed, into its new generation. The
+generation's file digests make the change visible to run targets and to the
+browser reload client, which relinks from the module that uses a changed
+resource and reads its bytes from the new generation.
 
 ## The resident builder
 

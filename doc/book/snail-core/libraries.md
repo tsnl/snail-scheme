@@ -48,6 +48,13 @@
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
 | `(scheme compiler)`, `(scheme runtime)` | The R7RS translator, and the standard procedures its output calls. |
 
+`(list-sort before? items)` in `(snail core base)` sorts an immutable list
+with a pure strict comparator. It is stable: items for which neither
+precedes the other retain their input order. Comparison reads the items,
+so their type must satisfy `Copy`. A merge sort bounds comparisons and
+traversal by O(n log n); the compiler, project builder and editor use this
+same operation. Stage 0 supplies the corresponding stable sort on Chibi.
+
 ## Files and directories
 
 `(snail core io)` reads and writes whole files, and works on the names a

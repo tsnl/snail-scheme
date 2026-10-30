@@ -3735,7 +3735,7 @@
       (let* ((named (fold-left (lambda (table definition)
                                  (table-set table (type-definition-name definition) definition))
                                empty-table definitions))
-             (names (list->vector (sort-strings (map type-definition-name definitions))))
+             (names (list->vector (list-sort string<? (map type-definition-name definitions))))
              (numbers
               (fold-left (lambda (table index) (table-set table (vector-ref names index) index))
                          empty-table
@@ -3756,11 +3756,12 @@
     (: type-edges (-> (Table Wat) (Table I64) String (List I64)))
     (define (type-edges named numbers name)
       (map (lambda (word) (table-number numbers word))
-           (sort-strings (delete-duplicates string=?
-                                            (filter (lambda (word)
-                                                      (and (not (string=? word name))
-                                                           (table-contains? numbers word)))
-                                                    (wat-words (table-ref-or-wat named name)))))))
+           (list-sort string<? (delete-duplicates string=?
+                                                  (filter (lambda (word)
+                                                            (and (not (string=? word name))
+                                                                 (table-contains? numbers word)))
+                                                          (wat-words
+                                                           (table-ref-or-wat named name)))))))
 
     (: table-number (-> (Table I64) String I64))
     (define (table-number table key)
@@ -3784,23 +3785,8 @@
     (define (group-wat named group)
       (match group
         ((Cons name (Nil)) (table-ref-or-wat named name))
-        (_ (wat* "rec" (map (lambda (name) (table-ref-or-wat named name)) (sort-strings group))))))
-
-    (: sort-strings (-> (List String) (List String)))
-    (define (sort-strings strings)
-      (let ((count (length strings)))
-        (if (< count 2)
-            strings
-            (merge-strings (sort-strings (take strings (quotient count 2)))
-                           (sort-strings (list-drop strings (quotient count 2)))))))
-
-    (: merge-strings (-> (List String) (List String) (List String)))
-    (define (merge-strings a b)
-      (match (Pair a b)
-        ((Pair (Nil) _) b)
-        ((Pair _ (Nil)) a)
-        ((Pair (Cons x xs) (Cons y ys))
-         (if (string<? y x) (Cons y (merge-strings a ys)) (Cons x (merge-strings xs b))))))
+        (_ (wat* "rec"
+                 (map (lambda (name) (table-ref-or-wat named name)) (list-sort string<? group))))))
 
     ;; ---- Modules ----
 
@@ -3870,7 +3856,8 @@
     ;; `type-groups` settles it.
     (: module-wat (-> Module Wat ! mut))
     (define (module-wat m)
-      (let ((declared (sort-strings (delete-duplicates string=? (ref-get (Module-declared m))))))
+      (let ((declared
+             (list-sort string<? (delete-duplicates string=? (ref-get (Module-declared m))))))
         (wat* "module"
               (concatenate
                (list (type-groups (reverse (ref-get (Module-types m))))
@@ -3898,24 +3885,7 @@
 
     (: sort-named (All (A) (requires (Copy A)) (-> (List (Pair String A)) (List (Pair String A)))))
     (define (sort-named entries)
-      (let ((count (length entries)))
-        (if (< count 2)
-            entries
-            (merge-named (sort-named (take entries (quotient count 2)))
-                         (sort-named (list-drop entries (quotient count 2)))))))
-
-    (: merge-named
-       (All (A)
-            (requires (Copy A))
-            (-> (List (Pair String A)) (List (Pair String A)) (List (Pair String A)))))
-    (define (merge-named a b)
-      (match (Pair a b)
-        ((Pair (Nil) _) b)
-        ((Pair _ (Nil)) a)
-        ((Pair (Cons x xs) (Cons y ys))
-         (if (string<? (Pair-first y) (Pair-first x))
-             (Cons y (merge-named a ys))
-             (Cons x (merge-named xs b))))))
+      (list-sort (lambda (a b) (string<? (Pair-first a) (Pair-first b))) entries))
 
     (: emit-main! (-> Module (List Item) Unit ! mut))
     (define (emit-main! m items)
