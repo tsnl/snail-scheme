@@ -563,7 +563,8 @@ Every import module a host provides is named for the runtime interface it
 implements, `snail.runtime.…` (#566): `snail.runtime.link` and
 `snail.runtime.resource` on every host,
 `snail.runtime.wasm`, `snail.runtime.native.socket`,
-`snail.runtime.native.process` and `snail.runtime.native.develop` on Node,
+`snail.runtime.native.process`, `snail.runtime.native.files` and
+`snail.runtime.native.develop` on Node,
 and `snail.runtime.browser.screen`, `.events` and `.storage` on the page.
 The Rust support module, built from `crates/snail-core-support`, is
 `snail.core.support`, and the compiler's control module

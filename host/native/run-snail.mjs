@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+import {chmodSync, statSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
 import {MessageChannel, Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
-import {linkedFileImports, linkProgram, wasmImports} from '../browser/load.mjs';
+import {commandImports, linkedFileImports, linkProgram, wasmImports} from '../browser/load.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
@@ -19,6 +20,13 @@ import {processImports} from './process-imports.mjs';
 // only against what the program kept exported, which for one linked module
 // is nothing of the runtime's. The files a program links are read from
 // resources/ beside it before it starts.
+
+// The `modes` effect of src/snail/shell/project/files.sld: a file's
+// permission bits, which WASI cannot reach. A failure answers -1.
+const modeCommands = {
+  mode([path]) { try { return statSync(path).mode & 0o777; } catch { return -1; } },
+  chmod([path], mode) { try { chmodSync(path, mode); return 0; } catch { return -1; } },
+};
 
 function resultStatus(value) {
   if (value === undefined) return 0;
@@ -38,7 +46,8 @@ async function run(filename, arguments_, termination, replace) {
   const tasks = createTasks(() => program && taskExports(program), {reportError: report});
   const host = {'snail.runtime.wasm': wasmImports(() => program),
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
-                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination, replace)};
+                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination, replace),
+                'snail.runtime.native.files': commandImports(modeCommands)};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);

@@ -19,6 +19,14 @@
    write-file
    write-bytes
    file-exists?
+   TextError
+   ReadFailed
+   NotRegularFile
+   TooLong
+   NotText
+   ChangedWhileRead
+   read-text-file
+   write-text-file
    FileError
    NotFound
    AlreadyExists
@@ -135,7 +143,9 @@
        (path-read-link (-> String I32))
        (reply-character (-> I32 Char))
        (status-size (-> I64))
-       (status-modified (-> I64)))
+       (status-modified (-> I64))
+       (path-read-text (-> I64 String I32))
+       (path-write-text (-> String I32)))
       (host "snail.core.support"
             ((path-exists "snail:io/file-exists")
              (open-input "snail:io/open-input-file")
@@ -156,7 +166,9 @@
              (path-read-link "snail:io/read-symbolic-link")
              (reply-character "snail:io/reply-character")
              (status-size "snail:io/status-size")
-             (status-modified "snail:io/status-modified"))))
+             (status-modified "snail:io/status-modified")
+             (path-read-text "snail:io/read-text")
+             (path-write-text "snail:io/write-text"))))
 
     (: file-exists? (-> String Bool ! fs))
     (define (file-exists? path)
@@ -441,6 +453,57 @@
       (match (path-result (path-read-link path))
         ((Ok count) (Ok (reply-text count)))
         ((Err error) (Err error))))
+
+    ;; ---- Whole texts ----
+
+    ;; Why a file's text was not read: the path could not be examined,
+    ;; opened or read, or it is not a regular file, or the file holds more
+    ;; bytes than the limit, or bytes that are not UTF-8, or it changed
+    ;; while it was read.
+    (enum TextError
+      (ReadFailed
+       ((error FileError)))
+      (NotRegularFile)
+      (TooLong)
+      (NotText)
+      (ChangedWhileRead))
+
+    (instance (Show TextError)
+      (define (show error)
+        (match error
+          ((ReadFailed error) (show error))
+          ((NotRegularFile) "not a regular file")
+          ((TooLong) "the file is too long")
+          ((NotText) "the file is not UTF-8 text")
+          ((ChangedWhileRead) "the file changed while it was read"))))
+
+    ;; The text of the regular file at `path`, if it holds at most `limit`
+    ;; bytes of UTF-8. The path must name the file itself: a symbolic link
+    ;; is not followed. The text is one version of the file, which kept its
+    ;; length and modification time while it was read. Unlike read-file,
+    ;; each failure is a value, so a service can answer it.
+    ;; crates/snail-core-support/src/paths.rs numbers the refusals after
+    ;; FileError's codes.
+    (: read-text-file (-> String I64 (Result String TextError) ! fs))
+    (define (read-text-file path limit)
+      (let ((code (path-read-text limit path)))
+        (case code
+          ((-10) (Err (NotRegularFile)))
+          ((-11) (Err (TooLong)))
+          ((-12) (Err (NotText)))
+          ((-13) (Err (ChangedWhileRead)))
+          (else (match (path-result code)
+                  ((Ok count) (Ok (reply-text count)))
+                  ((Err error) (Err (ReadFailed error))))))))
+
+    ;; Makes the file at `path`, or replaces its contents in place, with
+    ;; `text`. Unlike write-file, a failure is a value. The path is staged
+    ;; before the text, ended by a NUL, so a path holding one is invalid.
+    (: write-text-file (-> String String (Result Unit FileError) ! fs))
+    (define (write-text-file path text)
+      (match (string-index path #\null)
+        ((Some _) (Err (InvalidPath)))
+        ((None) (path-done (path-write-text (path-pair path text))))))
 
     ;; ---- Clock ----
 

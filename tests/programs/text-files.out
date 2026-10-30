@@ -1,0 +1,14 @@
+write -> ok
+read -> ok one λ, two
+read at its length -> ok one λ, two
+read past its limit -> error: the file is too long
+replace -> ok
+read again -> ok short
+write a NUL -> ok
+read a NUL -> ok 3 characters
+read Latin-1 -> error: the file is not UTF-8 text
+read a link -> error: not a regular file
+read a directory -> error: not a regular file
+read nothing -> error: no such file or directory
+write into nothing -> error: no such file or directory
+write a path with a NUL -> error: invalid path
