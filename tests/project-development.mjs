@@ -3,7 +3,8 @@
 // (tests/development-service.mjs): /api/status names each published target's
 // generation, its digest and how many libraries it compiled, and the
 // generations run from disk. The test asks for each attempt with Build, so
-// each reads the disk as the test left it.
+// each reads the disk as the test left it, but for the saves at the end,
+// which the watcher alone must notice.
 //   node tests/project-development.mjs ROOT
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
@@ -175,6 +176,18 @@ async function throughTheService() {
     write('main.sld', `(import (snail core base) (snail core io) (${longName})) (write-line message)`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'long name\n');
 
+    // A save that renames a new file over the source, as `sed -i` and many
+    // editors make, is an edit, and so is the next: the file the first
+    // replaced is gone, so a watch of the file alone would miss it (#547).
+    // The new file is written outside the project, so only the rename
+    // touches it.
+    for (const name of ['renamed once', 'renamed twice']) {
+      const before = (await service.status()).id;
+      write('next.sld', `(import (snail core base) (snail core io)) (write-line "${name}")`, parent);
+      fs.renameSync(join(parent, 'next.sld'), join(project, 'main.sld'));
+      assert.equal(execute(target(await service.settled(before), 'server').directory), `${name}\n`);
+    }
+
     const {code, signal, stderr} = await service.stop();
     assert.deepEqual({code, signal}, {code: 0, signal: null}, stderr);
   } finally {
@@ -189,4 +202,4 @@ try {
 } finally {
   fs.rmSync(parent, {recursive: true, force: true});
 }
-console.log('project development: sessions, supersession, failure and fresh producers');
+console.log('project development: sessions, supersession, failure, fresh producers and saves by rename');

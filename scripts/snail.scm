@@ -96,26 +96,11 @@
   (for-each (lambda (tool) (write-string (string-append (cdr tool) "\n"))) tools)
   0)
 
-;; The tools the development server runs, built if needed, as JSON for
-;; host/native/develop.mjs.
-(define (print-tools tools)
-  (write-string "{")
-  (let loop ((tools tools) (first? #t))
-    (unless (null? tools)
-      (write-string
-       (string-append (if first? "" ", ") "\"" (caar tools) "\": \"" (cdar tools) "\""))
-      (loop (cdr tools) #f)))
-  (write-string "}\n")
-  0)
-
 (let ((arguments (command-line)))
   (exit (guard (failure (#t (report-failure "snail" failure)))
           (cond ((equal? (cddr arguments) '("bootstrap")) (bootstrap! (cadr arguments)) 0)
-                ((equal? (cddr arguments) '("tools")) (print-tools (build-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("cli-tools"))
                  (print-lines (build-cli-tools (cadr arguments))))
-                ((equal? (cddr arguments) '("editor-tools"))
-                 (print-tools (build-editor-tools (cadr arguments))))
                 ;; The same tools a line each, the editor and the reload client first, for
                 ;; ./snail dev.
                 ((equal? (cddr arguments) '("dev-tools"))

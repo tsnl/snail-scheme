@@ -181,8 +181,8 @@
 ;;     generation with P, and replies {"epoch":N,"description":D,
 ;;     "candidate":C,"diagnostics":[...]}, with D null when the project
 ;;     cannot be read and C null when the build fails. C names each
-;;     target's generation, its digest and its files' digests, and how
-;;     long the build took. The resident holds
+;;     target's generation, its digest, its files' digests and the paths
+;;     of the files it links, and how long the build took. The resident holds
 ;;     C until a publish or a discard names its epoch, which the service
 ;;     sends before it asks for another build;
 ;;   {"kind":"publish","epoch":N}
@@ -376,7 +376,8 @@
                           (JsonObject (map (lambda (file)
                                              (Pair (Pair-first file)
                                                    (JsonString (Pair-second file))))
-                                           (Output-files output)))))))
+                                           (Output-files output))))
+                    (Pair "linked" (JsonArray (map JsonString (Output-linked output)))))))
 
 ;; A failure's diagnostics as the editor shows them: a compile's, each
 ;; naming its source point when it has one, or the build's one.

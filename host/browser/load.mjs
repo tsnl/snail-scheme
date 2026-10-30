@@ -216,14 +216,14 @@ const missingHost = (from, name) => () => { throw new Error(`this host does not 
 
 // ---- Relinking ----
 
-// Links the program again from library `from`, by its modules.json as it
-// is now, or by another build's, `manifest`, whose files `read` gives. The
-// modules before `from` cannot import from it, so their instances stay;
+// Links the program again from library `from`, by the modules.json of the
+// build at `manifest`, whose files `read` gives. The modules before `from`
+// cannot import from it, so their instances stay;
 // `from` and every module after it are linked anew, reading the files they
 // link again, and initialized, so their globals start over. Returns the new
 // program and leaves the old one as it was, so a relink that fails leaves it
 // running.
-export async function relinkProgram(program, from, manifest = program.manifest, read = program.read) {
+export async function relinkProgram(program, from, manifest, read) {
   const {modules} = readModules(await read(manifest));
   const start = Math.max(0, modules.findIndex(entry => entry.name === from));
   const kept = modules.slice(0, start).map(entry => [entry.name, program.linked.get(entry.name)]);

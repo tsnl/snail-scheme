@@ -201,19 +201,17 @@ reloads.
 
 ## Hot reload
 
-This section describes the current browser application implementation.
-`snail dev` runs named program targets as subprocesses. The
-[proposed durable reload workflow](#proposed-application-processes) requires server
-and browser data to survive code replacement through durable records. The browser
-handover implementation below has not yet changed.
+This section describes the current browser handover. The
+[proposed durable reload workflow](#proposed-application-processes) would
+carry server and browser data across code replacement through durable
+records instead.
 
-`./scripts/snail-tool serve APP-DIRECTORY` builds an application one library at a time,
-serves it at `http://127.0.0.1:8000/`, and builds it again whenever the
-application's directory, the standard library or the browser host
-changes, compiling only the libraries the change reaches. Each page it
-serves relinks the modules that changed, and those after them, without
-reloading. Their globals start over; the application's state crosses to
-the new program:
+`snail dev PROJECT` builds each browser target one library at a time, and
+builds it again whenever the project, the standard library or the browser
+host changes, compiling only the libraries the change reaches. Each page it
+serves ([below](#browser-targets-in-development)) relinks the modules that
+changed, and those after them, without reloading. Their globals start over;
+the application's state crosses to the new program:
 
 - as it is, when `type-test` finds its type unchanged;
 - through `save` and `restore` when its layout changed. That is the
@@ -224,25 +222,19 @@ the new program:
 
 A failed build is shown over the page, and the old program keeps running.
 A changed [linked file](types.md#linked-files) compiles nothing, but relinks
-the page from the module that links it, which reads the file again.
-A changed stylesheet is fetched again; a changed page or host script reloads
-the page after saving. A linked or public file may be a symbolic link:
-changing the file it names changes it, and a link to nothing fails the build,
-naming the link. The [event and reload boundaries](#event-and-reload-boundaries)
-below define checkpoint recovery, acceptance and manifest reconciliation.
+the page from the module that links it, which reads the file again; an edit
+to the file builds again once a published build links it. A changed
+stylesheet is fetched again; a changed page or host script reloads the page
+after saving. A public tree holds only regular files and directories
+([projects](projects.md)). The
+[event and reload boundaries](#event-and-reload-boundaries) below define
+checkpoint recovery, acceptance and manifest reconciliation.
 
-`./scripts/snail-tool serve` runs the producers of generated-library recipes
-before each build, as the project builder used by `snail build`, `snail dev`
-and `make site` does; only the project builder resolves artifact bundles.
-Program targets run through the editor's application controls, and `snail
-dev` serves each browser target's builds to pages that reload the same way
-([below](#browser-targets-in-development)).
-
-`./scripts/snail-tool watch SOURCE` is the same loop for a program: it builds and runs the
-program again whenever its sources change, stopping a run still in
-progress once a new build succeeds. [The development
-toolchain](toolchain.md) describes how builds stay this fast, and the
-browser editor that subscribes to the native project development service.
+Each build runs the producers of generated-library recipes first and
+resolves artifact bundles, as every project build does. A program is a
+[run target](#development-run-targets), run again from each accepted build.
+[The development toolchain](toolchain.md) describes how builds stay this
+fast, and the browser editor that subscribes to the same service.
 
 ## Task lifetime
 

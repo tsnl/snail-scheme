@@ -1225,7 +1225,8 @@
                                               (Pair (Pair-first member)
                                                     (json-string-value (Pair-second member))))
                                             members))
-                                      (_ (Nil)))))
+                                      (_ (Nil)))
+                                    (map json-string-value (json-items target "linked"))))
                       (json-items json "targets"))
                  (json-integer json "milliseconds")))
 
