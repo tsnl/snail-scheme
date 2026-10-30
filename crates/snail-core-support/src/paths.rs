@@ -1,6 +1,8 @@
 //! Path services for the Snail-Core library: the names a filesystem keeps,
 //! where `io` serves the files behind them. Directories are made, listed and
-//! removed, paths renamed and examined, and symbolic links made and read.
+//! removed, paths renamed and examined, and symbolic links made and read. A
+//! file's whole text is read and written here too, as one value whose
+//! failure a program can answer, where `io`'s ports fail the program.
 //!
 //! Each operation copies its staged path, resolves it as `io` does, and
 //! answers at once with a scalar: a nonnegative result, or the negative code
@@ -12,13 +14,14 @@
 //! Rust's standard library reaches WASI preview1 for every operation, as it
 //! does for `io`'s files: `path_create_directory`, `path_rename`,
 //! `path_unlink_file`, `path_remove_directory`, `fd_readdir`,
-//! `path_filestat_get`, `path_symlink` and `path_readlink`.
+//! `path_filestat_get`, `path_symlink` and `path_readlink`, and `path_open`,
+//! `fd_filestat_get`, `fd_read` and `fd_write` for whole texts.
 
 use crate::io::{checked, resolved, staged_path, staged_text};
 use std::{
     cell::{Cell, RefCell},
-    fs::{FileType, Metadata},
-    io::ErrorKind,
+    fs::{File, FileType, Metadata},
+    io::{ErrorKind, Read},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -247,6 +250,92 @@ pub extern "C" fn read_symbolic_link(count: u32) -> i32 {
     answer(link_target(&checked(staged_path(count))))
 }
 
+// ---- Whole texts ----
+
+// A service that reads and saves files for an editor answers each failure,
+// so these take a file's text as one value and fail with a code. Reading
+// refuses, besides a `PathError`, what is not one version of a text file;
+// Snail-Core's `TextError` numbers these after `FileError`'s.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(i32)]
+enum Refusal {
+    NotRegularFile = -10,
+    TooLong = -11,
+    NotText = -12,
+    Changed = -13,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum TextError {
+    Path(PathError),
+    Refused(Refusal),
+}
+
+impl From<std::io::Error> for TextError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Path(error.into())
+    }
+}
+
+impl TextError {
+    fn code(self) -> i32 {
+        match self {
+            Self::Path(error) => error as i32,
+            Self::Refused(refusal) => refusal as i32,
+        }
+    }
+}
+
+/// The text of the regular file at `path`, of at most `limit` bytes. The
+/// path itself must be the file: a link is not followed, and a FIFO, which
+/// would wait for a writer, is not opened. The text is one version of the
+/// file: it kept its length and modification time while it was read, and
+/// the read found that length. A writer that keeps both can still race it.
+fn file_text(path: &str, limit: u64) -> Result<String, TextError> {
+    if !std::fs::symlink_metadata(path)?.is_file() {
+        return Err(TextError::Refused(Refusal::NotRegularFile));
+    }
+    let mut file = File::open(path)?;
+    let before = file.metadata()?;
+    if before.len() > limit {
+        return Err(TextError::Refused(Refusal::TooLong));
+    }
+    let mut bytes = Vec::new();
+    (&mut file).take(limit + 1).read_to_end(&mut bytes)?;
+    if !one_version(&before, &file.metadata()?, bytes.len()) {
+        return Err(TextError::Refused(Refusal::Changed));
+    }
+    String::from_utf8(bytes).map_err(|_| TextError::Refused(Refusal::NotText))
+}
+
+fn one_version(before: &Metadata, after: &Metadata, read: usize) -> bool {
+    before.len() == after.len()
+        && u64::try_from(read) == Ok(after.len())
+        && before.modified().ok() == after.modified().ok()
+}
+
+/// The text, as the reply. A negative limit is no bytes.
+#[unsafe(export_name = "snail:io/read-text")]
+pub extern "C" fn read_text(limit: i64, count: u32) -> i32 {
+    let path = checked(staged_path(count));
+    match file_text(&path, u64::try_from(limit).unwrap_or(0)) {
+        Ok(text) => answer(reply(&text)),
+        Err(error) => error.code(),
+    }
+}
+
+fn write_whole(path: String, text: String) -> Result<i32, PathError> {
+    std::fs::write(resolved(path), text)?;
+    Ok(0)
+}
+
+/// Joined as path, NUL, text, so the text is everything after the first
+/// NUL. The file is made, or replaced in place.
+#[unsafe(export_name = "snail:io/write-text")]
+pub extern "C" fn write_text(count: u32) -> i32 {
+    answer(staged_pair(count).and_then(|(path, text)| write_whole(path, text)))
+}
+
 // ---- Replies ----
 
 // An operation that finds text, a directory's names or a link's target,
@@ -377,6 +466,45 @@ mod tests {
         assert_eq!(followed(&dangling), Err(PathError::NotFound));
         assert_eq!(status(&dangling), Ok(2));
         std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn texts_are_one_version_of_a_regular_file() {
+        let directory = scratch("text");
+        let file = text_path(&directory, "file");
+        std::fs::write(&file, "λ text").unwrap();
+        assert_eq!(file_text(&file, 7), Ok("λ text".into()));
+        assert_eq!(
+            file_text(&file, 6),
+            Err(TextError::Refused(Refusal::TooLong))
+        );
+        assert_eq!(
+            file_text(&file, 0),
+            Err(TextError::Refused(Refusal::TooLong))
+        );
+        std::fs::write(&file, [0xff, 0x41]).unwrap();
+        assert_eq!(
+            file_text(&file, 8),
+            Err(TextError::Refused(Refusal::NotText))
+        );
+        assert_eq!(
+            make_link("file".into(), text_path(&directory, "link")),
+            Ok(0)
+        );
+        let refused = Err(TextError::Refused(Refusal::NotRegularFile));
+        assert_eq!(file_text(&text_path(&directory, "link"), 8), refused);
+        assert_eq!(file_text(&text(&directory), 8), refused);
+        let missing = file_text(&text_path(&directory, "missing"), 8);
+        assert_eq!(missing, Err(TextError::Path(PathError::NotFound)));
+        assert_eq!(TextError::Refused(Refusal::Changed).code(), -13);
+        let written = text_path(&directory, "written");
+        assert_eq!(write_whole(written.clone(), "a\0b".into()), Ok(0));
+        assert_eq!(std::fs::read_to_string(&written).unwrap(), "a\0b");
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    fn text_path(directory: &std::path::Path, name: &str) -> String {
+        text(&directory.join(name))
     }
 
     #[test]

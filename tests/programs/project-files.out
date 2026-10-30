@@ -1,0 +1,28 @@
+list -> README.MD lib/util.sld linked/util.sld main.sld tool.mjs
+list another project's paths -> ()
+read main.sld -> (main) at 93c20d2e09bf
+read lib/util.sld -> (util) at 633a434a6d50
+read README.MD -> readme at 711a6108ba2c
+read notes.bin -> not served: invalid project text path
+read ../project-files/main.sld -> not served: invalid project text path
+read ./main.sld -> not served: invalid project text path
+read lib//util.sld -> not served: invalid project text path
+read /main.sld -> not served: invalid project text path
+read build/out.sld -> not served: invalid project text path
+read .git/config -> not served: invalid project text path
+read lib\util.sld -> not served: invalid project text path
+read linked/util.sld -> not served: project paths cannot traverse symlinks or non-directories
+read missing.sld -> disk failed: no such file or directory
+save main.sld -> (main 2) at 0bc792e983e5
+read main.sld -> (main 2) at 0bc792e983e5
+save main.sld again from the old revision -> changed on disk
+read main.sld -> (main 2) at 0bc792e983e5
+save a NUL -> not served: expected well-formed text without NUL
+save a path not served -> not served: invalid project text path
+save a file not there -> changed on disk
+mode of tool.mjs -> 755
+save tool.mjs -> tool 2 at bec59b526c4a
+mode of tool.mjs -> 755
+save tool.mjs again -> tool 3 at 1bde8db816ed
+mode of tool.mjs -> 600
+build output after -> out.sld

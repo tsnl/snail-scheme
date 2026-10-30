@@ -31,6 +31,7 @@
 | `(snail shell integer)`, `(snail shell rational)`, `(snail shell number)` | Exact integers of any size, rationals, and Scheme numbers. |
 | `(snail shell datum)`, `(snail shell read)`, `(snail shell write)` | Scheme data and its external representation. |
 | `(snail shell syntax)` | The syntax a `generate-library` recipe returns, and the bytes its producer writes. |
+| `(snail shell project files)` | The text files of one project, as `snail dev`'s editor reads and saves them: `project-text-paths`, `read-project-text`, which gives a text and its revision, the SHA-256 digest of its bytes, and `save-project-text`, which saves only over the revision it names and keeps the file's mode. The `modes` effect, on Node only, reads and sets a file's permission bits ([the development toolchain](toolchain.md)). |
 | `(snail shell project build)` | A project's build, which `snail build` and `snail run` run: `read-project`, `build-project`, which compiles, links and packages each target into a generation of its own, and `publish-project` ([projects](projects.md)). |
 | `(snail shell explore)` | Bounded model checking of a total state machine's invariant. |
 | `(scheme base)` | R7RS names (`cons`, `car`, `vector`, `char=?` ...) over the typed language. |
@@ -41,7 +42,10 @@
 `(snail core io)` reads and writes whole files, and works on the names a
 filesystem keeps. Each path operation returns a `Result`, so a failure a
 program can act on is a value: `(Err (NotFound))` for a missing path,
-`(Err (NotEmpty))` for a directory that still holds something.
+`(Err (NotEmpty))` for a directory that still holds something. `read-file`
+and `write-file` fail the program instead; `read-text-file` and
+`write-text-file` are their counterparts for a service, which must answer
+each failure.
 
 | Operation | Result |
 | --- | --- |
@@ -54,6 +58,8 @@ program can act on is a value: `(Err (NotFound))` for a missing path,
 | `(file-status path)` | A `FileStatus`: the `FileKind` (`RegularFile`, `Directory`, `SymbolicLink` or `OtherKind`), the size in bytes and the modification time in nanoseconds since the Unix epoch, without following a link. |
 | `(followed-status path)` | The `FileStatus` of what a read of `path` finds, following each link to the file it names, so never `SymbolicLink`; a link to nothing is `NotFound`, though `file-status` finds the link. |
 | `(make-symbolic-link target path)`, `(read-symbolic-link path)` | A link and its target, kept as given. |
+| `(read-text-file path limit)` | The text of the regular file at `path`, if it holds at most `limit` bytes of UTF-8, as one version of the file: its length and modification time stayed the same while it was read. A link is not followed. Else a `TextError`: `ReadFailed` with a `FileError`, `NotRegularFile`, `TooLong`, `NotText` or `ChangedWhileRead` (`tests/programs/text-files.sld`). |
+| `(write-text-file path text)` | Makes the file, or replaces its contents in place. |
 
 A `FileError` is `NotFound`, `AlreadyExists`, `NotEmpty`, `NotADirectory`,
 `IsADirectory`, `PermissionDenied`, `InvalidPath` (a path holding a NUL, or

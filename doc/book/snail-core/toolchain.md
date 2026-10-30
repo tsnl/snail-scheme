@@ -196,6 +196,22 @@ a sandbox against a hostile local process. This API makes no crash-durability,
 ACL, extended-attribute or hardlink-preservation promise. It edits existing files;
 creation, rename, deletion, merging and automatic conflict retry are omitted.
 
+`(snail shell project files)` is the same service in Snail-Core, for the
+service's move there (#567, step B3); nothing uses it yet. It keeps this
+contract, with three differences:
+- A revision is the SHA-256 digest of the file's bytes alone, without its
+  device and inode, which Rust's standard library gives WASI only as unstable
+  API. A file replaced by another with the same bytes is the same revision,
+  and saving over it loses nothing.
+- A read is one version of the file if the file's length and modification
+  time stay the same, without its status-change time.
+- A save checks the revision once, after writing its text and before the
+  rename. A check before the write as well would spare only the write.
+
+WASI preview1 cannot read or set permission bits, so its `modes` effect does,
+on Node (`host/native/run-snail.mjs`). `tests/programs/project-files.sld`
+drives it.
+
 ## Project HTTP service
 
 `host/native/project-http.mjs` connects the project attempt owner and file service on
