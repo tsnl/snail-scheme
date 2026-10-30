@@ -3,7 +3,9 @@
 // owns the container, handle 0; every node it makes is a handle in `nodes`,
 // and every listener an id in `listeners`. Removing a node frees its
 // handle, those of the nodes under it, and their listeners, so the tables
-// hold only what the document still shows.
+// hold only what the document still shows. A command may run after the
+// view removed its node, so an operation on a freed handle does nothing,
+// and a read of one answers "" or 0.
 
 import {byteSnapshot} from './load.mjs';
 
@@ -19,7 +21,7 @@ const ALWAYS = 1, CHORDS = 2;
 // program reads beside its fields.
 export function createDom(container, runtime) {
   const decoder = new TextDecoder();
-  let nodes, handles, listeners, owned, next, nextListener, reply = [];
+  let nodes, handles, listeners, owned, next, nextListener, reply = [], measured = [];
   reset();
 
   // A program that starts, cold or after a reload, knows no handles, so the
@@ -40,11 +42,10 @@ export function createDom(container, runtime) {
     const string = text(address), end = string.indexOf('\0');
     return [string.slice(0, end), string.slice(end + 1)];
   }
-  function node(handle) {
-    const found = nodes.get(handle);
-    if (!found) throw new Error(`no node has the handle ${handle}`);
-    return found;
-  }
+  // A node, or a stand-in for a freed one that ignores what is done to it.
+  const freed = {removeAttribute() {}, setAttribute() {}, insertBefore() {}, remove() {}, focus() {},
+                 childNodes: [], nodeType: 0};
+  const node = handle => nodes.get(handle) ?? freed;
   function made(value) {
     nodes.set(next, value);
     handles.set(value, next);
@@ -118,21 +119,22 @@ export function createDom(container, runtime) {
     },
     'set-text'(handle, address) {
       const target = node(handle);
+      if (target === freed) return;
       if (target.nodeType === Node.TEXT_NODE) { target.data = text(address); return; }
       for (const child of target.childNodes) free(child);
       target.textContent = text(address);
     },
     'set-string-property'(handle, address) {
       const [name, value] = named(address), target = node(handle);
-      if (target[name] !== value) target[name] = value;
+      if (target !== freed && target[name] !== value) target[name] = value;
     },
     'set-number-property'(handle, value, address) {
       const name = text(address), target = node(handle);
-      if (target[name] !== value) target[name] = value;
+      if (target !== freed && target[name] !== value) target[name] = value;
     },
     'set-flag-property'(handle, value, address) {
       const name = text(address), target = node(handle);
-      if (target[name] !== (value !== 0)) target[name] = value !== 0;
+      if (target !== freed && target[name] !== (value !== 0)) target[name] = value !== 0;
     },
     'string-property': (handle, address) => answer(node(handle)[text(address)]),
     'number-property'(handle, address) {
@@ -140,21 +142,48 @@ export function createDom(container, runtime) {
       return typeof value === 'number' ? value : 0;
     },
     'reply-scalar': index => reply[index].codePointAt(0),
-    insert: (parent, child, before) => { node(parent).insertBefore(node(child), before < 0 ? null : node(before)); },
+    insert(parent, child, before) {
+      if (node(child) !== freed) node(parent).insertBefore(node(child), before < 0 ? null : node(before));
+    },
     remove(handle) {
       const target = node(handle);
       target.remove();
-      free(target);
+      if (target !== freed) free(target);
     },
-    listen: (handle, bits, prevent, address) => listen(handle, bits, prevent, text(address)),
-    'listen-chord': (id, held, address) => { listeners.get(id).chords.push([text(address), held]); },
+    listen: (handle, bits, prevent, address) => (nodes.has(handle) ? listen(handle, bits, prevent, text(address)) : 0),
+    'listen-chord': (id, held, address) => { listeners.get(id)?.chords.push([text(address), held]); },
     unlisten(id) {
       const listener = listeners.get(id);
+      if (!listener) return;
       listener.node.removeEventListener(listener.type, listener.handler);
       owned.get(listener.node).delete(id);
       listeners.delete(id);
     },
     focus: handle => { node(handle).focus(); },
+    'element-by-id'(address) {
+      const found = document.getElementById(text(address));
+      return found && container.contains(found) ? handles.get(found) ?? -1 : -1;
+    },
+    'select-range': (handle, start, end) => { node(handle).setSelectionRange?.(start, end); },
+    // As typing would, so the page can undo it; a field that cannot take
+    // the command has its range replaced and hears the input it missed.
+    'insert-text'(handle, start, end, address) {
+      const target = node(handle), inserted = text(address);
+      if (!target.setSelectionRange) return;
+      target.focus();
+      target.setSelectionRange(start, end);
+      if (document.execCommand('insertText', false, inserted)) return;
+      target.setRangeText(inserted, start, end, 'end');
+      target.dispatchEvent(new Event('input', {bubbles: true}));
+    },
+    measure(handle) {
+      const target = node(handle);
+      if (target === freed) { measured = [0, 0, 0, 0, 0, 0, 0]; return; }
+      const box = target.getBoundingClientRect(), style = getComputedStyle(target);
+      const line = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.2 || 0;
+      measured = [box.left, box.top, box.width, box.height, target.clientWidth, target.clientHeight, line];
+    },
+    measured: index => measured[index],
     // Any task may wake the interface; the queue takes the wake from any.
     wake: () => { runtime.send(WAKE); },
     'event-number': index => runtime.execution.event[7 + index],

@@ -50,6 +50,14 @@
    Event-checked
    Event-checked-set
    no-event
+   Measure
+   Measure-left
+   Measure-top
+   Measure-width
+   Measure-height
+   Measure-client-width
+   Measure-client-height
+   Measure-line-height
    Delivery
    Fired
    Woken
@@ -75,6 +83,10 @@
    listen
    unlisten
    focus-node
+   element-by-id
+   select-range
+   insert-text
+   measure
    wake
    next-event
    capture-bits)
@@ -180,6 +192,20 @@
       (Hidden)
       (Closed))
 
+    ;; ---- Measuring ----
+
+    ;; Where a node's box lies in the page's viewport and how big it is, the
+    ;; size of what it shows inside its borders and scroll bars, and the
+    ;; height of its lines, in CSS pixels.
+    (struct Measure
+      ((left F64)
+       (top F64)
+       (width F64)
+       (height F64)
+       (client-width F64)
+       (client-height F64)
+       (line-height F64)))
+
     ;; ---- The effect ----
 
     ;; An attribute set to "" is removed. A property is the node's own
@@ -192,6 +218,14 @@
     ;; the interface waits for them; any other task performs `wake` to
     ;; have that one woken, once however many times it is performed
     ;; before the wait sees it.
+    ;;
+    ;; A command reaches the nodes the view made by their `id` attribute,
+    ;; through `element-by-id`, to do what a view cannot say: focus, select
+    ;; a range of a text field, insert text into one as typing would, so
+    ;; the page can undo it, scroll through the scroll properties, and
+    ;; measure. A command may run after the view has removed its node, so
+    ;; these find a removed node does nothing, and reads of it answer ""
+    ;; or 0.
     (effect dom
       ((document-root (-> Node))
        (create-element (-> String Node))
@@ -208,5 +242,9 @@
        (listen (-> Node String (List Capture) Prevent Listener))
        (unlisten (-> Listener Unit))
        (focus-node (-> Node Unit))
+       (element-by-id (-> String (Option Node)))
+       (select-range (-> Node I32 I32 Unit))
+       (insert-text (-> Node I32 I32 String Unit))
+       (measure (-> Node Measure))
        (wake (-> Unit))
        (next-event (-> Delivery ! tasks))))))

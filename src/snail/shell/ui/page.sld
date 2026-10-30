@@ -2,7 +2,7 @@
 ;; scene. An interface is its model and message types and five functions:
 ;;
 ;;   init    : seed -> Model
-;;   update  : Model Msg -> (Pair Model (List (FnOnce Msg ! tasks)))
+;;   update  : Model Msg -> (Pair Model (List (Command Msg)))
 ;;   view    : Model -> (Html Msg)
 ;;   save    : Model -> Save
 ;;   restore : Save -> Model
@@ -17,21 +17,28 @@
 ;; it booted with.
 (define-library (snail shell ui page)
   (export
+   Command
    define-ui)
   (import
    (snail core base)
    (snail shell task)
    (snail shell wire)
    (snail shell page)
+   (snail shell dom)
    (snail shell dom page)
    (snail shell ui))
   (begin
 
     ;; ---- Interfaces ----
 
-    ;; The cell is the model last checkpointed or booted. Commands may wait
-    ;; on tasks only; they share a row with the checkpoint, which names
-    ;; storage, so each is wrapped in one that may.
+    ;; What an interface's commands may do: wait on tasks, and reach the
+    ;; page's document by element id.
+    (type (Command M)
+          (FnOnce M ! tasks dom))
+
+    ;; The cell is the model last checkpointed or booted. Commands share a
+    ;; row with the checkpoint, which names storage, so each is wrapped in
+    ;; one that may.
     (define-syntax define-ui
       (syntax-rules (init: update: view: save: restore:)
         ((_ Model
@@ -62,14 +69,14 @@
                                  (ui-restore #f)))
                ((None) (ui-restore #t))))
 
-           (: ui-update (-> Model Msg (Pair Model (List (FnOnce Msg ! mut storage tasks)))))
+           (: ui-update (-> Model Msg (Pair Model (List (FnOnce Msg ! mut storage tasks dom)))))
            (define (ui-update model message)
-             (match ((ann step (-> Model Msg (Pair Model (List (FnOnce Msg ! tasks)))))
+             (match ((ann step (-> Model Msg (Pair Model (List (Command Msg)))))
                      model
                      message)
                ((Pair next commands) (Pair next (ui-widened commands)))))
 
-           (: ui-widened (-> (List (FnOnce Msg ! tasks)) (List (FnOnce Msg ! mut storage tasks))))
+           (: ui-widened (-> (List (Command Msg)) (List (FnOnce Msg ! mut storage tasks dom))))
            (define (ui-widened commands)
              (match commands
                ((Cons command rest) (Cons (once (lambda () (command))) (ui-widened rest)))
