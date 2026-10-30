@@ -63,7 +63,7 @@ function startLoop(root, tools, request) {
 
 // The loop's events, numbered as `deliver-event!` in src/snail/shell/develop.sld
 // numbers them. The worker serializes calls into its one Wasm instance.
-const CHANGED = 1, TIMER = 2;
+const CHANGED = 1, TIMER = 2, RECONCILE = 4;
 
 function send(loop, kind, text) {
   if (!loop.stopping) loop.worker.postMessage({kind, text});
@@ -79,6 +79,8 @@ function perform(loop, {command, args, number}) {
       const watcher = watch(args[0], {recursive: true}, (event, name) => { if (name) send(loop, CHANGED, join(args[0], name)); });
       watcher.on('error', error => fail(loop, error));
       loop.watchers.push(watcher);
+      // Watches are hints; the loop reconciles its inventory every second.
+      loop.reconciling ??= setInterval(() => send(loop, RECONCILE, ''), 1000);
       break;
     }
     case 'schedule':
@@ -170,6 +172,7 @@ async function stop(loop, status) {
   loop.stopping = true;
   process.exitCode = status;
   clearTimeout(loop.timer);
+  clearInterval(loop.reconciling);
   for (const watcher of loop.watchers) watcher.close();
   for (const response of loop.clients) response.end();
   loop.server?.close();

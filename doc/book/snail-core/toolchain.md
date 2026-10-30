@@ -404,7 +404,14 @@ file work through the runtime's WASI, as any program does
 lists, renames and removes files, copies linked files, digests files with
 `(snail shell sha256)` and times builds with the monotonic clock. Watch,
 schedule, serve, broadcast and run commands cross to the parent.
-Watches are installed before the first compile. HTML, manifests, module bytes
+Watches are installed before the first compile, and they are hints: Node's
+recursive watch keeps following a file another is renamed over, as `sed -i`
+and editors' atomic saves do, and misses its next edit. So every second the
+host asks the loop to reconcile, and the loop takes an inventory of the
+watched directories with `(snail shell watch)`, leaving out `build/` and
+`.git`, and treats any path that differs from the inventory the latest build
+began with as an edit. A build takes its inventory before it reads a
+source, so an edit it built from does not start another. HTML, manifests, module bytes
 and linked files are staged beside their destinations and renamed, providing
 complete individual files rather than the project builder's generation
 publication. Each build copies the files the program links into `resources/`

@@ -20,6 +20,7 @@
    (snail core base)
    (snail core io)
    (snail shell sha256)
+   (snail shell watch)
    (only (snail shell compiler read)
          Loc
          Syntax
@@ -215,7 +216,8 @@
     ;; `root` is the repository's; `runtime` and `client` are the runtime
     ;; and the reload client the host built for pages. `manifest` is the
     ;; latest build's, which a failed build leaves in place, and `previous`
-    ;; names the module files of the build before it.
+    ;; names the module files of the build before it. `inventory` is what
+    ;; the watched directories held when the latest build began.
     (struct Loop
       ((root String)
        (runtime String)
@@ -224,7 +226,8 @@
        (session (Ref Session))
        (output String)
        (manifest (Ref String))
-       (previous (Ref (List String)))))
+       (previous (Ref (List String)))
+       (inventory (Ref Inventory))))
 
     ;; `arguments` are the root, the runtime, the reload client and the
     ;; request.
@@ -240,7 +243,8 @@
                  (ref (new-session root request))
                  (output root request)
                  (ref "(files) (modules)")
-                 (ref (Nil)))))
+                 (ref (Nil))
+                 (ref empty-inventory))))
         (_ (panic "usage: develop ROOT RUNTIME CLIENT REQUEST ..."))))
 
     ;; Pages are served before the first build, from a placeholder that
@@ -276,6 +280,18 @@
         ((Serve _ app) (list app (string-append root "/src") (host-directory root)))
         ((Watch source directories _)
          (Cons (directory-name source) (append directories (list (string-append root "/src")))))))
+
+    ;; What the watched directories hold, without the build/ directories
+    ;; builds write to or version control's own files.
+    (: watched-inventory (-> Loop Inventory ! fs))
+    (define (watched-inventory loop)
+      (let ((directories (watched (Loop-root loop) (Loop-request loop))))
+        (inventory directories
+                   (Cons (string-append (Loop-root loop) "/build")
+                         (concatenate (map (lambda (directory)
+                                             (list (string-append directory "/build")
+                                                   (string-append directory "/.git")))
+                                           directories))))))
 
     (: main-source (-> Request String))
     (define (main-source request)
@@ -328,15 +344,30 @@
       (broadcast!
        (string-append "(failed " (quoted message) " " (ref-get (Loop-manifest loop)) ")")))
 
+    ;; A watch is a hint, which misses an edit that renames a file over
+    ;; one Node's recursive watch had followed, as `sed -i` and editors'
+    ;; atomic saves do (#547). So every second the host asks the loop to
+    ;; take the inventory of what it watches again, and any change since
+    ;; the latest build began is a change a watch would report. Each build
+    ;; takes the inventory before it reads a source, so an edit it already
+    ;; built from is not one, and an edit it may have missed still is. The
+    ;; first build begins before the first reconciliation.
+    (: reconcile! (-> Loop Unit ! mut fs develop))
+    (define (reconcile! loop)
+      (for-each (lambda (path) (source-changed! loop path))
+                (inventory-changes (ref-get (Loop-inventory loop)) (watched-inventory loop))))
+
     ;; The host's events, by number, as both hosts send them: 1 is a changed
     ;; file, with its path; 2 the timer the loop asked for; 3 a build that
-    ;; panicked, with the panic's message.
+    ;; panicked, with the panic's message; 4 the reconciliation the host
+    ;; asks for every second.
     (: deliver-event! (-> Loop I32 String Unit ! mut fs console clock develop))
     (define (deliver-event! loop kind text)
       (case kind
         ((1) (source-changed! loop text))
         ((2) (build! loop))
         ((3) (build-failed! loop text))
+        ((4) (reconcile! loop))
         (else (panic (string-append "the development loop has no event " (i32->string kind))))))
 
     ;; ---- Builds ----
@@ -350,6 +381,7 @@
     (: build! (-> Loop Unit ! mut fs console clock develop))
     (define (build! loop)
       (let ((started (monotonic-nanoseconds)))
+        (ref-set! (Loop-inventory loop) (watched-inventory loop))
         (broadcast! (string-append "(building " (ref-get (Loop-manifest loop)) ")"))
         (match (compiling (lambda () (next-build! loop (main-source (Loop-request loop)))))
           ((Ok builds) (built! loop builds started))

@@ -1,0 +1,8 @@
+from nothing -> (src src/lib src/lib/util.sld src/main.sld)
+unchanged -> ()
+saved by rename -> (src/main.sld)
+saved by rename again -> (src/main.sld)
+written under build -> ()
+made -> (src/new src/new/added.sld)
+removed -> (src/lib/util.sld)
+back to nothing -> (src src/lib src/main.sld src/new src/new/added.sld)
