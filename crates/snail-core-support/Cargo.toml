@@ -8,6 +8,16 @@ autotests = false
 [lib]
 crate-type = ["rlib"]
 
+# The toolchain's runtime: tools written in Snail-Core, such as the `snail`
+# command line, assemble modules in-process with the text parser this
+# feature adds. Programs never need it, and a development build copies its
+# runtime whole, so the plain runtime leaves it out.
+[features]
+assembler = ["dep:wat"]
+
+[dependencies]
+wat = { version = "1.262.0", default-features = false, optional = true }
+
 [profile.release]
 panic = "abort"
 lto = true
