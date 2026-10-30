@@ -1,0 +1,1 @@
+the instance (Twice (Option A)) requires (Copy A), and (FnOnce Unit ! console) is linear

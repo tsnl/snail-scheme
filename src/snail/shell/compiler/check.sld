@@ -1220,8 +1220,8 @@
     (define (solve-class ck constraint hole givens copy loc)
       (if (lifecycle-class? (Constraint-class constraint))
           (solve-lifecycle ck constraint hole givens copy (None) loc)
-          (match (find-evidence ck constraint givens loc)
-            ((Some evidence) (with-evidence ck hole evidence))
+          (match (find-evidence ck constraint givens copy loc)
+            ((Some (Pair evidence ck)) (with-evidence ck hole evidence))
             ((None) (compile-error loc (ambiguous-constraint ck constraint))))))
 
     (: with-evidence (-> Checker I64 Evidence Checker))
@@ -1256,17 +1256,34 @@
            Checker
            ! compile))
     (define (solve-lifecycle ck constraint hole givens copy context loc)
+      (match (lifecycle-evidence ck constraint givens copy context loc)
+        ((Pair evidence ck) (with-evidence ck hole evidence))))
+
+    ;; Charges what a drop or a clone of the constraint's type performs to
+    ;; the constraint's row, and records the plan charged as its evidence.
+    (: lifecycle-evidence
+       (-> Checker
+           Constraint
+           (List Constraint)
+           (List String)
+           (Option Type)
+           Loc
+           (Pair Evidence Checker)
+           ! compile))
+    (define (lifecycle-evidence ck constraint givens copy context loc)
       (match (Constraint-types constraint)
         ((Cons row (Cons type (Nil)))
-         (let ((type (resolve-type (solution ck) type)))
+         (let ((type (resolve-type (solution ck) type))
+               (class (Constraint-class constraint))
+               (program (program-of ck)))
            (when (has-meta? (solution ck) type)
              (compile-error loc (ambiguous-constraint ck constraint)))
-           (match (lifecycle-rows (program-of ck) (Constraint-class constraint) copy givens type)
+           (match (lifecycle-rows program class copy givens type)
              ((Ok rows)
-              (with-evidence
-               (fold-left (lambda (ck performed) (charge ck performed row context loc)) ck rows)
-               hole
-               (EvDerived)))
+              (Pair (EvDerived (checked-plan program class copy type))
+                    (fold-left (lambda (ck performed) (charge ck performed row context loc))
+                               ck
+                               rows)))
              ((Err message) (compile-error loc message)))))
         (_ (panic "internal error: a lifecycle class has a row and a type"))))
 
@@ -1335,16 +1352,24 @@
 
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
-    (: find-evidence (-> Checker Constraint (List Constraint) Loc (Option Evidence) ! compile))
-    (define (find-evidence ck constraint givens loc)
+    (: find-evidence
+       (-> Checker
+           Constraint
+           (List Constraint)
+           (List String)
+           Loc
+           (Option (Pair Evidence Checker))
+           ! compile))
+    (define (find-evidence ck constraint givens copy loc)
       (let ((types
              (map (lambda (type) (resolve-type (solution ck) type)) (Constraint-types constraint))))
         (if (any? (lambda (type) (has-meta? (solution ck) type)) types)
             (None)
             (match (given-evidence (Constraint-class constraint) types givens)
-              ((Some evidence) (Some evidence))
+              ((Some evidence) (Some (Pair evidence ck)))
               ((None)
-               (Some (instance-evidence ck (Constraint-class constraint) types givens loc)))))))
+               (Some
+                (instance-evidence ck (Constraint-class constraint) types givens copy loc)))))))
 
     (: given-evidence (-> String (List Type) (List Constraint) (Option Evidence)))
     (define (given-evidence class types givens)
@@ -1355,37 +1380,85 @@
         ((Some index) (Some (EvParam index)))
         ((None) (None))))
 
-    (: instance-evidence (-> Checker String (List Type) (List Constraint) Loc Evidence ! compile))
-    (define (instance-evidence ck class types givens loc)
+    (: instance-evidence
+       (-> Checker
+           String
+           (List Type)
+           (List Constraint)
+           (List String)
+           Loc
+           (Pair Evidence Checker)
+           ! compile))
+    (define (instance-evidence ck class types givens copy loc)
       (let loop ((instances (class-instances (program-of ck) class)))
         (match instances
           ((Nil)
            (compile-error loc (string-append "no instance for " (constraint->string class types))))
           ((Cons instance rest)
            (match (match-types (Instance-vars instance) (Instance-types instance) types (Nil))
-             ((Some bindings)
-              (EvInstance (Instance-name instance)
-                          (map (lambda (var)
-                                 (match (assoc-ref bindings var)
-                                   ((Some type) type)
-                                   ((None) (TCon "Unit" (Nil)))))
-                               (Instance-vars instance))
-                          (map (lambda (requirement)
-                                 (requirement-evidence ck
-                                                       (substitute-constraint bindings requirement)
-                                                       givens
-                                                       loc))
-                               (Instance-requires instance))))
+             ((Some bindings) (instance-application ck instance bindings givens copy loc))
              ((None) (loop rest)))))))
 
-    (: requirement-evidence (-> Checker Constraint (List Constraint) Loc Evidence ! compile))
-    (define (requirement-evidence ck requirement givens loc)
-      (match (find-evidence ck requirement givens loc)
-        ((Some evidence) evidence)
+    ;; An instance applied where its head matched with `bindings`: a
+    ;; variable it requires Copy must be given an unrestricted type, and
+    ;; each of its requirements is satisfied there in turn.
+    (: instance-application
+       (-> Checker
+           Instance
+           Substitution
+           (List Constraint)
+           (List String)
+           Loc
+           (Pair Evidence Checker)
+           ! compile))
+    (define (instance-application ck instance bindings givens copy loc)
+      (match (instance-copy-refusal (program-of ck) copy instance bindings)
+        ((Some refusal) (compile-error loc refusal))
         ((None)
-         (compile-error loc (string-append "ambiguous requirement "
-                                           (constraint->string (Constraint-class requirement)
-                                                               (Constraint-types requirement)))))))
+         (match (each ck
+                      (lambda (ck requirement)
+                        (requirement-evidence ck
+                                              (substitute-constraint bindings requirement)
+                                              givens
+                                              copy
+                                              loc))
+                      (Instance-requires instance))
+           ((Pair subs ck)
+            (Pair (EvInstance (Instance-name instance) (applied-types instance bindings) subs)
+                  ck))))))
+
+    ;; The types the head's match gave the instance's variables, in order.
+    (: applied-types (-> Instance Substitution (List Type)))
+    (define (applied-types instance bindings)
+      (map (lambda (var)
+             (match (assoc-ref bindings var)
+               ((Some type) type)
+               ((None) (TCon "Unit" (Nil)))))
+           (Instance-vars instance)))
+
+    ;; A lifecycle requirement, as `(Drop e A)`, is solved as a drop is:
+    ;; what dropping the type it gives `A` performs is charged to its row
+    ;; `e`. Any other is found as a constraint is.
+    (: requirement-evidence
+       (-> Checker
+           Constraint
+           (List Constraint)
+           (List String)
+           Loc
+           (Pair Evidence Checker)
+           ! compile))
+    (define (requirement-evidence ck requirement givens copy loc)
+      (if (lifecycle-class? (Constraint-class requirement))
+          (lifecycle-evidence ck requirement givens copy (None) loc)
+          (match (find-evidence ck requirement givens copy loc)
+            ((Some found) found)
+            ((None) (compile-error loc (ambiguous-requirement requirement))))))
+
+    (: ambiguous-requirement (-> Constraint String))
+    (define (ambiguous-requirement requirement)
+      (string-append "ambiguous requirement "
+                     (constraint->string (Constraint-class requirement)
+                                         (Constraint-types requirement))))
 
     ;; One-way matching of an instance head; only its own variables bind.
     (: match-types (-> (List String) (List Type) (List Type) Substitution (Option Substitution)))
@@ -1923,18 +1996,12 @@
     ;; must declare it; a concrete linear type cannot be bound at all.
     (: check-copy (-> Checker Type (List String) Loc Unit ! compile))
     (define (check-copy ck type copy loc)
-      (let ((type (resolve-type (solution ck) type)) (program (program-of ck)))
-        (when (linear-type? program copy type)
-          (compile-error loc
-                         (match (missing-copy program copy type)
-                           ((Nil)
-                            (string-append "a type variable requires an unrestricted type, and "
-                                           (type->string type)
-                                           " is linear"))
-                           (names
-                            (string-append "this use needs "
-                                           (copy-declaration names)
-                                           ", which the definition must require")))))))
+      (match (copy-refusal (program-of ck)
+                           copy
+                           (resolve-type (solution ck) type)
+                           "a type variable requires an unrestricted type")
+        ((Some refusal) (compile-error loc refusal))
+        ((None) (unit))))
 
     (: wanted-metas (-> Solution Wanted (List Type)))
     (define (wanted-metas solution want)

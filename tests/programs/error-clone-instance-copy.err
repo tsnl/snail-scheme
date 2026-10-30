@@ -1,0 +1,1 @@
+the instance (Clone { } (Wrapper A)) requires (Copy A), and Handle is linear
