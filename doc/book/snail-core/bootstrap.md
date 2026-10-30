@@ -122,9 +122,9 @@ happened, and a nonzero answer fails a run that succeeded. A trap or a
 failure of the host is status 2, with V8's message after `snail: ` and the
 Wasm frames after it, and so is a run whose tasks all wait on tickets,
 since this host completes no host operations. A module that imports
-`snail.runtime.native.socket` or `snail.runtime.native.process` is refused
-before it is compiled: a program that uses sockets or processes runs on
-Node.
+`snail.runtime.native.socket`, `snail.runtime.native.process` or
+`snail.runtime.native.files` is refused before it is compiled: a program
+that uses sockets, processes or file modes runs on Node.
 
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
 on `build/snail` instead, the bootstrap's stages included, and every program

@@ -80,7 +80,7 @@
     ;; The host modules only Node provides; `run-wasm` refuses a program
     ;; that imports one (crates/snail/src/program.rs).
     (define node-hosted-modules
-      '("snail.runtime.native.socket" "snail.runtime.native.process"))
+      '("snail.runtime.native.socket" "snail.runtime.native.process" "snail.runtime.native.files"))
 
     (define (node-hosted? imports)
       (and (pair? imports)
