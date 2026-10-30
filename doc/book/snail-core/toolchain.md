@@ -79,8 +79,18 @@ never enters compilation. Each attempt starts with fresh diagnostics while
 retaining valid compiler caches; an error does not display stale diagnostics
 from the preceding attempt.
 
-`host/native/project.mjs` supplies the same serial builder to cold commands and the
-resident service. A cold command owns its compiler directly. Development uses
+The cold commands, `snail build` and `snail run`, are a Snail program,
+`bootstrap/cli.sld`, which builds with `(snail shell project build)`: the
+compiler runs inside it, Binaryen's tools link each program through
+`run` (`(snail shell process)`), and Node runs producers. Stage 0 rebuilds the
+program when its sources change (`scripts/snail-tool cli-tools`). `snail run`
+publishes the run's program and then becomes it through `exec`, so the
+process the caller started is the program's, with its arguments, standard
+streams, working directory, status and signals. The development service
+still builds with `host/native/project.mjs`, the same builder in JavaScript,
+until it moves to Snail-Core
+([#567](https://github.com/tsnl/snail-scheme/issues/567)); the two write
+byte-identical outputs. Development uses
 one persistent compiler worker so synchronous compilation and tool IO cannot
 block the HTTP service or disk observation. The worker retains a successful
 compiler Session per target; changing its entry or ordered library roots starts

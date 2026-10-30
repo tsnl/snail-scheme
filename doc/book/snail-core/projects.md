@@ -96,7 +96,8 @@ implemented. Resolve the link once before reading several files as one artifact.
 An ordinary file, directory or unrelated link at the output path is rejected
 and never removed by the builder.
 
-The builder completes every selected target before returning a private candidate.
+The builder, `(snail shell project build)`, completes every selected target before
+returning a private candidate.
 Compilation or packaging failure changes no public outputs, including dependencies
 already built. Publication checks all destinations and prepares temporary links
 before renaming any. Each rename is atomic; several links are not one transaction.

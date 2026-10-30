@@ -2,16 +2,15 @@
 //   node tests/project-artifacts.mjs ROOT
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile} from 'node:fs/promises';
+import {chmod, cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {pathToFileURL} from 'node:url';
 
 const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-artifacts-'));
 const output = name => join(project, 'build', name);
-const build = (name, env = process.env) => execute(join(root, 'snail'), ['build', project, name], {env, maxBuffer: 4 * 1024 * 1024});
+const build = name => execute(join(root, 'snail'), ['build', project, name], {maxBuffer: 4 * 1024 * 1024});
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const artifact = name => `(import (snail core base) (snail shell artifact))\n(artifact-bundle "${name}")\n`;
 
@@ -97,12 +96,15 @@ try {
   await checkProgram(join(first, 'program.wasm'), 65);
   assert.deepEqual(await generations(), {client: 2, admin: 2, server: 2}, 'each invocation regenerates dependencies and producers');
 
+  // A public directory the build cannot read fails it, and publishes
+  // nothing of the tree.
   const clientBeforeFailure = await realpath(output('client'));
-  for (const prefix of [join(project, 'client-public'), join(project, 'build/.snail-')]) {
-    const preload = pathToFileURL(join(root, 'tests/compiler-inputs/directory-failure.mjs')).href;
-    await assert.rejects(build('client', {...process.env, SNAIL_TEST_DIRECTORY_FAILURE: prefix,
-      NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${preload}`].filter(Boolean).join(' ')}), /cannot read directory/);
-    assert.equal(await realpath(output('client')), clientBeforeFailure, 'read failure never publishes a partial public tree or bundle');
+  if (process.getuid() !== 0) {
+    await chmod(join(project, 'client-public/nested'), 0);
+    try {
+      await assert.rejects(build('client'), /cannot read directory/);
+      assert.equal(await realpath(output('client')), clientBeforeFailure, 'read failure never publishes a partial public tree or bundle');
+    } finally { await chmod(join(project, 'client-public/nested'), 0o755); }
   }
 
   for (const [name, error] of [['missing', /server.sld:2:.*unknown project build target/], ['server', /artifact target must be a browser build/]]) {

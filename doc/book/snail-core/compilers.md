@@ -693,9 +693,10 @@ The resident compiler's entries handle `compile` too: a request sends its
 `host/native/compiler.mjs` finds the record after a normal return and throws
 `CompilerFailure` with it as `request`. No request file is written or parsed,
 and nothing traps. Each invocation clears diagnostic state before work. Trusted exits preserve the instance but return no
-successor Session. Cold project builds and `dev` use this boundary, but never
-retry: `host/native/project.mjs` plans the build first, so a request from one of
-its compiles names an input the plan missed, and is an internal error.
+successor Session. `dev` uses this boundary, and cold project builds call the
+same compiler in their own process (`(snail shell project build)`). Neither
+retries: each plans the build first, so a request from one of its compiles
+names an input the plan missed, and is an internal error.
 
 The builder passes each completed target's canonical file inventory to
 `addArtifact` before the first phase that embeds it, and each producer's output

@@ -20,6 +20,7 @@
    build-toolchain-tool
    build-tools
    build-project-tools
+   build-cli-tools
    build-editor-tools
    build-book-tools
    bootstrap!
@@ -759,6 +760,16 @@
                               (standard-directories root)))
             (cons "runtime" (build-crate root "snail-core-support"))
             (cons "assembler" (build-crate root "assembler"))))
+
+    ;; The `snail` command line, a Snail program that builds projects with
+    ;; the compiler inside it, and the runtime it links their programs with.
+    (define (build-cli-tools root)
+      (list (cons "cli"
+                  (build-tool root
+                              (path-join root "bootstrap/cli.sld")
+                              (path-join root "build/project/cli.wasm")
+                              (standard-directories root)))
+            (cons "runtime" (build-crate root "snail-core-support"))))
 
     ;; The editor adds only its formatter to the native project tools.
     (define (build-editor-tools root)
