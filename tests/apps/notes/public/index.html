@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes</title>
+<body>
+  <div id="interface"></div>
+  <script type="module">
+    import {startInterface} from './ui.mjs';
+    startInterface({url: './program.wasm', container: document.getElementById('interface'), storageKey: 'notes'})
+      .then(() => { document.body.dataset.ready = 'true'; })
+      .catch(error => { document.body.dataset.error = error.message; });
+  </script>
+</body>
+</html>

@@ -76,7 +76,7 @@ export function createEventQueue(frames = null) {
 // answer, and those of (snail shell task), which drive the loop.
 export function applicationEntry(program) {
   const entry = programEntry(program, 'app_main');
-  return {...entry, app: program.names ? program.linked.get('snail.shell.app').exports : entry.exports,
+  return {...entry, app: program.names ? program.linked.get('snail.shell.page').exports : entry.exports,
           tasks: taskExports(program)};
 }
 

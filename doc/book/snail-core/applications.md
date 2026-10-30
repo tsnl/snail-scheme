@@ -125,12 +125,36 @@ by their `id`, and the page hidden), and answers the document it left, as
 HTML and as a trace of every operation. `tests/programs/ui-memory.sld` and `tests/programs/ui-patch.sld`
 run interfaces this way under `make test`.
 
-*Proposed* ([#514](https://github.com/tsnl/snail-scheme/issues/514)): a
-browser handler of `dom` over host tables of nodes and listeners, events
-delivered through the application's event queue, `define-ui` to host an
-interface as `define-application` hosts a game, and fetch and server-sent
-event effects for commands. None of this is implemented; today an
-interface runs only under `with-memory-dom`.
+`define-ui` from `(snail shell ui page)` hosts an interface in a page as
+`define-application` hosts a scene:
+
+```scheme
+(define-ui Notes Message
+  (init: start)
+  (update: update)
+  (view: view)
+  (save: save)
+  (restore: restore))
+```
+
+`init` takes the seed alone, and `update`'s commands may wait on tasks.
+The interface boots as an application does, from a handed-over model of
+its type, else the stored save, else `init`. It runs `run-ui` as the
+page's root task under `with-page-dom` from `(snail shell dom page)`,
+whose `checkpoint` stores the save. The page loads `startInterface` from
+`ui.mjs`, which a browser build ships, with a container element in place
+of the canvas. `host/browser/dom.mjs` keeps the interface's nodes and
+listeners in tables by handle and frees a removed node's subtree. A
+listener reads what it captures and prevents the default action while
+the event is dispatched, then queues the event (kind 14). A `wake` queues
+kind 15 from any task. `tests/apps/notes` is the example, and
+`tests/browser/ui.mjs` drives it in Chromium.
+
+*Proposed* ([#514](https://github.com/tsnl/snail-scheme/issues/514)): fetch
+and server-sent event effects for commands, periodic saves, and live
+reload of an interface's page. Today `ui.mjs` loads a release build's
+`program.wasm`, and the interface saves only when the page is hidden or
+reloads.
 
 <a id="live-reload"></a>
 
@@ -183,7 +207,7 @@ browser editor that subscribes to the native project development service.
 The loop is a task of the program's [scheduler](../runtimes/tasks.md).
 `app-main` dispatches it through `app-start`, which answers its id, and
 the host turns the scheduler until the loop answers: `app-start` records
-the answer in a cell of `(snail shell app)`, which the host reads through
+the answer in a cell of `(snail shell page)`, which the host reads through
 the `app_outcome` and `app_handover` exports. A trap whose task is the
 loop's, by `tasks:running`, is the loop's failure; any other is a child's,
 reported and survived. Normal root completion after initial presentation

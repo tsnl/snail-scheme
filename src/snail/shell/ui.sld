@@ -422,7 +422,7 @@
             (-> Model
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
-                (-> Model Unit ! e)
+                (-> Model Unit ! tasks e)
                 Model
                 ! mut dom tasks e)))
     (define (run-ui model update view checkpoint)
@@ -435,7 +435,7 @@
             (-> (Mailbox M)
                 (-> Model M (Pair Model (List (FnOnce M ! tasks e))))
                 (-> Model (Html M))
-                (-> Model Unit ! e)
+                (-> Model Unit ! tasks e)
                 (Running Model M)
                 Model
                 ! mut dom tasks e)))
