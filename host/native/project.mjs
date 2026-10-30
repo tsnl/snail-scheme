@@ -202,6 +202,13 @@ function placeLinks(directory, links) {
 
 const browserFiles = ['host.mjs', 'runtime.mjs', 'tasks.mjs', 'entry.mjs', 'renderer.mjs', 'hud.mjs', 'pictures.mjs', 'storage.mjs', 'load.mjs', 'style.css'];
 
+// The names some build writes at an output's root, whether or not this one
+// does: a release build writes program.wasm, a development build modules/,
+// modules.json and runtime.wasm, and a program that links files resources/.
+// A public tree may use none of them, so one that builds in one mode, or
+// with one set of linked files, builds in every other.
+const generatedNames = new Set(['program.wasm', 'modules', 'modules.json', 'runtime.wasm', 'resources', '.snail-target', ...browserFiles]);
+
 function packageBrowser(root, project, target, output, mode) {
   for (const name of browserFiles) copyFileSync(join(root, 'host/browser', name), join(output, name));
   if (target.public !== null) copyPublic(publicDirectory(project, target.public), output);
@@ -231,12 +238,12 @@ function publicDirectory(project, path) {
   return directory;
 }
 
-function copyPublic(source, output) {
+function copyPublic(source, output, top = true) {
   for (const name of directoryNames(source)) {
     const from = join(source, name), to = join(output, name), entry = status(from);
-    if (status(to) || name === '.snail-publish') throw new Error(`public file conflicts with a build artifact: ${from}`);
+    if ((top && generatedNames.has(name)) || status(to) || name === '.snail-publish') throw new Error(`public file conflicts with a build artifact: ${from}`);
     if (entry?.isSymbolicLink()) throw new Error(`public files cannot be symbolic links: ${from}`);
-    if (entry?.isDirectory()) { mkdirSync(to); copyPublic(from, to); }
+    if (entry?.isDirectory()) { mkdirSync(to); copyPublic(from, to, false); }
     else if (entry?.isFile()) copyFileSync(from, to);
     else throw new Error(`public entry must be a regular file or directory: ${from}`);
   }
