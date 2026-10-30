@@ -86,15 +86,13 @@ compiler runs inside it, Binaryen's tools link each program through
 program when its sources change (`scripts/snail-tool cli-tools`). `snail run`
 publishes the run's program and then becomes it through `exec`, so the
 process the caller started is the program's, with its arguments, standard
-streams, working directory, status and signals. The development service
-still builds with `host/native/project.mjs`, the same builder in JavaScript,
-until it moves to Snail-Core
-([#567](https://github.com/tsnl/snail-scheme/issues/567)); the two write
-byte-identical outputs. Development uses
-one persistent compiler worker so synchronous compilation and tool IO cannot
-block the HTTP service or disk observation. The worker retains a successful
-compiler Session per target; changing its entry or ordered library roots starts
-a new Session. Producers run again each attempt, once each. The
+streams, working directory, status and signals. Development builds with the
+same program, as `snail resident PROJECT` in a child process, so synchronous
+compilation and tool IO cannot block the HTTP service or disk observation
+([the resident builder](compilers.md#the-resident-builder)). The resident
+retains a successful compiler Session per target, even through a build that
+fails after it; changing its entry or ordered library roots starts a new
+Session. Producers run again each attempt, once each. The
 [compiler chapter](compilers.md#separate-compilation) explains reuse: a change
 to a monomorphic function body recompiles its library; an interface change also
 recompiles importers. A cold start has no retained compiler cache.
@@ -125,20 +123,22 @@ coarse metadata. The project development parent consumes this observer; the old
 commands still use their existing watches until command/application integration.
 
 `host/native/project-develop.mjs` owns serialized project attempts and one current
-status, with independent subscriptions. `host/native/project-worker.mjs` owns the
-resident builder. Each attempt starts with an ID and empty diagnostics. The parent
+status, with independent subscriptions. `host/native/resident.mjs` starts the
+resident builder and frames its requests. Each attempt starts with an ID and empty diagnostics. The parent
 keeps distinct observed paths only for the active attempt, including paths outside
 the previous project's public inputs. A reply carries the newly parsed description
 even after a later build failure. The parent reconciles disk, tests those paths
-against the new description, and publishes synchronously only if no observed input
-change, and no Build requested meanwhile, superseded it. Otherwise it discards and
+against the new description, and asks the resident to publish only if no observed
+input change, and no Build requested meanwhile, superseded it. Otherwise it discards and
 coalesces a successor, so the attempt that answers a Build began after it. Successful
 compiler cache entries remain useful in either case; accepted application files
 remain available after a failed build.
 
 The builder also hashes each completed target's sorted relative filenames and
-bytes, including runtime modules, artifacts and public files. File boundaries are
-length framed; generation directory names and publication bookkeeping are excluded.
+bytes, including the runtime, artifacts and public files; a module file adds only
+its name, which is the digest of the text it was assembled from. File boundaries
+are length framed; generation directory names and publication bookkeeping are
+excluded.
 The development owner compares that digest and the run's arguments with its last
 issued launch, independently of compiler cache counters. An unchanged child keeps
 its earlier generation and build ID; explicit Restart uses the latest accepted
@@ -242,8 +242,8 @@ started, numbered by the epoch, and what it reported. `published` is the
 build the session last accepted, `null` before the first: its epoch, and for
 each target the generation directory its `build/NAME` link names, the digest
 of that generation's files, and how many libraries that build compiled rather
-than reused. `compiler` identifies the resident compiler, a worker thread
-today, and is `null` once it has exited. `runs` is the stream's `runs`.
+than reused. `compiler` identifies the resident builder by its process ID,
+`worker`, and is `null` once it has exited. `runs` is the stream's `runs`.
 
 The development loop's tests (`tests/project-http.mjs`,
 `tests/project-attempts.mjs`, `tests/development-runs.mjs`,
@@ -256,9 +256,8 @@ that client. A case about compiler sessions asks for each attempt with
 Build, as the editor does, and reads what each target compiled and its digest
 from the snapshot. The tests of `snail build` and `snail run` likewise see
 only the command's exit status, its output and the build directory. The few
-cases that must act within one turn of the session, kill its compiler worker,
-make one of the builder's removals or renames fail, or read its private
-scratch still run it in process and say why.
+cases that must act within one turn of the session, or hold its disk
+reconciliation, still run it in process and say why.
 
 Request bodies are framed by Content-Length alone, as in the
 [Snail HTTP library](http.md): a request naming a Transfer-Encoding is
@@ -456,7 +455,7 @@ is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 | Boundary | Information crossing it |
 | --- | --- |
 | Editor ↔ development process | File reads/saves, build requests, compiler diagnostics, run controls and current process/output snapshots. |
-| Development process ↔ compiler worker | Attempt IDs, project descriptions, results, diagnostics and candidate output identities. Compiler objects and WasmGC references stay in the worker. |
+| Development process ↔ resident builder | Attempt IDs, project descriptions, results, diagnostics and candidate output identities, as JSON lines. Compiler objects and candidates stay in the resident. |
 | Development process ↔ application process | Entry, arguments, environment, working directory, standard streams, exit status and OS controls. Each process lifetime names its build and run target. |
 | Browser ↔ application server | Ordinary HTTP; build-specific reload delivery is proposed. |
 

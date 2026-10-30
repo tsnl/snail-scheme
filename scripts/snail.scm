@@ -112,8 +112,6 @@
   (exit (guard (failure (#t (report-failure "snail" failure)))
           (cond ((equal? (cddr arguments) '("bootstrap")) (bootstrap! (cadr arguments)) 0)
                 ((equal? (cddr arguments) '("tools")) (print-tools (build-tools (cadr arguments))))
-                ((equal? (cddr arguments) '("project-tools"))
-                 (print-tools (build-project-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("cli-tools"))
                  (print-lines (build-cli-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("editor-tools"))

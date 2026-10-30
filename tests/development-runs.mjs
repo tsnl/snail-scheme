@@ -9,7 +9,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {developProject, UnknownRunTarget} from '../host/native/project-develop.mjs';
-import {projectTools} from '../host/native/project.mjs';
+import {editorTools} from '../host/native/resident.mjs';
 import {dead, startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], directory = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-development-runs-')));
@@ -173,7 +173,7 @@ async function throughTheService() {
 // step 8's pure `step` makes each of these a test of one transition.
 async function inProcess() {
   write('project.datum', description()); write('main.sld', program('first')); write('other.sld', program('side'));
-  const dev = developProject({root, project, tools: projectTools(root)}), events = [];
+  const dev = developProject({root, project, tools: editorTools(root)}), events = [];
   dev.subscribe(status => events.push(status));
   const run = name => dev.status.runs.find(run => run.target === name);
   const app = () => run('app'), side = () => run('side');

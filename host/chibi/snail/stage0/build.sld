@@ -13,13 +13,11 @@
    build-program
    build-modules
    link-wat
-   link-wat-file
    build-crate
    build-toolchain-runtime
    build-tool
    build-toolchain-tool
    build-tools
-   build-project-tools
    build-cli-tools
    build-editor-tools
    build-book-tools
@@ -750,35 +748,27 @@
               (cons "runtime" (build-crate root "snail-core-support"))
               (cons "assembler" (build-crate root "assembler")))))
 
-    ;; The shared native project builder uses the resident compiler boundary.
-    ;; The old application loop remains a separate tool until dev replaces it.
-    (define (build-project-tools root)
-      (list (cons "compiler"
-                  (build-tool root
-                              (path-join root "bootstrap/compiler.sld")
-                              (path-join root "build/project/compiler.wasm")
-                              (standard-directories root)))
-            (cons "runtime" (build-crate root "snail-core-support"))
-            (cons "assembler" (build-crate root "assembler"))))
-
     ;; The `snail` command line, a Snail program that builds projects with
-    ;; the compiler inside it, and the runtime it links their programs with.
+    ;; the compiler inside it, linked with the toolchain's runtime, which
+    ;; assembles a development build's modules; and the runtime it links
+    ;; programs with.
     (define (build-cli-tools root)
       (list (cons "cli"
-                  (build-tool root
-                              (path-join root "bootstrap/cli.sld")
-                              (path-join root "build/project/cli.wasm")
-                              (standard-directories root)))
+                  (build-toolchain-tool root
+                                        (path-join root "bootstrap/cli.sld")
+                                        (path-join root "build/project/cli.wasm")
+                                        (standard-directories root)))
             (cons "runtime" (build-crate root "snail-core-support"))))
 
-    ;; The editor adds only its formatter to the native project tools.
+    ;; The editor adds only its formatter to the command line's tools, whose
+    ;; `resident` builds for it.
     (define (build-editor-tools root)
       (cons (cons "formatter"
                   (build-tool root
                               (path-join root "host/ide/format.sld")
                               (path-join root "build/ide-tools/format.wasm")
                               (standard-directories root)))
-            (build-project-tools root)))
+            (build-cli-tools root)))
 
     ;; The book's highlighter, which host/native/highlight-book.mjs runs while
     ;; mdbook builds the book.

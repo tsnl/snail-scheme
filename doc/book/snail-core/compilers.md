@@ -341,9 +341,9 @@ function of the expander has `mut` in its row — and where it does not, the
   client`, with any producers on the way. A phase whose closure reaches a
   producer that has not run waits: `next-phases` hands out the steps of the
   order up to the first that waits, and `refine-plan` learns what the waiting
-  steps need once those producers' outputs are supplied. `bootstrap/compiler.sld`
-  resolves the project's targets, and the native builder runs the plan wave by
-  wave. The development loop plans with no targets, which needs no discovery,
+  steps need once those producers' outputs are supplied. The project builder,
+  `(snail shell project build)`, resolves the project's targets and runs the
+  plan wave by wave. The development loop plans with no targets, which needs no discovery,
   and runs only the producers.
 - **[`compiler.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler.sld)** composes the passes, from a
   program's path to WebAssembly text with the files it links, a
@@ -603,9 +603,9 @@ belong to the producer. The entry keeps that text beside the bytes and a
 lookup compares it, so a collision of keys is a miss, never another
 producer's output. The expander looks a producer up there first; only a miss
 reaches the provider, which prints the producer into scratch under the same
-key and requests it. `add_generated` in `bootstrap/compiler.sld` reads a
-printed producer back, checks that it has the key it was printed under, and
-adds the output it wrote.
+key and requests it. The project builder reads a printed producer back
+(`printed-producer-text`), checks that it has the key it was printed under,
+and adds the output it wrote (`supply-generated`).
 
 The planner owns target lookup, browser-kind checking, ordering and cycle
 detection; the native builder runs the phases it hands out. A missing input
@@ -694,28 +694,21 @@ request and a request already answered are errors. Scratch directories are
 created exclusively, so stale files cannot become inputs. Stderr carries only
 diagnostics. Standalone builds have no artifact resolver or reply accumulation.
 
-The resident compiler's entries handle `compile` too: a request sends its
-`generate` or `artifact` record and the entry returns what it was given, so
-`host/native/compiler.mjs` finds the record after a normal return and throws
-`CompilerFailure` with it as `request`. No request file is written or parsed,
-and nothing traps. Each invocation clears diagnostic state before work. Trusted exits preserve the instance but return no
-successor Session. `dev` uses this boundary, and cold project builds call the
-same compiler in their own process (`(snail shell project build)`). Neither
-retries: each plans the build first, so a request from one of its compiles
-names an input the plan missed, and is an internal error.
+The project builder, `(snail shell project build)`, calls the compiler in its
+own process and handles `compile` around each compile (`compiled`): a `fail`
+stops the build with the diagnostic, and a request is an internal error,
+since the builder plans the build first, so a request names an input the plan
+missed. No request file is written or parsed, and nothing traps.
 
-The builder passes each completed target's canonical file inventory to
-`addArtifact` before the first phase that embeds it, and each producer's output
-to `addGenerated` once the producer has run. Each reads the bytes once and
-returns opaque immutable inputs. A failed read returns no replacement; the
-preceding inputs remain usable. There is no artifact reply manifest or second
-parsing step.
+The builder supplies each completed target's canonical file inventory
+(`supply-artifact`) before the first phase that embeds it, and each producer's
+output (`supply-generated`) once the producer has run. Each reads the bytes
+once and returns new immutable inputs; the preceding inputs remain usable.
 
-One table serves every phase of a build, and is passed to each `static`,
-`modules` and `refine` call. These opaque values belong to their
-originating compiler instance, like Sessions and Plans. Successful Sessions
-retain only the per-library evidence already used for cache reuse.
-Applications embed the bytes and need no runtime file access.
+One `Inputs` value serves every phase of a build, and is passed to each
+compile and to `refine-plan`. Successful Sessions retain only the per-library
+evidence already used for cache reuse. Applications embed the bytes and need
+no runtime file access.
 
 ### Linked files
 
@@ -730,48 +723,24 @@ new generation, and the development loop copies a file whose digest changed
 and names each module's file for its text and its files' digests, so the page
 relinks from the module that links the edited file and reads it again.
 
-## Resident compiler boundary
+## The resident builder
 
-`bootstrap/compiler.sld` exposes this compiler to a resident native caller.
-`host/native/compiler.mjs` owns one Wasm instance and returns parsed project,
-plan-phase and input-request records, static text, or modular text with a
-successor Session. JavaScript retains Sessions, Plans and immutable build
-inputs as opaque typed references; it cannot inspect them and must keep them with their originating compiler
-instance. Each operation consumes its staged arguments
-before doing work, and projected records become visible only on success.
-Module text crosses directly through the runtime's existing String staging
-buffer, alongside the other record fields; no temporary WAT files stand between
-the resident compiler and assembler. A `module` record ends with the name and
-path of each file its library links, and `static` answers a `link` record for
-each file the program links, which the builder places beside the payload. The
-host copies each field synchronously before another call can reuse the
-buffer. Generated-library scratch remains
-private to its build.
+`snail dev` builds with `snail resident PROJECT`, the command line's Snail
+program in a child process, which keeps each target's compiler Session from
+one build to the next ("The resident builder" in `bootstrap/cli.sld`). The
+service writes it one JSON request a line and reads one reply a line: a
+`build` answers the project's description, a candidate with each target's
+generation, digest and how many of its modules it compiled, and any
+diagnostics; the resident holds the candidate until a `publish` or a
+`discard` names it. Sessions, Plans and inputs stay in the resident and never
+cross. A development build assembles each module the session compiled
+again with `(snail shell assembler)`, in the same process; a module the
+session replayed keeps the file and bytes it was assembled into
+(`Retained`). `host/native/resident.mjs` frames the lines until the service
+itself moves to Snail-Core.
 
-`plan` takes the project's directory, the standard libraries' directory, the
-scratch directory producers are printed into, and the names of the roots to
-build; `refine` takes the plan back with the build's current inputs. Each
-returns an opaque Plan and the wave that can run now, in order: records
-`produce INDEX KEY SOURCE` and `build INDEX NAME ENTRY`,
-each followed by its library directories and the targets whose files it embeds,
-then `waiting` if the plan goes on once this wave's producers have run. A
-phase is compiled with the directories its record names, the same ones the
-planner keyed its producers under.
-
-A source error is the `compile` effect's `fail`, which each entry handles:
-it sends the diagnostic's record and returns what it was given, so
-`host/native/compiler.mjs` finds the record after a normal return and throws
-`CompilerFailure` with it as `diagnostic`, and nothing traps. The compiler's
-own exit 1, from a panic or a checked IO path, follows resource cleanup too,
-and allows another call with the last successful Session; it carries the
-message the compiler printed and no diagnostic record. Arbitrary Wasm or
-imported-function traps retire the instance. This distinction comes from the
-runtime exit path, not from finding a familiar string. Failure to read the
-printed diagnostics is terminal too: the worker cannot reuse a retired
-compiler.
-
-Native failures carry `{severity, message, source}`; `source` is null or
-`{file, line, column}`. Lines and Unicode scalar columns start at one. IO and
+A build's failures reach the service as `{severity, message, source}`;
+`source` is null or `{file, line, column}`. Lines and Unicode scalar columns start at one. IO and
 producer-input requests have no source record; internal no-location sentinels
 are unlocated. A failing dependency reports its own origin. Printed
 producer programs report their actual scratch source, while decoded generated
@@ -788,7 +757,7 @@ the compiler still stops at its first error. These operations are implemented an
 | `src/snail/shell/compiler/driver.sld`, `bootstrap/compile.sld` | Typed source invocation shared by both hosts; compilation and post-exit request publication are separate entries. |
 | `host/chibi/compile.scm`, `host/native/run-compiler.mjs` | Process unwind boundaries; publish missing-input requests only after trusted exit. |
 | `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs the compiled compiler by `run-compiler.mjs`'s protocol, and programs that need only WASI, linked files and module loading by `run-snail.mjs`'s, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
-| `host/chibi/snail/stage0/build.sld`, `scripts/link.scm` | Bootstrap, standalone generated libraries, tool builds and Binaryen/runtime linking policy. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
+| `host/chibi/snail/stage0/build.sld` | Bootstrap, standalone generated libraries, tool builds and Binaryen/runtime linking policy. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
 | `host/chibi/snail/stage0/process.sld` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. This avoids Chibi 0.12 pipe-finalizer and sequential pipe-draining failures. |
 | `crates/snail-core-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. Its `assembler` feature builds the toolchain's runtime, which tools written in Snail-Core link (`build-toolchain-tool`), with in-process assembly for `(snail shell assembler)`. |
 | `crates/assembler/`, `host/native/assemble.mjs` | The `wat` crate compiled to Wasm for in-process text assembly by hosts in JavaScript. Programs do not carry the assembler. |
