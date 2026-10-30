@@ -78,7 +78,8 @@ program contains `program.wasm`, and each file its libraries link at
 `resources/NAME` ([linked files](types.md#linked-files)). A browser build adds the shared browser host
 and recursively copies `public`, if specified. Supply `index.html` there; no page
 is generated. Browser pages load `./program.wasm` through `host.mjs`, which
-fetches the linked files beside it before the program starts.
+fetches the linked files beside it before the program starts, or through
+`ui.mjs` for a [document interface](applications.md#document-interfaces).
 
 Public files cannot overwrite generated files. At the root, every name some
 build generates is reserved, whether or not this build writes it:
