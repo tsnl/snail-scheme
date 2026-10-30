@@ -22,6 +22,14 @@ import {createHints} from './hints.mjs';
 // is nothing of the runtime's. The files a program links are read from
 // resources/ beside it before it starts.
 
+// The status: the last `main`'s result when it is 0 to 255, and 1
+// otherwise. A WASI exit in a `main` is its own status, and ends the
+// program before its tasks run. A task that traps or exits fails the run,
+// status 1, while its siblings go on. A trap or a failure of the host is
+// status 2, told as `snail: MESSAGE`. crates/snail/src/program.rs keeps
+// the same protocol on wasmtime, and the compiled compiler is run by it
+// too: a compile that fails, or needs an input, exits with status 1.
+
 // The `modes` effect of src/snail/shell/project/files.sld: a file's
 // permission bits, which WASI cannot reach. A failure answers -1.
 const modeCommands = {
@@ -37,12 +45,22 @@ function resultStatus(value) {
   return 1;
 }
 
+// Node's WASI keeps an exit's status where only `start` reads it, and a
+// program is a reactor, so its `proc_exit` throws an Exit instead.
+class Exit { constructor(code) { this.code = code; } }
+
+function exiting(wasi) {
+  const imports = wasi.getImportObject();
+  imports.wasi_snapshot_preview1 = {...imports.wasi_snapshot_preview1, proc_exit(code) { throw new Exit(code); }};
+  return {getImportObject: () => imports, initialize: instance => wasi.initialize(instance)};
+}
+
 async function run(filename, arguments_, termination, replace) {
-  const wasi = new WASI({version: 'preview1', args: [filename, ...arguments_],
-    env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true});
-  let program, failed = false, status = 1;
+  const wasi = exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
+    env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}}));
+  let program, failed = false, status = 0;
   const tcp = createTcp(), udp = createUdp(), processes = createProcesses(), hints = createHints();
-  // WASI exits throw an opaque sentinel after printing their diagnostic.
+  // A task's exit has told its message already.
   const report = error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); };
   const tasks = createTasks(() => program && taskExports(program), {reportError: report});
   const host = {'snail.runtime.wasm': wasmImports(() => program),
@@ -57,6 +75,9 @@ async function run(filename, arguments_, termination, replace) {
     status = resultStatus(runInitializers(program));
     await tasks.drive().catch(report);
     if (failed) status = 1;
+  } catch (error) {
+    if (!(error instanceof Exit)) throw error;
+    status = error.code;
   } finally {
     try { tasks.close(); hints.shutdown(); await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown()]); }
     finally {
@@ -118,7 +139,8 @@ function forwardTerminations(worker, waiting) {
 const limits = {maxYoungGenerationSizeMb: 384};
 
 if (isMainThread) {
-  process.exitCode = 1;
+  // A worker that ends without a status failed in its host.
+  process.exitCode = 2;
   const waiting = new Int32Array(new SharedArrayBuffer(8));
   const replacement = new MessageChannel(), replacing = new Int32Array(new SharedArrayBuffer(4));
   const worker = new Worker(new URL(import.meta.url), {
@@ -138,7 +160,6 @@ if (isMainThread) {
     if (!filename) throw new Error('usage: run-snail.mjs MODULE.wasm [ARGUMENT ...]');
     parentPort.postMessage(await run(filename, arguments_, termination, replace));
   } catch (error) {
-    // A WASI exit unwinds as a non-Error value after its message is printed.
-    if (error instanceof Error) console.error(`snail: ${error.message}`);
+    console.error(`snail: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

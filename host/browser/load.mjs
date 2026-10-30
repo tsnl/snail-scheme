@@ -1,10 +1,10 @@
 // The JavaScript side of running Snail-Core, the same in Node and in a browser:
 // the WASI a module that opens no files needs, the files a program links,
 // linking a program compiled one library at a time and relinking it from a
-// rebuilt library, how Snail-Core passes a host strings and commands, and
-// reading what the development loop tells pages. It decides nothing about
-// what a program is for: the browser host (host.mjs), the development loop's
-// hosts and host/native/run-snail.mjs build on it.
+// rebuilt library, and how Snail-Core passes a host strings and commands. It
+// decides nothing about what a program is for: the browser host (host.mjs),
+// the reload client (reload-client.mjs) and host/native/run-snail.mjs build
+// on it.
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 
@@ -323,45 +323,4 @@ function stagedStrings() {
     },
     take() { const taken = staged; staged = []; return taken; },
   };
-}
-
-// ---- Events and manifests ----
-
-// The development loop tells pages about builds in Scheme data: `(building
-// M)`, `(built MILLISECONDS M)` or `(failed "MESSAGE" M)`, where M is the
-// manifest of the latest build that succeeded, `(files ("NAME" "DIGEST")
-// ...) (modules ("LIBRARY" "FILE") ...)`: each file a page loads with its
-// digest, and the modules in program order. The reload client reads these
-// itself (host/browser/reload.sld); JavaScript reads them here, a manifest as
-// {files, modules}, each a list of pairs.
-export function readEvent(text) {
-  const [[kind, ...fields]] = readData(text);
-  return {kind, milliseconds: kind === 'built' ? Number(fields[0]) : null, message: kind === 'failed' ? fields[0] : null,
-          manifest: manifestOf(fields.slice(-2))};
-}
-
-export function readManifest(text) {
-  return manifestOf(readData(text));
-}
-
-// A manifest as the reload client reads it.
-export function manifestText({files, modules}) {
-  const quoted = text => `"${text.replace(/["\\]/g, '\\$&').replace(/\n/g, '\\n')}"`;
-  const pairs = entries => entries.map(([a, b]) => ` (${quoted(a)} ${quoted(b)})`).join('');
-  return `(files${pairs(files)}) (modules${pairs(modules)})`;
-}
-
-function manifestOf([[, ...files], [, ...modules]]) {
-  return {files, modules};
-}
-
-// Lists, string literals and other atoms, as nested arrays of strings.
-function readData(text) {
-  const stack = [[]];
-  for (const [token] of text.matchAll(/[()]|"(?:[^"\\]|\\.)*"|[^\s()"]+/g)) {
-    if (token === '(') stack.push([]);
-    else if (token === ')') stack.at(-2).push(stack.pop());
-    else stack.at(-1).push(token.startsWith('"') ? token.slice(1, -1).replace(/\\(.)/g, (_, c) => (c === 'n' ? '\n' : c)) : token);
-  }
-  return stack[0];
 }
