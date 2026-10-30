@@ -19,10 +19,10 @@ new name reads -> four
 rename over an existing file -> ok
 replaced file reads -> four
 rename a missing path -> error: no such file or directory
-rename over a full directory -> error: the directory is not empty
-rename a file over a directory -> error: it is a directory
-remove a full directory -> error: the directory is not empty
-remove a directory as a file -> error: it is a directory
+rename over a full directory -> error: the operation failed
+rename a file over a directory -> error: the operation failed
+remove a full directory -> error: the operation failed
+remove a directory as a file -> error: the operation failed
 remove a missing file -> error: no such file or directory
 remove a file -> ok
 remove the emptied directory -> ok
@@ -36,7 +36,7 @@ link to nothing -> ok
 status of the link to nothing -> ok link of 7 bytes, modified after 1970
 followed status of the link to nothing -> error: no such file or directory
 remove the link to nothing -> ok
-read a file as a link -> error: invalid path
+read a file as a link -> error: the operation failed
 remove the link -> ok
 its target remains -> #t
 list root before -> ok (a)

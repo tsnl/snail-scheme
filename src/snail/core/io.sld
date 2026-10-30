@@ -30,12 +30,8 @@
    FileError
    NotFound
    AlreadyExists
-   NotEmpty
    NotADirectory
-   IsADirectory
    PermissionDenied
-   InvalidPath
-   NotSupported
    OtherError
    FileKind
    RegularFile
@@ -237,19 +233,16 @@
 
     ;; ---- Paths and directories ----
 
-    ;; Why a path operation failed. A failure a program can act on is a
-    ;; value: a missing path, a directory that is not empty. What the host
-    ;; does not say more about is OtherError, as is every path operation on
-    ;; a host with no filesystem, such as a page.
+    ;; Why a path operation failed. A kind is here because a program acts
+    ;; on it: a missing path is made or skipped, a name already taken is
+    ;; replaced by another, a path through a file is gone, and a refusal is
+    ;; answered as one. Every other failure is OtherError, as is every path
+    ;; operation on a host with no filesystem, such as a page.
     (enum FileError
       (NotFound)
       (AlreadyExists)
-      (NotEmpty)
       (NotADirectory)
-      (IsADirectory)
       (PermissionDenied)
-      (InvalidPath)
-      (NotSupported)
       (OtherError))
 
     (instance (Show FileError)
@@ -257,12 +250,8 @@
         (match error
           ((NotFound) "no such file or directory")
           ((AlreadyExists) "it already exists")
-          ((NotEmpty) "the directory is not empty")
           ((NotADirectory) "not a directory")
-          ((IsADirectory) "it is a directory")
           ((PermissionDenied) "permission denied")
-          ((InvalidPath) "invalid path")
-          ((NotSupported) "not supported here")
           ((OtherError) "the operation failed"))))
 
     (enum FileKind
@@ -285,12 +274,8 @@
       (case code
         ((-1) (Err (NotFound)))
         ((-2) (Err (AlreadyExists)))
-        ((-3) (Err (NotEmpty)))
-        ((-4) (Err (NotADirectory)))
-        ((-5) (Err (IsADirectory)))
-        ((-6) (Err (PermissionDenied)))
-        ((-7) (Err (InvalidPath)))
-        ((-8) (Err (NotSupported)))
+        ((-3) (Err (NotADirectory)))
+        ((-4) (Err (PermissionDenied)))
         (else (if (< code 0) (Err (OtherError)) (Ok code)))))
 
     (: path-done (-> I32 (Result Unit FileError)))
@@ -447,7 +432,7 @@
     (define (make-symbolic-link target path)
       (path-done (path-make-link (path-pair target path))))
 
-    ;; A symbolic link's target. A path that is not a link is InvalidPath.
+    ;; A symbolic link's target. A path that is not a link is OtherError.
     (: read-symbolic-link (-> String (Result String FileError) ! fs))
     (define (read-symbolic-link path)
       (match (path-result (path-read-link path))
@@ -488,21 +473,21 @@
     (define (read-text-file path limit)
       (let ((code (path-read-text limit path)))
         (case code
-          ((-10) (Err (NotRegularFile)))
-          ((-11) (Err (TooLong)))
-          ((-12) (Err (NotText)))
-          ((-13) (Err (ChangedWhileRead)))
+          ((-6) (Err (NotRegularFile)))
+          ((-7) (Err (TooLong)))
+          ((-8) (Err (NotText)))
+          ((-9) (Err (ChangedWhileRead)))
           (else (match (path-result code)
                   ((Ok count) (Ok (reply-text count)))
                   ((Err error) (Err (ReadFailed error))))))))
 
     ;; Makes the file at `path`, or replaces its contents in place, with
     ;; `text`. Unlike write-file, a failure is a value. The path is staged
-    ;; before the text, ended by a NUL, so a path holding one is invalid.
+    ;; before the text, ended by a NUL, so a path holding one fails.
     (: write-text-file (-> String String (Result Unit FileError) ! fs))
     (define (write-text-file path text)
       (match (string-index path #\null)
-        ((Some _) (Err (InvalidPath)))
+        ((Some _) (Err (OtherError)))
         ((None) (path-done (path-write-text (path-pair path text))))))
 
     ;; ---- Clock ----

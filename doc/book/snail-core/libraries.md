@@ -53,7 +53,7 @@
 `(snail core io)` reads and writes whole files, and works on the names a
 filesystem keeps. Each path operation returns a `Result`, so a failure a
 program can act on is a value: `(Err (NotFound))` for a missing path,
-`(Err (NotEmpty))` for a directory that still holds something. `read-file`
+`(Err (AlreadyExists))` for a name already taken. `read-file`
 and `write-file` fail the program instead; `read-text-file` and
 `write-text-file` are their counterparts for a service, which must answer
 each failure.
@@ -72,10 +72,11 @@ each failure.
 | `(read-text-file path limit)` | The text of the regular file at `path`, if it holds at most `limit` bytes of UTF-8, as one version of the file: its length and modification time stayed the same while it was read. A link is not followed. Else a `TextError`: `ReadFailed` with a `FileError`, `NotRegularFile`, `TooLong`, `NotText` or `ChangedWhileRead` (`tests/programs/text-files.sld`). |
 | `(write-text-file path text)` | Makes the file, or replaces its contents in place. |
 
-A `FileError` is `NotFound`, `AlreadyExists`, `NotEmpty`, `NotADirectory`,
-`IsADirectory`, `PermissionDenied`, `InvalidPath` (a path holding a NUL, or
-reading a link that is not one), `NotSupported` or `OtherError`, and `show`
-describes it. A relative path is resolved against the working directory the
+A `FileError` is `NotFound`, `AlreadyExists`, `NotADirectory` (a path
+through a file), `PermissionDenied` or `OtherError`, and `show` describes
+it. Each kind is one some program acts on; every other failure, such as
+removing a directory that is not empty or a path holding a NUL, is
+`OtherError`. A relative path is resolved against the working directory the
 host passes, which `(working-directory)` gives, or `None` on a host with no
 filesystem. `(environment-variable name)` is a variable of the environment the
 program started with, or `None` when it is unset; the host's own channel for

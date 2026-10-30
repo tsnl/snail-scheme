@@ -11,4 +11,4 @@ read a link -> error: not a regular file
 read a directory -> error: not a regular file
 read nothing -> error: no such file or directory
 write into nothing -> error: no such file or directory
-write a path with a NUL -> error: invalid path
+write a path with a NUL -> error: the operation failed
