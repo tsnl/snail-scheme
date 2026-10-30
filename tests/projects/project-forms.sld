@@ -6,7 +6,7 @@
  (snail shell project)
  (only (snail shell compiler read)
        compiling
-       diagnostic->string
+       diagnostics->string
        Failed))
 
 (: project Project)
@@ -19,7 +19,7 @@
      (build-target café.v2 (program (entry \"server/main.sld\") (library-roots (\"src\")))))"
              "project.datum")))
     ((Ok parsed) parsed)
-    ((Err (Failed diagnostic)) (panic (diagnostic->string diagnostic)))
+    ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
     ((Err _) (panic "parsing a project asked for an input"))))
 
 (for-each (lambda (target) (write-line (target-name target))) (Project-builds project))

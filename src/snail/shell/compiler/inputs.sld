@@ -122,7 +122,7 @@
         ((Err (Requested (ArtifactInput name loc)))
          (compile-error loc
                         (string-append "artifact-bundle requires a project build resolver: " name)))
-        ((Err (Failed diagnostic)) (absurd (fail diagnostic)))))
+        ((Err (Failed diagnostics)) (absurd (fail diagnostics)))))
 
     (: request->string (-> CompilerRequest String))
     (define (request->string request)

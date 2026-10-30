@@ -1,6 +1,6 @@
 ;; The test suite: the compiler's unit tests, then every program suite. A
-;; program NAME.sld must print NAME.out exactly, or fail to compile with the
-;; text of NAME.err in its diagnostic. Then the Siegework package is built
+;; program NAME.sld must print NAME.out exactly, or fail to compile with
+;; each line of NAME.err in its diagnostics, in order. Then the Siegework package is built
 ;; and driven headlessly, and the in-process assembler assembles a program.
 ;; Programs compile one at a time, then link and run in parallel. Finally
 ;; some programs and Siegework run again as modules linked when they run,
@@ -93,7 +93,7 @@
     (guard (failure
             ((file-exists? expected-error)
              (let ((text (error-text failure)) (wanted (trim-newline (read-file expected-error))))
-               (or (string-contains text wanted)
+               (or (contains-in-order? text (string-split wanted #\newline))
                    (report name "wrong diagnostic" (string-append text "\nexpected: " wanted)))))
             (#t (report name "compile failed" (error-text failure))))
       (let ((compiled (program->linked-wat root directories source)))
@@ -106,6 +106,15 @@
                                (path-join build (string-append name ".wasm"))
                                name
                                expected-output))))))))
+
+;; Whether `text` holds each of `parts`, each after the one before.
+(define (contains-in-order? text parts)
+  (or (null? parts)
+      (let ((cursor (string-contains text (car parts))))
+        (and cursor
+             (contains-in-order?
+              (substring text (+ (string-cursor->index text cursor) (string-length (car parts))))
+              (cdr parts))))))
 
 (define (check-output root compiled program name expected-output)
   (guard (failure (#t (report name "link failed" (error-text failure))))

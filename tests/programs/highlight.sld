@@ -14,7 +14,7 @@
        compiling
        Failed
        Requested
-       diagnostic->string))
+       diagnostics->string))
 
 ;; ---- Printing ----
 
@@ -70,7 +70,7 @@
 (define (reading text)
   (match (compiling (lambda () (read-text text "sample.sld")))
     ((Ok forms) (string-join (map syntax->string forms) " "))
-    ((Err (Failed diagnostic)) (diagnostic->string diagnostic))
+    ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
     ((Err (Requested _)) "the reader asked for an input")))
 
 ;; ---- Samples ----
