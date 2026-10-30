@@ -1,0 +1,7 @@
+#!/bin/sh
+# The book's code highlighter, the mdbook preprocessor book.toml names: a
+# Snail program (bootstrap/highlight-book.sld), which stage 0 rebuilds when
+# its sources change.
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+highlighter=$("$root/scripts/snail-tool" book-tools) || exit 1
+exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$highlighter" "$@"

@@ -314,19 +314,18 @@
                     "formats differently from Emacs"
                     (string-append (car result) (cadr result))))))))
 
-;; The book's preprocessor, host/native/highlight-book.mjs, run on a small
-;; book with its highlighter, (snail shell highlight) as a program, turns
-;; each `scheme` block into spans and leaves the rest as it was.
+;; The book's preprocessor, bootstrap/highlight-book.sld, run on a small
+;; book, turns each `scheme` block into spans and leaves the rest as it was.
 (define (compile-book-highlighter root)
   (guard (failure (#t (report "book highlighter" "compile failed" (error-text failure))))
     (let ((text (program->wat root
                               (standard-directories root)
-                              (path-join root "host/native/highlight.sld"))))
+                              (path-join root "bootstrap/highlight-book.sld"))))
       (lambda () (check-book-highlighter root text)))))
 
 (define (check-book-highlighter root text)
   (guard (failure (#t (report "book highlighter" "check failed" (error-text failure))))
-    (let ((program (path-join root "build/tests/book-highlighter/highlight.wasm")))
+    (let ((program (path-join root "build/tests/book-highlighter/highlight-book.wasm")))
       (create-directory* (path-join root "build/tests/book-highlighter"))
       (link-wat root text program #f)
       (let ((result (capture-process (list "node"

@@ -9,10 +9,10 @@ build-dir = "build/book"
 create-missing = false
 
 # Colors each `scheme` block by the compiler's own lexical rules, through
-# (snail shell highlight) compiled to Wasm, after `links` has included the
+# (snail shell highlight) in a Snail program, after `links` has included the
 # examples' text; highlight.js leaves those blocks alone.
 [preprocessor.snail-highlight]
-command = "node host/native/highlight-book.mjs"
+command = "scripts/highlight-book"
 after = ["links"]
 renderers = ["html"]
 

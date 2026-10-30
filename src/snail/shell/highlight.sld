@@ -5,7 +5,7 @@
 ;; between data. Text the reader would reject still classifies: a string the
 ;; text ends inside is a string to the end. Every character belongs to one
 ;; token, so the tokens tile the text. The book's preprocessor
-;; (host/native/highlight.sld) and the IDE (host/ide/format.sld) both color
+;; (bootstrap/highlight-book.sld) and the IDE (host/ide/format.sld) both color
 ;; with these tokens.
 (define-library (snail shell highlight)
   (export
