@@ -80,8 +80,12 @@ and recursively copies `public`, if specified. Supply `index.html` there; no pag
 is generated. Browser pages load `./program.wasm` through `host.mjs`, which
 fetches the linked files beside it before the program starts.
 
-Public files cannot overwrite generated files or the root `.snail-target`
-ownership marker. `.snail-publish` is reserved at every depth. Public trees must
+Public files cannot overwrite generated files. At the root, every name some
+build generates is reserved, whether or not this build writes it:
+`program.wasm`, `modules`, `modules.json`, `runtime.wasm`, `resources`, the
+browser host's files and the `.snail-target` ownership marker. A public tree
+that builds in one mode, or with one set of linked files, therefore builds in
+every other. `.snail-publish` is reserved at every depth. Public trees must
 contain only regular files and directories, include no project build output,
 and have no symlink components, including in the path to the public directory.
 
