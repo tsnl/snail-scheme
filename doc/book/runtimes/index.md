@@ -52,11 +52,25 @@ agents or processes and distribute requests at the service boundary. A
 reverse proxy can load-balance several processes. Each instance has its own
 managed heap; communication uses an explicit external protocol.
 
-[workerd](https://github.com/cloudflare/workerd) is a possible host to
-investigate, not a currently supported Snail-Core deployment target. Its isolates
-are not synonymous with OS processes. Its WasmGC and import support
-must be checked before promising compatibility. Snail-Core does not need a second
-compiler backend to use multiple independently hosted instances.
+Snail-Core does not need a second compiler backend to use multiple
+independently hosted instances.
+
+## Direction
+
+Node and the page are today's hosts, not the only ones Snail-Core is for.
+Others, such as [wasmtime](https://wasmtime.dev) and
+[workerd](https://github.com/cloudflare/workerd), should be able to run the
+same programs, so nothing a program or library does may depend on
+JavaScript: a host provides Wasm imports, and JavaScript is the glue that
+provides them on Node and in the page.
+
+This is a direction, not scheduled work. `crates/snail` runs programs that
+need only WASI on wasmtime, and the suite runs on it with
+`make test-wasmtime`, but moving the toolchain onto it is not planned:
+its collector made the compiler compiling itself take 46 s against
+Node's 1.3 s ([#562](https://github.com/tsnl/snail-scheme/issues/562)).
+workerd's isolates are not OS processes, and its WasmGC and import support
+must be checked before promising compatibility.
 
 ## Future work
 

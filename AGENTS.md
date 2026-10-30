@@ -17,7 +17,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   compiles itself.
   Host-specific code lives only under `host/`: `chibi/` for stage 0,
   `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
-  crates live in `crates/`. Surface macros expand away before checking. See
+  crates live in `crates/`. No program or library may depend on
+  JavaScript: hosts beyond Node and the page, such as wasmtime and
+  workerd, are the long-term direction
+  ([Runtimes](doc/book/runtimes/index.md#direction)). Surface macros expand away before checking. See
   [the language chapters](doc/book/snail-core/index.md).
 
 - Stage 0 sees `bootstrap/chibi-include/` and nothing else: one symlink per
