@@ -83,7 +83,15 @@ The cold commands, `snail build` and `snail run`, are a Snail program,
 `bootstrap/cli.sld`, which builds with `(snail shell project build)`: the
 compiler runs inside it, Binaryen's tools link each program through
 `run` (`(snail shell process)`), and Node runs producers. Stage 0 rebuilds the
-program when its sources change (`scripts/snail-tool cli-tools`). `snail run`
+program when its sources change (`scripts/snail-tool cli-tools`), and is the
+only judge of when they have. Starting Chibi and Cargo to find nothing stale
+takes most of a second, so `./snail` keeps stage 0's answer in
+`build/tools-KIND.txt`, stamped with the time stage 0 began, and uses it again
+while every tool it names exists and nothing stage 0's rule reads is newer:
+the `.sld` files under `src/`, `bootstrap/`, `host/ide/` and `host/browser/`,
+the runtime crate, `rust-toolchain.toml`, and stage 0's driver, which says where
+the tools go. The check over-approximates the rule, so a false alarm costs only
+stage 0's run, and it takes about 15 ms. `snail run`
 publishes the run's program and then becomes it through `exec`, so the
 process the caller started is the program's, with its arguments, standard
 streams, working directory, status and signals. Development builds with the
