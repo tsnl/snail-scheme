@@ -58,6 +58,13 @@ try {
   await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('"fixed"'); t.setSelectionRange(at, at); })()`);
   await press({key: 'Tab'});
   assert.match(await text(), /\(define greeting\n  "fixed"\)/);
+  // Enter indents the new line for what follows it, and the page undoes it as typing.
+  await browser.evaluate(`(() => { const t = document.querySelector('.pane.active textarea'); const at = t.value.indexOf('greeting\\n') + 8;
+    t.focus(); t.setSelectionRange(at, at); })()`);
+  await press({key: 'Enter'});
+  await until(async () => /\(define greeting\n  \n  "fixed"\)/.test(await text()), 'the indented new line');
+  await browser.evaluate(`document.execCommand('undo')`);
+  await until(async () => /\(define greeting\n  "fixed"\)/.test(await text()), 'the undone new line');
   await press({code: 'KeyS', key: 's', ctrlKey: true});
   await saved(); await until(built, 'fixed build');
   assert.equal(await browser.evaluate('document.getElementById("diagnostics").textContent'), '');
@@ -199,8 +206,12 @@ try {
   await click('save'); await saved();
   assert.match(await readFile(source, 'utf8'), /"after stale read"/);
 
+  // A split adds a pane beside the first, whose field stays, with its caret.
+  await browser.evaluate(`(() => { window.firstField = document.querySelector('.pane.active textarea'); window.firstField.setSelectionRange(3, 3); })()`);
   await click('split-right');
   assert.equal(await browser.evaluate('document.querySelectorAll(".pane").length'), 2);
+  assert.equal(await browser.evaluate('document.querySelector(".pane textarea") === window.firstField && window.firstField.isConnected'), true);
+  assert.equal(await browser.evaluate('window.firstField.selectionStart'), 3);
   assert.ok(await type('"after stale read"', '"two panes"'));
   assert.match(await browser.evaluate('document.querySelector(".pane textarea").value'), /"two panes"/);
   await click('save'); await saved();
