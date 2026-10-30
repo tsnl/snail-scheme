@@ -3,14 +3,14 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
   # The development service is the command line's `dev`, with the editor's
-  # program; stage 0 names the editor first.
+  # program and the reload client's; stage 0 names those first.
   dev)
     shift
     tools=$("$root/scripts/snail-tool" dev-tools) || exit 1
-    { read -r editor && read -r cli && read -r runtime; } <<TOOLS
+    { read -r editor && read -r client && read -r cli && read -r runtime; } <<TOOLS
 $tools
 TOOLS
-    exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" dev "$editor" "$@" ;;
+    exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" dev "$editor" "$client" "$@" ;;
   # The command line is a Snail program (bootstrap/cli.sld). Stage 0 rebuilds
   # it and the runtime when their sources change, and names them a line each.
   build|run)

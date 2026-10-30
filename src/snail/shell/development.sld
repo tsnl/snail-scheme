@@ -28,9 +28,11 @@
    Generation
    Generation-name
    Generation-directory
+   Generation-files
    Candidate
    Candidate-description
    Candidate-generations
+   Candidate-milliseconds
    SourcePoint
    SourcePoint-file
    SourcePoint-line
@@ -125,16 +127,20 @@
        (build String)
        (arguments (List String))))
 
-    ;; A built target of a candidate: its generation's directory and the
-    ;; digest of what it holds.
+    ;; A built target of a candidate: its generation's directory, the
+    ;; digest of what it holds, and the digests of its files but its
+    ;; modules, by relative name, which the host's pages compare.
     (struct Generation
       ((name String)
        (directory String)
-       (digest String)))
+       (digest String)
+       (files (List (Pair String String)))))
 
+    ;; A build's targets, and how long it took, which the host's pages show.
     (struct Candidate
       ((description Description)
-       (generations (List Generation))))
+       (generations (List Generation))
+       (milliseconds I64)))
 
     (struct SourcePoint
       ((file String)
@@ -770,7 +776,8 @@
                                              (filter (lambda (generation)
                                                        (member? (Generation-directory generation)
                                                                 held))
-                                                     (Candidate-generations candidate))))))
+                                                     (Candidate-generations candidate))
+                                             (Candidate-milliseconds candidate)))))
                    publications)))
 
     (: published-directories (-> Published (List String)))

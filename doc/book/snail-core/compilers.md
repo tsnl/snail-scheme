@@ -752,9 +752,10 @@ relinks from the module that links the edited file and reads it again.
 program in a child process, which keeps each target's compiler Session from
 one build to the next ("The resident builder" in `bootstrap/cli.sld`). The
 service writes it one JSON request a line and reads one reply a line: a
-`build` answers the project's description, a candidate with each target's
-generation, digest and how many of its modules it compiled, and any
-diagnostics; the resident holds the candidate until a `publish` or a
+`build` answers the project's description, a candidate with how long the
+build took and each target's generation, digest, how many of its modules it
+compiled and the digest of each file but its modules, which the reload
+client compares, and any diagnostics; the resident holds the candidate until a `publish` or a
 `discard` names it. Sessions, Plans and inputs stay in the resident and never
 cross. A development build assembles each module the session compiled
 again with `(snail shell assembler)`, in the same process; a module the

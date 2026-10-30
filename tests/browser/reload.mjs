@@ -1,6 +1,6 @@
-// Live reload in a real page: `./scripts/snail-tool serve` serves a copy of
-// tests/apps/counter, and headless Chromium adds to the counter while the
-// test edits the source. A new greeting arrives with the count kept, the
+// Live reload in a real page: `snail dev` serves a copy of tests/apps/counter
+// on its applications' origin, and headless Chromium adds to the counter
+// while the test edits the source. A new greeting arrives with the count kept, the
 // state passing as it is; a broken edit is shown over the page; a changed
 // state type passes the count through the save; and a state and save that
 // both change keep the old program running until the developer starts
@@ -8,10 +8,10 @@
 //
 //   CHROMIUM=... node tests/browser/reload.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
-import {cp, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {cp, mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {startDevelopment} from '../development-service.mjs';
 import {openBrowser, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
@@ -29,18 +29,18 @@ const addStateField = (source, field) => edit(source, /\(height I32\)((?:\n   \(
   /\(Counter \(Counter-count counter\) width height((?: 0)*)\)/, '(Counter (Counter-count counter) width height$1 0)',
   /\(Counter \(Save-count saved\) 0 0((?: 0)*)\)/, '(Counter (Save-count saved) 0 0$1 0)');
 
-const directory = await mkdtemp(join(tmpdir(), 'snail-reload-'));
+const directory = await realpath(await mkdtemp(join(tmpdir(), 'snail-reload-')));
 const app = join(directory, 'counter'), source = join(app, 'main.sld');
 await cp(join(root, 'tests/apps/counter'), app, {recursive: true});
-const server = spawn('node', [join(root, 'host/native/develop.mjs'), root, 'serve', '--port', '0', app], {stdio: ['ignore', 'pipe', 'inherit']});
-let printed = '';
-server.stdout.on('data', chunk => { printed += chunk; process.stdout.write(chunk); });
+const service = await startDevelopment(root, app);
 const browser = await openBrowser();
+// The page's own modules, from the build its base names.
+const pageModule = name => `import(new URL('${name}', document.baseURI).href)`;
 const text = key => browser.evaluate(`document.querySelector('[data-key="${key}"] .text')?.textContent`);
 const notice = () => browser.evaluate(`document.querySelector('[role="status"]')?.style.display === 'block'
   ? document.querySelector('[role="status"]').textContent : ''`);
 try {
-  const base = await until(() => printed.match(/at (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1], 'the server and its tools', 300);
+  const base = (await service.settled(0)).published.targets.find(target => target.name === 'site').url;
   await browser.navigate(base);
   await until(() => browser.evaluate('document.body.dataset.ready'), 'the application');
   await browser.evaluate(`document.querySelector('[data-key="add"]').click(), document.querySelector('[data-key="add"]').click()`);
@@ -95,7 +95,7 @@ try {
 
   // Hold the first IndexedDB open across a build. A corrupt save forces the
   // cold retry; relinking must wait for that entire startup, including retry.
-  await browser.evaluate(`import('/storage.mjs').then(({storeSave}) => storeSave('counter', new Uint8Array([0])))`);
+  await browser.evaluate(`${pageModule('storage.mjs')}.then(({storeSave}) => storeSave('counter', new Uint8Array([0])))`);
   const gate = await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: `
     const openSave = indexedDB.open.bind(indexedDB);
     let firstSaveOpen = true;
@@ -111,7 +111,7 @@ try {
     };`});
   await browser.navigate(base);
   await until(() => browser.evaluate('typeof resumeSavedLoad === "function"'), 'the suspended initial load');
-  await browser.evaluate(`import('/host.mjs').then(({running}) => {
+  await browser.evaluate(`${pageModule('host.mjs')}.then(({running}) => {
     const app = running[0], startup = app.startup, stop = app.runtime.stop.bind(app.runtime);
     globalThis.startupWaited = false; globalThis.stopCount = 0;
     Object.defineProperty(app, 'startup', {get() { globalThis.startupWaited = true; return startup; }});
@@ -128,6 +128,6 @@ try {
   console.log('reload: the page kept its state across modules');
 } finally {
   browser.close();
-  server.kill();
+  await service.stop();
   await rm(directory, {recursive: true, force: true});
 }
