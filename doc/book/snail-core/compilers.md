@@ -187,9 +187,15 @@ function of the expander has `mut` in its row — and where it does not, the
   `lifecycle-plan` says what a drop or a clone runs: something trivial,
   which discards or shares the value, an instance's method, or glue, or
   why it cannot run, as for a clone of a `FnOnce`. The checker asks it for
-  the rows and mono for the call, so the two cannot disagree. An instance
-  that requires `(Drop e A)` performs its head's labels and what dropping
-  the type it is given at `A` performs.
+  the rows, under the definition's `Copy` variables and requirements, and
+  records the plan in the drop's evidence; mono asks again at the ground
+  type, and `plan-covers?` checks that the ground plan runs no more than
+  was charged. It cannot, since a `Copy` variable is bound only to an
+  unrestricted type, where a signature or an instance is used, so grounding
+  can only turn glue trivial, and instances are found by name in both. An
+  instance that requires `(Drop e A)` performs its head's labels and what
+  dropping the type it is given at `A` performs, and so does an instance
+  of an ordinary class with that requirement, wherever it is used.
 - **[`ownership.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/ownership.sld)** checks each
   library's linear values once its types are final, before
   specialization. It follows each path through a body: a use consumes a

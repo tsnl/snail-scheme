@@ -4,9 +4,21 @@
 ;; procedure's arrow does not describe its captured environment.
 (define-library (snail shell compiler capabilities)
   (export
-   linear-type? missing-copy copy-declaration first-order-type? contains-itself?
-   Plan Trivial Implemented Glue Refused lifecycle-plan glue-fields field-types lifecycle-instance
-   instance-bindings lifecycle-rows)
+   linear-type?
+   missing-copy
+   copy-declaration
+   copy-refusal
+   instance-copy-refusal
+   first-order-type?
+   contains-itself?
+   lifecycle-plan
+   checked-plan
+   plan-covers?
+   glue-fields
+   field-types
+   lifecycle-instance
+   instance-bindings
+   lifecycle-rows)
   (import
    (snail core base)
    (snail shell compiler core))
@@ -154,6 +166,43 @@
     (define (copy-declaration names)
       (string-join (map (lambda (name) (string-append "(Copy " name ")")) names) " "))
 
+    ;; Why `type` cannot be bound to a variable declared Copy, under the
+    ;; enclosing definition's Copy variables `copy`, or None when it can: a
+    ;; concrete linear part is never unrestricted, and a variable of the
+    ;; definition is only when the definition requires it to be. `required`
+    ;; says what requires the variable to be Copy.
+    (: copy-refusal (-> Program (List String) Type String (Option String)))
+    (define (copy-refusal program copy type required)
+      (if (linear-type? program copy type)
+          (Some (match (missing-copy program copy type)
+                  ((Nil) (string-append required ", and " (type->string type) " is linear"))
+                  (names
+                   (string-append "this use needs "
+                                  (copy-declaration names)
+                                  ", which the definition must require"))))
+          (None)))
+
+    ;; Why an instance cannot be used where its head matched with
+    ;; `bindings`: a variable it requires to be Copy, as `(requires (Copy
+    ;; A))` does, is bound to a linear type. The instance's body was
+    ;; checked with that variable unrestricted, so it may duplicate or
+    ;; discard one, and a linear type there would be duplicated or lost.
+    (: instance-copy-refusal (-> Program (List String) Instance Substitution (Option String)))
+    (define (instance-copy-refusal program copy instance bindings)
+      (fold-left (lambda (refusal var)
+                   (match (Pair refusal (assoc-ref bindings var))
+                     ((Pair (None) (Some bound))
+                      (copy-refusal program
+                                    copy
+                                    bound
+                                    (string-append "the instance "
+                                                   (type->string (TCon (Instance-class instance)
+                                                                       (Instance-types instance)))
+                                                   " requires "
+                                                   (copy-declaration (list var)))))
+                     (_ refusal)))
+                 (None) (Instance-copy instance)))
+
     ;; ---- Releasing and cloning ----
 
     ;; `drop` and `clone` are the methods of the lifecycle classes, Drop and
@@ -163,9 +212,10 @@
     ;;
     ;; - Trivial: a drop discards the value, and a clone shares it, both
     ;;   halves of its pair one reference. An unrestricted value is
-    ;;   trivial, and so, to a drop, are a FnOnce, whose frames hold nothing
-    ;;   a drop must run, and data whose glue would run nothing else, so
-    ;;   dropping a list of work items walks nothing.
+    ;;   trivial, and so, to a drop, are a FnOnce, whose type does not say
+    ;;   what it captured, so that what a `once` lambda moved in is
+    ;;   abandoned, and data whose glue would run nothing else, so dropping
+    ;;   a list of work items walks nothing.
     ;; - Implemented: a type with an instance of the class runs its method.
     ;; - Glue: other linear data is matched apart. A drop drops each linear
     ;;   immutable field; a clone clones each, shares the others, and builds
@@ -175,14 +225,8 @@
     ;;   Clone instance, a type its library made linear with a Drop instance
     ;;   or Move, whose library decides what a copy of one is, or linear data
     ;;   with a mutable field, whose content a clone could only share.
-    (enum Plan
-      (Trivial)
-      (Implemented
-       ((instance Instance)))
-      (Glue)
-      (Refused
-       ((reason String))))
-
+    ;;
+    ;; `Plan` is declared in core.sld, since a drop's evidence records it.
     (: lifecycle-plan (-> Program String (List String) Type Plan))
     (define (lifecycle-plan program class copy type)
       (match type
@@ -197,6 +241,31 @@
                ((Some instance) (Implemented instance))
                ((None) (data-plan program class copy type)))))
         (_ (Trivial))))
+
+    ;; The plan the checker records for a drop or a clone of `type`, or None
+    ;; for a type variable, whose plan its instantiation decides.
+    (: checked-plan (-> Program String (List String) Type (Option Plan)))
+    (define (checked-plan program class copy type)
+      (match type
+        ((TRigid _) (None))
+        (_ (Some (lifecycle-plan program class copy type)))))
+
+    ;; Whether the plan for a ground type runs no more than the plan the
+    ;; checker charged for the type the drop or clone was written at, which
+    ;; mono checks for each one written in a program. Grounding only makes
+    ;; data unrestricted, since a Copy variable is bound only to an
+    ;; unrestricted type, at a signature's use and an instance's alike, so
+    ;; glue may become trivial and nothing else changes; an instance is
+    ;; found by its type's name in both.
+    (: plan-covers? (-> (Option Plan) Plan Bool))
+    (define (plan-covers? checked ground)
+      (match (Pair checked ground)
+        ((Pair (None) _) #t)
+        ((Pair _ (Trivial)) #t)
+        ((Pair (Some (Implemented charged)) (Implemented found))
+         (string=? (Instance-name charged) (Instance-name found)))
+        ((Pair (Some (Glue)) (Glue)) #t)
+        (_ #f)))
 
     ;; Declared data without an instance of the class.
     (: data-plan (-> Program String (List String) Type Plan))
@@ -344,7 +413,8 @@
     ;; An instance performs the labels its head names, and, for each
     ;; requirement, as `(Drop e A)`, what the class's method performs at the
     ;; type `type` gives `A`, which is the row `e` its head ends with. That
-    ;; type is part of `type`, so the search ends.
+    ;; type is part of `type`, so the search ends. It cannot run where a
+    ;; variable it requires Copy is given a linear type.
     (: instance-search
        (-> Program
            String
@@ -355,19 +425,27 @@
            RowSearch
            (Result RowSearch String)))
     (define (instance-search program class copy givens type instance found)
+      (let ((bindings (instance-bindings instance type)))
+        (match (instance-copy-refusal program copy instance bindings)
+          ((Some refusal) (Err refusal))
+          ((None)
+           (fold-left (lambda (progress required)
+                        (lifecycle-search program
+                                          class
+                                          copy
+                                          givens
+                                          (substitute bindings
+                                                      (list-ref (Constraint-types required) 1))
+                                          progress))
+                      (Ok
+                       (RowSearch-rows-set found (Cons (head-row instance) (RowSearch-rows found))))
+                      (Instance-requires instance))))))
+
+    ;; The labels a lifecycle instance's head names, as a closed row.
+    (: head-row (-> Instance Type))
+    (define (head-row instance)
       (match (Instance-types instance)
-        ((Cons (TRow labels _) _)
-         (fold-left (lambda (progress required)
-                      (lifecycle-search program
-                                        class
-                                        copy
-                                        givens
-                                        (substitute (instance-bindings instance type)
-                                                    (list-ref (Constraint-types required) 1))
-                                        progress))
-                    (Ok
-                     (RowSearch-rows-set found (Cons (TRow labels (None)) (RowSearch-rows found))))
-                    (Instance-requires instance)))
+        ((Cons (TRow labels _) _) (TRow labels (None)))
         (_ (panic "internal error: a lifecycle instance names its row"))))
 
     ;; The types `type` gives a lifecycle instance's variables, matched
