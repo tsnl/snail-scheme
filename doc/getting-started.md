@@ -17,7 +17,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Chibi Scheme, with its libraries | 0.12 | Running the compiler's source for the first bootstrap, and the build scripts. |
 | Binaryen | 132 | `wasm-as`, `wasm-opt` and `wasm-merge` assemble, optimize and link modules. |
 | Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
-| Node.js | 26 | Running programs under WASI, and `./scripts/snail-tool serve` and `./scripts/snail-tool watch`. |
+| Node.js | 26 | Running programs under WASI, and `snail dev`. |
 | Emacs | 31 | The Scheme formatter, which `make check` runs and `make test` tests. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |

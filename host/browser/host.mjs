@@ -138,19 +138,18 @@ function hudImports(hud) {
 // ---- Application ----
 
 // The applications running on this page, which the pages that relink, the
-// ones `./scripts/snail-tool serve` serves, relink and save together.
+// ones `snail dev` serves, relink and save together.
 export const running = [];
 
 // An application is the program it runs, which may be relinked, with the
 // last lines the program wrote to standard error, and the page's pictures,
-// renderer, HUD and canvas, which outlive any one program. `manifest` names
-// a program compiled one library at a time, whose files `read` gives: a
-// page that `./scripts/snail-tool serve` serves names its modules.json in a meta tag, and
-// the browser IDE passes one with a `read` that fetches from its toolchain.
-// Without one the page is published, and loads one linked module from
-// `url`, which a manifest makes the page ignore. Either way the files the
-// program links are fetched from resources/ beside it before it starts.
-export async function startApplication({url, canvas, overlay, storageKey, manifest, read}) {
+// renderer, HUD and canvas, which outlive any one program. A development
+// build's page names its program's modules.json, a module per library, in
+// a meta tag. Without one the page is published, and loads one linked
+// module from `url`, which the meta tag makes the page ignore. Either way
+// the files the program links are fetched from resources/ beside it before
+// it starts.
+export async function startApplication({url, canvas, overlay, storageKey}) {
   const pictures = createPictures();
   const application = {canvas, program: null, errors: [], capture: null, pictures,
                        renderer: await createRenderer(canvas, pictures), hud: null, runtime: null};
@@ -161,8 +160,8 @@ export async function startApplication({url, canvas, overlay, storageKey, manife
   const send = (...event) => application.runtime.send(...event);
   application.hud = createHud(overlay, (action, argument) => send(PRESS, action, argument),
                               (action, argument) => send(HOVER, action, argument), pictures);
-  const modules = manifest ?? document.querySelector('meta[name="snail-modules"]')?.content;
-  if (modules) await linkApplication(application, modules, read ?? fetchRead(modules));
+  const modules = document.querySelector('meta[name="snail-modules"]')?.content;
+  if (modules) await linkApplication(application, modules, fetchRead(modules));
   else await instantiateApplication(application, url);
   application.startup = startCold(application);
   running.push(application);
@@ -244,9 +243,9 @@ export function saveAll() {
   return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
 }
 
-// `manifest`, when given, is the modules.json of the build to relink from,
-// which a page `snail dev` serves names; each program reads its modules
-// relative to it from then on.
+// `manifest` is the modules.json of the build to relink from, which the
+// reload client names; each program reads its files relative to it from
+// then on.
 export async function relinkAll(from, fresh, manifest) {
   for (const application of running) await relinkApplication(application, from, fresh, manifest);
 }
@@ -265,8 +264,7 @@ async function relinkApplication(application, from, fresh, manifest) {
   application.capture = [];
   const {state, saved} = await runtime.stop();
   try {
-    const program = manifest ? await relinkProgram(previous, from, manifest, fetchRead(manifest))
-                             : await relinkProgram(previous, from);
+    const program = await relinkProgram(previous, from, manifest, fetchRead(manifest));
     forgetPresentation(application);
     const run = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
     await run.ready.promise;

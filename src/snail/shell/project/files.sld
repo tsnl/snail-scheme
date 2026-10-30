@@ -303,9 +303,8 @@
 
     ;; What WASI cannot do: read and set a file's permission bits, so a
     ;; save keeps the mode of the file it replaces. A command is a name and
-    ;; a path, each sent a character at a time, and a number, as
-    ;; (snail shell develop)'s are; the host answers with a number, -1 for
-    ;; a failure. Only Node implements it.
+    ;; a path, each sent a character at a time, and a number; the host
+    ;; answers with a number, -1 for a failure. Only Node implements it.
     (effect modes
       ((mode-character (-> Char Unit))
        (mode-end (-> Unit))

@@ -3,9 +3,9 @@
 // the editor's, lists the browser targets; /NAME/ is the latest build's page
 // based in that build, with its manifest and the reload client;
 // /NAME/.snail/builds/EPOCH/ serves that build's files and never a newer
-// build's; /NAME/.snail/events tells a page of the latest build; a build two
-// publications old is reclaimed and answers 404; and the origin refuses
-// another host and anything but a read.
+// build's; /NAME/.snail/events tells a page of the latest build, or of a
+// failure after it; a build two publications old is reclaimed and answers
+// 404; and the origin refuses another host and anything but a read.
 //   node tests/project-bundles.mjs ROOT
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -104,7 +104,15 @@ try {
   assert.equal(fs.existsSync(site.directory), false, 'its generation is reclaimed');
   assert.equal((await get(pinned(second.id) + 'modules.json')).status, 200, 'the build before the latest stays');
   assert.ok((await get('/site/')).text.includes(`<base href="${pinned(third.id)}">`));
-  console.log("project bundles: the applications' origin, pinned builds, the reload client, reclamation and refusals");
+
+  // A failure names its place, and keeps the build it follows, which a page
+  // that connects after it hears of with the failure.
+  fs.writeFileSync(source, '(import (snail core base) (snail core io)) (write-line 5)');
+  await service.settled(third.id, 'failed');
+  assert.match(await firstEvent(`${origin}/site/.snail/events`),
+    new RegExp(`^\\(failed "[^"]*main\\.sld:\\d+:\\d+: [^"]+" \\(base "${pinned(third.id)}"\\)`));
+  assert.ok((await get('/site/')).text.includes(`<base href="${pinned(third.id)}">`), 'the page stays the last good build');
+  console.log("project bundles: the applications' origin, pinned builds, the reload client, failures, reclamation and refusals");
 } finally {
   await service.stop();
   fs.rmSync(project, {recursive: true, force: true});

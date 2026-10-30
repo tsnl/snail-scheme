@@ -9,7 +9,7 @@ as a separate instance.
 | Command | Build |
 | --- | --- |
 | `snail build`, `snail run`, `make site`, internal source compile/run | Static; build accepts `--release` for full optimization |
-| `snail dev`, `./scripts/snail-tool serve`, `./scripts/snail-tool watch`, `make ide` | Separate development modules |
+| `snail dev`, `make ide` | Separate development modules |
 
 The public commands operate on projects. Compiler contributors can use
 `./scripts/snail-tool run SOURCE`, `wat SOURCE`, `schema SOURCE` or `bootstrap`.
@@ -169,8 +169,9 @@ service. [Application processes](applications.md#development-run-targets) define
 the controls and their interaction with acceptance and shutdown.
 
 Source inputs currently include the project description, `.sld` libraries, declared
-entry/public paths and browser runtime assets. Ordinary data writes do not request
-builds. Arbitrary producer file reads are not tracked yet: use manual Build for
+entry/public paths, browser runtime assets and the files the latest publication's
+programs link, which the resident names with each target. Ordinary data writes do
+not request builds. Arbitrary producer file reads are not tracked yet: use manual Build for
 those inputs. Unnamed watcher hints do not themselves declare source changes.
 The observer and compiler do not claim an atomic filesystem revision.
 
@@ -429,56 +430,6 @@ lines in view, read from the start of their top-level form.
 Proposed: once the book is itself a Snail-Core project, the classifier can run
 in a `generate-library` recipe that writes the highlighted pages, and the mdbook
 preprocessor goes away.
-
-## Existing application development loop
-
-`dev` compiles, edits, runs and reloads projects. An application without a
-project still uses `./scripts/snail-tool serve APP-DIRECTORY`, and a program
-`./scripts/snail-tool watch SOURCE [ARGUMENT ...]`. Their loop is
-`src/snail/shell/develop.sld`, exposed by `bootstrap/develop.sld`; it retains a compiler
-session, debounces changes and publishes manifests. It plans each build as the
-project builder does, with no project targets: the producers of the
-generated libraries the program reaches run first, each compiled one library
-at a time into `producers/` beside the build and run to completion by the
-worker, and their outputs supply the program's compile. Producers run in
-every build, since what they read is not tracked. With no project there is no
-target to embed, so the plan runs no discovery expansion, and an
-`artifact-bundle` fails in the compile; use project builds for artifacts.
-The [application chapter](applications.md#hot-reload) defines current reload behavior.
-
-`host/native/develop.mjs` owns watches, timers, HTTP and application children;
-`develop-worker.mjs` owns the compiled loop, which assembles its modules
-in-process with `(snail shell assembler)`, and the synchronous
-`produce MANIFEST OUTPUT` command that runs a producer. The loop does its own
-file work through the runtime's WASI, as any program does
-([files and directories](libraries.md#files-and-directories)): it makes,
-lists, renames and removes files, copies linked files, digests files with
-`(snail shell sha256)` and times builds with the monotonic clock. Watch,
-schedule, serve, broadcast and run commands cross to the parent.
-Watches are installed before the first compile, and they are hints: Node's
-recursive watch keeps following a file another is renamed over, as `sed -i`
-and editors' atomic saves do, and misses its next edit. So every second the
-host asks the loop to reconcile, and the loop takes an inventory of the
-watched directories with `(snail shell watch)`, leaving out `build/` and
-`.git`, and treats any path that differs from the inventory the latest build
-began with as an edit. A build takes its inventory before it reads a
-source, so an edit it built from does not start another. HTML, manifests, module bytes
-and linked files are staged beside their destinations and renamed, providing
-complete individual files rather than the project builder's generation
-publication. Each build copies the files the program links into `resources/`
-beside `modules.json`, served at `/resources/`, when their digests changed, and
-names each module's file for its text and its linked files' digests, so an
-edited file relinks the page from the module that links it. The page's
-manifest digests each file of the browser host and of `public/`, leaving out
-editors' temporary files, which the watches ignore too. A digest is of what a
-read finds: the copy, the server and the digest all follow a symbolic link, so
-editing the file a linked or public link names counts as editing the link,
-and a link to nothing fails the build, naming the link, before `modules.json`
-changes. Only an edit under the watched directories starts a build, so an
-edit to a file a link names outside them waits for a build another edit
-starts. The loop keeps its latest and previous module sets. Shutdown closes
-native resources and the worker and prevents late commands from starting
-replacement children.
 
 ## Application and networking integration
 

@@ -1,8 +1,8 @@
-;; The reload client: the part of a page that `snail dev` and
-;; `./scripts/snail-tool serve` add. It compares
-;; the manifest of the build the page runs with the one each of the
-;; server's events carries, and decides what the page does: fetch a style
-;; sheet again, relink the program from the first module that changed,
+;; The reload client: the part of a page that `snail dev` adds
+;; ((snail shell project bundle)). It compares the manifest of the build
+;; the page runs with the one each of the server's events carries, and
+;; decides what the page does: fetch a style sheet again, relink the
+;; program from the first module that changed or links a file that did,
 ;; reload the page, or show a notice. It runs as WebAssembly; the page
 ;; (host/browser/reload.mjs) passes it the
 ;; page's manifest and each event, a character at a time, and
@@ -60,19 +60,16 @@
   (page-command "hide" (Nil) 0))
 
 ;; Fetches a style sheet again, with its digest, from `base`, the build it
-;; now belongs to, or from where it was when `base` is empty.
+;; now belongs to.
 (: restyle! (-> String String String Unit ! page))
 (define (restyle! file digest base)
   (page-command "restyle" (list file digest base) 0))
 
-;; Relinks the program from `module`, by the modules.json under `base`, or
-;; by its own again when `base` is empty, with a fresh state when `fresh`;
-;; the page reports how it went.
+;; Relinks the program from `module`, by the modules.json under `base`,
+;; with a fresh state when `fresh`; the page reports how it went.
 (: relink! (-> String String Bool Unit ! page))
 (define (relink! module base fresh)
-  (page-command "relink"
-                (list module (if (string=? base "") "" (string-append base "modules.json")))
-                (if fresh 1 0)))
+  (page-command "relink" (list module (string-append base "modules.json")) (if fresh 1 0)))
 
 ;; Stores every application's save, then reloads the page.
 (: reload-page! (-> Unit ! page))
@@ -86,9 +83,8 @@
 
 ;; ---- Manifests ----
 
-;; What a build serves: the base its files are served under, which `snail
-;; dev` pins each build's to and the old loop leaves empty; each file with
-;; a digest; and each module, in program order, with the file it lives in,
+;; What a build serves: the base its files are served under, each file with
+;; a digest, and each module, in program order, with the file it lives in,
 ;; which names its text.
 (struct Manifest
   ((base String)
@@ -100,14 +96,13 @@
   (Built ((milliseconds String) (manifest Manifest)))
   (Failed ((message String) (manifest Manifest))))
 
-;; `[(base BASE)] (files (NAME DIGEST) ...) (modules (NAME FILE) ...)`.
+;; `(base BASE) (files (NAME DIGEST) ...) (modules (NAME FILE) ...)`.
 (: parse-manifest (-> (List Datum) Manifest))
 (define (parse-manifest data)
   (match data
     ((Cons base (Cons files (Cons modules (Nil))))
      (Manifest (base-of base) (string-pairs files) (string-pairs modules)))
-    ((Cons files (Cons modules (Nil))) (Manifest "" (string-pairs files) (string-pairs modules)))
-    (_ (panic "reload: a manifest is [(base ...)] (files ...) (modules ...)"))))
+    (_ (panic "reload: a manifest is (base ...) (files ...) (modules ...)"))))
 
 (: base-of (-> Datum String))
 (define (base-of datum)
@@ -185,27 +180,55 @@
                                             ((None) #t)))
                           these)))
 
-;; The first module, in program order, whose file differs; the modules
-;; before it cannot import from it, so they stay linked.
-(: first-changed-module (-> Manifest Manifest (Option String)))
-(define (first-changed-module old new)
+;; The first module, in program order, whose file differs or that links
+;; one of the files in `linking`; the modules before it cannot import from
+;; it, so they stay linked. A module reads the files it links as it is
+;; linked, so relinking it reads them again.
+(: first-changed-module (-> Manifest Manifest (List String) (Option String)))
+(define (first-changed-module old new linking)
   (let loop ((old (Manifest-modules old)) (new (Manifest-modules new)))
     (match new
       ((Cons (Pair name file) rest)
        (match old
          ((Cons (Pair old-name old-file) old-rest)
-          (if (and (string=? name old-name) (string=? file old-file))
+          (if (and (string=? name old-name) (string=? file old-file) (not (member? name linking)))
               (loop old-rest rest)
               (Some name)))
          ((Nil) (Some name))))
       ((Nil) (None)))))
 
-;; Only a style sheet is fetched again in place; any other file changes
-;; the page, which must load again.
+;; A style sheet is fetched again in place, and a linked file, at
+;; resources/LIBRARY/PATH, is read again by relinking its library's module;
+;; any other file changes the page, which must load again.
 (: style-sheet? (-> String Bool))
 (define (style-sheet? file)
   (let ((length (string-length file)))
     (and (> length 4) (string=? (substring file (- length 4) length) ".css"))))
+
+(: linking-library (-> String (Option String)))
+(define (linking-library file)
+  (if (and (> (string-length file) 10) (string=? (substring file 0 10) "resources/"))
+      (let ((path (substring file 10 (string-length file))))
+        (match (string-index path #\/)
+          ((Some end) (Some (substring path 0 end)))
+          ((None) (None))))
+      (None)))
+
+;; The libraries whose linked files are among `files`.
+(: linking-libraries (-> (List String) (List String)))
+(define (linking-libraries files)
+  (concatenate (map (lambda (file)
+                      (match (linking-library file)
+                        ((Some library) (list library))
+                        ((None) (Nil))))
+                    files)))
+
+(: in-place? (-> String Bool))
+(define (in-place? file)
+  (or (style-sheet? file)
+      (match (linking-library file)
+        ((Some _) #t)
+        ((None) #f))))
 
 ;; ---- Decisions ----
 
@@ -240,11 +263,13 @@
 (define (apply-event! event)
   (let* ((manifest (event-manifest event)) (files (changed-files (ref-get loaded) manifest)))
     (cond ((refused? manifest) (unit))
-          ((any? (lambda (file) (not (style-sheet? file))) files) (reload-page!))
+          ((any? (lambda (file) (not (in-place? file))) files) (reload-page!))
           (else (for-each (lambda (file)
                             (restyle! file (digest-of manifest file) (Manifest-base manifest)))
-                          files)
-                (match (first-changed-module (ref-get loaded) manifest)
+                          (filter style-sheet? files))
+                (match (first-changed-module (ref-get loaded)
+                                             manifest
+                                             (linking-libraries files))
                   ((Some module)
                    (ref-set! relinking (Some manifest))
                    (relink! module (Manifest-base manifest) #f))

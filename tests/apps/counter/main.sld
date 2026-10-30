@@ -1,6 +1,6 @@
 ;; The smallest application: a counter that a button adds to, with a
-;; greeting. The development server's test (tests/develop.mjs) edits the
-;; greeting while the counter runs and checks that the count survives.
+;; greeting. The reload test (tests/browser/reload.mjs) edits the greeting
+;; while the counter runs and checks that the count survives.
 (import
  (snail core base)
  (snail shell app))

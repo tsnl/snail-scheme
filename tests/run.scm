@@ -3,8 +3,7 @@
 ;; each line of NAME.err in its diagnostics, in order. Then the Siegework package is built
 ;; and driven headlessly, and the in-process assembler assembles a program.
 ;; Programs compile one at a time, then link and run in parallel. Finally
-;; some programs and Siegework run again as modules linked when they run,
-;; and the development server serves and rebuilds an application.
+;; some programs and Siegework run again as modules linked when they run.
 ;;
 ;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/run.scm ROOT [NAME ...]
 (import
@@ -677,19 +676,6 @@
                     "wrong output"
                     (string-append printed "\nexpected:\n" expected)))))))
 
-;; ---- Development loop ----
-
-;; `snail-tool serve` and `snail-tool watch` build while they run, and the check waits
-;; for their builds with a timeout, so it runs alone, after the others,
-;; rather than competing with them.
-(define (run-develop root)
-  (let ((result
-         (capture-process (list "node" "--no-warnings" (path-join root "tests/develop.mjs") root))))
-    (or (zero? (caddr result))
-        (report "develop"
-                "the development loop failed"
-                (string-append (car result) (cadr result))))))
-
 ;; ---- Checks in parallel ----
 
 ;; Cases compile one at a time, in this process, before any check starts:
@@ -788,7 +774,7 @@
                             '())))
          (results (append (run-checks cases)
                           (if (null? selected)
-                              (append (run-linked-cases root) (list (run-develop root)))
+                              (run-linked-cases root)
                               '())))
          (failures (count not results)))
     (display (string-append (number->string (- (length results) failures))

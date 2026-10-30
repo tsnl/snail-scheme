@@ -20,7 +20,7 @@ fetch:
 	cargo fetch --locked --manifest-path crates/snail/Cargo.toml
 
 # The formatter's tests, the compiler's unit tests, the examples and test
-# programs, both games' tests, Siegework headless, and the development loop.
+# programs, both games' tests, Siegework headless, and the development service.
 test:
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
 	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"

@@ -26,7 +26,8 @@
 (: candidate (-> String Candidate))
 (define (candidate digest)
   (Candidate description
-             (list (Generation "server" (string-append "/r/apps/p/build/s-" digest) digest (Nil)))
+             (list
+              (Generation "server" (string-append "/r/apps/p/build/s-" digest) digest (Nil) (Nil)))
              0))
 
 (: succeeded (-> String Reply))
@@ -42,6 +43,7 @@
                           (list (Generation "server"
                                             (string-append "/r/apps/p/build/" name)
                                             digest
+                                            (Nil)
                                             (Nil)))
                           0))
          (Nil)))
@@ -66,8 +68,18 @@
 (define without-runs
   (let ((bare (Description (list "main.sld") (Nil) (Nil) (Nil))))
     (Reply (Some bare)
-           (Some (Candidate bare (list (Generation "server" "/r/apps/p/build/s-x" "x" (Nil))) 0))
+           (Some
+            (Candidate bare (list (Generation "server" "/r/apps/p/build/s-x" "x" (Nil) (Nil))) 0))
            (Nil))))
+
+;; A build whose program links the file at `path`.
+(: linking (-> String Reply))
+(define (linking path)
+  (Reply (Some description)
+         (Some (Candidate description
+                          (list (Generation "server" "/r/apps/p/build/s-l" "l" (Nil) (list path)))
+                          0))
+         (Nil)))
 
 ;; ---- Printing ----
 
@@ -226,6 +238,15 @@
                 (Touched (list "/r/apps/p/public/index.html"))
                 (BuildReplied 1 (succeeded "a"))
                 (Reconciled (Ok (unit)))))
+
+(scenario "a linked file is an input once a published program links it"
+          (append started
+                  (list (Touched (list "/r/apps/p/art.bin"))
+                        (BuildReplied 1 (linking "/r/apps/p/art.bin"))
+                        (Reconciled (Ok (unit)))
+                        (PublishReplied 1 (None))
+                        (Touched (list "/r/apps/p/art.bin"))
+                        (TimerFired))))
 
 (scenario "a reply for another epoch is fatal"
           (append first-published

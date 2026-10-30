@@ -128,13 +128,15 @@
        (arguments (List String))))
 
     ;; A built target of a candidate: its generation's directory, the
-    ;; digest of what it holds, and the digests of its files but its
-    ;; modules, by relative name, which the host's pages compare.
+    ;; digest of what it holds, the digests of its files but its modules,
+    ;; by relative name, which the host's pages compare, and the paths of
+    ;; the files its program links, which are inputs while it is published.
     (struct Generation
       ((name String)
        (directory String)
        (digest String)
-       (files (List (Pair String String)))))
+       (files (List (Pair String String)))
+       (linked (List String))))
 
     ;; A build's targets, and how long it took, which the host's pages show.
     (struct Candidate
@@ -561,7 +563,18 @@
             (within? (string-append root "/host/browser") path)
             (match (Service-description service)
               ((Some description) (declared-input? project description path))
-              ((None) #f)))))
+              ((None) #f))
+            (linked-input? service path))))
+
+    ;; A file the latest publication's programs link, which no compile
+    ;; reads, but each build places again.
+    (: linked-input? (-> Service String Bool))
+    (define (linked-input? service path)
+      (match (Service-publications service)
+        ((Cons latest _)
+         (any? (lambda (generation) (member? path (Generation-linked generation)))
+               (Candidate-generations (Published-candidate latest))))
+        ((Nil) #f)))
 
     (: declared-input? (-> String Description String Bool))
     (define (declared-input? project description path)
