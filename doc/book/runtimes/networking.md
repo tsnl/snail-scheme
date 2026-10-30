@@ -107,21 +107,24 @@ Every operation must use the owner that issued its handle.
 
 | Operation | Result |
 | --- | --- |
-| `listen(signal, address, port)` | Listener handle after binding; port 0 chooses a free port. |
+| `listen(signal, address, port, backlog)` | Listener handle after binding; port 0 chooses a free port. |
 | `port(listener)` | The listener's bound port. |
 | `connect(signal, address, port)` | Connected socket handle. |
 | `accept(signal, listener)` | One connection, independent of its listener after delivery from this operation. |
-| `read(signal, connection, maximum)` | A nonempty available byte prefix, or `null` at EOF. The limit is 1–65,536. |
+| `read(signal, connection, maximum)` | A nonempty available byte prefix of at most `maximum` bytes, or `null` at EOF. |
 | `write(signal, connection, bytes)` | A count of bytes accepted locally, at most 65,536; empty input returns 0. |
 | `finish(signal, connection, grace)` | End output, discard input and await physical closure; grace bounds graceful progress in milliseconds. |
 | `close(handle)` | Immediate revocation of aliases and initiation of native cleanup; repeated close does nothing. |
 | `shutdown()` | Reject new work, close all resources, and await native cleanup. |
 
-The address is the dotted text of an `Endpoint`'s, and the port its port.
+The arguments are the library's, which decided them, and the host checks
+none of them again: the address is the dotted text of an `Endpoint`'s and
+the port its port, a read's maximum is 1–65,536, a grace is not negative,
+and the backlog is how many unclaimed connections the listener keeps, 64.
 There is one pending accept
 per listener and at most one pending read and one write per connection; a read
-and write can overlap. Duplicate operations fail with `EBUSY`, revoked handles
-with `EBADF`, and invalid arguments with `EINVAL`. Native network errors retain
+and write can overlap. Duplicate operations fail with `EBUSY` and revoked
+handles with `EBADF`. Native network errors retain
 their codes. Receiving EOF leaves the connection writable; available bytes are
 read before EOF. No operation promises peer receipt or message framing.
 
@@ -133,9 +136,9 @@ retrying the whole buffer is not automatically safe.
 ### Finishing a connection
 
 Snail-Core's `finish-connection` binds the native `finish` operation. It takes an idle
-connection and a whole-number grace period from 0
-through 2,147,483,647 milliseconds. Pending read or write rejects with `EBUSY`
-without changing ownership. Invalid grace rejects with `EINVAL`.
+connection and a grace period in milliseconds, which the library refuses
+with `EINVAL` when it is negative. Pending read or write rejects with `EBUSY`
+without changing ownership.
 
 Once accepted, `finish` ends output and consumes remaining input without keeping
 it. Node's `writableEnded` state prevents aliases from starting further I/O;
@@ -156,8 +159,8 @@ progress; forced cleanup still needs event-loop scheduling.
 
 ## Ownership and cancellation
 
-Node accepts eagerly. A listener retains at most 64 unclaimed connections in a
-paused state, using native stream buffers. Overflow connections close immediately.
+Node accepts eagerly. A listener retains at most its backlog of unclaimed
+connections in a paused state, using native stream buffers. Overflow connections close immediately.
 Revoked queued connections are skipped by accept. Cancelling accept leaves its
 listener and unclaimed connections usable; closing a listener releases its queue
 but leaves already handed-out connections independent.
@@ -192,7 +195,7 @@ opening state, DNS lookup or bind cancellation registration.
 
 | Operation | Result |
 | --- | --- |
-| `bind(signal, address, port)` | Positive I32 handle; port 0 selects an available port. |
+| `bind(signal, address, port, queued)` | Positive I32 handle; port 0 selects an available port. |
 | `port(handle)` | The actual bound port. |
 | `receive(signal, handle, maximum)` | One whole datagram: `{bytes, address, port}`, including the sender's endpoint. |
 | `send(signal, handle, address, port, bytes)` | Entire payload length after local completion; no peer delivery guarantee. |
@@ -200,14 +203,15 @@ opening state, DNS lookup or bind cancellation registration.
 | `shutdown()` | Stop new binds, close remaining sockets and await native cleanup. |
 
 Handles never repeat within their owner, including after failed bind attempts.
-Addresses and ports come from `Endpoint`s, as for TCP. A payload
-may contain 0–65,507 bytes. Zero-length datagrams are messages, not EOF.
-Receive accepts a maximum in the same range. If the next datagram is too large,
+Addresses and ports come from `Endpoint`s, as for TCP. The library limits a
+payload and a receive's maximum to 0–65,507 bytes, refusing an oversized
+send with `EMSGSIZE` before it reaches the host. Zero-length datagrams are
+messages, not EOF. If the next datagram is larger than a receive's maximum,
 it is consumed and discarded with `EMSGSIZE`; there is no partial result or
-remainder to read. Oversized sends fail before native submission. UDP makes no
-delivery, order or uniqueness guarantee.
+remainder to read. UDP makes no delivery, order or uniqueness guarantee.
 
-Each socket queues at most 32 complete datagrams; excess arrivals are dropped,
+`queued` is how many complete datagrams the
+socket queues, 32 from the library; excess arrivals are dropped,
 preserving the queued messages. One receive and one send may be pending at a
 time and may overlap; duplicates fail with `EBUSY`. Receive cancellation removes
 its registration and preserves the socket and remaining queue. A datagram
@@ -262,7 +266,7 @@ waiting first and reading after loses nothing. The pipes keep backpressure,
 though: a child that writes more than a pipe and its stream buffer hold,
 about 64 KiB each, blocks until it is read, so a program expecting more
 output than that reads while it waits. Read limits are 1–65,536
-bytes. There is one pending read per stream and one pending write; a read
+bytes, which the library checks. There is one pending read per stream and one pending write; a read
 of each stream and a write can overlap, and any number of `wait-exit`s may
 be pending. A write waits until the pipe takes its bytes, so a child that
 does not read holds it. Closing a process that is still running kills it

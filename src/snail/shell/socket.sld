@@ -68,6 +68,26 @@
     (define (Endpoint-port endpoint)
       (Ipv4Endpoint-port endpoint))
 
+    ;; ---- Bounds ----
+
+    ;; What the operations accept, decided here so no host decides it: a
+    ;; read of 1 to 65,536 bytes, a datagram of at most 65,507, the most
+    ;; an IPv4 datagram carries, and a grace that is not negative. A
+    ;; listener keeps at most `accept-backlog` connections no accept has
+    ;; claimed, and a UDP socket `datagram-queue` datagrams no receive has
+    ;; taken; the host refuses what arrives beyond them.
+    (: read-limit I32)
+    (define read-limit 65536)
+
+    (: datagram-limit I32)
+    (define datagram-limit 65507)
+
+    (: accept-backlog I32)
+    (define accept-backlog 64)
+
+    (: datagram-queue I32)
+    (define datagram-queue 32)
+
     ;; ---- Public values ----
 
     ;; Tokens belong to the effect handler that created them. Any keeps a
@@ -108,7 +128,8 @@
                    (through-host (lambda (ticket)
                                    (start-listen ticket
                                                  (address-number endpoint)
-                                                 (Endpoint-port endpoint)))
+                                                 (Endpoint-port endpoint)
+                                                 accept-backlog))
                                  finish-listen)))
          (connect (lambda (endpoint)
                     (through-host (lambda (ticket)
@@ -119,15 +140,19 @@
          (accept (lambda (listener)
                    (through-host (lambda (ticket) (start-accept ticket listener)) finish-accept)))
          (read (lambda (connection maximum)
-                 (through-host (lambda (ticket) (start-read ticket connection maximum))
-                               finish-read)))
+                 (if (and (>= maximum 1) (<= maximum read-limit))
+                     (through-host (lambda (ticket) (start-read ticket connection maximum))
+                                   finish-read)
+                     (Err (SocketError "EINVAL")))))
          (write (lambda (connection bytes)
                   (through-host (lambda (ticket) (start-write ticket connection bytes))
                                 finish-write)))
          (finish-connection
           (lambda (connection grace)
-            (through-host (lambda (ticket) (start-finish-connection ticket connection grace))
-                          finish-finish-connection))))))
+            (if (>= grace 0)
+                (through-host (lambda (ticket) (start-finish-connection ticket connection grace))
+                              finish-finish-connection)
+                (Err (SocketError "EINVAL"))))))))
 
     (effect udp
       ((bind (-> Endpoint (Result UdpSocket SocketError) ! tasks))
@@ -141,29 +166,33 @@
                  (through-host (lambda (ticket)
                                  (start-bind ticket
                                              (address-number endpoint)
-                                             (Endpoint-port endpoint)))
+                                             (Endpoint-port endpoint)
+                                             datagram-queue))
                                finish-bind)))
          ;; Port 0 names no peer, though a socket may bind to it.
          (send (lambda (socket peer bytes)
-                 (if (= (Endpoint-port peer) 0)
-                     (Err (SocketError "EINVAL"))
-                     (through-host (lambda (ticket)
-                                     (start-send ticket
-                                                 socket
-                                                 (address-number peer)
-                                                 (Endpoint-port peer)
-                                                 bytes))
-                                   finish-send))))
+                 (cond ((= (Endpoint-port peer) 0) (Err (SocketError "EINVAL")))
+                       ((> (vector-length bytes) (i32->i64 datagram-limit))
+                        (Err (SocketError "EMSGSIZE")))
+                       (else (through-host (lambda (ticket)
+                                             (start-send ticket
+                                                         socket
+                                                         (address-number peer)
+                                                         (Endpoint-port peer)
+                                                         bytes))
+                                           finish-send)))))
          (receive (lambda (socket maximum)
-                    (through-host (lambda (ticket) (start-receive ticket socket maximum))
-                                  finish-receive))))))
+                    (if (and (>= maximum 0) (<= maximum datagram-limit))
+                        (through-host (lambda (ticket) (start-receive ticket socket maximum))
+                                      finish-receive)
+                        (Err (SocketError "EINVAL"))))))))
 
     ;; ---- Native waits ----
 
     ;; Each operation that waits starts on the host, which reads its
     ;; arguments at once, and finishes with the result the host built for
     ;; its ticket. Both halves return at once.
-    (extern start-listen "snail.runtime.native.socket" "start-listen" (-> I64 I32 I32 Unit))
+    (extern start-listen "snail.runtime.native.socket" "start-listen" (-> I64 I32 I32 I32 Unit))
     (extern finish-listen
             "snail.runtime.native.socket"
             "finish-listen"
@@ -196,7 +225,7 @@
             "snail.runtime.native.socket"
             "finish-finish-connection"
             (-> I64 (Result Unit SocketError)))
-    (extern start-bind "snail.runtime.native.socket" "start-bind" (-> I64 I32 I32 Unit))
+    (extern start-bind "snail.runtime.native.socket" "start-bind" (-> I64 I32 I32 I32 Unit))
     (extern finish-bind
             "snail.runtime.native.socket"
             "finish-bind"

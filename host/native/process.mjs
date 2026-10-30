@@ -100,7 +100,6 @@ export function createProcesses() {
   // Cancelling a read consumes nothing, so it leaves the process usable.
   async function read(signal, id, descriptor, maximum) {
     signal.throwIfAborted();
-    if (!Number.isInteger(maximum) || maximum <= 0 || maximum > chunkSize) throw fault('EINVAL', 'process read limit must be 1..65536');
     const resource = get(id), stream = [null, resource.child.stdout, resource.child.stderr][descriptor];
     if (!stream) throw fault('EINVAL', 'process output is stdout or stderr');
     if (resource.reading.has(descriptor)) throw fault('EBUSY', 'process read is already pending');

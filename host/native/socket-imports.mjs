@@ -48,16 +48,16 @@ export function socketImports(program, tasks, tcp, udp) {
     }, result => owner.close(result.handle));
   }
 
-  async function listening(signal, address, port) {
-    const handle = await tcp.listen(signal, address, port);
+  async function listening(signal, address, port, backlog) {
+    const handle = await tcp.listen(signal, address, port, backlog);
     // Capture native metadata with acquisition, before success waits for
     // its finish. A listener may close before that result is delivered.
     try { return {handle, port: tcp.port(handle)}; }
     catch (error) { tcp.close(handle); throw error; }
   }
 
-  async function bound(signal, address, port) {
-    const handle = await udp.bind(signal, address, port);
+  async function bound(signal, address, port, queued) {
+    const handle = await udp.bind(signal, address, port, queued);
     try { return {handle, port: udp.port(handle)}; }
     catch (error) { udp.close(handle); throw error; }
   }
@@ -70,8 +70,8 @@ export function socketImports(program, tasks, tcp, udp) {
 
   const finish = ticket => tasks.finish(Number(ticket));
   return {
-    'start-listen'(ticket, address, port) {
-      acquire(ticket, tcp, 'tcp:listen-error', signal => listening(signal, dotted(address), port),
+    'start-listen'(ticket, address, port, backlog) {
+      acquire(ticket, tcp, 'tcp:listen-error', signal => listening(signal, dotted(address), port, backlog),
               (api, result) => api['tcp:listening'](result.handle, result.port));
     },
     'start-connect'(ticket, address, port) {
@@ -100,8 +100,8 @@ export function socketImports(program, tasks, tcp, udp) {
     },
     'close-listener'(listener) { const api = helpers(); return close(api, tcp, api['tcp:listener-handle'](listener)); },
     'close-connection'(connection) { const api = helpers(); return close(api, tcp, api['tcp:connection-handle'](connection)); },
-    'start-bind'(ticket, address, port) {
-      acquire(ticket, udp, 'udp:bind-error', signal => bound(signal, dotted(address), port),
+    'start-bind'(ticket, address, port, queued) {
+      acquire(ticket, udp, 'udp:bind-error', signal => bound(signal, dotted(address), port, queued),
               (api, result) => api['udp:bound'](result.handle, result.port));
     },
     'start-send'(ticket, socket, address, port, pointer) {

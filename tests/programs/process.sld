@@ -77,6 +77,8 @@
          ;; Closing kills a running child and revokes its handle; closing again
          ;; succeeds, and a token from another handler is no native handle.
          (let ((child (shell "exec sleep 10")))
+           ;; A read takes 1 to 65,536 bytes.
+           (report-error (read-output child (Stdout) 0))
            (require (close-process child))
            (require (close-process child))
            (report-error (read-output child (Stdout) 1))
