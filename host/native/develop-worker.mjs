@@ -1,13 +1,13 @@
 // One persistent Wasm development loop and compiler, which does its own
-// file work through the runtime's WASI. The assembler and producer runs are
-// immediate here; watcher/server/process commands go to the parent.
+// file work through the runtime's WASI and assembles its modules in-process.
+// Producer runs are immediate here; watcher/server/process commands go to
+// the parent.
 import {spawnSync} from 'node:child_process';
-import {fstatSync, openSync, readFileSync, readSync, renameSync, writeFileSync, writeSync} from 'node:fs';
+import {fstatSync, openSync, readFileSync, readSync, writeSync} from 'node:fs';
 import {join} from 'node:path';
 import {WASI} from 'node:wasi';
 import {parentPort, workerData} from 'node:worker_threads';
 import {commandImports} from '../browser/load.mjs';
-import {createAssembler} from './assemble.mjs';
 
 // ---- Program entries ----
 
@@ -15,7 +15,7 @@ async function startLoop({root, tools, request, errors: filename}) {
   const errors = openSync(filename, 'w+');
   const wasi = new WASI({version: 'preview1', args: ['develop', root, tools.runtime, tools.client, ...request],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}, returnOnExit: true, stderr: errors});
-  const loop = {root, errors, read: 0, exports: null, assemble: await createAssembler(readFileSync(tools.assembler))};
+  const loop = {root, errors, read: 0, exports: null};
   const imports = {...wasi.getImportObject(), 'snail.runtime.native.develop': commandImports(commands(loop))};
   const {instance} = await WebAssembly.instantiate(readFileSync(tools.develop), imports);
   loop.exports = instance.exports;
@@ -59,14 +59,6 @@ function commands(loop) {
   return {
     watch: forward('watch'), schedule: forward('schedule'), serve: forward('serve'),
     broadcast: forward('broadcast'), run: forward('run'),
-    assemble([text, module]) {
-      try {
-        writeFileSync(`${module}.next`, loop.assemble(readFileSync(text, 'utf8')));
-        renameSync(`${module}.next`, module);
-        return 0;
-      }
-      catch (error) { console.error(error.message); return 1; }
-    },
     // A producer runs to completion before the build goes on. What it
     // printed on failure joins the loop's diagnostics, ahead of its panic.
     produce([manifest, output]) {

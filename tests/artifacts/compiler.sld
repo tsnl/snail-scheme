@@ -1,9 +1,12 @@
 ;; A compiler running as Wasm supplies immutable artifact inputs. Its
-;; output exercises both static linking and cached per-library emission.
+;; output exercises both static linking and cached per-library emission,
+;; each module assembled in-process, as the toolchain's runtime it links
+;; with allows.
 (import
  (snail core base)
  (snail core io)
  (snail core table)
+ (snail shell assembler)
  (snail shell compiler)
  (snail shell compiler inputs)
  (snail shell compiler session)
@@ -30,11 +33,17 @@
                                                          (list
                                                           (generated:StringSyntax "client")))))))))
 
+(: write-module (-> String String Unit ! fs))
+(define (write-module path text)
+  (match (assemble text)
+    ((Ok bytes) (write-bytes path bytes))
+    ((Err message) (panic (string-append "could not assemble " path ": " message)))))
+
 (: write-build (-> String (List Built) Unit ! fs))
 (define (write-build output built)
   (for-each (lambda (module)
-              (write-file (string-append output "/" (Built-name module) ".wat")
-                          (Built-text module)))
+              (write-module (string-append output "/" (Built-name module) ".wasm")
+                            (Built-text module)))
             built)
   (write-file (string-append output "/modules") (string-join (map Built-name built) "\n"))
   (write-file (string-append output "/compiled")
@@ -44,8 +53,9 @@
 ;; has no errors.
 (: compile-all (-> String String (List String) Unit ! mut fs reader:compile))
 (define (compile-all source output directories)
-  (write-file (string-append output "/program.wat")
-              (WholeProgram-text (source->wat directories source generate (inputs #u8(65 0 255)))))
+  (write-module (string-append output "/program.wasm")
+                (WholeProgram-text
+                 (source->wat directories source generate (inputs #u8(65 0 255)))))
   (let* ((first (build-session (make-session directories) source generate (inputs #u8(65 0 255))))
          (unchanged (build-session (Pair-second first) source generate (inputs #u8(65 0 255)))))
     (write-build (string-append output "/first") (Pair-first first))

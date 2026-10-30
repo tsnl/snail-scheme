@@ -5,15 +5,12 @@ import {spawnSync} from 'node:child_process';
 import {readFile, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createAssembler} from '../../host/native/assemble.mjs';
 
-const [assemblerPath, runtimePath, directory, expectedPath] = process.argv.slice(2);
-const assemble = await createAssembler(await readFile(assemblerPath));
+const [runtimePath, directory, expectedPath] = process.argv.slice(2);
 const runner = fileURLToPath(new URL('../../host/native/run-snail.mjs', import.meta.url));
 const expected = await readFile(expectedPath, 'utf8');
 
 async function execute(output, names, wanted) {
-  for (const name of names) await writeFile(join(output, name + '.wasm'), assemble(await readFile(join(output, name + '.wat'), 'utf8')));
   const manifest = join(output, 'modules.json');
   await writeFile(manifest, JSON.stringify({runtime: runtimePath, modules: names.map(name => ({name, file: name + '.wasm'}))}));
   const result = spawnSync(process.execPath, ['--no-warnings', runner, manifest], {encoding: 'utf8'});

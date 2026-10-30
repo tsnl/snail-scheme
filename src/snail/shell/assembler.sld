@@ -1,7 +1,6 @@
 ;; WebAssembly text to a binary module, in-process, for tools written in
-;; Snail-Core: the toolchain's runtime assembles it with the `wat` crate,
-;; as the in-process assembler (crates/assembler) does for hosts in
-;; JavaScript. A program linked with the plain runtime cannot use it, since
+;; Snail-Core: the toolchain's runtime assembles it with the `wat` crate.
+;; A program linked with the plain runtime cannot use it, since
 ;; that runtime leaves the parser out; stage 0 links a tool with the
 ;; toolchain's runtime (`build-toolchain-tool`).
 (define-library (snail shell assembler)

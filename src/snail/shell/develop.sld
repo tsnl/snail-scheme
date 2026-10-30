@@ -19,6 +19,7 @@
   (import
    (snail core base)
    (snail core io)
+   (snail shell assembler)
    (snail shell sha256)
    (snail shell watch)
    (only (snail shell compiler read)
@@ -42,7 +43,7 @@
     ;; ---- Host commands ----
 
     ;; What Snail-Core cannot do alone: watch files, schedule a timer,
-    ;; assemble a module, serve pages and run a program. A command is a name
+    ;; serve pages and run a program. A command is a name
     ;; with string arguments, sent a character at a time, and a number; the
     ;; host answers with a number. Each host names its commands as these
     ;; functions do.
@@ -79,10 +80,6 @@
     (define (schedule! milliseconds)
       (host-command "schedule" (Nil) milliseconds)
       (unit))
-
-    (: assemble! (-> String String Bool ! develop))
-    (define (assemble! text-path module-path)
-      (= (host-command "assemble" (list text-path module-path) 0) 0))
 
     ;; Serves the routes the file names, on `port`, or any free port for 0;
     ;; the host announces where, under `name`.
@@ -443,7 +440,7 @@
     ;; Places the files the program links, then writes each module that
     ;; changed, assembled, and modules.json, which names them in program
     ;; order. Returns each library's name with its module's location.
-    (: write-modules! (-> Loop (List Built) (List (Pair String String)) ! fs develop))
+    (: write-modules! (-> Loop (List Built) (List (Pair String String)) ! fs))
     (define (write-modules! loop builds)
       (place-links! (Loop-output loop) builds)
       (let ((modules
@@ -457,7 +454,7 @@
 
     ;; A module's file is named for what it loads, so a page fetches it
     ;; again only when that changed.
-    (: module-file! (-> Loop Built String ! fs develop))
+    (: module-file! (-> Loop Built String ! fs))
     (define (module-file! loop built)
       (module-url loop
                   (string-append "modules/"
@@ -468,8 +465,10 @@
     ;; assembled there unless it already is. It is named for the module's
     ;; text and the contents of the files the library links, so the page
     ;; relinks from the module when either changed, and relinking a module
-    ;; reads its files again.
-    (: assembled-module! (-> String Built String ! fs develop))
+    ;; reads its files again. A file there is a whole module: it is written
+    ;; beside its name and renamed onto it, so a build that stops partway
+    ;; leaves no file a later one would take as assembled.
+    (: assembled-module! (-> String Built String ! fs))
     (define (assembled-module! directory built)
       (let* ((stamp (string-concatenate
                      (map (lambda (link) (string-append "\n" (digest (LinkedFile-path link))))
@@ -480,9 +479,15 @@
                                   ".wasm"))
              (path (string-append directory "/" file)))
         (unless (file-exists? path)
-          (write-file (string-append path ".wat") (Built-text built))
-          (unless (assemble! (string-append path ".wat") path)
-            (panic (string-append "could not assemble the module of " (Built-name built)))))
+          (match (assemble (Built-text built))
+            ((Ok bytes)
+             (write-bytes (string-append path ".next") bytes)
+             (checked "place" path (rename-file (string-append path ".next") path)))
+            ((Err message)
+             (panic (string-append "could not assemble the module of "
+                                   (Built-name built)
+                                   ": "
+                                   message)))))
         file))
 
     ;; Pages fetch from the server's root; a program reads files.
@@ -539,7 +544,7 @@
 
     ;; Compiles the producer afresh from the source the plan printed, and
     ;; writes the manifest it runs from.
-    (: producer-manifest! (-> Loop Producer Inputs String ! mut fs develop compile))
+    (: producer-manifest! (-> Loop Producer Inputs String ! mut fs compile))
     (define (producer-manifest! loop producer inputs)
       (let* ((directory (producers-directory loop))
              (built (unsupplied (lambda ()

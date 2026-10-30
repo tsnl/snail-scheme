@@ -423,7 +423,8 @@ target to embed, so the plan runs no discovery expansion, and an
 The [application chapter](applications.md#hot-reload) defines current reload behavior.
 
 `host/native/develop.mjs` owns watches, timers, HTTP and application children;
-`develop-worker.mjs` owns the compiled loop, the assembler and the synchronous
+`develop-worker.mjs` owns the compiled loop, which assembles its modules
+in-process with `(snail shell assembler)`, and the synchronous
 `produce MANIFEST OUTPUT` command that runs a producer. The loop does its own
 file work through the runtime's WASI, as any program does
 ([files and directories](libraries.md#files-and-directories)): it makes,

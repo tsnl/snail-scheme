@@ -17,7 +17,6 @@ CHIBI_PATH = -I tests -I bootstrap/chibi-include
 # build then use offline. Run it once in a new checkout or container.
 fetch:
 	cargo fetch --locked --manifest-path crates/snail-core-support/Cargo.toml
-	cargo fetch --locked --manifest-path crates/assembler/Cargo.toml
 	cargo fetch --locked --manifest-path crates/snail/Cargo.toml
 
 # The formatter's tests, the compiler's unit tests, the examples and test

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The native host owns watchers, timers, HTTP/SSE and application children.
-// A persistent worker owns (snail shell develop), its synchronous Wasm compiler,
-// assembler and producer runs. Compiler work never occupies this event loop.
+// A persistent worker owns (snail shell develop), its synchronous Wasm compiler
+// and producer runs. Compiler work never occupies this event loop.
 //
 //   develop.mjs ROOT serve [--port PORT] APP-DIRECTORY
 //   develop.mjs ROOT watch [-I DIRECTORY] SOURCE [ARGUMENT ...]
@@ -30,8 +30,8 @@ function loopRequest([command, ...rest]) {
   return ['watch', resolve(rest[0]), ...directories, '--', ...rest.slice(1)];
 }
 
-// The loop, the reload client, the runtime and the assembler, which the
-// driver builds when their sources change.
+// The loop, the reload client and the runtime, which the driver builds when
+// their sources change.
 function buildTools(root) {
   const result = spawnSync(join(root, 'scripts/snail-tool'), ['tools'], {encoding: 'utf8'});
   if (result.status !== 0) throw new Error(result.stderr.trim());
@@ -72,7 +72,7 @@ function send(loop, kind, text) {
 // ---- Commands ----
 
 // Only commands whose results the Snail-Core loop discards cross this boundary.
-// Immediate assembler and producer results stay beside their Wasm caller.
+// Immediate producer results stay beside their Wasm caller.
 function perform(loop, {command, args, number}) {
   switch (command) {
     case 'watch': {
