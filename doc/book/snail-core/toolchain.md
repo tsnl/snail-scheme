@@ -473,8 +473,8 @@ is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 | Browser ↔ application server | Ordinary HTTP. In development, each page's build's manifest and the events of the builds after it. |
 
 A future debugger attaches to a run's process and build. Its inspector endpoint
-expires with that run. `run-snail.mjs` executes Wasm in a Node worker: attachment
-must reach that agent, not just its wrapper. Debug commands use the inspector
+expires with that run. `run-snail.mjs` executes Wasm on the process's main
+thread, so attachment reaches the program itself. Debug commands use the inspector
 connection rather than compiler requests or parsed stdout. The development
 service stays responsive while an application is paused. Source mappings and
 breakpoints require a separate compiler/assembler proof; debugger support is
