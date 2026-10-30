@@ -13,13 +13,15 @@
 // producer running in every build. An application that links a file reads
 // it, and reads it again after an edit, which compiles nothing, and so it
 // does when that file and a public file are symbolic links. Then
-// `./scripts/snail-tool watch` runs a program again after an edit.
+// `./scripts/snail-tool watch` runs a program again after an edit, and after
+// each of two saves that rename a new file over it, as `sed -i` does, the
+// second of which Node's watch alone misses (#547).
 import assert from 'node:assert/strict';
 import {execFileSync, spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {createHash} from 'node:crypto';
 import {constants} from 'node:fs';
-import {cp, mkdir, mkdtemp, open, readFile, readdir, rm, symlink, writeFile} from 'node:fs/promises';
+import {cp, mkdir, mkdtemp, open, readFile, readdir, rename, rm, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -349,6 +351,12 @@ async function testWatch(directory) {
     child = applicationChild(watcher.child.pid);
     assert.notEqual(child, first, 'a live predecessor exits before its replacement starts');
     assert.throws(() => process.kill(first, 0), {code: 'ESRCH'});
+    for (const message of ['third run', 'fourth run']) {
+      await writeFile(`${source}.next`, program(message));
+      await rename(`${source}.next`, source);
+      await until(() => watcher.text.includes(`${message}\n`), `the ${message} after a save by rename`, 120);
+    }
+    child = applicationChild(watcher.child.pid);
     await stop(watcher);
     assert.throws(() => process.kill(child, 0), {code: 'ESRCH'}, 'stopping the host stops its application subprocess');
     child = null;
