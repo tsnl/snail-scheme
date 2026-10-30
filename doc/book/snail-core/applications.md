@@ -234,8 +234,10 @@ below define checkpoint recovery, acceptance and manifest reconciliation.
 `./scripts/snail-tool serve` runs the producers of generated-library recipes
 before each build, as the project builder used by `snail build`, `snail dev`
 and `make site` does; only the project builder resolves artifact bundles.
-Program targets run through the editor's application controls; browser
-bundle/reload integration remains in progress.
+Program targets run through the editor's application controls, and `snail
+dev` serves each browser target's builds
+([below](#browser-targets-in-development)); reloading a running page from
+them remains in progress.
 
 `./scripts/snail-tool watch SOURCE` is the same loop for a program: it builds and runs the
 program again whenever its sources change, stopping a run still in
@@ -372,6 +374,36 @@ child from overlapping a new child with the same name. There is no attempt histo
 or automatic crash retry. Closing the development session waits for all owners as
 well as the compiler and file observer.
 
+### Browser targets in development
+
+`snail dev` serves the project's browser targets on a listener of their
+own, the applications' origin: the port after the editor's when `--port`
+names one and it is free, otherwise any. The service prints its URL after
+the editor's, and the status names each published browser target's `url`.
+`/` lists the targets, and `/NAME/` mounts one with
+`(snail shell project bundle)`:
+
+| Request | Result |
+| --- | --- |
+| `/NAME/` | The latest build's `index.html`, with `<base href="/NAME/.snail/builds/EPOCH/">` first, or after its doctype. |
+| `/NAME/.snail/builds/EPOCH/PATH` | `PATH` of that build's generation, while it is retained; 404 after. |
+| `/NAME/PATH` | `PATH` of the latest build's generation. |
+
+The base pins a page to its build: its scripts, styles, `modules.json` and
+the modules that names all resolve under that build, so a page never links
+one build's manifest with another's modules, and loading `/NAME/` again
+gives the newest build. A build's files never change. The service keeps
+the latest publication and the one before it, so a page loading as a build
+lands still finds its own. Everything the server adds lives under
+`.snail/`, which a public tree does not use. The origin answers only GET
+and HEAD for its own Host, so a page of another site that rebinds a name to
+the address reads nothing; it is apart from the editor's, so no project
+page can reach the editor's API.
+
+A page served this way runs its build; it does not yet hear of the next.
+The reload client of `./scripts/snail-tool serve` (`host/browser/reload.sld`)
+moves here next, as the events of `/NAME/.snail/events`.
+
 <a id="proposed-application-processes"></a>
 
 ## Proposed durable reload
@@ -401,15 +433,17 @@ until the replacement is reviewed and tested.
 
 ### Delivering new browser code
 
-The proposed HTTP bundle helper keeps the server origin stable across restarts
-and serves files, development manifests and reload events. Reconnect supplies
-the latest manifest. Pin assets to that manifest's build: a request for B must
-not silently return C's bytes. If B is unavailable, reconcile and retry using the
-latest manifest. Network failures and incompatible stored data are distinct;
-neither permits clearing data silently.
+The HTTP bundle helper, `(snail shell project bundle)`, serves a build's files
+and pins a page's assets to its build: a request for B never returns C's bytes
+([above](#browser-targets-in-development)). Proposed: it also serves
+development manifests and reload events, and keeps the server origin stable
+across restarts. Reconnect supplies the latest manifest. If B is unavailable,
+reconcile and retry using the latest manifest. Network failures and
+incompatible stored data are distinct; neither permits clearing data silently.
 
-Advertise a bundle only after its server can serve it. Multiple frontends use
-separate prefixes and manifests. Production serving omits development endpoints.
+Advertise a bundle only after its server can serve it, as the service names a
+browser target's `url` only once a build of it is published. Multiple
+frontends use separate prefixes and manifests. Production serving omits development endpoints.
 Compilation does not prove client/server API or durable-schema compatibility.
 The editor remains an independent client of development services; application
 browser windows are ordinary clients of their server.

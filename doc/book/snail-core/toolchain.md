@@ -241,7 +241,11 @@ The service listens on `127.0.0.1`, and prints its editor URL once it does. It
 answers each connection's one request in the connection's own task, through
 the [Snail HTTP library](http.md). It serves a fixed list of trusted editor
 assets, the editor's page, style and program and the browser host's modules
-that run it; it never serves project HTML or arbitrary filesystem paths.
+that run it; it never serves project HTML or arbitrary filesystem paths. The
+project's browser targets are served on a second listener, the
+[applications' origin](applications.md#browser-targets-in-development), whose
+URL the service prints after the editor's and whose pages therefore cannot
+reach this API.
 
 | Request | Result |
 | --- | --- |
@@ -479,8 +483,9 @@ replacement children.
 ## Application and networking integration
 
 The native service, HTTP API and editor implement [application run controls](applications.md#development-run-targets)
-and replacement after accepted builds. Durable
-state and browser reload integration remain [proposed work](applications.md#proposed-application-processes).
+and replacement after accepted builds, and the service serves each browser
+target's builds ([below](applications.md#browser-targets-in-development)). Durable
+state and reloading a running page remain [proposed work](applications.md#proposed-application-processes).
 Production `serve` and package installation still need their own contracts;
 neither is a current public command.
 
@@ -490,9 +495,10 @@ native owners define bounded buffering, cancellation and close behavior. UDP
 keeps message boundaries without guaranteeing delivery or order.
 
 The [HTTP library](http.md) provides bounded parsing, response framing and one
-complete exchange over TCP. Routing and bundle/reload serving remain to be added. The project
-service currently uses Node HTTP; sharing a Snail-Core HTTP implementation with
-applications is future integration.
+complete exchange over TCP, which the project service is written with.
+`(snail shell project bundle)` answers for a browser application's
+development builds; the project service mounts it for each browser target,
+and an application's own server can mount it too.
 Wait on the host by ticket, as the runtime's sockets do, and test real sockets as well as
 intercepted operations. [Networking work](https://github.com/tsnl/snail-scheme/issues/457)
 tracks this boundary. No transport hierarchy or generic provider framework

@@ -23,8 +23,11 @@
   (export
    Paths
    Description
+   Description-browsers
    RunDefinition
    Generation
+   Generation-name
+   Generation-directory
    Candidate
    Candidate-description
    Candidate-generations
@@ -59,7 +62,7 @@
    Snapshot-phase
    Snapshot-id
    Snapshot-diagnostics
-   Snapshot-published
+   Snapshot-publications
    Snapshot-runs
    Event
    ResidentStarted
@@ -108,10 +111,13 @@
        (project String)))
 
     ;; What the step needs of a project's description: each build's entry
-    ;; and public directory, relative to the project, and its run targets.
+    ;; and public directory, relative to the project, the names of the
+    ;; builds that are browser applications, which the host serves, and its
+    ;; run targets.
     (struct Description
       ((entries (List String))
        (publics (List String))
+       (browsers (List String))
        (runs (List RunDefinition))))
 
     (struct RunDefinition
@@ -268,12 +274,14 @@
        (wanted Bool)
        (available Bool)))
 
-    ;; What subscribers see. The host adds each run's process status.
+    ;; What subscribers see: the publications are the service's, newest
+    ;; first, the latest being the one published. The host adds each run's
+    ;; process status.
     (struct Snapshot
       ((phase Phase)
        (id I64)
        (diagnostics (List Diagnostic))
-       (published (Option Published))
+       (publications (List Published))
        (runs (List RunStatus))))
 
     (enum Refusal
@@ -821,7 +829,7 @@
       (Snapshot (Service-phase service)
                 (Service-epoch service)
                 (Service-diagnostics service)
-                (published service)
+                (Service-publications service)
                 (map (lambda (run)
                        (RunStatus (Run-name run)
                                   (Run-wanted run)

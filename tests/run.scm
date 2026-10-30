@@ -433,6 +433,12 @@
     (or (zero? (caddr result))
         (report "project development" "failed" (string-append (car result) (cadr result))))))
 
+(define (check-project-bundles root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/project-bundles.mjs") root))))
+    (or (zero? (caddr result))
+        (report "project bundles" "failed" (string-append (car result) (cadr result))))))
+
 (define (check-project-attempts root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/project-attempts.mjs") root))))
@@ -765,6 +771,7 @@
                                   (lambda () (check-project-attempts root))
                                   (lambda () (check-development-runs root))
                                   (lambda () (check-project-http root))
+                                  (lambda () (check-project-bundles root))
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))

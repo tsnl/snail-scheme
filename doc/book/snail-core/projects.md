@@ -33,10 +33,11 @@ python3 -m http.server 4191 --directory apps/siegework/build/site
 `snail build [--release] PROJECT BUILD-TARGET` publishes one selected target and
 its required artifacts. `snail run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
 runs a named program. `snail dev [--port PORT] PROJECT` retains compiler
-sessions and serves the editor.
+sessions, serves the editor, and serves each browser target's latest builds
+on an origin of their own.
 The [toolchain](toolchain.md) describes command lifetimes and development,
-including the editor's application controls. Durable application data and browser
-reload integration remain in progress.
+including the editor's application controls. Durable application data and
+reloading a running page remain in progress.
 
 ## Description format
 

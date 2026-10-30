@@ -20,6 +20,7 @@
 (define description
   (Description (list "main.sld")
                (list "public")
+               (Nil)
                (list (RunDefinition "app" "server" (list "--port")))))
 
 (: candidate (-> String Candidate))
@@ -59,7 +60,7 @@
 ;; A publication whose description has no run targets.
 (: without-runs Reply)
 (define without-runs
-  (let ((bare (Description (list "main.sld") (Nil) (Nil))))
+  (let ((bare (Description (list "main.sld") (Nil) (Nil) (Nil))))
     (Reply (Some bare)
            (Some (Candidate bare (list (Generation "server" "/r/apps/p/build/s-x" "x"))))
            (Nil))))
@@ -132,9 +133,10 @@
                                                            (Diagnostic-message diagnostic)
                                                            "]"))
                                           (Snapshot-diagnostics snapshot)))
-                 (match (Snapshot-published snapshot)
-                   ((Some published) (string-append " published " (show (Published-id published))))
-                   ((None) ""))
+                 (match (Snapshot-publications snapshot)
+                   ((Cons published _)
+                    (string-append " published " (show (Published-id published))))
+                   ((Nil) ""))
                  (string-concatenate (map run->string (Snapshot-runs snapshot)))))
 
 (: run->string (-> RunStatus String))
