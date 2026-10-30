@@ -25,3 +25,17 @@ cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check
 ```
 
 Host compilation is used for unit tests.
+
+## Later
+
+*Proposed, not implemented* ([#566](https://github.com/tsnl/snail-scheme/issues/566)).
+The crate is what lies beneath `(snail core …)`, and it can shrink:
+
+- **I/O moves into Snail-Core.** Console, file and path I/O and the clock,
+  about 900 lines, move once Snail-Core has load and store primitives on
+  memory 0 to call WASI through externs itself. Those primitives generalize
+  the shared-memory layer of #553.
+- **The Unicode tables become generated.** The property tables, 765 lines,
+  become a library generated at build time.
+- **Float printing and the transcendental math stay,** as pure scalar
+  services.
