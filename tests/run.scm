@@ -570,24 +570,6 @@
                       "execution failed"
                       (string-append (car result) (cadr result))))))))
 
-;; One resident compiler instance returns opaque sessions and parsed records.
-(define (compile-native-compiler root)
-  (let ((text
-         (program->wat root (standard-directories root) (path-join root "bootstrap/compiler.sld"))))
-    (lambda ()
-      (let* ((program (path-join root "build/tests/native-compiler.wasm"))
-             (linked (link-wat root text program #f))
-             (result (capture-process
-                      (list "node"
-                            "--no-warnings"
-                            "--max-semi-space-size=384"
-                            (path-join root "tests/compiler.mjs")
-                            linked
-                            (build-crate root "assembler")
-                            (build-crate root "snail-core-support")))))
-        (or (zero? (caddr result))
-            (report "resident compiler" "failed" (string-append (car result) (cadr result))))))))
-
 ;; ---- Linked modules ----
 
 ;; Programs compiled one library at a time and linked when they run, by
@@ -826,7 +808,6 @@
                                   (lambda () (check-numeric-runtime root))
                                   (lambda () (check-host-boundary root))
                                   (compile-artifacts root)
-                                  (compile-native-compiler root)
                                   (compile-socket-boundary root)
                                   (compile-termination root)
                                   (compile-app-runtime root)

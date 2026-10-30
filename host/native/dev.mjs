@@ -1,7 +1,7 @@
 // One project development process. The browser edits native files; compilation
-// stays in the service's resident worker. Application launching follows later.
+// stays in the service's resident builder. Application launching follows later.
 import {resolve} from 'node:path';
-import {editorTools} from './project.mjs';
+import {editorTools} from './resident.mjs';
 import {serveProject} from './project-http.mjs';
 
 function options(arguments_) {
