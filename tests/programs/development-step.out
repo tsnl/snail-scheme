@@ -1,0 +1,132 @@
+edits coalesce into one attempt
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  built 1 a candidate -> reconcile
+  reconciled -> publish 1
+  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  touched /r/apps/p/main.sld -> arm
+  touched /r/src/snail/core/base.sld -> arm
+  timer -> notify building 2 published 1 run app available; build 2
+  timer -> nothing
+an input edited while building supersedes the attempt
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  touched /r/apps/p/lib/util.sld -> nothing
+  built 1 a candidate -> reconcile
+  reconciled -> discard 1
+  discarded 1 -> abandon 1; notify superseded 1; arm
+  timer -> notify building 2; build 2
+a file the build does not read does not
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  touched /r/apps/p/notes.txt -> nothing
+  built 1 a candidate -> reconcile
+  reconciled -> publish 1
+  published 1 -> release 1; notify succeeded 1 published 1 run app available
+a public file is an input once a reply names the directory
+  resident started -> reconcile
+  reconciled -> arm
+  touched /r/apps/p/public/index.html -> nothing
+  timer -> notify building 1; build 1
+  touched /r/apps/p/public/index.html -> nothing
+  built 1 a candidate -> reconcile
+  reconciled -> discard 1
+a reply for another epoch is fatal
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  built 1 a candidate -> reconcile
+  reconciled -> publish 1
+  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  touched /r/apps/p/main.sld -> arm
+  timer -> notify building 2 published 1 run app available; build 2
+  built 1 nothing -> notify fatal 2 [unexpected compiler attempt result] published 1 run app available; shutdown; abandon 2; closed
+a publication that fails releases the attempt and reports it
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  built 1 a candidate -> reconcile
+  reconciled -> publish 1
+  published 1: cannot rename build/server -> release 1; notify failed 1 [cannot rename build/server]
+a failed build reports its diagnostics and keeps what was published
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  built 1 a candidate -> reconcile
+  reconciled -> publish 1
+  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  touched /r/apps/p/main.sld -> arm
+  timer -> notify building 2 published 1 run app available; build 2
+  built 2 nothing -> reconcile
+  reconciled -> abandon 2; notify failed 2 [unbound identifier x] published 1 run app available
+a disk that cannot be read discards the candidate until it can
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  built 1 a candidate -> reconcile
+  reconcile failed: cannot reconcile /r/apps/p -> discard 1
+  discarded 1 -> abandon 1; notify failed 1 [cannot reconcile /r/apps/p]
+  uncertain: still failing -> nothing
+  uncertain -> arm
+  timer -> notify building 2; build 2
+a disk that cannot be read at start-up waits for it
+  resident started -> reconcile
+  build requested -> nothing
+  reconcile failed: cannot reconcile /r/apps/p -> notify failed 0 [cannot reconcile /r/apps/p]
+  uncertain: still failing -> nothing
+  uncertain -> arm
+  timer -> notify building 1; build 1
+closing with an attempt in flight abandons it, and nothing after
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  close -> shutdown; abandon 1; closed
+  built 1 a candidate -> nothing
+  start app -> refuse closed
+  close -> nothing
+closing while publishing releases
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  built 1 a candidate -> reconcile
+  reconciled -> publish 1
+  close -> shutdown; release 1; closed
+the resident's exit is fatal
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  resident exited: status 1: snail: out of memory -> notify fatal 1 [status 1: snail: out of memory]; shutdown; abandon 1; closed
+  resident exited: again -> nothing
+run targets follow what is wanted and what is published
+  resident started -> reconcile
+  reconciled -> arm
+  timer -> notify building 1; build 1
+  built 1 a candidate -> reconcile
+  reconciled -> publish 1
+  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  start app -> launch app from build 1 at /r/apps/p/build/s-a/modules.json; notify succeeded 1 published 1 run app wanted available
+  start app -> nothing
+  touched /r/apps/p/main.sld -> arm
+  timer -> notify building 2 published 1 run app wanted available; build 2
+  built 2 a candidate -> reconcile
+  reconciled -> publish 2
+  published 2 -> release 2; launch app from build 2 at /r/apps/p/build/s-b/modules.json; notify succeeded 2 published 2 run app wanted available
+  touched /r/apps/p/main.sld -> arm
+  timer -> notify building 3 published 2 run app wanted available; build 3
+  built 3 a candidate -> reconcile
+  reconciled -> publish 3
+  published 3 -> release 3; notify succeeded 3 published 3 run app wanted available
+  restart app -> launch app from build 3 at /r/apps/p/build/s-b/modules.json; notify succeeded 3 published 3 run app wanted available
+  stop app -> launch app nothing; notify succeeded 3 published 3 run app available
+  start nope -> refuse unknown nope
+  start app -> launch app from build 3 at /r/apps/p/build/s-b/modules.json; notify succeeded 3 published 3 run app wanted available
+  touched /r/apps/p/project.datum -> arm
+  timer -> notify building 4 published 3 run app wanted available; build 4
+  built 4 a candidate -> reconcile
+  reconciled -> publish 4
+  published 4 -> release 4; launch app nothing; notify succeeded 4 published 4 run app
+  start app -> refuse unknown app
+  stop app -> nothing

@@ -134,6 +134,17 @@ coalesces a successor, so the attempt that answers a Build began after it. Succe
 compiler cache entries remain useful in either case; accepted application files
 remain available after a failed build.
 
+`(snail shell development)` makes the same decisions as a pure step in
+Snail-Core. It is a function from the service and one event to the next
+service and the commands its host carries out in order. The events are the
+observer's hints and reconciliations, the resident's replies by epoch, the
+debounce timer, run controls, the resident's exit and closing. The commands
+are building, reconciling, publishing or discarding a candidate, giving up an
+attempt's directory, arming the timer, launching a run and notifying.
+`tests/programs/development-step.sld` drives it through those races. The
+JavaScript service does not use it yet: it is the core of the service's move to
+Snail-Core (#567, step B).
+
 The builder also hashes each completed target's sorted relative filenames and
 bytes, including the runtime, artifacts and public files; a module file adds only
 its name, which is the digest of the text it was assembled from. File boundaries
