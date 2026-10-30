@@ -49,7 +49,7 @@
          Err)
    (only (snail shell compiler read)
          loc->string
-         diagnostic->string
+         diagnostics->string
          compiling
          Failed
          GenerateInput
@@ -232,7 +232,7 @@
     (define (published-request request)
       (match (compiling (lambda () (parse-request (read-file request) request)))
         ((Ok parsed) parsed)
-        ((Err (Failed diagnostic)) (error (diagnostic->string diagnostic)))
+        ((Err (Failed diagnostics)) (error (diagnostics->string diagnostics)))
         ((Err stop) (error "reading a request asked for an input" stop))))
 
     (define (provide-input! root directories generated request)
