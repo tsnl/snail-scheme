@@ -84,7 +84,7 @@ is broken until it fits or nothing on it can break.")
 (defconst snail-format-binding-forms
   '(("let*" . 1) ("letrec" . 1) ("letrec*" . 1) ("let-values" . 1)
     ("let*-values" . 1) ("parameterize" . 1) ("do" . 1) ("handle" . 2)
-    ("learning" . 2) ("expanding" . 2) ("naming" . 2))
+    ("learning" . 2) ("expanding" . 2) ("naming" . 2) ("specializing" . 2))
   "Binding forms besides `let', with the element each keeps its bindings in,
 counting the form's name as element 0. The body follows the bindings.")
 

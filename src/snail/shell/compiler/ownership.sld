@@ -390,26 +390,32 @@
     ;; live in the body either, so the body's use of it is a second use.
     (: check-lambda (-> Path Expr Bool Path ! compile))
     (define (check-lambda path expr once?)
+      (let ((captured (let ((references (expr-references expr)))
+                        (filter (lambda (owner) (member? (Owner-name owner) references))
+                                (Path-live path))))
+            (loc (Expr-loc expr)))
+        (match (Pair once? captured)
+          ((Pair #f (Cons owner _))
+           (compile-error loc
+                          (explain path
+                                   (Owner-type owner)
+                                   "an unrestricted procedure cannot capture a linear value")))
+          (_ (check-closure-body path expr captured)
+             (fold-left (lambda (path owner) (consume path owner loc)) path captured)))))
+
+    ;; The body starts with the captures and the linear parameters live, as
+    ;; the only names in scope, and must consume them all.
+    (: check-closure-body (-> Path Expr (List Owner) Unit ! compile))
+    (define (check-closure-body path expr captured)
       (match (Pair (Expr-term expr) (fn-arrow (Expr-type expr)))
         ((Pair (Lambda params body _) (TFun types _ _))
-         (let ((captured (let ((references (expr-references expr)))
-                           (filter (lambda (owner) (member? (Owner-name owner) references))
-                                   (Path-live path))))
-               (loc (Expr-loc expr)))
-           (match (Pair once? captured)
-             ((Pair #f (Cons owner _))
-              (compile-error loc
-                             (explain path
-                                      (Owner-type owner)
-                                      "an unrestricted procedure cannot capture a linear value")))
-             (_ (unit)))
-           (let* ((empty (Path (Path-program path) (Path-copy path) (Nil) #t))
-                  (start (fold-left (lambda (inner pair)
-                                      (bind inner (Pair-first pair) (Pair-second pair)))
-                                    (Path-live-set empty captured)
-                                    (zip params types))))
-             (close-scope empty (check start body) loc)
-             (fold-left (lambda (path owner) (consume path owner loc)) path captured))))
+         (let* ((empty (Path (Path-program path) (Path-copy path) (Nil) #t))
+                (start
+                 (fold-left (lambda (inner pair) (bind inner (Pair-first pair) (Pair-second pair)))
+                            (Path-live-set empty captured)
+                            (zip params types))))
+           (close-scope empty (check start body) (Expr-loc expr))
+           (unit)))
         (_ (panic "internal error: untyped closure"))))
 
     ;; A clause's pattern binds the fields it names. A wildcard cannot
