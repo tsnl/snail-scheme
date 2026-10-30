@@ -15,7 +15,9 @@
    link-wat
    link-wat-file
    build-crate
+   build-toolchain-runtime
    build-tool
+   build-toolchain-tool
    build-tools
    build-project-tools
    build-editor-tools
@@ -269,7 +271,12 @@
                (program (path-join generated (string-append key ".wasm")))
                (output (path-join generated (string-append key ".syntax")))
                (result (begin
-                         (build-program root directories source program #f)
+                         (build-program root
+                                        directories
+                                        source
+                                        program
+                                        #f
+                                        (build-crate root "snail-core-support"))
                          (run-wasm root program (list output)))))
           (unless (zero? (caddr result))
             (error (string-append "the producer " source " failed:\n" (cadr result))))
@@ -497,15 +504,28 @@
     ;; for a toolchain that runs as Wasm without Binaryen.
     ;; host/native/assemble.mjs drives it.
     (define (build-crate root name)
-      (let ((target (path-join root (string-append "build/wasm-" name)))
+      (build-crate-with root name (string-append "build/wasm-" name) '()))
+
+    ;; The runtime tools written in Snail-Core link: the one programs link,
+    ;; with its `assembler` feature, which (snail shell assembler) reaches.
+    ;; It builds apart from the plain runtime, so neither rebuilds the other.
+    (define (build-toolchain-runtime root)
+      (build-crate-with root
+                        "snail-core-support"
+                        "build/wasm-snail-core-support-toolchain"
+                        '("--features" "assembler")))
+
+    (define (build-crate-with root name directory flags)
+      (let ((target (path-join root directory))
             (manifest (path-join root "crates" name "Cargo.toml")))
-        (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
-                  "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-                  "--target"
-                  "wasm32-wasip1"
-                  "--manifest-path"
-                  manifest
-                  "--target-dir" target)
+        (apply run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
+               "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
+               "--target"
+               "wasm32-wasip1"
+               "--manifest-path"
+               manifest
+               "--target-dir" target
+               flags)
         (path-join target
                    "wasm32-wasip1/release"
                    (string-append (string-map (lambda (c) (if (char=? c #\-) #\_ c))
@@ -583,18 +603,19 @@
     (define (link-wat root text output release?)
       (let ((wat (string-append output ".wat")))
         (write-file wat text)
-        (link-wat-file root wat output release?)))
+        (link-wat-file wat output release? (build-crate root "snail-core-support"))))
 
-    ;; The compiler already wrote this text. Assemble its file directly;
-    ;; only callers that hold text need link-wat's materialization above.
-    (define (link-wat-file root wat output release?)
+    ;; The compiler already wrote this text. Assemble its file directly, and
+    ;; link it with `runtime`; only callers that hold text need link-wat's
+    ;; materialization above.
+    (define (link-wat-file wat output release? runtime)
       (let ((raw (string-append output ".raw.wasm")) (module (string-append output ".module.wasm")))
         (apply run-tool "WASM_AS" "wasm-as" "-g" (append wasm-features (list wat "-o" raw)))
         (apply wasm-opt raw module (optimization release?))
-        (link module output (build-crate root "snail-core-support") release?)
+        (link module output runtime release?)
         output))
 
-    (define (build-program root directories source output release?)
+    (define (build-program root directories source output release? runtime)
       (let ((wat (string-append output ".wat")))
         (create-directory* (path-directory output))
         (let ((links (with-private-directory root
@@ -607,7 +628,7 @@
                                                                   wat
                                                                   directory)
                                                (read-links directory)))))
-          (link-wat-file root wat output release?)
+          (link-wat-file wat output release? runtime)
           (place-links! links (path-directory output))
           output)))
 
@@ -763,7 +784,22 @@
       (rebuild-if-stale! root
                          output
                          (cons source directories)
-                         (lambda () (build-program root directories source output #f))))
+                         (lambda ()
+                           (build-program root
+                                          directories
+                                          source
+                                          output
+                                          #f
+                                          (build-crate root "snail-core-support")))))
+
+    ;; A tool linked with the toolchain's runtime, which it is rebuilt
+    ;; after, as after its sources.
+    (define (build-toolchain-tool root source output directories)
+      (let ((runtime (build-toolchain-runtime root)))
+        (rebuild-if-stale! root
+                           output
+                           (cons runtime (cons source directories))
+                           (lambda () (build-program root directories source output #f runtime)))))
 
     ;; ---- Failures ----
 
