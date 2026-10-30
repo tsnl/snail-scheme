@@ -130,7 +130,7 @@
                 (assert (= (ref-get (Stream-ended state)) 0))
                 (assert (success? (respond connection
                                            250
-                                           received
+                                           (Some (RequestHead-method (Request-head received)))
                                            (Response 201
                                                      (list (Header "X-Body" "4"))
                                                      (Request-body received)))))
@@ -149,12 +149,24 @@
              (match (ann (read-request connection) (Result Request (ExchangeError String)))
                ((Err _) (panic "read-request failed"))
                ((Ok received)
-                (assert (match (ann (respond connection 250 received (Response 99 (Nil) #u8()))
+                (assert (match (ann (respond connection
+                                             250
+                                             (Some (RequestHead-method (Request-head received)))
+                                             (Response 99 (Nil) #u8()))
                                     (Result Unit (ExchangeError String)))
                           ((Err (ProtocolFailure _)) #t)
                           (_ #f)))
                 (assert (= (ref-get (Stream-ended state)) 0))
                 (assert (string=? (output state) "")))))
+           ;; A request that could not be read can still be answered.
+           (let* ((state (stream (ascii "GET / HTTP/1.1\r\nHost: test\r\r\n\r\n") 100 100 ""))
+                  (connection (Connection (type-convert state Any))))
+             (assert (match (ann (read-request connection) (Result Request (ExchangeError String)))
+                       ((Err (ProtocolFailure _)) #t)
+                       (_ #f)))
+             (assert (success? (respond connection 250 (None) (Response 400 (Nil) (ascii "bad")))))
+             (assert (string=? (output state)
+                               "HTTP/1.1 400 \r\nConnection: close\r\nContent-Length: 3\r\n\r\nbad")))
            (write-line "read-request and respond")
            (let ((state (stream (ascii "HEAD / HTTP/1.1\r\nHost: test\r\n\r\n") 100 100 "")))
              (assert (success? (run state (lambda (_) (Ok (Response 200 (Nil) #u8(1 2 3)))))))
