@@ -177,7 +177,9 @@ or stronger unwinding guarantee.
 server that decides between reading a request and answering it. `serve-one`
 is them with one handler between, closing the connection when either fails;
 called directly, a failure from either leaves the connection open, and the
-caller closes it.
+caller closes it. `respond` takes the request's method, or `None` for a
+request that `read-request` refused, so that a server can still answer it,
+with a 400 say; that answer is framed as a GET's is.
 
 ## Remaining integration
 

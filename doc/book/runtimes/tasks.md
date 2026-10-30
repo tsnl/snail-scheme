@@ -100,11 +100,15 @@ does not by itself wait, and the scheduler does not preempt a CPU loop.
 A `Mailbox` is how tasks hand each other values. Messages are received in
 the order they were posted, and receivers are served in the order they
 began to wait. Its queues are Snail-Core data, each in a `Ref`, one of
-messages and one of the tickets of waiting receivers: tasks share a
-mailbox, so its contents are the one piece of state this library cannot
-thread through a single task. A message may be linear, such as a work
-item: it moves into the mailbox and out to the one receiver that takes
-it. The name is `mailbox-receive`,
+messages posted while no task waited and one of waiting receivers: tasks
+share a mailbox, so its contents are the one piece of state this library
+cannot thread through a single task. A post hands its message straight
+to the receiver that has waited longest, and wakes it, so a task that
+asks before that receiver runs waits behind the others instead of taking
+it. A message may be linear, such as a work item: it moves into the
+mailbox and out to the one receiver that takes it. A message handed to a
+receiver whose task never runs again, because its scheduler closed, goes
+with that task. The name is `mailbox-receive`,
 not `receive`, because `(snail shell socket)` exports UDP's `receive`, and a
 program importing both libraries would have conflicting imports.
 

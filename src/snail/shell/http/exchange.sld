@@ -2,7 +2,8 @@
 ;; `serve-one` is the whole exchange with one handler. A server that decides
 ;; between reading and answering calls its halves, `read-request` and
 ;; `respond`, itself; a failure either returns leaves the connection open,
-;; and the caller closes it, as `serve-one` does.
+;; and the caller closes it, as `serve-one` does. `respond` needs only the
+;; request's method, so a server can answer a request it could not read.
 (define-library (snail shell http exchange)
   (export
    Request Request-head Request-body
@@ -152,11 +153,17 @@
 
     ;; Nothing is written unless the whole response encodes. After the
     ;; head and body, the connection finishes within `grace` milliseconds.
+    ;; `method` is the request's, or None for a request that could not be
+    ;; read, which is answered as a GET is: only HEAD and CONNECT change
+    ;; how a response is framed.
     (: respond
-       (All (E) (-> Connection I32 Request Response (Result Unit (ExchangeError E)) ! tcp tasks)))
-    (define (respond connection grace request response)
-      (match (encode-response (RequestHead-method (Request-head request)) (Response-status response)
-                              (Response-headers response) (Response-body response))
+       (All (E) (-> Connection I32 (Option String) Response (Result Unit (ExchangeError E))
+                    ! tcp tasks)))
+    (define (respond connection grace method response)
+      (match (encode-response (match method ((Some name) name) ((None) "GET"))
+                              (Response-status response)
+                              (Response-headers response)
+                              (Response-body response))
         ((Err error) (Err (ProtocolFailure error)))
         ((Ok parts) (write-response connection grace parts))))
 
@@ -168,7 +175,11 @@
         ((Ok request)
          (match (handler request)
            ((Err error) (Err (ApplicationFailure error)))
-           ((Ok response) (respond connection grace request response))))))
+           ((Ok response)
+            (respond connection
+                     grace
+                     (Some (RequestHead-method (Request-head request)))
+                     response))))))
 
     ;; Exclusive use is a calling convention, not a linear socket guarantee.
     ;; Returned failures close here. Traps and cancellation in an unrelated

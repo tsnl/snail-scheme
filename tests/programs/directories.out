@@ -3,6 +3,8 @@ make root again -> error: it already exists
 make without a parent -> error: no such file or directory
 make with parents -> ok
 make with parents again -> ok
+make with parents and a trailing slash -> ok
+make with parents and a doubled slash -> ok
 make with parents over a file -> error: it already exists
 list root -> ok (a)
 list a -> ok (B.txt b four.txt)

@@ -300,16 +300,26 @@
     (define (make-directories path)
       (match (make-directory path)
         ((Err (NotFound)) (make-with-parents path))
-        ((Err (AlreadyExists)) (if (directory? path) (Ok (unit)) (Err (AlreadyExists))))
-        (made made)))
+        (made (directory-there path made))))
 
+    ;; The last directory is made once its parents are, and may be there by
+    ;; then: a trailing or doubled slash names a parent twice, as `a/b` and
+    ;; `a/b/`, and another process may have made it meanwhile.
     (: make-with-parents (-> String (Result Unit FileError) ! fs))
     (define (make-with-parents path)
       (match (parent-path path)
         ((Some parent) (match (make-directories parent)
-                         ((Ok _) (make-directory path))
+                         ((Ok _) (directory-there path (make-directory path)))
                          (failed failed)))
         ((None) (Err (NotFound)))))
+
+    ;; What making the directory at `path` answered, with AlreadyExists
+    ;; made a success when what is there is a directory.
+    (: directory-there (-> String (Result Unit FileError) (Result Unit FileError) ! fs))
+    (define (directory-there path made)
+      (match made
+        ((Err (AlreadyExists)) (if (directory? path) (Ok (unit)) made))
+        (_ made)))
 
     ;; The path up to its last separator, if that leaves a name.
     (: parent-path (-> String (Option String)))

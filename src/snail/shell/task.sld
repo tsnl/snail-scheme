@@ -370,29 +370,46 @@
     ;; ---- Mailboxes ----
 
     ;; Tasks share a mailbox, so what it holds cannot be threaded through
-    ;; any one of them: its two cells are the boundary between them.
-    ;; `messages` holds what was posted and not yet received, and
-    ;; `receivers` the tickets of the tasks waiting in `mailbox-receive`,
-    ;; each in the order it arrived. A message may be linear, so it moves in
-    ;; and out of its cell with `ref-replace!`, and neither operation
-    ;; suspends while the cell holds the empty queue the swap left.
+    ;; any one of them: its cells are the boundary between them. `messages`
+    ;; holds what was posted while no task waited, and `receivers` the tasks
+    ;; waiting in `mailbox-receive`, each in the order it arrived; at most
+    ;; one of the two queues is not empty. A message may be linear, so it
+    ;; moves in and out of a cell with `ref-replace!`, and neither
+    ;; operation suspends while a cell holds the empty value a swap left.
     (struct (Mailbox T)
       ((messages (Ref (Queue T)))
-       (receivers (Ref (Queue I64)))))
+       (receivers (Ref (Queue (Receiver T))))))
+
+    ;; A waiting receiver: the ticket its task waits on, and the cell a post
+    ;; hands it its message in.
+    (struct (Receiver T)
+      ((ticket I64)
+       (slot (Ref (Option T)))))
 
     (: make-mailbox (All (T) (-> (Mailbox T))))
     (define (make-mailbox)
       (Mailbox (ref (empty-queue)) (ref (empty-queue))))
 
     ;; Posting never waits, so a program may post before any task runs.
-    ;; The message joins the queue, and the receiver that has waited
-    ;; longest is woken to take it.
+    ;; The receiver that has waited longest is handed the message and woken,
+    ;; so a task that asks before that one runs cannot take it. A receiver
+    ;; whose ticket wakes nothing, because its task trapped or its scheduler
+    ;; closed while it waited, is dropped, and the message goes to the next.
+    ;; With no receiver, the message joins the queue. A message handed to a
+    ;; receiver is its: should the scheduler close before that task runs,
+    ;; the message goes with it, as one it had received would.
     (: mailbox-post (All (T) (-> (Mailbox T) T Unit ! mut)))
     (define (mailbox-post mailbox message)
-      (let ((messages (Mailbox-messages mailbox))
-            (receivers (Mailbox-receivers mailbox)))
-        (put-back! messages (enqueue (ref-replace! messages (empty-queue)) message))
-        (ref-set! receivers (wake-first (ref-get receivers)))))
+      (let ((receivers (Mailbox-receivers mailbox)))
+        (match (dequeue (ref-get receivers))
+          ((None)
+           (let ((messages (Mailbox-messages mailbox)))
+             (put-back! messages (enqueue (ref-replace! messages (empty-queue)) message))))
+          ((Some (Pair receiver rest))
+           (ref-set! receivers rest)
+           (if (wake! (Receiver-ticket receiver))
+               (hand! (Receiver-slot receiver) message)
+               (mailbox-post mailbox message))))))
 
     ;; A queue goes back into the cell it was taken from, which still holds
     ;; the empty queue the swap left; matching consumes that.
@@ -402,20 +419,17 @@
         ((Queue (Nil) (Nil)) (unit))
         ((Queue front back) (panic "a mailbox changed while its messages were out"))))
 
-    ;; A receiver whose ticket wakes nothing, because its task trapped or
-    ;; its scheduler closed while it waited, is dropped, so the message
-    ;; wakes the next one.
-    (: wake-first (-> (Queue I64) (Queue I64) ! mut))
-    (define (wake-first receivers)
-      (match (dequeue receivers)
-        ((None) receivers)
-        ((Some (Pair ticket rest)) (if (wake! ticket) rest (wake-first rest)))))
+    ;; A receiver's slot is handed one message, while it is empty.
+    (: hand! (All (T) (-> (Ref (Option T)) T Unit ! mut)))
+    (define (hand! slot message)
+      (match (ref-replace! slot (Some message))
+        ((None) (unit))
+        ((Some held) (panic "a receiver was handed a second message"))))
 
     ;; Receiving takes the oldest message. With none, the swap has already
-    ;; left the cell empty, and the task waits on a ticket until a post
-    ;; wakes it and then looks again, since a receiver that was already
-    ;; ready may have taken the message first. The task does not run again
-    ;; until a post wakes it.
+    ;; left the cell empty, and the task waits in line on a ticket until a
+    ;; post hands it a message, so receivers are served in the order they
+    ;; began to wait.
     (: mailbox-receive (All (T) (-> (Mailbox T) T ! mut tasks)))
     (define (mailbox-receive mailbox)
       (let ((messages (Mailbox-messages mailbox)))
@@ -423,8 +437,15 @@
           ((Some (Pair message rest))
            (put-back! messages rest)
            message)
-          ((None)
-           (let ((receivers (Mailbox-receivers mailbox)) (id (ticket)))
-             (ref-set! receivers (enqueue (ref-get receivers) id))
-             (await id))
-           (mailbox-receive mailbox)))))))
+          ((None) (wait-in-line mailbox)))))
+
+    ;; Only a post wakes the ticket, and it hands the message first.
+    (: wait-in-line (All (T) (-> (Mailbox T) T ! mut tasks)))
+    (define (wait-in-line mailbox)
+      (let ((receivers (Mailbox-receivers mailbox))
+            (receiver (Receiver (ticket) (ref (None)))))
+        (ref-set! receivers (enqueue (ref-get receivers) receiver))
+        (await (Receiver-ticket receiver))
+        (match (ref-replace! (Receiver-slot receiver) (None))
+          ((Some message) message)
+          ((None) (panic "a receiver woke without a message")))))))
