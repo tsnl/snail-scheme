@@ -793,7 +793,7 @@
     (: browser-files (List String))
     (define browser-files
       (list "host.mjs" "runtime.mjs" "tasks.mjs" "entry.mjs" "renderer.mjs" "hud.mjs" "pictures.mjs"
-            "storage.mjs" "load.mjs" "style.css"))
+            "storage.mjs" "load.mjs" "style.css" "ui.mjs" "dom.mjs"))
 
     ;; The names some build writes at a generation's root, whether or not
     ;; this one does: a release build writes program.wasm, a development
