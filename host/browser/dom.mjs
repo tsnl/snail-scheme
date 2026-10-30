@@ -1,7 +1,8 @@
 // The page's document for the `dom` effect of src/snail/shell/dom.sld, as
 // `with-page-dom` in src/snail/shell/dom/page.sld calls it. The interface
-// owns the container, handle 0; every node it makes is a handle in `nodes`,
-// and every listener an id in `listeners`. Removing a node frees its
+// owns the container, handle 0, and listens on the window, handle -1;
+// every node it makes is a handle in `nodes`, and every listener an id in
+// `listeners`. Removing a node frees its
 // handle, those of the nodes under it, and their listeners, so the tables
 // hold only what the document still shows. A command may run after the
 // view removed its node, so an operation on a freed handle does nothing,
@@ -14,7 +15,7 @@ import {byteSnapshot} from './load.mjs';
 export const FIRED = 14, WAKE = 15;
 const VALUE = 1, KEY = 2, POINTER = 4, SCROLL = 8, SELECTION = 16, CHECKED = 32;
 const CONTROL = 1, SHIFT = 2, ALT = 4, META = 8;
-const ALWAYS = 1, CHORDS = 2;
+const ALLOW = 0, CHORDS = 2;
 
 // The runtime gives the running program's memory, to read a string argument
 // from staging, and the event it last polled, whose numbers and texts the
@@ -29,8 +30,8 @@ export function createDom(container, runtime) {
   function reset() {
     for (const listener of listeners?.values() ?? []) listener.node.removeEventListener(listener.type, listener.handler);
     container.replaceChildren();
-    nodes = new Map([[0, container]]);
-    handles = new WeakMap([[container, 0]]);
+    nodes = new Map([[0, container], [-1, window]]);
+    handles = new WeakMap([[container, 0], [window, -1]]);
     listeners = new Map();
     owned = new WeakMap();
     next = 1;
@@ -68,6 +69,25 @@ export function createDom(container, runtime) {
     return reply.length;
   }
 
+  // ---- Offsets ----
+
+  // An offset crosses counting scalars, as a Snail String's indices do;
+  // a field counts UTF-16 code units.
+  const scalars = (text, units) => [...text.slice(0, units)].length;
+  function units(text, scalars) {
+    let offset = 0;
+    for (let count = 0; count < scalars && offset < text.length; count++) offset += text.codePointAt(offset) > 0xffff ? 2 : 1;
+    return offset;
+  }
+  // A field given a new value keeps its selection and scroll, as far as
+  // the new text reaches, as when another view of its text changed it.
+  function setValue(field, value) {
+    const {selectionStart, selectionEnd, scrollTop, scrollLeft} = field;
+    field.value = value;
+    field.setSelectionRange(Math.min(selectionStart, field.value.length), Math.min(selectionEnd, field.value.length));
+    Object.assign(field, {scrollTop, scrollLeft});
+  }
+
   // ---- Listeners ----
 
   const modifiers = event => (event.ctrlKey ? CONTROL : 0) | (event.shiftKey ? SHIFT : 0) |
@@ -76,25 +96,27 @@ export function createDom(container, runtime) {
   // What the event carried as it was dispatched, since the program reads it
   // later: the fields `fired-event` reads, in its order.
   function captured(id, bits, event) {
-    const target = event.target;
-    const has = bit => (bits & bit) !== 0;
+    const target = event.target, has = bit => (bits & bit) !== 0;
+    const value = has(VALUE) || has(SELECTION) ? String(target.value ?? '') : '';
     return [FIRED, id, has(KEY) || has(POINTER) ? modifiers(event) : 0, has(POINTER) ? event.buttons : 0,
-      has(SELECTION) ? target.selectionStart ?? 0 : 0, has(SELECTION) ? target.selectionEnd ?? 0 : 0,
+      has(SELECTION) ? scalars(value, target.selectionStart ?? 0) : 0, has(SELECTION) ? scalars(value, target.selectionEnd ?? 0) : 0,
       has(CHECKED) && target.checked ? 1 : 0,
       has(POINTER) ? event.clientX : 0, has(POINTER) ? event.clientY : 0,
       has(SCROLL) ? target.scrollTop : 0, has(SCROLL) ? target.scrollLeft : 0,
-      has(VALUE) ? String(target.value ?? '') : '', has(KEY) ? event.key ?? '' : ''];
+      has(VALUE) ? value : '', has(KEY) ? event.key ?? '' : ''];
   }
-  function prevents(listener, event) {
-    if (listener.prevent === ALWAYS) return true;
-    if (listener.prevent !== CHORDS) return false;
-    return listener.chords.some(([key, held]) => key === event.key && held === modifiers(event));
+  // A listener with chords hears only them, and never a key that ends an
+  // input method's composition.
+  function heard(listener, event) {
+    if (listener.prevent !== CHORDS) return true;
+    return !event.isComposing && listener.chords.some(([key, held]) => key === event.key && held === modifiers(event));
   }
   function listen(handle, bits, prevent, type) {
     const target = node(handle), id = nextListener++;
     const listener = {node: target, type, prevent, chords: [], handler: null};
     listener.handler = event => {
-      if (prevents(listener, event)) event.preventDefault();
+      if (!heard(listener, event)) return;
+      if (prevent !== ALLOW) event.preventDefault();
       runtime.send(...captured(id, bits, event));
     };
     target.addEventListener(type, listener.handler);
@@ -126,7 +148,9 @@ export function createDom(container, runtime) {
     },
     'set-string-property'(handle, address) {
       const [name, value] = named(address), target = node(handle);
-      if (target !== freed && target[name] !== value) target[name] = value;
+      if (target === freed || target[name] === value) return;
+      if (name === 'value' && typeof target.selectionStart === 'number') setValue(target, value);
+      else target[name] = value;
     },
     'set-number-property'(handle, value, address) {
       const name = text(address), target = node(handle);
@@ -160,21 +184,30 @@ export function createDom(container, runtime) {
       listeners.delete(id);
     },
     focus: handle => { node(handle).focus(); },
+    // The page's own dialog, looked up as it is asked, as a test replaces it.
+    confirm: address => (window.confirm(text(address)) ? 1 : 0),
     'element-by-id'(address) {
       const found = document.getElementById(text(address));
       return found && container.contains(found) ? handles.get(found) ?? -1 : -1;
     },
-    'select-range': (handle, start, end) => { node(handle).setSelectionRange?.(start, end); },
+    'select-range'(handle, start, end) {
+      const target = node(handle);
+      if (typeof target.selectionStart !== 'number') return;
+      target.setSelectionRange(units(target.value, start), units(target.value, end));
+    },
     // As typing would, so the page can undo it; a field that cannot take
     // the command has its range replaced and hears the input it missed.
+    // A command that fails leaves the field as it was.
     'insert-text'(handle, start, end, address) {
       const target = node(handle), inserted = text(address);
-      if (!target.setSelectionRange) return;
+      if (typeof target.selectionStart !== 'number') return 0;
+      const from = units(target.value, start), to = units(target.value, end);
       target.focus();
-      target.setSelectionRange(start, end);
-      if (document.execCommand('insertText', false, inserted)) return;
-      target.setRangeText(inserted, start, end, 'end');
+      target.setSelectionRange(from, to);
+      try { if (document.execCommand('insertText', false, inserted)) return 1; } catch { return 0; }
+      target.setRangeText(inserted, from, to, 'end');
       target.dispatchEvent(new Event('input', {bubbles: true}));
+      return 1;
     },
     measure(handle) {
       const target = node(handle);

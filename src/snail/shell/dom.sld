@@ -83,6 +83,8 @@
    listen
    unlisten
    focus-node
+   window-node
+   confirm
    element-by-id
    select-range
    insert-text
@@ -122,7 +124,9 @@
 
     ;; Whether the host prevents an event's default action: never, always,
     ;; or for a key that matches one of the chords exactly, modifiers and
-    ;; all.
+    ;; all. A listener with chords hears only those keys, so the keys an
+    ;; interface leaves alone never reach it, and never a key that ends an
+    ;; input method's composition, which belongs to the input method.
     (enum Prevent
       (Allow)
       (Always)
@@ -165,7 +169,8 @@
     ;; ---- Events ----
 
     ;; What an event carried when it fired: each field its listener
-    ;; captured, and the rest as `no-event` has them.
+    ;; captured, and the rest as `no-event` has them. A selection's offsets
+    ;; count scalars, as a String's indices do.
     (struct Event
       ((value String)
        (key String)
@@ -223,9 +228,17 @@
     ;; through `element-by-id`, to do what a view cannot say: focus, select
     ;; a range of a text field, insert text into one as typing would, so
     ;; the page can undo it, scroll through the scroll properties, and
-    ;; measure. A command may run after the view has removed its node, so
-    ;; these find a removed node does nothing, and reads of it answer ""
-    ;; or 0.
+    ;; measure, and offsets count scalars here too. A command may run after
+    ;; the view has removed its node, so these find a removed node does
+    ;; nothing, and reads of it answer "" or 0. `insert-text` answers
+    ;; whether the field took the text; one that could not leaves it as
+    ;; it was. `confirm` asks the person a question and answers whether
+    ;; they agreed.
+    ;;
+    ;; `window-node` is the page's window, which holds the document and no
+    ;; view does: the interface's window listeners are on it, for what
+    ;; reaches the whole page, such as a shortcut or the page going back
+    ;; online. It has no attributes or properties.
     (effect dom
       ((document-root (-> Node))
        (create-element (-> String Node))
@@ -242,9 +255,11 @@
        (listen (-> Node String (List Capture) Prevent Listener))
        (unlisten (-> Listener Unit))
        (focus-node (-> Node Unit))
+       (window-node (-> Node))
+       (confirm (-> String Bool))
        (element-by-id (-> String (Option Node)))
        (select-range (-> Node I32 I32 Unit))
-       (insert-text (-> Node I32 I32 String Unit))
+       (insert-text (-> Node I32 I32 String Bool))
        (measure (-> Node Measure))
        (wake (-> Unit))
        (next-event (-> Delivery ! tasks))))))

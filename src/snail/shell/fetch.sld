@@ -53,8 +53,9 @@
     ;; kinds` hears the events of the kinds named, and buffers them from
     ;; when it is opened; `stream-next` waits for the next, and answers none
     ;; once the stream is closed, by `stream-close` or for good by the
-    ;; server. A dropped connection is
-    ;; not the end: the host connects again, as `EventSource` does. One
+    ;; server. A dropped connection is not the end: the host connects
+    ;; again, as `EventSource` does, and a stream that names the kind
+    ;; "error" hears one, with no data, each time. One
     ;; task at a time waits on a stream, so a program reading events keeps
     ;; one command waiting on it, and issues the next from the update that
     ;; handles the event.

@@ -4,10 +4,12 @@
 // keeps from its default action, and removes one. The count of notes added
 // arrives by a command's wake, and the command focuses the field it finds
 // by id. Another command inserts text into the field as typing would,
-// which the page can undo. The page asks its server for a greeting, shares
-// its notes with headers and a body, and hears a stream of events until
-// the server ends it. Hiding the page stores the save, and a fresh load
-// restores the notes from it.
+// which the page can undo, and Tab inserts at a caret past an astral
+// scalar, an offset of 2 to the page and 1 to Snail. Escape on the window
+// clears the draft. The page asks its server for a greeting as it starts,
+// shares its notes with headers and a body, and hears a stream of events
+// until the server ends it. Hiding the page stores the save, a fresh load
+// restores the notes from it, and clearing them asks first.
 //
 //   CHROMIUM=... node tests/browser/ui.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -106,8 +108,16 @@ try {
   await until(async () => await added() === '2 added', 'the second count');
 
   const said = id => browser.evaluate(`document.getElementById('${id}').textContent`);
-  await browser.evaluate(`document.getElementById('load').click()`);
-  await until(async () => await said('greeting') === '200 hello from the server', 'the greeting');
+  await until(async () => await said('greeting') === '200 hello from the server', 'the greeting it starts with');
+
+  await type('😀x');
+  await browser.evaluate(`document.getElementById('draft').setSelectionRange(2, 2)`);
+  const tab = await browser.evaluate(`!document.getElementById('draft').dispatchEvent(
+    new KeyboardEvent('keydown', {key: 'Tab', bubbles: true, cancelable: true}))`);
+  assert.equal(tab, true, 'the Tab chord prevents the default action');
+  await until(async () => await draft() === '😀  x', 'the spaces Tab inserts at the caret');
+  await browser.evaluate(`document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))`);
+  await until(async () => await draft() === '', 'the draft Escape on the window clears');
   await type('tea');
   await browser.evaluate(`document.getElementById('add').click()`);
   await until(async () => await notes() === '- eggs,tea', 'the note to share');
@@ -132,6 +142,11 @@ try {
   await type('tea');
   await browser.evaluate(`document.getElementById('add').click()`);
   await until(async () => await notes() === '- eggs,tea', 'a note after the restore');
+  await browser.evaluate(`window.confirm = question => (window.asked = question, false), document.getElementById('clear').click()`);
+  assert.equal(await until(() => browser.evaluate('window.asked'), 'the question'), 'Remove every note?');
+  assert.equal(await notes(), '- eggs,tea', 'declining keeps the notes');
+  await browser.evaluate(`window.confirm = () => true, document.getElementById('clear').click()`);
+  await until(async () => await notes() === '', 'the notes cleared once agreed');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('a document interface types, adds, removes, saves and restores');
 } finally {

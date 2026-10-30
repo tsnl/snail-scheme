@@ -3,7 +3,8 @@
 // src/snail/shell/fetch/page.sld calls it. A request and a stream's next
 // event are host operations of the task that asked (tasks.mjs), which the
 // run's signal aborts when the program stops. A stream keeps what arrives
-// between waits, and a dropped connection reconnects, as EventSource does.
+// between waits, and a dropped connection reconnects, as EventSource does,
+// which a stream that hears "error" hears as an event without data.
 
 import {byteSnapshot} from './load.mjs';
 
@@ -50,11 +51,11 @@ export function createFetch(runtime) {
   function open(description) {
     const [url, ...kinds] = description.split('\0');
     const stream = {source: new EventSource(url), messages: [], closed: false, waiter: null};
-    for (const kind of kinds) {
-      stream.source.addEventListener(kind, event => { stream.messages.push(`${kind}\0${event.data}`); stream.waiter?.(); });
-    }
+    const heard = message => { stream.messages.push(message); stream.waiter?.(); };
+    for (const kind of kinds.filter(kind => kind !== 'error')) stream.source.addEventListener(kind, event => heard(`${kind}\0${event.data}`));
     stream.source.addEventListener('error', () => {
       if (stream.source.readyState === EventSource.CLOSED) { stream.closed = true; stream.waiter?.(); }
+      else if (kinds.includes('error')) heard('error\0');
     });
     streams.set(nextStream, stream);
     return nextStream++;

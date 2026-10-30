@@ -114,7 +114,13 @@
  (once (lambda ()
          (let ((result
                 (with-memory-dom script
-                                 (lambda () (run-ui (Model (Nil) "" 0 0) update view checkpoint)))))
+                                 (lambda ()
+                                   (run-ui (Model (Nil) "" 0 0)
+                                           (Nil)
+                                           update
+                                           view
+                                           (lambda (model) (Nil))
+                                           checkpoint)))))
            (write-line (string-append "saved " (show (Model-saved (Pair-first result)))))
            (write-line (document->html (Pair-second result)))
            (for-each write-line (document-trace (Pair-second result)))))))

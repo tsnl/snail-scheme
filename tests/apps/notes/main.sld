@@ -3,11 +3,13 @@
 ;; it. Adding also starts a command that answers once it has yielded, so
 ;; the count of notes added arrives by a wake, and focuses the field again.
 ;; A bullet button's command inserts "- " at the start of the field as
-;; typing would, so the field's input event brings the draft up to date.
-;; Its server greets it, takes the notes it shares, and sends it events,
-;; which it hears one command at a time until the stream ends. The browser
-;; test (tests/browser/ui.mjs) drives it, and checks that the save a hidden
-;; page stores brings the notes back on a fresh load.
+;; typing would, so the field's input event brings the draft up to date,
+;; and Tab inserts two spaces at the caret. Escape anywhere on the page
+;; clears the draft, and clearing every note asks first. Its server greets
+;; it as it starts, takes the notes it shares, and sends it events, which
+;; it hears one command at a time until the stream ends. The browser test
+;; (tests/browser/ui.mjs) drives it, and checks that the save a hidden page
+;; stores brings the notes back on a fresh load.
 (import
  (snail core base)
  (snail shell task)
@@ -45,9 +47,11 @@
 
 (enum Message
   (Typed ((text String)))
-  (Pressed ((key String)))
+  (Pressed ((key String) (at I32)))
   (Add)
   (Bullet)
+  (Clear)
+  (Cleared)
   (Added ((count I64)))
   (Remove ((id I64)))
   (Load)
@@ -66,9 +70,11 @@
 (define (update model message)
   (match message
     ((Typed text) (Pair (Notes-draft-set model text) (Nil)))
-    ((Pressed key) (if (string=? key "Enter") (update model (Add)) (Pair model (Nil))))
+    ((Pressed key at) (pressed model key at))
     ((Add) (added model))
     ((Bullet) (Pair model (list (once bullet))))
+    ((Clear) (Pair model (list (once clear))))
+    ((Cleared) (Pair (Notes-notes-set model (Nil)) (Nil)))
     ((Added count) (Pair (Notes-added-set model count) (Nil)))
     ((Remove id)
      (Pair (Notes-notes-set model
@@ -86,6 +92,20 @@
            (list (once (lambda () (hear (stream-open "/api/events" (list "message" "note"))))))))
     ((Heard stream text) (Pair (heard model text) (list (once (lambda () (hear stream))))))
     ((Ended) (Pair (heard model "ended") (Nil)))))
+
+(: pressed (-> Notes String I32 (Pair Notes (List (Command Message)))))
+(define (pressed model key at)
+  (cond ((string=? key "Enter") (update model (Add)))
+        ((string=? key "Tab")
+         (Pair model
+               (list (once (lambda ()
+                             (with-draft (lambda (node) (insert-text node at at "  ") (unit)))
+                             (Pressed "" 0))))))
+        (else (Pair model (Nil)))))
+
+(: clear (-> Message ! dom))
+(define (clear)
+  (if (confirm "Remove every note?") (Cleared) (Pressed "" 0)))
 
 (: heard (-> Notes String Notes))
 (define (heard model text)
@@ -150,8 +170,8 @@
 ;; the command's own answer leaves it as it is.
 (: bullet (-> Message ! dom))
 (define (bullet)
-  (with-draft (lambda (node) (insert-text node 0 0 "- ")))
-  (Pressed ""))
+  (with-draft (lambda (node) (insert-text node 0 0 "- ") (unit)))
+  (Pressed "" 0))
 
 (: view (-> Notes (Html Message)))
 (define (view model)
@@ -166,9 +186,10 @@
                                     (Allow)
                                     (lambda (event) (Typed (Event-value event))))
                                 (On "keydown"
-                                    (list (Key))
-                                    (Chords (list (Chord "Enter" 0)))
-                                    (lambda (event) (Pressed (Event-key event)))))
+                                    (list (Key) (Selection))
+                                    (Chords (list (Chord "Enter" 0) (Chord "Tab" 0)))
+                                    (lambda (event)
+                                      (Pressed (Event-key event) (Event-selection-start event)))))
                           (Nil))
                  (Element "button"
                           (list (Attr "id" "add") (On "click" (Nil) (Allow) (lambda (event) (Add))))
@@ -180,9 +201,9 @@
                  (Element "ul" (list (Attr "id" "notes")) (map note-view (Notes-notes model)))
                  (Element "div"
                           (Nil)
-                          (list (button "load" "Load" (Load))
-                                (button "share" "Share" (Share))
-                                (button "listen" "Listen" (Listen))))
+                          (list (button "share" "Share" (Share))
+                                (button "listen" "Listen" (Listen))
+                                (button "clear" "Clear" (Clear))))
                  (Element "p"
                           (list (Attr "id" "greeting"))
                           (list (Text (Server-greeting (Notes-server model)))))
@@ -220,10 +241,19 @@
 (define (restore saved)
   (Notes (Save-notes saved) "" (Save-next saved) 0 no-server))
 
+(: window (-> Notes (List (Attribute Message))))
+(define (window model)
+  (list (On "keydown"
+            (Nil)
+            (Chords (list (Chord "Escape" 0)))
+            (lambda (event) (Typed "")))))
+
 (define-ui Notes
   Message
   (init: start)
   (update: update)
   (view: view)
+  (window: window)
+  (start: (list (Load)))
   (save: save)
   (restore: restore))

@@ -7,12 +7,15 @@
  (snail shell ui))
 
 ;; Commands reaching the view's nodes by id, over the document in memory.
+;; The interface starts with a message whose command answers at once.
 ;; Indenting inserts two spaces at the start of the field, as typing would,
 ;; so the field's input event brings the model's text up to date, then
 ;; selects after them, focuses the field and measures it. A late edit finds
 ;; the field, waits, and inserts after the view has removed the field, so
-;; its insertion does nothing and its trace line says so; once the field is
-;; gone, looking it up finds nothing.
+;; its insertion does nothing, its trace line says so, and it answers that
+;; the field did not take it; once the field is gone, looking it up finds
+;; nothing. Hiding asks first. The window hears Control-S, and no other
+;; key, and the page going back online.
 
 (struct Model
   ((text String)
@@ -20,10 +23,14 @@
    (log (List String))))
 
 (enum Msg
+  (Begin)
   (Typed ((text String)))
   (Indent)
   (Late)
+  (Ask)
   (Hide)
+  (Save)
+  (Online)
   (Done ((what String))))
 
 (type (Command M)
@@ -32,20 +39,31 @@
 (: update (-> Model Msg (Pair Model (List (Command Msg)))))
 (define (update model message)
   (match message
+    ((Begin) (Pair model (list (once began))))
     ((Typed text) (Pair (Model-text-set model text) (Nil)))
     ((Indent) (Pair model (list (once indent))))
     ((Late) (Pair model (list (once late))))
+    ((Ask) (Pair model (list (once ask))))
     ((Hide) (Pair (Model-shown-set model #f) (list (once missing))))
-    ((Done what) (Pair (Model-log-set model (append (Model-log model) (list what))) (Nil)))))
+    ((Save) (Pair (logged model "saved") (Nil)))
+    ((Online) (Pair (logged model "online") (Nil)))
+    ((Done what) (Pair (logged model what) (Nil)))))
+
+(: logged (-> Model String Model))
+(define (logged model what)
+  (Model-log-set model (append (Model-log model) (list what))))
 
 (: indent (-> Msg ! dom))
 (define (indent)
   (match (element-by-id "text")
     ((Some node)
-     (insert-text node 0 0 "  ")
-     (select-range node 2 2)
-     (focus-node node)
-     (Done (string-append "indented, line height " (show (Measure-line-height (measure node))))))
+     (let ((took (insert-text node 0 0 "  ")))
+       (select-range node 2 2)
+       (focus-node node)
+       (Done (string-append "indented: "
+                            (if took "taken" "refused")
+                            ", line height "
+                            (show (Measure-line-height (measure node)))))))
     ((None) (Done "no field"))))
 
 (: late (-> Msg ! dom tasks))
@@ -54,9 +72,16 @@
     ((Some node)
      (yield)
      (yield)
-     (insert-text node 0 0 "late ")
-     (Done (string-append "late, value " (show (string-length (string-property node "value"))))))
+     (let ((took (insert-text node 0 0 "late ")))
+       (Done (string-append "late: "
+                            (if took "taken" "refused")
+                            ", value "
+                            (show (string-length (string-property node "value")))))))
     ((None) (Done "no field"))))
+
+(: ask (-> Msg ! dom))
+(define (ask)
+  (if (confirm "Hide the field?") (Hide) (Done "kept")))
 
 (: missing (-> Msg ! dom))
 (define (missing)
@@ -89,8 +114,20 @@
                                   (Nil))
                          (Element "button"
                                   (list (Attr "id" "hide")
-                                        (On "click" (Nil) (Allow) (lambda (event) (Hide))))
+                                        (On "click" (Nil) (Allow) (lambda (event) (Ask))))
                                   (Nil))))))
+
+(: window (-> Model (List (Attribute Msg))))
+(define (window model)
+  (list (On "online" (Nil) (Allow) (lambda (event) (Online)))
+        (On "keydown"
+            (list (Key))
+            (Chords (list (Chord "s" control-key)))
+            (lambda (event) (Save)))))
+
+(: began (-> Msg))
+(define (began)
+  (Done "began"))
 
 (: starts-with? (-> String String Bool))
 (define (starts-with? prefix line)
@@ -106,12 +143,18 @@
          (let ((result
                 (with-memory-dom (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
                                        (clicked "indent")
+                                       (FireWindow "keydown"
+                                                   (Event-modifiers-set (Event-key-set no-event "s")
+                                                                        control-key))
                                        (clicked "late")
-                                       (clicked "hide"))
+                                       (clicked "hide")
+                                       (FireWindow "online" no-event))
                                  (lambda ()
                                    (run-ui (Model "" #t (Nil))
+                                           (list (Begin))
                                            update
                                            view
+                                           window
                                            (lambda (model) (unit)))))))
            (write-line (string-append "text: " (Model-text (Pair-first result))))
            (for-each write-line (Model-log (Pair-first result)))

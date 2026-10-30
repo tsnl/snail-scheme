@@ -1,11 +1,17 @@
 ;; A document interface hosted in a page, as `define-application` hosts a
-;; scene. An interface is its model and message types and five functions:
+;; scene. An interface is its model and message types, six functions, and
+;; the messages it starts with:
 ;;
 ;;   init    : seed -> Model
 ;;   update  : Model Msg -> (Pair Model (List (Command Msg)))
 ;;   view    : Model -> (Html Msg)
+;;   window  : Model -> (List (Attribute Msg))
+;;   start   : (List Msg)
 ;;   save    : Model -> Save
 ;;   restore : Save -> Model
+;;
+;; where `window` gives the window's listeners, as `run-ui` takes them; an
+;; interface without any gives `(lambda (model) (Nil))`.
 ;;
 ;; `define-ui` runs `run-ui` as the page's root task, over the page's
 ;; document and with the page's requests to its server
@@ -43,12 +49,14 @@
     ;; row with the checkpoint, which names storage, so each is wrapped in
     ;; one that may.
     (define-syntax define-ui
-      (syntax-rules (init: update: view: save: restore:)
+      (syntax-rules (init: update: view: window: start: save: restore:)
         ((_ Model
             Msg
             (init: initialize)
             (update: step)
             (view: render)
+            (window: listening)
+            (start: starting)
             (save: save-model)
             (restore: restore-model))
          (begin
@@ -105,8 +113,11 @@
                                                 (with-page-fetch
                                                  (lambda ()
                                                    (run-ui (Pair-first boot)
+                                                           (ann starting (List Msg))
                                                            ui-update
                                                            (ann render (-> Model (Html Msg)))
+                                                           (ann listening
+                                                                (-> Model (List (Attribute Msg))))
                                                            ui-checkpoint)))))
                                              Any)))
                         ((None) (None)))))))
