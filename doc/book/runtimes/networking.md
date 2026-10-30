@@ -235,6 +235,8 @@ code. As for sockets, cancellation unwinds the task.
 | `send-signal process signal` | `Unit` after sending `(Terminate)`, `(Kill)` or `(Interrupt)`. |
 | `wait-exit process` | `(Exited code)`, or `(Signaled name)` with the signal's name, such as `"SIGTERM"`. |
 | `close-process process` | `Unit`. |
+| `run (Command …) input` | `(Captured exit stdout stderr)`, once the command has run to its end with `input`, a `Bytes`, as its standard input. |
+| `exec (Command …)` | Nothing: the command replaces the program. It returns a `ProcessError`, not a `Result`, and only when the command could not start. |
 
 A `Command`'s program is found on `PATH` when it has no slash; its
 arguments follow the name it is run as, and it runs in `directory`. The
@@ -256,6 +258,16 @@ with SIGKILL and revokes the handle, as closing a socket does; closing it
 again succeeds. A `Process` carries an `Any` token belonging to its handler,
 and a different handler's token reaching the native binding is `EBADF`.
 `tests/programs/process.sld` runs `/bin/sh` through each operation.
+
+`run` and `exec` are for a tool that runs once, such as a command line
+program, not for a service. `run` blocks the program: no task runs until the
+child exits. Its outputs are kept whole, with no pipe to fill, so a child may
+write any amount before it exits. `exec` replaces the program as `execve`
+does: the command takes over the process, its id and its standard streams,
+its exit status becomes the process's, and nothing of the program runs
+after, not even its tasks; children it spawned keep running. Both find a
+program and report failures as `spawn` does
+(`tests/programs/process-run.sld`, `tests/programs/process-exec.sld`).
 
 ### Termination
 
@@ -316,6 +328,15 @@ reacquires the execution permit, as `socket-imports.mjs` does.
 | `wait(signal, handle)` | `{code}` or `{signal}` once the child exits. |
 | `close(handle)` | Revokes the handle, kills a running child and destroys its pipes. |
 | `shutdown()` | Rejects new spawns, closes every child and waits until each has exited. |
+
+`runChild(directory, program, arguments, input)` in the same file is `run`'s
+`spawnSync`, which blocks the worker until the child exits. `exec` cannot run
+on the worker, since Node replaces a process only from its main thread: the
+worker's `createReplacement` posts the command on a port of its own and
+blocks on shared memory, and the main thread's `serveReplacement` changes to
+the command's directory and calls `process.execve`, after finding a program
+with no slash on `PATH`, which `execve` does not search. Only a failure
+answers, with its code, after the directory is changed back.
 
 `createTermination(waiting)` in the same file holds the termination waiters
 and publishes their number in `waiting`, the shared `Int32Array` the main
