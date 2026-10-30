@@ -43,14 +43,14 @@
 
     ;; What the service runs with: the repository's root; the command
     ;; line's program and the runtime it links programs with, which the
-    ;; resident runs as; Node, which runs them; the editor's formatter; the
+    ;; resident runs as; Node, which runs them; the editor's program; the
     ;; project, absolute; and the port to listen on, 0 for any.
     (struct Setup
       ((root String)
        (cli String)
        (runtime String)
        (node String)
-       (formatter String)
+       (editor String)
        (project String)
        (port I32)))
 
@@ -1619,24 +1619,37 @@
 
     ;; ---- The editor's assets ----
 
-    ;; Only the editor's own files share the API's origin: its page,
-    ;; scripts, style and formatter. Project files are never served here.
+    ;; Only the editor's own files share the API's origin: its page, style
+    ;; and program, the script that starts it, and the browser host's
+    ;; modules for a document interface (host/browser/ui.mjs). Project files
+    ;; are never served here.
     (: asset (-> Setup (List String) (Option (Pair String String))))
     (define (asset setup path)
       (let ((root (Setup-root setup)))
         (match (if (root-path? path) (Nil) path)
           ((Nil) (Some (Pair (string-append root "/host/ide/index.html") "text/html")))
           ((Cons name (Nil))
-           (cond ((string=? name "format.wasm")
-                  (Some (Pair (Setup-formatter setup) "application/wasm")))
-                 ((string=? name "load.mjs")
-                  (Some (Pair (string-append root "/host/browser/load.mjs") "text/javascript")))
+           (cond ((string=? name "ide.wasm") (Some (Pair (Setup-editor setup) "application/wasm")))
                  ((string=? name "ide.css")
                   (Some (Pair (string-append root "/host/ide/ide.css") "text/css")))
-                 ((member? name (list "ide.mjs" "editor.mjs" "panes.mjs" "formatter.mjs"))
-                  (Some (Pair (string-append root "/host/ide/" name) "text/javascript")))
+                 ((string=? name "ide.mjs")
+                  (Some (Pair (string-append root "/host/ide/ide.mjs") "text/javascript")))
+                 ((member? name interface-modules)
+                  (Some (Pair (string-append root "/host/browser/" name) "text/javascript")))
                  (else (None))))
           (_ (None)))))
+
+    ;; What host/browser/ui.mjs imports, and what they import.
+    (: interface-modules (List String))
+    (define interface-modules
+      (list "ui.mjs"
+            "dom.mjs"
+            "fetch.mjs"
+            "storage.mjs"
+            "load.mjs"
+            "runtime.mjs"
+            "entry.mjs"
+            "tasks.mjs"))
 
     ;; The page and its scripts may load only from this origin, and no other
     ;; page may frame them.

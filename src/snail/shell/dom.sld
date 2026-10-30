@@ -87,6 +87,7 @@
    confirm
    element-by-id
    select-range
+   selection-range
    insert-text
    measure
    wake
@@ -226,9 +227,9 @@
     ;;
     ;; A command reaches the nodes the view made by their `id` attribute,
     ;; through `element-by-id`, to do what a view cannot say: focus, select
-    ;; a range of a text field, insert text into one as typing would, so
-    ;; the page can undo it, scroll through the scroll properties, and
-    ;; measure, and offsets count scalars here too. A command may run after
+    ;; a range of a text field or read its selection, insert text into one
+    ;; as typing would, so the page can undo it, scroll through the scroll
+    ;; properties, and measure, and offsets count scalars here too. A command may run after
     ;; the view has removed its node, so these find a removed node does
     ;; nothing, and reads of it answer "" or 0. `insert-text` answers
     ;; whether the field took the text; one that could not leaves it as
@@ -259,6 +260,7 @@
        (confirm (-> String Bool))
        (element-by-id (-> String (Option Node)))
        (select-range (-> Node I32 I32 Unit))
+       (selection-range (-> Node (Pair I32 I32)))
        (insert-text (-> Node I32 I32 String Bool))
        (measure (-> Node Measure))
        (wake (-> Unit))

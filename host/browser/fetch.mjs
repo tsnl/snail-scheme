@@ -30,13 +30,15 @@ export function createFetch(runtime) {
 
   // ---- Requests ----
 
-  // A GET or HEAD has no body to send.
+  // A GET is fetch's default request, so it goes without a method, as a
+  // page's own reads do; a GET or HEAD has no body to send.
   function start(ticket) {
     const {method, url, headers, body} = parts;
     parts = {method: 'GET', url: '', headers: [], body: ''};
+    const init = method === 'GET' ? {headers} : {method, headers, body: method === 'HEAD' ? undefined : body};
     tasks().start(Number(ticket), async signal => {
       try {
-        const response = await fetch(url, {method, headers, signal, body: method === 'GET' || method === 'HEAD' ? undefined : body});
+        const response = await fetch(url, {...init, signal});
         return {status: response.status, text: await response.text()};
       } catch (error) {
         if (signal.aborted) throw error;

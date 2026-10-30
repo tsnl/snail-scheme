@@ -1,10 +1,12 @@
-/* A toolbar, project files and editor panes. Text, highlighting and gutter
-   share a font and line height. Compiler messages occupy a separate panel. */
-:root { --background: #1e2127; --surface: #24282f; --raised: #2f343d; --line: #363c46; --text: #d7dae0; --muted: #8b93a1;
+/* A toolbar, project files and editor panes, as host/ide/ide.sld's view
+   lays them out. Text, highlighting and gutter share a font and its line
+   height, which the view's highlighting counts on. Compiler messages occupy
+   a separate panel. */
+:root { color-scheme: dark; --background: #1e2127; --surface: #24282f; --raised: #2f343d; --line: #363c46; --text: #d7dae0; --muted: #8b93a1;
   --accent: #61afef; --error: #e06c75; --code: 13px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-html, body { height: 100%; margin: 0; overflow: hidden; }
-body { display: grid; grid-template-rows: 32px minmax(0, 1fr) auto auto; background: var(--background); color: var(--text);
-  font: 13px/1.4 system-ui, sans-serif; }
+html, body, #ide { height: 100%; margin: 0; overflow: hidden; }
+body { background: var(--background); color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
+.ide { display: grid; height: 100%; grid-template-rows: 32px minmax(0, 1fr) auto auto; }
 button { font: inherit; color: inherit; }
 
 .toolbar { display: flex; align-items: center; gap: 2px; padding: 0 6px; border-bottom: 1px solid var(--line); background: var(--surface); }
@@ -57,28 +59,30 @@ button { font: inherit; color: inherit; }
   white-space: pre-wrap; }
 .diagnostics { max-height: 25vh; overflow: auto; margin: 0; padding: 8px 12px; background: #3a2328; color: #f0b7bd; font: var(--code); white-space: pre-wrap; }
 
-.editor { position: relative; display: flex; flex: 1; min-height: 0; background: var(--background); }
-.gutter { position: relative; flex: 0 0 auto; min-width: 44px; overflow: hidden; border-right: 1px solid var(--line); }
-.gutter-content { position: relative; }
+/* One scroller per pane holds the gutter and the code, and the field is as big as its text, so they scroll together. The field
+   clips rather than scrolling itself, so the page scrolls the scroller to follow the caret instead. */
+.editor { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-rows: minmax(100%, max-content);
+  overflow: auto; background: var(--background); }
+.gutter { position: sticky; left: 0; z-index: 1; min-width: 44px; border-right: 1px solid var(--line); background: var(--background); }
 .numbers { margin: 0; padding: 8px 10px 8px 12px; color: #5c6370; font: var(--code); text-align: right; user-select: none; }
-.code { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+.code { position: relative; min-width: 0; }
 .code textarea, .highlight, .marks { box-sizing: border-box; margin: 0; padding: 8px 12px; border: 0; font: var(--code); tab-size: 8;
   white-space: pre; }
-.code textarea { position: absolute; inset: 0; width: 100%; height: 100%; resize: none; outline: none; background: transparent;
+.code textarea { display: block; min-width: 100%; height: 100%; overflow: clip; resize: none; outline: none; background: transparent;
   color: transparent; caret-color: var(--accent); }
 .code textarea::selection { background: rgba(97, 175, 239, 0.3); }
 .highlight, .marks { position: absolute; top: 0; left: 0; pointer-events: none; }
 .highlight { color: var(--text); }
 
-/* One Dark's colors, by the class of each character's token, as (snail shell highlight) and the compiler's reader see it. */
-.hl-c { color: #7f848e; font-style: italic; }
-.hl-s, .hl-h { color: #98c379; }
-.hl-n, .hl-b { color: #d19a66; }
-.hl-k { color: #c678dd; }
-.hl-t { color: #e5c07b; }
-.hl-d { color: #61afef; }
-.hl-p { color: #7f848e; }
-.hl-e { color: #e06c75; }
+/* One Dark's colors, by the class of each token, as (snail shell highlight) and the compiler's reader see it. */
+.tok-comment { color: #7f848e; font-style: italic; }
+.tok-string, .tok-character { color: #98c379; }
+.tok-number, .tok-boolean { color: #d19a66; }
+.tok-keyword { color: #c678dd; }
+.tok-type { color: #e5c07b; }
+.tok-definition { color: #61afef; }
+.tok-punctuation { color: #7f848e; }
+.tok-invalid { color: #e06c75; }
 
 .marks { color: transparent; }
 .squiggle { text-decoration: underline wavy var(--error); text-decoration-skip-ink: none; text-underline-offset: 3px; }
@@ -95,3 +99,8 @@ button { font: inherit; color: inherit; }
 .run-output section + section { border-left: 1px solid var(--line); }
 .run-output h2 { margin: 0; padding: 2px 10px; font-size: 11px; font-weight: 500; color: var(--muted); }
 .run-output pre { height: 16vh; overflow: auto; margin: 0; padding: 4px 10px; font: var(--code); white-space: pre; }
+
+/* A drag covers the page, so the pointer's moves reach it wherever they go. */
+.drag-overlay { position: fixed; inset: 0; z-index: 10; }
+.drag-overlay.row { cursor: col-resize; }
+.drag-overlay.column { cursor: row-resize; }
