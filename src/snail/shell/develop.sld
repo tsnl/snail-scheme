@@ -29,7 +29,7 @@
          compiling
          Failed
          Requested
-         diagnostic->string)
+         diagnostics->string)
    (only (snail shell compiler core) fnv-1a)
    (only (snail shell compiler inputs)
          Inputs
@@ -391,7 +391,7 @@
         (broadcast! (string-append "(building " (ref-get (Loop-manifest loop)) ")"))
         (match (compiling (lambda () (next-build! loop (main-source (Loop-request loop)))))
           ((Ok builds) (built! loop builds started))
-          ((Err (Failed diagnostic)) (build-failed! loop (diagnostic->string diagnostic)))
+          ((Err (Failed diagnostics)) (build-failed! loop (diagnostics->string diagnostics)))
           ((Err (Requested _))
            (panic "internal error: the development loop's compile asked for an input")))))
 

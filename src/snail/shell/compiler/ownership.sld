@@ -13,7 +13,9 @@
 ;; instantiation, and a refusal it causes names the requirement that would
 ;; lift it.
 (define-library (snail shell compiler ownership)
-  (export check-ownership check-owned-types)
+  (export
+   check-owned-fields
+   check-item-ownership)
   (import
    (snail core base)
    (snail core table)
@@ -63,10 +65,9 @@
                         ")"))))
 
     ;; A declaration's fields are checked with its parameters ω, since they
-    ;; are checked where the declaration is used; each item with the
-    ;; variables its scheme declares ω.
-    (: check-owned-types (-> Program (Table Scheme) (List Item) Unit ! compile))
-    (define (check-owned-types program schemes items)
+    ;; are checked where the declaration is used.
+    (: check-owned-fields (-> Program Unit ! compile))
+    (define (check-owned-fields program)
       (for-each (lambda (data)
                   (for-each (lambda (case)
                               (for-each (lambda (field)
@@ -75,15 +76,18 @@
                                                       (Field-type field)
                                                       no-loc))
                                         (Case-fields case)))
-                            (DataType-cases data))) (table-values (Program-types program)))
-      (for-each (lambda (item)
-                  (match item
-                    ((Define name value)
-                     (when (linear-type? program (scheme-vars schemes name) (Expr-type value))
-                       (compile-error (Expr-loc value) "a linear value cannot be a global"))
-                     (check-expression-types program (item-copy schemes item) value))
-                    ((Do value) (check-expression-types program (Nil) value))
-                    (_ (unit)))) items))
+                            (DataType-cases data))) (table-values (Program-types program))))
+
+    ;; An item's types, with the variables its scheme declares ω.
+    (: check-owned-types (-> Program (Table Scheme) Item Unit ! compile))
+    (define (check-owned-types program schemes item)
+      (match item
+        ((Define name value)
+         (when (linear-type? program (scheme-vars schemes name) (Expr-type value))
+           (compile-error (Expr-loc value) "a linear value cannot be a global"))
+         (check-expression-types program (item-copy schemes item) value))
+        ((Do value) (check-expression-types program (Nil) value))
+        (_ (unit))))
 
     ;; A global's own type variables. A polymorphic global's initializer
     ;; is total, so it holds no value of them, and its uses may share it.
@@ -473,13 +477,13 @@
     ;; ---- Items ----
 
     ;; Each item is a path of its own, under the variables its scheme
-    ;; declares ω: no linear value is a global, and a statement cannot
-    ;; discard one.
-    (: check-ownership (-> Program (Table Scheme) (List Item) Unit ! compile))
-    (define (check-ownership program schemes items)
-      (for-each (lambda (item)
-                  (check-item (Path program (item-copy schemes item) (Nil) #t) item))
-                items))
+    ;; declares ω, once its types are representable: no linear value is a
+    ;; global, and a statement cannot discard one. An item's ownership is
+    ;; its own, so one item's failure says nothing of another's.
+    (: check-item-ownership (-> Program (Table Scheme) Item Unit ! compile))
+    (define (check-item-ownership program schemes item)
+      (check-owned-types program schemes item)
+      (check-item (Path program (item-copy schemes item) (Nil) #t) item))
 
     (: check-item (-> Path Item Unit ! compile))
     (define (check-item path item)

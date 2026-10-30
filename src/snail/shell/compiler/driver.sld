@@ -15,7 +15,7 @@
          compiling
          Failed
          Requested
-         diagnostic->string)
+         diagnostics->string)
    (snail shell compiler)
    (snail shell compiler inputs))
   (begin
@@ -31,7 +31,7 @@
            ((Err (Requested request))
             (publish-request generated request)
             (panic "compiler requires an input"))
-           ((Err (Failed diagnostic)) (panic (diagnostic->string diagnostic)))))
+           ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))))
         (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
 
     ;; Writes what `mode` asks for: the program's schemas, a module for each

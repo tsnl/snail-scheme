@@ -1423,7 +1423,9 @@
     ;; returns one step per definition or expression, from context to
     ;; context, that expands it. The steps then run as a fold, in the order
     ;; the scan found them, each handed the context the one before left, so
-    ;; every body sees every declaration and the bodies before it.
+    ;; every body sees every declaration and the bodies before it. The
+    ;; first two passes stop at an error, since what follows needs every
+    ;; name and type; the bodies go on past one (`expand-bodies`).
     (struct Pending
       ((keyword String)
        (form Syntax)
@@ -1444,7 +1446,25 @@
                    (expanding cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
                                                 pending)))
                               (check-buildable-structs cx pending)
-                              (fold-left (lambda (cx body) (body cx)) cx (concatenate bodies))))))
+                              (expand-bodies cx (concatenate bodies))))))
+
+    ;; A body that fails leaves the context as it was before it, and the
+    ;; bodies after it are expanded all the same, so one compile reports
+    ;; each body's error. Nothing a later body resolves can be missing for
+    ;; it, since pass 1 bound every name. The library then fails with what
+    ;; every failed body found, in order, and is never checked.
+    (: expand-bodies (-> Context (List (-> Context Context ! compile)) Context ! compile))
+    (define (expand-bodies cx bodies)
+      (let ((run (fold-left (lambda (run body)
+                              (match (recovering (lambda () (body (Pair-first run))))
+                                ((Ok cx) (Pair cx (Pair-second run)))
+                                ((Err found)
+                                 (Pair (Pair-first run)
+                                       (append (Pair-second run) (diagnostics->list found))))))
+                            (Pair cx (Nil))
+                            bodies)))
+        (fail-if-found (Pair-second run))
+        (Pair-first run)))
 
     ;; A struct whose every value would contain another value of itself,
     ;; through struct fields and cell contents only, can never be built: no

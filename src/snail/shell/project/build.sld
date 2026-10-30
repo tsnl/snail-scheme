@@ -56,8 +56,8 @@
          compiling
          Failed
          Requested
-         SourceDiagnostic
-         diagnostic->string)
+         Diagnostics
+         diagnostics->string)
    (only (snail shell compiler session)
          Session
          make-session
@@ -96,17 +96,17 @@
 
     ;; ---- Failures ----
 
-    ;; Why a build stopped: a compile's diagnostic, which names its source
+    ;; Why a build stopped: a compile's diagnostics, each naming its source
     ;; point, or a failure of the build's own work, which names a file or a
     ;; command.
     (enum Failure
-      (CompileFailure ((diagnostic SourceDiagnostic)))
+      (CompileFailure ((diagnostics Diagnostics)))
       (BuildFailure ((message String))))
 
     (: failure->string (-> Failure String))
     (define (failure->string failure)
       (match failure
-        ((CompileFailure diagnostic) (diagnostic->string diagnostic))
+        ((CompileFailure diagnostics) (diagnostics->string diagnostics))
         ((BuildFailure message) message)))
 
     ;; A build stops at the first failure it meets, and nothing after the
@@ -132,7 +132,7 @@
     (define (compiled work)
       (match (compiling work)
         ((Ok value) value)
-        ((Err (Failed diagnostic)) (absurd (stop (CompileFailure diagnostic))))
+        ((Err (Failed diagnostics)) (absurd (stop (CompileFailure diagnostics))))
         ((Err (Requested request))
          (fail-build (string-append "internal error: the build plan did not supply the input "
                                     (request->string request))))))

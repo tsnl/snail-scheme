@@ -45,6 +45,9 @@
    SourceDiagnostic-loc
    SourceDiagnostic-message
    diagnostic->string
+   Diagnostics
+   diagnostics->list
+   diagnostics->string
    CompilerRequest
    GenerateInput
    ArtifactInput
@@ -55,6 +58,10 @@
    Failed
    Requested
    compiling
+   recovering
+   failures-of
+   fail-if-found
+   in-source-order
    read-text
    decode-syntax
    Source
@@ -209,12 +216,28 @@
                      ": "
                      (SourceDiagnostic-message diagnostic)))
 
+    ;; What a failed compile found wrong, which is never nothing: the first
+    ;; diagnostic, then the rest in order.
+    (struct Diagnostics
+      ((first SourceDiagnostic)
+       (more (List SourceDiagnostic))))
+
+    (: diagnostics->list (-> Diagnostics (List SourceDiagnostic)))
+    (define (diagnostics->list diagnostics)
+      (Cons (Diagnostics-first diagnostics) (Diagnostics-more diagnostics)))
+
+    ;; The diagnostics a line each.
+    (: diagnostics->string (-> Diagnostics String))
+    (define (diagnostics->string diagnostics)
+      (string-join (map diagnostic->string (diagnostics->list diagnostics)) "\n"))
+
     ;; Every pass reports a source error by performing the compile effect's
-    ;; `fail`. Nothing after the call runs: the entry point's handler takes
-    ;; the diagnostic and hands it to its caller.
+    ;; `fail`. Nothing after the call runs: the nearest handler takes the
+    ;; diagnostic, and either hands it to its caller or goes on to the
+    ;; pass's next item (`recovering`).
     (: compile-error (All (A) (-> Loc String A ! compile)))
     (define (compile-error loc message)
-      (absurd (fail (SourceDiagnostic loc message))))
+      (absurd (fail (Diagnostics (SourceDiagnostic loc message) (Nil)))))
 
     ;; What a compile asks its caller for when it was not supplied it: the
     ;; output of the producer printed under `key`, or a project target's
@@ -229,21 +252,77 @@
     ;; when it needs an input it was not supplied. Neither operation returns
     ;; to the pass that performs it, so a yield to this effect saves no
     ;; frames, and each entry point handles it with `compiling`, which
-    ;; turns the compile into a Result.
+    ;; turns the compile into a Result. `fail` carries the one diagnostic of
+    ;; `compile-error`, or every one a pass collected from its items before
+    ;; it stopped.
     (effect compile
-      ((ctl fail (-> SourceDiagnostic Never))
+      ((ctl fail (-> Diagnostics Never))
        (ctl need (-> CompilerRequest Never))))
 
     (enum Stop
-      (Failed ((diagnostic SourceDiagnostic)))
+      (Failed ((diagnostics Diagnostics)))
       (Requested ((request CompilerRequest))))
 
     (: compiling (All (T e) (-> (-> T ! compile e) (Result T Stop) ! e)))
     (define (compiling work)
       (handle compile
-          ((fail (lambda (diagnostic) (Err (Failed diagnostic))))
+          ((fail (lambda (diagnostics) (Err (Failed diagnostics))))
            (need (lambda (request) (Err (Requested request)))))
         (Ok (work))))
+
+    ;; `work`'s value, or what it found wrong, so a pass can check the
+    ;; rest of its items and report each one's failure together. Needing
+    ;; an input is no failure of the item: the request goes on to the
+    ;; compile's handler, since an implementation runs outside its handle.
+    (: recovering
+       (All (T e) (-> (-> T ! compile e) (Result T Diagnostics) ! compile e)))
+    (define (recovering work)
+      (handle compile
+          ((fail (lambda (diagnostics) (Err diagnostics)))
+           (need (lambda (request) (absurd (need request)))))
+        (Ok (work))))
+
+    ;; What `check` finds wrong in each item, checking every item past one
+    ;; that fails, in the items' order.
+    (: failures-of
+       (All (A e) (requires (Copy A))
+            (-> (-> A Unit ! compile e) (List A) (List SourceDiagnostic) ! compile e)))
+    (define (failures-of check items)
+      (concatenate (map (lambda (item)
+                          (match (recovering (lambda () (check item)))
+                            ((Ok _) (Nil))
+                            ((Err found) (diagnostics->list found))))
+                        items)))
+
+    ;; Fails the compile with `found`, unless it is empty.
+    (: fail-if-found (-> (List SourceDiagnostic) Unit ! compile))
+    (define (fail-if-found found)
+      (match found
+        ((Nil) (unit))
+        ((Cons first more) (absurd (fail (Diagnostics first more))))))
+
+    ;; The diagnostics by file, then line, then column, the order a reader
+    ;; meets them; ones at the same place keep their order.
+    (: in-source-order (-> (List SourceDiagnostic) (List SourceDiagnostic)))
+    (define (in-source-order diagnostics)
+      (fold-left (lambda (sorted diagnostic) (insert-in-order diagnostic sorted))
+                 (Nil)
+                 diagnostics))
+
+    (: insert-in-order (-> SourceDiagnostic (List SourceDiagnostic) (List SourceDiagnostic)))
+    (define (insert-in-order diagnostic sorted)
+      (match sorted
+        ((Cons first rest)
+         (if (loc<? (SourceDiagnostic-loc diagnostic) (SourceDiagnostic-loc first))
+             (Cons diagnostic sorted)
+             (Cons first (insert-in-order diagnostic rest))))
+        ((Nil) (list diagnostic))))
+
+    (: loc<? (-> Loc Loc Bool))
+    (define (loc<? a b)
+      (cond ((not (string=? (Loc-file a) (Loc-file b))) (string<? (Loc-file a) (Loc-file b)))
+            ((= (Loc-line a) (Loc-line b)) (< (Loc-column a) (Loc-column b)))
+            (else (< (Loc-line a) (Loc-line b)))))
 
     ;; ---- Line table ----
 
@@ -804,7 +883,7 @@
       ;; here.
       (define (compile-failure work)
         (match (compiling work)
-          ((Err (Failed diagnostic)) (diagnostic->string diagnostic))
+          ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
           (_ #f)))
 
       (define (test-read)
@@ -843,9 +922,21 @@
       ;; counts Unicode scalars; one that completes stops with nothing.
       (define (test-source-diagnostic)
         (expect (compiling (lambda () (read-text "😀 )" "λ😀.sld")))
-                (Err
-                 (Failed (SourceDiagnostic (Loc "λ😀.sld" 1 3) "unexpected closing parenthesis"))))
-        (expect (compile-failure (lambda () (read-text "()" "recovered.sld"))) #f))
+                (Err (Failed (Diagnostics (SourceDiagnostic (Loc "λ😀.sld" 1 3)
+                                                            "unexpected closing parenthesis")
+                                          (Nil)))))
+        (expect (compile-failure (lambda () (read-text "()" "recovered.sld"))) #f)
+        (test-recovering))
+
+      ;; A failure inside `recovering` is its answer, so the work around
+      ;; it goes on; a need passes through it to the compile's handler.
+      (define (test-recovering)
+        (expect (compiling (lambda () (recovering (lambda () (read-text ")" "t.sld")))))
+                (Ok (Err (Diagnostics (SourceDiagnostic (Loc "t.sld" 1 1)
+                                                        "unexpected closing parenthesis")
+                                      (Nil)))))
+        (expect (compiling (lambda () (recovering (lambda () (absurd (need (GenerateInput "k")))))))
+                (Err (Requested (GenerateInput "k")))))
 
       ;; (f "λ" -7 1.5 #\a #t #u8(0 200)), with a two-byte count for λ.
       (define (test-decode-syntax)

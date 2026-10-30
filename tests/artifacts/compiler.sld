@@ -70,6 +70,6 @@
   ((Cons _ (Cons source (Cons output directories)))
    (match (reader:compiling (lambda () (compile-all source output directories)))
      ((Ok _) (unit))
-     ((Err (reader:Failed diagnostic)) (panic (reader:diagnostic->string diagnostic)))
+     ((Err (reader:Failed diagnostics)) (panic (reader:diagnostics->string diagnostics)))
      ((Err (reader:Requested _)) (panic "the compiles asked for an input they were supplied"))))
   (_ (panic "usage: compiler SOURCE OUTPUT LIBRARY ...")))

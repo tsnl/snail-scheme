@@ -2185,21 +2185,36 @@
                          #f
                          (Nil)
                          (Nil))))
-        (learning ck ((inferred (check-inferred items))
-                      (typed (each (lambda (ck item) (check-item ck inferred item)) items))
+        (learning ck ((typed (check-items items))
                       (then (solve-pending))
                       (then (check-exposures items)))
                   (let ((result
-                         (Typed program (map (lambda (item) (zonk-item (solution ck) item)) typed)
+                         (Typed program
+                                (map (lambda (item) (zonk-item (solution ck) item)) typed)
                                 (final-schemes ck items))))
-                    (for-each check-conversions (Typed-items result))
-                    (for-each (lambda (item) (check-closed-item program item)) (Typed-items result))
-                    (check-owned-types program (Typed-schemes result) (Typed-items result))
-                    (check-ownership program (Typed-schemes result) (Typed-items result))
-                    (for-each
-                     (lambda (function) (check-confined result (zonk-expr (solution ck) function)))
-                     (Checker-confined ck))
+                    (check-final result
+                                 (map (lambda (function) (zonk-expr (solution ck) function))
+                                      (Checker-confined ck)))
                     result))))
+
+    ;; The checks of a library whose types are final. Each item's, and each
+    ;; confining function's, are its own, so the library fails with what
+    ;; every one found, in source order.
+    (: check-final (-> Typed (List Expr) Unit ! compile))
+    (define (check-final typed confined)
+      (let ((program (Typed-program typed)) (schemes (Typed-schemes typed)))
+        (check-owned-fields program)
+        (fail-if-found
+         (in-source-order
+          (append (failures-of (lambda (item) (check-final-item program schemes item))
+                               (Typed-items typed))
+                  (failures-of (lambda (function) (check-confined typed function)) confined))))))
+
+    (: check-final-item (-> Program (Table Scheme) Item Unit ! compile))
+    (define (check-final-item program schemes item)
+      (check-conversions item)
+      (check-closed-item program item)
+      (check-item-ownership program schemes item))
 
     (: check-exposures (-> Checker (List Item) Checker ! compile))
     (define (check-exposures ck items)
@@ -2210,14 +2225,49 @@
                  ck items))
 
     ;; Checks the definitions without signatures, a group at a time in
-    ;; dependency order, and returns them by name.
-    (: check-inferred (-> Checker (List Item) (Pair (Table Item) Checker) ! compile))
-    (define (check-inferred ck items)
-      (learning ck ((groups (each check-group (unannotated-groups ck items))))
-                (Pair (fold-left
+    ;; dependency order, then every item with the groups' results by name.
+    ;; A group that fails defines names whose users go unchecked; a
+    ;; definition with a signature fails nothing else, since its users
+    ;; need only that. A library whose items failed stops with what each
+    ;; one found, in source order, before its constraints are solved: a
+    ;; constraint of an item that checked may mention a type a failed one
+    ;; would have decided, and would report an ambiguity that fixing the
+    ;; first error removes. So an instance error shows once the type errors
+    ;; are gone.
+    (: check-items (-> Checker (List Item) (Pair (List Item) Checker) ! compile))
+    (define (check-items ck items)
+      (let* ((groups (each-recovered (Recovered ck (Nil) (Nil) (Nil))
+                                     group-references
+                                     (lambda (group) (map Define-name group))
+                                     check-group
+                                     (unannotated-groups ck items)))
+             (results (fold-left
                        (lambda (results result) (table-set results (Define-name result) result))
-                       empty-table (concatenate groups))
-                      ck)))
+                       empty-table (concatenate (Recovered-values groups))))
+             (checked (each-recovered (Recovered (Recovered-checker groups)
+                                                 (Nil)
+                                                 (Recovered-found groups)
+                                                 (Recovered-failed groups))
+                                      item-references
+                                      (lambda (item) (Nil))
+                                      (lambda (ck item) (check-item ck results item))
+                                      items)))
+        (fail-if-found (in-source-order (Recovered-found checked)))
+        (Pair (Recovered-values checked) (Recovered-checker checked))))
+
+    (: group-references (-> (List Item) (List String)))
+    (define (group-references definitions)
+      (concatenate (map (lambda (definition) (expr-references (Define-value definition)))
+                        definitions)))
+
+    ;; A definition refers to itself too, so one whose group failed is
+    ;; not checked again.
+    (: item-references (-> Item (List String)))
+    (define (item-references item)
+      (match item
+        ((Define name value) (Cons name (expr-references value)))
+        ((Do value) (expr-references value))
+        ((Expose name _ _ _) (list name))))
 
     (: unannotated-groups (-> Checker (List Item) (List (List Item))))
     (define (unannotated-groups ck items)
@@ -2287,6 +2337,59 @@
       (match (program-value program name)
         ((Some (Defined _ loc _)) loc)
         (_ (None))))
+
+    ;; ---- Recovering ----
+
+    ;; A library's items are checked past one that fails, so one compile
+    ;; reports each independent error. A failed item's step is undone: the
+    ;; checker goes on from where it was before the item, which threading
+    ;; makes exact, and records what the item found and the names it
+    ;; defines. An item that refers to one of those is not checked at all,
+    ;; since without that definition's type its errors would only echo the
+    ;; first, and the names it defines fail with it. The fold holds the
+    ;; checker, the values of the items that checked, newest first, what
+    ;; the failed ones found, and the names whose users go unchecked.
+    (struct (Recovered B)
+      ((checker Checker)
+       (values (List B))
+       (found (List SourceDiagnostic))
+       (failed (List String))))
+
+    ;; `step` over each item, as `each` does, past the items that fail.
+    ;; `references` and `names` say what an item refers to and defines.
+    (: each-recovered
+       (All (A B) (requires (Copy A) (Copy B))
+            (-> (Recovered B)
+                (-> A (List String))
+                (-> A (List String))
+                (-> Checker A (Pair B Checker) ! compile)
+                (List A)
+                (Recovered B) ! compile)))
+    (define (each-recovered start references names step items)
+      (let ((done (fold-left (lambda (done item) (recover done references names step item))
+                             start
+                             items)))
+        (Recovered-values-set done (reverse (Recovered-values done)))))
+
+    (: recover
+       (All (A B) (requires (Copy A) (Copy B))
+            (-> (Recovered B)
+                (-> A (List String))
+                (-> A (List String))
+                (-> Checker A (Pair B Checker) ! compile)
+                A
+                (Recovered B) ! compile)))
+    (define (recover done references names step item)
+      (let ((failed (Recovered-failed done)))
+        (if (any? (lambda (name) (member? name failed)) (references item))
+            (Recovered-failed-set done (append (names item) failed))
+            (match (recovering (lambda () (step (Recovered-checker done) item)))
+              ((Ok (Pair value ck))
+               (Recovered ck (Cons value (Recovered-values done)) (Recovered-found done) failed))
+              ((Err found)
+               (Recovered-failed-set
+                (Recovered-found-set done (append (Recovered-found done) (diagnostics->list found)))
+                (append (names item) failed)))))))
 
     ;; ---- Dependency order ----
 

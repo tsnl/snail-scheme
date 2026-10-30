@@ -45,11 +45,13 @@ function of the expander has `mut` in its row — and where it does not, the
   `(snail shell highlight)` classifies text with the same functions. It also
   decodes the bytes a `generate-library` producer writes, the encoding
   `(snail shell syntax)` defines, straight into `Syntax`. It declares how
-  any pass stops a compile: the `compile` effect, whose `fail` takes a
-  `SourceDiagnostic`, a location and a message, and whose `need` takes a
-  request for an input. `compile-error` performs `fail`, and each entry point
-  handles the effect with `compiling`, which turns the compile into a
-  `Result`. A location in line 0 is a file as a whole: a source that is not
+  any pass stops a compile: the `compile` effect, whose `fail` takes
+  `Diagnostics`, the first `SourceDiagnostic` (a location and a message) and
+  any more, and whose `need` takes a request for an input. `compile-error`
+  performs `fail` with one, and each entry point handles the effect with
+  `compiling`, which turns the compile into a `Result`. A pass that can go on
+  past an item that failed runs the item under `recovering`, which answers
+  the item's diagnostics and passes a `need` on to the entry point. A location in line 0 is a file as a whole: a source that is not
   there, such as an entry an editor just deleted, fails with one
   (`read-source-file` in `inputs.sld`), so a resident builder reports it
   rather than stopping.
@@ -97,7 +99,11 @@ function of the expander has `mut` in its row — and where it does not, the
   environment made before the scan bound a name resolves it as well as one
   made after. Pass 2 adds each declared entity to the program as it meets
   it, and returns one step for each definition and expression body; a single
-  fold runs the steps in the order the scan found them. The expander's only
+  fold runs the steps in the order the scan found them. A step that fails
+  leaves the context as it was, and the fold goes on, since pass 1 bound
+  every name the later steps could miss; the library then fails with every
+  failed step's diagnostics, before it joins the program. The first two
+  passes stop at their first error. The expander's only
   effect is `fs`: it reads libraries, and the producer runner the driver
   supplies for `generate-library` reads and writes files. A use of
   `artifact-files` without its files requests the input, which exits as a
@@ -153,6 +159,22 @@ function of the expander has `mut` in its row — and where it does not, the
   a drop or a clone performs is performed in `e`, at the call it was raised
   in once that call is checked, so a signature is held to what its drops
   and clones perform.
+
+  A library's checking goes on past a group, definition or statement that
+  fails (`each-recovered`): the checker goes on from where it was before the
+  item, and records the item's diagnostics and the names an unannotated
+  group defines. An item that refers to one of those is not checked, since
+  without its type its errors would only echo the first, and its names
+  fail with it; a definition with a signature fails nothing else, as its
+  users need only the signature. A library with a failure stops with every
+  diagnostic in source order, before its constraints are solved, since a
+  constraint may mention a type a failed item would have decided. So one
+  compile reports every independent type error, and an instance error once
+  they are gone. The checks that follow once the types are final, of
+  conversions, closed functions, ownership and confinement, are each
+  item's own (`check-final`), so they too report every item that fails.
+  Nothing is emitted from a library that failed, and checking stops at the
+  first such library.
 
   The pass holds no mutable state. A `Checker` is plain data, threaded
   through: each step takes one and hands back the one it learned in, so
@@ -663,7 +685,7 @@ The operation answers `Never`, so nothing after it runs and its yields save no
 frames. Each signature on the way from the request to an entry point names
 `compile`, and each entry point handles it with `compiling`, which turns the
 compile into a `Result`, here `(Err (Requested request))`, as it does a
-source error into `(Err (Failed diagnostic))`. Artifact expansion and request
+source error into `(Err (Failed diagnostics))`. Artifact expansion and request
 signaling have no filesystem effects; library loading and generated-source IO
 still do.
 
@@ -697,7 +719,7 @@ diagnostics. Standalone builds have no artifact resolver or reply accumulation.
 
 The project builder, `(snail shell project build)`, calls the compiler in its
 own process and handles `compile` around each compile (`compiled`): a `fail`
-stops the build with the diagnostic, and a request is an internal error,
+stops the build with its diagnostics, and a request is an internal error,
 since the builder plans the build first, so a request names an input the plan
 missed. No request file is written or parsed, and nothing traps.
 
@@ -746,10 +768,12 @@ producer-input requests have no source record; internal no-location sentinels
 are unlocated. A failing dependency reports its own origin. Printed
 producer programs report their actual scratch source, while decoded generated
 syntax retains the recipe location already established by expansion. No source
-mapping is invented. The command-line driver prints a diagnostic as the
+mapping is invented. The command-line driver prints each diagnostic as the
 compiler always has, `FILE:LINE:COLUMN: MESSAGE`, or `FILE: MESSAGE` for the
-file as a whole, and exits with status 1, and
-the compiler still stops at its first error. These operations are implemented and tested.
+file as a whole, a line each, and exits with status 1. A reply carries every
+diagnostic of the failed compile, which reports each failed body of the
+library that failed to expand, or each failed definition and statement of
+the library that failed to check. These operations are implemented and tested.
 
 ## Supporting modules
 

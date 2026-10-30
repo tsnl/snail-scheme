@@ -55,9 +55,12 @@ async function throughTheService() {
     assert.deepEqual(failed.diagnostics[0].source, {file: join(project, 'main.sld'), line: 1, column: 29});
     assert.equal(fs.realpathSync(join(project, 'build/server')), initial, 'failure preserves accepted output');
     assert.equal(server(failed).directory, initial);
-    write('main.sld', '(import (snail core base)) (second-missing)');
+    // Each failed body is reported, in order, with its own source point.
+    write('main.sld', '(import (snail core base)) (second-missing) (third-missing)');
     const failedAgain = await service.settled(failed.id, 'failed');
+    assert.deepEqual(failedAgain.diagnostics.map(diagnostic => diagnostic.source.column), [29, 46]);
     assert.match(failedAgain.diagnostics[0].message, /second-missing/);
+    assert.match(failedAgain.diagnostics[1].message, /third-missing/);
     assert.doesNotMatch(failedAgain.diagnostics[0].message, /first-missing/);
     // An entry an editor deletes fails the build, naming it, and the
     // resident keeps building once it is back.

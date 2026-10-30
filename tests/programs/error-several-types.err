@@ -1,0 +1,3 @@
+error-several-types.sld:11:3: type mismatch: expected String, found I64
+error-several-types.sld:14:7: type mismatch: expected Bool, found String
+error-several-types.sld:23:23: type mismatch: expected String, found Char

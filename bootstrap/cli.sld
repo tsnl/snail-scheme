@@ -25,6 +25,8 @@
        Loc-file
        Loc-line
        Loc-column
+       SourceDiagnostic
+       diagnostics->list
        SourceDiagnostic-loc
        SourceDiagnostic-message
        diagnostic->string
@@ -255,7 +257,7 @@
   (list (Pair "epoch" (JsonInteger epoch))
         (Pair "description" description)
         (Pair "candidate" candidate)
-        (Pair "diagnostics" (JsonArray (list (failure->json failure))))))
+        (Pair "diagnostics" (JsonArray (failure-diagnostics failure)))))
 
 (: held (-> Resident I64 Candidate))
 (define (held resident epoch)
@@ -365,20 +367,24 @@
                     (Pair "compiled" (JsonInteger (Output-compiled output)))
                     (Pair "modules" (JsonInteger (Output-modules output))))))
 
-;; A diagnostic as the editor shows it. A compile's names its source point
-;; when it has one. A location in line 0 is not a point: one about a file
-;; as a whole, such as a missing source, names the file in its message.
-(: failure->json (-> Failure Json))
-(define (failure->json failure)
+;; A failure's diagnostics as the editor shows them: a compile's, each
+;; naming its source point when it has one, or the build's one.
+(: failure-diagnostics (-> Failure (List Json)))
+(define (failure-diagnostics failure)
   (match failure
-    ((CompileFailure diagnostic)
-     (let ((loc (SourceDiagnostic-loc diagnostic)))
-       (cond ((= (string-length (Loc-file loc)) 0)
-              (diagnostic->json (SourceDiagnostic-message diagnostic) (JsonNull)))
-             ((and (> (Loc-line loc) 0) (> (Loc-column loc) 0))
-              (diagnostic->json (SourceDiagnostic-message diagnostic) (source->json loc)))
-             (else (diagnostic->json (diagnostic->string diagnostic) (JsonNull))))))
-    ((BuildFailure message) (diagnostic->json message (JsonNull)))))
+    ((CompileFailure diagnostics) (map source-diagnostic->json (diagnostics->list diagnostics)))
+    ((BuildFailure message) (list (diagnostic->json message (JsonNull))))))
+
+;; A location in line 0 is not a point: one about a file as a whole, such
+;; as a missing source, names the file in its message.
+(: source-diagnostic->json (-> SourceDiagnostic Json))
+(define (source-diagnostic->json diagnostic)
+  (let ((loc (SourceDiagnostic-loc diagnostic)))
+    (cond ((= (string-length (Loc-file loc)) 0)
+           (diagnostic->json (SourceDiagnostic-message diagnostic) (JsonNull)))
+          ((and (> (Loc-line loc) 0) (> (Loc-column loc) 0))
+           (diagnostic->json (SourceDiagnostic-message diagnostic) (source->json loc)))
+          (else (diagnostic->json (diagnostic->string diagnostic) (JsonNull))))))
 
 (: source->json (-> Loc Json))
 (define (source->json loc)
