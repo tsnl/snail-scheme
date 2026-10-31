@@ -124,9 +124,6 @@
    Effect-operations
    Effect-control
    Effect-defaults
-   Default
-   HostDefault
-   SnailDefault
    operation-latent
    Value
    Defined
@@ -767,20 +764,14 @@
     ;; of the handled computation as `resume`; the others return to their
     ;; caller. `defaults` maps operation names to what performs them when no
     ;; handler is in scope.
+    ;; Each default is an operation's and the global of the Snail-Core
+    ;; function the effect's declaration defines for it, which runs under
+    ;; the performer's handlers.
     (struct Effect
       ((name String)
        (operations (List String))
        (control (List String))
-       (defaults (List (Pair String Default)))))
-
-    ;; An operation's default: a Wasm import, or a Snail-Core function the
-    ;; effect's declaration defines, which runs under the performer's
-    ;; handlers.
-    (enum Default
-      (HostDefault
-       ((import Import)))
-      (SnailDefault
-       ((function String))))
+       (defaults (List (Pair String String)))))
 
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where

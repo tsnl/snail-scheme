@@ -2180,16 +2180,13 @@
     (define (node-outside m node)
       (wat "ref.as_non_null" (wat "struct.get" (id (evidence-type m)) (int 2) node)))
 
-    ;; Past the last node: the host import, or the Snail-Core function,
-    ;; called under the performer's evidence, or a trap.
+    ;; Past the last node: the Snail-Core default, called under the
+    ;; performer's evidence, or a trap.
     (: default-call (-> Module Effect String (List String) (List Wat) ! mut))
     (define (default-call m info operation names)
       (let ((arguments (map (lambda (name) (wat "local.get" (id name))) names)))
         (match (assoc-ref (Effect-defaults info) operation)
-          ((Some (HostDefault import))
-           (list
-            (wat* "return" (host-call m import (operation-type m operation) arguments no-loc))))
-          ((Some (SnailDefault function))
+          ((Some function)
            (list (wat* "return_call"
                        (Cons (id (function-id m function))
                              (Cons (wat "local.get" (Word "$ev")) arguments)))))

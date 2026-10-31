@@ -670,7 +670,7 @@
     (define (operation-reference state effect name type loc)
       (Pair (Expr (Var name (Nil) (Nil)) type loc)
             (match (assoc-ref (Effect-defaults (program-effect (program-of state) effect)) name)
-              ((Some (SnailDefault function))
+              ((Some function)
                (Pair-second (definition-reference state
                               function
                               (Nil)
