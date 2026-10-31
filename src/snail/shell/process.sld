@@ -16,15 +16,17 @@
    ProcessError ProcessError-code)
   (import
    (snail core base)
+   (only (snail core io) environment-variable)
    (prefix (snail runtime native process) host-)
    (only (snail shell task) tasks through-host))
   (begin
 
     ;; ---- Public values ----
 
-    ;; What to run: an executable, found on PATH when it has no slash, its
-    ;; arguments after the name it is run as, and the directory it runs in.
-    ;; The program is apart from the arguments, so no command is empty.
+    ;; What to run: an executable, found on PATH when it has no slash
+    ;; (Finding the program, below), its arguments after the name it is run
+    ;; as, and the directory it runs in. The program is apart from the
+    ;; arguments, so no command is empty.
     (struct Command
       ((program String)
        (arguments (List String))
@@ -88,8 +90,11 @@
        (exec (-> Command ProcessError)))
       (default
         ((spawn (lambda (command)
-                  (send-command command)
-                  (native host-start-spawn spawned)))
+                  (match (located command)
+                    ((Ok path)
+                     (send-command command path)
+                     (native host-start-spawn spawned))
+                    ((Err error) (Err error)))))
          ;; A read takes 1 to 65,536 bytes, which the host takes as given.
          (read-output (lambda (child stream maximum)
                         (if (and (>= maximum 1) (<= maximum 65536))
@@ -115,12 +120,18 @@
          (close-process (lambda (child)
                           (answered (host-close-process (process-handle child)) done)))
          (run (lambda (command input)
-                (send-command command)
-                (answered (host-run input) captured)))
+                (match (located command)
+                  ((Ok path)
+                   (send-command command path)
+                   (answered (host-run input) captured))
+                  ((Err error) (Err error)))))
          (exec (lambda (command)
-                 (send-command command)
-                 (host-exec)
-                 (ProcessError (held-text 0)))))))
+                 (match (located command)
+                   ((Ok path)
+                    (send-command command path)
+                    (host-exec)
+                    (ProcessError (held-text 0)))
+                   ((Err error) error)))))))
 
     ;; ---- Termination ----
 
@@ -156,13 +167,13 @@
             (NativeProcess-handle (type-convert token NativeProcess))
             0)))
 
-    ;; The host reads a command a character at a time: its directory, its
-    ;; program, then its arguments.
-    (: send-command (-> Command Unit))
-    (define (send-command command)
+    ;; The host reads a command a character at a time: its directory, the
+    ;; program's path, the name it is run as, then its arguments.
+    (: send-command (-> Command String Unit))
+    (define (send-command command path)
       (for-each send-text
                 (Cons (Command-directory command)
-                      (Cons (Command-program command) (Command-arguments command)))))
+                      (Cons path (Cons (Command-program command) (Command-arguments command))))))
 
     (: send-text (-> String Unit))
     (define (send-text text)
@@ -185,6 +196,55 @@
         ((Terminate) 15)
         ((Kill) 9)
         ((Interrupt) 2)))
+
+    ;; ---- Finding the program ----
+
+    ;; A program with a slash is its own path. One without is found on
+    ;; PATH, as execvp finds it: in the first entry holding a regular file
+    ;; this process may execute, where an empty entry is the command's
+    ;; directory and a relative one is taken from that directory, as the
+    ;; child takes it. With no PATH, nothing is found. Finding it here gives
+    ;; spawn, run and exec one rule, and the host runs the path it is given.
+    (: located (-> Command (Result String ProcessError)))
+    (define (located command)
+      (let ((program (Command-program command)))
+        (match (string-index program #\/)
+          ((Some _) (Ok program))
+          ((None)
+           (match (find (lambda (path) (executable? (Command-directory command) path))
+                        (candidates program))
+             ((Some path) (Ok path))
+             ((None) (Err (ProcessError "ENOENT"))))))))
+
+    ;; Where each entry of PATH, in order, would hold `program`.
+    (: candidates (-> String (List String)))
+    (define (candidates program)
+      (map (lambda (entry) (string-append (if (string=? entry "") "." entry) "/" program))
+           (path-entries)))
+
+    ;; PATH's entries, empty ones included.
+    (: path-entries (-> (List String)))
+    (define (path-entries)
+      (match (environment-variable "PATH")
+        ((Some text) (split-entries text))
+        ((None) (Nil))))
+
+    (: split-entries (-> String (List String)))
+    (define (split-entries text)
+      (match (string-index text #\:)
+        ((Some index)
+         (Cons (substring text 0 index)
+               (split-entries (substring text (+ index 1) (string-length text)))))
+        ((None) (list text))))
+
+    ;; The host answers with access(2), which WASI lacks: whether `path`,
+    ;; taken from `directory`, names a regular file this process may
+    ;; execute.
+    (: executable? (-> String String Bool))
+    (define (executable? directory path)
+      (send-text directory)
+      (send-text path)
+      (= (host-executable) 1))
 
     ;; ---- Native answers ----
 

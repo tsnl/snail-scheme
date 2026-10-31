@@ -260,8 +260,12 @@ code. As for sockets, cancellation unwinds the task.
 | `run (Command …) input` | `(Captured exit stdout stderr)`, once the command has run to its end with `input`, a `Bytes`, as its standard input. |
 | `exec (Command …)` | Nothing: the command replaces the program. It returns a `ProcessError`, not a `Result`, and only when the command could not start. |
 
-A `Command`'s program is found on `PATH` when it has no slash; its
-arguments follow the name it is run as, and it runs in `directory`. The
+A `Command`'s program is found on `PATH` when it has no slash, as execvp
+finds it: in the first entry holding a regular file the process may
+execute, where an empty entry is the command's directory and a relative
+one is taken from it. `(snail shell process)` searches, for `spawn`, `run`
+and `exec` alike, and the program still runs as the name it was given.
+Its arguments follow that name, and it runs in `directory`. The
 program is a field of its own, so no command is empty. A missing executable
 or directory is `ENOENT`, an argument the platform cannot pass (one with a
 NUL) is `EINVAL`, and a signal to a child that has exited is `ESRCH`.
@@ -333,13 +337,16 @@ behind positive I32 handles, which never repeat within that owner. A child is
 owned from spawn until it has exited and its pipes have closed; its public
 handle exists from a successful spawn until close. `(snail runtime native process)`
 declares the interface. A command is sent a character at a time, as the
-strings of a host command are: its directory, its program, then its
-arguments. A process crosses as its handle and a stream as its descriptor,
+strings of a host command are: its directory, the program's path, the name
+it runs as, then its arguments. While it searches `PATH`, the library asks
+`executable` about each candidate, a directory and a path sent the same
+way, and the host answers with `access(2)` and a regular-file test, which
+WASI lacks. A process crosses as its handle and a stream as its descriptor,
 and the operations answer as the socket operations do.
 
 | Operation | Result |
 | --- | --- |
-| `spawn(signal, directory, program, arguments)` | `{handle, pid}` once Node reports the child running. |
+| `spawn(signal, directory, program, name, arguments)` | `{handle, pid}` once Node reports the child running. |
 | `read(signal, handle, descriptor, maximum)` | A nonempty prefix of stream 1 or 2, or `null` at its end. |
 | `write(signal, handle, bytes)` | A count after the pipe accepts it. |
 | `closeInput(handle)` | Ends input. |
@@ -348,13 +355,13 @@ and the operations answer as the socket operations do.
 | `close(handle)` | Revokes the handle, kills a running child and destroys its pipes. |
 | `shutdown()` | Rejects new spawns, closes every child and waits until each has exited. |
 
-`runChild(directory, program, arguments, input)` in the same file is `run`'s
-`spawnSync`, which blocks the program until the child exits; a signal sent
-meanwhile reaches the program once it returns. `replaceProcess(directory,
-program, arguments)` is `exec`: it changes to the command's directory and
-calls `process.execve`, after finding a program with no slash on `PATH`,
-which `execve` does not search. Only a failure answers, with its code,
-after the directory is changed back.
+`runChild(directory, program, name, arguments, input)` in the same file is
+`run`'s `spawnSync`, which blocks the program until the child exits; a
+signal sent meanwhile reaches the program once it returns.
+`replaceProcess(directory, program, name, arguments)` is `exec`: it changes
+to the command's directory and calls `process.execve` with the path the
+library found. Only a failure answers, with its code, after the directory
+is changed back.
 
 `createTermination()` in the same file holds the termination waiters and
 the process's handlers for SIGINT and SIGTERM while they are needed:

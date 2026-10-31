@@ -11,5 +11,5 @@
  (ProcessError-code (exec (Command "/bin/sh" (list "-c" "true") "/nonexistent/directory"))))
 (write-line (ProcessError-code (exec (Command "no-such-program-on-path" (Nil) "."))))
 (write-line "replacing the program")
-(exec (Command "sh" (list "-c" "pwd; echo replaced") "/"))
+(exec (Command "sh" (list "-c" "echo $0; pwd; echo replaced") "/"))
 (write-line "not reached")
