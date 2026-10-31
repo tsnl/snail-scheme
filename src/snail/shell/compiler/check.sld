@@ -714,6 +714,7 @@
                       (result (fresh-meta))
                       (latent (fresh-meta))
                       (args (unify-call (Expr-type callee) args result latent loc))
+                      (then (improve-fields before))
                       (then (perform latent row loc))
                       (then (solve-found-rows before row)))
                   (Pair (Expr (App callee args) result loc) ck))))
@@ -1159,7 +1160,8 @@
     (: solve-pending (-> Checker Checker ! compile))
     (define (solve-pending ck)
       (let ((pending (reverse (Checker-pending ck))))
-        (learning ck ((then (default-literals pending #t))
+        (learning ck ((then (improve-fields 0))
+                      (then (default-literals pending #t))
                       (then (default-literals pending #f)))
                   (for-each (lambda (want)
                               (match want
@@ -1226,7 +1228,25 @@
           (solve-found ck constraint hole givens copy (None) loc)
           (match (find-evidence ck constraint givens copy loc)
             ((Some (Pair evidence ck)) (with-evidence ck hole evidence))
-            ((None) (compile-error loc (ambiguous-constraint ck constraint))))))
+            ((None) (compile-error loc (unsolved-constraint ck constraint givens))))))
+
+    ;; An unsolved field constraint whose record type is known names the
+    ;; field the type lacks; any other unsolved constraint is ambiguous.
+    (: unsolved-constraint (-> Checker Constraint (List Constraint) String))
+    (define (unsolved-constraint ck constraint givens)
+      (let ((class (Constraint-class constraint)))
+        (match (Pair (field-class? class) (Constraint-types constraint))
+          ((Pair #t (Cons record _))
+           (let ((record (resolve-type (solution ck) record)))
+             (if (or (has-meta? (solution ck) record)
+                     (match (field-type-of ck class record givens)
+                       ((Some _) #t)
+                       ((None) #f)))
+                 (ambiguous-constraint ck constraint)
+                 (string-append (type->string record)
+                                " has no field "
+                                (substring class 2 (string-length class))))))
+          (_ (ambiguous-constraint ck constraint)))))
 
     ;; A class whose methods perform one of its parameters as a row, as
     ;; `(Drop e T)` and `(Store e S)` do. Its rows are found from its other
@@ -1449,6 +1469,67 @@
                                            (Constraint-types constraint)))))))
         (_ #f)))
 
+    ;; A field constraint `(::f R T)` decides T from R: the one instance
+    ;; whose record type matches R gives the field's type, or a given
+    ;; constraint on the same R does. It runs where a call is checked, once
+    ;; the arguments have given R, over the constraints raised since
+    ;; `before`, and again over every constraint before solving, for an R a
+    ;; later use decided. Nothing else solving does binds a metavariable.
+    (: improve-fields (-> Checker I64 Checker ! compile))
+    (define (improve-fields ck before)
+      (fold-left improve-field
+                 ck
+                 (take (Checker-pending ck) (- (Checker-pending-count ck) before))))
+
+    (: improve-field (-> Checker Wanted Checker ! compile))
+    (define (improve-field ck want)
+      (match want
+        ((WantClass (Constraint class (Cons record (Cons field (Nil)))) _ givens _ loc)
+         (if (field-class? class)
+             (match (field-type-of ck class (resolve-type (solution ck) record) givens)
+               ((Some type) (unify ck type field loc))
+               ((None) ck))
+             ck))
+        (_ ck)))
+
+    ;; The field's type for a record type: from the one instance whose
+    ;; record type matches a constructor, or the one given whose record
+    ;; type equals a variable. None while the record is unknown or
+    ;; nothing decides it.
+    (: field-type-of (-> Checker String Type (List Constraint) (Option Type)))
+    (define (field-type-of ck class record givens)
+      (match record
+        ((TCon _ _)
+         (one (concatenate (map (lambda (instance) (instance-field-type instance record))
+                                (class-instances (program-of ck) class)))))
+        (_ (one (concatenate (map (lambda (given) (given-field-type ck class given record))
+                                  givens))))))
+
+    (: one (-> (List Type) (Option Type)))
+    (define (one types)
+      (match types
+        ((Cons type (Nil)) (Some type))
+        (_ (None))))
+
+    (: instance-field-type (-> Instance Type (List Type)))
+    (define (instance-field-type instance record)
+      (match (Instance-types instance)
+        ((Cons head (Cons type (Nil)))
+         (match (match-type (Instance-vars instance) head record (Nil))
+           ((Some bindings) (list (substitute bindings type)))
+           ((None) (Nil))))
+        (_ (Nil))))
+
+    (: given-field-type (-> Checker String Constraint Type (List Type)))
+    (define (given-field-type ck class given record)
+      (match (Constraint-types given)
+        ((Cons head (Cons type (Nil)))
+         (if (and (string=? class (Constraint-class given))
+                  (types=? (list (resolve-type (solution ck) head)) (list record)))
+             (list type)
+             (Nil)))
+        (_ (Nil))))
+
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
     (: find-evidence
@@ -1502,8 +1583,15 @@
         (match instances
           ((Nil)
            (compile-error loc
-                          (string-append "no instance for "
-                                         (constraint->string (Class-name class) types))))
+                          (match (Pair (field-class? (Class-name class)) types)
+                            ((Pair #t (Cons record _))
+                             (string-append (type->string record)
+                                            " has no field "
+                                            (substring (Class-name class)
+                                                       2
+                                                       (string-length (Class-name class)))))
+                            (_ (string-append "no instance for "
+                                              (constraint->string (Class-name class) types))))))
           ((Cons instance rest)
            (match (match-types (Instance-vars instance)
                                (type-arguments class (Instance-types instance))
@@ -1611,7 +1699,9 @@
 
     (: constraint->string (-> String (List Type) String))
     (define (constraint->string class types)
-      (type->string (TCon class types)))
+      (if (field-class? class)
+          (string-append "(" class " " (string-join (map type->string types) " ") ")")
+          (type->string (TCon class types))))
 
     (: has-meta? (-> Solution Type Bool))
     (define (has-meta? solution type)
