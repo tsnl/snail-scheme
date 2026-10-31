@@ -466,9 +466,14 @@ linear itself, used exactly once ([ownership](ownership.md)).
 
 The handler is deep: resuming re-installs it around the rest of the body,
 so the generator's next `yield` reaches the same implementation, and
-`(next (unit))` returns the next `Step`. The resumed computation also runs
-under the handlers in scope where `resume` is called, not those that were
-in scope when it started: `tests/programs/control-stored-resume.sld`
+`(next (unit))` returns the next `Step`. That holds even where another
+handler of the same effect is in scope: resumed inside a second `Gen`
+handler, the generator still yields to the first, and the second receives
+only what its own body yields
+(`tests/programs/control-resume-same-effect.sld`). Outside the
+re-installed handler, the resumed computation runs under the handlers in
+scope where `resume` is called, not those that were in scope when it
+started: `tests/programs/control-stored-resume.sld`
 resumes two logging generators under a different `Log` handler from the
 one they began under. Called inside another handler's implementation,
 `resume` runs under that implementation's handlers: those outside its
