@@ -58,7 +58,9 @@
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
-   set! replace!
+   set! replace! Unboxed
+   MutVector mut-vector mut-vector-length mut-vector-ref mut-vector-set! mut-vector-push!
+   mut-vector-pop! mut-vector->vector
    Ref-contents
    Ref-contents-set!
    Ref-contents-replace!
@@ -68,7 +70,32 @@
    (rename Ref-contents-replace! ref-replace!))
   (import
    (snail core forms)
-   (snail core primitive)
+   (except (snail core primitive)
+           make-array
+           array-length
+           array-ref
+           array-set!
+           array->vector
+           vector->array
+           array-copy!
+           vector-copy!)
+   (rename (only (snail core primitive)
+                 make-array
+                 array-length
+                 array-ref
+                 array-set!
+                 array->vector
+                 vector->array
+                 array-copy!
+                 vector-copy!)
+           (make-array primitive-make-array)
+           (array-length primitive-array-length)
+           (array-ref primitive-array-ref)
+           (array-set! primitive-array-set!)
+           (array->vector primitive-array->vector)
+           (vector->array primitive-vector->array)
+           (array-copy! primitive-array-copy!)
+           (vector-copy! primitive-vector-copy!))
    (rename (only (snail core primitive) string-append) (string-append append-two-strings)))
   (begin
 
@@ -557,6 +584,44 @@
       (let loop ((index (- count 1)) (items (Nil)))
         (if (< index 0) items (loop (- index 1) (Cons index items)))))
 
+    ;; ---- Unboxed elements ----
+
+    ;; An array element is one Wasm slot, so the array operations require
+    ;; `(Unboxed A)`: a scalar; a reference, such as a String, a Vector, a
+    ;; cell, a closure, an enum or an Any; or a struct of one unboxed field.
+    ;; A struct of several fields would be boxed in every element, so it is
+    ;; refused: keep a struct of arrays instead, as typed arrays do. The
+    ;; checker decides the class from a type's representation (check.sld,
+    ;; "Solving"), and no instance can be declared. The operations are the
+    ;; primitives under the requirement; mono replaces each with its target.
+    (typeclass (Unboxed T))
+
+    (: make-array (All (A) (requires (Copy A) (Unboxed A)) (-> I64 A (Array A) ! mut)))
+    (define make-array primitive-make-array)
+
+    (: array-length (All (A) (requires (Copy A) (Unboxed A)) (-> (Array A) I64)))
+    (define array-length primitive-array-length)
+
+    (: array-ref (All (A) (requires (Copy A) (Unboxed A)) (-> (Array A) I64 A ! mut)))
+    (define array-ref primitive-array-ref)
+
+    (: array-set! (All (A) (requires (Copy A) (Unboxed A)) (-> (Array A) I64 A Unit ! mut)))
+    (define array-set! primitive-array-set!)
+
+    (: array->vector (All (A) (requires (Copy A) (Unboxed A)) (-> (Array A) (Vector A) ! mut)))
+    (define array->vector primitive-array->vector)
+
+    (: vector->array (All (A) (requires (Copy A) (Unboxed A)) (-> (Vector A) (Array A) ! mut)))
+    (define vector->array primitive-vector->array)
+
+    (: array-copy!
+       (All (A) (requires (Copy A) (Unboxed A)) (-> (Array A) I64 (Array A) I64 I64 Unit ! mut)))
+    (define array-copy! primitive-array-copy!)
+
+    (: vector-copy!
+       (All (A) (requires (Copy A) (Unboxed A)) (-> (Array A) I64 (Vector A) I64 I64 Unit ! mut)))
+    (define vector-copy! primitive-vector-copy!)
+
     ;; ---- Vectors and arrays ----
 
     (: vector-map
@@ -583,32 +648,127 @@
       (let loop ((index (- (vector-length items) 1)) (result (Nil)))
         (if (< index 0) result (loop (- index 1) (Cons (vector-ref items index) result)))))
 
-    ;; The array is local to this call, so the conversion is total.
+    ;; The elements are taken in order from a cursor local to this call, so
+    ;; the conversion is total and needs no array, whose elements would have
+    ;; to be unboxed.
     (: list->vector (All (T) (requires (Copy T)) (-> (List T) (Vector T))))
     (define (list->vector items)
-      (match items
-        ((Nil) (vector-generate 0 (lambda (index) (panic "list->vector: empty"))))
-        ((Cons first _)
-         (let ((array (make-array (length items) first)))
-           (fold-left (lambda (index item) (array-set! array index item) (+ index 1)) 0 items)
-           (array->vector array)))))
+      (let ((rest (Ref items)))
+        (vector-generate (length items)
+                         (lambda (index)
+                           (match (Ref-contents rest)
+                             ((Cons first remaining)
+                              (Ref-contents-set! rest remaining)
+                              first)
+                             ((Nil) (panic "list->vector: too few items")))))))
 
-    ;; Copies each vector once into one array of the total length, which is
-    ;; local to this call. The array's initial element comes from the first
-    ;; vector that has one.
+    ;; One vector of the total length, filled from a cursor over the vectors
+    ;; that skips the empty ones; the cursor is local to this call.
     (: vector-concatenate (All (T) (requires (Copy T)) (-> (List (Vector T)) (Vector T))))
     (define (vector-concatenate vectors)
-      (match (find (lambda (items) (> (vector-length items) 0)) vectors)
-        ((None) (list->vector (Nil)))
-        ((Some first)
-         (let ((all (make-array
-                     (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors)
-                     (vector-ref first 0))))
-           (fold-left (lambda (offset items)
-                        (vector-copy! all offset items 0 (vector-length items))
-                        (+ offset (vector-length items)))
-                      0 vectors)
-           (array->vector all)))))
+      (let ((cursor (Ref (Pair vectors 0))))
+        (vector-generate
+         (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors)
+         (lambda (index)
+           (let next ()
+             (match (Ref-contents cursor)
+               ((Pair (Cons items rest) offset)
+                (if (< offset (vector-length items))
+                    (begin
+                      (Ref-contents-set! cursor (Pair (Cons items rest) (+ offset 1)))
+                      (vector-ref items offset))
+                    (begin
+                      (Ref-contents-set! cursor (Pair rest 0))
+                      (next))))
+               ((Pair (Nil) _) (panic "vector-concatenate: too few elements"))))))))
+
+    ;; ---- Growable vectors ----
+
+    ;; A MutVector grows at its end, as Rust's Vec does, over an array it
+    ;; replaces with one twice as long when full. The handle is a value
+    ;; holding one cell, so two names for a vector see the same writes, and
+    ;; its elements are unboxed, as every array's are.
+    (struct (MutVector A)
+      ((state (Ref (Grown A)))))
+
+    ;; The elements in use and the array holding them, None before the first
+    ;; push, since an array needs an element to start from.
+    (struct (Grown A)
+      ((length I64)
+       (items (Option (Array A)))))
+
+    (: mut-vector (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A))))
+    (define (mut-vector)
+      (MutVector (Ref (Grown 0 (None)))))
+
+    (: mut-vector-length (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) I64 ! mut)))
+    (define (mut-vector-length vector)
+      (::length (Ref-contents (MutVector-state vector))))
+
+    (: mut-vector-ref (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) I64 A ! mut)))
+    (define (mut-vector-ref vector index)
+      (array-ref (mut-vector-items vector index) index))
+
+    (: mut-vector-set!
+       (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) I64 A Unit ! mut)))
+    (define (mut-vector-set! vector index item)
+      (array-set! (mut-vector-items vector index) index item))
+
+    ;; The array, once `index` is in use.
+    (: mut-vector-items
+       (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) I64 (Array A) ! mut)))
+    (define (mut-vector-items vector index)
+      (match (Ref-contents (MutVector-state vector))
+        ((Grown length (Some items))
+         (if (and (<= 0 index) (< index length))
+             items
+             (panic "mut-vector: index out of range")))
+        ((Grown _ (None)) (panic "mut-vector: index out of range"))))
+
+    (: mut-vector-push! (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) A Unit ! mut)))
+    (define (mut-vector-push! vector item)
+      (let ((cell (MutVector-state vector)))
+        (match (Ref-contents cell)
+          ((Grown length held)
+           (let ((items (room-for length held item)))
+             (array-set! items length item)
+             (Ref-contents-set! cell (Grown (+ length 1) (Some items))))))))
+
+    ;; An array with room at `length`: the one held, a longer copy of it, or
+    ;; the first array, started from the element being pushed.
+    (: room-for
+       (All (A) (requires (Copy A) (Unboxed A)) (-> I64 (Option (Array A)) A (Array A) ! mut)))
+    (define (room-for length held item)
+      (match held
+        ((None) (make-array 4 item))
+        ((Some items)
+         (if (< length (array-length items))
+             items
+             (let ((longer (make-array (* 2 (array-length items)) item)))
+               (array-copy! longer 0 items 0 length)
+               longer)))))
+
+    (: mut-vector-pop!
+       (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) (Option A) ! mut)))
+    (define (mut-vector-pop! vector)
+      (let ((cell (MutVector-state vector)))
+        (match (Ref-contents cell)
+          ((Grown length (Some items))
+           (if (> length 0)
+               (begin
+                 (Ref-contents-set! cell (Grown (- length 1) (Some items)))
+                 (Some (array-ref items (- length 1))))
+               (None)))
+          ((Grown _ (None)) (None)))))
+
+    (: mut-vector->vector
+       (All (A) (requires (Copy A) (Unboxed A)) (-> (MutVector A) (Vector A) ! mut)))
+    (define (mut-vector->vector vector)
+      (match (Ref-contents (MutVector-state vector))
+        ((Grown length (Some items))
+         (vector-generate length (lambda (index) (array-ref items index))))
+        ((Grown _ (None))
+         (vector-generate 0 (lambda (index) (panic "mut-vector->vector: empty"))))))
 
     ;; ---- Characters and text ----
 
