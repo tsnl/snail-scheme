@@ -1,8 +1,8 @@
 ;; Monomorphic program to WasmGC text. This pass decides representations:
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
-;; other data are GC structs (enum cases are subtypes of a tagged base), an
-;; immutable field holding a struct without mutable fields is laid out
-;; inline, sequences are GC arrays, and functions are closures holding a typed
+;; other data are GC structs (enum cases are subtypes of a tagged base), a
+;; field holding a struct is laid out inline as that struct's fields,
+;; sequences are GC arrays, and functions are closures holding a typed
 ;; function reference. Calls in tail position become `return_call`. A whole
 ;; program becomes one module; one library becomes a module that imports
 ;; what it uses from the modules of other libraries. A control operation
@@ -551,15 +551,15 @@
 
     ;; ---- Inline fields ----
 
-    ;; A struct with no mutable field has no identity: nothing can tell it
-    ;; from a copy with the same fields, since the checker gives it no
-    ;; `set!` or swap and the language has no reference equality. So an
-    ;; immutable field of such a type is stored inline, its fields laid
-    ;; among its parent's, and the parent stays one GC struct, wider. A
-    ;; field holding a struct with a mutable field, an enum, an array, a
-    ;; closure or an Any keeps a reference: those have identity, or no one
-    ;; shape. The expander refuses a struct that contains itself through
-    ;; fields, so laying one out terminates.
+    ;; A struct is a value with no identity: nothing can tell it from a
+    ;; copy with the same fields, since the language has no reference
+    ;; equality and only `Ref` has a mutable field. So a field holding a
+    ;; struct is stored inline, its fields laid among its parent's, and the
+    ;; parent stays one GC struct, wider; a cell's content lies in the cell
+    ;; the same way, in mutable slots. A field holding a cell, an enum, an
+    ;; array, a closure or an Any keeps a reference: those have identity,
+    ;; or no one shape. The expander refuses a struct that contains itself
+    ;; through fields, so laying one out terminates.
     ;;
     ;; A standalone value of an inlined type, in a local, a parameter, a
     ;; closure or an Any, is still its own GC struct. Reading an inlined
@@ -1351,7 +1351,7 @@
       (wat* "struct.new" (Cons (id (data-type m type)) (slot-reads m type holder offset read))))
 
     ;; Each argument is spread when its field is inline, and one slot
-    ;; otherwise: a mutable field holds a reference whatever its type.
+    ;; otherwise.
     (: construct (-> Fn Case Type (List Expr) Wat ! mut))
     (define (construct fn case type args)
       (construct-slots fn
