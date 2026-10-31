@@ -75,23 +75,29 @@ must be reusable, grade `omega`.
 
 ## Wasm boundary
 
-The binding borrows the program's synchronous constructor/projector exports
-from `(snail shell socket)`. Native I/O runs while the task waits on its ticket. Only
-when the task finishes the ticket does the binding enter Wasm, in the task's
-own call, to construct a typed `Result`. Ordinary JavaScript objects cannot substitute for
-these managed values. Host code remains trusted to use the correct Snail-Core types.
+`(snail runtime native socket)` declares the interface, and only numbers
+cross it. A listener, connection or UDP socket crosses as its handle, and
+an endpoint as two I32s: its port, and its address, whose four octets are
+the I32's unsigned bits, most significant first. The host enters no Wasm
+and builds no managed value. `(snail shell socket)` builds every `Result`
+itself, in the waiting task's own call, from what the host answers.
 
+Native I/O runs while the task waits on its ticket. The task's `finish`
+then answers with a number: -1 for a failure, and otherwise the
+operation's own number, such as a handle or a count. The host holds what
+else the answer carries until it answers again
+(`host/native/answers.mjs`):
+- a number, such as a listener's port;
+- byte strings, such as the bytes read or a failure's error code.
+
+The shell reads them at once, before its next host call, a call per byte.
+The runtime library's header has the table of what each operation answers.
+A datagram's sender is held as Node's dotted text, which `endpoint` parses.
 Outgoing bytes are copied from staging before any other Wasm call or await.
-Incoming bytes are written into a temporary managed array and copied to an
-immutable vector; there is currently one helper call per byte. An endpoint
-crosses as two I32s, its port and its address, whose four octets are the
-I32's unsigned bits, most significant first. A datagram's sender crosses
-back as Node's dotted text, which `endpoint` parses. This simple bridge avoids a global reply
-slot or callback protocol; bulk copying can be optimized separately.
 
 A pending acquisition carries its native handle and bound-port metadata, where
 applicable. The scheduler disposes a successful acquisition if cancellation wins
-before delivery. A trap constructing its managed wrapper also closes the handle.
+before delivery. Once `finish` answers with a handle, the handle is the shell's.
 Successful delivery transfers responsibility to user code: close explicitly, or
 leave cleanup to runtime shutdown. There is no implicit last-use socket drop or
 task-scoped socket owner. Cancelling an unrelated task does not close a delivered
@@ -325,10 +331,11 @@ signals would.
 `createProcesses()` in `host/native/process.mjs` owns one set of children
 behind positive I32 handles, which never repeat within that owner. A child is
 owned from spawn until it has exited and its pipes have closed; its public
-handle exists from a successful spawn until close. `process-imports.mjs`
-reads a command a character at a time through the library's exposed
-projections, and builds every result in Wasm in the waiting task's own
-finish call, as `socket-imports.mjs` does.
+handle exists from a successful spawn until close. `(snail runtime native process)`
+declares the interface. A command is sent a character at a time, as the
+strings of a host command are: its directory, its program, then its
+arguments. A process crosses as its handle and a stream as its descriptor,
+and the operations answer as the socket operations do.
 
 | Operation | Result |
 | --- | --- |

@@ -314,7 +314,9 @@ export function byteSnapshot(memory, address) {
   return new Uint8Array(buffer, pointer + 4, length).slice();
 }
 
-function stagedStrings() {
+// Strings Snail-Core sends a character at a time, each ended by
+// `argument-end`; `take` gives those sent since it last took them.
+export function stagedStrings() {
   let staged = [], current = '';
   return {
     imports: {

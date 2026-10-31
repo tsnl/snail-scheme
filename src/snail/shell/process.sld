@@ -16,6 +16,7 @@
    ProcessError ProcessError-code)
   (import
    (snail core base)
+   (prefix (snail runtime native process) host-)
    (only (snail shell task) tasks through-host))
   (begin
 
@@ -85,28 +86,41 @@
        (close-process (-> Process (Result Unit ProcessError)))
        (run (-> Command Bytes (Result Captured ProcessError)))
        (exec (-> Command ProcessError)))
-      (host "snail.runtime.native.process"
-            ((close-input "close-input")
-             (send-signal "send-signal")
-             (close-process "close-process")
-             (run "run")
-             (exec "exec")))
       (default
         ((spawn (lambda (command)
-                  (through-host (lambda (ticket) (start-spawn ticket command)) finish-spawn)))
+                  (send-command command)
+                  (native host-start-spawn spawned)))
          ;; A read takes 1 to 65,536 bytes, which the host takes as given.
          (read-output (lambda (child stream maximum)
                         (if (and (>= maximum 1) (<= maximum 65536))
-                            (through-host
-                             (lambda (ticket) (start-read-output ticket child stream maximum))
-                             finish-read-output)
+                            (native (lambda (ticket)
+                                      (host-start-read-output ticket
+                                                              (process-handle child)
+                                                              (stream-descriptor stream)
+                                                              maximum))
+                                    held-read)
                             (Err (ProcessError "EINVAL")))))
          (write-input (lambda (child bytes)
-                        (through-host (lambda (ticket) (start-write-input ticket child bytes))
-                                      finish-write-input)))
+                        (native (lambda (ticket)
+                                  (host-start-write-input ticket (process-handle child) bytes))
+                                count)))
+         (close-input (lambda (child)
+                        (answered (host-close-input (process-handle child)) done)))
+         (send-signal (lambda (child signal)
+                        (answered (host-send-signal (process-handle child) (signal-number signal))
+                                  done)))
          (wait-exit (lambda (child)
-                      (through-host (lambda (ticket) (start-wait-exit ticket child))
-                                    finish-wait-exit))))))
+                      (native (lambda (ticket) (host-start-wait-exit ticket (process-handle child)))
+                              held-exit)))
+         (close-process (lambda (child)
+                          (answered (host-close-process (process-handle child)) done)))
+         (run (lambda (command input)
+                (send-command command)
+                (answered (host-run input) captured)))
+         (exec (lambda (command)
+                 (send-command command)
+                 (host-exec)
+                 (ProcessError (held-text 0)))))))
 
     ;; ---- Termination ----
 
@@ -120,45 +134,18 @@
     (effect signals
       ((termination (-> Signal ! tasks)))
       (default
-        ((termination (lambda () (through-host start-termination finish-termination))))))
+        ((termination (lambda ()
+                        (received-signal (through-host host-start-termination host-finish)))))))
 
-    ;; ---- Native waits ----
-
-    ;; Each operation that waits starts on the host and finishes with the
-    ;; result the host built for its ticket, as (snail shell socket)'s do.
-    (extern start-spawn "snail.runtime.native.process" "start-spawn" (-> I64 Command Unit))
-    (extern finish-spawn
-            "snail.runtime.native.process"
-            "finish-spawn"
-            (-> I64 (Result Process ProcessError)))
-    (extern start-read-output
-            "snail.runtime.native.process"
-            "start-read-output"
-            (-> I64 Process Stream I32 Unit))
-    (extern finish-read-output
-            "snail.runtime.native.process"
-            "finish-read-output"
-            (-> I64 (Result (Option Bytes) ProcessError)))
-    (extern start-write-input
-            "snail.runtime.native.process"
-            "start-write-input"
-            (-> I64 Process Bytes Unit))
-    (extern finish-write-input
-            "snail.runtime.native.process"
-            "finish-write-input"
-            (-> I64 (Result I32 ProcessError)))
-    (extern start-wait-exit "snail.runtime.native.process" "start-wait-exit" (-> I64 Process Unit))
-    (extern finish-wait-exit
-            "snail.runtime.native.process"
-            "finish-wait-exit"
-            (-> I64 (Result Exit ProcessError)))
-    (extern start-termination "snail.runtime.native.process" "start-termination" (-> I64 Unit))
-    (extern finish-termination "snail.runtime.native.process" "finish-termination" (-> I64 Signal))
+    ;; Only SIGINT (2) and SIGTERM (15) are delivered to `termination`.
+    (: received-signal (-> I32 Signal))
+    (define (received-signal number)
+      (if (= number 2) (Interrupt) (Terminate)))
 
     ;; ---- Native tokens ----
 
-    ;; Private to the native binding: a token from another handler reaching
-    ;; it becomes EBADF instead of being cast to a native handle.
+    ;; Private to the native binding: a token from another handler crosses
+    ;; as handle 0, which the host refuses with EBADF.
     (struct NativeProcess
       ((handle I32)))
 
@@ -171,22 +158,19 @@
 
     ;; The host reads a command a character at a time: its directory, its
     ;; program, then its arguments.
-    (: command-parts (-> Command (Vector String)))
-    (define (command-parts command)
-      (list->vector (Cons (Command-directory command)
-                          (Cons (Command-program command) (Command-arguments command)))))
+    (: send-command (-> Command Unit))
+    (define (send-command command)
+      (for-each send-text
+                (Cons (Command-directory command)
+                      (Cons (Command-program command) (Command-arguments command)))))
 
-    (: part-count (-> (Vector String) I32))
-    (define (part-count parts)
-      (i64->i32 (vector-length parts)))
-
-    (: part-length (-> (Vector String) I32 I32))
-    (define (part-length parts part)
-      (i64->i32 (string-length (vector-ref parts (i32->i64 part)))))
-
-    (: part-character (-> (Vector String) I32 I32 Char))
-    (define (part-character parts part index)
-      (string-ref (vector-ref parts (i32->i64 part)) (i32->i64 index)))
+    (: send-text (-> String Unit))
+    (define (send-text text)
+      (let loop ((index 0))
+        (when (< index (string-length text))
+          (host-argument-character (string-ref text index))
+          (loop (+ index 1))))
+      (host-argument-end))
 
     (: stream-descriptor (-> Stream I32))
     (define (stream-descriptor stream)
@@ -202,111 +186,49 @@
         ((Kill) 9)
         ((Interrupt) 2)))
 
-    (expose process-handle "process:handle")
-    (expose command-parts "process:command-parts")
-    (expose part-count "process:part-count")
-    (expose part-length "process:part-length")
-    (expose part-character "process:part-character")
-    (expose stream-descriptor "process:stream-descriptor")
-    (expose signal-number "process:signal-number")
+    ;; ---- Native answers ----
 
-    ;; Only SIGINT (2) and SIGTERM (15) are delivered to `termination`.
-    (: received-signal (-> I32 Signal))
-    (define (received-signal number)
-      (if (= number 2) (Interrupt) (Terminate)))
+    ;; As (snail shell socket) reads its answers, with the table in
+    ;; (snail runtime native process).
+    (: native (All (T) (-> (-> I64 Unit) (-> I32 T) (Result T ProcessError) ! tasks)))
+    (define (native start success)
+      (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
-    (expose received-signal "process:received-signal")
+    (: answered (All (T) (-> I32 (-> I32 T) (Result T ProcessError))))
+    (define (answered answer success)
+      (if (< answer 0)
+          (Err (ProcessError (held-text 0)))
+          (Ok (success answer))))
 
-    ;; ---- Host result construction ----
+    (: held-bytes (-> I32 Bytes))
+    (define (held-bytes position)
+      (vector-generate (i32->i64 (host-held-length position))
+                       (lambda (index) (i32->u8 (host-held-byte position (i64->i32 index))))))
 
-    ;; JavaScript carries GC references opaquely. These synchronous helpers
-    ;; run only inside a finish, which the waiting task calls.
-    (: buffer (-> I32 (Array U8) ! mut))
-    (define (buffer count)
-      (make-array (i32->i64 count) (i32->u8 0)))
+    ;; Error codes and signal names are ASCII.
+    (: held-text (-> I32 String))
+    (define (held-text position)
+      (string-generate (i32->i64 (host-held-length position))
+                       (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
-    (: put! (-> (Array U8) I32 I32 Unit ! mut))
-    (define (put! target index byte)
-      (array-set! target (i32->i64 index) (i32->u8 byte)))
+    (: spawned (-> I32 Process))
+    (define (spawned handle)
+      (Process (type-convert (NativeProcess handle) Any) (host-held-number)))
 
-    (: ascii-text (-> (Array U8) String ! mut))
-    (define (ascii-text bytes)
-      (string-generate (array-length bytes)
-                       (lambda (index) (i32->char (u8->i32 (array-ref bytes index))))))
+    (: held-read (-> I32 (Option Bytes)))
+    (define (held-read answer)
+      (if (= answer 0) (None) (Some (held-bytes 0))))
 
-    (: error-code (-> (Array U8) ProcessError ! mut))
-    (define (error-code bytes)
-      (ProcessError (ascii-text bytes)))
+    (: held-exit (-> I32 Exit))
+    (define (held-exit answer)
+      (if (= answer 0) (Exited (host-held-number)) (Signaled (held-text 0))))
 
-    (: spawned (-> I32 I32 (Result Process ProcessError)))
-    (define (spawned handle id)
-      (Ok (Process (type-convert (NativeProcess handle) Any) id)))
+    (: captured (-> I32 Captured))
+    (define (captured answer)
+      (Captured (held-exit answer) (held-bytes 1) (held-bytes 2)))
 
-    (: received (-> (Array U8) (Result (Option Bytes) ProcessError) ! mut))
-    (define (received bytes)
-      (Ok (Some (array->vector bytes))))
+    (: count (-> I32 I32))
+    (define (count written) written)
 
-    (: eof (-> (Result (Option Bytes) ProcessError)))
-    (define (eof)
-      (Ok (None)))
-
-    (: written (-> I32 (Result I32 ProcessError)))
-    (define (written count)
-      (Ok count))
-
-    (: done (-> (Result Unit ProcessError)))
-    (define (done)
-      (Ok (unit)))
-
-    (: exited (-> I32 (Result Exit ProcessError)))
-    (define (exited code)
-      (Ok (Exited code)))
-
-    (: signaled (-> (Array U8) (Result Exit ProcessError) ! mut))
-    (define (signaled name)
-      (Ok (Signaled (ascii-text name))))
-
-    ;; A command `run` waited for: its exit status, or, when `code` is -1,
-    ;; the signal `signal` names, and what it wrote.
-    (: captured (-> I32 (Array U8) (Array U8) (Array U8) (Result Captured ProcessError) ! mut))
-    (define (captured code signal stdout stderr)
-      (Ok (Captured (if (< code 0) (Signaled (ascii-text signal)) (Exited code))
-                    (array->vector stdout)
-                    (array->vector stderr))))
-
-    ;; Each Result has its own concrete Wasm type, including its Err variant.
-    (: spawn-error (-> ProcessError (Result Process ProcessError)))
-    (define (spawn-error error) (Err error))
-
-    (: read-error (-> ProcessError (Result (Option Bytes) ProcessError)))
-    (define (read-error error) (Err error))
-
-    (: write-error (-> ProcessError (Result I32 ProcessError)))
-    (define (write-error error) (Err error))
-
-    (: unit-error (-> ProcessError (Result Unit ProcessError)))
-    (define (unit-error error) (Err error))
-
-    (: exit-error (-> ProcessError (Result Exit ProcessError)))
-    (define (exit-error error) (Err error))
-
-    (: run-error (-> ProcessError (Result Captured ProcessError)))
-    (define (run-error error) (Err error))
-
-    (expose buffer "process:buffer")
-    (expose put! "process:put")
-    (expose error-code "process:error-code")
-    (expose spawned "process:spawned")
-    (expose received "process:received")
-    (expose eof "process:eof")
-    (expose written "process:written")
-    (expose done "process:done")
-    (expose exited "process:exited")
-    (expose signaled "process:signaled")
-    (expose captured "process:captured")
-    (expose spawn-error "process:spawn-error")
-    (expose read-error "process:read-error")
-    (expose write-error "process:write-error")
-    (expose unit-error "process:unit-error")
-    (expose exit-error "process:exit-error")
-    (expose run-error "process:run-error")))
+    (: done (-> I32 Unit))
+    (define (done _) (unit))))

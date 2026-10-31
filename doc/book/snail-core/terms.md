@@ -64,7 +64,7 @@ datum into syntax. Every generated form is located at the recipe.
 | `(type (Name param ...) type)` | Transparent alias. |
 | `(typeclass (Class param ...) (: method type) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(requires constraint ...)] (define ...) ...)` | Instance. |
-| `(effect Name ((operation type) ...) [(host "module" ((operation "symbol") ...))] [(default ((operation implementation) ...))])` | Effect with operations and optional Snail-Core defaults, each a lambda or a function's or extern's name; a `host` clause, kept for the socket and process effects, names an import per operation instead. `(ctl operation type)` declares a control operation ([effects and handlers](effects.md)). |
+| `(effect Name ((operation type) ...) [(host "module" ((operation "symbol") ...))] [(default ((operation implementation) ...))])` | Effect with operations and optional Snail-Core defaults, each a lambda or a function's or extern's name; a `host` clause, which no library uses any more, names an import per operation instead. `(ctl operation type)` declares a control operation ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
 | `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail core primitive)`. |

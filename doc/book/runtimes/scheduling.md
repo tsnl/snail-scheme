@@ -35,9 +35,9 @@ with the ticket its task took, and finished through another
 `start(ticket, operation, deliver, dispose)` runs the operation with the
 run's `AbortSignal` and counts it outstanding until it settles. Settling
 wakes the ticket and keeps the outcome under it until the task's finish
-calls `finish(ticket)`, which runs `deliver` on a success, building the
-managed result through the library's exposed helpers, or throws a failure
-into the finish, where it traps the task. `coded` turns a native failure
+calls `finish(ticket)`, which runs `deliver` on a success, making the
+answer the library reads, or throws a failure into the finish, where it
+traps the task. `coded` turns a native failure
 with an error code, such as `ECONNRESET`, into the operation's `Err`
 value, and leaves a cancellation or an uncoded failure a failure.
 

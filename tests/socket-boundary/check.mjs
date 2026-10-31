@@ -19,8 +19,7 @@ const tcp = createTcp(), udp = createUdp(), reported = [];
 const requests = new Map();
 // The imports outlive each run of tasks, which cancelling replaces.
 const current = {start: (...args) => tasks.start(...args), finish: ticket => tasks.finish(ticket)};
-const host = {'snail.runtime.native.socket': socketImports(() => program, current, tcp, udp),
-              'snail.test': {stage: () => 0}};
+const host = {'snail.runtime.native.socket': socketImports(() => program, current, tcp, udp)};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
 
 function fresh() {
@@ -66,15 +65,8 @@ function invoke(name, ...args) {
   return {done, cancel};
 }
 fresh();
-const helpers = () => program.names ? program.linked.get('snail.shell.socket').exports : program.runtime.exports;
-const native = {listen: tcp.listen, connect: tcp.connect, read: tcp.read, write: tcp.write};
+const native = {listen: tcp.listen, connect: tcp.connect, accept: tcp.accept, read: tcp.read, write: tcp.write};
 const timeout = setTimeout(() => { throw new Error('socket boundary test timed out'); }, 30_000);
-
-function replaceHelpers(overrides) {
-  const replacement = {exports: {...helpers(), ...overrides}};
-  if (program.names) program = {...program, linked: new Map(program.linked).set('snail.shell.socket', replacement)};
-  else program = {...program, runtime: replacement};
-}
 
 try {
   if (filename.endsWith('.json')) {
@@ -90,8 +82,10 @@ try {
 
   const listener = api.listener(await invoke('open').done), port = api.port(listener);
   const client = api.connection(await invoke('dial', port).done);
+  let serverId;
+  tcp.accept = async (...args) => (serverId = await native.accept(...args));
   const server = api.connection(await invoke('take', listener).done);
-  const serverId = helpers()['tcp:connection-handle'](server);
+  tcp.accept = native.accept;
 
   // Another effect reuses staging while the first write is suspended.
   const held = Promise.withResolvers(), release = Promise.withResolvers();
@@ -145,16 +139,8 @@ try {
   assert.throws(() => tcp.port(acquired), {code: 'EBADF'});
   tcp.listen = native.listen;
 
-  // A constructor trap after successful delivery still owns native cleanup.
-  const original = program, fault = new WebAssembly.RuntimeError('constructor failed');
-  replaceHelpers({'tcp:connected': () => { throw fault; }});
-  tcp.connect = async (...args) => { acquired = await native.connect(...args); return acquired; };
-  await assert.rejects(invoke('dial', port).done, error => error === fault);
-  await assert.rejects(native.read(new AbortController().signal, acquired, 1), {code: 'EBADF'});
-  program = original;
-  tcp.connect = native.connect;
-
   // Uncoded host failures are not converted into recoverable network errors.
+  const fault = new WebAssembly.RuntimeError('host failed');
   tcp.read = () => { throw fault; };
   await assert.rejects(invoke('receive', client, 1).done, error => error === fault);
   tcp.read = native.read;
@@ -191,12 +177,7 @@ try {
   const first = api['udp-socket'](await invoke('open-udp').done);
   const second = api['udp-socket'](await invoke('open-udp').done);
   const firstPort = api['udp-port'](first), secondPort = api['udp-port'](second);
-  // Staging is already borrowed on host entry. Even a synchronous argument
-  // projector may reenter Wasm and overwrite it before native send starts.
-  const projection = helpers()['udp:socket-handle'];
-  replaceHelpers({'udp:socket-handle': socket => { api['overwrite-stage'](); return projection(socket); }});
   assert.equal(api.written(await invoke('send-udp', first, secondPort).done), 4);
-  program = original;
   const packet = await invoke('receive-udp', second, 4).done;
   assert.equal(api['packet-size'](packet), 4);
   assert.equal(api['packet-port'](packet), firstPort);
@@ -209,11 +190,6 @@ try {
   await turn();
   assert.throws(() => udp.port(acquired), {code: 'EBADF'});
 
-  udp.bind = async (...args) => { acquired = await nativeBind(...args); return acquired; };
-  replaceHelpers({'udp:bound': () => { throw fault; }});
-  await assert.rejects(invoke('open-udp').done, value => value === fault);
-  assert.throws(() => udp.port(acquired), {code: 'EBADF'});
-  program = original;
   udp.bind = nativeBind;
 
   const waiting = Promise.withResolvers();
@@ -236,4 +212,4 @@ try {
   await udp.shutdown();
   clearTimeout(timeout);
 }
-console.log('socket boundary: typed TCP/UDP results, staging ownership, cancellation and constructor failure');
+console.log('socket boundary: typed TCP/UDP results, staging ownership and cancellation');
