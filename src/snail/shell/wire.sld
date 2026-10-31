@@ -18,7 +18,16 @@
    case-id=?)
   (import
    (snail core base)
-   (except (snail core primitive) string-append))
+   (except (snail core primitive)
+           string-append
+           make-array
+           array-length
+           array-ref
+           array-set!
+           array->vector
+           vector->array
+           array-copy!
+           vector-copy!))
   (begin
 
     ;; ---- Classes ----
@@ -215,17 +224,12 @@
       (define (decode decoder)
         (vector->list (decode-elements decoder (decode-unsigned decoder) decode))))
 
+    ;; The elements are decoded in index order, as `vector-generate` asks
+    ;; for them; no array is needed, whose elements would have to be unboxed.
     (: decode-elements
        (All (T) (requires (Copy T)) (-> Decoder I64 (-> Decoder T ! mut) (Vector T) ! mut)))
     (define (decode-elements decoder count decode-one)
-      (if (= count 0)
-          (vector-generate 0 (lambda (index) (panic "no elements")))
-          (let ((items (make-array count (decode-one decoder))))
-            (let loop ((index 1))
-              (when (< index count)
-                (array-set! items index (decode-one decoder))
-                (loop (+ index 1))))
-            (array->vector items))))
+      (vector-generate count (lambda (index) (decode-one decoder))))
 
     (instance (Serialize (Option T))
       (requires (Serialize T))

@@ -10,7 +10,16 @@
   (import
    (snail core base)
    (snail shell wire)
-   (except (snail core primitive) string-append))
+   (except (snail core primitive)
+           string-append
+           make-array
+           array-length
+           array-ref
+           array-set!
+           array->vector
+           vector->array
+           array-copy!
+           vector-copy!))
   (begin
 
     ;; `value` is the latest output; advancing returns a new generator.
