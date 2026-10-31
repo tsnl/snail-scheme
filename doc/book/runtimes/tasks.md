@@ -75,6 +75,40 @@ holds no stack either. Its handle returned when it waited, through each
 frame of the work, which saved the rest of itself in the resumption
 ([control handlers](../snail-core/effects.md#control-handlers)).
 
+## Scheduling
+
+The policy is cooperative first-in, first-out, with no priorities:
+
+- `dispatch-task` appends a new task at the back of the ready queue. A turn
+  reads the ready count when it begins and runs that many tasks from the
+  front, one at a time; a task that yields goes to the back, so it runs
+  again only in the next turn. Tasks that yield to each other therefore
+  cannot keep the host from its events.
+- `sleep` moves the task to the timers, kept sorted by deadline, a new
+  timer after every timer due no later, so sleepers with one deadline wake
+  in the order they slept. After the ready tasks have run, every timer
+  whose deadline has passed goes to the back of the ready queue.
+- `await` parks the task on its ticket among the waiters. When the host
+  operation settles, the host calls `wake` with the ticket, which moves
+  that one waiter to the back of the ready queue. A ticket nothing waits
+  on wakes nothing, as after a trap or a close.
+- Between turns, `turn` answers what the host should do next
+  ([driving the scheduler](scheduling.md#turns)): 0 when a task is ready,
+  the milliseconds until the earliest deadline, -2 when every live task
+  waits on a ticket, and -1 when no task is live.
+- A task leaves the queue, and the rest of the queue is back in place,
+  before it runs, so a trap loses that task alone; `running` still names
+  it for the host's report, and the turns go on.
+
+The queues hold tasks, which are linear, and a cell holds no linear
+value, so they rest in slots of `(snail shell slot)`: an `UnsafeSlot`
+is the one shared place a linear value may rest between frames. A queue is
+taken out, changed and put back while no task runs. Taking an empty slot
+or putting into a full one traps, which catches a host callback that
+reenters `wake` while a queue is out; no other check is needed, since an
+instance is single-threaded. Nothing finalizes what a slot holds: `close`
+drains the three slots and drops the tasks.
+
 ## Effects and locality
 
 The dispatcher must admit both `tasks` and the effects of the thunk, so
@@ -100,10 +134,11 @@ does not by itself wait, and the scheduler does not preempt a CPU loop.
 
 A `Mailbox` is how tasks hand each other values. Messages are received in
 the order they were posted, and receivers are served in the order they
-began to wait. Its queues are Snail-Core data, each in a `Ref`, one of
-messages posted while no task waited and one of waiting receivers: tasks
-share a mailbox, so its contents are the one piece of state this library
-cannot thread through a single task. A post hands its message straight
+began to wait. Its queues are Snail-Core data, each in an `UnsafeSlot` of
+`(snail shell slot)` ([scheduling](#scheduling)), one of messages
+posted while no task waited and one of waiting receivers: tasks share a
+mailbox, so its contents are the one piece of state this library cannot
+thread through a single task. A post hands its message straight
 to the receiver that has waited longest, and wakes it, so a task that
 asks before that receiver runs waits behind the others instead of taking
 it. A message may be linear, such as a work item: it moves into the

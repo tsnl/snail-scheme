@@ -30,9 +30,12 @@
     ;; ---- Representable ownership ----
 
     ;; A Vector or an Array holds only ω values, since reading one leaves
-    ;; its element in place. A Ref's content moves out with `ref-replace!`,
-    ;; and other data moves its fields out with `match`, so both may hold a
-    ;; linear value. `copy` names the type variables declared ω.
+    ;; its element in place, and so does a Ref: a cell is shared, so nothing
+    ;; would finalize linear content it still held. Other data moves its
+    ;; fields out with `match`, so it may hold a linear value, and the
+    ;; runtime's UnsafeSlot (snail shell slot) is the one shared place a
+    ;; linear value rests between frames. `copy` names the type variables
+    ;; declared ω.
     (: check-type (-> Program (List String) Type Loc Unit ! compile))
     (define (check-type program copy type loc)
       (match type
@@ -47,6 +50,13 @@
                                                     copy
                                                     arg
                                                     "a type argument must be unrestricted: a Vector or Array holds no linear value")))
+                     (when (and (string=? name "snail.core.base:Ref")
+                                (linear-type? program copy arg))
+                       (compile-error loc
+                                      (explain-type program
+                                                    copy
+                                                    arg
+                                                    "a cell holds no linear value: own it in a frame or in the application's state")))
                      (check-type program copy arg loc)) args))
         ((TFun params result _)
          (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))
