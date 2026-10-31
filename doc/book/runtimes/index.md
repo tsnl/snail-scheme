@@ -72,6 +72,13 @@ Node's 1.3 s ([#562](https://github.com/tsnl/snail-scheme/issues/562)).
 workerd's isolates are not OS processes, and its WasmGC and import support
 must be checked before promising compatibility.
 
+The Rust support module, `snail.core.support` from
+`crates/snail-core-support`, is what lies beneath `(snail core …)`, not a
+runtime interface. *Proposed:* it shrinks to pure scalar services, float
+printing and the transcendental math. I/O moves into Snail-Core through
+WASI once memory primitives exist, and the Unicode tables become a
+generated library (the crate's README has the plan).
+
 ## Future work
 
 [Instances, queues and shared memory](instances.md) proposes how several
