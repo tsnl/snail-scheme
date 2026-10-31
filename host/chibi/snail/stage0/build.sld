@@ -13,8 +13,7 @@
    build-program
    build-modules
    link-wat
-   build-crate
-   build-toolchain-runtime
+   build-runtime
    build-tool
    build-toolchain-tool
    build-cli-tools
@@ -267,7 +266,7 @@
                                         source
                                         program
                                         #f
-                                        (build-crate root "snail-core-support"))
+                                        (build-runtime root #f))
                          (run-wasm root program (list output)))))
           (unless (zero? (caddr result))
             (error (string-append "the producer " source " failed:\n" (cadr result))))
@@ -488,37 +487,21 @@
   (export \"diagnostics/report-error\" (func $report))
   (export \"close-resources\" (func $close)))\n")
 
-    ;; The crate crates/NAME built for WASI into build/wasm-NAME; Cargo
-    ;; decides whether it is stale, and names the module after the crate's
-    ;; package, with `_` for `-`.
-    (define (build-crate root name)
-      (build-crate-with root name (string-append "build/wasm-" name) '()))
-
-    ;; The runtime tools written in Snail-Core link: the one programs link,
-    ;; with its `assembler` feature, which (snail shell assembler) reaches.
-    ;; It builds apart from the plain runtime, so neither rebuilds the other.
-    (define (build-toolchain-runtime root)
-      (build-crate-with root
-                        "snail-core-support"
-                        "build/wasm-snail-core-support-toolchain"
-                        '("--features" "assembler")))
-
-    (define (build-crate-with root name directory flags)
-      (let ((target (path-join root directory))
-            (manifest (path-join root "crates" name "Cargo.toml")))
+    ;; The scalar runtime, optionally with the assembler used by compiler
+    ;; tools. Separate target directories keep the two artifacts independent;
+    ;; Cargo decides whether each needs rebuilding.
+    (define (build-runtime root assembler?)
+      (let ((target (path-join root
+                               (if assembler?
+                                   "build/wasm-snail-core-support-toolchain"
+                                   "build/wasm-snail-core-support"))))
         (apply run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
                "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-               "--target"
-               "wasm32-wasip1"
-               "--manifest-path"
-               manifest
+               "--target" "wasm32-wasip1"
+               "--manifest-path" (path-join root "crates/snail-core-support/Cargo.toml")
                "--target-dir" target
-               flags)
-        (path-join target
-                   "wasm32-wasip1/release"
-                   (string-append (string-map (lambda (c) (if (char=? c #\-) #\_ c))
-                                              (quoted-value (read-file manifest) "name"))
-                                  ".wasm"))))
+               (if assembler? '("--features" "assembler") '()))
+        (path-join target "wasm32-wasip1/release/snail_core_support.wasm")))
 
     ;; rustup resolves a toolchain from the working directory, which belongs
     ;; to whoever ran the command: building a project in another directory
@@ -591,7 +574,7 @@
     (define (link-wat root text output release?)
       (let ((wat (string-append output ".wat")))
         (write-file wat text)
-        (link-wat-file wat output release? (build-crate root "snail-core-support"))))
+        (link-wat-file wat output release? (build-runtime root #f))))
 
     ;; The compiler already wrote this text. Assemble its file directly, and
     ;; link it with `runtime`; only callers that hold text need link-wat's
@@ -675,7 +658,7 @@
                                               (read-links generated))))
              (names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble (path-join output name))) names)
-        (copy-file! (build-crate root "snail-core-support") (path-join output "runtime.wasm"))
+        (copy-file! (build-runtime root #f) (path-join output "runtime.wasm"))
         (write-file (path-join output "modules.json") (modules-json names))
         (place-links! links output)
         output))
@@ -717,45 +700,38 @@
 
     ;; ---- Development tools ----
 
-    ;; Each tool below is built again only when its sources are newer, and
-    ;; each list gives the tools' paths by name.
-
     ;; The `snail` command line, a Snail program that builds projects with
     ;; the compiler inside it, linked with the toolchain's runtime, which
     ;; assembles a development build's modules; and the runtime it links
     ;; programs with.
     (define (build-cli-tools root)
-      (list (cons "cli"
-                  (build-toolchain-tool root
-                                        (path-join root "bootstrap/cli.sld")
-                                        (path-join root "build/project/cli.wasm")
-                                        (standard-directories root)))
-            (cons "runtime" (build-crate root "snail-core-support"))))
+      (list (build-toolchain-tool root
+                                  (path-join root "bootstrap/cli.sld")
+                                  (path-join root "build/project/cli.wasm")
+                                  (standard-directories root))
+            (build-runtime root #f)))
 
     ;; The development service adds two programs to the command line's
     ;; tools, whose `resident` builds for it: the editor, the interface it
     ;; serves, and the reload client its browser targets' pages load.
     (define (build-editor-tools root)
-      (append (list (cons "editor"
-                          (build-tool root
-                                      (path-join root "host/ide/ide.sld")
-                                      (path-join root "build/ide-tools/ide.wasm")
-                                      (standard-directories root)))
-                    (cons "client"
-                          (build-tool root
-                                      (path-join root "host/browser/reload.sld")
-                                      (path-join root "build/ide-tools/reload.wasm")
-                                      (standard-directories root))))
+      (append (list (build-tool root
+                                (path-join root "host/ide/ide.sld")
+                                (path-join root "build/ide-tools/ide.wasm")
+                                (standard-directories root))
+                    (build-tool root
+                                (path-join root "host/browser/reload.sld")
+                                (path-join root "build/ide-tools/reload.wasm")
+                                (standard-directories root)))
               (build-cli-tools root)))
 
     ;; The book's highlighter, the preprocessor scripts/highlight-book runs
     ;; while mdbook builds the book.
     (define (build-book-tools root)
-      (list (cons "highlighter"
-                  (build-tool root
-                              (path-join root "bootstrap/highlight-book.sld")
-                              (path-join root "build/book-tools/highlight-book.wasm")
-                              (standard-directories root)))))
+      (list (build-tool root
+                        (path-join root "bootstrap/highlight-book.sld")
+                        (path-join root "build/book-tools/highlight-book.wasm")
+                        (standard-directories root))))
 
     ;; A program the tools run, built from `source` with the libraries in
     ;; `directories` when it is stale.
@@ -769,12 +745,12 @@
                                           source
                                           output
                                           #f
-                                          (build-crate root "snail-core-support")))))
+                                          (build-runtime root #f)))))
 
     ;; A tool linked with the toolchain's runtime, which it is rebuilt
     ;; after, as after its sources.
     (define (build-toolchain-tool root source output directories)
-      (let ((runtime (build-toolchain-runtime root)))
+      (let ((runtime (build-runtime root #t)))
         (rebuild-if-stale! root
                            output
                            (cons runtime (cons source directories))

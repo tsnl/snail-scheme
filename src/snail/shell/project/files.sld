@@ -154,7 +154,7 @@
       (match (followed-status root)
         ((Ok status)
          (match (FileStatus-kind status)
-           ((Directory) (Ok (sort-strings (served-among root paths))))
+           ((Directory) (Ok (list-sort string<? (served-among root paths))))
            (_ (Err (NotServed "the project root must remain a directory")))))
         ((Err error) (Err (DiskFailed error)))))
 
@@ -335,22 +335,4 @@
     (define (set-file-mode path mode)
       (= (mode-command-on "chmod" path mode) 0))
 
-    ;; ---- Sorting ----
-
-    (: sort-strings (-> (List String) (List String)))
-    (define (sort-strings strings)
-      (if (<= (length strings) 1)
-          strings
-          (let ((half (quotient (length strings) 2)))
-            (merge-strings (sort-strings (take strings half))
-                           (sort-strings (list-drop strings half))))))
-
-    (: merge-strings (-> (List String) (List String) (List String)))
-    (define (merge-strings left right)
-      (match (Pair left right)
-        ((Pair (Nil) _) right)
-        ((Pair _ (Nil)) left)
-        ((Pair (Cons a left-rest) (Cons b right-rest))
-         (if (string<? b a)
-             (Cons b (merge-strings left right-rest))
-             (Cons a (merge-strings left-rest right))))))))
+    ))

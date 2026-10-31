@@ -24,6 +24,7 @@
    delete-duplicates
    take
    list-drop
+   list-sort
    last
    list-index
    assoc-ref
@@ -48,6 +49,7 @@
    (only (chibi) _ ...)
    (scheme char)
    (rename (srfi 1) (drop list-drop))
+   (rename (only (srfi 132) list-stable-sort) (list-stable-sort list-sort))
    (srfi 151)
    (snail stage0 forms))
   (begin
