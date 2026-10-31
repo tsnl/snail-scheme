@@ -1,12 +1,13 @@
 // Linked files ship beside the payload of every project build, under the
-// name the compiler gives them, and each host reads them before the
-// program starts.
+// name the compiler gives them, and each host reads one when a task first
+// asks for it.
 //   node tests/project-resources.mjs ROOT
 //
-// A library links a file beside its source. A program target and a
-// browser target each place it at resources/NAME in their output; the
-// program prints the bytes it read, natively and through the browser
-// host's loader fetching the page's files over HTTP. A development build
+// A library links two files beside its source. A program target and a
+// browser target each place them at resources/NAME in their output; the
+// program prints the bytes of one, read in a task, natively and through
+// the browser host's loader fetching the page's files over HTTP, which
+// never fetches the file the program does not read. A development build
 // places the file too, seen from outside `snail dev`
 // (tests/development-service.mjs): once the file is edited, the next Build
 // compiles nothing again, yet its generation holds and reads the new bytes.
@@ -18,6 +19,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
 import {createWasi, instantiate, linkedFileImports} from '../host/browser/load.mjs';
+import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 import {startDevelopment} from './development-service.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
@@ -28,10 +30,14 @@ const write = async (name, contents) => { await mkdir(join(project, name, '..'),
 const resource = directory => readFile(join(directory, 'resources/assets.sprites/art/hero.bin'));
 
 // The browser host fetches a static page's files relative to its module,
-// so serve the output as a page's server would and read through it.
+// so serve the output as a page's server would and read through it. The
+// program's lines, and the paths the page fetched.
 async function pageOutput(directory) {
+  const fetched = [];
   const server = createServer(async (request, response) => {
-    try { response.end(await readFile(join(directory, decodeURIComponent(new URL(request.url, 'http://page').pathname)))); }
+    const path = decodeURIComponent(new URL(request.url, 'http://page').pathname);
+    fetched.push(path);
+    try { response.end(await readFile(join(directory, path))); }
     catch { response.writeHead(404).end(); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -44,30 +50,37 @@ async function pageOutput(directory) {
     };
     const module = await WebAssembly.compile(await read('program.wasm'));
     const wasi = createWasi({print: (fd, line) => lines.push(line)});
-    const instance = await instantiate(module, {...wasi.getImportObject(), ...await linkedFileImports(read, module)});
+    let instance;
+    const tasks = createTasks(() => instance && taskExports({exports: instance.exports}));
+    instance = await instantiate(module, {...wasi.getImportObject(), ...linkedFileImports(read, module, () => tasks)});
     wasi.initialize(instance);
     instance.exports.main();
-    return lines.join('\n');
+    await tasks.drive();
+    return {output: lines.join('\n'), fetched};
   } finally { server.close(); }
 }
 
 try {
-  await write('src/assets/sprites.sld', `(define-library (assets sprites) (export hero) (import (snail core base) (snail shell resource))
-    (begin (: hero Resource) (define hero (link-bytes "art/hero.bin"))))`);
+  await write('src/assets/sprites.sld', `(define-library (assets sprites) (export hero villain) (import (snail core base) (snail shell resource))
+    (begin (: hero Resource) (define hero (link-file "art/hero.bin")) (: villain Resource) (define villain (link-file "art/villain.bin"))))`);
   await write('src/assets/art/hero.bin', Buffer.from([1, 2, 3, 255]));
-  await write('main.sld', `(import (snail core base) (snail core io) (snail shell resource) (assets sprites))
-(write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource hero))) ","))\n`);
+  await write('src/assets/art/villain.bin', Buffer.from([7]));
+  await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) tasks dispatch-local) (snail shell resource) (assets sprites))
+(dispatch-local (once (lambda () (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource hero))) ",")))))\n`);
   await write('public/index.html', '<!doctype html><title>Resources</title>');
   await write('project.datum', `((build-target cli (program (entry "main.sld") (library-roots ("src"))))
  (build-target page (browser (entry "main.sld") (library-roots ("src")) (public "public"))))`);
 
   await build('cli');
   assert.deepEqual(await resource(join(project, 'build/cli')), Buffer.from([1, 2, 3, 255]), 'the program target places the file');
-  assert.equal((await run(join(project, 'build/cli/program.wasm'))).stdout, '1,2,3,255\n', 'the native host reads it before the program starts');
+  assert.equal((await run(join(project, 'build/cli/program.wasm'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
 
   await build('page');
   assert.deepEqual(await resource(join(project, 'build/page')), Buffer.from([1, 2, 3, 255]), 'the browser target places the file');
-  assert.equal(await pageOutput(join(project, 'build/page')), '1,2,3,255', 'the browser host fetches it beside the module');
+  const page = await pageOutput(join(project, 'build/page'));
+  assert.equal(page.output, '1,2,3,255', 'the browser host fetches it beside the module');
+  assert.ok(page.fetched.includes('/resources/assets.sprites/art/hero.bin'), page.fetched.join(' '));
+  assert.ok(!page.fetched.some(path => path.endsWith('villain.bin')), 'a file the program never reads is never fetched');
 
   await rm(join(project, 'src/assets/art/hero.bin'));
   await assert.rejects(build('cli'), /sprites\.sld:\d+:\d+: the library assets\.sprites links art\/hero\.bin, but there is no file at /);

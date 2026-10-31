@@ -1,15 +1,19 @@
-//! The files a program links, `link-bytes` in (snail shell resource), as
+//! The files a program links, `link-file` in (snail shell resource), as
 //! host/browser/load.mjs gives them on Node and in the page.
 //!
 //! A module asks for each file it links by importing a function from
-//! "snail.runtime.link" named for the file, which answers the file's handle, and
-//! reads the file by handle through "snail.runtime.resource". Every file the
-//! program's modules name is read from `resources/NAME` beside the payload
-//! before any module is instantiated, so reading one is a lookup, and a
-//! payload whose file cannot be read fails to load rather than when the
-//! program first reads it.
+//! "snail.runtime.link" named for the file, which answers the file's handle.
+//! A handle is only a name: a task reads the file through
+//! "snail.runtime.resource", starting the read under a ticket of (snail
+//! shell task), and then finishing the ticket for the file's length and
+//! reading the bytes held until the next finish. This host reads the file
+//! from `resources/NAME` beside the payload when the read starts, the
+//! first time it is asked for, and wakes the ticket between turns
+//! (program.rs's `drive`), since a ticket may not wake before its task
+//! waits on it. A file that cannot be read traps the task that finishes it.
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use wasmtime::{Caller, Linker, Module, format_err};
 
@@ -17,31 +21,84 @@ use crate::program::Host;
 
 // ---- Reading ----
 
-/// The bytes of each file a program links, indexed by handle: a handle is
-/// the file's position among the names its modules link.
+/// The files a program links, by handle, a file's position among the names
+/// its modules link; what each read answers, by ticket; and the bytes the
+/// last finish holds.
 #[derive(Default)]
-pub struct Files(Vec<Vec<u8>>);
+pub struct Files {
+    resources: PathBuf,
+    names: Vec<String>,
+    read: Vec<Option<Vec<u8>>>,
+    answers: HashMap<i64, Result<usize, String>>,
+    waking: Vec<i64>,
+    held: usize,
+}
 
 impl Files {
-    /// Reads each named file from `resources/` in `directory`, the
-    /// payload's, in the order of `names`.
-    pub fn read(directory: &Path, names: &[String]) -> wasmtime::Result<Files> {
-        let resources = directory.join("resources");
-        let read = |name: &String| {
-            std::fs::read(resources.join(name))
-                .map_err(|error| format_err!("cannot read the linked file {name}: {error}"))
-        };
-        Ok(Files(
-            names.iter().map(read).collect::<wasmtime::Result<_>>()?,
-        ))
+    /// The files `names` link, read from `resources/` in `directory`, the
+    /// payload's, as tasks ask for them.
+    pub fn new(directory: &Path, names: &[String]) -> Files {
+        Files {
+            resources: directory.join("resources"),
+            names: names.to_vec(),
+            read: vec![None; names.len()],
+            ..Files::default()
+        }
     }
 
-    fn get(&self, handle: i32) -> wasmtime::Result<&[u8]> {
-        let file = usize::try_from(handle)
+    /// Reads the file `handle` names, unless it has been, and answers
+    /// `ticket` with it once the ticket is woken.
+    fn start(&mut self, ticket: i64, handle: i32) -> wasmtime::Result<()> {
+        let index = usize::try_from(handle)
             .ok()
-            .and_then(|index| self.0.get(index));
-        file.map(Vec::as_slice)
-            .ok_or_else(|| format_err!("no linked file {handle}"))
+            .filter(|index| *index < self.names.len())
+            .ok_or_else(|| format_err!("no linked file {handle}"))?;
+        let answer = match &self.read[index] {
+            Some(_) => Ok(index),
+            None => {
+                let name = &self.names[index];
+                std::fs::read(self.resources.join(name))
+                    .map(|bytes| {
+                        self.read[index] = Some(bytes);
+                        index
+                    })
+                    .map_err(|error| format!("cannot read the linked file {name}: {error}"))
+            }
+        };
+        self.answers.insert(ticket, answer);
+        self.waking.push(ticket);
+        Ok(())
+    }
+
+    /// The length of the file `ticket` read, whose bytes are held from now
+    /// until the next finish.
+    fn finish(&mut self, ticket: i64) -> wasmtime::Result<i32> {
+        let answer = self
+            .answers
+            .remove(&ticket)
+            .ok_or_else(|| format_err!("a ticket was finished before its read completed"))?;
+        self.held = answer.map_err(|message| format_err!("{message}"))?;
+        Ok(i32::try_from(self.bytes().len())?)
+    }
+
+    fn byte(&self, index: i32) -> wasmtime::Result<i32> {
+        let byte = usize::try_from(index)
+            .ok()
+            .and_then(|index| self.bytes().get(index));
+        byte.map(|byte| i32::from(*byte))
+            .ok_or_else(|| format_err!("no byte {index} in linked file {}", self.held))
+    }
+
+    fn bytes(&self) -> &[u8] {
+        self.read
+            .get(self.held)
+            .and_then(Option::as_deref)
+            .unwrap_or(&[])
+    }
+
+    /// The tickets of the reads started since the last call, to wake.
+    pub fn take_waking(&mut self) -> Vec<i64> {
+        std::mem::take(&mut self.waking)
     }
 }
 
@@ -63,31 +120,31 @@ pub fn linked_names<'a>(modules: impl IntoIterator<Item = &'a Module>) -> Vec<St
 
 // ---- Imports ----
 
-/// Defines "snail.runtime.link" NAME for each of `names`, answering its handle,
-/// and the `resource` effect, a file's length and its bytes by handle,
-/// over the files the store holds.
+/// Defines "snail.runtime.link" NAME for each of `names`, answering its
+/// handle, and the `resource` effect's reads over the files the store
+/// holds.
 pub fn define(linker: &mut Linker<Host>, names: &[String]) -> wasmtime::Result<()> {
     for (handle, name) in (0..).zip(names) {
         linker.func_wrap("snail.runtime.link", name, move || -> i32 { handle })?;
     }
     linker.func_wrap(
         "snail.runtime.resource",
-        "length",
-        |caller: Caller<'_, Host>, handle: i32| {
-            Ok(i32::try_from(caller.data().files.get(handle)?.len())?)
+        "read",
+        |mut caller: Caller<'_, Host>, ticket: i64, handle: i32| {
+            caller.data_mut().files.start(ticket, handle)
         },
     )?;
-    linker.func_wrap("snail.runtime.resource", "byte", byte)?;
+    linker.func_wrap(
+        "snail.runtime.resource",
+        "finish",
+        |mut caller: Caller<'_, Host>, ticket: i64| caller.data_mut().files.finish(ticket),
+    )?;
+    linker.func_wrap(
+        "snail.runtime.resource",
+        "byte",
+        |caller: Caller<'_, Host>, index: i32| caller.data().files.byte(index),
+    )?;
     Ok(())
-}
-
-fn byte(caller: Caller<'_, Host>, handle: i32, index: i32) -> wasmtime::Result<i32> {
-    let file = caller.data().files.get(handle)?;
-    let byte = usize::try_from(index)
-        .ok()
-        .and_then(|index| file.get(index));
-    byte.map(|byte| i32::from(*byte))
-        .ok_or_else(|| format_err!("no byte {index} in linked file {handle}"))
 }
 
 // ---- Tests ----
@@ -95,68 +152,90 @@ fn byte(caller: Caller<'_, Host>, handle: i32, index: i32) -> wasmtime::Result<i
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::tests::module_file;
-    use crate::program;
 
-    // A program that links two files, one of them twice, and answers the
-    // first's length plus the second's last byte.
+    // A module that links two files, one of them twice.
     const LINKING: &str = r#"(module
         (import "snail.runtime.link" "main/data/greeting.txt" (func $greeting (result i32)))
         (import "snail.runtime.link" "lib/data/pixel.png" (func $pixel (result i32)))
-        (import "snail.runtime.link" "main/data/greeting.txt" (func $again (result i32)))
-        (import "snail.runtime.resource" "length" (func $length (param i32) (result i32)))
-        (import "snail.runtime.resource" "byte" (func $byte (param i32 i32) (result i32)))
-        (memory (export "memory") 1)
-        (func (export "_initialize"))
-        (func (export "main") (result i32)
-          (i32.add (call $length (call $greeting))
-                   (call $byte (call $pixel) (i32.sub (call $length (call $pixel)) (i32.const 1)))))
-        (func (export "close-resources") (result i32) (i32.const 0)))"#;
+        (import "snail.runtime.link" "main/data/greeting.txt" (func $again (result i32))))"#;
 
-    // A directory of its own holding the program and the files it links.
-    fn payload(name: &str) -> (std::path::PathBuf, String) {
-        let program = module_file(name, LINKING);
-        let directory = Path::new(&program).with_extension("payload");
-        std::fs::create_dir_all(directory.join("resources/main/data")).unwrap();
-        std::fs::create_dir_all(directory.join("resources/lib/data")).unwrap();
-        let moved = directory.join("program.wasm");
-        std::fs::rename(&program, &moved).unwrap();
-        (directory, moved.to_string_lossy().into_owned())
+    // A payload directory of its own holding the files `files` names.
+    fn payload(name: &str, files: &[(&str, &[u8])]) -> PathBuf {
+        let directory =
+            std::env::temp_dir().join(format!("snail-test-{}-{name}", std::process::id()));
+        for (file, bytes) in files {
+            let path = directory.join("resources").join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+        }
+        directory
+    }
+
+    fn names() -> Vec<String> {
+        vec![
+            "main/data/greeting.txt".to_string(),
+            "lib/data/pixel.png".to_string(),
+        ]
     }
 
     #[test]
     fn each_name_is_linked_once_in_the_order_first_named() {
         let engine = crate::engine::engine().unwrap();
         let module = Module::new(&engine, wat::parse_str(LINKING).unwrap()).unwrap();
-        assert_eq!(
-            linked_names([&module]),
-            ["main/data/greeting.txt", "lib/data/pixel.png"]
-        );
+        assert_eq!(linked_names([&module]), names());
     }
 
     #[test]
-    fn linked_files_are_read_from_resources_beside_the_program() {
-        let (directory, program) = payload("linking");
-        std::fs::write(directory.join("resources/main/data/greeting.txt"), "hello").unwrap();
-        std::fs::write(directory.join("resources/lib/data/pixel.png"), [1, 2, 30]).unwrap();
-        assert_eq!(program::run(&program, &[]), 35);
+    fn a_read_answers_its_ticket_once_woken_and_holds_the_bytes() {
+        let directory = payload(
+            "reading",
+            &[
+                ("main/data/greeting.txt", b"hello"),
+                ("lib/data/pixel.png", &[1, 2, 30]),
+            ],
+        );
+        let mut files = Files::new(&directory, &names());
+        files.start(7, 1).unwrap();
+        files.start(8, 0).unwrap();
+        assert_eq!(files.take_waking(), [7, 8]);
+        assert_eq!(files.finish(8).unwrap(), 5);
+        assert_eq!(files.finish(7).unwrap(), 3);
+        assert_eq!(files.byte(2).unwrap(), 30);
+        assert!(files.byte(3).is_err());
+        assert!(files.finish(7).is_err());
         std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
-    fn a_file_that_cannot_be_read_fails_the_load_naming_it() {
-        let (directory, _) = payload("unreadable");
-        std::fs::write(directory.join("resources/main/data/greeting.txt"), "hello").unwrap();
-        let names = [
-            "main/data/greeting.txt".to_string(),
-            "lib/data/pixel.png".to_string(),
-        ];
-        let error = Files::read(&directory, &names).err().unwrap();
+    fn a_file_is_read_when_first_asked_for_and_kept() {
+        let directory = payload("lazy", &[("main/data/greeting.txt", b"hello")]);
+        let mut files = Files::new(&directory, &names());
+        std::fs::write(directory.join("resources/main/data/greeting.txt"), "later").unwrap();
+        files.start(1, 0).unwrap();
+        std::fs::write(
+            directory.join("resources/main/data/greeting.txt"),
+            "changed",
+        )
+        .unwrap();
+        files.start(2, 0).unwrap();
+        files.finish(1).unwrap();
+        assert_eq!(files.byte(0).unwrap(), i32::from(b'l'));
+        assert_eq!(files.finish(2).unwrap(), 5);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_read_fails_the_finish_naming_it() {
+        let directory = payload("unreadable", &[("main/data/greeting.txt", b"hello")]);
+        let mut files = Files::new(&directory, &names());
+        files.start(3, 1).unwrap();
+        let error = files.finish(3).err().unwrap();
         assert!(
             error
                 .to_string()
                 .starts_with("cannot read the linked file lib/data/pixel.png: ")
         );
+        assert!(files.start(4, 2).is_err());
         std::fs::remove_dir_all(directory).unwrap();
     }
 }

@@ -4,4 +4,4 @@
  (snail core base)
  (snail shell resource))
 
-(define image (link-bytes "data/missing.bin"))
+(define image (link-file "data/missing.bin"))
