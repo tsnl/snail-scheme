@@ -456,12 +456,17 @@
                              (TFun (list (TRigid "R")) (TRigid "T") empty-row)))))))
 
     ;; A struct's instance for one of its fields: the record type and the
-    ;; field's type, read by the field's accessor.
+    ;; field's type, read by the field's accessor. The instance is named in
+    ;; the struct's library, so a replay of that library carries it.
     (: program-with-field-instance (-> Program DataType String Type String Program))
     (define (program-with-field-instance program data label type accessor)
       (let ((class (field-class-name label)) (params (DataType-params data)))
         (program-with-instance (program-with-field-class program label)
-                               (Instance (string-append class "@" (DataType-name data))
+                               (Instance (string-append (name-owner (DataType-name data))
+                                                        ":"
+                                                        class
+                                                        "@"
+                                                        (short-name (DataType-name data)))
                                          class
                                          params
                                          (list (TCon (DataType-name data) (map TRigid params)) type)
@@ -1056,12 +1061,16 @@
                  (owned (Program-effects program) owner)
                  (take (Program-items program) count) (take (Program-libraries program) 1))))
 
+    ;; A field class and its method belong to no library, so every delta
+    ;; carries the ones known when it was made; a replay unions them back.
     (: owned (All (V) (requires (Copy V)) (-> (Table V) String (Table V))))
     (define (owned table owner)
       (fold-left (lambda (result key)
                    (match (table-ref table key)
                      ((Some value)
-                      (if (string=? (name-owner key) owner) (table-set result key value) result))
+                      (if (or (string=? (name-owner key) owner) (string=? (name-owner key) ""))
+                          (table-set result key value)
+                          result))
                      ((None) result)))
                  empty-table (table-keys table)))
 
