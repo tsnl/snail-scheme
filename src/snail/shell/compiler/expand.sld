@@ -1811,6 +1811,7 @@
     (: bind-fields (-> Context Env Syntax (List Syntax) Bool Context ! compile))
     (define (bind-fields cx env name fields struct?)
       (let* ((parsed (map parse-field fields)) (pure? (not (any? FieldSyntax-mutable? parsed))))
+        (for-each (lambda (field) (check-mutable-field cx field)) parsed)
         (fold-left (lambda (cx field)
                      (fold-left (lambda (cx suffix)
                                   (bind-member cx
@@ -1819,6 +1820,17 @@
                                 cx
                                 (Cons "" (field-suffixes field struct? pure?))))
                    cx parsed)))
+
+    ;; `Ref` is the one struct with a mutable field, and it is declared in
+    ;; (snail core base): every other struct is a value, and a program
+    ;; holds one in a cell to write its fields, `(set! (::count (ref-get
+    ;; r)) 1)`.
+    (: check-mutable-field (-> Context FieldSyntax Unit ! compile))
+    (define (check-mutable-field cx field)
+      (when (and (FieldSyntax-mutable? field)
+                 (not (string=? (Context-prefix cx) "snail.core.base")))
+        (compile-error (syntax-loc (FieldSyntax-name field))
+                       "only Ref has a mutable field; hold the struct in a cell and write its fields with set!")))
 
     (: field-suffixes (-> FieldSyntax Bool Bool (List String) ! compile))
     (define (field-suffixes field struct? pure?)
@@ -2989,12 +3001,31 @@
                         (expand-path cx name loc)
                         (Pair (expand-reference cx env syntax loc) cx)))
                    ((Form (Nil) loc) (compile-error loc "empty application"))
-                   ((Form (Cons head args) loc)
-                    (match (head-binding cx env syntax)
-                      ((Some (Core keyword)) (expand-core cx env keyword (Form-items syntax) loc))
-                      (_ (expanding cx ((callee (expand-expr env head))
-                                        (arguments (expand-each env args)))
-                                    (Pair (expr (App callee arguments) loc) cx))))))))
+                   ((Form (Cons (Ident name _ _) (Cons arg (Nil))) loc)
+                    (if (path-name? name)
+                        (expand-path-call cx env name arg loc)
+                        (expand-application cx env syntax loc)))
+                   ((Form (Cons _ _) loc) (expand-application cx env syntax loc)))))
+
+    (: expand-application (-> Context Env Syntax Loc (Pair Expr Context) ! compile))
+    (define (expand-application cx env syntax loc)
+      (match syntax
+        ((Form (Cons head args) _)
+         (match (head-binding cx env syntax)
+           ((Some (Core keyword)) (expand-core cx env keyword (Form-items syntax) loc))
+           (_ (expanding cx ((callee (expand-expr env head))
+                             (arguments (expand-each env args)))
+                         (Pair (expr (App callee arguments) loc) cx)))))
+        (_ (panic "internal error: not an application"))))
+
+    ;; A path applied to one argument is the chain of reads itself, so
+    ;; `(::last::x (ref-get c))` is a place, not a call of a function.
+    (: expand-path-call (-> Context Env String Syntax Loc (Pair Expr Context) ! compile))
+    (define (expand-path-call cx env name arg loc)
+      (let ((labels (path-labels name loc)))
+        (expanding cx ((then (declare-field-classes labels))
+                       (value (expand-expr env arg)))
+                   (Pair (apply-path labels value loc) cx))))
 
     (: expand-each (-> Context Env (List Syntax) (Pair (List Expr) Context) ! compile))
     (define (expand-each cx env forms)

@@ -5,9 +5,9 @@
 ;; which would leave a linear record's work item with no owner.
 (struct Task
   ((work (FnOnce Unit))
-   (tries mut I64)))
+   (tries I64)))
 
-(: tries (-> (-> Task I64 ! mut) (-> Task I64 ! mut)))
+(: tries (-> (-> Task I64) (-> Task I64)))
 (define (tries read)
   read)
 
