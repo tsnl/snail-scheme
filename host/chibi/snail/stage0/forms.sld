@@ -208,13 +208,13 @@
     ;;
     ;; Stage 0 refuses ordinary operations, whose implementations would have
     ;; to run in place under the handlers outside their own `handle`, of
-    ;; every effect, and `host` and `default` clauses.
+    ;; every effect, and `default` clauses.
     (define-syntax effect
       (er-macro-transformer
        (lambda (form rename compare)
          (let ((name (cadr form)))
            (unless (null? (cdddr form))
-             (error "stage 0's effect takes no host or default clause" name))
+             (error "stage 0's effect takes no default clause" name))
            `(,(rename 'begin)
              (,(rename 'define) ,name (,(rename 'make-parameter) #f))
              ,@(map (lambda (operation) (operation-definition name operation rename))

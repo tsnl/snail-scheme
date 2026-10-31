@@ -2297,8 +2297,7 @@
          (and (not (buffer-type? param)) (staged-last? (Cons next rest))))
         (_ #t)))
 
-    ;; Operations perform their effect. Clauses after them give defaults: a
-    ;; `host` clause names Wasm imports, and a `default` clause names
+    ;; Operations perform their effect. A `default` clause after them names
     ;; Snail-Core implementations, whose definitions expand with the
     ;; library's bodies, in the steps this returns.
     (: declare-effect
@@ -2317,16 +2316,11 @@
                         (expanding cx ((snail (snail-defaults env
                                                               operations
                                                               control
-                                                              (effect-clauses clauses "default"))))
+                                                              (default-clauses clauses))))
                                    (let ((effect (Effect id
                                                          operations
                                                          control
-                                                         (effect-defaults cx
-                                                                          env
-                                                                          clauses
-                                                                          control
-                                                                          snail
-                                                                          loc))))
+                                                         (effect-defaults snail loc))))
                                      (Pair (map DefaultDefinition-expand snail)
                                            (Context-program-set cx
                                                                 (program-with-effect
@@ -2381,62 +2375,26 @@
         (_ (compile-error (syntax-loc type)
                           "an operation has a function type with a closed row; its effect is implied"))))
 
-    ;; The clauses after an effect's operations that `kind` heads.
-    (: effect-clauses (-> (List Syntax) String (List Syntax) ! compile))
-    (define (effect-clauses clauses kind)
-      (filter (lambda (clause)
-                (match clause
-                  ((Form (Cons (Ident head _ _) _) _)
-                   (unless (member? head (list "host" "default"))
-                     (compile-error (syntax-loc clause) "expected a host or default clause"))
-                   (string=? head kind))
-                  (_ (compile-error (syntax-loc clause) "expected a host or default clause"))))
-              clauses))
+    ;; The clauses after an effect's operations, each a default clause.
+    (: default-clauses (-> (List Syntax) (List Syntax) ! compile))
+    (define (default-clauses clauses)
+      (for-each (lambda (clause)
+                  (match clause
+                    ((Form (Cons (Ident "default" _ _) _) _) (unit))
+                    (_ (compile-error (syntax-loc clause) "expected a default clause"))))
+                clauses)
+      clauses)
 
     ;; Every default the clauses give, at most one per operation.
-    (: effect-defaults
-       (-> Context
-           Env
-           (List Syntax)
-           (List String)
-           (List DefaultDefinition)
-           Loc
-           (List (Pair String Default)) ! compile))
-    (define (effect-defaults cx env clauses control snail loc)
-      (let ((defaults (append
-                       (concatenate (map (lambda (clause) (host-defaults cx env clause control))
-                                         (effect-clauses clauses "host")))
-                       (map (lambda (d)
-                              (Pair (DefaultDefinition-operation d)
-                                    (SnailDefault (DefaultDefinition-global d))))
-                            snail))))
+    (: effect-defaults (-> (List DefaultDefinition) Loc (List (Pair String String)) ! compile))
+    (define (effect-defaults snail loc)
+      (let ((defaults (map (lambda (d)
+                             (Pair (DefaultDefinition-operation d) (DefaultDefinition-global d)))
+                           snail)))
         (unless (= (length (delete-duplicates string=? (map Pair-first defaults)))
                    (length defaults))
           (compile-error loc "an operation has at most one default"))
         defaults))
-
-    (: host-defaults (-> Context Env Syntax (List String) (List (Pair String Default)) ! compile))
-    ;; A control operation has no host default: the host cannot be handed
-    ;; the rest of a computation, so a control effect must be handled.
-    (define (host-defaults cx env syntax control)
-      (match syntax
-        ((Form (Cons (Ident "host" _ _) (Cons (Atom (DString module) _) (Cons operations (Nil)))) _)
-         (map (lambda (operation)
-                (match operation
-                  ((Form (Cons name (Cons (Atom (DString symbol) _) (Nil))) _)
-                   (let ((global (global-binding cx env name)))
-                     (when (member? global control)
-                       (compile-error (syntax-loc operation)
-                                      "a control operation has no host default"))
-                     (match (program-value (Context-program cx) global)
-                       ((Some (Operation _ scheme))
-                        (check-host-parameters (Scheme-type scheme) (syntax-loc operation)))
-                       (_ (unit)))
-                     (Pair global (HostDefault (Import module symbol)))))
-                  (_ (compile-error (syntax-loc operation) "expected (operation \"symbol\")"))))
-              (form-items operations "a list of host operations")))
-        (_ (compile-error (syntax-loc syntax)
-                          "expected (host \"module\" ((operation \"symbol\") ...))"))))
 
     ;; One Snail-Core default: its operation, the global that holds its
     ;; definition, and the step that expands it.
@@ -2448,8 +2406,8 @@
     ;; `(default ((operation implementation) ...))` defines each
     ;; implementation as a function of this library whose type is its
     ;; operation's, latent row included, as an instance method has its
-    ;; class method's. A control operation has none, as it has no host
-    ;; default.
+    ;; class method's. A control operation has none: no handler is in
+    ;; scope where a default runs, to be handed the rest of the computation.
     (: snail-defaults
        (-> Context
            Env
