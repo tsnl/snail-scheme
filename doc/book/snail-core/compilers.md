@@ -344,9 +344,12 @@ function of the expander has `mut` in its row — and where it does not, the
   conversion goes to or from Any, and that an exposure names a
   definition.
   The host passes no evidence, so every exposed function has a wrapper that
-  calls the definition with the empty evidence list; a function exposed with
-  `dynamic` has a wrapper of `Any` values and a signature instead
-  ([plugins](#plugins)).
+  calls the definition with the empty evidence list. In a program with
+  control effects the wrapper first clears the yield record: the task loop
+  goes on after a trap, and one that struck while a yield was in flight
+  would otherwise leave the record set for the next task. A function
+  exposed with `dynamic` has a wrapper of `Any` values and a signature
+  instead ([plugins](#plugins)).
 - **[`session.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/compiler/session.sld)** keeps the compiler
   running between builds: the expander replays libraries whose declarations
   and imports' interfaces are unchanged, and only libraries whose expansion
