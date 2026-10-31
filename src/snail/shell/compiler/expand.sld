@@ -46,6 +46,7 @@
          read-source-file)
    (snail shell compiler core)
    (snail shell compiler capabilities)
+   (snail shell compiler dynamic)
    (snail shell compiler sha256))
   (begin
 
@@ -2157,9 +2158,8 @@
          (let ((parts (split-requires body)))
            (expanding cx ((class (instance-class env class-ident))
                           (instance (declared-instance env class type-args (Pair-first parts) loc))
-                          (methods (each (lambda (cx definition)
-                                           (instance-method cx env class instance definition))
-                                         (Pair-second parts))))
+                          (methods
+                           (declare-instance-methods env class instance (Pair-second parts) loc)))
                       (check-instance-methods class methods loc)
                       (check-overlap (Context-program cx) instance loc)
                       (Pair (map MethodDefinition-expand methods)
@@ -2187,6 +2187,50 @@
             (Pair (program-class (Context-program cx) id) cx))
            (_ (compile-error (syntax-loc class-ident)
                              "instance of something that is not a typeclass"))))))
+
+    ;; A dispatch clause supplies ordinary methods, just as explicit
+    ;; definitions do. Its finite domain belongs to this instance's library;
+    ;; importing another instance never changes which payloads it accepts.
+    (: declare-instance-methods
+       (-> Context
+           Env
+           Class
+           Instance
+           (List Syntax)
+           Loc
+           (Pair (List MethodDefinition) Context)
+           ! compile))
+    (define (declare-instance-methods cx env class instance body loc)
+      (match body
+        ((Cons (Form (Cons (Ident "dispatch" _ _) types) _) (Nil))
+         (let ((dispatch (parse-dispatch class instance
+                                         (map (lambda (type) (resolve-type cx env type)) types)
+                                         loc)))
+           (each cx
+                 (lambda (cx method)
+                   (dispatch-instance-method cx class instance method dispatch loc))
+                 (Class-methods class))))
+        (_ (each cx
+                 (lambda (cx definition) (instance-method cx env class instance definition))
+                 body))))
+
+    (: dispatch-instance-method
+       (-> Context Class Instance String Dispatch Loc (Pair MethodDefinition Context)))
+    (define (dispatch-instance-method cx class instance method dispatch loc)
+      (expanding cx ((global (fresh-global (short-name method)))
+                     (then (add-value global
+                                      (Defined (Some (instance-method-scheme (Context-program cx)
+                                                                             class method instance))
+                                        (None) #t))))
+                 (Pair (MethodDefinition method global
+                                         (lambda (cx)
+                                           (add-item cx
+                                                     (Define global
+                                                       (dispatch-method (Context-program cx)
+                                                                        class
+                                                                        instance
+                                                                        method dispatch loc)))))
+                       cx)))
 
     ;; The program after an instance's checks of its head, with a Drop
     ;; instance's type made linear; any other instance changes nothing.
