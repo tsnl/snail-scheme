@@ -348,8 +348,9 @@ runtime owns and cancels those explicitly.
 *Proposed, not implemented; the remaining steps are in
 [#550](https://github.com/tsnl/snail-scheme/issues/550).* The grades are
 Rust's, with GC as the only heap; the mutable fields, OCaml's, `Drop`,
-`Clone` and in-place replacement are implemented, above. Safe borrows may
-come later.
+`Clone` and in-place replacement are implemented, above. There are no
+borrows, and none are planned: a linear value is passed to each operation
+that uses it and handed back, however many calls that threads it through.
 
 Shared memory between instances is a separate, unsafe library
 ([instances](../runtimes/instances.md)).

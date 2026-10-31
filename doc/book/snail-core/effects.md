@@ -16,6 +16,13 @@ four steps:
   perform effects for their caller, such as waiting on the caller's
   scheduler.
 
+Effects are the heavyweight way for a program to interact with the world.
+Performing an operation searches the handlers in scope at run time, and the
+compiler never specializes a function for the handler it will meet, so an
+operation costs more than a call. That is deliberate: most logic should be
+pure functions, which perform no operations, with effects at the edges,
+where a program reads a clock, writes a file or waits.
+
 Every example is part of a program under `tests/programs/`, which
 `make test` runs, and the output shown is that program's. Run one with
 
@@ -98,12 +105,14 @@ cost every caller that work for nothing.
 Some signatures have no body to hold them to. An instance method keeps its
 class method's row, which one instance may need less of than another:
 in `tests/programs/declared-effects.sld`, the `Bool` instance of
-`announce` performs nothing and keeps `! console`. `extern` declarations,
-class method signatures and definitions whose value is not a lambda are
-not compared either. A signature that a macro writes is held to each
-expansion, so a macro that cannot know a row takes the effects as an
-argument. `define-application` cannot know what its reset binder performs,
-so a reset that performs more than the application's loop, such as one
+`announce` performs nothing and keeps `! console`. A default is held to
+its row all the same ([defaults](#defaults-in-snail-core)). `extern`
+declarations, class method signatures and definitions whose value is not
+a lambda are not compared either. A signature that a macro writes is
+held to each expansion, so a macro that cannot know a row takes the
+effects as an argument. `define-application` cannot know what its reset
+binder performs, so a reset that performs more than the application's
+loop, such as one
 whose background tasks write to the console, says `(effects: console)`
 ([application model](applications.md)); claiming `console` for a reset that
 writes nothing is the same error
@@ -331,8 +340,12 @@ operation with a default works much like a Scheme parameter, with `handle`
 in the role of `parameterize`. A default has its operation's type without
 the operation's own effect, so it performs at most the operation's
 [latent row](#latent-rows), here nothing: a default that writes to the
-console is rejected (`tests/programs/error-default-effect.sld`). A default
-is a lambda or a function's name, and an operation has at most one.
+console is rejected (`tests/programs/error-default-effect.sld`). It also
+performs at least that row. Every performer is charged the row, so the
+[unused-effect rule](#claiming-only-what-the-body-performs) holds a
+default to it, at its entry
+(`tests/programs/error-default-unperformed.sld`). A default is a lambda or
+a function's name, and an operation has at most one.
 
 ## Control handlers
 
@@ -459,9 +472,14 @@ linear itself, used exactly once ([ownership](ownership.md)).
 
 The handler is deep: resuming re-installs it around the rest of the body,
 so the generator's next `yield` reaches the same implementation, and
-`(next (unit))` returns the next `Step`. The resumed computation also runs
-under the handlers in scope where `resume` is called, not those that were
-in scope when it started: `tests/programs/control-stored-resume.sld`
+`(next (unit))` returns the next `Step`. That holds even where another
+handler of the same effect is in scope: resumed inside a second `Gen`
+handler, the generator still yields to the first, and the second receives
+only what its own body yields
+(`tests/programs/control-resume-same-effect.sld`). Outside the
+re-installed handler, the resumed computation runs under the handlers in
+scope where `resume` is called, not those that were in scope when it
+started: `tests/programs/control-stored-resume.sld`
 resumes two logging generators under a different `Log` handler from the
 one they began under. Called inside another handler's implementation,
 `resume` runs under that implementation's handlers: those outside its
