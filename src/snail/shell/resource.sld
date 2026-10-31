@@ -17,6 +17,7 @@
    read-resource)
   (import
    (snail core base)
+   (prefix (snail runtime resource) host-)
    (only (snail core forms) link-file))
   (begin
 
@@ -42,9 +43,7 @@
     (effect resource
       ((resource-length (-> I32 I32))
        (resource-byte (-> I32 I32 U8)))
-      (host "snail.runtime.resource"
-            ((resource-length "length")
-             (resource-byte "byte"))))
+      (default ((resource-length host-length) (resource-byte host-byte))))
 
     ;; The file's bytes, as they were when the program was linked.
     (: read-resource (-> Resource Bytes ! resource))

@@ -11,6 +11,7 @@
    with-page-dom)
   (import
    (snail core base)
+   (prefix (snail runtime browser dom) host-)
    (snail shell utf8)
    (snail shell task)
    (snail shell page)
@@ -50,7 +51,7 @@
                                          ((Some node) (Node-handle node))
                                          ((None) -1)))))
            (remove-node (lambda (node) (host-remove (Node-handle node))))
-           (listen (lambda (node event captures prevent) (host-listen node event captures prevent)))
+           (listen (lambda (node event captures prevent) (listen-node node event captures prevent)))
            (unlisten (lambda (listener) (host-unlisten (Listener-id listener))))
            (focus-node (lambda (node) (host-focus (Node-handle node))))
            ;; dom.mjs keeps the window at handle -1.
@@ -59,14 +60,14 @@
            (element-by-id (lambda (id)
                             (let ((handle (host-element-by-id (string->utf8 id))))
                               (if (< handle 0) (None) (Some (Node handle))))))
-           (select-range (lambda (node start end) (host-select (Node-handle node) start end)))
+           (select-range (lambda (node start end) (host-select-range (Node-handle node) start end)))
            (selection-range (lambda (node)
                               (Pair (host-selection-start (Node-handle node))
                                     (host-selection-end (Node-handle node)))))
            (insert-text (lambda (node start end text)
                           (= (host-insert-text (Node-handle node) start end (string->utf8 text))
                              1)))
-           (measure (lambda (node) (host-measure (Node-handle node))))
+           (measure (lambda (node) (measure-node (Node-handle node))))
            (wake (lambda () (host-wake)))
            (next-event page-delivery))
         (work)))
@@ -113,53 +114,10 @@
 
     ;; ---- The browser host ----
 
-    ;; A string crosses as UTF-8 Bytes, the call's last argument. A name
-    ;; and its value cross as one, the name ended by a NUL, which no
-    ;; attribute or property name holds. A string coming back crosses a
-    ;; scalar at a time: the call answers how many, and `reply-scalar`
-    ;; reads each, until the next call that answers a string.
-    (extern host-root "snail.runtime.browser.dom" "root" (-> I32))
-    (extern host-create-element "snail.runtime.browser.dom" "create-element" (-> Bytes I32))
-    (extern host-create-text "snail.runtime.browser.dom" "create-text" (-> Bytes I32))
-    (extern host-set-attribute "snail.runtime.browser.dom" "set-attribute" (-> I32 Bytes Unit))
-    (extern host-set-text "snail.runtime.browser.dom" "set-text" (-> I32 Bytes Unit))
-    (extern host-set-string-property
-            "snail.runtime.browser.dom"
-            "set-string-property"
-            (-> I32 Bytes Unit))
-    (extern host-set-number-property
-            "snail.runtime.browser.dom"
-            "set-number-property"
-            (-> I32 F64 Bytes Unit))
-    (extern host-set-flag-property
-            "snail.runtime.browser.dom"
-            "set-flag-property"
-            (-> I32 I32 Bytes Unit))
-    (extern host-string-property "snail.runtime.browser.dom" "string-property" (-> I32 Bytes I32))
-    (extern host-number-property "snail.runtime.browser.dom" "number-property" (-> I32 Bytes F64))
-    (extern host-reply-scalar "snail.runtime.browser.dom" "reply-scalar" (-> I32 I32))
-    (extern host-insert "snail.runtime.browser.dom" "insert" (-> I32 I32 I32 Unit))
-    (extern host-remove "snail.runtime.browser.dom" "remove" (-> I32 Unit))
-    (extern host-listen-to "snail.runtime.browser.dom" "listen" (-> I32 I32 I32 Bytes I32))
-    (extern host-listen-chord "snail.runtime.browser.dom" "listen-chord" (-> I32 I32 Bytes Unit))
-    (extern host-unlisten "snail.runtime.browser.dom" "unlisten" (-> I32 Unit))
-    (extern host-focus "snail.runtime.browser.dom" "focus" (-> I32 Unit))
-    (extern host-confirm "snail.runtime.browser.dom" "confirm" (-> Bytes I32))
-    (extern host-element-by-id "snail.runtime.browser.dom" "element-by-id" (-> Bytes I32))
-    (extern host-select "snail.runtime.browser.dom" "select-range" (-> I32 I32 I32 Unit))
-    (extern host-selection-start "snail.runtime.browser.dom" "selection-start" (-> I32 I32))
-    (extern host-selection-end "snail.runtime.browser.dom" "selection-end" (-> I32 I32))
-    (extern host-insert-text "snail.runtime.browser.dom" "insert-text" (-> I32 I32 I32 Bytes I32))
-    (extern host-measure-node "snail.runtime.browser.dom" "measure" (-> I32 Unit))
-    (extern host-measured "snail.runtime.browser.dom" "measured" (-> I32 F64))
-    (extern host-wake "snail.runtime.browser.dom" "wake" (-> Unit))
-    (extern host-event-number "snail.runtime.browser.dom" "event-number" (-> I32 F64))
-    (extern host-event-text "snail.runtime.browser.dom" "event-text" (-> I32 I32))
-
     ;; A measure crosses a number at a time, in the order of its fields.
-    (: host-measure (-> I32 Measure))
-    (define (host-measure handle)
-      (host-measure-node handle)
+    (: measure-node (-> I32 Measure))
+    (define (measure-node handle)
+      (host-measure handle)
       (Measure (host-measured 0)
                (host-measured 1)
                (host-measured 2)
@@ -180,15 +138,15 @@
 
     ;; A listener prevents by kind: 0 never, 1 always, 2 for its chords,
     ;; which follow it.
-    (: host-listen (-> Node String (List Capture) Prevent Listener))
-    (define (host-listen node event captures prevent)
-      (let ((id (host-listen-to (Node-handle node)
-                                (capture-bits captures)
-                                (match prevent
-                                  ((Allow) 0)
-                                  ((Always) 1)
-                                  ((Chords _) 2))
-                                (string->utf8 event))))
+    (: listen-node (-> Node String (List Capture) Prevent Listener))
+    (define (listen-node node event captures prevent)
+      (let ((id (host-listen (Node-handle node)
+                             (capture-bits captures)
+                             (match prevent
+                               ((Allow) 0)
+                               ((Always) 1)
+                               ((Chords _) 2))
+                             (string->utf8 event))))
         (match prevent
           ((Chords chords)
            (for-each (lambda (chord)

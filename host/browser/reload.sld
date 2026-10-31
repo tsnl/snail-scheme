@@ -21,10 +21,14 @@
   ((argument-character (-> Char Unit))
    (argument-end (-> Unit))
    (command (-> I32 I32)))
-  (host "snail.page"
-        ((argument-character "argument-character")
-         (argument-end "argument-end")
-         (command "command"))))
+  (default
+    ((argument-character host-argument-character)
+     (argument-end host-argument-end)
+     (command host-command))))
+
+(extern host-argument-character "snail.page" "argument-character" (-> Char Unit))
+(extern host-argument-end "snail.page" "argument-end" (-> Unit))
+(extern host-command "snail.page" "command" (-> I32 I32))
 
 (: page-command (-> String (List String) I32 Unit ! page))
 (define (page-command name arguments number)

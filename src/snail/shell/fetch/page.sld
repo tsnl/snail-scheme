@@ -8,6 +8,7 @@
    with-page-fetch)
   (import
    (snail core base)
+   (prefix (snail runtime browser fetch) host-)
    (snail shell utf8)
    (snail shell task)
    (snail shell fetch))
@@ -63,19 +64,6 @@
         ((None) (panic "internal error: a stream's event has no kind"))))
 
     ;; ---- The browser host ----
-
-    (extern host-request-method "snail.runtime.browser.fetch" "request-method" (-> Bytes Unit))
-    (extern host-request-url "snail.runtime.browser.fetch" "request-url" (-> Bytes Unit))
-    (extern host-request-header "snail.runtime.browser.fetch" "request-header" (-> Bytes Unit))
-    (extern host-request-body "snail.runtime.browser.fetch" "request-body" (-> Bytes Unit))
-    (extern host-start-request "snail.runtime.browser.fetch" "start-request" (-> I64 Unit))
-    (extern host-finish-request "snail.runtime.browser.fetch" "finish-request" (-> I64 I32))
-    (extern host-stream-open "snail.runtime.browser.fetch" "stream-open" (-> Bytes I32))
-    (extern host-stream-start "snail.runtime.browser.fetch" "stream-start" (-> I64 I32 Unit))
-    (extern host-stream-finish "snail.runtime.browser.fetch" "stream-finish" (-> I64 I32))
-    (extern host-stream-close "snail.runtime.browser.fetch" "stream-close" (-> I32 Unit))
-    (extern host-reply-count "snail.runtime.browser.fetch" "reply-count" (-> I32))
-    (extern host-reply-scalar "snail.runtime.browser.fetch" "reply-scalar" (-> I32 I32))
 
     ;; The text the last finished wait left.
     (: host-reply (-> String))
