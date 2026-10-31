@@ -1821,16 +1821,16 @@
                                 (Cons "" (field-suffixes field struct? pure?))))
                    cx parsed)))
 
-    ;; `Ref` is the one struct with a mutable field, and it is declared in
-    ;; (snail core base): every other struct is a value, and a program
-    ;; holds one in a cell to write its fields, `(set! (::count (ref-get
-    ;; r)) 1)`.
+    ;; `Ref` is the struct with a mutable field, declared in (snail core
+    ;; base), and the runtime's `UnsafeSlot` in (snail shell slot) the
+    ;; other: every other struct is a value, and a program holds one in a
+    ;; cell to write its fields, `(set! (::count (ref-get r)) 1)`.
     (: check-mutable-field (-> Context FieldSyntax Unit ! compile))
     (define (check-mutable-field cx field)
       (when (and (FieldSyntax-mutable? field)
-                 (not (string=? (Context-prefix cx) "snail.core.base")))
+                 (not (member? (Context-prefix cx) (list "snail.core.base" "snail.shell.slot"))))
         (compile-error (syntax-loc (FieldSyntax-name field))
-                       "only Ref has a mutable field; hold the struct in a cell and write its fields with set!")))
+                       "only Ref and the runtime's UnsafeSlot have a mutable field; hold the struct in a cell and write its fields with set!")))
 
     (: field-suffixes (-> FieldSyntax Bool Bool (List String) ! compile))
     (define (field-suffixes field struct? pure?)

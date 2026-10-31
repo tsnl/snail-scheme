@@ -3,9 +3,8 @@
  (snail core io))
 
 ;; Two sibling fields may hold one declaration at different arguments
-;; without that being recursion. A struct of two cells is a shared handle
-;; whatever they hold, so it is duplicated freely, even holding a linear
-;; value; one of two Options is dropped by glue that drops each.
+;; without that being recursion. A struct of two cells is a shared handle,
+;; so it is duplicated freely; the second taker finds the content gone.
 (struct (Shared T)
   ((count (Ref I64))
    (current (Ref (Option T)))))
@@ -14,14 +13,14 @@
 (define (share shared)
   (Pair shared shared))
 
-(: run-current (-> (Shared (FnOnce Unit ! console)) Unit ! console mut))
+(: run-current (-> (Shared String) Unit ! console mut))
 (define (run-current shared)
   (ref-set! (Shared-count shared) (+ (ref-get (Shared-count shared)) 1))
   (match (ref-replace! (Shared-current shared) (None))
-    ((Some work) (work))
+    ((Some text) (write-line text))
     ((None) (write-line "nothing to run"))))
 
-(match (share (Shared (ref 0) (ref (Some (once (lambda () (write-line "ran once")))))))
+(match (share (Shared (ref 0) (ref (Some "ran once"))))
   ((Pair first second)
    (run-current first)
    (run-current second)

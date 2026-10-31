@@ -91,17 +91,18 @@ so is a second use.
     of a place is a struct's own field: an enum's case, a computed field
     and a field read through a requirement have no slot to write.
   - A chain of reads copies one value, the last field, out of its root:
-    the fields along the way are addressed, not read, so `(::live
-    (ref-get scheduler))` reads an unrestricted count out of a cell whose
-    content is linear.
-  - A cell's handle is unrestricted even when its content is linear, so a
-    cell of work items may be shared, captured by an ordinary procedure,
-    or named by a global. Linear content leaves only by a swap, which may
-    reach a field of the content: `ref-get` would duplicate it and
-    `ref-set!` or `set!` discard it, so neither accepts it.
+    the fields along the way are addressed, not read, so `(::x (::from
+    s))` reads one number out of a segment.
+  - A cell holds no linear value: `(Ref T)` requires an unrestricted `T`.
+    A cell is shared, so nothing could finalize linear content it still
+    held when it was lost. A linear value lives in a frame, which drops or
+    consumes it, or in the application's state; between tasks, which are
+    never on the stack together, it rests in the runtime's `UnsafeSlot`
+    ([tasks](../runtimes/tasks.md#scheduling)), the one other type with a
+    mutable field, declared in `(snail shell slot)` and used by the
+    scheduler and the mailboxes.
   - A pattern can only skip a cell's content with `_`, since reading it
-    performs `mut`. Skipping linear content abandons it if the cell is
-    consumed there, as a lost cell abandons its content.
+    performs `mut`.
   - Two names for one cell see the same writes; a cell has identity, so it
     has no pure replacement and derives no instance.
 - **Captures.** Only a lambda supplied directly to `once` may capture
@@ -124,8 +125,9 @@ so is a second use.
   `Array` or `Vector`, payloads erased into `Any`, or exports, and a
   statement cannot discard one. A vector is a reference that may be
   aliased, so it is always unrestricted, and reading an element leaves it
-  in place, so the vector and array primitives require `(Copy A)`. Linear
-  work goes in a vector behind a cell, as `(Vector (Ref (FnOnce Unit)))`.
+  in place, so the vector and array primitives require `(Copy A)`, and a
+  `Ref` holds no linear value either. Linear work is owned by a frame, or
+  rests in the runtime's slot between tasks.
 - **Handlers.** `resume` is a `FnOnce`. An implementation that does not
   resume writes `(drop resume)`; one whose operation answers `Never` is
   handed no `resume` at all.

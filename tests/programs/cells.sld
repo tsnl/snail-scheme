@@ -54,23 +54,3 @@
   (set! (ref-get cell) (+ (ref-get cell) 1))
   (ref-set! cell (+ (ref-get cell) 1))
   (write-line (show (ref-get cell))))
-
-;; Linear content leaves a cell only by a swap, which may reach a field of
-;; the content, and an unrestricted field beside it may be read: the work
-;; item runs once, through whichever name swaps it out first.
-(type Work (FnOnce Unit ! console))
-
-(struct Slot
-  ((label String)
-   (content (Option Work))))
-
-(: run-content! (-> (Ref Slot) Unit ! console mut))
-(define (run-content! slot)
-  (match (replace! (::content (ref-get slot)) (None))
-    ((Some work) (call-once work))
-    ((None) (write-line (string-append (::label (ref-get slot)) " empty")))))
-
-(let* ((slot (ref (Slot "work" (Some (once (lambda () (write-line "ran")))))))
-       (alias slot))
-  (run-content! slot)
-  (run-content! alias))
