@@ -16,6 +16,13 @@ four steps:
   perform effects for their caller, such as waiting on the caller's
   scheduler.
 
+Effects are the heavyweight way for a program to interact with the world.
+Performing an operation searches the handlers in scope at run time, and the
+compiler never specializes a function for the handler it will meet, so an
+operation costs more than a call. That is deliberate: most logic should be
+pure functions, which perform no operations, with effects at the edges,
+where a program reads a clock, writes a file or waits.
+
 Every example is part of a program under `tests/programs/`, which
 `make test` runs, and the output shown is that program's. Run one with
 
