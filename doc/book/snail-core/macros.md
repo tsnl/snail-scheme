@@ -42,13 +42,16 @@ wherever generated code meets typed Snail-Core code, the translator inserts
   as a downcast of a value just upcast from the same type.
 
 On Chibi, `type-convert` erases to its expression. A `generate-library` recipe
-runs the translator:
+runs the translator on a program it includes, `program.scm` beside the
+recipe:
 
 ```scheme
 (generate-library (legacy program)
                   (import
                    (snail core base)
-                   (snail core io)
+                   (snail shell utf8)
                    (scheme compiler))
-                  (scheme->snail-core-library (list "legacy" "program") (read-file "program.scm")))
+                  (match (utf8->string (include-bytes "program.scm"))
+                    ((Ok text) (scheme->snail-core-library (list "legacy" "program") text))
+                    ((Err _) (panic "program.scm is not UTF-8"))))
 ```

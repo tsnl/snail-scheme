@@ -198,9 +198,10 @@
     ;; `generate` runs a producer program the build did not supply for
     ;; `generate-library`, given the libraries loading when it was reached,
     ;; and returns the bytes of the syntax it writes; the driver supplies it,
-    ;; because running a program means compiling one; and `inputs` holds
-    ;; what the build supplies in memory: completed targets' files and
-    ;; producers' outputs.
+    ;; because running a program means compiling one; `inputs` holds what
+    ;; the build supplies in memory: completed targets' files and producers'
+    ;; outputs; and `recipe`, in a producer program, is the recipe its
+    ;; printed copy stands for.
     ;;
     ;; Scope, which loading a library replaces and which the importer gets
     ;; back unchanged: `prefix` names the library being expanded, so its
@@ -230,6 +231,7 @@
        (directories (List String))
        (generate (-> (List String) (List Syntax) Bytes ! fs compile))
        (inputs Inputs)
+       (recipe (Option Recipe))
        (prefix String)
        (loading (List String))
        (aliases (List String))
@@ -258,6 +260,7 @@
                (Context-directories outer)
                (Context-generate outer)
                (Context-inputs outer)
+               (Context-recipe outer)
                (Context-prefix outer)
                (Context-loading outer)
                (Context-aliases outer)
@@ -399,6 +402,7 @@
                directories
                generate
                inputs
+               (None)
                ""
                (Nil)
                (Nil)
@@ -595,7 +599,7 @@
                (Nil))
          (check-library-name declared name loc)
          (GeneratedLibrary
-          (producer (map with-included-bytes imports) (with-included-bytes expression) loc)
+          (producer path (map with-included-bytes imports) (with-included-bytes expression) loc)
           (syntax-loc expression)))
         (_ (compile-error (Loc path 1 1)
                           "expected exactly one define-library or generate-library form"))))
@@ -627,10 +631,11 @@
         ((Some bytes) bytes)
         ((None) ((Context-generate cx) (Context-loading cx) forms))))
 
-    ;; The producer imports what the recipe imports and writes the syntax
-    ;; its expression returns, a `(snail shell syntax)` Syntax.
-    (: producer (-> (List Syntax) Syntax Loc (List Syntax)))
-    (define (producer imports expression loc)
+    ;; The producer imports what the recipe imports, names the recipe's
+    ;; file, and writes the syntax its expression returns, a
+    ;; `(snail shell syntax)` Syntax.
+    (: producer (-> String (List Syntax) Syntax Loc (List Syntax)))
+    (define (producer recipe imports expression loc)
       (let ((write-library (Ident "write-generated-library" (None) loc)))
         (list (Form (Cons (Ident "import" (None) loc)
                           (append imports
@@ -642,6 +647,7 @@
                                                     write-library)
                                               loc))))
                     loc)
+              (Form (list (Ident "recipe" (None) loc) (Atom (DString recipe) loc)) loc)
               (Form (list write-library expression) loc))))
 
     ;; ---- Sources ----
@@ -719,7 +725,7 @@
     (: record-link (-> Context String Loc (Pair String Context) ! compile))
     (define (record-link cx relative loc)
       (let ((name (string-append (Context-prefix cx) "/" relative))
-            (path (beside (Loc-file loc) relative)))
+            (path (beside (written-in cx loc) relative)))
         (match (find (lambda (link) (string=? (LinkedFile-name link) name)) (Context-links cx))
           ((Some link)
            (unless (string=? (LinkedFile-path link) path)
@@ -910,10 +916,38 @@
     (define (expand-source cx path)
       (let* ((source (generating-stack (read-source path)))
              (parts (program-parts (Pair-second source)))
-             (cx (Context-loading-set (Context-prefix-set cx "main") (Pair-first source))))
+             (body (producer-body path (Pair-first source) (Pair-second parts)))
+             (cx (Context-recipe-set
+                  (Context-loading-set (Context-prefix-set cx "main") (Pair-first source))
+                  (Pair-first body))))
         (Pair-second (expand-sections cx
                                       (list (Pair "import" (Pair-first parts))
-                                            (Pair "begin" (Pair-second parts)))))))
+                                            (Pair "begin" (Pair-second body)))))))
+
+    ;; A producer program's printed copy, at `copy`, and the recipe it was
+    ;; printed from, at `file`.
+    (struct Recipe
+      ((copy String)
+       (file String)))
+
+    ;; The body of the program at `path`, and the recipe it stands for when
+    ;; it is a producer, printed with the libraries `loading` when it was
+    ;; reached: such a body begins with `(recipe "lib/sample/blob.sld")`.
+    (: producer-body (-> String (List String) (List Syntax) (Pair (Option Recipe) (List Syntax))))
+    (define (producer-body path loading body)
+      (match body
+        ((Cons (Form (Cons (Ident "recipe" _ _) (Cons (Atom (DString file) _) (Nil))) _) rest)
+         (if (null? loading) (Pair (None) body) (Pair (Some (Recipe path file)) rest)))
+        (_ (Pair (None) body))))
+
+    ;; The file a path written at `loc` is relative to: the file it is
+    ;; written in, where a producer's printed copy stands for its recipe, so
+    ;; a recipe names files beside itself wherever its producer is printed.
+    (: written-in (-> Context Loc String))
+    (define (written-in cx loc)
+      (match (Context-recipe cx)
+        ((Some (Recipe copy file)) (if (string=? (Loc-file loc) copy) file (Loc-file loc)))
+        ((None) (Loc-file loc))))
 
     ;; A program's leading `import` forms' specs, and the body after them.
     (: program-parts (-> (List Syntax) (Pair (List Syntax) (List Syntax))))
@@ -3566,6 +3600,8 @@
           (test-deriving-runs (string-append directory "/deriving") library)
           (test-deriving-key (string-append directory "/deriving-key") library)))
 
+      ;; A producer names its recipe after its imports, as the path the
+      ;; recipe was found at.
       (define (test-library-file directories)
         (let ((loc (Loc "test.sld" 1 1)))
           (expect (library-file directories (list "snail" "core" "forms") loc)
@@ -3581,6 +3617,10 @@
                         (library-file directories (list "sample" "made") loc)))
                   (list
                    "(import (snail core base) (sample helper) (only (snail shell syntax) write-generated-library))"
+                   (string-append "(recipe "
+                                  (datum->string (DString (string-append (list-ref directories 0)
+                                                                         "/sample/made.sld")))
+                                  ")")
                    "(write-generated-library (unit))"))))
 
       (define (test-library-closure directories)

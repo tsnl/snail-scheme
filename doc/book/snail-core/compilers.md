@@ -639,7 +639,14 @@ belong to the producer. The entry keeps that text beside the bytes and a
 lookup compares it, so a collision of keys is a miss, never another
 producer's output. The expander looks a producer up there first; only a miss
 reaches the provider, which prints the producer into scratch under the same
-key and requests it. The project builder reads a printed producer back
+key and requests it. The producer names its recipe after its imports,
+`(recipe "lib/sample/blob.sld")`, and a path its own forms write, as a
+`link-bytes` in the recipe's expression, resolves against that file rather
+than the printed copy (`written-in` in `expand.sld`), so a recipe links files
+beside itself wherever its producer is printed. The recipe's path is part of
+the producer's text, and so of its key, since the files it links depend on
+it. The recipe's `include-bytes` were replaced when it was read, so their
+bytes are in the text already. The project builder reads a printed producer back
 (`printed-producer-text`), checks that it has the key it was printed under,
 and adds the output it wrote (`supply-generated`).
 
