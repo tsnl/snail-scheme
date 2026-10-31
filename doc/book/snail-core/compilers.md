@@ -106,7 +106,13 @@ function of the expander has `mut` in its row — and where it does not, the
   leaves the context as it was, and the fold goes on, since pass 1 bound
   every name the later steps could miss; the library then fails with every
   failed step's diagnostics, before it joins the program. The first two
-  passes stop at their first error. The expander's only
+  passes stop at their first error. An instance's `dispatch` clause goes
+  through `dynamic.sld`: its finite list of accepted types becomes a
+  `Dispatch`, and each generated method tests its first erased argument,
+  checks all arguments of that type and calls an ordinary class method.
+  Checking and specialization supply the same evidence as for a written
+  instance; separate compilation needs no dynamic registry.
+  The expander's only
   effect is `fs`: it reads libraries, and the producer runner the driver
   supplies for `generate-library` reads and writes files. A use of
   `artifact-files` without its files requests the input, which exits as a
@@ -161,6 +167,11 @@ function of the expander has `mut` in its row — and where it does not, the
   at a time; when a library is checked, its literals default, and each
   class constraint is solved once, filling its hole. Rows unify as sets with
   open tails. Matches are checked with Maranget's usefulness algorithm.
+  Expected-type boundaries insert `Convert` nodes to or from `Any`, with
+  the same final effect and ownership checks as explicit conversions.
+  Unification itself remains structural. Call arguments constrain shared
+  type variables from non-`Any` arguments first; numeric literals retain
+  their constraints until ordinary defaulting.
   A use of a definition that requires `(Copy A)` asks that `A`'s
   instantiation be unrestricted, judged under the `Copy` variables of the
   definition containing the use. A class whose methods perform one of its

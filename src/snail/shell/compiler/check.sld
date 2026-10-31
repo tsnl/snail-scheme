@@ -579,7 +579,7 @@
            (learning ck ((test (infer test row))
                          (consequent (infer consequent row))
                          (alternative (infer alternative row))
-                         (then (unify (TCon "Bool" (Nil)) (Expr-type test) (Expr-loc test)))
+                         (test (fit (TCon "Bool" (Nil)) test (Expr-loc test)))
                          (then (unify (Expr-type consequent)
                                       (Expr-type alternative)
                                       (Expr-loc alternative))))
@@ -603,7 +603,7 @@
           ;; Whether an Any holds a value of the target type.
           ((TypeTest inner target)
            (learning ck ((inner (infer inner row))
-                         (then (unify (TCon "Any" (Nil)) (Expr-type inner) (Expr-loc inner))))
+                         (inner (fit (TCon "Any" (Nil)) inner (Expr-loc inner))))
                      (Pair (Expr (TypeTest inner target) (TCon "Bool" (Nil)) loc) ck))))))
 
     (: infer-lambda (-> Checker (List String) Expr Bool Loc (Pair Expr Checker) ! compile))
@@ -673,7 +673,7 @@
                                     (if (forbids-mut? (solution inner) body-row)
                                         (check-confining-body inner body row)
                                         (infer inner body row)))))
-                    (then (unify result (Expr-type body) (Expr-loc body))))
+                    (body (fit result body (Expr-loc body))))
                 (let ((value (Expr (Lambda params body captures?) type (Expr-loc expr))))
                   (Pair value (if (Checker-discharged ck)
                                   (Checker-confined-set (Checker-discharged-set ck #f)
@@ -733,7 +733,8 @@
                                          (i64->string (length params))
                                          " arguments, found "
                                          (i64->string (length args)))))
-         (learning ck ((args (each (lambda (ck pair)
+         (learning ck ((then (fit-known-arguments params args))
+                       (args (each (lambda (ck pair)
                                      (fit ck
                                           (Pair-first pair)
                                           (Pair-second pair)
@@ -749,15 +750,42 @@
         ((TCon "Fn" (Cons procedure (Nil))) (unify-call ck procedure args result latent loc))
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
+    ;; Concrete arguments constrain shared type variables before an Any
+    ;; can instantiate one. This changes inference order, never evaluation
+    ;; order: `(f boxed 1)` and `(f 1 boxed)` both select f at I64 when its
+    ;; two parameters share a type. With only Any arguments it selects Any.
+    (: fit-known-arguments (-> Checker (List Type) (List Expr) Checker ! compile))
+    (define (fit-known-arguments ck params args)
+      (fold-left (lambda (ck pair)
+                   (let ((arg (Pair-second pair)))
+                     (if (any-type? (prune (solution ck) (Expr-type arg)))
+                         ck
+                         (Pair-second (fit ck (Pair-first pair) arg (Expr-loc arg))))))
+                 ck (zip params args)))
+
     ;; A value meets the type it is checked at: a parameter's, an
     ;; annotation's or a signature's. At an Fn, a `fn` or the name of a
     ;; top-level function is given that type, since neither has an
     ;; environment: `check-closed` proves it of a `fn`, and the expander
     ;; records which globals are functions. No other value has type Fn
-    ;; unless it already does, and none converts on its own.
+    ;; unless it already does. Any crosses this boundary through an explicit
+    ;; Convert in the checked IR. Variables still unify normally; a rigid
+    ;; variable is not a runtime type to test. The final conversion and
+    ;; ownership checks enforce the same restrictions as explicit casts.
     (: fit (-> Checker Type Expr Loc (Pair Expr Checker) ! compile))
     (define (fit ck expected expr loc)
       (match (Pair (prune (solution ck) expected) (prune (solution ck) (Expr-type expr)))
+        ((Pair (TCon "Any" (Nil)) (TCon "Any" (Nil))) (Pair expr ck))
+        ((Pair (TCon "Any" (Nil)) (TVar _))
+         (fit-any-literal ck expected expr (Expr-type expr) loc))
+        ((Pair (TVar _) (TCon "Any" (Nil)))
+         (fit-any-literal ck expected expr expected loc))
+        ((Pair (TVar _) _) (Pair expr (unify ck expected (Expr-type expr) loc)))
+        ((Pair _ (TVar _)) (Pair expr (unify ck expected (Expr-type expr) loc)))
+        ((Pair (TCon "Any" (Nil)) _)
+         (Pair (Expr (Convert expr expected) expected loc) ck))
+        ((Pair _ (TCon "Any" (Nil)))
+         (Pair (Expr (Convert expr expected) expected loc) ck))
         ((Pair (TCon "Fn" (Cons arrow (Nil))) (TFun _ _ _))
          (unless (environment-free? ck expr)
            (compile-error loc
@@ -770,6 +798,20 @@
          (compile-error loc
                         "an Fn is not a closure, and does not become one; wrap it in a lambda, as (lambda (x) (f x))"))
         (_ (Pair expr (unify ck expected (Expr-type expr) loc)))))
+
+    ;; A numeric literal's variable is already constrained to a number.
+    ;; Keep that constraint across an Any boundary: ordinary literal
+    ;; defaulting (or a later use) chooses its concrete type, not Any.
+    (: fit-any-literal (-> Checker Type Expr Type Loc (Pair Expr Checker) ! compile))
+    (define (fit-any-literal ck expected expr type loc)
+      (if (any? (lambda (want)
+                  (match want
+                    ((WantLiteral _ literal _)
+                     (same-meta? (prune (solution ck) type) (prune (solution ck) literal)))
+                    (_ #f)))
+                (Checker-pending ck))
+          (Pair (Expr (Convert expr expected) expected loc) ck)
+          (Pair expr (unify ck expected (Expr-type expr) loc))))
 
     (: environment-free? (-> Checker Expr Bool))
     (define (environment-free? ck expr)
@@ -923,11 +965,24 @@
     (: infer-implementation-value (-> Checker Expr Type Type (Pair Expr Checker) ! compile))
     (define (infer-implementation-value ck value expected row)
       (match (Pair (Expr-term value) expected)
-        ((Pair (Lambda params body captures?) (TFun types _ _))
+        ((Pair (Lambda params body captures?) (TFun types result _))
          (if (= (length params) (length types))
-             (infer-lambda-at ck params body captures? types (Expr-loc value))
+             (learning ck ((value (infer-lambda-at params body captures? types (Expr-loc value))))
+                       (fit-lambda-result ck value result))
              (infer ck value row)))
         (_ (infer ck value row))))
+
+    ;; An implementation is checked at its operation's result without
+    ;; changing the inferred row or adapting an already existing function.
+    (: fit-lambda-result (-> Checker Expr Type (Pair Expr Checker) ! compile))
+    (define (fit-lambda-result ck value result)
+      (match (Pair (Expr-term value) (Expr-type value))
+        ((Pair (Lambda params body captures?) (TFun types _ row))
+         (learning ck ((body (fit result body (Expr-loc body))))
+                   (Pair
+                    (Expr (Lambda params body captures?) (TFun types result row) (Expr-loc value))
+                    ck)))
+        (_ (panic "internal error: fitting the result of a non-lambda"))))
 
     ;; An implementation returns the operation's answer to its caller. A
     ;; control operation's implementation returns the handler's result, and
@@ -2393,7 +2448,7 @@
       (learning ck ((then (want-closed-requirements scheme (Expr-loc (Define-value definition))))
                     (row (fresh-meta))
                     (value (check-value (Define-value definition) (Scheme-type scheme) row))
-                    (then (unify (Scheme-type scheme) (Expr-type value) (Expr-loc value)))
+                    (value (fit (Scheme-type scheme) value (Expr-loc value)))
                     (then (check-host-effects row (Expr-loc value))))
                 (when (and (not (null? (Scheme-vars scheme))) (not (total? (solution ck) row)))
                   (compile-error (Expr-loc value)

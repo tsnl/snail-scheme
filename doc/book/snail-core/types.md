@@ -3,7 +3,8 @@
 ## Types
 
 Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
-`Any` is a value of any type, used with `type-convert`.
+`Any` packages an eligible dynamic value, recovered through a checked
+conversion ([dynamic values](#dynamic-values)).
 `String` is an immutable sequence of Unicode scalars. `(Vector T)` is an
 immutable sequence and `(Array T)` a mutable one whose elements are unboxed,
 `(Unboxed T)`: a scalar, a reference or a struct of one unboxed field, each one
@@ -38,9 +39,10 @@ a body needs to use a `T` twice or to discard one
 
 Integer literals check against any integer or float type and are
 range-checked; float literals check against `F32` or `F64`. A literal whose
-type nothing determines defaults to `I64` or `F64`. Values never convert
-implicitly: use `i64->i32`, `i32->f64` and the other conversions. Integer
-arithmetic wraps.
+type nothing determines defaults to `I64` or `F64`. Numeric values never
+change numeric type implicitly: use `i64->i32`, `i32->f64` and the other
+conversions. Crossing an `Any` boundary checks the payload's type; it
+does not change that type. Integer arithmetic wraps.
 
 Unannotated top-level functions are generalized over the type variables no
 constraint mentions. Other unannotated definitions, and functions whose
@@ -269,8 +271,102 @@ development server does.
 
 ## Dynamic values
 
+### Inferred boundaries and dynamic instances
+
+Typed libraries should retain their signatures when called from dynamic
+code. A dynamic caller need not repeat a callee's parameter types or use a
+special application form. At an expected-type boundary the checker inserts
+the same `type-convert` that a programmer could write:
+
+| Expected | Actual | Checked program |
+| --- | --- | --- |
+| `T` | `T` | The value itself. |
+| `Any` | An eligible concrete `T` | Package the value. |
+| A concrete `T` | `Any` | Check the payload's type at run time. |
+| A concrete `T` | A different concrete `U` | A compile error. |
+| An inference variable | Any type | Ordinary unification, without inventing a cast. |
+
+These boundaries are arguments, annotated expressions and definitions,
+Boolean conditions, type-test operands, and results checked against
+function or handler signatures. Constructors use the argument rule for
+their fields. Structural unification is unchanged:
+`List Any` does not become `List I64`, and function types do not acquire
+adapters. Branches of an unannotated conditional must still agree.
+
+Concrete arguments constrain shared parameter variables before `Any`
+arguments are fitted, without changing evaluation order. If `choose`
+takes two arguments of one type, both `(choose boxed 1)` and
+`(choose 1 boxed)` select that type as `I64` and check `boxed`. With only
+`Any` arguments the type remains `Any`. A result annotation checks the
+result; it does not retroactively choose the callee's instantiation.
+Numeric literals retain their numeric constraints across a conversion:
+an integer packaged into `Any` defaults to `I64`, never to `Any`, unless
+another use gives that literal a concrete numeric type.
+
+No failed constraint silently becomes `Any`. An unresolved inference
+variable, a quantified parameter and a runtime package remain different
+things. The existing restrictions on erasing linear values, function
+references and effectful functions apply to inserted conversions too.
+
+A class at `Any` needs an instance just as a class at any other type does.
+An explicit finite dispatcher supplies one:
+
+```scheme
+(typeclass (Describe T)
+  (: describe (-> T String)))
+
+;; Ordinary Describe instances for I64 and String are declared first.
+(instance (Describe Any)
+  (dispatch I64 String))
+```
+
+The compiler builds each method from type tests, checked conversions and
+ordinary typed calls. The first argument of the erased class type selects
+a concrete branch. All arguments of that class type are checked against
+the same concrete type, and a result of that type is packaged back into
+`Any`. An unsupported payload or mixed argument types fail through the
+usual conversion check; there is no numeric promotion. The selected
+branch carries the ordinary static instance evidence. No global registry,
+runtime specialization or hidden host dependency is introduced.
+
+The constraint `Describe Any` is solved at compile time to this adapter;
+the payload is checked when a method is called. A generic function that
+never calls a method does not inspect its argument merely because it has
+a `Describe` requirement. This is an instance for `Any`, not implicit
+unpacking of an existential concrete type at every constrained call.
+
+The list is explicit and belongs to the declaring library. Adding another
+instance elsewhere does not change it. Compound ground types, such as
+`(List I64)`, may be listed if their ordinary instances exist. The normal
+overlap rule still applies: an explicit `Describe Any` and a dispatched
+one cannot coexist.
+
+For this first version, the instance head has exactly one `Any` argument;
+other types and effect rows are closed. Each method needs a direct input
+of the erased class type, and that type may occur only as a whole
+parameter or result. Independently polymorphic methods and extra method
+constraints need explicit implementations. These restrictions avoid
+inventing higher-order wrappers, container traversals, or result-directed
+runtime selection. `Drop` and `Clone` use their existing ownership rules,
+not dynamic dispatch.
+
+Effects are checked over every branch. For example, an instance
+`(Store (! console) Any)` may dispatch to pure and console-performing
+stores; `(Store (!) Any)` cannot dispatch to a store that prints. Calls
+perform the declared row under the caller's handlers. A payload's type
+does not grant permission to perform an undeclared effect.
+
+This changes the typed core's boundaries; it does not yet replace the
+Scheme translator's `Datum` representation, generalize local bindings,
+erase effectful procedures, or guarantee cleanup of abandoned
+continuations. Those are separate changes. Checked conversions currently
+trap without a tracked effect, and inserted checks have that same
+contract.
+
+### Explicit dynamic values
+
 `Any` holds an unrestricted value together with its type's identity.
-Affine values cannot cross this boundary. Nor can a function that performs
+Linear values cannot cross this boundary. Nor can a function that performs
 effects, wherever it sits in the value's type, or a value of a type
 variable, which may be one: a type's identity has no effect rows, so such a
 function could come back out claiming to perform nothing, and run where
