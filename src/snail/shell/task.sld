@@ -24,7 +24,8 @@
   (import
    (snail core base)
    (only (snail core forms) host)
-   (only (snail core primitive) inherit-handlers))
+   (only (snail core primitive) inherit-handlers)
+   (snail shell slot))
   (begin
 
     ;; ---- The effect ----
@@ -100,10 +101,13 @@
     ;; ---- The scheduler ----
 
     ;; Tasks share the scheduler, so its state is the boundary between
-    ;; them. A task that is not running is in exactly one place: `ready`,
-    ;; `timers`, sorted by deadline, or `waiters`. A list of linear values
-    ;; has no length to read, so `ready-count` counts the ready tasks and
-    ;; `live` the tasks in all three. `running` is the id of the running
+    ;; them. A task that is not running is in exactly one place: the
+    ;; `ready` queue, the `timers`, sorted by deadline, or the `waiters`.
+    ;; Each is a slot of the runtime's, since a task is linear and a cell
+    ;; holds no linear value, taken out and put back around each change
+    ;; while no task runs; the counters are a value in one cell. A list of
+    ;; linear values has no length to read, so `ready-count` counts the
+    ;; ready tasks and `live` the tasks in all three. `running` is the id of the running
     ;; task, and 0 between tasks; `last-task` is the last id given out.
     ;; `now` is the current turn's clock, in milliseconds.
     ;;
@@ -112,53 +116,53 @@
     ;; names no wait of this one, unless that one took a thousand tickets a
     ;; millisecond.
     (struct Scheduler
-      ((ready (Queue Task))
-       (ready-count I64)
-       (timers (List Pending))
-       (waiters (List Pending))
+      ((ready-count I64)
        (live I64)
        (running I64)
        (last-task I64)
        (now I64)
        (last-ticket I64)))
 
-    ;; The scheduler's state is a value in one cell, whose slots are its
-    ;; fields; each operation writes the one field it changes.
+    ;; The counters are a value in one cell, whose slots are its fields;
+    ;; each operation writes the one field it changes.
     (: scheduler (Ref Scheduler))
-    (define scheduler (ref (Scheduler (empty-queue) 0 (Nil) (Nil) 0 0 0 0 0)))
+    (define scheduler (ref (Scheduler 0 0 0 0 0 0)))
 
-    ;; A linear field's content moves out by a swap that leaves an empty
-    ;; placeholder, and back by a swap that must answer that placeholder:
-    ;; anything else would mean a second writer.
+    ;; The queues of tasks rest in the runtime's slots. A queue is taken
+    ;; out, changed and put back while no task runs, so a second taker,
+    ;; such as a host callback reentering `wake`, traps in the slot.
+    (: ready (UnsafeSlot (Queue Task)))
+    (define ready (unsafe-slot (empty-queue)))
+
+    (: timers (UnsafeSlot (List Pending)))
+    (define timers (unsafe-slot (Nil)))
+
+    (: waiters (UnsafeSlot (List Pending)))
+    (define waiters (unsafe-slot (Nil)))
+
     (: take-ready! (-> (Queue Task) ! mut))
     (define (take-ready!)
-      (replace! (::ready (ref-get scheduler)) (empty-queue)))
+      (take! ready))
 
     (: put-ready! (-> (Queue Task) Unit ! mut))
     (define (put-ready! queue)
-      (match (replace! (::ready (ref-get scheduler)) queue)
-        ((Queue (Nil) (Nil)) (unit))
-        ((Queue front back) (panic "the ready queue changed while it was out"))))
+      (put! ready queue))
 
     (: take-timers! (-> (List Pending) ! mut))
     (define (take-timers!)
-      (replace! (::timers (ref-get scheduler)) (Nil)))
+      (take! timers))
 
     (: put-timers! (-> (List Pending) Unit ! mut))
-    (define (put-timers! timers)
-      (match (replace! (::timers (ref-get scheduler)) timers)
-        ((Nil) (unit))
-        ((Cons first rest) (panic "the timers changed while they were out"))))
+    (define (put-timers! pending)
+      (put! timers pending))
 
     (: take-waiters! (-> (List Pending) ! mut))
     (define (take-waiters!)
-      (replace! (::waiters (ref-get scheduler)) (Nil)))
+      (take! waiters))
 
     (: put-waiters! (-> (List Pending) Unit ! mut))
-    (define (put-waiters! waiters)
-      (match (replace! (::waiters (ref-get scheduler)) waiters)
-        ((Nil) (unit))
-        ((Cons first rest) (panic "the waiters changed while they were out"))))
+    (define (put-waiters! pending)
+      (put! waiters pending))
 
     (: add-live! (-> I64 Unit ! mut))
     (define (add-live! change)
@@ -336,8 +340,11 @@
     (: close! (-> Unit ! mut))
     (define (close!)
       (drop (take-ready!))
+      (put-ready! (empty-queue))
       (drop (take-timers!))
+      (put-timers! (Nil))
       (drop (take-waiters!))
+      (put-waiters! (Nil))
       (set! (::ready-count (ref-get scheduler)) 0)
       (set! (::live (ref-get scheduler)) 0))
 
@@ -375,22 +382,22 @@
     ;; any one of them: its cells are the boundary between them. `messages`
     ;; holds what was posted while no task waited, and `receivers` the tasks
     ;; waiting in `mailbox-receive`, each in the order it arrived; at most
-    ;; one of the two queues is not empty. A message may be linear, so it
-    ;; moves in and out of a cell with `ref-replace!`, and neither
-    ;; operation suspends while a cell holds the empty value a swap left.
+    ;; one of the two queues is not empty. A message may be linear, so the
+    ;; queues rest in the runtime's slots, taken out and put back around
+    ;; each change, and no operation suspends while one is out.
     (struct (Mailbox T)
-      ((messages (Ref (Queue T)))
-       (receivers (Ref (Queue (Receiver T))))))
+      ((messages (UnsafeSlot (Queue T)))
+       (receivers (UnsafeSlot (Queue (Receiver T))))))
 
-    ;; A waiting receiver: the ticket its task waits on, and the cell a post
+    ;; A waiting receiver: the ticket its task waits on, and the slot a post
     ;; hands it its message in.
     (struct (Receiver T)
       ((ticket I64)
-       (slot (Ref (Option T)))))
+       (slot (UnsafeSlot T))))
 
     (: make-mailbox (All (T) (-> (Mailbox T))))
     (define (make-mailbox)
-      (Mailbox (ref (empty-queue)) (ref (empty-queue))))
+      (Mailbox (unsafe-slot (empty-queue)) (unsafe-slot (empty-queue))))
 
     ;; Posting never waits, so a program may post before any task runs.
     ;; The receiver that has waited longest is handed the message and woken,
@@ -403,30 +410,16 @@
     (: mailbox-post (All (T) (-> (Mailbox T) T Unit ! mut)))
     (define (mailbox-post mailbox message)
       (let ((receivers (Mailbox-receivers mailbox)))
-        (match (dequeue (ref-get receivers))
+        (match (dequeue (take! receivers))
           ((None)
+           (put! receivers (empty-queue))
            (let ((messages (Mailbox-messages mailbox)))
-             (put-back! messages (enqueue (ref-replace! messages (empty-queue)) message))))
+             (put! messages (enqueue (take! messages) message))))
           ((Some (Pair receiver rest))
-           (ref-set! receivers rest)
+           (put! receivers rest)
            (if (wake! (Receiver-ticket receiver))
-               (hand! (Receiver-slot receiver) message)
+               (put! (Receiver-slot receiver) message)
                (mailbox-post mailbox message))))))
-
-    ;; A queue goes back into the cell it was taken from, which still holds
-    ;; the empty queue the swap left; matching consumes that.
-    (: put-back! (All (T) (-> (Ref (Queue T)) (Queue T) Unit ! mut)))
-    (define (put-back! cell queue)
-      (match (ref-replace! cell queue)
-        ((Queue (Nil) (Nil)) (unit))
-        ((Queue front back) (panic "a mailbox changed while its messages were out"))))
-
-    ;; A receiver's slot is handed one message, while it is empty.
-    (: hand! (All (T) (-> (Ref (Option T)) T Unit ! mut)))
-    (define (hand! slot message)
-      (match (ref-replace! slot (Some message))
-        ((None) (unit))
-        ((Some held) (panic "a receiver was handed a second message"))))
 
     ;; Receiving takes the oldest message. With none, the swap has already
     ;; left the cell empty, and the task waits in line on a ticket until a
@@ -435,29 +428,32 @@
     (: mailbox-receive (All (T) (-> (Mailbox T) T ! mut tasks)))
     (define (mailbox-receive mailbox)
       (let ((messages (Mailbox-messages mailbox)))
-        (match (dequeue (ref-replace! messages (empty-queue)))
+        (match (dequeue (take! messages))
           ((Some (Pair message rest))
-           (put-back! messages rest)
+           (put! messages rest)
            message)
-          ((None) (wait-in-line mailbox)))))
+          ((None)
+           (put! messages (empty-queue))
+           (wait-in-line mailbox)))))
 
     ;; Receiving without waiting: the oldest message, or none.
     (: mailbox-try-receive (All (T) (-> (Mailbox T) (Option T) ! mut)))
     (define (mailbox-try-receive mailbox)
       (let ((messages (Mailbox-messages mailbox)))
-        (match (dequeue (ref-replace! messages (empty-queue)))
+        (match (dequeue (take! messages))
           ((Some (Pair message rest))
-           (put-back! messages rest)
+           (put! messages rest)
            (Some message))
-          ((None) (None)))))
+          ((None)
+           (put! messages (empty-queue))
+           (None)))))
 
-    ;; Only a post wakes the ticket, and it hands the message first.
+    ;; Only a post wakes the ticket, and it hands the message first, so the
+    ;; slot is full when the receiver takes it; an empty one traps there.
     (: wait-in-line (All (T) (-> (Mailbox T) T ! mut tasks)))
     (define (wait-in-line mailbox)
       (let ((receivers (Mailbox-receivers mailbox))
-            (receiver (Receiver (ticket) (ref (None)))))
-        (ref-set! receivers (enqueue (ref-get receivers) receiver))
+            (receiver (Receiver (ticket) (empty-slot))))
+        (put! receivers (enqueue (take! receivers) receiver))
         (await (Receiver-ticket receiver))
-        (match (ref-replace! (Receiver-slot receiver) (None))
-          ((Some message) message)
-          ((None) (panic "a receiver woke without a message")))))))
+        (take! (Receiver-slot receiver))))))

@@ -46,6 +46,7 @@ the runtime interfaces.
 | Library | Contents |
 | --- | --- |
 | `(snail shell task)` | The `tasks` effect and its scheduler, written in Snail-Core: one-shot local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
+| `(snail shell slot)` | `UnsafeSlot`, the one shared place a linear value rests between frames: `take!` and `put!`, each trapping when the slot is in the other state. The scheduler's queues and the mailboxes of `(snail shell task)` are built on it; a cell holds no linear value. |
 | `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
 | `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `tcp` and `udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
 | `(snail shell http)`, `(snail shell http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
