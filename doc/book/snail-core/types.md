@@ -73,6 +73,21 @@ and a pattern can only skip a mutable field, with `_`
 case, and its fields are immutable. Cases are constructors, not types, and are
 always applied: `(Empty)`.
 
+A field is also read by its label alone: `(::label s)` reads the field
+`label` of whatever struct `s` is, and `(::from::x s)` reads `x` of what
+`from` holds. Each label is a typeclass, `(::label R T)`, over the record
+type and the field's type, with the one method `::label`; a struct without
+mutable fields has an instance per field, and the record's type decides
+the field's, so a path needs no annotation where the record's type is
+known. A library may declare an instance for a type that computes the
+field, and a generic function requires one, `(requires (::label R
+String))`, to read the field of any record that has it. Names beginning
+with `::` are reserved for paths.
+
+```scheme
+{{#include ../../../tests/programs/field-paths.sld:paths}}
+```
+
 Patterns are `_`, variables, literals (numbers, characters, strings,
 booleans) and constructor patterns, nested freely. `(List T)` is an ordinary
 enum with cases `Nil` and `Cons`.

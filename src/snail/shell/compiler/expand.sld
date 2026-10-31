@@ -2011,10 +2011,15 @@
                 (string-append accessor "-replace!")
                 (Swapper case index (field-scheme params (list self type) type mut-row))))
               (pure?
-               (program-with-value
-                program
-                (string-append accessor "-set")
-                (Replacer case index (field-scheme params (list self type) self empty-row))))
+               (program-with-field-instance
+                (program-with-value
+                 program
+                 (string-append accessor "-set")
+                 (Replacer case index (field-scheme params (list self type) self empty-row)))
+                data
+                (Field-name field)
+                type
+                accessor))
               (else program))))
 
     (: field-scheme (-> (List String) (List Type) Type Type Scheme))
@@ -2137,12 +2142,9 @@
     (define (declare-instance cx env form)
       (match form
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
-         (let* ((class (match (resolve cx env class-ident)
-                         ((Some (ClassName id)) (program-class (Context-program cx) id))
-                         (_ (compile-error (syntax-loc class-ident)
-                                           "instance of something that is not a typeclass"))))
-                (parts (split-requires body)))
-           (expanding cx ((instance (declared-instance env class type-args (Pair-first parts) loc))
+         (let ((parts (split-requires body)))
+           (expanding cx ((class (instance-class env class-ident))
+                          (instance (declared-instance env class type-args (Pair-first parts) loc))
                           (methods (each (lambda (cx definition)
                                            (instance-method cx env class instance definition))
                                          (Pair-second parts))))
@@ -2159,6 +2161,16 @@
                                                                          methods)))))))
         (_
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
+
+    (: instance-class (-> Context Env Syntax (Pair Class Context) ! compile))
+    (define (instance-class cx env class-ident)
+      (match (field-class-syntax cx class-ident)
+        ((Some (Pair id cx)) (Pair (program-class (Context-program cx) id) cx))
+        ((None)
+         (match (resolve cx env class-ident)
+           ((Some (ClassName id)) (Pair (program-class (Context-program cx) id) cx))
+           (_ (compile-error (syntax-loc class-ident)
+                             "instance of something that is not a typeclass"))))))
 
     ;; The program after an instance's checks of its head, with a Drop
     ;; instance's type made linear; any other instance changes nothing.
@@ -2400,7 +2412,11 @@
         (compile-error (syntax-loc definition) "expected a method definition"))
       (let* ((ident (definition-name definition))
              (method
-              (match (find (lambda (method) (string=? (short-name method) (Ident-name ident)))
+              (match (find (lambda (method)
+                             (string=? (if (field-class? (Class-name class))
+                                           method
+                                           (short-name method))
+                                       (Ident-name ident)))
                            (Class-methods class))
                 ((Some method) method)
                 ((None)
@@ -2801,12 +2817,20 @@
         ((Form (Cons class types) loc)
          (match (resolve cx env (expect-ident class "a typeclass"))
            ((Some (ClassName id))
-            (let ((constraint
-                   (Constraint id (map (lambda (type) (resolve-type cx env type)) types))))
-              (check-constraint (Context-program cx) constraint loc)
-              constraint))
-           (_ (compile-error loc "expected a typeclass constraint"))))
+            (checked-constraint cx env id types loc))
+           (_
+            (match (field-class-syntax cx class)
+              ((Some (Pair id cx)) (checked-constraint cx env id types loc))
+              ((None) (compile-error loc "expected a typeclass constraint"))))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
+
+    ;; The constraint of a class at resolved types, checked against the
+    ;; class's parameters; a field class declared on first use checks too.
+    (: checked-constraint (-> Context Env String (List Syntax) Loc Constraint ! compile))
+    (define (checked-constraint cx env id types loc)
+      (let ((constraint (Constraint id (map (lambda (type) (resolve-type cx env type)) types))))
+        (check-constraint (Context-program cx) constraint loc)
+        constraint))
 
     ;; A constraint gives each of its class's parameters, and a row or a
     ;; row variable to each its methods perform. While signatures are
@@ -2960,7 +2984,10 @@
       (expanding cx ((syntax (expand-head env syntax)))
                  (match syntax
                    ((Atom value loc) (Pair (expr (Lit value) loc) cx))
-                   ((Ident _ _ loc) (Pair (expand-reference cx env syntax loc) cx))
+                   ((Ident name _ loc)
+                    (if (path-name? name)
+                        (expand-path cx name loc)
+                        (Pair (expand-reference cx env syntax loc) cx)))
                    ((Form (Nil) loc) (compile-error loc "empty application"))
                    ((Form (Cons head args) loc)
                     (match (head-binding cx env syntax)
@@ -2972,6 +2999,73 @@
     (: expand-each (-> Context Env (List Syntax) (Pair (List Expr) Context) ! compile))
     (define (expand-each cx env forms)
       (each cx (lambda (cx form) (expand-expr cx env form)) forms))
+
+    ;; `::a::b` reads field `a`, then field `b` of what it holds: each label
+    ;; names the method of its field class (core.sld, "Field classes"),
+    ;; declared on first use, and a chain is a function applying them in
+    ;; order. Names beginning with `::` are reserved for paths.
+    (: path-name? (-> String Bool))
+    (define (path-name? name)
+      (and (> (string-length name) 2) (string=? (substring name 0 2) "::")))
+
+    (: expand-path (-> Context String Loc (Pair Expr Context) ! compile))
+    (define (expand-path cx name loc)
+      (let ((labels (path-labels name loc)))
+        (expanding cx ((then (declare-field-classes labels)))
+                   (match labels
+                     ((Cons label (Nil))
+                      (Pair (expr (Var (field-class-name label) (Nil) (Nil)) loc) cx))
+                     (_
+                      (expanding cx ((local (fresh "path")))
+                                 (Pair (expr (Lambda (list local)
+                                                     (apply-path labels
+                                                                 (expr (Var local (Nil) (Nil)) loc)
+                                                                 loc)
+                                                     #t)
+                                             loc)
+                                       cx)))))))
+
+    (: declare-field-classes (-> Context (List String) Context))
+    (define (declare-field-classes cx labels)
+      (Context-program-set cx (fold-left program-with-field-class (Context-program cx) labels)))
+
+    (: apply-path (-> (List String) Expr Loc Expr))
+    (define (apply-path labels value loc)
+      (fold-left (lambda (value label)
+                   (expr (App (expr (Var (field-class-name label) (Nil) (Nil)) loc) (list value))
+                         loc))
+                 value
+                 labels))
+
+    ;; The labels of `::a::b`, each non-empty.
+    (: path-labels (-> String Loc (List String) ! compile))
+    (define (path-labels name loc)
+      (let ((chars (string->vector name)) (end (string-length name)))
+        (let loop ((start 2) (index 2) (labels (Nil)))
+          (cond ((= index end)
+                 (if (= start end)
+                     (compile-error loc (string-append "empty field label in " name))
+                     (reverse (Cons (substring name start end) labels))))
+                ((and (char=? (vector-ref chars index) #\:)
+                      (< (+ index 1) end)
+                      (char=? (vector-ref chars (+ index 1)) #\:))
+                 (if (= start index)
+                     (compile-error loc (string-append "empty field label in " name))
+                     (loop (+ index 2) (+ index 2) (Cons (substring name start index) labels))))
+                (else (loop start (+ index 1) labels))))))
+
+    ;; A `::label` in class position names the label's field class.
+    (: field-class-syntax (-> Context Syntax (Option (Pair String Context)) ! compile))
+    (define (field-class-syntax cx syntax)
+      (match syntax
+        ((Ident name _ loc)
+         (if (path-name? name)
+             (match (path-labels name loc)
+               ((Cons label (Nil))
+                (Some (Pair (field-class-name label) (declare-field-classes cx (list label)))))
+               (_ (compile-error loc (string-append "a field class names one label, not " name))))
+             (None)))
+        (_ (None))))
 
     (: expand-reference (-> Context Env Syntax Loc Expr ! compile))
     (define (expand-reference cx env ident loc)
